@@ -1,9 +1,9 @@
 //! Python bindings for Money type.
 
+use super::currency::PyCurrency;
 use pyo3::prelude::*;
 use pyo3::types::PyType;
 use rfin_core::primitives::money::Money as CoreMoney;
-use super::currency::PyCurrency;
 
 /// Python wrapper for the Money type
 #[pyclass(name = "Money")]

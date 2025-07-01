@@ -18,3 +18,6 @@ mod macros;
 pub mod dates;
 pub mod error;
 pub mod primitives;
+
+// Re-export main error type for convenience
+pub use error::Error;

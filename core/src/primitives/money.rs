@@ -4,6 +4,7 @@
 //! with currency information, ensuring type safety for financial calculations.
 
 use super::currency::Currency;
+use crate::error::{Error, InputError};
 use core::fmt;
 use core::ops::{Add, Div, Mul, Sub};
 
@@ -72,6 +73,48 @@ impl<F> Money<F> {
     #[inline]
     pub fn into_parts(self) -> (F, Currency) {
         (self.amount, self.currency)
+    }
+
+    /// Adds two Money values with error handling.
+    ///
+    /// Returns an error if the currencies don't match.
+    #[inline]
+    pub fn checked_add(self, rhs: Self) -> Result<Self, Error>
+    where
+        F: Add<Output = F>,
+    {
+        if self.currency != rhs.currency {
+            return Err(InputError::CurrencyMismatch {
+                expected: self.currency,
+                actual: rhs.currency,
+            }
+            .into());
+        }
+        Ok(Self {
+            amount: self.amount + rhs.amount,
+            currency: self.currency,
+        })
+    }
+
+    /// Subtracts two Money values with error handling.
+    ///
+    /// Returns an error if the currencies don't match.
+    #[inline]
+    pub fn checked_sub(self, rhs: Self) -> Result<Self, Error>
+    where
+        F: Sub<Output = F>,
+    {
+        if self.currency != rhs.currency {
+            return Err(InputError::CurrencyMismatch {
+                expected: self.currency,
+                actual: rhs.currency,
+            }
+            .into());
+        }
+        Ok(Self {
+            amount: self.amount - rhs.amount,
+            currency: self.currency,
+        })
     }
 }
 
@@ -301,6 +344,52 @@ mod tests {
         let money = Money::new(99.99, Currency::JPY);
         let amount = money.into_amount();
         assert_eq!(amount, 99.99);
+    }
+
+    #[test]
+    fn test_checked_add_same_currency() {
+        let usd_100 = Money::new(100.0, Currency::USD);
+        let usd_50 = Money::new(50.0, Currency::USD);
+        let result = usd_100.checked_add(usd_50).unwrap();
+
+        assert_eq!(*result.amount(), 150.0);
+        assert_eq!(result.currency(), Currency::USD);
+    }
+
+    #[test]
+    fn test_checked_add_different_currency() {
+        let usd_100 = Money::new(100.0, Currency::USD);
+        let eur_50 = Money::new(50.0, Currency::EUR);
+        let result = usd_100.checked_add(eur_50);
+
+        assert!(result.is_err());
+        matches!(
+            result.unwrap_err(),
+            Error::Input(InputError::CurrencyMismatch { .. })
+        );
+    }
+
+    #[test]
+    fn test_checked_sub_same_currency() {
+        let usd_100 = Money::new(100.0, Currency::USD);
+        let usd_30 = Money::new(30.0, Currency::USD);
+        let result = usd_100.checked_sub(usd_30).unwrap();
+
+        assert_eq!(*result.amount(), 70.0);
+        assert_eq!(result.currency(), Currency::USD);
+    }
+
+    #[test]
+    fn test_checked_sub_different_currency() {
+        let usd_100 = Money::new(100.0, Currency::USD);
+        let eur_30 = Money::new(30.0, Currency::EUR);
+        let result = usd_100.checked_sub(eur_30);
+
+        assert!(result.is_err());
+        matches!(
+            result.unwrap_err(),
+            Error::Input(InputError::CurrencyMismatch { .. })
+        );
     }
 
     #[test]

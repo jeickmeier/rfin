@@ -3,14 +3,47 @@
 use super::primitives::currency::Currency;
 use core::fmt;
 
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
 /// Main error type for rfin-core operations.
+///
+/// This error type is non-exhaustive, meaning new variants may be added
+/// in future versions without breaking existing code.
+///
+/// # Examples
+///
+/// ```
+/// use rfin_core::error::{Error, InputError};
+///
+/// let error = Error::Input(InputError::InvalidCurrency);
+/// println!("Error: {}", error);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum Error {
     /// Input validation errors.
     Input(InputError),
+    /// Calculation or computational errors.
+    Calculation(CalculationError),
+    /// System or configuration errors.
+    System(SystemError),
 }
 
 /// Input validation error variants.
+///
+/// # Examples
+///
+/// ```
+/// use rfin_core::error::InputError;
+/// use rfin_core::primitives::Currency;
+///
+/// let mismatch = InputError::CurrencyMismatch {
+///     expected: Currency::USD,
+///     actual: Currency::EUR,
+/// };
+/// assert_eq!(format!("{}", mismatch), "Currency mismatch: expected USD, got EUR");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InputError {
     /// Currency mismatch in money operations.
@@ -28,10 +61,52 @@ pub enum InputError {
     DivisionByZero,
 }
 
+/// Calculation error variants.
+///
+/// # Examples  
+///
+/// ```
+/// use rfin_core::error::CalculationError;
+///
+/// let overflow = CalculationError::Overflow;
+/// assert_eq!(format!("{}", overflow), "Numeric overflow or underflow");
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CalculationError {
+    /// Numeric overflow or underflow.
+    Overflow,
+    /// Precision loss in calculations.
+    PrecisionLoss,
+    /// Invalid result from calculation.
+    InvalidResult,
+}
+
+/// System error variants.
+///
+/// # Examples
+///
+/// ```
+/// use rfin_core::error::SystemError;
+///
+/// let config_error = SystemError::Configuration;
+/// assert_eq!(format!("{}", config_error), "Configuration error");
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SystemError {
+    /// Configuration error.
+    Configuration,
+    /// Resource unavailable.
+    ResourceUnavailable,
+    /// Internal error.
+    Internal,
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::Input(err) => write!(f, "Input error: {}", err),
+            Error::Calculation(err) => write!(f, "Calculation error: {}", err),
+            Error::System(err) => write!(f, "System error: {}", err),
         }
     }
 }
@@ -53,11 +128,33 @@ impl fmt::Display for InputError {
     }
 }
 
+impl fmt::Display for CalculationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CalculationError::Overflow => write!(f, "Numeric overflow or underflow"),
+            CalculationError::PrecisionLoss => write!(f, "Precision loss in calculation"),
+            CalculationError::InvalidResult => write!(f, "Invalid calculation result"),
+        }
+    }
+}
+
+impl fmt::Display for SystemError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SystemError::Configuration => write!(f, "Configuration error"),
+            SystemError::ResourceUnavailable => write!(f, "Resource unavailable"),
+            SystemError::Internal => write!(f, "Internal system error"),
+        }
+    }
+}
+
 #[cfg(feature = "std")]
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Error::Input(err) => Some(err),
+            Error::Calculation(err) => Some(err),
+            Error::System(err) => Some(err),
         }
     }
 }
@@ -65,9 +162,27 @@ impl std::error::Error for Error {
 #[cfg(feature = "std")]
 impl std::error::Error for InputError {}
 
+#[cfg(feature = "std")]
+impl std::error::Error for CalculationError {}
+
+#[cfg(feature = "std")]
+impl std::error::Error for SystemError {}
+
 impl From<InputError> for Error {
     fn from(err: InputError) -> Self {
         Error::Input(err)
+    }
+}
+
+impl From<CalculationError> for Error {
+    fn from(err: CalculationError) -> Self {
+        Error::Calculation(err)
+    }
+}
+
+impl From<SystemError> for Error {
+    fn from(err: SystemError) -> Self {
+        Error::System(err)
     }
 }
 
