@@ -2,8 +2,8 @@
 
 use super::currency::Currency;
 use js_sys::Array;
-use rfin_core::primitives::money::Money as CoreMoney;
-use rfin_core::error::{Error, InputError};
+use rfin_core::error::Error;
+use rfin_core::money::Money as CoreMoney;
 use wasm_bindgen::prelude::*;
 
 /// Money representation
@@ -19,7 +19,7 @@ impl Money {
     #[wasm_bindgen(constructor)]
     pub fn new(amount: f64, currency: Currency) -> Self {
         Money {
-            inner: CoreMoney::new(amount, currency.inner()),
+            inner: CoreMoney::from_parts(amount, currency.inner()),
         }
     }
 
@@ -56,7 +56,7 @@ impl Money {
     pub fn add(&self, other: &Money) -> Result<Money, JsValue> {
         match self.inner.checked_add(other.inner) {
             Ok(result) => Ok(Money { inner: result }),
-            Err(Error::Input(InputError::CurrencyMismatch { expected, actual })) => {
+            Err(Error::CurrencyMismatch { expected, actual }) => {
                 Err(JsValue::from_str(&format!(
                     "Currency mismatch: expected {}, got {}",
                     expected, actual
@@ -74,7 +74,7 @@ impl Money {
     pub fn subtract(&self, other: &Money) -> Result<Money, JsValue> {
         match self.inner.checked_sub(other.inner) {
             Ok(result) => Ok(Money { inner: result }),
-            Err(Error::Input(InputError::CurrencyMismatch { expected, actual })) => {
+            Err(Error::CurrencyMismatch { expected, actual }) => {
                 Err(JsValue::from_str(&format!(
                     "Currency mismatch: expected {}, got {}",
                     expected, actual
@@ -125,21 +125,25 @@ impl Money {
         array
     }
 
+    /// Deprecated alias for backward compatibility: returns same as `toParts`.
+    #[wasm_bindgen(js_name = "intoParts")]
+    #[allow(clippy::wrong_self_convention)]
+    pub fn into_parts_alias(&self) -> Array {
+        self.to_parts()
+    }
+
     /// Add two Money values with explicit error handling
     #[wasm_bindgen(js_name = "checkedAdd")]
     pub fn checked_add(&self, other: &Money) -> Result<Money, JsValue> {
         match self.inner.checked_add(other.inner) {
             Ok(result) => Ok(Money { inner: result }),
-            Err(Error::Input(InputError::CurrencyMismatch { expected, actual })) => {
+            Err(Error::CurrencyMismatch { expected, actual }) => {
                 Err(JsValue::from_str(&format!(
                     "Currency mismatch: expected {}, got {}",
                     expected, actual
                 )))
             }
-            Err(err) => Err(JsValue::from_str(&format!(
-                "Addition failed: {}",
-                err
-            ))),
+            Err(err) => Err(JsValue::from_str(&format!("Addition failed: {}", err))),
         }
     }
 
@@ -148,16 +152,13 @@ impl Money {
     pub fn checked_subtract(&self, other: &Money) -> Result<Money, JsValue> {
         match self.inner.checked_sub(other.inner) {
             Ok(result) => Ok(Money { inner: result }),
-            Err(Error::Input(InputError::CurrencyMismatch { expected, actual })) => {
+            Err(Error::CurrencyMismatch { expected, actual }) => {
                 Err(JsValue::from_str(&format!(
                     "Currency mismatch: expected {}, got {}",
                     expected, actual
                 )))
             }
-            Err(err) => Err(JsValue::from_str(&format!(
-                "Subtraction failed: {}",
-                err
-            ))),
+            Err(err) => Err(JsValue::from_str(&format!("Subtraction failed: {}", err))),
         }
     }
 }

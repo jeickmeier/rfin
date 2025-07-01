@@ -2,22 +2,58 @@
 #![warn(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
-//! Core financial primitives and date handling for the RustFin library.
+//! Zero-std financial primitives & date utilities for the **RustFin** ecosystem.
 //!
-//! This crate provides fundamental building blocks for financial computations,
-//! including date/time handling and other financial primitives,
-//! designed to work in no_std environments by default.
+//! This crate exposes lightweight, composable building-blocks that are
+//! commonly required in pricing engines and risk systems:
+//!
+//! * [`Currency`] – ISO-4217 codes with numeric identifiers and metadata
+//! * [`Money`] – type-safe monetary amounts that refuse to mix currencies
+//! * [`time`] – date/time scaffolding (business calendars, day-count, schedules)
+//!
+//! The implementation is `#![no_std]` by default and adds conveniences such as
+//! `std::error::Error` & `Display` impls when compiled with the **`std`** feature.
+//!
+//! # Quick start
+//! ```
+//! use rfin_core::{Currency, Money};
+//!
+//! // Parse ISO-4217 codes (case-insensitive)
+//! let eur = "eur".parse::<Currency>().unwrap();
+//!
+//! // Perform arithmetic that refuses to mix currencies
+//! let subtotal = Money::eur(49.50);
+//! let tax      = Money::eur( 9.90);
+//! let total    = subtotal.checked_add(tax).unwrap();
+//! assert_eq!(format!("{}", total), "59.4 EUR");
+//! ```
+//!
+//! # Cargo features
+//! | Feature       | Purpose                                            |
+//! |-------------- |----------------------------------------------------|
+//! | `std`         | Enables `std` trait impls (`Error`, `Display`, ...) |
+//! | `serde`       | `Serialize`/`Deserialize` for public types         |
+//! | `decimal128`  | `MoneyDecimal` using `rust_decimal::Decimal`       |
+//!
+//! # Minimum Supported Rust Version (MSRV)
+//! This crate targets **Rust 1.75**.  It is tested in CI and follows the
+//! standard *cargo-semver* guideline: MSRV may only bump in a **minor** release.
+//!
+//! ---
+//! _Released under the MIT license.  Contributions welcome!_
 
 #[cfg(feature = "std")]
 extern crate std;
 
-// Internal macros
-mod macros;
-
 // Core modules
-pub mod dates;
 pub mod error;
-pub mod primitives;
+pub mod currency;
+pub mod money;
 
 // Re-export main error type for convenience
 pub use error::Error;
+
+// Top-level re-exports of commonly used primitives for easier discovery
+pub use crate::currency::Currency;
+pub use crate::money::Money;
+pub use crate::money::{MoneyF64, MoneyF32, MoneyI64, MoneyI32, DefaultMoney};

@@ -20,17 +20,11 @@ Or simply run with uv directly:
 """
 
 import rfin
-import rfin.primitives as primitives
-from rfin.primitives import Currency, Money
+from rfin import Currency, Money, USD, EUR, GBP, JPY
 
 print(f"RustFin version: {rfin.__version__}")
 print()
 
-# Import the primitives module to use Currency and Money
-USD = primitives.USD
-EUR = primitives.EUR
-GBP = primitives.GBP
-JPY = primitives.JPY
 
 print("=== Currency Examples ===")
 
@@ -41,24 +35,24 @@ print("1. Creating currencies:")
 usd_from_str = Currency("USD")
 print(f"   USD from string: {usd_from_str}")
 print(f"   Numeric code: {usd_from_str.numeric_code}")
-print(f"   Minor units: {usd_from_str.minor_units}")
+print(f"   Minor units: {usd_from_str.decimals}")
 
 # Method 2: Using class methods
 eur_from_method = Currency.eur()
 print(f"   EUR from method: {eur_from_method}")
 print(f"   Numeric code: {eur_from_method.numeric_code}")
-print(f"   Minor units: {eur_from_method.minor_units}")
+print(f"   Minor units: {eur_from_method.decimals}")
 
 # Method 3: Using predefined constants
 print(f"   GBP constant: {GBP}")
 print(f"   Numeric code: {GBP.numeric_code}")
-print(f"   Minor units: {GBP.minor_units}")
+print(f"   Minor units: {GBP.decimals}")
 
 print()
 print("2. Currency properties:")
 currencies = [USD, EUR, GBP, JPY]
 for curr in currencies:
-    print(f"   {curr.code}: numeric={curr.numeric_code}, minor_units={curr.minor_units}")
+    print(f"   {curr.code}: numeric={curr.numeric_code}, decimals={curr.decimals}")
 
 print()
 print("3. Currency comparison:")
@@ -86,15 +80,15 @@ except ValueError as e:
 print()
 print("6. Different minor units:")
 special_currencies = [
-    ("JPY", "Japanese Yen (0 minor units)"),
-    ("BHD", "Bahraini Dinar (3 minor units)"),
-    ("USD", "US Dollar (2 minor units)"),
+    ("JPY", "Japanese Yen (0 decimals)"),
+    ("BHD", "Bahraini Dinar (3 decimals)"),
+    ("USD", "US Dollar (2 decimals)"),
 ]
 
 for code, description in special_currencies:
     try:
         curr = Currency(code)
-        print(f"   {description}: {curr.minor_units} minor units")
+        print(f"   {description}: {curr.decimals} decimals")
     except ValueError:
         print(f"   {code}: Not available")
 

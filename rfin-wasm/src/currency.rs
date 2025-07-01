@@ -1,6 +1,6 @@
 //! WASM bindings for Currency type.
 
-use rfin_core::primitives::currency::Currency as CoreCurrency;
+use rfin_core::currency::Currency as CoreCurrency;
 use wasm_bindgen::prelude::*;
 
 /// WASM wrapper for the Currency enum
@@ -89,10 +89,10 @@ impl Currency {
         self.inner as u16
     }
 
-    /// Get the number of minor units (decimal places)
-    #[wasm_bindgen(getter, js_name = "minorUnits")]
-    pub fn minor_units(&self) -> u8 {
-        self.inner.minor_units()
+    /// Get the number of decimal places defined by ISO-4217.
+    #[wasm_bindgen(getter, js_name = "decimals")]
+    pub fn decimals(&self) -> u8 {
+        self.inner.decimals()
     }
 
     /// Convert to string

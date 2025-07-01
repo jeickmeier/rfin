@@ -1,217 +1,104 @@
-//! Error types for the rfin-core library.
+//! Domain-level error enumeration returned by most `rfin-core` APIs.
+//!
+//! The variants are **non-exhaustive**; match defensively on `_` to remain
+//! forward-compatible.
 
-use super::primitives::currency::Currency;
-use core::fmt;
+use crate::currency::Currency;
+#[cfg(feature = "std")]
+use thiserror::Error;
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 
 /// Main error type for rfin-core operations.
 ///
-/// This error type is non-exhaustive, meaning new variants may be added
-/// in future versions without breaking existing code.
+/// This enum captures all domain-level failures that may arise in the core
+/// crate.  It is marked `#[non_exhaustive]` so new variants can be added
+/// without breaking existing code.
 ///
-/// # Examples
+/// # Example
 ///
-/// ```
-/// use rfin_core::error::{Error, InputError};
+/// ```rust
+/// # #[cfg(feature = "std")] {
+/// use rfin_core::{Currency, Error};
 ///
-/// let error = Error::Input(InputError::InvalidCurrency);
-/// println!("Error: {}", error);
+/// // Simulate a failed attempt to add USD and EUR amounts.
+/// let err = Error::CurrencyMismatch { expected: Currency::USD, actual: Currency::EUR };
+/// assert_eq!(err.to_string(), "Currency mismatch: expected USD, got EUR");
+/// # }
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Error))]
 #[non_exhaustive]
 pub enum Error {
-    /// Input validation errors.
-    Input(InputError),
-    /// Calculation or computational errors.
-    Calculation(CalculationError),
-    /// System or configuration errors.
-    System(SystemError),
-}
-
-/// Input validation error variants.
-///
-/// # Examples
-///
-/// ```
-/// use rfin_core::error::InputError;
-/// use rfin_core::primitives::Currency;
-///
-/// let mismatch = InputError::CurrencyMismatch {
-///     expected: Currency::USD,
-///     actual: Currency::EUR,
-/// };
-/// assert_eq!(format!("{}", mismatch), "Currency mismatch: expected USD, got EUR");
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum InputError {
-    /// Currency mismatch in money operations.
+    /// Invalid or unknown currency code.
+    #[cfg_attr(feature = "std", error("Invalid currency code"))]
+    InvalidCurrency,
+    /// Currency mismatch in a binary [`Money`](crate::money::Money) operation.
+    #[cfg_attr(feature = "std", error("Currency mismatch: expected {expected}, got {actual}"))]
     CurrencyMismatch {
-        /// The first currency involved in the operation.
+        /// The expected (left-hand) currency.
         expected: Currency,
-        /// The second currency that caused the mismatch.
+        /// The actual (right-hand) currency encountered.
         actual: Currency,
     },
-    /// Invalid currency operation.
-    InvalidCurrency,
-    /// Numeric overflow in money calculations.
+    /// Arithmetic overflow or underflow of the underlying numeric type.
+    #[cfg_attr(feature = "std", error("Numeric overflow"))]
     Overflow,
-    /// Division by zero.
+    /// Attempted division of a monetary value by zero.
+    #[cfg_attr(feature = "std", error("Division by zero"))]
     DivisionByZero,
-}
-
-/// Calculation error variants.
-///
-/// # Examples  
-///
-/// ```
-/// use rfin_core::error::CalculationError;
-///
-/// let overflow = CalculationError::Overflow;
-/// assert_eq!(format!("{}", overflow), "Numeric overflow or underflow");
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum CalculationError {
-    /// Numeric overflow or underflow.
-    Overflow,
-    /// Precision loss in calculations.
+    /// Loss of precision beyond the tolerance accepted by the library.
+    #[cfg_attr(feature = "std", error("Precision loss in calculation"))]
     PrecisionLoss,
-    /// Invalid result from calculation.
+    /// Result is not a finite number (e.g. `NaN` or ±∞).
+    #[cfg_attr(feature = "std", error("Invalid calculation result"))]
     InvalidResult,
-}
-
-/// System error variants.
-///
-/// # Examples
-///
-/// ```
-/// use rfin_core::error::SystemError;
-///
-/// let config_error = SystemError::Configuration;
-/// assert_eq!(format!("{}", config_error), "Configuration error");
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SystemError {
-    /// Configuration error.
+    /// A required configuration value is missing or malformed.
+    #[cfg_attr(feature = "std", error("Configuration error"))]
     Configuration,
-    /// Resource unavailable.
+    /// An external resource (file, network service, etc.) was unavailable.
+    #[cfg_attr(feature = "std", error("Resource unavailable"))]
     ResourceUnavailable,
-    /// Internal error.
+    /// An unexpected internal invariant was violated; this likely indicates a bug.
+    #[cfg_attr(feature = "std", error("Internal system error"))]
     Internal,
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Error::Input(err) => write!(f, "Input error: {}", err),
-            Error::Calculation(err) => write!(f, "Calculation error: {}", err),
-            Error::System(err) => write!(f, "System error: {}", err),
-        }
-    }
-}
-
-impl fmt::Display for InputError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            InputError::CurrencyMismatch { expected, actual } => {
-                write!(
-                    f,
-                    "Currency mismatch: expected {}, got {}",
-                    expected, actual
-                )
-            }
-            InputError::InvalidCurrency => write!(f, "Invalid currency"),
-            InputError::Overflow => write!(f, "Numeric overflow"),
-            InputError::DivisionByZero => write!(f, "Division by zero"),
-        }
-    }
-}
-
-impl fmt::Display for CalculationError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            CalculationError::Overflow => write!(f, "Numeric overflow or underflow"),
-            CalculationError::PrecisionLoss => write!(f, "Precision loss in calculation"),
-            CalculationError::InvalidResult => write!(f, "Invalid calculation result"),
-        }
-    }
-}
-
-impl fmt::Display for SystemError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SystemError::Configuration => write!(f, "Configuration error"),
-            SystemError::ResourceUnavailable => write!(f, "Resource unavailable"),
-            SystemError::Internal => write!(f, "Internal system error"),
-        }
-    }
-}
-
-#[cfg(feature = "std")]
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Error::Input(err) => Some(err),
-            Error::Calculation(err) => Some(err),
-            Error::System(err) => Some(err),
-        }
-    }
-}
-
-#[cfg(feature = "std")]
-impl std::error::Error for InputError {}
-
-#[cfg(feature = "std")]
-impl std::error::Error for CalculationError {}
-
-#[cfg(feature = "std")]
-impl std::error::Error for SystemError {}
-
-impl From<InputError> for Error {
-    fn from(err: InputError) -> Self {
-        Error::Input(err)
-    }
-}
-
-impl From<CalculationError> for Error {
-    fn from(err: CalculationError) -> Self {
-        Error::Calculation(err)
-    }
-}
-
-impl From<SystemError> for Error {
-    fn from(err: SystemError) -> Self {
-        Error::System(err)
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    #[cfg(not(feature = "std"))]
+    use alloc::format;
     #[cfg(feature = "std")]
     use std::format;
 
     #[test]
-    #[cfg(feature = "std")]
-    fn test_error_display() {
-        let currency_error = InputError::CurrencyMismatch {
-            expected: Currency::USD,
-            actual: Currency::EUR,
-        };
-        assert!(format!("{}", currency_error).contains("Currency mismatch"));
-        assert!(format!("{}", currency_error).contains("USD"));
-        assert!(format!("{}", currency_error).contains("EUR"));
-
-        let overflow_error = InputError::Overflow;
-        assert_eq!(format!("{}", overflow_error), "Numeric overflow");
+    fn test_display() {
+        assert_eq!(format!("{}", Error::InvalidCurrency), "Invalid currency code");
     }
+}
 
-    #[test]
-    fn test_error_conversion() {
-        let input_error = InputError::InvalidCurrency;
-        let error: Error = input_error.into();
-        matches!(error, Error::Input(InputError::InvalidCurrency));
+// --- Manual trait implementations for no_std ---------------------------------
+
+#[cfg(not(feature = "std"))]
+impl core::fmt::Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Error::InvalidCurrency => write!(f, "Invalid currency code"),
+            Error::CurrencyMismatch { expected, actual } => write!(
+                f,
+                "Currency mismatch: expected {}, got {}",
+                expected, actual
+            ),
+            Error::Overflow => write!(f, "Numeric overflow"),
+            Error::DivisionByZero => write!(f, "Division by zero"),
+            Error::PrecisionLoss => write!(f, "Precision loss in calculation"),
+            Error::InvalidResult => write!(f, "Invalid calculation result"),
+            Error::Configuration => write!(f, "Configuration error"),
+            Error::ResourceUnavailable => write!(f, "Resource unavailable"),
+            Error::Internal => write!(f, "Internal system error"),
+        }
     }
 }

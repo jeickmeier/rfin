@@ -90,7 +90,7 @@
                         <strong>USD from string:</strong><br>
                         Code: ${usdFromString.code}<br>
                         Numeric: ${usdFromString.numericCode}<br>
-                        Minor Units: ${usdFromString.minorUnits}
+                        Minor Units: ${usdFromString.decimals}
                     </div>
                 `);
                 
@@ -105,19 +105,19 @@
                             <strong>EUR:</strong><br>
                             Code: ${eurFromMethod.code}<br>
                             Numeric: ${eurFromMethod.numericCode}<br>
-                            Minor Units: ${eurFromMethod.minorUnits}
+                            Minor Units: ${eurFromMethod.decimals}
                         </div>
                         <div class="currency-card">
                             <strong>GBP:</strong><br>
                             Code: ${gbpFromMethod.code}<br>
                             Numeric: ${gbpFromMethod.numericCode}<br>
-                            Minor Units: ${gbpFromMethod.minorUnits}
+                            Minor Units: ${gbpFromMethod.decimals}
                         </div>
                         <div class="currency-card">
                             <strong>JPY:</strong><br>
                             Code: ${jpyFromMethod.code}<br>
                             Numeric: ${jpyFromMethod.numericCode}<br>
-                            Minor Units: ${jpyFromMethod.minorUnits}
+                            Minor Units: ${jpyFromMethod.decimals}
                         </div>
                     </div>
                 `);
@@ -143,10 +143,10 @@
                                 <td style="padding: 8px;">${curr.name}</td>
                                 <td style="padding: 8px;"><code>${c.code}</code></td>
                                 <td style="padding: 8px;">${c.numericCode}</td>
-                                <td style="padding: 8px;">${c.minorUnits}</td>
-                                <td style="padding: 8px;">${c.minorUnits === 0 ? 'No fractional units' : 
-                                    c.minorUnits === 2 ? 'Standard (cents)' : 
-                                    c.minorUnits === 3 ? 'Thousandths' : 'Other'}</td>
+                                <td style="padding: 8px;">${c.decimals}</td>
+                                <td style="padding: 8px;">${c.decimals === 0 ? 'No fractional units' : 
+                                    c.decimals === 2 ? 'Standard (cents)' : 
+                                    c.decimals === 3 ? 'Thousandths' : 'Other'}</td>
                             </tr>
                         `;
                     } catch (e) {

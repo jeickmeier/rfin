@@ -10,6 +10,11 @@ repository.workspace = true
 [dependencies]
 serde = { version = "1.0", default-features = false, optional = true }
 rust_decimal = { version = "1.36", default-features = false, optional = true }
+strum = "0.25"
+strum_macros = "0.25"
+thiserror = { version = "1.0", default-features = false, optional = true }
+num_enum = { version = "0.7", default-features = false }
+num-traits = { version = "0.2", default-features = false, features = ["libm"] }
 
 [dev-dependencies]
 serde_json = "1.0"
@@ -17,7 +22,7 @@ rust_decimal_macros = "1.36"
 
 [features]
 default = []
-std = ["serde?/std"]
+std = ["serde?/std", "dep:thiserror"]
 decimal128 = ["dep:rust_decimal"]
 holidays = []
 serde = ["dep:serde", "serde/derive"]

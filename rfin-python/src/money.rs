@@ -1,10 +1,11 @@
+#![allow(clippy::useless_conversion)]
 //! Python bindings for Money type.
 
 use super::currency::PyCurrency;
 use pyo3::prelude::*;
 use pyo3::types::PyType;
-use rfin_core::primitives::money::Money as CoreMoney;
-use rfin_core::error::{Error, InputError};
+use rfin_core::error::Error;
+use rfin_core::money::Money as CoreMoney;
 
 /// Python wrapper for the Money type
 #[pyclass(name = "Money")]
@@ -19,7 +20,7 @@ impl PyMoney {
     #[new]
     fn new(amount: f64, currency: &PyCurrency) -> Self {
         PyMoney {
-            inner: CoreMoney::new(amount, currency.inner()),
+            inner: CoreMoney::from_parts(amount, currency.inner()),
         }
     }
 
@@ -55,14 +56,15 @@ impl PyMoney {
     fn __add__(&self, other: &PyMoney) -> PyResult<PyMoney> {
         match self.inner.checked_add(other.inner) {
             Ok(result) => Ok(PyMoney { inner: result }),
-            Err(Error::Input(InputError::CurrencyMismatch { expected, actual })) => {
+            Err(Error::CurrencyMismatch { expected, actual }) => {
                 Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                     "Cannot add money with different currencies: expected {}, got {}",
                     expected, actual
                 )))
             }
             Err(err) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                "Money addition failed: {}", err
+                "Money addition failed: {}",
+                err
             ))),
         }
     }
@@ -71,14 +73,15 @@ impl PyMoney {
     fn __sub__(&self, other: &PyMoney) -> PyResult<PyMoney> {
         match self.inner.checked_sub(other.inner) {
             Ok(result) => Ok(PyMoney { inner: result }),
-            Err(Error::Input(InputError::CurrencyMismatch { expected, actual })) => {
+            Err(Error::CurrencyMismatch { expected, actual }) => {
                 Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                     "Cannot subtract money with different currencies: expected {}, got {}",
                     expected, actual
                 )))
             }
             Err(err) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                "Money subtraction failed: {}", err
+                "Money subtraction failed: {}",
+                err
             ))),
         }
     }
@@ -125,23 +128,32 @@ impl PyMoney {
     }
 
     /// Convert to parts (amount, currency)
-    fn into_parts(&self) -> (f64, PyCurrency) {
+    #[allow(clippy::wrong_self_convention)]
+    fn to_parts(&self) -> (f64, PyCurrency) {
         let (amount, currency) = self.inner.into_parts();
         (amount, PyCurrency::from_inner(currency))
+    }
+
+    /// Deprecated alias for `to_parts` to maintain backward compatibility.
+    #[pyo3(name = "into_parts")]
+    #[allow(clippy::wrong_self_convention)]
+    fn into_parts_alias(&self) -> (f64, PyCurrency) {
+        self.to_parts()
     }
 
     /// Add two Money values with explicit error handling
     fn checked_add(&self, other: &PyMoney) -> PyResult<PyMoney> {
         match self.inner.checked_add(other.inner) {
             Ok(result) => Ok(PyMoney { inner: result }),
-            Err(Error::Input(InputError::CurrencyMismatch { expected, actual })) => {
+            Err(Error::CurrencyMismatch { expected, actual }) => {
                 Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                     "Currency mismatch: expected {}, got {}",
                     expected, actual
                 )))
             }
             Err(err) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                "Addition failed: {}", err
+                "Addition failed: {}",
+                err
             ))),
         }
     }
@@ -150,14 +162,15 @@ impl PyMoney {
     fn checked_sub(&self, other: &PyMoney) -> PyResult<PyMoney> {
         match self.inner.checked_sub(other.inner) {
             Ok(result) => Ok(PyMoney { inner: result }),
-            Err(Error::Input(InputError::CurrencyMismatch { expected, actual })) => {
+            Err(Error::CurrencyMismatch { expected, actual }) => {
                 Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                     "Currency mismatch: expected {}, got {}",
                     expected, actual
                 )))
             }
             Err(err) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                "Subtraction failed: {}", err
+                "Subtraction failed: {}",
+                err
             ))),
         }
     }

@@ -2,11 +2,9 @@
 
 use wasm_bindgen::prelude::*;
 
-mod dates;
-mod primitives;
+mod currency;
+mod money;
 mod utils;
-
-// Removed wee_alloc as it's deprecated and not needed for modern WASM
 
 /// Initialize the WASM module
 #[wasm_bindgen(start)]
