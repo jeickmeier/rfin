@@ -45,7 +45,7 @@ This document enumerates the focused pull-requests that will take the **Primitiv
 
 ---
 
-## PR #3 — Introduce `Money<F>`
+## PR #3 — Introduce `Money<F>` -- DONE
 
 **Goals**
 * Generic struct with default `f64`.
