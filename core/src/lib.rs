@@ -11,6 +11,9 @@
 #[cfg(feature = "std")]
 extern crate std;
 
+// Internal macros
+mod macros;
+
 // Core modules
 pub mod dates;
 pub mod primitives;

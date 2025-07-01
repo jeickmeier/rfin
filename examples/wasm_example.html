@@ -2,38 +2,240 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>RustFin WASM Example</title>
+    <title>RustFin WASM Currency Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border-left: 4px solid #007acc;
+            background-color: #f8f9fa;
+        }
+        .currency-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .currency-card {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .error { color: #dc3545; }
+        .success { color: #28a745; }
+        code { 
+            background: #f8f9fa; 
+            padding: 2px 4px; 
+            border-radius: 3px; 
+            font-family: 'Courier New', monospace;
+        }
+    </style>
 </head>
 <body>
-    <h1>RustFin WASM Example</h1>
-    <div id="output"></div>
+    <div class="container">
+        <h1>RustFin WASM Currency Demo</h1>
+        <p>This example demonstrates the Currency enum with ISO 4217 support.</p>
+        
+        <div class="section">
+            <h3>Setup Instructions:</h3>
+            <ol>
+                <li>Build WASM: <code>cd rfin-wasm && wasm-pack build --target web</code></li>
+                <li>Serve this HTML file with a local web server</li>
+                <li>Open in browser</li>
+            </ol>
+        </div>
+        
+        <div id="output"></div>
+    </div>
     
     <script type="module">
-        // To use this example:
-        // 1. Build WASM: cd rfin-wasm && wasm-pack build --target web
-        // 2. Serve this HTML file with a local web server
-        // 3. Open in browser
+        import init, { Currency } from '../rfin-wasm/pkg/rfin_wasm.js';
         
-        import init, { Date, Money, Currency } from '../rfin-wasm/pkg/rfin_wasm.js';
-        
-        async function run() {
-            await init();
-            
+        async function addSection(title, content) {
             const output = document.getElementById('output');
-            
-            // Create a date
-            const date = new Date(2024, 1, 1);
-            output.innerHTML += `<p>Date created: ${date.toString()}</p>`;
-            
-            // Create currency and money
-            const usd = new Currency("USD");
-            const amount = new Money(100.0, usd);
-            
-            output.innerHTML += `<p>Currency: ${amount.currency.code}</p>`;
-            output.innerHTML += `<p>Amount: ${amount.amount}</p>`;
+            output.innerHTML += `
+                <div class="section">
+                    <h3>${title}</h3>
+                    ${content}
+                </div>
+            `;
         }
         
-        run().catch(console.error);
+        async function run() {
+            try {
+                await init();
+                
+                addSection("1. Creating Currencies", `
+                    <p>Currency can be created in multiple ways:</p>
+                `);
+                
+                // Method 1: From string
+                const usdFromString = new Currency("USD");
+                addSection("From String", `
+                    <div class="currency-card">
+                        <strong>USD from string:</strong><br>
+                        Code: ${usdFromString.code}<br>
+                        Numeric: ${usdFromString.numericCode}<br>
+                        Minor Units: ${usdFromString.minorUnits}
+                    </div>
+                `);
+                
+                // Method 2: Using static methods
+                const eurFromMethod = Currency.EUR();
+                const gbpFromMethod = Currency.GBP();
+                const jpyFromMethod = Currency.JPY();
+                
+                addSection("From Static Methods", `
+                    <div class="currency-info">
+                        <div class="currency-card">
+                            <strong>EUR:</strong><br>
+                            Code: ${eurFromMethod.code}<br>
+                            Numeric: ${eurFromMethod.numericCode}<br>
+                            Minor Units: ${eurFromMethod.minorUnits}
+                        </div>
+                        <div class="currency-card">
+                            <strong>GBP:</strong><br>
+                            Code: ${gbpFromMethod.code}<br>
+                            Numeric: ${gbpFromMethod.numericCode}<br>
+                            Minor Units: ${gbpFromMethod.minorUnits}
+                        </div>
+                        <div class="currency-card">
+                            <strong>JPY:</strong><br>
+                            Code: ${jpyFromMethod.code}<br>
+                            Numeric: ${jpyFromMethod.numericCode}<br>
+                            Minor Units: ${jpyFromMethod.minorUnits}
+                        </div>
+                    </div>
+                `);
+                
+                // Demonstrate various currencies with different minor units
+                const currencies = [
+                    { method: () => Currency.USD(), name: "US Dollar", expected: 2 },
+                    { method: () => new Currency("JPY"), name: "Japanese Yen", expected: 0 },
+                    { method: () => new Currency("BHD"), name: "Bahraini Dinar", expected: 3 },
+                    { method: () => Currency.CHF(), name: "Swiss Franc", expected: 2 },
+                    { method: () => Currency.AUD(), name: "Australian Dollar", expected: 2 },
+                    { method: () => Currency.CAD(), name: "Canadian Dollar", expected: 2 }
+                ];
+                
+                let currencyTable = '<table style="width:100%; border-collapse: collapse;">';
+                currencyTable += '<tr style="background:#f0f0f0;"><th>Currency</th><th>Code</th><th>Numeric</th><th>Minor Units</th><th>Description</th></tr>';
+                
+                currencies.forEach(curr => {
+                    try {
+                        const c = curr.method();
+                        currencyTable += `
+                            <tr style="border: 1px solid #ddd;">
+                                <td style="padding: 8px;">${curr.name}</td>
+                                <td style="padding: 8px;"><code>${c.code}</code></td>
+                                <td style="padding: 8px;">${c.numericCode}</td>
+                                <td style="padding: 8px;">${c.minorUnits}</td>
+                                <td style="padding: 8px;">${c.minorUnits === 0 ? 'No fractional units' : 
+                                    c.minorUnits === 2 ? 'Standard (cents)' : 
+                                    c.minorUnits === 3 ? 'Thousandths' : 'Other'}</td>
+                            </tr>
+                        `;
+                    } catch (e) {
+                        currencyTable += `
+                            <tr style="border: 1px solid #ddd;">
+                                <td style="padding: 8px;">${curr.name}</td>
+                                <td colspan="4" style="padding: 8px;" class="error">Error: ${e.message}</td>
+                            </tr>
+                        `;
+                    }
+                });
+                currencyTable += '</table>';
+                
+                addSection("2. Currency Properties", currencyTable);
+                
+                // Test case-insensitive parsing
+                try {
+                    const eurLower = new Currency("eur");
+                    const eurUpper = new Currency("EUR");
+                    const areEqual = eurLower.equals(eurUpper);
+                    
+                    addSection("3. Case-Insensitive Parsing", `
+                        <p class="success">✓ Case-insensitive parsing works!</p>
+                        <p><code>new Currency("eur")</code> equals <code>new Currency("EUR")</code>: ${areEqual}</p>
+                    `);
+                } catch (e) {
+                    addSection("3. Case-Insensitive Parsing", `
+                        <p class="error">✗ Case-insensitive parsing failed: ${e.message}</p>
+                    `);
+                }
+                
+                // Test error handling
+                try {
+                    const invalid = new Currency("INVALID");
+                    addSection("4. Error Handling", `
+                        <p class="error">✗ Should have thrown an error for invalid currency!</p>
+                    `);
+                } catch (e) {
+                    addSection("4. Error Handling", `
+                        <p class="success">✓ Proper error handling for invalid currency codes</p>
+                        <p>Error: <code>${e.message}</code></p>
+                    `);
+                }
+                
+                // Test equality
+                const usd1 = new Currency("USD");
+                const usd2 = Currency.USD();
+                const eur = Currency.EUR();
+                
+                addSection("5. Currency Equality", `
+                    <p><code>new Currency("USD")</code> equals <code>Currency.USD()</code>: ${usd1.equals(usd2)}</p>
+                    <p><code>Currency.USD()</code> equals <code>Currency.EUR()</code>: ${usd2.equals(eur)}</p>
+                `);
+                
+                addSection("6. ISO 4217 Compliance", `
+                    <p>This implementation follows the ISO 4217 standard:</p>
+                    <ul>
+                        <li>✓ Numeric codes match official ISO values (USD = 840)</li>
+                        <li>✓ Minor units reflect real-world usage</li>
+                        <li>✓ 3-letter currency codes as per standard</li>
+                        <li>✓ Case-insensitive parsing for user convenience</li>
+                    </ul>
+                    <p><strong>USD Numeric Code:</strong> ${Currency.USD().numericCode} (should be 840)</p>
+                    <p><strong>EUR Numeric Code:</strong> ${Currency.EUR().numericCode} (should be 978)</p>
+                `);
+                
+                // Future Money usage
+                addSection("7. Future: Money Integration", `
+                    <p><em>Once the Money type is implemented, you'll be able to:</em></p>
+                    <pre><code>// Future usage
+const amount = new Money(100.50, Currency.USD());
+const converted = amount.convertTo(Currency.EUR(), exchangeRate);
+console.log(\`\${amount} = \${converted}\`);</code></pre>
+                `);
+                
+            } catch (error) {
+                document.getElementById('output').innerHTML = `
+                    <div class="section">
+                        <h3 class="error">Error Loading WASM Module</h3>
+                        <p class="error">Failed to initialize: ${error.message}</p>
+                        <p>Make sure you've built the WASM package:</p>
+                        <code>cd rfin-wasm && wasm-pack build --target web</code>
+                    </div>
+                `;
+                console.error('WASM loading error:', error);
+            }
+        }
+        
+        run();
     </script>
 </body>
 </html>

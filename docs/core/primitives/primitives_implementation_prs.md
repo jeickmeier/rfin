@@ -24,7 +24,7 @@ This document enumerates the focused pull-requests that will take the **Primitiv
 
 ---
 
-## PR #2 — Add core enum `Currency`
+## PR #2 — Add core enum `Currency` -- DONE 
 
 **Goals**
 * Implement ISO-4217 enum with numeric discriminants.
