@@ -24,7 +24,7 @@ This replaces the original 13-PR roadmap. Because we now leverage the `time` cra
 
 ---
 
-## PR #2 — Extension Traits (`ext.rs`)
+## PR #2 — Extension Traits (`ext.rs`)  ✅
 
 **Goals**
 * Introduce `DateExt` and `OffsetDateTimeExt` providing convenience methods:
@@ -41,7 +41,7 @@ This replaces the original 13-PR roadmap. Because we now leverage the `time` cra
 ## PR #3 — Day-count Conventions (`daycount.rs`)
 
 **Goals**
-* Provide `DayCount` enum with `days()` and `year_fraction()` functions supporting: ACT/360, ACT/365F, 30E/360.
+* Provide `DayCount` enum with `days()` and `year_fraction()` functions supporting: ACT/360, ACT/365F, 30/360, 30E/360, ACT/ACT
 * Reference implementations validated against ISDA golden cases.
 * No heap allocations; panic-free API returning `Result<f64, Error>`.
 
@@ -76,15 +76,6 @@ This replaces the original 13-PR roadmap. Because we now leverage the `time` cra
 * Generating semi-annual schedule 2025-01-15→2030-01-15 returns 11 dates.
 * Generating 10k schedules (20 periods each) < 5 ms single-thread (bench).
 
----
-
-## Release — v0.1.0
-After PR #5 merges, run a public-API audit (`cargo public-api`), write CHANGELOG, and publish `dates` v0.1.0.
-
----
-
-### Usage Tip
-Track progress in umbrella issue "Implement dates module v2". Check off each PR as it lands. 🚀 
 
 ---
 
@@ -113,31 +104,7 @@ Track progress in umbrella issue "Implement dates module v2". Check off each PR 
 
 ---
 
-## PR #8 — iCalendar Parser & Build Pipeline (`cal/parser.rs`, `build.rs`) *(feature `ical`)*
-
-**Goals**
-* Parse official `*.ics` holiday sources into JSON during the build.
-* Extend `build.rs` to compile JSON → `calendars.bin` blob included via `include_bytes!` when `holidays` enabled.
-
-**Acceptance criteria**
-* Parsing TARGET2 iCalendar yields expected 2025 holiday count.
-* Blob loader validates header & version, tests pass.
-
----
-
-## PR #9 — CLI Tool `rustfin-cal-sync` *(feature `cli`)*
-
-**Goals**
-* Stand-alone binary for fetching, diffing, and validating holiday data.
-* Commands: `pull <CODE>`, `diff`, `validate`, `json`.
-
-**Acceptance criteria**
-* `cargo run --bin rustfin-cal-sync -- pull TARGET2 --yes` exits 0.
-* `validate --all` passes on repo copy.
-
----
-
-## PR #10 — Documentation & Release v0.1.0
+## PR #8 — Documentation & Release v0.1.0
 
 **Goals**
 * Finalise rustdoc, README badges, CHANGELOG, and run `cargo public-api`.
@@ -148,6 +115,3 @@ Track progress in umbrella issue "Implement dates module v2". Check off each PR 
 * Docs build with `-D warnings`.
 
 ---
-
-### Updated Usage Tip
-Create umbrella issue "Implement dates & calendar module v3" and tick each PR as it merges. 🚀 

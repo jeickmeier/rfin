@@ -50,6 +50,9 @@ pub mod error;
 pub mod currency;
 pub mod money;
 
+/// Date & calendar helpers (facade over the `time` crate)
+pub mod dates;
+
 // Re-export main error type for convenience
 pub use error::Error;
 
@@ -57,3 +60,8 @@ pub use error::Error;
 pub use crate::currency::Currency;
 pub use crate::money::Money;
 pub use crate::money::{MoneyF64, MoneyF32, MoneyI64, MoneyI32, DefaultMoney};
+
+// Top-level re-exports for ergonomic access – keeps `use` sites terse.
+pub use crate::dates::{Date, OffsetDateTime, PrimitiveDateTime};
+pub use crate::dates::{DateExt, OffsetDateTimeExt};
+pub use crate::dates::DayCount;
