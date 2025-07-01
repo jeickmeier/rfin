@@ -26,7 +26,6 @@ default = []
 std = ["serde?/std", "dep:thiserror"]
 decimal128 = ["dep:rust_decimal"]
 serde = ["dep:serde", "serde/derive"]
-holidays = []
 
 [package.metadata.docs.rs]
 all-features = true

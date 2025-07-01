@@ -65,8 +65,6 @@ jobs:
         run: cargo test -p rfin-core --no-default-features --features decimal128
       - name: Test core with serde
         run: cargo test -p rfin-core --no-default-features --features serde
-      - name: Test core with holidays
-        run: cargo test -p rfin-core --no-default-features --features holidays
       - name: Test core with all features
         run: cargo test -p rfin-core --all-features
 

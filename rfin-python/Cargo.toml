@@ -12,7 +12,7 @@ name = "rfin"
 crate-type = ["cdylib"]
 
 [dependencies]
-rfin-core = { path = "../core", features = ["std", "holidays"] }
+rfin-core = { path = "../core", features = ["std"] }
 pyo3 = { version = "0.22", features = ["extension-module"] }
 
 # Needed for Month enum used in Date bindings

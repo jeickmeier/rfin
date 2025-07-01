@@ -46,5 +46,4 @@ pub use rules::*;
 
 pub use calendar::{adjust, BusDayConv, HolidayCalendar};
 
-#[cfg(feature = "holidays")]
 pub use calendar::available_calendars;
