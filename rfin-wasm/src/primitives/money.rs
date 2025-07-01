@@ -3,6 +3,7 @@
 use super::currency::Currency;
 use js_sys::Array;
 use rfin_core::primitives::money::Money as CoreMoney;
+use rfin_core::error::{Error, InputError};
 use wasm_bindgen::prelude::*;
 
 /// Money representation
@@ -53,12 +54,17 @@ impl Money {
     /// Add two Money values (same currency required)
     #[wasm_bindgen]
     pub fn add(&self, other: &Money) -> Result<Money, JsValue> {
-        match std::panic::catch_unwind(|| self.inner + other.inner) {
+        match self.inner.checked_add(other.inner) {
             Ok(result) => Ok(Money { inner: result }),
-            Err(_) => Err(JsValue::from_str(&format!(
-                "Cannot add money with different currencies: {} and {}",
-                self.inner.currency(),
-                other.inner.currency()
+            Err(Error::Input(InputError::CurrencyMismatch { expected, actual })) => {
+                Err(JsValue::from_str(&format!(
+                    "Currency mismatch: expected {}, got {}",
+                    expected, actual
+                )))
+            }
+            Err(err) => Err(JsValue::from_str(&format!(
+                "Money addition failed: {}",
+                err
             ))),
         }
     }
@@ -66,12 +72,17 @@ impl Money {
     /// Subtract two Money values (same currency required)
     #[wasm_bindgen]
     pub fn subtract(&self, other: &Money) -> Result<Money, JsValue> {
-        match std::panic::catch_unwind(|| self.inner - other.inner) {
+        match self.inner.checked_sub(other.inner) {
             Ok(result) => Ok(Money { inner: result }),
-            Err(_) => Err(JsValue::from_str(&format!(
-                "Cannot subtract money with different currencies: {} and {}",
-                self.inner.currency(),
-                other.inner.currency()
+            Err(Error::Input(InputError::CurrencyMismatch { expected, actual })) => {
+                Err(JsValue::from_str(&format!(
+                    "Currency mismatch: expected {}, got {}",
+                    expected, actual
+                )))
+            }
+            Err(err) => Err(JsValue::from_str(&format!(
+                "Money subtraction failed: {}",
+                err
             ))),
         }
     }
@@ -112,6 +123,42 @@ impl Money {
         array.push(&JsValue::from_f64(amount));
         array.push(&Currency::from_inner(currency).into());
         array
+    }
+
+    /// Add two Money values with explicit error handling
+    #[wasm_bindgen(js_name = "checkedAdd")]
+    pub fn checked_add(&self, other: &Money) -> Result<Money, JsValue> {
+        match self.inner.checked_add(other.inner) {
+            Ok(result) => Ok(Money { inner: result }),
+            Err(Error::Input(InputError::CurrencyMismatch { expected, actual })) => {
+                Err(JsValue::from_str(&format!(
+                    "Currency mismatch: expected {}, got {}",
+                    expected, actual
+                )))
+            }
+            Err(err) => Err(JsValue::from_str(&format!(
+                "Addition failed: {}",
+                err
+            ))),
+        }
+    }
+
+    /// Subtract two Money values with explicit error handling
+    #[wasm_bindgen(js_name = "checkedSubtract")]
+    pub fn checked_subtract(&self, other: &Money) -> Result<Money, JsValue> {
+        match self.inner.checked_sub(other.inner) {
+            Ok(result) => Ok(Money { inner: result }),
+            Err(Error::Input(InputError::CurrencyMismatch { expected, actual })) => {
+                Err(JsValue::from_str(&format!(
+                    "Currency mismatch: expected {}, got {}",
+                    expected, actual
+                )))
+            }
+            Err(err) => Err(JsValue::from_str(&format!(
+                "Subtraction failed: {}",
+                err
+            ))),
+        }
     }
 }
 

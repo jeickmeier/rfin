@@ -4,6 +4,7 @@ use super::currency::PyCurrency;
 use pyo3::prelude::*;
 use pyo3::types::PyType;
 use rfin_core::primitives::money::Money as CoreMoney;
+use rfin_core::error::{Error, InputError};
 
 /// Python wrapper for the Money type
 #[pyclass(name = "Money")]
@@ -52,24 +53,32 @@ impl PyMoney {
 
     /// Add two Money values (same currency required)
     fn __add__(&self, other: &PyMoney) -> PyResult<PyMoney> {
-        match std::panic::catch_unwind(|| self.inner + other.inner) {
+        match self.inner.checked_add(other.inner) {
             Ok(result) => Ok(PyMoney { inner: result }),
-            Err(_) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Cannot add money with different currencies: {} and {}",
-                self.inner.currency(),
-                other.inner.currency()
+            Err(Error::Input(InputError::CurrencyMismatch { expected, actual })) => {
+                Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                    "Cannot add money with different currencies: expected {}, got {}",
+                    expected, actual
+                )))
+            }
+            Err(err) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                "Money addition failed: {}", err
             ))),
         }
     }
 
     /// Subtract two Money values (same currency required)
     fn __sub__(&self, other: &PyMoney) -> PyResult<PyMoney> {
-        match std::panic::catch_unwind(|| self.inner - other.inner) {
+        match self.inner.checked_sub(other.inner) {
             Ok(result) => Ok(PyMoney { inner: result }),
-            Err(_) => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Cannot subtract money with different currencies: {} and {}",
-                self.inner.currency(),
-                other.inner.currency()
+            Err(Error::Input(InputError::CurrencyMismatch { expected, actual })) => {
+                Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                    "Cannot subtract money with different currencies: expected {}, got {}",
+                    expected, actual
+                )))
+            }
+            Err(err) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                "Money subtraction failed: {}", err
             ))),
         }
     }
@@ -119,6 +128,38 @@ impl PyMoney {
     fn into_parts(&self) -> (f64, PyCurrency) {
         let (amount, currency) = self.inner.into_parts();
         (amount, PyCurrency::from_inner(currency))
+    }
+
+    /// Add two Money values with explicit error handling
+    fn checked_add(&self, other: &PyMoney) -> PyResult<PyMoney> {
+        match self.inner.checked_add(other.inner) {
+            Ok(result) => Ok(PyMoney { inner: result }),
+            Err(Error::Input(InputError::CurrencyMismatch { expected, actual })) => {
+                Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                    "Currency mismatch: expected {}, got {}",
+                    expected, actual
+                )))
+            }
+            Err(err) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                "Addition failed: {}", err
+            ))),
+        }
+    }
+
+    /// Subtract two Money values with explicit error handling
+    fn checked_sub(&self, other: &PyMoney) -> PyResult<PyMoney> {
+        match self.inner.checked_sub(other.inner) {
+            Ok(result) => Ok(PyMoney { inner: result }),
+            Err(Error::Input(InputError::CurrencyMismatch { expected, actual })) => {
+                Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                    "Currency mismatch: expected {}, got {}",
+                    expected, actual
+                )))
+            }
+            Err(err) => Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                "Subtraction failed: {}", err
+            ))),
+        }
     }
 }
 
