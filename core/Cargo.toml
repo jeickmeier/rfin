@@ -1,0 +1,22 @@
+[package]
+name = "rfin-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde = { version = "1.0", default-features = false, optional = true }
+
+[features]
+default = []
+std = ["serde?/std"]
+decimal128 = []
+holidays = []
+serde = ["dep:serde", "serde/derive"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

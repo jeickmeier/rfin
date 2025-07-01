@@ -1,0 +1,127 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo clippy --all-targets --no-default-features -- -D warnings
+
+  test:
+    name: Test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        rust: [stable, 1.78]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+      - name: Test all features
+        run: cargo test --all --all-features
+      - name: Test no features
+        run: cargo test --all --no-default-features
+      - name: Test default features
+        run: cargo test --all
+
+  feature-combinations:
+    name: Test Feature Combinations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test core with no features
+        run: cargo test -p rfin-core --no-default-features
+      - name: Test core with std
+        run: cargo test -p rfin-core --no-default-features --features std
+      - name: Test core with decimal128
+        run: cargo test -p rfin-core --no-default-features --features decimal128
+      - name: Test core with serde
+        run: cargo test -p rfin-core --no-default-features --features serde
+      - name: Test core with holidays
+        run: cargo test -p rfin-core --no-default-features --features holidays
+      - name: Test core with all features
+        run: cargo test -p rfin-core --all-features
+
+  no-std-check:
+    name: Check no_std
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv6m-none-eabi
+      - name: Check core builds for no_std target
+        run: cargo check -p rfin-core --target thumbv6m-none-eabi --no-default-features
+
+  python:
+    name: Python Bindings
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.8", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install maturin
+        run: pip install maturin
+      - name: Build Python wheel
+        working-directory: rfin-python
+        run: maturin build
+      - name: Install and test import
+        working-directory: rfin-python
+        run: |
+          pip install target/wheels/*.whl
+          python -c "import rfin; print(rfin.__version__)"
+
+  wasm:
+    name: WASM Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Build WASM package
+        working-directory: rfin-wasm
+        run: wasm-pack build --target web
+      - name: Check WASM package
+        working-directory: rfin-wasm
+        run: |
+          ls -la pkg/
+          test -f pkg/rfin_wasm_bg.wasm
+          test -f pkg/rfin_wasm.js
+          test -f pkg/package.json

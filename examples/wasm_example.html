@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>RustFin WASM Example</title>
+</head>
+<body>
+    <h1>RustFin WASM Example</h1>
+    <div id="output"></div>
+    
+    <script type="module">
+        // To use this example:
+        // 1. Build WASM: cd rfin-wasm && wasm-pack build --target web
+        // 2. Serve this HTML file with a local web server
+        // 3. Open in browser
+        
+        import init, { Date, Money, Currency } from '../rfin-wasm/pkg/rfin_wasm.js';
+        
+        async function run() {
+            await init();
+            
+            const output = document.getElementById('output');
+            
+            // Create a date
+            const date = new Date(2024, 1, 1);
+            output.innerHTML += `<p>Date created: ${date.toString()}</p>`;
+            
+            // Create currency and money
+            const usd = new Currency("USD");
+            const amount = new Money(100.0, usd);
+            
+            output.innerHTML += `<p>Currency: ${amount.currency.code}</p>`;
+            output.innerHTML += `<p>Amount: ${amount.amount}</p>`;
+        }
+        
+        run().catch(console.error);
+    </script>
+</body>
+</html>

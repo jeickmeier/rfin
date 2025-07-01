@@ -1,0 +1,38 @@
+[package]
+name = "rfin-wasm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+rfin-core = { path = "../core", default-features = false }
+wasm-bindgen = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+js-sys = "0.3"
+
+[dependencies.web-sys]
+version = "0.3"
+features = ["console"]
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[features]
+default = ["console_error_panic_hook"]
+console_error_panic_hook = ["dep:console_error_panic_hook"]
+decimal128 = ["rfin-core/decimal128"]
+holidays = ["rfin-core/holidays"]
+
+[dependencies.console_error_panic_hook]
+version = "0.1"
+optional = true
+
+[package.metadata.wasm-pack]
+"wasm-pack-plugin" = "0.1"

@@ -1,0 +1,32 @@
+# Development environment configuration for RFin project
+# This file provides tool configuration and dependency management via uv
+
+[tool.uv]
+# Development dependencies - not a Python package itself
+dev-dependencies = [
+    "maturin>=1.0,<2.0",
+    "pytest>=7.0",
+    "pytest-benchmark>=4.0", 
+    "black>=23.0",
+    "mypy>=1.0",
+    "ruff>=0.1.0",
+    "ipython>=8.0",
+    "jupyter>=1.0",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+
+[tool.black]
+line-length = 88
+target-version = ["py38", "py39", "py310", "py311", "py312"]
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
