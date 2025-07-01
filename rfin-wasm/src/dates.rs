@@ -19,7 +19,7 @@ impl Date {
 
     /// Convert date to string
     #[wasm_bindgen(js_name = toString)]
-    pub fn to_string(&self) -> String {
+    pub fn to_string_js(&self) -> String {
         // TODO: Implement
         "Date".to_string()
     }

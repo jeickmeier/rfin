@@ -63,7 +63,7 @@
     </div>
     
     <script type="module">
-        import init, { Currency } from '../rfin-wasm/pkg/rfin_wasm.js';
+        import init, { Currency, Money } from '../../../rfin-wasm/pkg/rfin_wasm.js';
         
         async function addSection(title, content) {
             const output = document.getElementById('output');
@@ -213,13 +213,140 @@
                     <p><strong>EUR Numeric Code:</strong> ${Currency.EUR().numericCode} (should be 978)</p>
                 `);
                 
-                // Future Money usage
-                addSection("7. Future: Money Integration", `
-                    <p><em>Once the Money type is implemented, you'll be able to:</em></p>
-                    <pre><code>// Future usage
-const amount = new Money(100.50, Currency.USD());
-const converted = amount.convertTo(Currency.EUR(), exchangeRate);
-console.log(\`\${amount} = \${converted}\`);</code></pre>
+                // Money examples
+                addSection("7. Money Type Examples", `
+                    <p>The Money type provides type-safe monetary calculations:</p>
+                `);
+                
+                // Create Money instances
+                const usdAmount = new Money(100.50, Currency.USD());
+                const eurAmount = new Money(85.75, Currency.EUR());
+                const gbpAmount = Money.usd(250.0);  // Using convenience method
+                
+                addSection("Creating Money Instances", `
+                    <div class="currency-info">
+                        <div class="currency-card">
+                            <strong>USD Amount:</strong><br>
+                            ${usdAmount.toString()}<br>
+                            Amount: ${usdAmount.amount}<br>
+                            Currency: ${usdAmount.currency.code}
+                        </div>
+                        <div class="currency-card">
+                            <strong>EUR Amount:</strong><br>
+                            ${eurAmount.toString()}<br>
+                            Amount: ${eurAmount.amount}<br>
+                            Currency: ${eurAmount.currency.code}
+                        </div>
+                        <div class="currency-card">
+                            <strong>USD (convenience):</strong><br>
+                            ${gbpAmount.toString()}<br>
+                            Amount: ${gbpAmount.amount}<br>
+                            Currency: ${gbpAmount.currency.code}
+                        </div>
+                    </div>
+                `);
+                
+                // Money arithmetic (same currency)
+                const usd100 = Money.usd(100.0);
+                const usd50 = Money.usd(50.0);
+                
+                try {
+                    const sum = usd100.add(usd50);
+                    const diff = usd100.subtract(usd50);
+                    const doubled = usd100.multiply(2);
+                    const half = usd100.divide(2);
+                    
+                    addSection("8. Money Arithmetic (Same Currency)", `
+                        <table style="width:100%; border-collapse: collapse;">
+                            <tr style="background:#f0f0f0;"><th>Operation</th><th>Result</th></tr>
+                            <tr style="border: 1px solid #ddd;">
+                                <td style="padding: 8px;"><code>${usd100.toString()} + ${usd50.toString()}</code></td>
+                                <td style="padding: 8px;">${sum.toString()}</td>
+                            </tr>
+                            <tr style="border: 1px solid #ddd;">
+                                <td style="padding: 8px;"><code>${usd100.toString()} - ${usd50.toString()}</code></td>
+                                <td style="padding: 8px;">${diff.toString()}</td>
+                            </tr>
+                            <tr style="border: 1px solid #ddd;">
+                                <td style="padding: 8px;"><code>${usd100.toString()} * 2</code></td>
+                                <td style="padding: 8px;">${doubled.toString()}</td>
+                            </tr>
+                            <tr style="border: 1px solid #ddd;">
+                                <td style="padding: 8px;"><code>${usd100.toString()} / 2</code></td>
+                                <td style="padding: 8px;">${half.toString()}</td>
+                            </tr>
+                        </table>
+                    `);
+                } catch (e) {
+                    addSection("8. Money Arithmetic Error", `
+                        <p class="error">Error performing arithmetic: ${e.message}</p>
+                    `);
+                }
+                
+                // Test currency mismatch error handling
+                try {
+                    const invalidSum = usdAmount.add(eurAmount);
+                    addSection("9. Currency Mismatch Handling", `
+                        <p class="error">✗ Should have thrown an error for different currencies!</p>
+                        <p>Result: ${invalidSum.toString()}</p>
+                    `);
+                } catch (e) {
+                    addSection("9. Currency Mismatch Handling", `
+                        <p class="success">✓ Proper error handling for currency mismatches</p>
+                        <p>Attempted: <code>${usdAmount.toString()} + ${eurAmount.toString()}</code></p>
+                        <p>Error: <code>${e.message}</code></p>
+                    `);
+                }
+                
+                // Money equality
+                const usd100Copy = Money.usd(100.0);
+                addSection("10. Money Equality", `
+                    <p><code>Money.usd(100)</code> equals <code>Money.usd(100)</code>: ${usd100.equals(usd100Copy)}</p>
+                    <p><code>Money.usd(100)</code> equals <code>Money.usd(50)</code>: ${usd100.equals(usd50)}</p>
+                    <p><code>Money.usd(100)</code> equals <code>Money(100, EUR)</code>: ${usd100.equals(eurAmount)}</p>
+                `);
+                
+                // Portfolio calculation example
+                const portfolio = [
+                    Money.usd(1000.0),  // Cash
+                    Money.usd(2500.0),  // Stocks  
+                    Money.usd(500.0)    // Bonds
+                ];
+                
+                let totalPortfolio = Money.usd(0.0);
+                for (const holding of portfolio) {
+                    totalPortfolio = totalPortfolio.add(holding);
+                }
+                
+                const cashPct = (portfolio[0].amount / totalPortfolio.amount * 100).toFixed(1);
+                const stocksPct = (portfolio[1].amount / totalPortfolio.amount * 100).toFixed(1);
+                const bondsPct = (portfolio[2].amount / totalPortfolio.amount * 100).toFixed(1);
+                
+                addSection("11. Portfolio Calculation Example", `
+                    <p><strong>Portfolio Holdings:</strong></p>
+                    <ul>
+                        <li>Cash: ${portfolio[0].toString()}</li>
+                        <li>Stocks: ${portfolio[1].toString()}</li>
+                        <li>Bonds: ${portfolio[2].toString()}</li>
+                    </ul>
+                    <p><strong>Total Portfolio Value:</strong> ${totalPortfolio.toString()}</p>
+                    <p><strong>Asset Allocation:</strong></p>
+                    <ul>
+                        <li>Cash: ${cashPct}%</li>
+                        <li>Stocks: ${stocksPct}%</li>
+                        <li>Bonds: ${bondsPct}%</li>
+                    </ul>
+                `);
+                
+                // Into parts example
+                const parts = usdAmount.toParts();
+                const [amount, currency] = parts;
+                addSection("12. Converting to Parts", `
+                    <p><code>${usdAmount.toString()}.toParts()</code> returns:</p>
+                    <ul>
+                        <li>Amount: ${amount}</li>
+                        <li>Currency: ${currency.toString()}</li>
+                    </ul>
                 `);
                 
             } catch (error) {

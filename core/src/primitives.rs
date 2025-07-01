@@ -5,3 +5,7 @@
 
 pub mod currency;
 pub mod money;
+
+// Re-export commonly used types
+pub use currency::Currency;
+pub use money::Money;

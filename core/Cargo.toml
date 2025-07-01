@@ -9,14 +9,16 @@ repository.workspace = true
 
 [dependencies]
 serde = { version = "1.0", default-features = false, optional = true }
+rust_decimal = { version = "1.36", default-features = false, optional = true }
 
 [dev-dependencies]
 serde_json = "1.0"
+rust_decimal_macros = "1.36"
 
 [features]
 default = []
 std = ["serde?/std"]
-decimal128 = []
+decimal128 = ["dep:rust_decimal"]
 holidays = []
 serde = ["dep:serde", "serde/derive"]
 

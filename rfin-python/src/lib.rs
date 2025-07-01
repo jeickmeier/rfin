@@ -31,13 +31,15 @@ fn rfin(m: &Bound<'_, PyModule>) -> PyResult<()> {
     dates::register_module(&dates_module)?;
     m.add_submodule(&dates_module)?;
     let sys = m.py().import_bound("sys")?;
-    sys.getattr("modules")?.set_item("rfin.dates", &dates_module)?;
-    
+    sys.getattr("modules")?
+        .set_item("rfin.dates", &dates_module)?;
+
     let primitives_module = PyModule::new_bound(m.py(), "rfin.primitives")?;
     primitives::register_module(&primitives_module)?;
     m.add_submodule(&primitives_module)?;
     let sys = m.py().import_bound("sys")?;
-    sys.getattr("modules")?.set_item("rfin.primitives", &primitives_module)?;
+    sys.getattr("modules")?
+        .set_item("rfin.primitives", &primitives_module)?;
 
     Ok(())
 }

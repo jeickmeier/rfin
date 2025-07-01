@@ -16,4 +16,5 @@ mod macros;
 
 // Core modules
 pub mod dates;
+pub mod error;
 pub mod primitives;

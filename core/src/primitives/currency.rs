@@ -204,7 +204,7 @@ impl FromStr for Currency {
 mod tests {
     use super::*;
     use core::mem;
-    
+
     #[cfg(feature = "std")]
     use std::format;
 
@@ -239,7 +239,7 @@ mod tests {
         assert_eq!("EUR".parse::<Currency>().unwrap(), Currency::EUR);
         assert_eq!("GBP".parse::<Currency>().unwrap(), Currency::GBP);
         assert_eq!("JPY".parse::<Currency>().unwrap(), Currency::JPY);
-        
+
         // Test case insensitive
         assert_eq!("usd".parse::<Currency>().unwrap(), Currency::USD);
         assert_eq!("eur".parse::<Currency>().unwrap(), Currency::EUR);
@@ -248,7 +248,10 @@ mod tests {
 
     #[test]
     fn test_currency_from_str_invalid() {
-        assert_eq!("INVALID".parse::<Currency>(), Err(CurrencyError::InvalidCode));
+        assert_eq!(
+            "INVALID".parse::<Currency>(),
+            Err(CurrencyError::InvalidCode)
+        );
         assert_eq!("XXX".parse::<Currency>(), Err(CurrencyError::InvalidCode));
         assert_eq!("".parse::<Currency>(), Err(CurrencyError::InvalidCode));
     }
@@ -257,9 +260,18 @@ mod tests {
     #[cfg(feature = "std")]
     fn test_currency_round_trip() {
         let currencies = [
-            Currency::USD, Currency::EUR, Currency::GBP, Currency::JPY,
-            Currency::CHF, Currency::AUD, Currency::CAD, Currency::CNY,
-            Currency::SEK, Currency::NOK, Currency::DKK, Currency::PLN,
+            Currency::USD,
+            Currency::EUR,
+            Currency::GBP,
+            Currency::JPY,
+            Currency::CHF,
+            Currency::AUD,
+            Currency::CAD,
+            Currency::CNY,
+            Currency::SEK,
+            Currency::NOK,
+            Currency::DKK,
+            Currency::PLN,
         ];
 
         for currency in &currencies {
@@ -278,7 +290,7 @@ mod tests {
         assert_eq!(Currency::KWD.minor_units(), 3);
         assert_eq!(Currency::JOD.minor_units(), 3);
         // Most currencies have 2 minor units
-        
+
         // Currencies with 0 minor units
         assert_eq!(Currency::BIF.minor_units(), 0);
         assert_eq!(Currency::CLP.minor_units(), 0);
@@ -312,5 +324,4 @@ mod tests {
         let deserialized: Currency = serde_json::from_str(&serialized).unwrap();
         assert_eq!(currency, deserialized);
     }
-
 }
