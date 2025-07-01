@@ -23,11 +23,11 @@
 //! // Create currencies directly
 //! let usd = Currency::USD;
 //! let eur = Currency::EUR;
-//! 
+//!
 //! // Get ISO numeric code
 //! assert_eq!(usd.numeric(), 840);
 //! assert_eq!(eur.numeric(), 978);
-//! 
+//!
 //! // Get decimal precision
 //! assert_eq!(usd.decimals(), 2);  // Most currencies have 2 decimals
 //! assert_eq!(Currency::JPY.decimals(), 0);  // Japanese Yen has no decimals
@@ -87,7 +87,7 @@
 //! ```
 
 // ---------------------------------------------------------------------------
-// Generated enum (ISO-4217) 
+// Generated enum (ISO-4217)
 // ---------------------------------------------------------------------------
 // The build script now emits `core/src/generated/currency_generated.rs`, which
 // allows IDEs (`rust-analyzer`) to parse the generated code for auto-completion

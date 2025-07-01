@@ -5,6 +5,7 @@
 //! pull-requests once the holiday calendar machinery is available.
 
 #![allow(clippy::many_single_char_names)]
+#![allow(clippy::wrong_self_convention, clippy::assign_op_pattern)]
 
 use time::{Date, Duration, OffsetDateTime, Weekday};
 
@@ -140,4 +141,4 @@ mod tests {
         let result = start.add_business_days(-2);
         assert_eq!(result, make_date(2025, 6, 26)); // Sun -2bd = Thu (skip weekend)
     }
-} 
+}

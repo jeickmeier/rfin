@@ -46,8 +46,8 @@
 extern crate std;
 
 // Core modules
-pub mod error;
 pub mod currency;
+pub mod error;
 pub mod money;
 
 /// Date & calendar helpers (facade over the `time` crate)
@@ -59,9 +59,9 @@ pub use error::Error;
 // Top-level re-exports of commonly used primitives for easier discovery
 pub use crate::currency::Currency;
 pub use crate::money::Money;
-pub use crate::money::{MoneyF64, MoneyF32, MoneyI64, MoneyI32, DefaultMoney};
+pub use crate::money::{DefaultMoney, MoneyF32, MoneyF64, MoneyI32, MoneyI64};
 
 // Top-level re-exports for ergonomic access – keeps `use` sites terse.
+pub use crate::dates::DayCount;
 pub use crate::dates::{Date, OffsetDateTime, PrimitiveDateTime};
 pub use crate::dates::{DateExt, OffsetDateTimeExt};
-pub use crate::dates::DayCount;

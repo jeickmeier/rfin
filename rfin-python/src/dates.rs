@@ -27,14 +27,13 @@ impl PyDate {
     #[pyo3(text_signature = "(year, month, day)")]
     pub fn new(year: i32, month: u8, day: u8) -> PyResult<Self> {
         let month_enum = Month::try_from(month).map_err(|_| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "Month must be in range 1-12",
-            )
+            PyErr::new::<pyo3::exceptions::PyValueError, _>("Month must be in range 1-12")
         })?;
         let date = CoreDate::from_calendar_date(year, month_enum, day).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                format!("Invalid date components: {}", e),
-            )
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Invalid date components: {}",
+                e
+            ))
         })?;
         Ok(PyDate { inner: date })
     }
@@ -106,4 +105,9 @@ impl PyDate {
     pub fn inner(&self) -> CoreDate {
         self.inner
     }
-} 
+
+    /// Internal helper to construct a PyDate from a core value.
+    pub(crate) fn from_core(inner: CoreDate) -> Self {
+        PyDate { inner }
+    }
+}

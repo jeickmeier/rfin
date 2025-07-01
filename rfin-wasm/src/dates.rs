@@ -4,11 +4,11 @@
 //! Provides simple constructor and accessors so that JS/TS consumers can
 //! create and inspect calendar dates.
 
-use wasm_bindgen::prelude::*;
-use rfin_core::Date as CoreDate;
-use time::Month;
-use rfin_core::DateExt;
 use rfin_core::dates::DayCount as CoreDayCount;
+use rfin_core::Date as CoreDate;
+use rfin_core::DateExt;
+use time::Month;
+use wasm_bindgen::prelude::*;
 
 /// A calendar date (YYYY-MM-DD) exposed to JavaScript.
 #[wasm_bindgen]
@@ -25,8 +25,8 @@ impl Date {
     /// form a valid calendar date (e.g. 2025-02-30).
     #[wasm_bindgen(constructor)]
     pub fn new(year: i32, month: u8, day: u8) -> Result<Date, JsValue> {
-        let month_enum = Month::try_from(month)
-            .map_err(|_| JsValue::from_str("Month must be in range 1-12"))?;
+        let month_enum =
+            Month::try_from(month).map_err(|_| JsValue::from_str("Month must be in range 1-12"))?;
         let date = CoreDate::from_calendar_date(year, month_enum, day)
             .map_err(|e| JsValue::from_str(&format!("Invalid date components: {}", e)))?;
         Ok(Date { inner: date })
@@ -93,6 +93,11 @@ impl Date {
     pub fn inner(&self) -> CoreDate {
         self.inner
     }
+
+    /// Internal helper to create a `Date` from a core value.
+    pub(crate) fn from_core(inner: CoreDate) -> Self {
+        Date { inner }
+    }
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -126,16 +131,18 @@ impl From<DayCount> for CoreDayCount {
 #[wasm_bindgen(js_name = "dayCountDays")]
 pub fn day_count_days(convention: DayCount, start: &Date, end: &Date) -> Result<i32, JsValue> {
     let core = CoreDayCount::from(convention);
-    core
-        .days(start.inner(), end.inner())
+    core.days(start.inner(), end.inner())
         .map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
 /// Return the year fraction between two dates according to the given convention.
 #[wasm_bindgen(js_name = "dayCountYearFraction")]
-pub fn day_count_year_fraction(convention: DayCount, start: &Date, end: &Date) -> Result<f64, JsValue> {
+pub fn day_count_year_fraction(
+    convention: DayCount,
+    start: &Date,
+    end: &Date,
+) -> Result<f64, JsValue> {
     let core = CoreDayCount::from(convention);
-    core
-        .year_fraction(start.inner(), end.inner())
+    core.year_fraction(start.inner(), end.inner())
         .map_err(|e| JsValue::from_str(&e.to_string()))
-} 
+}

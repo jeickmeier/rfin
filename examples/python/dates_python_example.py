@@ -8,7 +8,7 @@ Example showcasing the new `Date` class exposed by RustFin's Python bindings.
 import rfin
 from rfin import Date
 # Explicit import for DayCount enum
-from rfin.dates import DayCount
+from rfin.dates import DayCount, Calendar, BusDayConvention, available_calendars
 
 print(f"RustFin version: {rfin.__version__}\n")
 
@@ -35,6 +35,8 @@ print(f"Is trade date a weekend? {trade_date.is_weekend()}")
 print(f"Quarter of trade date: Q{trade_date.quarter()}")
 print(f"Fiscal year: {trade_date.fiscal_year()}")
 
+
+
 # Business-day addition
 plus_3bd = trade_date.add_business_days(3)
 minus_2bd = trade_date.add_business_days(-2)
@@ -50,4 +52,16 @@ print(f"Year fraction {convention} between {trade_date} and {settle_date}: {year
 try:
     invalid = Date(2025, 2, 30)
 except ValueError as e:
-    print(f"Caught expected error for invalid date: {e}") 
+    print(f"Caught expected error for invalid date: {e}")
+
+# List built-in holiday calendars
+print("\nAvailable holiday calendars:")
+for cal_id in available_calendars():
+    print(f"  • {cal_id}")
+    
+# Calendar usage
+cal = Calendar.target2()
+print("\n=== Calendar (TARGET2) ===")
+print(f"Is {trade_date} TARGET2 holiday? {cal.is_holiday(trade_date)}")
+adj_follow = cal.adjust(trade_date, BusDayConvention.Following)
+print(f"Following adjustment of {trade_date} => {adj_follow}") 

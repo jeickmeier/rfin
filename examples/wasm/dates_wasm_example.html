@@ -47,7 +47,7 @@
 
     <script type="module">
         // Adjust the path if your build output lives elsewhere
-        import init, { Date, DayCount, dayCountYearFraction } from '../../../rfin-wasm/pkg/rfin_wasm.js';
+        import init, { Date, DayCount, dayCountYearFraction, Calendar, BusDayConvention, availableCalendars } from '../../../rfin-wasm/pkg/rfin_wasm.js';
 
         async function addSection(title, content) {
             const output = document.getElementById('output');
@@ -93,12 +93,24 @@
                 const yf = dayCountYearFraction(dc, trade, settle);
                 addSection('5. Day-count', `<p>Year fraction ACT/360 between ${trade.toString()} and ${settle.toString()} is <strong>${yf.toFixed(6)}</strong></p>`);
 
-                // 6. Error handling for invalid dates
+                // 6. Calendar usage
+                const cal = Calendar.target2();
+                const isHol = cal.isHoliday(trade);
+                const adj = cal.adjust(trade, BusDayConvention.Following);
+                addSection('6. Calendar', `
+                    <p>Is ${trade.toString()} a TARGET2 holiday? <strong>${isHol}</strong></p>
+                    <p>Following adjustment: ${adj.toString()}</p>`);
+
+                // 7. Available calendars listing
+                const cals = availableCalendars();
+                addSection('7. Available Holiday Calendars', `<p>${cals.join(', ')}</p>`);
+
+                // 8. Error handling for invalid dates
                 try {
                     const invalid = new Date(2025, 2, 30);
-                    addSection('6. Invalid Date', `<p class="error">Unexpected success: ${invalid.toString()}</p>`);
+                    addSection('8. Invalid Date', `<p class="error">Unexpected success: ${invalid.toString()}</p>`);
                 } catch (e) {
-                    addSection('6. Invalid Date', `<p class="success">✓ Properly threw error for invalid date</p>
+                    addSection('8. Invalid Date', `<p class="success">✓ Properly threw error for invalid date</p>
                         <p>Error: <code>${e.message}</code></p>`);
                 }
 

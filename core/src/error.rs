@@ -35,7 +35,10 @@ pub enum Error {
     #[cfg_attr(feature = "std", error("Invalid currency code"))]
     InvalidCurrency,
     /// Currency mismatch in a binary [`Money`](crate::money::Money) operation.
-    #[cfg_attr(feature = "std", error("Currency mismatch: expected {expected}, got {actual}"))]
+    #[cfg_attr(
+        feature = "std",
+        error("Currency mismatch: expected {expected}, got {actual}")
+    )]
     CurrencyMismatch {
         /// The expected (left-hand) currency.
         expected: Currency,
@@ -76,7 +79,10 @@ mod tests {
 
     #[test]
     fn test_display() {
-        assert_eq!(format!("{}", Error::InvalidCurrency), "Invalid currency code");
+        assert_eq!(
+            format!("{}", Error::InvalidCurrency),
+            "Invalid currency code"
+        );
     }
 }
 

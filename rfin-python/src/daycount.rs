@@ -1,3 +1,5 @@
+#![allow(clippy::useless_conversion)]
+
 //! Python bindings for DayCount conventions.
 //!
 //! Exposes the `DayCount` enum with helper methods `days` and `year_fraction`.
@@ -8,10 +10,10 @@
 //! yf = DayCount.act360().year_fraction(d1, d2)
 //! ```
 
+use crate::dates::PyDate;
 use pyo3::prelude::*;
 use pyo3::types::PyType;
-use rfin_core::dates::DayCount as CoreDayCount;
-use crate::dates::PyDate; // need PyDate
+use rfin_core::dates::DayCount as CoreDayCount; // need PyDate
 
 /// Python wrapper around the `DayCount` enum
 #[pyclass(name = "DayCount", module = "rfin.dates")]
@@ -27,27 +29,37 @@ impl PyDayCount {
     // ---------------------------------------------------------------------
     #[classmethod]
     fn act360(_cls: &Bound<'_, PyType>) -> Self {
-        Self { inner: CoreDayCount::Act360 }
+        Self {
+            inner: CoreDayCount::Act360,
+        }
     }
 
     #[classmethod]
     fn act365f(_cls: &Bound<'_, PyType>) -> Self {
-        Self { inner: CoreDayCount::Act365F }
+        Self {
+            inner: CoreDayCount::Act365F,
+        }
     }
 
     #[classmethod]
     fn thirty360(_cls: &Bound<'_, PyType>) -> Self {
-        Self { inner: CoreDayCount::Thirty360 }
+        Self {
+            inner: CoreDayCount::Thirty360,
+        }
     }
 
     #[classmethod]
     fn thirty_e_360(_cls: &Bound<'_, PyType>) -> Self {
-        Self { inner: CoreDayCount::ThirtyE360 }
+        Self {
+            inner: CoreDayCount::ThirtyE360,
+        }
     }
 
     #[classmethod]
     fn actact(_cls: &Bound<'_, PyType>) -> Self {
-        Self { inner: CoreDayCount::ActAct }
+        Self {
+            inner: CoreDayCount::ActAct,
+        }
     }
 
     // ---------------------------------------------------------------------
@@ -56,17 +68,17 @@ impl PyDayCount {
     /// Return day-count between two dates (number of days) following the convention.
     #[pyo3(text_signature = "(self, start, end)")]
     pub fn days(&self, start: &PyDate, end: &PyDate) -> PyResult<i32> {
-        self.inner.days(start.inner(), end.inner()).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
-        })
+        self.inner
+            .days(start.inner(), end.inner())
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
     }
 
     /// Return year fraction between two dates following the convention.
     #[pyo3(text_signature = "(self, start, end)")]
     pub fn year_fraction(&self, start: &PyDate, end: &PyDate) -> PyResult<f64> {
-        self.inner.year_fraction(start.inner(), end.inner()).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string())
-        })
+        self.inner
+            .year_fraction(start.inner(), end.inner())
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
     }
 
     // ---------------------------------------------------------------------
@@ -98,4 +110,4 @@ impl PyDayCount {
     pub fn inner(&self) -> CoreDayCount {
         self.inner
     }
-} 
+}

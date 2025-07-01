@@ -38,7 +38,7 @@ This replaces the original 13-PR roadmap. Because we now leverage the `time` cra
 
 ---
 
-## PR #3 — Day-count Conventions (`daycount.rs`)
+## PR #3 — Day-count Conventions (`daycount.rs`)  ✅
 
 **Goals**
 * Provide `DayCount` enum with `days()` and `year_fraction()` functions supporting: ACT/360, ACT/365F, 30/360, 30E/360, ACT/ACT

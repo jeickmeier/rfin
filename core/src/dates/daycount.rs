@@ -137,7 +137,11 @@ fn year_fraction_act_act_isda(start: Date, end: Date) -> f64 {
 
 #[inline]
 const fn days_in_year(year: i32) -> i32 {
-    if is_leap_year(year) { 366 } else { 365 }
+    if is_leap_year(year) {
+        366
+    } else {
+        365
+    }
 }
 
 #[inline]
@@ -201,4 +205,4 @@ mod tests {
         let end = make_date(2024, 1, 1);
         assert!(DayCount::Act360.year_fraction(start, end).is_err());
     }
-} 
+}

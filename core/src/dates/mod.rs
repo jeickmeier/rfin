@@ -25,7 +25,7 @@
 pub use time::{Date, OffsetDateTime, PrimitiveDateTime};
 
 // In the future we might expose the `time::macros` helpers behind a feature flag.  Until
-// then consumers can `use time::macros::*` directly if needed. 
+// then consumers can `use time::macros::*` directly if needed.
 
 mod ext;
 
@@ -34,4 +34,17 @@ pub use ext::{DateExt, OffsetDateTimeExt};
 
 mod daycount;
 
-pub use daycount::DayCount; 
+pub use daycount::DayCount;
+
+mod calendar;
+
+pub mod calendars;
+pub use calendars::*;
+
+pub mod rules;
+pub use rules::*;
+
+pub use calendar::{adjust, BusDayConv, HolidayCalendar};
+
+#[cfg(feature = "holidays")]
+pub use calendar::available_calendars;

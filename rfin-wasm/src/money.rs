@@ -56,12 +56,10 @@ impl Money {
     pub fn add(&self, other: &Money) -> Result<Money, JsValue> {
         match self.inner.checked_add(other.inner) {
             Ok(result) => Ok(Money { inner: result }),
-            Err(Error::CurrencyMismatch { expected, actual }) => {
-                Err(JsValue::from_str(&format!(
-                    "Currency mismatch: expected {}, got {}",
-                    expected, actual
-                )))
-            }
+            Err(Error::CurrencyMismatch { expected, actual }) => Err(JsValue::from_str(&format!(
+                "Currency mismatch: expected {}, got {}",
+                expected, actual
+            ))),
             Err(err) => Err(JsValue::from_str(&format!(
                 "Money addition failed: {}",
                 err
@@ -74,12 +72,10 @@ impl Money {
     pub fn subtract(&self, other: &Money) -> Result<Money, JsValue> {
         match self.inner.checked_sub(other.inner) {
             Ok(result) => Ok(Money { inner: result }),
-            Err(Error::CurrencyMismatch { expected, actual }) => {
-                Err(JsValue::from_str(&format!(
-                    "Currency mismatch: expected {}, got {}",
-                    expected, actual
-                )))
-            }
+            Err(Error::CurrencyMismatch { expected, actual }) => Err(JsValue::from_str(&format!(
+                "Currency mismatch: expected {}, got {}",
+                expected, actual
+            ))),
             Err(err) => Err(JsValue::from_str(&format!(
                 "Money subtraction failed: {}",
                 err
@@ -137,12 +133,10 @@ impl Money {
     pub fn checked_add(&self, other: &Money) -> Result<Money, JsValue> {
         match self.inner.checked_add(other.inner) {
             Ok(result) => Ok(Money { inner: result }),
-            Err(Error::CurrencyMismatch { expected, actual }) => {
-                Err(JsValue::from_str(&format!(
-                    "Currency mismatch: expected {}, got {}",
-                    expected, actual
-                )))
-            }
+            Err(Error::CurrencyMismatch { expected, actual }) => Err(JsValue::from_str(&format!(
+                "Currency mismatch: expected {}, got {}",
+                expected, actual
+            ))),
             Err(err) => Err(JsValue::from_str(&format!("Addition failed: {}", err))),
         }
     }
@@ -152,12 +146,10 @@ impl Money {
     pub fn checked_subtract(&self, other: &Money) -> Result<Money, JsValue> {
         match self.inner.checked_sub(other.inner) {
             Ok(result) => Ok(Money { inner: result }),
-            Err(Error::CurrencyMismatch { expected, actual }) => {
-                Err(JsValue::from_str(&format!(
-                    "Currency mismatch: expected {}, got {}",
-                    expected, actual
-                )))
-            }
+            Err(Error::CurrencyMismatch { expected, actual }) => Err(JsValue::from_str(&format!(
+                "Currency mismatch: expected {}, got {}",
+                expected, actual
+            ))),
             Err(err) => Err(JsValue::from_str(&format!("Subtraction failed: {}", err))),
         }
     }

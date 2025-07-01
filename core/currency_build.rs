@@ -40,7 +40,10 @@ fn parse_csv(path: &str) -> std::io::Result<Vec<CurrencyRow>> {
 /// Emit the `Currency` enum definition.
 fn write_enum(w: &mut impl Write, rows: &[CurrencyRow]) -> std::io::Result<()> {
     writeln!(w, "#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, EnumString, EnumIter, Display, IntoPrimitive, TryFromPrimitive)]")?;
-    writeln!(w, "#[cfg_attr(feature=\"serde\", derive(serde::Serialize, serde::Deserialize))]")?;
+    writeln!(
+        w,
+        "#[cfg_attr(feature=\"serde\", derive(serde::Serialize, serde::Deserialize))]"
+    )?;
     writeln!(w, "/// ISO 4217 currency enumeration")?;
     writeln!(w, "#[strum(ascii_case_insensitive)]")?;
     writeln!(w, "#[repr(u16)]")?;
@@ -64,7 +67,9 @@ fn write_decimal_table(w: &mut impl Write, rows: &[CurrencyRow]) -> std::io::Res
     writeln!(w, "/// Number of decimal places (minor units) for each ISO 4217 currency, indexed by numeric code.")?;
     writeln!(w, "pub const MINOR_UNITS: [u8; {}] = [", table.len())?;
     for (idx, val) in table.iter().enumerate() {
-        if idx % 20 == 0 { writeln!(w)?; }
+        if idx % 20 == 0 {
+            writeln!(w)?;
+        }
         write!(w, "{}, ", val)?;
     }
     writeln!(w, "];")?;
@@ -93,12 +98,18 @@ pub fn generate() -> std::io::Result<()> {
 
     // impl block with helpers
     writeln!(f, "impl Currency {{")?;
-    writeln!(f, "    /// ISO-4217 decimal precision for this currency (e.g. USD → 2)")?;
+    writeln!(
+        f,
+        "    /// ISO-4217 decimal precision for this currency (e.g. USD → 2)"
+    )?;
     writeln!(f, "    #[inline] pub const fn decimals(self) -> u8 {{")?;
     writeln!(f, "        MINOR_UNITS[self.numeric() as usize]")?;
     writeln!(f, "    }}")?;
     writeln!(f, "    /// ISO 4217 numeric code as `u16`.")?;
-    writeln!(f, "    #[inline] pub const fn numeric(self) -> u16 {{ self as u16 }}")?;
+    writeln!(
+        f,
+        "    #[inline] pub const fn numeric(self) -> u16 {{ self as u16 }}"
+    )?;
     writeln!(f, "}}\n")?;
 
     // --------------------------------------------------------------------
@@ -115,4 +126,4 @@ pub fn generate() -> std::io::Result<()> {
     }
 
     Ok(())
-} 
+}

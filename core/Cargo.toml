@@ -15,8 +15,6 @@ strum_macros = "0.25"
 thiserror = { version = "1.0", default-features = false, optional = true }
 num_enum = { version = "0.7", default-features = false }
 num-traits = { version = "0.2", default-features = false, features = ["libm"] }
-
-# Lightweight date/time types (no_std friendly)
 time = { version = "0.3", default-features = false }
 
 [dev-dependencies]
@@ -27,8 +25,8 @@ rust_decimal_macros = "1.36"
 default = []
 std = ["serde?/std", "dep:thiserror"]
 decimal128 = ["dep:rust_decimal"]
-holidays = []
 serde = ["dep:serde", "serde/derive"]
+holidays = []
 
 [package.metadata.docs.rs]
 all-features = true

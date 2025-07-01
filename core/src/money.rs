@@ -244,7 +244,10 @@ impl<F: MoneyAmount> Money<F> {
     /// ```
     #[inline]
     pub const fn usd(amount: F) -> Self {
-        Self { amount, currency: Currency::USD }
+        Self {
+            amount,
+            currency: Currency::USD,
+        }
     }
 
     /// Creates a new `Money` value in Euros (EUR).
@@ -262,7 +265,10 @@ impl<F: MoneyAmount> Money<F> {
     /// ```
     #[inline]
     pub const fn eur(amount: F) -> Self {
-        Self { amount, currency: Currency::EUR }
+        Self {
+            amount,
+            currency: Currency::EUR,
+        }
     }
 }
 
@@ -446,7 +452,7 @@ pub type MoneyI32 = Money<i32>;
 /// ```ignore
 /// use rfin_core::MoneyDecimal;
 /// use rust_decimal_macros::dec;
-/// 
+///
 /// let price: MoneyDecimal = MoneyDecimal::from_parts(dec!(99.99), Currency::USD);
 /// ```
 #[cfg(feature = "decimal128")]
@@ -704,4 +710,4 @@ impl<F: MoneyAmount> From<(F, Currency)> for Money<F> {
             currency: value.1,
         }
     }
-} 
+}
