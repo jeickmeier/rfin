@@ -1,7 +1,7 @@
-use wasm_bindgen::prelude::*;
-use rfin_core::dates::{BusDayConv, HolidayCalendar, Target2, adjust, CompositeCalendar};
-use rfin_core::dates::calendars::Gblo;
 use js_sys::Array;
+use rfin_core::dates::calendars::Gblo;
+use rfin_core::dates::{adjust, BusDayConv, CompositeCalendar, HolidayCalendar, Target2};
+use wasm_bindgen::prelude::*;
 
 use crate::dates::Date;
 
@@ -65,12 +65,16 @@ pub struct Calendar {
 impl Calendar {
     #[wasm_bindgen(js_name = "target2")]
     pub fn target2() -> Calendar {
-        Calendar { kind: CalendarKind::Target2 }
+        Calendar {
+            kind: CalendarKind::Target2,
+        }
     }
 
     #[wasm_bindgen(js_name = "gblo")]
     pub fn gblo() -> Calendar {
-        Calendar { kind: CalendarKind::Gblo }
+        Calendar {
+            kind: CalendarKind::Gblo,
+        }
     }
 
     /// Return a calendar representing the union of `self` and `other`.
@@ -98,7 +102,8 @@ impl Calendar {
                     c.collect_refs(&mut refs);
                 }
                 // transform to &dyn slice
-                let ref_slice: Vec<&dyn HolidayCalendar> = refs.iter().map(|b| b.as_ref()).collect();
+                let ref_slice: Vec<&dyn HolidayCalendar> =
+                    refs.iter().map(|b| b.as_ref()).collect();
                 let comp = CompositeCalendar::merge(&ref_slice);
                 adjust(date.inner(), convention.into(), &comp)
             }
@@ -119,4 +124,4 @@ pub fn available_calendars() -> Array {
         arr.push(&JsValue::from_str(name));
     }
     arr
-} 
+}

@@ -27,10 +27,10 @@ pub use time::{Date, OffsetDateTime, PrimitiveDateTime};
 // In the future we might expose the `time::macros` helpers behind a feature flag.  Until
 // then consumers can `use time::macros::*` directly if needed.
 
-mod ext;
+mod date_extensions;
 
 // Publicly re-export the extension traits so downstream crates can `use rfin_core::dates::DateExt`.
-pub use ext::{DateExt, OffsetDateTimeExt};
+pub use date_extensions::{DateExt, OffsetDateTimeExt};
 
 mod daycount;
 
@@ -50,7 +50,7 @@ pub use calendar::available_calendars;
 
 mod schedule;
 
-pub use schedule::{ScheduleBuilder, Frequency, Schedule, StubRule};
+pub use schedule::{Frequency, Schedule, ScheduleBuilder, StubRule};
 
 mod composite;
 
@@ -58,4 +58,4 @@ pub use composite::{CompositeCalendar, MergeMode};
 
 mod imm;
 
-pub use imm::{third_wednesday, next_imm, next_cds_date};
+pub use imm::{next_cds_date, next_imm, third_wednesday};

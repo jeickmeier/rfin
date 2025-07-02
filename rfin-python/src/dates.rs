@@ -4,10 +4,14 @@
 //! `time::Date` (re-exported via `rfin_core::Date`) so that higher-level
 //! calendar helpers can be added incrementally without breaking the API.
 
+#![allow(clippy::useless_conversion)]
+
 use pyo3::prelude::*;
+use rfin_core::dates::{
+    next_cds_date as core_next_cds, next_imm as core_next_imm, third_wednesday as core_third_wed,
+};
 use rfin_core::Date as CoreDate;
 use time::Month;
-use rfin_core::dates::{third_wednesday as core_third_wed, next_imm as core_next_imm, next_cds_date as core_next_cds};
 
 /// Python wrapper for a calendar date (YYYY-MM-DD).
 #[pyclass(name = "Date", module = "rfin.dates")]
@@ -117,9 +121,7 @@ impl PyDate {
 #[pyfunction(name = "third_wednesday", text_signature = "(month, year)")]
 pub fn py_third_wednesday(month: u8, year: i32) -> PyResult<PyDate> {
     let month_enum = Month::try_from(month).map_err(|_| {
-        PyErr::new::<pyo3::exceptions::PyValueError, _>(
-            "Month must be in range 1-12",
-        )
+        PyErr::new::<pyo3::exceptions::PyValueError, _>("Month must be in range 1-12")
     })?;
     let d = core_third_wed(month_enum, year);
     Ok(PyDate::from_core(d))

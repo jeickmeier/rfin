@@ -1,10 +1,10 @@
-use wasm_bindgen::prelude::*;
 use js_sys::Array;
+use wasm_bindgen::prelude::*;
 
-use rfin_core::dates::{ScheduleBuilder, Frequency as CoreFrequency, StubRule as CoreStubRule};
+use rfin_core::dates::{Frequency as CoreFrequency, ScheduleBuilder, StubRule as CoreStubRule};
 
-use crate::dates::Date;
 use crate::calendar::BusDayConvention;
+use crate::dates::Date;
 // No business-day adjustment in this MVP
 
 /// Coupon/payment frequency.
@@ -83,4 +83,4 @@ pub fn generate_schedule(
         arr.push(&Date::from_core(d).into());
     }
     arr
-} 
+}

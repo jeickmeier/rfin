@@ -26,9 +26,10 @@
 //!
 //! let cds = next_cds_date(Date::from_calendar_date(2025, Month::March, 10).unwrap());
 //! assert_eq!(cds, Date::from_calendar_date(2025, Month::March, 20).unwrap());
-//! ``` 
+//! ```
 
 #![allow(clippy::many_single_char_names)]
+#![allow(clippy::assign_op_pattern)]
 
 use time::{Date, Duration, Month, Weekday};
 
@@ -54,12 +55,7 @@ pub fn third_wednesday(month: Month, year: i32) -> Date {
 /// after** `date`.
 #[must_use]
 pub fn next_imm(date: Date) -> Date {
-    const IMM_MONTHS: [Month; 4] = [
-        Month::March,
-        Month::June,
-        Month::September,
-        Month::December,
-    ];
+    const IMM_MONTHS: [Month; 4] = [Month::March, Month::June, Month::September, Month::December];
 
     let mut year = date.year();
     loop {
@@ -77,12 +73,7 @@ pub fn next_imm(date: Date) -> Date {
 /// after** `date`.
 #[must_use]
 pub fn next_cds_date(date: Date) -> Date {
-    const CDS_MONTHS: [Month; 4] = [
-        Month::March,
-        Month::June,
-        Month::September,
-        Month::December,
-    ];
+    const CDS_MONTHS: [Month; 4] = [Month::March, Month::June, Month::September, Month::December];
 
     let mut year = date.year();
     loop {
@@ -114,13 +105,19 @@ mod tests {
     fn next_imm_after_mar20_2025() {
         let start = Date::from_calendar_date(2025, Month::March, 20).unwrap();
         let imm = next_imm(start);
-        assert_eq!(imm, Date::from_calendar_date(2025, Month::June, 18).unwrap());
+        assert_eq!(
+            imm,
+            Date::from_calendar_date(2025, Month::June, 18).unwrap()
+        );
     }
 
     #[test]
     fn next_cds_before_mar20() {
         let d = Date::from_calendar_date(2025, Month::March, 10).unwrap();
         let cds = next_cds_date(d);
-        assert_eq!(cds, Date::from_calendar_date(2025, Month::March, 20).unwrap());
+        assert_eq!(
+            cds,
+            Date::from_calendar_date(2025, Month::March, 20).unwrap()
+        );
     }
-} 
+}

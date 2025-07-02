@@ -5,8 +5,8 @@
 use pyo3::prelude::*;
 use pyo3::types::PyType;
 
-use rfin_core::dates::{BusDayConv, HolidayCalendar, Target2, adjust, CompositeCalendar};
 use rfin_core::dates::calendars::Gblo;
+use rfin_core::dates::{adjust, BusDayConv, CompositeCalendar, HolidayCalendar, Target2};
 
 use crate::dates::PyDate;
 
@@ -160,4 +160,4 @@ pub fn py_available_calendars() -> Vec<String> {
         .iter()
         .map(|s| s.to_string())
         .collect()
-} 
+}

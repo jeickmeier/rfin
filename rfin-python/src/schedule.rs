@@ -2,10 +2,10 @@
 
 use pyo3::prelude::*;
 
-use rfin_core::dates::{ScheduleBuilder, Frequency as CoreFrequency, StubRule as CoreStubRule};
+use rfin_core::dates::{Frequency as CoreFrequency, ScheduleBuilder, StubRule as CoreStubRule};
 
-use crate::dates::PyDate;
 use crate::calendar::{PyBusDayConv, PyCalendar};
+use crate::dates::PyDate;
 
 /// Coupon/payment frequency enumeration.
 #[pyclass(name = "Frequency", module = "rfin.dates", eq)]
@@ -85,9 +85,6 @@ pub fn py_generate_schedule(
     }
 
     let sched = builder.generate();
-    let result = sched
-        .into_iter()
-        .map(PyDate::from_core)
-        .collect::<Vec<_>>();
+    let result = sched.into_iter().map(PyDate::from_core).collect::<Vec<_>>();
     Ok(result)
-} 
+}

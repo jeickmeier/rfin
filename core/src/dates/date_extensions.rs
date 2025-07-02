@@ -30,6 +30,30 @@ pub trait DateExt {
     /// `n` moves forward, negative `n` moves backward.  Zero returns the input
     /// unchanged.
     fn add_business_days(self, n: i32) -> Self;
+
+    /// Returns `true` if the date is a business day according to the provided
+    /// `calendar` (see [`crate::dates::calendar::HolidayCalendar`]).
+    ///
+    /// This is a thin convenience wrapper around
+    /// [`HolidayCalendar::is_business_day`], enabling fluent method-style
+    /// calls:
+    /// ```
+    /// use rfin_core::dates::DateExt;
+    /// use rfin_core::dates::calendars::Gblo;
+    /// use time::Date;
+    ///
+    /// let cal = Gblo::new();
+    /// let d = Date::from_calendar_date(2025, time::Month::March, 14).unwrap();
+    /// assert!(d.is_business_day(&cal));
+    /// ```
+    fn is_business_day<C: crate::dates::calendar::HolidayCalendar>(self, cal: &C) -> bool;
+
+    /// Returns the **next IMM date** (third Wednesday of Mar/Jun/Sep/Dec)
+    /// strictly **after** `self`.
+    ///
+    /// Equivalent to calling [`crate::dates::next_imm`] but available as a
+    /// method for improved discoverability.
+    fn next_imm(self) -> Self;
 }
 
 impl DateExt for Date {
@@ -62,6 +86,14 @@ impl DateExt for Date {
         }
         date
     }
+
+    fn is_business_day<C: crate::dates::calendar::HolidayCalendar>(self, cal: &C) -> bool {
+        cal.is_business_day(self)
+    }
+
+    fn next_imm(self) -> Self {
+        crate::dates::next_imm(self)
+    }
 }
 
 /// Convenience extensions for [`time::OffsetDateTime`].
@@ -77,6 +109,12 @@ pub trait OffsetDateTimeExt {
 
     /// See [`DateExt::add_business_days`].
     fn add_business_days(self, n: i32) -> Self;
+
+    /// See [`DateExt::is_business_day`].
+    fn is_business_day<C: crate::dates::calendar::HolidayCalendar>(self, cal: &C) -> bool;
+
+    /// See [`DateExt::next_imm`].
+    fn next_imm(self) -> Self;
 }
 
 impl OffsetDateTimeExt for OffsetDateTime {
@@ -94,6 +132,15 @@ impl OffsetDateTimeExt for OffsetDateTime {
 
     fn add_business_days(self, n: i32) -> Self {
         let new_date = self.date().add_business_days(n);
+        self.replace_date(new_date)
+    }
+
+    fn is_business_day<C: crate::dates::calendar::HolidayCalendar>(self, cal: &C) -> bool {
+        self.date().is_business_day(cal)
+    }
+
+    fn next_imm(self) -> Self {
+        let new_date = self.date().next_imm();
         self.replace_date(new_date)
     }
 }

@@ -180,9 +180,16 @@ impl<'a> ScheduleBuilder<'a> {
             match self.stub {
                 StubRule::None => {
                     // Expect exact alignment – in debug builds assert but still produce output.
-                    debug_assert_eq!(add_months(self.start, step * (((self.end.year() - self.start.year()) * 12
-                        + (self.end.month() as i32 - self.start.month() as i32))
-                        / step)), self.end, "Schedule not aligned for StubRule::None");
+                    debug_assert_eq!(
+                        add_months(
+                            self.start,
+                            step * (((self.end.year() - self.start.year()) * 12
+                                + (self.end.month() as i32 - self.start.month() as i32))
+                                / step)
+                        ),
+                        self.end,
+                        "Schedule not aligned for StubRule::None"
+                    );
 
                     let mut dt = self.start;
                     loop {
@@ -311,7 +318,13 @@ fn add_months(date: Date, months: i32) -> Date {
 const fn days_in_month(year: i32, month: Month) -> u8 {
     match month {
         Month::January => 31,
-        Month::February => if is_leap_year(year) { 29 } else { 28 },
+        Month::February => {
+            if is_leap_year(year) {
+                29
+            } else {
+                28
+            }
+        }
         Month::March => 31,
         Month::April => 30,
         Month::May => 31,
@@ -393,4 +406,4 @@ mod tests {
         let sched = ScheduleBuilder::new(start, end, Frequency::Daily).generate();
         assert_eq!(sched.as_slice(), &[start, make_date(2025, 1, 2), end]);
     }
-} 
+}

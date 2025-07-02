@@ -3,17 +3,17 @@
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 
+mod calendar;
 /// Python module for primitives functionality  
 mod currency;
 mod dates;
 mod daycount;
 mod money;
-mod calendar;
 mod schedule;
 // (compatibility primitives module removed)
 
 /// Import IMM helper functions for registration
-use dates::{py_third_wednesday, py_next_imm, py_next_cds_date};
+use dates::{py_next_cds_date, py_next_imm, py_third_wednesday};
 
 /// Main Python module initialization
 #[pymodule]
@@ -50,8 +50,14 @@ fn rfin(m: &Bound<'_, PyModule>) -> PyResult<()> {
     dates_module.add_class::<calendar::PyBusDayConv>()?;
     dates_module.add_class::<schedule::PyFrequency>()?;
     dates_module.add_class::<schedule::PyStubRule>()?;
-    dates_module.add_function(pyo3::wrap_pyfunction_bound!(schedule::py_generate_schedule, m.py())?)?;
-    dates_module.add_function(pyo3::wrap_pyfunction_bound!(calendar::py_available_calendars, m.py())?)?;
+    dates_module.add_function(pyo3::wrap_pyfunction_bound!(
+        schedule::py_generate_schedule,
+        m.py()
+    )?)?;
+    dates_module.add_function(pyo3::wrap_pyfunction_bound!(
+        calendar::py_available_calendars,
+        m.py()
+    )?)?;
     dates_module.add_function(pyo3::wrap_pyfunction_bound!(py_third_wednesday, m.py())?)?;
     dates_module.add_function(pyo3::wrap_pyfunction_bound!(py_next_imm, m.py())?)?;
     dates_module.add_function(pyo3::wrap_pyfunction_bound!(py_next_cds_date, m.py())?)?;
@@ -82,7 +88,10 @@ fn rfin(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("GBP", PC::from_inner(CoreCurrency::GBP))?;
     m.add("JPY", PC::from_inner(CoreCurrency::JPY))?;
 
-    m.add_function(pyo3::wrap_pyfunction_bound!(schedule::py_generate_schedule, m.py())?)?;
+    m.add_function(pyo3::wrap_pyfunction_bound!(
+        schedule::py_generate_schedule,
+        m.py()
+    )?)?;
     m.add_function(pyo3::wrap_pyfunction_bound!(py_third_wednesday, m.py())?)?;
     m.add_function(pyo3::wrap_pyfunction_bound!(py_next_imm, m.py())?)?;
     m.add_function(pyo3::wrap_pyfunction_bound!(py_next_cds_date, m.py())?)?;

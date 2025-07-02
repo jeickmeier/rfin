@@ -81,7 +81,10 @@ impl<'a> CompositeCalendar<'a> {
 
     /// Convenience wrapper constructing a composite with explicit `mode`.
     #[must_use]
-    pub const fn merge_with_mode(calendars: &'a [&'a dyn HolidayCalendar], mode: MergeMode) -> Self {
+    pub const fn merge_with_mode(
+        calendars: &'a [&'a dyn HolidayCalendar],
+        mode: MergeMode,
+    ) -> Self {
         Self::new(calendars, mode)
     }
 }
@@ -109,7 +112,7 @@ impl HolidayCalendar for CompositeCalendar<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dates::calendars::{Target2, Gblo};
+    use crate::dates::calendars::{Gblo, Target2};
     use time::{Date, Month};
 
     #[test]
@@ -134,4 +137,4 @@ mod tests {
         assert!(cal_union.is_holiday(d2));
         assert!(!cal_inter.is_holiday(d2));
     }
-} 
+}

@@ -64,4 +64,4 @@ mod tests {
         let d = Date::from_calendar_date(2023, Month::September, 23).unwrap();
         assert!(AutumnalEquinoxJP.applies(d));
     }
-} 
+}
