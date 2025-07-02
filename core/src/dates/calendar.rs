@@ -53,7 +53,7 @@ pub enum BusDayConv {
 }
 
 /// Adjust `date` according to `conv` utilising `cal` for holiday lookup.
-pub fn adjust<C: HolidayCalendar>(date: Date, conv: BusDayConv, cal: &C) -> Date {
+pub fn adjust<C: HolidayCalendar + ?Sized>(date: Date, conv: BusDayConv, cal: &C) -> Date {
     match conv {
         BusDayConv::Unadjusted => date,
         BusDayConv::Following => adjust_following(date, cal),
@@ -78,7 +78,7 @@ pub fn adjust<C: HolidayCalendar>(date: Date, conv: BusDayConv, cal: &C) -> Date
 }
 
 #[inline]
-fn adjust_following<C: HolidayCalendar>(mut date: Date, cal: &C) -> Date {
+fn adjust_following<C: HolidayCalendar + ?Sized>(mut date: Date, cal: &C) -> Date {
     while !cal.is_business_day(date) {
         // Safe unwrap: adding 1 day to a valid Date always succeeds within
         // the representable range of the `time` crate (±10k years).
@@ -88,7 +88,7 @@ fn adjust_following<C: HolidayCalendar>(mut date: Date, cal: &C) -> Date {
 }
 
 #[inline]
-fn adjust_preceding<C: HolidayCalendar>(mut date: Date, cal: &C) -> Date {
+fn adjust_preceding<C: HolidayCalendar + ?Sized>(mut date: Date, cal: &C) -> Date {
     while !cal.is_business_day(date) {
         date = date - Duration::DAY;
     }

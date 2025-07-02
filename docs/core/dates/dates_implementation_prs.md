@@ -51,7 +51,7 @@ This replaces the original 13-PR roadmap. Because we now leverage the `time` cra
 
 ---
 
-## PR #4 — Holiday Calendars & Business-Day Adjustment (`calendar.rs`)
+## PR #4 — Holiday Calendars & Business-Day Adjustment (`calendar.rs`)   ✅
 
 **Goals**
 * Define `trait HolidayCalendar { fn is_holiday(&self, Date) -> bool }`.
@@ -65,7 +65,7 @@ This replaces the original 13-PR roadmap. Because we now leverage the `time` cra
 
 ---
 
-## PR #5 — Schedule Builder DSL (`schedule.rs`)
+## PR #5 — Schedule Builder DSL (`schedule.rs`)   ✅
 
 **Goals**
 * Implement `ScheduleBuilder` fluent API producing `SmallVec<[Date; 32]>` schedules.
@@ -79,36 +79,36 @@ This replaces the original 13-PR roadmap. Because we now leverage the `time` cra
 
 ---
 
-## PR #6 — Weekend Rules & Composite Calendars (`cal/weekend.rs`, `cal/composite.rs`)
+## PR #6 — Composite Calendars (`cal/composite.rs`)   ✅
 
 **Goals**
-* Implement `WeekendRule` enum (`SatSun`, `FriSat`, `SunThu`, `Custom(BitMask)`).
 * Provide `CompositeCalendar` with merge modes `Union` (default) & `Intersection`.
 * Blanket-implement `HolidayCalendar` for composites.
+* Useful for cross-currency swaps or bonds that might reference two calendars.
 
 **Acceptance criteria**
-* `WeekendRule::SatSun.is_weekend(date!(2025-06-28))` == `true`.
 * `CompositeCalendar::merge(&[TARGET2, LSE])` union vs intersection unit tests pass.
 
 ---
 
-## PR #7 — IMM / Quarterly Helpers (`cal/imm.rs`)
+## PR #7 — IMM / Quarterly Helpers (`imm.rs`)
 
 **Goals**
 * Add `third_wednesday(month, year)` and `next_imm(date)` helpers.
+* Add `next_cds_date(date)` helpers
 * Re-export via crate root for downstream derivatives pricing.
 
 **Acceptance criteria**
 * `third_wednesday(3, 2025)` == `2025-03-19`.
 * `next_imm(date!(2025-03-20))` == `2025-06-18`.
+* `next_cds_date(date!(2025-03-10))` == `2025-03-20`
 
 ---
 
 ## PR #8 — Documentation & Release v0.1.0
 
 **Goals**
-* Finalise rustdoc, README badges, CHANGELOG, and run `cargo public-api`.
-* Tag release `v0.1.0`.
+* Finalise rustdoc, README badges.
 
 **Acceptance criteria**
 * `cargo publish --dry-run` succeeds.

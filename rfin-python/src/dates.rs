@@ -7,6 +7,7 @@
 use pyo3::prelude::*;
 use rfin_core::Date as CoreDate;
 use time::Month;
+use rfin_core::dates::{third_wednesday as core_third_wed, next_imm as core_next_imm, next_cds_date as core_next_cds};
 
 /// Python wrapper for a calendar date (YYYY-MM-DD).
 #[pyclass(name = "Date", module = "rfin.dates")]
@@ -110,4 +111,28 @@ impl PyDate {
     pub(crate) fn from_core(inner: CoreDate) -> Self {
         PyDate { inner }
     }
+}
+
+/// Return the third Wednesday of the specified `month` and `year`.
+#[pyfunction(name = "third_wednesday", text_signature = "(month, year)")]
+pub fn py_third_wednesday(month: u8, year: i32) -> PyResult<PyDate> {
+    let month_enum = Month::try_from(month).map_err(|_| {
+        PyErr::new::<pyo3::exceptions::PyValueError, _>(
+            "Month must be in range 1-12",
+        )
+    })?;
+    let d = core_third_wed(month_enum, year);
+    Ok(PyDate::from_core(d))
+}
+
+/// Return the next IMM date strictly after `date`.
+#[pyfunction(name = "next_imm", text_signature = "(date)")]
+pub fn py_next_imm(date: &PyDate) -> PyDate {
+    PyDate::from_core(core_next_imm(date.inner()))
+}
+
+/// Return the next CDS roll date strictly after `date`.
+#[pyfunction(name = "next_cds_date", text_signature = "(date)")]
+pub fn py_next_cds_date(date: &PyDate) -> PyDate {
+    PyDate::from_core(core_next_cds(date.inner()))
 }

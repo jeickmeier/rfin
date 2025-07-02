@@ -9,6 +9,7 @@ use rfin_core::Date as CoreDate;
 use rfin_core::DateExt;
 use time::Month;
 use wasm_bindgen::prelude::*;
+use rfin_core::dates::{third_wednesday as core_third_wed, next_imm as core_next_imm, next_cds_date as core_next_cds};
 
 /// A calendar date (YYYY-MM-DD) exposed to JavaScript.
 #[wasm_bindgen]
@@ -145,4 +146,25 @@ pub fn day_count_year_fraction(
     let core = CoreDayCount::from(convention);
     core.year_fraction(start.inner(), end.inner())
         .map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
+/// Return the third Wednesday of the given `month` (1-12) and `year`.
+#[wasm_bindgen(js_name = "thirdWednesday")]
+pub fn third_wednesday(month: u8, year: i32) -> Result<Date, JsValue> {
+    let month_enum = Month::try_from(month)
+        .map_err(|_| JsValue::from_str("Month must be in range 1-12"))?;
+    let d = core_third_wed(month_enum, year);
+    Ok(Date::from_core(d))
+}
+
+/// Return the next IMM date strictly after `date`.
+#[wasm_bindgen(js_name = "nextImm")]
+pub fn next_imm(date: &Date) -> Date {
+    Date::from_core(core_next_imm(date.inner()))
+}
+
+/// Return the next CDS roll date strictly after `date`.
+#[wasm_bindgen(js_name = "nextCdsDate")]
+pub fn next_cds_date(date: &Date) -> Date {
+    Date::from_core(core_next_cds(date.inner()))
 }

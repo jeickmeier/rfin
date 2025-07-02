@@ -47,7 +47,7 @@
 
     <script type="module">
         // Adjust the path if your build output lives elsewhere
-        import init, { Date, DayCount, dayCountYearFraction, Calendar, BusDayConvention, availableCalendars } from '../../../rfin-wasm/pkg/rfin_wasm.js';
+        import init, { Date, DayCount, dayCountYearFraction, Calendar, BusDayConvention, Frequency, StubRule, generateSchedule, availableCalendars, thirdWednesday, nextImm, nextCdsDate } from '../../../rfin-wasm/pkg/rfin_wasm.js';
 
         async function addSection(title, content) {
             const output = document.getElementById('output');
@@ -78,6 +78,15 @@
                     <p>Quarter: Q${trade.quarter()}</p>
                     <p>Fiscal year: ${trade.fiscalYear()}</p>`);
 
+                // 3b. IMM helpers
+                const twMar = thirdWednesday(3, 2025);
+                const nextImmDate = nextImm(trade);
+                const nextCds = nextCdsDate(trade);
+                addSection('3b. IMM / Quarterly Helpers', `
+                    <p>Third Wednesday March 2025: <code>${twMar.toString()}</code></p>
+                    <p>Next IMM after ${trade.toString()}: <code>${nextImmDate.toString()}</code></p>
+                    <p>Next CDS date after ${trade.toString()}: <code>${nextCds.toString()}</code></p>`);
+
                 // 4. Business-day arithmetic
                 const plus3 = trade.addBusinessDays(3);
                 const minus2 = trade.addBusinessDays(-2);
@@ -101,16 +110,50 @@
                     <p>Is ${trade.toString()} a TARGET2 holiday? <strong>${isHol}</strong></p>
                     <p>Following adjustment: ${adj.toString()}</p>`);
 
-                // 7. Available calendars listing
+                // 6b. Union calendar (TARGET2 ∪ GBLO)
+                const calUnion = Calendar.target2().union(Calendar.gblo());
+                const isUnionHol = calUnion.isHoliday(trade);
+                addSection('6b. Union Calendar', `
+                    <p>Is ${trade.toString()} a holiday in TARGET2 ∪ GBLO? <strong>${isUnionHol}</strong></p>`);
+
+                // 7. Available holiday calendars listing
                 const cals = availableCalendars();
                 addSection('7. Available Holiday Calendars', `<p>${cals.join(', ')}</p>`);
 
-                // 8. Error handling for invalid dates
+                // 8. Schedule generation
+                const scheduleSemi = generateSchedule(new Date(2025,1,15), new Date(2030,1,15), Frequency.SemiAnnual);
+                addSection('8. Schedule Generation – Semi-Annual', `Generated semi-annual schedule (${scheduleSemi.length} dates): <code>${scheduleSemi.map(d => d.toString()).join(', ')}</code>`);
+
+                // Monthly schedule examples (unadjusted & following)
+                const schedMonthly = generateSchedule(new Date(2025,1,15), new Date(2030,1,15), Frequency.Monthly);
+                const schedMonthlyAdj = generateSchedule(new Date(2025,1,15), new Date(2030,1,15), Frequency.Monthly, BusDayConvention.Following);
+                addSection('9. Monthly Schedules', `Unadjusted (${schedMonthly.length} dates): <code>${schedMonthly.map(d => d.toString()).join(', ')}</code><br>
+                    Following adjusted (${schedMonthlyAdj.length} dates): <code>${schedMonthlyAdj.map(d => d.toString()).join(', ')}</code>`);
+
+                // Monthly schedule with short front stub
+                const schedStub = generateSchedule(new Date(2025,1,15), new Date(2030,1,15), Frequency.Monthly, undefined, StubRule.ShortFront);
+                const schedStubAdj = generateSchedule(new Date(2025,1,15), new Date(2030,1,15), Frequency.Monthly, BusDayConvention.Following, StubRule.ShortFront);
+                addSection('10. Monthly Schedules with Short Front Stub', `Unadjusted (${schedStub.length} dates): <code>${schedStub.map(d => d.toString()).join(', ')}</code><br>
+                    Following adjusted (${schedStubAdj.length} dates): <code>${schedStubAdj.map(d => d.toString()).join(', ')}</code>`);
+
+                // Semi-annual schedule with Short Front stub
+                const startStubSA = new Date(2025,1,15);
+                const endStubSA   = new Date(2027,10,15);
+                const schedFrontSA = generateSchedule(startStubSA, endStubSA, Frequency.SemiAnnual, BusDayConvention.Unadjusted, StubRule.ShortFront);
+                addSection('11. Semi-Annual Schedule with Short Front Stub', `Start ${startStubSA.toString()} – End ${endStubSA.toString()} | Total dates: ${schedFrontSA.length}<br>
+                    <code>${schedFrontSA.map((d,i)=>`${i}: ${d.toString()}${i===1?" ← stub end":""}`).join('<br>')}</code>`);
+
+                // Semi-annual schedule with Short Back stub
+                const schedBackSA = generateSchedule(startStubSA, endStubSA, Frequency.SemiAnnual, BusDayConvention.Unadjusted, StubRule.ShortBack);
+                addSection('12. Semi-Annual Schedule with Short Back Stub', `Start ${startStubSA.toString()} – End ${endStubSA.toString()} | Total dates: ${schedBackSA.length}<br>
+                    <code>${schedBackSA.map((d,i,arr)=>`${i}: ${d.toString()}${i===arr.length-2?" ← stub start":""}`).join('<br>')}</code>`);
+
+                // 13. Error handling for invalid dates
                 try {
                     const invalid = new Date(2025, 2, 30);
-                    addSection('8. Invalid Date', `<p class="error">Unexpected success: ${invalid.toString()}</p>`);
+                    addSection('13. Invalid Date', `<p class="error">Unexpected success: ${invalid.toString()}</p>`);
                 } catch (e) {
-                    addSection('8. Invalid Date', `<p class="success">✓ Properly threw error for invalid date</p>
+                    addSection('13. Invalid Date', `<p class="success">✓ Properly threw error for invalid date</p>
                         <p>Error: <code>${e.message}</code></p>`);
                 }
 

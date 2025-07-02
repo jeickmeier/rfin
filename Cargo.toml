@@ -6,6 +6,6 @@ resolver = "2"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.78"
-authors = ["RFin Contributors"]
+authors = ["Jon Eickmeier (me@jeickmeier.com)"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/rustfin/rfin"

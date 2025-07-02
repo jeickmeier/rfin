@@ -47,3 +47,15 @@ pub use rules::*;
 pub use calendar::{adjust, BusDayConv, HolidayCalendar};
 
 pub use calendar::available_calendars;
+
+mod schedule;
+
+pub use schedule::{ScheduleBuilder, Frequency, Schedule, StubRule};
+
+mod composite;
+
+pub use composite::{CompositeCalendar, MergeMode};
+
+mod imm;
+
+pub use imm::{third_wednesday, next_imm, next_cds_date};

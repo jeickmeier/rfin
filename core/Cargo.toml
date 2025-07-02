@@ -16,6 +16,7 @@ thiserror = { version = "1.0", default-features = false, optional = true }
 num_enum = { version = "0.7", default-features = false }
 num-traits = { version = "0.2", default-features = false, features = ["libm"] }
 time = { version = "0.3", default-features = false }
+smallvec = { version = "1.11", default-features = false }
 
 [dev-dependencies]
 serde_json = "1.0"
