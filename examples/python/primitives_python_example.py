@@ -20,7 +20,7 @@ Or simply run with uv directly:
 """
 
 import rfin
-from rfin import Currency, Money, USD, EUR, GBP, JPY
+from rfin import Currency, Money
 
 print(f"RustFin version: {rfin.__version__}")
 print()
@@ -28,25 +28,16 @@ print()
 
 print("=== Currency Examples ===")
 
-# Create currencies using different methods
-print("1. Creating currencies:")
+# Create common currencies once
+USD = Currency("USD")
+EUR = Currency("EUR")
+GBP = Currency("GBP")
+JPY = Currency("JPY")
 
-# Method 1: From string
-usd_from_str = Currency("USD")
-print(f"   USD from string: {usd_from_str}")
-print(f"   Numeric code: {usd_from_str.numeric_code}")
-print(f"   Minor units: {usd_from_str.decimals}")
-
-# Method 2: Using class methods
-eur_from_method = Currency.eur()
-print(f"   EUR from method: {eur_from_method}")
-print(f"   Numeric code: {eur_from_method.numeric_code}")
-print(f"   Minor units: {eur_from_method.decimals}")
-
-# Method 3: Using predefined constants
-print(f"   GBP constant: {GBP}")
-print(f"   Numeric code: {GBP.numeric_code}")
-print(f"   Minor units: {GBP.decimals}")
+# Display basic properties
+print(f"   USD: code={USD.code}, numeric={USD.numeric_code}, decimals={USD.decimals}")
+print(f"   EUR: code={EUR.code}, numeric={EUR.numeric_code}, decimals={EUR.decimals}")
+print(f"   GBP: code={GBP.code}, numeric={GBP.numeric_code}, decimals={GBP.decimals}")
 
 print()
 print("2. Currency properties:")
@@ -57,8 +48,8 @@ for curr in currencies:
 print()
 print("3. Currency comparison:")
 usd1 = Currency("USD")
-usd2 = Currency.usd()
-print(f"   USD from string == USD from method: {usd1 == usd2}")
+usd2 = USD
+print(f"   USD variable matches new instance: {usd1 == usd2}")
 print(f"   USD == EUR: {USD == EUR}")
 
 print()
