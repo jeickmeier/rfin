@@ -21,62 +21,6 @@ impl Currency {
         Ok(Currency { inner: currency })
     }
 
-    /// Create Currency::USD
-    #[wasm_bindgen(js_name = "USD")]
-    pub fn usd() -> Currency {
-        Currency {
-            inner: CoreCurrency::USD,
-        }
-    }
-
-    /// Create Currency::EUR
-    #[wasm_bindgen(js_name = "EUR")]
-    pub fn eur() -> Currency {
-        Currency {
-            inner: CoreCurrency::EUR,
-        }
-    }
-
-    /// Create Currency::GBP
-    #[wasm_bindgen(js_name = "GBP")]
-    pub fn gbp() -> Currency {
-        Currency {
-            inner: CoreCurrency::GBP,
-        }
-    }
-
-    /// Create Currency::JPY
-    #[wasm_bindgen(js_name = "JPY")]
-    pub fn jpy() -> Currency {
-        Currency {
-            inner: CoreCurrency::JPY,
-        }
-    }
-
-    /// Create Currency::CHF
-    #[wasm_bindgen(js_name = "CHF")]
-    pub fn chf() -> Currency {
-        Currency {
-            inner: CoreCurrency::CHF,
-        }
-    }
-
-    /// Create Currency::AUD
-    #[wasm_bindgen(js_name = "AUD")]
-    pub fn aud() -> Currency {
-        Currency {
-            inner: CoreCurrency::AUD,
-        }
-    }
-
-    /// Create Currency::CAD
-    #[wasm_bindgen(js_name = "CAD")]
-    pub fn cad() -> Currency {
-        Currency {
-            inner: CoreCurrency::CAD,
-        }
-    }
-
     /// Get the currency code as a string
     #[wasm_bindgen(getter)]
     pub fn code(&self) -> String {

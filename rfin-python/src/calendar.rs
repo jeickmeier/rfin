@@ -1,5 +1,3 @@
-#![allow(deprecated)]
-
 //! Python bindings for Calendar functionality (holiday calendars, business-day adjustment).
 
 use pyo3::prelude::*;
@@ -11,8 +9,8 @@ use rfin_core::dates::{adjust, BusDayConv, CompositeCalendar, HolidayCalendar, T
 use crate::dates::PyDate;
 
 /// Enum of supported business-day conventions (Python side)
-#[pyclass(name = "BusDayConvention", module = "rfin.dates")]
-#[derive(Clone, Copy)]
+#[pyclass(name = "BusDayConvention", module = "rfin.dates", eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PyBusDayConv {
     Unadjusted,
     Following,
@@ -41,6 +39,7 @@ enum CalendarKind {
 }
 
 impl CalendarKind {
+    #[allow(dead_code)]
     fn as_hcal(&self) -> &dyn HolidayCalendar {
         match self {
             CalendarKind::Target2(cal) => cal,
@@ -144,6 +143,7 @@ impl PyCalendar {
 // Separate inherent impl block for internal helpers (not exposed to Python)
 impl PyCalendar {
     /// Internal: obtain reference to underlying HolidayCalendar trait object.
+    #[allow(dead_code)]
     pub(crate) fn hcal(&self) -> &dyn HolidayCalendar {
         self.kind.as_hcal()
     }
