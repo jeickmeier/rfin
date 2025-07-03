@@ -4,7 +4,6 @@
 //! `no_std` compatible.  More advanced calendar-aware variants will be added in later
 //! pull-requests once the holiday calendar machinery is available.
 
-#![allow(clippy::many_single_char_names)]
 #![allow(clippy::wrong_self_convention, clippy::assign_op_pattern)]
 
 use time::{Date, Duration, OffsetDateTime, Weekday};

@@ -24,7 +24,7 @@
 //! // Perform arithmetic that refuses to mix currencies
 //! let subtotal = Money::eur(49.50);
 //! let tax      = Money::eur( 9.90);
-//! let total    = subtotal.checked_add(tax).unwrap();
+//! let total    = (subtotal + tax).unwrap();
 //! assert_eq!(format!("{}", total), "59.4 EUR");
 //! ```
 //!
@@ -55,13 +55,17 @@ pub mod dates;
 
 // Re-export main error type for convenience
 pub use error::Error;
+/// Convenient alias carrying the crate's unified [`Error`].
+pub type Result<T> = core::result::Result<T, Error>;
 
 // Top-level re-exports of commonly used primitives for easier discovery
 pub use crate::currency::Currency;
 pub use crate::money::Money;
-pub use crate::money::{DefaultMoney, MoneyF32, MoneyF64, MoneyI32, MoneyI64};
 
 // Top-level re-exports for ergonomic access – keeps `use` sites terse.
 pub use crate::dates::DayCount;
 pub use crate::dates::{Date, OffsetDateTime, PrimitiveDateTime};
 pub use crate::dates::{DateExt, OffsetDateTimeExt};
+
+// Schedule frequency re-export
+pub use crate::dates::Frequency;

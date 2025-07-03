@@ -4,7 +4,7 @@
 //!
 //! 1. [`HolidayCalendar`] – a trait for querying whether a given [`Date`]
 //!    is a holiday/business-day for some market.
-//! 2. [`BusDayConv`] – an enum of common business-day conventions
+//! 2. [`BusinessDayConvention`] – an enum of common business-day conventions
 //!    (following/preceding, modified, …).
 //! 3. [`adjust`] – helper that shifts a date according to a convention
 //!    and calendar.
@@ -14,7 +14,6 @@
 //! remains lightweight and allocation-free so the entire module compiles
 //! in `#![no_std]` environments.
 
-#![allow(clippy::many_single_char_names)]
 #![allow(clippy::assign_op_pattern)]
 
 use time::{Date, Duration, Weekday};
@@ -39,7 +38,7 @@ pub trait HolidayCalendar {
 
 /// Common business-day adjustment conventions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BusDayConv {
+pub enum BusinessDayConvention {
     /// Leave the date unadjusted (may fall on weekend/holiday).
     Unadjusted,
     /// Next business day (may roll into next month).
@@ -53,11 +52,15 @@ pub enum BusDayConv {
 }
 
 /// Adjust `date` according to `conv` utilising `cal` for holiday lookup.
-pub fn adjust<C: HolidayCalendar + ?Sized>(date: Date, conv: BusDayConv, cal: &C) -> Date {
+pub fn adjust<C: HolidayCalendar + ?Sized>(
+    date: Date,
+    conv: BusinessDayConvention,
+    cal: &C,
+) -> Date {
     match conv {
-        BusDayConv::Unadjusted => date,
-        BusDayConv::Following => adjust_following(date, cal),
-        BusDayConv::ModifiedFollowing => {
+        BusinessDayConvention::Unadjusted => date,
+        BusinessDayConvention::Following => adjust_following(date, cal),
+        BusinessDayConvention::ModifiedFollowing => {
             let adj = adjust_following(date, cal);
             if adj.month() == date.month() {
                 adj
@@ -65,8 +68,8 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(date: Date, conv: BusDayConv, cal: &C
                 adjust_preceding(date, cal)
             }
         }
-        BusDayConv::Preceding => adjust_preceding(date, cal),
-        BusDayConv::ModifiedPreceding => {
+        BusinessDayConvention::Preceding => adjust_preceding(date, cal),
+        BusinessDayConvention::ModifiedPreceding => {
             let adj = adjust_preceding(date, cal);
             if adj.month() == date.month() {
                 adj
@@ -103,5 +106,5 @@ fn adjust_preceding<C: HolidayCalendar + ?Sized>(mut date: Date, cal: &C) -> Dat
 /// compiled into the crate (requires enabling the `holidays` feature)
 #[inline]
 pub const fn available_calendars() -> &'static [&'static str] {
-    crate::dates::calendars::available_calendars()
+    crate::dates::holiday::calendars::ALL_IDS
 }

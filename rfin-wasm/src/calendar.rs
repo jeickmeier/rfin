@@ -1,6 +1,8 @@
 use js_sys::Array;
 use rfin_core::dates::calendars::Gblo;
-use rfin_core::dates::{adjust, BusDayConv, CompositeCalendar, HolidayCalendar, Target2};
+use rfin_core::dates::{
+    adjust, BusinessDayConvention as BusDayConv, CompositeCalendar, HolidayCalendar, Target2,
+};
 use wasm_bindgen::prelude::*;
 
 use crate::dates::Date;

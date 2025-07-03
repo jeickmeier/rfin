@@ -209,8 +209,8 @@ mod tests {
     #[cfg(feature = "std")]
     fn test_currency_error_display() {
         use crate::error::Error;
-        let error = Error::InvalidCurrency;
-        assert_eq!(format!("{}", error), "Invalid currency code");
+        let error = Error::InvalidInput;
+        assert_eq!(format!("{}", error), "Invalid input data");
     }
 
     #[cfg(feature = "serde")]

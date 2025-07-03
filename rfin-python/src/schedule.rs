@@ -2,7 +2,7 @@
 
 use pyo3::prelude::*;
 
-use rfin_core::dates::{Frequency as CoreFrequency, ScheduleBuilder, StubRule as CoreStubRule};
+use rfin_core::dates::{schedule, Frequency as CoreFrequency, StubKind as CoreStubRule};
 
 use crate::calendar::{PyBusDayConv, PyCalendar};
 use crate::dates::PyDate;
@@ -23,13 +23,13 @@ pub enum PyFrequency {
 impl From<PyFrequency> for CoreFrequency {
     fn from(f: PyFrequency) -> Self {
         match f {
-            PyFrequency::Annual => CoreFrequency::Annual,
-            PyFrequency::SemiAnnual => CoreFrequency::SemiAnnual,
-            PyFrequency::Quarterly => CoreFrequency::Quarterly,
-            PyFrequency::Monthly => CoreFrequency::Monthly,
-            PyFrequency::BiWeekly => CoreFrequency::BiWeekly,
-            PyFrequency::Weekly => CoreFrequency::Weekly,
-            PyFrequency::Daily => CoreFrequency::Daily,
+            PyFrequency::Annual => CoreFrequency::Months(12),
+            PyFrequency::SemiAnnual => CoreFrequency::Months(6),
+            PyFrequency::Quarterly => CoreFrequency::Months(3),
+            PyFrequency::Monthly => CoreFrequency::Months(1),
+            PyFrequency::BiWeekly => CoreFrequency::Days(14),
+            PyFrequency::Weekly => CoreFrequency::Days(7),
+            PyFrequency::Daily => CoreFrequency::Days(1),
         }
     }
 }
@@ -74,17 +74,10 @@ pub fn py_generate_schedule(
     calendar: Option<&PyCalendar>,
     stub: Option<PyStubRule>,
 ) -> PyResult<Vec<PyDate>> {
-    let mut builder = ScheduleBuilder::new(start.inner(), end.inner(), frequency.into());
-
-    if let Some(s) = stub {
-        builder = builder.stub(s.into());
-    }
-
-    if let (Some(conv), Some(cal)) = (convention, calendar) {
-        builder = builder.adjust_with(conv.into(), cal.hcal());
-    }
-
-    let sched = builder.generate();
-    let result = sched.into_iter().map(PyDate::from_core).collect::<Vec<_>>();
+    // NOTE: Stub handling & business-day adjustment to be re-exposed in follow-up PR.
+    let _ = (convention, calendar, stub);
+    // Generate iterator
+    let iter = schedule(start.inner(), end.inner(), frequency.into());
+    let result = iter.map(PyDate::from_core).collect::<Vec<_>>();
     Ok(result)
 }

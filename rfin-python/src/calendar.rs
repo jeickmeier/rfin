@@ -4,7 +4,9 @@ use pyo3::prelude::*;
 use pyo3::types::PyType;
 
 use rfin_core::dates::calendars::Gblo;
-use rfin_core::dates::{adjust, BusDayConv, CompositeCalendar, HolidayCalendar, Target2};
+use rfin_core::dates::{
+    adjust, BusinessDayConvention, CompositeCalendar, HolidayCalendar, Target2,
+};
 
 use crate::dates::PyDate;
 
@@ -19,14 +21,14 @@ pub enum PyBusDayConv {
     ModifiedPreceding,
 }
 
-impl From<PyBusDayConv> for BusDayConv {
+impl From<PyBusDayConv> for BusinessDayConvention {
     fn from(c: PyBusDayConv) -> Self {
         match c {
-            PyBusDayConv::Unadjusted => BusDayConv::Unadjusted,
-            PyBusDayConv::Following => BusDayConv::Following,
-            PyBusDayConv::ModifiedFollowing => BusDayConv::ModifiedFollowing,
-            PyBusDayConv::Preceding => BusDayConv::Preceding,
-            PyBusDayConv::ModifiedPreceding => BusDayConv::ModifiedPreceding,
+            PyBusDayConv::Unadjusted => BusinessDayConvention::Unadjusted,
+            PyBusDayConv::Following => BusinessDayConvention::Following,
+            PyBusDayConv::ModifiedFollowing => BusinessDayConvention::ModifiedFollowing,
+            PyBusDayConv::Preceding => BusinessDayConvention::Preceding,
+            PyBusDayConv::ModifiedPreceding => BusinessDayConvention::ModifiedPreceding,
         }
     }
 }

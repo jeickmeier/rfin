@@ -28,7 +28,6 @@
 //! assert_eq!(cds, Date::from_calendar_date(2025, Month::March, 20).unwrap());
 //! ```
 
-#![allow(clippy::many_single_char_names)]
 #![allow(clippy::assign_op_pattern)]
 
 use time::{Date, Duration, Month, Weekday};

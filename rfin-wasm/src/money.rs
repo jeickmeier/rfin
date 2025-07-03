@@ -10,7 +10,7 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 #[derive(Clone, Debug)]
 pub struct Money {
-    inner: CoreMoney<f64>,
+    inner: CoreMoney,
 }
 
 #[wasm_bindgen]
@@ -19,7 +19,7 @@ impl Money {
     #[wasm_bindgen(constructor)]
     pub fn new(amount: f64, currency: Currency) -> Self {
         Money {
-            inner: CoreMoney::from_parts(amount, currency.inner()),
+            inner: CoreMoney::new(amount, currency.inner()),
         }
     }
 
@@ -42,7 +42,7 @@ impl Money {
     /// Get the amount
     #[wasm_bindgen(getter)]
     pub fn amount(&self) -> f64 {
-        *self.inner.amount()
+        self.inner.amount()
     }
 
     /// Get the currency
@@ -157,7 +157,7 @@ impl Money {
 
 impl Money {
     /// Get the inner Money type
-    pub fn inner(&self) -> CoreMoney<f64> {
+    pub fn inner(&self) -> CoreMoney {
         self.inner
     }
 }

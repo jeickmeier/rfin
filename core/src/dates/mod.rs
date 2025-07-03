@@ -38,19 +38,15 @@ pub use daycount::DayCount;
 
 mod calendar;
 
-pub mod calendars;
-pub use calendars::*;
+// Re-export new holiday calendars at the top level for convenience
+pub use calendar::{adjust, BusinessDayConvention, HolidayCalendar};
 
-pub mod rules;
-pub use rules::*;
-
-pub use calendar::{adjust, BusDayConv, HolidayCalendar};
-
+// The canonical public discovery helper
 pub use calendar::available_calendars;
 
-mod schedule;
+mod schedule_iter;
 
-pub use schedule::{Frequency, Schedule, ScheduleBuilder, StubRule};
+pub use schedule_iter::{schedule, Frequency, ScheduleBuilder, StubKind};
 
 mod composite;
 
@@ -59,3 +55,15 @@ pub use composite::{CompositeCalendar, MergeMode};
 mod imm;
 
 pub use imm::{next_cds_date, next_imm, third_wednesday};
+
+pub mod holiday;
+// Re-export primary types for ergonomic use
+pub use holiday::{Calendar as HolidayCalendarNew, Rule as HolidayRule};
+
+// Re-export calendars directly for `rfin_core::dates::Target2` etc.
+pub use holiday::calendars::*;
+
+pub mod calendars {
+    #![allow(missing_docs)]
+    pub use crate::dates::holiday::calendars::*;
+}

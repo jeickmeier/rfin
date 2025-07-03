@@ -1,7 +1,7 @@
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
-use rfin_core::dates::{Frequency as CoreFrequency, ScheduleBuilder, StubRule as CoreStubRule};
+use rfin_core::dates::{schedule, Frequency as CoreFrequency, StubKind as CoreStubRule};
 
 use crate::calendar::BusDayConvention;
 use crate::dates::Date;
@@ -23,13 +23,13 @@ pub enum Frequency {
 impl From<Frequency> for CoreFrequency {
     fn from(f: Frequency) -> Self {
         match f {
-            Frequency::Annual => CoreFrequency::Annual,
-            Frequency::SemiAnnual => CoreFrequency::SemiAnnual,
-            Frequency::Quarterly => CoreFrequency::Quarterly,
-            Frequency::Monthly => CoreFrequency::Monthly,
-            Frequency::BiWeekly => CoreFrequency::BiWeekly,
-            Frequency::Weekly => CoreFrequency::Weekly,
-            Frequency::Daily => CoreFrequency::Daily,
+            Frequency::Annual => CoreFrequency::Months(12),
+            Frequency::SemiAnnual => CoreFrequency::Months(6),
+            Frequency::Quarterly => CoreFrequency::Months(3),
+            Frequency::Monthly => CoreFrequency::Months(1),
+            Frequency::BiWeekly => CoreFrequency::Days(14),
+            Frequency::Weekly => CoreFrequency::Days(7),
+            Frequency::Daily => CoreFrequency::Days(1),
         }
     }
 }
@@ -63,24 +63,18 @@ pub fn generate_schedule(
     convention: Option<BusDayConvention>,
     stub: Option<StubRule>,
 ) -> Array {
-    let mut builder = ScheduleBuilder::new(start.inner(), end.inner(), frequency.into());
+    let _ = stub; // not yet supported
 
-    if let Some(s) = stub {
-        builder = builder.stub(s.into());
-    }
-
-    let mut sched = builder.generate();
-
-    if let Some(conv) = convention {
-        let cal = rfin_core::dates::Target2::new();
-        for d in sched.iter_mut() {
-            *d = rfin_core::dates::adjust(*d, conv.into(), &cal);
-        }
-    }
+    let iter = schedule(start.inner(), end.inner(), frequency.into());
 
     let arr = Array::new();
-    for d in sched {
-        arr.push(&Date::from_core(d).into());
+    for d in iter {
+        let mut d_mut = d;
+        if let Some(conv) = convention {
+            let cal = rfin_core::dates::Target2::new();
+            d_mut = rfin_core::dates::adjust(d_mut, conv.into(), &cal);
+        }
+        arr.push(&Date::from_core(d_mut).into());
     }
     arr
 }

@@ -42,14 +42,15 @@ impl DayCount {
     /// Return the day count between `start` (inclusive) and `end` (exclusive).
     ///
     /// The output follows the specific convention rules and is **always ≥ 0**.
+    #[doc(hidden)]
     pub fn days(self, start: Date, end: Date) -> Result<i32, Error> {
         match start.cmp(&end) {
-            Ordering::Greater => Err(Error::InvalidResult),
+            Ordering::Greater => Err(Error::InvalidInput),
             Ordering::Equal => Ok(0),
             Ordering::Less => match self {
                 DayCount::Act360 | DayCount::Act365F | DayCount::ActAct => {
-                    let d = (end - start).whole_days();
-                    Ok(d as i32)
+                    let total_days = (end - start).whole_days();
+                    Ok(total_days as i32)
                 }
                 DayCount::Thirty360 => Ok(days_30_360_us(start, end)),
                 DayCount::ThirtyE360 => Ok(days_30e_360(start, end)),

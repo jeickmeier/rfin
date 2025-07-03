@@ -11,7 +11,7 @@ use rfin_core::money::Money as CoreMoney;
 #[pyclass(name = "Money")]
 #[derive(Clone)]
 pub struct PyMoney {
-    inner: CoreMoney<f64>,
+    inner: CoreMoney,
 }
 
 #[pymethods]
@@ -20,7 +20,7 @@ impl PyMoney {
     #[new]
     fn new(amount: f64, currency: &PyCurrency) -> Self {
         PyMoney {
-            inner: CoreMoney::from_parts(amount, currency.inner()),
+            inner: CoreMoney::new(amount, currency.inner()),
         }
     }
 
@@ -43,7 +43,7 @@ impl PyMoney {
     /// Get the amount
     #[getter]
     fn amount(&self) -> f64 {
-        *self.inner.amount()
+        self.inner.amount()
     }
 
     /// Get the currency
@@ -178,7 +178,7 @@ impl PyMoney {
 
 impl PyMoney {
     /// Get the inner Money type
-    pub fn inner(&self) -> CoreMoney<f64> {
+    pub fn inner(&self) -> CoreMoney {
         self.inner
     }
 }

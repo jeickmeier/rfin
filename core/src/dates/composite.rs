@@ -35,8 +35,6 @@
 //! assert!(!cal_inter.is_holiday(may26_2025));
 //! ```
 
-#![allow(clippy::many_single_char_names)]
-
 use super::HolidayCalendar;
 use time::Date;
 
