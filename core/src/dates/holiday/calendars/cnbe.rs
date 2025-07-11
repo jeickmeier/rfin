@@ -1,5 +1,9 @@
+use crate::dates::calendar::HolidayCalendar;
 use crate::dates::holiday::rule::Rule;
-use time::{Date, Month};
+use once_cell::sync::Lazy;
+use std::collections::{HashMap, HashSet};
+use std::sync::Mutex;
+use time::{Date, Duration, Month};
 
 const JAN1: Rule = Rule::fixed(Month::January, 1);
 const MAY1: Rule = Rule::fixed(Month::May, 1);
@@ -32,6 +36,22 @@ const CNBE_RULES: &[Rule] = &[
     },
 ];
 
+static CNBE_CACHE: Lazy<Mutex<HashMap<i32, HashSet<Date>>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+fn build_year(year: i32) -> HashSet<Date> {
+    let mut set: HashSet<Date> = HashSet::new();
+    // Iterate through all days of the year and collect holidays once.
+    let mut date = Date::from_calendar_date(year, Month::January, 1).unwrap();
+    while date.year() == year {
+        if CNBE_RULES.is_holiday(date) {
+            set.insert(date);
+        }
+        date += Duration::DAY;
+    }
+    set
+}
+
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Cnbe;
 
@@ -42,8 +62,11 @@ impl Cnbe {
     }
 }
 
-impl crate::dates::calendar::HolidayCalendar for Cnbe {
+impl HolidayCalendar for Cnbe {
     fn is_holiday(&self, date: Date) -> bool {
-        CNBE_RULES.is_holiday(date)
+        let year = date.year();
+        let mut map = CNBE_CACHE.lock().unwrap();
+        let set = map.entry(year).or_insert_with(|| build_year(year));
+        set.contains(&date)
     }
 }

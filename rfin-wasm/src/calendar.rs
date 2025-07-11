@@ -1,7 +1,7 @@
 use js_sys::Array;
-use rfin_core::dates::calendars::Gblo;
+use rfin_core::dates::holiday::calendars::calendar_by_id;
 use rfin_core::dates::{
-    adjust, BusinessDayConvention as BusDayConv, CompositeCalendar, HolidayCalendar, Target2,
+    adjust, BusinessDayConvention as BusDayConv, CompositeCalendar, HolidayCalendar,
 };
 use wasm_bindgen::prelude::*;
 
@@ -29,86 +29,67 @@ impl From<BusDayConvention> for BusDayConv {
     }
 }
 
-#[derive(Clone)]
-enum CalendarKind {
-    Target2,
-    Gblo,
-    Union(Vec<CalendarKind>),
-}
-
-impl CalendarKind {
-    fn is_holiday(&self, date: rfin_core::dates::Date) -> bool {
-        match self {
-            CalendarKind::Target2 => Target2::new().is_holiday(date),
-            CalendarKind::Gblo => Gblo::new().is_holiday(date),
-            CalendarKind::Union(list) => list.iter().any(|c| c.is_holiday(date)),
-        }
-    }
-
-    fn collect_refs<'a>(&'a self, out: &mut Vec<Box<dyn HolidayCalendar + 'a>>) {
-        match self {
-            CalendarKind::Target2 => out.push(Box::new(Target2::new())),
-            CalendarKind::Gblo => out.push(Box::new(Gblo::new())),
-            CalendarKind::Union(list) => {
-                for c in list {
-                    c.collect_refs(out);
-                }
-            }
-        }
-    }
-}
-
 #[wasm_bindgen]
 pub struct Calendar {
-    kind: CalendarKind,
+    ids: Vec<String>,
 }
 
 #[wasm_bindgen]
 impl Calendar {
-    #[wasm_bindgen(js_name = "target2")]
-    pub fn target2() -> Calendar {
-        Calendar {
-            kind: CalendarKind::Target2,
-        }
-    }
+    // ----------------------------
+    // Constructors / factories
+    // ----------------------------
 
-    #[wasm_bindgen(js_name = "gblo")]
-    pub fn gblo() -> Calendar {
-        Calendar {
-            kind: CalendarKind::Gblo,
+    /// Create calendar from identifier (e.g. "gblo", "target2").
+    #[wasm_bindgen(js_name = "fromId")]
+    pub fn from_id(id: &str) -> Result<Calendar, JsValue> {
+        if calendar_by_id(id).is_some() {
+            Ok(Calendar {
+                ids: vec![id.to_lowercase()],
+            })
+        } else {
+            Err(JsValue::from_str(&format!("Unknown calendar id '{id}'")))
         }
     }
 
     /// Return a calendar representing the union of `self` and `other`.
     #[wasm_bindgen(js_name = "union")]
     pub fn union(&self, other: &Calendar) -> Calendar {
-        Calendar {
-            kind: CalendarKind::Union(vec![self.kind.clone(), other.kind.clone()]),
+        let mut ids = self.ids.clone();
+        for id in &other.ids {
+            if !ids.contains(id) {
+                ids.push(id.clone());
+            }
         }
+        Calendar { ids }
     }
 
     #[wasm_bindgen(js_name = "isHoliday")]
     pub fn is_holiday(&self, date: &Date) -> bool {
-        self.kind.is_holiday(date.inner())
+        self.ids.iter().any(|id| {
+            calendar_by_id(id.as_str())
+                .map(|cal| cal.is_holiday(date.inner()))
+                .unwrap_or(false)
+        })
     }
 
     #[wasm_bindgen]
     pub fn adjust(&self, date: &Date, convention: BusDayConvention) -> Date {
         use rfin_core::dates::Date as CoreDate;
-        let adj: CoreDate = match &self.kind {
-            CalendarKind::Target2 => adjust(date.inner(), convention.into(), &Target2::new()),
-            CalendarKind::Gblo => adjust(date.inner(), convention.into(), &Gblo::new()),
-            CalendarKind::Union(list) => {
-                let mut refs: Vec<Box<dyn HolidayCalendar>> = Vec::new();
-                for c in list {
-                    c.collect_refs(&mut refs);
-                }
-                // transform to &dyn slice
-                let ref_slice: Vec<&dyn HolidayCalendar> =
-                    refs.iter().map(|b| b.as_ref()).collect();
-                let comp = CompositeCalendar::merge(&ref_slice);
-                adjust(date.inner(), convention.into(), &comp)
+        let mut refs: Vec<&dyn HolidayCalendar> = Vec::new();
+        for id in &self.ids {
+            if let Some(cal) = calendar_by_id(id.as_str()) {
+                refs.push(cal);
             }
+        }
+        if refs.is_empty() {
+            return date.clone();
+        }
+        let adj: CoreDate = if refs.len() == 1 {
+            adjust(date.inner(), convention.into(), refs[0])
+        } else {
+            let comp = CompositeCalendar::merge(&refs);
+            adjust(date.inner(), convention.into(), &comp)
         };
         Date::from_core(adj)
     }

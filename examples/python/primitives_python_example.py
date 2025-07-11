@@ -98,21 +98,25 @@ print(f"   Amount in GBP: {amount_gbp}")
 
 print()
 print("2. Using convenience constructors:")
-usd_money = Money.usd(250.0)
-eur_money = Money.eur(200.0)
+usd_money = Money(250.0, USD)
+eur_money = Money(200.0, EUR)
 
 print(f"   USD money: {usd_money}")
 print(f"   EUR money: {eur_money}")
 
 print()
 print("3. Money properties:")
-print(f"   {amount_usd} -> amount: {amount_usd.amount}, currency: {amount_usd.currency}")
-print(f"   {amount_eur} -> amount: {amount_eur.amount}, currency: {amount_eur.currency}")
+print(
+    f"   {amount_usd} -> amount: {amount_usd.amount}, currency: {amount_usd.currency}"
+)
+print(
+    f"   {amount_eur} -> amount: {amount_eur.amount}, currency: {amount_eur.currency}"
+)
 
 print()
 print("4. Money arithmetic (same currency):")
-usd_100 = Money.usd(100.0)
-usd_50 = Money.usd(50.0)
+usd_100 = Money(100.0, USD)
+usd_50 = Money(50.0, USD)
 
 # Addition
 total = usd_100 + usd_50
@@ -136,7 +140,7 @@ print(f"   2 * {usd_100} = {also_doubled}")
 
 print()
 print("5. Money comparison:")
-usd_100_copy = Money.usd(100.0)
+usd_100_copy = Money(100.0, USD)
 print(f"   Money(100, USD) == Money.usd(100): {usd_100 == usd_100_copy}")
 print(f"   Money(100, USD) == Money(50, USD): {usd_100 == usd_50}")
 
@@ -163,12 +167,12 @@ print()
 print("8. Complex calculations:")
 # Portfolio calculation
 portfolio_usd = [
-    Money.usd(1000.0),  # Cash
-    Money.usd(2500.0),  # Stocks
-    Money.usd(500.0),   # Bonds
+    Money(1000.0, USD),  # Cash
+    Money(2500.0, USD),  # Stocks
+    Money(500.0, USD),  # Bonds
 ]
 
-total_portfolio = Money.usd(0.0)
+total_portfolio = Money(0.0, USD)
 for holding in portfolio_usd:
     total_portfolio = total_portfolio + holding
 
@@ -180,7 +184,9 @@ cash_pct = (portfolio_usd[0].amount / total_portfolio.amount) * 100
 stocks_pct = (portfolio_usd[1].amount / total_portfolio.amount) * 100
 bonds_pct = (portfolio_usd[2].amount / total_portfolio.amount) * 100
 
-print(f"   Allocations: Cash {cash_pct:.1f}%, Stocks {stocks_pct:.1f}%, Bonds {bonds_pct:.1f}%")
+print(
+    f"   Allocations: Cash {cash_pct:.1f}%, Stocks {stocks_pct:.1f}%, Bonds {bonds_pct:.1f}%"
+)
 
 print()
 print("Currency and Money demo completed!")

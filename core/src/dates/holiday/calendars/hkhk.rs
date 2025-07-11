@@ -1,5 +1,9 @@
+use crate::dates::calendar::HolidayCalendar;
 use crate::dates::holiday::rule::Rule;
-use time::{Date, Month};
+use once_cell::sync::Lazy;
+use std::collections::{HashMap, HashSet};
+use std::sync::Mutex;
+use time::{Date, Duration, Month};
 
 const CNY: Rule = Rule::ChineseNewYear;
 
@@ -21,6 +25,21 @@ const HKHK_RULES: &[Rule] = &[
     Rule::BuddhasBirthday,
 ];
 
+static HKHK_CACHE: Lazy<Mutex<HashMap<i32, HashSet<Date>>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+fn build_year(year: i32) -> HashSet<Date> {
+    let mut set: HashSet<Date> = HashSet::new();
+    let mut date = Date::from_calendar_date(year, Month::January, 1).unwrap();
+    while date.year() == year {
+        if HKHK_RULES.is_holiday(date) {
+            set.insert(date);
+        }
+        date += Duration::DAY;
+    }
+    set
+}
+
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Hkhk;
 
@@ -31,8 +50,11 @@ impl Hkhk {
     }
 }
 
-impl crate::dates::calendar::HolidayCalendar for Hkhk {
+impl HolidayCalendar for Hkhk {
     fn is_holiday(&self, date: Date) -> bool {
-        HKHK_RULES.is_holiday(date)
+        let year = date.year();
+        let mut map = HKHK_CACHE.lock().unwrap();
+        let set = map.entry(year).or_insert_with(|| build_year(year));
+        set.contains(&date)
     }
 }

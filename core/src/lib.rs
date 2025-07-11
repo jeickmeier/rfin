@@ -22,10 +22,10 @@
 //! let eur = "eur".parse::<Currency>().unwrap();
 //!
 //! // Perform arithmetic that refuses to mix currencies
-//! let subtotal = Money::eur(49.50);
-//! let tax      = Money::eur( 9.90);
+//! let subtotal = Money::new(49.50, Currency::EUR);
+//! let tax      = Money::new( 9.90, Currency::EUR);
 //! let total    = (subtotal + tax).unwrap();
-//! assert_eq!(format!("{}", total), "59.4 EUR");
+//! assert_eq!(format!("{}", total), "EUR 59.40");
 //! ```
 //!
 //! # Cargo features

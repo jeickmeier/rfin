@@ -3,7 +3,6 @@
 
 use super::currency::PyCurrency;
 use pyo3::prelude::*;
-use pyo3::types::PyType;
 use rfin_core::error::Error;
 use rfin_core::money::Money as CoreMoney;
 
@@ -21,22 +20,6 @@ impl PyMoney {
     fn new(amount: f64, currency: &PyCurrency) -> Self {
         PyMoney {
             inner: CoreMoney::new(amount, currency.inner()),
-        }
-    }
-
-    /// Create Money in USD
-    #[classmethod]
-    fn usd(_cls: &Bound<'_, PyType>, amount: f64) -> Self {
-        PyMoney {
-            inner: CoreMoney::usd(amount),
-        }
-    }
-
-    /// Create Money in EUR
-    #[classmethod]
-    fn eur(_cls: &Bound<'_, PyType>, amount: f64) -> Self {
-        PyMoney {
-            inner: CoreMoney::eur(amount),
         }
     }
 

@@ -23,22 +23,6 @@ impl Money {
         }
     }
 
-    /// Create Money in USD
-    #[wasm_bindgen(js_name = "usd")]
-    pub fn usd(amount: f64) -> Self {
-        Money {
-            inner: CoreMoney::usd(amount),
-        }
-    }
-
-    /// Create Money in EUR
-    #[wasm_bindgen(js_name = "eur")]
-    pub fn eur(amount: f64) -> Self {
-        Money {
-            inner: CoreMoney::eur(amount),
-        }
-    }
-
     /// Get the amount
     #[wasm_bindgen(getter)]
     pub fn amount(&self) -> f64 {

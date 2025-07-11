@@ -1,4 +1,4 @@
-.PHONY: help setup-python build test clean fmt lint
+.PHONY: help setup-python build test clean fmt lint stubs
 
 help:
 	@echo "Available targets:"
@@ -9,6 +9,7 @@ help:
 	@echo "  lint          - Run linters"
 	@echo "  clean         - Clean build artifacts"
 	@echo "  python-dev    - Build Python bindings in development mode"
+	@echo "  stubs         - Regenerate *.pyi stub files for VS Code IntelliSense"
 	@echo "  wasm-build    - Build WASM package"
 
 setup-python:
@@ -65,3 +66,8 @@ python-dev:
 
 wasm-build:
 	cd rfin-wasm && wasm-pack build --target web
+
+stubs:
+	@echo "(re)generating Python stub files …"
+	bash ./scripts/generate-stubs.sh
+	@echo "Stub generation complete."

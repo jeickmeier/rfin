@@ -6,8 +6,8 @@
 //!
 //! ```
 //! use rfin_core::{Money, Currency};
-//! let price = Money::usd(19.99);
-//! let tax   = Money::eur( 5.0); // different currency ➜ error on addition
+//! let price = Money::new(19.99, Currency::USD);
+//! let tax   = Money::new( 5.0, Currency::EUR); // different currency ➜ error on addition
 //! assert!((price + tax).is_err());
 //! ```
 
@@ -16,23 +16,7 @@
 use crate::currency::Currency;
 use crate::error::Error;
 use core::fmt;
-use core::ops::{Div, Mul};
-
-// Internal macro to assert that two Money values share the same currency.
-// In release builds it performs the runtime check and returns the appropriate
-// `Error`; in debug builds it additionally triggers `debug_assert_eq!` to fail
-// fast during testing.
-macro_rules! assert_currency_eq {
-    ($lhs:expr, $rhs:expr) => {
-        // Fast‐fail in release via returned Error; debug builds no longer panic
-        if $lhs.currency != $rhs.currency {
-            return Err(Error::CurrencyMismatch {
-                expected: $lhs.currency,
-                actual: $rhs.currency,
-            });
-        }
-    };
-}
+use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 /// Monetary amount tagged with a [`Currency`].
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -48,21 +32,10 @@ impl Money {
     // ---------------------------------------------------------------------
 
     /// Create a new `Money` value.
+    #[must_use]
     #[inline]
     pub const fn new(amount: f64, currency: Currency) -> Self {
         Self { amount, currency }
-    }
-
-    /// Shorthand for `(amount, Currency::USD)`.
-    #[inline]
-    pub const fn usd(amount: f64) -> Self {
-        Self::new(amount, Currency::USD)
-    }
-
-    /// Shorthand for `(amount, Currency::EUR)`.
-    #[inline]
-    pub const fn eur(amount: f64) -> Self {
-        Self::new(amount, Currency::EUR)
     }
 
     /// Amount accessor (by value).
@@ -97,7 +70,7 @@ impl Money {
     #[must_use = "returns new Money if currencies match"]
     #[inline]
     pub fn checked_add(self, rhs: Self) -> Result<Self, Error> {
-        assert_currency_eq!(self, rhs);
+        ensure_same_currency(&self, &rhs)?;
         Ok(Self::new(self.amount + rhs.amount, self.currency))
     }
 
@@ -105,7 +78,7 @@ impl Money {
     #[must_use = "returns new Money if currencies match"]
     #[inline]
     pub fn checked_sub(self, rhs: Self) -> Result<Self, Error> {
-        assert_currency_eq!(self, rhs);
+        ensure_same_currency(&self, &rhs)?;
         Ok(Self::new(self.amount - rhs.amount, self.currency))
     }
 }
@@ -115,7 +88,7 @@ impl Money {
 // -------------------------------------------------------------------------
 impl fmt::Display for Money {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} {}", self.amount, self.currency)
+        write!(f, "{} {:.2}", self.currency, self.amount)
     }
 }
 
@@ -174,6 +147,68 @@ macro_rules! money {
 }
 
 // -------------------------------------------------------------------------
+// Unchecked arithmetic (default) – currency must match (debug_assert)
+// -------------------------------------------------------------------------
+
+impl Add for Money {
+    type Output = Result<Self, Error>;
+
+    #[inline]
+    fn add(self, rhs: Self) -> Self::Output {
+        ensure_same_currency(&self, &rhs)?;
+        Ok(Self::new(self.amount + rhs.amount, self.currency))
+    }
+}
+
+impl Sub for Money {
+    type Output = Result<Self, Error>;
+
+    #[inline]
+    fn sub(self, rhs: Self) -> Self::Output {
+        ensure_same_currency(&self, &rhs)?;
+        Ok(Self::new(self.amount - rhs.amount, self.currency))
+    }
+}
+
+impl AddAssign for Money {
+    fn add_assign(&mut self, rhs: Self) {
+        ensure_same_currency(self, &rhs).unwrap();
+        self.amount += rhs.amount;
+    }
+}
+
+impl SubAssign for Money {
+    fn sub_assign(&mut self, rhs: Self) {
+        ensure_same_currency(self, &rhs).unwrap();
+        self.amount -= rhs.amount;
+    }
+}
+
+impl MulAssign<f64> for Money {
+    fn mul_assign(&mut self, rhs: f64) {
+        self.amount *= rhs;
+    }
+}
+
+impl DivAssign<f64> for Money {
+    fn div_assign(&mut self, rhs: f64) {
+        self.amount /= rhs;
+    }
+}
+
+/// Ensure two `Money` values share the same currency.
+#[inline]
+fn ensure_same_currency(lhs: &Money, rhs: &Money) -> Result<(), Error> {
+    if lhs.currency != rhs.currency {
+        return Err(Error::CurrencyMismatch {
+            expected: lhs.currency,
+            actual: rhs.currency,
+        });
+    }
+    Ok(())
+}
+
+// -------------------------------------------------------------------------
 // Tests (basic – exhaustive suite lives in `tests/` folder)
 // -------------------------------------------------------------------------
 #[cfg(test)]
@@ -189,16 +224,16 @@ mod tests {
 
     #[test]
     fn checked_ops() {
-        let a = Money::usd(50.0);
-        let b = Money::usd(25.0);
+        let a = Money::new(50.0, Currency::USD);
+        let b = Money::new(25.0, Currency::USD);
         let c = (a + b).unwrap();
         assert_eq!(c.amount(), 75.0);
     }
 
     #[test]
     fn currency_mismatch_error() {
-        let usd = Money::usd(10.0);
-        let eur = Money::eur(10.0);
+        let usd = Money::new(10.0, Currency::USD);
+        let eur = Money::new(10.0, Currency::EUR);
         assert!((usd + eur).is_err());
     }
 
@@ -216,41 +251,5 @@ mod tests {
         assert_eq!(m1.amount(), 100.0);
         let m2: Money = (42_u64, Currency::EUR).into();
         assert_eq!(m2.amount(), 42.0);
-    }
-}
-
-// -------------------------------------------------------------------------
-// Unchecked arithmetic (default) – currency must match (debug_assert)
-// -------------------------------------------------------------------------
-
-use core::ops::{Add, Sub};
-
-impl Add for Money {
-    type Output = Result<Self, Error>;
-
-    #[inline]
-    fn add(self, rhs: Self) -> Self::Output {
-        if self.currency != rhs.currency {
-            return Err(Error::CurrencyMismatch {
-                expected: self.currency,
-                actual: rhs.currency,
-            });
-        }
-        Ok(Self::new(self.amount + rhs.amount, self.currency))
-    }
-}
-
-impl Sub for Money {
-    type Output = Result<Self, Error>;
-
-    #[inline]
-    fn sub(self, rhs: Self) -> Self::Output {
-        if self.currency != rhs.currency {
-            return Err(Error::CurrencyMismatch {
-                expected: self.currency,
-                actual: rhs.currency,
-            });
-        }
-        Ok(Self::new(self.amount - rhs.amount, self.currency))
     }
 }

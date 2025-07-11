@@ -1,12 +1,13 @@
 //! Python bindings for Calendar functionality (holiday calendars, business-day adjustment).
 
+#![allow(clippy::useless_conversion)]
+
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyType;
 
-use rfin_core::dates::calendars::Gblo;
-use rfin_core::dates::{
-    adjust, BusinessDayConvention, CompositeCalendar, HolidayCalendar, Target2,
-};
+use rfin_core::dates::holiday::calendars::calendar_by_id;
+use rfin_core::dates::{adjust, BusinessDayConvention, CompositeCalendar, HolidayCalendar};
 
 use crate::dates::PyDate;
 
@@ -33,121 +34,91 @@ impl From<PyBusDayConv> for BusinessDayConvention {
     }
 }
 
-#[derive(Clone)]
-enum CalendarKind {
-    Target2(Target2),
-    Gblo(Gblo),
-    Union(Vec<CalendarKind>),
-}
-
-impl CalendarKind {
-    #[allow(dead_code)]
-    fn as_hcal(&self) -> &dyn HolidayCalendar {
-        match self {
-            CalendarKind::Target2(cal) => cal,
-            CalendarKind::Gblo(cal) => cal,
-            CalendarKind::Union(_) => unreachable!("Composite calendars handled separately"),
-        }
-    }
-
-    fn is_holiday(&self, date: rfin_core::dates::Date) -> bool {
-        match self {
-            CalendarKind::Target2(cal) => cal.is_holiday(date),
-            CalendarKind::Gblo(cal) => cal.is_holiday(date),
-            CalendarKind::Union(list) => list.iter().any(|c| c.is_holiday(date)),
-        }
-    }
-
-    fn collect_refs<'a>(&'a self, out: &mut Vec<&'a dyn HolidayCalendar>) {
-        match self {
-            CalendarKind::Target2(cal) => out.push(cal),
-            CalendarKind::Gblo(cal) => out.push(cal),
-            CalendarKind::Union(list) => {
-                for c in list {
-                    c.collect_refs(out);
-                }
-            }
-        }
-    }
-}
-
 /// Calendar wrapper exposed to Python.
 #[pyclass(name = "Calendar", module = "rfin.dates")]
 #[derive(Clone)]
 pub struct PyCalendar {
-    kind: CalendarKind,
+    /// Identifiers of calendars making up this (possibly composite) calendar.
+    ids: Vec<String>,
 }
 
 #[pymethods]
 impl PyCalendar {
-    /// TARGET2 calendar (European settlement days).
+    // ----------------------------
+    // Constructors / factories
+    // ----------------------------
+
+    /// Create calendar from identifier (e.g. "gblo", "target2").
     #[classmethod]
-    #[pyo3(text_signature = "(cls)")]
-    fn target2(_cls: &Bound<'_, PyType>) -> Self {
-        PyCalendar {
-            kind: CalendarKind::Target2(Target2::new()),
+    #[pyo3(text_signature = "(cls, id)")]
+    #[allow(clippy::useless_conversion)]
+    fn from_id(_cls: &Bound<'_, PyType>, id: &str) -> PyResult<PyCalendar> {
+        match calendar_by_id(id) {
+            Some(_) => Ok(PyCalendar {
+                ids: vec![id.to_lowercase()],
+            }),
+            None => Err(PyValueError::new_err(format!("Unknown calendar id '{id}'"))),
         }
     }
 
-    /// U.K. inter-bank calendar (GBLO).
-    #[classmethod]
-    #[pyo3(text_signature = "(cls)")]
-    fn gblo(_cls: &Bound<'_, PyType>) -> Self {
-        PyCalendar {
-            kind: CalendarKind::Gblo(Gblo::new()),
-        }
-    }
-
-    /// Return a calendar that is the union of the supplied calendars.
+    /// Return a calendar representing the union of the supplied calendars.
     #[classmethod]
     #[pyo3(text_signature = "(cls, calendars)")]
     fn union(_cls: &Bound<'_, PyType>, calendars: Vec<PyCalendar>) -> Self {
-        let kinds = calendars.into_iter().map(|c| c.kind).collect();
-        PyCalendar {
-            kind: CalendarKind::Union(kinds),
+        let mut ids: Vec<String> = Vec::new();
+        for cal in calendars {
+            for id in cal.ids {
+                if !ids.contains(&id) {
+                    ids.push(id);
+                }
+            }
         }
+        PyCalendar { ids }
     }
+
+    // ---------------------------------
+    // Core functionality
+    // ---------------------------------
 
     /// Check whether a given date is a holiday (or weekend) in this calendar.
     #[pyo3(text_signature = "(self, date)")]
     fn is_holiday(&self, date: &PyDate) -> bool {
-        self.kind.is_holiday(date.inner())
+        self.ids.iter().any(|id| {
+            calendar_by_id(id.as_str())
+                .map(|cal| cal.is_holiday(date.inner()))
+                .unwrap_or(false)
+        })
     }
 
     /// Adjust a date according to the specified business-day convention.
     #[pyo3(text_signature = "(self, date, convention)")]
     fn adjust(&self, date: &PyDate, convention: PyBusDayConv) -> PyDate {
         use rfin_core::dates::Date as CoreDate;
-        let adj: CoreDate = match &self.kind {
-            CalendarKind::Target2(cal) => adjust(date.inner(), convention.into(), cal),
-            CalendarKind::Gblo(cal) => adjust(date.inner(), convention.into(), cal),
-            CalendarKind::Union(list) => {
-                let mut refs: Vec<&dyn HolidayCalendar> = Vec::new();
-                for c in list {
-                    c.collect_refs(&mut refs);
-                }
-                let comp = CompositeCalendar::merge(&refs);
-                adjust(date.inner(), convention.into(), &comp)
+        let mut refs: Vec<&dyn HolidayCalendar> = Vec::new();
+        for id in &self.ids {
+            if let Some(cal) = calendar_by_id(id.as_str()) {
+                refs.push(cal);
             }
+        }
+        // Fallback: if no calendars matched (shouldn't happen due to validation) just return original date.
+        if refs.is_empty() {
+            return date.clone();
+        }
+        let adj: CoreDate = if refs.len() == 1 {
+            adjust(date.inner(), convention.into(), refs[0])
+        } else {
+            let comp = CompositeCalendar::merge(&refs);
+            adjust(date.inner(), convention.into(), &comp)
         };
         PyDate::from_core(adj)
     }
 
-    fn __repr__(&self) -> &'static str {
-        match self.kind {
-            CalendarKind::Target2(_) => "Calendar('TARGET2')",
-            CalendarKind::Gblo(_) => "Calendar('GBLO')",
-            CalendarKind::Union(_) => "Calendar('Union')",
+    fn __repr__(&self) -> String {
+        if self.ids.len() == 1 {
+            format!("Calendar('{}')", self.ids[0])
+        } else {
+            format!("Calendar({:?})", self.ids)
         }
-    }
-}
-
-// Separate inherent impl block for internal helpers (not exposed to Python)
-impl PyCalendar {
-    /// Internal: obtain reference to underlying HolidayCalendar trait object.
-    #[allow(dead_code)]
-    pub(crate) fn hcal(&self) -> &dyn HolidayCalendar {
-        self.kind.as_hcal()
     }
 }
 

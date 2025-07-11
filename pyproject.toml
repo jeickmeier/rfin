@@ -1,6 +1,27 @@
 # Development environment configuration for RFin project
 # This file provides tool configuration and dependency management via uv
 
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "rfin"
+# Let maturin derive version from Cargo.toml
+dynamic = ["version"]
+
+description = "Python bindings for the RustFin financial computation library"
+readme = "rfin-python/README.md"
+requires-python = ">=3.8"
+license = { text = "MIT OR Apache-2.0" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+
 [tool.uv]
 # Development dependencies - not a Python package itself
 dev-dependencies = [
@@ -12,6 +33,7 @@ dev-dependencies = [
     "ruff>=0.1.0",
     "ipython>=8.0",
     "jupyter>=1.0",
+    "pyo3-stubgen>=0.1.0",
 ]
 
 [tool.ruff]
@@ -30,3 +52,13 @@ warn_unused_configs = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
+
+[tool.maturin]
+# Path to the Cargo manifest of the bindings crate
+manifest-path = "rfin-python/Cargo.toml"
+# Source directory that contains the Python package files (.pyi, py.typed)
+python-source = "rfin-python/rfin"
+include = [
+    { path = "rfin-python/rfin/**/*.pyi", format = ["wheel"] },
+    { path = "rfin-python/rfin/py.typed", format = ["wheel"] },
+]

@@ -103,7 +103,7 @@
                 addSection('5. Day-count', `<p>Year fraction ACT/360 between ${trade.toString()} and ${settle.toString()} is <strong>${yf.toFixed(6)}</strong></p>`);
 
                 // 6. Calendar usage
-                const cal = Calendar.target2();
+                const cal = Calendar.fromId("target2");
                 const isHol = cal.isHoliday(trade);
                 const adj = cal.adjust(trade, BusDayConvention.Following);
                 addSection('6. Calendar', `
@@ -111,7 +111,7 @@
                     <p>Following adjustment: ${adj.toString()}</p>`);
 
                 // 6b. Union calendar (TARGET2 ∪ GBLO)
-                const calUnion = Calendar.target2().union(Calendar.gblo());
+                const calUnion = Calendar.fromId("target2").union(Calendar.fromId("gblo"));
                 const isUnionHol = calUnion.isHoliday(trade);
                 addSection('6b. Union Calendar', `
                     <p>Is ${trade.toString()} a holiday in TARGET2 ∪ GBLO? <strong>${isUnionHol}</strong></p>`);
