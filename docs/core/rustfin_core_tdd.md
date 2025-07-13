@@ -202,7 +202,8 @@ impl Default for RiskConfig {
 }
 ```
 
-*Note: The enums InterpPolicy, SolverType, BumpType, FDStencil also derive serde and Default.*
+*Note (updated 2025-07-12): `InterpPolicy` has been removed — use the
+`Interpolator` enum's smart constructors instead.*
 
 ### **2.6. The ValuationContext Object**
 

@@ -34,6 +34,13 @@ impl From<PyFrequency> for CoreFrequency {
     }
 }
 
+impl PyFrequency {
+    /// Return the underlying core Frequency value.
+    pub fn inner(&self) -> CoreFrequency {
+        (*self).into()
+    }
+}
+
 /// Stub rule enumeration controlling how irregular periods are handled.
 #[pyclass(name = "StubRule", module = "rfin.dates", eq)]
 #[derive(Clone, Copy, PartialEq, Eq)]

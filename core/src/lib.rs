@@ -46,8 +46,11 @@
 extern crate std;
 
 // Core modules
+pub mod cashflow;
 pub mod currency;
 pub mod error;
+/// Market data term‐structure framework (former `curves` module)
+pub mod market_data;
 pub mod money;
 
 /// Date & calendar helpers (facade over the `time` crate)
@@ -61,6 +64,8 @@ pub type Result<T> = core::result::Result<T, Error>;
 // Top-level re-exports of commonly used primitives for easier discovery
 pub use crate::currency::Currency;
 pub use crate::money::Money;
+/// Numeric precision alias – f64 by default. Future work will allow swapping via features.
+pub type F = f64;
 
 // Top-level re-exports for ergonomic access – keeps `use` sites terse.
 pub use crate::dates::DayCount;

@@ -3,6 +3,7 @@
 use wasm_bindgen::prelude::*;
 
 mod calendar;
+mod cashflow;
 mod currency;
 mod dates;
 mod money;
@@ -17,6 +18,7 @@ pub fn init() {
 
 // Re-export key types for ergonomic JS imports (`import { Date, Money, Currency } …`).
 pub use calendar::{BusDayConvention, Calendar};
+pub use cashflow::FixedRateLeg;
 pub use currency::Currency;
 pub use dates::{
     day_count_days as dayCountDays, day_count_year_fraction as dayCountYearFraction,

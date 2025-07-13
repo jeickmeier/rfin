@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>RustFin WASM CashFlow Example</title>
+    <script type="module">
+        import init, { Date, Currency, Frequency, DayCount, FixedRateLeg } from '../../rfin-wasm/pkg/rfin_wasm.js';
+
+        async function run() {
+            await init();
+
+            const notional = 1_000_000;
+            const ccy = new Currency('USD');
+            const rate = 0.04;
+            const start = new Date(2025, 1, 15);
+            const end = new Date(2027, 1, 15);
+            const freq = Frequency.SemiAnnual;
+            const dc = DayCount.Act365F;
+
+            const leg = new FixedRateLeg(notional, ccy, rate, start, end, freq, dc);
+            console.log(`Num flows: ${leg.numFlows}`);
+            console.log(`NPV: ${leg.npv()}`);
+            console.log(`Accrued (2025-09-30): ${leg.accrued(new Date(2025, 9, 30))}`);
+        }
+        run();
+    </script>
+</head>
+<body>
+    <h1>RustFin WASM CashFlow Example</h1>
+    <p>Open the browser console to see output.</p>
+</body>
+</html> 

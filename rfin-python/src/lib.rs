@@ -4,6 +4,7 @@ use pyo3::prelude::*;
 use pyo3::types::PyModule;
 
 mod calendar;
+mod cashflow;
 /// Python module for primitives functionality  
 mod currency;
 mod dates;
@@ -22,7 +23,10 @@ fn rfin(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
 
     // Create currency submodule
-    let currency_module = PyModule::new_bound(m.py(), "rfin.currency")?;
+    // Submodules should be created with their short names so that they are available as attributes
+    // of the parent module (e.g. `rfin.currency`). We still register the fully-qualified name in
+    // `sys.modules` for proper import resolution.
+    let currency_module = PyModule::new_bound(m.py(), "currency")?;
     currency_module.add_class::<currency::PyCurrency>()?;
     m.add_submodule(&currency_module)?;
     m.py()
@@ -31,7 +35,7 @@ fn rfin(m: &Bound<'_, PyModule>) -> PyResult<()> {
         .set_item("rfin.currency", &currency_module)?;
 
     // Create money submodule
-    let money_module = PyModule::new_bound(m.py(), "rfin.money")?;
+    let money_module = PyModule::new_bound(m.py(), "money")?;
     money_module.add_class::<money::PyMoney>()?;
     m.add_submodule(&money_module)?;
     m.py()
@@ -43,7 +47,7 @@ fn rfin(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Dates submodule
     // ---------------------------
 
-    let dates_module = PyModule::new_bound(m.py(), "rfin.dates")?;
+    let dates_module = PyModule::new_bound(m.py(), "dates")?;
     dates_module.add_class::<dates::PyDate>()?;
     dates_module.add_class::<daycount::PyDayCount>()?;
     dates_module.add_class::<calendar::PyCalendar>()?;
@@ -67,6 +71,19 @@ fn rfin(m: &Bound<'_, PyModule>) -> PyResult<()> {
         .getattr("modules")?
         .set_item("rfin.dates", &dates_module)?;
 
+    // ---------------------------
+    // Cashflow submodule
+    // ---------------------------
+
+    let cashflow_module = PyModule::new_bound(m.py(), "cashflow")?;
+    cashflow_module.add_class::<crate::cashflow::PyFixedRateLeg>()?;
+    cashflow_module.add_class::<crate::cashflow::PyCashFlow>()?;
+    m.add_submodule(&cashflow_module)?;
+    m.py()
+        .import_bound("sys")?
+        .getattr("modules")?
+        .set_item("rfin.cashflow", &cashflow_module)?;
+
     // --------------------------------------------------------------------
     // Top-level re-exports for ergonomic `from rfin import Currency, Money`
     // --------------------------------------------------------------------
@@ -79,6 +96,8 @@ fn rfin(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<calendar::PyBusDayConv>()?;
     m.add_class::<schedule::PyFrequency>()?;
     m.add_class::<schedule::PyStubRule>()?;
+    m.add_class::<crate::cashflow::PyFixedRateLeg>()?;
+    m.add_class::<crate::cashflow::PyCashFlow>()?;
 
     use currency::PyCurrency as PC;
     use rfin_core::Currency as CoreCurrency;

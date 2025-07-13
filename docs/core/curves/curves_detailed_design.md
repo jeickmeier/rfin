@@ -32,13 +32,13 @@ Key attributes:
 
 ## 3 High-Level API Sketch
 ```rust
-use rustfin::curves::{CurveId, DiscountCurve, CurveSet, InterpPolicy};
+use rustfin::curves::{CurveId, DiscountCurve, CurveSet};
 use rustfin::dates::Date;
 
 let yc = YieldCurve::builder("USD-OIS")
     .base_date(Date::new(2025, 6, 30)?)
     .knots([ (0.5, 0.0195), (1.0, 0.0201) ])
-    .interpolator(InterpPolicy::MonotoneConvex)
+    .monotone_convex()
     .build()?;
 
 let df = yc.df(2.75);      // discount factor for 2.75 years
@@ -111,19 +111,25 @@ pub trait Surface {
 ```
 * Default methods avoid duplicated formulae; specialisations can override for speed.
 
-### 5.4 Interpolation Policy (C-41)
+### 5.4 Interpolator Enum (C-41)
 ```rust
-pub enum InterpPolicy {
-    LinearDf,
-    LogDf,
-    MonotoneConvex,
-    CubicHermite,
-    FlatFwd,
+pub enum Interpolator {
+    LinearDf(LinearDf),
+    LogDf(LogDf),
+    MonotoneConvex(MonotoneConvex),
+    CubicHermite(CubicHermite),
+    FlatFwd(FlatFwd),
 }
 
-pub trait Interpolator { fn interp(&self, x: F) -> F; }
+impl Interpolator {
+    pub fn linear_df(knots: Box<[F]>, dfs: Box<[F]>) -> Result<Self> { /* … */ }
+    // … other smart constructors omit for brevity
+    pub fn interp(&self, x: F) -> F { /* dispatch */ }
+}
 ```
-* Builder pattern injects a `Box<dyn Interpolator + Send + Sync>` into each curve.
+Curves now receive an `Interpolator` directly via specialised builder helpers
+(`.linear_df()`, `.log_df()`, `.monotone_convex()`, etc.) so the separate
+`InterpPolicy` enum is no longer required.
 
 ### 5.5 YieldCurve Implementation
 ```rust
@@ -282,7 +288,8 @@ pub struct CreditTree {
 * Calibrated via `calibration::tree_credit` to CDS/par spreads.
 
 ## 6 Algorithms & Performance
-1. **DF ↔ zero interpolation**: choose representation based on `InterpPolicy` to avoid per-call exponentials where possible.
+1. **DF ↔ zero interpolation**: choose representation based on the selected
+   `Interpolator` variant to avoid per-call exponentials where possible.
 2. **Vectorised evaluation**: hot loops (e.g., `df` or `hazard` over thousands of dates) get `#[inline(always)]` and can auto-vectorise (SIMD) on the scalar-`F` configuration that uses `f64`.
 3. **Cache-friendly search**: knots stored in ascending years; branchless binary search; potential AVX512 gather.
 4. **2-D surface interpolation**: expiry/strike bilinear interpolation uses precomputed index hints for amortised O(1) lookup.
@@ -313,10 +320,24 @@ pub struct CreditTree {
 3. Surface representation: grid vs analytic (SABR or SVI)?
 
 ## 11 Timeline
-* **v0.1.0** – Traits, CurveId, InterpPolicy, YieldCurve (linear/log DF).
+* **v0.1.0** – Traits, CurveId, Interpolator, YieldCurve (linear/log DF).
 * **v0.2.0** – Hazard & Inflation curves; CurveSet infrastructure.
 * **v0.3.0** – VolSurface (grid), advanced interp; SABR feature.
 * **v1.0.0** – API freeze after bootstrap & risk metrics integration.
 
+## 12 Monotone–Convex Interpolator (Hagan–West, 2006)
+The **monotone-convex** discount-factor scheme ensures a continuously-differentiable
+curve that is arbitrage-free by construction:
+
+* Works in log-discount space \(y(t) = -\ln P(t)\).
+* Slopes at knot points are chosen using the Fritsch–Carlson harmonic mean and
+  then scaled so that \(\alpha_i^2 + \beta_i^2 \le 9\) which guarantees
+  convexity of \(y(t)\) on segments where the secant slopes share a sign.
+* Each interval stores cubic coefficients \((a,b,c,d)\).  Evaluation is therefore
+  just a binary search plus four fused-multiply-add operations – practically as
+  fast as the linear scheme but with superior smoothness.
+* Exposed to callers via the `.monotone_convex()` builder helper and the
+  `Interpolator::MonotoneConvex` variant.
+
 ---
-*Last updated: 2025-06-29*
+*Last updated: 2025-07-13*

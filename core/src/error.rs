@@ -6,17 +6,53 @@
 use crate::currency::Currency;
 use thiserror::Error;
 
+/// Detailed user input validation failures.
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+#[non_exhaustive]
+pub enum InputError {
+    /// Input must contain at least two distinct points (e.g. knots on a curve).
+    #[error("At least two data points are required")]
+    TooFewPoints,
+    /// Knot/point times are not strictly increasing.
+    #[error("Times (knots) must be strictly increasing")]
+    NonMonotonicKnots,
+    /// Encountered a value that must be strictly positive (e.g. discount factor).
+    #[error("Values must be positive")]
+    NonPositiveValue,
+    /// Encountered a negative value where only non-negative values are allowed (e.g. hazard rate).
+    #[error("Values must be non-negative")]
+    NegativeValue,
+    /// The provided date range is inverted – the start date is after the end date.
+    #[error("Invalid date range: start must be before end")]
+    InvalidDateRange,
+    /// Shape/dimension mismatch in matrix-like input (e.g. vol surface grid).
+    #[error("Input dimensions do not match")]
+    DimensionMismatch,
+    /// Requested item (curve, surface, etc.) not found in a collection.
+    #[error("Requested item not found")]
+    NotFound,
+    /// Unknown or unsupported currency code supplied by the caller.
+    #[error("Unknown currency code")]
+    UnknownCurrency,
+    /// Fallback for miscellaneous validation problems not yet covered by a specific variant.
+    #[error("Invalid input data")]
+    Invalid,
+}
+
 /// Unified error type for all high-level APIs.
 ///
-/// The variant set is intentionally minimal—everything outside the two common
-/// failure modes bubbles up as `Internal` so downstream code has a single
-/// catch-all branch.
+/// All user-facing validation issues bubble up via the [`Input`](Error::Input)
+/// wrapper so callers can pattern-match on [`InputError`] for actionable
+/// feedback.  Internal failures remain grouped under [`Internal`].
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 #[non_exhaustive]
 pub enum Error {
-    /// Invalid user input or arguments (parse failure, inverted dates, …).
-    #[error("Invalid input data")]
-    InvalidInput,
+    /// User input validation error.
+    #[error(transparent)]
+    Input(#[from] InputError),
+    /// Interpolator evaluation exceeded grid bounds.
+    #[error("Interpolation input out of bounds")]
+    InterpOutOfBounds,
     /// Currency mismatch in a binary [`Money`](crate::money::Money) operation.
     #[error("Currency mismatch: expected {expected}, got {actual}")]
     CurrencyMismatch {
@@ -36,6 +72,7 @@ mod tests {
 
     #[test]
     fn test_display() {
-        assert_eq!(format!("{}", Error::InvalidInput), "Invalid input data");
+        let err: Error = InputError::Invalid.into();
+        assert_eq!(format!("{}", err), "Invalid input data");
     }
 }

@@ -1,4 +1,9 @@
 # Implementation Road-map — *Curves Module*
+> **Note (2025-07-12):** The `InterpPolicy` enum described in early PRs has
+> since been **removed**.  Builders now accept concrete `Interpolator`
+> variants directly via helper methods (`linear_df()`, `log_df()`, etc.).  The
+> historical PR outlines below are kept for context but no longer represent
+> the current API.
 
 This document splits the **Curves** Detailed Design into manageable pull-requests.  Each PR is self-contained, ≤~800 LoC, compiles independently, and keeps `master` green.
 

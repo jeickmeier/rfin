@@ -20,7 +20,7 @@
 use core::cmp::Ordering;
 use time::{Date, Month};
 
-use crate::Error;
+use crate::error::InputError;
 
 /// Supported day-count conventions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,9 +43,9 @@ impl DayCount {
     ///
     /// The output follows the specific convention rules and is **always ≥ 0**.
     #[doc(hidden)]
-    pub fn days(self, start: Date, end: Date) -> Result<i32, Error> {
+    pub fn days(self, start: Date, end: Date) -> crate::Result<i32> {
         match start.cmp(&end) {
-            Ordering::Greater => Err(Error::InvalidInput),
+            Ordering::Greater => Err(InputError::InvalidDateRange.into()),
             Ordering::Equal => Ok(0),
             Ordering::Less => match self {
                 DayCount::Act360 | DayCount::Act365F | DayCount::ActAct => {
@@ -59,7 +59,7 @@ impl DayCount {
     }
 
     /// Compute the year fraction between `start` and `end` per this convention.
-    pub fn year_fraction(self, start: Date, end: Date) -> Result<f64, Error> {
+    pub fn year_fraction(self, start: Date, end: Date) -> crate::Result<f64> {
         let days = self.days(start, end)? as f64;
         let yf = match self {
             DayCount::Act360 => days / 360.0,
