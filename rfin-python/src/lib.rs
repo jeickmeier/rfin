@@ -26,20 +26,20 @@ fn rfin(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Submodules should be created with their short names so that they are available as attributes
     // of the parent module (e.g. `rfin.currency`). We still register the fully-qualified name in
     // `sys.modules` for proper import resolution.
-    let currency_module = PyModule::new_bound(m.py(), "currency")?;
+    let currency_module = PyModule::new(m.py(), "currency")?;
     currency_module.add_class::<currency::PyCurrency>()?;
     m.add_submodule(&currency_module)?;
     m.py()
-        .import_bound("sys")?
+        .import("sys")?
         .getattr("modules")?
         .set_item("rfin.currency", &currency_module)?;
 
     // Create money submodule
-    let money_module = PyModule::new_bound(m.py(), "money")?;
+    let money_module = PyModule::new(m.py(), "money")?;
     money_module.add_class::<money::PyMoney>()?;
     m.add_submodule(&money_module)?;
     m.py()
-        .import_bound("sys")?
+        .import("sys")?
         .getattr("modules")?
         .set_item("rfin.money", &money_module)?;
 
@@ -47,27 +47,27 @@ fn rfin(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Dates submodule
     // ---------------------------
 
-    let dates_module = PyModule::new_bound(m.py(), "dates")?;
+    let dates_module = PyModule::new(m.py(), "dates")?;
     dates_module.add_class::<dates::PyDate>()?;
     dates_module.add_class::<daycount::PyDayCount>()?;
     dates_module.add_class::<calendar::PyCalendar>()?;
     dates_module.add_class::<calendar::PyBusDayConv>()?;
     dates_module.add_class::<schedule::PyFrequency>()?;
     dates_module.add_class::<schedule::PyStubRule>()?;
-    dates_module.add_function(pyo3::wrap_pyfunction_bound!(
+    dates_module.add_function(pyo3::wrap_pyfunction!(
         schedule::py_generate_schedule,
-        m.py()
+        &dates_module
     )?)?;
-    dates_module.add_function(pyo3::wrap_pyfunction_bound!(
+    dates_module.add_function(pyo3::wrap_pyfunction!(
         calendar::py_available_calendars,
-        m.py()
+        &dates_module
     )?)?;
-    dates_module.add_function(pyo3::wrap_pyfunction_bound!(py_third_wednesday, m.py())?)?;
-    dates_module.add_function(pyo3::wrap_pyfunction_bound!(py_next_imm, m.py())?)?;
-    dates_module.add_function(pyo3::wrap_pyfunction_bound!(py_next_cds_date, m.py())?)?;
+    dates_module.add_function(pyo3::wrap_pyfunction!(py_third_wednesday, &dates_module)?)?;
+    dates_module.add_function(pyo3::wrap_pyfunction!(py_next_imm, &dates_module)?)?;
+    dates_module.add_function(pyo3::wrap_pyfunction!(py_next_cds_date, &dates_module)?)?;
     m.add_submodule(&dates_module)?;
     m.py()
-        .import_bound("sys")?
+        .import("sys")?
         .getattr("modules")?
         .set_item("rfin.dates", &dates_module)?;
 
@@ -75,12 +75,12 @@ fn rfin(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Cashflow submodule
     // ---------------------------
 
-    let cashflow_module = PyModule::new_bound(m.py(), "cashflow")?;
+    let cashflow_module = PyModule::new(m.py(), "cashflow")?;
     cashflow_module.add_class::<crate::cashflow::PyFixedRateLeg>()?;
     cashflow_module.add_class::<crate::cashflow::PyCashFlow>()?;
     m.add_submodule(&cashflow_module)?;
     m.py()
-        .import_bound("sys")?
+        .import("sys")?
         .getattr("modules")?
         .set_item("rfin.cashflow", &cashflow_module)?;
 
@@ -107,13 +107,10 @@ fn rfin(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("GBP", PC::from_inner(CoreCurrency::GBP))?;
     m.add("JPY", PC::from_inner(CoreCurrency::JPY))?;
 
-    m.add_function(pyo3::wrap_pyfunction_bound!(
-        schedule::py_generate_schedule,
-        m.py()
-    )?)?;
-    m.add_function(pyo3::wrap_pyfunction_bound!(py_third_wednesday, m.py())?)?;
-    m.add_function(pyo3::wrap_pyfunction_bound!(py_next_imm, m.py())?)?;
-    m.add_function(pyo3::wrap_pyfunction_bound!(py_next_cds_date, m.py())?)?;
+    m.add_function(pyo3::wrap_pyfunction!(schedule::py_generate_schedule, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(py_third_wednesday, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(py_next_imm, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(py_next_cds_date, m)?)?;
 
     Ok(())
 }
