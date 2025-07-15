@@ -1,4 +1,4 @@
-//! Python bindings for Calendar functionality (holiday calendars, business-day adjustment).
+//! Python bindings for holiday calendars and business day conventions
 
 #![allow(clippy::useless_conversion)]
 
@@ -9,7 +9,7 @@ use pyo3::types::PyType;
 use rfin_core::dates::holiday::calendars::calendar_by_id;
 use rfin_core::dates::{adjust, BusinessDayConvention, CompositeCalendar, HolidayCalendar};
 
-use crate::dates::PyDate;
+use super::date::PyDate;
 
 /// Business day convention enumeration for date adjustment.
 ///

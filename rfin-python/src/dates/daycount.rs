@@ -10,10 +10,11 @@
 //! yf = DayCount.act360().year_fraction(d1, d2)
 //! ```
 
-use crate::dates::PyDate;
 use pyo3::prelude::*;
 use pyo3::types::PyType;
-use rfin_core::dates::DayCount as CoreDayCount; // need PyDate
+use rfin_core::dates::DayCount;
+
+use super::date::PyDate;
 
 /// Day count convention for interest accrual calculations.
 ///
@@ -49,7 +50,7 @@ use rfin_core::dates::DayCount as CoreDayCount; // need PyDate
 #[pyclass(name = "DayCount", module = "rfin.dates")]
 #[derive(Clone)]
 pub struct PyDayCount {
-    inner: CoreDayCount,
+    inner: DayCount,
 }
 
 #[pymethods]
@@ -74,7 +75,7 @@ impl PyDayCount {
     #[classmethod]
     fn act360(_cls: &Bound<'_, PyType>) -> Self {
         Self {
-            inner: CoreDayCount::Act360,
+            inner: DayCount::Act360,
         }
     }
 
@@ -95,7 +96,7 @@ impl PyDayCount {
     #[classmethod]
     fn act365f(_cls: &Bound<'_, PyType>) -> Self {
         Self {
-            inner: CoreDayCount::Act365F,
+            inner: DayCount::Act365F,
         }
     }
 
@@ -115,7 +116,7 @@ impl PyDayCount {
     #[classmethod]
     fn thirty360(_cls: &Bound<'_, PyType>) -> Self {
         Self {
-            inner: CoreDayCount::Thirty360,
+            inner: DayCount::Thirty360,
         }
     }
 
@@ -135,7 +136,7 @@ impl PyDayCount {
     #[classmethod]
     fn thirty_e_360(_cls: &Bound<'_, PyType>) -> Self {
         Self {
-            inner: CoreDayCount::ThirtyE360,
+            inner: DayCount::ThirtyE360,
         }
     }
 
@@ -155,7 +156,7 @@ impl PyDayCount {
     #[classmethod]
     fn actact(_cls: &Bound<'_, PyType>) -> Self {
         Self {
-            inner: CoreDayCount::ActAct,
+            inner: DayCount::ActAct,
         }
     }
 
@@ -284,11 +285,11 @@ impl PyDayCount {
     ///     'ACT/365F'
     fn __str__(&self) -> String {
         let s = match self.inner {
-            CoreDayCount::Act360 => "ACT/360",
-            CoreDayCount::Act365F => "ACT/365F",
-            CoreDayCount::Thirty360 => "30/360",
-            CoreDayCount::ThirtyE360 => "30E/360",
-            CoreDayCount::ActAct => "ACT/ACT",
+            DayCount::Act360 => "ACT/360",
+            DayCount::Act365F => "ACT/365F",
+            DayCount::Thirty360 => "30/360",
+            DayCount::ThirtyE360 => "30E/360",
+            DayCount::ActAct => "ACT/ACT",
             _ => "<unknown>",
         };
         s.to_string()
@@ -318,12 +319,12 @@ impl PyDayCount {
 
 impl PyDayCount {
     /// Return the underlying core DayCount value.
-    pub(crate) fn inner(&self) -> CoreDayCount {
+    pub(crate) fn inner(&self) -> DayCount {
         self.inner
     }
 
     /// Create a new PyDayCount from CoreDayCount (internal use)
-    pub(crate) fn from_inner(inner: CoreDayCount) -> Self {
+    pub(crate) fn from_inner(inner: DayCount) -> Self {
         Self { inner }
     }
 }

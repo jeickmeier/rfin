@@ -1,3 +1,5 @@
+//! Python bindings for cash flow generation and valuation
+
 use pyo3::prelude::*;
 
 use rfin_core::cashflow::leg::CashFlowLeg;
@@ -8,9 +10,9 @@ use rfin_core::dates::ScheduleBuilder;
 use std::sync::Arc;
 
 use crate::currency::PyCurrency;
-use crate::dates::PyDate;
-use crate::daycount::PyDayCount;
-use crate::schedule::PyFrequency;
+use crate::dates::date::PyDate;
+use crate::dates::daycount::PyDayCount;
+use crate::dates::schedule::PyFrequency;
 
 /// Simple flat discount curve used for PV calculations.
 struct FlatCurve {

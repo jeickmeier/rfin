@@ -17,8 +17,8 @@ use rfin_core::{
 };
 
 use super::interpolation::PyInterpStyle;
-use crate::dates::PyDate;
-use crate::daycount::PyDayCount;
+use crate::dates::date::PyDate;
+use crate::dates::daycount::PyDayCount;
 
 /// Discount factor curve for present value calculations.
 ///

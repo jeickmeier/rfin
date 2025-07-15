@@ -42,14 +42,11 @@
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 
-mod calendar;
 mod cashflow;
 /// Python module for primitives functionality  
 mod currency;
 mod dates;
-mod daycount;
 mod money;
-mod schedule;
 // (compatibility primitives module removed)
 
 // Add market_data module
@@ -91,17 +88,17 @@ fn rfin(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     let dates_module = PyModule::new(m.py(), "dates")?;
     dates_module.add_class::<dates::PyDate>()?;
-    dates_module.add_class::<daycount::PyDayCount>()?;
-    dates_module.add_class::<calendar::PyCalendar>()?;
-    dates_module.add_class::<calendar::PyBusDayConv>()?;
-    dates_module.add_class::<schedule::PyFrequency>()?;
-    dates_module.add_class::<schedule::PyStubRule>()?;
+    dates_module.add_class::<dates::PyDayCount>()?;
+    dates_module.add_class::<dates::PyCalendar>()?;
+    dates_module.add_class::<dates::PyBusDayConv>()?;
+    dates_module.add_class::<dates::PyFrequency>()?;
+    dates_module.add_class::<dates::PyStubRule>()?;
     dates_module.add_function(pyo3::wrap_pyfunction!(
-        schedule::py_generate_schedule,
+        dates::py_generate_schedule,
         &dates_module
     )?)?;
     dates_module.add_function(pyo3::wrap_pyfunction!(
-        calendar::py_available_calendars,
+        dates::py_available_calendars,
         &dates_module
     )?)?;
     dates_module.add_function(pyo3::wrap_pyfunction!(py_third_wednesday, &dates_module)?)?;
@@ -139,11 +136,11 @@ fn rfin(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<currency::PyCurrency>()?;
     m.add_class::<money::PyMoney>()?;
     m.add_class::<dates::PyDate>()?;
-    m.add_class::<daycount::PyDayCount>()?;
-    m.add_class::<calendar::PyCalendar>()?;
-    m.add_class::<calendar::PyBusDayConv>()?;
-    m.add_class::<schedule::PyFrequency>()?;
-    m.add_class::<schedule::PyStubRule>()?;
+    m.add_class::<dates::PyDayCount>()?;
+    m.add_class::<dates::PyCalendar>()?;
+    m.add_class::<dates::PyBusDayConv>()?;
+    m.add_class::<dates::PyFrequency>()?;
+    m.add_class::<dates::PyStubRule>()?;
     m.add_class::<crate::cashflow::PyFixedRateLeg>()?;
     m.add_class::<crate::cashflow::PyCashFlow>()?;
 
@@ -155,7 +152,7 @@ fn rfin(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("GBP", PC::from_inner(CoreCurrency::GBP))?;
     m.add("JPY", PC::from_inner(CoreCurrency::JPY))?;
 
-    m.add_function(pyo3::wrap_pyfunction!(schedule::py_generate_schedule, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(dates::py_generate_schedule, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(py_third_wednesday, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(py_next_imm, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(py_next_cds_date, m)?)?;

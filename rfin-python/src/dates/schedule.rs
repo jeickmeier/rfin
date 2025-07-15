@@ -1,11 +1,10 @@
-#![allow(clippy::useless_conversion)]
+//! Python bindings for schedule generation
 
 use pyo3::prelude::*;
+use rfin_core::dates::{schedule, Frequency, StubKind};
 
-use rfin_core::dates::{schedule, Frequency as CoreFrequency, StubKind as CoreStubRule};
-
-use crate::calendar::{PyBusDayConv, PyCalendar};
-use crate::dates::PyDate;
+use super::calendar::{PyBusDayConv, PyCalendar};
+use super::date::PyDate;
 
 /// Payment frequency enumeration for financial instruments.
 ///
@@ -51,23 +50,23 @@ pub enum PyFrequency {
     Daily,
 }
 
-impl From<PyFrequency> for CoreFrequency {
+impl From<PyFrequency> for Frequency {
     fn from(f: PyFrequency) -> Self {
         match f {
-            PyFrequency::Annual => CoreFrequency::Months(12),
-            PyFrequency::SemiAnnual => CoreFrequency::Months(6),
-            PyFrequency::Quarterly => CoreFrequency::Months(3),
-            PyFrequency::Monthly => CoreFrequency::Months(1),
-            PyFrequency::BiWeekly => CoreFrequency::Days(14),
-            PyFrequency::Weekly => CoreFrequency::Days(7),
-            PyFrequency::Daily => CoreFrequency::Days(1),
+            PyFrequency::Annual => Frequency::Months(12),
+            PyFrequency::SemiAnnual => Frequency::Months(6),
+            PyFrequency::Quarterly => Frequency::Months(3),
+            PyFrequency::Monthly => Frequency::Months(1),
+            PyFrequency::BiWeekly => Frequency::Days(14),
+            PyFrequency::Weekly => Frequency::Days(7),
+            PyFrequency::Daily => Frequency::Days(1),
         }
     }
 }
 
 impl PyFrequency {
     /// Return the underlying core Frequency value.
-    pub fn inner(&self) -> CoreFrequency {
+    pub fn inner(&self) -> Frequency {
         (*self).into()
     }
 }
@@ -100,12 +99,12 @@ pub enum PyStubRule {
     ShortBack,
 }
 
-impl From<PyStubRule> for CoreStubRule {
+impl From<PyStubRule> for StubKind {
     fn from(s: PyStubRule) -> Self {
         match s {
-            PyStubRule::None => CoreStubRule::None,
-            PyStubRule::ShortFront => CoreStubRule::ShortFront,
-            PyStubRule::ShortBack => CoreStubRule::ShortBack,
+            PyStubRule::None => StubKind::None,
+            PyStubRule::ShortFront => StubKind::ShortFront,
+            PyStubRule::ShortBack => StubKind::ShortBack,
         }
     }
 }
