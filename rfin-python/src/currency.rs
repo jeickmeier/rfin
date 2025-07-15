@@ -3,7 +3,53 @@
 use pyo3::prelude::*;
 use rfin_core::currency::Currency as CoreCurrency;
 
-/// Python wrapper for the Currency enum
+/// Currency representation based on ISO 4217 standards.
+///
+/// A Currency represents a specific currency using the ISO 4217 standard,
+/// which defines three-letter currency codes (e.g., USD, EUR, GBP).
+/// Each currency has an associated numeric code and decimal precision.
+///
+/// Currencies are used throughout the library for:
+/// - Creating monetary amounts (Money)
+/// - Ensuring currency-safe arithmetic operations
+/// - Formatting monetary values according to currency conventions
+/// - Financial instrument pricing and valuation
+///
+/// The library supports all major world currencies defined in ISO 4217.
+///
+/// Examples:
+///     >>> from rfin import Currency
+///     
+///     # Create currencies from string codes
+///     >>> usd = Currency("USD")
+///     >>> eur = Currency("eur")  # Case insensitive
+///     >>> gbp = Currency("GBP")
+///     
+///     # Access currency properties
+///     >>> usd.code
+///     'USD'
+///     >>> usd.numeric_code
+///     840
+///     >>> usd.decimals
+///     2
+///     
+///     # Use with Money
+///     >>> from rfin import Money
+///     >>> money = Money(100.0, usd)
+///     >>> money.currency == usd
+///     True
+///     
+///     # Currency comparison
+///     >>> usd == Currency("USD")
+///     True
+///     >>> usd == eur
+///     False
+///     
+///     # String representation
+///     >>> str(usd)
+///     'USD'
+///     >>> repr(usd)
+///     "Currency('USD')"
 #[pyclass(name = "Currency", module = "rfin.currency")]
 #[derive(Clone)]
 pub struct PyCurrency {

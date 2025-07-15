@@ -1,4 +1,43 @@
 //! Python bindings for the RustFin library.
+//!
+//! This module provides Python bindings for the RustFin quantitative finance library,
+//! offering a comprehensive set of tools for financial calculations, date handling,
+//! and instrument valuation.
+//!
+//! The library is organized into several submodules:
+//! - `currency`: Currency handling and representation
+//! - `money`: Monetary amounts with currency-safe arithmetic
+//! - `dates`: Date handling, calendars, and business day calculations
+//! - `cashflow`: Cash flow generation and valuation
+//!
+//! # Quick Start
+//!
+//! ```python
+//! from rfin import Currency, Money, Date, DayCount, FixedRateLeg, Frequency
+//!
+//! # Create monetary amounts
+//! usd_100 = Money(100.0, Currency.usd())
+//! eur_75 = Money(75.0, Currency.eur())
+//!
+//! # Date handling
+//! date = Date(2023, 12, 25)
+//! print(date.is_weekend())  # Check if it's a weekend
+//!
+//! # Day count calculations
+//! dc = DayCount.act360()
+//! yf = dc.year_fraction(Date(2023, 1, 1), Date(2023, 7, 1))
+//!
+//! # Fixed rate leg creation
+//! leg = FixedRateLeg(
+//!     notional_amount=1000000,
+//!     currency=Currency.usd(),
+//!     rate=0.05,
+//!     start_date=Date(2023, 1, 1),
+//!     end_date=Date(2024, 1, 1),
+//!     frequency=Frequency.SemiAnnual,
+//!     day_count=DayCount.thirty360()
+//! )
+//! ```
 
 use pyo3::prelude::*;
 use pyo3::types::PyModule;

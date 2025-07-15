@@ -1,0 +1,138 @@
+---
+alwaysApply: true
+---
+
+# RustFin (rfin) - High-Performance Financial Computation Library
+
+## Overview
+
+RustFin is a comprehensive, high-performance financial computation library written in Rust with bindings for Python and WebAssembly. It provides zero-cost abstractions for financial primitives, market data structures, and quantitative finance algorithms while maintaining memory safety and cross-platform compatibility.
+
+## Project Purpose
+
+RustFin aims to provide:
+- **Performance**: Native Rust performance for computationally intensive financial calculations
+- **Safety**: Type-safe APIs that prevent common financial programming errors at compile time
+- **Portability**: Run in browsers (WASM), Python environments, and native applications
+- **Accuracy**: Precise implementations of financial standards (ISO 4217, ISDA conventions)
+- **Flexibility**: Modular design allowing selective feature inclusion
+
+## Architecture
+
+```
+rfin/
+├── core/                    # Core Rust library (no_std compatible)
+│   ├── src/
+│   │   ├── cashflow/       # Cash flow generation and NPV calculations
+│   │   ├── currency.rs     # ISO 4217 currency support
+│   │   ├── dates/          # Date math, calendars, day counts
+│   │   ├── market_data/    # Curves, surfaces, interpolation
+│   │   └── money.rs        # Type-safe monetary amounts
+│   └── tests/
+├── rfin-python/            # Python bindings via PyO3
+│   └── src/               # Python API wrappers
+├── rfin-wasm/             # WebAssembly bindings
+│   └── src/               # JavaScript/TypeScript API
+├── examples/              # Usage examples for all bindings
+├── docs/                  # Technical documentation
+└── scripts/               # Build and development scripts
+```
+
+## Core Components
+
+### Financial Primitives
+- **Currency**: Complete ISO 4217 currency enumeration with metadata
+- **Money**: Type-safe monetary amounts that prevent currency mixing
+- **Date**: Extended date functionality with business day logic
+
+### Date & Time
+- **Calendars**: 20+ market holiday calendars (TARGET2, NYSE, GBLO, etc.)
+- **Day Count**: ACT/360, ACT/365F, 30/360, ACT/ACT implementations
+- **Schedule Generation**: Payment schedule generation with stub handling
+- **IMM Dates**: Quarterly futures date helpers
+
+### Cash Flows
+- **Fixed Rate**: Fixed coupon bond/swap leg generation
+- **Floating Rate**: Index-based cash flow support (with feature flag)
+- **NPV Calculation**: Present value with parallel computation support
+- **Amortization**: Linear and step-based notional schedules
+
+### Market Data
+- **Term Structures**: Discount, forward, hazard, and inflation curves
+- **Interpolation**: Linear, log-linear, monotone-convex, cubic Hermite
+- **Surfaces**: 2D volatility surface with bilinear interpolation
+- **Multi-curve**: Container for managing multiple related curves
+
+## Language Bindings
+
+### Python (rfin-python)
+- Pythonic API following PEP 8 conventions
+- NumPy/Pandas integration ready
+- Comprehensive docstrings and type hints
+- Zero-copy operations where possible
+
+### WebAssembly (rfin-wasm)
+- Browser and Node.js support
+- TypeScript definitions included
+- Small bundle size optimization
+- Async initialization pattern
+
+## Key Features
+
+### Performance
+- Zero-cost abstractions in core library
+- Parallel computation support via Rayon
+- SIMD optimizations where applicable
+- Minimal allocations in hot paths
+
+### Safety
+- Currency type safety (no USD + EUR accidents)
+- Exhaustive pattern matching for enums
+- Result types for fallible operations
+- Compile-time validation where possible
+
+### Standards Compliance
+- ISO 4217 currency codes
+- ISDA day count conventions
+- Market-standard holiday calendars
+- IMM and CDS date conventions
+
+## Use Cases
+
+1. **Fixed Income Analytics**
+   - Bond pricing and yield calculations
+   - Swap valuation and risk metrics
+   - Term structure modeling
+
+2. **Derivatives Pricing**
+   - Interest rate derivatives
+   - Credit default swaps
+   - FX forwards and options
+
+3. **Risk Management**
+   - Sensitivity analysis (DV01, duration)
+   - Cash flow projections
+   - Scenario analysis
+
+4. **Market Data**
+   - Yield curve construction
+   - Volatility surface calibration
+   - Cross-asset correlation modeling
+
+## Development Philosophy
+
+1. **Correctness First**: Financial calculations must be accurate
+2. **Performance Second**: Optimize without sacrificing correctness
+3. **Ergonomic APIs**: Make the right thing easy, wrong thing hard
+4. **Documentation**: Every public API must be documented
+5. **Testing**: Comprehensive test coverage with real-world scenarios
+
+## Technical Guidelines
+
+When working with this codebase:
+- Follow the code standards in `.cursor/rules/[rust|python|wasm]/`
+- Use type-safe abstractions over raw primitives
+- Prefer compile-time validation over runtime checks
+- Document all public APIs with examples
+- Write tests for edge cases and financial scenarios
+- Consider no_std compatibility for core functionality
