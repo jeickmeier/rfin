@@ -317,8 +317,13 @@ impl PyDayCount {
 }
 
 impl PyDayCount {
-    /// Internal helper to get inner enum
-    pub fn inner(&self) -> CoreDayCount {
+    /// Return the underlying core DayCount value.
+    pub(crate) fn inner(&self) -> CoreDayCount {
         self.inner
+    }
+
+    /// Create a new PyDayCount from CoreDayCount (internal use)
+    pub(crate) fn from_inner(inner: CoreDayCount) -> Self {
+        Self { inner }
     }
 }

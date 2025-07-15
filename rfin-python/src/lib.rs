@@ -52,6 +52,9 @@ mod money;
 mod schedule;
 // (compatibility primitives module removed)
 
+// Add market_data module
+mod market_data;
+
 /// Import IMM helper functions for registration
 use dates::{py_next_cds_date, py_next_imm, py_third_wednesday};
 
@@ -122,6 +125,12 @@ fn rfin(m: &Bound<'_, PyModule>) -> PyResult<()> {
         .import("sys")?
         .getattr("modules")?
         .set_item("rfin.cashflow", &cashflow_module)?;
+
+    // ---------------------------
+    // Market data submodule
+    // ---------------------------
+
+    market_data::register_module(m)?;
 
     // --------------------------------------------------------------------
     // Top-level re-exports for ergonomic `from rfin import Currency, Money`

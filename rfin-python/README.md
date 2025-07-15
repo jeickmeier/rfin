@@ -66,8 +66,11 @@ uv run ruff check .
 # Type checking
 uv run mypy .
 
-# Run example
-uv run python ../examples/python_example.py
+# Run examples
+uv run python ../examples/python/dates_python_example.py
+uv run python ../examples/python/primitives_python_example.py
+uv run python ../examples/python/cashflow_leg_example.py
+uv run python ../examples/python/market_data_example.py
 ```
 
 ## Usage
@@ -86,4 +89,56 @@ usd = Currency("USD")
 
 # Create money
 amount = Money(100.0, usd)
+
+# Using market data module
+from rfin.market_data import DiscountCurve, InterpStyle
+
+# Create a discount curve
+curve = DiscountCurve(
+    id="USD-OIS",
+    base_date=Date.from_ymd(2025, 1, 1),
+    times=[0.0, 1.0, 5.0],
+    discount_factors=[1.0, 0.97, 0.85],
+    interpolation=InterpStyle.MonotoneConvex,
+)
+
+# Get discount factor
+df = curve.df(2.5)
 ```
+
+## Modules
+
+### Core Modules
+
+- **dates**: Date arithmetic, calendars, day count conventions
+- **primitives**: Currency and Money types
+- **cashflow**: Cash flow generation and NPV calculations
+- **market_data**: Financial curves, surfaces, and interpolation
+
+### Market Data Features
+
+The `market_data` module provides:
+
+- **Discount Curves**: For pricing with various interpolation methods
+- **Forward Curves**: For modeling forward rates (e.g., SOFR, EURIBOR)
+- **Hazard Curves**: For credit risk modeling
+- **Inflation Curves**: For real/nominal calculations
+- **Volatility Surfaces**: For option pricing
+- **CurveSet**: Container for managing multiple curves
+
+#### Interpolation Methods
+
+All curves support multiple interpolation styles:
+- `Linear`: Simple linear interpolation
+- `LogLinear`: Linear in log space (constant rates)
+- `MonotoneConvex`: Hagan-West method (shape-preserving)
+- `CubicHermite`: Smooth cubic spline
+- `FlatFwd`: Piecewise constant forward rates
+
+### Examples
+
+See the `examples/python/` directory for complete examples:
+- `dates_python_example.py`: Working with dates and calendars
+- `primitives_python_example.py`: Currency and money operations
+- `cashflow_leg_example.py`: Cash flow generation
+- `market_data_example.py`: Comprehensive market data usage
