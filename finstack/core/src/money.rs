@@ -13,13 +13,13 @@
 
 #![allow(clippy::items_after_test_module)]
 
+#[cfg(not(feature = "decimal128"))]
+use crate::config::RoundingMode;
 #[cfg(feature = "decimal128")]
 use crate::config::{config, RoundingMode};
 use crate::currency::Currency;
-use crate::error::Error;
-#[cfg(not(feature = "decimal128"))]
-use crate::config::RoundingMode;
 use crate::dates::Date;
+use crate::error::Error;
 use core::fmt;
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
@@ -55,16 +55,23 @@ impl Money {
         #[cfg(feature = "decimal128")]
         {
             let s = format!("{:.17}", amount);
-            let mut dec = rust_decimal::Decimal::from_str(&s).unwrap_or(rust_decimal::Decimal::ZERO);
+            let mut dec =
+                rust_decimal::Decimal::from_str(&s).unwrap_or(rust_decimal::Decimal::ZERO);
             let mode = config().rounding.mode;
             dec = round_decimal(dec, dp, mode);
-            Self { amount: dec, currency }
+            Self {
+                amount: dec,
+                currency,
+            }
         }
         #[cfg(not(feature = "decimal128"))]
         {
             let mode = crate::config::config().rounding.mode;
             let rounded = round_f64(amount, dp as i32, mode);
-            Self { amount: rounded, currency }
+            Self {
+                amount: rounded,
+                currency,
+            }
         }
     }
 
@@ -76,7 +83,10 @@ impl Money {
         let dp = crate::config::ingest_scale_for(currency);
         let mode = config().rounding.mode;
         let dec = round_decimal(amount, dp, mode);
-        Self { amount: dec, currency }
+        Self {
+            amount: dec,
+            currency,
+        }
     }
 
     /// Amount accessor (by value).
@@ -112,7 +122,10 @@ impl Money {
     #[inline]
     pub fn checked_add(self, rhs: Self) -> Result<Self, Error> {
         ensure_same_currency(&self, &rhs)?;
-        Ok(Self { amount: repr_add(self.amount, rhs.amount), currency: self.currency })
+        Ok(Self {
+            amount: repr_add(self.amount, rhs.amount),
+            currency: self.currency,
+        })
     }
 
     /// Subtract two amounts, returning an `Error::CurrencyMismatch` if the currencies differ.
@@ -120,7 +133,10 @@ impl Money {
     #[inline]
     pub fn checked_sub(self, rhs: Self) -> Result<Self, Error> {
         ensure_same_currency(&self, &rhs)?;
-        Ok(Self { amount: repr_sub(self.amount, rhs.amount), currency: self.currency })
+        Ok(Self {
+            amount: repr_sub(self.amount, rhs.amount),
+            currency: self.currency,
+        })
     }
 
     /// Convert this `Money` into another currency using an [`fx::FxProvider`].
@@ -138,12 +154,18 @@ impl Money {
         #[cfg(feature = "decimal128")]
         {
             let new_amount = self.amount * rate;
-            Ok(Self { amount: new_amount, currency: to })
+            Ok(Self {
+                amount: new_amount,
+                currency: to,
+            })
         }
         #[cfg(not(feature = "decimal128"))]
         {
             let new_amount = repr_mul_f64(self.amount, rate);
-            Ok(Self { amount: new_amount, currency: to })
+            Ok(Self {
+                amount: new_amount,
+                currency: to,
+            })
         }
     }
 }
@@ -183,7 +205,10 @@ impl Mul<f64> for Money {
     type Output = Self;
     #[inline]
     fn mul(self, rhs: f64) -> Self::Output {
-        Self { amount: repr_mul_f64(self.amount, rhs), currency: self.currency }
+        Self {
+            amount: repr_mul_f64(self.amount, rhs),
+            currency: self.currency,
+        }
     }
 }
 
@@ -191,7 +216,10 @@ impl Div<f64> for Money {
     type Output = Self;
     #[inline]
     fn div(self, rhs: f64) -> Self::Output {
-        Self { amount: repr_div_f64(self.amount, rhs), currency: self.currency }
+        Self {
+            amount: repr_div_f64(self.amount, rhs),
+            currency: self.currency,
+        }
     }
 }
 
@@ -201,7 +229,10 @@ impl Add for Money {
     #[inline]
     fn add(self, rhs: Self) -> Self::Output {
         ensure_same_currency(&self, &rhs)?;
-        Ok(Self { amount: repr_add(self.amount, rhs.amount), currency: self.currency })
+        Ok(Self {
+            amount: repr_add(self.amount, rhs.amount),
+            currency: self.currency,
+        })
     }
 }
 
@@ -211,7 +242,10 @@ impl Sub for Money {
     #[inline]
     fn sub(self, rhs: Self) -> Self::Output {
         ensure_same_currency(&self, &rhs)?;
-        Ok(Self { amount: repr_sub(self.amount, rhs.amount), currency: self.currency })
+        Ok(Self {
+            amount: repr_sub(self.amount, rhs.amount),
+            currency: self.currency,
+        })
     }
 }
 
@@ -381,7 +415,9 @@ fn format_decimal(x: AmountRepr, dp: u32, mode: RoundingMode) -> String {
     }
     if !s.contains('.') {
         s.push('.');
-        for _ in 0..dp { s.push('0'); }
+        for _ in 0..dp {
+            s.push('0');
+        }
         return s;
     }
     let parts: Vec<&str> = s.split('.').collect();
@@ -394,7 +430,9 @@ fn format_decimal(x: AmountRepr, dp: u32, mode: RoundingMode) -> String {
         out.push_str(&frac[..dp as usize]);
     } else {
         out.push_str(frac);
-        for _ in 0..(dp as usize - frac.len()) { out.push('0'); }
+        for _ in 0..(dp as usize - frac.len()) {
+            out.push('0');
+        }
     }
     out
 }

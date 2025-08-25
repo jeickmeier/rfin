@@ -15,7 +15,7 @@ use std::vec::Vec;
 /// vector.
 ///
 /// # Example
-/// ```ignore
+/// ```text
 /// let interp = MonotoneConvex::new(
 ///     vec![0.0, 1.0].into_boxed_slice(),
 ///     vec![1.0, 0.95].into_boxed_slice(),

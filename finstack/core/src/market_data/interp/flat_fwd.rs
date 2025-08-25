@@ -7,7 +7,7 @@ use crate::{
 /// Implemented via linear interpolation on log DF (equivalent behaviour).
 ///
 /// # Example
-/// ```ignore
+/// ```text
 /// use crate::market_data::interp::FlatFwd;
 /// let interp = FlatFwd::new(
 ///     vec![0.0, 1.0].into_boxed_slice(),

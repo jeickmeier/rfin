@@ -8,10 +8,11 @@
 pub use crate::currency::Currency;
 pub use crate::dates::{
     adjust, available_calendars, next_cds_date, next_imm, third_wednesday, BusinessDayConvention,
-    Date, DateExt, DayCount, HolidayCalendar, MergeMode, OffsetDateTime, OffsetDateTimeExt,
-    Period, PeriodId, PeriodKey, ScheduleBuilder, StubKind,
+    Date, DateExt, DayCount, HolidayCalendar, MergeMode, OffsetDateTime, OffsetDateTimeExt, Period,
+    PeriodId, PeriodKey, ScheduleBuilder, StubKind,
 };
 pub use crate::error::{Error, InputError};
+pub use crate::expr::{CompiledExpr, Expr, ExpressionContext};
 pub use crate::market_data::{
     id::CurveId,
     interp::{InterpFn, InterpStyle},
@@ -22,6 +23,5 @@ pub use crate::Result;
 
 // Re-export Polars with an alias to avoid `Expr` name collision and to keep a
 // consistent surface across the workspace.
-pub use polars::prelude::{col, lit, DataFrame, Expr as PolarsExpr, LazyFrame, Series};
-
-
+pub use polars::prelude::{DataFrame, Series};
+pub use polars::lazy::prelude::{col, lit, Expr as PolarsExpr, LazyFrame};

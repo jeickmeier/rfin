@@ -1,8 +1,10 @@
-use finstack_core::{Currency, Money};
 use finstack_core::dates::Date;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate};
+use finstack_core::{Currency, Money};
 
-struct StaticFx { rate: f64 }
+struct StaticFx {
+    rate: f64,
+}
 
 impl FxProvider for StaticFx {
     fn rate(
@@ -31,7 +33,9 @@ fn explicit_convert_and_add() {
     let d = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
     // Convert EUR to USD, then add
-    let eur_in_usd = eur.convert(Currency::USD, d, &prov, FxConversionPolicy::CashflowDate).unwrap();
+    let eur_in_usd = eur
+        .convert(Currency::USD, d, &prov, FxConversionPolicy::CashflowDate)
+        .unwrap();
     let sum = (usd + eur_in_usd).unwrap();
     // Expected: 100 + 90*1.2 = 208
     assert!((sum.amount() - 208.0).abs() < 1e-9);
@@ -92,5 +96,3 @@ fn closure_check_matrix() {
         )
         .unwrap();
 }
-
-

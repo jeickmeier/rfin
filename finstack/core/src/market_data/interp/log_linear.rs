@@ -5,7 +5,7 @@ use std::vec::Vec;
 /// of discount factors (i.e. piecewise‐constant zero rates).
 ///
 /// # Example
-/// ```ignore
+/// ```text
 /// use crate::market_data::interp::LogLinearDf;
 /// let knots = vec![0.0, 1.0].into_boxed_slice();
 /// let dfs = vec![1.0, 0.95].into_boxed_slice();

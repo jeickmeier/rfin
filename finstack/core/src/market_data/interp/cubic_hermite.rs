@@ -13,7 +13,7 @@ use crate::{
 /// O(log N) thanks to binary search on the knot vector.
 ///
 /// # Example
-/// ```ignore
+/// ```text
 /// use crate::market_data::interp::CubicHermite;
 /// let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
 /// let dfs   = vec![1.0, 0.95, 0.9].into_boxed_slice();

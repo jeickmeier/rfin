@@ -7,9 +7,9 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use hashbrown::HashMap;
 use once_cell::sync::Lazy;
 use std::sync::{Arc, RwLock};
-use hashbrown::HashMap;
 
 /// Rounding modes supported by the library.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -83,7 +83,10 @@ pub struct CurrencyScalePolicy {
 
 impl Default for CurrencyScalePolicy {
     fn default() -> Self {
-        Self { default_scale: 2, overrides: HashMap::new() }
+        Self {
+            default_scale: 2,
+            overrides: HashMap::new(),
+        }
     }
 }
 
@@ -187,7 +190,10 @@ pub fn numeric_mode() -> NumericMode {
 
 /// Construct a `ResultsMeta` snapshot for stamping into result envelopes.
 pub fn results_meta() -> ResultsMeta {
-    ResultsMeta { numeric_mode: numeric_mode(), rounding: rounding_context() }
+    ResultsMeta {
+        numeric_mode: numeric_mode(),
+        rounding: rounding_context(),
+    }
 }
 
 #[cfg(all(test, feature = "decimal128"))]
@@ -198,12 +204,16 @@ mod tests {
         let orig = config();
         assert_eq!(orig.rounding.mode, RoundingMode::Bankers);
         let out = with_temp_config(
-            FinstackConfig { rounding_mode: RoundingMode::Ceil, rounding: RoundingPolicy { mode: RoundingMode::Ceil, ..Default::default() } },
+            FinstackConfig {
+                rounding_mode: RoundingMode::Ceil,
+                rounding: RoundingPolicy {
+                    mode: RoundingMode::Ceil,
+                    ..Default::default()
+                },
+            },
             || config().rounding.mode,
         );
         assert_eq!(out, RoundingMode::Ceil);
         assert_eq!(config().rounding.mode, RoundingMode::Bankers);
     }
 }
-
-

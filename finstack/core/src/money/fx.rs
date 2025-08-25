@@ -40,7 +40,11 @@ pub struct FxPolicyMeta {
 
 impl Default for FxPolicyMeta {
     fn default() -> Self {
-        Self { strategy: FxConversionPolicy::CashflowDate, target_ccy: None, notes: "" }
+        Self {
+            strategy: FxConversionPolicy::CashflowDate,
+            target_ccy: None,
+            notes: "",
+        }
     }
 }
 
@@ -64,7 +68,9 @@ pub struct FxMatrix<P: FxProvider> {
 
 impl<P: FxProvider> FxMatrix<P> {
     /// Create a new `FxMatrix` wrapping the given provider.
-    pub fn new(provider: P) -> Self { Self { provider } }
+    pub fn new(provider: P) -> Self {
+        Self { provider }
+    }
 
     /// Get rate with a simple closure check: from→mid × mid→to ≈ from→to.
     pub fn rate_with_closure(
@@ -99,5 +105,3 @@ impl<P: FxProvider> FxMatrix<P> {
         }
     }
 }
-
-

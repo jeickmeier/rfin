@@ -3,7 +3,7 @@ use crate::{error::InputError, market_data::interp::InterpFn, F};
 /// Piece-wise linear interpolation on discount factors.
 ///
 /// # Example
-/// ```ignore
+/// ```text
 /// use crate::market_data::interp::LinearDf;
 /// let interp = LinearDf::new(
 ///     vec![0.0, 1.0].into_boxed_slice(),
