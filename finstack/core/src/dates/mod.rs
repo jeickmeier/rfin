@@ -63,6 +63,9 @@ pub use holiday::{Calendar as HolidayCalendarNew, Rule as HolidayRule};
 // Re-export calendars directly for `finstack_core::dates::Target2` etc.
 pub use holiday::calendars::*;
 
+mod periods;
+pub use periods::{build_periods, Period, PeriodId, PeriodKey};
+
 pub mod calendars {
     #![allow(missing_docs)]
     pub use crate::dates::holiday::calendars::*;
