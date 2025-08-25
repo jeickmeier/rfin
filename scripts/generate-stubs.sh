@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
-# Regenerate *.pyi stub files for the rfin Python bindings.
+# Regenerate *.pyi stub files for the finstack Python bindings.
 #
-# 1. Builds the rfin extension into the current virtual environment (release
+# 1. Builds the finstack extension into the current virtual environment (release
 #    mode) so that the compiled module can be imported by `pyo3-stubgen`.
 # 2. Invokes `pyo3-stubgen` to generate fresh stub files.
-# 3. Copies / syncs those stubs into the rfin-python package tree and ensures
+# 3. Copies / syncs those stubs into the finstack-py package tree and ensures
 #    the mandatory `py.typed` marker exists so that type checkers recognise the
 #    package as "typed" (PEP 561).
 #
@@ -18,8 +18,8 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 PROJECT_ROOT="$SCRIPT_DIR/.."
 cd "$PROJECT_ROOT"
 
-PACKAGE_CRATE_PATH="rfin-python"
-PY_PACKAGE_DIR="$PACKAGE_CRATE_PATH/rfin"
+PACKAGE_CRATE_PATH="finstack-py"
+PY_PACKAGE_DIR="$PACKAGE_CRATE_PATH/finstack"
 
 # Ensure pyo3-stubgen is available
 if ! command -v pyo3-stubgen >/dev/null 2>&1; then
@@ -40,15 +40,16 @@ echo "✅  Rust extension built. Generating stubs …"
 
 # 2. Generate fresh stubs into a temporary directory
 TMP_STUB_DIR=$(mktemp -d)
-pyo3-stubgen rfin "$TMP_STUB_DIR"
+# Generate stubs for the installable Python package name
+pyo3-stubgen finstack "$TMP_STUB_DIR"
 
 # 3. Copy stubs
-# Root stub (rfin.pyi)
-cp "$TMP_STUB_DIR/rfin.pyi" "$PACKAGE_CRATE_PATH/"
+# Root stub (__init__.pyi)
+cp "$TMP_STUB_DIR/finstack.pyi" "$PY_PACKAGE_DIR/__init__.pyi"
 
 # Package sub-stubs – use rsync to mirror directory structure
-if [ -d "$TMP_STUB_DIR/rfin" ]; then
-  rsync -a --delete "$TMP_STUB_DIR/rfin/" "$PY_PACKAGE_DIR/"
+if [ -d "$TMP_STUB_DIR/finstack" ]; then
+  rsync -a --delete "$TMP_STUB_DIR/finstack/" "$PY_PACKAGE_DIR/"
 fi
 
 # Ensure PEP 561 marker

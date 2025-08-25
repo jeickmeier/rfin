@@ -1,0 +1,27 @@
+[package]
+name = "finstack-py"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "finstack"
+crate-type = ["cdylib"]
+
+[dependencies]
+finstack-core = { path = "../finstack/core", features = ["std"] }
+pyo3 = { version = "0.25", features = ["extension-module"] }
+numpy = "0.25"
+
+# Needed for Month enum used in Date bindings
+time = { version = "0.3", default-features = false }
+
+[build-dependencies]
+pyo3-build-config = "0.25"
+
+[features]
+default = []
+decimal128 = ["finstack-core/decimal128"]

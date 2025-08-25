@@ -5,11 +5,11 @@ Example showcasing the new `Date` class exposed by RustFin's Python bindings.
 
 """
 
-import rfin
-from rfin import Date
+import finstack
+from finstack import Date
 
 # Explicit import for DayCount enum
-from rfin.dates import (
+from finstack.dates import (
     DayCount,
     Calendar,
     BusDayConvention,
@@ -18,9 +18,9 @@ from rfin.dates import (
     available_calendars,
     StubRule,
 )
-from rfin.dates import third_wednesday, next_imm, next_cds_date
+from finstack.dates import third_wednesday, next_imm, next_cds_date
 
-print(f"RustFin version: {rfin.__version__}\n")
+print(f"Finstack version: {finstack.__version__}\n")
 
 print("=== Date Examples ===")
 

@@ -48,10 +48,11 @@ lint:
 clean:
 	cargo clean
 	rm -rf .venv
-	rm -rf rfin-wasm/pkg
-	rm -rf rfin-wasm/pkg-node
+	rm -rf finstack-wasm/pkg
+	rm -rf finstack-wasm/pkg-node
 	find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 	find . -name "*.egg-info" -type d -exec rm -rf {} + 2>/dev/null || true
+
 
 python-dev:
 	@if [ ! -d ".venv" ]; then \
@@ -61,11 +62,11 @@ python-dev:
 	@echo "Installing Python dependencies and building extension..."
 	. .venv/bin/activate && \
 	uv pip install maturin pytest pytest-benchmark black mypy ruff ipython jupyter && \
-	cd rfin-python && \
+	cd finstack-py && \
 	python -m maturin develop --release
 
 wasm-build:
-	cd rfin-wasm && wasm-pack build --target web
+	cd finstack-wasm && wasm-pack build --target web
 
 stubs:
 	@echo "(re)generating Python stub files …"

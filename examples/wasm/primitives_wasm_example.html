@@ -53,7 +53,7 @@
         <div class="section">
             <h3>Setup Instructions:</h3>
             <ol>
-                <li>Build WASM: <code>cd rfin-wasm && wasm-pack build --target web</code></li>
+                <li>Build WASM: <code>cd finstack-wasm && wasm-pack build --target web</code></li>
                 <li>Serve this HTML file with a local web server</li>
                 <li>Open in browser</li>
             </ol>
@@ -63,7 +63,7 @@
     </div>
     
     <script type="module">
-        import init, { Currency, Money } from '../../../rfin-wasm/pkg/rfin_wasm.js';
+        import init, { Currency, Money } from '../../../finstack-wasm/pkg/rfin_wasm.js';
         
         async function addSection(title, content) {
             const output = document.getElementById('output');
@@ -355,7 +355,7 @@
                         <h3 class="error">Error Loading WASM Module</h3>
                         <p class="error">Failed to initialize: ${error.message}</p>
                         <p>Make sure you've built the WASM package:</p>
-                        <code>cd rfin-wasm && wasm-pack build --target web</code>
+                        <code>cd finstack-wasm && wasm-pack build --target web</code>
                     </div>
                 `;
                 console.error('WASM loading error:', error);

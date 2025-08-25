@@ -1,0 +1,27 @@
+{
+  "name": "finstack-wasm",
+  "version": "0.1.0",
+  "description": "WebAssembly bindings for RustFin financial computation library",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "scripts": {
+    "build": "wasm-pack build --target web --out-dir pkg",
+    "build:node": "wasm-pack build --target nodejs --out-dir pkg-node",
+    "test": "wasm-pack test --chrome --firefox --headless"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rustfin/rfin"
+  },
+  "keywords": [
+    "wasm",
+    "finance",
+    "rust",
+    "webassembly"
+  ],
+  "author": "RustFin Contributors",
+  "license": "MIT OR Apache-2.0",
+  "devDependencies": {
+    "@wasm-tool/wasm-pack-plugin": "^1.7.0"
+  }
+}

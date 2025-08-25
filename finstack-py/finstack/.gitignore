@@ -1,0 +1,9 @@
+# Ignore compiled extension modules and build byproducts
+*.so
+*.pyd
+*.dll
+*.dylib
+__pycache__/
+*.pyc
+
+

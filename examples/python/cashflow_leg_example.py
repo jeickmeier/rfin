@@ -1,14 +1,14 @@
-"""Example: Build and value a fixed-rate cash-flow leg using rfin.
+"""Example: Build and value a fixed-rate cash-flow leg using finstack.
 
-Run with an active virtualenv that has the rfin extension installed, e.g.:
+Run with an active virtualenv that has the finstack extension installed, e.g.:
 
-    python -m maturin develop --manifest-path rfin-python/Cargo.toml
+    python -m maturin develop --manifest-path finstack-py/Cargo.toml
     python examples/python/cashflow_leg_example.py
 """
 
-from rfin import Currency, Date, DayCount
-from rfin.cashflow import FixedRateLeg
-from rfin.dates import Frequency
+from finstack import Currency, Date, DayCount
+from finstack.cashflow import FixedRateLeg
+from finstack.dates import Frequency
 
 # Parameters
 notional = 1_000_000.0

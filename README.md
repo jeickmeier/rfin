@@ -1,12 +1,13 @@
-# RFin
+# Finstack (Rust)
 
 A high-performance financial computation library written in Rust with bindings for Python and WebAssembly.
 
 ## Project Structure
 
-- `core/` - Core Rust library with financial functionality
-- `rfin-python/` - Python bindings using PyO3
-- `rfin-wasm/` - WebAssembly bindings using wasm-bindgen
+- `core/` - Core Rust library with financial functionality (crate name `finstack-core`)
+- `finstack-py/` - Python bindings using PyO3 (crate name `finstack-py`)
+- `finstack-wasm/` - WebAssembly bindings using wasm-bindgen (crate name `finstack-wasm`)
+- `finstack/` - Meta-crate re-exporting subcrates via features
 - `examples/` - Example usage for different bindings
 - `docs/` - Technical documentation and design documents
 
@@ -99,7 +100,7 @@ uv run mypy .
 curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
 # Build for web
-cd rfin-wasm
+cd finstack-wasm
 wasm-pack build --target web
 
 # Build for Node.js
@@ -114,21 +115,21 @@ wasm-pack build --target nodejs
 python -m http.server 8000
 # Or use any other static file server
 ```
-3. Open http://localhost:8000/examples/wasm_example.html
+3. Open http://localhost:8000/examples/wasm/primitives_wasm_example.html
 
 ## Features
 
-- **Core Library** (`rfin-core`):
+- **Core Library** (`finstack-core`):
   - `std` - Standard library support (default: off)
   - `decimal128` - High-precision decimal support
   - `serde` - Serialization support
   - `holidays` - Holiday calendar functionality
 
-- **Python Bindings** (`rfin-python`):
+- **Python Bindings** (`finstack-py`):
   - Inherits features from core
   - Provides Pythonic API
 
-- **WASM Bindings** (`rfin-wasm`):
+- **WASM Bindings** (`finstack-wasm`):
   - Optimized for web browsers
   - Small bundle size
   - TypeScript definitions
@@ -145,14 +146,7 @@ The project uses GitHub Actions for continuous integration:
 - WASM build verification
 - no_std compatibility checks
 
-## License
 
-This project is licensed under either of:
-
-- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
-- MIT license ([LICENSE-MIT](LICENSE-MIT))
-
-at your option.
 
 ## Contributing
 

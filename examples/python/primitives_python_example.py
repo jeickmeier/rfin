@@ -19,10 +19,10 @@ Or simply run with uv directly:
    uv run python examples/python_example.py
 """
 
-import rfin
-from rfin import Currency, Money
+import finstack
+from finstack import Currency, Money
 
-print(f"RustFin version: {rfin.__version__}")
+print(f"Finstack version: {finstack.__version__}")
 print()
 
 

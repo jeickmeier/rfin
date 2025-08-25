@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Example demonstrating the rfin market_data module for financial curves and surfaces.
+Example demonstrating the finstack market_data module for financial curves and surfaces.
 
 This example shows how to:
 - Create various types of curves (discount, forward, hazard, inflation)
@@ -11,8 +11,8 @@ This example shows how to:
 """
 
 import numpy as np
-from rfin import Date, DayCount
-from rfin.market_data import (
+from finstack import Date, DayCount
+from finstack.market_data import (
     InterpStyle,
     DiscountCurve,
     ForwardCurve,
@@ -316,7 +316,7 @@ def example_interpolation_styles():
 
 def main():
     """Run all examples."""
-    print("RustFin Market Data Python Examples")
+    print("Finstack Market Data Python Examples")
     print("=" * 50)
     print()
 

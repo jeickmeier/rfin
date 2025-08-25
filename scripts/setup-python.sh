@@ -34,8 +34,8 @@ uv venv
 echo "Installing dependencies..."
 uv pip install maturin pytest pytest-benchmark black mypy ruff ipython jupyter
 
-echo "Building rfin-python..."
-cd rfin-python
+echo "Building finstack-py..."
+cd finstack-py
 # Activate the virtual environment and run maturin
 source ../.venv/bin/activate
 maturin develop --release
@@ -49,7 +49,7 @@ echo "To activate the environment:"
 echo "  source .venv/bin/activate"
 echo ""
 echo "To run the example:"
-echo "  python examples/python_example.py"
+echo "  python examples/python/primitives_python_example.py"
 echo ""
 echo "Or run directly with uv:"
-echo "  uv run python examples/python_example.py"
+echo "  uv run python examples/python/primitives_python_example.py"

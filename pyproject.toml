@@ -6,12 +6,12 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "rfin"
+name = "finstack"
 # Let maturin derive version from Cargo.toml
 dynamic = ["version"]
 
-description = "Python bindings for the RustFin financial computation library"
-readme = "rfin-python/README.md"
+description = "Python bindings for the Finstack financial computation library"
+readme = "finstack-py/README.md"
 requires-python = ">=3.8"
 license = { text = "MIT OR Apache-2.0" }
 classifiers = [
@@ -21,6 +21,10 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
 ]
+dependencies = [
+    "numpy>=1.24.4",
+    "polars>=1.8.2",
+]
 
 [tool.uv]
 # Development dependencies - not a Python package itself
@@ -28,7 +32,6 @@ dev-dependencies = [
     "maturin>=1.0,<2.0",
     "pytest>=7.0",
     "pytest-benchmark>=4.0", 
-    "black>=23.0",
     "mypy>=1.0",
     "ruff>=0.1.0",
     "ipython>=8.0",
@@ -39,10 +42,6 @@ dev-dependencies = [
 [tool.ruff]
 line-length = 88
 target-version = "py38"
-
-[tool.black]
-line-length = 88
-target-version = ["py38", "py39", "py310", "py311", "py312"]
 
 [tool.mypy]
 python_version = "3.8"
@@ -55,10 +54,11 @@ python_files = ["test_*.py", "*_test.py"]
 
 [tool.maturin]
 # Path to the Cargo manifest of the bindings crate
-manifest-path = "rfin-python/Cargo.toml"
+manifest-path = "finstack-py/Cargo.toml"
 # Source directory that contains the Python package files (.pyi, py.typed)
-python-source = "rfin-python/rfin"
+python-source = "finstack-py"
 include = [
-    { path = "rfin-python/rfin/**/*.pyi", format = ["wheel"] },
-    { path = "rfin-python/rfin/py.typed", format = ["wheel"] },
+    { path = "finstack-py/finstack/__init__.py", format = ["wheel"] },
+    { path = "finstack-py/finstack/**/*.pyi", format = ["wheel"] },
+    { path = "finstack-py/finstack/py.typed", format = ["wheel"] },
 ]

@@ -19,14 +19,14 @@ echo "Installing dependencies..."
 uv pip install maturin
 
 # Build the Python extension
-echo "Building rfin-python..."
-cd rfin-python
+echo "Building finstack-py..."
+cd finstack-py
 python -m maturin develop --release
 cd ..
 
 # Test import
 echo "Testing import..."
-python -c "import rfin; print(f'Success! RustFin version: {rfin.__version__}')"
+python -c "import finstack; print(f'Success! Finstack version: {finstack.__version__}')"
 
 # Cleanup
 deactivate

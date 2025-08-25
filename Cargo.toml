@@ -1,6 +1,32 @@
 [workspace]
-members = ["core", "rfin-python", "rfin-wasm"]
+members = [
+    "finstack/core",
+    "finstack/statements",
+    "finstack/valuations",
+    "finstack/scenarios",
+    "finstack/portfolio",
+    "finstack/io",
+    "finstack/analysis",
+    "finstack/structured-credit",
+    "finstack-py",
+    "finstack-wasm",
+    "finstack"
+]
 resolver = "2"
+
+# Exclude Python bindings from default builds to avoid requiring a Python env
+default-members = [
+    "finstack/core",
+    "finstack/statements",
+    "finstack/valuations",
+    "finstack/scenarios",
+    "finstack/portfolio",
+    "finstack/io",
+    "finstack/analysis",
+    "finstack/structured-credit",
+    "finstack-wasm",
+    "finstack"
+]
 
 [workspace.package]
 version = "0.3.0"
