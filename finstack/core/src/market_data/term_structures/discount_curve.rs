@@ -8,8 +8,8 @@
 //!
 //! ## Example
 //! ```rust
-//! use rfin_core::market_data::term_structures::discount_curve::DiscountCurve;
-//! use rfin_core::dates::Date;
+//! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+//! use finstack_core::dates::Date;
 //! use time::Month;
 //!
 //! let curve = DiscountCurve::builder("USD-OIS")

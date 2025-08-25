@@ -1,7 +1,7 @@
 //! Python bindings for CurveId.
 
-use pyo3::prelude::*;
 use finstack_core::market_data::id::CurveId;
+use pyo3::prelude::*;
 
 /// Identifier for a market data curve or surface.
 ///

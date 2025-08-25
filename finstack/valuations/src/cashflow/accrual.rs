@@ -10,8 +10,8 @@ use hashbrown::HashMap;
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
 
-use crate::dates::{Date, DayCount};
-use crate::Error;
+use finstack_core::dates::{Date, DayCount};
+use finstack_core::Error;
 
 // -----------------------------------------------------------------------------
 // Key type – customise Hash to avoid collisions on DayCount enum alone.

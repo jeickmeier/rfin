@@ -2,11 +2,11 @@
 
 use pyo3::prelude::*;
 
-use finstack_core::cashflow::leg::CashFlowLeg;
-use finstack_core::cashflow::notional::Notional;
-use finstack_core::cashflow::npv::{DiscountCurve, Discountable};
-use finstack_core::cashflow::primitives::{CFKind, CashFlow as CoreCashFlow};
 use finstack_core::dates::ScheduleBuilder;
+use finstack_valuations::cashflow::leg::CashFlowLeg;
+use finstack_valuations::cashflow::notional::Notional;
+use finstack_valuations::cashflow::npv::{DiscountCurve, Discountable};
+use finstack_valuations::cashflow::primitives::{CFKind, CashFlow as CoreCashFlow};
 use std::sync::Arc;
 
 use crate::currency::PyCurrency;

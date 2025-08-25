@@ -17,7 +17,7 @@
 //!
 //! ## Example – Validating input before bootstrapping a curve
 //! ```rust
-//! use rfin_core::market_data::utils::{validate_knots, validate_dfs};
+//! use finstack_core::market_data::utils::{validate_knots, validate_dfs};
 //! // Knot times in *years* and corresponding discount factors.
 //! let times  = [0.0, 1.0, 2.0, 3.0];
 //! let dfs    = [1.0, 0.97, 0.94, 0.90];

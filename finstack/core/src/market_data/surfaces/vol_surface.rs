@@ -6,7 +6,7 @@
 //!
 //! ## Construction Example
 //! ```rust
-//! use rfin_core::market_data::surfaces::vol_surface::VolSurface;
+//! use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 //! let vs = VolSurface::builder("EQ-FLAT")
 //!     .expiries(&[1.0, 2.0])
 //!     .strikes(&[90.0, 100.0, 110.0])

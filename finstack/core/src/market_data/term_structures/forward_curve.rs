@@ -7,7 +7,7 @@
 //!
 //! ## Example
 //! ```rust
-//! use rfin_core::market_data::term_structures::forward_curve::ForwardCurve;
+//! use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 //! // 3-month tenor expressed in years
 //! let fc = ForwardCurve::builder("USD-SOFR3M", 0.25)
 //!     .knots([(0.0, 0.03), (5.0, 0.04)])

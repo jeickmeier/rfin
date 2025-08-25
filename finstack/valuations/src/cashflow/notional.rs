@@ -1,7 +1,7 @@
 #![deny(missing_docs)]
-use crate::dates::Date;
-use crate::error::InputError;
-use crate::money::Money;
+use finstack_core::dates::Date;
+use finstack_core::error::InputError;
+use finstack_core::money::Money;
 
 /// Amortisation rule applied to the notional over time.
 #[derive(Clone, Debug, PartialEq)]
@@ -37,7 +37,7 @@ pub struct Notional {
 
 impl Notional {
     /// Plain (non-amortising) notional helper.
-    pub fn par(amount: f64, currency: crate::currency::Currency) -> Self {
+    pub fn par(amount: f64, currency: finstack_core::currency::Currency) -> Self {
         Self {
             initial: Money::new(amount, currency),
             amort: AmortRule::None,
@@ -45,7 +45,7 @@ impl Notional {
     }
 
     /// Validate amortisation schedule (sum of amort steps ≤ initial).
-    pub fn validate(&self) -> crate::Result<()> {
+    pub fn validate(&self) -> finstack_core::Result<()> {
         match &self.amort {
             AmortRule::None => Ok(()),
             AmortRule::Linear { final_notional } => {
@@ -70,7 +70,7 @@ impl Notional {
     }
 
     /// Convenience accessor for currency.
-    pub fn currency(&self) -> crate::currency::Currency {
+    pub fn currency(&self) -> finstack_core::currency::Currency {
         self.initial.currency()
     }
 }

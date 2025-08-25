@@ -1,7 +1,7 @@
 //! Python bindings for schedule generation
 
-use pyo3::prelude::*;
 use finstack_core::dates::{schedule, Frequency, StubKind};
+use pyo3::prelude::*;
 
 use super::calendar::{PyBusDayConv, PyCalendar};
 use super::date::PyDate;

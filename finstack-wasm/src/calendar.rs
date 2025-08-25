@@ -1,8 +1,8 @@
-use js_sys::Array;
 use finstack_core::dates::holiday::calendars::calendar_by_id;
 use finstack_core::dates::{
     adjust, BusinessDayConvention as BusDayConv, CompositeCalendar, HolidayCalendar,
 };
+use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
 use crate::dates::Date;

@@ -1,7 +1,7 @@
 //! Python bindings for interpolation styles.
 
-use pyo3::prelude::*;
 use finstack_core::market_data::interp::InterpStyle;
+use pyo3::prelude::*;
 
 /// Interpolation method for curve construction.
 ///

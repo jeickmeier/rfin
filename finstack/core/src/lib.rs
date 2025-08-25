@@ -46,7 +46,6 @@
 extern crate std;
 
 // Core modules
-pub mod cashflow;
 pub mod currency;
 pub mod error;
 /// Market data term‐structure framework (former `curves` module)

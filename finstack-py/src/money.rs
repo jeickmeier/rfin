@@ -2,9 +2,9 @@
 //! Python bindings for Money type.
 
 use super::currency::PyCurrency;
-use pyo3::prelude::*;
 use finstack_core::error::Error;
 use finstack_core::money::Money as CoreMoney;
+use pyo3::prelude::*;
 
 /// Monetary amount with currency.
 ///

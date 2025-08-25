@@ -10,9 +10,9 @@
 //! yf = DayCount.act360().year_fraction(d1, d2)
 //! ```
 
+use finstack_core::dates::DayCount;
 use pyo3::prelude::*;
 use pyo3::types::PyType;
-use finstack_core::dates::DayCount;
 
 use super::date::PyDate;
 

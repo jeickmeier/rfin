@@ -12,7 +12,7 @@ dynamic = ["version"]
 
 description = "Python bindings for the Finstack financial computation library"
 readme = "finstack-py/README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.12"
 license = { text = "MIT OR Apache-2.0" }
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -21,13 +21,13 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
 ]
+
 dependencies = [
     "numpy>=1.24.4",
     "polars>=1.8.2",
 ]
 
 [tool.uv]
-# Development dependencies - not a Python package itself
 dev-dependencies = [
     "maturin>=1.0,<2.0",
     "pytest>=7.0",
@@ -39,19 +39,6 @@ dev-dependencies = [
     "pyo3-stubgen>=0.1.0",
 ]
 
-[tool.ruff]
-line-length = 88
-target-version = "py38"
-
-[tool.mypy]
-python_version = "3.8"
-warn_return_any = true
-warn_unused_configs = true
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py", "*_test.py"]
-
 [tool.maturin]
 # Path to the Cargo manifest of the bindings crate
 manifest-path = "finstack-py/Cargo.toml"
@@ -61,4 +48,232 @@ include = [
     { path = "finstack-py/finstack/__init__.py", format = ["wheel"] },
     { path = "finstack-py/finstack/**/*.pyi", format = ["wheel"] },
     { path = "finstack-py/finstack/py.typed", format = ["wheel"] },
+]
+
+
+#######################
+# Pytest Configuration
+#######################
+
+[tool.coverage.run]
+source = ["finstack-py"]
+omit = ["finstack-py/tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "pass",
+    "raise ImportError",
+    "except ImportError:",
+    "if __name__ == .__main__.:",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_functions = ["test_*"]
+python_classes = ["Test*"]
+
+# Pytest general options (migrated from pytest.ini)
+addopts = "--cov-report term-missing --cov=finstack-py tests/"
+
+# Custom markers used across the test-suite
+markers = [
+    "perf: performance benchmark suite",
+    "security: security and hardening tests",
+    "integration: integration tests",
+    "slow: long-running tests (waterfall/valuation) that are opt-in",
+]
+
+# Match asyncio plugin behaviour from pytest.ini
+asyncio_default_fixture_loop_scope = "module"
+
+# Warnings configuration
+filterwarnings = [
+    # Keep third-party deprecations quiet for stable output; surface ours normally
+    "ignore::DeprecationWarning:pandas.*",
+    "ignore::DeprecationWarning:numpy.*",
+    "ignore::DeprecationWarning:matplotlib.*",
+    "ignore::DeprecationWarning:dateutil.*",
+    "ignore::DeprecationWarning:pytest.*",
+]
+
+[dependency-groups]
+dev = ["pytest-randomly>=3.16.0", "types-python-dateutil>=2.9.0.20250708"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["finstack-py"]
+
+#######################
+# Ruff Configuration
+#######################
+
+# Ruff Configuration
+[tool.ruff]
+line-length = 120
+target-version = "py312" # Ensure compatibility with Python 3.12
+src = ["."]
+exclude = [
+    "concatenate_script.py",
+    # Note: We WANT Ruff to lint examples for public-import guardrails
+    ".cursor/**",
+    ".mypy_cache/**",
+    ".pytest_cache/**",
+    ".ruff_cache/**",
+    "docs/**",
+    ".coverage",
+    "dist/**",
+    ".venv/**",
+    "noxfile.py",
+    "requirements.txt",
+    # allow Ruff to lint this file itself (don't exclude pyproject.toml)
+    "outputs/**",
+    "examples/**",
+]
+
+[tool.ruff.lint]
+select = [
+    # ── Core style / correctness ───────────────────────────────
+    "E",
+    "F",
+    "W",    # pycodestyle / pyflakes
+    "ANN",
+    "D",    # typing & docstrings
+    "UP",
+    "S",
+    "SIM",  # pyupgrade, security, simplification
+    "T20",
+    "TID",  # print-stmt, tidy-imports
+    "TRY",
+    "ERA",  # try/except, commented-out code
+    "PL",
+    "PT",
+    "Q",    # pylint, pytest, quotes
+    "RUF",
+    "PERF",
+    "PIE",  # Ruff-specific, performance, misc PIE
+    "YTT",
+    "EXE",  # sys.version, executable checks
+
+    # ── Add-ons for tighter quality ────────────────────────────
+    "B",   # flake8-bugbear           – probable bugs & bad practices
+    "N",   # pep8-naming              – PEP-8 identifiers
+    "I",   # import ordering (isort)  – deterministic imports
+    "C4",  # comprehensions           – needless list(set(..)), etc.
+    "ARG", # unused-arguments         – dead param detection
+    "BLE", # blind-except             – forbid bare `except:`
+    "C90", # mccabe complexity        – flags "god" functions
+
+    # ── File & logging hygiene ─────────────────────────────────
+    "PTH", # flake8-use-pathlib       – prefer pathlib APIs
+    "LOG", # flake8-logging           – logger misuse
+    "G",   # flake8-logging-format    – message formatting issues
+]
+
+ignore = [
+    "TRY300",  # Consider moving this statement to an else block - stylistic preference
+    "TRY301",  # Abstract raise to inner function - hurts readability here
+    "TRY003",  # Avoid specifying long messages outside the exception class - allow for context
+    "E501",    # Line too long - sometimes necessary
+    "ANN401",  # allow Any types
+    "PLR0913", # Too many arguments - sometimes necessary
+    "PLR0912", # Too many branches - complexity acceptable for now
+    "PLC0415", # pylint complexity        – flags "god" functions
+    "UP047",   # Unnecessary pass
+    "UP046",   # Unnecessary pass
+    "PLR2004", #
+    "RUF003",  #
+    "RUF002",  #
+    "S311",    #
+    "F403",    #
+    "F405",    #
+]
+
+# Configuration for pydocstyle (D rules)
+[tool.ruff.lint.pydocstyle]
+convention = "google" # Enforce Google-style docstrings
+
+# Configuration for flake8-annotations (ANN rules)
+[tool.ruff.lint.flake8-annotations]
+[tool.ruff.lint.flake8-tidy-imports]
+# Disallow relative imports that reach outside the package structure
+ban-relative-imports = "parents"
+
+# Ban deep/internal imports in examples and tests; encourage stable public surfaces
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"fsmodel.models.statement.base" = { msg = "Import from `fsmodel.models` instead of deep internal paths." }
+"fsmodel.models.statement.enums" = { msg = "Import from `fsmodel.models` instead of deep internal paths." }
+"fsmodel.models.statement.financial_model" = { msg = "Import from `fsmodel.models` instead of deep internal paths." }
+"fsmodel.models.line_items.nodes" = { msg = "Import from `fsmodel.models.line_items` or `fsmodel.models` public surfaces." }
+"fsmodel.models.market.rate_curve" = { msg = "Import from `fsmodel.models.market` public surface." }
+"fsmodel.models.market.fx_curve" = { msg = "Import from `fsmodel.models.market` public surface." }
+"fsmodel.models.capital_structure.instruments.term" = { msg = "Import `TermInstrumentSpec` from `fsmodel.models.capital_structure`." }
+"fsmodel.models.capital_structure.structure.core" = { msg = "Import `CapitalStructure` from `fsmodel.models.capital_structure`." }
+"fsmodel.models.capital_structure.terms.rates" = { msg = "Import rate specs from `fsmodel.models.capital_structure` or `.terms`." }
+"fsmodel.models.capital_structure.terms.enums" = { msg = "Import enums from `fsmodel.models.capital_structure` or `.terms`." }
+"fsmodel.services.capital_structure.engine" = { msg = "Import `CapitalStructureEngine` from `fsmodel.services`." }
+"fsmodel.services.capital_structure.cashflows.simulation" = { msg = "Import simulation types from `fsmodel.services`." }
+"fsmodel.services.capital_structure.cashflows.builder" = { msg = "Import `CashflowScheduleBuilder` from `fsmodel.services`." }
+"fsmodel.services.market.fx_policy" = { msg = "Import FX policy types from `fsmodel.services`." }
+"fsmodel.services.market.fx" = { msg = "Import `FxService`/`FxConverter` from `fsmodel.services`." }
+"fsmodel.services.planning.scenarios.engine" = { msg = "Import `ScenarioService` from `fsmodel.services`." }
+"fsmodel.services.registry.registry_service" = { msg = "Import `RegistryService` from `fsmodel.registry`." }
+
+[tool.ruff.format]
+quote-style = "double"
+docstring-code-format = true      # auto-format snippets
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "lf"
+preview = true                    # adopt next-year style early
+
+# ---------------------------------
+#  isort settings (for "I" rules)
+# ---------------------------------
+[tool.ruff.lint.isort]
+known-first-party = ["finstack-py"]   # add your own modules here
+combine-as-imports = true
+force-sort-within-sections = true
+
+#######################
+# MyPy Configuration
+#######################
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+strict = true
+plugins = ['pydantic.mypy']
+exclude = "^(examples/|concatenate_script\\.py|outputs/)"
+
+# Per-package overrides migrated from mypy.ini
+[[tool.mypy.overrides]]
+module = ["pandas.*", "pandas.api.types", "requests.*", "numpy.*", "asteval.*"]
+ignore_missing_imports = true
+
+# Completely skip type checking for test files
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+ignore_errors = true
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+# File length enforcement (1200 lines max)
+# Note: Ruff doesn't have a built-in file length checker
+# Enforcement methods:
+#   1. Pre-commit hook: uv run pre-commit run file-length-check --all-files
+#   2. Manual check: uv run python scripts/check_file_lengths.py [max_lines]
+
+#######################
+# Bandit Configuration (Security)
+#######################
+[tool.bandit]
+exclude_dirs = ["tests", "examples"]
+skips = [
+    "B101", # assert_used - we use asserts in tests
+    "B601", # paramiko_calls - not applicable
+    "B602", # subprocess_popen_with_shell_equals_true - we control the shell usage
 ]

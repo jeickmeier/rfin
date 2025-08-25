@@ -8,9 +8,9 @@
 //!
 //! ## Example
 //! ```rust
-//! use rfin_core::market_data::term_structures::*;
-//! use rfin_core::market_data::multicurve::CurveSet;
-//! use rfin_core::dates::Date;
+//! use finstack_core::market_data::term_structures::*;
+//! use finstack_core::market_data::multicurve::CurveSet;
+//! use finstack_core::dates::Date;
 //! use time::Month;
 //!
 //! let disc = DiscountCurve::builder("USD-OIS")

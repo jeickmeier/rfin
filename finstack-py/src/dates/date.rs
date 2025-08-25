@@ -6,11 +6,11 @@
 
 #![allow(clippy::useless_conversion)]
 
-use pyo3::prelude::*;
 use finstack_core::dates::{
     next_cds_date as core_next_cds, next_imm as core_next_imm, third_wednesday as core_third_wed,
 };
 use finstack_core::Date as CoreDate;
+use pyo3::prelude::*;
 use time::Month;
 
 /// Calendar date representation (YYYY-MM-DD).

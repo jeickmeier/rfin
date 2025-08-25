@@ -2,11 +2,11 @@ use wasm_bindgen::prelude::*;
 
 use std::sync::Arc;
 
-use finstack_core::cashflow::leg::CashFlowLeg;
-use finstack_core::cashflow::notional::Notional;
-use finstack_core::cashflow::npv::{DiscountCurve, Discountable};
 use finstack_core::dates::DayCount as CoreDayCount;
 use finstack_core::dates::ScheduleBuilder;
+use finstack_valuations::cashflow::leg::CashFlowLeg;
+use finstack_valuations::cashflow::notional::Notional;
+use finstack_valuations::cashflow::npv::{DiscountCurve, Discountable};
 
 use crate::currency::Currency;
 use crate::dates::{Date, DayCount};

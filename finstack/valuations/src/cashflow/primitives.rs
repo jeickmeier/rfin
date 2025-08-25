@@ -1,9 +1,9 @@
 #![deny(missing_docs)]
 //! Cash-flow primitives and enums.
 
-use crate::dates::Date;
-use crate::error::InputError;
-use crate::money::Money;
+use finstack_core::dates::Date;
+use finstack_core::error::InputError;
+use finstack_core::money::Money;
 
 /// Enumeration of cash-flow kinds as per §5.1 of the design document.
 ///
@@ -48,7 +48,7 @@ impl CashFlow {
     ///
     /// # Errors
     /// Returns [`Error::InvalidInput`] if the `amount` is zero.
-    pub fn principal_exchange(date: Date, amount: Money) -> crate::Result<Self> {
+    pub fn principal_exchange(date: Date, amount: Money) -> finstack_core::Result<Self> {
         if amount.amount() == 0.0 {
             return Err(InputError::Invalid.into());
         }
@@ -65,7 +65,7 @@ impl CashFlow {
     ///
     /// # Errors
     /// Returns [`Error::InvalidInput`] if the `amount` is zero.
-    pub fn fee(date: Date, amount: Money) -> crate::Result<Self> {
+    pub fn fee(date: Date, amount: Money) -> finstack_core::Result<Self> {
         if amount.amount() == 0.0 {
             return Err(InputError::Invalid.into());
         }
@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn new_constructor_stores_fields() {
-        use crate::currency::Currency;
+        use finstack_core::currency::Currency;
         use time::Month;
         let date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
         let amount = Money::new(100.0, Currency::USD);
@@ -122,7 +122,7 @@ mod tests {
 
     #[test]
     fn factory_helpers_work() {
-        use crate::currency::Currency;
+        use finstack_core::currency::Currency;
         use time::Month;
         let date = Date::from_calendar_date(2025, Month::March, 1).unwrap();
         let amt = Money::new(1_000.0, Currency::EUR);

@@ -1,7 +1,7 @@
 use crate::cashflow::leg::CashFlowLeg;
 use crate::cashflow::primitives::CashFlow;
-use crate::dates::Date;
-use crate::money::Money;
+use finstack_core::dates::Date;
+use finstack_core::money::Money;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -54,7 +54,7 @@ impl Discountable for [CashFlow] {
 
     fn npv<C: DiscountCurve>(&self, curve: &C) -> Money {
         if self.is_empty() {
-            use crate::currency::Currency;
+            use finstack_core::currency::Currency;
             return Money::new(0.0, Currency::USD);
         }
         let currency = self[0].amount.currency();
@@ -87,7 +87,7 @@ where
     C: DiscountCurve,
     T: Discountable<PVOutput = Money> + Sync,
 {
-    use crate::currency::Currency;
+    use finstack_core::currency::Currency;
     if legs.is_empty() {
         return Money::new(0.0, Currency::USD);
     }

@@ -210,7 +210,7 @@ impl Iterator for LazyIter {
 ///
 /// Example:
 /// ```
-/// use rfin_core::dates::{schedule, Frequency};
+/// use finstack_core::dates::{schedule, Frequency};
 /// use time::{Date, Month};
 /// let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
 /// let end   = Date::from_calendar_date(2026, Month::January, 15).unwrap();
@@ -228,7 +228,7 @@ pub fn schedule(start: Date, end: Date, freq: Frequency) -> impl Iterator<Item =
 ///
 /// ## Basic monthly schedule
 /// ```
-/// use rfin_core::dates::{ScheduleBuilder, Frequency};
+/// use finstack_core::dates::{ScheduleBuilder, Frequency};
 /// use time::{Date, Month};
 ///
 /// let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
@@ -246,7 +246,7 @@ pub fn schedule(start: Date, end: Date, freq: Frequency) -> impl Iterator<Item =
 ///
 /// ## Short-back stub example
 /// ```
-/// use rfin_core::dates::{ScheduleBuilder, Frequency, StubKind};
+/// use finstack_core::dates::{ScheduleBuilder, Frequency, StubKind};
 /// use time::{Date, Month};
 ///
 /// // Period not evenly divisible by quarterly frequency
@@ -275,7 +275,7 @@ pub fn schedule(start: Date, end: Date, freq: Frequency) -> impl Iterator<Item =
 ///
 /// ## Short-front stub example
 /// ```
-/// use rfin_core::dates::{ScheduleBuilder, Frequency, StubKind};
+/// use finstack_core::dates::{ScheduleBuilder, Frequency, StubKind};
 /// use time::{Date, Month};
 ///
 /// // Same period with short-front stub
@@ -299,7 +299,7 @@ pub fn schedule(start: Date, end: Date, freq: Frequency) -> impl Iterator<Item =
 ///
 /// ## Business day adjustment
 /// ```
-/// use rfin_core::dates::{ScheduleBuilder, Frequency, BusinessDayConvention, calendars::Target2};
+/// use finstack_core::dates::{ScheduleBuilder, Frequency, BusinessDayConvention, calendars::Target2};
 /// use time::{Date, Month};
 ///
 /// let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();  // Wed

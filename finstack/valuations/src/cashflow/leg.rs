@@ -1,8 +1,8 @@
 use crate::cashflow::notional::{AmortRule, Notional};
 use crate::cashflow::primitives::{CFKind, CashFlow};
-use crate::dates::{Date, DayCount};
-use crate::error::InputError;
-use crate::money::Money;
+use finstack_core::dates::{Date, DayCount};
+use finstack_core::error::InputError;
+use finstack_core::money::Money;
 
 /// Collection of ordered cash-flows plus leg-level metadata.
 #[derive(Debug, Clone)]
@@ -27,7 +27,7 @@ impl CashFlowLeg {
         rate: f64,
         schedule: I,
         day_count: DayCount,
-    ) -> crate::Result<Self>
+    ) -> finstack_core::Result<Self>
     where
         I: IntoIterator<Item = Date>,
     {
@@ -168,7 +168,7 @@ impl CashFlowLeg {
 /// Builder for floating-rate cash-flow legs (index feature).
 pub struct FloatingRateBuilder<I> {
     notional: Notional,
-    index: I,
+    index: Option<I>,
     spread_bp: f64,
     gearing: f64,
     reset_lag: i32,
@@ -183,7 +183,7 @@ impl<I> FloatingRateBuilder<I> {
         self
     }
     pub fn index(mut self, index: I) -> Self {
-        self.index = index;
+        self.index = Some(index);
         self
     }
     pub fn spread_bp(mut self, bp: f64) -> Self {
@@ -209,7 +209,7 @@ impl<I> FloatingRateBuilder<I> {
         self.day_count = dc;
         self
     }
-    pub fn build(self) -> crate::Result<CashFlowLeg> {
+    pub fn build(self) -> finstack_core::Result<CashFlowLeg> {
         // Minimal placeholder: generate empty flows, to be filled later.
         Ok(CashFlowLeg {
             flows: Vec::new(),
@@ -224,8 +224,8 @@ impl CashFlowLeg {
     /// Entry-point to start building a floating-rate leg.
     pub fn floating_rate<I>() -> FloatingRateBuilder<I> {
         FloatingRateBuilder {
-            notional: Notional::par(0.0, crate::currency::Currency::USD),
-            index: unsafe { core::mem::MaybeUninit::zeroed().assume_init() },
+            notional: Notional::par(0.0, finstack_core::currency::Currency::USD),
+            index: None,
             spread_bp: 0.0,
             gearing: 1.0,
             reset_lag: 2,
@@ -243,8 +243,8 @@ impl CashFlowLeg {
 mod tests {
     use super::*;
     use crate::cashflow::npv::{DiscountCurve, Discountable};
-    use crate::currency::Currency;
-    use crate::dates::{Frequency, ScheduleBuilder};
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{Frequency, ScheduleBuilder};
     use time::Month;
 
     struct FlatCurve;

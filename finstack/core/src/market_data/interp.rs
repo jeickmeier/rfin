@@ -20,7 +20,7 @@
 //!
 //! ## Quick example
 //! ```rust
-//! use rfin_core::market_data::interp::{InterpStyle, InterpFn};
+//! use finstack_core::market_data::interp::{InterpStyle, InterpFn};
 //! let times = vec![0.0, 1.0, 2.0].into_boxed_slice();
 //! let dfs   = vec![1.0, 0.97, 0.94].into_boxed_slice();
 //! let interp = InterpStyle::MonotoneConvex

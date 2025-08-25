@@ -6,7 +6,7 @@
 //!
 //! ## Example
 //! ```rust
-//! use rfin_core::market_data::term_structures::hazard_curve::HazardCurve;
+//! use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 //! let hc = HazardCurve::builder("USD-CRED")
 //!     .knots([(0.0, 0.01), (10.0, 0.015)])
 //!     .build()

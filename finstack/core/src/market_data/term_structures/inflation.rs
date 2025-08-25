@@ -7,7 +7,7 @@
 //!
 //! ## Example
 //! ```rust
-//! use rfin_core::market_data::term_structures::inflation::InflationCurve;
+//! use finstack_core::market_data::term_structures::inflation::InflationCurve;
 //! let ic = InflationCurve::builder("US-CPI")
 //!     .base_cpi(300.0)
 //!     .knots([(0.0, 300.0), (5.0, 327.0)])

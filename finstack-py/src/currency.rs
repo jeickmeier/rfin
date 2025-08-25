@@ -1,7 +1,7 @@
 //! Python bindings for Currency type.
 
-use pyo3::prelude::*;
 use finstack_core::currency::Currency as CoreCurrency;
+use pyo3::prelude::*;
 
 /// Currency representation based on ISO 4217 standards.
 ///

@@ -6,12 +6,12 @@ pub mod rule;
 // Re-export commonly used items for ergonomic imports.
 pub use rule::{Direction, Observed, Rule};
 
-// Convenience alias so users can `use rfin_core::dates::holiday::Calendar`.
+// Convenience alias so users can `use finstack_core::dates::holiday::Calendar`.
 // We re-export the existing `HolidayCalendar` trait from the parent module.
 // This keeps the public API surface small while allowing direct usage.
 //
 // Example:
-// use rfin_core::dates::holiday::{Rule, Calendar};
+// use finstack_core::dates::holiday::{Rule, Calendar};
 //
 // fn foo(cal: &impl Calendar) { /* ... */ }
 

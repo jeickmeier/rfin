@@ -13,6 +13,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 finstack-core = { path = "../finstack/core", features = ["std"] }
+finstack-valuations = { path = "../finstack/valuations" }
 pyo3 = { version = "0.25", features = ["extension-module"] }
 numpy = "0.25"
 

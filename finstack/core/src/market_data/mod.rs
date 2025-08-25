@@ -19,12 +19,12 @@
 //! * [`multicurve`] – thin container for keeping many curves in one place.
 //!
 //! Convenience re-exports are provided so that downstream code can simply
-//! `use rfin_core::market_data::*` and obtain the most common symbols.
+//! `use finstack_core::market_data::*` and obtain the most common symbols.
 //!
 //! ## Quick-start example
 //! ```no_run
-//! # use rfin_core::market_data::term_structures::DiscountCurve;
-//! # use rfin_core::dates::Date;
+//! # use finstack_core::market_data::term_structures::DiscountCurve;
+//! # use finstack_core::dates::Date;
 //! # use time::Month;
 //! // 1. Create a simple USD OIS discount curve.
 //! let yc = DiscountCurve::builder("USD-OIS")
@@ -80,5 +80,5 @@ pub use trees::{credit_tree, option_tree, rate_tree};
 pub mod multicurve;
 
 /// Numeric precision alias re-exported from the surrounding crate so that
-/// downstream code can simply `use rfin_core::market_data::F`.
+/// downstream code can simply `use finstack_core::market_data::F`.
 pub use crate::F;

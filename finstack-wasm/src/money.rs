@@ -1,9 +1,9 @@
 //! WASM bindings for Money type.
 
 use super::currency::Currency;
-use js_sys::Array;
 use finstack_core::error::Error;
 use finstack_core::money::Money as CoreMoney;
+use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
 /// Money representation

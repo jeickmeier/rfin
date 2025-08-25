@@ -9,7 +9,7 @@ use core::fmt;
 ///
 /// # Example
 /// ```rust
-/// use rfin_core::market_data::id::CurveId;
+/// use finstack_core::market_data::id::CurveId;
 /// const USD_SOFR: CurveId = CurveId::new("USD-SOFR");
 /// assert_eq!(USD_SOFR.as_str(), "USD-SOFR");
 /// ```
@@ -55,7 +55,7 @@ impl fmt::Display for CurveId {
 /// nature and need to pattern-match on the factor category.
 ///
 /// ```rust
-/// use rfin_core::market_data::id::{CurveId, FactorKey};
+/// use finstack_core::market_data::id::{CurveId, FactorKey};
 /// let usd_ois = CurveId::new("USD-OIS");
 /// let key = FactorKey::Yield(&usd_ois);
 /// match key {
