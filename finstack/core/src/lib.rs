@@ -46,6 +46,7 @@
 extern crate std;
 
 // Core modules
+pub mod prelude;
 pub mod currency;
 pub mod config;
 pub mod error;
