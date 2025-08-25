@@ -3,6 +3,7 @@
 use crate::{dates::Date, market_data::id::CurveId, F};
 extern crate alloc;
 #[cfg(feature = "parallel")]
+#[allow(unused_imports)]
 use rayon::prelude::*;
 
 // -----------------------------------------------------------------------------
@@ -57,11 +58,11 @@ pub trait Discount: TermStructure {
     where
         Self: Sync,
     {
-        #[cfg(feature = "parallel")]
+        #[cfg(all(feature = "parallel", not(feature = "deterministic")))]
         {
             times.par_iter().map(|&t| self.df(t)).collect()
         }
-        #[cfg(not(feature = "parallel"))]
+        #[cfg(any(not(feature = "parallel"), feature = "deterministic"))]
         {
             times.iter().map(|&t| self.df(t)).collect()
         }

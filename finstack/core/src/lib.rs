@@ -47,6 +47,7 @@ extern crate std;
 
 // Core modules
 pub mod currency;
+pub mod config;
 pub mod error;
 /// Market data term‐structure framework (former `curves` module)
 pub mod market_data;
@@ -63,6 +64,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 // Top-level re-exports of commonly used primitives for easier discovery
 pub use crate::currency::Currency;
 pub use crate::money::Money;
+pub use crate::money::fx::{FxConversionPolicy, FxPolicyMeta, FxProvider};
 /// Numeric precision alias – f64 by default. Future work will allow swapping via features.
 pub type F = f64;
 

@@ -7,11 +7,11 @@ absent, all non-private attributes.
 
 from . import finstack as _finstack
 
-__all__ = getattr(
+__all__ = tuple(getattr(
     _finstack,
     "__all__",
     [name for name in dir(_finstack) if not name.startswith("_")],
-)
+))
 
 for _name in __all__:
     globals()[_name] = getattr(_finstack, _name)

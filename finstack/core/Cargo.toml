@@ -32,9 +32,10 @@ criterion = "0.5"
 default = ["std"]
 std = ["serde?/std"]
 decimal128 = ["dep:rust_decimal"]
-serde = ["dep:serde", "serde/derive", "time/serde"]
+serde = ["dep:serde", "serde/derive", "time/serde", "hashbrown/serde", "rust_decimal?/serde"]
 parallel = ["dep:rayon"]
 index = []
+deterministic = []
 
 [package.metadata.docs.rs]
 all-features = true
