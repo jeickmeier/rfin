@@ -5,20 +5,20 @@ use polars::prelude::*;
 fn polars_lowering_lag_lead_parity() {
     let df = df! { "x" => &[1.0, 2.0, 3.0, 6.0, 10.0] }.unwrap();
 
-    let lag_e = CompiledExpr::new(Expr::Call(
+    let lag_e = CompiledExpr::new(Expr::call(
         Function::Lag,
-        vec![Expr::Column("x".into()), Expr::Literal(1.0)],
+        vec![Expr::column("x"), Expr::literal(1.0)],
     ));
-    let lead_e = CompiledExpr::new(Expr::Call(
+    let lead_e = CompiledExpr::new(Expr::call(
         Function::Lead,
-        vec![Expr::Column("x".into()), Expr::Literal(2.0)],
+        vec![Expr::column("x"), Expr::literal(2.0)],
     ));
 
     let lag_p = lag_e.to_polars_expr().unwrap();
     let lead_p = lead_e.to_polars_expr().unwrap();
-    let roll_e = CompiledExpr::new(Expr::Call(
+    let roll_e = CompiledExpr::new(Expr::call(
         Function::RollingMean,
-        vec![Expr::Column("x".into()), Expr::Literal(3.0)],
+        vec![Expr::column("x"), Expr::literal(3.0)],
     ));
     let roll_p = roll_e.to_polars_expr().unwrap();
 
