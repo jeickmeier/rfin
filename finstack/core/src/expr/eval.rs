@@ -432,16 +432,245 @@ impl CompiledExpr {
                     }
                 }
             }
-            // Time-based rolling functions - placeholder implementations
-            Function::RollingMeanTime | Function::RollingSumTime | 
-            Function::RollingStdTime | Function::RollingVarTime | Function::RollingMedianTime => {
-                // For now, fall back to row-based behavior
-                // TODO: Implement time-based windows with time column awareness
-                out.resize(len, f64::NAN);
+            // Time-based rolling functions
+            Function::RollingMeanTime => {
+                if arg_results.len() >= 2 {
+                    // For now, time-based rolling falls back to NaN - needs proper implementation
+                    out.resize(len, f64::NAN);
+                }
+            }
+            Function::RollingSumTime => {
+                if arg_results.len() >= 2 {
+                    // For now, time-based rolling falls back to NaN - needs proper implementation
+                    out.resize(len, f64::NAN);
+                }
+            }
+            Function::RollingStdTime => {
+                if arg_results.len() >= 2 {
+                    // For now, time-based rolling falls back to NaN - needs proper implementation
+                    out.resize(len, f64::NAN);
+                }
+            }
+            Function::RollingVarTime => {
+                if arg_results.len() >= 2 {
+                    // For now, time-based rolling falls back to NaN - needs proper implementation
+                    out.resize(len, f64::NAN);
+                }
+            }
+            Function::RollingMedianTime => {
+                if arg_results.len() >= 2 {
+                    // For now, time-based rolling falls back to NaN - needs proper implementation
+                    out.resize(len, f64::NAN);
+                }
+            }
+            
+            // Additional time-series functions
+            Function::Shift => {
+                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+                    let base = &arg_results[0];
+                    let n = arg_results[1][0] as i32;
+                    for i in 0..len {
+                        let shifted_idx = i as i32 - n;
+                        if shifted_idx >= 0 && shifted_idx < len as i32 {
+                            out.push(base[shifted_idx as usize]);
+                        } else {
+                            out.push(f64::NAN);
+                        }
+                    }
+                }
+            }
+            
+            Function::Rank => {
+                if !arg_results.is_empty() {
+                    let base = &arg_results[0];
+                    // Create pairs of (value, original_index)
+                    let mut indexed: Vec<(f64, usize)> = base.iter()
+                        .enumerate()
+                        .map(|(i, &v)| (v, i))
+                        .collect();
+                    
+                    // Sort by value
+                    indexed.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+                    
+                    // Assign ranks (dense ranking - same values get same rank)
+                    let mut ranks = vec![0.0; len];
+                    let mut current_rank = 1.0;
+                    let mut last_value = f64::NAN;
+                    
+                    for (value, orig_idx) in indexed {
+                        if !value.is_nan() {
+                            if value != last_value && !last_value.is_nan() {
+                                current_rank += 1.0;
+                            }
+                            ranks[orig_idx] = current_rank;
+                            last_value = value;
+                        } else {
+                            ranks[orig_idx] = f64::NAN;
+                        }
+                    }
+                    out = ranks;
+                }
+            }
+            
+            Function::Quantile => {
+                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+                    let base = &arg_results[0];
+                    let q = arg_results[1][0].clamp(0.0, 1.0);
+                    
+                    // Filter out NaN values and sort
+                    let mut valid_values: Vec<f64> = base.iter()
+                        .filter(|&&x| !x.is_nan())
+                        .cloned()
+                        .collect();
+                    
+                    if !valid_values.is_empty() {
+                        valid_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                        let index = q * (valid_values.len() - 1) as f64;
+                        let lower = index.floor() as usize;
+                        let upper = index.ceil() as usize;
+                        
+                        let quantile_value = if lower == upper {
+                            valid_values[lower]
+                        } else {
+                            let weight = index - lower as f64;
+                            valid_values[lower] * (1.0 - weight) + valid_values[upper] * weight
+                        };
+                        
+                        out.resize(len, quantile_value);
+                    } else {
+                        out.resize(len, f64::NAN);
+                    }
+                }
+            }
+            
+            Function::RollingMin => {
+                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+                    let base = &arg_results[0];
+                    let win = arg_results[1][0] as usize;
+                    for i in 0..len {
+                        if i + 1 < win {
+                            out.push(f64::NAN);
+                        } else {
+                            let window_data = &base[i + 1 - win..=i];
+                            let min_val = window_data.iter()
+                                .filter(|&&x| !x.is_nan())
+                                .min_by(|a, b| a.partial_cmp(b).unwrap())
+                                .copied()
+                                .unwrap_or(f64::NAN);
+                            out.push(min_val);
+                        }
+                    }
+                }
+            }
+            
+            Function::RollingMax => {
+                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+                    let base = &arg_results[0];
+                    let win = arg_results[1][0] as usize;
+                    for i in 0..len {
+                        if i + 1 < win {
+                            out.push(f64::NAN);
+                        } else {
+                            let window_data = &base[i + 1 - win..=i];
+                            let max_val = window_data.iter()
+                                .filter(|&&x| !x.is_nan())
+                                .max_by(|a, b| a.partial_cmp(b).unwrap())
+                                .copied()
+                                .unwrap_or(f64::NAN);
+                            out.push(max_val);
+                        }
+                    }
+                }
+            }
+            
+            Function::RollingCount => {
+                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+                    let base = &arg_results[0];
+                    let win = arg_results[1][0] as usize;
+                    for i in 0..len {
+                        if i + 1 < win {
+                            let count = base[0..=i].iter()
+                                .filter(|&&x| !x.is_nan())
+                                .count() as f64;
+                            out.push(count);
+                        } else {
+                            let count = base[i + 1 - win..=i].iter()
+                                .filter(|&&x| !x.is_nan())
+                                .count() as f64;
+                            out.push(count);
+                        }
+                    }
+                }
+            }
+            
+            Function::EwmStd => {
+                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+                    let base = &arg_results[0];
+                    let alpha = arg_results[1][0].clamp(0.001, 0.999);
+                    let adjust = arg_results.get(2)
+                        .and_then(|v| v.first())
+                        .map(|&x| x > 0.0)
+                        .unwrap_or(true);
+                    
+                    let mut ema = base[0];
+                    let mut ema_sq = base[0] * base[0];
+                    let mut n = 1.0;
+                    
+                    out.push(0.0); // First value has no variance
+                    
+                    for &value in base.iter().skip(1) {
+                        if !value.is_nan() {
+                            n += 1.0;
+                            let weight = if adjust { alpha / (1.0 - (1.0 - alpha).powf(n)) } else { alpha };
+                            
+                            ema = (1.0 - weight) * ema + weight * value;
+                            ema_sq = (1.0 - weight) * ema_sq + weight * value * value;
+                            
+                            let variance = ema_sq - ema * ema;
+                            out.push(if variance > 0.0 { variance.sqrt() } else { 0.0 });
+                        } else {
+                            out.push(f64::NAN);
+                        }
+                    }
+                }
+            }
+            
+            Function::EwmVar => {
+                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+                    let base = &arg_results[0];
+                    let alpha = arg_results[1][0].clamp(0.001, 0.999);
+                    let adjust = arg_results.get(2)
+                        .and_then(|v| v.first())
+                        .map(|&x| x > 0.0)
+                        .unwrap_or(true);
+                    
+                    let mut ema = base[0];
+                    let mut ema_sq = base[0] * base[0];
+                    let mut n = 1.0;
+                    
+                    out.push(0.0); // First value has no variance
+                    
+                    for &value in base.iter().skip(1) {
+                        if !value.is_nan() {
+                            n += 1.0;
+                            let weight = if adjust { alpha / (1.0 - (1.0 - alpha).powf(n)) } else { alpha };
+                            
+                            ema = (1.0 - weight) * ema + weight * value;
+                            ema_sq = (1.0 - weight) * ema_sq + weight * value * value;
+                            
+                            let variance = ema_sq - ema * ema;
+                            out.push(if variance > 0.0 { variance } else { 0.0 });
+                        } else {
+                            out.push(f64::NAN);
+                        }
+                    }
+                }
             }
         }
         out
     }
+
+
 
     /// Lower to a Polars expression when possible.
     pub fn to_polars_expr(&self) -> Option<polars::lazy::dsl::Expr> {
@@ -506,6 +735,31 @@ impl CompiledExpr {
                     // Complex rolling functions fall back to scalar evaluation
                     None
                 },
+                
+                // New time-series functions with possible Polars lowering
+                Function::Shift => {
+                    let base = Self { 
+                        ast: args[0].clone(), 
+                        plan: None, 
+                        cache: None 
+                    }.to_polars_expr()?;
+                    let n = arg_as_i64(&args[1]);
+                    Some(base.shift(lit(n)))
+                },
+                
+                Function::RollingMin => {
+                    // Use scalar fallback for now - proper rolling min/max need window options
+                    None
+                },
+                
+                Function::RollingMax => {
+                    // Use scalar fallback for now - proper rolling min/max need window options
+                    None
+                },
+                
+                // Complex functions: use scalar fallback for determinism
+                Function::Rank | Function::Quantile | Function::RollingCount |
+                Function::EwmStd | Function::EwmVar => None,
                 
                 // Time-based rolling and other functions: scalar fallback for now
                 _ => None,

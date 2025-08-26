@@ -217,6 +217,10 @@ impl DagBuilder {
             Function::EwmMean | Function::Std | Function::Var | Function::Median => false,
             Function::RollingStd | Function::RollingVar | Function::RollingMedian => false,
             Function::RollingStdTime | Function::RollingVarTime | Function::RollingMedianTime => false,
+            // New functions
+            Function::Shift | Function::RollingMin | Function::RollingMax => true,
+            Function::Rank | Function::Quantile | Function::RollingCount | 
+            Function::EwmStd | Function::EwmVar => false,
         }
     }
 
@@ -237,6 +241,13 @@ impl DagBuilder {
                     Function::Median => 60,
                     Function::RollingMeanTime | Function::RollingSumTime => 40,
                     Function::RollingStdTime | Function::RollingVarTime | Function::RollingMedianTime => 70,
+                    // New functions
+                    Function::Shift => 5,
+                    Function::Rank => 80,
+                    Function::Quantile => 90,
+                    Function::RollingMin | Function::RollingMax => 30,
+                    Function::RollingCount => 20,
+                    Function::EwmStd | Function::EwmVar => 45,
                 };
                 base_cost + args.len() * 5
             }

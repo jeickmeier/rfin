@@ -10,6 +10,8 @@ pub struct Expr {
     pub id: Option<u64>,
     /// The actual expression node.
     pub node: ExprNode,
+    /// Optional time window specification for time-based operations.
+    pub time_window: Option<TimeWindow>,
 }
 
 /// The core expression node types.
@@ -29,6 +31,7 @@ impl Expr {
         Self {
             id: None,
             node: ExprNode::Column(name.into()),
+            time_window: None,
         }
     }
 
@@ -37,6 +40,7 @@ impl Expr {
         Self {
             id: None,
             node: ExprNode::Literal(value),
+            time_window: None,
         }
     }
 
@@ -45,12 +49,19 @@ impl Expr {
         Self {
             id: None,
             node: ExprNode::Call(func, args),
+            time_window: None,
         }
     }
 
     /// Assign a unique ID to this expression for caching/DAG purposes.
     pub fn with_id(mut self, id: u64) -> Self {
         self.id = Some(id);
+        self
+    }
+    
+    /// Set the time window for time-based operations.
+    pub fn with_time_window(mut self, time_window: TimeWindow) -> Self {
+        self.time_window = Some(time_window);
         self
     }
 }
@@ -73,17 +84,20 @@ impl Hash for Expr {
                 args.hash(state);
             }
         }
+        // Include time window in hash
+        self.time_window.hash(state);
     }
 }
 
 impl PartialEq for Expr {
     fn eq(&self, other: &Self) -> bool {
-        match (&self.node, &other.node) {
+        let nodes_eq = match (&self.node, &other.node) {
             (ExprNode::Column(a), ExprNode::Column(b)) => a == b,
             (ExprNode::Literal(a), ExprNode::Literal(b)) => a.to_bits() == b.to_bits(),
             (ExprNode::Call(f1, a1), ExprNode::Call(f2, a2)) => f1 == f2 && a1 == a2,
             _ => false,
-        }
+        };
+        nodes_eq && self.time_window == other.time_window
     }
 }
 
@@ -150,6 +164,22 @@ pub enum Function {
     RollingVarTime,
     /// Rolling median over time-based window.
     RollingMedianTime,
+    /// Shift values by N positions (positive = shift down, negative = shift up).
+    Shift,
+    /// Rank values (dense ranking).
+    Rank,
+    /// Calculate quantile/percentile of values.
+    Quantile,
+    /// Rolling minimum over a fixed row window size.
+    RollingMin,
+    /// Rolling maximum over a fixed row window size.
+    RollingMax,
+    /// Count non-null values in rolling window.
+    RollingCount,
+    /// Exponentially weighted moving standard deviation.
+    EwmStd,
+    /// Exponentially weighted moving variance.
+    EwmVar,
 }
 
 /// Window specification for rolling operations.

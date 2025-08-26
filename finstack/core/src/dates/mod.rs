@@ -66,6 +66,9 @@ pub use holiday::calendars::*;
 mod periods;
 pub use periods::{build_periods, Period, PeriodId, PeriodKey};
 
+mod index_series;
+pub use index_series::{IndexId, IndexInterpolation, IndexLag, IndexSeries, SeasonalityPolicy};
+
 pub mod calendars {
     #![allow(missing_docs)]
     pub use crate::dates::holiday::calendars::*;

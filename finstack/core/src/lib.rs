@@ -63,6 +63,12 @@ pub mod math;
 /// Expression engine (AST, evaluator, Polars lowering)
 pub mod expr;
 
+/// Validation framework for composable validation logic
+pub mod validation;
+
+/// Core type definitions (phantom-typed IDs, rates, etc.)
+pub mod types;
+
 // Re-export main error type for convenience
 pub use error::Error;
 /// Convenient alias carrying the crate's unified [`Error`].

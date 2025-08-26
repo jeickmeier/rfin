@@ -31,6 +31,7 @@ fn expr(node: ExprNode) -> Expr {
     Expr {
         id: None,
         node,
+        time_window: None,
     }
 }
 

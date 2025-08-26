@@ -85,14 +85,13 @@ fn closure_check_matrix() {
     }
     let m = FxMatrix::new(Prov);
     let d = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-    let _ = m
+    let (_rate, _closure_result) = m
         .rate_with_closure(
             Currency::USD,
             Currency::EUR,
             d,
             FxConversionPolicy::CashflowDate,
             Currency::GBP,
-            1e-9,
         )
         .unwrap();
 }
