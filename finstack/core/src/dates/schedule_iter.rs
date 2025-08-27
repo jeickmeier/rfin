@@ -1,8 +1,6 @@
 //! Lightweight date schedule iterator.
 //!
-//! This module supersedes the previous `ScheduleBuilder` API by returning an
-//! `impl Iterator<Item = Date>` directly via the [`schedule`] helper.  The
-//! iterator pre-computes the anchor dates internally (stored inline for up to
+//! The iterator pre-computes the anchor dates internally (stored inline for up to
 //! 32 dates) but keeps the backing container private so the public API is
 //! allocation-free and zero-dependency.
 
