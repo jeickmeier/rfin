@@ -65,6 +65,8 @@ pub use utils::validate_knots;
 pub use term_structures::{discount_curve, forward_curve, hazard_curve, inflation};
 // Re-export volatility surface from the new module for unchanged public path `market_data::vol_surface`.
 pub use surfaces::vol_surface;
+// Also re-export the concrete VolSurface type for a shorter import path.
+pub use surfaces::vol_surface::VolSurface;
 // Re-export context types
 pub use context::MarketContext;
 

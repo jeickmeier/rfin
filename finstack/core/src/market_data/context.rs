@@ -95,12 +95,14 @@ impl<P: FxProvider> MarketContext<P> {
             .ok_or(crate::error::InputError::NotFound.into())
     }
 
+    /// Return a reference to a market scalar (price/constant) by identifier.
     pub fn market_scalar(&self, id: &'static str) -> crate::Result<&MarketScalar> {
         self.prices
             .get(&CurveId::new(id))
             .ok_or(crate::error::InputError::NotFound.into())
     }
 
+    /// Return a reference to a generic date-indexed scalar time series by identifier.
     pub fn scalar_time_series(&self, id: &'static str) -> crate::Result<&ScalarTimeSeries> {
         self.series
             .get(&CurveId::new(id))
