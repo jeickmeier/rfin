@@ -212,10 +212,14 @@ impl DagBuilder {
             Function::Lag | Function::Lead | Function::Diff | Function::PctChange => true,
             Function::RollingMean | Function::RollingSum => true,
             Function::RollingMeanTime | Function::RollingSumTime => true,
-            // These could be added later but for now use scalar fallback
-            Function::CumSum | Function::CumProd | Function::CumMin | Function::CumMax => true,
-            Function::EwmMean | Function::Std | Function::Var | Function::Median => false,
+            // Cumulative functions use scalar implementation for determinism
+            Function::CumSum | Function::CumProd | Function::CumMin | Function::CumMax => false,
+            // Statistical functions now support Polars lowering
+            Function::Std | Function::Var | Function::Median => true,
+            // Rolling statistical functions use scalar fallback for now
             Function::RollingStd | Function::RollingVar | Function::RollingMedian => false,
+            // Complex EWM functions still use scalar fallback
+            Function::EwmMean => false,
             Function::RollingStdTime | Function::RollingVarTime | Function::RollingMedianTime => false,
             // New functions
             Function::Shift | Function::RollingMin | Function::RollingMax => true,

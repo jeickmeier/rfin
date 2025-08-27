@@ -4,7 +4,8 @@ use super::{
     ast::*, 
     cache::{CacheManager, CachedResult},
     dag::{ExecutionPlan, DagBuilder},
-    context::ExpressionContext
+    context::ExpressionContext,
+    time_windows::TimeWindowEvaluator
 };
 use std::vec::Vec;
 
@@ -159,7 +160,7 @@ impl CompiledExpr {
                     .map(|&dep_id| results.get(&dep_id).cloned().unwrap_or_else(Vec::new))
                     .collect();
                 
-                self.eval_function(*func, &arg_results)
+                self.eval_function(*func, &arg_results, &node.expr.time_window, ctx, cols)
             }
         }
     }
@@ -181,14 +182,14 @@ impl CompiledExpr {
                 let arg_results: Vec<Vec<f64>> = args.iter()
                     .map(|arg| self.eval_simple(ctx, cols, arg))
                     .collect();
-                return self.eval_function(*fun, &arg_results);
+                return self.eval_function(*fun, &arg_results, &expr.time_window, ctx, cols);
             }
         }
         out
     }
 
     /// Evaluate a function with given argument results.
-    fn eval_function(&self, fun: Function, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    fn eval_function<C: ExpressionContext>(&self, fun: Function, arg_results: &[Vec<f64>], time_window: &Option<TimeWindow>, ctx: &C, cols: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         let mut out = Vec::with_capacity(len);
         
@@ -434,33 +435,100 @@ impl CompiledExpr {
             }
             // Time-based rolling functions
             Function::RollingMeanTime => {
-                if arg_results.len() >= 2 {
-                    // For now, time-based rolling falls back to NaN - needs proper implementation
-                    out.resize(len, f64::NAN);
+                if !arg_results.is_empty() {
+                    if let Some(TimeWindow::Duration { period, time_column }) = time_window {
+                        if let Some(time_idx) = ctx.resolve_index(time_column) {
+                            if time_idx < cols.len() {
+                                // Convert time data to Unix timestamps (assume input is already in proper format)
+                                let time_data: Vec<i64> = cols[time_idx].iter().map(|&t| t as i64).collect();
+                                let mut evaluator = TimeWindowEvaluator::new(time_data);
+                                out = evaluator.rolling_mean(&arg_results[0], period);
+                            } else {
+                                out.resize(len, f64::NAN);
+                            }
+                        } else {
+                            out.resize(len, f64::NAN);
+                        }
+                    } else {
+                        // Fallback for non-time window
+                        out.resize(len, f64::NAN);
+                    }
                 }
             }
             Function::RollingSumTime => {
-                if arg_results.len() >= 2 {
-                    // For now, time-based rolling falls back to NaN - needs proper implementation
-                    out.resize(len, f64::NAN);
+                if !arg_results.is_empty() {
+                    if let Some(TimeWindow::Duration { period, time_column }) = time_window {
+                        if let Some(time_idx) = ctx.resolve_index(time_column) {
+                            if time_idx < cols.len() {
+                                let time_data: Vec<i64> = cols[time_idx].iter().map(|&t| t as i64).collect();
+                                let mut evaluator = TimeWindowEvaluator::new(time_data);
+                                out = evaluator.rolling_sum(&arg_results[0], period);
+                            } else {
+                                out.resize(len, f64::NAN);
+                            }
+                        } else {
+                            out.resize(len, f64::NAN);
+                        }
+                    } else {
+                        out.resize(len, f64::NAN);
+                    }
                 }
             }
             Function::RollingStdTime => {
-                if arg_results.len() >= 2 {
-                    // For now, time-based rolling falls back to NaN - needs proper implementation
-                    out.resize(len, f64::NAN);
+                if !arg_results.is_empty() {
+                    if let Some(TimeWindow::Duration { period, time_column }) = time_window {
+                        if let Some(time_idx) = ctx.resolve_index(time_column) {
+                            if time_idx < cols.len() {
+                                let time_data: Vec<i64> = cols[time_idx].iter().map(|&t| t as i64).collect();
+                                let mut evaluator = TimeWindowEvaluator::new(time_data);
+                                out = evaluator.rolling_std(&arg_results[0], period);
+                            } else {
+                                out.resize(len, f64::NAN);
+                            }
+                        } else {
+                            out.resize(len, f64::NAN);
+                        }
+                    } else {
+                        out.resize(len, f64::NAN);
+                    }
                 }
             }
             Function::RollingVarTime => {
-                if arg_results.len() >= 2 {
-                    // For now, time-based rolling falls back to NaN - needs proper implementation
-                    out.resize(len, f64::NAN);
+                if !arg_results.is_empty() {
+                    if let Some(TimeWindow::Duration { period, time_column }) = time_window {
+                        if let Some(time_idx) = ctx.resolve_index(time_column) {
+                            if time_idx < cols.len() {
+                                let time_data: Vec<i64> = cols[time_idx].iter().map(|&t| t as i64).collect();
+                                let mut evaluator = TimeWindowEvaluator::new(time_data);
+                                out = evaluator.rolling_var(&arg_results[0], period);
+                            } else {
+                                out.resize(len, f64::NAN);
+                            }
+                        } else {
+                            out.resize(len, f64::NAN);
+                        }
+                    } else {
+                        out.resize(len, f64::NAN);
+                    }
                 }
             }
             Function::RollingMedianTime => {
-                if arg_results.len() >= 2 {
-                    // For now, time-based rolling falls back to NaN - needs proper implementation
-                    out.resize(len, f64::NAN);
+                if !arg_results.is_empty() {
+                    if let Some(TimeWindow::Duration { period, time_column }) = time_window {
+                        if let Some(time_idx) = ctx.resolve_index(time_column) {
+                            if time_idx < cols.len() {
+                                let time_data: Vec<i64> = cols[time_idx].iter().map(|&t| t as i64).collect();
+                                let mut evaluator = TimeWindowEvaluator::new(time_data);
+                                out = evaluator.rolling_median(&arg_results[0], period);
+                            } else {
+                                out.resize(len, f64::NAN);
+                            }
+                        } else {
+                            out.resize(len, f64::NAN);
+                        }
+                    } else {
+                        out.resize(len, f64::NAN);
+                    }
                 }
             }
             
@@ -721,18 +789,34 @@ impl CompiledExpr {
                     }
                     acc
                 }),
-                // Cumulative functions - use scalar fallback for determinism
+                // Cumulative functions - fallback to scalar implementation for determinism
                 Function::CumSum | Function::CumProd | Function::CumMin | Function::CumMax => {
-                    // Complex cumulative functions fall back to scalar evaluation
+                    // Cumulative functions use scalar implementation for consistent behavior
                     None
                 },
                 
-                // Statistical functions - keep as scalar fallback for determinism
-                Function::Std | Function::Var | Function::Median | Function::EwmMean => None,
+                // Statistical functions 
+                Function::Std => Some({
+                    let base = Self { ast: args[0].clone(), plan: None, cache: None }
+                        .to_polars_expr().unwrap();
+                    base.std(1) // ddof=1 for sample standard deviation
+                }),
+                Function::Var => Some({
+                    let base = Self { ast: args[0].clone(), plan: None, cache: None }
+                        .to_polars_expr().unwrap();
+                    base.var(1) // ddof=1 for sample variance
+                }),
+                Function::Median => Some({
+                    let base = Self { ast: args[0].clone(), plan: None, cache: None }
+                        .to_polars_expr().unwrap();
+                    base.median()
+                }),
+                // Complex EWM functions still use scalar fallback for now
+                Function::EwmMean => None,
                 
-                // Rolling functions with additional types - use scalar fallback for now
+                // Rolling statistical functions - fallback to scalar for complex operations
                 Function::RollingStd | Function::RollingVar | Function::RollingMedian => {
-                    // Complex rolling functions fall back to scalar evaluation
+                    // Complex rolling statistical functions require scalar implementation
                     None
                 },
                 

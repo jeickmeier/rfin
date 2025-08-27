@@ -42,7 +42,7 @@ pub struct FxPolicyMeta {
     /// Optional declared target currency (for stamping).
     pub target_ccy: Option<Currency>,
     /// Optional notes for auditability.
-    pub notes: &'static str,
+    pub notes: String,
 }
 
 impl Default for FxPolicyMeta {
@@ -50,7 +50,7 @@ impl Default for FxPolicyMeta {
         Self {
             strategy: FxConversionPolicy::CashflowDate,
             target_ccy: None,
-            notes: "",
+            notes: String::new(),
         }
     }
 }
@@ -497,7 +497,7 @@ mod tests {
         let policy = FxPolicyMeta {
             strategy: FxConversionPolicy::PeriodAverage,
             target_ccy: Some(Currency::USD),
-            notes: "Test policy",
+            notes: "Test policy".to_string(),
         };
         
         assert_eq!(policy.strategy, FxConversionPolicy::PeriodAverage);
@@ -508,6 +508,6 @@ mod tests {
         let default_policy = FxPolicyMeta::default();
         assert_eq!(default_policy.strategy, FxConversionPolicy::CashflowDate);
         assert_eq!(default_policy.target_ccy, None);
-        assert_eq!(default_policy.notes, "");
+        assert_eq!(default_policy.notes, String::new());
     }
 }

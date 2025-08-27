@@ -70,6 +70,7 @@ pub use polars::lazy::prelude::{
 pub mod df {
     use super::*;
     use std::collections::HashMap;
+    use polars::prelude::NamedFrom;
     
     /// Build a long DataFrame from nested mapping (node->period->value)
     /// 
@@ -77,23 +78,37 @@ pub mod df {
     /// - col1 contains the outer keys (e.g., node names)  
     /// - col2 contains the inner keys (e.g., period names)
     /// - colv contains the values
-    /// 
-    /// This is a placeholder implementation. The actual implementation should
-    /// be provided by consumer crates that have access to the specific Polars
-    /// version and can handle the DataFrame construction details.
     pub fn long_from_nested<K1, K2, V>(
-        _nested: &HashMap<K1, HashMap<K2, V>>,
-        _col1: &str,
-        _col2: &str, 
-        _colv: &str,
+        nested: &HashMap<K1, HashMap<K2, V>>,
+        col1: &str,
+        col2: &str, 
+        colv: &str,
     ) -> crate::Result<DataFrame>
     where
         K1: AsRef<str> + Clone,
         K2: AsRef<str> + Clone,
         V: Into<f64> + Copy,
     {
-        // Placeholder - to be implemented in consumer crates
-        Err(crate::Error::Internal)
+        let mut outer_keys = Vec::new();
+        let mut inner_keys = Vec::new();
+        let mut values = Vec::new();
+
+        for (outer_key, inner_map) in nested {
+            for (inner_key, value) in inner_map {
+                outer_keys.push(outer_key.as_ref().to_string());
+                inner_keys.push(inner_key.as_ref().to_string());
+                values.push((*value).into());
+            }
+        }
+
+        // Create the DataFrame using Polars
+        let df = DataFrame::new(vec![
+            Series::new(col1.into(), outer_keys).into(),
+            Series::new(col2.into(), inner_keys).into(), 
+            Series::new(colv.into(), values).into(),
+        ]).map_err(|_| crate::Error::Internal)?;
+
+        Ok(df)
     }
     
     /// Build a wide DataFrame where rows are the second key and columns are the first key
@@ -101,20 +116,56 @@ pub mod df {
     /// The resulting DataFrame has:
     /// - Index column with name `row_key` containing the inner keys
     /// - One column per outer key containing the values
-    /// 
-    /// This is a placeholder implementation. The actual implementation should
-    /// be provided by consumer crates that have access to the specific Polars
-    /// version and can handle the DataFrame construction details.
     pub fn wide_from_nested<K1, K2, V>(
-        _nested: &HashMap<K1, HashMap<K2, V>>,
-        _row_key: &str,
+        nested: &HashMap<K1, HashMap<K2, V>>,
+        row_key: &str,
     ) -> crate::Result<DataFrame> 
     where
         K1: AsRef<str> + Clone + std::hash::Hash + Eq,
         K2: AsRef<str> + Clone + std::hash::Hash + Eq, 
         V: Into<f64> + Copy,
     {
-        // Placeholder - to be implemented in consumer crates
-        Err(crate::Error::Internal)
+        // Collect all unique inner keys (rows) and outer keys (columns)  
+        let mut inner_keys_set = std::collections::HashSet::new();
+        let mut outer_keys: Vec<&K1> = Vec::new();
+
+        for (outer_key, inner_map) in nested {
+            outer_keys.push(outer_key);
+            for inner_key in inner_map.keys() {
+                inner_keys_set.insert(inner_key.as_ref());
+            }
+        }
+
+        // Convert inner keys to sorted vector for consistent ordering
+        let mut inner_keys: Vec<_> = inner_keys_set.into_iter().collect();
+        inner_keys.sort();
+        outer_keys.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+
+        // Start with the row key column
+        let mut series_vec = vec![Series::new(row_key.into(), inner_keys.iter().map(|k| k.to_string()).collect::<Vec<_>>()).into()];
+
+        // Create one column per outer key
+        for outer_key in &outer_keys {
+            let mut column_values = Vec::new();
+            
+            if let Some(inner_map) = nested.get(outer_key) {
+                for inner_key in &inner_keys {
+                    let value = inner_map.iter()
+                        .find(|(k, _)| k.as_ref() == *inner_key)
+                        .map(|(_, v)| (*v).into())
+                        .unwrap_or(f64::NAN);
+                    column_values.push(value);
+                }
+            } else {
+                column_values.resize(inner_keys.len(), f64::NAN);
+            }
+            
+            series_vec.push(Series::new(outer_key.as_ref().into(), column_values).into());
+        }
+
+        // Create the DataFrame using Polars
+        let df = DataFrame::new(series_vec).map_err(|_| crate::Error::Internal)?;
+
+        Ok(df)
     }
 }
