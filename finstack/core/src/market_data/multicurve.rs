@@ -46,13 +46,17 @@ pub struct CurveSet {
     hazard: HashMap<CurveId, Arc<HazardCurve>>,            // concrete type for now
     inflation: HashMap<CurveId, Arc<InflationCurve>>,      // concrete type
     vol2d: HashMap<CurveId, Arc<crate::market_data::vol_surface::VolSurface>>, // vol surfaces
+    /// Generic market scalars (spot prices, constants)
+    scalars: HashMap<CurveId, crate::market_data::primitives::MarketScalar>,
+    /// Generic date-indexed series (economic metrics, reference tickers)
+    series: HashMap<CurveId, crate::market_data::primitives::ScalarTimeSeries>,
     collat: HashMap<&'static str, CurveId>,                // CSA code → discount id
 }
 
 impl CurveSet {
     /// Create an empty `CurveSet`.
     pub fn new() -> Self {
-        Self::default()
+        Self { scalars: HashMap::new(), series: HashMap::new(), ..Self::default() }
     }
 
     /// Insert discount curve.
@@ -90,6 +94,26 @@ impl CurveSet {
     ) -> Self {
         let cid = *crate::market_data::traits::TermStructure::id(&surface);
         self.vol2d.insert(cid, Arc::new(surface));
+        self
+    }
+
+    /// Insert a generic market scalar.
+    pub fn with_scalar(
+        mut self,
+        id: &'static str,
+        scalar: crate::market_data::primitives::MarketScalar,
+    ) -> Self {
+        self.scalars.insert(CurveId::new(id), scalar);
+        self
+    }
+
+    /// Insert a generic date-indexed series.
+    pub fn with_series(
+        mut self,
+        series: crate::market_data::primitives::ScalarTimeSeries,
+    ) -> Self {
+        let id = *series.id();
+        self.series.insert(id, series);
         self
     }
 
@@ -139,6 +163,26 @@ impl CurveSet {
         self.vol2d
             .get(&CurveId::new(id))
             .cloned()
+            .ok_or(InputError::NotFound.into())
+    }
+
+    /// Get generic market scalar by id.
+    pub fn scalar(
+        &self,
+        id: &'static str,
+    ) -> crate::Result<&crate::market_data::primitives::MarketScalar> {
+        self.scalars
+            .get(&CurveId::new(id))
+            .ok_or(InputError::NotFound.into())
+    }
+
+    /// Get generic series by id.
+    pub fn series(
+        &self,
+        id: &'static str,
+    ) -> crate::Result<&crate::market_data::primitives::ScalarTimeSeries> {
+        self.series
+            .get(&CurveId::new(id))
             .ok_or(InputError::NotFound.into())
     }
 
@@ -211,5 +255,30 @@ mod tests {
             crate::market_data::traits::TermStructure::id(&*hz).as_str(),
             "USD-CRED"
         );
+    }
+
+    #[test]
+    fn scalar_and_series_roundtrip() {
+        use crate::market_data::primitives::{MarketScalar, ScalarTimeSeries, SeriesInterpolation};
+        let set = CurveSet::new()
+            .with_scalar("AAPL-SPOT", MarketScalar::Unitless(195.25));
+
+        let d0 = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        let d1 = Date::from_calendar_date(2025, time::Month::February, 1).unwrap();
+        let ts = ScalarTimeSeries::new("US-UNEMP", vec![(d0, 3.0), (d1, 4.0)], None)
+            .unwrap()
+            .with_interpolation(SeriesInterpolation::Step);
+        let set = set.with_series(ts);
+
+        // Scalar fetch
+        match set.scalar("AAPL-SPOT").unwrap() {
+            MarketScalar::Unitless(v) => assert!((*v - 195.25).abs() < 1e-12),
+            _ => panic!("unexpected variant"),
+        }
+
+        // Series fetch
+        let s = set.series("US-UNEMP").unwrap();
+        let mid = d0 + time::Duration::days(15);
+        assert!((s.value_on(mid).unwrap() - 3.0).abs() < 1e-12);
     }
 }

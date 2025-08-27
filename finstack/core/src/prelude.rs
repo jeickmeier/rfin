@@ -27,6 +27,8 @@ pub use crate::expr::CompiledExpr;
 pub use crate::market_data::{
     inflation_index::{InflationIndex, InflationIndexBuilder, InflationInterpolation, InflationLag},
     interp::{InterpFn, InterpStyle},
+    primitives::{MarketScalar, ScalarTimeSeries, SeriesInterpolation},
+    MarketContext,
     traits::{Discount, Forward, Inflation as InflationTs, Surface, Survival, TermStructure},
 };
 pub use crate::money::{

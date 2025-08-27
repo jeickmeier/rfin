@@ -17,6 +17,7 @@
 //! * [`utils`] – helper functions shared across the implementation
 //!   (validation, segment location, etc.).
 //! * [`multicurve`] – thin container for keeping many curves in one place.
+//! * [`context`] – lightweight aggregate of curves, FX, surfaces, and prices.
 //!
 //! Convenience re-exports are provided so that downstream code can simply
 //! `use finstack_core::market_data::*` and obtain the most common symbols.
@@ -49,10 +50,14 @@ pub mod interp;
 pub mod surfaces;
 /// One-dimensional term structures (yield, credit, ...).
 pub mod term_structures;
+/// Generic market primitives: scalars and time series
+pub mod primitives;
 /// Public trait hierarchy used by pricing components.
 pub mod traits;
 /// Helper validation utilities shared across market-data code.
 pub mod utils;
+/// Unified market-data context for valuations.
+pub mod context;
 // Re-export helper(s)
 pub use utils::validate_knots;
 
@@ -60,6 +65,8 @@ pub use utils::validate_knots;
 pub use term_structures::{discount_curve, forward_curve, hazard_curve, inflation};
 // Re-export volatility surface from the new module for unchanged public path `market_data::vol_surface`.
 pub use surfaces::vol_surface;
+// Re-export context types
+pub use context::MarketContext;
 
 pub mod trees {
     //! Tree-based lattice structures (option, rate, credit).

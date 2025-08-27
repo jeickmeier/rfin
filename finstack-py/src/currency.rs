@@ -51,7 +51,7 @@ use pyo3::prelude::*;
 ///     >>> repr(usd)
 ///     "Currency('USD')"
 #[pyclass(name = "Currency", module = "finstack.currency")]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct PyCurrency {
     inner: CoreCurrency,
 }

@@ -17,7 +17,9 @@ pub mod curve_set;
 pub mod curves;
 pub mod fx;
 pub mod inflation_index;
+pub mod primitives;
 pub mod interpolation;
+pub mod context;
 pub mod surfaces;
 
 // Re-export commonly used types
@@ -28,8 +30,10 @@ pub use fx::{PyFxConversionPolicy, PyFxMatrix, PySimpleFxProvider};
 pub use inflation_index::{
     PyInflationIndex, PyInflationIndexBuilder, PyInflationInterpolation, PyInflationLag
 };
+pub use primitives::{PyMarketScalar, PyScalarTimeSeries, PySeriesInterpolation};
 pub use interpolation::PyInterpStyle;
 pub use surfaces::PyVolSurface;
+pub use context::PyMarketContext;
 
 /// Register the market_data submodule with Python
 pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -44,6 +48,10 @@ pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyVolSurface>()?;
     m.add_class::<PyCurveSet>()?;
     m.add_class::<PyCurveId>()?;
+    m.add_class::<PyMarketScalar>()?;
+    m.add_class::<PyScalarTimeSeries>()?;
+    m.add_class::<PySeriesInterpolation>()?;
+    m.add_class::<PyMarketContext>()?;
     
     // Register FX classes
     m.add_class::<PyFxConversionPolicy>()?;

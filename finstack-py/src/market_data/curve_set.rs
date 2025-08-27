@@ -7,6 +7,7 @@ use std::sync::{Arc, RwLock};
 
 use super::curves::{PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyInflationCurve};
 use super::surfaces::PyVolSurface;
+use super::primitives::{PyMarketScalar, PyScalarTimeSeries};
 
 /// Type-safe curve storage
 #[derive(Clone)]
@@ -16,6 +17,8 @@ enum CurveType {
     Hazard(PyHazardCurve),
     Inflation(PyInflationCurve),
     VolSurface(PyVolSurface),
+    Scalar(PyMarketScalar),
+    Series(PyScalarTimeSeries),
 }
 
 /// Container for multiple market data curves and surfaces.
@@ -100,9 +103,13 @@ impl PyCurveSet {
             CurveType::Inflation(ic)
         } else if let Ok(vs) = curve.extract::<PyVolSurface>() {
             CurveType::VolSurface(vs)
+        } else if let Ok(ms) = curve.extract::<PyMarketScalar>() {
+            CurveType::Scalar(ms)
+        } else if let Ok(ts) = curve.extract::<PyScalarTimeSeries>() {
+            CurveType::Series(ts)
         } else {
             return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                "Expected a curve type (DiscountCurve, ForwardCurve, HazardCurve, InflationCurve, or VolSurface)"
+                "Expected a market object (Curve, VolSurface, MarketScalar, or ScalarTimeSeries)"
             ));
         };
 
@@ -131,6 +138,8 @@ impl PyCurveSet {
                     CurveType::Hazard(c) => Ok(Py::new(py, c.clone())?.into_any()),
                     CurveType::Inflation(c) => Ok(Py::new(py, c.clone())?.into_any()),
                     CurveType::VolSurface(c) => Ok(Py::new(py, c.clone())?.into_any()),
+                    CurveType::Scalar(c) => Ok(Py::new(py, c.clone())?.into_any()),
+                    CurveType::Series(c) => Ok(Py::new(py, c.clone())?.into_any()),
                 },
                 None => Err(PyErr::new::<pyo3::exceptions::PyKeyError, _>(format!(
                     "Curve '{}' not found",
@@ -301,6 +310,8 @@ impl PyCurveSet {
                 CurveType::Hazard(c) => Py::new(py, c.clone()).unwrap().into_any(),
                 CurveType::Inflation(c) => Py::new(py, c.clone()).unwrap().into_any(),
                 CurveType::VolSurface(c) => Py::new(py, c.clone()).unwrap().into_any(),
+                CurveType::Scalar(c) => Py::new(py, c.clone()).unwrap().into_any(),
+                CurveType::Series(c) => Py::new(py, c.clone()).unwrap().into_any(),
             })
             .collect();
         Ok(PyList::new(py, values)?.into_any().unbind())
@@ -318,11 +329,45 @@ impl PyCurveSet {
                     CurveType::Hazard(c) => Py::new(py, c.clone()).unwrap().into_any(),
                     CurveType::Inflation(c) => Py::new(py, c.clone()).unwrap().into_any(),
                     CurveType::VolSurface(c) => Py::new(py, c.clone()).unwrap().into_any(),
+                    CurveType::Scalar(c) => Py::new(py, c.clone()).unwrap().into_any(),
+                    CurveType::Series(c) => Py::new(py, c.clone()).unwrap().into_any(),
                 };
                 (key.clone(), obj)
             })
             .collect();
         Ok(PyList::new(py, items)?.into_any().unbind())
+    }
+
+    /// Get a market scalar by id.
+    fn market_scalar(&self, id: &str) -> PyResult<PyMarketScalar> {
+        let curves = self.curves.read().unwrap();
+        match curves.get(id) {
+            Some(CurveType::Scalar(c)) => Ok(c.clone()),
+            Some(_) => Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
+                "'{}' is not a MarketScalar",
+                id
+            ))),
+            None => Err(PyErr::new::<pyo3::exceptions::PyKeyError, _>(format!(
+                "'{}' not found",
+                id
+            ))),
+        }
+    }
+
+    /// Get a scalar time series by id.
+    fn scalar_time_series(&self, id: &str) -> PyResult<PyScalarTimeSeries> {
+        let curves = self.curves.read().unwrap();
+        match curves.get(id) {
+            Some(CurveType::Series(c)) => Ok(c.clone()),
+            Some(_) => Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
+                "'{}' is not a ScalarTimeSeries",
+                id
+            ))),
+            None => Err(PyErr::new::<pyo3::exceptions::PyKeyError, _>(format!(
+                "'{}' not found",
+                id
+            ))),
+        }
     }
 
     /// Map CSA code to discount curve.
@@ -368,5 +413,15 @@ impl PyCurveSet {
     fn __repr__(&self) -> String {
         let curves = self.curves.read().unwrap();
         format!("CurveSet({} curves)", curves.len())
+    }
+}
+
+// Inherent methods for Rust-side construction
+impl PyCurveSet {
+    pub fn empty() -> Self {
+        PyCurveSet {
+            curves: Arc::new(RwLock::new(HashMap::new())),
+            collateral: Arc::new(RwLock::new(HashMap::new())),
+        }
     }
 }

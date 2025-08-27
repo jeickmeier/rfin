@@ -229,6 +229,7 @@ impl PyFxMatrix {
         }
     }
 
+
     /// Get an FX rate with caching.
     ///
     /// Args:
