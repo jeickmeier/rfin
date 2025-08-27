@@ -9,7 +9,6 @@
 pub mod calendar;
 pub mod date;
 pub mod daycount;
-pub mod index_series;
 pub mod periods;
 pub mod schedule;
 
@@ -17,6 +16,5 @@ pub mod schedule;
 pub use calendar::{py_available_calendars, PyBusDayConv, PyCalendar};
 pub use date::{py_next_cds_date, py_next_imm, py_third_wednesday, PyDate};
 pub use daycount::PyDayCount;
-pub use index_series::{PyIndexInterpolation, PyIndexLag, PyIndexSeries};
 pub use periods::{py_build_periods, PyPeriod, PyPeriodId};
 pub use schedule::{py_generate_schedule, PyFrequency, PyStubRule};

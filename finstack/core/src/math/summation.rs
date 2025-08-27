@@ -1,4 +1,10 @@
 //! Summation helpers with determinism toggles.
+//!
+//! We implement these ourselves rather than using external crates to ensure:
+//! - Deterministic results using our custom summation algorithm
+//! - Feature-flag controlled behaviour (deterministic vs. fast)
+//! - No dependencies on external crates for basic operations
+//! - Consistent numerical behaviour across platforms
 
 /// Kahan compensated summation – improves numerical stability while preserving a fixed iteration order.
 #[inline]

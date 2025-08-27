@@ -468,11 +468,73 @@ impl PyMoney {
             ))),
         }
     }
+
+    /// Convert money to a different currency using an FX provider.
+    ///
+    /// This method converts the monetary amount from its current currency
+    /// to a target currency using the provided FX rate provider.
+    ///
+    /// Args:
+    ///     to_currency (Currency): The target currency to convert to.
+    ///     date (Date): The date for the FX rate.
+    ///     provider (SimpleFxProvider): The FX rate provider.
+    ///     policy (FxConversionPolicy): The policy for determining which rate to use.
+    ///
+    /// Returns:
+    ///     Money: A new Money instance in the target currency.
+    ///
+    /// Raises:
+    ///     RuntimeError: If the conversion fails (e.g., rate not available).
+    ///
+    /// Examples:
+    ///     >>> from finstack import Money, Currency, Date
+    ///     >>> from finstack.market_data import SimpleFxProvider, FxConversionPolicy
+    ///     >>> 
+    ///     >>> # Set up FX provider with rates
+    ///     >>> provider = SimpleFxProvider()
+    ///     >>> provider.set_rate(Currency("USD"), Currency("EUR"), 0.85)
+    ///     >>> provider.set_rate(Currency("EUR"), Currency("USD"), 1.18)
+    ///     >>> 
+    ///     >>> # Convert USD to EUR
+    ///     >>> usd_money = Money(100.0, Currency("USD"))
+    ///     >>> date = Date(2025, 1, 15)
+    ///     >>> eur_money = usd_money.convert(
+    ///     ...     Currency("EUR"),
+    ///     ...     date,
+    ///     ...     provider,
+    ///     ...     FxConversionPolicy.CashflowDate
+    ///     ... )
+    ///     >>> print(f"${usd_money.amount:.2f} USD = €{eur_money.amount:.2f} EUR")
+    ///     $100.00 USD = €85.00 EUR
+    ///     
+    ///     >>> # Convert back to USD
+    ///     >>> usd_back = eur_money.convert(
+    ///     ...     Currency("USD"),
+    ///     ...     date,
+    ///     ...     provider,
+    ///     ...     FxConversionPolicy.CashflowDate
+    ///     ... )
+    ///     >>> print(f"€{eur_money.amount:.2f} EUR = ${usd_back.amount:.2f} USD")
+    ///     €85.00 EUR = $100.30 USD
+    fn convert(
+        &self,
+        to_currency: &PyCurrency,
+        date: &crate::dates::PyDate,
+        provider: &crate::market_data::fx::PySimpleFxProvider,
+        policy: crate::market_data::fx::PyFxConversionPolicy,
+    ) -> PyResult<PyMoney> {
+        crate::market_data::fx::convert_money(self, to_currency, date, provider, &policy)
+    }
 }
 
 impl PyMoney {
     /// Get the inner Money type
     pub fn inner(&self) -> CoreMoney {
         self.inner
+    }
+
+    /// Create a PyMoney from inner CoreMoney
+    pub fn from_inner(inner: CoreMoney) -> Self {
+        PyMoney { inner }
     }
 }

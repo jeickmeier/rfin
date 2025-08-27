@@ -11,7 +11,7 @@ use finstack_core::dates::{
 };
 use finstack_core::Date as CoreDate;
 use pyo3::prelude::*;
-use time::Month;
+use time::{Month, Duration};
 
 /// Calendar date representation (YYYY-MM-DD).
 ///
@@ -200,6 +200,141 @@ impl PyDate {
         self.inner == other.inner
     }
 
+    /// Add days to the date.
+    ///
+    /// Args:
+    ///     days (int): Number of days to add (positive or negative).
+    ///
+    /// Returns:
+    ///     Date: A new Date instance adjusted by the specified number of days.
+    ///
+    /// Examples:
+    ///     >>> from rfin.dates import Date
+    ///     >>> date = Date(2023, 12, 25)
+    ///     >>> date + 5
+    ///     Date('2023-12-30')
+    ///     >>> date + (-2)
+    ///     Date('2023-12-23')
+    fn __add__(&self, days: i64) -> PyResult<PyDate> {
+        let new_date = self.inner + Duration::days(days);
+        Ok(PyDate { inner: new_date })
+    }
+
+    /// Add days to the date (right-hand side).
+    ///
+    /// Args:
+    ///     days (int): Number of days to add (positive or negative).
+    ///
+    /// Returns:
+    ///     Date: A new Date instance adjusted by the specified number of days.
+    ///
+    /// Examples:
+    ///     >>> from rfin.dates import Date
+    ///     >>> date = Date(2023, 12, 25)
+    ///     >>> 5 + date
+    ///     Date('2023-12-30')
+    fn __radd__(&self, days: i64) -> PyResult<PyDate> {
+        self.__add__(days)
+    }
+
+    /// Subtract days from the date or calculate the difference between two dates.
+    ///
+    /// Args:
+    ///     other (Date | int): Either a Date to calculate the difference (in days),
+    ///                         or an integer number of days to subtract.
+    ///
+    /// Returns:
+    ///     Date | int: If subtracting days, returns a new Date.
+    ///                 If subtracting another Date, returns the number of days between them.
+    ///
+    /// Examples:
+    ///     >>> from rfin.dates import Date
+    ///     >>> date1 = Date(2023, 12, 25)
+    ///     >>> date2 = Date(2023, 12, 20)
+    ///     
+    ///     # Subtract days
+    ///     >>> date1 - 5
+    ///     Date('2023-12-20')
+    ///     
+    ///     # Calculate difference between dates
+    ///     >>> date1 - date2
+    ///     5
+    ///     >>> date2 - date1
+    ///     -5
+    fn __sub__(&self, py: Python, other: &Bound<PyAny>) -> PyResult<PyObject> {
+        // Try to extract as PyDate first (Date - Date)
+        if let Ok(other_date) = other.extract::<PyDate>() {
+            let duration = self.inner - other_date.inner;
+            // The time crate uses whole_days() on Duration
+            let days = duration.whole_days();
+            return Ok(days.into_pyobject(py).unwrap().into());
+        }
+        
+        // Try to extract as integer (Date - int)
+        if let Ok(days) = other.extract::<i64>() {
+            let new_date = self.inner - Duration::days(days);
+            let result = PyDate { inner: new_date };
+            return Py::new(py, result).map(|obj| obj.into());
+        }
+        
+        Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+            "unsupported operand type(s) for -: 'Date' and type of argument"
+        ))
+    }
+
+    /// Compare dates for ordering.
+    ///
+    /// Args:
+    ///     other (Date): Another Date instance.
+    ///
+    /// Returns:
+    ///     bool: True if self is less than other.
+    ///
+    /// Examples:
+    ///     >>> from rfin.dates import Date
+    ///     >>> date1 = Date(2023, 12, 20)
+    ///     >>> date2 = Date(2023, 12, 25)
+    ///     >>> date1 < date2
+    ///     True
+    ///     >>> date2 < date1
+    ///     False
+    fn __lt__(&self, other: &PyDate) -> bool {
+        self.inner < other.inner
+    }
+
+    /// Compare dates for ordering.
+    ///
+    /// Args:
+    ///     other (Date): Another Date instance.
+    ///
+    /// Returns:
+    ///     bool: True if self is less than or equal to other.
+    fn __le__(&self, other: &PyDate) -> bool {
+        self.inner <= other.inner
+    }
+
+    /// Compare dates for ordering.
+    ///
+    /// Args:
+    ///     other (Date): Another Date instance.
+    ///
+    /// Returns:
+    ///     bool: True if self is greater than other.
+    fn __gt__(&self, other: &PyDate) -> bool {
+        self.inner > other.inner
+    }
+
+    /// Compare dates for ordering.
+    ///
+    /// Args:
+    ///     other (Date): Another Date instance.
+    ///
+    /// Returns:
+    ///     bool: True if self is greater than or equal to other.
+    fn __ge__(&self, other: &PyDate) -> bool {
+        self.inner >= other.inner
+    }
+
     /// Check if the date falls on a weekend.
     ///
     /// Returns:
@@ -215,7 +350,7 @@ impl PyDate {
     ///     False
     #[pyo3(text_signature = "(self)")]
     pub fn is_weekend(&self) -> bool {
-        use finstack_core::DateExt;
+        use finstack_core::dates::DateExt;
         self.inner.is_weekend()
     }
 
@@ -236,7 +371,7 @@ impl PyDate {
     ///     4
     #[pyo3(text_signature = "(self)")]
     pub fn quarter(&self) -> u8 {
-        use finstack_core::DateExt;
+        use finstack_core::dates::DateExt;
         self.inner.quarter()
     }
 
@@ -254,7 +389,7 @@ impl PyDate {
     ///     2023
     #[pyo3(text_signature = "(self)")]
     pub fn fiscal_year(&self) -> i32 {
-        use finstack_core::DateExt;
+        use finstack_core::dates::DateExt;
         self.inner.fiscal_year()
     }
 
@@ -291,7 +426,7 @@ impl PyDate {
     ///     Date('2023-12-22')
     #[pyo3(text_signature = "(self, n)")]
     pub fn add_business_days(&self, n: i32) -> Self {
-        use finstack_core::DateExt;
+        use finstack_core::dates::DateExt;
         let new_date = self.inner.add_business_days(n);
         PyDate { inner: new_date }
     }

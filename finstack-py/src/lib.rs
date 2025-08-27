@@ -95,9 +95,6 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     dates_module.add_class::<dates::PyStubRule>()?;
     dates_module.add_class::<dates::PyPeriodId>()?;
     dates_module.add_class::<dates::PyPeriod>()?;
-    dates_module.add_class::<dates::PyIndexSeries>()?;
-    dates_module.add_class::<dates::PyIndexInterpolation>()?;
-    dates_module.add_class::<dates::PyIndexLag>()?;
     dates_module.add_function(pyo3::wrap_pyfunction!(
         dates::py_generate_schedule,
         &dates_module
@@ -149,9 +146,6 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<dates::PyStubRule>()?;
     m.add_class::<dates::PyPeriodId>()?;
     m.add_class::<dates::PyPeriod>()?;
-    m.add_class::<dates::PyIndexSeries>()?;
-    m.add_class::<dates::PyIndexInterpolation>()?;
-    m.add_class::<dates::PyIndexLag>()?;
     m.add_class::<crate::cashflow::PyFixedRateLeg>()?;
     m.add_class::<crate::cashflow::PyCashFlow>()?;
 

@@ -15,6 +15,8 @@ use pyo3::prelude::*;
 pub mod curve_id;
 pub mod curve_set;
 pub mod curves;
+pub mod fx;
+pub mod inflation_index;
 pub mod interpolation;
 pub mod surfaces;
 
@@ -22,6 +24,10 @@ pub mod surfaces;
 pub use curve_id::PyCurveId;
 pub use curve_set::PyCurveSet;
 pub use curves::{PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyInflationCurve};
+pub use fx::{PyFxConversionPolicy, PyFxMatrix, PySimpleFxProvider};
+pub use inflation_index::{
+    PyInflationIndex, PyInflationIndexBuilder, PyInflationInterpolation, PyInflationLag
+};
 pub use interpolation::PyInterpStyle;
 pub use surfaces::PyVolSurface;
 
@@ -38,6 +44,17 @@ pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyVolSurface>()?;
     m.add_class::<PyCurveSet>()?;
     m.add_class::<PyCurveId>()?;
+    
+    // Register FX classes
+    m.add_class::<PyFxConversionPolicy>()?;
+    m.add_class::<PySimpleFxProvider>()?;
+    m.add_class::<PyFxMatrix>()?;
+    
+    // Register inflation index classes
+    m.add_class::<PyInflationIndex>()?;
+    m.add_class::<PyInflationIndexBuilder>()?;
+    m.add_class::<PyInflationInterpolation>()?;
+    m.add_class::<PyInflationLag>()?;
 
     // Add the submodule to parent
     parent.add_submodule(&m)?;

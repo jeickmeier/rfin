@@ -41,6 +41,8 @@
 
 /// Identifier utilities (see [`id::CurveId`]).
 pub mod id;
+/// Inflation index data (CPI/RPI) using Polars DataFrames.
+pub mod inflation_index;
 /// Interpolation framework and concrete algorithms.
 pub mod interp;
 /// Two-dimensional surfaces (e.g. volatility).

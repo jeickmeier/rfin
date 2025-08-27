@@ -1,16 +1,37 @@
-from finstack import Date
-from finstack.dates import (
-    PeriodId, build_periods,
-    IndexSeries, IndexInterpolation, IndexLag
+#!/usr/bin/env python3
+"""
+Example demonstrating core finstack functionality including:
+- Period generation for financial reporting
+- InflationIndex for CPI/RPI calculations (NEW!)
+"""
+
+from finstack import Date, Currency
+from finstack.dates import PeriodId, build_periods
+
+# ============================================================
+# Period Generation for Financial Reporting
+# ============================================================
+
+print("=== Period Generation ===")
+periods = build_periods("2025Q1..2028Q4", "2026Q2")
+for p in periods[:4]:  # Show first 4 periods
+    print(f"  {p.id}: actual={p.is_actual}")
+print(f"  ... ({len(periods)} total periods)")
+
+# ============================================================
+# NEW: InflationIndex API (replaces deprecated IndexSeries)
+# ============================================================
+
+print("\n=== InflationIndex API (NEW!) ===")
+print("IndexSeries has been replaced with InflationIndex using Polars DataFrames")
+
+from finstack.market_data import (
+    InflationIndex, 
+    InflationInterpolation, 
+    InflationLag
 )
 
-# Period generation for reporting
-periods = build_periods("2025Q1..2028Q4", "2026Q2")
-for p in periods:
-    print(f"{p.id}: actual={p.is_actual}")
-
-# Inflation calculations
-# Create CPI observations
+# Historical CPI observations
 observations = [
     (Date(2023, 1, 31), 300.0),
     (Date(2023, 2, 28), 303.0),
@@ -20,24 +41,29 @@ observations = [
     (Date(2023, 6, 30), 315.0),
 ]
 
-# Create index series with step interpolation (default for CPI)
-cpi = IndexSeries(
-    "US-CPI",
+# Create US CPI index with standard settings
+cpi = InflationIndex(
+    "US-CPI-U",
     observations,
-    interpolation=IndexInterpolation.Step
+    Currency("USD"),
+    interpolation=InflationInterpolation.STEP,  # Standard for CPI
+    lag=InflationLag.months(3)  # 3-month lag for US TIPS
 )
 
-print(f"Created {cpi}")
+print(f"\nCreated: {cpi}")
 print(f"  ID: {cpi.id}")
-print(f"  Observations: {len(cpi)}")
+print(f"  Currency: {cpi.currency}")
+print(f"  Interpolation: {cpi.interpolation}")
+print(f"  Lag: {cpi.lag}")
 
+# Get date range
 date_range = cpi.date_range()
 if date_range:
     start, end = date_range
     print(f"  Date range: {start} to {end}")
 
-# Get value on specific date
-test_date = Date(2023, 2, 15)
+# Get index value on a specific date
+test_date = Date(2023, 3, 15)
 value = cpi.value_on(test_date)
 print(f"\nCPI value on {test_date}: {value:.2f}")
 
@@ -48,39 +74,38 @@ ratio = cpi.ratio(base_date, settle_date)
 print(f"\nIndex ratio from {base_date} to {settle_date}: {ratio:.6f}")
 print(f"Implied inflation: {(ratio - 1) * 100:.2f}%")
 
-# Test with lag
-cpi_with_lag = IndexSeries(
-    "US-CPI-3M-LAG",
-    observations,
-    interpolation=IndexInterpolation.Linear,
-    lag=IndexLag.months(3)
-)
+# Compare interpolation methods
+print("\n=== Interpolation Comparison ===")
 
-print(f"\n{cpi_with_lag} with 3-month lag")
-
-# Test lag types
-lag_months = IndexLag.months(3)
-lag_days = IndexLag.days(90)
-no_lag = IndexLag.none()
-
-print(f"\nLag types:")
-print(f"  {lag_months}")
-print(f"  {lag_days}")
-print(f"  {no_lag}")
-
-# Linear interpolation example
-linear_cpi = IndexSeries(
+# Linear interpolation
+linear_cpi = InflationIndex(
     "US-CPI-LINEAR",
     observations,
-    interpolation=IndexInterpolation.Linear
+    Currency("USD"),
+    interpolation=InflationInterpolation.LINEAR
 )
 
 mid_month = Date(2023, 3, 15)
 step_value = cpi.value_on(mid_month)
 linear_value = linear_cpi.value_on(mid_month)
 
-print(f"\nInterpolation comparison for {mid_month}:")
+print(f"Value on {mid_month}:")
 print(f"  Step interpolation: {step_value:.2f}")
 print(f"  Linear interpolation: {linear_value:.2f}")
+print(f"  Difference: {linear_value - step_value:.2f}")
 
-print()
+# Using the builder pattern
+print("\n=== Builder Pattern Example ===")
+
+from finstack.market_data import InflationIndexBuilder
+
+builder = InflationIndexBuilder("UK-RPI", Currency("GBP"))
+builder.add_observation(Date(2023, 1, 31), 348.7)
+builder.add_observation(Date(2023, 2, 28), 351.2)
+builder.add_observation(Date(2023, 3, 31), 352.6)
+builder.with_interpolation(InflationInterpolation.LINEAR)
+builder.with_lag(InflationLag.months(2))  # 2-month lag for UK ILBs
+
+uk_rpi = builder.build()
+print(f"Created: {uk_rpi}")
+print(f"  Lag: {uk_rpi.lag}")
