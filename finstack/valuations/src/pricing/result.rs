@@ -5,6 +5,7 @@ use finstack_core::F;
 use hashbrown::HashMap;
 
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ValuationResult {
     pub instrument_id: String,
     pub as_of: Date,

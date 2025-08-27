@@ -16,7 +16,7 @@ L3  curves
 1. Provide a **`CashFlow` struct** (date, amount, kind) with zero-cost arithmetic and serialization.
 2. Offer `npv` helpers that discount using an abstract `Curve` trait (**C-02**).
 3. Support **notional/amortisation schedules** and step tables (**C-38**).
-4. Cache day-count accrual factors for large portfolios (**C-39**).
+4. Compute day-count accrual factors deterministically (**C-39**).
 5. Model **stub cash-flows** (irregular first/last periods) (**C-40**).
 6. Facilitate future extensions for bond/private-credit variants (**C-22**).
 
@@ -59,7 +59,7 @@ src/cashflow/
   ├─ mod.rs             // facade
   ├─ cashflow.rs        // CashFlow struct & impls
   ├─ leg.rs             // CashFlowLeg builder + amort schedule (C-38, C-40)
-  ├─ accrual.rs         // Day-count accrual and cached table (C-39)
+  ├─ stub.rs            // Stub period support
   ├─ npv.rs             // Discount helpers (C-02)
   ├─ notional.rs        // Notional type & amortisation rules
   ├─ stub.rs            // Stub period support
@@ -91,11 +91,11 @@ pub struct CashFlow {
     pub reset_date: Option<Date>,
     pub amount: Money,                       // amount incl. currency
     pub kind: CFKind,
-    accrual_factor: f64,                     // cached for DV01 etc.
+    accrual_factor: f64,                     // period year fraction
 }
 ```
 * `Money` is thin wrapper `(Currency, F)`, where `F` is `f64` or `Decimal`.
-* `accrual_factor` pre-computed via `accrual::cache` for performance (C-39).
+* `accrual_factor` computed via `DayCount::year_fraction(start, end)` (C-39).
 
 ### 5.3 `CashFlowLeg`
 Aggregates ordered `Vec<CashFlow>` plus leg metadata:
@@ -163,7 +163,7 @@ CashFlow::fee(date, amount)
 * Provided as associated fns returning a pre-initialised `CashFlow` with `CFKind::Notional` or `CFKind::Fee`.
 
 ### 5.9 Accrued-Interest Utilities
-* `CashFlowLeg::accrued(Date)` returns accrued interest up to (but excluding) the pricing date using cached accrual factors.  
+* `CashFlowLeg::accrued(Date)` returns accrued interest up to (but excluding) the pricing date using the applicable day-count factor.  
 * Uses last coupon period where `reset_date < val_date`.
 
 ### 5.10 Additional Shared Details
@@ -179,7 +179,7 @@ CashFlow::fee(date, amount)
 
 ## 6 Algorithms
 1. **Schedule Generation** (dates module): iterate periods based on frequency; business-day adjust via calendar and `BusDayConv`.
-2. **Accrual Factor Cache**: lazy-computed `HashMap<PeriodKey, f64>` keyed by `(start,end,day_count)`; global LRU of 2 k entries.
+2. **Accrual Factor**: compute `year_fraction(start, end, day_count)` directly via `DayCount`.
 3. **NPV**: Present value = `Σ amount * curve.df(date)`; inlined loop; SIMD reduction when `parallel` feature is on.
 4. **Amortisation Processing**: after base leg generation, traverse flows and mutate notional per amort rule.
 5. **Stub Periods**: builder detects irregular first/last period and marks flow with `CFKind::Stub`; accrual uses actual period length.
@@ -208,7 +208,7 @@ _Relocated / Resolved_
 
 ## 11 Timeline
 * **v0.1.0** – Core structs, fixed leg builder, NPV.
-* **v0.2.0** – Amortisation, accrual cache.
+* **v0.2.0** – Amortisation.
 * **v0.3.0** – Stub support, float leg (depends on index curves).
 * **v1.0.0** – API freeze after integration with instruments layer.
 

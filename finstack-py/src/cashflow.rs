@@ -5,7 +5,9 @@ use pyo3::prelude::*;
 use finstack_core::dates::ScheduleBuilder;
 use finstack_valuations::cashflow::leg::CashFlowLeg;
 use finstack_valuations::cashflow::notional::Notional;
-use finstack_valuations::cashflow::npv::{DiscountCurve, Discountable};
+use finstack_valuations::pricing::discountable::Discountable;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
+use finstack_core::market_data::traits::Discount as _;
 use finstack_valuations::cashflow::primitives::{CFKind, CashFlow as CoreCashFlow};
 use std::sync::Arc;
 
@@ -14,18 +16,6 @@ use crate::dates::date::PyDate;
 use crate::dates::daycount::PyDayCount;
 use crate::dates::schedule::PyFrequency;
 
-/// Simple flat discount curve used for PV calculations.
-struct FlatCurve {
-    rate: f64,
-}
-
-impl DiscountCurve for FlatCurve {
-    fn df(&self, _date: finstack_core::dates::Date) -> f64 {
-        // Zero-rate flat curve: simply use exp(-r * t) with t = 0 (today) => 1.0 for now.
-        // Future enhancement: compute based on year fraction to payment date.
-        1.0 / (1.0 + self.rate)
-    }
-}
 
 /// Individual cash flow representing a single payment.
 ///
@@ -115,7 +105,9 @@ impl PyCashFlow {
     ///     str: The cash flow type. Common values include:
     ///          - "Fixed": Fixed coupon payment
     ///          - "FloatReset": Floating rate coupon payment
-    ///          - "Notional": Principal payment
+    ///          - "Notional": Principal exchange
+    ///          - "PIK": Payment-in-kind capitalization (adds to principal)
+    ///          - "Amortization": Principal repayment (reduces principal)
     ///          - "Fee": Fee payment
     ///          - "Stub": Stub period payment
     ///          - "Other": Other payment types
@@ -131,6 +123,8 @@ impl PyCashFlow {
             CFKind::Fixed => "Fixed",
             CFKind::FloatReset => "FloatReset",
             CFKind::Notional => "Notional",
+            CFKind::PIK => "PIK",
+            CFKind::Amortization => "Amortization",
             CFKind::Fee => "Fee",
             CFKind::Stub => "Stub",
             _ => "Other",
@@ -321,8 +315,22 @@ impl PyFixedRateLeg {
     ///     50000.0  # Two payments of $25,000 each
     #[pyo3(text_signature = "(self)")]
     fn npv(&self) -> f64 {
-        let curve = FlatCurve { rate: 0.0 };
-        self.inner.npv(&curve).amount()
+        let base = self
+            .inner
+            .flows
+            .first()
+            .map(|cf| cf.date)
+            .unwrap_or_else(|| finstack_core::dates::Date::from_ordinal_date(1970, 1).unwrap());
+        let curve = CoreDiscCurve::builder("USD-OIS")
+            .base_date(base)
+            .knots([(0.0, 1.0), (30.0, 1.0)])
+            .linear_df()
+            .build()
+            .unwrap();
+        self.inner
+            .npv(&curve, curve.base_date(), self.inner.day_count)
+            .map(|m| m.amount())
+            .unwrap_or(0.0)
     }
 
     /// Calculate accrued interest up to a valuation date.

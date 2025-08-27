@@ -46,6 +46,24 @@ pub struct DiscountCurve {
 }
 
 impl DiscountCurve {
+    /// Convenience: compute year fraction between two dates using the given day-count.
+    /// Returns 0.0 when dates are equal.
+    #[inline]
+    pub fn year_fraction(base: Date, date: Date, dc: crate::dates::DayCount) -> F {
+        if date == base {
+            return 0.0;
+        }
+        dc.year_fraction(base, date).unwrap_or(0.0)
+    }
+
+    /// Convenience: discount factor on a specific date `date` given a curve and
+    /// the curve base `base` and `day_count`.
+    /// This is equivalent to `disc.df(t)` where `t` is the year fraction from `base` to `date`.
+    #[inline]
+    pub fn df_on(disc: &dyn Discount, base: Date, date: Date, dc: crate::dates::DayCount) -> F {
+        let t = Self::year_fraction(base, date, dc);
+        disc.df(t)
+    }
     /// Discount factor at time `t` (helper calling the underlying interpolator).
     pub fn df(&self, t: F) -> F {
         self.interp.interp(t)

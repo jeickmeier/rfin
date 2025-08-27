@@ -18,6 +18,10 @@ pub enum CFKind {
     FloatReset,
     /// Principal exchange / notional flow.
     Notional,
+    /// Payment-in-kind interest capitalization (adds to principal).
+    PIK,
+    /// Amortization principal repayment (reduces principal).
+    Amortization,
     /// Up-front fee or cost.
     Fee,
     /// Irregular stub period.
@@ -39,11 +43,61 @@ pub struct CashFlow {
     pub amount: Money,
     /// Category/kind of cash-flow.
     pub kind: CFKind,
-    /// Cached year-fraction used for sensitivity (populated elsewhere).
+    /// Accrual factor used for coupon amount and sensitivity.
     pub accrual_factor: f64,
 }
 
 impl CashFlow {
+    /// Create a fixed coupon cash-flow (`CFKind::Fixed`).
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidInput`] if the `amount` is zero.
+    pub fn fixed_cf(date: Date, amount: Money) -> finstack_core::Result<Self> {
+        if amount.amount() == 0.0 {
+            return Err(InputError::Invalid.into());
+        }
+        Ok(Self { date, reset_date: None, amount, kind: CFKind::Fixed, accrual_factor: 0.0 })
+    }
+
+    /// Create a floating coupon cash-flow (stored as `CFKind::FloatReset`).
+    ///
+    /// If no explicit reset date is provided, it defaults to the payment `date`.
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidInput`] if the `amount` is zero.
+    pub fn floating_cf(date: Date, amount: Money, reset_date: Option<Date>) -> finstack_core::Result<Self> {
+        if amount.amount() == 0.0 {
+            return Err(InputError::Invalid.into());
+        }
+        Ok(Self { date, reset_date: Some(reset_date.unwrap_or(date)), amount, kind: CFKind::FloatReset, accrual_factor: 0.0 })
+    }
+
+    /// Create a Payment-in-Kind cash-flow (`CFKind::PIK`).
+    ///
+    /// PIK increases outstanding principal in principal accounting.
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidInput`] if the `amount` is zero.
+    pub fn pik_cf(date: Date, amount: Money) -> finstack_core::Result<Self> {
+        if amount.amount() == 0.0 {
+            return Err(InputError::Invalid.into());
+        }
+        Ok(Self { date, reset_date: None, amount, kind: CFKind::PIK, accrual_factor: 0.0 })
+    }
+
+    /// Create an amortization principal cash-flow (`CFKind::Amortization`).
+    ///
+    /// Amortization reduces outstanding principal in principal accounting.
+    ///
+    /// # Errors
+    /// Returns [`Error::InvalidInput`] if the `amount` is zero.
+    pub fn amort_cf(date: Date, amount: Money) -> finstack_core::Result<Self> {
+        if amount.amount() == 0.0 {
+            return Err(InputError::Invalid.into());
+        }
+        Ok(Self { date, reset_date: None, amount, kind: CFKind::Amortization, accrual_factor: 0.0 })
+    }
+
     /// Create a **principal exchange** (`CFKind::Notional`) cash-flow.
     ///
     /// # Errors
@@ -77,20 +131,7 @@ impl CashFlow {
             accrual_factor: 0.0,
         })
     }
-    /// Construct a new cash-flow with the given date, amount, and kind.
-    ///
-    /// `reset_date` is initialised to `None`, and the `accrual_factor` starts
-    /// at `0.0` (to be filled by the accrual cache in a later phase).
-    #[must_use]
-    pub const fn new(date: Date, amount: Money, kind: CFKind) -> Self {
-        Self {
-            date,
-            reset_date: None,
-            amount,
-            kind,
-            accrual_factor: 0.0,
-        }
-    }
+
 }
 
 // -------------------------------------------------------------------------
@@ -107,12 +148,12 @@ mod tests {
     }
 
     #[test]
-    fn new_constructor_stores_fields() {
+    fn fixed_cf_constructor_stores_fields() {
         use finstack_core::currency::Currency;
         use time::Month;
         let date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
         let amount = Money::new(100.0, Currency::USD);
-        let cf = CashFlow::new(date, amount, CFKind::Fixed);
+        let cf = CashFlow::fixed_cf(date, amount).unwrap();
         assert_eq!(cf.date, date);
         assert_eq!(cf.amount, amount);
         assert_eq!(cf.kind, CFKind::Fixed);
@@ -133,8 +174,18 @@ mod tests {
         let fee = CashFlow::fee(date, amt).unwrap();
         assert_eq!(fee.kind, CFKind::Fee);
 
+        let pik = CashFlow::pik_cf(date, amt).unwrap();
+        assert_eq!(pik.kind, CFKind::PIK);
+
+        let amort = CashFlow::amort_cf(date, amt).unwrap();
+        assert_eq!(amort.kind, CFKind::Amortization);
+
         // Zero amount returns error
         let zero = Money::new(0.0, Currency::EUR);
         assert!(CashFlow::fee(date, zero).is_err());
+        assert!(CashFlow::fixed_cf(date, zero).is_err());
+        assert!(CashFlow::floating_cf(date, zero, None).is_err());
+        assert!(CashFlow::pik_cf(date, zero).is_err());
+        assert!(CashFlow::amort_cf(date, zero).is_err());
     }
 }

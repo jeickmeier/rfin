@@ -1,30 +1,10 @@
 #![deny(missing_docs)]
-use finstack_core::dates::Date;
 use finstack_core::error::InputError;
 use finstack_core::money::Money;
+use super::amortization::AmortizationSpec;
 
-/// Amortisation rule applied to the notional over time.
-#[derive(Clone, Debug, PartialEq)]
-pub enum AmortRule {
-    /// No amortisation – notional stays constant.
-    None,
-    /// Linear amortisation towards a lower final notional amount.
-    Linear {
-        /// Remaining notional at the end of the schedule (inclusive).
-        final_notional: Money,
-    },
-    /// Explicit step schedule – each tuple stores the cash-flow date and the notional **remaining after** that date.
-    Step {
-        /// Vector of `(date, remaining_notional)` pairs in chronological order.
-        schedule: Vec<(Date, Money)>,
-    },
-}
-
-impl Default for AmortRule {
-    fn default() -> Self {
-        Self::None
-    }
-}
+// Deprecated: use `AmortizationSpec` instead. Kept temporarily for internal migration.
+// pub type AmortRule = AmortizationSpec;
 
 /// Notional amount with an optional amortisation rule.
 #[derive(Clone, Debug, PartialEq)]
@@ -32,7 +12,7 @@ pub struct Notional {
     /// Initial principal amount outstanding at leg inception.
     pub initial: Money,
     /// Amortisation rule applied after each period.
-    pub amort: AmortRule,
+    pub amort: AmortizationSpec,
 }
 
 impl Notional {
@@ -40,15 +20,15 @@ impl Notional {
     pub fn par(amount: f64, currency: finstack_core::currency::Currency) -> Self {
         Self {
             initial: Money::new(amount, currency),
-            amort: AmortRule::None,
+            amort: AmortizationSpec::None,
         }
     }
 
     /// Validate amortisation schedule (sum of amort steps ≤ initial).
     pub fn validate(&self) -> finstack_core::Result<()> {
         match &self.amort {
-            AmortRule::None => Ok(()),
-            AmortRule::Linear { final_notional } => {
+            AmortizationSpec::None => Ok(()),
+            AmortizationSpec::LinearTo { final_notional } => {
                 if final_notional.currency() != self.initial.currency()
                     || final_notional.amount() > self.initial.amount()
                 {
@@ -56,13 +36,22 @@ impl Notional {
                 }
                 Ok(())
             }
-            AmortRule::Step { schedule } => {
+            AmortizationSpec::StepRemaining { schedule } => {
                 let mut remaining = self.initial.amount();
                 for (_, notl) in schedule {
                     if notl.currency() != self.initial.currency() || notl.amount() > remaining {
                         return Err(InputError::Invalid.into());
                     }
                     remaining = notl.amount();
+                }
+                Ok(())
+            }
+            AmortizationSpec::PercentPerPeriod { .. } => Ok(()),
+            AmortizationSpec::CustomPrincipal { items } => {
+                for (_d, amt) in items {
+                    if amt.currency() != self.initial.currency() {
+                        return Err(InputError::Invalid.into());
+                    }
                 }
                 Ok(())
             }

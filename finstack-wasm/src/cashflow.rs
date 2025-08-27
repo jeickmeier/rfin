@@ -6,19 +6,14 @@ use finstack_core::dates::DayCount as CoreDayCount;
 use finstack_core::dates::ScheduleBuilder;
 use finstack_valuations::cashflow::leg::CashFlowLeg;
 use finstack_valuations::cashflow::notional::Notional;
-use finstack_valuations::cashflow::npv::{DiscountCurve, Discountable};
+use finstack_valuations::pricing::discountable::Discountable;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
+use finstack_core::market_data::traits::Discount as _;
 
 use crate::currency::Currency;
 use crate::dates::{Date, DayCount};
 use crate::schedule::Frequency;
 
-/// Simple flat discount curve (df = 1.0) placeholder.
-struct FlatCurve;
-impl DiscountCurve for FlatCurve {
-    fn df(&self, _date: finstack_core::dates::Date) -> f64 {
-        1.0
-    }
-}
 
 /// Fixed-rate cash-flow leg exposed to JavaScript.
 #[wasm_bindgen]
@@ -61,8 +56,17 @@ impl FixedRateLeg {
     /// Present value (flat discount 1.0).
     #[wasm_bindgen(js_name = "npv")]
     pub fn npv_js(&self) -> f64 {
-        let curve = FlatCurve;
-        self.inner.npv(&curve).amount()
+        let base = self.inner.flows.first().map(|cf| cf.date).unwrap_or_else(|| finstack_core::dates::Date::from_ordinal_date(1970, 1).unwrap());
+        let curve = CoreDiscCurve::builder("USD-OIS")
+            .base_date(base)
+            .knots([(0.0, 1.0), (30.0, 1.0)])
+            .linear_df()
+            .build()
+            .unwrap();
+        self.inner
+            .npv(&curve, curve.base_date(), self.inner.day_count)
+            .map(|m| m.amount())
+            .unwrap_or(0.0)
     }
 
     /// Accrued interest up to (but excluding) `val_date`.

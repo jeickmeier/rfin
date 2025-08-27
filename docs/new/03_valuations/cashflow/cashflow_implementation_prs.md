@@ -40,7 +40,7 @@ This roadmap translates the **CashFlow** Detailed Design into a series of small,
 
 **Acceptance criteria**
 * `size_of::<CashFlow>() ≤ 48` bytes (`f64` path).
-* `CashFlow::new(date, amount, CFKind::Fixed)` compiles and stores fields.
+* `CashFlow::fixed_cf(date, amount)` compiles and stores fields.
 
 ---
 
@@ -58,6 +58,7 @@ This roadmap translates the **CashFlow** Detailed Design into a series of small,
 
 **Acceptance criteria**
 * `CashFlow::principal_exchange(date, amount)` returns flow with `CFKind::Notional`.
+* Added `CFKind::PIK` and `CFKind::Amortization`; helpers: `pik_cf`, `amort_cf`.
 * Invalid inputs return `Error::Input`.
 
 ---
@@ -82,20 +83,17 @@ This roadmap translates the **CashFlow** Detailed Design into a series of small,
 
 ---
 
-## PR #5 — Accrual factor cache & `accrued` helper
+## PR #5 — `accrued` helper
 
 **Goals**
-* Add `accrual.rs` caching of `(start,end,day_count)` → factor with global LRU (2 k entries).
 * Expose `CashFlowLeg::accrued(val_date)` util.
 
 **Key changes**
-1. `accrual.rs` + LRU using `hashbrown` (no std compatible).
-2. Extend `cashflow.rs` to store pre-computed `accrual_factor`.
-3. Bench: accrue 1 M coupons < 5 ms.
+1. Extend `cashflow.rs` to store period `accrual_factor`.
+2. Bench: accrue 1 M coupons within target thresholds.
 
 **Acceptance criteria**
 * Accrued interest monotone increasing between coupon dates (property test).
-* Cache hit ratio > 95 % in bench sim.
 
 ---
 

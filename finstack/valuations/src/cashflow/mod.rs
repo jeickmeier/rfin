@@ -8,14 +8,11 @@ pub mod primitives;
 /// Cash-flow leg builder and related utilities.
 pub mod leg;
 
-/// Net-present-value helpers and discountable traits.
-pub mod npv;
-
-/// Day-count accrual factor caching.
-pub mod accrual;
+/// Amortization specifications shared across instruments and legs.
+pub mod amortization;
 
 /// Notional amount types and amortisation rules.
 pub mod notional;
 
-/// Stub period detection and handling utilities.
-pub mod stub {}
+/// Currency-preserving aggregation utilities for cashflows.
+pub mod aggregation;

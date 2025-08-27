@@ -15,9 +15,10 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 
 [dev-dependencies]
 time = { version = "0.3", features = ["macros"] }
+serde_json = "1.0"
 
 [features]
 default = []
 parallel = ["dep:rayon"]
-serde = ["dep:serde"]
+serde = ["dep:serde", "finstack-core/serde", "hashbrown/serde"]
 index = []
