@@ -304,7 +304,7 @@ impl PyDate {
     }
 
     /// Internal helper to construct a PyDate from a core value.
-    pub(crate) fn from_core(inner: CoreDate) -> Self {
+    pub fn from_core(inner: CoreDate) -> Self {
         PyDate { inner }
     }
 }

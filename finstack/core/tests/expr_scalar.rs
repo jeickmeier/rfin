@@ -75,11 +75,7 @@ fn scalar_diff_pct_cum_rolling_ewm() {
 
     let ewm = CompiledExpr::new(Expr::call(
         Function::EwmMean,
-        vec![
-            Expr::column("x"),
-            Expr::literal(0.5),
-            Expr::literal(1.0),
-        ],
+        vec![Expr::column("x"), Expr::literal(0.5), Expr::literal(1.0)],
     ))
     .eval_scalar(&ctx, &cols);
     assert!(ewm[0] - x[0] < 1e-12);

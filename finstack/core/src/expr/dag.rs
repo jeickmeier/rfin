@@ -113,11 +113,10 @@ impl DagBuilder {
 
         let dependencies = match &expr.node {
             ExprNode::Column(_) | ExprNode::Literal(_) => Vec::new(),
-            ExprNode::Call(_, args) => {
-                args.iter()
-                    .map(|arg| self.process_expression(arg.clone()))
-                    .collect()
-            }
+            ExprNode::Call(_, args) => args
+                .iter()
+                .map(|arg| self.process_expression(arg.clone()))
+                .collect(),
         };
 
         // Estimate cost
@@ -128,7 +127,7 @@ impl DagBuilder {
             id,
             expr: expr.clone(),
             dependencies,
-            ref_count: 0, // Will be calculated later
+            ref_count: 0,           // Will be calculated later
             polars_eligible: false, // Will be determined later
             cost,
         };
@@ -179,7 +178,7 @@ impl DagBuilder {
     /// Determine which nodes are eligible for Polars execution.
     fn determine_polars_eligibility(&mut self) {
         let mut updates = Vec::new();
-        
+
         // First pass: collect all eligibility decisions
         for (id, node) in &self.nodes {
             let eligible = match &node.expr.node {
@@ -188,7 +187,8 @@ impl DagBuilder {
                     // Check if function supports Polars and all dependencies are eligible
                     let func_eligible = self.function_supports_polars(*func);
                     let deps_eligible = node.dependencies.iter().all(|&dep_id| {
-                        self.nodes.get(&dep_id)
+                        self.nodes
+                            .get(&dep_id)
                             .map(|n| n.polars_eligible)
                             .unwrap_or(false)
                     });
@@ -197,7 +197,7 @@ impl DagBuilder {
             };
             updates.push((*id, eligible));
         }
-        
+
         // Second pass: apply updates
         for (id, eligible) in updates {
             if let Some(node) = self.nodes.get_mut(&id) {
@@ -220,11 +220,16 @@ impl DagBuilder {
             Function::RollingStd | Function::RollingVar | Function::RollingMedian => false,
             // Complex EWM functions still use scalar fallback
             Function::EwmMean => false,
-            Function::RollingStdTime | Function::RollingVarTime | Function::RollingMedianTime => false,
+            Function::RollingStdTime | Function::RollingVarTime | Function::RollingMedianTime => {
+                false
+            }
             // New functions
             Function::Shift | Function::RollingMin | Function::RollingMax => true,
-            Function::Rank | Function::Quantile | Function::RollingCount | 
-            Function::EwmStd | Function::EwmVar => false,
+            Function::Rank
+            | Function::Quantile
+            | Function::RollingCount
+            | Function::EwmStd
+            | Function::EwmVar => false,
         }
     }
 
@@ -237,14 +242,18 @@ impl DagBuilder {
                 let base_cost = match func {
                     Function::Lag | Function::Lead => 5,
                     Function::Diff | Function::PctChange => 10,
-                    Function::CumSum | Function::CumProd | Function::CumMin | Function::CumMax => 20,
+                    Function::CumSum | Function::CumProd | Function::CumMin | Function::CumMax => {
+                        20
+                    }
                     Function::RollingMean | Function::RollingSum => 30,
                     Function::RollingStd | Function::RollingVar | Function::RollingMedian => 50,
                     Function::EwmMean => 25,
                     Function::Std | Function::Var => 40,
                     Function::Median => 60,
                     Function::RollingMeanTime | Function::RollingSumTime => 40,
-                    Function::RollingStdTime | Function::RollingVarTime | Function::RollingMedianTime => 70,
+                    Function::RollingStdTime
+                    | Function::RollingVarTime
+                    | Function::RollingMedianTime => 70,
                     // New functions
                     Function::Shift => 5,
                     Function::Rank => 80,
@@ -293,7 +302,13 @@ impl DagBuilder {
         }
 
         for &root_id in root_ids {
-            visit(root_id, &self.nodes, &mut visited, &mut visiting, &mut result);
+            visit(
+                root_id,
+                &self.nodes,
+                &mut visited,
+                &mut visiting,
+                &mut result,
+            );
         }
 
         result
@@ -307,10 +322,10 @@ impl DagBuilder {
 
         for node in nodes {
             total_cost += node.cost;
-            
+
             // Cache nodes with high reference count or high cost
             let should_cache = node.ref_count > 1 && (node.cost > 30 || node.ref_count > 2);
-            
+
             if should_cache {
                 cache_nodes.insert(node.id);
                 cacheable_cost += node.cost * (node.ref_count - 1);
@@ -352,10 +367,11 @@ impl PushdownAnalyzer {
         for node in &plan.nodes {
             if node.polars_eligible {
                 // Check if any dependency requires scalar execution
-                let has_scalar_deps = node.dependencies.iter().any(|&dep_id| {
-                    scalar_nodes.contains(&dep_id)
-                });
-                
+                let has_scalar_deps = node
+                    .dependencies
+                    .iter()
+                    .any(|&dep_id| scalar_nodes.contains(&dep_id));
+
                 if has_scalar_deps {
                     boundaries.push(PushdownBoundary {
                         node_id: node.id,
@@ -376,17 +392,19 @@ impl PushdownAnalyzer {
 
     fn estimate_speedup(nodes: &[DagNode], boundaries: &[PushdownBoundary]) -> f64 {
         let total_cost: usize = nodes.iter().map(|n| n.cost).sum();
-        let polars_cost: usize = nodes.iter()
+        let polars_cost: usize = nodes
+            .iter()
             .filter(|n| n.polars_eligible)
             .map(|n| n.cost / 3) // Assume Polars is ~3x faster
             .sum();
-        let scalar_cost: usize = nodes.iter()
+        let scalar_cost: usize = nodes
+            .iter()
             .filter(|n| !n.polars_eligible)
             .map(|n| n.cost)
             .sum();
-        
+
         let boundary_cost: usize = boundaries.len() * 10; // Materialization overhead
-        
+
         if total_cost > 0 {
             (total_cost as f64) / ((polars_cost + scalar_cost + boundary_cost) as f64)
         } else {

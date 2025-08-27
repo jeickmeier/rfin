@@ -25,7 +25,11 @@ fn polars_lowering_lag_lead_parity() {
     let out = df
         .clone()
         .lazy()
-        .with_columns([lag_p.alias("lag"), lead_p.alias("lead"), roll_p.alias("roll")])
+        .with_columns([
+            lag_p.alias("lag"),
+            lead_p.alias("lead"),
+            roll_p.alias("roll"),
+        ])
         .collect()
         .unwrap();
     let x = df

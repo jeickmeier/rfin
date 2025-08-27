@@ -93,6 +93,11 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     dates_module.add_class::<dates::PyBusDayConv>()?;
     dates_module.add_class::<dates::PyFrequency>()?;
     dates_module.add_class::<dates::PyStubRule>()?;
+    dates_module.add_class::<dates::PyPeriodId>()?;
+    dates_module.add_class::<dates::PyPeriod>()?;
+    dates_module.add_class::<dates::PyIndexSeries>()?;
+    dates_module.add_class::<dates::PyIndexInterpolation>()?;
+    dates_module.add_class::<dates::PyIndexLag>()?;
     dates_module.add_function(pyo3::wrap_pyfunction!(
         dates::py_generate_schedule,
         &dates_module
@@ -104,6 +109,7 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     dates_module.add_function(pyo3::wrap_pyfunction!(py_third_wednesday, &dates_module)?)?;
     dates_module.add_function(pyo3::wrap_pyfunction!(py_next_imm, &dates_module)?)?;
     dates_module.add_function(pyo3::wrap_pyfunction!(py_next_cds_date, &dates_module)?)?;
+    dates_module.add_function(pyo3::wrap_pyfunction!(dates::py_build_periods, &dates_module)?)?;
     m.add_submodule(&dates_module)?;
     m.py()
         .import("sys")?
@@ -141,6 +147,11 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<dates::PyBusDayConv>()?;
     m.add_class::<dates::PyFrequency>()?;
     m.add_class::<dates::PyStubRule>()?;
+    m.add_class::<dates::PyPeriodId>()?;
+    m.add_class::<dates::PyPeriod>()?;
+    m.add_class::<dates::PyIndexSeries>()?;
+    m.add_class::<dates::PyIndexInterpolation>()?;
+    m.add_class::<dates::PyIndexLag>()?;
     m.add_class::<crate::cashflow::PyFixedRateLeg>()?;
     m.add_class::<crate::cashflow::PyCashFlow>()?;
 
@@ -156,6 +167,7 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(pyo3::wrap_pyfunction!(py_third_wednesday, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(py_next_imm, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(py_next_cds_date, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(dates::py_build_periods, m)?)?;
 
     Ok(())
 }

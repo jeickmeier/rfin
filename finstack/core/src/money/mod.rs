@@ -187,13 +187,13 @@ impl fmt::Display for Money {
         {
             // For f64 mode, format with currency-specific minor units. Rounding mode is
             // not customisable here (uses standard formatting semantics).
-            return write!(
+            write!(
                 f,
                 "{} {val:.prec$}",
                 self.currency,
                 val = self.amount,
                 prec = dp
-            );
+            )
         }
     }
 }

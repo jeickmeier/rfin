@@ -2,7 +2,6 @@
 
 use core::hash::{Hash, Hasher};
 
-
 /// Expression AST with optional unique ID for DAG planning and caching.
 #[derive(Clone, Debug)]
 pub struct Expr {
@@ -58,7 +57,7 @@ impl Expr {
         self.id = Some(id);
         self
     }
-    
+
     /// Set the time window for time-based operations.
     pub fn with_time_window(mut self, time_window: TimeWindow) -> Self {
         self.time_window = Some(time_window);

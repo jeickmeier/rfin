@@ -7,5 +7,5 @@
 mod result;
 mod traits;
 
-pub use result::{ValidationResult, ValidationWarning, ValidationStatus};
-pub use traits::{Validator, ValidatorExt, RangeValidator, LengthValidator};
+pub use result::{ValidationResult, ValidationStatus, ValidationWarning};
+pub use traits::{LengthValidator, RangeValidator, Validator, ValidatorExt};

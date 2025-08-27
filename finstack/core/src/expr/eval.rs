@@ -1,11 +1,11 @@
 //! Scalar evaluator and Polars lowering with DAG planning and caching.
 
 use super::{
-    ast::*, 
+    ast::*,
     cache::{CacheManager, CachedResult},
-    dag::{ExecutionPlan, DagBuilder},
     context::ExpressionContext,
-    time_windows::TimeWindowEvaluator
+    dag::{DagBuilder, ExecutionPlan},
+    time_windows::TimeWindowEvaluator,
 };
 use std::vec::Vec;
 
@@ -24,7 +24,7 @@ pub struct CompiledExpr {
 impl CompiledExpr {
     /// Construct a new compiled expression from an AST.
     pub fn new(ast: Expr) -> Self {
-        Self { 
+        Self {
             ast,
             plan: None,
             cache: None,
@@ -36,7 +36,7 @@ impl CompiledExpr {
         let mut builder = DagBuilder::new();
         let plan = builder.build_plan(vec![ast.clone()], meta);
         let cache = CacheManager::for_plan(&plan, 100); // 100MB default
-        
+
         Self {
             ast,
             plan: Some(plan),
@@ -65,13 +65,14 @@ impl CompiledExpr {
 
     /// Evaluate using execution plan with caching.
     fn eval_with_plan<C: ExpressionContext>(
-        &self, 
-        ctx: &C, 
-        cols: &[&[f64]], 
-        plan: &ExecutionPlan
+        &self,
+        ctx: &C,
+        cols: &[&[f64]],
+        plan: &ExecutionPlan,
     ) -> Vec<f64> {
-        let mut results: std::collections::HashMap<u64, Vec<f64>> = std::collections::HashMap::new();
-        
+        let mut results: std::collections::HashMap<u64, Vec<f64>> =
+            std::collections::HashMap::new();
+
         // Execute nodes in topological order
         for node in &plan.nodes {
             // Check cache first
@@ -86,14 +87,14 @@ impl CompiledExpr {
 
             // Evaluate node
             let result = self.eval_node(ctx, cols, node, &results);
-            
+
             // Cache result if strategy recommends it
             if let Some(ref cache) = self.cache {
                 if plan.cache_strategy.cache_nodes.contains(&node.id) {
                     cache.put(node.id, CachedResult::Scalar(result.clone()));
                 }
             }
-            
+
             results.insert(node.id, result);
         }
 
@@ -106,9 +107,14 @@ impl CompiledExpr {
     }
 
     /// Evaluate with metadata stamping for determinism tracking.
-    pub fn eval_with_metadata<C: ExpressionContext>(&self, ctx: &C, cols: &[&[f64]], exec_meta: ExecMeta) -> EvaluationResult {
+    pub fn eval_with_metadata<C: ExpressionContext>(
+        &self,
+        ctx: &C,
+        cols: &[&[f64]],
+        exec_meta: ExecMeta,
+    ) -> EvaluationResult {
         let start_time = std::time::Instant::now();
-        
+
         // Use the appropriate evaluation path based on determinism setting
         let values = if exec_meta.deterministic && self.plan.is_some() {
             // Force sequential execution for determinism
@@ -118,12 +124,12 @@ impl CompiledExpr {
         } else {
             self.eval_scalar(ctx, cols)
         };
-        
+
         let execution_time_ns = start_time.elapsed().as_nanos() as u64;
-        
+
         // Calculate cache hit ratio if cache is available
         let cache_hit_ratio = self.cache.as_ref().map(|cache| cache.hit_ratio());
-        
+
         let metadata = ResultMetadata {
             deterministic: exec_meta.deterministic,
             parallel_execution: exec_meta.parallel && self.plan.is_some(),
@@ -133,7 +139,7 @@ impl CompiledExpr {
             execution_time_ns,
             cache_hit_ratio,
         };
-        
+
         EvaluationResult { values, metadata }
     }
 
@@ -143,7 +149,7 @@ impl CompiledExpr {
         ctx: &C,
         cols: &[&[f64]],
         node: &super::dag::DagNode,
-        results: &std::collections::HashMap<u64, Vec<f64>>
+        results: &std::collections::HashMap<u64, Vec<f64>>,
     ) -> Vec<f64> {
         match &node.expr.node {
             ExprNode::Column(name) => {
@@ -156,10 +162,12 @@ impl CompiledExpr {
             }
             ExprNode::Call(func, _args) => {
                 // Get argument results from dependencies
-                let arg_results: Vec<Vec<f64>> = node.dependencies.iter()
+                let arg_results: Vec<Vec<f64>> = node
+                    .dependencies
+                    .iter()
                     .map(|&dep_id| results.get(&dep_id).cloned().unwrap_or_else(Vec::new))
                     .collect();
-                
+
                 self.eval_function(*func, &arg_results, &node.expr.time_window, ctx, cols)
             }
         }
@@ -179,7 +187,8 @@ impl CompiledExpr {
             }
             ExprNode::Call(fun, args) => {
                 // Recursively evaluate arguments
-                let arg_results: Vec<Vec<f64>> = args.iter()
+                let arg_results: Vec<Vec<f64>> = args
+                    .iter()
                     .map(|arg| self.eval_simple(ctx, cols, arg))
                     .collect();
                 return self.eval_function(*fun, &arg_results, &expr.time_window, ctx, cols);
@@ -189,10 +198,17 @@ impl CompiledExpr {
     }
 
     /// Evaluate a function with given argument results.
-    fn eval_function<C: ExpressionContext>(&self, fun: Function, arg_results: &[Vec<f64>], time_window: &Option<TimeWindow>, ctx: &C, cols: &[&[f64]]) -> Vec<f64> {
+    fn eval_function<C: ExpressionContext>(
+        &self,
+        fun: Function,
+        arg_results: &[Vec<f64>],
+        time_window: &Option<TimeWindow>,
+        ctx: &C,
+        cols: &[&[f64]],
+    ) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         let mut out = Vec::with_capacity(len);
-        
+
         match fun {
             Function::Lag => {
                 if arg_results.len() >= 2 && !arg_results[1].is_empty() {
@@ -211,10 +227,10 @@ impl CompiledExpr {
             Function::Diff => {
                 if !arg_results.is_empty() {
                     let base = &arg_results[0];
-                    let n = if arg_results.len() >= 2 && !arg_results[1].is_empty() { 
-                        arg_results[1][0] as usize 
-                    } else { 
-                        1 
+                    let n = if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+                        arg_results[1][0] as usize
+                    } else {
+                        1
                     };
                     out.extend((0..len).map(|i| {
                         if i < n {
@@ -228,10 +244,10 @@ impl CompiledExpr {
             Function::PctChange => {
                 if !arg_results.is_empty() {
                     let base = &arg_results[0];
-                    let n = if arg_results.len() >= 2 && !arg_results[1].is_empty() { 
-                        arg_results[1][0] as usize 
-                    } else { 
-                        1 
+                    let n = if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+                        arg_results[1][0] as usize
+                    } else {
+                        1
                     };
                     out.extend((0..len).map(|i| {
                         if i < n || base[i - n] == 0.0 {
@@ -314,10 +330,10 @@ impl CompiledExpr {
                 if arg_results.len() >= 2 && !arg_results[1].is_empty() {
                     let base = &arg_results[0];
                     let alpha = arg_results[1][0];
-                    let adjust = if arg_results.len() >= 3 && !arg_results[2].is_empty() { 
-                        arg_results[2][0] != 0.0 
-                    } else { 
-                        true 
+                    let adjust = if arg_results.len() >= 3 && !arg_results[2].is_empty() {
+                        arg_results[2][0] != 0.0
+                    } else {
+                        true
                     };
                     let mut outv = Vec::with_capacity(len);
                     let mut prev = 0.0;
@@ -343,9 +359,8 @@ impl CompiledExpr {
                     let data = &arg_results[0];
                     if data.len() > 1 {
                         let mean = data.iter().sum::<f64>() / data.len() as f64;
-                        let variance = data.iter()
-                            .map(|x| (x - mean).powi(2))
-                            .sum::<f64>() / (data.len() - 1) as f64;
+                        let variance = data.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
+                            / (data.len() - 1) as f64;
                         let std = variance.sqrt();
                         out.resize(len, std);
                     } else {
@@ -358,9 +373,8 @@ impl CompiledExpr {
                     let data = &arg_results[0];
                     if data.len() > 1 {
                         let mean = data.iter().sum::<f64>() / data.len() as f64;
-                        let variance = data.iter()
-                            .map(|x| (x - mean).powi(2))
-                            .sum::<f64>() / (data.len() - 1) as f64;
+                        let variance = data.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
+                            / (data.len() - 1) as f64;
                         out.resize(len, variance);
                     } else {
                         out.resize(len, f64::NAN);
@@ -389,12 +403,13 @@ impl CompiledExpr {
                     let base = &arg_results[0];
                     let win = arg_results[1][0] as usize;
                     for i in 0..len {
-                        if i + 1 < win { 
-                            out.push(f64::NAN); 
+                        if i + 1 < win {
+                            out.push(f64::NAN);
                         } else {
                             let slice = &base[i + 1 - win..=i];
                             let m = slice.iter().copied().sum::<f64>() / win as f64;
-                            let var = slice.iter().map(|v| (v - m)*(v - m)).sum::<f64>() / win as f64;
+                            let var =
+                                slice.iter().map(|v| (v - m) * (v - m)).sum::<f64>() / win as f64;
                             out.push(var.sqrt());
                         }
                     }
@@ -405,12 +420,13 @@ impl CompiledExpr {
                     let base = &arg_results[0];
                     let win = arg_results[1][0] as usize;
                     for i in 0..len {
-                        if i + 1 < win { 
-                            out.push(f64::NAN); 
+                        if i + 1 < win {
+                            out.push(f64::NAN);
                         } else {
                             let slice = &base[i + 1 - win..=i];
                             let m = slice.iter().copied().sum::<f64>() / win as f64;
-                            let var = slice.iter().map(|v| (v - m)*(v - m)).sum::<f64>() / win as f64;
+                            let var =
+                                slice.iter().map(|v| (v - m) * (v - m)).sum::<f64>() / win as f64;
                             out.push(var);
                         }
                     }
@@ -421,13 +437,17 @@ impl CompiledExpr {
                     let base = &arg_results[0];
                     let win = arg_results[1][0] as usize;
                     for i in 0..len {
-                        if i + 1 < win { 
-                            out.push(f64::NAN); 
+                        if i + 1 < win {
+                            out.push(f64::NAN);
                         } else {
                             let mut v = base[i + 1 - win..=i].to_vec();
-                            v.sort_by(|a,b| a.partial_cmp(b).unwrap());
+                            v.sort_by(|a, b| a.partial_cmp(b).unwrap());
                             let k = v.len();
-                            let med = if k % 2 == 1 { v[k/2] } else { (v[k/2 -1] + v[k/2]) * 0.5 };
+                            let med = if k % 2 == 1 {
+                                v[k / 2]
+                            } else {
+                                (v[k / 2 - 1] + v[k / 2]) * 0.5
+                            };
                             out.push(med);
                         }
                     }
@@ -436,11 +456,16 @@ impl CompiledExpr {
             // Time-based rolling functions
             Function::RollingMeanTime => {
                 if !arg_results.is_empty() {
-                    if let Some(TimeWindow::Duration { period, time_column }) = time_window {
+                    if let Some(TimeWindow::Duration {
+                        period,
+                        time_column,
+                    }) = time_window
+                    {
                         if let Some(time_idx) = ctx.resolve_index(time_column) {
                             if time_idx < cols.len() {
                                 // Convert time data to Unix timestamps (assume input is already in proper format)
-                                let time_data: Vec<i64> = cols[time_idx].iter().map(|&t| t as i64).collect();
+                                let time_data: Vec<i64> =
+                                    cols[time_idx].iter().map(|&t| t as i64).collect();
                                 let mut evaluator = TimeWindowEvaluator::new(time_data);
                                 out = evaluator.rolling_mean(&arg_results[0], period);
                             } else {
@@ -457,10 +482,15 @@ impl CompiledExpr {
             }
             Function::RollingSumTime => {
                 if !arg_results.is_empty() {
-                    if let Some(TimeWindow::Duration { period, time_column }) = time_window {
+                    if let Some(TimeWindow::Duration {
+                        period,
+                        time_column,
+                    }) = time_window
+                    {
                         if let Some(time_idx) = ctx.resolve_index(time_column) {
                             if time_idx < cols.len() {
-                                let time_data: Vec<i64> = cols[time_idx].iter().map(|&t| t as i64).collect();
+                                let time_data: Vec<i64> =
+                                    cols[time_idx].iter().map(|&t| t as i64).collect();
                                 let mut evaluator = TimeWindowEvaluator::new(time_data);
                                 out = evaluator.rolling_sum(&arg_results[0], period);
                             } else {
@@ -476,10 +506,15 @@ impl CompiledExpr {
             }
             Function::RollingStdTime => {
                 if !arg_results.is_empty() {
-                    if let Some(TimeWindow::Duration { period, time_column }) = time_window {
+                    if let Some(TimeWindow::Duration {
+                        period,
+                        time_column,
+                    }) = time_window
+                    {
                         if let Some(time_idx) = ctx.resolve_index(time_column) {
                             if time_idx < cols.len() {
-                                let time_data: Vec<i64> = cols[time_idx].iter().map(|&t| t as i64).collect();
+                                let time_data: Vec<i64> =
+                                    cols[time_idx].iter().map(|&t| t as i64).collect();
                                 let mut evaluator = TimeWindowEvaluator::new(time_data);
                                 out = evaluator.rolling_std(&arg_results[0], period);
                             } else {
@@ -495,10 +530,15 @@ impl CompiledExpr {
             }
             Function::RollingVarTime => {
                 if !arg_results.is_empty() {
-                    if let Some(TimeWindow::Duration { period, time_column }) = time_window {
+                    if let Some(TimeWindow::Duration {
+                        period,
+                        time_column,
+                    }) = time_window
+                    {
                         if let Some(time_idx) = ctx.resolve_index(time_column) {
                             if time_idx < cols.len() {
-                                let time_data: Vec<i64> = cols[time_idx].iter().map(|&t| t as i64).collect();
+                                let time_data: Vec<i64> =
+                                    cols[time_idx].iter().map(|&t| t as i64).collect();
                                 let mut evaluator = TimeWindowEvaluator::new(time_data);
                                 out = evaluator.rolling_var(&arg_results[0], period);
                             } else {
@@ -514,10 +554,15 @@ impl CompiledExpr {
             }
             Function::RollingMedianTime => {
                 if !arg_results.is_empty() {
-                    if let Some(TimeWindow::Duration { period, time_column }) = time_window {
+                    if let Some(TimeWindow::Duration {
+                        period,
+                        time_column,
+                    }) = time_window
+                    {
                         if let Some(time_idx) = ctx.resolve_index(time_column) {
                             if time_idx < cols.len() {
-                                let time_data: Vec<i64> = cols[time_idx].iter().map(|&t| t as i64).collect();
+                                let time_data: Vec<i64> =
+                                    cols[time_idx].iter().map(|&t| t as i64).collect();
                                 let mut evaluator = TimeWindowEvaluator::new(time_data);
                                 out = evaluator.rolling_median(&arg_results[0], period);
                             } else {
@@ -531,7 +576,7 @@ impl CompiledExpr {
                     }
                 }
             }
-            
+
             // Additional time-series functions
             Function::Shift => {
                 if arg_results.len() >= 2 && !arg_results[1].is_empty() {
@@ -547,24 +592,22 @@ impl CompiledExpr {
                     }
                 }
             }
-            
+
             Function::Rank => {
                 if !arg_results.is_empty() {
                     let base = &arg_results[0];
                     // Create pairs of (value, original_index)
-                    let mut indexed: Vec<(f64, usize)> = base.iter()
-                        .enumerate()
-                        .map(|(i, &v)| (v, i))
-                        .collect();
-                    
+                    let mut indexed: Vec<(f64, usize)> =
+                        base.iter().enumerate().map(|(i, &v)| (v, i)).collect();
+
                     // Sort by value
                     indexed.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-                    
+
                     // Assign ranks (dense ranking - same values get same rank)
                     let mut ranks = vec![0.0; len];
                     let mut current_rank = 1.0;
                     let mut last_value = f64::NAN;
-                    
+
                     for (value, orig_idx) in indexed {
                         if !value.is_nan() {
                             if value != last_value && !last_value.is_nan() {
@@ -579,38 +622,36 @@ impl CompiledExpr {
                     out = ranks;
                 }
             }
-            
+
             Function::Quantile => {
                 if arg_results.len() >= 2 && !arg_results[1].is_empty() {
                     let base = &arg_results[0];
                     let q = arg_results[1][0].clamp(0.0, 1.0);
-                    
+
                     // Filter out NaN values and sort
-                    let mut valid_values: Vec<f64> = base.iter()
-                        .filter(|&&x| !x.is_nan())
-                        .cloned()
-                        .collect();
-                    
+                    let mut valid_values: Vec<f64> =
+                        base.iter().filter(|&&x| !x.is_nan()).cloned().collect();
+
                     if !valid_values.is_empty() {
                         valid_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
                         let index = q * (valid_values.len() - 1) as f64;
                         let lower = index.floor() as usize;
                         let upper = index.ceil() as usize;
-                        
+
                         let quantile_value = if lower == upper {
                             valid_values[lower]
                         } else {
                             let weight = index - lower as f64;
                             valid_values[lower] * (1.0 - weight) + valid_values[upper] * weight
                         };
-                        
+
                         out.resize(len, quantile_value);
                     } else {
                         out.resize(len, f64::NAN);
                     }
                 }
             }
-            
+
             Function::RollingMin => {
                 if arg_results.len() >= 2 && !arg_results[1].is_empty() {
                     let base = &arg_results[0];
@@ -620,7 +661,8 @@ impl CompiledExpr {
                             out.push(f64::NAN);
                         } else {
                             let window_data = &base[i + 1 - win..=i];
-                            let min_val = window_data.iter()
+                            let min_val = window_data
+                                .iter()
                                 .filter(|&&x| !x.is_nan())
                                 .min_by(|a, b| a.partial_cmp(b).unwrap())
                                 .copied()
@@ -630,7 +672,7 @@ impl CompiledExpr {
                     }
                 }
             }
-            
+
             Function::RollingMax => {
                 if arg_results.len() >= 2 && !arg_results[1].is_empty() {
                     let base = &arg_results[0];
@@ -640,7 +682,8 @@ impl CompiledExpr {
                             out.push(f64::NAN);
                         } else {
                             let window_data = &base[i + 1 - win..=i];
-                            let max_val = window_data.iter()
+                            let max_val = window_data
+                                .iter()
                                 .filter(|&&x| !x.is_nan())
                                 .max_by(|a, b| a.partial_cmp(b).unwrap())
                                 .copied()
@@ -650,19 +693,18 @@ impl CompiledExpr {
                     }
                 }
             }
-            
+
             Function::RollingCount => {
                 if arg_results.len() >= 2 && !arg_results[1].is_empty() {
                     let base = &arg_results[0];
                     let win = arg_results[1][0] as usize;
                     for i in 0..len {
                         if i + 1 < win {
-                            let count = base[0..=i].iter()
-                                .filter(|&&x| !x.is_nan())
-                                .count() as f64;
+                            let count = base[0..=i].iter().filter(|&&x| !x.is_nan()).count() as f64;
                             out.push(count);
                         } else {
-                            let count = base[i + 1 - win..=i].iter()
+                            let count = base[i + 1 - win..=i]
+                                .iter()
                                 .filter(|&&x| !x.is_nan())
                                 .count() as f64;
                             out.push(count);
@@ -670,30 +712,35 @@ impl CompiledExpr {
                     }
                 }
             }
-            
+
             Function::EwmStd => {
                 if arg_results.len() >= 2 && !arg_results[1].is_empty() {
                     let base = &arg_results[0];
                     let alpha = arg_results[1][0].clamp(0.001, 0.999);
-                    let adjust = arg_results.get(2)
+                    let adjust = arg_results
+                        .get(2)
                         .and_then(|v| v.first())
                         .map(|&x| x > 0.0)
                         .unwrap_or(true);
-                    
+
                     let mut ema = base[0];
                     let mut ema_sq = base[0] * base[0];
                     let mut n = 1.0;
-                    
+
                     out.push(0.0); // First value has no variance
-                    
+
                     for &value in base.iter().skip(1) {
                         if !value.is_nan() {
                             n += 1.0;
-                            let weight = if adjust { alpha / (1.0 - (1.0 - alpha).powf(n)) } else { alpha };
-                            
+                            let weight = if adjust {
+                                alpha / (1.0 - (1.0 - alpha).powf(n))
+                            } else {
+                                alpha
+                            };
+
                             ema = (1.0 - weight) * ema + weight * value;
                             ema_sq = (1.0 - weight) * ema_sq + weight * value * value;
-                            
+
                             let variance = ema_sq - ema * ema;
                             out.push(if variance > 0.0 { variance.sqrt() } else { 0.0 });
                         } else {
@@ -702,30 +749,35 @@ impl CompiledExpr {
                     }
                 }
             }
-            
+
             Function::EwmVar => {
                 if arg_results.len() >= 2 && !arg_results[1].is_empty() {
                     let base = &arg_results[0];
                     let alpha = arg_results[1][0].clamp(0.001, 0.999);
-                    let adjust = arg_results.get(2)
+                    let adjust = arg_results
+                        .get(2)
                         .and_then(|v| v.first())
                         .map(|&x| x > 0.0)
                         .unwrap_or(true);
-                    
+
                     let mut ema = base[0];
                     let mut ema_sq = base[0] * base[0];
                     let mut n = 1.0;
-                    
+
                     out.push(0.0); // First value has no variance
-                    
+
                     for &value in base.iter().skip(1) {
                         if !value.is_nan() {
                             n += 1.0;
-                            let weight = if adjust { alpha / (1.0 - (1.0 - alpha).powf(n)) } else { alpha };
-                            
+                            let weight = if adjust {
+                                alpha / (1.0 - (1.0 - alpha).powf(n))
+                            } else {
+                                alpha
+                            };
+
                             ema = (1.0 - weight) * ema + weight * value;
                             ema_sq = (1.0 - weight) * ema_sq + weight * value * value;
-                            
+
                             let variance = ema_sq - ema * ema;
                             out.push(if variance > 0.0 { variance } else { 0.0 });
                         } else {
@@ -737,8 +789,6 @@ impl CompiledExpr {
         }
         out
     }
-
-
 
     /// Lower to a Polars expression when possible.
     pub fn to_polars_expr(&self) -> Option<polars::lazy::dsl::Expr> {
@@ -778,11 +828,13 @@ impl CompiledExpr {
                 }),
                 Function::RollingSum => Some({
                     let n = arg_as_usize(&args[1]);
-                    let base = Self { 
-                        ast: args[0].clone(), 
-                        plan: None, 
-                        cache: None 
-                    }.to_polars_expr().unwrap();
+                    let base = Self {
+                        ast: args[0].clone(),
+                        plan: None,
+                        cache: None,
+                    }
+                    .to_polars_expr()
+                    .unwrap();
                     let mut acc = base.clone();
                     for k in 1..n {
                         acc = acc + base.clone().shift(lit(k as i64));
@@ -793,58 +845,77 @@ impl CompiledExpr {
                 Function::CumSum | Function::CumProd | Function::CumMin | Function::CumMax => {
                     // Cumulative functions use scalar implementation for consistent behavior
                     None
-                },
-                
-                // Statistical functions 
+                }
+
+                // Statistical functions
                 Function::Std => Some({
-                    let base = Self { ast: args[0].clone(), plan: None, cache: None }
-                        .to_polars_expr().unwrap();
+                    let base = Self {
+                        ast: args[0].clone(),
+                        plan: None,
+                        cache: None,
+                    }
+                    .to_polars_expr()
+                    .unwrap();
                     base.std(1) // ddof=1 for sample standard deviation
                 }),
                 Function::Var => Some({
-                    let base = Self { ast: args[0].clone(), plan: None, cache: None }
-                        .to_polars_expr().unwrap();
+                    let base = Self {
+                        ast: args[0].clone(),
+                        plan: None,
+                        cache: None,
+                    }
+                    .to_polars_expr()
+                    .unwrap();
                     base.var(1) // ddof=1 for sample variance
                 }),
                 Function::Median => Some({
-                    let base = Self { ast: args[0].clone(), plan: None, cache: None }
-                        .to_polars_expr().unwrap();
+                    let base = Self {
+                        ast: args[0].clone(),
+                        plan: None,
+                        cache: None,
+                    }
+                    .to_polars_expr()
+                    .unwrap();
                     base.median()
                 }),
                 // Complex EWM functions still use scalar fallback for now
                 Function::EwmMean => None,
-                
+
                 // Rolling statistical functions - fallback to scalar for complex operations
                 Function::RollingStd | Function::RollingVar | Function::RollingMedian => {
                     // Complex rolling statistical functions require scalar implementation
                     None
-                },
-                
+                }
+
                 // New time-series functions with possible Polars lowering
                 Function::Shift => {
-                    let base = Self { 
-                        ast: args[0].clone(), 
-                        plan: None, 
-                        cache: None 
-                    }.to_polars_expr()?;
+                    let base = Self {
+                        ast: args[0].clone(),
+                        plan: None,
+                        cache: None,
+                    }
+                    .to_polars_expr()?;
                     let n = arg_as_i64(&args[1]);
                     Some(base.shift(lit(n)))
-                },
-                
+                }
+
                 Function::RollingMin => {
                     // Use scalar fallback for now - proper rolling min/max need window options
                     None
-                },
-                
+                }
+
                 Function::RollingMax => {
                     // Use scalar fallback for now - proper rolling min/max need window options
                     None
-                },
-                
+                }
+
                 // Complex functions: use scalar fallback for determinism
-                Function::Rank | Function::Quantile | Function::RollingCount |
-                Function::EwmStd | Function::EwmVar => None,
-                
+                Function::Rank
+                | Function::Quantile
+                | Function::RollingCount
+                | Function::EwmStd
+                | Function::EwmVar => None,
+
                 // Time-based rolling and other functions: scalar fallback for now
                 _ => None,
             },
@@ -855,13 +926,19 @@ impl CompiledExpr {
     where
         F: FnOnce(polars::prelude::Expr, usize) -> polars::prelude::Expr,
     {
-        let x = Self { ast: e.clone(), plan: None, cache: None }.to_polars_expr().unwrap();
-        let n = n.map(|n_expr| {
-            match &n_expr.node {
+        let x = Self {
+            ast: e.clone(),
+            plan: None,
+            cache: None,
+        }
+        .to_polars_expr()
+        .unwrap();
+        let n = n
+            .map(|n_expr| match &n_expr.node {
                 ExprNode::Literal(val) => *val as usize,
                 _ => 1,
-            }
-        }).unwrap_or(1);
+            })
+            .unwrap_or(1);
         f(x, n)
     }
 
@@ -869,7 +946,13 @@ impl CompiledExpr {
     where
         F: FnOnce(polars::prelude::Expr, &Expr) -> polars::prelude::Expr,
     {
-        let x = Self { ast: lhs.clone(), plan: None, cache: None }.to_polars_expr().unwrap();
+        let x = Self {
+            ast: lhs.clone(),
+            plan: None,
+            cache: None,
+        }
+        .to_polars_expr()
+        .unwrap();
         f(x, rhs)
     }
 }

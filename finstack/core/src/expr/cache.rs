@@ -22,7 +22,9 @@ impl CachedResult {
         match self {
             CachedResult::Scalar(vec) => Ok(vec.clone()),
             CachedResult::Polars(series) => {
-                let chunked = series.f64().map_err(|_| crate::error::InputError::Invalid)?;
+                let chunked = series
+                    .f64()
+                    .map_err(|_| crate::error::InputError::Invalid)?;
                 Ok(chunked.into_no_null_iter().collect())
             }
         }
@@ -31,9 +33,7 @@ impl CachedResult {
     /// Get as Polars series, converting from scalar if necessary.
     pub fn as_polars(&self) -> polars::prelude::Series {
         match self {
-            CachedResult::Scalar(vec) => {
-                polars::prelude::Series::from_iter(vec.iter().copied())
-            }
+            CachedResult::Scalar(vec) => polars::prelude::Series::from_iter(vec.iter().copied()),
             CachedResult::Polars(series) => series.clone(),
         }
     }
@@ -119,11 +119,11 @@ impl ExpressionCache {
     /// Create cache optimized for the given execution plan.
     pub fn for_plan(plan: &ExecutionPlan, budget_mb: usize) -> Self {
         let mut cache = Self::with_budget(budget_mb);
-        
+
         // Pre-allocate space for nodes that are likely to be cached
         let estimated_entries = plan.cache_strategy.cache_nodes.len();
         cache.entries.reserve(estimated_entries);
-        
+
         cache
     }
 
@@ -133,13 +133,13 @@ impl ExpressionCache {
             // Update access metadata
             entry.last_access = std::time::Instant::now();
             entry.access_count += 1;
-            
+
             // Move to end of access order (most recently used)
             if let Some(pos) = self.access_order.iter().position(|&id| id == node_id) {
                 self.access_order.remove(pos);
             }
             self.access_order.push_back(node_id);
-            
+
             self.stats.hits += 1;
             Some(entry.result.clone())
         } else {
@@ -151,7 +151,7 @@ impl ExpressionCache {
     /// Store a result in the cache.
     pub fn put(&mut self, node_id: u64, result: CachedResult) -> bool {
         let size = result.memory_size();
-        
+
         // Check if we need to make space
         while self.current_memory + size > self.max_memory && !self.access_order.is_empty() {
             if !self.evict_lru() {
@@ -159,7 +159,7 @@ impl ExpressionCache {
                 return false;
             }
         }
-        
+
         // Remove existing entry if present
         if let Some(old_entry) = self.entries.remove(&node_id) {
             self.current_memory -= old_entry.size;
@@ -167,7 +167,7 @@ impl ExpressionCache {
                 self.access_order.remove(pos);
             }
         }
-        
+
         // Insert new entry
         let entry = CacheEntry {
             result,
@@ -175,15 +175,15 @@ impl ExpressionCache {
             access_count: 1,
             size,
         };
-        
+
         self.entries.insert(node_id, entry);
         self.access_order.push_back(node_id);
         self.current_memory += size;
-        
+
         // Update stats
         self.stats.entries = self.entries.len();
         self.stats.memory_usage = self.current_memory;
-        
+
         true
     }
 
@@ -270,12 +270,18 @@ impl CacheManager {
 
     /// Store a result in the cache.
     pub fn put(&self, node_id: u64, result: CachedResult) -> bool {
-        self.cache.write().map(|mut c| c.put(node_id, result)).unwrap_or(false)
+        self.cache
+            .write()
+            .map(|mut c| c.put(node_id, result))
+            .unwrap_or(false)
     }
 
     /// Check if a result is cached.
     pub fn contains(&self, node_id: u64) -> bool {
-        self.cache.read().map(|c| c.contains(node_id)).unwrap_or(false)
+        self.cache
+            .read()
+            .map(|c| c.contains(node_id))
+            .unwrap_or(false)
     }
 
     /// Get cache statistics.
@@ -294,8 +300,6 @@ impl CacheManager {
             cache.clear();
         }
     }
-
-
 }
 
 #[cfg(test)]
@@ -305,15 +309,15 @@ mod tests {
     #[test]
     fn cache_basic_operations() {
         let mut cache = ExpressionCache::with_budget(10); // 10MB budget
-        
+
         let data = vec![1.0, 2.0, 3.0];
         let result = CachedResult::Scalar(data.clone());
-        
+
         // Store and retrieve
         assert!(cache.put(1, result));
         let retrieved = cache.get(1).unwrap();
         assert_eq!(retrieved.as_scalar().unwrap(), data);
-        
+
         // Check stats
         let stats = cache.stats();
         assert_eq!(stats.hits, 1);
@@ -338,18 +342,18 @@ mod tests {
                 memory_usage: 0,
             },
         };
-        
+
         // This should force eviction
         let large_data: Vec<f64> = (0..10000).map(|i| i as f64).collect();
         let result1 = CachedResult::Scalar(large_data.clone());
         let result2 = CachedResult::Scalar(large_data.clone());
-        
+
         assert!(cache.put(1, result1));
         assert!(cache.put(2, result2)); // Should evict entry 1
-        
+
         assert!(!cache.contains(1)); // Entry 1 should be evicted
         assert!(cache.contains(2)); // Entry 2 should remain
-        
+
         let stats = cache.stats();
         assert_eq!(stats.evictions, 1);
     }
