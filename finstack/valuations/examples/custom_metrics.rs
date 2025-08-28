@@ -102,6 +102,7 @@ fn main() -> finstack_core::Result<()> {
         quoted_clean: Some(985.0),  // Clean price per 1000 notional
         call_put: None,
         amortization: None,
+        custom_cashflows: None,
     };
     
     // Compute base value

@@ -117,6 +117,7 @@ fn bond_pv_with_unit_df_is_sum_of_cashflows() {
         quoted_clean: None,
         call_put: None,
         amortization: None,
+        custom_cashflows: None,
     };
 
     let res = bond.price(&curves, issue).unwrap();
@@ -196,6 +197,7 @@ fn bond_ytm_ytw_and_amortization() {
         quoted_clean: Some(1_000.0),
         call_put: Some(bond::CallPutSchedule { calls: vec![bond::CallPut { date: mat_short, price_pct_of_par: 102.0 }], puts: vec![] }),
         amortization: None,
+        custom_cashflows: None,
     };
     let res_bullet = bullet.price(&curves, issue).unwrap();
     let ytm = *res_bullet.measures.get("ytm").unwrap();
@@ -240,6 +242,7 @@ fn dv01_bucketed_bond_simple() {
         quoted_clean: None,
         call_put: None,
         amortization: None,
+        custom_cashflows: None,
     };
 
     // Use the metrics framework to compute bucketed DV01

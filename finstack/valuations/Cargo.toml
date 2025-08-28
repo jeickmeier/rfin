@@ -18,6 +18,10 @@ time = { version = "0.3" }
 time = { version = "0.3", features = ["macros"] }
 serde_json = "1.0"
 
+[[example]]
+name = "bond_custom_cashflows_example"
+path = "../../examples/rust/bond_custom_cashflows_example.rs"
+
 [features]
 default = []
 parallel = ["dep:rayon"]

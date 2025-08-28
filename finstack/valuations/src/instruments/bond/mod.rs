@@ -2,6 +2,7 @@
 
 pub mod metrics;
 pub mod helpers;
+pub mod builder;
 
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -11,16 +12,17 @@ use crate::pricing::discountable::Discountable;
 use crate::pricing::result::ValuationResult;
 use crate::traits::{Priceable, CashflowProvider, DatedFlows};
 use crate::cashflow::primitives::CFKind;
-use crate::cashflow::builder::{cf, FixedCouponSpec, CouponType};
+use crate::cashflow::builder::{cf, FixedCouponSpec, CouponType, CashFlowSchedule};
 use finstack_core::dates::{BusinessDayConvention, StubKind};
 
 // Re-export for compatibility in tests and external users referencing bond::AmortizationSpec
 pub use crate::cashflow::amortization_notional::AmortizationSpec;
+pub use builder::BondBuilder;
 
 /// Fixed-rate bond instrument with optional features.
 /// 
-/// Supports call/put schedules, amortization, and quoted prices for
-/// yield-to-maturity calculations.
+/// Supports call/put schedules, amortization, quoted prices for
+/// yield-to-maturity calculations, and custom cashflow schedules.
 #[derive(Clone, Debug)]
 pub struct Bond {
     /// Unique identifier for the bond.
@@ -45,6 +47,9 @@ pub struct Bond {
     pub call_put: Option<CallPutSchedule>,
     /// Optional amortization specification (principal paid during life).
     pub amortization: Option<AmortizationSpec>,
+    /// Optional pre-built cashflow schedule. If provided, this will be used instead of
+    /// generating cashflows from coupon/amortization specifications.
+    pub custom_cashflows: Option<CashFlowSchedule>,
 }
 
 /// Call or put option on a bond.
@@ -66,6 +71,62 @@ pub struct CallPutSchedule {
 }
 
 impl Bond {
+    /// Create a bond builder.
+    pub fn builder() -> BondBuilder {
+        BondBuilder::default()
+    }
+    
+    /// Create a bond from a pre-built cashflow schedule.
+    /// 
+    /// This extracts key bond parameters from the cashflow schedule and creates
+    /// a bond that will use these custom cashflows for all calculations.
+    pub fn from_cashflows(
+        id: impl Into<String>,
+        schedule: CashFlowSchedule,
+        disc_id: &'static str,
+        quoted_clean: Option<F>,
+    ) -> finstack_core::Result<Self> {
+        // Extract parameters from the schedule
+        let notional = schedule.notional.initial;
+        let dc = schedule.day_count;
+        
+        // Find issue and maturity from the cashflow dates
+        let dates = schedule.dates();
+        if dates.len() < 2 {
+            return Err(finstack_core::error::InputError::TooFewPoints.into());
+        }
+        let issue = dates[0];
+        let maturity = *dates.last().unwrap();
+        
+        // Default frequency and coupon (these won't be used with custom cashflows)
+        let freq = finstack_core::dates::Frequency::semi_annual();
+        let coupon = 0.0;
+        
+        Ok(Self {
+            id: id.into(),
+            notional,
+            coupon,
+            freq,
+            dc,
+            issue,
+            maturity,
+            disc_id,
+            quoted_clean,
+            call_put: None,
+            amortization: None,
+            custom_cashflows: Some(schedule),
+        })
+    }
+    
+    /// Set custom cashflows for this bond.
+    /// 
+    /// When custom cashflows are set, they will be used instead of generating
+    /// cashflows from the bond's coupon and amortization specifications.
+    pub fn with_cashflows(mut self, schedule: CashFlowSchedule) -> Self {
+        self.custom_cashflows = Some(schedule);
+        self
+    }
+    
     /// Get the standard metrics for a bond based on its configuration.
     fn get_standard_metrics(&self) -> Vec<crate::metrics::MetricId> {
         use crate::metrics::MetricId;
@@ -142,7 +203,24 @@ impl Priceable for Bond {
 
 impl CashflowProvider for Bond {
     fn build_schedule(&self, _curves: &CurveSet, _as_of: Date) -> finstack_core::Result<DatedFlows> {
-        // Build via unified cashflow builder
+        // Use custom cashflows if provided
+        if let Some(ref custom) = self.custom_cashflows {
+            // Map custom schedule to holder flows: coupons positive, amortization as positive, include only positive notional (redemption)
+            let flows: Vec<(Date, Money)> = custom
+                .flows
+                .iter()
+                .filter_map(|cf| match cf.kind {
+                    CFKind::Fixed | CFKind::Stub => Some((cf.date, cf.amount)),
+                    CFKind::Amortization => Some((cf.date, Money::new(-cf.amount.amount(), cf.amount.currency()))),
+                    CFKind::Notional if cf.amount.amount() > 0.0 => Some((cf.date, cf.amount)),
+                    _ => None,
+                })
+                .collect();
+            
+            return Ok(flows);
+        }
+        
+        // Build via unified cashflow builder (existing logic)
         let mut b = cf();
         b.principal(self.notional, self.issue, self.maturity);
         if let Some(am) = &self.amortization { b.amortization(am.clone()); }
@@ -170,5 +248,215 @@ impl CashflowProvider for Bond {
             .collect();
 
         Ok(flows)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cashflow::builder::{cf, FixedCouponSpec, CouponType, ScheduleParams};
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{Frequency, StubKind, BusinessDayConvention, DayCount};
+    use finstack_core::market_data::multicurve::CurveSet;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use time::Month;
+    
+    #[test]
+    fn test_bond_with_custom_cashflows() {
+        // Setup dates
+        let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let maturity = Date::from_calendar_date(2027, Month::January, 15).unwrap();
+        
+        // Build a custom cashflow schedule with step-up coupons
+        let schedule_params = ScheduleParams {
+            freq: Frequency::semi_annual(),
+            dc: DayCount::Act365F,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
+        };
+        
+        let step1_date = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+        
+        let custom_schedule = cf()
+            .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+            .fixed_stepup(&[(step1_date, 0.03), (maturity, 0.05)], schedule_params, CouponType::Cash)
+            .build()
+            .unwrap();
+        
+        // Create bond from custom cashflows
+        let bond = Bond::from_cashflows(
+            "CUSTOM_STEPUP_BOND",
+            custom_schedule.clone(),
+            "USD-OIS",
+            Some(98.5),
+        ).unwrap();
+        
+        // Verify bond properties
+        assert_eq!(bond.id, "CUSTOM_STEPUP_BOND");
+        assert_eq!(bond.disc_id, "USD-OIS");
+        assert_eq!(bond.quoted_clean, Some(98.5));
+        assert_eq!(bond.issue, issue);
+        assert_eq!(bond.maturity, maturity);
+        assert!(bond.custom_cashflows.is_some());
+        
+        // Create curves for pricing
+        let disc_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(issue)
+            .knots([(0.0, 1.0), (3.0, 0.95)])
+            .linear_df()
+            .build()
+            .unwrap();
+        let curves = CurveSet::new().with_discount(disc_curve);
+        
+        // Build schedule and verify it uses custom cashflows
+        let flows = bond.build_schedule(&curves, issue).unwrap();
+        assert!(!flows.is_empty());
+        
+        // The flows should match what we put in the custom schedule
+        // (after conversion for holder perspective)
+        let expected_flow_count = custom_schedule.flows.iter()
+            .filter(|cf| matches!(cf.kind, CFKind::Fixed | CFKind::Stub | CFKind::Amortization | CFKind::Notional) 
+                && (cf.kind != CFKind::Notional || cf.amount.amount() > 0.0))
+            .count();
+        assert_eq!(flows.len(), expected_flow_count);
+    }
+    
+    #[test]
+    fn test_bond_builder_with_custom_cashflows() {
+        let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+        
+        // Build custom cashflow with PIK toggle
+        let custom_schedule = cf()
+            .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+            .fixed_cf(FixedCouponSpec {
+                coupon_type: CouponType::Split { cash_pct: 0.5, pik_pct: 0.5 },
+                rate: 0.06,
+                freq: Frequency::quarterly(),
+                dc: DayCount::Thirty360,
+                bdc: BusinessDayConvention::Following,
+                calendar_id: None,
+                stub: StubKind::None,
+            })
+            .build()
+            .unwrap();
+        
+        // Use builder pattern
+        let bond = Bond::builder()
+            .id("PIK_TOGGLE_BOND")
+            .cashflows(custom_schedule)
+            .disc_curve("USD-OIS")
+            .quoted_clean(Some(99.0))
+            .build()
+            .unwrap();
+        
+        assert_eq!(bond.id, "PIK_TOGGLE_BOND");
+        assert_eq!(bond.disc_id, "USD-OIS");
+        assert_eq!(bond.quoted_clean, Some(99.0));
+        assert!(bond.custom_cashflows.is_some());
+        assert_eq!(bond.notional.currency(), Currency::USD);
+    }
+    
+    #[test]
+    fn test_bond_with_cashflows_method() {
+        let issue = Date::from_calendar_date(2025, Month::March, 1).unwrap();
+        let maturity = Date::from_calendar_date(2030, Month::March, 1).unwrap();
+        
+        // Create a traditional bond first
+        let mut bond = Bond {
+            id: "REGULAR_BOND".to_string(),
+            notional: Money::new(1_000_000.0, Currency::USD),
+            coupon: 0.04,
+            freq: Frequency::semi_annual(),
+            dc: DayCount::Act365F,
+            issue,
+            maturity,
+            disc_id: "USD-OIS",
+            quoted_clean: None,
+            call_put: None,
+            amortization: None,
+            custom_cashflows: None,
+        };
+        
+        // Build a custom schedule separately
+        let custom_schedule = cf()
+            .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+            .fixed_cf(FixedCouponSpec {
+                coupon_type: CouponType::Cash,
+                rate: 0.055, // Different from bond's coupon rate
+                freq: Frequency::quarterly(),
+                dc: DayCount::Act365F,
+                bdc: BusinessDayConvention::Following,
+                calendar_id: None,
+                stub: StubKind::None,
+            })
+            .build()
+            .unwrap();
+        
+        // Apply custom cashflows
+        bond = bond.with_cashflows(custom_schedule);
+        
+        assert!(bond.custom_cashflows.is_some());
+        assert_eq!(bond.coupon, 0.04); // Original coupon is preserved but won't be used
+        assert_eq!(bond.freq, Frequency::semi_annual()); // Original freq preserved but won't be used
+    }
+    
+    #[test]
+    fn test_custom_cashflows_override_regular_generation() {
+        let issue = Date::from_calendar_date(2025, Month::June, 1).unwrap();
+        let maturity = Date::from_calendar_date(2026, Month::June, 1).unwrap();
+        
+        // Create bond with regular specs
+        let regular_bond = Bond {
+            id: "TEST".to_string(),
+            notional: Money::new(1_000_000.0, Currency::USD),
+            coupon: 0.03,
+            freq: Frequency::annual(),
+            dc: DayCount::Act365F,
+            issue,
+            maturity,
+            disc_id: "USD-OIS",
+            quoted_clean: None,
+            call_put: None,
+            amortization: None,
+            custom_cashflows: None,
+        };
+        
+        // Same bond with custom cashflows
+        let custom_schedule = cf()
+            .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+            .fixed_cf(FixedCouponSpec {
+                coupon_type: CouponType::Cash,
+                rate: 0.05, // Different rate
+                freq: Frequency::semi_annual(), // Different frequency
+                dc: DayCount::Act365F,
+                bdc: BusinessDayConvention::Following,
+                calendar_id: None,
+                stub: StubKind::None,
+            })
+            .build()
+            .unwrap();
+        
+        let custom_bond = regular_bond.clone().with_cashflows(custom_schedule);
+        
+        // Create curves
+        let disc_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(issue)
+            .knots([(0.0, 1.0), (2.0, 0.98)])
+            .linear_df()
+            .build()
+            .unwrap();
+        let curves = CurveSet::new().with_discount(disc_curve);
+        
+        // Build schedules
+        let regular_flows = regular_bond.build_schedule(&curves, issue).unwrap();
+        let custom_flows = custom_bond.build_schedule(&curves, issue).unwrap();
+        
+        // Should have different number of flows due to different frequency
+        assert_ne!(regular_flows.len(), custom_flows.len());
+        
+        // Custom bond should have semi-annual flows (more flows)
+        assert!(custom_flows.len() > regular_flows.len());
     }
 }

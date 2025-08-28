@@ -33,6 +33,7 @@
 //!     quoted_clean: None,
 //!     call_put: None,
 //!     amortization: None,
+//!     custom_cashflows: None,
 //! };
 //! 
 //! let irs = InterestRateSwap {
@@ -125,6 +126,7 @@ pub use irs::InterestRateSwap;
 ///     quoted_clean: None,
 ///     call_put: None,
 ///     amortization: None,
+///     custom_cashflows: None,
 /// };
 /// 
 /// let instrument = Instrument::Bond(bond);
@@ -188,6 +190,7 @@ impl Instrument {
     ///     quoted_clean: None,
     ///     call_put: None,
     ///     amortization: None,
+    ///     custom_cashflows: None,
     /// };
     /// let instrument = Instrument::Bond(bond);
     /// 

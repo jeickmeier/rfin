@@ -249,6 +249,12 @@ pub struct PyCashFlowSchedule {
     inner: Arc<CashFlowSchedule>,
 }
 
+impl PyCashFlowSchedule {
+    pub fn inner(&self) -> CashFlowSchedule {
+        (*self.inner).clone()
+    }
+}
+
 #[pymethods]
 impl PyCashFlowSchedule {
     /// Get all cashflows in the schedule.

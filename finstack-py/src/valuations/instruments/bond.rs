@@ -8,6 +8,7 @@ use crate::core::{
     dates::{PyDate, PyDayCount, PyFrequency},
     money::PyMoney,
 };
+use crate::valuations::cashflow::PyCashFlowSchedule;
 use std::sync::Arc;
 
 /// Bond instrument for fixed-income valuation.
@@ -89,7 +90,7 @@ impl PyBond {
     ///     ...     discount_curve="USD-OIS"
     ///     ... )
     #[new]
-    #[pyo3(signature = (id, notional, coupon, frequency, day_count, issue_date, maturity, discount_curve, quoted_clean_price=None))]
+    #[pyo3(signature = (id, notional, coupon, frequency, day_count, issue_date, maturity, discount_curve, quoted_clean_price=None, custom_cashflows=None))]
     #[allow(clippy::too_many_arguments)]  // Python API requires all these parameters
     fn new(
         id: String,
@@ -101,6 +102,7 @@ impl PyBond {
         maturity: &PyDate,
         discount_curve: &str,
         quoted_clean_price: Option<f64>,
+        custom_cashflows: Option<&PyCashFlowSchedule>,
     ) -> PyResult<Self> {
         // Validate dates
         if maturity.inner() <= issue_date.inner() {
@@ -124,6 +126,7 @@ impl PyBond {
             quoted_clean: quoted_clean_price,
             call_put: None,
             amortization: None,
+            custom_cashflows: custom_cashflows.map(|cf| cf.inner()),
         };
         
         Ok(Self {
@@ -435,6 +438,105 @@ impl PyBond {
             ))?;
         
         Ok(PyMoney::from_inner(value))
+    }
+    
+    /// Create a bond from a pre-built cashflow schedule.
+    ///
+    /// This factory method creates a bond that uses custom cashflows for all
+    /// pricing and valuation calculations instead of generating them from
+    /// coupon specifications.
+    ///
+    /// Args:
+    ///     id: Unique identifier for the bond
+    ///     schedule: Pre-built cashflow schedule
+    ///     discount_curve: Identifier of the discount curve to use for pricing
+    ///     quoted_clean_price: Optional quoted clean price (% of par)
+    ///
+    /// Returns:
+    ///     Bond: A new bond instrument with custom cashflows
+    ///
+    /// Examples:
+    ///     >>> from finstack.cashflow import CashflowBuilder
+    ///     >>> 
+    ///     >>> # Build custom cashflow schedule with step-up rates
+    ///     >>> builder = CashflowBuilder()
+    ///     >>> custom_schedule = (builder
+    ///     ...     .principal(Money(1000000, Currency.usd()),
+    ///     ...                Date(2024, 1, 1), Date(2027, 1, 1))
+    ///     ...     .fixed_stepup([(Date(2025, 1, 1), 0.03),
+    ///     ...                    (Date(2026, 1, 1), 0.04),
+    ///     ...                    (Date(2027, 1, 1), 0.05)])
+    ///     ...     .build())
+    ///     >>> 
+    ///     >>> # Create bond from custom cashflows
+    ///     >>> bond = Bond.from_cashflows(
+    ///     ...     "STEPUP-BOND",
+    ///     ...     custom_schedule,
+    ///     ...     "USD-OIS",
+    ///     ...     quoted_clean_price=98.5
+    ///     ... )
+    #[staticmethod]
+    fn from_cashflows(
+        id: String,
+        schedule: &PyCashFlowSchedule,
+        discount_curve: &str,
+        quoted_clean_price: Option<f64>,
+    ) -> PyResult<Self> {
+        // Create static str for discount curve id
+        let disc_id: &'static str = Box::leak(discount_curve.to_string().into_boxed_str());
+        
+        // Use the Rust from_cashflows method
+        let bond = Bond::from_cashflows(id, schedule.inner(), disc_id, quoted_clean_price)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                format!("Failed to create bond from cashflows: {:?}", e)
+            ))?;
+        
+        Ok(Self {
+            inner: Arc::new(bond),
+        })
+    }
+    
+    /// Set custom cashflows for this bond.
+    ///
+    /// When custom cashflows are set, they will be used instead of generating
+    /// cashflows from the bond's coupon and amortization specifications.
+    ///
+    /// Args:
+    ///     schedule: Custom cashflow schedule to use
+    ///
+    /// Returns:
+    ///     Bond: New bond instance with custom cashflows
+    ///
+    /// Examples:
+    ///     >>> # Create a regular bond
+    ///     >>> bond = Bond(
+    ///     ...     id="BOND-1",
+    ///     ...     notional=Money(1000000, Currency.usd()),
+    ///     ...     coupon=0.05,
+    ///     ...     frequency=Frequency.Annual,
+    ///     ...     day_count=DayCount.act365f(),
+    ///     ...     issue_date=Date(2024, 1, 1),
+    ///     ...     maturity=Date(2025, 1, 1),
+    ///     ...     discount_curve="USD-OIS"
+    ///     ... )
+    ///     >>> 
+    ///     >>> # Build custom cashflows with different structure
+    ///     >>> custom_schedule = (CashflowBuilder()
+    ///     ...     .principal(Money(1000000, Currency.usd()),
+    ///     ...                Date(2024, 1, 1), Date(2025, 1, 1))
+    ///     ...     .fixed_coupon(rate=0.06, frequency=Frequency.SemiAnnual,
+    ///     ...                   day_count=DayCount.act365f())
+    ///     ...     .build())
+    ///     >>> 
+    ///     >>> # Apply custom cashflows to bond
+    ///     >>> bond_with_custom = bond.with_cashflows(custom_schedule)
+    fn with_cashflows(&self, schedule: &PyCashFlowSchedule) -> PyResult<Self> {
+        let mut new_bond = (*self.inner).clone();
+        new_bond.custom_cashflows = Some(schedule.inner());
+        
+        Ok(Self {
+            inner: Arc::new(new_bond),
+        })
     }
     
     /// Calculate yield to maturity (YTM).
