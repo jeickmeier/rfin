@@ -507,10 +507,14 @@ impl CashflowBuilder {
         let maturity = self.maturity.expect("maturity must be set before payment program");
         let mut prev = issue;
         for &(end, split) in steps {
-            self.add_payment_window(prev, end, split);
+            if prev < end {
+                self.add_payment_window(prev, end, split);
+            }
             prev = end;
         }
-        self.add_payment_window(prev, maturity, CouponType::Cash);
+        if prev < maturity {
+            self.add_payment_window(prev, maturity, CouponType::Cash);
+        }
         self
     }
 
