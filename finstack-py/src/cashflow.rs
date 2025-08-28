@@ -2,9 +2,8 @@
 
 use pyo3::prelude::*;
 
-use finstack_core::dates::ScheduleBuilder;
-use finstack_valuations::cashflow::leg::CashFlowLeg;
-use finstack_valuations::cashflow::notional::Notional;
+use finstack_valuations::cashflow::builder::{CashFlowSchedule, FixedCouponSpec, CouponType, cf};
+use finstack_core::dates::{BusinessDayConvention, StubKind};
 use finstack_valuations::pricing::discountable::Discountable;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
 use finstack_core::market_data::traits::Discount as _;
@@ -213,7 +212,7 @@ impl PyCashFlow {
 #[pyclass(name = "FixedRateLeg", module = "finstack.cashflow")]
 #[derive(Clone)]
 pub struct PyFixedRateLeg {
-    inner: Arc<CashFlowLeg>,
+    inner: Arc<CashFlowSchedule>,
 }
 
 #[pymethods]
@@ -275,18 +274,26 @@ impl PyFixedRateLeg {
     ) -> PyResult<Self> {
         let core_currency = currency.inner();
 
-        let notional = Notional::par(notional_amount, core_currency);
-
         let freq = frequency.inner();
         let dc = day_count.inner();
 
-        let sched = ScheduleBuilder::new(start_date.inner(), end_date.inner())
-            .frequency(freq)
-            .build_raw();
+        let fixed_spec = FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate,
+            freq,
+            dc,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
+        };
 
-        let leg = CashFlowLeg::fixed_rate(notional, rate, sched, dc).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Failed to build leg: {:?}", e))
-        })?;
+        let leg = cf()
+            .principal_amount(notional_amount, core_currency, start_date.inner(), end_date.inner())
+            .fixed_cf(fixed_spec)
+            .build()
+            .map_err(|e| {
+                PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Failed to build leg: {:?}", e))
+            })?;
 
         Ok(Self {
             inner: Arc::new(leg),
@@ -365,7 +372,40 @@ impl PyFixedRateLeg {
     ///     12500.0
     #[pyo3(text_signature = "(self, val_date)")]
     fn accrued(&self, val_date: &PyDate) -> f64 {
-        self.inner.accrued(val_date.inner()).amount()
+        // Implement accrued calculation for CashFlowSchedule
+        let val_date_inner = val_date.inner();
+        
+        // No accrual before first period
+        if val_date_inner <= self.inner.flows.first().map(|cf| cf.date).unwrap_or(val_date_inner) {
+            return 0.0;
+        }
+
+        // Find index of first flow after valuation date
+        let idx = match self.inner.flows.iter().position(|cf| cf.date > val_date_inner) {
+            Some(i) => i,
+            None => return 0.0, // past last payment
+        };
+
+        if idx == 0 {
+            return 0.0;
+        }
+
+        let prev_date = self.inner.flows[idx - 1].date;
+        let curr_flow = &self.inner.flows[idx];
+
+        // Only calculate accrued for coupon flows
+        if !matches!(curr_flow.kind, CFKind::Fixed | CFKind::Stub) {
+            return 0.0;
+        }
+
+        // Derive coupon rate from stored amount and accrual factor
+        let coupon_rate = curr_flow.amount.amount() / (self.inner.notional.initial.amount() * curr_flow.accrual_factor);
+
+        let elapsed_yf = self.inner.day_count
+            .year_fraction(prev_date, val_date_inner)
+            .unwrap_or(0.0);
+
+        (self.inner.notional.initial * (coupon_rate * elapsed_yf)).amount()
     }
 
     /// The number of cash flows in this leg.

@@ -3,9 +3,8 @@ use wasm_bindgen::prelude::*;
 use std::sync::Arc;
 
 use finstack_core::dates::DayCount as CoreDayCount;
-use finstack_core::dates::ScheduleBuilder;
-use finstack_valuations::cashflow::leg::CashFlowLeg;
-use finstack_valuations::cashflow::notional::Notional;
+use finstack_valuations::cashflow::builder::{CashFlowSchedule, FixedCouponSpec, CouponType, cf};
+use finstack_core::dates::{BusinessDayConvention, StubKind};
 use finstack_valuations::pricing::discountable::Discountable;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
 use finstack_core::market_data::traits::Discount as _;
@@ -19,7 +18,7 @@ use crate::schedule::Frequency;
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct FixedRateLeg {
-    inner: Arc<CashFlowLeg>,
+    inner: Arc<CashFlowSchedule>,
 }
 
 #[wasm_bindgen]
@@ -37,15 +36,22 @@ impl FixedRateLeg {
         day_count: DayCount,
     ) -> Result<FixedRateLeg, JsValue> {
         let core_currency = currency.inner();
-        let notional = Notional::par(notional_amount, core_currency);
-
-        let sched = ScheduleBuilder::new(start.inner(), end.inner())
-            .frequency(frequency.into())
-            .build_raw();
-
         let dc: CoreDayCount = day_count.into();
 
-        let leg = CashFlowLeg::fixed_rate(notional, rate, sched, dc)
+        let fixed_spec = FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate,
+            freq: frequency.into(),
+            dc,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
+        };
+
+        let leg = cf()
+            .principal_amount(notional_amount, core_currency, start.inner(), end.inner())
+            .fixed_cf(fixed_spec)
+            .build()
             .map_err(|e| JsValue::from_str(&format!("Failed to build leg: {:?}", e)))?;
 
         Ok(FixedRateLeg {
@@ -72,7 +78,41 @@ impl FixedRateLeg {
     /// Accrued interest up to (but excluding) `val_date`.
     #[wasm_bindgen(js_name = "accrued")]
     pub fn accrued_js(&self, val_date: &Date) -> f64 {
-        self.inner.accrued(val_date.inner()).amount()
+        // Implement accrued calculation for CashFlowSchedule
+        let val_date_inner = val_date.inner();
+        
+        // No accrual before first period
+        if val_date_inner <= self.inner.flows.first().map(|cf| cf.date).unwrap_or(val_date_inner) {
+            return 0.0;
+        }
+
+        // Find index of first flow after valuation date
+        let idx = match self.inner.flows.iter().position(|cf| cf.date > val_date_inner) {
+            Some(i) => i,
+            None => return 0.0, // past last payment
+        };
+
+        if idx == 0 {
+            return 0.0;
+        }
+
+        let prev_date = self.inner.flows[idx - 1].date;
+        let curr_flow = &self.inner.flows[idx];
+
+        // Only calculate accrued for coupon flows
+        use finstack_valuations::cashflow::primitives::CFKind;
+        if !matches!(curr_flow.kind, CFKind::Fixed | CFKind::Stub) {
+            return 0.0;
+        }
+
+        // Derive coupon rate from stored amount and accrual factor
+        let coupon_rate = curr_flow.amount.amount() / (self.inner.notional.initial.amount() * curr_flow.accrual_factor);
+
+        let elapsed_yf = self.inner.day_count
+            .year_fraction(prev_date, val_date_inner)
+            .unwrap_or(0.0);
+
+        (self.inner.notional.initial * (coupon_rate * elapsed_yf)).amount()
     }
 
     /// Number of underlying cash-flows.

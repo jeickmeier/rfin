@@ -25,18 +25,6 @@ impl Discountable for Vec<(Date, Money)> {
     }
 }
 
-impl Discountable for crate::cashflow::leg::CashFlowLeg {
-    type PVOutput = finstack_core::Result<Money>;
-
-    fn npv(&self, disc: &dyn Discount, base: Date, dc: DayCount) -> finstack_core::Result<Money> {
-        if self.flows.is_empty() {
-            return Ok(Money::new(0.0, self.notional.initial.currency()));
-        }
-        let mapped: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
-        super::npv::npv(disc, base, dc, &mapped)
-    }
-}
-
 impl Discountable for crate::cashflow::builder::CashFlowSchedule {
     type PVOutput = finstack_core::Result<Money>;
 

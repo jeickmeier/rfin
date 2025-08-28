@@ -5,9 +5,6 @@
 /// Cash-flow primitives (`CashFlow`, `CFKind`, etc.).
 pub mod primitives;
 
-/// Cash-flow leg builder and related utilities.
-pub mod leg;
-
 /// Amortization specifications shared across instruments and legs.
 pub mod amortization;
 

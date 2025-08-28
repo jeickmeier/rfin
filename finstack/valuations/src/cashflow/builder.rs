@@ -330,7 +330,7 @@ impl CashflowBuilder {
                     let cash_amt = coupon_total * cash_pct;
                     let pik_amt = coupon_total * pik_pct;
                     if cash_amt > 0.0 {
-                        flows.push(CashFlow { date: d, reset_date: None, amount: Money::new(cash_amt, ccy), kind: if is_stub_date(prev_map, d) { CFKind::Stub } else { CFKind::Fixed }, accrual_factor: yf });
+                        flows.push(CashFlow { date: d, reset_date: None, amount: Money::new(cash_amt, ccy), kind: if is_stub_date(prev_map, d, yf, spec.dc) { CFKind::Stub } else { CFKind::Fixed }, accrual_factor: yf });
                     }
                     if pik_amt > 0.0 {
                         flows.push(CashFlow { date: d, reset_date: None, amount: Money::new(pik_amt, ccy), kind: CFKind::PIK, accrual_factor: 0.0 });
@@ -480,13 +480,32 @@ fn is_stub(idx: usize, total_dates: usize) -> bool {
 }
 
 #[inline]
-fn is_stub_date(prev_map: &hashbrown::HashMap<Date, Date>, d: Date) -> bool {
-    // Consider stub if either first or last period in this schedule (by absence of prev/next context we approximate):
+fn is_stub_date(prev_map: &hashbrown::HashMap<Date, Date>, d: Date, yf: f64, dc: DayCount) -> bool {
     if let Some(&prev) = prev_map.get(&d) {
-        // If prev has no predecessor, it's the first period; if d is the max key, it's last.
-        // Approximate: mark only first period as stub here; full detection would compare yf vs typical.
-        !prev_map.values().any(|&v| v == prev)
-    } else { false }
+        // Check if this is first or last period
+        let is_first = !prev_map.values().any(|&v| v == prev);
+        let is_last = !prev_map.keys().any(|&k| prev_map.get(&k) == Some(&d));
+        
+        if is_first || is_last {
+            // For stub detection, compare yf to a typical period
+            // Find another period to use as reference for "normal" accrual
+            let mut typical_yf = yf;
+            for (&other_date, &other_prev) in prev_map.iter() {
+                if other_date != d {
+                    if let Ok(other_yf) = dc.year_fraction(other_prev, other_date) {
+                        typical_yf = other_yf;
+                        break;
+                    }
+                }
+            }
+            // Consider stub if significantly different from typical period (>1% difference)
+            (yf - typical_yf).abs() > 0.01
+        } else {
+            false
+        }
+    } else { 
+        false 
+    }
 }
 
 #[inline]
@@ -508,7 +527,10 @@ fn kind_rank(kind: CFKind) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::pricing::discountable::Discountable;
     use finstack_core::currency::Currency;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
+    use finstack_core::market_data::traits::Discount as _;
     use time::Month;
 
     #[test]
@@ -618,6 +640,73 @@ mod tests {
             sorted.sort_by_key(|k| kind_rank(*k));
             assert_eq!(kinds, sorted);
         }
+    }
+
+    #[test]
+    fn fixed_schedule_npv_equals_sum_cashflows() {
+        let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+
+        let fixed = FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate: 0.05,
+            freq: Frequency::semi_annual(),
+            dc: DayCount::Act365F,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
+        };
+
+        let init = Money::new(1_000_000.0, Currency::USD);
+
+        let mut b = cf();
+        b.principal(init, issue, maturity).fixed_cf(fixed);
+        let schedule = b.build().unwrap();
+
+        let curve = CoreDiscCurve::builder("USD-OIS")
+            .base_date(issue)
+            .knots([(0.0, 1.0), (5.0, 1.0)])
+            .linear_df()
+            .build()
+            .unwrap();
+
+        let pv = schedule.npv(&curve, curve.base_date(), schedule.day_count).unwrap();
+
+        // PV with flat curve 1.0 should equal sum of coupon amounts
+        let expected = schedule
+            .flows
+            .iter()
+            .fold(0.0, |sum, cf| sum + cf.amount.amount());
+        assert!((pv.amount() - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn detects_stub_periods() {
+        let issue = Date::from_calendar_date(2025, Month::January, 10).unwrap(); // irregular
+        let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+
+        let fixed = FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate: 0.04,
+            freq: Frequency::semi_annual(),
+            dc: DayCount::Act365F,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
+        };
+
+        let init = Money::new(1_000_000.0, Currency::USD);
+
+        let mut b = cf();
+        b.principal(init, issue, maturity).fixed_cf(fixed);
+        let schedule = b.build().unwrap();
+
+        // Find coupon flows (not notional)
+        let coupon_flows: Vec<&CashFlow> = schedule.flows.iter().filter(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub).collect();
+        
+        // At least one should be a stub due to irregular start date
+        let has_stub = coupon_flows.iter().any(|cf| cf.kind == CFKind::Stub);
+        assert!(has_stub, "Should detect stub period with irregular start date");
     }
 }
 
