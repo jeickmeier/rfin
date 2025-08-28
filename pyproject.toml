@@ -24,6 +24,7 @@ classifiers = [
 
 dependencies = [
     "numpy>=1.24.4",
+    "pandas>=2.3.2",
     "polars>=1.8.2",
 ]
 

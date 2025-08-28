@@ -55,6 +55,13 @@ impl From<PyBusDayConv> for BusinessDayConvention {
     }
 }
 
+impl PyBusDayConv {
+    /// Get the inner BusinessDayConvention value
+    pub fn inner(&self) -> BusinessDayConvention {
+        (*self).into()
+    }
+}
+
 /// Holiday calendar for business day calculations.
 ///
 /// A Calendar defines which dates are considered holidays in a particular jurisdiction

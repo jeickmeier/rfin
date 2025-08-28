@@ -52,6 +52,9 @@ mod money;
 // Add market_data module
 mod market_data;
 
+// Add instruments module
+mod instruments;
+
 /// Import IMM helper functions for registration
 use dates::{py_next_cds_date, py_next_imm, py_third_wednesday};
 
@@ -118,8 +121,12 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // ---------------------------
 
     let cashflow_module = PyModule::new(m.py(), "cashflow")?;
-    cashflow_module.add_class::<crate::cashflow::PyFixedRateLeg>()?;
     cashflow_module.add_class::<crate::cashflow::PyCashFlow>()?;
+    cashflow_module.add_class::<crate::cashflow::PyCouponType>()?;
+    cashflow_module.add_class::<crate::cashflow::PyAmortization>()?;
+    cashflow_module.add_class::<crate::cashflow::PyCashFlowSchedule>()?;
+    cashflow_module.add_class::<crate::cashflow::PyCashflowBuilder>()?;
+    crate::cashflow::register_functions(&cashflow_module)?;
     m.add_submodule(&cashflow_module)?;
     m.py()
         .import("sys")?
@@ -131,6 +138,12 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // ---------------------------
 
     market_data::register_module(m)?;
+
+    // ---------------------------
+    // Instruments submodule
+    // ---------------------------
+
+    instruments::register_module(m)?;
 
     // --------------------------------------------------------------------
     // Top-level re-exports for ergonomic `from rfin import Currency, Money`
@@ -146,8 +159,11 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<dates::PyStubRule>()?;
     m.add_class::<dates::PyPeriodId>()?;
     m.add_class::<dates::PyPeriod>()?;
-    m.add_class::<crate::cashflow::PyFixedRateLeg>()?;
     m.add_class::<crate::cashflow::PyCashFlow>()?;
+    m.add_class::<crate::cashflow::PyCouponType>()?;
+    m.add_class::<crate::cashflow::PyAmortization>()?;
+    m.add_class::<crate::cashflow::PyCashFlowSchedule>()?;
+    m.add_class::<crate::cashflow::PyCashflowBuilder>()?;
 
     use currency::PyCurrency as PC;
     use finstack_core::Currency as CoreCurrency;
@@ -162,6 +178,7 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(pyo3::wrap_pyfunction!(py_next_imm, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(py_next_cds_date, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(dates::py_build_periods, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(crate::cashflow::py_cashflows_to_dataframe, m)?)?;
 
     Ok(())
 }

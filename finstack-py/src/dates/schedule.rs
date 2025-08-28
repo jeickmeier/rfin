@@ -65,6 +65,22 @@ impl From<PyFrequency> for Frequency {
 }
 
 impl PyFrequency {
+    /// Create PyFrequency from core Frequency type
+    pub fn from_inner(freq: Frequency) -> Self {
+        match freq {
+            Frequency::Months(12) => PyFrequency::Annual,
+            Frequency::Months(6) => PyFrequency::SemiAnnual,
+            Frequency::Months(3) => PyFrequency::Quarterly,
+            Frequency::Months(1) => PyFrequency::Monthly,
+            Frequency::Days(14) => PyFrequency::BiWeekly,
+            Frequency::Days(7) => PyFrequency::Weekly,
+            Frequency::Days(1) => PyFrequency::Daily,
+            _ => PyFrequency::Monthly, // Default fallback
+        }
+    }
+}
+
+impl PyFrequency {
     /// Return the underlying core Frequency value.
     pub fn inner(&self) -> Frequency {
         (*self).into()
@@ -106,6 +122,13 @@ impl From<PyStubRule> for StubKind {
             PyStubRule::ShortFront => StubKind::ShortFront,
             PyStubRule::ShortBack => StubKind::ShortBack,
         }
+    }
+}
+
+impl PyStubRule {
+    /// Get the inner StubKind value
+    pub fn inner(&self) -> StubKind {
+        (*self).into()
     }
 }
 

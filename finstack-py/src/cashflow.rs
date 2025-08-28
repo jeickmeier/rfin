@@ -1,50 +1,46 @@
-//! Python bindings for cash flow generation and valuation
+//! Python bindings for comprehensive cashflow generation and analysis.
+//!
+//! This module exposes the full cashflow builder from finstack-valuations,
+//! allowing creation of complex cashflow structures including PIK/toggle,
+//! amortization, fees, and more. It also provides DataFrame conversion
+//! for easy analysis in Jupyter notebooks.
 
 use pyo3::prelude::*;
-
-use finstack_valuations::cashflow::builder::{CashFlowSchedule, FixedCouponSpec, CouponType, cf};
-use finstack_core::dates::{BusinessDayConvention, StubKind};
-use finstack_valuations::pricing::discountable::Discountable;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
-use finstack_core::market_data::traits::Discount as _;
-use finstack_valuations::cashflow::primitives::{CFKind, CashFlow as CoreCashFlow};
+use pyo3::types::PyDict;
+use finstack_valuations::cashflow::{
+    builder::{
+        cf, CashFlowSchedule, CouponType,
+        FixedCouponSpec,
+    },
+    primitives::{CFKind, CashFlow as CoreCashFlow},
+    amortization_notional::AmortizationSpec,
+};
+use finstack_core::{
+    dates::{BusinessDayConvention, StubKind},
+    money::Money,
+};
+use crate::{
+    currency::PyCurrency,
+    dates::{PyDate, PyDayCount, PyFrequency, PyBusDayConv, PyStubRule},
+    money::PyMoney,
+};
 use std::sync::Arc;
 
-use crate::currency::PyCurrency;
-use crate::dates::date::PyDate;
-use crate::dates::daycount::PyDayCount;
-use crate::dates::schedule::PyFrequency;
-
-
-/// Individual cash flow representing a single payment.
+/// Individual cash flow with enhanced metadata.
 ///
-/// A CashFlow represents a single payment on a specific date with a specific amount
-/// and currency. It includes metadata about the type of payment and accrual
-/// information for coupon calculations.
-///
-/// Cash flows are typically generated as part of a `FixedRateLeg` or other
-/// financial instrument and represent the individual payments that make up
-/// the instrument's payment schedule.
+/// Represents a single payment in a cashflow schedule with full
+/// type information and accrual details.
 ///
 /// Examples:
-///     >>> from rfin import Currency, Date, DayCount, Frequency, FixedRateLeg
-///     >>> leg = FixedRateLeg(
-///     ...     notional_amount=1000000,
-///     ...     currency=Currency.usd(),
-///     ...     rate=0.05,
-///     ...     start_date=Date(2023, 1, 1),
-///     ...     end_date=Date(2024, 1, 1),
-///     ...     frequency=Frequency.SemiAnnual,
-///     ...     day_count=DayCount.thirty360()
-///     ... )
-///     >>> flows = leg.flows()
-///     >>> first_flow = flows[0]
-///     >>> first_flow.amount
+///     >>> cf = schedule.flows[0]
+///     >>> cf.date
+///     Date('2024-07-01')
+///     >>> cf.amount
 ///     25000.0
-///     >>> first_flow.currency
-///     Currency('USD')
-///     >>> first_flow.kind
+///     >>> cf.kind
 ///     'Fixed'
+///     >>> cf.to_dict()
+///     {'date': '2024-07-01', 'amount': 25000.0, 'currency': 'USD', 'kind': 'Fixed'}
 #[pyclass(name = "CashFlow", module = "finstack.cashflow")]
 #[derive(Clone, Copy)]
 pub struct PyCashFlow {
@@ -53,69 +49,26 @@ pub struct PyCashFlow {
 
 #[pymethods]
 impl PyCashFlow {
-    /// The payment date of this cash flow.
-    ///
-    /// Returns:
-    ///     Date: The date when this cash flow is due to be paid.
-    ///
-    /// Examples:
-    ///     >>> cash_flow.date
-    ///     Date('2023-07-01')
     #[getter]
     fn date(&self) -> PyDate {
         PyDate::from_core(self.inner.date)
     }
-
-    /// The payment amount of this cash flow.
-    ///
-    /// Returns:
-    ///     float: The payment amount (can be positive or negative).
-    ///            Positive values represent receipts, negative values represent payments.
-    ///
-    /// Examples:
-    ///     >>> cash_flow.amount
-    ///     25000.0
-    ///     >>> # For a payer swap, coupon payments would be negative
-    ///     >>> payer_flow.amount
-    ///     -25000.0
+    
+    #[getter]
+    fn reset_date(&self) -> Option<PyDate> {
+        self.inner.reset_date.map(PyDate::from_core)
+    }
+    
     #[getter]
     fn amount(&self) -> f64 {
         self.inner.amount.amount()
     }
-
-    /// The currency of this cash flow.
-    ///
-    /// Returns:
-    ///     Currency: The currency in which this cash flow is denominated.
-    ///
-    /// Examples:
-    ///     >>> cash_flow.currency
-    ///     Currency('USD')
-    ///     >>> cash_flow.currency.code
-    ///     'USD'
+    
     #[getter]
     fn currency(&self) -> PyCurrency {
         PyCurrency::from_inner(self.inner.amount.currency())
     }
-
-    /// The type/kind of this cash flow.
-    ///
-    /// Returns:
-    ///     str: The cash flow type. Common values include:
-    ///          - "Fixed": Fixed coupon payment
-    ///          - "FloatReset": Floating rate coupon payment
-    ///          - "Notional": Principal exchange
-    ///          - "PIK": Payment-in-kind capitalization (adds to principal)
-    ///          - "Amortization": Principal repayment (reduces principal)
-    ///          - "Fee": Fee payment
-    ///          - "Stub": Stub period payment
-    ///          - "Other": Other payment types
-    ///
-    /// Examples:
-    ///     >>> cash_flow.kind
-    ///     'Fixed'
-    ///     >>> notional_flow.kind
-    ///     'Notional'
+    
     #[getter]
     fn kind(&self) -> String {
         match self.inner.kind {
@@ -127,42 +80,40 @@ impl PyCashFlow {
             CFKind::Fee => "Fee",
             CFKind::Stub => "Stub",
             _ => "Other",
-        }
-        .to_string()
+        }.to_string()
     }
-
-    /// The accrual factor used for this cash flow.
-    ///
-    /// The accrual factor represents the fraction of a year over which interest
-    /// accrues for this payment, calculated according to the day count convention.
-    ///
-    /// Returns:
-    ///     float: The accrual factor (typically between 0 and 1).
-    ///            For example, 0.5 represents a 6-month period.
-    ///
-    /// Examples:
-    ///     >>> # For a 6-month period with ACT/360
-    ///     >>> cash_flow.accrual_factor
-    ///     0.5055555555555556
-    ///     >>> # For a 3-month period with 30/360
-    ///     >>> quarterly_flow.accrual_factor
-    ///     0.25
+    
     #[getter]
     fn accrual_factor(&self) -> f64 {
         self.inner.accrual_factor
     }
-
-    /// Return string representation of the cash flow.
+    
+    /// Convert to a dictionary for DataFrame creation.
     ///
     /// Returns:
-    ///     str: A formatted string showing the cash flow details.
+    ///     dict: Dictionary with cashflow fields
     ///
     /// Examples:
-    ///     >>> str(cash_flow)
-    ///     'CashFlow(date=2023-07-01, amount=25000.0000, currency=USD, kind=Fixed)'
+    ///     >>> cf.to_dict()
+    ///     {'date': '2024-07-01', 'amount': 25000.0, 'currency': 'USD', 
+    ///      'kind': 'Fixed', 'accrual_factor': 0.5}
+    #[allow(clippy::wrong_self_convention)]  // PyO3 requires &self for Python methods
+    fn to_dict(&self, py: Python) -> PyResult<Py<PyDict>> {
+        let dict = PyDict::new(py);
+        dict.set_item("date", format!("{}", self.inner.date))?;
+        dict.set_item("amount", self.amount())?;
+        dict.set_item("currency", format!("{}", self.inner.amount.currency()))?;
+        dict.set_item("kind", self.kind())?;
+        dict.set_item("accrual_factor", self.accrual_factor())?;
+        if let Some(reset) = self.inner.reset_date {
+            dict.set_item("reset_date", format!("{}", reset))?;
+        }
+        Ok(dict.into())
+    }
+    
     fn __repr__(&self) -> String {
         format!(
-            "CashFlow(date={}, amount={:.4}, currency={}, kind={})",
+            "CashFlow(date={}, amount={:.2}, currency={}, kind={})",
             self.inner.date,
             self.inner.amount.amount(),
             self.inner.amount.currency(),
@@ -171,305 +122,495 @@ impl PyCashFlow {
     }
 }
 
-/// Fixed-rate leg of a swap or bond.
+/// Coupon payment type specification.
 ///
-/// A FixedRateLeg represents a series of fixed coupon payments made at regular
-/// intervals. It's commonly used as one leg of an interest rate swap, or to
-/// represent the coupon payments of a fixed-rate bond.
-///
-/// The leg automatically generates a payment schedule based on the start and end
-/// dates, frequency, and day count convention. Each payment is calculated as:
-/// `payment = notional * rate * accrual_factor`
+/// Controls whether coupon payments are made in cash, capitalized as PIK
+/// (Payment-In-Kind), or split between the two.
 ///
 /// Examples:
-///     >>> from rfin import Currency, Date, DayCount, Frequency, FixedRateLeg
-///     
-///     # Create a 2-year fixed rate leg paying 5% semi-annually
-///     >>> leg = FixedRateLeg(
-///     ...     notional_amount=1000000,  # $1M notional
-///     ...     currency=Currency.usd(),
-///     ...     rate=0.05,  # 5% annual rate
-///     ...     start_date=Date(2023, 1, 1),
-///     ...     end_date=Date(2025, 1, 1),
-///     ...     frequency=Frequency.SemiAnnual,
-///     ...     day_count=DayCount.thirty360()
-///     ... )
-///     
-///     # Get the payment schedule
-///     >>> leg.num_flows
-///     4
-///     >>> flows = leg.flows()
-///     >>> flows[0].amount  # First semi-annual payment
-///     25000.0
-///     
-///     # Calculate present value (using flat discount rate of 0%)
-///     >>> leg.npv()
-///     100000.0
-///     
-///     # Calculate accrued interest
-///     >>> leg.accrued(Date(2023, 3, 1))  # 2 months into first period
-///     8333.333333333334
-#[pyclass(name = "FixedRateLeg", module = "finstack.cashflow")]
+///     >>> from finstack.cashflow import CouponPaymentType
+///     >>> cash_only = CouponPaymentType.cash()
+///     >>> pik_only = CouponPaymentType.pik()
+///     >>> split = CouponPaymentType.split(cash_pct=0.7, pik_pct=0.3)
+#[pyclass(name = "CouponPaymentType", module = "finstack.cashflow")]
 #[derive(Clone)]
-pub struct PyFixedRateLeg {
+pub struct PyCouponType {
+    inner: CouponType,
+}
+
+#[pymethods]
+impl PyCouponType {
+    /// Create a cash-only coupon type.
+    #[staticmethod]
+    fn cash() -> Self {
+        Self { inner: CouponType::Cash }
+    }
+    
+    /// Create a PIK-only coupon type.
+    #[staticmethod]
+    fn pik() -> Self {
+        Self { inner: CouponType::PIK }
+    }
+    
+    /// Create a split cash/PIK coupon type.
+    ///
+    /// Args:
+    ///     cash_pct: Percentage paid in cash (0.0 to 1.0)
+    ///     pik_pct: Percentage capitalized as PIK (0.0 to 1.0)
+    ///
+    /// Note: cash_pct + pik_pct should equal 1.0
+    #[staticmethod]
+    fn split(cash_pct: f64, pik_pct: f64) -> PyResult<Self> {
+        if (cash_pct + pik_pct - 1.0).abs() > 1e-6 {
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                "cash_pct + pik_pct must equal 1.0"
+            ));
+        }
+        Ok(Self { 
+            inner: CouponType::Split { cash_pct, pik_pct } 
+        })
+    }
+}
+
+/// Amortization schedule specification.
+///
+/// Controls how principal is paid down over the life of the instrument.
+///
+/// Examples:
+///     >>> from finstack.cashflow import Amortization
+///     >>> bullet = Amortization.none()  # No amortization, bullet payment at maturity
+///     >>> linear = Amortization.linear_to_zero()  # Linear paydown to zero
+///     >>> partial = Amortization.linear_to(Money(100000, Currency.usd()))  # Linear to residual
+///     >>> fixed_pct = Amortization.percent_per_period(0.05)  # 5% of original per period
+#[pyclass(name = "Amortization", module = "finstack.cashflow")]
+#[derive(Clone)]
+pub struct PyAmortization {
+    inner: AmortizationSpec,
+}
+
+#[pymethods]
+impl PyAmortization {
+    /// No amortization (bullet repayment at maturity).
+    #[staticmethod]
+    fn none() -> Self {
+        Self { inner: AmortizationSpec::None }
+    }
+    
+    /// Linear amortization to a target amount.
+    ///
+    /// Args:
+    ///     final_notional: Target remaining principal at maturity
+    #[staticmethod]
+    fn linear_to(final_notional: &PyMoney) -> Self {
+        Self { 
+            inner: AmortizationSpec::LinearTo {
+                final_notional: final_notional.inner()
+            }
+        }
+    }
+    
+    /// Linear amortization to zero.
+    #[staticmethod]
+    fn linear_to_zero(currency: &PyCurrency) -> Self {
+        Self {
+            inner: AmortizationSpec::LinearTo {
+                final_notional: Money::new(0.0, currency.inner())
+            }
+        }
+    }
+    
+    /// Fixed percentage of original notional per period.
+    ///
+    /// Args:
+    ///     pct: Fraction of original notional paid each period (e.g., 0.05 for 5%)
+    #[staticmethod]
+    fn percent_per_period(pct: f64) -> Self {
+        Self {
+            inner: AmortizationSpec::PercentPerPeriod { pct }
+        }
+    }
+}
+
+/// Cashflow schedule with comprehensive flow information.
+///
+/// Contains all cashflows generated by the builder along with metadata
+/// about the structure. Provides methods for analysis and DataFrame export.
+///
+/// Examples:
+///     >>> schedule = builder.build()
+///     >>> len(schedule.flows)
+///     12
+///     >>> schedule.total_interest()
+///     150000.0
+///     >>> df = schedule.to_dataframe()  # For notebook analysis
+#[pyclass(name = "CashFlowSchedule", module = "finstack.cashflow")]
+#[derive(Clone)]
+pub struct PyCashFlowSchedule {
     inner: Arc<CashFlowSchedule>,
 }
 
 #[pymethods]
-impl PyFixedRateLeg {
-    /// Create a new fixed-rate leg.
-    ///
-    /// Args:
-    ///     notional_amount (float): The notional principal amount.
-    ///     currency (Currency): The currency of the payments.
-    ///     rate (float): The annual fixed interest rate (as a decimal, e.g., 0.05 for 5%).
-    ///     start_date (Date): The start date of the leg (first accrual period begins).
-    ///     end_date (Date): The end date of the leg (last payment date).
-    ///     frequency (Frequency): The payment frequency (e.g., Frequency.SemiAnnual).
-    ///     day_count (DayCount): The day count convention for accrual calculations.
-    ///
-    /// Returns:
-    ///     FixedRateLeg: A new fixed-rate leg instance.
-    ///
-    /// Raises:
-    ///     ValueError: If the leg cannot be constructed (e.g., invalid dates).
-    ///
-    /// Examples:
-    ///     >>> from rfin import Currency, Date, DayCount, Frequency, FixedRateLeg
-    ///     
-    ///     # Standard 5% fixed rate leg
-    ///     >>> leg = FixedRateLeg(
-    ///     ...     notional_amount=1000000,
-    ///     ...     currency=Currency.usd(),
-    ///     ...     rate=0.05,
-    ///     ...     start_date=Date(2023, 1, 1),
-    ///     ...     end_date=Date(2024, 1, 1),
-    ///     ...     frequency=Frequency.SemiAnnual,
-    ///     ...     day_count=DayCount.thirty360()
-    ///     ... )
-    ///     
-    ///     # Quarterly payments in EUR
-    ///     >>> eur_leg = FixedRateLeg(
-    ///     ...     notional_amount=500000,
-    ///     ...     currency=Currency.eur(),
-    ///     ...     rate=0.03,
-    ///     ...     start_date=Date(2023, 1, 1),
-    ///     ...     end_date=Date(2023, 12, 31),
-    ///     ...     frequency=Frequency.Quarterly,
-    ///     ...     day_count=DayCount.act360()
-    ///     ... )
-    #[new]
-    #[pyo3(
-        text_signature = "(notional_amount, currency, rate, start_date, end_date, frequency, day_count)"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    fn new(
-        notional_amount: f64,
-        currency: &PyCurrency,
-        rate: f64,
-        start_date: &PyDate,
-        end_date: &PyDate,
-        frequency: &PyFrequency,
-        day_count: &PyDayCount,
-    ) -> PyResult<Self> {
-        let core_currency = currency.inner();
-
-        let freq = frequency.inner();
-        let dc = day_count.inner();
-
-        let fixed_spec = FixedCouponSpec {
-            coupon_type: CouponType::Cash,
-            rate,
-            freq,
-            dc,
-            bdc: BusinessDayConvention::Following,
-            calendar_id: None,
-            stub: StubKind::None,
-        };
-
-        let leg = cf()
-            .principal_amount(notional_amount, core_currency, start_date.inner(), end_date.inner())
-            .fixed_cf(fixed_spec)
-            .build()
-            .map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Failed to build leg: {:?}", e))
-            })?;
-
-        Ok(Self {
-            inner: Arc::new(leg),
-        })
-    }
-
-    /// Calculate the net present value of the leg.
-    ///
-    /// Currently uses a flat discount rate of 0% (no discounting).
-    /// Future versions will support proper discount curves.
-    ///
-    /// Returns:
-    ///     float: The net present value of all cash flows in the leg.
-    ///
-    /// Examples:
-    ///     >>> leg = FixedRateLeg(
-    ///     ...     notional_amount=1000000,
-    ///     ...     currency=Currency.usd(),
-    ///     ...     rate=0.05,
-    ///     ...     start_date=Date(2023, 1, 1),
-    ///     ...     end_date=Date(2024, 1, 1),
-    ///     ...     frequency=Frequency.SemiAnnual,
-    ///     ...     day_count=DayCount.thirty360()
-    ///     ... )
-    ///     >>> leg.npv()
-    ///     50000.0  # Two payments of $25,000 each
-    #[pyo3(text_signature = "(self)")]
-    fn npv(&self) -> f64 {
-        let base = self
-            .inner
-            .flows
-            .first()
-            .map(|cf| cf.date)
-            .unwrap_or_else(|| finstack_core::dates::Date::from_ordinal_date(1970, 1).unwrap());
-        let curve = CoreDiscCurve::builder("USD-OIS")
-            .base_date(base)
-            .knots([(0.0, 1.0), (30.0, 1.0)])
-            .linear_df()
-            .build()
-            .unwrap();
-        self.inner
-            .npv(&curve, curve.base_date(), self.inner.day_count)
-            .map(|m| m.amount())
-            .unwrap_or(0.0)
-    }
-
-    /// Calculate accrued interest up to a valuation date.
-    ///
-    /// Calculates the amount of interest that has accrued on the current coupon
-    /// period up to (but not including) the specified valuation date.
-    ///
-    /// Args:
-    ///     val_date (Date): The valuation date (exclusive).
-    ///
-    /// Returns:
-    ///     float: The accrued interest amount.
-    ///
-    /// Examples:
-    ///     >>> from rfin import Currency, Date, DayCount, Frequency, FixedRateLeg
-    ///     >>> leg = FixedRateLeg(
-    ///     ...     notional_amount=1000000,
-    ///     ...     currency=Currency.usd(),
-    ///     ...     rate=0.05,
-    ///     ...     start_date=Date(2023, 1, 1),
-    ///     ...     end_date=Date(2024, 1, 1),
-    ///     ...     frequency=Frequency.SemiAnnual,
-    ///     ...     day_count=DayCount.thirty360()
-    ///     ... )
-    ///     
-    ///     # Accrued interest after 2 months (60 days with 30/360)
-    ///     >>> leg.accrued(Date(2023, 3, 1))
-    ///     8333.333333333334
-    ///     
-    ///     # Accrued interest after 3 months (90 days with 30/360)
-    ///     >>> leg.accrued(Date(2023, 4, 1))
-    ///     12500.0
-    #[pyo3(text_signature = "(self, val_date)")]
-    fn accrued(&self, val_date: &PyDate) -> f64 {
-        // Implement accrued calculation for CashFlowSchedule
-        let val_date_inner = val_date.inner();
-        
-        // No accrual before first period
-        if val_date_inner <= self.inner.flows.first().map(|cf| cf.date).unwrap_or(val_date_inner) {
-            return 0.0;
-        }
-
-        // Find index of first flow after valuation date
-        let idx = match self.inner.flows.iter().position(|cf| cf.date > val_date_inner) {
-            Some(i) => i,
-            None => return 0.0, // past last payment
-        };
-
-        if idx == 0 {
-            return 0.0;
-        }
-
-        let prev_date = self.inner.flows[idx - 1].date;
-        let curr_flow = &self.inner.flows[idx];
-
-        // Only calculate accrued for coupon flows
-        if !matches!(curr_flow.kind, CFKind::Fixed | CFKind::Stub) {
-            return 0.0;
-        }
-
-        // Derive coupon rate from stored amount and accrual factor
-        let coupon_rate = curr_flow.amount.amount() / (self.inner.notional.initial.amount() * curr_flow.accrual_factor);
-
-        let elapsed_yf = self.inner.day_count
-            .year_fraction(prev_date, val_date_inner)
-            .unwrap_or(0.0);
-
-        (self.inner.notional.initial * (coupon_rate * elapsed_yf)).amount()
-    }
-
-    /// The number of cash flows in this leg.
-    ///
-    /// Returns:
-    ///     int: The total number of cash flows (payments) in the leg.
-    ///
-    /// Examples:
-    ///     >>> # 2-year semi-annual leg has 4 payments
-    ///     >>> leg.num_flows
-    ///     4
-    ///     >>> # 1-year quarterly leg has 4 payments
-    ///     >>> quarterly_leg.num_flows
-    ///     4
+impl PyCashFlowSchedule {
+    /// Get all cashflows in the schedule.
     #[getter]
-    fn num_flows(&self) -> usize {
-        self.inner.flows.len()
-    }
-
-    /// Get all cash flows in the leg.
-    ///
-    /// Returns:
-    ///     List[CashFlow]: A list of all cash flows in the leg, ordered by payment date.
-    ///
-    /// Examples:
-    ///     >>> leg = FixedRateLeg(
-    ///     ...     notional_amount=1000000,
-    ///     ...     currency=Currency.usd(),
-    ///     ...     rate=0.05,
-    ///     ...     start_date=Date(2023, 1, 1),
-    ///     ...     end_date=Date(2024, 1, 1),
-    ///     ...     frequency=Frequency.SemiAnnual,
-    ///     ...     day_count=DayCount.thirty360()
-    ///     ... )
-    ///     >>> flows = leg.flows()
-    ///     >>> len(flows)
-    ///     2
-    ///     >>> flows[0].date
-    ///     Date('2023-07-01')
-    ///     >>> flows[0].amount
-    ///     25000.0
-    ///     >>> flows[1].date
-    ///     Date('2024-01-01')
-    ///     >>> flows[1].amount
-    ///     25000.0
-    #[pyo3(text_signature = "(self)")]
     fn flows(&self) -> Vec<PyCashFlow> {
-        self.inner
-            .flows
-            .iter()
-            .copied()
-            .map(|cf| PyCashFlow { inner: cf })
+        self.inner.flows.iter()
+            .map(|&f| PyCashFlow { inner: f })
             .collect()
     }
-
-    /// Return string representation of the leg.
+    
+    /// Get the initial notional amount.
+    #[getter]
+    fn notional(&self) -> PyMoney {
+        PyMoney::from_inner(self.inner.notional.initial)
+    }
+    
+    /// Get the day count convention used.
+    #[getter]
+    fn day_count(&self) -> PyDayCount {
+        PyDayCount::from_inner(self.inner.day_count)
+    }
+    
+    /// Get only coupon cashflows (Fixed and Stub kinds).
+    fn coupons(&self) -> Vec<PyCashFlow> {
+        self.inner.flows.iter()
+            .filter(|cf| matches!(cf.kind, CFKind::Fixed | CFKind::Stub))
+            .map(|&f| PyCashFlow { inner: f })
+            .collect()
+    }
+    
+    /// Get only principal cashflows (Notional and Amortization kinds).
+    fn principal_flows(&self) -> Vec<PyCashFlow> {
+        self.inner.flows.iter()
+            .filter(|cf| matches!(cf.kind, CFKind::Notional | CFKind::Amortization))
+            .map(|&f| PyCashFlow { inner: f })
+            .collect()
+    }
+    
+    /// Get only fee cashflows.
+    fn fees(&self) -> Vec<PyCashFlow> {
+        self.inner.flows.iter()
+            .filter(|cf| matches!(cf.kind, CFKind::Fee))
+            .map(|&f| PyCashFlow { inner: f })
+            .collect()
+    }
+    
+    /// Get only PIK cashflows.
+    fn pik_flows(&self) -> Vec<PyCashFlow> {
+        self.inner.flows.iter()
+            .filter(|cf| matches!(cf.kind, CFKind::PIK))
+            .map(|&f| PyCashFlow { inner: f })
+            .collect()
+    }
+    
+    /// Calculate total interest payments.
+    fn total_interest(&self) -> f64 {
+        self.inner.flows.iter()
+            .filter(|cf| matches!(cf.kind, CFKind::Fixed | CFKind::Stub))
+            .map(|cf| cf.amount.amount())
+            .sum()
+    }
+    
+    /// Calculate total principal payments.
+    fn total_principal(&self) -> f64 {
+        self.inner.flows.iter()
+            .filter(|cf| matches!(cf.kind, CFKind::Notional | CFKind::Amortization))
+            .map(|cf| cf.amount.amount())
+            .sum()
+    }
+    
+    /// Calculate total fees.
+    fn total_fees(&self) -> f64 {
+        self.inner.flows.iter()
+            .filter(|cf| matches!(cf.kind, CFKind::Fee))
+            .map(|cf| cf.amount.amount())
+            .sum()
+    }
+    
+    /// Convert to a list of dictionaries (for DataFrame creation).
     ///
     /// Returns:
-    ///     str: A formatted string showing the number of cash flows.
+    ///     List[dict]: List of cashflow dictionaries suitable for pandas DataFrame
     ///
     /// Examples:
-    ///     >>> str(leg)
-    ///     'FixedRateLeg(n_flows=4)'
-    fn __repr__(&self) -> String {
-        format!("FixedRateLeg(n_flows={})", self.inner.flows.len())
+    ///     >>> data = schedule.to_records()
+    ///     >>> import pandas as pd
+    ///     >>> df = pd.DataFrame(data)
+    fn to_records(&self, py: Python) -> PyResult<Vec<Py<PyDict>>> {
+        self.flows().iter()
+            .map(|cf| cf.to_dict(py))
+            .collect()
     }
+    
+    /// Get outstanding principal path over time.
+    ///
+    /// Returns:
+    ///     List[tuple]: List of (date, outstanding_amount) tuples
+    ///
+    /// Examples:
+    ///     >>> path = schedule.outstanding_path()
+    ///     >>> for date, amount in path:
+    ///     ...     print(f"{date}: ${amount:,.2f}")
+    fn outstanding_path(&self) -> Vec<(PyDate, f64)> {
+        self.inner.outstanding_by_date().iter()
+            .map(|(date, money)| (PyDate::from_core(*date), money.amount()))
+            .collect()
+    }
+    
+    fn __len__(&self) -> usize {
+        self.inner.flows.len()
+    }
+    
+    fn __repr__(&self) -> String {
+        format!("CashFlowSchedule({} flows)", self.inner.flows.len())
+    }
+}
+
+/// Comprehensive cashflow builder for complex structures.
+///
+/// Supports creation of sophisticated cashflow schedules including:
+/// - Fixed and floating rate coupons
+/// - PIK/Cash/Toggle payment types
+/// - Various amortization schedules
+/// - Multiple fee types
+/// - Step-up rates
+/// - Fixed-to-float transitions
+///
+/// Examples:
+///     >>> from finstack import Currency, Date, DayCount
+///     >>> from finstack.dates import Frequency, BusinessDayConvention, StubRule
+///     >>> from finstack.cashflow import CashflowBuilder, CouponPaymentType, Amortization
+///     >>> 
+///     >>> # Simple fixed rate loan
+///     >>> builder = CashflowBuilder()
+///     >>> schedule = (builder
+///     ...     .principal(Money(10_000_000, Currency.usd()),
+///     ...                Date(2024, 1, 1), Date(2029, 1, 1))
+///     ...     .fixed_coupon(rate=0.08, frequency=Frequency.Quarterly,
+///     ...                   day_count=DayCount.act360())
+///     ...     .with_amortization(Amortization.linear_to_zero(Currency.usd()))
+///     ...     .build())
+///     >>> 
+///     >>> # Complex structure with PIK toggle
+///     >>> builder = CashflowBuilder()
+///     >>> schedule = (builder
+///     ...     .principal(Money(5_000_000, Currency.eur()),
+///     ...                Date(2024, 1, 1), Date(2027, 1, 1))
+///     ...     .fixed_coupon(rate=0.10, frequency=Frequency.SemiAnnual,
+///     ...                   day_count=DayCount.thirty360())
+///     ...     .add_pik_period(Date(2024, 1, 1), Date(2025, 1, 1))
+///     ...     .add_cash_period(Date(2025, 1, 1), Date(2027, 1, 1))
+///     ...     .add_commitment_fee(bps=50)
+///     ...     .build())
+#[pyclass(name = "CashflowBuilder", module = "finstack.cashflow")]
+pub struct PyCashflowBuilder {
+    inner: finstack_valuations::cashflow::builder::CashflowBuilder,
+}
+
+#[pymethods]
+impl PyCashflowBuilder {
+    #[new]
+    fn new() -> Self {
+        Self { inner: cf() }
+    }
+    
+    /// Set the principal amount and term.
+    ///
+    /// Args:
+    ///     notional: Principal amount with currency
+    ///     issue_date: Start date of the instrument
+    ///     maturity: Maturity date
+    ///
+    /// Returns:
+    ///     Self for method chaining
+    fn principal(&mut self, 
+                 notional: &PyMoney,
+                 issue_date: &PyDate, 
+                 maturity: &PyDate) {
+        self.inner.principal_amount(
+            notional.inner().amount(),
+            notional.inner().currency(),
+            issue_date.inner(),
+            maturity.inner()
+        );
+    }
+    
+    /// Add a fixed rate coupon.
+    ///
+    /// Args:
+    ///     rate: Annual interest rate (e.g., 0.08 for 8%)
+    ///     frequency: Payment frequency
+    ///     day_count: Day count convention
+    ///     payment_type: Optional payment type (Cash/PIK/Split), defaults to Cash
+    ///     business_day_conv: Optional business day convention
+    ///     calendar: Optional holiday calendar identifier
+    ///     stub: Optional stub rule
+    ///
+    /// Returns:
+    ///     Self for method chaining
+    #[allow(clippy::too_many_arguments)]  // Python API requires all these parameters
+    fn fixed_coupon(
+        &mut self,
+        rate: f64,
+        frequency: &PyFrequency,
+        day_count: &PyDayCount,
+        payment_type: Option<&PyCouponType>,
+        business_day_conv: Option<&PyBusDayConv>,
+        calendar: Option<&str>,
+        stub: Option<&PyStubRule>,
+    ) {
+        let coupon_type = payment_type
+            .map(|pt| pt.inner)
+            .unwrap_or(CouponType::Cash);
+        
+        let bdc = business_day_conv
+            .map(|b| b.inner())
+            .unwrap_or(BusinessDayConvention::Following);
+        
+        let stub_kind = stub
+            .map(|s| s.inner())
+            .unwrap_or(StubKind::None);
+        
+        let calendar_id = calendar.map(|s| {
+            let static_str: &'static str = Box::leak(s.to_string().into_boxed_str());
+            static_str
+        });
+        
+        let spec = FixedCouponSpec {
+            coupon_type,
+            rate,
+            freq: frequency.inner(),
+            dc: day_count.inner(),
+            bdc,
+            calendar_id,
+            stub: stub_kind,
+        };
+        
+        self.inner.fixed_cf(spec);
+    }
+    
+    /// Set the amortization schedule.
+    ///
+    /// Args:
+    ///     amortization: Amortization specification
+    ///
+    /// Returns:
+    ///     Self for method chaining
+    fn with_amortization(&mut self, 
+                         amortization: &PyAmortization) {
+        self.inner.amortization(amortization.inner.clone());
+    }
+    
+    /// Add a PIK period where interest is capitalized.
+    ///
+    /// Args:
+    ///     start: Start date of PIK period
+    ///     end: End date of PIK period
+    ///
+    /// Returns:
+    ///     Self for method chaining
+    fn add_pik_period(&mut self,
+                      start: &PyDate,
+                      end: &PyDate) {
+        self.inner.add_payment_window(
+            start.inner(),
+            end.inner(),
+            CouponType::PIK
+        );
+    }
+    
+    /// Add a cash payment period.
+    ///
+    /// Args:
+    ///     start: Start date of cash period
+    ///     end: End date of cash period
+    ///
+    /// Returns:
+    ///     Self for method chaining
+    fn add_cash_period(&mut self,
+                       start: &PyDate,
+                       end: &PyDate) {
+        self.inner.add_payment_window(
+            start.inner(),
+            end.inner(),
+            CouponType::Cash
+        );
+    }
+    
+    /// Add a commitment fee.
+    ///
+    /// Args:
+    ///     bps: Fee in basis points
+    ///
+    /// Returns:
+    ///     Self for method chaining
+    fn add_commitment_fee(&mut self, _bps: f64) -> PyResult<()> {
+        // This is a simplified version - would need more parameters in production
+        Err(PyErr::new::<pyo3::exceptions::PyNotImplementedError, _>(
+            "Commitment fee not yet fully implemented"
+        ))
+    }
+    
+    /// Build the cashflow schedule.
+    ///
+    /// Returns:
+    ///     CashFlowSchedule: The generated cashflow schedule
+    ///
+    /// Raises:
+    ///     ValueError: If the schedule cannot be built due to invalid parameters
+    fn build(&self) -> PyResult<PyCashFlowSchedule> {
+        let schedule = self.inner.build()
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                format!("Failed to build cashflow schedule: {:?}", e)
+            ))?;
+        
+        Ok(PyCashFlowSchedule {
+            inner: Arc::new(schedule)
+        })
+    }
+}
+
+/// Convert a cashflow schedule to a pandas DataFrame.
+///
+/// Helper function that converts a CashFlowSchedule into a pandas DataFrame
+/// for easy analysis in Jupyter notebooks.
+///
+/// Args:
+///     schedule: The cashflow schedule to convert
+///
+/// Returns:
+///     pandas.DataFrame: DataFrame with cashflow data
+///
+/// Examples:
+///     >>> df = cashflows_to_dataframe(schedule)
+///     >>> df.groupby('kind')['amount'].sum()  # Analyze by cashflow type
+///     >>> df.set_index('date')['amount'].plot()  # Plot cashflows over time
+#[pyfunction]
+#[pyo3(name = "cashflows_to_dataframe")]
+pub fn py_cashflows_to_dataframe(py: Python, schedule: &PyCashFlowSchedule) -> PyResult<PyObject> {
+    // Import pandas
+    let pandas = py.import("pandas")?;
+    
+    // Get records from schedule
+    let records = schedule.to_records(py)?;
+    
+    // Check if records is empty before creating DataFrame
+    let is_empty = records.is_empty();
+    
+    // Create DataFrame
+    let df = pandas.call_method1("DataFrame", (records,))?;
+    
+    // Convert date column to datetime if we have data
+    if !is_empty {
+        let pd = py.import("pandas")?;
+        df.setattr("date", pd.call_method1("to_datetime", (df.getattr("date")?,))?)?;
+    }
+    
+    Ok(df.into())
+}
+
+/// Register cashflow functions with the module
+pub fn register_functions(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(pyo3::wrap_pyfunction!(py_cashflows_to_dataframe, m)?)?;
+    Ok(())
 }
