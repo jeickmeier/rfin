@@ -16,3 +16,6 @@ pub mod notional;
 
 /// Currency-preserving aggregation utilities for cashflows.
 pub mod aggregation;
+
+/// Composable cashflow builder (phase 1: principal, amortization, fixed coupons).
+pub mod builder;

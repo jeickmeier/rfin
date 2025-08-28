@@ -6,16 +6,15 @@ use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::market_data::traits::Discount;
 
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use crate::pricing::legs;
+// no pricing::legs usage; discount directly on built cashflows
 use crate::pricing::quotes::{accrued_interest, bond_dirty_from_ytm, bond_ytm_from_dirty, bond_duration_mac_mod};
 use crate::pricing::quotes::{bond_ytm_from_dirty_with_redemption};
 use crate::pricing::discountable::Discountable;
 use crate::pricing::result::ValuationResult;
 use crate::traits::{Priceable, CashflowProvider, DatedFlows};
-// Intentionally do not import AmortizationSpec here; we re-export it below
-use crate::cashflow::leg::CashFlowLeg;
-use crate::cashflow::notional::Notional;
 use crate::cashflow::primitives::CFKind;
+use crate::cashflow::builder::{cf, FixedCouponSpec, CouponType};
+use finstack_core::dates::{BusinessDayConvention, StubKind};
 
 // Re-export for compatibility in tests and external users referencing bond::AmortizationSpec
 pub use crate::cashflow::amortization::AmortizationSpec;
@@ -123,8 +122,13 @@ impl Priceable for Bond {
 
             // Compute dirty price implied by current discounting
             let base = disc.base_date();
-            // PV of coupons via helper + maturity redemption
-            let mut dirty_now = legs::pv_fixed_leg(&*disc, base, self.dc, self.notional, self.coupon, &sched)?;
+            // PV of coupons via builder + generic discount
+            let mut b = cf();
+            b.principal(self.notional, self.issue, self.maturity)
+                .fixed_cf(FixedCouponSpec { coupon_type: CouponType::Cash, rate: self.coupon, freq: self.freq, dc: self.dc, bdc: BusinessDayConvention::Following, calendar_id: None, stub: StubKind::None });
+            let built = b.build()?;
+            let coupon_flows: Vec<(Date, Money)> = built.flows.iter().filter(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub).map(|cf| (cf.date, cf.amount)).collect();
+            let mut dirty_now = coupon_flows.npv(&*disc, base, self.dc)?;
             let df_mat = DiscountCurve::df_on(&*disc, base, self.maturity, self.dc);
             dirty_now = (dirty_now + (self.notional * df_mat))?;
 
@@ -150,36 +154,33 @@ impl Priceable for Bond {
 
 impl CashflowProvider for Bond {
     fn build_schedule(&self, _curves: &CurveSet, _as_of: Date) -> finstack_core::Result<DatedFlows> {
-        let schedule = self.schedule();
-        let amort = self.amortization.clone().unwrap_or(AmortizationSpec::None);
-        let leg = CashFlowLeg::fixed_rate(
-            Notional { initial: self.notional, amort },
-            self.coupon,
-            schedule.iter().copied(),
-            self.dc,
-        )?;
+        // Build via unified cashflow builder
+        let mut b = cf();
+        b.principal(self.notional, self.issue, self.maturity);
+        if let Some(am) = &self.amortization { b.amortization(am.clone()); }
+        b.fixed_cf(FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate: self.coupon,
+            freq: self.freq,
+            dc: self.dc,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
+        });
+        let sched = b.build()?;
 
-        // Map to holder flows: coupons positive; amortization principal as positive inflow
-        let mut flows: Vec<(Date, Money)> = leg
+        // Map to holder flows: coupons positive, amortization as positive, include only positive notional (redemption)
+        let flows: Vec<(Date, Money)> = sched
             .flows
             .iter()
             .filter_map(|cf| match cf.kind {
                 CFKind::Fixed | CFKind::Stub => Some((cf.date, cf.amount)),
                 CFKind::Amortization => Some((cf.date, Money::new(-cf.amount.amount(), cf.amount.currency()))),
+                CFKind::Notional if cf.amount.amount() > 0.0 => Some((cf.date, cf.amount)),
                 _ => None,
             })
             .collect();
 
-        // Final redemption for remaining outstanding principal
-        let paid_principal = leg
-            .flows
-            .iter()
-            .filter(|cf| cf.kind == CFKind::Amortization)
-            .fold(0.0, |acc, cf| acc + (-cf.amount.amount()).max(0.0));
-        let remaining = (self.notional.amount() - paid_principal).max(0.0);
-        if remaining > 0.0 {
-            flows.push((self.maturity, Money::new(remaining, self.notional.currency())));
-        }
         Ok(flows)
     }
 }

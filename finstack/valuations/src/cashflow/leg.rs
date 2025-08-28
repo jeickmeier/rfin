@@ -137,38 +137,7 @@ impl CashFlowLeg {
         self.flows = merged;
     }
 
-    /// Build a floating-rate leg with spread-only cashflows for schedule transparency.
-    ///
-    /// This generates `CFKind::FloatReset` flows with amount = notional * (spread_bp * 1e-4 * gearing * yf),
-    /// and sets `reset_date = payment_date - reset_lag_days` (calendar days).
-    /// Full forward-rate dependent PV remains the responsibility of pricing.
-    pub fn floating_spread<I>(
-        notional: Money,
-        spread_bp: f64,
-        gearing: f64,
-        _reset_lag_days: i32,
-        schedule: I,
-        day_count: DayCount,
-    ) -> finstack_core::Result<Self>
-    where
-        I: IntoIterator<Item = Date>,
-    {
-        let dates: Vec<Date> = schedule.into_iter().collect();
-        if dates.len() < 2 {
-            return Err(InputError::TooFewPoints.into());
-        }
-        let mut flows = Vec::with_capacity(dates.len() - 1);
-        let mut prev = dates[0];
-        for &curr in &dates[1..] {
-            let yf = day_count.year_fraction(prev, curr)?;
-            let amt = notional * ((spread_bp * 1e-4 * gearing) * yf);
-            let reset_date = curr;
-            let cf = CashFlow { date: curr, reset_date: Some(reset_date), amount: amt, kind: CFKind::FloatReset, accrual_factor: yf };
-            flows.push(cf);
-            prev = curr;
-        }
-        Ok(Self { flows, notional: Notional { initial: notional, amort: AmortizationSpec::None }, day_count })
-    }
+    // floating_spread removed; use builder-based floating coupons instead
 
     /// Apply amortisation rule – inserts principal flows where applicable.
     ///
@@ -414,25 +383,7 @@ impl CashFlowLeg {
 // Additional helpers for cashflow generation outside of legs
 // -------------------------------------------------------------------------
 
-/// Build dated flows for a simple money-market deposit.
-///
-/// Principal out at start (negative), principal+simple interest back at end (positive).
-pub fn deposit_dated_flows(
-    notional: Money,
-    start: Date,
-    end: Date,
-    day_count: DayCount,
-    simple_rate: Option<f64>,
-) -> finstack_core::Result<Vec<(Date, Money)>> {
-    let principal_out = (start, notional * -1.0);
-    let yf = day_count.year_fraction(start, end)?;
-    let interest = match simple_rate {
-        Some(r) => notional * (r * yf),
-        None => Money::new(0.0, notional.currency()),
-    };
-    let redemption = (end, (notional + interest)?);
-    Ok(vec![principal_out, redemption])
-}
+// deposit_dated_flows removed; use builder in instruments::deposit
 
 /// Return floating-rate periods (prev_date, pay_date, year_fraction) from a schedule.
 #[inline]

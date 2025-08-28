@@ -8,13 +8,10 @@ use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::market_data::traits::{Discount, Forward};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
-use crate::pricing::legs;
-// use crate::cashflow::leg::CashFlowLeg; // not needed directly here
-use crate::cashflow::notional::Notional;
+use crate::cashflow::builder::{cf, FixedCouponSpec, FloatingCouponSpec as BuilderFloat, CouponType};
 use crate::pricing::discountable::Discountable;
 use crate::pricing::result::ValuationResult;
 use crate::traits::{Priceable, CashflowProvider, DatedFlows};
-use crate::cashflow::leg::CashFlowLeg;
 
 #[derive(Clone, Copy, Debug)]
 pub enum PayReceive { PayFixed, ReceiveFixed }
@@ -69,43 +66,56 @@ impl InterestRateSwap {
     }
 
     fn annuity(&self, disc: &dyn Discount) -> F {
+        // Derived from builder flows for display-only; compute sum(yf*df)
         let base = disc.base_date();
         let sched = self.schedule(self.fixed.start, self.fixed.end, self.fixed.freq, self.fixed.bdc, &self.fixed.calendar_id, self.fixed.stub);
-        legs::annuity(disc, base, self.fixed.dc, &sched)
+        if sched.len() < 2 { return 0.0; }
+        let mut acc = 0.0;
+        let mut prev = sched[0];
+        for &d in &sched[1..] {
+            let yf = DiscountCurve::year_fraction(prev, d, self.fixed.dc);
+            let df = DiscountCurve::df_on(disc, base, d, self.fixed.dc);
+            acc += yf * df;
+            prev = d;
+        }
+        acc
     }
 
     fn pv_fixed(&self, disc: &dyn Discount) -> finstack_core::Result<Money> {
         let base = disc.base_date();
-        let sched = self.schedule(self.fixed.start, self.fixed.end, self.fixed.freq, self.fixed.bdc, &self.fixed.calendar_id, self.fixed.stub);
-        let leg = CashFlowLeg::fixed_rate(
-            Notional::par(self.notional.amount(), self.notional.currency()),
-            self.fixed.rate,
-            sched.iter().copied(),
-            self.fixed.dc,
-        )?;
-        leg.npv(disc, base, self.fixed.dc)
+        let mut b = cf();
+        b.principal(self.notional, self.fixed.start, self.fixed.end)
+            .fixed_cf(FixedCouponSpec {
+                coupon_type: CouponType::Cash,
+                rate: self.fixed.rate,
+                freq: self.fixed.freq,
+                dc: self.fixed.dc,
+                bdc: self.fixed.bdc,
+                calendar_id: self.fixed.calendar_id,
+                stub: self.fixed.stub,
+            });
+        let sched = b.build()?;
+        // Discount coupon flows only
+        let flows: Vec<(Date, Money)> = sched
+            .flows
+            .iter()
+            .filter(|cf| cf.kind == crate::cashflow::primitives::CFKind::Fixed || cf.kind == crate::cashflow::primitives::CFKind::Stub)
+            .map(|cf| (cf.date, cf.amount))
+            .collect();
+        flows.npv(disc, base, sched.day_count)
     }
 
     fn pv_float(&self, disc: &dyn Discount, fwd: &dyn Forward) -> finstack_core::Result<Money> {
         let base_d = disc.base_date();
         // Assume same base date for forward curve in MVP
         let base_f = base_d;
-        let sched = self.schedule(self.float.start, self.float.end, self.float.freq, self.float.bdc, &self.float.calendar_id, self.float.stub);
-        // Build spread-only leg for transparency (flows not used for PV below, but available via build_schedule)
-        let _spread_leg = CashFlowLeg::floating_spread(
-            self.notional,
-            self.float.spread_bp,
-            1.0,
-            0,
-            sched.iter().copied(),
-            self.float.dc,
-        )?;
+        let sched_dates = self.schedule(self.float.start, self.float.end, self.float.freq, self.float.bdc, &self.float.calendar_id, self.float.stub);
 
         // PV via forward curve (gearing assumed 1.0 here)
         let mut pv = Money::new(0.0, self.notional.currency());
-        if !sched.is_empty() {
-            let mut prev = sched[0];
-            for &d in &sched[1..] {
+        if !sched_dates.is_empty() {
+            let mut prev = sched_dates[0];
+            for &d in &sched_dates[1..] {
                 let t1 = DiscountCurve::year_fraction(base_f, prev, self.float.dc);
                 let t2 = DiscountCurve::year_fraction(base_f, d, self.float.dc);
                 let yf = DiscountCurve::year_fraction(prev, d, self.float.dc);
@@ -195,28 +205,30 @@ impl Priceable for InterestRateSwap {
 
 impl CashflowProvider for InterestRateSwap {
     fn build_schedule(&self, _curves: &CurveSet, _as_of: Date) -> finstack_core::Result<DatedFlows> {
+        // Use builder to generate both legs; then map signs by side
+        let mut fixed_b = cf();
+        fixed_b.principal(self.notional, self.fixed.start, self.fixed.end)
+            .fixed_cf(FixedCouponSpec { coupon_type: CouponType::Cash, rate: self.fixed.rate, freq: self.fixed.freq, dc: self.fixed.dc, bdc: self.fixed.bdc, calendar_id: self.fixed.calendar_id, stub: self.fixed.stub });
+        let fixed_sched = fixed_b.build()?;
+
+        let mut float_b = cf();
+        float_b.principal(self.notional, self.float.start, self.float.end)
+            .floating_cf(BuilderFloat { index_id: self.float.fwd_id, margin_bp: self.float.spread_bp, gearing: 1.0, coupon_type: CouponType::Cash, freq: self.float.freq, dc: self.float.dc, bdc: self.float.bdc, calendar_id: self.float.calendar_id, stub: self.float.stub, reset_lag_days: 2 });
+        let float_sched = float_b.build()?;
+
         let mut flows: Vec<(Date, Money)> = Vec::new();
-        // Fixed leg flows
-        let fs = self.schedule(self.fixed.start, self.fixed.end, self.fixed.freq, self.fixed.bdc, &self.fixed.calendar_id, self.fixed.stub);
-        let mut prev = fs[0];
-        for &d in &fs[1..] {
-            let yf = DiscountCurve::year_fraction(prev, d, self.fixed.dc);
-            let c = self.notional * (self.fixed.rate * yf);
-            // Receive-fixed adds positive, pay-fixed negative
-            let amt = match self.side { PayReceive::ReceiveFixed => c, PayReceive::PayFixed => c * -1.0 };
-            flows.push((d, amt));
-            prev = d;
+        for cf in fixed_sched.flows {
+            if cf.kind == crate::cashflow::primitives::CFKind::Fixed || cf.kind == crate::cashflow::primitives::CFKind::Stub {
+                let amt = match self.side { PayReceive::ReceiveFixed => cf.amount, PayReceive::PayFixed => cf.amount * -1.0 };
+                flows.push((cf.date, amt));
+            }
         }
-        // Float leg flows as projected coupons (sign opposite side)
-        let ls = self.schedule(self.float.start, self.float.end, self.float.freq, self.float.bdc, &self.float.calendar_id, self.float.stub);
-        let mut prevl = ls[0];
-        for &d in &ls[1..] {
-            let yf = DiscountCurve::year_fraction(prevl, d, self.float.dc);
-            // Use spread only for generic flows; forward component belongs to curve-linked PV
-            let c = self.notional * ((self.float.spread_bp * 1e-4) * yf);
-            let amt = match self.side { PayReceive::ReceiveFixed => c * -1.0, PayReceive::PayFixed => c };
-            flows.push((d, amt));
-            prevl = d;
+        for cf in float_sched.flows {
+            if cf.kind == crate::cashflow::primitives::CFKind::FloatReset {
+                let c = cf.amount;
+                let amt = match self.side { PayReceive::ReceiveFixed => c * -1.0, PayReceive::PayFixed => c };
+                flows.push((cf.date, amt));
+            }
         }
         Ok(flows)
     }

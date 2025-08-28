@@ -4,12 +4,13 @@ use finstack_core::prelude::*;
 use finstack_core::F;
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::market_data::traits::Discount;
-
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+
 use crate::pricing::discountable::Discountable;
 use crate::pricing::result::ValuationResult;
 use crate::traits::{CashflowProvider, Priceable, DatedFlows};
-use crate::cashflow::leg::deposit_dated_flows;
+use crate::cashflow::builder::{cf, FixedCouponSpec, CouponType};
+use finstack_core::dates::{BusinessDayConvention, StubKind, Frequency};
 
 #[derive(Clone, Debug)]
 pub struct Deposit {
@@ -53,7 +54,33 @@ impl Deposit {
 
 impl CashflowProvider for Deposit {
     fn build_schedule(&self, _curves: &CurveSet, _as_of: Date) -> finstack_core::Result<DatedFlows> {
-        deposit_dated_flows(self.notional, self.start, self.end, self.day_count, self.quote_rate)
+        // Build a single-period schedule using a custom day-step equal to the total span
+        let days = (self.end - self.start).whole_days();
+        let rate = self.quote_rate.unwrap_or(0.0);
+
+        let mut b = cf();
+        b.principal(self.notional, self.start, self.end)
+            .fixed_cf(FixedCouponSpec {
+                coupon_type: CouponType::Cash,
+                rate,
+                freq: if days <= 1 { Frequency::daily() } else if days == 7 { Frequency::weekly() } else if days == 14 { Frequency::biweekly() } else { Frequency::monthly() },
+                dc: self.day_count,
+                bdc: BusinessDayConvention::Unadjusted,
+                calendar_id: None,
+                stub: StubKind::None,
+            });
+        let sched = b.build()?;
+
+        // Map to two-flow holder schedule: principal out at start; redemption at end including interest
+        // Sum all amounts on end date except the initial notional outflow
+        let mut redemption = Money::new(0.0, self.notional.currency());
+        for cf in &sched.flows {
+            if cf.date == self.end {
+                // Include both coupon and final notional
+                redemption = (redemption + cf.amount)?;
+            }
+        }
+        Ok(vec![(self.start, self.notional * -1.0), (self.end, redemption)])
     }
 }
 

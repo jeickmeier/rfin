@@ -2,8 +2,6 @@
 
 use finstack_core::prelude::*;
 use finstack_core::market_data::traits::Discount;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-
 
 /// Objects that can be present-valued against a `Discount` curve.
 pub trait Discountable {
@@ -34,13 +32,17 @@ impl Discountable for crate::cashflow::leg::CashFlowLeg {
         if self.flows.is_empty() {
             return Ok(Money::new(0.0, self.notional.initial.currency()));
         }
-        let mut total = Money::new(0.0, self.notional.initial.currency());
-        for cf in &self.flows {
-            let df = DiscountCurve::df_on(disc, base, cf.date, dc);
-            let disc_amt = cf.amount * df;
-            total = (total + disc_amt)?;
-        }
-        Ok(total)
+        let mapped: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
+        super::npv::npv(disc, base, dc, &mapped)
+    }
+}
+
+impl Discountable for crate::cashflow::builder::CashFlowSchedule {
+    type PVOutput = finstack_core::Result<Money>;
+
+    fn npv(&self, disc: &dyn Discount, base: Date, dc: DayCount) -> finstack_core::Result<Money> {
+        let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
+        super::npv::npv(disc, base, dc, &flows)
     }
 }
 
