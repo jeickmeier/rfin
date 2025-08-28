@@ -5,11 +5,13 @@
 //! metrics independently from core pricing logic. Metrics can be computed
 //! on-demand, have dependencies, and are cached for efficiency.
 
+pub mod ids;
 pub mod traits;
 pub mod registry;
 pub mod risk;
 
-pub use traits::{MetricCalculator, MetricContext, MetricsEnabled};
+pub use ids::MetricId;
+pub use traits::{MetricCalculator, MetricContext, InstrumentData, MarketData, ComputationCache};
 pub use registry::{MetricRegistry, StandardMetrics};
 pub use risk::{BucketedDv01Calculator, BucketSpec, CashflowCaching};
 

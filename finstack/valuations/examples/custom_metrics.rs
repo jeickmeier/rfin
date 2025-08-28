@@ -2,7 +2,7 @@
 
 use finstack_core::prelude::*;
 use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::metrics::{MetricCalculator, MetricContext};
+use finstack_valuations::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_valuations::pricing::discountable::Discountable;
 use finstack_valuations::traits::CashflowProvider;
 use finstack_core::market_data::multicurve::CurveSet;
@@ -14,27 +14,23 @@ use time::Month;
 struct AccruedRatioCalculator;
 
 impl MetricCalculator for AccruedRatioCalculator {
-    fn id(&self) -> &str {
-        "accrued_ratio"
+    fn id(&self) -> MetricId {
+        MetricId::custom("accrued_ratio")
     }
     
-    fn description(&self) -> &str {
-        "Ratio of accrued interest to full coupon payment"
-    }
+
     
-    fn is_applicable(&self, instrument_type: &str) -> bool {
-        instrument_type == "Bond"
-    }
-    
-    fn dependencies(&self) -> Vec<&str> {
-        vec!["accrued"]
+    fn dependencies(&self) -> &[MetricId] {
+        &[MetricId::Accrued]
     }
     
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<finstack_core::F> {
-        let bond = context.instrument_as::<Bond>()
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let bond = match context.instrument() {
+            finstack_valuations::instruments::Instrument::Bond(bond) => bond,
+            _ => return Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+        };
         
-        let accrued = context.computed.get("accrued").copied()
+        let accrued = context.cache.computed.get(&MetricId::Accrued).copied()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
         
         // Calculate full period coupon
@@ -56,24 +52,16 @@ struct SpreadCalculator {
 }
 
 impl MetricCalculator for SpreadCalculator {
-    fn id(&self) -> &str {
-        "spread_to_treasury"
+    fn id(&self) -> MetricId {
+        MetricId::custom("spread_to_treasury")
     }
     
-    fn description(&self) -> &str {
-        "Spread to treasury benchmark in basis points"
-    }
-    
-    fn is_applicable(&self, instrument_type: &str) -> bool {
-        instrument_type == "Bond"
-    }
-    
-    fn dependencies(&self) -> Vec<&str> {
-        vec!["ytm"]
+    fn dependencies(&self) -> &[MetricId] {
+        &[MetricId::Ytm]
     }
     
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<finstack_core::F> {
-        let ytm = context.computed.get("ytm").copied()
+        let ytm = context.cache.computed.get(&MetricId::Ytm).copied()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
         
         // Convert spread to basis points
@@ -85,23 +73,17 @@ impl MetricCalculator for SpreadCalculator {
 struct TimeToMaturityCalculator;
 
 impl MetricCalculator for TimeToMaturityCalculator {
-    fn id(&self) -> &str {
-        "time_to_maturity"
-    }
-    
-    fn description(&self) -> &str {
-        "Time to maturity in years"
-    }
-    
-    fn is_applicable(&self, instrument_type: &str) -> bool {
-        instrument_type == "Bond"
+    fn id(&self) -> MetricId {
+        MetricId::custom("time_to_maturity")
     }
     
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<finstack_core::F> {
-        let bond = context.instrument_as::<Bond>()
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let bond = match context.instrument() {
+            finstack_valuations::instruments::Instrument::Bond(bond) => bond,
+            _ => return Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+        };
         
-        let years = DiscountCurve::year_fraction(context.as_of, bond.maturity, bond.dc);
+        let years = DiscountCurve::year_fraction(context.market_data.as_of, bond.maturity, bond.dc);
         Ok(years)
     }
 }
@@ -149,7 +131,7 @@ fn main() -> finstack_core::Result<()> {
     
     // Create context
     let mut context = MetricContext::new(
-        Arc::new(bond.clone()) as Arc<dyn std::any::Any + Send + Sync>,
+        Arc::new(finstack_valuations::instruments::Instrument::Bond(bond.clone())),
         "Bond".to_string(),
         curves.clone(),
         as_of,
@@ -158,12 +140,12 @@ fn main() -> finstack_core::Result<()> {
     
     // Compute standard + custom metrics
     let all_metrics = [
-        "accrued",
-        "ytm",
-        "duration_mod",
-        "accrued_ratio",  // custom
-        "spread_to_treasury",  // custom
-        "time_to_maturity",  // custom
+        MetricId::Accrued,
+        MetricId::Ytm,
+        MetricId::DurationMod,
+        MetricId::custom("accrued_ratio"),  // custom
+        MetricId::custom("spread_to_treasury"),  // custom
+        MetricId::custom("time_to_maturity"),  // custom
     ];
     
     let results = registry.compute(&all_metrics, &mut context)?;
@@ -172,14 +154,14 @@ fn main() -> finstack_core::Result<()> {
     println!("Present Value: {:.2} {}\n", base_value.amount(), base_value.currency());
     
     println!("Standard Metrics:");
-    println!("  Accrued Interest: {:.2}", results["accrued"]);
-    println!("  Yield to Maturity: {:.4}%", results["ytm"] * 100.0);
-    println!("  Modified Duration: {:.4}", results["duration_mod"]);
+    println!("  Accrued Interest: {:.2}", results.get(&MetricId::Accrued).unwrap());
+    println!("  Yield to Maturity: {:.4}%", results.get(&MetricId::Ytm).unwrap() * 100.0);
+    println!("  Modified Duration: {:.4}", results.get(&MetricId::DurationMod).unwrap());
     
     println!("\nCustom Metrics:");
-    println!("  Accrued Ratio: {:.2}%", results["accrued_ratio"] * 100.0);
-    println!("  Spread to Treasury: {:.0} bps", results["spread_to_treasury"]);
-    println!("  Time to Maturity: {:.2} years", results["time_to_maturity"]);
+    println!("  Accrued Ratio: {:.2}%", results.get(&MetricId::custom("accrued_ratio")).unwrap() * 100.0);
+    println!("  Spread to Treasury: {:.0} bps", results.get(&MetricId::custom("spread_to_treasury")).unwrap());
+    println!("  Time to Maturity: {:.2} years", results.get(&MetricId::custom("time_to_maturity")).unwrap());
     
     println!("\n=== Dependency Resolution ===");
     println!("The framework automatically resolved dependencies:");

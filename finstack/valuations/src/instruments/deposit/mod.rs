@@ -38,8 +38,9 @@ impl Priceable for Deposit {
         &self, 
         curves: &CurveSet, 
         as_of: Date, 
-        metrics: &[&str]
+        metrics: &[crate::metrics::MetricId]
     ) -> finstack_core::Result<ValuationResult> {
+        use crate::instruments::Instrument;
         use crate::metrics::{MetricContext, standard_registry};
         use std::sync::Arc;
         
@@ -48,7 +49,7 @@ impl Priceable for Deposit {
         
         // Create metric context
         let mut context = MetricContext::new(
-            Arc::new(self.clone()) as Arc<dyn std::any::Any + Send + Sync>,
+            Arc::new(Instrument::Deposit(self.clone())),
             "Deposit".to_string(),
             Arc::new(curves.clone()),
             as_of,
@@ -57,7 +58,13 @@ impl Priceable for Deposit {
         
         // Get registry and compute requested metrics
         let registry = standard_registry();
-        let measures = registry.compute(metrics, &mut context)?;
+        let metric_measures = registry.compute(metrics, &mut context)?;
+        
+        // Convert MetricId keys to String keys for ValuationResult
+        let measures: hashbrown::HashMap<String, finstack_core::F> = metric_measures
+            .into_iter()
+            .map(|(k, v)| (k.as_str().to_string(), v))
+            .collect();
         
         // Create result
         let mut result = ValuationResult::stamped(self.id.clone(), as_of, base_value);
@@ -69,12 +76,13 @@ impl Priceable for Deposit {
     /// Compute full valuation with all standard deposit metrics (backward compatible).
     fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
         // Standard deposit metrics
-        let mut standard_metrics = vec!["yf", "df_start", "df_end", "deposit_par_rate"];
+        use crate::metrics::MetricId;
+        let mut standard_metrics = vec![MetricId::Yf, MetricId::DfStart, MetricId::DfEnd, MetricId::DepositParRate];
         
         // Add quote-related metrics if we have a quoted rate
         if self.quote_rate.is_some() {
-            standard_metrics.push("df_end_from_quote");
-            standard_metrics.push("quote_rate");
+            standard_metrics.push(MetricId::DfEndFromQuote);
+            standard_metrics.push(MetricId::QuoteRate);
         }
         
         let mut result = self.price_with_metrics(curves, as_of, &standard_metrics)?;

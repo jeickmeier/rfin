@@ -4,6 +4,7 @@ use finstack_core::prelude::*;
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::market_data::traits::Discount;
 use crate::pricing::discountable::Discountable;
+use crate::metrics::MetricId;
 
 /// Currency-preserving schedule as a list of dated `Money` amounts.
 pub type DatedFlows = Vec<(Date, Money)>;
@@ -47,12 +48,15 @@ pub trait Priceable: Send + Sync {
         &self, 
         curves: &CurveSet, 
         as_of: Date, 
-        metrics: &[&str]
+        metrics: &[MetricId]
     ) -> finstack_core::Result<super::pricing::result::ValuationResult> {
         // Default implementation: just calls price() and filters metrics
         let result = self.price(curves, as_of)?;
         let mut filtered_result = result.clone();
-        filtered_result.measures.retain(|k, _| metrics.contains(&k.as_str()));
+        
+        // Convert MetricIds to strings for filtering
+        let metric_strs: Vec<String> = metrics.iter().map(|m| m.as_str().to_string()).collect();
+        filtered_result.measures.retain(|k, _| metric_strs.contains(k));
         Ok(filtered_result)
     }
 }

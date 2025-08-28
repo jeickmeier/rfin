@@ -140,8 +140,9 @@ impl Priceable for InterestRateSwap {
         &self, 
         curves: &CurveSet, 
         as_of: Date, 
-        metrics: &[&str]
+        metrics: &[crate::metrics::MetricId]
     ) -> finstack_core::Result<ValuationResult> {
+        use crate::instruments::Instrument;
         use crate::metrics::{MetricContext, standard_registry};
         use std::sync::Arc;
         
@@ -150,7 +151,7 @@ impl Priceable for InterestRateSwap {
         
         // Create metric context
         let mut context = MetricContext::new(
-            Arc::new(self.clone()) as Arc<dyn std::any::Any + Send + Sync>,
+            Arc::new(Instrument::IRS(self.clone())),
             "IRS".to_string(),
             Arc::new(curves.clone()),
             as_of,
@@ -159,7 +160,13 @@ impl Priceable for InterestRateSwap {
         
         // Get registry and compute requested metrics
         let registry = standard_registry();
-        let measures = registry.compute(metrics, &mut context)?;
+        let metric_measures = registry.compute(metrics, &mut context)?;
+        
+        // Convert MetricId keys to String keys for ValuationResult
+        let measures: hashbrown::HashMap<String, finstack_core::F> = metric_measures
+            .into_iter()
+            .map(|(k, v)| (k.as_str().to_string(), v))
+            .collect();
         
         // Create result
         let mut result = ValuationResult::stamped(self.id.clone(), as_of, base_value);
@@ -171,7 +178,8 @@ impl Priceable for InterestRateSwap {
     /// Compute full valuation with all standard IRS metrics (backward compatible).
     fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
         // Standard IRS metrics
-        let standard_metrics = ["annuity", "par_rate", "dv01", "pv_fixed", "pv_float"];
+        use crate::metrics::MetricId;
+        let standard_metrics = [MetricId::Annuity, MetricId::ParRate, MetricId::Dv01, MetricId::PvFixed, MetricId::PvFloat];
         self.price_with_metrics(curves, as_of, &standard_metrics)
     }
 }

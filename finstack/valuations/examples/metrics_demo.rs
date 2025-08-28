@@ -2,7 +2,7 @@
 
 use finstack_core::prelude::*;
 use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::metrics::{MetricContext, standard_registry};
+use finstack_valuations::metrics::{MetricContext, MetricId, standard_registry};
 use finstack_valuations::pricing::discountable::Discountable;
 use finstack_valuations::traits::CashflowProvider;
 use finstack_core::market_data::multicurve::CurveSet;
@@ -45,7 +45,7 @@ fn main() -> finstack_core::Result<()> {
     // Step 2: Compute specific metrics on demand
     println!("\n=== On-Demand Metrics ===");
     let mut context = MetricContext::new(
-        Arc::new(bond.clone()) as Arc<dyn std::any::Any + Send + Sync>,
+        Arc::new(finstack_valuations::instruments::Instrument::Bond(bond.clone())),
         "Bond".to_string(),
         curves.clone(),
         as_of,
@@ -55,25 +55,25 @@ fn main() -> finstack_core::Result<()> {
     let registry = standard_registry();
     
     // Compute only the metrics we need
-    let requested = ["accrued", "ytm"];
+    let requested = [MetricId::Accrued, MetricId::Ytm];
     let metrics = registry.compute(&requested, &mut context)?;
     
-    for (name, value) in &metrics {
-        println!("{}: {:.4}", name, value);
+    for (id, value) in &metrics {
+        println!("{}: {:.4}", id.as_str(), value);
     }
     
     // Step 3: Compute additional metrics (with dependency handling)
     println!("\n=== Additional Metrics (with Dependencies) ===");
-    let risk_metrics = ["duration_mac", "duration_mod", "convexity"];
+    let risk_metrics = [MetricId::DurationMac, MetricId::DurationMod, MetricId::Convexity];
     let additional = registry.compute(&risk_metrics, &mut context)?;
     
-    for (name, value) in &additional {
-        println!("{}: {:.4}", name, value);
+    for (id, value) in &additional {
+        println!("{}: {:.4}", id.as_str(), value);
     }
     
     // Notice that YTM was already cached and not recomputed
     println!("\n=== All Computed Metrics ===");
-    for (name, value) in &context.computed {
+    for (name, value) in &context.cache.computed {
         println!("{}: {:.4}", name, value);
     }
     

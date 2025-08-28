@@ -42,17 +42,18 @@ pub struct CallPutSchedule { pub calls: Vec<CallPut>, pub puts: Vec<CallPut> }
 
 impl Bond {
     /// Get the standard metrics for a bond based on its configuration.
-    fn get_standard_metrics(&self) -> Vec<&str> {
-        let mut metrics = vec!["accrued", "clean_price"];
+    fn get_standard_metrics(&self) -> Vec<crate::metrics::MetricId> {
+        use crate::metrics::MetricId;
+        let mut metrics = vec![MetricId::Accrued, MetricId::CleanPrice];
         
         // Add dirty price and YTM-related metrics only if we have a quoted price
         if self.quoted_clean.is_some() {
-            metrics.extend_from_slice(&["dirty_price", "ytm", "duration_mac", "duration_mod", "convexity", "cs01"]);
+            metrics.extend_from_slice(&[MetricId::DirtyPrice, MetricId::Ytm, MetricId::DurationMac, MetricId::DurationMod, MetricId::Convexity, MetricId::Cs01]);
         }
         
         // YTW only if we have call/put schedule and quoted price
         if self.call_put.is_some() && self.quoted_clean.is_some() {
-            metrics.push("ytw");
+            metrics.push(MetricId::Ytw);
         }
         
         metrics
@@ -72,8 +73,9 @@ impl Priceable for Bond {
         &self, 
         curves: &CurveSet, 
         as_of: Date, 
-        metrics: &[&str]
+        metrics: &[crate::metrics::MetricId]
     ) -> finstack_core::Result<ValuationResult> {
+        use crate::instruments::Instrument;
         use crate::metrics::{MetricContext, standard_registry};
         use std::sync::Arc;
         
@@ -82,7 +84,7 @@ impl Priceable for Bond {
         
         // Create metric context
         let mut context = MetricContext::new(
-            Arc::new(self.clone()) as Arc<dyn std::any::Any + Send + Sync>,
+            Arc::new(Instrument::Bond(self.clone())),
             "Bond".to_string(),
             Arc::new(curves.clone()),
             as_of,
@@ -91,7 +93,13 @@ impl Priceable for Bond {
         
         // Get registry and compute requested metrics
         let registry = standard_registry();
-        let measures = registry.compute(metrics, &mut context)?;
+        let metric_measures = registry.compute(metrics, &mut context)?;
+        
+        // Convert MetricId keys to String keys for ValuationResult
+        let measures: hashbrown::HashMap<String, finstack_core::F> = metric_measures
+            .into_iter()
+            .map(|(k, v)| (k.as_str().to_string(), v))
+            .collect();
         
         // Create result
         let mut result = ValuationResult::stamped(self.id.clone(), as_of, base_value);

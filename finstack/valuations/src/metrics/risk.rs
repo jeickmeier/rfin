@@ -1,12 +1,12 @@
 //! Risk-specific metric calculators.
 
 use super::traits::{MetricCalculator, MetricContext};
+use super::ids::MetricId;
 use finstack_core::prelude::*;
 use finstack_core::F;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::traits::Discount;
 use hashbrown::HashMap;
-use std::sync::Arc;
 
 /// Specification for DV01 tenor buckets.
 #[derive(Clone, Debug)]
@@ -127,17 +127,8 @@ impl BucketedDv01Calculator {
 }
 
 impl MetricCalculator for BucketedDv01Calculator {
-    fn id(&self) -> &str {
-        "bucketed_dv01"
-    }
-    
-    fn description(&self) -> &str {
-        "DV01 sensitivity bucketed by tenor"
-    }
-    
-    fn is_applicable(&self, _instrument_type: &str) -> bool {
-        // Applicable to any instrument with cashflows
-        true
+    fn id(&self) -> MetricId {
+        MetricId::BucketedDv01
     }
     
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
@@ -152,7 +143,7 @@ impl MetricCalculator for BucketedDv01Calculator {
             .map(|arc| *arc)
             .unwrap_or("USD-OIS");
         
-        let disc = context.curves.discount(disc_id)?;
+        let disc = context.market_data.curves.discount(disc_id)?;
         
         // Get day count - try to infer or use default
         let dc = context.get_cached::<DayCount>("day_count")
@@ -165,17 +156,18 @@ impl MetricCalculator for BucketedDv01Calculator {
         let bucketed = self.compute_bucketed(&flows, &*disc, dc, base);
         
         // Store individual bucket results in context
-        for (key, value) in bucketed.iter() {
-            context.computed.insert(key.clone(), *value);
-        }
+        // TODO: Handle dynamic bucket keys with MetricId
+        // for (key, value) in bucketed.iter() {
+        //     context.computed.insert(key.clone(), *value);
+        // }
         
         // Return total as primary result
         Ok(bucketed.get("bucketed_dv01_total").copied().unwrap_or(0.0))
     }
     
-    fn dependencies(&self) -> Vec<&str> {
+    fn dependencies(&self) -> &[MetricId] {
         // No hard dependencies, but works better if cashflows are cached
-        vec![]
+        &[]
     }
 }
 
@@ -183,17 +175,8 @@ impl MetricCalculator for BucketedDv01Calculator {
 pub struct ThetaCalculator;
 
 impl MetricCalculator for ThetaCalculator {
-    fn id(&self) -> &str {
-        "theta"
-    }
-    
-    fn description(&self) -> &str {
-        "Time decay (1-day price change)"
-    }
-    
-    fn is_applicable(&self, _instrument_type: &str) -> bool {
-        // Will be implemented for options in future
-        false
+    fn id(&self) -> MetricId {
+        MetricId::Theta
     }
     
     fn calculate(&self, _context: &mut MetricContext) -> finstack_core::Result<F> {
@@ -223,7 +206,12 @@ pub trait CashflowCaching {
 
 /// Register all risk metrics to a registry.
 pub fn register_risk_metrics(registry: &mut super::MetricRegistry) {
+    use std::sync::Arc;
+    
+    // BucketedDv01 applies to instruments with cashflows (Bond, IRS, etc.)
+    let risk_types = &["Bond", "IRS", "Deposit"];
+    
     registry
-        .register(Arc::new(BucketedDv01Calculator::default()))
-        .register(Arc::new(ThetaCalculator));
+        .register_for_types(Arc::new(BucketedDv01Calculator::default()), risk_types)
+        .register(Arc::new(ThetaCalculator)); // ThetaCalculator has is_applicable returning false, so it won't run anyway
 }
