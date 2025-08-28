@@ -97,7 +97,7 @@ impl MetricCalculator for MyCustomMetric {
 }
 
 let mut registry = standard_registry();
-registry.register(Arc::new(MyCustomMetric));
+registry.register_metric(MetricId::MyCustom, Arc::new(MyCustomMetric), &["Bond"]);
 ```
 
 ### Direct Registry Usage

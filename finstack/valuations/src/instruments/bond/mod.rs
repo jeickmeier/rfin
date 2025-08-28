@@ -85,7 +85,6 @@ impl Priceable for Bond {
         // Create metric context
         let mut context = MetricContext::new(
             Arc::new(Instrument::Bond(self.clone())),
-            "Bond".to_string(),
             Arc::new(curves.clone()),
             as_of,
             base_value,

@@ -1,8 +1,7 @@
 #![allow(missing_docs)]
-
-pub mod deposit;
 pub mod irs;
 pub mod bond;
+pub mod deposit;
 
 pub use bond::Bond;
 pub use deposit::Deposit;
@@ -18,6 +17,20 @@ pub enum Instrument {
     IRS(InterestRateSwap),
     /// Deposit instrument
     Deposit(Deposit),
+}
+
+impl Instrument {
+    /// Return the instrument type as a string identifier.
+    /// 
+    /// This centralizes instrument type detection logic and eliminates
+    /// repeated match statements throughout the codebase.
+    pub fn instrument_type(&self) -> &'static str {
+        match self {
+            Instrument::Bond(_) => "Bond",
+            Instrument::IRS(_) => "IRS",
+            Instrument::Deposit(_) => "Deposit",
+        }
+    }
 }
 
 

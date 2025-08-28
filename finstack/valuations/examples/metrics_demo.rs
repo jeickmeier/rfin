@@ -46,7 +46,6 @@ fn main() -> finstack_core::Result<()> {
     println!("\n=== On-Demand Metrics ===");
     let mut context = MetricContext::new(
         Arc::new(finstack_valuations::instruments::Instrument::Bond(bond.clone())),
-        "Bond".to_string(),
         curves.clone(),
         as_of,
         base_value,
@@ -73,7 +72,7 @@ fn main() -> finstack_core::Result<()> {
     
     // Notice that YTM was already cached and not recomputed
     println!("\n=== All Computed Metrics ===");
-    for (name, value) in &context.cache.computed {
+    for (name, value) in &context.computed {
         println!("{}: {:.4}", name, value);
     }
     

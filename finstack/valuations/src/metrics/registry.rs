@@ -14,8 +14,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct MetricRegistry {
     calculators: HashMap<MetricId, Arc<dyn MetricCalculator>>,
-    /// Maps instrument types to applicable metric IDs
-    applicability: HashMap<String, hashbrown::HashSet<MetricId>>,
+    applicability: HashMap<MetricId, Vec<&'static str>>,
 }
 
 impl MetricRegistry {
@@ -26,45 +25,31 @@ impl MetricRegistry {
             applicability: HashMap::new(),
         }
     }
-    
-    /// Register a metric calculator for specific instrument types.
+}
+
+impl Default for MetricRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl MetricRegistry {
+    /// Register a metric calculator with explicit ID and applicability.
     /// 
     /// If a calculator with the same ID already exists, it will be replaced.
-    /// The `applicable_types` parameter specifies which instrument types
-    /// this metric applies to. If empty, the metric applies to all instruments.
-    pub fn register(&mut self, calculator: Arc<dyn MetricCalculator>) -> &mut Self {
-        let metric_id = calculator.id();
-        self.calculators.insert(metric_id, calculator);
-        self
-    }
-    
-    /// Register a metric calculator with explicit applicability.
-    pub fn register_for_types(
-        &mut self,
+    /// The `applicable_to` parameter explicitly specifies which instrument types
+    /// this metric applies to. An empty slice means it applies to all instruments.
+    pub fn register_metric(
+        &mut self, 
+        id: MetricId,
         calculator: Arc<dyn MetricCalculator>,
-        applicable_types: &[&str],
+        applicable_to: &[&'static str]
     ) -> &mut Self {
-        let metric_id = calculator.id();
-        self.calculators.insert(metric_id.clone(), calculator);
-        
-        // Add to applicability map
-        for instrument_type in applicable_types {
-            self.applicability
-                .entry(instrument_type.to_string())
-                .or_insert_with(hashbrown::HashSet::new)
-                .insert(metric_id.clone());
-        }
+        self.applicability.insert(id.clone(), applicable_to.to_vec());
+        self.calculators.insert(id, calculator);
         self
     }
-    
-    /// Register multiple calculators at once.
-    pub fn register_many(&mut self, calculators: Vec<Arc<dyn MetricCalculator>>) -> &mut Self {
-        for calc in calculators {
-            self.register(calc);
-        }
-        self
-    }
-    
+
     /// Check if a metric is registered.
     pub fn has_metric(&self, id: MetricId) -> bool {
         self.calculators.contains_key(&id)
@@ -77,21 +62,21 @@ impl MetricRegistry {
     
     /// Get metrics applicable to a specific instrument type.
     pub fn metrics_for_instrument(&self, instrument_type: &str) -> Vec<MetricId> {
-        if let Some(metrics) = self.applicability.get(instrument_type) {
-            metrics.iter().cloned().collect()
-        } else {
-            // If no explicit applicability, return all metrics (for backward compatibility)
-            self.calculators.keys().cloned().collect()
-        }
+        self.applicability
+            .iter()
+            .filter(|(_, applicable)| {
+                applicable.is_empty() || applicable.contains(&instrument_type)
+            })
+            .map(|(id, _)| id.clone())
+            .collect()
     }
     
     /// Check if a metric is applicable to a specific instrument type.
     pub fn is_applicable(&self, metric_id: &MetricId, instrument_type: &str) -> bool {
-        if let Some(metrics) = self.applicability.get(instrument_type) {
-            metrics.contains(metric_id)
+        if let Some(applicable) = self.applicability.get(metric_id) {
+            applicable.is_empty() || applicable.contains(&instrument_type)
         } else {
-            // If no explicit applicability mapping, assume all metrics are applicable
-            self.calculators.contains_key(metric_id)
+            false
         }
     }
     
@@ -115,10 +100,13 @@ impl MetricRegistry {
         // Build dependency graph and compute order
         let order = self.resolve_dependencies(metric_ids)?;
         
+        // Get instrument type once from the instrument
+        let instrument_type = context.instrument.instrument_type();
+        
         // Compute metrics in dependency order
         for metric_id in order {
             // Skip if already computed
-            if context.cache.computed.contains_key(&metric_id) {
+            if context.computed.contains_key(&metric_id) {
                 continue;
             }
             
@@ -129,19 +117,19 @@ impl MetricRegistry {
                 ))?;
             
             // Check if applicable to this instrument
-            if !self.is_applicable(&metric_id, &context.instrument_data.instrument_type) {
+            if !self.is_applicable(&metric_id, instrument_type) {
                 continue;
             }
             
             // Compute metric
             let value = calc.calculate(context)?;
-            context.cache.computed.insert(metric_id, value);
+            context.computed.insert(metric_id, value);
         }
         
         // Return only the requested metrics
         let mut results = HashMap::new();
         for id in metric_ids {
-            if let Some(&value) = context.cache.computed.get(id) {
+            if let Some(&value) = context.computed.get(id) {
                 results.insert(id.clone(), value);
             }
         }
@@ -154,7 +142,8 @@ impl MetricRegistry {
         &self,
         context: &mut MetricContext,
     ) -> finstack_core::Result<HashMap<MetricId, F>> {
-        let applicable = self.metrics_for_instrument(&context.instrument_data.instrument_type);
+        let instrument_type = context.instrument.instrument_type();
+        let applicable = self.metrics_for_instrument(instrument_type);
         self.compute(&applicable, context)
     }
     
@@ -208,18 +197,4 @@ impl MetricRegistry {
     }
 }
 
-impl Default for MetricRegistry {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
-/// Global registry builder for standard metrics.
-pub struct StandardMetrics;
-
-impl StandardMetrics {
-    /// Create a combined registry with all standard metrics.
-    pub fn combined_registry() -> MetricRegistry {
-        MetricRegistry::new()
-    }
-}

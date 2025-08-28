@@ -14,23 +14,18 @@ use time::Month;
 struct AccruedRatioCalculator;
 
 impl MetricCalculator for AccruedRatioCalculator {
-    fn id(&self) -> MetricId {
-        MetricId::custom("accrued_ratio")
-    }
-    
 
-    
     fn dependencies(&self) -> &[MetricId] {
         &[MetricId::Accrued]
     }
     
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<finstack_core::F> {
-        let bond = match context.instrument() {
+        let bond = match &*context.instrument {
             finstack_valuations::instruments::Instrument::Bond(bond) => bond,
             _ => return Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
         };
         
-        let accrued = context.cache.computed.get(&MetricId::Accrued).copied()
+        let accrued = context.computed.get(&MetricId::Accrued).copied()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
         
         // Calculate full period coupon
@@ -52,16 +47,14 @@ struct SpreadCalculator {
 }
 
 impl MetricCalculator for SpreadCalculator {
-    fn id(&self) -> MetricId {
-        MetricId::custom("spread_to_treasury")
-    }
+
     
     fn dependencies(&self) -> &[MetricId] {
         &[MetricId::Ytm]
     }
     
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<finstack_core::F> {
-        let ytm = context.cache.computed.get(&MetricId::Ytm).copied()
+        let ytm = context.computed.get(&MetricId::Ytm).copied()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
         
         // Convert spread to basis points
@@ -73,17 +66,15 @@ impl MetricCalculator for SpreadCalculator {
 struct TimeToMaturityCalculator;
 
 impl MetricCalculator for TimeToMaturityCalculator {
-    fn id(&self) -> MetricId {
-        MetricId::custom("time_to_maturity")
-    }
+
     
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<finstack_core::F> {
-        let bond = match context.instrument() {
+        let bond = match &*context.instrument {
             finstack_valuations::instruments::Instrument::Bond(bond) => bond,
             _ => return Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
         };
         
-        let years = DiscountCurve::year_fraction(context.market_data.as_of, bond.maturity, bond.dc);
+        let years = DiscountCurve::year_fraction(context.as_of, bond.maturity, bond.dc);
         Ok(years)
     }
 }
@@ -123,16 +114,15 @@ fn main() -> finstack_core::Result<()> {
     
     // Add our custom metrics
     registry
-        .register(Arc::new(AccruedRatioCalculator))
-        .register(Arc::new(SpreadCalculator { treasury_rate: 0.04 }))
-        .register(Arc::new(TimeToMaturityCalculator));
+        .register_metric(MetricId::custom("accrued_ratio"), Arc::new(AccruedRatioCalculator), &["Bond"])
+        .register_metric(MetricId::custom("spread_to_treasury"), Arc::new(SpreadCalculator { treasury_rate: 0.04 }), &["Bond"])
+        .register_metric(MetricId::custom("time_to_maturity"), Arc::new(TimeToMaturityCalculator), &["Bond"]);
     
     println!("=== Custom Metrics Demo ===\n");
     
     // Create context
     let mut context = MetricContext::new(
         Arc::new(finstack_valuations::instruments::Instrument::Bond(bond.clone())),
-        "Bond".to_string(),
         curves.clone(),
         as_of,
         base_value,

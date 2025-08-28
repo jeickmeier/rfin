@@ -152,7 +152,6 @@ impl Priceable for InterestRateSwap {
         // Create metric context
         let mut context = MetricContext::new(
             Arc::new(Instrument::IRS(self.clone())),
-            "IRS".to_string(),
             Arc::new(curves.clone()),
             as_of,
             base_value,

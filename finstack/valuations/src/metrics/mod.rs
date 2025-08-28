@@ -1,4 +1,4 @@
-#![deny(missing_docs)]
+
 //! Metrics framework for clean separation of pricing and measures.
 //! 
 //! This module provides a trait-based architecture for computing financial
@@ -11,8 +11,8 @@ pub mod registry;
 pub mod risk;
 
 pub use ids::MetricId;
-pub use traits::{MetricCalculator, MetricContext, InstrumentData, MarketData, ComputationCache};
-pub use registry::{MetricRegistry, StandardMetrics};
+pub use traits::{MetricCalculator, MetricContext};
+pub use registry::MetricRegistry;
 pub use risk::{BucketedDv01Calculator, BucketSpec, CashflowCaching};
 
 /// Create a standard metric registry with all built-in metrics.

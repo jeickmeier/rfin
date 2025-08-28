@@ -248,7 +248,6 @@ fn dv01_bucketed_bond_simple() {
     // Create metric context and compute with standard metrics (which includes risk metrics)
     let mut context = MetricContext::new(
         Arc::new(finstack_valuations::instruments::Instrument::Bond(bond.clone())),
-        "Bond".to_string(),
         curves.clone(),
         issue,
         base_value,

@@ -127,25 +127,21 @@ impl BucketedDv01Calculator {
 }
 
 impl MetricCalculator for BucketedDv01Calculator {
-    fn id(&self) -> MetricId {
-        MetricId::BucketedDv01
-    }
-    
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         // Get or compute cashflows
-        let flows = context.get_cached_cashflows()
+        let flows = context.cashflows.as_ref()
             .ok_or_else(|| finstack_core::Error::from(
                 finstack_core::error::InputError::NotFound
             ))?;
         
         // Get discount curve - try to infer from instrument or use default
-        let disc_id = context.get_cached_discount_curve()
+        let disc_id = context.discount_curve_id
             .unwrap_or("USD-OIS");
         
-        let disc = context.market_data.curves.discount(disc_id)?;
+        let disc = context.curves.discount(disc_id)?;
         
         // Get day count - try to infer or use default
-        let dc = context.get_cached_day_count()
+        let dc = context.day_count
             .unwrap_or(DayCount::Act365F);
         
         let base = disc.base_date();
@@ -173,10 +169,6 @@ impl MetricCalculator for BucketedDv01Calculator {
 pub struct ThetaCalculator;
 
 impl MetricCalculator for ThetaCalculator {
-    fn id(&self) -> MetricId {
-        MetricId::Theta
-    }
-    
     fn calculate(&self, _context: &mut MetricContext) -> finstack_core::Result<F> {
         Err(finstack_core::Error::from(
             finstack_core::error::InputError::Invalid
@@ -188,28 +180,26 @@ impl MetricCalculator for ThetaCalculator {
 pub trait CashflowCaching {
     /// Cache cashflows in the metric context for risk calculations.
     fn cache_cashflows(&self, context: &mut MetricContext, flows: Vec<(Date, Money)>) {
-        context.cache_cashflows(flows);
+        context.cashflows = Some(flows);
     }
     
     /// Cache the discount curve ID to use.
     fn cache_discount_curve(&self, context: &mut MetricContext, curve_id: &'static str) {
-        context.cache_discount_curve(curve_id);
+        context.discount_curve_id = Some(curve_id);
     }
     
     /// Cache the day count convention.
     fn cache_day_count(&self, context: &mut MetricContext, dc: DayCount) {
-        context.cache_day_count(dc);
+        context.day_count = Some(dc);
     }
 }
 
 /// Register all risk metrics to a registry.
 pub fn register_risk_metrics(registry: &mut super::MetricRegistry) {
     use std::sync::Arc;
-    
-    // BucketedDv01 applies to instruments with cashflows (Bond, IRS, etc.)
-    let risk_types = &["Bond", "IRS", "Deposit"];
+    use super::MetricId;
     
     registry
-        .register_for_types(Arc::new(BucketedDv01Calculator::default()), risk_types)
-        .register(Arc::new(ThetaCalculator)); // ThetaCalculator has is_applicable returning false, so it won't run anyway
+        .register_metric(MetricId::BucketedDv01, Arc::new(BucketedDv01Calculator::default()), &["Bond", "IRS", "Deposit"])
+        .register_metric(MetricId::Theta, Arc::new(ThetaCalculator), &[]);
 }
