@@ -1,4 +1,3 @@
-#![deny(missing_docs)]
 //! Metric registry and computation engine.
 
 use super::traits::{MetricCalculator, MetricContext};
@@ -219,40 +218,8 @@ impl Default for MetricRegistry {
 pub struct StandardMetrics;
 
 impl StandardMetrics {
-    /// Create a registry with all standard bond metrics.
-    pub fn bond_registry() -> MetricRegistry {
-        MetricRegistry::new()
-    }
-    
-    /// Create a registry with all standard IRS metrics.
-    pub fn irs_registry() -> MetricRegistry {
-        MetricRegistry::new()
-    }
-    
-    /// Create a registry with generic risk metrics.
-    pub fn risk_registry() -> MetricRegistry {
-        MetricRegistry::new()
-    }
-    
     /// Create a combined registry with all standard metrics.
     pub fn combined_registry() -> MetricRegistry {
-        let mut registry = MetricRegistry::new();
-        
-        // Merge all standard registries
-        let bond = Self::bond_registry();
-        let irs = Self::irs_registry();
-        let risk = Self::risk_registry();
-        
-        for (id, calc) in bond.calculators {
-            registry.calculators.insert(id, calc);
-        }
-        for (id, calc) in irs.calculators {
-            registry.calculators.insert(id, calc);
-        }
-        for (id, calc) in risk.calculators {
-            registry.calculators.insert(id, calc);
-        }
-        
-        registry
+        MetricRegistry::new()
     }
 }

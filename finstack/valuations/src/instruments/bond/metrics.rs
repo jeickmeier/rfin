@@ -28,9 +28,9 @@ impl MetricCalculator for AccruedInterestCalculator {
         };
         
         // Cache flows for other metrics (including risk metrics)
-        context.cache_value("cashflows", flows.clone());
-        context.cache_value("discount_curve_id", disc_id);
-        context.cache_value("day_count", dc);
+        context.cache_cashflows(flows.clone());
+        context.cache_discount_curve(disc_id);
+        context.cache_day_count(dc);
         
         // Extract coupon dates from flows - filter for positive flows (coupons) 
         let mut coupon_dates: Vec<Date> = flows.iter()

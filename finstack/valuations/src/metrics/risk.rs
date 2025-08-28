@@ -133,27 +133,25 @@ impl MetricCalculator for BucketedDv01Calculator {
     
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         // Get or compute cashflows
-        let flows = context.get_cached::<Vec<(Date, Money)>>("cashflows")
+        let flows = context.get_cached_cashflows()
             .ok_or_else(|| finstack_core::Error::from(
                 finstack_core::error::InputError::NotFound
             ))?;
         
         // Get discount curve - try to infer from instrument or use default
-        let disc_id = context.get_cached::<&'static str>("discount_curve_id")
-            .map(|arc| *arc)
+        let disc_id = context.get_cached_discount_curve()
             .unwrap_or("USD-OIS");
         
         let disc = context.market_data.curves.discount(disc_id)?;
         
         // Get day count - try to infer or use default
-        let dc = context.get_cached::<DayCount>("day_count")
-            .map(|arc| *arc)
+        let dc = context.get_cached_day_count()
             .unwrap_or(DayCount::Act365F);
         
         let base = disc.base_date();
         
         // Compute all bucketed DV01s
-        let bucketed = self.compute_bucketed(&flows, &*disc, dc, base);
+        let bucketed = self.compute_bucketed(flows, &*disc, dc, base);
         
         // Store individual bucket results in context
         // TODO: Handle dynamic bucket keys with MetricId
@@ -190,17 +188,17 @@ impl MetricCalculator for ThetaCalculator {
 pub trait CashflowCaching {
     /// Cache cashflows in the metric context for risk calculations.
     fn cache_cashflows(&self, context: &mut MetricContext, flows: Vec<(Date, Money)>) {
-        context.cache_value("cashflows", flows);
+        context.cache_cashflows(flows);
     }
     
     /// Cache the discount curve ID to use.
     fn cache_discount_curve(&self, context: &mut MetricContext, curve_id: &'static str) {
-        context.cache_value("discount_curve_id", curve_id);
+        context.cache_discount_curve(curve_id);
     }
     
     /// Cache the day count convention.
     fn cache_day_count(&self, context: &mut MetricContext, dc: DayCount) {
-        context.cache_value("day_count", dc);
+        context.cache_day_count(dc);
     }
 }
 

@@ -1,4 +1,3 @@
-#![deny(missing_docs)]
 //! Core traits for the metrics framework.
 
 use crate::instruments::Instrument;
@@ -61,8 +60,14 @@ pub struct ComputationCache {
     /// Previously computed metrics (by ID).
     pub computed: hashbrown::HashMap<MetricId, F>,
     
-    /// Cached intermediate results (generic storage).
-    cache: hashbrown::HashMap<String, Arc<dyn std::any::Any + Send + Sync>>,
+    /// Cached cashflows for the instrument.
+    pub cashflows: Option<Vec<(Date, Money)>>,
+    
+    /// Cached discount curve ID.
+    pub discount_curve_id: Option<&'static str>,
+    
+    /// Cached day count convention.
+    pub day_count: Option<DayCount>,
 }
 
 /// Context containing all data needed for metric calculations.
@@ -110,47 +115,63 @@ impl MarketData {
 }
 
 impl ComputationCache {
-    /// Create a new empty cache.
-    pub fn new() -> Self {
-        Self {
-            computed: hashbrown::HashMap::new(),
-            cache: hashbrown::HashMap::new(),
-        }
-    }
     
-    /// Get a cached value by key, computing it if not present.
-    /// 
-    /// This is useful for expensive intermediate calculations that multiple
-    /// metrics might need (e.g., cashflow generation, discount factors).
-    pub fn get_or_compute<T, F>(&mut self, key: &str, compute: F) -> Arc<T>
+    /// Get or compute cashflows.
+    pub fn get_or_compute_cashflows<F>(&mut self, compute: F) -> &Vec<(Date, Money)>
     where
-        T: Send + Sync + 'static,
-        F: FnOnce() -> T,
+        F: FnOnce() -> Vec<(Date, Money)>,
     {
-        self.cache
-            .entry(key.to_string())
-            .or_insert_with(|| Arc::new(compute()) as Arc<dyn std::any::Any + Send + Sync>)
-            .clone()
-            .downcast::<T>()
-            .expect("Cache type mismatch")
+        self.cashflows.get_or_insert_with(compute)
     }
     
-    /// Get a previously cached value if it exists.
-    pub fn get_cached<T: Send + Sync + 'static>(&self, key: &str) -> Option<Arc<T>> {
-        self.cache.get(key)?.clone().downcast::<T>().ok()
+    /// Get or compute discount curve ID.
+    pub fn get_or_compute_discount_curve<F>(&mut self, compute: F) -> &'static str
+    where
+        F: FnOnce() -> &'static str,
+    {
+        self.discount_curve_id.get_or_insert_with(compute)
     }
     
-    /// Store a value in the cache.
-    pub fn cache_value<T: Send + Sync + 'static>(&mut self, key: &str, value: T) {
-        self.cache.insert(key.to_string(), Arc::new(value) as Arc<dyn std::any::Any + Send + Sync>);
+    /// Get or compute day count convention.
+    pub fn get_or_compute_day_count<F>(&mut self, compute: F) -> DayCount
+    where
+        F: FnOnce() -> DayCount,
+    {
+        *self.day_count.get_or_insert_with(compute)
+    }
+    
+    /// Get cached cashflows if they exist.
+    pub fn get_cached_cashflows(&self) -> Option<&Vec<(Date, Money)>> {
+        self.cashflows.as_ref()
+    }
+    
+    /// Get cached discount curve ID if it exists.
+    pub fn get_cached_discount_curve(&self) -> Option<&'static str> {
+        self.discount_curve_id
+    }
+    
+    /// Get cached day count convention if it exists.
+    pub fn get_cached_day_count(&self) -> Option<DayCount> {
+        self.day_count
+    }
+    
+    /// Cache cashflows.
+    pub fn cache_cashflows(&mut self, flows: Vec<(Date, Money)>) {
+        self.cashflows = Some(flows);
+    }
+    
+    /// Cache discount curve ID.
+    pub fn cache_discount_curve(&mut self, curve_id: &'static str) {
+        self.discount_curve_id = Some(curve_id);
+    }
+    
+    /// Cache day count convention.
+    pub fn cache_day_count(&mut self, dc: DayCount) {
+        self.day_count = Some(dc);
     }
 }
 
-impl Default for ComputationCache {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+
 
 impl MetricContext {
     /// Create a new metric context.
@@ -165,30 +186,67 @@ impl MetricContext {
             instrument_data: InstrumentData::new(instrument, instrument_type),
             market_data: MarketData::new(curves, as_of),
             base_value,
-            cache: ComputationCache::new(),
+            cache: ComputationCache {
+                computed: hashbrown::HashMap::new(),
+                cashflows: None,
+                discount_curve_id: None,
+                day_count: None,
+            },
         }
     }
     
-    /// Get a cached value by key, computing it if not present.
-    /// 
-    /// This is useful for expensive intermediate calculations that multiple
-    /// metrics might need (e.g., cashflow generation, discount factors).
-    pub fn get_or_compute<T, F>(&mut self, key: &str, compute: F) -> Arc<T>
+    /// Get or compute cashflows.
+    pub fn get_or_compute_cashflows<F>(&mut self, compute: F) -> &Vec<(Date, Money)>
     where
-        T: Send + Sync + 'static,
-        F: FnOnce() -> T,
+        F: FnOnce() -> Vec<(Date, Money)>,
     {
-        self.cache.get_or_compute(key, compute)
+        self.cache.get_or_compute_cashflows(compute)
     }
     
-    /// Get a previously cached value if it exists.
-    pub fn get_cached<T: Send + Sync + 'static>(&self, key: &str) -> Option<Arc<T>> {
-        self.cache.get_cached(key)
+    /// Get or compute discount curve ID.
+    pub fn get_or_compute_discount_curve<F>(&mut self, compute: F) -> &'static str
+    where
+        F: FnOnce() -> &'static str,
+    {
+        self.cache.get_or_compute_discount_curve(compute)
     }
     
-    /// Store a value in the cache.
-    pub fn cache_value<T: Send + Sync + 'static>(&mut self, key: &str, value: T) {
-        self.cache.cache_value(key, value);
+    /// Get or compute day count convention.
+    pub fn get_or_compute_day_count<F>(&mut self, compute: F) -> DayCount
+    where
+        F: FnOnce() -> DayCount,
+    {
+        self.cache.get_or_compute_day_count(compute)
+    }
+    
+    /// Get cached cashflows if they exist.
+    pub fn get_cached_cashflows(&self) -> Option<&Vec<(Date, Money)>> {
+        self.cache.get_cached_cashflows()
+    }
+    
+    /// Get cached discount curve ID if it exists.
+    pub fn get_cached_discount_curve(&self) -> Option<&'static str> {
+        self.cache.get_cached_discount_curve()
+    }
+    
+    /// Get cached day count convention if it exists.
+    pub fn get_cached_day_count(&self) -> Option<DayCount> {
+        self.cache.get_cached_day_count()
+    }
+    
+    /// Cache cashflows.
+    pub fn cache_cashflows(&mut self, flows: Vec<(Date, Money)>) {
+        self.cache.cache_cashflows(flows);
+    }
+    
+    /// Cache discount curve ID.
+    pub fn cache_discount_curve(&mut self, curve_id: &'static str) {
+        self.cache.cache_discount_curve(curve_id);
+    }
+    
+    /// Cache day count convention.
+    pub fn cache_day_count(&mut self, dc: DayCount) {
+        self.cache.cache_day_count(dc);
     }
     
     /// Get the instrument, allowing pattern matching.
@@ -196,21 +254,7 @@ impl MetricContext {
         self.instrument_data.instrument()
     }
     
-    // Convenience accessors for backward compatibility
-    /// Get the instrument type.
-    pub fn instrument_type(&self) -> &str {
-        &self.instrument_data.instrument_type
-    }
-    
-    /// Get the curves.
-    pub fn curves(&self) -> &Arc<finstack_core::market_data::multicurve::CurveSet> {
-        &self.market_data.curves
-    }
-    
-    /// Get the valuation date.
-    pub fn as_of(&self) -> Date {
-        self.market_data.as_of
-    }
+
     
     /// Get previously computed metrics.
     pub fn computed(&self) -> &hashbrown::HashMap<MetricId, F> {

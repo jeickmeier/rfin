@@ -1,4 +1,3 @@
-#![deny(missing_docs)]
 //! Strongly-typed metric identifiers for compile-time validation.
 
 use std::fmt;

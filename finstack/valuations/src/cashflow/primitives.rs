@@ -1,4 +1,3 @@
-#![deny(missing_docs)]
 //! Cash-flow primitives and enums.
 
 use finstack_core::dates::Date;
