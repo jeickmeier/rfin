@@ -2,8 +2,8 @@
 //! Bond-specific metric calculators.
 
 use crate::metrics::{MetricCalculator, MetricContext};
+use crate::traits::CashflowProvider;
 use super::Bond;
-use crate::pricing::quotes;
 use finstack_core::prelude::*;
 use finstack_core::F;
 
@@ -27,19 +27,19 @@ impl MetricCalculator for AccruedInterestCalculator {
         let bond = context.instrument_as::<Bond>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
-        // Get or compute schedule
-        let schedule = context.get_cached::<Vec<Date>>("schedule")
-            .map(|arc| (*arc).clone())
-            .unwrap_or_else(|| {
-                finstack_core::dates::ScheduleBuilder::new(bond.issue, bond.maturity)
-                    .frequency(bond.freq)
-                    .build_raw()
-                    .collect()
-            });
+        // Use Bond's cashflow building instead of separate schedule
+        let flows = bond.build_schedule(&context.curves, context.as_of)?;
+        
+        // Extract coupon dates from flows - filter for positive flows (coupons) 
+        let mut coupon_dates: Vec<Date> = flows.iter()
+            .filter(|(_, amount)| amount.amount() > 0.0)
+            .map(|(date, _)| *date)
+            .collect();
+        coupon_dates.sort();
         
         // Find last and next coupon dates around as_of
         let (mut last, mut next) = (bond.issue, bond.maturity);
-        for w in schedule.windows(2) {
+        for w in coupon_dates.windows(2) {
             let (a, b) = (w[0], w[1]);
             if a <= context.as_of && context.as_of < b {
                 last = a;
@@ -48,16 +48,18 @@ impl MetricCalculator for AccruedInterestCalculator {
             }
         }
         
-        let ai = quotes::accrued_interest(
-            bond.notional,
-            bond.coupon,
-            last,
-            context.as_of,
-            next,
-            bond.dc,
-        );
+        // Calculate accrued interest directly
+        if context.as_of <= last || context.as_of >= next {
+            return Ok(0.0);
+        }
         
-        Ok(ai.amount())
+        use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+        let yf = DiscountCurve::year_fraction(last, next, bond.dc);
+        let elapsed = DiscountCurve::year_fraction(last, context.as_of, bond.dc);
+        let period_coupon = bond.notional * (bond.coupon * yf);
+        let accrued = period_coupon * (elapsed / yf);
+        
+        Ok(accrued.amount())
     }
 }
 
@@ -96,26 +98,50 @@ impl MetricCalculator for YtmCalculator {
         let dirty_amt = clean_px + ai;
         let dirty = Money::new(dirty_amt, bond.notional.currency());
         
-        // Get or compute schedule
-        let schedule = context.get_cached::<Vec<Date>>("schedule")
-            .map(|arc| (*arc).clone())
-            .unwrap_or_else(|| {
-                finstack_core::dates::ScheduleBuilder::new(bond.issue, bond.maturity)
-                    .frequency(bond.freq)
-                    .build_raw()
-                    .collect()
-            });
+        // Use Bond's cashflow building
+        let flows = bond.build_schedule(&context.curves, context.as_of)?;
         
-        let ytm = quotes::bond_ytm_from_dirty(
-            bond.notional,
-            bond.coupon,
-            &schedule,
-            bond.dc,
-            context.as_of,
-            dirty,
-        );
+        // Solve for YTM using Brent's method
+        let ytm = self.solve_ytm_from_flows(bond, &flows, context.as_of, dirty)?;
         
         Ok(ytm)
+    }
+}
+
+impl YtmCalculator {
+    fn solve_ytm_from_flows(&self, bond: &Bond, flows: &[(Date, Money)], as_of: Date, target_price: Money) -> finstack_core::Result<F> {
+        use finstack_core::math::root_finding::brent;
+        use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+        
+        let target = target_price.amount();
+        
+        let f = |y: f64| -> f64 {
+            let mut pv = 0.0;
+            for &(date, amount) in flows {
+                if date <= as_of {
+                    continue;
+                }
+                let t = DiscountCurve::year_fraction(as_of, date, bond.dc);
+                if t > 0.0 {
+                    let df = (1.0 + y).powf(-t);
+                    pv += amount.amount() * df;
+                }
+            }
+            pv - target
+        };
+        
+        // Try bracket [-0.99, 1.0] first, then widen if needed
+        let mut a = -0.99;
+        let mut b = 1.0;
+        let mut root = brent(f, a, b, 1e-10, 128).unwrap_or(0.05);
+        
+        if !root.is_finite() {
+            a = -0.99; 
+            b = 5.0;
+            root = brent(f, a, b, 1e-10, 256).unwrap_or(0.05);
+        }
+        
+        Ok(if root.is_finite() { root } else { 0.05 })
     }
 }
 
@@ -146,25 +172,48 @@ impl MetricCalculator for MacaulayDurationCalculator {
         let ytm = context.computed.get("ytm").copied()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
         
-        let schedule = context.get_cached::<Vec<Date>>("schedule")
-            .map(|arc| (*arc).clone())
-            .unwrap_or_else(|| {
-                finstack_core::dates::ScheduleBuilder::new(bond.issue, bond.maturity)
-                    .frequency(bond.freq)
-                    .build_raw()
-                    .collect()
-            });
+        // Use Bond's cashflow building
+        let flows = bond.build_schedule(&context.curves, context.as_of)?;
         
-        let (d_mac, _) = quotes::bond_duration_mac_mod(
-            bond.notional,
-            bond.coupon,
-            &schedule,
-            bond.dc,
-            context.as_of,
-            ytm,
-        );
+        // Calculate price from flows to ensure consistency
+        let price = self.price_from_ytm(bond, &flows, context.as_of, ytm)?;
+        if price == 0.0 {
+            return Ok(0.0);
+        }
         
-        Ok(d_mac)
+        // Calculate Macaulay duration
+        use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+        let mut weighted_time = 0.0;
+        
+        for &(date, amount) in &flows {
+            if date <= context.as_of {
+                continue;
+            }
+            let t = DiscountCurve::year_fraction(context.as_of, date, bond.dc).max(0.0);
+            let df = (1.0 + ytm).powf(-t);
+            weighted_time += t * amount.amount() * df;
+        }
+        
+        Ok(weighted_time / price)
+    }
+}
+
+impl MacaulayDurationCalculator {
+    fn price_from_ytm(&self, bond: &Bond, flows: &[(Date, Money)], as_of: Date, ytm: F) -> finstack_core::Result<F> {
+        use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+        
+        let mut pv = 0.0;
+        for &(date, amount) in flows {
+            if date <= as_of {
+                continue;
+            }
+            let t = DiscountCurve::year_fraction(as_of, date, bond.dc);
+            if t > 0.0 {
+                let df = (1.0 + ytm).powf(-t);
+                pv += amount.amount() * df;
+            }
+        }
+        Ok(pv)
     }
 }
 
@@ -185,35 +234,21 @@ impl MetricCalculator for ModifiedDurationCalculator {
     }
     
     fn dependencies(&self) -> Vec<&str> {
-        vec!["ytm"]
+        vec!["duration_mac"]
     }
     
     fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
-        let bond = context.instrument_as::<Bond>()
+        let _bond = context.instrument_as::<Bond>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
         let ytm = context.computed.get("ytm").copied()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
         
-        let schedule = context.get_cached::<Vec<Date>>("schedule")
-            .map(|arc| (*arc).clone())
-            .unwrap_or_else(|| {
-                finstack_core::dates::ScheduleBuilder::new(bond.issue, bond.maturity)
-                    .frequency(bond.freq)
-                    .build_raw()
-                    .collect()
-            });
+        let d_mac = context.computed.get("duration_mac").copied()
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
         
-        let (_, d_mod) = quotes::bond_duration_mac_mod(
-            bond.notional,
-            bond.coupon,
-            &schedule,
-            bond.dc,
-            context.as_of,
-            ytm,
-        );
-        
-        Ok(d_mod)
+        // Modified duration = Macaulay duration / (1 + ytm)
+        Ok(d_mac / (1.0 + ytm))
     }
 }
 
@@ -244,26 +279,41 @@ impl MetricCalculator for ConvexityCalculator {
         let ytm = context.computed.get("ytm").copied()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
         
-        let schedule = context.get_cached::<Vec<Date>>("schedule")
-            .map(|arc| (*arc).clone())
-            .unwrap_or_else(|| {
-                finstack_core::dates::ScheduleBuilder::new(bond.issue, bond.maturity)
-                    .frequency(bond.freq)
-                    .build_raw()
-                    .collect()
-            });
+        // Use Bond's cashflow building
+        let flows = bond.build_schedule(&context.curves, context.as_of)?;
         
-        let convex = quotes::bond_convexity_numeric(
-            bond.notional,
-            bond.coupon,
-            &schedule,
-            bond.dc,
-            context.as_of,
-            ytm,
-            1e-4,
-        );
+        let dy = 1e-4; // 1 basis point for numerical differentiation
         
-        Ok(convex)
+        // Calculate prices with yield bumps for numerical convexity
+        let p0 = self.price_from_ytm(bond, &flows, context.as_of, ytm)?;
+        let p_up = self.price_from_ytm(bond, &flows, context.as_of, ytm + dy)?;
+        let p_dn = self.price_from_ytm(bond, &flows, context.as_of, ytm - dy)?;
+        
+        if p0 == 0.0 || dy == 0.0 {
+            return Ok(0.0);
+        }
+        
+        // Convexity = (P+ + P- - 2*P0) / (P0 * dy^2)
+        Ok((p_up + p_dn - 2.0 * p0) / (p0 * dy * dy))
+    }
+}
+
+impl ConvexityCalculator {
+    fn price_from_ytm(&self, bond: &Bond, flows: &[(Date, Money)], as_of: Date, ytm: F) -> finstack_core::Result<F> {
+        use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+        
+        let mut pv = 0.0;
+        for &(date, amount) in flows {
+            if date <= as_of {
+                continue;
+            }
+            let t = DiscountCurve::year_fraction(as_of, date, bond.dc);
+            if t > 0.0 {
+                let df = (1.0 + ytm).powf(-t);
+                pv += amount.amount() * df;
+            }
+        }
+        Ok(pv)
     }
 }
 
@@ -290,10 +340,8 @@ impl MetricCalculator for YtwCalculator {
         let cp = bond.call_put.as_ref()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
         
-        let schedule: Vec<Date> = finstack_core::dates::ScheduleBuilder::new(bond.issue, bond.maturity)
-            .frequency(bond.freq)
-            .build_raw()
-            .collect();
+        // Use Bond's cashflow building
+        let flows = bond.build_schedule(&context.curves, context.as_of)?;
         
         // Build candidate exercise dates
         let mut candidates: Vec<(Date, Money)> = Vec::new();
@@ -317,24 +365,8 @@ impl MetricCalculator for YtwCalculator {
         
         // Find worst yield
         let mut best_ytm = f64::INFINITY;
-        for (exercise, red) in candidates {
-            // Truncate schedule to exercise date
-            let mut trunc: Vec<Date> = schedule.iter().cloned()
-                .filter(|d| *d <= exercise)
-                .collect();
-            if *trunc.last().unwrap() != exercise {
-                trunc.push(exercise);
-            }
-            
-            let y = quotes::bond_ytm_from_dirty_with_redemption(
-                bond.notional,
-                bond.coupon,
-                &trunc,
-                bond.dc,
-                context.as_of,
-                dirty_now,
-                red,
-            );
+        for (exercise_date, redemption) in candidates {
+            let y = self.solve_ytm_with_exercise(bond, &flows, context.as_of, dirty_now, exercise_date, redemption)?;
             
             if y < best_ytm {
                 best_ytm = y;
@@ -345,15 +377,199 @@ impl MetricCalculator for YtwCalculator {
     }
 }
 
+impl YtwCalculator {
+    fn solve_ytm_with_exercise(&self, bond: &Bond, flows: &[(Date, Money)], as_of: Date, target_price: Money, exercise_date: Date, redemption: Money) -> finstack_core::Result<F> {
+        use finstack_core::math::root_finding::brent;
+        use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+        
+        let target = target_price.amount();
+        
+        let f = |y: f64| -> f64 {
+            let mut pv = 0.0;
+            
+            // Include cashflows up to exercise date
+            for &(date, amount) in flows {
+                if date <= as_of || date > exercise_date {
+                    continue;
+                }
+                let t = DiscountCurve::year_fraction(as_of, date, bond.dc);
+                if t > 0.0 {
+                    let df = (1.0 + y).powf(-t);
+                    pv += amount.amount() * df;
+                }
+            }
+            
+            // Add redemption at exercise date
+            let t_exercise = DiscountCurve::year_fraction(as_of, exercise_date, bond.dc);
+            if t_exercise > 0.0 {
+                let df_exercise = (1.0 + y).powf(-t_exercise);
+                pv += redemption.amount() * df_exercise;
+            }
+            
+            pv - target
+        };
+        
+        // Try bracket [-0.99, 1.0] first, then widen if needed
+        let mut a = -0.99;
+        let mut b = 1.0;
+        let mut root = brent(f, a, b, 1e-10, 128).unwrap_or(0.05);
+        
+        if !root.is_finite() {
+            a = -0.99; 
+            b = 5.0;
+            root = brent(f, a, b, 1e-10, 256).unwrap_or(0.05);
+        }
+        
+        Ok(if root.is_finite() { root } else { 0.05 })
+    }
+}
+
+/// Calculates dirty price for bonds (clean price + accrued interest).
+pub struct DirtyPriceCalculator;
+
+impl MetricCalculator for DirtyPriceCalculator {
+    fn id(&self) -> &str {
+        "dirty_price"
+    }
+    
+    fn description(&self) -> &str {
+        "Dirty price (clean price plus accrued interest)"
+    }
+    
+    fn is_applicable(&self, instrument_type: &str) -> bool {
+        instrument_type == "Bond"
+    }
+    
+    fn dependencies(&self) -> Vec<&str> {
+        vec!["accrued"]
+    }
+    
+    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+        let bond = context.instrument_as::<Bond>()
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        
+        // Dirty price only makes sense if we have a quoted clean price
+        let clean_px = bond.quoted_clean
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
+        
+        // Get accrued from computed metrics
+        let accrued = context.computed.get("accrued").copied().unwrap_or(0.0);
+        
+        // Dirty price = clean price + accrued interest
+        Ok(clean_px + accrued)
+    }
+}
+
+/// Calculates clean price for bonds (dirty price - accrued interest).
+pub struct CleanPriceCalculator;
+
+impl MetricCalculator for CleanPriceCalculator {
+    fn id(&self) -> &str {
+        "clean_price"
+    }
+    
+    fn description(&self) -> &str {
+        "Clean price (dirty price minus accrued interest)"
+    }
+    
+    fn is_applicable(&self, instrument_type: &str) -> bool {
+        instrument_type == "Bond"
+    }
+    
+    fn dependencies(&self) -> Vec<&str> {
+        vec!["accrued"]
+    }
+    
+    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+        let bond = context.instrument_as::<Bond>()
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        
+        // If we have quoted clean price, just return it
+        if let Some(clean_px) = bond.quoted_clean {
+            return Ok(clean_px);
+        }
+        
+        // Otherwise calculate from base value (which should be dirty price)
+        let dirty_px = context.base_value.amount();
+        let accrued = context.computed.get("accrued").copied().unwrap_or(0.0);
+        
+        // Clean price = dirty price - accrued interest
+        Ok(dirty_px - accrued)
+    }
+}
+
+/// Calculates CS01 (credit spread sensitivity) for bonds.
+pub struct Cs01Calculator;
+
+impl MetricCalculator for Cs01Calculator {
+    fn id(&self) -> &str {
+        "cs01"
+    }
+    
+    fn description(&self) -> &str {
+        "Credit spread sensitivity (price change per 1bp yield change)"
+    }
+    
+    fn is_applicable(&self, instrument_type: &str) -> bool {
+        instrument_type == "Bond"
+    }
+    
+    fn dependencies(&self) -> Vec<&str> {
+        vec!["ytm"]
+    }
+    
+    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+        let bond = context.instrument_as::<Bond>()
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        
+        let ytm = context.computed.get("ytm").copied()
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
+        
+        // Build cashflow schedule from Bond
+        let flows = bond.build_schedule(&context.curves, context.as_of)?;
+        
+        let bp = 1e-4; // 1 basis point
+        
+        // Calculate prices with yield bump up and down
+        let p_up = self.price_from_ytm(bond, &flows, context.as_of, ytm + bp)?;
+        let p_dn = self.price_from_ytm(bond, &flows, context.as_of, ytm - bp)?;
+        
+        // CS01 = (price_down - price_up) / (2 * bump)
+        Ok((p_dn - p_up) / (2.0 * bp))
+    }
+}
+
+impl Cs01Calculator {
+    fn price_from_ytm(&self, bond: &Bond, flows: &[(Date, Money)], as_of: Date, ytm: F) -> finstack_core::Result<F> {
+        use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+        
+        let mut pv = 0.0;
+        for &(date, amount) in flows {
+            if date <= as_of {
+                continue;
+            }
+            let t = DiscountCurve::year_fraction(as_of, date, bond.dc);
+            if t > 0.0 {
+                let df = (1.0 + ytm).powf(-t);
+                pv += amount.amount() * df;
+            }
+        }
+        Ok(pv)
+    }
+}
+
 /// Register all bond metrics to a registry.
 pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
     use std::sync::Arc;
     
     registry
         .register(Arc::new(AccruedInterestCalculator))
+        .register(Arc::new(DirtyPriceCalculator))
+        .register(Arc::new(CleanPriceCalculator))
         .register(Arc::new(YtmCalculator))
         .register(Arc::new(MacaulayDurationCalculator))
         .register(Arc::new(ModifiedDurationCalculator))
         .register(Arc::new(ConvexityCalculator))
-        .register(Arc::new(YtwCalculator));
+        .register(Arc::new(YtwCalculator))
+        .register(Arc::new(Cs01Calculator));
 }

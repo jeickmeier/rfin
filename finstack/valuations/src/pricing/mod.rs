@@ -2,7 +2,6 @@
 
 pub mod result;
 pub mod npv;
-pub mod quotes;
 pub mod discountable;
 
 

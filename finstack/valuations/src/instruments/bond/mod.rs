@@ -43,11 +43,11 @@ pub struct CallPutSchedule { pub calls: Vec<CallPut>, pub puts: Vec<CallPut> }
 impl Bond {
     /// Get the standard metrics for a bond based on its configuration.
     fn get_standard_metrics(&self) -> Vec<&str> {
-        let mut metrics = vec!["accrued"];
+        let mut metrics = vec!["accrued", "clean_price"];
         
-        // YTM-related metrics only if we have a quoted price
+        // Add dirty price and YTM-related metrics only if we have a quoted price
         if self.quoted_clean.is_some() {
-            metrics.extend_from_slice(&["ytm", "duration_mac", "duration_mod", "convexity"]);
+            metrics.extend_from_slice(&["dirty_price", "ytm", "duration_mac", "duration_mod", "convexity", "cs01"]);
         }
         
         // YTW only if we have call/put schedule and quoted price
