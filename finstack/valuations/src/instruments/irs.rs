@@ -111,23 +111,23 @@ impl InterestRateSwap {
         let base_f = base_d;
         let sched_dates = self.schedule(self.float.start, self.float.end, self.float.freq, self.float.bdc, &self.float.calendar_id, self.float.stub);
 
-        // PV via forward curve (gearing assumed 1.0 here)
-        let mut pv = Money::new(0.0, self.notional.currency());
-        if !sched_dates.is_empty() {
-            let mut prev = sched_dates[0];
-            for &d in &sched_dates[1..] {
-                let t1 = DiscountCurve::year_fraction(base_f, prev, self.float.dc);
-                let t2 = DiscountCurve::year_fraction(base_f, d, self.float.dc);
-                let yf = DiscountCurve::year_fraction(prev, d, self.float.dc);
-                let f = fwd.rate_period(t1, t2);
-                let rate = f + (self.float.spread_bp * 1e-4);
-                let coupon = self.notional * (rate * yf);
-                let df = DiscountCurve::df_on(disc, base_d, d, self.float.dc);
-                pv = (pv + (coupon * df))?;
-                prev = d;
-            }
+        // Build coupon flows from forward curve, then discount via generic npv
+        if sched_dates.len() < 2 {
+            return Ok(Money::new(0.0, self.notional.currency()));
         }
-        Ok(pv)
+        let mut prev = sched_dates[0];
+        let mut flows: Vec<(Date, Money)> = Vec::with_capacity(sched_dates.len().saturating_sub(1));
+        for &d in &sched_dates[1..] {
+            let t1 = DiscountCurve::year_fraction(base_f, prev, self.float.dc);
+            let t2 = DiscountCurve::year_fraction(base_f, d, self.float.dc);
+            let yf = DiscountCurve::year_fraction(prev, d, self.float.dc);
+            let f = fwd.rate_period(t1, t2);
+            let rate = f + (self.float.spread_bp * 1e-4);
+            let coupon = self.notional * (rate * yf);
+            flows.push((d, coupon));
+            prev = d;
+        }
+        flows.npv(disc, base_d, self.float.dc)
     }
 
     fn par_rate(&self, disc: &dyn Discount, fwd: &dyn Forward) -> F {

@@ -127,10 +127,14 @@ impl Priceable for Bond {
             b.principal(self.notional, self.issue, self.maturity)
                 .fixed_cf(FixedCouponSpec { coupon_type: CouponType::Cash, rate: self.coupon, freq: self.freq, dc: self.dc, bdc: BusinessDayConvention::Following, calendar_id: None, stub: StubKind::None });
             let built = b.build()?;
-            let coupon_flows: Vec<(Date, Money)> = built.flows.iter().filter(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub).map(|cf| (cf.date, cf.amount)).collect();
-            let mut dirty_now = coupon_flows.npv(&*disc, base, self.dc)?;
-            let df_mat = DiscountCurve::df_on(&*disc, base, self.maturity, self.dc);
-            dirty_now = (dirty_now + (self.notional * df_mat))?;
+            let mut all_flows: Vec<(Date, Money)> = built
+                .flows
+                .iter()
+                .filter(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub)
+                .map(|cf| (cf.date, cf.amount))
+                .collect();
+            all_flows.push((self.maturity, self.notional));
+            let dirty_now = all_flows.npv(&*disc, base, self.dc)?;
 
             // Choose worst (minimum) yield, tie-breaker earliest date
             let mut best_ytm = f64::INFINITY;
