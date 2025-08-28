@@ -1,4 +1,4 @@
-#![allow(missing_docs)]
+//! Deposit instrument implementation.
 
 pub mod metrics;
 
@@ -12,12 +12,21 @@ use crate::traits::{CashflowProvider, Priceable, DatedFlows};
 use crate::cashflow::builder::{cf, FixedCouponSpec, CouponType};
 use finstack_core::dates::{BusinessDayConvention, StubKind, Frequency};
 
+/// Simple deposit instrument with optional quoted rate.
+/// 
+/// Represents a single-period deposit where principal is exchanged
+/// at start and principal plus interest at maturity.
 #[derive(Clone, Debug)]
 pub struct Deposit {
+    /// Unique identifier for the deposit.
     pub id: String,
+    /// Principal amount of the deposit.
     pub notional: Money,
+    /// Start date of the deposit period.
     pub start: Date,
+    /// End date of the deposit period.
     pub end: Date,
+    /// Day count convention for interest accrual.
     pub day_count: DayCount,
     /// Optional quoted simple rate r (annualised) for the deposit.
     pub quote_rate: Option<F>,

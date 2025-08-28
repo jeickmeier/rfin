@@ -1,4 +1,8 @@
 //! Risk-specific metric calculators.
+//! 
+//! Provides specialized calculators for risk metrics including bucketed DV01
+//! and time decay (theta). These metrics help quantify interest rate risk
+//! and time value of financial instruments.
 
 use super::traits::{MetricCalculator, MetricContext};
 use super::ids::MetricId;
@@ -9,6 +13,30 @@ use finstack_core::market_data::traits::Discount;
 use hashbrown::HashMap;
 
 /// Specification for DV01 tenor buckets.
+/// 
+/// Defines the tenor points used for bucketed DV01 calculations.
+/// Standard buckets cover 3M to 30Y with configurable points for
+/// detailed risk analysis and hedging decisions.
+/// 
+/// # Default Buckets
+/// 
+/// The default specification includes standard tenor points:
+/// - 3M, 6M, 1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 15Y, 20Y, 30Y
+/// 
+/// # Example
+/// ```rust
+/// use finstack_valuations::metrics::risk::BucketSpec;
+/// 
+/// // Use default buckets
+/// let default_buckets = BucketSpec::default();
+/// assert_eq!(default_buckets.tenors.len(), 11);
+/// 
+/// // Custom buckets for specific analysis
+/// let custom_buckets = BucketSpec {
+///     tenors: vec![0.5, 1.0, 2.0, 5.0, 10.0],
+/// };
+/// assert_eq!(custom_buckets.tenors.len(), 5);
+/// ```
 #[derive(Clone, Debug)]
 pub struct BucketSpec {
     /// Tenor points in years from curve base date.
@@ -25,6 +53,29 @@ impl Default for BucketSpec {
 }
 
 /// Calculates bucketed DV01 (sensitivity per tenor bucket).
+/// 
+/// Breaks down interest rate sensitivity by maturity buckets for
+/// better risk management and hedging decisions. Each bucket represents
+/// the sensitivity to a parallel shift in that specific tenor region.
+/// 
+/// # How It Works
+/// 
+/// 1. **Flow Assignment**: Each cashflow is assigned to the nearest tenor bucket
+/// 2. **Sensitivity Calculation**: DV01 is computed per bucket using small rate shifts
+/// 3. **Risk Aggregation**: Total risk is the sum of all bucket sensitivities
+/// 
+/// # Example
+/// ```rust
+/// use finstack_valuations::metrics::risk::{BucketedDv01Calculator, BucketSpec};
+/// 
+/// let custom_buckets = BucketSpec {
+///     tenors: vec![0.5, 1.0, 2.0, 5.0, 10.0],
+/// };
+/// let calculator = BucketedDv01Calculator::with_buckets(custom_buckets);
+/// 
+/// // Use with standard buckets
+/// let standard_calculator = BucketedDv01Calculator::default();
+/// ```
 #[derive(Default)]
 pub struct BucketedDv01Calculator {
     /// Bucket specification to use.
@@ -32,12 +83,35 @@ pub struct BucketedDv01Calculator {
 }
 
 impl BucketedDv01Calculator {
-    /// Create with custom bucket specification.
+    /// Creates a calculator with custom bucket specification.
+    /// 
+    /// # Arguments
+    /// * `buckets` - Custom bucket specification for the analysis
+    /// 
+    /// # Example
+    /// ```rust
+    /// use finstack_valuations::metrics::risk::{BucketedDv01Calculator, BucketSpec};
+    /// 
+    /// let custom_buckets = BucketSpec {
+    ///     tenors: vec![0.5, 1.0, 2.0, 5.0, 10.0],
+    /// };
+    /// let calculator = BucketedDv01Calculator::with_buckets(custom_buckets);
+/// ```
     pub fn with_buckets(buckets: BucketSpec) -> Self {
         Self { buckets }
     }
 
-    /// Format a bucket label.
+    /// Formats a bucket label for display.
+    /// 
+    /// Converts tenor years to human-readable labels:
+    /// - < 1 year: "XM" (e.g., "6M" for 0.5 years)
+    /// - ≥ 1 year: "XY" (e.g., "5Y" for 5.0 years)
+    /// 
+    /// # Arguments
+    /// * `tenor_years` - Tenor in years
+    /// 
+    /// # Returns
+    /// Formatted string label for the bucket
     fn bucket_label(&self, tenor_years: F) -> String {
         if tenor_years < 1.0 {
             format!("{}M", (tenor_years * 12.0).round() as i32)
@@ -46,7 +120,20 @@ impl BucketedDv01Calculator {
         }
     }
 
-    /// Compute bucketed DV01 for given flows.
+    /// Computes bucketed DV01 for given cashflows.
+    /// 
+    /// Assigns each cashflow to the nearest tenor bucket and calculates
+    /// the sensitivity within each bucket. This provides detailed risk
+    /// breakdown for hedging and risk management.
+    /// 
+    /// # Arguments
+    /// * `flows` - Vector of (date, money) tuples representing cashflows
+    /// * `disc` - Discount curve for present value calculations
+    /// * `dc` - Day count convention for time calculations
+    /// * `base` - Base date for year fraction calculations
+    /// 
+    /// # Returns
+    /// HashMap mapping bucket labels to DV01 values
     fn compute_bucketed(
         &self,
         flows: &[(Date, Money)],
@@ -166,6 +253,16 @@ impl MetricCalculator for BucketedDv01Calculator {
 }
 
 /// Calculates theta (time decay) for options and time-sensitive instruments.
+/// 
+/// Theta measures the rate of change in an option's value with respect to time.
+/// This is particularly important for options and other derivatives where
+/// time value plays a significant role in pricing.
+/// 
+/// # Note
+/// 
+/// This calculator is currently a placeholder and returns an error.
+/// Future implementations will compute actual theta values based on
+/// option pricing models and time sensitivity analysis.
 pub struct ThetaCalculator;
 
 impl MetricCalculator for ThetaCalculator {
@@ -177,24 +274,105 @@ impl MetricCalculator for ThetaCalculator {
 }
 
 /// Helper trait for instruments to cache their cashflows for risk calculations.
+/// 
+/// This trait provides convenience methods for instruments to cache
+/// commonly needed data in the metric context, improving performance
+/// for risk calculations that need cashflows, discount curves, and
+/// day count conventions.
+/// 
+/// # Example
+/// ```rust
+/// use finstack_valuations::metrics::risk::CashflowCaching;
+/// use finstack_valuations::metrics::traits::MetricContext;
+/// use finstack_core::dates::DayCount;
+/// use finstack_core::money::Money;
+/// use finstack_core::dates::Date;
+/// use finstack_valuations::instruments::Instrument;
+/// use finstack_core::currency::Currency;
+/// use finstack_core::market_data::multicurve::CurveSet;
+/// use std::sync::Arc;
+/// use time::Month;
+/// 
+/// struct MyInstrument;
+/// 
+/// impl CashflowCaching for MyInstrument {
+///     // Inherit default implementations
+/// }
+/// 
+/// // Note: In practice, you would create a real instrument and curves
+/// // let instrument = Arc::new(Instrument::Bond(real_bond));
+/// // let curves = Arc::new(real_curves);
+/// let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+/// let base_value = Money::new(1000.0, Currency::USD);
+/// 
+/// // This example shows the structure but would need real data to run
+/// // let mut context = MetricContext::new(instrument, curves, as_of, base_value);
+/// let flows = vec![(Date::from_calendar_date(2025, Month::June, 15).unwrap(), Money::new(50.0, Currency::USD))];
+/// 
+/// let instrument_helper = MyInstrument;
+/// // instrument_helper.cache_cashflows(&mut context, flows);
+/// // instrument_helper.cache_discount_curve(&mut context, "USD-OIS");
+/// // instrument_helper.cache_day_count(&mut context, DayCount::Act365F);
+/// ```
 pub trait CashflowCaching {
-    /// Cache cashflows in the metric context for risk calculations.
+    /// Caches cashflows in the metric context for risk calculations.
+    /// 
+    /// This method stores the instrument's cashflow schedule in the context,
+    /// allowing risk calculators to access it without recomputation.
+    /// 
+    /// # Arguments
+    /// * `context` - Metric context to cache cashflows in
+    /// * `flows` - Vector of (date, money) tuples representing cashflows
     fn cache_cashflows(&self, context: &mut MetricContext, flows: Vec<(Date, Money)>) {
         context.cashflows = Some(flows);
     }
     
-    /// Cache the discount curve ID to use.
+    /// Caches the discount curve ID to use.
+    /// 
+    /// This method stores the identifier for the discount curve that should
+    /// be used for risk calculations involving this instrument.
+    /// 
+    /// # Arguments
+    /// * `context` - Metric context to cache the curve ID in
+    /// * `curve_id` - Static string identifier for the discount curve
     fn cache_discount_curve(&self, context: &mut MetricContext, curve_id: &'static str) {
         context.discount_curve_id = Some(curve_id);
     }
     
-    /// Cache the day count convention.
+    /// Caches the day count convention.
+    /// 
+    /// This method stores the day count convention that should be used
+    /// for time calculations in risk metrics.
+    /// 
+    /// # Arguments
+    /// * `context` - Metric context to cache the day count in
+    /// * `dc` - Day count convention to use
     fn cache_day_count(&self, context: &mut MetricContext, dc: DayCount) {
         context.day_count = Some(dc);
     }
 }
 
-/// Register all risk metrics to a registry.
+/// Registers all risk metrics to a registry.
+/// 
+/// This function adds the standard risk metrics (bucketed DV01 and theta)
+/// to the provided metric registry. Bucketed DV01 is registered for all
+/// instrument types, while theta is registered globally.
+/// 
+/// # Arguments
+/// * `registry` - Metric registry to add risk metrics to
+/// 
+/// # Example
+/// ```rust
+/// use finstack_valuations::metrics::registry::MetricRegistry;
+/// use finstack_valuations::metrics::risk::register_risk_metrics;
+/// 
+/// let mut registry = MetricRegistry::new();
+/// register_risk_metrics(&mut registry);
+/// 
+/// // Check that risk metrics are registered
+/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::BucketedDv01));
+/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::Theta));
+/// ```
 pub fn register_risk_metrics(registry: &mut super::MetricRegistry) {
     use std::sync::Arc;
     use super::MetricId;

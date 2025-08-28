@@ -1,4 +1,4 @@
-#![allow(missing_docs)]
+//! Interest rate swap instrument implementation.
 
 pub mod metrics;
 
@@ -14,42 +14,78 @@ use crate::pricing::discountable::Discountable;
 use crate::pricing::result::ValuationResult;
 use crate::traits::{Priceable, CashflowProvider, DatedFlows};
 
+/// Direction of the swap from the perspective of the fixed rate.
 #[derive(Clone, Copy, Debug)]
-pub enum PayReceive { PayFixed, ReceiveFixed }
+pub enum PayReceive { 
+    /// Pay fixed rate, receive floating rate.
+    PayFixed, 
+    /// Receive fixed rate, pay floating rate.
+    ReceiveFixed 
+}
 
+/// Specification for the fixed leg of an interest rate swap.
 #[derive(Clone, Debug)]
 pub struct FixedLegSpec {
+    /// Discount curve identifier for pricing.
     pub disc_id: &'static str,
+    /// Fixed rate (e.g., 0.05 for 5%).
     pub rate: F,
+    /// Payment frequency.
     pub freq: Frequency,
+    /// Day count convention for accrual.
     pub dc: DayCount,
+    /// Business day convention for payment dates.
     pub bdc: BusinessDayConvention,
+    /// Optional calendar for business day adjustments.
     pub calendar_id: Option<&'static str>,
+    /// Stub period handling rule.
     pub stub: StubKind,
+    /// Start date of the fixed leg.
     pub start: Date,
+    /// End date of the fixed leg.
     pub end: Date,
 }
 
+/// Specification for the floating leg of an interest rate swap.
 #[derive(Clone, Debug)]
 pub struct FloatLegSpec {
+    /// Discount curve identifier for pricing.
     pub disc_id: &'static str,
+    /// Forward curve identifier for rate projections.
     pub fwd_id: &'static str,
+    /// Spread in basis points added to the forward rate.
     pub spread_bp: F,
+    /// Payment frequency.
     pub freq: Frequency,
+    /// Day count convention for accrual.
     pub dc: DayCount,
+    /// Business day convention for payment dates.
     pub bdc: BusinessDayConvention,
+    /// Optional calendar for business day adjustments.
     pub calendar_id: Option<&'static str>,
+    /// Stub period handling rule.
     pub stub: StubKind,
+    /// Start date of the floating leg.
     pub start: Date,
+    /// End date of the floating leg.
     pub end: Date,
 }
 
+/// Interest rate swap with fixed and floating legs.
+/// 
+/// Represents a standard interest rate swap where one party pays
+/// a fixed rate and the other pays a floating rate plus spread.
 #[derive(Clone, Debug)]
 pub struct InterestRateSwap {
+    /// Unique identifier for the swap.
     pub id: String,
+    /// Notional amount for both legs.
     pub notional: Money,
+    /// Direction of the swap (PayFixed or ReceiveFixed).
     pub side: PayReceive,
+    /// Fixed leg specification.
     pub fixed: FixedLegSpec,
+    /// Floating leg specification.
     pub float: FloatLegSpec,
 }
 

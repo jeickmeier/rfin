@@ -1,5 +1,8 @@
-#![deny(missing_docs)]
 //! Interest rate swap specific metric calculators.
+//! 
+//! Provides metric calculators for interest rate swaps including annuity factors,
+//! par rates, DV01, and present values for both fixed and floating legs.
+//! These metrics are essential for swap valuation and risk management.
 
 use crate::instruments::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
@@ -8,8 +11,19 @@ use finstack_core::prelude::*;
 use finstack_core::F;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
-
 /// Calculates annuity (sum of discounted year fractions) for IRS.
+/// 
+/// Computes the sum of discounted year fractions for the fixed leg,
+/// which is used in par rate calculations and other swap metrics.
+/// 
+/// # Example
+/// ```rust
+/// use finstack_valuations::instruments::irs::metrics::AnnuityCalculator;
+/// use finstack_valuations::metrics::traits::MetricCalculator;
+/// 
+/// let calculator = AnnuityCalculator;
+/// // Note: Would need proper context with IRS data to test calculation
+/// ```
 pub struct AnnuityCalculator;
 
 impl MetricCalculator for AnnuityCalculator {
@@ -23,7 +37,7 @@ impl MetricCalculator for AnnuityCalculator {
         let base = disc.base_date();
         
         // Build fixed leg schedule
-        let sched = crate::cashflow::schedule::build_dates(
+        let sched = crate::cashflow::builder::build_dates(
             irs.fixed.start, irs.fixed.end, irs.fixed.freq, irs.fixed.stub, irs.fixed.bdc, irs.fixed.calendar_id,
         );
         let schedule: Vec<Date> = sched.dates;
@@ -47,6 +61,21 @@ impl MetricCalculator for AnnuityCalculator {
 }
 
 /// Calculates par rate for IRS.
+/// 
+/// Computes the fixed rate that makes the swap worth zero at inception.
+/// Uses the formula: PV(float_leg) / (notional * annuity).
+/// 
+/// # Dependencies
+/// Requires `Annuity` metric to be computed first.
+/// 
+/// # Example
+/// ```rust
+/// use finstack_valuations::instruments::irs::metrics::ParRateCalculator;
+/// use finstack_valuations::metrics::traits::MetricCalculator;
+/// 
+/// let calculator = ParRateCalculator;
+/// // Note: Would need proper context with computed dependencies to test calculation
+/// ```
 pub struct ParRateCalculator;
 
 impl MetricCalculator for ParRateCalculator {
@@ -71,7 +100,7 @@ impl MetricCalculator for ParRateCalculator {
         }
         
         // Compute PV of float leg
-        let fs = crate::cashflow::schedule::build_dates(
+        let fs = crate::cashflow::builder::build_dates(
             irs.float.start, irs.float.end, irs.float.freq, irs.float.stub, irs.float.bdc, irs.float.calendar_id,
         );
         let float_schedule: Vec<Date> = fs.dates;
@@ -100,6 +129,22 @@ impl MetricCalculator for ParRateCalculator {
 }
 
 /// Calculates DV01 (dollar value of 1 basis point) for IRS.
+/// 
+/// Computes the change in present value for a 1 basis point parallel shift
+/// in interest rates. The sign depends on whether the swap is pay-fixed
+/// (negative DV01) or receive-fixed (positive DV01).
+/// 
+/// # Dependencies
+/// Requires `Annuity` metric to be computed first.
+/// 
+/// # Example
+/// ```rust
+/// use finstack_valuations::instruments::irs::metrics::Dv01Calculator;
+/// use finstack_valuations::metrics::traits::MetricCalculator;
+/// 
+/// let calculator = Dv01Calculator;
+/// // Note: Would need proper context with computed dependencies to test calculation
+/// ```
 pub struct Dv01Calculator;
 
 impl MetricCalculator for Dv01Calculator {
@@ -129,6 +174,18 @@ impl MetricCalculator for Dv01Calculator {
 }
 
 /// Calculates PV of fixed leg for IRS.
+/// 
+/// Computes the present value of the fixed-rate leg by discounting
+/// all fixed coupon payments using the swap's discount curve.
+/// 
+/// # Example
+/// ```rust
+/// use finstack_valuations::instruments::irs::metrics::FixedLegPvCalculator;
+/// use finstack_valuations::metrics::traits::MetricCalculator;
+/// 
+/// let calculator = FixedLegPvCalculator;
+/// // Note: Would need proper context with IRS data to test calculation
+/// ```
 pub struct FixedLegPvCalculator;
 
 impl MetricCalculator for FixedLegPvCalculator {
@@ -142,7 +199,7 @@ impl MetricCalculator for FixedLegPvCalculator {
         let base = disc.base_date();
         
         // Build fixed leg schedule and compute PV
-        let sched = crate::cashflow::schedule::build_dates(
+        let sched = crate::cashflow::builder::build_dates(
             irs.fixed.start, irs.fixed.end, irs.fixed.freq, irs.fixed.stub, irs.fixed.bdc, irs.fixed.calendar_id,
         );
         let schedule: Vec<Date> = sched.dates;
@@ -166,6 +223,19 @@ impl MetricCalculator for FixedLegPvCalculator {
 }
 
 /// Calculates PV of floating leg for IRS.
+/// 
+/// Computes the present value of the floating-rate leg by discounting
+/// all floating coupon payments. Forward rates are used to project
+/// future floating rates, and the spread is added to each rate.
+/// 
+/// # Example
+/// ```rust
+/// use finstack_valuations::instruments::irs::metrics::FloatLegPvCalculator;
+/// use finstack_valuations::metrics::traits::MetricCalculator;
+/// 
+/// let calculator = FloatLegPvCalculator;
+/// // Note: Would need proper context with IRS data to test calculation
+/// ```
 pub struct FloatLegPvCalculator;
 
 impl MetricCalculator for FloatLegPvCalculator {
@@ -180,7 +250,7 @@ impl MetricCalculator for FloatLegPvCalculator {
         let base = disc.base_date();
         
         // Build float leg schedule and compute PV
-        let sched = crate::cashflow::schedule::build_dates(
+        let sched = crate::cashflow::builder::build_dates(
             irs.float.start, irs.float.end, irs.float.freq, irs.float.stub, irs.float.bdc, irs.float.calendar_id,
         );
         let schedule: Vec<Date> = sched.dates;
@@ -207,7 +277,28 @@ impl MetricCalculator for FloatLegPvCalculator {
     }
 }
 
-/// Register all IRS metrics to a registry.
+/// Registers all IRS metrics to a registry.
+/// 
+/// This function adds all IRS-specific metrics to the provided metric
+/// registry. Each metric is registered with the "IRS" instrument type
+/// to ensure proper applicability filtering.
+/// 
+/// # Arguments
+/// * `registry` - Metric registry to add IRS metrics to
+/// 
+/// # Example
+/// ```rust
+/// use finstack_valuations::metrics::registry::MetricRegistry;
+/// use finstack_valuations::instruments::irs::metrics::register_irs_metrics;
+/// 
+/// let mut registry = MetricRegistry::new();
+/// register_irs_metrics(&mut registry);
+/// 
+/// // Check that IRS metrics are registered
+/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::Annuity));
+/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::ParRate));
+/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::Dv01));
+/// ```
 pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
     use std::sync::Arc;
     use crate::metrics::MetricId;

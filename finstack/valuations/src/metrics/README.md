@@ -39,13 +39,24 @@ impl Priceable for Bond {
 // Core pricing separate
 let value = bond.value(&curves, as_of)?;  // Fast, focused
 
-// Compute only needed metrics
-let metrics = bond.price_with_metrics(&curves, as_of, &["ytm", "duration"])?;
+// Compute only needed metrics (strongly-typed IDs)
+use crate::metrics::MetricId;
+let result = bond.price_with_metrics(&curves, as_of, &[MetricId::Ytm, MetricId::DurationMod])?;
 
 // Or use registry directly for fine control
-let mut context = MetricContext::new(...);
+use crate::instruments::Instrument;
+use crate::metrics::{MetricContext, standard_registry, MetricId};
+use std::sync::Arc;
+
+let mut context = MetricContext::new(
+    Arc::new(Instrument::Bond(bond.clone())),
+    Arc::new(curves.clone()),
+    as_of,
+    value,
+);
+
 let registry = standard_registry();
-registry.compute(&["accrued", "ytm"], &mut context)?;
+registry.compute(&[MetricId::Accrued, MetricId::Ytm], &mut context)?;
 ```
 
 ## Key Features
@@ -71,8 +82,8 @@ registry.compute(&["accrued", "ytm"], &mut context)?;
 - Plugin architecture
 
 ### 5. Type Safety
-- Strongly typed metric IDs
-- Compile-time instrument type checking
+- Strongly-typed metric IDs via `MetricId`
+- Applicability enforced per instrument type via the registry
 - Clear error handling
 
 ## Usage Examples
@@ -83,35 +94,39 @@ registry.compute(&["accrued", "ytm"], &mut context)?;
 let value = bond.value(&curves, as_of)?;
 
 // Specific metrics
-let result = bond.price_with_metrics(&curves, as_of, &["ytm", "duration"])?;
+use crate::metrics::MetricId;
+let result = bond.price_with_metrics(&curves, as_of, &[MetricId::Ytm, MetricId::DurationMod])?;
 ```
 
 ### Custom Metrics
 ```rust
 struct MyCustomMetric;
 impl MetricCalculator for MyCustomMetric {
-    fn id(&self) -> &str { "custom" }
-    fn calculate(&self, ctx: &MetricContext) -> Result<F> {
+    fn calculate(&self, _ctx: &mut MetricContext) -> finstack_core::Result<F> {
         // Custom logic here
+        Ok(0.0)
     }
 }
 
 let mut registry = standard_registry();
-registry.register_metric(MetricId::MyCustom, Arc::new(MyCustomMetric), &["Bond"]);
+registry.register_metric(MetricId::custom("custom"), Arc::new(MyCustomMetric), &["Bond"]);
 ```
 
 ### Direct Registry Usage
 ```rust
+use crate::instruments::Instrument;
+use crate::metrics::{MetricContext, MetricId, standard_registry};
+use std::sync::Arc;
+
 let mut context = MetricContext::new(
-    Arc::new(bond),
-    "Bond",
-    curves,
+    Arc::new(Instrument::Bond(bond.clone())),
+    Arc::new(curves.clone()),
     as_of,
     base_value,
 );
 
 let registry = standard_registry();
-let metrics = registry.compute(&["ytm", "duration"], &mut context)?;
+let metrics = registry.compute(&[MetricId::Ytm, MetricId::DurationMac], &mut context)?;
 ```
 
 ## Performance Impact
@@ -127,14 +142,11 @@ let metrics = registry.compute(&["ytm", "duration"], &mut context)?;
 - Parallel computation possible (future enhancement)
 - 3-5x faster when only PV needed
 
-## Migration Path
+## Integration
 
-The new framework is designed to coexist with the old approach:
-
-1. **Phase 1**: Add metrics framework alongside existing code
-2. **Phase 2**: Instruments can optionally implement new interface
-3. **Phase 3**: Gradually migrate metrics to new system
-4. **Phase 4**: Deprecate old monolithic `price()` methods
+- Call `value()` for fast PV only.
+- Call `price_with_metrics(curves, as_of, &[MetricId::...])` to compute a targeted set of metrics.
+- Call legacy `price()` to compute PV plus a standard set of metrics per instrument (delegates to the framework).
 
 ## Standard Metrics
 
@@ -147,6 +159,7 @@ The new framework is designed to coexist with the old approach:
 - `ytw` - Yield to worst
 - `dirty_price` - Clean price + accrued interest (requires quoted clean price)
 - `clean_price` - If quoted, returns that; otherwise `value()` (dirty) minus accrued
+- `cs01` - Credit spread sensitivity
 
 Note on price precedence:
 - When `quoted_clean` is present on a `Bond`, `dirty_price` is computed as `quoted_clean + accrued` and `clean_price` simply echoes the quoted value.
@@ -159,11 +172,17 @@ Note on price precedence:
 - `pv_fixed` - Fixed leg PV
 - `pv_float` - Floating leg PV
 
-### Risk Metrics (Future)
-- `bucketed_dv01` - DV01 by tenor bucket
-- `cs01` - Credit spread sensitivity
-- `theta` - Time decay
-- `vega` - Volatility sensitivity
+### Deposit Metrics
+- `yf` - Year fraction
+- `df_start` - Discount factor at start date
+- `df_end` - Discount factor at end date
+- `deposit_par_rate` - Par rate implied by DFs
+- `df_end_from_quote` - DF(end) implied by quoted rate
+- `quote_rate` - Quoted rate if present
+
+### Risk Metrics
+- `bucketed_dv01` - DV01 total across standard tenor buckets
+- `theta` - Time decay (placeholder)
 
 ## Architecture
 
@@ -193,10 +212,11 @@ Note on price precedence:
                        ▼
 ┌─────────────────────────────────────────────────────┐
 │              MetricCalculators                      │
-│  - YtmCalculator                                    │
-│  - DurationCalculator                               │
-│  - CustomMetricCalculator                           │
-│  - ...                                              │
+│  - AccruedInterest/Ytm/Duration/Convexity/Ytw       │
+│  - Annuity/ParRate/Dv01/PvFixed/PvFloat (IRS)       │
+│  - Yf/DfStart/DfEnd/DepositPar/DfFromQuote/Quote    │
+│  - BucketedDv01, Theta (risk)                       │
+│  - Custom calculators                                │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -207,8 +227,8 @@ Each metric can be unit tested independently:
 #[test]
 fn test_ytm_calculator() {
     let calc = YtmCalculator;
-    let context = create_test_context();
-    let ytm = calc.calculate(&context).unwrap();
+    let mut context = create_test_context();
+    let ytm = calc.calculate(&mut context).unwrap();
     assert_eq!(ytm, expected_ytm());
 }
 ```

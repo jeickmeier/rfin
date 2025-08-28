@@ -1,4 +1,4 @@
-#![allow(missing_docs)]
+//! Pricing-related utilities and interfaces.
 
 pub mod result;
 pub mod npv;

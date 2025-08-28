@@ -1,4 +1,9 @@
 //! Bond-specific metric calculators.
+//! 
+//! Provides comprehensive metric calculators for fixed-rate bonds including
+//! yield to maturity, duration, convexity, accrued interest, and credit spreads.
+//! These metrics are essential for bond valuation, risk management, and
+//! portfolio analysis.
 
 use crate::instruments::{Bond, Instrument};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
@@ -7,6 +12,19 @@ use finstack_core::prelude::*;
 use finstack_core::F;
 
 /// Calculates accrued interest for bonds.
+/// 
+/// Computes the accrued interest since the last coupon payment up to the
+/// valuation date. This is essential for determining the dirty price and
+/// other bond metrics that depend on accrued interest.
+/// 
+/// # Example
+/// ```rust
+/// use finstack_valuations::instruments::bond::metrics::AccruedInterestCalculator;
+/// use finstack_valuations::metrics::traits::MetricCalculator;
+/// 
+/// let calculator = AccruedInterestCalculator;
+/// // Note: Would need proper context with bond data to test calculation
+/// ```
 pub struct AccruedInterestCalculator;
 
 impl MetricCalculator for AccruedInterestCalculator {
@@ -18,7 +36,7 @@ impl MetricCalculator for AccruedInterestCalculator {
         };
 
         // Build canonical coupon schedule directly (no inference from holder flows)
-        let sched = crate::cashflow::schedule::build_dates(
+        let sched = crate::cashflow::builder::build_dates(
             bond.issue,
             bond.maturity,
             bond.freq,
@@ -73,6 +91,22 @@ impl MetricCalculator for AccruedInterestCalculator {
 }
 
 /// Calculates yield to maturity for bonds.
+/// 
+/// Computes the internal rate of return that equates the present value of
+/// all future cashflows to the current market price. This is a fundamental
+/// metric for bond valuation and comparison across different bonds.
+/// 
+/// # Dependencies
+/// Requires `Accrued` metric to be computed first.
+/// 
+/// # Example
+/// ```rust
+/// use finstack_valuations::instruments::bond::metrics::YtmCalculator;
+/// use finstack_valuations::metrics::traits::MetricCalculator;
+/// 
+/// let calculator = YtmCalculator;
+/// // Note: Would need proper context with bond data and quoted price to test calculation
+/// ```
 pub struct YtmCalculator;
 
 impl MetricCalculator for YtmCalculator {
@@ -441,7 +475,28 @@ impl MetricCalculator for Cs01Calculator {
 
 impl Cs01Calculator {}
 
-/// Register all bond metrics to a registry.
+/// Registers all bond metrics to a registry.
+/// 
+/// This function adds all bond-specific metrics to the provided metric
+/// registry. Each metric is registered with the "Bond" instrument type
+/// to ensure proper applicability filtering.
+/// 
+/// # Arguments
+/// * `registry` - Metric registry to add bond metrics to
+/// 
+/// # Example
+/// ```rust
+/// use finstack_valuations::metrics::registry::MetricRegistry;
+/// use finstack_valuations::instruments::bond::metrics::register_bond_metrics;
+/// 
+/// let mut registry = MetricRegistry::new();
+/// register_bond_metrics(&mut registry);
+/// 
+/// // Check that key bond metrics are registered
+/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::Ytm));
+/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::DurationMac));
+/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::Convexity));
+/// ```
 pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
     use std::sync::Arc;
     use crate::metrics::MetricId;

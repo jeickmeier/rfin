@@ -1,11 +1,17 @@
-#![allow(missing_docs)]
+//! Interface for objects that can be present-valued against a `Discount` curve.
 
 use finstack_core::prelude::*;
 use finstack_core::market_data::traits::Discount;
 
 /// Objects that can be present-valued against a `Discount` curve.
+/// 
+/// Provides a unified interface for NPV calculations across different
+/// cashflow representations and instrument types.
 pub trait Discountable {
+    /// Output type for the NPV calculation.
     type PVOutput;
+    
+    /// Compute present value using the given discount curve and day count.
     fn npv(&self, disc: &dyn Discount, base: Date, dc: DayCount) -> Self::PVOutput;
 }
 
@@ -28,6 +34,39 @@ impl Discountable for Vec<(Date, Money)> {
 impl Discountable for crate::cashflow::builder::CashFlowSchedule {
     type PVOutput = finstack_core::Result<Money>;
 
+    /// Compute NPV of the cashflow schedule.
+    /// 
+    /// Extracts date-amount pairs from the schedule and computes
+    /// present value using the provided discount curve.
+    /// 
+    /// # Example
+    /// ```rust
+    /// use finstack_valuations::cashflow::builder::CashFlowSchedule;
+    /// use finstack_valuations::pricing::discountable::Discountable;
+    /// use finstack_core::market_data::traits::Discount;
+    /// use finstack_core::dates::DayCount;
+    /// use finstack_core::market_data::id::CurveId;
+    /// use finstack_core::market_data::traits::TermStructure;
+    /// use finstack_core::dates::Date;
+    /// use time::Month;
+    /// 
+    /// struct FlatCurve { id: CurveId }
+    /// impl TermStructure for FlatCurve { 
+    ///     fn id(&self) -> &CurveId { &self.id } 
+    /// }
+    /// impl Discount for FlatCurve {
+    ///     fn base_date(&self) -> Date { 
+    ///         Date::from_calendar_date(2025, Month::January, 1).unwrap() 
+    ///     }
+    ///     fn df(&self, _t: f64) -> f64 { 1.0 }
+    /// }
+    /// 
+    /// // Note: These would be created from actual data
+    /// // let schedule: CashFlowSchedule = todo!();
+    /// // let curve: &dyn Discount = &FlatCurve { id: CurveId::new("USD-OIS") };
+    /// // let base = curve.base_date();
+    /// // let pv = schedule.npv(curve, base, DayCount::Act365F)?;
+    /// ```
     fn npv(&self, disc: &dyn Discount, base: Date, dc: DayCount) -> finstack_core::Result<Money> {
         let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
         super::npv::npv(disc, base, dc, &flows)

@@ -1,10 +1,12 @@
+//! Test cases for `Valuation` code.
+
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency, StubKind, BusinessDayConvention};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
 use finstack_core::market_data::traits::Discount as _;
 use finstack_core::money::Money;
-use finstack_core::dates::ScheduleBuilder;
 use finstack_valuations::cashflow::builder::{cf, CouponType, ScheduleParams, FloatCouponParams, FixedWindow, FloatWindow};
+use finstack_valuations::pricing::discountable::Discountable;
 use time::Month;
 
 #[test]

@@ -1,4 +1,4 @@
-#![allow(missing_docs)]
+//! Bond instrument implementation.
 
 pub mod metrics;
 pub mod helpers;
@@ -15,17 +15,29 @@ use crate::cashflow::builder::{cf, FixedCouponSpec, CouponType};
 use finstack_core::dates::{BusinessDayConvention, StubKind};
 
 // Re-export for compatibility in tests and external users referencing bond::AmortizationSpec
-pub use crate::cashflow::amortization::AmortizationSpec;
+pub use crate::cashflow::amortization_notional::AmortizationSpec;
 
+/// Fixed-rate bond instrument with optional features.
+/// 
+/// Supports call/put schedules, amortization, and quoted prices for
+/// yield-to-maturity calculations.
 #[derive(Clone, Debug)]
 pub struct Bond {
+    /// Unique identifier for the bond.
     pub id: String,
+    /// Principal amount of the bond.
     pub notional: Money,
+    /// Annual coupon rate (e.g., 0.05 for 5%).
     pub coupon: F,
+    /// Coupon payment frequency.
     pub freq: finstack_core::dates::Frequency,
+    /// Day count convention for accrual.
     pub dc: DayCount,
+    /// Issue date of the bond.
     pub issue: Date,
+    /// Maturity date of the bond.
     pub maturity: Date,
+    /// Discount curve identifier for pricing.
     pub disc_id: &'static str,
     /// Optional quoted clean price (per notional unit). If provided, we compute YTM measures.
     pub quoted_clean: Option<F>,
@@ -35,11 +47,23 @@ pub struct Bond {
     pub amortization: Option<AmortizationSpec>,
 }
 
+/// Call or put option on a bond.
 #[derive(Clone, Debug)]
-pub struct CallPut { pub date: Date, pub price_pct_of_par: F }
+pub struct CallPut { 
+    /// Exercise date of the option.
+    pub date: Date, 
+    /// Redemption price as percentage of par amount.
+    pub price_pct_of_par: F 
+}
 
+/// Schedule of call and put options for a bond.
 #[derive(Clone, Debug, Default)]
-pub struct CallPutSchedule { pub calls: Vec<CallPut>, pub puts: Vec<CallPut> }
+pub struct CallPutSchedule { 
+    /// Call options (issuer can redeem early).
+    pub calls: Vec<CallPut>, 
+    /// Put options (holder can redeem early).
+    pub puts: Vec<CallPut> 
+}
 
 impl Bond {
     /// Get the standard metrics for a bond based on its configuration.

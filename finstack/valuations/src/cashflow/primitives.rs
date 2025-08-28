@@ -4,9 +4,10 @@ use finstack_core::dates::Date;
 use finstack_core::error::InputError;
 use finstack_core::money::Money;
 
-/// Enumeration of cash-flow kinds as per §5.1 of the design document.
+/// Enumeration of cash-flow kinds for classification and ordering.
 ///
-/// `non_exhaustive` – downstream crates must handle unknown variants.
+/// Used to distinguish between different types of cashflows for
+/// proper sequencing, risk calculation, and accounting treatment.
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -25,12 +26,12 @@ pub enum CFKind {
     Fee,
     /// Irregular stub period.
     Stub,
-    // Future variants will be added in line with design §5.1 (PIK, StepUp, …).
 }
 
 /// A single dated cash-flow (payment or reset).
 ///
-/// See §5.2 of the design document for details.
+/// Represents a monetary flow at a specific date with metadata
+/// for proper classification and risk calculation.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CashFlow {
@@ -51,6 +52,21 @@ impl CashFlow {
     ///
     /// # Errors
     /// Returns [`Error::InvalidInput`] if the `amount` is zero.
+    /// 
+    /// # Example
+    /// ```rust
+    /// use finstack_core::dates::Date;
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::money::Money;
+    /// use finstack_valuations::cashflow::primitives::CashFlow;
+    /// use time::Month;
+    /// 
+    /// let date = Date::from_calendar_date(2025, Month::June, 15).unwrap();
+    /// let amount = Money::new(25_000.0, Currency::USD);
+    /// let cf = CashFlow::fixed_cf(date, amount)?;
+    /// assert_eq!(cf.kind, finstack_valuations::cashflow::primitives::CFKind::Fixed);
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn fixed_cf(date: Date, amount: Money) -> finstack_core::Result<Self> {
         if amount.amount() == 0.0 {
             return Err(InputError::Invalid.into());
