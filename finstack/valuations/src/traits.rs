@@ -29,8 +29,30 @@ pub trait CashflowProvider: Send + Sync {
 }
 
 /// Priceable instruments produce a `ValuationResult` at `as_of` using curves.
+/// 
+/// The default implementation now uses the metrics framework to compute
+/// measures, delegating to `value()` for base NPV calculation.
 pub trait Priceable: Send + Sync {
+    /// Compute full valuation with all standard metrics (backward compatible).
     fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<super::pricing::result::ValuationResult>;
+    
+    /// Compute only the base present value (fast, no metrics).
+    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
+        // Default implementation for backward compatibility
+        self.price(curves, as_of).map(|r| r.value)
+    }
+    
+    /// Compute value with specific metrics.
+    fn price_with_metrics(
+        &self, 
+        curves: &CurveSet, 
+        as_of: Date, 
+        metrics: &[&str]
+    ) -> finstack_core::Result<super::pricing::result::ValuationResult> {
+        // Default implementation: just calls price() and filters metrics
+        let result = self.price(curves, as_of)?;
+        let mut filtered_result = result.clone();
+        filtered_result.measures.retain(|k, _| metrics.contains(&k.as_str()));
+        Ok(filtered_result)
+    }
 }
-
-

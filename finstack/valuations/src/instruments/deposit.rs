@@ -3,8 +3,6 @@
 use finstack_core::prelude::*;
 use finstack_core::F;
 use finstack_core::market_data::multicurve::CurveSet;
-use finstack_core::market_data::traits::Discount;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 use crate::pricing::discountable::Discountable;
 use crate::pricing::result::ValuationResult;
@@ -25,30 +23,66 @@ pub struct Deposit {
     pub disc_id: &'static str,
 }
 
-impl Deposit {
-    /// Year fraction of the deposit.
-    fn yf(&self) -> F {
-        DiscountCurve::year_fraction(self.start, self.end, self.day_count)
+impl Priceable for Deposit {
+    /// Compute only the base present value (fast, no metrics).
+    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
+        let disc = curves.discount(self.disc_id)?;
+        let flows = self.build_schedule(curves, as_of)?;
+        flows.npv(&*disc, disc.base_date(), self.day_count)
     }
-
-    /// Compute par (simple) rate from curves.
-    fn par_rate(&self, disc: &dyn Discount) -> F {
-        // r_par = (DF(start)/DF(end) - 1) / yf
-        let base = disc.base_date();
-        let df_s = DiscountCurve::df_on(disc, base, self.start, self.day_count);
-        let df_e = DiscountCurve::df_on(disc, base, self.end, self.day_count);
-        let yf = self.yf();
-        if yf == 0.0 { return 0.0; }
-        (df_s / df_e - 1.0) / yf
+    
+    /// Compute value with specific metrics using the metrics framework.
+    fn price_with_metrics(
+        &self, 
+        curves: &CurveSet, 
+        as_of: Date, 
+        metrics: &[&str]
+    ) -> finstack_core::Result<ValuationResult> {
+        use crate::metrics::{MetricContext, standard_registry};
+        use std::sync::Arc;
+        
+        // Compute base value
+        let base_value = self.value(curves, as_of)?;
+        
+        // Create metric context
+        let mut context = MetricContext::new(
+            Arc::new(self.clone()) as Arc<dyn std::any::Any + Send + Sync>,
+            "Deposit".to_string(),
+            Arc::new(curves.clone()),
+            as_of,
+            base_value,
+        );
+        
+        // Get registry and compute requested metrics
+        let registry = standard_registry();
+        let measures = registry.compute(metrics, &mut context)?;
+        
+        // Create result
+        let mut result = ValuationResult::stamped(self.id.clone(), as_of, base_value);
+        result.measures = measures;
+        
+        Ok(result)
     }
-
-    /// Compute implied DF(end) from a quoted simple rate.
-    fn df_end_from_quote(&self, disc: &dyn Discount, r: F) -> F {
-        // DF(end) = DF(start) / (1 + r * yf)
-        let base = disc.base_date();
-        let df_s = DiscountCurve::df_on(disc, base, self.start, self.day_count);
-        let yf = self.yf();
-        df_s / (1.0 + r * yf)
+    
+    /// Compute full valuation with all standard deposit metrics (backward compatible).
+    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
+        // Standard deposit metrics
+        let mut standard_metrics = vec!["yf", "df_start", "df_end", "deposit_par_rate"];
+        
+        // Add quote-related metrics if we have a quoted rate
+        if self.quote_rate.is_some() {
+            standard_metrics.push("df_end_from_quote");
+            standard_metrics.push("quote_rate");
+        }
+        
+        let mut result = self.price_with_metrics(curves, as_of, &standard_metrics)?;
+        
+        // For backward compatibility, rename deposit_par_rate back to par_rate
+        if let Some(value) = result.measures.remove("deposit_par_rate") {
+            result.measures.insert("par_rate".to_string(), value);
+        }
+        
+        Ok(result)
     }
 }
 
@@ -63,7 +97,10 @@ impl CashflowProvider for Deposit {
             .fixed_cf(FixedCouponSpec {
                 coupon_type: CouponType::Cash,
                 rate,
-                freq: if days <= 1 { Frequency::daily() } else if days == 7 { Frequency::weekly() } else if days == 14 { Frequency::biweekly() } else { Frequency::monthly() },
+                freq: if days <= 1 { Frequency::daily() } 
+                      else if days == 7 { Frequency::weekly() } 
+                      else if days == 14 { Frequency::biweekly() } 
+                      else { Frequency::monthly() },
                 dc: self.day_count,
                 bdc: BusinessDayConvention::Unadjusted,
                 calendar_id: None,
@@ -83,29 +120,3 @@ impl CashflowProvider for Deposit {
         Ok(vec![(self.start, self.notional * -1.0), (self.end, redemption)])
     }
 }
-
-impl Priceable for Deposit {
-    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
-        let disc = curves.discount(self.disc_id)?;
-        let base = disc.base_date();
-        let flows = self.build_schedule(curves, as_of)?;
-        let value = flows.npv(&*disc, base, self.day_count)?;
-
-        let mut res = ValuationResult::stamped(self.id.clone(), as_of, value);
-        // Measures useful for bootstrapping
-        res.measures.insert("yf".to_string(), self.yf());
-        // For transparency, keep DF measures from curves
-        let df_s = DiscountCurve::df_on(&*disc, base, self.start, self.day_count);
-        let df_e = DiscountCurve::df_on(&*disc, base, self.end, self.day_count);
-        res.measures.insert("df_start".to_string(), df_s);
-        res.measures.insert("df_end".to_string(), df_e);
-        res.measures.insert("par_rate".to_string(), self.par_rate(&*disc));
-        if let Some(r) = self.quote_rate {
-            res.measures.insert("df_end_from_quote".to_string(), self.df_end_from_quote(&*disc, r));
-            res.measures.insert("quote_rate".to_string(), r);
-        }
-        Ok(res)
-    }
-}
-
-

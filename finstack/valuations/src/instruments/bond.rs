@@ -3,12 +3,7 @@
 use finstack_core::prelude::*;
 use finstack_core::F;
 use finstack_core::market_data::multicurve::CurveSet;
-use finstack_core::market_data::traits::Discount;
 
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-// no pricing::legs usage; discount directly on built cashflows
-use crate::pricing::quotes::{accrued_interest, bond_dirty_from_ytm, bond_ytm_from_dirty, bond_duration_mac_mod};
-use crate::pricing::quotes::{bond_ytm_from_dirty_with_redemption};
 use crate::pricing::discountable::Discountable;
 use crate::pricing::result::ValuationResult;
 use crate::traits::{Priceable, CashflowProvider, DatedFlows};
@@ -43,116 +38,71 @@ pub struct CallPut { pub date: Date, pub price_pct_of_par: F }
 #[derive(Clone, Debug, Default)]
 pub struct CallPutSchedule { pub calls: Vec<CallPut>, pub puts: Vec<CallPut> }
 
-// Removed local duplicate; using cashflow::amortization::AmortizationSpec
-
 impl Bond {
-    fn schedule(&self) -> Vec<Date> {
-        finstack_core::dates::ScheduleBuilder::new(self.issue, self.maturity)
-            .frequency(self.freq)
-            .build_raw()
-            .collect()
-    }
-
-    fn pv(&self, disc: &dyn Discount, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
-        let base = disc.base_date();
-        let flows = self.build_schedule(curves, as_of)?;
-        flows.npv(disc, base, self.dc)
+    /// Get the standard metrics for a bond based on its configuration.
+    fn get_standard_metrics(&self) -> Vec<&str> {
+        let mut metrics = vec!["accrued"];
+        
+        // YTM-related metrics only if we have a quoted price
+        if self.quoted_clean.is_some() {
+            metrics.extend_from_slice(&["ytm", "duration_mac", "duration_mod", "convexity"]);
+        }
+        
+        // YTW only if we have call/put schedule and quoted price
+        if self.call_put.is_some() && self.quoted_clean.is_some() {
+            metrics.push("ytw");
+        }
+        
+        metrics
     }
 }
 
 impl Priceable for Bond {
-    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
+    /// Compute only the base present value (fast, no metrics).
+    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
         let disc = curves.discount(self.disc_id)?;
-        let value = self.pv(&*disc, curves, as_of)?;
-
-        // Accrued interest between last and next coupon around as_of
-        let sched = self.schedule();
-        let (mut last, mut next) = (self.issue, self.maturity);
-        for w in sched.windows(2) {
-            let (a, b) = (w[0], w[1]);
-            if a <= as_of && as_of < b {
-                last = a;
-                next = b;
-                break;
-            }
-        }
-        let ai = accrued_interest(self.notional, self.coupon, last, as_of, next, self.dc);
-
-        let mut res = ValuationResult::stamped(self.id.clone(), as_of, value);
-        res.measures.insert("accrued".to_string(), ai.amount());
-
-        // If we have a quoted clean price, compute YTM and duration measures.
-        if let Some(clean_px) = self.quoted_clean {
-            // Dirty = clean + accrued (per amount); construct Money for dirty
-            let dirty_amt = clean_px + ai.amount();
-            let dirty = Money::new(dirty_amt, self.notional.currency());
-            let sched = self.schedule();
-            let ytm = bond_ytm_from_dirty(self.notional, self.coupon, &sched, self.dc, as_of, dirty);
-            let (d_mac, d_mod) = bond_duration_mac_mod(self.notional, self.coupon, &sched, self.dc, as_of, ytm);
-            let convex = crate::pricing::quotes::bond_convexity_numeric(self.notional, self.coupon, &sched, self.dc, as_of, ytm, 1e-4);
-            res.measures.insert("ytm".to_string(), ytm);
-            res.measures.insert("duration_mac".to_string(), d_mac);
-            res.measures.insert("duration_mod".to_string(), d_mod);
-            res.measures.insert("convexity".to_string(), convex);
-            // Echo derived clean/dirty for convenience
-            let recomputed_dirty = bond_dirty_from_ytm(self.notional, self.coupon, &sched, self.dc, as_of, ytm).map(|m| m.amount()).unwrap_or(0.0);
-            res.measures.insert("price_dirty".to_string(), recomputed_dirty);
-            res.measures.insert("price_clean".to_string(), recomputed_dirty - ai.amount());
-        }
-
-        // Yield-to-worst if a call/put schedule is provided
-        if let Some(cp) = &self.call_put {
-            let sched = self.schedule();
-            // Filter candidate exercise dates >= as_of and within schedule range
-            let mut candidates: Vec<(Date, Money)> = Vec::new();
-            for c in &cp.calls {
-                if c.date >= as_of && c.date <= self.maturity {
-                    let redemption = self.notional * (c.price_pct_of_par / 100.0);
-                    candidates.push((c.date, redemption));
-                }
-            }
-            for p in &cp.puts {
-                if p.date >= as_of && p.date <= self.maturity {
-                    let redemption = self.notional * (p.price_pct_of_par / 100.0);
-                    candidates.push((p.date, redemption));
-                }
-            }
-            // Always include maturity redemption at 100%
-            candidates.push((self.maturity, self.notional));
-
-            // Compute dirty price implied by current discounting
-            let base = disc.base_date();
-            // PV of coupons via builder + generic discount
-            let mut b = cf();
-            b.principal(self.notional, self.issue, self.maturity)
-                .fixed_cf(FixedCouponSpec { coupon_type: CouponType::Cash, rate: self.coupon, freq: self.freq, dc: self.dc, bdc: BusinessDayConvention::Following, calendar_id: None, stub: StubKind::None });
-            let built = b.build()?;
-            let mut all_flows: Vec<(Date, Money)> = built
-                .flows
-                .iter()
-                .filter(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub)
-                .map(|cf| (cf.date, cf.amount))
-                .collect();
-            all_flows.push((self.maturity, self.notional));
-            let dirty_now = all_flows.npv(&*disc, base, self.dc)?;
-
-            // Choose worst (minimum) yield, tie-breaker earliest date
-            let mut best_ytm = f64::INFINITY;
-            let mut best_date = self.maturity;
-            for (exercise, red) in candidates {
-                // Truncate schedule to exercise date
-                let mut trunc: Vec<Date> = sched.iter().cloned().filter(|d| *d <= exercise).collect();
-                if *trunc.last().unwrap() != exercise { trunc.push(exercise); }
-                let y = bond_ytm_from_dirty_with_redemption(self.notional, self.coupon, &trunc, self.dc, as_of, dirty_now, red);
-                if y < best_ytm - 1e-12 || ((y - best_ytm).abs() <= 1e-12 && exercise < best_date) {
-                    best_ytm = y;
-                    best_date = exercise;
-                }
-            }
-            res.measures.insert("ytw".to_string(), best_ytm);
-            res.measures.insert("ytw_exercise_ts".to_string(), DiscountCurve::year_fraction(as_of, best_date, self.dc));
-        }
-        Ok(res)
+        let flows = self.build_schedule(curves, as_of)?;
+        flows.npv(&*disc, disc.base_date(), self.dc)
+    }
+    
+    /// Compute value with specific metrics using the metrics framework.
+    fn price_with_metrics(
+        &self, 
+        curves: &CurveSet, 
+        as_of: Date, 
+        metrics: &[&str]
+    ) -> finstack_core::Result<ValuationResult> {
+        use crate::metrics::{MetricContext, standard_registry};
+        use std::sync::Arc;
+        
+        // Compute base value
+        let base_value = self.value(curves, as_of)?;
+        
+        // Create metric context
+        let mut context = MetricContext::new(
+            Arc::new(self.clone()) as Arc<dyn std::any::Any + Send + Sync>,
+            "Bond".to_string(),
+            Arc::new(curves.clone()),
+            as_of,
+            base_value,
+        );
+        
+        // Get registry and compute requested metrics
+        let registry = standard_registry();
+        let measures = registry.compute(metrics, &mut context)?;
+        
+        // Create result
+        let mut result = ValuationResult::stamped(self.id.clone(), as_of, base_value);
+        result.measures = measures;
+        
+        Ok(result)
+    }
+    
+    /// Compute full valuation with all applicable standard metrics (backward compatible).
+    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
+        // Use the metrics framework to compute all standard bond metrics
+        let standard_metrics = self.get_standard_metrics();
+        self.price_with_metrics(curves, as_of, &standard_metrics)
     }
 }
 
@@ -188,5 +138,3 @@ impl CashflowProvider for Bond {
         Ok(flows)
     }
 }
-
-
