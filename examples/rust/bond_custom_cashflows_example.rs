@@ -274,7 +274,7 @@ fn main() -> finstack_core::Result<()> {
     example_amortizing_bond_with_fees()?;
     example_comparison_regular_vs_custom()?;
     
-    print!("\n");
+    println!();
     println!("{}", "=".repeat(60));
     println!("Examples completed successfully!");
     println!("{}", "=".repeat(60));

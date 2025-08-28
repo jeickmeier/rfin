@@ -88,6 +88,7 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     dates_module.add_class::<core::dates::PyStubRule>()?;
     dates_module.add_class::<core::dates::PyPeriodId>()?;
     dates_module.add_class::<core::dates::PyPeriod>()?;
+    dates_module.add_class::<core::dates::PyFiscalConfig>()?;
     dates_module.add_function(pyo3::wrap_pyfunction!(
         core::dates::py_generate_schedule,
         &dates_module
@@ -100,6 +101,7 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     dates_module.add_function(pyo3::wrap_pyfunction!(py_next_imm, &dates_module)?)?;
     dates_module.add_function(pyo3::wrap_pyfunction!(py_next_cds_date, &dates_module)?)?;
     dates_module.add_function(pyo3::wrap_pyfunction!(core::dates::py_build_periods, &dates_module)?)?;
+    dates_module.add_function(pyo3::wrap_pyfunction!(core::dates::py_build_fiscal_periods, &dates_module)?)?;
     m.add_submodule(&dates_module)?;
     m.py()
         .import("sys")?
@@ -152,6 +154,7 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<core::dates::PyStubRule>()?;
     m.add_class::<core::dates::PyPeriodId>()?;
     m.add_class::<core::dates::PyPeriod>()?;
+    m.add_class::<core::dates::PyFiscalConfig>()?;
 
     // Valuation types
     m.add_class::<valuations::cashflow::PyCashFlow>()?;
@@ -175,6 +178,7 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(pyo3::wrap_pyfunction!(py_next_imm, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(py_next_cds_date, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(core::dates::py_build_periods, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(core::dates::py_build_fiscal_periods, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(valuations::cashflow::py_cashflows_to_dataframe, m)?)?;
 
     Ok(())

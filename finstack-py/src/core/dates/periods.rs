@@ -1,6 +1,6 @@
 //! Python bindings for period/frequency functionality.
 
-use finstack_core::dates::{build_periods, Period, PeriodId};
+use finstack_core::dates::{build_periods, build_fiscal_periods, FiscalConfig, Period, PeriodId};
 use pyo3::prelude::*;
 use pyo3::types::PyList;
 
@@ -175,6 +175,90 @@ impl PyPeriod {
     }
 }
 
+/// Python wrapper for FiscalConfig.
+///
+/// Defines the start date of a fiscal year.
+#[pyclass(name = "FiscalConfig")]
+#[derive(Clone, Debug)]
+pub struct PyFiscalConfig {
+    inner: FiscalConfig,
+}
+
+#[pymethods]
+impl PyFiscalConfig {
+    /// Create a new fiscal configuration.
+    ///
+    /// Args:
+    ///     start_month: The month when the fiscal year starts (1-12).
+    ///     start_day: The day of the month when the fiscal year starts (1-31).
+    ///
+    /// Returns:
+    ///     A new FiscalConfig instance.
+    ///
+    /// Example:
+    ///     >>> config = FiscalConfig(10, 1)  # US Federal fiscal year
+    #[new]
+    fn new(start_month: u8, start_day: u8) -> PyResult<Self> {
+        FiscalConfig::new(start_month, start_day)
+            .map(|inner| Self { inner })
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("{}", e)))
+    }
+
+    /// Standard calendar year (January 1).
+    #[staticmethod]
+    #[pyo3(name = "calendar_year")]
+    fn py_calendar_year() -> Self {
+        Self {
+            inner: FiscalConfig::calendar_year(),
+        }
+    }
+
+    /// US Federal fiscal year (October 1).
+    #[staticmethod]
+    #[pyo3(name = "us_federal")]
+    fn py_us_federal() -> Self {
+        Self {
+            inner: FiscalConfig::us_federal(),
+        }
+    }
+
+    /// UK fiscal year (April 6).
+    #[staticmethod]
+    #[pyo3(name = "uk")]
+    fn py_uk() -> Self {
+        Self {
+            inner: FiscalConfig::uk(),
+        }
+    }
+
+    /// Japanese fiscal year (April 1).
+    #[staticmethod]
+    #[pyo3(name = "japan")]
+    fn py_japan() -> Self {
+        Self {
+            inner: FiscalConfig::japan(),
+        }
+    }
+
+    #[getter]
+    fn start_month(&self) -> u8 {
+        self.inner.start_month
+    }
+
+    #[getter]
+    fn start_day(&self) -> u8 {
+        self.inner.start_day
+    }
+
+    fn __str__(&self) -> String {
+        format!("FiscalConfig(month={}, day={})", self.inner.start_month, self.inner.start_day)
+    }
+
+    fn __repr__(&self) -> String {
+        format!("FiscalConfig(start_month={}, start_day={})", self.inner.start_month, self.inner.start_day)
+    }
+}
+
 /// Generate a sequence of periods.
 ///
 /// Args:
@@ -197,6 +281,42 @@ pub fn py_build_periods(
 ) -> PyResult<Py<PyList>> {
     let plan = build_periods(range, actuals_until).map_err(|e| {
         pyo3::exceptions::PyValueError::new_err(format!("Failed to build periods: {}", e))
+    })?;
+
+    let periods: Vec<PyPeriod> = plan
+        .periods
+        .into_iter()
+        .map(|p| PyPeriod { inner: p })
+        .collect();
+
+    Ok(PyList::new(py, periods)?.into())
+}
+
+/// Generate a sequence of fiscal periods.
+///
+/// Args:
+///     range: Period range string (e.g., "2025Q1..2026Q4", "2025M01..2025M12")
+///     fiscal_config: FiscalConfig defining the fiscal year start
+///     actuals_until: Optional cutoff for actuals (e.g., "2025Q2", "2025M06")
+///
+/// Returns:
+///     List of Period objects with dates adjusted for the fiscal year
+///
+/// Example:
+///     >>> config = FiscalConfig.us_federal()  # October 1 start
+///     >>> periods = build_fiscal_periods("2025Q1..2025Q4", config, "2025Q2")
+///     >>> for p in periods:
+///     ...     print(f"FY{p.id}: {p.start} to {p.end} (actual={p.is_actual})")
+#[pyfunction]
+#[pyo3(name = "build_fiscal_periods")]
+pub fn py_build_fiscal_periods(
+    py: Python<'_>,
+    range: &str,
+    fiscal_config: &PyFiscalConfig,
+    actuals_until: Option<&str>,
+) -> PyResult<Py<PyList>> {
+    let plan = build_fiscal_periods(range, fiscal_config.inner, actuals_until).map_err(|e| {
+        pyo3::exceptions::PyValueError::new_err(format!("Failed to build fiscal periods: {}", e))
     })?;
 
     let periods: Vec<PyPeriod> = plan

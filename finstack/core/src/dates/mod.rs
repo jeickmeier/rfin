@@ -64,7 +64,7 @@ pub use holiday::{Calendar as HolidayCalendarNew, Rule as HolidayRule};
 pub use holiday::calendars::*;
 
 mod periods;
-pub use periods::{build_periods, Period, PeriodId, PeriodKey};
+pub use periods::{build_periods, build_fiscal_periods, FiscalConfig, Period, PeriodId, PeriodKey};
 
 pub mod calendars {
     #![allow(missing_docs)]
