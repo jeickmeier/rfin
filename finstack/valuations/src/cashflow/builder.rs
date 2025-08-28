@@ -2,12 +2,15 @@ use crate::cashflow::amortization::AmortizationSpec;
 use crate::cashflow::notional::Notional;
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency, ScheduleBuilder, StubKind};
+use finstack_core::dates::{Date, DayCount, Frequency, StubKind};
 use finstack_core::dates::holiday::calendars::calendar_by_id;
 use finstack_core::dates::{adjust, BusinessDayConvention};
 use finstack_core::error::InputError;
 use finstack_core::money::Money;
 use time::Duration;
+
+type FixedSchedule = (FixedCouponSpec, Vec<Date>, hashbrown::HashMap<Date, Date>, hashbrown::HashSet<Date>);
+type FloatSchedule = (FloatingCouponSpec, Vec<Date>, hashbrown::HashMap<Date, Date>);
 
 /// Cashflow schedule output from the composable builder.
 #[derive(Debug, Clone)]
@@ -48,6 +51,22 @@ impl CashFlowSchedule {
             out.push((cf.date, Money::new(outstanding, ccy)));
         }
         out
+    }
+
+    // Convenience iterators for callers to avoid ad-hoc filtering.
+    #[inline]
+    pub fn coupons(&self) -> impl Iterator<Item = &CashFlow> {
+        self.flows.iter().filter(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub)
+    }
+
+    #[inline]
+    pub fn amortizations(&self) -> impl Iterator<Item = &CashFlow> {
+        self.flows.iter().filter(|cf| cf.kind == CFKind::Amortization)
+    }
+
+    #[inline]
+    pub fn redemptions(&self) -> impl Iterator<Item = &CashFlow> {
+        self.flows.iter().filter(|cf| cf.kind == CFKind::Notional && cf.amount.amount() > 0.0)
     }
 }
 
@@ -184,43 +203,21 @@ impl CashflowBuilder {
 
 
         // Build schedules for fixed coupons
-        let mut fixed_schedules: Vec<(FixedCouponSpec, Vec<Date>, hashbrown::HashMap<Date, Date>)> = Vec::new();
+        let mut fixed_schedules: Vec<FixedSchedule> = Vec::new();
         for spec in &self.fixed {
-            let builder = ScheduleBuilder::new(issue, maturity)
-                .frequency(spec.freq)
-                .stub_rule(spec.stub);
-            let dates: Vec<Date> = if let Some(id) = spec.calendar_id {
-                if let Some(cal) = calendar_by_id(id) {
-                    builder.adjust_with(spec.bdc, cal).build().collect()
-                } else {
-                    builder.build_raw().collect()
-                }
-            } else {
-                builder.build_raw().collect()
-            };
+            let sched = crate::cashflow::schedule::build_dates(issue, maturity, spec.freq, spec.stub, spec.bdc, spec.calendar_id);
+            let dates = sched.dates;
             if dates.len() < 2 { return Err(InputError::TooFewPoints.into()); }
-            let mut prev_map = hashbrown::HashMap::with_capacity(dates.len());
-            let mut prev = dates[0];
-            for &d in dates.iter().skip(1) { prev_map.insert(d, prev); prev = d; }
-            fixed_schedules.push((*spec, dates, prev_map));
+            fixed_schedules.push((*spec, dates.clone(), sched.prev, sched.first_or_last));
         }
 
         // Build schedules for floating coupons
-        let mut float_schedules: Vec<(FloatingCouponSpec, Vec<Date>, hashbrown::HashMap<Date, Date>)> = Vec::new();
+        let mut float_schedules: Vec<FloatSchedule> = Vec::new();
         for spec in &self.floating {
-            let builder = ScheduleBuilder::new(issue, maturity)
-                .frequency(spec.freq)
-                .stub_rule(spec.stub);
-            let dates: Vec<Date> = if let Some(id) = spec.calendar_id {
-                if let Some(cal) = calendar_by_id(id) {
-                    builder.adjust_with(spec.bdc, cal).build().collect()
-                } else { builder.build_raw().collect() }
-            } else { builder.build_raw().collect() };
+            let sched = crate::cashflow::schedule::build_dates(issue, maturity, spec.freq, spec.stub, spec.bdc, spec.calendar_id);
+            let dates = sched.dates;
             if dates.len() < 2 { return Err(InputError::TooFewPoints.into()); }
-            let mut prev_map = hashbrown::HashMap::with_capacity(dates.len());
-            let mut prev = dates[0];
-            for &d in dates.iter().skip(1) { prev_map.insert(d, prev); prev = d; }
-            float_schedules.push((*spec, dates, prev_map));
+            float_schedules.push((*spec, dates.clone(), sched.prev));
         }
 
         // Periodic fee schedules (with previous map for yf)
@@ -238,20 +235,10 @@ impl CashflowBuilder {
             match fee {
                 FeeSpec::Fixed { date, amount } => fixed_fees.push((*date, *amount)),
                 FeeSpec::PeriodicBps { base, bps, freq, dc, stub, calendar_id, .. } => {
-                    let builder = ScheduleBuilder::new(issue, maturity)
-                        .frequency(*freq)
-                        .stub_rule(*stub);
-                    let dates: Vec<Date> = if let Some(id) = calendar_id {
-                        if let Some(cal) = calendar_by_id(id) {
-                            // Use Following by default for fees if bdc not specified for fee
-                            builder.adjust_with(BusinessDayConvention::Following, cal).build().collect()
-                        } else { builder.build_raw().collect() }
-                    } else { builder.build_raw().collect() };
+                    let sched = crate::cashflow::schedule::build_dates(issue, maturity, *freq, *stub, BusinessDayConvention::Following, *calendar_id);
+                    let dates = sched.dates;
                     if dates.len() < 2 { return Err(InputError::TooFewPoints.into()); }
-                    let mut prev_map = hashbrown::HashMap::with_capacity(dates.len());
-                    let mut prev = dates[0];
-                    for &d in dates.iter().skip(1) { prev_map.insert(d, prev); prev = d; }
-                    periodic_fees.push(PeriodicFee { base: base.clone(), bps: *bps, dc: *dc, dates, prev: prev_map });
+                    periodic_fees.push(PeriodicFee { base: base.clone(), bps: *bps, dc: *dc, dates, prev: sched.prev });
                 }
             }
         }
@@ -260,7 +247,7 @@ impl CashflowBuilder {
         let mut union: hashbrown::HashSet<Date> = hashbrown::HashSet::new();
         union.insert(issue);
         union.insert(maturity);
-        for (_, ds, _) in &fixed_schedules { for &d in ds.iter().skip(1) { union.insert(d); } union.insert(ds[0]); }
+        for (_, ds, _, _) in &fixed_schedules { for &d in ds.iter().skip(1) { union.insert(d); } union.insert(ds[0]); }
         for (_, ds, _) in &float_schedules { for &d in ds.iter().skip(1) { union.insert(d); } union.insert(ds[0]); }
         for pf in &periodic_fees { for &d in pf.dates.iter().skip(1) { union.insert(d); } union.insert(pf.dates[0]); }
         for (d, _) in &fixed_fees { union.insert(*d); }
@@ -272,7 +259,7 @@ impl CashflowBuilder {
 
         // Determine amortization cadence when needed (linear/percent)
         let amort_base_schedule: Option<Vec<Date>> = if matches!(notional.amort, AmortizationSpec::LinearTo { .. } | AmortizationSpec::PercentPerPeriod { .. }) {
-            if let Some((_, ds, _)) = fixed_schedules.first() { Some(ds.clone()) }
+            if let Some((_, ds, _, _)) = fixed_schedules.first() { Some(ds.clone()) }
             else if let Some((_, ds, _)) = float_schedules.first() { Some(ds.clone()) }
             else { None }
         } else { None };
@@ -321,7 +308,7 @@ impl CashflowBuilder {
             let mut pik_to_add = 0.0;
 
             // Fixed coupons on this date
-            for (spec, _ds, prev_map) in &fixed_schedules {
+            for (spec, _ds, prev_map, first_last) in &fixed_schedules {
                 if let Some(&prev) = prev_map.get(&d) {
                     let base_out = *outstanding_after.get(&prev).unwrap_or(&outstanding);
                     let yf = spec.dc.year_fraction(prev, d)?;
@@ -330,7 +317,8 @@ impl CashflowBuilder {
                     let cash_amt = coupon_total * cash_pct;
                     let pik_amt = coupon_total * pik_pct;
                     if cash_amt > 0.0 {
-                        flows.push(CashFlow { date: d, reset_date: None, amount: Money::new(cash_amt, ccy), kind: if is_stub_date(prev_map, d, yf, spec.dc) { CFKind::Stub } else { CFKind::Fixed }, accrual_factor: yf });
+                        let kind = if first_last.contains(&d) { CFKind::Stub } else { CFKind::Fixed };
+                        flows.push(CashFlow { date: d, reset_date: None, amount: Money::new(cash_amt, ccy), kind, accrual_factor: yf });
                     }
                     if pik_amt > 0.0 {
                         flows.push(CashFlow { date: d, reset_date: None, amount: Money::new(pik_amt, ccy), kind: CFKind::PIK, accrual_factor: 0.0 });
@@ -475,37 +463,9 @@ impl CashflowBuilder {
 
 #[inline]
 #[allow(dead_code)]
-fn is_stub(idx: usize, total_dates: usize) -> bool {
-    idx == 1 || idx == total_dates - 1
-}
-
-#[inline]
-fn is_stub_date(prev_map: &hashbrown::HashMap<Date, Date>, d: Date, yf: f64, dc: DayCount) -> bool {
-    if let Some(&prev) = prev_map.get(&d) {
-        // Check if this is first or last period
-        let is_first = !prev_map.values().any(|&v| v == prev);
-        let is_last = !prev_map.keys().any(|&k| prev_map.get(&k) == Some(&d));
-        
-        if is_first || is_last {
-            // For stub detection, compare yf to a typical period
-            // Find another period to use as reference for "normal" accrual
-            let mut typical_yf = yf;
-            for (&other_date, &other_prev) in prev_map.iter() {
-                if other_date != d {
-                    if let Ok(other_yf) = dc.year_fraction(other_prev, other_date) {
-                        typical_yf = other_yf;
-                        break;
-                    }
-                }
-            }
-            // Consider stub if significantly different from typical period (>1% difference)
-            (yf - typical_yf).abs() > 0.01
-        } else {
-            false
-        }
-    } else { 
-        false 
-    }
+fn is_stub(_idx: usize, _total_dates: usize) -> bool {
+    // Deprecated in favor of schedule::PeriodSchedule::first_or_last
+    false
 }
 
 #[inline]
@@ -531,6 +491,7 @@ mod tests {
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
     use finstack_core::market_data::traits::Discount as _;
+    use finstack_core::dates::ScheduleBuilder;
     use time::Month;
 
     #[test]

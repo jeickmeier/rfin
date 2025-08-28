@@ -145,6 +145,12 @@ The new framework is designed to coexist with the old approach:
 - `duration_mod` - Modified duration
 - `convexity` - Bond convexity
 - `ytw` - Yield to worst
+- `dirty_price` - Clean price + accrued interest (requires quoted clean price)
+- `clean_price` - If quoted, returns that; otherwise `value()` (dirty) minus accrued
+
+Note on price precedence:
+- When `quoted_clean` is present on a `Bond`, `dirty_price` is computed as `quoted_clean + accrued` and `clean_price` simply echoes the quoted value.
+- When `quoted_clean` is absent, `clean_price` derives from the base `value()` (which is a dirty PV) by subtracting `accrued`.
 
 ### IRS Metrics
 - `annuity` - Annuity factor

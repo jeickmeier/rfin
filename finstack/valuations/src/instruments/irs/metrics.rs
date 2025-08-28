@@ -23,19 +23,10 @@ impl MetricCalculator for AnnuityCalculator {
         let base = disc.base_date();
         
         // Build fixed leg schedule
-        let builder = finstack_core::dates::ScheduleBuilder::new(irs.fixed.start, irs.fixed.end)
-            .frequency(irs.fixed.freq)
-            .stub_rule(irs.fixed.stub);
-        
-        let schedule: Vec<Date> = if let Some(id) = irs.fixed.calendar_id {
-            if let Some(cal) = finstack_core::dates::holiday::calendars::calendar_by_id(id) {
-                builder.adjust_with(irs.fixed.bdc, cal).build().collect()
-            } else {
-                builder.build_raw().collect()
-            }
-        } else {
-            builder.build_raw().collect()
-        };
+        let sched = crate::cashflow::schedule::build_dates(
+            irs.fixed.start, irs.fixed.end, irs.fixed.freq, irs.fixed.stub, irs.fixed.bdc, irs.fixed.calendar_id,
+        );
+        let schedule: Vec<Date> = sched.dates;
         
         if schedule.len() < 2 {
             return Ok(0.0);
@@ -80,19 +71,10 @@ impl MetricCalculator for ParRateCalculator {
         }
         
         // Compute PV of float leg
-        let builder = finstack_core::dates::ScheduleBuilder::new(irs.float.start, irs.float.end)
-            .frequency(irs.float.freq)
-            .stub_rule(irs.float.stub);
-        
-        let float_schedule: Vec<Date> = if let Some(id) = irs.float.calendar_id {
-            if let Some(cal) = finstack_core::dates::holiday::calendars::calendar_by_id(id) {
-                builder.adjust_with(irs.float.bdc, cal).build().collect()
-            } else {
-                builder.build_raw().collect()
-            }
-        } else {
-            builder.build_raw().collect()
-        };
+        let fs = crate::cashflow::schedule::build_dates(
+            irs.float.start, irs.float.end, irs.float.freq, irs.float.stub, irs.float.bdc, irs.float.calendar_id,
+        );
+        let float_schedule: Vec<Date> = fs.dates;
         
         if float_schedule.len() < 2 {
             return Ok(0.0);
@@ -160,19 +142,10 @@ impl MetricCalculator for FixedLegPvCalculator {
         let base = disc.base_date();
         
         // Build fixed leg schedule and compute PV
-        let builder = finstack_core::dates::ScheduleBuilder::new(irs.fixed.start, irs.fixed.end)
-            .frequency(irs.fixed.freq)
-            .stub_rule(irs.fixed.stub);
-        
-        let schedule: Vec<Date> = if let Some(id) = irs.fixed.calendar_id {
-            if let Some(cal) = finstack_core::dates::holiday::calendars::calendar_by_id(id) {
-                builder.adjust_with(irs.fixed.bdc, cal).build().collect()
-            } else {
-                builder.build_raw().collect()
-            }
-        } else {
-            builder.build_raw().collect()
-        };
+        let sched = crate::cashflow::schedule::build_dates(
+            irs.fixed.start, irs.fixed.end, irs.fixed.freq, irs.fixed.stub, irs.fixed.bdc, irs.fixed.calendar_id,
+        );
+        let schedule: Vec<Date> = sched.dates;
         
         if schedule.len() < 2 {
             return Ok(0.0);
@@ -207,19 +180,10 @@ impl MetricCalculator for FloatLegPvCalculator {
         let base = disc.base_date();
         
         // Build float leg schedule and compute PV
-        let builder = finstack_core::dates::ScheduleBuilder::new(irs.float.start, irs.float.end)
-            .frequency(irs.float.freq)
-            .stub_rule(irs.float.stub);
-        
-        let schedule: Vec<Date> = if let Some(id) = irs.float.calendar_id {
-            if let Some(cal) = finstack_core::dates::holiday::calendars::calendar_by_id(id) {
-                builder.adjust_with(irs.float.bdc, cal).build().collect()
-            } else {
-                builder.build_raw().collect()
-            }
-        } else {
-            builder.build_raw().collect()
-        };
+        let sched = crate::cashflow::schedule::build_dates(
+            irs.float.start, irs.float.end, irs.float.freq, irs.float.stub, irs.float.bdc, irs.float.calendar_id,
+        );
+        let schedule: Vec<Date> = sched.dates;
         
         if schedule.len() < 2 {
             return Ok(0.0);

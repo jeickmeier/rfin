@@ -1,6 +1,7 @@
 #![allow(missing_docs)]
 
 pub mod metrics;
+pub mod helpers;
 
 use finstack_core::prelude::*;
 use finstack_core::F;

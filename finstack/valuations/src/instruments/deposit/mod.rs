@@ -84,14 +84,7 @@ impl Priceable for Deposit {
             standard_metrics.push(MetricId::QuoteRate);
         }
         
-        let mut result = self.price_with_metrics(curves, as_of, &standard_metrics)?;
-        
-        // For backward compatibility, rename deposit_par_rate back to par_rate
-        if let Some(value) = result.measures.remove("deposit_par_rate") {
-            result.measures.insert("par_rate".to_string(), value);
-        }
-        
-        Ok(result)
+        self.price_with_metrics(curves, as_of, &standard_metrics)
     }
 }
 

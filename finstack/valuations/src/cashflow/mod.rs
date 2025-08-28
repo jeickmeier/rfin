@@ -16,3 +16,6 @@ pub mod aggregation;
 
 /// Composable cashflow builder (phase 1: principal, amortization, fixed coupons).
 pub mod builder;
+
+/// Shared schedule utilities used across builder and instruments.
+pub mod schedule;

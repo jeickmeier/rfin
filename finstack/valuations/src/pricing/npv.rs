@@ -13,7 +13,7 @@ pub fn npv(
     flows: &[(Date, Money)],
 ) -> finstack_core::Result<Money> {
     if flows.is_empty() {
-        return Ok(Money::new(0.0, Currency::USD));
+        return Err(finstack_core::error::InputError::TooFewPoints.into());
     }
     let ccy = flows[0].1.currency();
     let mut total = Money::new(0.0, ccy);
@@ -24,4 +24,30 @@ pub fn npv(
         total = (total + disc_amt)?;
     }
     Ok(total)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::market_data::id::CurveId;
+    use finstack_core::market_data::traits::TermStructure;
+    use finstack_core::market_data::traits::Discount;
+    use time::Month;
+
+    struct UnitCurve { id: CurveId }
+    impl TermStructure for UnitCurve { fn id(&self) -> &CurveId { &self.id } }
+    impl Discount for UnitCurve {
+        fn base_date(&self) -> Date { Date::from_calendar_date(2025, Month::January, 1).unwrap() }
+        fn df(&self, _t: finstack_core::F) -> finstack_core::F { 1.0 }
+    }
+
+    #[test]
+    fn npv_errors_on_empty_flows() {
+        let curve = UnitCurve { id: CurveId::new("USD-OIS") };
+        let base = curve.base_date();
+        let flows: Vec<(Date, Money)> = vec![];
+        let err = npv(&curve, base, DayCount::Act365F, &flows).unwrap_err();
+        // Ensure it's an input error
+        let _ = format!("{}", err); // exercise Display
+    }
 }

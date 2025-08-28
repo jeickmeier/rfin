@@ -62,9 +62,12 @@ impl MetricCalculator for DepositParRateCalculator {
     }
     
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let df_s = context.computed.get(&MetricId::DfStart).copied().unwrap_or(1.0);
-        let df_e = context.computed.get(&MetricId::DfEnd).copied().unwrap_or(1.0);
-        let yf = context.computed.get(&MetricId::Yf).copied().unwrap_or(0.0);
+        let df_s = context.computed.get(&MetricId::DfStart).copied()
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
+        let df_e = context.computed.get(&MetricId::DfEnd).copied()
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
+        let yf = context.computed.get(&MetricId::Yf).copied()
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
         
         if yf == 0.0 {
             return Ok(0.0);
@@ -91,8 +94,10 @@ impl MetricCalculator for DfEndFromQuoteCalculator {
         let r = deposit.quote_rate
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
         
-        let df_s = context.computed.get(&MetricId::DfStart).copied().unwrap_or(1.0);
-        let yf = context.computed.get(&MetricId::Yf).copied().unwrap_or(0.0);
+        let df_s = context.computed.get(&MetricId::DfStart).copied()
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
+        let yf = context.computed.get(&MetricId::Yf).copied()
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
         
         Ok(df_s / (1.0 + r * yf))
     }
