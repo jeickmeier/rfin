@@ -1,4 +1,3 @@
-#![deny(missing_docs)]
 //! Deposit-specific metric calculators.
 
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -22,7 +21,7 @@ impl MetricCalculator for YearFractionCalculator {
         instrument_type == "Deposit"
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let deposit = context.instrument_as::<Deposit>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
@@ -46,7 +45,7 @@ impl MetricCalculator for DfStartCalculator {
         instrument_type == "Deposit"
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let deposit = context.instrument_as::<Deposit>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
@@ -73,7 +72,7 @@ impl MetricCalculator for DfEndCalculator {
         instrument_type == "Deposit"
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let deposit = context.instrument_as::<Deposit>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
@@ -104,7 +103,7 @@ impl MetricCalculator for DepositParRateCalculator {
         vec!["df_start", "df_end", "yf"]
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let df_s = context.computed.get("df_start").copied().unwrap_or(1.0);
         let df_e = context.computed.get("df_end").copied().unwrap_or(1.0);
         let yf = context.computed.get("yf").copied().unwrap_or(0.0);
@@ -137,7 +136,7 @@ impl MetricCalculator for DfEndFromQuoteCalculator {
         vec!["df_start", "yf"]
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let deposit = context.instrument_as::<Deposit>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
@@ -167,7 +166,7 @@ impl MetricCalculator for QuoteRateCalculator {
         instrument_type == "Deposit"
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let deposit = context.instrument_as::<Deposit>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         

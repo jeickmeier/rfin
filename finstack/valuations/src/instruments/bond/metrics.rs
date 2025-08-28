@@ -1,4 +1,3 @@
-#![deny(missing_docs)]
 //! Bond-specific metric calculators.
 
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -23,12 +22,21 @@ impl MetricCalculator for AccruedInterestCalculator {
         instrument_type == "Bond"
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
-        let bond = context.instrument_as::<Bond>()
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+        // Extract bond data first to avoid borrowing issues
+        let (flows, disc_id, dc) = {
+            let bond = context.instrument_as::<Bond>()
+                .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+            
+            // Use Bond's cashflow building instead of separate schedule
+            let flows = bond.build_schedule(&context.curves, context.as_of)?;
+            (flows, bond.disc_id, bond.dc)
+        };
         
-        // Use Bond's cashflow building instead of separate schedule
-        let flows = bond.build_schedule(&context.curves, context.as_of)?;
+        // Cache flows for other metrics (including risk metrics)
+        context.cache_value("cashflows", flows.clone());
+        context.cache_value("discount_curve_id", disc_id);
+        context.cache_value("day_count", dc);
         
         // Extract coupon dates from flows - filter for positive flows (coupons) 
         let mut coupon_dates: Vec<Date> = flows.iter()
@@ -36,6 +44,10 @@ impl MetricCalculator for AccruedInterestCalculator {
             .map(|(date, _)| *date)
             .collect();
         coupon_dates.sort();
+        
+        // Get bond again for the calculation
+        let bond = context.instrument_as::<Bond>()
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
         // Find last and next coupon dates around as_of
         let (mut last, mut next) = (bond.issue, bond.maturity);
@@ -83,7 +95,7 @@ impl MetricCalculator for YtmCalculator {
         vec!["accrued"]
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let bond = context.instrument_as::<Bond>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
@@ -165,7 +177,7 @@ impl MetricCalculator for MacaulayDurationCalculator {
         vec!["ytm"]
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let bond = context.instrument_as::<Bond>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
@@ -237,7 +249,7 @@ impl MetricCalculator for ModifiedDurationCalculator {
         vec!["duration_mac"]
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let _bond = context.instrument_as::<Bond>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
@@ -272,7 +284,7 @@ impl MetricCalculator for ConvexityCalculator {
         vec!["ytm"]
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let bond = context.instrument_as::<Bond>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
@@ -333,7 +345,7 @@ impl MetricCalculator for YtwCalculator {
         instrument_type == "Bond"
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let bond = context.instrument_as::<Bond>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
@@ -444,7 +456,7 @@ impl MetricCalculator for DirtyPriceCalculator {
         vec!["accrued"]
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let bond = context.instrument_as::<Bond>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
@@ -480,7 +492,7 @@ impl MetricCalculator for CleanPriceCalculator {
         vec!["accrued"]
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let bond = context.instrument_as::<Bond>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
@@ -518,7 +530,7 @@ impl MetricCalculator for Cs01Calculator {
         vec!["ytm"]
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let bond = context.instrument_as::<Bond>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         

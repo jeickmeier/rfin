@@ -30,7 +30,7 @@ impl MetricCalculator for AccruedRatioCalculator {
         vec!["accrued"]
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<finstack_core::F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<finstack_core::F> {
         let bond = context.instrument_as::<Bond>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
@@ -72,7 +72,7 @@ impl MetricCalculator for SpreadCalculator {
         vec!["ytm"]
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<finstack_core::F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<finstack_core::F> {
         let ytm = context.computed.get("ytm").copied()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
         
@@ -97,7 +97,7 @@ impl MetricCalculator for TimeToMaturityCalculator {
         instrument_type == "Bond"
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<finstack_core::F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<finstack_core::F> {
         let bond = context.instrument_as::<Bond>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         

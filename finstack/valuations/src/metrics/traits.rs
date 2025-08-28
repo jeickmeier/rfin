@@ -19,7 +19,7 @@ pub trait MetricCalculator: Send + Sync {
     /// # Errors
     /// Returns an error if the metric cannot be computed due to missing data
     /// or invalid instrument configuration.
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F>;
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F>;
     
     /// List of metric IDs this calculator depends on.
     /// 

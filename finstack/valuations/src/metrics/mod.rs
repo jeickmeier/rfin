@@ -7,9 +7,11 @@
 
 pub mod traits;
 pub mod registry;
+pub mod risk;
 
 pub use traits::{MetricCalculator, MetricContext, MetricsEnabled};
 pub use registry::{MetricRegistry, StandardMetrics};
+pub use risk::{BucketedDv01Calculator, BucketSpec, CashflowCaching};
 
 /// Create a standard metric registry with all built-in metrics.
 pub fn standard_registry() -> MetricRegistry {
@@ -17,5 +19,6 @@ pub fn standard_registry() -> MetricRegistry {
     crate::instruments::bond::metrics::register_bond_metrics(&mut registry);
     crate::instruments::irs::metrics::register_irs_metrics(&mut registry);
     crate::instruments::deposit::metrics::register_deposit_metrics(&mut registry);
+    risk::register_risk_metrics(&mut registry);
     registry
 }

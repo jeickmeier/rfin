@@ -10,8 +10,8 @@ use finstack_valuations::instruments::{bond, deposit, irs};
 use finstack_valuations as _; // ensure crate is linked
 use finstack_valuations::traits::Priceable;
 use finstack_valuations::cashflow::aggregation::aggregate_by_period;
-use finstack_valuations::risks::{dv01_bucketed, BucketSpec};
-use finstack_valuations::traits::CashflowProvider;
+use finstack_valuations::metrics::{standard_registry, MetricContext};
+use std::sync::Arc;
 use time::Month;
 
 fn flat_df_curve(id: &'static str, base: Date, df: F) -> DiscountCurve {
@@ -225,8 +225,7 @@ fn dv01_bucketed_bond_simple() {
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let mat = Date::from_calendar_date(2026, Month::January, 1).unwrap();
     let disc = flat_df_curve("USD-OIS", issue, 1.0);
-    let base = disc.base_date();
-    let curves = CurveSet::new().with_discount(disc);
+    let curves = Arc::new(CurveSet::new().with_discount(disc));
 
     // 1Y semi-annual 5% bond, 1,000,000 notional
     let bond = bond::Bond {
@@ -243,15 +242,34 @@ fn dv01_bucketed_bond_simple() {
         amortization: None,
     };
 
-    let flows = bond.build_schedule(&curves, issue).unwrap();
-    let buckets = BucketSpec { tenors: vec![0.50, 1.00] };
-    let rpt = dv01_bucketed(&flows, curves.discount("USD-OIS").unwrap().as_ref(), DayCount::Act365F, base, &buckets);
-
-    // Expect positive DV01s and total matches sum of buckets ~ (since buckets partition flows)
-    assert!(rpt.total > 0.0);
-    let mut sum = 0.0;
-    for (_, v) in rpt.by_tenor.iter() { sum += *v; assert!(*v > 0.0); }
-    assert!((sum - rpt.total).abs() < 1e-6);
+    // Use the metrics framework to compute bucketed DV01
+    let base_value = bond.value(&curves, issue).unwrap();
+    
+    // Create metric context and compute with standard metrics (which includes risk metrics)
+    let mut context = MetricContext::new(
+        Arc::new(bond.clone()) as Arc<dyn std::any::Any + Send + Sync>,
+        "Bond".to_string(),
+        curves.clone(),
+        issue,
+        base_value,
+    );
+    
+    // Compute accrued first (which caches flows) and then bucketed DV01
+    let registry = standard_registry();
+    let metrics = registry.compute(&["accrued", "bucketed_dv01"], &mut context).unwrap();
+    
+    // Get bucketed DV01 total
+    let total = *metrics.get("bucketed_dv01").unwrap_or(&0.0);
+    assert!(total > 0.0);
+    
+    // Check individual buckets from context.computed
+    let bucket_6m = context.computed.get("bucketed_dv01_6m").copied().unwrap_or(0.0);
+    let bucket_1y = context.computed.get("bucketed_dv01_1y").copied().unwrap_or(0.0);
+    let bucket_total = context.computed.get("bucketed_dv01_total").copied().unwrap_or(0.0);
+    
+    assert!(bucket_6m > 0.0);
+    assert!(bucket_1y > 0.0);
+    assert!((bucket_6m + bucket_1y - bucket_total).abs() < 1e-6);
 }
 
 

@@ -24,7 +24,7 @@ impl MetricCalculator for AnnuityCalculator {
         instrument_type == "IRS"
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs = context.instrument_as::<InterestRateSwap>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
@@ -84,7 +84,7 @@ impl MetricCalculator for ParRateCalculator {
         vec!["annuity"]
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs = context.instrument_as::<InterestRateSwap>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
@@ -156,7 +156,7 @@ impl MetricCalculator for Dv01Calculator {
         vec!["annuity"]
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs = context.instrument_as::<InterestRateSwap>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
@@ -191,7 +191,7 @@ impl MetricCalculator for FixedLegPvCalculator {
         instrument_type == "IRS"
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs = context.instrument_as::<InterestRateSwap>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
@@ -247,7 +247,7 @@ impl MetricCalculator for FloatLegPvCalculator {
         instrument_type == "IRS"
     }
     
-    fn calculate(&self, context: &MetricContext) -> finstack_core::Result<F> {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs = context.instrument_as::<InterestRateSwap>()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
         
