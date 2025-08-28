@@ -55,6 +55,8 @@
 pub mod discount_curve;
 /// Forward‐rate curves.
 pub mod forward_curve;
+/// Credit curves for risky discounting.
+pub mod credit_curve;
 /// Credit hazard curves.
 pub mod hazard_curve;
 /// Real/Breakeven inflation curves.

@@ -41,7 +41,7 @@ Non‑Goals:
 
 - **Credit/Fixed‑Income Analyst:** Prices loans/bonds, tests covenant outcomes, runs yield‑to‑worst, and compares quotes.
 - **Quant/Risk:** Computes DV01/CS01/duration/convexity/Greeks, validates curves, and produces bucketed risk.
-- **Data Scientist (Python):** Runs pricing at scale, exports results as DataFrames, and evaluates XIRR/TWR/MWR.
+- **Data Scientist (Python):** Runs pricing at scale, exports results as DataFrames, and evaluates XIRR.
 - **PM/Portfolio Manager:** Needs consistent PVs, cashflow rollups by period/currency, and scenario‑driven what‑ifs.
 - **Web/App Engineer (WASM):** Embeds pricing and cashflow previews in browser with stable JSON IO.
 
@@ -53,7 +53,7 @@ Non‑Goals:
 - **Generate and tag cash flows** (interest, principal, fees, workout), then **aggregate by period** without losing currency identity.
 - **Measure risk** (DV01/CS01/duration/convexity; Greeks for options) with bucketed reports.
 - **Private credit workflows:** model PIK/cash/toggle structures, amortization and fees, call/prepayment, covenants, and workout/recovery.
-- **Performance metrics:** compute XIRR/TWR/MWR for deals and portfolios.
+- **Performance metrics:** compute XIRR for deals and portfolios.
 - **Scenario knobs:** deterministically toggle enforcement, shock thresholds, and change pricing grid margins via selectors.
 
 ---
@@ -106,7 +106,7 @@ Out‑of‑Scope (now):
 ### 6.5 Risk & Performance
 - Produce DV01/CS01, duration, convexity for fixed income and swaps.
 - Greeks (delta, gamma, vega, theta, rho) for vanilla options.
-- Compute XIRR/TWR/MWR with robust convergence and clear error cases.
+- Compute XIRR with robust convergence and clear error cases.
 
 ### 6.6 Private Credit: Covenants & Workout
 - Evaluate common ratio tests (leverage, interest coverage, fixed‑charge coverage, asset coverage) per period.

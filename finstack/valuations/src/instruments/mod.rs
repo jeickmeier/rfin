@@ -91,10 +91,14 @@
 pub mod irs;
 pub mod bond;
 pub mod deposit;
+pub mod equity;
+pub mod fx_spot;
 
 pub use bond::Bond;
 pub use deposit::Deposit;
 pub use irs::InterestRateSwap;
+pub use equity::Equity;
+pub use fx_spot::FxSpot;
 
 /// A concrete enum for all supported instrument types.
 /// 
@@ -136,6 +140,8 @@ pub use irs::InterestRateSwap;
 ///     Instrument::Bond(bond) => println!("Bond with maturity: {:?}", bond.maturity),
 ///     Instrument::IRS(irs) => println!("IRS with notional: {:?}", irs.notional),
 ///     Instrument::Deposit(dep) => println!("Deposit with end date: {:?}", dep.end),
+///     Instrument::Equity(eq) => println!("Equity with ticker: {:?}", eq.ticker),
+///     Instrument::FxSpot(fx) => println!("FX spot for pair: {:?}/{:?}", fx.base, fx.quote),
 /// }
 /// 
 /// // Collection handling
@@ -152,6 +158,10 @@ pub enum Instrument {
     IRS(InterestRateSwap),
     /// Deposit instrument
     Deposit(Deposit),
+    /// Equity spot instrument
+    Equity(Equity),
+    /// FX spot instrument
+    FxSpot(FxSpot),
 }
 
 impl Instrument {
@@ -207,6 +217,8 @@ impl Instrument {
             Instrument::Bond(_) => "Bond",
             Instrument::IRS(_) => "IRS",
             Instrument::Deposit(_) => "Deposit",
+            Instrument::Equity(_) => "Equity",
+            Instrument::FxSpot(_) => "FxSpot",
         }
     }
 }

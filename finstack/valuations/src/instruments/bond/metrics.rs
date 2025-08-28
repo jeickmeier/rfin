@@ -443,6 +443,9 @@ impl MetricCalculator for CleanPriceCalculator {
 }
 
 /// Calculates CS01 (credit spread sensitivity) for bonds.
+///
+/// CS01 represents the price change for a 1 basis point parallel shift in credit spreads.
+/// This implementation uses the bond's yield spread as a proxy for credit spread.
 pub struct Cs01Calculator;
 
 impl MetricCalculator for Cs01Calculator {
@@ -456,20 +459,42 @@ impl MetricCalculator for Cs01Calculator {
             _ => return Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
         };
         
-        let ytm = context.computed.get(&MetricId::Ytm).copied()
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
-        
         // Build cashflow schedule from Bond
         let flows = bond.build_schedule(&context.curves, context.as_of)?;
         
-        let bp = 1e-4; // 1 basis point
+        // Get the base discount curve
+        let disc_curve = context.curves.discount(bond.disc_id)?;
         
-        // Calculate prices with yield bump up and down using shared helper
-        let p_up = crate::instruments::bond::helpers::price_from_ytm(bond, &flows, context.as_of, ytm + bp)?;
-        let p_dn = crate::instruments::bond::helpers::price_from_ytm(bond, &flows, context.as_of, ytm - bp)?;
+        // CS01 calculation using spread approximation
+        let bp = 0.0001; // 1 basis point
         
-        // CS01 = (price_down - price_up) / (2 * bump)
-        Ok((p_dn - p_up) / (2.0 * bp))
+        // Approximate CS01 by shifting the discount rates
+        // This simulates a parallel credit spread shift
+        let mut npv_up = 0.0;
+        let mut npv_down = 0.0;
+        
+        for (date, amount) in &flows {
+            if *date > context.as_of {
+                let yf = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(
+                    disc_curve.base_date(), *date, bond.dc
+                );
+                let df = disc_curve.df(yf);
+                
+                // Apply spread bumps to the discount factor
+                // df_spread = df * exp(-spread * t)
+                let df_up = df * (-bp * yf).exp();
+                let df_down = df * (bp * yf).exp();
+                
+                npv_up += amount.amount() * df_up;
+                npv_down += amount.amount() * df_down;
+            }
+        }
+        
+        // CS01 = (price with spread down - price with spread up) / 2
+        // Scaled to per unit notional
+        let cs01 = (npv_down - npv_up) / 2.0 / bond.notional.amount();
+        
+        Ok(cs01 * 10000.0) // Return in price per 100 notional terms
     }
 }
 

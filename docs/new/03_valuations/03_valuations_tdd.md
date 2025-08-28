@@ -11,7 +11,7 @@
 
 * **Cash flow generation**: Schedule building, accrual calculations, and cash flow projections
 * **Pricing & valuation**: NPV, PV, clean/dirty prices, yields, spreads
-* **Performance metrics**: XIRR, TWR, MWR calculations with robust solvers
+* **Performance metrics**: XIRR calculations with robust solvers
 * **Risk measures**: DV01, CS01, duration, convexity, option Greeks
 * **Private credit instruments**: 
   - Loans with time-varying rates (fixed/floating schedules)
@@ -53,7 +53,7 @@ finstack/
 │  │  ├─ market/            # Market data structures and curves
 │  │  ├─ pricing/           # Pricing engines and calculators
 │  │  ├─ risk/              # Risk measure calculations
-│  │  ├─ performance/       # XIRR, TWR, MWR implementations
+│  │  ├─ performance/       # XIRR implementations
 │  │  ├─ aggregation/       # Period-based aggregation
 │  │  ├─ covenants/         # Covenant types, evaluator, and consequence application
 │  │  ├─ workout/           # Workout/default state machine and recovery flows
@@ -1737,51 +1737,6 @@ pub fn xirr(
 }
 ```
 
-### 8.2 TWR (Time-Weighted Return)
-
-```rust
-pub fn twr(
-    periods: &[(time::Date, Decimal, Decimal)], // (date, beginning_value, cash_flow)
-) -> Result<Decimal, ValuationError> {
-    if periods.is_empty() {
-        return Ok(Decimal::ZERO);
-    }
-    
-    let mut compound_return = Decimal::ONE;
-    
-    for i in 0..periods.len() - 1 {
-        let (_, beg_value, cf) = periods[i];
-        let (_, next_beg_value, _) = periods[i + 1];
-        
-        let end_value = next_beg_value - cf;
-        if beg_value.is_zero() {
-            return Err(ValuationError::DivisionByZero);
-        }
-        
-        let period_return = (end_value - beg_value) / beg_value;
-        compound_return *= (Decimal::ONE + period_return);
-    }
-    
-    Ok(compound_return - Decimal::ONE)
-}
-```
-
-### 8.3 MWR (Money-Weighted Return)
-
-```rust
-pub fn mwr(
-    cash_flows: &[(time::Date, Decimal)],
-    ending_value: Decimal,
-    ending_date: time::Date,
-) -> Result<Decimal, ValuationError> {
-    // MWR is essentially XIRR with ending value as final cash flow
-    let mut flows = cash_flows.to_vec();
-    flows.push((ending_date, -ending_value));
-    
-    xirr(&flows, None)
-}
-```
-
 ---
 
 ## 9) Period Aggregation
@@ -2065,7 +2020,7 @@ pub use policy::{GridMarginSpec, GridBucket, IndexFallbackSpec};
 pub use workout::{WorkoutState, WorkoutPolicy, WorkoutEngine};
 
 // Performance
-pub use performance::{xirr, twr, mwr};
+pub use performance::{xirr};
 
 // Aggregation
 pub use aggregation::{aggregate_cashflows_by_period, aggregate_to_base_currency};
@@ -2390,7 +2345,7 @@ fn value_portfolio(
 
 - [ ] All core traits (`CashflowProvider`, `Priceable`, `RiskMeasurable`) implemented
 - [ ] Currency-preserving aggregation with property tests
-- [ ] XIRR/TWR/MWR calculations match Excel/QuantLib within 1bp
+- [ ] XIRR calculations match Excel/QuantLib within 1bp
 - [ ] Bond pricing matches Bloomberg/QuantLib within 0.01%
 - [ ] IRS DV01 calculations match market standard
 - [ ] Option Greeks match Black-Scholes analytical formulas

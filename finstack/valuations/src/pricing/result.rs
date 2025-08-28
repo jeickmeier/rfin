@@ -49,6 +49,31 @@ impl ValuationResult {
             meta: finstack_core::config::results_meta(),
         }
     }
+    
+    /// Add measures to the result.
+    ///
+    /// # Example
+    /// ```rust
+    /// use finstack_valuations::pricing::result::ValuationResult;
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::money::Money;
+    /// use finstack_core::dates::Date;
+    /// use hashbrown::HashMap;
+    /// use time::Month;
+    ///
+    /// let mut measures = HashMap::new();
+    /// measures.insert("ytm".to_string(), 0.05);
+    /// 
+    /// let result = ValuationResult::stamped(
+    ///     "BOND-123",
+    ///     Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+    ///     Money::new(100_000.0, Currency::USD)
+    /// ).with_measures(measures);
+    /// ```
+    pub fn with_measures(mut self, measures: HashMap<String, F>) -> Self {
+        self.measures = measures;
+        self
+    }
 }
 
 
