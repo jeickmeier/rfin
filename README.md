@@ -146,7 +146,24 @@ The project uses GitHub Actions for continuous integration:
 - WASM build verification
 - no_std compatibility checks
 
+## Code Coverage
 
+The project includes comprehensive code coverage tools using `cargo-llvm-cov`:
+
+```bash
+# Quick coverage summary
+make coverage
+
+# Generate detailed HTML report
+make coverage-html
+
+# Generate LCOV report for CI
+make coverage-lcov
+```
+
+Coverage reports are generated in `target/llvm-cov/` and provide detailed insights into test coverage across the core Rust crates. The Python and WASM bindings are intentionally excluded from coverage analysis as they don't contain Rust business logic.
+
+For more details, see [docs/COVERAGE.md](docs/COVERAGE.md).
 
 ## Contributing
 

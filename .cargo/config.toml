@@ -1,0 +1,21 @@
+[llvm-cov]
+# Enable workspace mode by default
+workspace = true
+
+# Generate both summary and HTML reports
+html = true
+
+# Include test code in coverage
+test = true
+
+# Include doctests in coverage
+doctest = true
+
+# Set coverage directory
+output-dir = "target/llvm-cov"
+
+# Generate LCOV format for CI integration
+lcov = true
+
+# Set coverage format
+format = "html+lcov"

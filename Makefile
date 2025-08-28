@@ -1,4 +1,4 @@
-.PHONY: help setup-python build test clean fmt lint stubs
+.PHONY: help setup-python build test clean fmt lint stubs coverage coverage-html coverage-open coverage-lcov
 
 help:
 	@echo "Available targets:"
@@ -11,6 +11,10 @@ help:
 	@echo "  python-dev    - Build Python bindings in development mode"
 	@echo "  stubs         - Regenerate *.pyi stub files for VS Code IntelliSense"
 	@echo "  wasm-build    - Build WASM package"
+	@echo "  coverage      - Run code coverage and print summary"
+	@echo "  coverage-html - Generate HTML coverage report"
+	@echo "  coverage-open - Generate HTML coverage report and open in browser"
+	@echo "  coverage-lcov - Generate LCOV coverage report for CI"
 
 setup-python:
 	@echo "Setting up Python development environment..."
@@ -72,3 +76,19 @@ stubs:
 	@echo "(re)generating Python stub files …"
 	bash ./scripts/generate-stubs.sh
 	@echo "Stub generation complete."
+
+coverage:
+	@echo "Running code coverage..."
+	cargo llvm-cov --package finstack-core --package finstack-valuations --package finstack-statements --package finstack-scenarios --package finstack-portfolio --package finstack-io --package finstack-analysis --package finstack-structured-credit
+
+coverage-html:
+	@echo "Generating HTML coverage report..."
+	cargo llvm-cov --package finstack-core --package finstack-valuations --package finstack-statements --package finstack-scenarios --package finstack-portfolio --package finstack-io --package finstack-analysis --package finstack-structured-credit --html
+
+coverage-open:
+	@echo "Generating HTML coverage report and opening in browser..."
+	cargo llvm-cov --package finstack-core --package finstack-valuations --package finstack-statements --package finstack-scenarios --package finstack-portfolio --package finstack-io --package finstack-analysis --package finstack-structured-credit --open
+
+coverage-lcov:
+	@echo "Generating LCOV coverage report for CI..."
+	cargo llvm-cov --package finstack-core --package finstack-valuations --package finstack-statements --package finstack-scenarios --package finstack-portfolio --package finstack-io --package finstack-analysis --package finstack-structured-credit --lcov
