@@ -1,5 +1,7 @@
 #![allow(missing_docs)]
 
+pub mod metrics;
+
 use finstack_core::prelude::*;
 use finstack_core::F;
 use finstack_core::dates::{Frequency, BusinessDayConvention, StubKind};

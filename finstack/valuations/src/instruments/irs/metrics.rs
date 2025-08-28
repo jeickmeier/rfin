@@ -1,8 +1,8 @@
 #![deny(missing_docs)]
 //! Interest rate swap specific metric calculators.
 
-use super::traits::{MetricCalculator, MetricContext};
-use crate::instruments::irs::{InterestRateSwap, PayReceive};
+use crate::metrics::{MetricCalculator, MetricContext};
+use super::{InterestRateSwap, PayReceive};
 use finstack_core::prelude::*;
 use finstack_core::F;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -293,7 +293,7 @@ impl MetricCalculator for FloatLegPvCalculator {
 }
 
 /// Register all IRS metrics to a registry.
-pub fn register_irs_metrics(registry: &mut super::registry::MetricRegistry) {
+pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
     use std::sync::Arc;
     
     registry

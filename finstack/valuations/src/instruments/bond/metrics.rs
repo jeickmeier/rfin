@@ -1,8 +1,8 @@
 #![deny(missing_docs)]
 //! Bond-specific metric calculators.
 
-use super::traits::{MetricCalculator, MetricContext};
-use crate::instruments::bond::Bond;
+use crate::metrics::{MetricCalculator, MetricContext};
+use super::Bond;
 use crate::pricing::quotes;
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -346,7 +346,7 @@ impl MetricCalculator for YtwCalculator {
 }
 
 /// Register all bond metrics to a registry.
-pub fn register_bond_metrics(registry: &mut super::registry::MetricRegistry) {
+pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
     use std::sync::Arc;
     
     registry
