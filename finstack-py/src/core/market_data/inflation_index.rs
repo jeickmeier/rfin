@@ -8,8 +8,8 @@ use finstack_core::market_data::inflation_index::{
 };
 use pyo3::prelude::*;
 use pyo3::types::PyList;
-use crate::currency::PyCurrency;
-use crate::dates::date::PyDate;
+use crate::core::currency::PyCurrency;
+use crate::core::dates::PyDate;
 
 /// Interpolation method for index values between observations.
 ///

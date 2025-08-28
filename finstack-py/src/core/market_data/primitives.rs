@@ -4,9 +4,9 @@ use pyo3::prelude::*;
 use pyo3::types::PyList;
 
 use finstack_core::market_data::primitives::{MarketScalar as CoreMarketScalar, ScalarTimeSeries as CoreSeries, SeriesInterpolation as CoreInterp};
-use crate::currency::PyCurrency;
-use crate::dates::date::PyDate;
-use crate::money::PyMoney;
+use crate::core::currency::PyCurrency;
+use crate::core::dates::PyDate;
+use crate::core::money::PyMoney;
 
 #[pyclass(name = "SeriesInterpolation")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

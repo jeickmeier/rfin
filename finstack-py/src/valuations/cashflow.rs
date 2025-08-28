@@ -19,7 +19,7 @@ use finstack_core::{
     dates::{BusinessDayConvention, StubKind},
     money::Money,
 };
-use crate::{
+use crate::core::{
     currency::PyCurrency,
     dates::{PyDate, PyDayCount, PyFrequency, PyBusDayConv, PyStubRule},
     money::PyMoney,

@@ -18,8 +18,8 @@ pub mod curves;
 pub mod fx;
 pub mod inflation_index;
 pub mod primitives;
-pub mod interpolation;
 pub mod context;
+pub mod interpolation;
 pub mod surfaces;
 
 // Re-export commonly used types
@@ -63,6 +63,9 @@ pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyInflationIndexBuilder>()?;
     m.add_class::<PyInflationInterpolation>()?;
     m.add_class::<PyInflationLag>()?;
+    
+    // Register market context
+    context::register_context(&m)?;
 
     // Add the submodule to parent
     parent.add_submodule(&m)?;

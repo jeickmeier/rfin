@@ -519,11 +519,11 @@ impl PyMoney {
     fn convert(
         &self,
         to_currency: &PyCurrency,
-        date: &crate::dates::PyDate,
-        provider: &crate::market_data::fx::PySimpleFxProvider,
-        policy: crate::market_data::fx::PyFxConversionPolicy,
+        date: &crate::core::dates::PyDate,
+        provider: &crate::core::market_data::fx::PySimpleFxProvider,
+        policy: crate::core::market_data::fx::PyFxConversionPolicy,
     ) -> PyResult<PyMoney> {
-        crate::market_data::fx::convert_money(self, to_currency, date, provider, &policy)
+        crate::core::market_data::fx::convert_money(self, to_currency, date, provider, &policy)
     }
 }
 

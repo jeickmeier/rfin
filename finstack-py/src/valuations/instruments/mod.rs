@@ -11,8 +11,7 @@ pub mod swap;
 
 // Re-export main types
 pub use bond::PyBond;
-pub use loan::PyLoan;
-pub use swap::PyInterestRateSwap;
+pub use swap::{PyInterestRateSwap, PyPayReceive, PyFixedLeg, PyFloatLeg};
 
 /// Register the instruments submodule with Python
 pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -20,8 +19,10 @@ pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     
     // Register instrument classes
     m.add_class::<PyBond>()?;
-    m.add_class::<PyLoan>()?;
     m.add_class::<PyInterestRateSwap>()?;
+    m.add_class::<PyPayReceive>()?;
+    m.add_class::<PyFixedLeg>()?;
+    m.add_class::<PyFloatLeg>()?;
     
     // Add the submodule to parent
     parent.add_submodule(&m)?;

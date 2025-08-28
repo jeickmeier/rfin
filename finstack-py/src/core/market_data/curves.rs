@@ -17,8 +17,8 @@ use finstack_core::{
 };
 
 use super::interpolation::PyInterpStyle;
-use crate::dates::date::PyDate;
-use crate::dates::daycount::PyDayCount;
+use crate::core::dates::PyDate;
+use crate::core::dates::PyDayCount;
 
 /// Discount factor curve for present value calculations.
 ///

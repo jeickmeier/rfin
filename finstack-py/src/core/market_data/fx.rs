@@ -10,9 +10,9 @@ use pyo3::prelude::*;
 use rust_decimal::prelude::ToPrimitive;
 use std::collections::HashMap;
 
-use crate::currency::PyCurrency;
-use crate::dates::PyDate;
-use crate::money::PyMoney;
+use crate::core::currency::PyCurrency;
+use crate::core::dates::PyDate;
+use crate::core::money::PyMoney;
 
 /// FX conversion policy for determining which rate to use.
 ///

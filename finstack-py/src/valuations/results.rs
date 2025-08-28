@@ -1,0 +1,158 @@
+//! Valuation results and metrics.
+
+use pyo3::prelude::*;
+use pyo3::types::{PyDict, PyList};
+use finstack_valuations::pricing::result::ValuationResult;
+
+use crate::core::{
+    money::PyMoney,
+    dates::PyDate,
+};
+
+/// Result of a valuation calculation.
+///
+/// Contains the present value of the instrument along with computed risk
+/// metrics such as duration, convexity, DV01, etc.
+///
+/// Examples:
+///     >>> result = bond.price(market_context, Date(2024, 1, 1))
+///     >>> print(f"PV: ${result.value.amount:,.2f}")
+///     >>> print(f"YTM: {result.metrics.get('Ytm', 0):.2%}")
+///     >>> print(f"Duration: {result.metrics.get('DurationMod', 0):.2f}")
+#[pyclass(name = "ValuationResult", module = "finstack.valuations")]
+#[derive(Clone)]
+pub struct PyValuationResult {
+    inner: ValuationResult,
+}
+
+#[pymethods]
+impl PyValuationResult {
+    /// The unique identifier of the instrument.
+    #[getter]
+    fn instrument_id(&self) -> String {
+        self.inner.instrument_id.clone()
+    }
+    
+    /// The valuation date.
+    #[getter]
+    fn as_of(&self) -> PyDate {
+        PyDate::from_core(self.inner.as_of)
+    }
+    
+    /// The present value of the instrument.
+    #[getter]
+    fn value(&self) -> PyMoney {
+        PyMoney::from_inner(self.inner.value)
+    }
+    
+    /// Get all computed metrics as a dictionary.
+    ///
+    /// Returns:
+    ///     dict: Dictionary mapping metric names to values
+    ///
+    /// Examples:
+    ///     >>> metrics = result.metrics
+    ///     >>> ytm = metrics.get('Ytm', 0)
+    ///     >>> duration = metrics.get('DurationMod', 0)
+    #[getter]
+    fn metrics(&self, py: Python) -> PyResult<Py<PyDict>> {
+        let dict = PyDict::new(py);
+        for (key, value) in &self.inner.measures {
+            dict.set_item(key, value)?;
+        }
+        Ok(dict.into())
+    }
+    
+    /// Get a specific metric value.
+    ///
+    /// Args:
+    ///     metric_name: Name of the metric (e.g., 'Ytm', 'DurationMod', 'Convexity')
+    ///     default: Default value if metric not found
+    ///
+    /// Returns:
+    ///     The metric value or default
+    ///
+    /// Examples:
+    ///     >>> ytm = result.get_metric('Ytm', 0.0)
+    ///     >>> duration = result.get_metric('DurationMod', 0.0)
+    pub fn get_metric(&self, metric_name: &str, default: Option<f64>) -> f64 {
+        self.inner.measures
+            .get(metric_name)
+            .copied()
+            .unwrap_or_else(|| default.unwrap_or(0.0))
+    }
+    
+    /// Check if a metric was computed.
+    ///
+    /// Args:
+    ///     metric_name: Name of the metric
+    ///
+    /// Returns:
+    ///     True if the metric exists in the results
+    fn has_metric(&self, metric_name: &str) -> bool {
+        self.inner.measures.contains_key(metric_name)
+    }
+    
+    /// Get list of all computed metric names.
+    ///
+    /// Returns:
+    ///     List of metric names
+    fn metric_names(&self, py: Python) -> PyResult<Py<PyList>> {
+        let list = PyList::new(py, self.inner.measures.keys())?;
+        Ok(list.into())
+    }
+    
+    /// Convert results to a dictionary.
+    ///
+    /// Returns:
+    ///     dict: Dictionary with all result fields
+    ///
+    /// Examples:
+    ///     >>> data = result.to_dict()
+    ///     >>> df = pd.DataFrame([data])  # Create DataFrame for analysis
+    fn to_dict(&self, py: Python) -> PyResult<Py<PyDict>> {
+        let dict = PyDict::new(py);
+        dict.set_item("instrument_id", &self.inner.instrument_id)?;
+        dict.set_item("as_of", format!("{}", self.inner.as_of))?;
+        dict.set_item("value", self.inner.value.amount())?;
+        dict.set_item("currency", format!("{}", self.inner.value.currency()))?;
+        
+        // Add all metrics
+        let metrics_dict = PyDict::new(py);
+        for (key, value) in &self.inner.measures {
+            metrics_dict.set_item(key, value)?;
+        }
+        dict.set_item("metrics", metrics_dict)?;
+        
+        Ok(dict.into())
+    }
+    
+    fn __repr__(&self) -> String {
+        format!(
+            "ValuationResult(instrument='{}', value={:.2} {}, {} metrics)",
+            self.inner.instrument_id,
+            self.inner.value.amount(),
+            self.inner.value.currency(),
+            self.inner.measures.len()
+        )
+    }
+    
+    /// Get computed metrics as a dictionary (convenience method).
+    ///
+    /// Returns:
+    ///     dict: Dictionary mapping metric names to values
+    ///
+    /// Examples:
+    ///     >>> measures = result.measures_dict()
+    ///     >>> ytm = measures.get('ytm', 0.0)
+    pub fn measures_dict(&self, py: Python) -> PyResult<Py<PyDict>> {
+        self.metrics(py)
+    }
+}
+
+impl PyValuationResult {
+    /// Create from a Rust ValuationResult
+    pub fn from_inner(result: ValuationResult) -> Self {
+        Self { inner: result }
+    }
+}
