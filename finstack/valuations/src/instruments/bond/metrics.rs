@@ -11,58 +11,63 @@ pub struct AccruedInterestCalculator;
 
 impl MetricCalculator for AccruedInterestCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        // Extract bond data first to avoid borrowing issues
-        let (flows, disc_id, dc) = {
-            let bond = match &*context.instrument {
-                Instrument::Bond(bond) => bond,
-                _ => return Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
-            };
-            
-            // Use Bond's cashflow building instead of separate schedule
-            let flows = bond.build_schedule(&context.curves, context.as_of)?;
-            (flows, bond.disc_id, bond.dc)
-        };
-        
-        // Cache flows for other metrics (including risk metrics)
-        context.cashflows = Some(flows.clone());
-        context.discount_curve_id = Some(disc_id);
-        context.day_count = Some(dc);
-        
-        // Extract coupon dates from flows - filter for positive flows (coupons) 
-        let mut coupon_dates: Vec<Date> = flows.iter()
-            .filter(|(_, amount)| amount.amount() > 0.0)
-            .map(|(date, _)| *date)
-            .collect();
-        coupon_dates.sort();
-        
-        // Get bond again for the calculation
+        // Extract bond
         let bond = match &*context.instrument {
             Instrument::Bond(bond) => bond.clone(),
             _ => return Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
         };
-        
+
+        // Build canonical coupon schedule directly (no inference from holder flows)
+        let sched = crate::cashflow::schedule::build_dates(
+            bond.issue,
+            bond.maturity,
+            bond.freq,
+            finstack_core::dates::StubKind::None,
+            finstack_core::dates::BusinessDayConvention::Following,
+            None,
+        );
+        let dates = sched.dates;
+        if dates.len() < 2 {
+            return Ok(0.0);
+        }
+
         // Find last and next coupon dates around as_of
-        let (mut last, mut next) = (bond.issue, bond.maturity);
-        for w in coupon_dates.windows(2) {
+        let mut last = dates[0];
+        let mut next = dates[1];
+        let mut found = false;
+        for w in dates.windows(2) {
             let (a, b) = (w[0], w[1]);
             if a <= context.as_of && context.as_of < b {
                 last = a;
                 next = b;
+                found = true;
                 break;
             }
         }
-        
-        // Calculate accrued interest directly
-        if context.as_of <= last || context.as_of >= next {
+
+        if !found {
             return Ok(0.0);
         }
-        
+
+        // Calculate accrued interest linearly within the coupon period
         use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
         let yf = DiscountCurve::year_fraction(last, next, bond.dc);
-        let elapsed = DiscountCurve::year_fraction(last, context.as_of, bond.dc);
+        if yf <= 0.0 {
+            return Ok(0.0);
+        }
+        let elapsed = DiscountCurve::year_fraction(last, context.as_of, bond.dc).max(0.0);
         let period_coupon = bond.notional * (bond.coupon * yf);
         let accrued = period_coupon * (elapsed / yf);
-        
+
+        // Cache basic context hints for downstream metrics
+        context.discount_curve_id = Some(bond.disc_id);
+        context.day_count = Some(bond.dc);
+        // Also cache full holder cashflows for downstream risk metrics
+        if context.cashflows.is_none() {
+            let flows = bond.build_schedule(&context.curves, context.as_of)?;
+            context.cashflows = Some(flows);
+        }
+
         Ok(accrued.amount())
     }
 }
@@ -425,33 +430,16 @@ impl MetricCalculator for Cs01Calculator {
         
         let bp = 1e-4; // 1 basis point
         
-        // Calculate prices with yield bump up and down
-        let p_up = self.price_from_ytm(bond, &flows, context.as_of, ytm + bp)?;
-        let p_dn = self.price_from_ytm(bond, &flows, context.as_of, ytm - bp)?;
+        // Calculate prices with yield bump up and down using shared helper
+        let p_up = crate::instruments::bond::helpers::price_from_ytm(bond, &flows, context.as_of, ytm + bp)?;
+        let p_dn = crate::instruments::bond::helpers::price_from_ytm(bond, &flows, context.as_of, ytm - bp)?;
         
         // CS01 = (price_down - price_up) / (2 * bump)
         Ok((p_dn - p_up) / (2.0 * bp))
     }
 }
 
-impl Cs01Calculator {
-    fn price_from_ytm(&self, bond: &Bond, flows: &[(Date, Money)], as_of: Date, ytm: F) -> finstack_core::Result<F> {
-        use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-        
-        let mut pv = 0.0;
-        for &(date, amount) in flows {
-            if date <= as_of {
-                continue;
-            }
-            let t = DiscountCurve::year_fraction(as_of, date, bond.dc);
-            if t > 0.0 {
-                let df = (1.0 + ytm).powf(-t);
-                pv += amount.amount() * df;
-            }
-        }
-        Ok(pv)
-    }
-}
+impl Cs01Calculator {}
 
 /// Register all bond metrics to a registry.
 pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
