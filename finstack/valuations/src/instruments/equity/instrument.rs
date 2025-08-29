@@ -146,27 +146,9 @@ impl Priceable for Equity {
 // Generate standard Attributable implementation using macro
 impl_attributable!(Equity);
 
-// Add conversion to both Instrument enums
-impl From<Equity> for crate::instruments::unified::Instrument {
-    fn from(value: Equity) -> Self {
-        crate::instruments::unified::Instrument::Equity(value)
-    }
-}
-
 impl From<Equity> for crate::instruments::Instrument {
     fn from(value: Equity) -> Self {
         crate::instruments::Instrument::Equity(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::unified::Instrument> for Equity {
-    type Error = finstack_core::Error;
-    
-    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::unified::Instrument::Equity(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
-        }
     }
 }
 

@@ -114,27 +114,9 @@ impl_builder!(
     ]
 );
 
-// Add conversion to both Instrument enums
-impl From<Deposit> for crate::instruments::unified::Instrument {
-    fn from(value: Deposit) -> Self {
-        crate::instruments::unified::Instrument::Deposit(value)
-    }
-}
-
 impl From<Deposit> for crate::instruments::Instrument {
     fn from(value: Deposit) -> Self {
         crate::instruments::Instrument::Deposit(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::unified::Instrument> for Deposit {
-    type Error = finstack_core::Error;
-    
-    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::unified::Instrument::Deposit(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
-        }
     }
 }
 

@@ -405,27 +405,9 @@ impl Priceable for InterestRateOption {
 // Generate standard Attributable implementation using macro
 impl_attributable!(InterestRateOption);
 
-// Add conversion to both Instrument enums
-impl From<InterestRateOption> for crate::instruments::unified::Instrument {
-    fn from(value: InterestRateOption) -> Self {
-        crate::instruments::unified::Instrument::InterestRateOption(value)
-    }
-}
-
 impl From<InterestRateOption> for crate::instruments::Instrument {
     fn from(value: InterestRateOption) -> Self {
         crate::instruments::Instrument::InterestRateOption(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::unified::Instrument> for InterestRateOption {
-    type Error = finstack_core::Error;
-    
-    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::unified::Instrument::InterestRateOption(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
-        }
     }
 }
 

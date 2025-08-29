@@ -206,27 +206,9 @@ impl Priceable for Bond {
 // Generate standard Attributable implementation
 impl_attributable!(Bond);
 
-// Add conversion to both Instrument enums
-impl From<Bond> for crate::instruments::unified::Instrument {
-    fn from(value: Bond) -> Self {
-        crate::instruments::unified::Instrument::Bond(value)
-    }
-}
-
 impl From<Bond> for crate::instruments::Instrument {
     fn from(value: Bond) -> Self {
         crate::instruments::Instrument::Bond(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::unified::Instrument> for Bond {
-    type Error = finstack_core::Error;
-    
-    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::unified::Instrument::Bond(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
-        }
     }
 }
 

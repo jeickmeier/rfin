@@ -13,12 +13,13 @@ logger = logging.getLogger(__name__)
 
 # Define the paths to include (can be empty for 'include everything' mode)
 include_paths = [
-    "docs/new",
+    "finstack/",
 ]
 
 # Define patterns to exclude
 exclude_patterns = [
     "**/__pycache__",
+    "**/*.md",
 ]
 
 
@@ -50,7 +51,7 @@ def concatenate_files(output_filename="concatenated_code.txt"):
         if path.exists():
             # Only descend into dirs, or add the file directly
             if path.is_dir():
-                for py_file in path.rglob("*.md"):
+                for py_file in path.rglob("*"):
                     if not is_excluded(py_file, exclude_patterns):
                         file_paths.append(py_file)
             elif path.is_file():

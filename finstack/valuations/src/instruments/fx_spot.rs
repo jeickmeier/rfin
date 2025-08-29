@@ -362,27 +362,9 @@ impl FxSpotBuilder {
 // Generate standard Attributable implementation using macro
 impl_attributable!(FxSpot);
 
-// Add conversion to both Instrument enums
-impl From<FxSpot> for crate::instruments::unified::Instrument {
-    fn from(value: FxSpot) -> Self {
-        crate::instruments::unified::Instrument::FxSpot(value)
-    }
-}
-
 impl From<FxSpot> for crate::instruments::Instrument {
     fn from(value: FxSpot) -> Self {
         crate::instruments::Instrument::FxSpot(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::unified::Instrument> for FxSpot {
-    type Error = finstack_core::Error;
-    
-    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::unified::Instrument::FxSpot(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
-        }
     }
 }
 

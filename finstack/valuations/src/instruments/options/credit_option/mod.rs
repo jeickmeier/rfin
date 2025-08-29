@@ -310,27 +310,9 @@ impl Priceable for CreditOption {
 // Generate standard Attributable implementation using macro
 impl_attributable!(CreditOption);
 
-// Add conversion to both Instrument enums
-impl From<CreditOption> for crate::instruments::unified::Instrument {
-    fn from(value: CreditOption) -> Self {
-        crate::instruments::unified::Instrument::CreditOption(value)
-    }
-}
-
 impl From<CreditOption> for crate::instruments::Instrument {
     fn from(value: CreditOption) -> Self {
         crate::instruments::Instrument::CreditOption(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::unified::Instrument> for CreditOption {
-    type Error = finstack_core::Error;
-    
-    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::unified::Instrument::CreditOption(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
-        }
     }
 }
 

@@ -290,27 +290,9 @@ impl Priceable for FxOption {
 // Generate standard Attributable implementation using macro
 impl_attributable!(FxOption);
 
-// Add conversion to both Instrument enums
-impl From<FxOption> for crate::instruments::unified::Instrument {
-    fn from(value: FxOption) -> Self {
-        crate::instruments::unified::Instrument::FxOption(value)
-    }
-}
-
 impl From<FxOption> for crate::instruments::Instrument {
     fn from(value: FxOption) -> Self {
         crate::instruments::Instrument::FxOption(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::unified::Instrument> for FxOption {
-    type Error = finstack_core::Error;
-    
-    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::unified::Instrument::FxOption(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
-        }
     }
 }
 

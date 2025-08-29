@@ -399,27 +399,9 @@ impl_priceable!(Loan, [
 // Generate standard Attributable implementation using macro
 impl_attributable!(Loan);
 
-// Add conversion to both Instrument enums
-impl From<Loan> for crate::instruments::unified::Instrument {
-    fn from(value: Loan) -> Self {
-        crate::instruments::unified::Instrument::Loan(value)
-    }
-}
-
 impl From<Loan> for crate::instruments::Instrument {
     fn from(value: Loan) -> Self {
         crate::instruments::Instrument::Loan(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::unified::Instrument> for Loan {
-    type Error = finstack_core::Error;
-    
-    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::unified::Instrument::Loan(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
-        }
     }
 }
 
