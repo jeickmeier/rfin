@@ -25,5 +25,7 @@ pub mod instruments;
 pub mod metrics;
 pub mod performance;
 pub mod policy;
+pub mod covenants;
+pub mod workout;
 
 pub use finstack_core::prelude::*;
