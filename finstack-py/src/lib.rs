@@ -135,6 +135,15 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register risk metrics submodule
     valuations::risk::register_module(m)?;
     
+    // Register covenants submodule
+    valuations::covenants::register_module(m)?;
+    
+    // Register workout submodule
+    valuations::workout::register_module(m)?;
+    
+    // Register policy submodule
+    valuations::policy::register_module(m)?;
+    
     // Register valuation results and attributes
     m.add_class::<valuations::results::PyValuationResult>()?;
     m.add_class::<valuations::attributes::PyAttributes>()?;
@@ -163,6 +172,31 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<valuations::cashflow::PyAmortization>()?;
     m.add_class::<valuations::cashflow::PyCashFlowSchedule>()?;
     m.add_class::<valuations::cashflow::PyCashflowBuilder>()?;
+    
+    // Covenant types
+    m.add_class::<valuations::covenants::PyCovenantType>()?;
+    m.add_class::<valuations::covenants::PyCovenantConsequence>()?;
+    m.add_class::<valuations::covenants::PyCovenant>()?;
+    m.add_class::<valuations::covenants::PyCovenantReport>()?;
+    m.add_class::<valuations::covenants::PyCovenantBreach>()?;
+    m.add_class::<valuations::covenants::PyCovenantEngine>()?;
+    
+    // Workout types
+    m.add_class::<valuations::workout::PyWorkoutState>()?;
+    m.add_class::<valuations::workout::PyRateModification>()?;
+    m.add_class::<valuations::workout::PyPrincipalModification>()?;
+    m.add_class::<valuations::workout::PyWorkoutStrategy>()?;
+    m.add_class::<valuations::workout::PyClaimAmount>()?;
+    m.add_class::<valuations::workout::PyRecoveryTier>()?;
+    m.add_class::<valuations::workout::PyRecoveryWaterfall>()?;
+    m.add_class::<valuations::workout::PyWorkoutPolicy>()?;
+    m.add_class::<valuations::workout::PyRecoveryAnalysis>()?;
+    m.add_class::<valuations::workout::PyWorkoutEngine>()?;
+    
+    // Policy types
+    m.add_class::<valuations::policy::PyGridMarginPolicy>()?;
+    m.add_class::<valuations::policy::PyIndexFallbackPolicy>()?;
+    m.add_class::<valuations::policy::PyDSCRSweepPolicy>()?;
 
     // Currency constants
     use core::currency::PyCurrency as PC;
