@@ -34,6 +34,8 @@ use crate::{
         hazard_curve::HazardCurve,
         id::CurveId,
         inflation::InflationCurve,
+        inflation_index::InflationIndex,
+        term_structures::credit_curve::CreditCurve,
         traits::{Discount, Forward, TermStructure},
     },
 };
@@ -45,6 +47,8 @@ pub struct CurveSet {
     fwd: HashMap<CurveId, Arc<dyn Forward + Send + Sync>>, // forecast curves
     hazard: HashMap<CurveId, Arc<HazardCurve>>,            // concrete type for now
     inflation: HashMap<CurveId, Arc<InflationCurve>>,      // concrete type
+    credit: HashMap<CurveId, Arc<CreditCurve>>,            // credit curves
+    inflation_indices: HashMap<CurveId, Arc<InflationIndex>>, // inflation indices
     vol2d: HashMap<CurveId, Arc<crate::market_data::vol_surface::VolSurface>>, // vol surfaces
     /// Generic market scalars (spot prices, constants)
     scalars: HashMap<CurveId, crate::market_data::primitives::MarketScalar>,
@@ -84,6 +88,26 @@ impl CurveSet {
     pub fn with_inflation(mut self, curve: InflationCurve) -> Self {
         let cid = *crate::market_data::traits::TermStructure::id(&curve);
         self.inflation.insert(cid, Arc::new(curve));
+        self
+    }
+    
+    /// Insert credit curve.
+    pub fn with_credit(mut self, curve: CreditCurve) -> Self {
+        let cid = curve.id;
+        self.credit.insert(cid, Arc::new(curve));
+        self
+    }
+    
+    /// Add a credit curve (mutable version for testing)
+    pub fn add_credit(&mut self, curve: CreditCurve) {
+        let cid = curve.id;
+        self.credit.insert(cid, Arc::new(curve));
+    }
+    
+    /// Insert inflation index.
+    pub fn with_inflation_index(mut self, id: &'static str, index: InflationIndex) -> Self {
+        let cid = CurveId::new(id);
+        self.inflation_indices.insert(cid, Arc::new(index));
         self
     }
 
@@ -193,6 +217,21 @@ impl CurveSet {
             None => return Err(InputError::NotFound.into()),
         };
         self.discount(id.as_str())
+    }
+    
+    /// Get credit curve by id.
+    pub fn credit(&self, id: &'static str) -> crate::Result<Arc<CreditCurve>> {
+        self.credit
+            .get(&CurveId::new(id))
+            .cloned()
+            .ok_or(InputError::NotFound.into())
+    }
+    
+    /// Get inflation index by id.
+    pub fn inflation_index(&self, id: &'static str) -> Option<Arc<InflationIndex>> {
+        self.inflation_indices
+            .get(&CurveId::new(id))
+            .cloned()
     }
 }
 

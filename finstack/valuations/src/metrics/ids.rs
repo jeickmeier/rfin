@@ -90,6 +90,26 @@ pub enum MetricId {
     /// Time decay (theta)
     Theta,
     
+    // CDS metrics
+    /// Par spread for CDS
+    ParSpread,
+    /// Risky PV01 for CDS
+    RiskyPv01,
+    /// Protection leg present value
+    ProtectionLegPv,
+    /// Premium leg present value
+    PremiumLegPv,
+    
+    // Option metrics
+    /// Delta (price sensitivity to underlying)
+    Delta,
+    /// Gamma (delta sensitivity to underlying)
+    Gamma,
+    /// Vega (price sensitivity to volatility)
+    Vega,
+    /// Rho (price sensitivity to interest rates)
+    Rho,
+    
     // Custom metrics
     /// Custom metric with a dynamic identifier
     Custom(String),
@@ -161,6 +181,18 @@ impl MetricId {
             MetricId::BucketedDv01 => "bucketed_dv01",
             MetricId::Theta => "theta",
             
+            // CDS metrics
+            MetricId::ParSpread => "par_spread",
+            MetricId::RiskyPv01 => "risky_pv01",
+            MetricId::ProtectionLegPv => "protection_leg_pv",
+            MetricId::PremiumLegPv => "premium_leg_pv",
+            
+            // Option metrics
+            MetricId::Delta => "delta",
+            MetricId::Gamma => "gamma",
+            MetricId::Vega => "vega",
+            MetricId::Rho => "rho",
+            
             // Custom metrics
             MetricId::Custom(s) => s.as_str(),
         }
@@ -212,6 +244,18 @@ impl MetricId {
         // Risk metrics
         MetricId::BucketedDv01,
         MetricId::Theta,
+        
+        // CDS metrics
+        MetricId::ParSpread,
+        MetricId::RiskyPv01,
+        MetricId::ProtectionLegPv,
+        MetricId::PremiumLegPv,
+        
+        // Option metrics
+        MetricId::Delta,
+        MetricId::Gamma,
+        MetricId::Vega,
+        MetricId::Rho,
     ];
 }
 
@@ -273,6 +317,18 @@ impl FromStr for MetricId {
             // Risk metrics
             "bucketed_dv01" => MetricId::BucketedDv01,
             "theta" => MetricId::Theta,
+            
+            // CDS metrics
+            "par_spread" => MetricId::ParSpread,
+            "risky_pv01" => MetricId::RiskyPv01,
+            "protection_leg_pv" => MetricId::ProtectionLegPv,
+            "premium_leg_pv" => MetricId::PremiumLegPv,
+            
+            // Option metrics
+            "delta" => MetricId::Delta,
+            "gamma" => MetricId::Gamma,
+            "vega" => MetricId::Vega,
+            "rho" => MetricId::Rho,
             
             // Any other string becomes a custom metric
             s => MetricId::Custom(s.to_string()),

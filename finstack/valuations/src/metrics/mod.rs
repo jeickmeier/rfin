@@ -68,6 +68,9 @@ pub fn standard_registry() -> MetricRegistry {
     crate::instruments::bond::metrics::register_bond_metrics(&mut registry);
     crate::instruments::irs::metrics::register_irs_metrics(&mut registry);
     crate::instruments::deposit::metrics::register_deposit_metrics(&mut registry);
+    crate::instruments::cds::metrics::register_cds_metrics(&mut registry);
+    crate::instruments::options::metrics::register_option_metrics(&mut registry);
+    crate::instruments::ilb::metrics::register_ilb_metrics(&mut registry);
     risk::register_risk_metrics(&mut registry);
     registry
 }

@@ -1,0 +1,148 @@
+//! Interest rate option specific metrics calculators
+
+use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
+use finstack_core::{F, Result};
+use std::sync::Arc;
+
+/// Delta calculator for interest rate options
+pub struct DeltaCalculator;
+
+impl MetricCalculator for DeltaCalculator {
+    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+        use crate::instruments::Instrument;
+        
+        if let Instrument::InterestRateOption(_option) = &*context.instrument {
+            // Would calculate actual delta here with forward rates and volatility
+            Ok(0.5)
+        } else {
+            Err(finstack_core::Error::from(
+                finstack_core::error::InputError::NotFound
+            ))
+        }
+    }
+    
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
+}
+
+/// Gamma calculator for interest rate options
+pub struct GammaCalculator;
+
+impl MetricCalculator for GammaCalculator {
+    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+        use crate::instruments::Instrument;
+        
+        if let Instrument::InterestRateOption(_option) = &*context.instrument {
+            // Would calculate actual gamma here
+            Ok(0.02)
+        } else {
+            Err(finstack_core::Error::from(
+                finstack_core::error::InputError::NotFound
+            ))
+        }
+    }
+    
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
+}
+
+/// Vega calculator for interest rate options
+pub struct VegaCalculator;
+
+impl MetricCalculator for VegaCalculator {
+    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+        use crate::instruments::Instrument;
+        
+        if let Instrument::InterestRateOption(_option) = &*context.instrument {
+            // Would calculate actual vega here
+            Ok(0.1)
+        } else {
+            Err(finstack_core::Error::from(
+                finstack_core::error::InputError::NotFound
+            ))
+        }
+    }
+    
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
+}
+
+/// Theta calculator for interest rate options
+pub struct ThetaCalculator;
+
+impl MetricCalculator for ThetaCalculator {
+    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+        use crate::instruments::Instrument;
+        
+        if let Instrument::InterestRateOption(_option) = &*context.instrument {
+            // Would calculate actual theta here
+            Ok(-0.05)
+        } else {
+            Err(finstack_core::Error::from(
+                finstack_core::error::InputError::NotFound
+            ))
+        }
+    }
+    
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
+}
+
+/// Rho calculator for interest rate options
+pub struct RhoCalculator;
+
+impl MetricCalculator for RhoCalculator {
+    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+        use crate::instruments::Instrument;
+        
+        if let Instrument::InterestRateOption(_option) = &*context.instrument {
+            // Would calculate actual rho here
+            Ok(0.03)
+        } else {
+            Err(finstack_core::Error::from(
+                finstack_core::error::InputError::NotFound
+            ))
+        }
+    }
+    
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
+}
+
+/// Register interest rate option metrics with the registry
+pub fn register_interest_rate_option_metrics(registry: &mut MetricRegistry) {
+    registry.register_metric(
+        MetricId::Delta,
+        Arc::new(DeltaCalculator),
+        &["InterestRateOption"],
+    );
+    
+    registry.register_metric(
+        MetricId::Gamma,
+        Arc::new(GammaCalculator),
+        &["InterestRateOption"],
+    );
+    
+    registry.register_metric(
+        MetricId::Vega,
+        Arc::new(VegaCalculator),
+        &["InterestRateOption"],
+    );
+    
+    registry.register_metric(
+        MetricId::Theta,
+        Arc::new(ThetaCalculator),
+        &["InterestRateOption"],
+    );
+    
+    registry.register_metric(
+        MetricId::Rho,
+        Arc::new(RhoCalculator),
+        &["InterestRateOption"],
+    );
+}

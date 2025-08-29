@@ -96,6 +96,9 @@ pub mod deposit;
 pub mod equity;
 pub mod fx_spot;
 pub mod loan;
+pub mod cds;
+pub mod options;
+pub mod ilb;
 
 pub use bond::Bond;
 pub use deposit::Deposit;
@@ -103,6 +106,9 @@ pub use irs::InterestRateSwap;
 pub use equity::Equity;
 pub use fx_spot::FxSpot;
 pub use loan::Loan;
+pub use cds::CreditDefaultSwap;
+pub use ilb::InflationLinkedBond;
+pub use options::{EquityOption, FxOption, InterestRateOption, CreditOption};
 
 /// A concrete enum for all supported instrument types.
 /// 
@@ -170,6 +176,18 @@ pub enum Instrument {
     FxSpot(FxSpot),
     /// Private credit loan instrument
     Loan(Loan),
+    /// Credit Default Swap instrument
+    CDS(CreditDefaultSwap),
+    /// Inflation-Linked Bond instrument
+    ILB(InflationLinkedBond),
+    /// Equity Option instrument
+    EquityOption(EquityOption),
+    /// FX Option instrument
+    FxOption(FxOption),
+    /// Interest Rate Option instrument
+    InterestRateOption(InterestRateOption),
+    /// Credit Option instrument
+    CreditOption(CreditOption),
 }
 
 impl Instrument {
@@ -229,6 +247,12 @@ impl Instrument {
             Instrument::Equity(_) => "Equity",
             Instrument::FxSpot(_) => "FxSpot",
             Instrument::Loan(_) => "Loan",
+            Instrument::CDS(_) => "CDS",
+            Instrument::ILB(_) => "ILB",
+            Instrument::EquityOption(_) => "EquityOption",
+            Instrument::FxOption(_) => "FxOption",
+            Instrument::InterestRateOption(_) => "InterestRateOption",
+            Instrument::CreditOption(_) => "CreditOption",
         }
     }
 }
