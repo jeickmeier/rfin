@@ -75,6 +75,7 @@
 //!     day_count: DayCount::Act365F,
 //!     disc_id: "USD-OIS",
 //!     quote_rate: Some(0.05),
+//!     attributes: finstack_valuations::traits::Attributes::new(),
 //! };
 //! 
 //! // Use unified interface
@@ -90,6 +91,16 @@
 //! }
 //! ```
 
+// Macro infrastructure for reducing boilerplate
+#[macro_use]
+pub mod macros;
+
+// Macros are available via #[macro_use]
+
+// Unified instrument handling with common operations
+pub mod unified;
+
+// Original instrument implementations
 pub mod irs;
 pub mod bond;
 pub mod deposit;
@@ -101,6 +112,10 @@ pub mod options;
 pub mod ilb;
 pub mod swaption;
 
+// Re-export unified types
+pub use unified::{Instrument as UnifiedInstrument, InstrumentPortfolio};
+
+// Re-export individual instrument types
 pub use bond::Bond;
 pub use deposit::Deposit;
 pub use irs::InterestRateSwap;

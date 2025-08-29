@@ -6,11 +6,10 @@ use finstack_core::prelude::*;
 use finstack_core::F;
 use finstack_core::market_data::multicurve::CurveSet;
 
-use crate::pricing::discountable::Discountable;
-use crate::pricing::result::ValuationResult;
-use crate::traits::{CashflowProvider, Priceable, DatedFlows};
+use crate::traits::{CashflowProvider, DatedFlows, Attributes};
 use crate::cashflow::builder::{cf, FixedCouponSpec, CouponType};
 use finstack_core::dates::{BusinessDayConvention, StubKind, Frequency};
+use crate::metrics::MetricId;
 
 /// Simple deposit instrument with optional quoted rate.
 /// 
@@ -32,68 +31,34 @@ pub struct Deposit {
     pub quote_rate: Option<F>,
     /// Discount curve id used for valuation and par extraction.
     pub disc_id: &'static str,
+    /// Attributes for scenario selection and tagging.
+    pub attributes: Attributes,
 }
 
-impl Priceable for Deposit {
-    /// Compute only the base present value (fast, no metrics).
-    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
-        let disc = curves.discount(self.disc_id)?;
-        let flows = self.build_schedule(curves, as_of)?;
-        flows.npv(&*disc, disc.base_date(), self.day_count)
-    }
-    
-    /// Compute value with specific metrics using the metrics framework.
-    fn price_with_metrics(
-        &self, 
-        curves: &CurveSet, 
-        as_of: Date, 
-        metrics: &[crate::metrics::MetricId]
-    ) -> finstack_core::Result<ValuationResult> {
-        use crate::instruments::Instrument;
-        use crate::metrics::{MetricContext, standard_registry};
-        use std::sync::Arc;
-        
-        // Compute base value
-        let base_value = self.value(curves, as_of)?;
-        
-        // Create metric context
-        let mut context = MetricContext::new(
-            Arc::new(Instrument::Deposit(self.clone())),
-            Arc::new(curves.clone()),
-            as_of,
-            base_value,
-        );
-        
-        // Get registry and compute requested metrics
-        let registry = standard_registry();
-        let metric_measures = registry.compute(metrics, &mut context)?;
-        
-        // Convert MetricId keys to String keys for ValuationResult
-        let measures: hashbrown::HashMap<String, finstack_core::F> = metric_measures
-            .into_iter()
-            .map(|(k, v)| (k.as_str().to_string(), v))
-            .collect();
-        
-        // Create result
-        let mut result = ValuationResult::stamped(self.id.clone(), as_of, base_value);
-        result.measures = measures;
-        
-        Ok(result)
-    }
-    
-    /// Compute full valuation with all standard deposit metrics (backward compatible).
-    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
-        // Standard deposit metrics
-        use crate::metrics::MetricId;
-        let mut standard_metrics = vec![MetricId::Yf, MetricId::DfStart, MetricId::DfEnd, MetricId::DepositParRate];
-        
-        // Add quote-related metrics if we have a quoted rate
-        if self.quote_rate.is_some() {
-            standard_metrics.push(MetricId::DfEndFromQuote);
-            standard_metrics.push(MetricId::QuoteRate);
-        }
-        
-        self.price_with_metrics(curves, as_of, &standard_metrics)
+// Apply the instrument! macro to generate ALL boilerplate:
+// - Priceable trait implementation
+// - Attributable trait implementation  
+// - Builder pattern with all setters
+// - Conversions to/from unified Instrument enum
+instrument! {
+    Deposit {
+        metrics: [
+            MetricId::Yf,
+            MetricId::DfStart,
+            MetricId::DfEnd,
+            MetricId::DepositParRate
+        ],
+        required: [
+            id: String,
+            notional: Money,
+            start: Date,
+            end: Date,
+            day_count: DayCount,
+            disc_id: &'static str
+        ],
+        optional: [
+            quote_rate: F
+        ]
     }
 }
 

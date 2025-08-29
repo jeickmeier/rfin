@@ -49,6 +49,7 @@ fn deposit_par_at_zero_rate_with_unit_df() {
         day_count: DayCount::Act365F,
         quote_rate: Some(0.0),
         disc_id: "USD-OIS",
+        attributes: Default::default(),
     };
 
     let res = dep.price(&curves, start).unwrap();

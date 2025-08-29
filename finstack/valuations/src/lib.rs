@@ -21,6 +21,9 @@
 pub mod cashflow;
 pub mod traits;
 pub mod pricing;
+
+// Export macros before instruments module
+#[macro_use]
 pub mod instruments;
 pub mod metrics;
 pub mod models;

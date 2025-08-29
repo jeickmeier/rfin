@@ -33,6 +33,7 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 ///     day_count: DayCount::Act365F,
 ///     disc_id: "USD-OIS",
 ///     quote_rate: Some(0.05),
+///     attributes: Default::default(),
 /// };
 /// 
 /// let calculator = YearFractionCalculator;
