@@ -8,7 +8,7 @@
 
 use finstack_core::prelude::*;
 use finstack_core::F;
-use crate::instruments::loan::covenants::{Covenant, CovenantType, CovenantConsequence, ThresholdTest};
+use crate::instruments::fixed_income::loan::covenants::{Covenant, CovenantType, CovenantConsequence, ThresholdTest};
 use crate::pricing::result::CovenantReport;
 use crate::metrics::{MetricId, MetricContext};
 use std::collections::HashMap;

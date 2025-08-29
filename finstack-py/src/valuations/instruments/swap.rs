@@ -1,7 +1,7 @@
 //! Python bindings for interest rate swap instruments.
 
 use pyo3::prelude::*;
-use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive, FixedLegSpec, FloatLegSpec};
+use finstack_valuations::instruments::fixed_income::irs::{InterestRateSwap, PayReceive, FixedLegSpec, FloatLegSpec};
 use finstack_core::{
     dates::{BusinessDayConvention, StubKind},
 };

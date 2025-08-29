@@ -3,7 +3,7 @@
 pub mod metrics;
 
 use crate::pricing::result::ValuationResult;
-use crate::traits::{Attributable, Attributes, Priceable};
+use crate::traits::{Attributes, Priceable};
 use finstack_core::F;
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::money::Money;
@@ -402,13 +402,41 @@ impl Priceable for InterestRateOption {
     }
 }
 
-impl Attributable for InterestRateOption {
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
+// Generate standard Attributable implementation using macro
+impl_attributable!(InterestRateOption);
+
+// Add conversion to both Instrument enums
+impl From<InterestRateOption> for crate::instruments::unified::Instrument {
+    fn from(value: InterestRateOption) -> Self {
+        crate::instruments::unified::Instrument::InterestRateOption(value)
     }
+}
+
+impl From<InterestRateOption> for crate::instruments::Instrument {
+    fn from(value: InterestRateOption) -> Self {
+        crate::instruments::Instrument::InterestRateOption(value)
+    }
+}
+
+impl std::convert::TryFrom<crate::instruments::unified::Instrument> for InterestRateOption {
+    type Error = finstack_core::Error;
     
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
+    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
+        match value {
+            crate::instruments::unified::Instrument::InterestRateOption(v) => Ok(v),
+            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+        }
+    }
+}
+
+impl std::convert::TryFrom<crate::instruments::Instrument> for InterestRateOption {
+    type Error = finstack_core::Error;
+    
+    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
+        match value {
+            crate::instruments::Instrument::InterestRateOption(v) => Ok(v),
+            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+        }
     }
 }
 

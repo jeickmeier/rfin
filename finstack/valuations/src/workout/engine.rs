@@ -9,7 +9,7 @@
 use finstack_core::prelude::*;
 use finstack_core::F;
 use crate::cashflow::primitives::CashFlow;
-use crate::instruments::loan::term_loan::{Loan, InterestSpec};
+use crate::instruments::fixed_income::loan::term_loan::{Loan, InterestSpec};
 use std::collections::HashMap;
 
 /// Workout state for a loan.

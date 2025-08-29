@@ -11,7 +11,7 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 use finstack_valuations::cashflow::builder::{cf, FixedCouponSpec, CouponType, ScheduleParams};
 use finstack_valuations::cashflow::amortization_notional::AmortizationSpec;
-use finstack_valuations::instruments::bond::Bond;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::traits::{Priceable, CashflowProvider};
 
 use time::Month;

@@ -10,10 +10,10 @@ use finstack_valuations::workout::{
     RateModification, PrincipalModification, RecoveryWaterfall, RecoveryTier,
     ClaimAmount,
 };
-use finstack_valuations::instruments::loan::covenants::{
+use finstack_valuations::instruments::fixed_income::loan::covenants::{
     Covenant, CovenantType, CovenantConsequence, ThresholdTest,
 };
-use finstack_valuations::instruments::loan::term_loan::{Loan, InterestSpec};
+use finstack_valuations::instruments::fixed_income::loan::term_loan::{Loan, InterestSpec};
 use finstack_valuations::metrics::{MetricId, MetricContext};
 use finstack_valuations::policy::{
     GridMarginPolicy, IndexFallbackPolicy, DSCRSweepPolicy,
@@ -95,7 +95,7 @@ fn test_covenant_evaluation() {
     let curves = Arc::new(CurveSet::new());
     let mut context = MetricContext::new(
         Arc::new(finstack_valuations::instruments::Instrument::Bond(
-            finstack_valuations::instruments::bond::Bond {
+            finstack_valuations::instruments::fixed_income::bond::Bond {
                 id: "TEST".to_string(),
                 notional: Money::new(1_000_000.0, Currency::USD),
                 coupon: 0.05,

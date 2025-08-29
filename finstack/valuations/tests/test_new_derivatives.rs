@@ -7,9 +7,9 @@ use finstack_valuations::instruments::{
     CreditDefaultSwap, InflationLinkedBond, EquityOption, FxOption, 
     InterestRateOption, CreditOption
 };
-use finstack_valuations::instruments::cds::{CDSConvention, PayReceive as CDSPayReceive};
+use finstack_valuations::instruments::fixed_income::cds::{CDSConvention, PayReceive as CDSPayReceive};
 use finstack_valuations::instruments::options::{OptionType, ExerciseStyle};
-use finstack_valuations::instruments::ilb::IndexationMethod;
+use finstack_valuations::instruments::fixed_income::ilb::IndexationMethod;
 use time::Month;
 
 #[test]

@@ -2,7 +2,7 @@
 
 use pyo3::prelude::*;
 use finstack_core::F;
-use finstack_valuations::instruments::loan::term_loan::{Loan, InterestSpec};
+use finstack_valuations::instruments::fixed_income::loan::term_loan::{Loan, InterestSpec};
 
 use crate::core::dates::PyDate;
 use crate::core::money::PyMoney;

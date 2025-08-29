@@ -18,7 +18,7 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 /// 
 /// # Example
 /// ```rust
-/// use finstack_valuations::instruments::irs::metrics::AnnuityCalculator;
+/// use finstack_valuations::instruments::fixed_income::irs::metrics::AnnuityCalculator;
 /// use finstack_valuations::metrics::traits::MetricCalculator;
 /// 
 /// let calculator = AnnuityCalculator;
@@ -70,7 +70,7 @@ impl MetricCalculator for AnnuityCalculator {
 /// 
 /// # Example
 /// ```rust
-/// use finstack_valuations::instruments::irs::metrics::ParRateCalculator;
+/// use finstack_valuations::instruments::fixed_income::irs::metrics::ParRateCalculator;
 /// use finstack_valuations::metrics::traits::MetricCalculator;
 /// 
 /// let calculator = ParRateCalculator;
@@ -139,7 +139,7 @@ impl MetricCalculator for ParRateCalculator {
 /// 
 /// # Example
 /// ```rust
-/// use finstack_valuations::instruments::irs::metrics::Dv01Calculator;
+/// use finstack_valuations::instruments::fixed_income::irs::metrics::Dv01Calculator;
 /// use finstack_valuations::metrics::traits::MetricCalculator;
 /// 
 /// let calculator = Dv01Calculator;
@@ -180,7 +180,7 @@ impl MetricCalculator for Dv01Calculator {
 /// 
 /// # Example
 /// ```rust
-/// use finstack_valuations::instruments::irs::metrics::FixedLegPvCalculator;
+/// use finstack_valuations::instruments::fixed_income::irs::metrics::FixedLegPvCalculator;
 /// use finstack_valuations::metrics::traits::MetricCalculator;
 /// 
 /// let calculator = FixedLegPvCalculator;
@@ -230,7 +230,7 @@ impl MetricCalculator for FixedLegPvCalculator {
 /// 
 /// # Example
 /// ```rust
-/// use finstack_valuations::instruments::irs::metrics::FloatLegPvCalculator;
+/// use finstack_valuations::instruments::fixed_income::irs::metrics::FloatLegPvCalculator;
 /// use finstack_valuations::metrics::traits::MetricCalculator;
 /// 
 /// let calculator = FloatLegPvCalculator;
@@ -289,7 +289,7 @@ impl MetricCalculator for FloatLegPvCalculator {
 /// # Example
 /// ```rust
 /// use finstack_valuations::metrics::registry::MetricRegistry;
-/// use finstack_valuations::instruments::irs::metrics::register_irs_metrics;
+/// use finstack_valuations::instruments::fixed_income::irs::metrics::register_irs_metrics;
 /// 
 /// let mut registry = MetricRegistry::new();
 /// register_irs_metrics(&mut registry);

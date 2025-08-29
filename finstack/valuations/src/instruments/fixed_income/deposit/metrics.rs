@@ -16,9 +16,9 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 /// 
 /// # Example
 /// ```rust
-/// use finstack_valuations::instruments::deposit::metrics::YearFractionCalculator;
+/// use finstack_valuations::instruments::fixed_income::deposit::metrics::YearFractionCalculator;
 /// use finstack_valuations::metrics::traits::MetricCalculator;
-/// use finstack_valuations::instruments::deposit::Deposit;
+/// use finstack_valuations::instruments::fixed_income::deposit::Deposit;
 /// use finstack_valuations::instruments::Instrument;
 /// use finstack_core::dates::{Date, DayCount};
 /// use finstack_core::money::Money;
@@ -59,7 +59,7 @@ impl MetricCalculator for YearFractionCalculator {
 /// 
 /// # Example
 /// ```rust
-/// use finstack_valuations::instruments::deposit::metrics::DfStartCalculator;
+/// use finstack_valuations::instruments::fixed_income::deposit::metrics::DfStartCalculator;
 /// use finstack_valuations::metrics::traits::MetricCalculator;
 /// 
 /// let calculator = DfStartCalculator;
@@ -88,7 +88,7 @@ impl MetricCalculator for DfStartCalculator {
 /// 
 /// # Example
 /// ```rust
-/// use finstack_valuations::instruments::deposit::metrics::DfEndCalculator;
+/// use finstack_valuations::instruments::fixed_income::deposit::metrics::DfEndCalculator;
 /// use finstack_valuations::metrics::traits::MetricCalculator;
 /// 
 /// let calculator = DfEndCalculator;
@@ -120,7 +120,7 @@ impl MetricCalculator for DfEndCalculator {
 /// 
 /// # Example
 /// ```rust
-/// use finstack_valuations::instruments::deposit::metrics::DepositParRateCalculator;
+/// use finstack_valuations::instruments::fixed_income::deposit::metrics::DepositParRateCalculator;
 /// use finstack_valuations::metrics::traits::MetricCalculator;
 /// 
 /// let calculator = DepositParRateCalculator;
@@ -159,7 +159,7 @@ impl MetricCalculator for DepositParRateCalculator {
 /// 
 /// # Example
 /// ```rust
-/// use finstack_valuations::instruments::deposit::metrics::DfEndFromQuoteCalculator;
+/// use finstack_valuations::instruments::fixed_income::deposit::metrics::DfEndFromQuoteCalculator;
 /// use finstack_valuations::metrics::traits::MetricCalculator;
 /// 
 /// let calculator = DfEndFromQuoteCalculator;
@@ -197,7 +197,7 @@ impl MetricCalculator for DfEndFromQuoteCalculator {
 /// 
 /// # Example
 /// ```rust
-/// use finstack_valuations::instruments::deposit::metrics::QuoteRateCalculator;
+/// use finstack_valuations::instruments::fixed_income::deposit::metrics::QuoteRateCalculator;
 /// use finstack_valuations::metrics::traits::MetricCalculator;
 /// 
 /// let calculator = QuoteRateCalculator;
@@ -229,7 +229,7 @@ impl MetricCalculator for QuoteRateCalculator {
 /// # Example
 /// ```rust
 /// use finstack_valuations::metrics::registry::MetricRegistry;
-/// use finstack_valuations::instruments::deposit::metrics::register_deposit_metrics;
+/// use finstack_valuations::instruments::fixed_income::deposit::metrics::register_deposit_metrics;
 /// 
 /// let mut registry = MetricRegistry::new();
 /// register_deposit_metrics(&mut registry);

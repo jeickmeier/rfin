@@ -13,7 +13,7 @@ use super::{Bond, CallPutSchedule};
 /// # Example
 /// 
 /// ```rust
-/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::instruments::fixed_income::bond::Bond;
 /// use finstack_valuations::cashflow::builder::{cf, FixedCouponSpec, CouponType};
 /// use finstack_core::currency::Currency;
 /// use finstack_core::money::Money;

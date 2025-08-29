@@ -40,8 +40,8 @@
 //! let irs = InterestRateSwap {
 //!     id: "IRS001".to_string(),
 //!     notional: Money::new(1000.0, Currency::USD),
-//!     side: finstack_valuations::instruments::irs::PayReceive::PayFixed,
-//!     fixed: finstack_valuations::instruments::irs::FixedLegSpec {
+//!     side: finstack_valuations::instruments::fixed_income::irs::PayReceive::PayFixed,
+//!     fixed: finstack_valuations::instruments::fixed_income::irs::FixedLegSpec {
 //!         start: Date::from_calendar_date(2025, Month::January, 15).unwrap(),
 //!         end: Date::from_calendar_date(2030, Month::January, 15).unwrap(),
 //!         freq: Frequency::semi_annual(),
@@ -52,7 +52,7 @@
 //!         rate: 0.05,
 //!         disc_id: "USD-OIS",
 //!     },
-//!     float: finstack_valuations::instruments::irs::FloatLegSpec {
+//!     float: finstack_valuations::instruments::fixed_income::irs::FloatLegSpec {
 //!         start: Date::from_calendar_date(2025, Month::January, 15).unwrap(),
 //!         end: Date::from_calendar_date(2030, Month::January, 15).unwrap(),
 //!         freq: Frequency::semi_annual(),
@@ -100,32 +100,20 @@ pub mod macros;
 // Unified instrument handling with common operations
 pub mod unified;
 
-// Original instrument implementations
-pub mod irs;
-pub mod bond;
-pub mod deposit;
+// Grouped instrument implementations
+pub mod fixed_income;
 pub mod equity;
 pub mod fx_spot;
-pub mod loan;
-pub mod cds;
 pub mod options;
-pub mod ilb;
-pub mod swaption;
 
 // Re-export unified types
 pub use unified::{Instrument as UnifiedInstrument, InstrumentPortfolio};
 
 // Re-export individual instrument types
-pub use bond::Bond;
-pub use deposit::Deposit;
-pub use irs::InterestRateSwap;
+pub use fixed_income::{Bond, InterestRateSwap, Deposit, Loan, CreditDefaultSwap, InflationLinkedBond};
 pub use equity::Equity;
 pub use fx_spot::FxSpot;
-pub use loan::Loan;
-pub use cds::CreditDefaultSwap;
-pub use ilb::InflationLinkedBond;
-pub use options::{EquityOption, FxOption, InterestRateOption, CreditOption};
-pub use swaption::Swaption;
+pub use options::{EquityOption, FxOption, InterestRateOption, CreditOption, Swaption};
 
 /// A concrete enum for all supported instrument types.
 /// 
@@ -177,6 +165,7 @@ pub use swaption::Swaption;
 ///     Instrument::FxOption(opt) => println!("FX option with strike: {:?}", opt.strike),
 ///     Instrument::InterestRateOption(opt) => println!("IR option with strike: {:?}", opt.strike_rate),
 ///     Instrument::CreditOption(opt) => println!("Credit option with strike: {:?}", opt.strike_spread_bp),
+///     Instrument::Swaption(swaption) => println!("Swaption with strike: {:?}", swaption.strike_rate),
 /// }
 /// 
 /// // Collection handling
@@ -211,6 +200,8 @@ pub enum Instrument {
     InterestRateOption(InterestRateOption),
     /// Credit Option instrument
     CreditOption(CreditOption),
+    /// Swaption instrument
+    Swaption(Swaption),
 }
 
 impl Instrument {
@@ -276,6 +267,7 @@ impl Instrument {
             Instrument::FxOption(_) => "FxOption",
             Instrument::InterestRateOption(_) => "InterestRateOption",
             Instrument::CreditOption(_) => "CreditOption",
+            Instrument::Swaption(_) => "Swaption",
         }
     }
 }

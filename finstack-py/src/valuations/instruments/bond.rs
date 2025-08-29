@@ -3,7 +3,7 @@
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use std::str::FromStr;
-use finstack_valuations::instruments::bond::Bond;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
 use crate::core::{
     dates::{PyDate, PyDayCount, PyFrequency},
     money::PyMoney,

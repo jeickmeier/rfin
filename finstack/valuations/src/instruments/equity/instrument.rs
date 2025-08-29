@@ -1,6 +1,6 @@
 //! Equity spot instrument implementation.
 
-use crate::traits::{CashflowProvider, Priceable};
+use crate::traits::{CashflowProvider, Priceable, Attributes};
 use crate::pricing::result::ValuationResult;
 use crate::metrics::MetricId;
 use finstack_core::prelude::*;
@@ -28,9 +28,10 @@ pub type Ticker = String;
 ///     currency: Currency::USD,
 ///     shares: Some(100.0),
 ///     price_quote: None,
+///     attributes: Default::default(),
 /// };
 /// ```
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Equity {
     /// Unique identifier for the equity
     pub id: String,
@@ -42,9 +43,16 @@ pub struct Equity {
     pub shares: Option<F>,
     /// Optional price quote (if not provided, will look up from market data)
     pub price_quote: Option<F>,
+    /// Attributes for scenario selection and tagging
+    pub attributes: Attributes,
 }
 
 impl Equity {
+    /// Create a new equity builder.
+    pub fn builder() -> EquityBuilder {
+        EquityBuilder::new()
+    }
+    
     /// Create a new equity instrument with default 1 share
     pub fn new(id: impl Into<String>, ticker: impl Into<String>, currency: Currency) -> Self {
         Self {
@@ -53,6 +61,7 @@ impl Equity {
             currency,
             shares: None,
             price_quote: None,
+            attributes: Attributes::new(),
         }
     }
 
@@ -74,6 +83,7 @@ impl Equity {
     }
 }
 
+// Custom Priceable implementation for Equity (doesn't use standard disc_id/day_count fields)
 impl Priceable for Equity {
     fn value(&self, _curves: &CurveSet, _as_of: Date) -> finstack_core::Result<Money> {
         // For equities, we need the price from market data or quote
@@ -130,6 +140,102 @@ impl Priceable for Equity {
             MetricId::custom("market_value"),
         ];
         self.price_with_metrics(curves, as_of, &metrics)
+    }
+}
+
+// Generate standard Attributable implementation using macro
+impl_attributable!(Equity);
+
+// Add conversion to both Instrument enums
+impl From<Equity> for crate::instruments::unified::Instrument {
+    fn from(value: Equity) -> Self {
+        crate::instruments::unified::Instrument::Equity(value)
+    }
+}
+
+impl From<Equity> for crate::instruments::Instrument {
+    fn from(value: Equity) -> Self {
+        crate::instruments::Instrument::Equity(value)
+    }
+}
+
+impl std::convert::TryFrom<crate::instruments::unified::Instrument> for Equity {
+    type Error = finstack_core::Error;
+    
+    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
+        match value {
+            crate::instruments::unified::Instrument::Equity(v) => Ok(v),
+            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+        }
+    }
+}
+
+impl std::convert::TryFrom<crate::instruments::Instrument> for Equity {
+    type Error = finstack_core::Error;
+    
+    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
+        match value {
+            crate::instruments::Instrument::Equity(v) => Ok(v),
+            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+        }
+    }
+}
+
+/// Builder pattern for Equity instruments
+#[derive(Default)]
+pub struct EquityBuilder {
+    id: Option<String>,
+    ticker: Option<String>,
+    currency: Option<Currency>,
+    shares: Option<F>,
+    price_quote: Option<F>,
+}
+
+impl EquityBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    
+    pub fn id(mut self, value: impl Into<String>) -> Self {
+        self.id = Some(value.into());
+        self
+    }
+    
+    pub fn ticker(mut self, value: impl Into<String>) -> Self {
+        self.ticker = Some(value.into());
+        self
+    }
+    
+    pub fn currency(mut self, value: Currency) -> Self {
+        self.currency = Some(value);
+        self
+    }
+    
+    pub fn shares(mut self, value: F) -> Self {
+        self.shares = Some(value);
+        self
+    }
+    
+    pub fn price_quote(mut self, value: F) -> Self {
+        self.price_quote = Some(value);
+        self
+    }
+    
+    pub fn build(self) -> finstack_core::Result<Equity> {
+        Ok(Equity {
+            id: self.id.ok_or_else(|| finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid
+            ))?,
+            ticker: self.ticker.ok_or_else(|| finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid
+            ))?,
+            currency: self.currency.ok_or_else(|| finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid
+            ))?,
+            shares: self.shares,
+            price_quote: self.price_quote,
+            attributes: Attributes::new(),
+        })
     }
 }
 

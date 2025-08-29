@@ -1,6 +1,6 @@
 //! FX Spot instrument implementation.
 
-use crate::traits::{CashflowProvider, Priceable};
+use crate::traits::{CashflowProvider, Priceable, Attributes};
 use crate::pricing::result::ValuationResult;
 use crate::metrics::MetricId;
 use finstack_core::prelude::*;
@@ -28,10 +28,11 @@ use hashbrown::HashMap;
 ///     settlement: Some(Date::from_calendar_date(2025, Month::January, 3).unwrap()),
 ///     spot_rate: Some(1.08),
 ///     notional: None,
+///     attributes: Default::default(),
 /// };
 /// // This means 1 EUR = 1.08 USD
 /// ```
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct FxSpot {
     /// Unique identifier for the FX pair
     pub id: String,
@@ -45,9 +46,16 @@ pub struct FxSpot {
     pub spot_rate: Option<F>,
     /// Optional notional amount in base currency (defaults to 1)
     pub notional: Option<Money>,
+    /// Attributes for scenario selection and tagging
+    pub attributes: Attributes,
 }
 
 impl FxSpot {
+    /// Create a new FX spot builder.
+    pub fn builder() -> FxSpotBuilder {
+        FxSpotBuilder::new()
+    }
+    
     /// Create a new FX spot instrument
     pub fn new(id: impl Into<String>, base: Currency, quote: Currency) -> Self {
         Self {
@@ -57,6 +65,7 @@ impl FxSpot {
             settlement: None,
             spot_rate: None,
             notional: None,
+            attributes: Attributes::new(),
         }
     }
 
@@ -284,3 +293,107 @@ mod tests {
             .with_notional(Money::new(100.0, Currency::GBP));
     }
 }
+
+
+#[derive(Default)]
+pub struct FxSpotBuilder {
+    id: Option<String>,
+    base: Option<Currency>,
+    quote: Option<Currency>,
+    settlement: Option<Date>,
+    spot_rate: Option<F>,
+    notional: Option<Money>,
+}
+
+impl FxSpotBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    
+    pub fn id(mut self, value: impl Into<String>) -> Self {
+        self.id = Some(value.into());
+        self
+    }
+    
+    pub fn base(mut self, value: Currency) -> Self {
+        self.base = Some(value);
+        self
+    }
+    
+    pub fn quote(mut self, value: Currency) -> Self {
+        self.quote = Some(value);
+        self
+    }
+    
+    pub fn settlement(mut self, value: Date) -> Self {
+        self.settlement = Some(value);
+        self
+    }
+    
+    pub fn spot_rate(mut self, value: F) -> Self {
+        self.spot_rate = Some(value);
+        self
+    }
+    
+    pub fn notional(mut self, value: Money) -> Self {
+        self.notional = Some(value);
+        self
+    }
+    
+    pub fn build(self) -> finstack_core::Result<FxSpot> {
+        Ok(FxSpot {
+            id: self.id.ok_or_else(|| finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid
+            ))?,
+            base: self.base.ok_or_else(|| finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid
+            ))?,
+            quote: self.quote.ok_or_else(|| finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid
+            ))?,
+            settlement: self.settlement,
+            spot_rate: self.spot_rate,
+            notional: self.notional,
+            attributes: Attributes::new(),
+        })
+    }
+}
+
+// Generate standard Attributable implementation using macro
+impl_attributable!(FxSpot);
+
+// Add conversion to both Instrument enums
+impl From<FxSpot> for crate::instruments::unified::Instrument {
+    fn from(value: FxSpot) -> Self {
+        crate::instruments::unified::Instrument::FxSpot(value)
+    }
+}
+
+impl From<FxSpot> for crate::instruments::Instrument {
+    fn from(value: FxSpot) -> Self {
+        crate::instruments::Instrument::FxSpot(value)
+    }
+}
+
+impl std::convert::TryFrom<crate::instruments::unified::Instrument> for FxSpot {
+    type Error = finstack_core::Error;
+    
+    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
+        match value {
+            crate::instruments::unified::Instrument::FxSpot(v) => Ok(v),
+            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+        }
+    }
+}
+
+impl std::convert::TryFrom<crate::instruments::Instrument> for FxSpot {
+    type Error = finstack_core::Error;
+    
+    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
+        match value {
+            crate::instruments::Instrument::FxSpot(v) => Ok(v),
+            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+        }
+    }
+}
+

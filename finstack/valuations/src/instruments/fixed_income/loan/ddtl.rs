@@ -2,8 +2,8 @@
 
 use crate::cashflow::builder::{cf, FixedCouponSpec, CouponType, FeeSpec, FeeBase};
 use crate::cashflow::amortization_notional::AmortizationSpec;
-use crate::instruments::loan::term_loan::InterestSpec;
-use crate::instruments::loan::covenants::Covenant;
+use super::term_loan::InterestSpec;
+use super::covenants::Covenant;
 use crate::pricing::result::ValuationResult;
 use crate::pricing::discountable::Discountable;
 use crate::traits::{CashflowProvider, Priceable};

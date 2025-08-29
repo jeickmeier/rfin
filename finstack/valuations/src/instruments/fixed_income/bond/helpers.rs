@@ -3,7 +3,7 @@
 //! Provides utilities for retrieving cached cashflows and pricing bonds
 //! using yield-to-maturity calculations with proper day count conventions.
 
-use crate::instruments::bond::Bond;
+use super::Bond;
 use crate::metrics::MetricContext;
 use crate::traits::CashflowProvider;
 use finstack_core::prelude::*;
@@ -23,9 +23,9 @@ use finstack_core::prelude::*;
 /// 
 /// # Example
 /// ```rust
-/// use finstack_valuations::instruments::bond::helpers::flows_from_context_or_build;
+/// use finstack_valuations::instruments::fixed_income::bond::helpers::flows_from_context_or_build;
 /// use finstack_valuations::metrics::traits::MetricContext;
-/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::instruments::fixed_income::bond::Bond;
 /// use finstack_valuations::instruments::Instrument;
 /// use std::sync::Arc;
 /// use finstack_core::currency::Currency;
@@ -92,8 +92,8 @@ pub fn flows_from_context_or_build(
 /// 
 /// # Example
 /// ```rust
-/// use finstack_valuations::instruments::bond::helpers::price_from_ytm;
-/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::instruments::fixed_income::bond::helpers::price_from_ytm;
+/// use finstack_valuations::instruments::fixed_income::bond::Bond;
 /// use finstack_core::dates::{Date, Frequency, DayCount};
 /// use finstack_core::money::Money;
 /// use finstack_core::currency::Currency;

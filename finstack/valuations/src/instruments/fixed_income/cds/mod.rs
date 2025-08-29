@@ -4,7 +4,8 @@
 //! risky PV01, CS01, and protection leg valuation.
 
 use crate::pricing::result::ValuationResult;
-use crate::traits::{Attributable, Attributes, Priceable, DatedFlows};
+use crate::traits::{Priceable, Attributes, DatedFlows};
+use crate::metrics::MetricId;
 
 use finstack_core::F;
 use finstack_core::market_data::multicurve::CurveSet;
@@ -136,6 +137,11 @@ pub struct CreditDefaultSwap {
 }
 
 impl CreditDefaultSwap {
+    /// Create a new CDS builder.
+    pub fn builder() -> CDSBuilder {
+        CDSBuilder::new()
+    }
+    
     /// Create a new CDS with standard ISDA conventions
     #[allow(clippy::too_many_arguments)]
     pub fn new_isda(
@@ -319,6 +325,7 @@ impl CreditDefaultSwap {
     }
 }
 
+// Custom Priceable implementation for CDS (has nested fields like premium.disc_id)
 impl Priceable for CreditDefaultSwap {
     /// Compute the present value of the CDS
     fn value(&self, curves: &CurveSet, _as_of: Date) -> finstack_core::Result<Money> {
@@ -382,8 +389,6 @@ impl Priceable for CreditDefaultSwap {
 
     /// Compute full valuation with all standard CDS metrics
     fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
-        use crate::metrics::MetricId;
-        
         let standard_metrics = vec![
             MetricId::ParSpread,
             MetricId::RiskyPv01,
@@ -396,13 +401,180 @@ impl Priceable for CreditDefaultSwap {
     }
 }
 
-impl Attributable for CreditDefaultSwap {
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
+// Generate standard Attributable implementation using macro
+impl_attributable!(CreditDefaultSwap);
+
+/// Builder pattern for CDS instruments
+#[derive(Default)]
+pub struct CDSBuilder {
+    id: Option<String>,
+    notional: Option<Money>,
+    reference_entity: Option<String>,
+    side: Option<PayReceive>,
+    convention: Option<CDSConvention>,
+    start: Option<Date>,
+    end: Option<Date>,
+    spread_bp: Option<F>,
+    credit_id: Option<&'static str>,
+    recovery_rate: Option<F>,
+    disc_id: Option<&'static str>,
+    upfront: Option<Money>,
+}
+
+impl CDSBuilder {
+    pub fn new() -> Self {
+        Self::default()
     }
     
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
+    pub fn id(mut self, value: impl Into<String>) -> Self {
+        self.id = Some(value.into());
+        self
+    }
+    
+    pub fn notional(mut self, value: Money) -> Self {
+        self.notional = Some(value);
+        self
+    }
+    
+    pub fn reference_entity(mut self, value: impl Into<String>) -> Self {
+        self.reference_entity = Some(value.into());
+        self
+    }
+    
+    pub fn side(mut self, value: PayReceive) -> Self {
+        self.side = Some(value);
+        self
+    }
+    
+    pub fn convention(mut self, value: CDSConvention) -> Self {
+        self.convention = Some(value);
+        self
+    }
+    
+    pub fn start(mut self, value: Date) -> Self {
+        self.start = Some(value);
+        self
+    }
+    
+    pub fn end(mut self, value: Date) -> Self {
+        self.end = Some(value);
+        self
+    }
+    
+    pub fn spread_bp(mut self, value: F) -> Self {
+        self.spread_bp = Some(value);
+        self
+    }
+    
+    pub fn credit_id(mut self, value: &'static str) -> Self {
+        self.credit_id = Some(value);
+        self
+    }
+    
+    pub fn recovery_rate(mut self, value: F) -> Self {
+        self.recovery_rate = Some(value);
+        self
+    }
+    
+    pub fn disc_id(mut self, value: &'static str) -> Self {
+        self.disc_id = Some(value);
+        self
+    }
+    
+    pub fn upfront(mut self, value: Money) -> Self {
+        self.upfront = Some(value);
+        self
+    }
+    
+    pub fn build(self) -> finstack_core::Result<CreditDefaultSwap> {
+        let id = self.id.ok_or_else(|| finstack_core::Error::from(
+            finstack_core::error::InputError::Invalid
+        ))?;
+        let notional = self.notional.ok_or_else(|| finstack_core::Error::from(
+            finstack_core::error::InputError::Invalid
+        ))?;
+        let reference_entity = self.reference_entity.ok_or_else(|| finstack_core::Error::from(
+            finstack_core::error::InputError::Invalid
+        ))?;
+        let side = self.side.ok_or_else(|| finstack_core::Error::from(
+            finstack_core::error::InputError::Invalid
+        ))?;
+        let convention = self.convention.ok_or_else(|| finstack_core::Error::from(
+            finstack_core::error::InputError::Invalid
+        ))?;
+        let start = self.start.ok_or_else(|| finstack_core::Error::from(
+            finstack_core::error::InputError::Invalid
+        ))?;
+        let end = self.end.ok_or_else(|| finstack_core::Error::from(
+            finstack_core::error::InputError::Invalid
+        ))?;
+        let spread_bp = self.spread_bp.ok_or_else(|| finstack_core::Error::from(
+            finstack_core::error::InputError::Invalid
+        ))?;
+        let credit_id = self.credit_id.ok_or_else(|| finstack_core::Error::from(
+            finstack_core::error::InputError::Invalid
+        ))?;
+        let recovery_rate = self.recovery_rate.ok_or_else(|| finstack_core::Error::from(
+            finstack_core::error::InputError::Invalid
+        ))?;
+        let disc_id = self.disc_id.ok_or_else(|| finstack_core::Error::from(
+            finstack_core::error::InputError::Invalid
+        ))?;
+        
+        // Use the new_isda method for proper construction
+        let mut cds = CreditDefaultSwap::new_isda(
+            id,
+            notional,
+            reference_entity,
+            side,
+            convention,
+            start,
+            end,
+            spread_bp,
+            credit_id,
+            recovery_rate,
+            disc_id,
+        );
+        
+        // Set optional upfront payment
+        cds.upfront = self.upfront;
+        
+        Ok(cds)
+    }
+}
+
+// Add conversion to both Instrument enums
+impl From<CreditDefaultSwap> for crate::instruments::unified::Instrument {
+    fn from(value: CreditDefaultSwap) -> Self {
+        crate::instruments::unified::Instrument::CDS(value)
+    }
+}
+
+impl From<CreditDefaultSwap> for crate::instruments::Instrument {
+    fn from(value: CreditDefaultSwap) -> Self {
+        crate::instruments::Instrument::CDS(value)
+    }
+}
+
+impl std::convert::TryFrom<crate::instruments::unified::Instrument> for CreditDefaultSwap {
+    type Error = finstack_core::Error;
+    
+    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
+        match value {
+            crate::instruments::unified::Instrument::CDS(v) => Ok(v),
+            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+        }
+    }
+}
+
+impl std::convert::TryFrom<crate::instruments::Instrument> for CreditDefaultSwap {
+    type Error = finstack_core::Error;
+    
+    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
+        match value {
+            crate::instruments::Instrument::CDS(v) => Ok(v),
+            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+        }
     }
 }
 
@@ -458,5 +630,36 @@ mod tests {
         assert_eq!(CDSConvention::IsdaEu.day_count(), DayCount::Act360);
         assert_eq!(CDSConvention::IsdaAs.day_count(), DayCount::Act365F);
         assert_eq!(CDSConvention::IsdaNa.frequency(), Frequency::quarterly());
+    }
+
+    #[test]
+    fn test_cds_builder_pattern() {
+        let notional = Money::new(10_000_000.0, Currency::USD);
+        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
+        
+        let cds = CreditDefaultSwap::builder()
+            .id("CDS002")
+            .notional(notional)
+            .reference_entity("XYZ Corp")
+            .side(PayReceive::PayProtection)
+            .convention(CDSConvention::IsdaNa)
+            .start(start)
+            .end(end)
+            .spread_bp(150.0)
+            .credit_id("XYZ-SENIOR")
+            .recovery_rate(0.35)
+            .disc_id("USD-OIS")
+            .upfront(Money::new(50_000.0, Currency::USD))
+            .build()
+            .unwrap();
+        
+        assert_eq!(cds.id, "CDS002");
+        assert_eq!(cds.reference_entity, "XYZ Corp");
+        assert_eq!(cds.premium.spread_bp, 150.0);
+        assert_eq!(cds.protection.recovery_rate, 0.35);
+        assert_eq!(cds.upfront, Some(Money::new(50_000.0, Currency::USD)));
+        assert_eq!(cds.side, PayReceive::PayProtection);
+        assert_eq!(cds.convention, CDSConvention::IsdaNa);
     }
 }

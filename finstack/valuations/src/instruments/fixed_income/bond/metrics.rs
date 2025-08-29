@@ -19,7 +19,7 @@ use finstack_core::F;
 /// 
 /// # Example
 /// ```rust
-/// use finstack_valuations::instruments::bond::metrics::AccruedInterestCalculator;
+/// use finstack_valuations::instruments::fixed_income::bond::metrics::AccruedInterestCalculator;
 /// use finstack_valuations::metrics::traits::MetricCalculator;
 /// 
 /// let calculator = AccruedInterestCalculator;
@@ -101,7 +101,7 @@ impl MetricCalculator for AccruedInterestCalculator {
 /// 
 /// # Example
 /// ```rust
-/// use finstack_valuations::instruments::bond::metrics::YtmCalculator;
+/// use finstack_valuations::instruments::fixed_income::bond::metrics::YtmCalculator;
 /// use finstack_valuations::metrics::traits::MetricCalculator;
 /// 
 /// let calculator = YtmCalculator;
@@ -134,7 +134,7 @@ impl MetricCalculator for YtmCalculator {
         
         // Use helper to reuse cached flows; avoid borrow conflict by cloning needed fields first
         let as_of = context.as_of;
-        let flows = crate::instruments::bond::helpers::flows_from_context_or_build(context, &bond)?;
+        let flows = super::helpers::flows_from_context_or_build(context, &bond)?;
         
         // Solve for YTM using Brent's method
         let ytm = self.solve_ytm_from_flows(&bond, &flows, as_of, dirty)?;
@@ -198,10 +198,10 @@ impl MetricCalculator for MacaulayDurationCalculator {
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
         
         let as_of = context.as_of;
-        let flows = crate::instruments::bond::helpers::flows_from_context_or_build(context, &bond)?;
+        let flows = super::helpers::flows_from_context_or_build(context, &bond)?;
         
         // Calculate price from flows to ensure consistency
-        let price = crate::instruments::bond::helpers::price_from_ytm(&bond, &flows, as_of, ytm)?;
+        let price = super::helpers::price_from_ytm(&bond, &flows, as_of, ytm)?;
         if price == 0.0 {
             return Ok(0.0);
         }
@@ -269,14 +269,14 @@ impl MetricCalculator for ConvexityCalculator {
         
         // Use Bond's cashflow building
         let as_of = context.as_of;
-        let flows = crate::instruments::bond::helpers::flows_from_context_or_build(context, &bond)?;
+        let flows = super::helpers::flows_from_context_or_build(context, &bond)?;
         
         let dy = 1e-4; // 1 basis point for numerical differentiation
         
         // Calculate prices with yield bumps for numerical convexity
-        let p0 = crate::instruments::bond::helpers::price_from_ytm(&bond, &flows, as_of, ytm)?;
-        let p_up = crate::instruments::bond::helpers::price_from_ytm(&bond, &flows, as_of, ytm + dy)?;
-        let p_dn = crate::instruments::bond::helpers::price_from_ytm(&bond, &flows, as_of, ytm - dy)?;
+        let p0 = super::helpers::price_from_ytm(&bond, &flows, as_of, ytm)?;
+        let p_up = super::helpers::price_from_ytm(&bond, &flows, as_of, ytm + dy)?;
+        let p_dn = super::helpers::price_from_ytm(&bond, &flows, as_of, ytm - dy)?;
         
         if p0 == 0.0 || dy == 0.0 {
             return Ok(0.0);
@@ -303,7 +303,7 @@ impl MetricCalculator for YtwCalculator {
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
         
         // Use Bond's cashflow building
-        let flows = crate::instruments::bond::helpers::flows_from_context_or_build(context, &bond)?;
+        let flows = super::helpers::flows_from_context_or_build(context, &bond)?;
         
         // Build candidate exercise dates
         let mut candidates: Vec<(Date, Money)> = Vec::new();
@@ -512,7 +512,7 @@ impl Cs01Calculator {}
 /// # Example
 /// ```rust
 /// use finstack_valuations::metrics::registry::MetricRegistry;
-/// use finstack_valuations::instruments::bond::metrics::register_bond_metrics;
+/// use finstack_valuations::instruments::fixed_income::bond::metrics::register_bond_metrics;
 /// 
 /// let mut registry = MetricRegistry::new();
 /// register_bond_metrics(&mut registry);

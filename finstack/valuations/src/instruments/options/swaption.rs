@@ -5,7 +5,7 @@ use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
 use finstack_core::market_data::traits::Discount;
 use crate::models::sabr::{SABRModel, SABRParameters};
-use crate::instruments::options::OptionType;
+use super::OptionType;
 use crate::traits::{Priceable, Attributable, Attributes};
 use crate::pricing::result::ValuationResult;
 use finstack_core::market_data::multicurve::CurveSet;
@@ -430,3 +430,7 @@ mod tests {
         assert!((price.amount() - black_price.amount()).abs() > 0.01);
     }
 }
+
+
+// Generate standard Attributable implementation using macro
+

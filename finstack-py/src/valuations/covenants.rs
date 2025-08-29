@@ -6,7 +6,7 @@ use pyo3::types::PyDict;
 use finstack_valuations::covenants::{
     CovenantEngine, CovenantSpec, CovenantBreach,
 };
-use finstack_valuations::instruments::loan::covenants::{
+use finstack_valuations::instruments::fixed_income::loan::covenants::{
     Covenant, CovenantType, CovenantConsequence, ThresholdTest,
 };
 use finstack_valuations::metrics::MetricId;

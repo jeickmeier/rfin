@@ -7,13 +7,13 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::amortization_notional::AmortizationSpec;
-use finstack_valuations::instruments::loan::{
+use finstack_valuations::instruments::fixed_income::loan::{
     Loan, InterestSpec, PrepaymentSchedule, PrepaymentType, PrepaymentPenalty, PenaltyType,
     DelayedDrawTermLoan, DrawEvent, RevolvingCreditFacility,
     UtilizationFeeSchedule, Covenant, CovenantType,
 };
-use finstack_valuations::instruments::loan::revolver::{DrawRepayEvent, RevolverFundingCurve};
-use finstack_valuations::instruments::loan::ddtl::{ExpectedFundingCurve};
+use finstack_valuations::instruments::fixed_income::loan::revolver::{DrawRepayEvent, RevolverFundingCurve};
+use finstack_valuations::instruments::fixed_income::loan::ddtl::{ExpectedFundingCurve};
 use finstack_valuations::traits::{CashflowProvider, Priceable};
 use std::sync::Arc;
 use time::Month;

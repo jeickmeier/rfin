@@ -14,7 +14,7 @@ use finstack_core::market_data::traits::Discount;
 use finstack_core::market_data::term_structures::credit_curve::CreditCurve;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::multicurve::CurveSet;
-use crate::instruments::cds::{CreditDefaultSwap, PayReceive, CDSConvention};
+use super::{CreditDefaultSwap, PayReceive, CDSConvention};
 
 /// Configuration for enhanced CDS pricing
 #[derive(Clone, Debug)]

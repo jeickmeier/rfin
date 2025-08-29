@@ -9,11 +9,10 @@ use finstack_core::prelude::*;
 use finstack_core::F;
 use finstack_core::market_data::multicurve::CurveSet;
 
-use crate::pricing::discountable::Discountable;
-use crate::pricing::result::ValuationResult;
-use crate::traits::{Priceable, CashflowProvider, DatedFlows, Attributable, Attributes, RiskMeasurable, RiskReport, RiskBucket};
+use crate::traits::{Priceable, CashflowProvider, DatedFlows, Attributes, RiskMeasurable, RiskReport, RiskBucket};
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::builder::{cf, FixedCouponSpec, CouponType, CashFlowSchedule};
+use crate::metrics::MetricId;
 use finstack_core::dates::{BusinessDayConvention, StubKind};
 
 // Re-export for compatibility in tests and external users referencing bond::AmortizationSpec
@@ -133,7 +132,6 @@ impl Bond {
     
     /// Get the standard metrics for a bond based on its configuration.
     fn get_standard_metrics(&self) -> Vec<crate::metrics::MetricId> {
-        use crate::metrics::MetricId;
         let mut metrics = vec![MetricId::Accrued, MetricId::CleanPrice];
         
         // Add dirty price and YTM-related metrics only if we have a quoted price
@@ -150,31 +148,32 @@ impl Bond {
     }
 }
 
+// Custom Priceable implementation for Bond (can't use macro due to different field names)
 impl Priceable for Bond {
-    /// Compute only the base present value (fast, no metrics).
-    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
-        let disc = curves.discount(self.disc_id)?;
+    fn value(&self, curves: &finstack_core::market_data::multicurve::CurveSet, as_of: finstack_core::dates::Date) -> finstack_core::Result<finstack_core::money::Money> {
+        use crate::pricing::discountable::Discountable;
         let flows = self.build_schedule(curves, as_of)?;
+        let disc = curves.discount(self.disc_id)?;
         flows.npv(&*disc, disc.base_date(), self.dc)
     }
     
-    /// Compute value with specific metrics using the metrics framework.
     fn price_with_metrics(
         &self, 
-        curves: &CurveSet, 
-        as_of: Date, 
+        curves: &finstack_core::market_data::multicurve::CurveSet, 
+        as_of: finstack_core::dates::Date, 
         metrics: &[crate::metrics::MetricId]
-    ) -> finstack_core::Result<ValuationResult> {
-        use crate::instruments::Instrument;
+    ) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
         use crate::metrics::{MetricContext, standard_registry};
         use std::sync::Arc;
         
         // Compute base value
         let base_value = self.value(curves, as_of)?;
         
-        // Create metric context
+        // Create metric context with self wrapped in Instrument enum
+        let instrument: crate::instruments::Instrument = 
+            crate::instruments::Instrument::Bond(self.clone());
         let mut context = MetricContext::new(
-            Arc::new(Instrument::Bond(self.clone())),
+            Arc::new(instrument),
             Arc::new(curves.clone()),
             as_of,
             base_value,
@@ -191,29 +190,58 @@ impl Priceable for Bond {
             .collect();
         
         // Create result
-        let mut result = ValuationResult::stamped(self.id.clone(), as_of, base_value);
+        let mut result = crate::pricing::result::ValuationResult::stamped(self.id.clone(), as_of, base_value);
         result.measures = measures;
         
         Ok(result)
     }
     
-    /// Compute full valuation with all applicable standard metrics (backward compatible).
-    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
-        // Use the metrics framework to compute all standard bond metrics
+    fn price(&self, curves: &finstack_core::market_data::multicurve::CurveSet, as_of: finstack_core::dates::Date) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
+        // Use dynamic metrics based on bond configuration
         let standard_metrics = self.get_standard_metrics();
         self.price_with_metrics(curves, as_of, &standard_metrics)
     }
 }
 
-impl Attributable for Bond {
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
-    }
-    
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
+// Generate standard Attributable implementation
+impl_attributable!(Bond);
+
+// Add conversion to both Instrument enums
+impl From<Bond> for crate::instruments::unified::Instrument {
+    fn from(value: Bond) -> Self {
+        crate::instruments::unified::Instrument::Bond(value)
     }
 }
+
+impl From<Bond> for crate::instruments::Instrument {
+    fn from(value: Bond) -> Self {
+        crate::instruments::Instrument::Bond(value)
+    }
+}
+
+impl std::convert::TryFrom<crate::instruments::unified::Instrument> for Bond {
+    type Error = finstack_core::Error;
+    
+    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
+        match value {
+            crate::instruments::unified::Instrument::Bond(v) => Ok(v),
+            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+        }
+    }
+}
+
+impl std::convert::TryFrom<crate::instruments::Instrument> for Bond {
+    type Error = finstack_core::Error;
+    
+    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
+        match value {
+            crate::instruments::Instrument::Bond(v) => Ok(v),
+            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+        }
+    }
+}
+
+
 
 impl RiskMeasurable for Bond {
     fn risk_report(
