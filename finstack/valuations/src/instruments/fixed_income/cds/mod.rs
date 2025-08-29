@@ -192,21 +192,27 @@ impl CreditDefaultSwap {
 
     /// Build premium leg cashflows
     pub fn build_premium_schedule(&self, _curves: &CurveSet, _as_of: Date) -> finstack_core::Result<DatedFlows> {
-        // Simplified implementation - would use CashflowBuilder in full implementation
-        let mut flows = Vec::new();
-        
-        // Generate payment dates based on frequency
-        let mut current = self.premium.start;
-        while current < self.premium.end {
-            let next = current + time::Duration::days(90); // Quarterly
-            if next <= self.premium.end {
-                let year_frac = self.premium.dc.year_fraction(current, next)?;
-                let amount = self.notional * (self.premium.spread_bp / 10000.0) * year_frac;
-                flows.push((next, amount));
-            }
-            current = next;
+        // Use centralized schedule builder and standard DayCount accrual
+        let sched = crate::cashflow::builder::build_dates(
+            self.premium.start,
+            self.premium.end,
+            self.premium.freq,
+            self.premium.stub,
+            self.premium.bdc,
+            self.premium.calendar_id,
+        );
+        let dates = sched.dates;
+        if dates.len() < 2 { return Ok(vec![]); }
+
+        let mut flows = Vec::with_capacity(dates.len() - 1);
+        let mut prev = dates[0];
+        for &d in &dates[1..] {
+            let year_frac = self.premium.dc.year_fraction(prev, d)?;
+            let amount = self.notional * (self.premium.spread_bp / 10000.0) * year_frac;
+            flows.push((d, amount));
+            prev = d;
         }
-        
+
         Ok(flows)
     }
 

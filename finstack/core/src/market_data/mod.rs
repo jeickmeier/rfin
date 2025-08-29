@@ -70,24 +70,6 @@ pub use surfaces::vol_surface::VolSurface;
 // Re-export context types
 pub use context::MarketContext;
 
-pub mod trees {
-    //! Tree-based lattice structures (option, rate, credit).
-    pub mod credit_tree;
-    pub mod option_tree;
-    pub mod rate_tree;
-
-    // Re-export aliases – suppress unused warnings for now
-    #[allow(unused_imports)]
-    pub use credit_tree::*;
-    #[allow(unused_imports)]
-    pub use option_tree::*;
-    #[allow(unused_imports)]
-    pub use rate_tree::*;
-}
-
-// Backwards re-export at market_data::* level
-pub use trees::{credit_tree, option_tree, rate_tree};
-
 pub mod multicurve;
 
 /// Numeric precision alias re-exported from the surrounding crate so that

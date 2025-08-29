@@ -357,10 +357,13 @@ impl Priceable for DelayedDrawTermLoan {
         // 2. Value expected future draws
         let future_draws = self.get_expected_future_draws(as_of);
         for (draw_date, draw_amount, probability) in future_draws {
-            // For each future draw, we need to value:
-            // a) The negative cashflow of the draw itself (funding outflow from lender perspective)
-            let draw_yf = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(disc.base_date(), draw_date, self.day_count);
-            let draw_df = disc.df(draw_yf);
+            // For each future draw, discount using centralized helper
+            let draw_df = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
+                &*disc,
+                disc.base_date(),
+                draw_date,
+                self.day_count,
+            );
             total_npv -= draw_amount.amount() * draw_df * probability;
             
             // b) The positive value of future interest payments on that draw
@@ -372,8 +375,12 @@ impl Priceable for DelayedDrawTermLoan {
                 total_npv += interest_value * draw_df * probability;
                 
                 // Add principal repayment at maturity
-                let maturity_yf = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(disc.base_date(), self.maturity, self.day_count);
-                let maturity_df = disc.df(maturity_yf);
+                let maturity_df = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
+                    &*disc,
+                    disc.base_date(),
+                    self.maturity,
+                    self.day_count,
+                );
                 total_npv += draw_amount.amount() * maturity_df * probability;
             }
         }

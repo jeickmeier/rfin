@@ -1,7 +1,7 @@
 //! Swaption (option on interest rate swap) implementation with SABR volatility.
 
 use finstack_core::{F, Result, Error};
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Frequency, BusinessDayConvention, StubKind};
 use finstack_core::money::Money;
 use finstack_core::market_data::traits::Discount;
 use crate::models::sabr::{SABRModel, SABRParameters};
@@ -142,25 +142,28 @@ impl Swaption {
     fn swap_annuity(&self, disc: &dyn Discount) -> Result<F> {
         let base_date = disc.base_date();
         let mut annuity = 0.0;
-        
-        // Generate fixed leg schedule
-        let mut current = self.swap_start;
-        while current < self.swap_end {
-            let next = self.add_period(current, self.fixed_freq)?;
-            let payment_date = next.min(self.swap_end);
-            
-            let t = self.year_fraction(base_date, payment_date, self.day_count)?;
-            let accrual = self.year_fraction(current, payment_date, self.day_count)?;
+
+        // Generate fixed leg schedule via centralized builder
+        let sched = crate::cashflow::builder::build_dates(
+            self.swap_start,
+            self.swap_end,
+            self.fixed_freq,
+            StubKind::None,
+            BusinessDayConvention::Following,
+            None,
+        );
+        let dates = sched.dates;
+        if dates.len() < 2 { return Ok(0.0); }
+
+        let mut prev = dates[0];
+        for &d in &dates[1..] {
+            let t = self.year_fraction(base_date, d, self.day_count)?;
+            let accrual = self.year_fraction(prev, d, self.day_count)?;
             let df = disc.df(t);
-            
             annuity += accrual * df;
-            current = next;
-            
-            if current >= self.swap_end {
-                break;
-            }
+            prev = d;
         }
-        
+
         Ok(annuity)
     }
     
@@ -237,15 +240,7 @@ impl Swaption {
         self.black_price(disc, sabr_vol)
     }
     
-    /// Helper to add period based on frequency
-    fn add_period(&self, date: Date, freq: Frequency) -> Result<Date> {
-        let months = match freq.months() {
-            Some(m) => m as i64,
-            None => return Err(Error::Internal),
-        };
-        
-        Ok(date + time::Duration::days(months * 30)) // Simplified
-    }
+    // Removed ad-hoc add_period: schedule comes from ScheduleBuilder
     
     /// Calculate year fraction
     fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<F> {

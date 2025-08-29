@@ -220,31 +220,39 @@ impl InflationLinkedBond {
             .ok_or_else(|| finstack_core::Error::from(
                 finstack_core::error::InputError::NotFound
             ))?;
-        
-        // Simplified implementation - would use CashflowBuilder in full implementation
-        let mut flows = Vec::new();
-        
-        // Generate coupon dates based on frequency
-        let mut current = self.issue;
-        while current < self.maturity {
-            let next = current + time::Duration::days(180); // Semi-annual
-            if next <= self.maturity {
-                let year_frac = self.dc.year_fraction(current, next)?;
-                let base_amount = self.notional * self.real_coupon * year_frac;
-                
-                // Apply inflation adjustment
-                let ratio = self.index_ratio(next, &inflation_index).unwrap_or(1.0);
-                let adjusted_amount = base_amount * ratio;
-                
-                flows.push((next, adjusted_amount));
-            }
-            current = next;
+
+        // Use centralized schedule builder for coupon dates
+        let sched = crate::cashflow::builder::build_dates(
+            self.issue,
+            self.maturity,
+            self.freq,
+            self.stub,
+            self.bdc,
+            self.calendar_id,
+        );
+        let dates = sched.dates;
+        if dates.len() < 2 {
+            return Ok(vec![]);
         }
-        
-        // Add principal payment at maturity
+
+        let mut flows = Vec::with_capacity(dates.len());
+        let mut prev = dates[0];
+        for &d in &dates[1..] {
+            // Accrual over the period using standard DayCount
+            let year_frac = self.dc.year_fraction(prev, d)?;
+            let base_amount = self.notional * self.real_coupon * year_frac;
+
+            // Apply inflation adjustment at payment date
+            let ratio = self.index_ratio(d, &inflation_index).unwrap_or(1.0);
+            let adjusted_amount = base_amount * ratio;
+            flows.push((d, adjusted_amount));
+            prev = d;
+        }
+
+        // Add principal payment at maturity (inflation-adjusted)
         let principal_ratio = self.index_ratio(self.maturity, &inflation_index).unwrap_or(1.0);
         flows.push((self.maturity, self.notional * principal_ratio));
-        
+
         Ok(flows)
     }
     

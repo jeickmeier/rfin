@@ -398,8 +398,12 @@ impl Priceable for RevolvingCreditFacility {
             projected_drawn = Money::new(new_drawn, self.commitment.currency());
             
             // For each future event, value the change in interest payments
-            let event_yf = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(disc.base_date(), event_date, self.day_count);
-            let event_df = disc.df(event_yf);
+            let event_df = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
+                &*disc,
+                disc.base_date(),
+                event_date,
+                self.day_count,
+            );
             
             if event_amount.amount() > 0.0 {
                 // Draw event - value as negative cashflow (funding outflow)

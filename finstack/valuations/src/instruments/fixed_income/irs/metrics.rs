@@ -304,9 +304,9 @@ pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
     use crate::metrics::MetricId;
     
     registry
-        .register_metric(MetricId::Annuity, Arc::new(AnnuityCalculator), &["IRS"])
-        .register_metric(MetricId::ParRate, Arc::new(ParRateCalculator), &["IRS"])
-        .register_metric(MetricId::Dv01, Arc::new(Dv01Calculator), &["IRS"])
-        .register_metric(MetricId::PvFixed, Arc::new(FixedLegPvCalculator), &["IRS"])
-        .register_metric(MetricId::PvFloat, Arc::new(FloatLegPvCalculator), &["IRS"]);
+        .register_metric(MetricId::Annuity, Arc::new(AnnuityCalculator), &["InterestRateSwap"]) 
+        .register_metric(MetricId::ParRate, Arc::new(ParRateCalculator), &["InterestRateSwap"]) 
+        .register_metric(MetricId::Dv01, Arc::new(Dv01Calculator), &["InterestRateSwap"]) 
+        .register_metric(MetricId::PvFixed, Arc::new(FixedLegPvCalculator), &["InterestRateSwap"]) 
+        .register_metric(MetricId::PvFloat, Arc::new(FloatLegPvCalculator), &["InterestRateSwap"]);
 }

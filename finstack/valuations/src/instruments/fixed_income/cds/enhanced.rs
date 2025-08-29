@@ -321,58 +321,19 @@ impl EnhancedCDSPricer {
     
     /// Generate payment schedule for CDS
     fn generate_schedule(&self, cds: &CreditDefaultSwap, _as_of: Date) -> Result<Vec<Date>> {
-        // Generate schedule manually based on frequency
-        let mut dates = Vec::new();
-        let mut current = cds.premium.start;
-        dates.push(current);
-        
-        // Calculate period in months
-        let months = match cds.premium.freq.months() {
-            Some(m) => m as i32,
-            None => 3, // Default to quarterly if not month-based
-        };
-        
-        while current < cds.premium.end {
-            // Add months to current date
-            let next = self.add_months(current, months)?;
-            if next > cds.premium.end {
-                break;
-            }
-            dates.push(next);
-            current = next;
-        }
-        
-        // Always include end date
-        if dates.last() != Some(&cds.premium.end) {
-            dates.push(cds.premium.end);
-        }
-        
-        Ok(dates)
+        // Centralized schedule/date adjustment
+        let sched = crate::cashflow::builder::build_dates(
+            cds.premium.start,
+            cds.premium.end,
+            cds.premium.freq,
+            cds.premium.stub,
+            cds.premium.bdc,
+            cds.premium.calendar_id,
+        );
+        Ok(sched.dates)
     }
     
-    /// Helper to add months to a date
-    fn add_months(&self, date: Date, months: i32) -> Result<Date> {
-        let (year, month, day) = date.to_calendar_date();
-        let total_months = month as i32 + months;
-        let new_year = year + (total_months - 1) / 12;
-        let new_month = ((total_months - 1) % 12 + 1) as u8;
-        
-        // Handle day overflow (e.g., Jan 31 + 1 month = Feb 28/29)
-        let max_day = match new_month {
-            2 => if Self::is_leap_year(new_year) { 29 } else { 28 },
-            4 | 6 | 9 | 11 => 30,
-            _ => 31,
-        };
-        let new_day = day.min(max_day);
-        
-        Date::from_calendar_date(new_year, time::Month::try_from(new_month).unwrap(), new_day)
-            .map_err(|_| Error::Internal)
-    }
-    
-    /// Check if year is leap year
-    fn is_leap_year(year: i32) -> bool {
-        (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
-    }
+    // removed manual date math; schedule comes from builder
     
     /// Calculate year fraction with exact day count
     fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<F> {
