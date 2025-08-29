@@ -426,10 +426,12 @@ mod tests {
             "US-CPI-U",
         );
         
-        // Create mock inflation index with deflation
+        // Create mock inflation index with deflation and intermediate points
         let observations = vec![
             (issue, 250.0),
-            (maturity, 240.0), // Deflation scenario
+            (issue + time::Duration::days(365), 249.0), // Year 1: slight deflation
+            (issue + time::Duration::days(365 * 5), 245.0), // Year 5: more deflation
+            (maturity, 240.0), // Final: deflation scenario
         ];
         
         let inflation_index = InflationIndex::new("US-CPI-U", observations, Currency::USD).unwrap();
@@ -438,8 +440,15 @@ mod tests {
         let ratio_at_maturity = tips.index_ratio(maturity, &inflation_index).unwrap();
         assert_eq!(ratio_at_maturity, 1.0); // Should be floored at 1.0
         
-        // Test no floor before maturity
-        let ratio_before = tips.index_ratio(issue + time::Duration::days(365), &inflation_index).unwrap();
-        assert!(ratio_before < 1.0); // Should not be floored
+        // Test no floor before maturity (accounting for 3-month TIPS lag)
+        let test_date = issue + time::Duration::days(365 + 90); // 1 year + 3 months to account for lag
+        let ratio_before = tips.index_ratio(test_date, &inflation_index).unwrap();
+        
+        // Debug: check the reference date after applying lag
+        let reference_date = test_date - time::Duration::days(90); // 3-month lag
+        println!("Test date: {:?}, Reference date (after lag): {:?}, Ratio: {}", 
+                test_date, reference_date, ratio_before);
+        
+        assert!(ratio_before < 1.0, "Ratio {} should be < 1.0 for deflation scenario", ratio_before); // Should not be floored
     }
 }

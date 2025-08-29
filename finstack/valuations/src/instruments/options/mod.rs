@@ -11,13 +11,19 @@ pub mod fx_option;
 pub mod interest_rate_option;
 pub mod credit_option;
 pub mod greeks;
+pub mod greeks_enhanced;
 pub mod metrics;
+pub mod binomial_tree;
+pub mod implied_vol;
 
 pub use equity_option::EquityOption;
 pub use fx_option::FxOption;
 pub use interest_rate_option::{InterestRateOption, RateOptionType};
 pub use credit_option::CreditOption;
 pub use greeks::{GreeksCalculator, Greeks};
+pub use greeks_enhanced::{EnhancedGreeksCalculator, CrossGreeks, CrossGreeksCalculator};
+pub use binomial_tree::{BinomialTree, TreeType};
+pub use implied_vol::{ImpliedVolSolver, implied_volatility};
 
 /// Option type (Call or Put)
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

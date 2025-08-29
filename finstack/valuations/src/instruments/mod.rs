@@ -99,6 +99,7 @@ pub mod loan;
 pub mod cds;
 pub mod options;
 pub mod ilb;
+pub mod swaption;
 
 pub use bond::Bond;
 pub use deposit::Deposit;
@@ -109,6 +110,7 @@ pub use loan::Loan;
 pub use cds::CreditDefaultSwap;
 pub use ilb::InflationLinkedBond;
 pub use options::{EquityOption, FxOption, InterestRateOption, CreditOption};
+pub use swaption::Swaption;
 
 /// A concrete enum for all supported instrument types.
 /// 
@@ -154,6 +156,12 @@ pub use options::{EquityOption, FxOption, InterestRateOption, CreditOption};
 ///     Instrument::Equity(eq) => println!("Equity with ticker: {:?}", eq.ticker),
 ///     Instrument::FxSpot(fx) => println!("FX spot for pair: {:?}/{:?}", fx.base, fx.quote),
 ///     Instrument::Loan(loan) => println!("Loan with maturity: {:?}", loan.maturity_date),
+///     Instrument::CDS(cds) => println!("CDS with reference entity: {:?}", cds.reference_entity),
+///     Instrument::ILB(ilb) => println!("ILB with real coupon: {:?}", ilb.real_coupon),
+///     Instrument::EquityOption(opt) => println!("Equity option with strike: {:?}", opt.strike),
+///     Instrument::FxOption(opt) => println!("FX option with strike: {:?}", opt.strike),
+///     Instrument::InterestRateOption(opt) => println!("IR option with strike: {:?}", opt.strike_rate),
+///     Instrument::CreditOption(opt) => println!("Credit option with strike: {:?}", opt.strike_spread_bp),
 /// }
 /// 
 /// // Collection handling

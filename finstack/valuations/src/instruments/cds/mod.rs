@@ -15,6 +15,7 @@ use finstack_core::dates::{Date, DayCount, BusinessDayConvention, Frequency, Stu
 use hashbrown::HashMap;
 
 pub mod metrics;
+pub mod enhanced;
 
 /// CDS payment types
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

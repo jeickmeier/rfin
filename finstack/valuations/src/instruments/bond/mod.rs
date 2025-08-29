@@ -3,6 +3,7 @@
 pub mod metrics;
 pub mod helpers;
 pub mod builder;
+pub mod ytm_solver;
 
 use finstack_core::prelude::*;
 use finstack_core::F;

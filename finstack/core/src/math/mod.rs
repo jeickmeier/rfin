@@ -7,6 +7,7 @@
 pub mod root_finding;
 pub mod stats;
 pub mod summation;
+pub mod newton_raphson;
 
 // Re-exports for ergonomic access
 pub use root_finding::{
