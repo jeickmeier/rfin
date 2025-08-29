@@ -34,6 +34,7 @@
 //!     call_put: None,
 //!     amortization: None,
 //!     custom_cashflows: None,
+//!     attributes: finstack_valuations::traits::Attributes::new(),
 //! };
 //! 
 //! let irs = InterestRateSwap {
@@ -63,6 +64,7 @@
 //!         fwd_id: "USD-LIBOR-3M",
 //!         spread_bp: 0.0,
 //!     },
+//!     attributes: finstack_valuations::traits::Attributes::new(),
 //! };
 //! 
 //! let deposit = Deposit {
@@ -133,6 +135,7 @@ pub use loan::Loan;
 ///     call_put: None,
 ///     amortization: None,
 ///     custom_cashflows: None,
+///     attributes: finstack_valuations::traits::Attributes::new(),
 /// };
 /// 
 /// let instrument = Instrument::Bond(bond);
@@ -206,6 +209,7 @@ impl Instrument {
     ///     call_put: None,
     ///     amortization: None,
     ///     custom_cashflows: None,
+    ///     attributes: finstack_valuations::traits::Attributes::new(),
     /// };
     /// let instrument = Instrument::Bond(bond);
     /// 

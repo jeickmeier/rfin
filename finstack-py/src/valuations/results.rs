@@ -63,6 +63,120 @@ impl PyValuationResult {
         Ok(dict.into())
     }
     
+    /// Get covenant check results if available.
+    ///
+    /// Returns:
+    ///     dict or None: Dictionary mapping covenant names to their check results
+    ///
+    /// Each covenant result contains:
+    /// - 'covenant_type': Type of covenant
+    /// - 'passed': Whether the covenant passed
+    /// - 'actual_value': Actual value if applicable
+    /// - 'threshold': Required threshold if applicable
+    /// - 'details': Additional details if available
+    ///
+    /// Examples:
+    ///     >>> covenants = result.covenants
+    ///     >>> if covenants:
+    ///     ...     for name, report in covenants.items():
+    ///     ...         if not report['passed']:
+    ///     ...             print(f"Failed: {name}")
+    #[getter]
+    fn covenants(&self, py: Python) -> PyResult<Option<Py<PyDict>>> {
+        match &self.inner.covenants {
+            Some(covenants) => {
+                let dict = PyDict::new(py);
+                for (key, report) in covenants {
+                    let report_dict = PyDict::new(py);
+                    report_dict.set_item("covenant_type", &report.covenant_type)?;
+                    report_dict.set_item("passed", report.passed)?;
+                    if let Some(actual) = report.actual_value {
+                        report_dict.set_item("actual_value", actual)?;
+                    }
+                    if let Some(threshold) = report.threshold {
+                        report_dict.set_item("threshold", threshold)?;
+                    }
+                    if let Some(ref details) = report.details {
+                        report_dict.set_item("details", details)?;
+                    }
+                    dict.set_item(key, report_dict)?;
+                }
+                Ok(Some(dict.into()))
+            }
+            None => Ok(None)
+        }
+    }
+    
+    /// Get FX policy metadata if available.
+    ///
+    /// Returns:
+    ///     dict or None: Dictionary mapping policy names to their metadata
+    ///
+    /// Each FX policy contains:
+    /// - 'policy_name': Name of the policy
+    /// - 'source': Source of FX rates (e.g., "market", "fixed")
+    /// - 'effective_date': Date the rates are effective
+    /// - 'conversions': Dictionary of (from, to) currency pairs to rates
+    ///
+    /// Examples:
+    ///     >>> fx_policies = result.fx_policies
+    ///     >>> if fx_policies:
+    ///     ...     for name, policy in fx_policies.items():
+    ///     ...         print(f"Policy: {name}, Source: {policy['source']}")
+    #[getter]
+    fn fx_policies(&self, py: Python) -> PyResult<Option<Py<PyDict>>> {
+        if self.inner.meta.fx_policies.is_empty() {
+            return Ok(None);
+        }
+        
+        let dict = PyDict::new(py);
+        for (key, policy) in &self.inner.meta.fx_policies {
+            let policy_dict = PyDict::new(py);
+            policy_dict.set_item("policy_name", &policy.policy_name)?;
+            policy_dict.set_item("source", &policy.source)?;
+            policy_dict.set_item("effective_date", format!("{}", policy.effective_date))?;
+            
+            // Convert currency pair conversions
+            let conversions_dict = PyDict::new(py);
+            for ((from, to), rate) in &policy.conversions {
+                let pair_key = format!("{}-{}", from, to);
+                conversions_dict.set_item(pair_key, rate)?;
+            }
+            policy_dict.set_item("conversions", conversions_dict)?;
+            
+            dict.set_item(key, policy_dict)?;
+        }
+        Ok(Some(dict.into()))
+    }
+    
+    /// Check if all covenants passed.
+    ///
+    /// Returns:
+    ///     bool: True if all covenants passed or no covenants exist
+    ///
+    /// Examples:
+    ///     >>> if not result.all_covenants_passed():
+    ///     ...     print("Some covenants failed")
+    fn all_covenants_passed(&self) -> bool {
+        self.inner.all_covenants_passed()
+    }
+    
+    /// Get list of failed covenant names.
+    ///
+    /// Returns:
+    ///     list: List of covenant names that failed
+    ///
+    /// Examples:
+    ///     >>> failed = result.failed_covenants()
+    ///     >>> for name in failed:
+    ///     ...     print(f"Failed covenant: {name}")
+    fn failed_covenants(&self) -> Vec<String> {
+        self.inner.failed_covenants()
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect()
+    }
+    
     /// Get a specific metric value.
     ///
     /// Args:

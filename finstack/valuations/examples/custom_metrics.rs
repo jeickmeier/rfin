@@ -103,6 +103,7 @@ fn main() -> finstack_core::Result<()> {
         call_put: None,
         amortization: None,
         custom_cashflows: None,
+        attributes: finstack_valuations::traits::Attributes::new(),
     };
     
     // Compute base value

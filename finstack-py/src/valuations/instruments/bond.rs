@@ -127,6 +127,7 @@ impl PyBond {
             call_put: None,
             amortization: None,
             custom_cashflows: custom_cashflows.map(|cf| cf.inner()),
+            attributes: finstack_valuations::traits::Attributes::new(),
         };
         
         Ok(Self {
@@ -363,6 +364,172 @@ impl PyBond {
     /// Compare bonds by ID for equality.
     fn __eq__(&self, other: &Self) -> bool {
         self.inner.id == other.inner.id
+    }
+    
+    /// Get the bond's attributes for tagging and metadata.
+    ///
+    /// Returns:
+    ///     Attributes: The bond's attributes object
+    ///
+    /// Examples:
+    ///     >>> attrs = bond.attributes()
+    ///     >>> attrs.add_tag("investment_grade")
+    ///     >>> attrs.set_meta("issuer", "Microsoft")
+    #[getter]
+    fn attributes(&self) -> crate::valuations::attributes::PyAttributes {
+        use finstack_valuations::traits::Attributable;
+        let attrs = self.inner.attributes().clone();
+        crate::valuations::attributes::PyAttributes::from_inner(attrs)
+    }
+    
+    /// Set the bond's attributes.
+    ///
+    /// Args:
+    ///     attributes: New attributes to set
+    ///
+    /// Examples:
+    ///     >>> from finstack import Attributes
+    ///     >>> attrs = Attributes()
+    ///     >>> attrs.add_tag("high_yield")
+    ///     >>> bond.set_attributes(attrs)
+    #[setter]
+    fn set_attributes(&mut self, attributes: &crate::valuations::attributes::PyAttributes) -> PyResult<()> {
+        use finstack_valuations::traits::Attributable;
+        use std::sync::Arc;
+        
+        // We need to clone the bond to modify it since it's in an Arc
+        let mut bond = (*self.inner).clone();
+        *bond.attributes_mut() = attributes.inner.clone();
+        self.inner = Arc::new(bond);
+        Ok(())
+    }
+    
+    /// Add a tag to the bond's attributes.
+    ///
+    /// Args:
+    ///     tag: Tag to add
+    ///
+    /// Examples:
+    ///     >>> bond.add_tag("corporate")
+    ///     >>> bond.add_tag("investment_grade")
+    fn add_tag(&mut self, tag: String) -> PyResult<()> {
+        use finstack_valuations::traits::Attributable;
+        use std::sync::Arc;
+        
+        let mut bond = (*self.inner).clone();
+        bond.attributes_mut().tags.insert(tag);
+        self.inner = Arc::new(bond);
+        Ok(())
+    }
+    
+    /// Check if the bond has a specific tag.
+    ///
+    /// Args:
+    ///     tag: Tag to check
+    ///
+    /// Returns:
+    ///     True if the tag exists
+    fn has_tag(&self, tag: &str) -> bool {
+        use finstack_valuations::traits::Attributable;
+        self.inner.has_tag(tag)
+    }
+    
+    /// Set a metadata value on the bond.
+    ///
+    /// Args:
+    ///     key: Metadata key
+    ///     value: Metadata value
+    ///
+    /// Examples:
+    ///     >>> bond.set_meta("rating", "AA+")
+    ///     >>> bond.set_meta("sector", "Technology")
+    fn set_meta(&mut self, key: String, value: String) -> PyResult<()> {
+        use finstack_valuations::traits::Attributable;
+        use std::sync::Arc;
+        
+        let mut bond = (*self.inner).clone();
+        bond.attributes_mut().meta.insert(key, value);
+        self.inner = Arc::new(bond);
+        Ok(())
+    }
+    
+    /// Get a metadata value from the bond.
+    ///
+    /// Args:
+    ///     key: Metadata key
+    ///
+    /// Returns:
+    ///     The value if present
+    fn get_meta(&self, key: &str) -> Option<String> {
+        use finstack_valuations::traits::Attributable;
+        self.inner.get_meta(key).map(|s| s.to_string())
+    }
+    
+    /// Check if the bond matches a selector.
+    ///
+    /// Args:
+    ///     selector: Selector string (e.g., "tag:corporate", "meta:rating=AA")
+    ///
+    /// Returns:
+    ///     True if the bond matches the selector
+    fn matches_selector(&self, selector: &str) -> bool {
+        use finstack_valuations::traits::Attributable;
+        self.inner.matches_selector(selector)
+    }
+    
+    /// Generate a comprehensive risk report for the bond.
+    ///
+    /// Calculates key risk metrics, bucketed sensitivities, and categorizes
+    /// the bond into risk buckets based on its characteristics.
+    ///
+    /// Args:
+    ///     market_context: Market data including curves
+    ///     as_of: Valuation date
+    ///     bucket_spec: Optional list of risk buckets for categorization
+    ///
+    /// Returns:
+    ///     RiskReport: Comprehensive risk report
+    ///
+    /// Examples:
+    ///     >>> report = bond.risk_report(context, Date(2024, 1, 1))
+    ///     >>> print(f"DV01: {report.get_metric('Dv01', 0)}")
+    ///     >>> print(f"Duration: {report.get_metric('DurationMod', 0)}")
+    ///     >>> 
+    ///     >>> # Check bucketed sensitivities
+    ///     >>> dv01_buckets = report.get_bucketed_risk("DV01")
+    ///     >>> if dv01_buckets:
+    ///     ...     for bucket, value in dv01_buckets.items():
+    ///     ...         print(f"{bucket}: {value}")
+    fn risk_report(
+        &self,
+        market_context: &crate::core::market_data::context::PyMarketContext,
+        as_of: &PyDate,
+        bucket_spec: Option<Vec<crate::valuations::risk::PyRiskBucket>>
+    ) -> PyResult<crate::valuations::risk::PyRiskReport> {
+        use finstack_valuations::traits::RiskMeasurable;
+        
+        let curves = market_context.inner();
+        let as_of_date = as_of.inner();
+        
+        // Convert Python bucket spec to Rust if provided
+        let rust_buckets = bucket_spec.map(|buckets| {
+            buckets.into_iter()
+                .map(|b| finstack_valuations::traits::RiskBucket {
+                    id: b.inner.id,
+                    tenor_years: b.inner.tenor_years,
+                    classification: b.inner.classification,
+                })
+                .collect::<Vec<_>>()
+        });
+        
+        let bucket_spec_ref = rust_buckets.as_deref();
+        
+        let report = self.inner.risk_report(&curves, as_of_date, bucket_spec_ref)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                format!("Failed to generate risk report: {:?}", e)
+            ))?;
+        
+        Ok(crate::valuations::risk::PyRiskReport::from_inner(report))
     }
     
     /// Price the bond using market data.

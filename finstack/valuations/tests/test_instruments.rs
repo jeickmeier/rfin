@@ -91,6 +91,7 @@ fn irs_par_rate_matches_forward_rate() {
             start: base,
             end: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
         },
+        attributes: finstack_valuations::traits::Attributes::new(),
     };
 
     let res = irs.price(&curves, base).unwrap();
@@ -118,6 +119,7 @@ fn bond_pv_with_unit_df_is_sum_of_cashflows() {
         call_put: None,
         amortization: None,
         custom_cashflows: None,
+        attributes: finstack_valuations::traits::Attributes::new(),
     };
 
     let res = bond.price(&curves, issue).unwrap();
@@ -161,6 +163,7 @@ fn irs_dv01_sign_and_magnitude() {
             start: base,
             end: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
         },
+        attributes: finstack_valuations::traits::Attributes::new(),
     };
     let res = irs_recv.price(&curves, base).unwrap();
     let dv01 = *res.measures.get("dv01").unwrap();
@@ -198,6 +201,7 @@ fn bond_ytm_ytw_and_amortization() {
         call_put: Some(bond::CallPutSchedule { calls: vec![bond::CallPut { date: mat_short, price_pct_of_par: 102.0 }], puts: vec![] }),
         amortization: None,
         custom_cashflows: None,
+        attributes: finstack_valuations::traits::Attributes::new(),
     };
     let res_bullet = bullet.price(&curves, issue).unwrap();
     let ytm = *res_bullet.measures.get("ytm").unwrap();
@@ -205,7 +209,14 @@ fn bond_ytm_ytw_and_amortization() {
     assert!(ytw <= ytm + 1e-9);
 
     // Amortizing version (linear to 800)
-    let amort = bond::Bond { id: "BOND-AMORT".into(), amortization: Some(bond::AmortizationSpec::LinearTo { final_notional: Money::new(800.0, Currency::USD) }), quoted_clean: None, call_put: None, ..bullet };
+    let amort = bond::Bond { 
+        id: "BOND-AMORT".into(), 
+        amortization: Some(bond::AmortizationSpec::LinearTo { final_notional: Money::new(800.0, Currency::USD) }), 
+        quoted_clean: None, 
+        call_put: None, 
+        attributes: finstack_valuations::traits::Attributes::new(),
+        ..bullet 
+    };
     let res_amort = amort.price(&curves, issue).unwrap();
     assert!(res_amort.value.amount() < res_bullet.value.amount());
 
@@ -243,6 +254,7 @@ fn dv01_bucketed_bond_simple() {
         call_put: None,
         amortization: None,
         custom_cashflows: None,
+        attributes: finstack_valuations::traits::Attributes::new(),
     };
 
     // Use the metrics framework to compute bucketed DV01

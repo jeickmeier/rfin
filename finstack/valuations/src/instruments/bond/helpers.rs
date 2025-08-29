@@ -47,6 +47,7 @@ use finstack_core::prelude::*;
 ///     call_put: None,
 ///     amortization: None,
 ///     custom_cashflows: None,
+///     attributes: finstack_valuations::traits::Attributes::new(),
 /// };
 /// 
 /// let mut context = MetricContext::new(
@@ -112,6 +113,7 @@ pub fn flows_from_context_or_build(
 ///     call_put: None,
 ///     amortization: None,
 ///     custom_cashflows: None,
+///     attributes: finstack_valuations::traits::Attributes::new(),
 /// };
 /// 
 /// let flows = vec![

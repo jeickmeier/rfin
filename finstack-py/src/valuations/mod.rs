@@ -4,7 +4,9 @@
 //! - Cashflow generation and analysis
 //! - Financial instruments
 //! - Pricing and risk metrics
+//! - Attributes and tagging
 
+pub mod attributes;
 pub mod cashflow;
 pub mod instruments;
 pub mod results;

@@ -2,6 +2,7 @@
 
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
+use finstack_valuations::traits::{RiskReport, RiskBucket};
 
 use crate::core::{
     dates::PyDate,
@@ -289,6 +290,278 @@ fn format_tenor_label(tenor: f64) -> String {
     }
 }
 
+/// Risk bucket for categorizing risk exposures.
+///
+/// Buckets are used to group risk exposures by tenor, classification,
+/// or other criteria for risk aggregation and reporting.
+///
+/// Examples:
+///     >>> from finstack.risk import RiskBucket
+///     >>> 
+///     >>> bucket = RiskBucket("5Y", 5.0, "Medium-term")
+///     >>> print(f"Bucket: {bucket.id}, Tenor: {bucket.tenor_years}Y")
+#[pyclass(name = "RiskBucket", module = "finstack.risk")]
+#[derive(Clone)]
+pub struct PyRiskBucket {
+    pub(crate) inner: RiskBucket,
+}
+
+#[pymethods]
+impl PyRiskBucket {
+    /// Create a new risk bucket.
+    ///
+    /// Args:
+    ///     id: Bucket identifier (e.g., "1Y", "5Y", "10Y")
+    ///     tenor_years: Optional tenor in years
+    ///     classification: Optional classification (e.g., "Short", "Medium", "Long")
+    #[new]
+    fn new(id: String, tenor_years: Option<f64>, classification: Option<String>) -> Self {
+        Self {
+            inner: RiskBucket {
+                id,
+                tenor_years,
+                classification,
+            }
+        }
+    }
+    
+    /// Bucket identifier.
+    #[getter]
+    fn id(&self) -> String {
+        self.inner.id.clone()
+    }
+    
+    /// Tenor in years.
+    #[getter]
+    fn tenor_years(&self) -> Option<f64> {
+        self.inner.tenor_years
+    }
+    
+    /// Classification string.
+    #[getter]
+    fn classification(&self) -> Option<String> {
+        self.inner.classification.clone()
+    }
+    
+    fn __repr__(&self) -> String {
+        format!(
+            "RiskBucket(id='{}', tenor={:?}, classification={:?})",
+            self.inner.id,
+            self.inner.tenor_years,
+            self.inner.classification
+        )
+    }
+}
+
+impl PyRiskBucket {
+    pub fn from_inner(bucket: RiskBucket) -> Self {
+        Self { inner: bucket }
+    }
+}
+
+/// Comprehensive risk report for an instrument.
+///
+/// Contains key risk metrics, bucketed sensitivities, and metadata
+/// for comprehensive risk analysis and reporting.
+///
+/// Examples:
+///     >>> # Get risk report for a bond
+///     >>> report = bond.risk_report(market_context, Date(2024, 1, 1))
+///     >>> 
+///     >>> # Access key metrics
+///     >>> print(f"DV01: {report.metrics.get('Dv01', 0)}")
+///     >>> print(f"Duration: {report.metrics.get('DurationMod', 0)}")
+///     >>> 
+///     >>> # Check bucketed risks
+///     >>> if report.bucketed_risks:
+///     ...     dv01_buckets = report.bucketed_risks.get('DV01', {})
+///     ...     for bucket, value in dv01_buckets.items():
+///     ...         print(f"{bucket}: {value}")
+#[pyclass(name = "RiskReport", module = "finstack.risk")]
+#[derive(Clone)]
+pub struct PyRiskReport {
+    inner: RiskReport,
+}
+
+#[pymethods]
+impl PyRiskReport {
+    /// Instrument identifier.
+    #[getter]
+    fn instrument_id(&self) -> String {
+        self.inner.instrument_id.clone()
+    }
+    
+    /// Base currency for risk measures.
+    #[getter]
+    fn base_currency(&self) -> String {
+        format!("{}", self.inner.base_currency)
+    }
+    
+    /// Key risk metrics as a dictionary.
+    ///
+    /// Returns:
+    ///     dict: Dictionary mapping metric names to values
+    #[getter]
+    fn metrics(&self, py: Python) -> PyResult<Py<PyDict>> {
+        let dict = PyDict::new(py);
+        for (key, value) in &self.inner.metrics {
+            dict.set_item(key, value)?;
+        }
+        Ok(dict.into())
+    }
+    
+    /// Bucketed sensitivities.
+    ///
+    /// Returns:
+    ///     dict: Dictionary mapping risk types to bucket->value dictionaries
+    ///
+    /// Examples:
+    ///     >>> dv01_buckets = report.bucketed_risks.get("DV01", {})
+    ///     >>> print(dv01_buckets.get("5Y", 0))
+    #[getter]
+    fn bucketed_risks(&self, py: Python) -> PyResult<Py<PyDict>> {
+        let dict = PyDict::new(py);
+        for (risk_type, buckets) in &self.inner.bucketed_risks {
+            let bucket_dict = PyDict::new(py);
+            for (bucket_id, value) in buckets {
+                bucket_dict.set_item(bucket_id, value)?;
+            }
+            dict.set_item(risk_type, bucket_dict)?;
+        }
+        Ok(dict.into())
+    }
+    
+    /// Risk buckets this instrument belongs to.
+    ///
+    /// Returns:
+    ///     list: List of RiskBucket objects
+    #[getter]
+    fn buckets(&self, py: Python) -> PyResult<Py<PyList>> {
+        let buckets: Vec<PyRiskBucket> = self.inner.buckets
+            .iter()
+            .map(|b| PyRiskBucket::from_inner(b.clone()))
+            .collect();
+        let list = PyList::new(py, buckets)?;
+        Ok(list.into())
+    }
+    
+    /// Additional risk metadata.
+    ///
+    /// Returns:
+    ///     dict: Dictionary of metadata key-value pairs
+    #[getter]
+    fn meta(&self, py: Python) -> PyResult<Py<PyDict>> {
+        let dict = PyDict::new(py);
+        for (key, value) in &self.inner.meta {
+            dict.set_item(key, value)?;
+        }
+        Ok(dict.into())
+    }
+    
+    /// Get a specific metric value.
+    ///
+    /// Args:
+    ///     metric_name: Name of the metric
+    ///     default: Default value if not found
+    ///
+    /// Returns:
+    ///     The metric value or default
+    fn get_metric(&self, metric_name: &str, default: Option<f64>) -> f64 {
+        self.inner.metrics
+            .get(metric_name)
+            .copied()
+            .unwrap_or_else(|| default.unwrap_or(0.0))
+    }
+    
+    /// Get bucketed values for a specific risk type.
+    ///
+    /// Args:
+    ///     risk_type: Type of risk (e.g., "DV01", "CS01")
+    ///
+    /// Returns:
+    ///     dict or None: Dictionary mapping bucket IDs to values
+    fn get_bucketed_risk(&self, py: Python, risk_type: &str) -> PyResult<Option<Py<PyDict>>> {
+        match self.inner.bucketed_risks.get(risk_type) {
+            Some(buckets) => {
+                let dict = PyDict::new(py);
+                for (bucket_id, value) in buckets {
+                    dict.set_item(bucket_id, value)?;
+                }
+                Ok(Some(dict.into()))
+            }
+            None => Ok(None)
+        }
+    }
+    
+    /// Convert to dictionary representation.
+    ///
+    /// Returns:
+    ///     dict: Complete risk report as a dictionary
+    fn to_dict(&self, py: Python) -> PyResult<Py<PyDict>> {
+        let dict = PyDict::new(py);
+        dict.set_item("instrument_id", &self.inner.instrument_id)?;
+        dict.set_item("base_currency", format!("{}", self.inner.base_currency))?;
+        
+        // Add metrics
+        let metrics_dict = PyDict::new(py);
+        for (key, value) in &self.inner.metrics {
+            metrics_dict.set_item(key, value)?;
+        }
+        dict.set_item("metrics", metrics_dict)?;
+        
+        // Add bucketed risks
+        let bucketed_dict = PyDict::new(py);
+        for (risk_type, buckets) in &self.inner.bucketed_risks {
+            let bucket_dict = PyDict::new(py);
+            for (bucket_id, value) in buckets {
+                bucket_dict.set_item(bucket_id, value)?;
+            }
+            bucketed_dict.set_item(risk_type, bucket_dict)?;
+        }
+        dict.set_item("bucketed_risks", bucketed_dict)?;
+        
+        // Add buckets
+        let buckets_list = PyList::new(py, 
+            self.inner.buckets.iter().map(|b| {
+                let b_dict = PyDict::new(py);
+                b_dict.set_item("id", &b.id).unwrap();
+                if let Some(tenor) = b.tenor_years {
+                    b_dict.set_item("tenor_years", tenor).unwrap();
+                }
+                if let Some(ref class) = b.classification {
+                    b_dict.set_item("classification", class).unwrap();
+                }
+                b_dict
+            })
+        )?;
+        dict.set_item("buckets", buckets_list)?;
+        
+        // Add meta
+        let meta_dict = PyDict::new(py);
+        for (key, value) in &self.inner.meta {
+            meta_dict.set_item(key, value)?;
+        }
+        dict.set_item("meta", meta_dict)?;
+        
+        Ok(dict.into())
+    }
+    
+    fn __repr__(&self) -> String {
+        format!(
+            "RiskReport(instrument='{}', {} metrics, {} buckets)",
+            self.inner.instrument_id,
+            self.inner.metrics.len(),
+            self.inner.buckets.len()
+        )
+    }
+}
+
+impl PyRiskReport {
+    pub fn from_inner(report: RiskReport) -> Self {
+        Self { inner: report }
+    }
+}
+
 /// Register risk module functions and classes.
 pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "risk")?;
@@ -296,6 +569,8 @@ pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register classes
     m.add_class::<PyBucketedDv01>()?;
     m.add_class::<PyKeyRateDuration>()?;
+    m.add_class::<PyRiskBucket>()?;
+    m.add_class::<PyRiskReport>()?;
     
     // Register functions
     m.add_function(pyo3::wrap_pyfunction!(py_calculate_dv01, &m)?)?;

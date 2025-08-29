@@ -215,6 +215,7 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
         call_put: None,
         amortization: None,
         custom_cashflows: None,
+        attributes: finstack_valuations::traits::Attributes::new(),
     };
     
     // Create custom bond with higher frequency

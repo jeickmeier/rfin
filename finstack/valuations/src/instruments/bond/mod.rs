@@ -10,7 +10,7 @@ use finstack_core::market_data::multicurve::CurveSet;
 
 use crate::pricing::discountable::Discountable;
 use crate::pricing::result::ValuationResult;
-use crate::traits::{Priceable, CashflowProvider, DatedFlows};
+use crate::traits::{Priceable, CashflowProvider, DatedFlows, Attributable, Attributes, RiskMeasurable, RiskReport, RiskBucket};
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::builder::{cf, FixedCouponSpec, CouponType, CashFlowSchedule};
 use finstack_core::dates::{BusinessDayConvention, StubKind};
@@ -50,6 +50,8 @@ pub struct Bond {
     /// Optional pre-built cashflow schedule. If provided, this will be used instead of
     /// generating cashflows from coupon/amortization specifications.
     pub custom_cashflows: Option<CashFlowSchedule>,
+    /// Attributes for scenario selection and tagging.
+    pub attributes: Attributes,
 }
 
 /// Call or put option on a bond.
@@ -115,6 +117,7 @@ impl Bond {
             call_put: None,
             amortization: None,
             custom_cashflows: Some(schedule),
+            attributes: Attributes::new(),
         })
     }
     
@@ -198,6 +201,97 @@ impl Priceable for Bond {
         // Use the metrics framework to compute all standard bond metrics
         let standard_metrics = self.get_standard_metrics();
         self.price_with_metrics(curves, as_of, &standard_metrics)
+    }
+}
+
+impl Attributable for Bond {
+    fn attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+    
+    fn attributes_mut(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+}
+
+impl RiskMeasurable for Bond {
+    fn risk_report(
+        &self,
+        curves: &CurveSet,
+        as_of: Date,
+        _bucket_spec: Option<&[RiskBucket]>,
+    ) -> finstack_core::Result<RiskReport> {
+        use crate::metrics::{MetricId, standard_registry};
+        use crate::instruments::Instrument;
+        use crate::metrics::MetricContext;
+        use std::sync::Arc;
+        
+        // Create risk report
+        let mut report = RiskReport::new(&self.id, self.notional.currency());
+        
+        // Compute base value
+        let base_value = self.value(curves, as_of)?;
+        
+        // Create metric context
+        let mut context = MetricContext::new(
+            Arc::new(Instrument::Bond(self.clone())),
+            Arc::new(curves.clone()),
+            as_of,
+            base_value,
+        );
+        
+        // Compute key risk metrics
+        let registry = standard_registry();
+        let risk_metrics = [
+            MetricId::DurationMod,
+            MetricId::Convexity,
+            MetricId::Dv01,
+            MetricId::Cs01,
+        ];
+        
+        // Compute available metrics (some may not be applicable)
+        for metric_id in &risk_metrics {
+            if let Ok(metrics) = registry.compute(&[metric_id.clone()], &mut context) {
+                if let Some(value) = metrics.get(metric_id) {
+                    report = report.with_metric(metric_id.as_str(), *value);
+                }
+            }
+        }
+        
+        // Add maturity bucket
+        let years_to_maturity = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(
+            as_of, self.maturity, self.dc
+        );
+        
+        let bucket = if years_to_maturity <= 1.0 {
+            RiskBucket { id: "1Y".to_string(), tenor_years: Some(years_to_maturity), classification: Some("Short".to_string()) }
+        } else if years_to_maturity <= 5.0 {
+            RiskBucket { id: "5Y".to_string(), tenor_years: Some(years_to_maturity), classification: Some("Medium".to_string()) }
+        } else if years_to_maturity <= 10.0 {
+            RiskBucket { id: "10Y".to_string(), tenor_years: Some(years_to_maturity), classification: Some("Long".to_string()) }
+        } else {
+            RiskBucket { id: "30Y".to_string(), tenor_years: Some(years_to_maturity), classification: Some("Ultra-Long".to_string()) }
+        };
+        
+        report = report.with_bucket(bucket);
+        
+        // If bucketed DV01 is computed, add it
+        if let Some(_bucketed_dv01) = context.computed.get(&MetricId::BucketedDv01) {
+            // Note: This would need custom handling for the bucketed structure
+            // For now, we'll just note it's available
+            report.meta.insert("bucketed_dv01_available".to_string(), "true".to_string());
+        }
+        
+        Ok(report)
+    }
+    
+    fn default_risk_buckets(&self) -> Option<Vec<RiskBucket>> {
+        Some(vec![
+            RiskBucket { id: "1Y".to_string(), tenor_years: Some(1.0), classification: Some("Short".to_string()) },
+            RiskBucket { id: "5Y".to_string(), tenor_years: Some(5.0), classification: Some("Medium".to_string()) },
+            RiskBucket { id: "10Y".to_string(), tenor_years: Some(10.0), classification: Some("Long".to_string()) },
+            RiskBucket { id: "30Y".to_string(), tenor_years: Some(30.0), classification: Some("Ultra-Long".to_string()) },
+        ])
     }
 }
 
@@ -377,6 +471,7 @@ mod tests {
             call_put: None,
             amortization: None,
             custom_cashflows: None,
+            attributes: Attributes::new(),
         };
         
         // Build a custom schedule separately
@@ -421,6 +516,7 @@ mod tests {
             call_put: None,
             amortization: None,
             custom_cashflows: None,
+            attributes: Attributes::new(),
         };
         
         // Same bond with custom cashflows

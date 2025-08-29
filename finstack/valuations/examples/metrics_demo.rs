@@ -34,6 +34,7 @@ fn main() -> finstack_core::Result<()> {
         call_put: None,
         amortization: None,
         custom_cashflows: None,
+        attributes: finstack_valuations::traits::Attributes::new(),
     };
     
     // Step 1: Compute core value only (fast, no metrics)

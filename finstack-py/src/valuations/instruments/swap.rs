@@ -358,6 +358,7 @@ impl PyInterestRateSwap {
                 side: side.into(),
                 fixed: fixed_leg.inner.clone(),
                 float: float_leg.inner.clone(),
+                attributes: finstack_valuations::traits::Attributes::new(),
             })
         })
     }
@@ -447,6 +448,146 @@ impl PyInterestRateSwap {
             ))?;
         
         Ok(results.get(&MetricId::ParRate).copied().unwrap_or(0.0))
+    }
+    
+    /// Get the swap's attributes for tagging and metadata.
+    ///
+    /// Returns:
+    ///     Attributes: The swap's attributes object
+    #[getter]
+    fn attributes(&self) -> crate::valuations::attributes::PyAttributes {
+        use finstack_valuations::traits::Attributable;
+        let attrs = self.inner.attributes().clone();
+        crate::valuations::attributes::PyAttributes::from_inner(attrs)
+    }
+    
+    /// Set the swap's attributes.
+    ///
+    /// Args:
+    ///     attributes: New attributes to set
+    #[setter]
+    fn set_attributes(&mut self, attributes: &crate::valuations::attributes::PyAttributes) -> PyResult<()> {
+        use finstack_valuations::traits::Attributable;
+        use std::sync::Arc;
+        
+        let mut swap = (*self.inner).clone();
+        *swap.attributes_mut() = attributes.inner.clone();
+        self.inner = Arc::new(swap);
+        Ok(())
+    }
+    
+    /// Add a tag to the swap's attributes.
+    ///
+    /// Args:
+    ///     tag: Tag to add
+    fn add_tag(&mut self, tag: String) -> PyResult<()> {
+        use finstack_valuations::traits::Attributable;
+        use std::sync::Arc;
+        
+        let mut swap = (*self.inner).clone();
+        swap.attributes_mut().tags.insert(tag);
+        self.inner = Arc::new(swap);
+        Ok(())
+    }
+    
+    /// Check if the swap has a specific tag.
+    ///
+    /// Args:
+    ///     tag: Tag to check
+    ///
+    /// Returns:
+    ///     True if the tag exists
+    fn has_tag(&self, tag: &str) -> bool {
+        use finstack_valuations::traits::Attributable;
+        self.inner.has_tag(tag)
+    }
+    
+    /// Set a metadata value on the swap.
+    ///
+    /// Args:
+    ///     key: Metadata key
+    ///     value: Metadata value
+    fn set_meta(&mut self, key: String, value: String) -> PyResult<()> {
+        use finstack_valuations::traits::Attributable;
+        use std::sync::Arc;
+        
+        let mut swap = (*self.inner).clone();
+        swap.attributes_mut().meta.insert(key, value);
+        self.inner = Arc::new(swap);
+        Ok(())
+    }
+    
+    /// Get a metadata value from the swap.
+    ///
+    /// Args:
+    ///     key: Metadata key
+    ///
+    /// Returns:
+    ///     The value if present
+    fn get_meta(&self, key: &str) -> Option<String> {
+        use finstack_valuations::traits::Attributable;
+        self.inner.get_meta(key).map(|s| s.to_string())
+    }
+    
+    /// Check if the swap matches a selector.
+    ///
+    /// Args:
+    ///     selector: Selector string
+    ///
+    /// Returns:
+    ///     True if the swap matches the selector
+    fn matches_selector(&self, selector: &str) -> bool {
+        use finstack_valuations::traits::Attributable;
+        self.inner.matches_selector(selector)
+    }
+    
+    /// Generate a comprehensive risk report for the swap.
+    ///
+    /// Calculates key risk metrics, bucketed sensitivities, and categorizes
+    /// the swap into risk buckets based on its characteristics.
+    ///
+    /// Args:
+    ///     market_context: Market data including curves
+    ///     as_of: Valuation date
+    ///     bucket_spec: Optional list of risk buckets for categorization
+    ///
+    /// Returns:
+    ///     RiskReport: Comprehensive risk report
+    ///
+    /// Examples:
+    ///     >>> report = swap.risk_report(context, Date(2024, 1, 1))
+    ///     >>> print(f"DV01: {report.get_metric('Dv01', 0)}")
+    ///     >>> print(f"Par Rate: {report.get_metric('ParRate', 0)}")
+    fn risk_report(
+        &self,
+        market_context: &crate::core::market_data::context::PyMarketContext,
+        as_of: &PyDate,
+        bucket_spec: Option<Vec<crate::valuations::risk::PyRiskBucket>>
+    ) -> PyResult<crate::valuations::risk::PyRiskReport> {
+        use finstack_valuations::traits::RiskMeasurable;
+        
+        let curves = market_context.inner();
+        let as_of_date = as_of.inner();
+        
+        // Convert Python bucket spec to Rust if provided
+        let rust_buckets = bucket_spec.map(|buckets| {
+            buckets.into_iter()
+                .map(|b| finstack_valuations::traits::RiskBucket {
+                    id: b.inner.id,
+                    tenor_years: b.inner.tenor_years,
+                    classification: b.inner.classification,
+                })
+                .collect::<Vec<_>>()
+        });
+        
+        let bucket_spec_ref = rust_buckets.as_deref();
+        
+        let report = self.inner.risk_report(&curves, as_of_date, bucket_spec_ref)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                format!("Failed to generate risk report: {:?}", e)
+            ))?;
+        
+        Ok(crate::valuations::risk::PyRiskReport::from_inner(report))
     }
     
     /// Price the swap using market data.

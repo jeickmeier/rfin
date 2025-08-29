@@ -135,8 +135,9 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register risk metrics submodule
     valuations::risk::register_module(m)?;
     
-    // Register valuation results
+    // Register valuation results and attributes
     m.add_class::<valuations::results::PyValuationResult>()?;
+    m.add_class::<valuations::attributes::PyAttributes>()?;
 
     // =============================
     // Top-level Re-exports

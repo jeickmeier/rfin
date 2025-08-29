@@ -12,7 +12,7 @@ use finstack_core::market_data::traits::{Discount, Forward};
 use crate::cashflow::builder::{cf, FixedCouponSpec, FloatingCouponSpec as BuilderFloat, CouponType};
 use crate::pricing::discountable::Discountable;
 use crate::pricing::result::ValuationResult;
-use crate::traits::{Priceable, CashflowProvider, DatedFlows};
+use crate::traits::{Priceable, CashflowProvider, DatedFlows, Attributable, Attributes, RiskMeasurable, RiskReport, RiskBucket};
 
 /// Direction of the swap from the perspective of the fixed rate.
 #[derive(Clone, Copy, Debug)]
@@ -87,6 +87,8 @@ pub struct InterestRateSwap {
     pub fixed: FixedLegSpec,
     /// Floating leg specification.
     pub float: FloatLegSpec,
+    /// Attributes for scenario selection and tagging.
+    pub attributes: Attributes,
 }
 
 impl InterestRateSwap {
@@ -216,6 +218,94 @@ impl Priceable for InterestRateSwap {
         use crate::metrics::MetricId;
         let standard_metrics = [MetricId::Annuity, MetricId::ParRate, MetricId::Dv01, MetricId::PvFixed, MetricId::PvFloat];
         self.price_with_metrics(curves, as_of, &standard_metrics)
+    }
+}
+
+impl Attributable for InterestRateSwap {
+    fn attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+    
+    fn attributes_mut(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+}
+
+impl RiskMeasurable for InterestRateSwap {
+    fn risk_report(
+        &self,
+        curves: &CurveSet,
+        as_of: Date,
+        _bucket_spec: Option<&[RiskBucket]>,
+    ) -> finstack_core::Result<RiskReport> {
+        use crate::metrics::{MetricId, standard_registry};
+        use crate::instruments::Instrument;
+        use crate::metrics::MetricContext;
+        use std::sync::Arc;
+        
+        // Create risk report
+        let mut report = RiskReport::new(&self.id, self.notional.currency());
+        
+        // Compute base value
+        let base_value = self.value(curves, as_of)?;
+        
+        // Create metric context
+        let mut context = MetricContext::new(
+            Arc::new(Instrument::IRS(self.clone())),
+            Arc::new(curves.clone()),
+            as_of,
+            base_value,
+        );
+        
+        // Compute key risk metrics for swaps
+        let registry = standard_registry();
+        let risk_metrics = [
+            MetricId::Dv01,
+            MetricId::Annuity,
+            MetricId::ParRate,
+        ];
+        
+        // Compute available metrics
+        for metric_id in &risk_metrics {
+            if let Ok(metrics) = registry.compute(&[metric_id.clone()], &mut context) {
+                if let Some(value) = metrics.get(metric_id) {
+                    report = report.with_metric(metric_id.as_str(), *value);
+                }
+            }
+        }
+        
+        // Add maturity bucket
+        let years_to_maturity = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(
+            as_of, self.fixed.end, self.fixed.dc
+        );
+        
+        let bucket = if years_to_maturity <= 2.0 {
+            RiskBucket { id: "2Y".to_string(), tenor_years: Some(years_to_maturity), classification: Some("Short".to_string()) }
+        } else if years_to_maturity <= 5.0 {
+            RiskBucket { id: "5Y".to_string(), tenor_years: Some(years_to_maturity), classification: Some("Medium".to_string()) }
+        } else if years_to_maturity <= 10.0 {
+            RiskBucket { id: "10Y".to_string(), tenor_years: Some(years_to_maturity), classification: Some("Long".to_string()) }
+        } else {
+            RiskBucket { id: "30Y".to_string(), tenor_years: Some(years_to_maturity), classification: Some("Ultra-Long".to_string()) }
+        };
+        
+        report = report.with_bucket(bucket);
+        
+        // Add side information
+        report.meta.insert("side".to_string(), format!("{:?}", self.side));
+        report.meta.insert("fixed_rate".to_string(), format!("{:.4}", self.fixed.rate));
+        report.meta.insert("float_spread_bp".to_string(), format!("{:.1}", self.float.spread_bp));
+        
+        Ok(report)
+    }
+    
+    fn default_risk_buckets(&self) -> Option<Vec<RiskBucket>> {
+        Some(vec![
+            RiskBucket { id: "2Y".to_string(), tenor_years: Some(2.0), classification: Some("Short".to_string()) },
+            RiskBucket { id: "5Y".to_string(), tenor_years: Some(5.0), classification: Some("Medium".to_string()) },
+            RiskBucket { id: "10Y".to_string(), tenor_years: Some(10.0), classification: Some("Long".to_string()) },
+            RiskBucket { id: "30Y".to_string(), tenor_years: Some(30.0), classification: Some("Ultra-Long".to_string()) },
+        ])
     }
 }
 

@@ -24,7 +24,7 @@ fn valuation_result_roundtrip_serde() {
     assert!(de.measures.get("pv").is_some());
     assert!(de.measures.get("dv01").is_some());
     // Ensure meta carried through
-    assert_eq!(de.meta.numeric_mode as u8, finstack_core::config::numeric_mode() as u8);
+    assert_eq!(de.meta.core.numeric_mode as u8, finstack_core::config::numeric_mode() as u8);
 }
 
 

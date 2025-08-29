@@ -24,5 +24,6 @@ pub mod pricing;
 pub mod instruments;
 pub mod metrics;
 pub mod performance;
+pub mod policy;
 
 pub use finstack_core::prelude::*;
