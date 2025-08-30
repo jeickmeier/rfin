@@ -1,6 +1,4 @@
-use finstack_core::config::{
-    with_temp_config, CurrencyScalePolicy, FinstackConfig, RoundingMode, RoundingPolicy,
-};
+use finstack_core::config::{CurrencyScalePolicy, FinstackConfig, RoundingMode, RoundingPolicy};
 use finstack_core::{Currency, Money};
 
 #[test]
@@ -20,6 +18,7 @@ fn money_display_respects_output_scale() {
             },
         },
     };
-    let s = with_temp_config(cfg, || format!("{}", Money::new(1.23456, Currency::USD)));
+    let m = Money::new_with_config(1.23456, Currency::USD, &cfg);
+    let s = m.format_with_config(&cfg);
     assert_eq!(s, "USD 1.235");
 }

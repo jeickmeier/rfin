@@ -168,7 +168,10 @@ impl ValuationResult {
             as_of,
             value,
             measures: HashMap::new(),
-            meta: ExtendedResultsMeta::from_core(finstack_core::config::results_meta()),
+            // Default stamping uses default configuration; callers needing custom
+            // policy should construct `ExtendedResultsMeta` manually or provide
+            // a config-aware constructor in their layer.
+            meta: ExtendedResultsMeta::from_core(finstack_core::config::results_meta(&finstack_core::config::FinstackConfig::default())),
             covenants: None,
         }
     }

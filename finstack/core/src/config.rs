@@ -1,15 +1,14 @@
-//! Global numeric/rounding configuration for finstack-core.
+//! Numeric/rounding configuration for finstack-core.
 //!
-//! Lightweight scaffolding that provides a process-wide rounding policy and
-//! accessors. In future iterations, currency-specific scale policies can be
-//! added here. The defaults are safe and match common accounting expectations.
+//! This module defines configuration types and helper functions that operate on
+//! an explicit `FinstackConfig` passed by the caller. There is no global
+//! configuration state; call sites must provide the configuration they wish to
+//! apply.
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use hashbrown::HashMap;
-use once_cell::sync::Lazy;
-use std::sync::{Arc, RwLock};
 
 /// Rounding modes supported by the library.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -27,7 +26,7 @@ pub enum RoundingMode {
     Ceil,
 }
 
-/// Global configuration container. Extend as needed.
+/// Configuration container. Extend as needed.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FinstackConfig {
@@ -44,31 +43,6 @@ impl Default for FinstackConfig {
             rounding: RoundingPolicy::default(),
         }
     }
-}
-
-static CONFIG: Lazy<RwLock<Arc<FinstackConfig>>> =
-    Lazy::new(|| RwLock::new(Arc::new(FinstackConfig::default())));
-
-/// Obtain the current global configuration.
-pub fn config() -> Arc<FinstackConfig> {
-    CONFIG.read().unwrap().clone()
-}
-
-/// Execute a closure with a temporary configuration, restoring the previous
-/// configuration afterward.
-pub fn with_temp_config<T>(cfg: FinstackConfig, f: impl FnOnce() -> T) -> T {
-    let prev;
-    {
-        let mut guard = CONFIG.write().unwrap();
-        prev = guard.clone();
-        *guard = Arc::new(cfg);
-    }
-    let out = f();
-    {
-        let mut guard = CONFIG.write().unwrap();
-        *guard = prev;
-    }
-    out
 }
 
 /// Policy mapping to determine decimal places for each currency at ingest/output.
@@ -148,8 +122,7 @@ pub struct ResultsMeta {
 }
 
 /// Compute the effective output scale for a currency.
-pub fn output_scale_for(ccy: crate::currency::Currency) -> u32 {
-    let cfg = config();
+pub fn output_scale_for(cfg: &FinstackConfig, ccy: crate::currency::Currency) -> u32 {
     if let Some(&s) = cfg.rounding.output_scale.overrides.get(&ccy) {
         return s;
     }
@@ -157,17 +130,15 @@ pub fn output_scale_for(ccy: crate::currency::Currency) -> u32 {
 }
 
 /// Compute the effective ingest scale for a currency.
-pub fn ingest_scale_for(ccy: crate::currency::Currency) -> u32 {
-    let cfg = config();
+pub fn ingest_scale_for(cfg: &FinstackConfig, ccy: crate::currency::Currency) -> u32 {
     if let Some(&s) = cfg.rounding.ingest_scale.overrides.get(&ccy) {
         return s;
     }
     cfg.rounding.ingest_scale.default_scale
 }
 
-/// Build a snapshot of the current rounding context.
-pub fn rounding_context() -> RoundingContext {
-    let cfg = config();
+/// Build a snapshot of the current rounding context from a config.
+pub fn rounding_context_from(cfg: &FinstackConfig) -> RoundingContext {
     RoundingContext {
         mode: cfg.rounding.mode,
         ingest_scale_by_ccy: cfg.rounding.ingest_scale.overrides.clone(),
@@ -189,31 +160,11 @@ pub fn numeric_mode() -> NumericMode {
 }
 
 /// Construct a `ResultsMeta` snapshot for stamping into result envelopes.
-pub fn results_meta() -> ResultsMeta {
+pub fn results_meta(cfg: &FinstackConfig) -> ResultsMeta {
     ResultsMeta {
         numeric_mode: numeric_mode(),
-        rounding: rounding_context(),
+        rounding: rounding_context_from(cfg),
     }
 }
 
-#[cfg(all(test, feature = "decimal128"))]
-mod tests {
-    use super::*;
-    #[test]
-    fn temp_config_roundtrip() {
-        let orig = config();
-        assert_eq!(orig.rounding.mode, RoundingMode::Bankers);
-        let out = with_temp_config(
-            FinstackConfig {
-                rounding_mode: RoundingMode::Ceil,
-                rounding: RoundingPolicy {
-                    mode: RoundingMode::Ceil,
-                    ..Default::default()
-                },
-            },
-            || config().rounding.mode,
-        );
-        assert_eq!(out, RoundingMode::Ceil);
-        assert_eq!(config().rounding.mode, RoundingMode::Bankers);
-    }
-}
+// No unit tests here rely on global configuration anymore.

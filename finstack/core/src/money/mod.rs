@@ -8,10 +8,7 @@
 
 #![allow(clippy::items_after_test_module)]
 
-#[cfg(not(feature = "decimal128"))]
-use crate::config::RoundingMode;
-#[cfg(feature = "decimal128")]
-use crate::config::{config, RoundingMode};
+use crate::config::{FinstackConfig, RoundingMode};
 use crate::currency::Currency;
 use crate::dates::Date;
 use crate::error::Error;
@@ -46,22 +43,23 @@ impl Money {
     #[must_use]
     #[inline]
     pub fn new(amount: f64, currency: Currency) -> Self {
-        let dp = crate::config::ingest_scale_for(currency);
+        // Fallback to ISO-4217 minor units when no config is provided.
+        let dp = currency.decimals();
         #[cfg(feature = "decimal128")]
         {
             let s = format!("{:.17}", amount);
-            let mut dec =
-                rust_decimal::Decimal::from_str(&s).unwrap_or(rust_decimal::Decimal::ZERO);
-            let mode = config().rounding.mode;
-            dec = round_decimal(dec, dp, mode);
+            let dec = rust_decimal::Decimal::from_str(&s)
+                .unwrap_or(rust_decimal::Decimal::ZERO);
+            let mode = RoundingMode::Bankers;
+            let rounded = round_decimal(dec, dp as u32, mode);
             Self {
-                amount: dec,
+                amount: rounded,
                 currency,
             }
         }
         #[cfg(not(feature = "decimal128"))]
         {
-            let mode = crate::config::config().rounding.mode;
+            let mode = RoundingMode::Bankers;
             let rounded = round_f64(amount, dp as i32, mode);
             Self {
                 amount: rounded,
@@ -70,18 +68,37 @@ impl Money {
         }
     }
 
+    /// Create a new `Money` value using an explicit configuration.
+    #[must_use]
+    #[inline]
+    pub fn new_with_config(amount: f64, currency: Currency, cfg: &FinstackConfig) -> Self {
+        let dp = crate::config::ingest_scale_for(cfg, currency);
+        #[cfg(feature = "decimal128")]
+        {
+            let s = format!("{:.17}", amount);
+            let dec = rust_decimal::Decimal::from_str(&s)
+                .unwrap_or(rust_decimal::Decimal::ZERO);
+            let mode = cfg.rounding.mode;
+            let rounded = round_decimal(dec, dp, mode);
+            Self { amount: rounded, currency }
+        }
+        #[cfg(not(feature = "decimal128"))]
+        {
+            let mode = cfg.rounding.mode;
+            let rounded = round_f64(amount, dp as i32, mode);
+            Self { amount: rounded, currency }
+        }
+    }
+
     /// Construct from a decimal when the `decimal128` feature is enabled.
     #[cfg(feature = "decimal128")]
     #[must_use]
     #[inline]
-    pub fn from_decimal(amount: rust_decimal::Decimal, currency: Currency) -> Self {
-        let dp = crate::config::ingest_scale_for(currency);
-        let mode = config().rounding.mode;
+    pub fn from_decimal_with_config(amount: rust_decimal::Decimal, currency: Currency, cfg: &FinstackConfig) -> Self {
+        let dp = crate::config::ingest_scale_for(cfg, currency);
+        let mode = cfg.rounding.mode;
         let dec = round_decimal(amount, dp, mode);
-        Self {
-            amount: dec,
-            currency,
-        }
+        Self { amount: dec, currency }
     }
 
     /// Amount accessor (by value).
@@ -170,12 +187,11 @@ impl Money {
 // -------------------------------------------------------------------------
 impl fmt::Display for Money {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Prefer configured output scale when available; fall back to ISO decimals.
-        let dp = crate::config::output_scale_for(self.currency) as usize;
+        // Default formatting uses ISO-4217 minor units and bankers rounding.
+        let dp = self.currency.decimals() as usize;
         #[cfg(feature = "decimal128")]
         {
-            let cfg = config();
-            let s = format_decimal(self.amount, dp as u32, cfg.rounding.mode);
+            let s = format_decimal(self.amount, dp as u32, RoundingMode::Bankers);
             write!(f, "{} {}", self.currency, s)
         }
         #[cfg(not(feature = "decimal128"))]
@@ -189,6 +205,22 @@ impl fmt::Display for Money {
                 val = self.amount,
                 prec = dp
             )
+        }
+    }
+}
+
+impl Money {
+    /// Format this money using an explicit configuration (rounding mode and per-currency scales).
+    pub fn format_with_config(&self, cfg: &FinstackConfig) -> String {
+        let dp = crate::config::output_scale_for(cfg, self.currency) as usize;
+        #[cfg(feature = "decimal128")]
+        {
+            let s = format_decimal(self.amount, dp as u32, cfg.rounding.mode);
+            format!("{} {}", self.currency, s)
+        }
+        #[cfg(not(feature = "decimal128"))]
+        {
+            format!("{} {val:.prec$}", self.currency, val = self.amount, prec = dp)
         }
     }
 }

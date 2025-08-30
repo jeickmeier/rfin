@@ -55,6 +55,6 @@ pub use crate::math::{
 
 // Configuration and policy management
 pub use crate::config::{
-    config, ingest_scale_for, output_scale_for, results_meta, with_temp_config, FinstackConfig,
+    ingest_scale_for, output_scale_for, results_meta, rounding_context_from, FinstackConfig,
     NumericMode, ResultsMeta, RoundingContext, RoundingMode, RoundingPolicy,
 };
