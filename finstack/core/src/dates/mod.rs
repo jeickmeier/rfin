@@ -38,7 +38,7 @@ pub use daycount::{DayCount, Thirty360Convention, days_30_360};
 mod calendar;
 
 // Re-export new holiday calendars at the top level for convenience
-pub use calendar::{adjust, BusinessDayConvention, HolidayCalendar};
+pub use calendar::{adjust, BusinessDayConvention, HolidayCalendar, is_weekend};
 
 // The canonical public discovery helper
 pub use calendar::available_calendars;

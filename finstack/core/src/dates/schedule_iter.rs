@@ -17,7 +17,7 @@ use crate::dates::utils::add_months;
 type Buffer = SmallVec<[Date; 32]>;
 
 /// Coupon/payment frequency.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum Frequency {
     /// Calendar-month based frequency (e.g. 3 = quarterly).

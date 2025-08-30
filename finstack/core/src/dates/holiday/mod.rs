@@ -1,4 +1,14 @@
-//! Holiday calendar DSL – new unified design.
+//! Holiday calendar DSL – unified design and semantics.
+//!
+//! Semantics:
+//! - "Holiday" refers to non-working dates as defined by a specific market
+//!   calendar. Many calendars also label weekends as holidays for convenience,
+//!   while some intentionally ignore weekends in `is_holiday`.
+//! - Independent of the above, [`crate::dates::calendar::HolidayCalendar::is_business_day`]
+//!   always treats Saturday/Sunday as non-business days and defers to
+//!   `is_holiday` for market-specific closures.
+//! - Prefer `is_business_day` for scheduling and adjustment logic. Use
+//!   [`crate::dates::calendar::is_weekend`] if you need to only detect Saturday/Sunday.
 
 pub mod calendars;
 pub mod rule;
@@ -21,6 +31,18 @@ pub use crate::dates::calendar::HolidayCalendar as Calendar;
 pub use calendars::*;
 
 // Export a macro so calendar modules can use it without path gymnastics.
+/// Implement [`HolidayCalendar`](crate::dates::calendar::HolidayCalendar) using
+/// generated rule-based bitsets for fast lookup.
+///
+/// - `ignore_weekends = false` (default): `is_holiday` may return `true` on
+///   Saturdays/Sundays if the generated rules/bitsets include them (common for
+///   many calendars).
+/// - `ignore_weekends = true`: `is_holiday` will return `false` on
+///   Saturdays/Sundays regardless of rule bits. This is useful for calendars
+///   that intentionally do not label weekends as holidays.
+///
+/// Note: This setting only affects `is_holiday`. Business-day semantics always
+/// exclude weekends via the blanket `is_business_day` implementation.
 #[macro_export]
 #[allow(missing_docs)]
 macro_rules! impl_calendar_generated {
@@ -70,6 +92,13 @@ macro_rules! impl_calendar_generated {
 }
 
 // Export a macro for calendars driven by build-time CSV ordinals.
+/// Implement [`HolidayCalendar`](crate::dates::calendar::HolidayCalendar) using
+/// build-time CSV ordinals for exact holiday days, with rule fallback.
+///
+/// Weekend handling: This macro does not modify weekend semantics. Whether
+/// Saturdays/Sundays are considered holidays depends on the source ordinals
+/// and/or the rule fallback used to populate a year with no ordinals. Regardless,
+/// business-day checks still treat weekends as non-business days.
 #[macro_export]
 #[allow(missing_docs)]
 macro_rules! impl_calendar_generated_from_ords {
