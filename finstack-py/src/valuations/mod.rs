@@ -13,10 +13,9 @@ pub mod attributes;
 pub mod cashflow;
 pub mod covenants;
 pub mod instruments;
-pub mod policy;
 pub mod results;
 pub mod risk;
-pub mod workout;
+// policy and workout bindings removed to simplify valuations surface
 
 // Re-export commonly used types at the valuations module level
 

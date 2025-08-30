@@ -54,10 +54,12 @@ pub fn build_dates(
     };
 
     let mut prev = hashbrown::HashMap::with_capacity(dates.len());
-    let mut p = dates[0];
-    for &d in dates.iter().skip(1) {
-        prev.insert(d, p);
-        p = d;
+    if let Some(&first) = dates.first() {
+        let mut p = first;
+        for &d in dates.iter().skip(1) {
+            prev.insert(d, p);
+            p = d;
+        }
     }
 
     let mut first_or_last: hashbrown::HashSet<Date> = hashbrown::HashSet::new();

@@ -29,7 +29,7 @@ pub mod covenants;
 pub mod metrics;
 pub mod models;
 pub mod performance;
-pub mod policy;
-pub mod workout;
+// policy module removed to keep valuations focused on pricing/risk surfaces
+// workout module removed to keep valuations focused on pricing/risk surfaces
 
 pub use finstack_core::prelude::*;

@@ -310,7 +310,7 @@ fn emit_fees_on(
     }
 
     for (fd, amt) in fixed_fees {
-        if *fd == d {
+        if *fd == d && amt.amount() != 0.0 {
             new_flows.push(CashFlow {
                 date: d,
                 reset_date: None,

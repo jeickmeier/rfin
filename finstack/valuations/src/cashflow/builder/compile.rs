@@ -113,7 +113,11 @@ pub(super) fn build_fee_schedules(
     let mut fixed_fees: FixedFees = Vec::new();
     for fee in fees {
         match fee {
-            FeeSpec::Fixed { date, amount } => fixed_fees.push((*date, *amount)),
+            FeeSpec::Fixed { date, amount } => {
+                if amount.amount() != 0.0 {
+                    fixed_fees.push((*date, *amount))
+                }
+            }
             FeeSpec::PeriodicBps {
                 base,
                 bps,
@@ -239,6 +243,11 @@ pub(super) fn collect_dates(
     }
     if let AmortizationSpec::CustomPrincipal { items } = &notional.amort {
         for (d, _) in items {
+            set.insert(*d);
+        }
+    }
+    if let AmortizationSpec::StepRemaining { schedule } = &notional.amort {
+        for (d, _) in schedule {
             set.insert(*d);
         }
     }
@@ -481,7 +490,7 @@ pub(super) fn compute_coupon_schedules(
                     stub: chosen_coupon.schedule.stub,
                 };
                 used_fixed_specs.push(spec);
-                fixed_schedules.push((spec, dates.clone(), sched.prev, sched.first_or_last));
+                fixed_schedules.push((spec, dates, sched.prev, sched.first_or_last));
             }
             CouponSpec::Float {
                 index_id,
@@ -502,7 +511,7 @@ pub(super) fn compute_coupon_schedules(
                     reset_lag_days,
                 };
                 used_float_specs.push(spec);
-                float_schedules.push((spec, dates.clone(), sched.prev));
+                float_schedules.push((spec, dates, sched.prev));
             }
         }
     }

@@ -19,14 +19,40 @@ pub fn aggregate_by_period(
     flows: &[DatedFlow],
     periods: &[Period],
 ) -> IndexMap<PeriodId, IndexMap<Currency, F>> {
+    use core::cmp::Ordering;
     let mut out: IndexMap<PeriodId, IndexMap<Currency, F>> = IndexMap::new();
+
+    if flows.is_empty() || periods.is_empty() {
+        return out;
+    }
+
+    // Sort flows by date once. Do not mutate caller slice.
+    let mut sorted: Vec<DatedFlow> = flows.to_vec();
+    sorted.sort_by(|(d1, _), (d2, _)| d1.cmp(d2));
+
+    // For each period (preserve input order), locate the first flow >= start via binary search,
+    // then accumulate until flow.date < end. This is O(m log n + total_matched_flows).
     for p in periods {
-        let mut per_ccy: IndexMap<Currency, F> = IndexMap::new();
-        for (d, m) in flows {
-            if *d >= p.start && *d < p.end {
-                let e = per_ccy.entry(m.currency()).or_insert(0.0);
-                *e += m.amount();
+        // Find lower bound index for p.start
+        let mut lo = 0usize;
+        let mut hi = sorted.len();
+        while lo < hi {
+            let mid = (lo + hi) / 2;
+            match sorted[mid].0.cmp(&p.start) {
+                Ordering::Less => lo = mid + 1,
+                _ => hi = mid,
             }
+        }
+
+        let mut per_ccy: IndexMap<Currency, F> = IndexMap::new();
+        let mut i = lo;
+        while i < sorted.len() {
+            let (d, m) = sorted[i];
+            if d >= p.end { break; }
+            // We know d >= p.start by construction of lower bound
+            let e = per_ccy.entry(m.currency()).or_insert(0.0);
+            *e += m.amount();
+            i += 1;
         }
         if !per_ccy.is_empty() {
             out.insert(p.id, per_ccy);
