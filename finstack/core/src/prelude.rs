@@ -14,7 +14,7 @@ pub use crate::currency::Currency;
 pub use crate::dates::{
     adjust, available_calendars, build_periods, next_cds_date, next_imm, third_wednesday,
     BusinessDayConvention, Date, DateExt, DayCount, HolidayCalendar,
-    MergeMode, OffsetDateTime, OffsetDateTimeExt, Period, PeriodId,
+    OffsetDateTime, OffsetDateTimeExt, Period, PeriodId,
     PeriodKey, ScheduleBuilder, StubKind,
 };
 pub use crate::error::{Error, InputError};

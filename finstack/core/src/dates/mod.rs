@@ -50,7 +50,7 @@ pub use schedule_iter::{schedule, Frequency, ScheduleBuilder, StubKind};
 
 mod composite;
 
-pub use composite::{CompositeCalendar, MergeMode};
+pub use composite::CompositeCalendar;
 
 mod imm;
 

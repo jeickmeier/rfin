@@ -59,44 +59,74 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
 ) -> Date {
     match conv {
         BusinessDayConvention::Unadjusted => date,
-        BusinessDayConvention::Following => adjust_following(date, cal),
+        BusinessDayConvention::Following => {
+            if cal.is_business_day(date) {
+                return date;
+            }
+            let mut d = date;
+            while !cal.is_business_day(d) {
+                d = d + Duration::DAY;
+            }
+            d
+        }
         BusinessDayConvention::ModifiedFollowing => {
-            let adj = adjust_following(date, cal);
-            if adj.month() == date.month() {
-                adj
-            } else {
-                adjust_preceding(date, cal)
+            if cal.is_business_day(date) {
+                return date;
             }
+            let original_month = date.month();
+
+            // Compute following candidate
+            let mut forward = date;
+            while !cal.is_business_day(forward) {
+                forward = forward + Duration::DAY;
+            }
+            if forward.month() == original_month {
+                return forward;
+            }
+
+            // Fallback to preceding if following crosses month
+            let mut back = date;
+            while !cal.is_business_day(back) {
+                back = back - Duration::DAY;
+            }
+            back
         }
-        BusinessDayConvention::Preceding => adjust_preceding(date, cal),
+        BusinessDayConvention::Preceding => {
+            if cal.is_business_day(date) {
+                return date;
+            }
+            let mut d = date;
+            while !cal.is_business_day(d) {
+                d = d - Duration::DAY;
+            }
+            d
+        }
         BusinessDayConvention::ModifiedPreceding => {
-            let adj = adjust_preceding(date, cal);
-            if adj.month() == date.month() {
-                adj
-            } else {
-                adjust_following(date, cal)
+            if cal.is_business_day(date) {
+                return date;
             }
+            let original_month = date.month();
+
+            // Compute preceding candidate
+            let mut back = date;
+            while !cal.is_business_day(back) {
+                back = back - Duration::DAY;
+            }
+            if back.month() == original_month {
+                return back;
+            }
+
+            // Fallback to following if preceding crosses month
+            let mut forward = date;
+            while !cal.is_business_day(forward) {
+                forward = forward + Duration::DAY;
+            }
+            forward
         }
     }
 }
 
-#[inline]
-fn adjust_following<C: HolidayCalendar + ?Sized>(mut date: Date, cal: &C) -> Date {
-    while !cal.is_business_day(date) {
-        // Safe unwrap: adding 1 day to a valid Date always succeeds within
-        // the representable range of the `time` crate (±10k years).
-        date = date + Duration::DAY;
-    }
-    date
-}
-
-#[inline]
-fn adjust_preceding<C: HolidayCalendar + ?Sized>(mut date: Date, cal: &C) -> Date {
-    while !cal.is_business_day(date) {
-        date = date - Duration::DAY;
-    }
-    date
-}
+// helper functions merged into `adjust` for a single, cohesive business-day logic surface
 
 // -----------------------------------------------------------------------------
 // Runtime discovery helpers
