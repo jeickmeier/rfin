@@ -66,6 +66,9 @@ pub use holiday::calendars::*;
 mod periods;
 pub use periods::{build_periods, build_fiscal_periods, FiscalConfig, Period, PeriodId, PeriodKey};
 
+pub mod utils;
+pub use utils::{add_months, is_leap_year, date_to_days_since_epoch, days_since_epoch_to_date};
+
 pub mod calendars {
     #![allow(missing_docs)]
     pub use crate::dates::holiday::calendars::*;

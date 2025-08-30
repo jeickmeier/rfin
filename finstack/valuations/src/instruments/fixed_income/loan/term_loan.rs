@@ -6,6 +6,7 @@ use super::prepayment::PrepaymentSchedule;
 use super::covenants::Covenant;
 use crate::metrics::MetricId;
 use crate::traits::{CashflowProvider, Attributes};
+use crate::impl_attributable;
 use finstack_core::dates::{Date, DayCount, Frequency, BusinessDayConvention, StubKind};
 use finstack_core::market_data::multicurve::CurveSet;
 
@@ -391,10 +392,37 @@ impl CashflowProvider for Loan {
     }
 }
 
-// Use macro for standard Priceable implementation
-impl_priceable!(Loan, [
-    MetricId::Ytm
-]);
+// Implement Priceable directly (replaces deprecated impl_priceable! usage)
+impl crate::traits::Priceable for Loan {
+    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
+        use crate::pricing::discountable::Discountable;
+        let flows = <Self as crate::traits::CashflowProvider>::build_schedule(self, curves, as_of)?;
+        let disc = curves.discount(self.disc_id)?;
+        flows.npv(&*disc, disc.base_date(), self.day_count)
+    }
+
+    fn price_with_metrics(
+        &self,
+        curves: &CurveSet,
+        as_of: Date,
+        metrics: &[MetricId]
+    ) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
+        let base_value = self.value(curves, as_of)?;
+
+        crate::pricing::build_with_metrics(
+            crate::instruments::Instrument::Loan(self.clone()),
+            curves,
+            as_of,
+            base_value,
+            metrics,
+        )
+    }
+
+    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
+        let standard_metrics = vec![MetricId::Ytm];
+        self.price_with_metrics(curves, as_of, &standard_metrics)
+    }
+}
 
 // Generate standard Attributable implementation using macro
 impl_attributable!(Loan);

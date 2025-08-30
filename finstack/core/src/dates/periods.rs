@@ -9,6 +9,7 @@ use crate::dates::Date;
 use core::fmt;
 use core::str::FromStr;
 use time::Month;
+use crate::dates::utils::add_months;
 
 /// Period frequency.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -374,23 +375,6 @@ fn fiscal_year_start(fiscal_year: i32, config: FiscalConfig) -> Date {
     })
 }
 
-/// Add months to a date, preserving the day if possible
-fn add_months(date: Date, months: i32) -> Date {
-    let year = date.year();
-    let month = date.month() as i32;
-    let day = date.day();
-    
-    let total_months = month + months;
-    let new_year = year + (total_months - 1) / 12;
-    let new_month = ((total_months - 1) % 12 + 1) as u8;
-    
-    let month_enum = Month::try_from(new_month).unwrap();
-    let max_day = days_in_month(new_year, new_month);
-    let new_day = day.min(max_day);
-    
-    Date::from_calendar_date(new_year, month_enum, new_day).unwrap()
-}
-
 /// Get the number of days in a month
 fn days_in_month(year: i32, month: u8) -> u8 {
     match month {
@@ -398,7 +382,7 @@ fn days_in_month(year: i32, month: u8) -> u8 {
         4 | 6 | 9 | 11 => 30,
         2 => {
             // Check for leap year
-            if (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0) {
+            if crate::dates::utils::is_leap_year(year) {
                 29
             } else {
                 28

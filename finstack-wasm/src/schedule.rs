@@ -71,7 +71,7 @@ pub fn generate_schedule(
     for d in iter {
         let mut d_mut = d;
         if let Some(conv) = convention {
-            let cal = finstack_core::dates::Target2::new();
+            let cal = finstack_core::dates::Target2;
             d_mut = finstack_core::dates::adjust(d_mut, conv.into(), &cal);
         }
         arr.push(&Date::from_core(d_mut).into());

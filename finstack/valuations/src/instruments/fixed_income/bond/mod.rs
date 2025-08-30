@@ -14,6 +14,7 @@ use crate::cashflow::primitives::CFKind;
 use crate::cashflow::builder::{cf, FixedCouponSpec, CouponType, CashFlowSchedule};
 use crate::metrics::MetricId;
 use finstack_core::dates::{BusinessDayConvention, StubKind};
+use crate::impl_attributable;
 
 // Re-export for compatibility in tests and external users referencing bond::AmortizationSpec
 pub use crate::cashflow::amortization_notional::AmortizationSpec;
@@ -163,37 +164,9 @@ impl Priceable for Bond {
         as_of: finstack_core::dates::Date, 
         metrics: &[crate::metrics::MetricId]
     ) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
-        use crate::metrics::{MetricContext, standard_registry};
-        use std::sync::Arc;
-        
-        // Compute base value
         let base_value = self.value(curves, as_of)?;
-        
-        // Create metric context with self wrapped in Instrument enum
-        let instrument: crate::instruments::Instrument = 
-            crate::instruments::Instrument::Bond(self.clone());
-        let mut context = MetricContext::new(
-            Arc::new(instrument),
-            Arc::new(curves.clone()),
-            as_of,
-            base_value,
-        );
-        
-        // Get registry and compute requested metrics
-        let registry = standard_registry();
-        let metric_measures = registry.compute(metrics, &mut context)?;
-        
-        // Convert MetricId keys to String keys for ValuationResult
-        let measures: hashbrown::HashMap<String, finstack_core::F> = metric_measures
-            .into_iter()
-            .map(|(k, v)| (k.as_str().to_string(), v))
-            .collect();
-        
-        // Create result
-        let mut result = crate::pricing::result::ValuationResult::stamped(self.id.clone(), as_of, base_value);
-        result.measures = measures;
-        
-        Ok(result)
+        let instrument: crate::instruments::Instrument = crate::instruments::Instrument::Bond(self.clone());
+        crate::pricing::build_with_metrics(instrument, curves, as_of, base_value, metrics)
     }
     
     fn price(&self, curves: &finstack_core::market_data::multicurve::CurveSet, as_of: finstack_core::dates::Date) -> finstack_core::Result<crate::pricing::result::ValuationResult> {

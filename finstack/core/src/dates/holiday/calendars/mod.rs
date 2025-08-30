@@ -99,13 +99,3 @@ pub const ALL_IDS: &[&str] = &[
     "cnbe", "sgsi", "sse", "hkhk", "hkex", "jpto", "jpx", "cme",
 ];
 
-macro_rules! impl_new {
-    ( $( $t:ty ),* $(,)? ) => {
-        $( impl $t { #[inline] pub const fn new() -> Self { Self } } )*
-    };
-}
-
-impl_new!(
-    Gblo, Target2, Asx, Auce, Cato, Defr, Nyse, Usny, Sifma, Brbd, Chzh, Cnbe, Sgsi, Sse, Hkhk,
-    Hkex, Jpto, Jpx, Cme
-);

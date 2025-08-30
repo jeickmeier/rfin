@@ -1,6 +1,7 @@
 //! FX Spot instrument implementation.
 
 use crate::traits::{CashflowProvider, Priceable, Attributes};
+use crate::impl_attributable;
 use crate::pricing::result::ValuationResult;
 use crate::metrics::MetricId;
 use finstack_core::prelude::*;

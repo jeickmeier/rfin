@@ -11,7 +11,7 @@ use smallvec::SmallVec;
 use time::{Date, Duration};
 
 use super::{adjust, BusinessDayConvention, HolidayCalendar};
-use crate::dates::holiday::rule::add_months;
+use crate::dates::utils::add_months;
 
 /// Small helper alias when we need to pre-buffer (used only for `ShortFront`).
 type Buffer = SmallVec<[Date; 32]>;
@@ -303,7 +303,7 @@ pub fn schedule(start: Date, end: Date, freq: Frequency) -> impl Iterator<Item =
 /// let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();  // Wed
 /// let end = Date::from_calendar_date(2025, Month::July, 1).unwrap();
 ///
-/// let cal = Target2::new();
+/// let cal = Target2;
 /// let dates: Vec<_> = ScheduleBuilder::new(start, end)
 ///     .frequency(Frequency::quarterly())
 ///     .adjust_with(BusinessDayConvention::Following, &cal)

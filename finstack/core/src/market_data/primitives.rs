@@ -118,7 +118,7 @@ impl ScalarTimeSeries {
 
     /// Retrieve value on a given date according to the selected interpolation.
     pub fn value_on(&self, date: Date) -> Result<crate::F> {
-        let days = date_to_days_since_epoch(date);
+        let days = crate::dates::utils::date_to_days_since_epoch(date);
         match self.interpolation {
             SeriesInterpolation::Step => self.step_interpolate(days),
             SeriesInterpolation::Linear => self.linear_interpolate(days),
@@ -180,10 +180,7 @@ impl ScalarTimeSeries {
     }
 }
 
-fn date_to_days_since_epoch(date: Date) -> i32 {
-    let epoch = time::Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
-    (date - epoch).whole_days() as i32
-}
+// (moved) helper centralized in crate::dates::utils
 
 #[cfg(test)]
 mod tests {

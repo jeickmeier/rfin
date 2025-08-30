@@ -95,8 +95,6 @@
 #[macro_use]
 pub mod macros;
 
-// Macros are available via #[macro_use]
-
 // Unified instrument handling with common operations
 pub mod unified;
 

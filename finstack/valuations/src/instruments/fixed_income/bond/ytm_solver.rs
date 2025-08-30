@@ -7,7 +7,7 @@ use finstack_core::{F, Result};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::math::newton_raphson::{newton_raphson_with_fallback, NewtonRaphsonConfig};
+use finstack_core::math::root_finding::newton_raphson;
 
 /// Configuration for YTM solver
 #[derive(Clone, Debug)]
@@ -105,21 +105,15 @@ impl YtmSolver {
         
         if self.config.use_newton {
             // Try Newton-Raphson with automatic fallback
-            let nr_config = NewtonRaphsonConfig {
-                tolerance: self.config.tolerance,
-                max_iterations: self.config.max_iterations,
-                auto_fallback: true,
-                ..Default::default()
-            };
-            
-            let result = newton_raphson_with_fallback(
-                price_fn,
-                price_derivative,
-                initial_guess,
-                &nr_config,
-            )?;
-            
-            Ok(result.root)
+            // Try standard Newton first; if it fails, fallback to Brent
+            match newton_raphson(price_fn, price_derivative, initial_guess, self.config.tolerance, self.config.max_iterations) {
+                Ok(root) => Ok(root),
+                Err(_) => {
+                    use finstack_core::math::root_finding::brent;
+                    let (a, b) = self.determine_bracket(&price_fn, initial_guess);
+                    brent(price_fn, a, b, self.config.tolerance, self.config.max_iterations)
+                }
+            }
         } else {
             // Direct to Brent's method
             use finstack_core::math::root_finding::brent;

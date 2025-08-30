@@ -1,11 +1,11 @@
-//! Inflation indices (CPI/RPI) using Polars DataFrames
+//! Inflation indices (CPI/RPI) – wrapper over ScalarTimeSeries with optional seasonality
 //!
-//! This module provides inflation index functionality using Polars DataFrames
-//! as the canonical time-series representation, replacing the ad-hoc IndexSeries type.
+//! This module wraps [`ScalarTimeSeries`] to provide an inflation index surface with
+//! lag handling and optional monthly seasonality, avoiding duplicate interpolation code.
 
 use crate::{Currency, Date, Error, Result};
 use polars::prelude::*;
-use time::Duration as TimeDuration;
+use crate::market_data::primitives::{ScalarTimeSeries, SeriesInterpolation};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -52,15 +52,16 @@ impl Default for InflationLag {
 pub struct InflationIndex {
     /// Unique identifier for this index (e.g., "US-CPI-U", "UK-RPI")
     pub id: String,
-    /// DataFrame containing index observations
-    /// Schema: date (Date), value (f64), seasonality (optional f64)
-    data: DataFrame,
+    /// Underlying time series providing interpolation and storage
+    series: ScalarTimeSeries,
     /// Interpolation method between observations
     pub interpolation: InflationInterpolation,
     /// Lag policy for index application
     pub lag: InflationLag,
     /// Currency of the index
     pub currency: Currency,
+    /// Optional monthly seasonality factors (index by month-1)
+    seasonality: Option<[f64; 12]>,
 }
 
 impl InflationIndex {
@@ -79,43 +80,16 @@ impl InflationIndex {
             return Err(Error::Input(crate::error::InputError::TooFewPoints));
         }
 
-        // Convert observations to Polars DataFrame
-        let mut dates: Vec<i32> = Vec::with_capacity(observations.len());
-        let mut values: Vec<f64> = Vec::with_capacity(observations.len());
-        
-        for (date, value) in observations {
-            // Convert Date to days since Unix epoch for Polars compatibility
-            let epoch = time::Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
-            let days = (date - epoch).whole_days() as i32;
-            dates.push(days);
-            values.push(value);
-        }
-
-        // Create DataFrame with date and value columns
-        let date_series = Series::new("date".into(), dates);
-        let value_series = Series::new("value".into(), values);
-        
-        let mut df = DataFrame::new(vec![date_series.into_column(), value_series.into_column()])
-            .map_err(|_| Error::Internal)?;
-        
-        // Sort by date to ensure proper ordering
-        let sort_options = SortMultipleOptions::default();
-        df = df.sort(["date"], sort_options)
-            .map_err(|_| Error::Internal)?;
-        
-        // Check for duplicate dates
-        let date_col = df.column("date").map_err(|_| Error::Internal)?;
-        let dates_series = date_col.as_series().ok_or(Error::Internal)?;
-        if dates_series.n_unique().map_err(|_| Error::Internal)? != dates_series.len() {
-            return Err(Error::Input(crate::error::InputError::NonMonotonicKnots));
-        }
+        // Use a placeholder internal id; external id is stored separately.
+        let series = ScalarTimeSeries::new("inflation-index", observations, Some(currency))?;
 
         Ok(Self {
             id: id.into(),
-            data: df,
+            series,
             interpolation: InflationInterpolation::default(),
             lag: InflationLag::default(),
             currency,
+            seasonality: None,
         })
     }
 
@@ -133,26 +107,7 @@ impl InflationIndex {
 
     /// Add seasonal adjustment factors (12 monthly factors)
     pub fn with_seasonality(mut self, factors: [f64; 12]) -> Result<Self> {
-        // Add seasonality column based on month
-        let date_col = self.data.column("date").map_err(|_| Error::Internal)?;
-        let date_values = date_col.i32().map_err(|_| Error::Internal)?;
-        
-        // Calculate month for each date and map to seasonal factor
-        let seasonal_values: Vec<f64> = date_values
-            .into_no_null_iter()
-            .map(|days| {
-                // Convert days since epoch back to Date to get month
-                let epoch = time::Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
-                let date = epoch + TimeDuration::days(days as i64);
-                let month_idx = (date.month() as usize) - 1;
-                factors[month_idx]
-            })
-            .collect();
-        
-        let seasonal_series = Series::new("seasonality".into(), seasonal_values);
-        self.data = self.data.with_column(seasonal_series.into_column())
-            .map_err(|_| Error::Internal)?.clone();
-        
+        self.seasonality = Some(factors);
         Ok(self)
     }
 
@@ -160,16 +115,16 @@ impl InflationIndex {
     pub fn value_on(&self, date: Date) -> Result<f64> {
         // Apply lag to get the effective date
         let effective_date = self.apply_lag(date)?;
-        let effective_days = date_to_days_since_epoch(effective_date);
-        
-        // Get base value using appropriate interpolation
-        let base_value = match self.interpolation {
-            InflationInterpolation::Step => self.step_interpolate(effective_days)?,
-            InflationInterpolation::Linear => self.linear_interpolate(effective_days)?,
+        // Set underlying series interpolation to match
+        let interp = match self.interpolation {
+            InflationInterpolation::Step => SeriesInterpolation::Step,
+            InflationInterpolation::Linear => SeriesInterpolation::Linear,
         };
-        
+        let series = self.series.clone().with_interpolation(interp);
+        let base_value = series.value_on(effective_date)?;
+
         // Apply seasonality if present
-        let adjusted_value = self.apply_seasonality(base_value, effective_days)?;
+        let adjusted_value = self.apply_seasonality(base_value, effective_date)?;
         
         Ok(adjusted_value)
     }
@@ -188,21 +143,21 @@ impl InflationIndex {
 
     /// Get the date range covered by observations
     pub fn date_range(&self) -> Result<(Date, Date)> {
-        let date_col = self.data.column("date").map_err(|_| Error::Internal)?;
+        let date_col = self.series.as_dataframe().column("date").map_err(|_| Error::Internal)?;
         let date_values = date_col.i32().map_err(|_| Error::Internal)?;
         
         let min_days = date_values.min().ok_or(Error::Internal)?;
         let max_days = date_values.max().ok_or(Error::Internal)?;
         
-        let start_date = days_since_epoch_to_date(min_days);
-        let end_date = days_since_epoch_to_date(max_days);
+        let start_date = crate::dates::utils::days_since_epoch_to_date(min_days);
+        let end_date = crate::dates::utils::days_since_epoch_to_date(max_days);
         
         Ok((start_date, end_date))
     }
 
     /// Get the underlying DataFrame (for advanced operations)
     pub fn as_dataframe(&self) -> &DataFrame {
-        &self.data
+        self.series.as_dataframe()
     }
 
     /// Create from an existing DataFrame
@@ -213,21 +168,23 @@ impl InflationIndex {
         data: DataFrame,
         currency: Currency,
     ) -> Result<Self> {
-        // Validate schema
+        // Validate schema and reconstruct observations
         let column_names = data.get_column_names();
         let has_date = column_names.iter().any(|name| name.as_str() == "date");
         let has_value = column_names.iter().any(|name| name.as_str() == "value");
         if !has_date || !has_value {
             return Err(Error::Input(crate::error::InputError::Invalid));
         }
-        
-        Ok(Self {
-            id: id.into(),
-            data,
-            interpolation: InflationInterpolation::default(),
-            lag: InflationLag::default(),
-            currency,
-        })
+
+        let dates = data.column("date").map_err(|_| Error::Internal)?.i32().map_err(|_| Error::Internal)?;
+        let values = data.column("value").map_err(|_| Error::Internal)?.f64().map_err(|_| Error::Internal)?;
+        let observations: Vec<(Date, f64)> = dates
+            .into_no_null_iter()
+            .zip(values.into_no_null_iter())
+            .map(|(d, v)| (crate::dates::utils::days_since_epoch_to_date(d), v))
+            .collect();
+
+        Self::new(id, observations, currency)
     }
 
     // Private helper methods
@@ -236,110 +193,27 @@ impl InflationIndex {
         match self.lag {
             InflationLag::None => Ok(date),
             InflationLag::Days(days) => {
-                date.checked_sub(TimeDuration::days(days as i64))
+                date.checked_sub(time::Duration::days(days as i64))
                     .ok_or(Error::Input(crate::error::InputError::InvalidDateRange))
             }
             InflationLag::Months(months) => {
-                // Proper month arithmetic
-                let mut year = date.year();
-                let mut month = date.month() as i32 - months as i32;
-                
-                while month <= 0 {
-                    month += 12;
-                    year -= 1;
-                }
-                
-                time::Date::from_calendar_date(
-                    year,
-                    time::Month::try_from(month as u8).unwrap(),
-                    date.day(),
-                ).map_err(|_| Error::Input(crate::error::InputError::InvalidDateRange))
+                // Proper month arithmetic using shared helper
+                Ok(crate::dates::utils::add_months(date, -(months as i32)))
             }
         }
     }
 
-    fn step_interpolate(&self, target_days: i32) -> Result<f64> {
-        // Use Polars' asof join semantics (last observation carried forward)
-        let date_col = self.data.column("date").map_err(|_| Error::Internal)?;
-        let value_col = self.data.column("value").map_err(|_| Error::Internal)?;
-        
-        let dates = date_col.i32().map_err(|_| Error::Internal)?;
-        let values = value_col.f64().map_err(|_| Error::Internal)?;
-        
-        // Binary search for the appropriate index
-        let date_vec: Vec<i32> = dates.into_no_null_iter().collect();
-        let value_vec: Vec<f64> = values.into_no_null_iter().collect();
-        
-        match date_vec.binary_search(&target_days) {
-            Ok(idx) => Ok(value_vec[idx]),
-            Err(idx) => {
-                if idx == 0 {
-                    // Before first observation
-                    Ok(value_vec[0])
-                } else {
-                    // Use previous value (step interpolation)
-                    Ok(value_vec[idx - 1])
-                }
-            }
-        }
-    }
-
-    fn linear_interpolate(&self, target_days: i32) -> Result<f64> {
-        let date_col = self.data.column("date").map_err(|_| Error::Internal)?;
-        let value_col = self.data.column("value").map_err(|_| Error::Internal)?;
-        
-        let dates = date_col.i32().map_err(|_| Error::Internal)?;
-        let values = value_col.f64().map_err(|_| Error::Internal)?;
-        
-        let date_vec: Vec<i32> = dates.into_no_null_iter().collect();
-        let value_vec: Vec<f64> = values.into_no_null_iter().collect();
-        
-        match date_vec.binary_search(&target_days) {
-            Ok(idx) => Ok(value_vec[idx]),
-            Err(idx) => {
-                if idx == 0 {
-                    Ok(value_vec[0])
-                } else if idx >= date_vec.len() {
-                    Ok(*value_vec.last().unwrap())
-                } else {
-                    // Linear interpolation between points
-                    let x0 = date_vec[idx - 1] as f64;
-                    let x1 = date_vec[idx] as f64;
-                    let y0 = value_vec[idx - 1];
-                    let y1 = value_vec[idx];
-                    
-                    let weight = (target_days as f64 - x0) / (x1 - x0);
-                    Ok(y0 + weight * (y1 - y0))
-                }
-            }
-        }
-    }
-
-    fn apply_seasonality(&self, base_value: f64, target_days: i32) -> Result<f64> {
-        if let Ok(_seasonality_col) = self.data.column("seasonality") {
-            // Find the seasonal factor for this date
-            let _date = days_since_epoch_to_date(target_days);
-            let _month_idx = (_date.month() as usize) - 1;
-            
-            // For simplicity, use the month index directly
-            // In production, might want to interpolate seasonal factors too
-            Ok(base_value)
+    fn apply_seasonality(&self, base_value: f64, date: Date) -> Result<f64> {
+        if let Some(factors) = &self.seasonality {
+            let month_idx = (date.month() as usize) - 1;
+            Ok(base_value * factors[month_idx])
         } else {
             Ok(base_value)
         }
     }
 }
 
-// Helper functions for date conversion
-fn date_to_days_since_epoch(date: Date) -> i32 {
-    let epoch = time::Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
-    (date - epoch).whole_days() as i32
-}
-
-fn days_since_epoch_to_date(days: i32) -> Date {
-    let epoch = time::Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
-    epoch + TimeDuration::days(days as i64)
-}
+// (moved) date conversion helpers are centralized in crate::dates::utils
 
 /// Builder for creating inflation indices from various sources
 pub struct InflationIndexBuilder {

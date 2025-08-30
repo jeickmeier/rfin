@@ -72,30 +72,45 @@ impl DayCount {
 }
 
 // -------------------------------------------------------------------------------------------------
-// 30U/360 (US Bond Basis) helper
+// 30/360 generalized helper
 // -------------------------------------------------------------------------------------------------
-/// Calculate days per 30U/360 US convention.
-fn days_30_360_us(start: Date, end: Date) -> i32 {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Thirty360Convention {
+    Us,
+    European,
+}
+
+#[inline]
+fn days_30_360(start: Date, end: Date, convention: Thirty360Convention) -> i32 {
     let (y1, m1, d1) = (start.year(), start.month() as i32, start.day() as i32);
     let (y2, m2, d2) = (end.year(), end.month() as i32, end.day() as i32);
 
     let d1_adj = if d1 == 31 { 30 } else { d1 };
-    let d2_adj = if d2 == 31 && d1_adj == 30 { 30 } else { d2 };
+    let d2_adj = match convention {
+        Thirty360Convention::Us => {
+            if d2 == 31 && d1_adj == 30 { 30 } else { d2 }
+        }
+        Thirty360Convention::European => {
+            if d2 == 31 { 30 } else { d2 }
+        }
+    };
 
     (y2 - y1) * 360 + (m2 - m1) * 30 + (d2_adj - d1_adj)
+}
+
+// -------------------------------------------------------------------------------------------------
+// 30U/360 (US Bond Basis) helper
+// -------------------------------------------------------------------------------------------------
+/// Calculate days per 30U/360 US convention.
+fn days_30_360_us(start: Date, end: Date) -> i32 {
+    days_30_360(start, end, Thirty360Convention::Us)
 }
 
 // -------------------------------------------------------------------------------------------------
 // 30E/360 European helper
 // -------------------------------------------------------------------------------------------------
 fn days_30e_360(start: Date, end: Date) -> i32 {
-    let (y1, m1, d1) = (start.year(), start.month() as i32, start.day() as i32);
-    let (y2, m2, d2) = (end.year(), end.month() as i32, end.day() as i32);
-
-    let d1_adj = if d1 == 31 { 30 } else { d1 };
-    let d2_adj = if d2 == 31 { 30 } else { d2 };
-
-    (y2 - y1) * 360 + (m2 - m1) * 30 + (d2_adj - d1_adj)
+    days_30_360(start, end, Thirty360Convention::European)
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -138,16 +153,11 @@ fn year_fraction_act_act_isda(start: Date, end: Date) -> f64 {
 
 #[inline]
 const fn days_in_year(year: i32) -> i32 {
-    if is_leap_year(year) {
+    if crate::dates::utils::is_leap_year(year) {
         366
     } else {
         365
     }
-}
-
-#[inline]
-const fn is_leap_year(year: i32) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
 }
 
 // -------------------------------------------------------------------------------------------------

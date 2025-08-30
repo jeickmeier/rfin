@@ -11,7 +11,7 @@ use finstack_core::market_data::inflation_index::{InflationIndex, InflationLag};
 use finstack_core::money::Money;
 
 use finstack_core::dates::{Date, DayCount, Frequency, BusinessDayConvention, StubKind};
-use hashbrown::HashMap;
+use crate::impl_attributable;
 
 pub mod metrics;
 
@@ -325,19 +325,15 @@ impl Priceable for InflationLinkedBond {
         
         // Get registry and compute requested metrics
         let registry = standard_registry();
-        let metric_measures = registry.compute(metrics, &mut context)?;
+        let _metric_measures = registry.compute(metrics, &mut context)?;
         
-        // Convert MetricId keys to String keys for ValuationResult
-        let measures: HashMap<String, F> = metric_measures
-            .into_iter()
-            .map(|(k, v)| (k.as_str().to_string(), v))
-            .collect();
-        
-        // Create result
-        let mut result = ValuationResult::stamped(self.id.clone(), as_of, base_value);
-        result.measures = measures;
-        
-        Ok(result)
+        crate::pricing::build_with_metrics(
+            crate::instruments::Instrument::ILB(self.clone()),
+            curves,
+            as_of,
+            base_value,
+            metrics,
+        )
     }
     
     /// Compute full valuation with all standard ILB metrics

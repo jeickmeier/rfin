@@ -5,6 +5,7 @@ pub mod metrics;
 use finstack_core::prelude::*;
 use finstack_core::F;
 use finstack_core::dates::{Frequency, BusinessDayConvention, StubKind};
+use crate::impl_attributable;
 use finstack_core::dates::holiday::calendars::calendar_by_id;
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::market_data::traits::{Discount, Forward};
@@ -187,35 +188,27 @@ impl Priceable for InterestRateSwap {
         metrics: &[crate::metrics::MetricId]
     ) -> finstack_core::Result<ValuationResult> {
         use crate::instruments::Instrument;
-        use crate::metrics::{MetricContext, standard_registry};
+        use crate::metrics::MetricContext;
         use std::sync::Arc;
         
         // Compute base value
         let base_value = self.value(curves, as_of)?;
         
         // Create metric context
-        let mut context = MetricContext::new(
+        let _context = MetricContext::new(
             Arc::new(Instrument::IRS(self.clone())),
             Arc::new(curves.clone()),
             as_of,
             base_value,
         );
         
-        // Get registry and compute requested metrics
-        let registry = standard_registry();
-        let metric_measures = registry.compute(metrics, &mut context)?;
-        
-        // Convert MetricId keys to String keys for ValuationResult
-        let measures: hashbrown::HashMap<String, finstack_core::F> = metric_measures
-            .into_iter()
-            .map(|(k, v)| (k.as_str().to_string(), v))
-            .collect();
-        
-        // Create result
-        let mut result = ValuationResult::stamped(self.id.clone(), as_of, base_value);
-        result.measures = measures;
-        
-        Ok(result)
+        crate::pricing::build_with_metrics(
+            crate::instruments::Instrument::IRS(self.clone()),
+            curves,
+            as_of,
+            base_value,
+            metrics,
+        )
     }
     
     /// Compute full valuation with all standard IRS metrics (backward compatible).

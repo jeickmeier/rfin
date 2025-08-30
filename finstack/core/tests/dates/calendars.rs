@@ -23,7 +23,7 @@ macro_rules! assert_holidays_exact {
 
 #[test]
 fn usny_2024_2025() {
-    let cal = Usny::new();
+    let cal = Usny;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,1,15), (2024,2,19), (2024,5,27), (2024,6,19),
         (2024,7,4), (2024,9,2), (2024,10,14), (2024,11,11), (2024,11,28), (2024,12,25)
@@ -36,7 +36,7 @@ fn usny_2024_2025() {
 
 #[test]
 fn target2_2024_2025() {
-    let cal = Target2::default();
+    let cal = Target2;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1),
         (2024,3,29), // Good Fri
@@ -57,7 +57,7 @@ fn target2_2024_2025() {
 
 #[test]
 fn defr_2024_2025() {
-    let cal = Defr::default();
+    let cal = Defr;
     // Same date set as TARGET2 plus May1
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,3,29), (2024,4,1), (2024,5,1), (2024,12,25), (2024,12,26)
@@ -69,7 +69,7 @@ fn defr_2024_2025() {
 
 #[test]
 fn nyse_2024_2025() {
-    let cal = Nyse::default();
+    let cal = Nyse;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,1,15), (2024,2,19), (2024,3,29), (2024,5,27),
         (2024,6,19), (2024,7,4), (2024,9,2), (2024,11,28), (2024,12,25)
@@ -82,7 +82,7 @@ fn nyse_2024_2025() {
 
 #[test]
 fn cme_2024_2025() {
-    let cal = Cme::default();
+    let cal = Cme;
     // CME mirrors NYSE
     nyse_2024_2025(); // will panic if mismatched; reuse
     // Additional direct check: ensure Good Friday 2024 is holiday
@@ -91,7 +91,7 @@ fn cme_2024_2025() {
 
 #[test]
 fn sifma_2024_2025() {
-    let cal = Sifma::default();
+    let cal = Sifma;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,1,15), (2024,2,19), (2024,3,29), (2024,5,27),
         (2024,6,19), (2024,7,4), (2024,9,2), (2024,10,14), (2024,11,11),
@@ -106,7 +106,7 @@ fn sifma_2024_2025() {
 
 #[test]
 fn cato_2024_2025() {
-    let cal = Cato::default();
+    let cal = Cato;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,2,19), (2024,3,29), (2024,5,20), (2024,7,1),
         (2024,8,5), (2024,9,2), (2024,9,30), (2024,10,14), (2024,11,11),
@@ -121,7 +121,7 @@ fn cato_2024_2025() {
 
 #[test]
 fn gblo_2024_2025() {
-    let cal = Gblo::default();
+    let cal = Gblo;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,3,29), (2024,4,1), (2024,5,6), (2024,5,27),
         (2024,8,26), (2024,12,25), (2024,12,26)
@@ -134,7 +134,7 @@ fn gblo_2024_2025() {
 
 #[test]
 fn asx_2024_2025() {
-    let cal = Asx::default();
+    let cal = Asx;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,1,29), (2024,3,29), (2024,4,1), (2024,4,25),
         (2024,12,25), (2024,12,26)
@@ -147,7 +147,7 @@ fn asx_2024_2025() {
 
 #[test]
 fn brbd_2024_2025() {
-    let cal = Brbd::default();
+    let cal = Brbd;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,2,12), (2024,2,13), (2024,3,29), (2024,5,1),
         (2024,5,30), (2024,11,15), (2024,11,20), (2024,12,25)
@@ -160,7 +160,7 @@ fn brbd_2024_2025() {
 
 #[test]
 fn auce_2024_2025() {
-    let cal = Auce::default();
+    let cal = Auce;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,1,29), (2024,3,29), (2024,4,1), (2024,4,25),
         (2024,6,10), (2024,8,5), (2024,10,7), (2024,12,25), (2024,12,26)
@@ -173,7 +173,7 @@ fn auce_2024_2025() {
 
 #[test]
 fn chzh_2024_2025() {
-    let cal = Chzh::default();
+    let cal = Chzh;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,1,2), (2024,3,29), (2024,4,1), (2024,5,1),
         (2024,5,9), (2024,5,20), (2024,8,1), (2024,12,25), (2024,12,26)
@@ -186,7 +186,7 @@ fn chzh_2024_2025() {
 
 #[test]
 fn sgsi_2024_2025() {
-    let cal = Sgsi::default();
+    let cal = Sgsi;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,2,10), (2024,2,11), (2024,3,29), (2024,5,1),
         (2024,8,9), (2024,12,25)
@@ -199,7 +199,7 @@ fn sgsi_2024_2025() {
 
 #[test]
 fn cnbe_2024_2025() {
-    let cal = Cnbe::default();
+    let cal = Cnbe;
     // 2024 holiday dates per approx block implementation
     assert_holidays_exact!(cal, 2024, [
         // New Year block
@@ -231,7 +231,7 @@ fn cnbe_2024_2025() {
 
 #[test]
 fn sse_2024_2025() {
-    let cal = Sse::default();
+    let cal = Sse;
     // Should match CNBE exactly
     cnbe_2024_2025();
     // Spot check one date
@@ -240,7 +240,7 @@ fn sse_2024_2025() {
 
 // #[test]
 // fn jpto_2024_2025() {
-//     let cal = Jpto::default();
+//     let cal = Jpto;
 //     assert_holidays_exact!(cal, 2024, [
 //         (2024,1,1),(2024,1,2),(2024,1,3),(2024,1,8),
 //         (2024,2,12),(2024,2,23),(2024,3,20),(2024,4,29),
@@ -259,7 +259,7 @@ fn sse_2024_2025() {
 
 // #[test]
 // fn jpx_2024_2025() {
-//     let cal = Jpx::default();
+//     let cal = Jpx;
 //     // Use JPTO list plus 31-Dec
 //     // 2024
 //     assert_holidays_exact!(cal, 2024, [
@@ -281,7 +281,7 @@ fn sse_2024_2025() {
 
 #[test]
 fn hkhk_2024_2025() {
-    let cal = Hkhk::default();
+    let cal = Hkhk;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,2,10), (2024,2,11), (2024,2,12), (2024,4,4),
         (2024,5,1), (2024,5,15), (2024,7,1), (2024,10,1), (2024,12,25), (2024,12,26)
@@ -294,7 +294,7 @@ fn hkhk_2024_2025() {
 
 #[test]
 fn hkex_2024_2025() {
-    let cal = Hkex::default();
+    let cal = Hkex;
     // HKEX mirrors HKHK
     hkhk_2024_2025();
     // spot check

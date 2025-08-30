@@ -13,7 +13,7 @@ use finstack_core::market_data::term_structures::credit_curve::CreditCurve;
 use finstack_core::market_data::traits::Discount;
 use finstack_core::money::Money;
 use finstack_core::dates::{Date, DayCount, BusinessDayConvention, Frequency, StubKind};
-use hashbrown::HashMap;
+use crate::impl_attributable;
 
 pub mod metrics;
 pub mod enhanced;
@@ -362,35 +362,27 @@ impl Priceable for CreditDefaultSwap {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<ValuationResult> {
         use crate::instruments::Instrument;
-        use crate::metrics::{MetricContext, standard_registry};
+        use crate::metrics::MetricContext;
         use std::sync::Arc;
         
         // Compute base value
         let base_value = self.value(curves, as_of)?;
         
         // Create metric context
-        let mut context = MetricContext::new(
+        let _context = MetricContext::new(
             Arc::new(Instrument::CDS(self.clone())),
             Arc::new(curves.clone()),
             as_of,
             base_value,
         );
         
-        // Get registry and compute requested metrics
-        let registry = standard_registry();
-        let metric_measures = registry.compute(metrics, &mut context)?;
-        
-        // Convert MetricId keys to String keys for ValuationResult
-        let measures: HashMap<String, F> = metric_measures
-            .into_iter()
-            .map(|(k, v)| (k.as_str().to_string(), v))
-            .collect();
-        
-        // Create result
-        let mut result = ValuationResult::stamped(self.id.clone(), as_of, base_value);
-        result.measures = measures;
-        
-        Ok(result)
+        crate::pricing::build_with_metrics(
+            Instrument::CDS(self.clone()),
+            curves,
+            as_of,
+            base_value,
+            metrics,
+        )
     }
 
     /// Compute full valuation with all standard CDS metrics

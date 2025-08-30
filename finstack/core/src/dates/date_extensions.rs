@@ -41,7 +41,7 @@ pub trait DateExt {
     /// use finstack_core::dates::calendars::Gblo;
     /// use time::Date;
     ///
-    /// let cal = Gblo::new();
+    /// let cal = Gblo;
     /// let d = Date::from_calendar_date(2025, time::Month::March, 14).unwrap();
     /// assert!(d.is_business_day(&cal));
     /// ```

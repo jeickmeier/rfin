@@ -30,30 +30,30 @@ fn test_unknown_calendar_id() {
 #[test]
 fn test_calendar_id_methods() {
     // Test that each calendar type's id() method returns the correct string
-    assert_eq!(Gblo::new().id(), "gblo");
-    assert_eq!(Target2::new().id(), "target2");
-    assert_eq!(Asx::new().id(), "asx");
-    assert_eq!(Auce::new().id(), "auce");
-    assert_eq!(Cato::new().id(), "cato");
-    assert_eq!(Defr::new().id(), "defr");
-    assert_eq!(Nyse::new().id(), "nyse");
-    assert_eq!(Usny::new().id(), "usny");
-    assert_eq!(Sifma::new().id(), "sifma");
-    assert_eq!(Brbd::new().id(), "brbd");
-    assert_eq!(Chzh::new().id(), "chzh");
-    assert_eq!(Cnbe::new().id(), "cnbe");
-    assert_eq!(Sgsi::new().id(), "sgsi");
-    assert_eq!(Sse::new().id(), "sse");
-    assert_eq!(Hkhk::new().id(), "hkhk");
-    assert_eq!(Hkex::new().id(), "hkex");
-    assert_eq!(Jpto::new().id(), "jpto");
-    assert_eq!(Jpx::new().id(), "jpx");
-    assert_eq!(Cme::new().id(), "cme");
+    assert_eq!(Gblo.id(), "gblo");
+    assert_eq!(Target2.id(), "target2");
+    assert_eq!(Asx.id(), "asx");
+    assert_eq!(Auce.id(), "auce");
+    assert_eq!(Cato.id(), "cato");
+    assert_eq!(Defr.id(), "defr");
+    assert_eq!(Nyse.id(), "nyse");
+    assert_eq!(Usny.id(), "usny");
+    assert_eq!(Sifma.id(), "sifma");
+    assert_eq!(Brbd.id(), "brbd");
+    assert_eq!(Chzh.id(), "chzh");
+    assert_eq!(Cnbe.id(), "cnbe");
+    assert_eq!(Sgsi.id(), "sgsi");
+    assert_eq!(Sse.id(), "sse");
+    assert_eq!(Hkhk.id(), "hkhk");
+    assert_eq!(Hkex.id(), "hkex");
+    assert_eq!(Jpto.id(), "jpto");
+    assert_eq!(Jpx.id(), "jpx");
+    assert_eq!(Cme.id(), "cme");
 }
 
 #[test]
 fn test_gblo_known_holidays() {
-    let cal = Gblo::new();
+    let cal = Gblo;
     
     // Test some known UK holidays in 2025
     // New Year's Day 2025 (January 1) - Wednesday
@@ -71,7 +71,7 @@ fn test_gblo_known_holidays() {
 
 #[test]
 fn test_target2_known_holidays() {
-    let cal = Target2::new();
+    let cal = Target2;
     
     // Test some known TARGET2 holidays in 2025
     // New Year's Day 2025 (January 1) - Wednesday
@@ -86,7 +86,7 @@ fn test_target2_known_holidays() {
 
 #[test]
 fn test_nyse_known_holidays() {
-    let cal = Nyse::new();
+    let cal = Nyse;
     
     // Test some known NYSE holidays in 2025
     // New Year's Day 2025 (January 1) - Wednesday
@@ -102,7 +102,7 @@ fn test_nyse_known_holidays() {
 #[test]
 fn test_calendar_weekend_behavior() {
     // Test that all calendars properly handle weekends via the trait default
-    let cal = Gblo::new();
+    let cal = Gblo;
     
     // Saturday and Sunday should not be business days
     assert!(!cal.is_business_day(make_date(2025, 6, 21))); // Saturday
@@ -115,23 +115,23 @@ fn test_calendar_weekend_behavior() {
 #[test]
 fn test_all_calendar_constructors() {
     // Test that all calendar types can be constructed without panicking
-    let _gblo = Gblo::new();
-    let _target2 = Target2::new();
-    let _asx = Asx::new();
-    let _auce = Auce::new();
-    let _cato = Cato::new();
-    let _defr = Defr::new();
-    let _nyse = Nyse::new();
-    let _usny = Usny::new();
-    let _sifma = Sifma::new();
-    let _brbd = Brbd::new();
-    let _chzh = Chzh::new();
-    let _cnbe = Cnbe::new();
-    let _sgsi = Sgsi::new();
-    let _sse = Sse::new();
-    let _hkhk = Hkhk::new();
-    let _hkex = Hkex::new();
-    let _jpto = Jpto::new();
-    let _jpx = Jpx::new();
-    let _cme = Cme::new();
+    let _gblo = Gblo;
+    let _target2 = Target2;
+    let _asx = Asx;
+    let _auce = Auce;
+    let _cato = Cato;
+    let _defr = Defr;
+    let _nyse = Nyse;
+    let _usny = Usny;
+    let _sifma = Sifma;
+    let _brbd = Brbd;
+    let _chzh = Chzh;
+    let _cnbe = Cnbe;
+    let _sgsi = Sgsi;
+    let _sse = Sse;
+    let _hkhk = Hkhk;
+    let _hkex = Hkex;
+    let _jpto = Jpto;
+    let _jpx = Jpx;
+    let _cme = Cme;
 }
