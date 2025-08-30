@@ -186,7 +186,7 @@ impl InflationLinkedBond {
     ) -> finstack_core::Result<F> {
         // Apply lag to get reference date
         let reference_date = match self.lag {
-            InflationLag::Months(m) => date - time::Duration::days((m as i64) * 30),
+            InflationLag::Months(m) => finstack_core::dates::add_months(date, -(m as i32)),
             InflationLag::Days(d) => date - time::Duration::days(d as i64),
             InflationLag::None => date,
         };

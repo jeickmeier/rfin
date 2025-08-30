@@ -3,7 +3,7 @@
 //! Provides the canonical `CashFlowSchedule` type and helpers for sorting and
 //! deriving schedule metadata. Downstream pricing/risk code consumes this shape.
 
-use crate::cashflow::amortization_notional::Notional;
+use crate::cashflow::primitives::Notional;
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
@@ -105,7 +105,7 @@ impl CashFlowSchedule {
     /// use finstack_core::money::Money;
     /// use finstack_valuations::cashflow::builder::schedule::{CashFlowSchedule, CashflowMeta};
     /// use finstack_valuations::cashflow::primitives::{CashFlow, CFKind};
-    /// use finstack_valuations::cashflow::amortization_notional::Notional;
+    /// use finstack_valuations::cashflow::primitives::Notional;
     /// use time::Month;
     ///
     /// let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();

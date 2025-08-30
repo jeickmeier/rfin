@@ -2,7 +2,7 @@
 
 use super::covenants::Covenant;
 use super::prepayment::PrepaymentSchedule;
-use crate::cashflow::amortization_notional::AmortizationSpec;
+use crate::cashflow::primitives::AmortizationSpec;
 use crate::cashflow::builder::{cf, CouponType, FeeSpec, FixedCouponSpec, FloatingCouponSpec};
 use crate::impl_attributable;
 use crate::metrics::MetricId;

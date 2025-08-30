@@ -19,7 +19,7 @@ use crate::traits::{
 use finstack_core::dates::{BusinessDayConvention, StubKind};
 
 // Re-export for compatibility in tests and external users referencing bond::AmortizationSpec
-pub use crate::cashflow::amortization_notional::AmortizationSpec;
+pub use crate::cashflow::primitives::AmortizationSpec;
 pub use builder::BondBuilder;
 
 /// Fixed-rate bond instrument with optional features.

@@ -15,9 +15,8 @@ use finstack_core::{
     money::Money,
 };
 use finstack_valuations::cashflow::{
-    amortization_notional::AmortizationSpec,
     builder::{cf, CashFlowSchedule, CouponType, FixedCouponSpec},
-    primitives::{CFKind, CashFlow as CoreCashFlow},
+    primitives::{AmortizationSpec, CFKind, CashFlow as CoreCashFlow},
 };
 use pyo3::prelude::*;
 use pyo3::types::PyDict;

@@ -31,8 +31,8 @@
 //! ```
 
 use super::schedule::{finalize_flows, CashFlowSchedule};
-use crate::cashflow::amortization_notional::AmortizationSpec;
-use crate::cashflow::amortization_notional::Notional;
+use crate::cashflow::primitives::AmortizationSpec;
+use crate::cashflow::primitives::Notional;
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::adjust;

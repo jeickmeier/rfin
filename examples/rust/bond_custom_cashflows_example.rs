@@ -9,7 +9,7 @@ use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::money::Money;
 
-use finstack_valuations::cashflow::amortization_notional::AmortizationSpec;
+use finstack_valuations::cashflow::primitives::AmortizationSpec;
 use finstack_valuations::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::traits::{CashflowProvider, Priceable};

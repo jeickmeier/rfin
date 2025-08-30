@@ -33,7 +33,7 @@ impl MetricCalculator for AnnuityCalculator {
         let disc = context.curves.discount(irs.fixed.disc_id)?;
         let base = disc.base_date();
 
-        // Build fixed leg schedule
+        // Build fixed leg schedule dates using the canonical helper
         let sched = crate::cashflow::builder::build_dates(
             irs.fixed.start,
             irs.fixed.end,
@@ -42,22 +42,19 @@ impl MetricCalculator for AnnuityCalculator {
             irs.fixed.bdc,
             irs.fixed.calendar_id,
         );
-        let schedule: Vec<Date> = sched.dates;
-
-        if schedule.len() < 2 {
+        let dates: Vec<Date> = sched.dates;
+        if dates.len() < 2 {
             return Ok(0.0);
         }
 
-        // Compute annuity as sum(yf * df)
         let mut annuity = 0.0;
-        let mut prev = schedule[0];
-        for &d in &schedule[1..] {
+        let mut prev = dates[0];
+        for &d in &dates[1..] {
             let yf = DiscountCurve::year_fraction(prev, d, irs.fixed.dc);
             let df = DiscountCurve::df_on(&*disc, base, d, irs.fixed.dc);
             annuity += yf * df;
             prev = d;
         }
-
         Ok(annuity)
     }
 }

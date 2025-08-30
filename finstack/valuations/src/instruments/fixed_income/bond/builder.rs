@@ -1,7 +1,7 @@
 //! Bond builder for flexible construction.
 
 use super::{Bond, CallPutSchedule};
-use crate::cashflow::amortization_notional::AmortizationSpec;
+use crate::cashflow::primitives::AmortizationSpec;
 use crate::cashflow::builder::CashFlowSchedule;
 use finstack_core::prelude::*;
 use finstack_core::F;

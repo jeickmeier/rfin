@@ -2,7 +2,7 @@
 
 use super::covenants::Covenant;
 use super::term_loan::InterestSpec;
-use crate::cashflow::amortization_notional::AmortizationSpec;
+use crate::cashflow::primitives::AmortizationSpec;
 use crate::cashflow::builder::{cf, CouponType, FeeBase, FeeSpec, FixedCouponSpec};
 use crate::pricing::discountable::Discountable;
 use crate::pricing::result::ValuationResult;

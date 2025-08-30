@@ -56,8 +56,6 @@ finstack/
 │  │  ├─ performance/       # XIRR implementations
 │  │  ├─ aggregation/       # Period-based aggregation
 │  │  ├─ covenants/         # Covenant types, evaluator, and consequence application
-│  │  ├─ workout/           # Workout/default state machine and recovery flows
-│  │  ├─ policy/            # Deterministic policies via function registry (grids, fallbacks)
 │  │  ├─ formulas/          # Valuation-specific formulas
 │  │  ├─ real_estate/
 │  │  │  ├─ property/        # Property CF engine (rent roll/opex/taxes/capex/reserves)
@@ -1436,7 +1434,7 @@ pub enum CovenantConsequence {
     DistributionBlock,
     /// Require additional collateral (metadata only; affects LTV/analysis)
     AdditionalCollateral { description: String },
-    /// Default path (handover to workout state machine)
+    /// Default path
     Default,
 }
 
@@ -1482,7 +1480,6 @@ impl CovenantEngine {
         // - CashSweepPct: add mandatory principal prepay flows tagged `cash_sweep`
         // - DistributionBlock: suppress distribution/dividend flows
         // - AdditionalCollateral: metadata only
-        // - Default: trigger workout state machine (see §7.6)
     }
 }
 ```
@@ -1604,52 +1601,6 @@ Integration:
 - `InterestType::Floating` uses `IndexFallbackSpec` when index fixings are unavailable; floors/caps apply after fallback resolution.
 - Fallback decisions are stamped in `ValuationResult.meta` notes.
 
-### 7.6 Workout/Default State Machine
-
-Deterministic workflow for non‑performing loans.
-
-```rust
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum WorkoutState {
-    Performing,
-    NonPerforming,   // missed payment or uncured covenant default
-    Standstill,      // payment standstill period
-    Restructuring,   // modified terms
-    Defaulted,       // acceleration
-    Recovery,        // recovery cashflows scheduled
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct WorkoutPolicy {
-    pub penalty_rate_bp: Bps,
-    pub standstill_days: i32,
-    pub expected_recovery_rate: Decimal,  // fraction of outstanding
-    pub expected_recovery_date: time::Date,
-}
-
-pub struct WorkoutEngine;
-
-impl WorkoutEngine {
-    pub fn transition(
-        current: WorkoutState,
-        trigger: &str,
-    ) -> WorkoutState { /* table‑driven */ }
-
-    pub fn apply(
-        state: WorkoutState,
-        policy: &WorkoutPolicy,
-        schedule: &mut CashflowSchedule,
-    ) {
-        // Emit penalty interest flows when applicable, suppress regular coupons under standstill,
-        // add recovery cashflow using CashflowType::Protection at expected_recovery_date.
-    }
-}
-```
-
-Notes:
-
-- All workout/protection flows are emitted with explicit `CashflowType::Protection` or `Custom("workout")` and the correct currency to keep currency‑safe aggregation.
-
 ### 7.7 Scenario Hooks (Selectors, Threshold Shocks, Enforcement Toggles)
 
 Expose knobs via the scenarios DSL using attribute selectors (see scenarios §2.6):
@@ -1691,7 +1642,7 @@ pub struct ValuationResult {
 Stamping policy in `meta`:
 
 - Continue to stamp `meta.fx_policies["valuations"]` as specified in core/overall docs.
-- Covenant enforcement status and workout state are conveyed via `ValuationResult.covenants` content and instrument `Attributes`/tags; no change to `ResultsMeta` shape is required.
+- Covenant enforcement status are conveyed via `ValuationResult.covenants` content and instrument `Attributes`/tags; no change to `ResultsMeta` shape is required.
 
 ---
 
@@ -2017,7 +1968,6 @@ pub use pricing::{ValuationResult, npv, npv_with_credit};
 // Covenants & policies
 pub use covenants::{CovenantSpec, CovenantTestSpec, CovenantWindows, CovenantConsequence, CovenantReport, CovenantEngine};
 pub use policy::{GridMarginSpec, GridBucket, IndexFallbackSpec};
-pub use workout::{WorkoutState, WorkoutPolicy, WorkoutEngine};
 
 // Performance
 pub use performance::{xirr};
@@ -2365,11 +2315,8 @@ fn value_portfolio(
  - [ ] Covenant engine evaluates leverage/ICR/FCCR/DSCR/asset coverage per period using statements
  - [ ] Cure/grace windows modeled; breach detection and windowing deterministic and snapshot-tested
  - [ ] Consequences applied prospectively to pricing/schedules: rate step-ups, cash sweeps, distribution blocks
- - [ ] Default path hands off to workout state machine; workout emits penalty and recovery flows correctly
  - [ ] ValuationResult exposes `covenants` per instrument; portfolio analytics aggregate statuses
  - [ ] Scenario hooks: selectors can toggle enforcement, shock thresholds, and edit grid margins deterministically
- - [ ] Grid margin policy implemented via registry (`grid_margin`) and parity-checked across Rust/Python/WASM
- - [ ] Index fallback policy implemented via registry; floors/caps honored after fallback
  - [ ] DDTL instrument: commitment/ticking fees, draw conditions, expiry, and post-draw accruals
 
  - [ ] Real Estate: PropertyAsset generates rent/opex/taxes/reserve flows with CPI indexation and renewal expectations; NOI measure validated against golden models

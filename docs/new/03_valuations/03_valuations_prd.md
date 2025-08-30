@@ -12,7 +12,7 @@ Valuations is the quantitative finance engine for finstack. It turns instruments
 
 Key outcomes:
 - **Accurate pricing and risk** with market‑standard conventions and multi‑curve discounting.
-- **Private credit readiness**: cash/PIK/toggle interest, fees, amortization, call/prepayment logic, covenants, and workout flows.
+- **Private credit readiness**: cash/PIK/toggle interest, fees, amortization, call/prepayment logic, covenants.
 - **Real estate underwriting**: property cash flows, construction loans (interest reserve, capitalization, term conversion), and a deterministic equity waterfall with auditable ledgers.
 - **Deterministic, auditable results**: explicit FX policies and rounding context stamped in outputs.
 - **Analytics at scale**: currency‑preserving cashflow tags/rollups and DataFrame‑ready long‑format exports.
@@ -25,9 +25,8 @@ Goals:
 - Provide a coherent instrument library spanning fixed income, derivatives, options, equities, and private credit.
 - Deliver pricing, yield, spread, and risk measures that match desk expectations and vendor benchmarks.
 - Generate tagged cash flows suitable for period aggregation and portfolio analysis, with currency safety.
-- Support private credit workflows: covenants, enforcement toggles, rate step‑ups, cash sweeps, and workout/recovery.
-- Expose deterministic “policy hooks” (e.g., grid margins, index fallbacks) with stable schemas across bindings.
-- Support real‑estate underwriting: property cash flows, construction loans, and a deterministic equity waterfall.
+- Support private credit workflows: covenants, enforcement toggles, rate step‑ups, cash sweeps.
+- Support real‑estate underwriting: construction loans, and a deterministic equity waterfall.
 
 Non‑Goals:
 - Portfolio aggregation and reporting (lives in `portfolio`).
@@ -52,7 +51,7 @@ Non‑Goals:
 - **Price instruments** using discount/forward/credit/vol data; compute yields and spreads, including YTW.
 - **Generate and tag cash flows** (interest, principal, fees, workout), then **aggregate by period** without losing currency identity.
 - **Measure risk** (DV01/CS01/duration/convexity; Greeks for options) with bucketed reports.
-- **Private credit workflows:** model PIK/cash/toggle structures, amortization and fees, call/prepayment, covenants, and workout/recovery.
+- **Private credit workflows:** model PIK/cash/toggle structures, amortization and fees, call/prepayment, covenants.
 - **Performance metrics:** compute XIRR for deals and portfolios.
 - **Scenario knobs:** deterministically toggle enforcement, shock thresholds, and change pricing grid margins via selectors.
 
@@ -66,7 +65,7 @@ In‑Scope:
 - Risk outputs: DV01/CS01, duration, convexity, and option Greeks.
 - Cashflow engine: deterministic schedules, tagging, and currency‑preserving period aggregation.
 - Market data use: OIS discounting, projection curves for floating legs, credit curves, vol surfaces, inflation indices, and explicit IBOR→RFR fallbacks.
-- Private credit: fees (origination/commitment/utilization/amendment/exit/prepayment), grids for margins, covenants, and workout state machine.
+- Private credit: fees (origination/commitment/utilization/amendment/exit/prepayment), grids for margins, covenants.
 - Real estate: property cash flows (rent roll, opex, taxes, capex/reserves), construction loans (commitment/draws, interest reserve, capitalization, conversion to term), and a deterministic equity waterfall engine.
 
 Out‑of‑Scope (now):
@@ -110,8 +109,7 @@ Out‑of‑Scope (now):
 
 ### 6.6 Private Credit: Covenants & Workout
 - Evaluate common ratio tests (leverage, interest coverage, fixed‑charge coverage, asset coverage) per period.
-- Apply consequences prospectively when breaches are uncured (rate step‑ups, cash sweeps, distribution blocks, default → workout).
-- Model workout state machine: standstill, restructuring, default, recovery; emit penalty and recovery flows.
+- Apply consequences prospectively when breaches are uncured (rate step‑ups, cash sweeps, distribution blocks).
 
 ### 6.7 Scenarios & Attributes
 - Instruments expose attributes/tags to enable selector‑based scenarios (e.g., rating, sector, seniority).
@@ -171,9 +169,8 @@ Out‑of‑Scope (now):
 - Yields & quotes: clean/dirty/accrued and YTW calculations match street conventions, including tie‑break rules.
 - Risk measures (DV01/CS01/duration/convexity) and option Greeks align with market standards.
 - Scenario selectors can toggle covenant enforcement, shift thresholds, and update grid margin buckets deterministically.
-- Covenant engine evaluates ratio tests per period with grace/cure windows and applies consequences prospectively; workout flows are emitted correctly.
+- Covenant engine evaluates ratio tests per period with grace/cure windows and applies consequences prospectively.
 - Outputs include numeric mode, rounding context, and FX policy when used; long‑format exports work in Python/WASM.
-- Deterministic policy hooks (grid margins, index fallbacks, FX policies) behave identically across Rust/Python/WASM.
 - Performance targets met for reference workloads; CI covers unit/property/parity tests on core pricing logic.
 - Real estate: Property cash flows compute rent, opex/taxes, and reserves correctly with indexation and policies; Construction loans accrue interest/reserve and convert to term as specified; Equity waterfall allocations match Excel/golden models within tolerance and produce an auditable ledger.
 

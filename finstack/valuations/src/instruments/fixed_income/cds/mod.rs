@@ -222,104 +222,48 @@ impl CreditDefaultSwap {
         Ok(flows)
     }
 
-    /// Calculate premium leg PV
+    /// Calculate premium leg PV (delegates to enhanced pricer)
     pub fn pv_premium_leg(
         &self,
         disc: &dyn Discount,
         surv: &CreditCurve,
     ) -> finstack_core::Result<Money> {
-        let flows = self.build_premium_schedule(&CurveSet::default(), disc.base_date())?;
-
-        // Calculate risky PV by adjusting for survival probability
-        let mut pv = Money::new(0.0, self.notional.currency());
-
-        for (pay_date, amount) in flows.iter() {
-            let t = self.premium.dc.year_fraction(disc.base_date(), *pay_date)?;
-            let df = disc.df(t);
-            let surv_prob = survival_probability(surv, t)?;
-            pv = (pv + *amount * (df * surv_prob))?;
-        }
-
-        Ok(pv)
+        let pricer = enhanced::EnhancedCDSPricer::new();
+        let as_of = disc.base_date();
+        pricer.pv_premium_leg(self, disc, surv, as_of)
     }
 
-    /// Calculate protection leg PV
+    /// Calculate protection leg PV (delegates to enhanced pricer)
     pub fn pv_protection_leg(
         &self,
         disc: &dyn Discount,
         credit: &CreditCurve,
     ) -> finstack_core::Result<Money> {
-        // Protection payment = Notional * (1 - Recovery) * Default Probability
-        let lgd = 1.0 - self.protection.recovery_rate; // Loss given default
-
-        // Discretize protection leg calculation (quarterly for accuracy)
-        let dt = 0.25; // Quarterly steps
-        let num_steps = ((self.premium.end - self.premium.start).whole_days() as F / 365.25 / dt)
-            .ceil() as usize;
-
-        let mut pv = Money::new(0.0, self.notional.currency());
-        let _base_date = disc.base_date();
-
-        for i in 0..num_steps {
-            let t1 = i as F * dt;
-            let t2 = ((i + 1) as F * dt)
-                .min((self.premium.end - self.premium.start).whole_days() as F / 365.25);
-
-            if t2 <= t1 {
-                break;
-            }
-
-            // Survival probabilities
-            let surv1 = survival_probability(credit, t1)?;
-            let surv2 = survival_probability(credit, t2)?;
-
-            // Default probability in period
-            let default_prob = surv1 - surv2;
-
-            // Discount factor at mid-point (assuming default at mid-period)
-            let t_mid = (t1 + t2) / 2.0;
-            let df = disc.df(t_mid);
-
-            // Protection payment
-            pv = (pv + self.notional * (lgd * default_prob * df))?;
-        }
-
-        Ok(pv)
+        let pricer = enhanced::EnhancedCDSPricer::new();
+        let as_of = disc.base_date();
+        pricer.pv_protection_leg(self, disc, credit, as_of)
     }
 
-    /// Calculate par spread (spread that makes PV = 0)
+    /// Calculate par spread (spread that makes PV = 0) via enhanced pricer
     pub fn par_spread(
         &self,
         disc: &dyn Discount,
         credit: &CreditCurve,
     ) -> finstack_core::Result<F> {
-        // Par spread = Protection Leg PV / Risky Annuity
-        let protection_pv = self.pv_protection_leg(disc, credit)?;
-        let risky_annuity = self.risky_annuity(disc, credit)?;
-
-        if risky_annuity == 0.0 {
-            return Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NonPositiveValue,
-            ));
-        }
-
-        // Convert to basis points
-        Ok(protection_pv.amount() / risky_annuity * 10000.0)
+        let pricer = enhanced::EnhancedCDSPricer::new();
+        let as_of = disc.base_date();
+        pricer.par_spread(self, disc, credit, as_of)
     }
 
-    /// Calculate risky annuity (premium leg PV per bp)
+    /// Calculate risky annuity (premium leg PV per bp) via enhanced pricer
     pub fn risky_annuity(
         &self,
         disc: &dyn Discount,
         credit: &CreditCurve,
     ) -> finstack_core::Result<F> {
-        // Create a 1bp CDS to get the annuity
-        let mut unit_cds = self.clone();
-        unit_cds.premium.spread_bp = 1.0;
-        unit_cds.notional = Money::new(1.0, self.notional.currency());
-
-        let pv = unit_cds.pv_premium_leg(disc, credit)?;
-        Ok(pv.amount())
+        let pricer = enhanced::EnhancedCDSPricer::new();
+        let as_of = disc.base_date();
+        pricer.risky_annuity(self, disc, credit, as_of)
     }
 
     /// Calculate risky PV01 (change in PV for 1bp spread change)
@@ -331,29 +275,10 @@ impl CreditDefaultSwap {
         self.risky_annuity(disc, credit)
     }
 
-    /// Calculate CS01 (change in PV for 1bp credit spread change)
+    /// Calculate CS01 (change in PV for 1bp credit spread change) via enhanced pricer
     pub fn cs01(&self, curves: &CurveSet) -> finstack_core::Result<F> {
-        let disc = curves.discount(self.premium.disc_id)?;
-        let credit = curves.credit(self.protection.credit_id)?;
-
-        // Base PV
-        let base_pv = self.value(curves, disc.base_date())?;
-
-        // Bump credit spread by 1bp
-        let mut bumped_credit = (*credit).clone();
-        for spread in &mut bumped_credit.spreads_bp {
-            *spread += 1.0;
-        }
-
-        // Create bumped curve set
-        let mut bumped_curves = curves.clone();
-        bumped_curves.add_credit(bumped_credit);
-
-        // Bumped PV
-        let bumped_pv = self.value(&bumped_curves, disc.base_date())?;
-
-        // CS01 is the difference
-        Ok((bumped_pv - base_pv)?.amount())
+        let pricer = enhanced::EnhancedCDSPricer::new();
+        pricer.cs01(self, curves, curves.discount(self.premium.disc_id)?.base_date())
     }
 }
 
@@ -587,6 +512,7 @@ impl std::convert::TryFrom<crate::instruments::Instrument> for CreditDefaultSwap
 }
 
 // Helper function to calculate survival probability from credit curve
+#[allow(dead_code)]
 fn survival_probability(credit: &CreditCurve, t: F) -> finstack_core::Result<F> {
     if t <= 0.0 {
         return Ok(1.0);

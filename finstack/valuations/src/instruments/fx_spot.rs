@@ -87,16 +87,33 @@ impl FxSpot {
 }
 
 impl Priceable for FxSpot {
-    fn value(&self, _curves: &CurveSet, _as_of: Date) -> finstack_core::Result<Money> {
-        // For FX spot, we need the rate from market data or quote
-        let rate = self.spot_rate.ok_or_else(|| {
+    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
+        // If quoted, compute directly
+        if let Some(rate) = self.spot_rate {
+            let notional_amount = self.effective_notional().amount();
+            let quote_amount = notional_amount * rate;
+            return Ok(Money::new(quote_amount, self.quote));
+        }
+
+        // Otherwise convert via FX matrix into quote currency
+        let matrix = curves.fx.as_ref().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound)
         })?;
-
-        let notional_amount = self.effective_notional().amount();
-        let quote_amount = notional_amount * rate;
-
-        Ok(Money::new(quote_amount, self.quote))
+        struct MatrixProvider<'a> { m: &'a finstack_core::money::fx::FxMatrix }
+        impl finstack_core::money::fx::FxProvider for MatrixProvider<'_> {
+            fn rate(
+                &self,
+                from: Currency,
+                to: Currency,
+                on: Date,
+                policy: finstack_core::money::fx::FxConversionPolicy,
+            ) -> finstack_core::Result<finstack_core::money::fx::FxRate> {
+                self.m.rate(from, to, on, policy)
+            }
+        }
+        let provider = MatrixProvider { m: matrix };
+        let policy = finstack_core::money::fx::FxConversionPolicy::CashflowDate;
+        self.effective_notional().convert(self.quote, as_of, &provider, policy)
     }
 
     fn price_with_metrics(
@@ -112,7 +129,8 @@ impl Priceable for FxSpot {
         for metric_id in metrics {
             match metric_id {
                 MetricId::Custom(name) if name == "spot_rate" => {
-                    let rate = self.spot_rate.unwrap_or(0.0);
+                    let base_amt = self.effective_notional().amount();
+                    let rate = if base_amt != 0.0 { value.amount() / base_amt } else { 0.0 };
                     measures.insert(name.clone(), rate);
                 }
                 MetricId::Custom(name) if name == "base_amount" => {
@@ -122,10 +140,10 @@ impl Priceable for FxSpot {
                     measures.insert(name.clone(), value.amount());
                 }
                 MetricId::Custom(name) if name == "inverse_rate" => {
-                    if let Some(rate) = self.spot_rate {
-                        if rate != 0.0 {
-                            measures.insert(name.clone(), 1.0 / rate);
-                        }
+                    let base_amt = self.effective_notional().amount();
+                    let rate = if base_amt != 0.0 { value.amount() / base_amt } else { 0.0 };
+                    if rate != 0.0 {
+                        measures.insert(name.clone(), 1.0 / rate);
                     }
                 }
                 _ => {

@@ -6,7 +6,7 @@ use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::amortization_notional::AmortizationSpec;
+use finstack_valuations::cashflow::primitives::AmortizationSpec;
 use finstack_valuations::instruments::fixed_income::loan::ddtl::ExpectedFundingCurve;
 use finstack_valuations::instruments::fixed_income::loan::revolver::{
     DrawRepayEvent, RevolverFundingCurve,
