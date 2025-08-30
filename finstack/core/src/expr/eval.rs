@@ -197,6 +197,549 @@ impl CompiledExpr {
         out
     }
 
+    // --- Helper evaluators (scalar path) ---
+
+    fn eval_lag(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let n = arg_results[1][0] as usize;
+            out.extend((0..len).map(|i| if i < n { f64::NAN } else { base[i - n] }));
+        }
+        out
+    }
+
+    fn eval_lead(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let n = arg_results[1][0] as usize;
+            out.extend((0..len).map(|i| if i + n >= len { f64::NAN } else { base[i + n] }));
+        }
+        out
+    }
+
+    fn eval_diff(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let base = &arg_results[0];
+            let n = if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+                arg_results[1][0] as usize
+            } else {
+                1
+            };
+            out.extend((0..len).map(|i| if i < n { f64::NAN } else { base[i] - base[i - n] }));
+        }
+        out
+    }
+
+    fn eval_pct_change(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let base = &arg_results[0];
+            let n = if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+                arg_results[1][0] as usize
+            } else {
+                1
+            };
+            out.extend((0..len).map(|i| {
+                if i < n || base[i - n] == 0.0 {
+                    f64::NAN
+                } else {
+                    (base[i] / base[i - n]) - 1.0
+                }
+            }));
+        }
+        out
+    }
+
+    fn eval_cum_sum(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let base = &arg_results[0];
+            let mut acc = 0.0;
+            for &v in base {
+                acc += v;
+                out.push(acc);
+            }
+        }
+        out
+    }
+
+    fn eval_cum_prod(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let base = &arg_results[0];
+            let mut acc = 1.0;
+            for &v in base {
+                acc *= v;
+                out.push(acc);
+            }
+        }
+        out
+    }
+
+    fn eval_cum_min(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let base = &arg_results[0];
+            let mut cur = f64::INFINITY;
+            for &v in base {
+                cur = cur.min(v);
+                out.push(cur);
+            }
+        }
+        out
+    }
+
+    fn eval_cum_max(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let base = &arg_results[0];
+            let mut cur = f64::NEG_INFINITY;
+            for &v in base {
+                cur = cur.max(v);
+                out.push(cur);
+            }
+        }
+        out
+    }
+
+    fn eval_rolling_mean(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let win = arg_results[1][0] as usize;
+            for i in 0..len {
+                if i + 1 < win {
+                    out.push(f64::NAN);
+                } else {
+                    let s: f64 = base[i + 1 - win..=i].iter().copied().sum();
+                    out.push(s / win as f64);
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_rolling_sum(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let win = arg_results[1][0] as usize;
+            for i in 0..len {
+                if i + 1 < win {
+                    out.push(f64::NAN);
+                } else {
+                    let s: f64 = base[i + 1 - win..=i].iter().copied().sum();
+                    out.push(s);
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_ewm_mean(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let alpha = arg_results[1][0];
+            let adjust = if arg_results.len() >= 3 && !arg_results[2].is_empty() {
+                arg_results[2][0] != 0.0
+            } else {
+                true
+            };
+            let mut outv = Vec::with_capacity(len);
+            let mut prev = 0.0;
+            let mut wsum = 0.0;
+            for (i, &x) in base.iter().enumerate() {
+                if i == 0 {
+                    prev = x;
+                    wsum = 1.0;
+                    outv.push(x);
+                    continue;
+                }
+                if adjust {
+                    wsum = 1.0 + (1.0 - alpha) * wsum;
+                }
+                prev = alpha * x + (1.0 - alpha) * prev;
+                outv.push(prev / if adjust { wsum } else { 1.0 });
+            }
+            out = outv;
+        }
+        out
+    }
+
+    fn eval_std(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let data = &arg_results[0];
+            if data.len() > 1 {
+                let mean = data.iter().sum::<f64>() / data.len() as f64;
+                let variance = data.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
+                    / (data.len() - 1) as f64;
+                let std = variance.sqrt();
+                out.resize(len, std);
+            } else {
+                out.resize(len, f64::NAN);
+            }
+        }
+        out
+    }
+
+    fn eval_var(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let data = &arg_results[0];
+            if data.len() > 1 {
+                let mean = data.iter().sum::<f64>() / data.len() as f64;
+                let variance = data.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
+                    / (data.len() - 1) as f64;
+                out.resize(len, variance);
+            } else {
+                out.resize(len, f64::NAN);
+            }
+        }
+        out
+    }
+
+    fn eval_median(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let mut data = arg_results[0].clone();
+            if !data.is_empty() {
+                data.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                let n = data.len();
+                let median = if n % 2 == 1 {
+                    data[n / 2]
+                } else {
+                    (data[n / 2 - 1] + data[n / 2]) * 0.5
+                };
+                out.resize(len, median);
+            } else {
+                out.resize(len, f64::NAN);
+            }
+        }
+        out
+    }
+
+    fn eval_rolling_std(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let win = arg_results[1][0] as usize;
+            for i in 0..len {
+                if i + 1 < win {
+                    out.push(f64::NAN);
+                } else {
+                    let slice = &base[i + 1 - win..=i];
+                    let m = slice.iter().copied().sum::<f64>() / win as f64;
+                    let var = slice.iter().map(|v| (v - m) * (v - m)).sum::<f64>() / win as f64;
+                    out.push(var.sqrt());
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_rolling_var(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let win = arg_results[1][0] as usize;
+            for i in 0..len {
+                if i + 1 < win {
+                    out.push(f64::NAN);
+                } else {
+                    let slice = &base[i + 1 - win..=i];
+                    let m = slice.iter().copied().sum::<f64>() / win as f64;
+                    let var = slice.iter().map(|v| (v - m) * (v - m)).sum::<f64>() / win as f64;
+                    out.push(var);
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_rolling_median(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let win = arg_results[1][0] as usize;
+            for i in 0..len {
+                if i + 1 < win {
+                    out.push(f64::NAN);
+                } else {
+                    let mut v = base[i + 1 - win..=i].to_vec();
+                    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                    let k = v.len();
+                    let med = if k % 2 == 1 { v[k / 2] } else { (v[k / 2 - 1] + v[k / 2]) * 0.5 };
+                    out.push(med);
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_time_rolling<C: ExpressionContext>(
+        &self,
+        which: Function,
+        arg_results: &[Vec<f64>],
+        time_window: &Option<TimeWindow>,
+        ctx: &C,
+        cols: &[&[f64]],
+    ) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            if let Some(TimeWindow::Duration { period, time_column }) = time_window {
+                if let Some(time_idx) = ctx.resolve_index(time_column) {
+                    if time_idx < cols.len() {
+                        let time_data: Vec<i64> = cols[time_idx].iter().map(|&t| t as i64).collect();
+                        let mut evaluator = TimeWindowEvaluator::new(time_data);
+                        out = match which {
+                            Function::RollingMeanTime => evaluator.rolling_mean(&arg_results[0], period),
+                            Function::RollingSumTime => evaluator.rolling_sum(&arg_results[0], period),
+                            Function::RollingStdTime => evaluator.rolling_std(&arg_results[0], period),
+                            Function::RollingVarTime => evaluator.rolling_var(&arg_results[0], period),
+                            Function::RollingMedianTime => evaluator.rolling_median(&arg_results[0], period),
+                            _ => Vec::new(),
+                        };
+                    } else {
+                        out.resize(len, f64::NAN);
+                    }
+                } else {
+                    out.resize(len, f64::NAN);
+                }
+            } else {
+                out.resize(len, f64::NAN);
+            }
+        }
+        out
+    }
+
+    fn eval_shift(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let n = arg_results[1][0] as i32;
+            for i in 0..len {
+                let shifted_idx = i as i32 - n;
+                if shifted_idx >= 0 && shifted_idx < len as i32 {
+                    out.push(base[shifted_idx as usize]);
+                } else {
+                    out.push(f64::NAN);
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_rank(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out: Vec<f64> = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let base = &arg_results[0];
+            let mut indexed: Vec<(f64, usize)> = base.iter().enumerate().map(|(i, &v)| (v, i)).collect();
+            indexed.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            let mut ranks = vec![0.0; len];
+            let mut current_rank = 1.0;
+            let mut last_value = f64::NAN;
+            for (value, orig_idx) in indexed {
+                if !value.is_nan() {
+                    if value != last_value && !last_value.is_nan() {
+                        current_rank += 1.0;
+                    }
+                    ranks[orig_idx] = current_rank;
+                    last_value = value;
+                } else {
+                    ranks[orig_idx] = f64::NAN;
+                }
+            }
+            out = ranks;
+        }
+        out
+    }
+
+    fn eval_quantile(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let q = arg_results[1][0].clamp(0.0, 1.0);
+            let mut valid_values: Vec<f64> = base.iter().filter(|&&x| !x.is_nan()).cloned().collect();
+            if !valid_values.is_empty() {
+                valid_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                let index = q * (valid_values.len() - 1) as f64;
+                let lower = index.floor() as usize;
+                let upper = index.ceil() as usize;
+                let quantile_value = if lower == upper {
+                    valid_values[lower]
+                } else {
+                    let weight = index - lower as f64;
+                    valid_values[lower] * (1.0 - weight) + valid_values[upper] * weight
+                };
+                out.resize(len, quantile_value);
+            } else {
+                out.resize(len, f64::NAN);
+            }
+        }
+        out
+    }
+
+    fn eval_rolling_min(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let win = arg_results[1][0] as usize;
+            for i in 0..len {
+                if i + 1 < win {
+                    out.push(f64::NAN);
+                } else {
+                    let window_data = &base[i + 1 - win..=i];
+                    let min_val = window_data
+                        .iter()
+                        .filter(|&&x| !x.is_nan())
+                        .min_by(|a, b| a.partial_cmp(b).unwrap())
+                        .copied()
+                        .unwrap_or(f64::NAN);
+                    out.push(min_val);
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_rolling_max(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let win = arg_results[1][0] as usize;
+            for i in 0..len {
+                if i + 1 < win {
+                    out.push(f64::NAN);
+                } else {
+                    let window_data = &base[i + 1 - win..=i];
+                    let max_val = window_data
+                        .iter()
+                        .filter(|&&x| !x.is_nan())
+                        .max_by(|a, b| a.partial_cmp(b).unwrap())
+                        .copied()
+                        .unwrap_or(f64::NAN);
+                    out.push(max_val);
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_rolling_count(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let win = arg_results[1][0] as usize;
+            for i in 0..len {
+                if i + 1 < win {
+                    let count = base[0..=i].iter().filter(|&&x| !x.is_nan()).count() as f64;
+                    out.push(count);
+                } else {
+                    let count = base[i + 1 - win..=i].iter().filter(|&&x| !x.is_nan()).count() as f64;
+                    out.push(count);
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_ewm_std(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out: Vec<f64> = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let alpha = arg_results[1][0].clamp(0.001, 0.999);
+            let adjust = arg_results
+                .get(2)
+                .and_then(|v| v.first())
+                .map(|&x| x > 0.0)
+                .unwrap_or(true);
+
+            let mut ema = base[0];
+            let mut ema_sq = base[0] * base[0];
+            let mut n = 1.0;
+
+            out.push(0.0);
+
+            for &value in base.iter().skip(1) {
+                if !value.is_nan() {
+                    n += 1.0;
+                    let weight = if adjust { alpha / (1.0 - (1.0 - alpha).powf(n)) } else { alpha };
+                    ema = (1.0 - weight) * ema + weight * value;
+                    ema_sq = (1.0 - weight) * ema_sq + weight * value * value;
+                    let variance = ema_sq - ema * ema;
+                    out.push(if variance > 0.0 { variance.sqrt() } else { 0.0 });
+                } else {
+                    out.push(f64::NAN);
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_ewm_var(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out: Vec<f64> = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let alpha = arg_results[1][0].clamp(0.001, 0.999);
+            let adjust = arg_results
+                .get(2)
+                .and_then(|v| v.first())
+                .map(|&x| x > 0.0)
+                .unwrap_or(true);
+
+            let mut ema = base[0];
+            let mut ema_sq = base[0] * base[0];
+            let mut n = 1.0;
+
+            out.push(0.0);
+
+            for &value in base.iter().skip(1) {
+                if !value.is_nan() {
+                    n += 1.0;
+                    let weight = if adjust { alpha / (1.0 - (1.0 - alpha).powf(n)) } else { alpha };
+                    ema = (1.0 - weight) * ema + weight * value;
+                    ema_sq = (1.0 - weight) * ema_sq + weight * value * value;
+                    let variance = ema_sq - ema * ema;
+                    out.push(if variance > 0.0 { variance } else { 0.0 });
+                } else {
+                    out.push(f64::NAN);
+                }
+            }
+        }
+        out
+    }
+
     /// Evaluate a function with given argument results.
     fn eval_function<C: ExpressionContext>(
         &self,
@@ -206,588 +749,40 @@ impl CompiledExpr {
         ctx: &C,
         cols: &[&[f64]],
     ) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
-
         match fun {
-            Function::Lag => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let n = arg_results[1][0] as usize; // Assume literal
-                    out.extend((0..len).map(|i| if i < n { f64::NAN } else { base[i - n] }));
-                }
+            Function::Lag => self.eval_lag(arg_results),
+            Function::Lead => self.eval_lead(arg_results),
+            Function::Diff => self.eval_diff(arg_results),
+            Function::PctChange => self.eval_pct_change(arg_results),
+            Function::CumSum => self.eval_cum_sum(arg_results),
+            Function::CumProd => self.eval_cum_prod(arg_results),
+            Function::CumMin => self.eval_cum_min(arg_results),
+            Function::CumMax => self.eval_cum_max(arg_results),
+            Function::RollingMean => self.eval_rolling_mean(arg_results),
+            Function::RollingSum => self.eval_rolling_sum(arg_results),
+            Function::EwmMean => self.eval_ewm_mean(arg_results),
+            Function::Std => self.eval_std(arg_results),
+            Function::Var => self.eval_var(arg_results),
+            Function::Median => self.eval_median(arg_results),
+            Function::RollingStd => self.eval_rolling_std(arg_results),
+            Function::RollingVar => self.eval_rolling_var(arg_results),
+            Function::RollingMedian => self.eval_rolling_median(arg_results),
+            Function::RollingMeanTime
+            | Function::RollingSumTime
+            | Function::RollingStdTime
+            | Function::RollingVarTime
+            | Function::RollingMedianTime => {
+                self.eval_time_rolling(fun, arg_results, time_window, ctx, cols)
             }
-            Function::Lead => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let n = arg_results[1][0] as usize; // Assume literal
-                    out.extend((0..len).map(|i| if i + n >= len { f64::NAN } else { base[i + n] }));
-                }
-            }
-            Function::Diff => {
-                if !arg_results.is_empty() {
-                    let base = &arg_results[0];
-                    let n = if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                        arg_results[1][0] as usize
-                    } else {
-                        1
-                    };
-                    out.extend((0..len).map(|i| {
-                        if i < n {
-                            f64::NAN
-                        } else {
-                            base[i] - base[i - n]
-                        }
-                    }));
-                }
-            }
-            Function::PctChange => {
-                if !arg_results.is_empty() {
-                    let base = &arg_results[0];
-                    let n = if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                        arg_results[1][0] as usize
-                    } else {
-                        1
-                    };
-                    out.extend((0..len).map(|i| {
-                        if i < n || base[i - n] == 0.0 {
-                            f64::NAN
-                        } else {
-                            (base[i] / base[i - n]) - 1.0
-                        }
-                    }));
-                }
-            }
-            Function::CumSum => {
-                if !arg_results.is_empty() {
-                    let base = &arg_results[0];
-                    let mut acc = 0.0;
-                    for &v in base {
-                        acc += v;
-                        out.push(acc);
-                    }
-                }
-            }
-            Function::CumProd => {
-                if !arg_results.is_empty() {
-                    let base = &arg_results[0];
-                    let mut acc = 1.0;
-                    for &v in base {
-                        acc *= v;
-                        out.push(acc);
-                    }
-                }
-            }
-            Function::CumMin => {
-                if !arg_results.is_empty() {
-                    let base = &arg_results[0];
-                    let mut cur = f64::INFINITY;
-                    for &v in base {
-                        cur = cur.min(v);
-                        out.push(cur);
-                    }
-                }
-            }
-            Function::CumMax => {
-                if !arg_results.is_empty() {
-                    let base = &arg_results[0];
-                    let mut cur = f64::NEG_INFINITY;
-                    for &v in base {
-                        cur = cur.max(v);
-                        out.push(cur);
-                    }
-                }
-            }
-            Function::RollingMean => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let win = arg_results[1][0] as usize;
-                    for i in 0..len {
-                        if i + 1 < win {
-                            out.push(f64::NAN);
-                        } else {
-                            let s: f64 = base[i + 1 - win..=i].iter().copied().sum();
-                            out.push(s / win as f64);
-                        }
-                    }
-                }
-            }
-            Function::RollingSum => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let win = arg_results[1][0] as usize;
-                    for i in 0..len {
-                        if i + 1 < win {
-                            out.push(f64::NAN);
-                        } else {
-                            let s: f64 = base[i + 1 - win..=i].iter().copied().sum();
-                            out.push(s);
-                        }
-                    }
-                }
-            }
-            Function::EwmMean => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let alpha = arg_results[1][0];
-                    let adjust = if arg_results.len() >= 3 && !arg_results[2].is_empty() {
-                        arg_results[2][0] != 0.0
-                    } else {
-                        true
-                    };
-                    let mut outv = Vec::with_capacity(len);
-                    let mut prev = 0.0;
-                    let mut wsum = 0.0;
-                    for (i, &x) in base.iter().enumerate() {
-                        if i == 0 {
-                            prev = x;
-                            wsum = 1.0;
-                            outv.push(x);
-                            continue;
-                        }
-                        if adjust {
-                            wsum = 1.0 + (1.0 - alpha) * wsum;
-                        }
-                        prev = alpha * x + (1.0 - alpha) * prev;
-                        outv.push(prev / if adjust { wsum } else { 1.0 });
-                    }
-                    out = outv;
-                }
-            }
-            Function::Std => {
-                if !arg_results.is_empty() {
-                    let data = &arg_results[0];
-                    if data.len() > 1 {
-                        let mean = data.iter().sum::<f64>() / data.len() as f64;
-                        let variance = data.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
-                            / (data.len() - 1) as f64;
-                        let std = variance.sqrt();
-                        out.resize(len, std);
-                    } else {
-                        out.resize(len, f64::NAN);
-                    }
-                }
-            }
-            Function::Var => {
-                if !arg_results.is_empty() {
-                    let data = &arg_results[0];
-                    if data.len() > 1 {
-                        let mean = data.iter().sum::<f64>() / data.len() as f64;
-                        let variance = data.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
-                            / (data.len() - 1) as f64;
-                        out.resize(len, variance);
-                    } else {
-                        out.resize(len, f64::NAN);
-                    }
-                }
-            }
-            Function::Median => {
-                if !arg_results.is_empty() {
-                    let mut data = arg_results[0].clone();
-                    if !data.is_empty() {
-                        data.sort_by(|a, b| a.partial_cmp(b).unwrap());
-                        let n = data.len();
-                        let median = if n % 2 == 1 {
-                            data[n / 2]
-                        } else {
-                            (data[n / 2 - 1] + data[n / 2]) * 0.5
-                        };
-                        out.resize(len, median);
-                    } else {
-                        out.resize(len, f64::NAN);
-                    }
-                }
-            }
-            Function::RollingStd => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let win = arg_results[1][0] as usize;
-                    for i in 0..len {
-                        if i + 1 < win {
-                            out.push(f64::NAN);
-                        } else {
-                            let slice = &base[i + 1 - win..=i];
-                            let m = slice.iter().copied().sum::<f64>() / win as f64;
-                            let var =
-                                slice.iter().map(|v| (v - m) * (v - m)).sum::<f64>() / win as f64;
-                            out.push(var.sqrt());
-                        }
-                    }
-                }
-            }
-            Function::RollingVar => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let win = arg_results[1][0] as usize;
-                    for i in 0..len {
-                        if i + 1 < win {
-                            out.push(f64::NAN);
-                        } else {
-                            let slice = &base[i + 1 - win..=i];
-                            let m = slice.iter().copied().sum::<f64>() / win as f64;
-                            let var =
-                                slice.iter().map(|v| (v - m) * (v - m)).sum::<f64>() / win as f64;
-                            out.push(var);
-                        }
-                    }
-                }
-            }
-            Function::RollingMedian => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let win = arg_results[1][0] as usize;
-                    for i in 0..len {
-                        if i + 1 < win {
-                            out.push(f64::NAN);
-                        } else {
-                            let mut v = base[i + 1 - win..=i].to_vec();
-                            v.sort_by(|a, b| a.partial_cmp(b).unwrap());
-                            let k = v.len();
-                            let med = if k % 2 == 1 {
-                                v[k / 2]
-                            } else {
-                                (v[k / 2 - 1] + v[k / 2]) * 0.5
-                            };
-                            out.push(med);
-                        }
-                    }
-                }
-            }
-            // Time-based rolling functions
-            Function::RollingMeanTime => {
-                if !arg_results.is_empty() {
-                    if let Some(TimeWindow::Duration {
-                        period,
-                        time_column,
-                    }) = time_window
-                    {
-                        if let Some(time_idx) = ctx.resolve_index(time_column) {
-                            if time_idx < cols.len() {
-                                // Convert time data to Unix timestamps (assume input is already in proper format)
-                                let time_data: Vec<i64> =
-                                    cols[time_idx].iter().map(|&t| t as i64).collect();
-                                let mut evaluator = TimeWindowEvaluator::new(time_data);
-                                out = evaluator.rolling_mean(&arg_results[0], period);
-                            } else {
-                                out.resize(len, f64::NAN);
-                            }
-                        } else {
-                            out.resize(len, f64::NAN);
-                        }
-                    } else {
-                        // Fallback for non-time window
-                        out.resize(len, f64::NAN);
-                    }
-                }
-            }
-            Function::RollingSumTime => {
-                if !arg_results.is_empty() {
-                    if let Some(TimeWindow::Duration {
-                        period,
-                        time_column,
-                    }) = time_window
-                    {
-                        if let Some(time_idx) = ctx.resolve_index(time_column) {
-                            if time_idx < cols.len() {
-                                let time_data: Vec<i64> =
-                                    cols[time_idx].iter().map(|&t| t as i64).collect();
-                                let mut evaluator = TimeWindowEvaluator::new(time_data);
-                                out = evaluator.rolling_sum(&arg_results[0], period);
-                            } else {
-                                out.resize(len, f64::NAN);
-                            }
-                        } else {
-                            out.resize(len, f64::NAN);
-                        }
-                    } else {
-                        out.resize(len, f64::NAN);
-                    }
-                }
-            }
-            Function::RollingStdTime => {
-                if !arg_results.is_empty() {
-                    if let Some(TimeWindow::Duration {
-                        period,
-                        time_column,
-                    }) = time_window
-                    {
-                        if let Some(time_idx) = ctx.resolve_index(time_column) {
-                            if time_idx < cols.len() {
-                                let time_data: Vec<i64> =
-                                    cols[time_idx].iter().map(|&t| t as i64).collect();
-                                let mut evaluator = TimeWindowEvaluator::new(time_data);
-                                out = evaluator.rolling_std(&arg_results[0], period);
-                            } else {
-                                out.resize(len, f64::NAN);
-                            }
-                        } else {
-                            out.resize(len, f64::NAN);
-                        }
-                    } else {
-                        out.resize(len, f64::NAN);
-                    }
-                }
-            }
-            Function::RollingVarTime => {
-                if !arg_results.is_empty() {
-                    if let Some(TimeWindow::Duration {
-                        period,
-                        time_column,
-                    }) = time_window
-                    {
-                        if let Some(time_idx) = ctx.resolve_index(time_column) {
-                            if time_idx < cols.len() {
-                                let time_data: Vec<i64> =
-                                    cols[time_idx].iter().map(|&t| t as i64).collect();
-                                let mut evaluator = TimeWindowEvaluator::new(time_data);
-                                out = evaluator.rolling_var(&arg_results[0], period);
-                            } else {
-                                out.resize(len, f64::NAN);
-                            }
-                        } else {
-                            out.resize(len, f64::NAN);
-                        }
-                    } else {
-                        out.resize(len, f64::NAN);
-                    }
-                }
-            }
-            Function::RollingMedianTime => {
-                if !arg_results.is_empty() {
-                    if let Some(TimeWindow::Duration {
-                        period,
-                        time_column,
-                    }) = time_window
-                    {
-                        if let Some(time_idx) = ctx.resolve_index(time_column) {
-                            if time_idx < cols.len() {
-                                let time_data: Vec<i64> =
-                                    cols[time_idx].iter().map(|&t| t as i64).collect();
-                                let mut evaluator = TimeWindowEvaluator::new(time_data);
-                                out = evaluator.rolling_median(&arg_results[0], period);
-                            } else {
-                                out.resize(len, f64::NAN);
-                            }
-                        } else {
-                            out.resize(len, f64::NAN);
-                        }
-                    } else {
-                        out.resize(len, f64::NAN);
-                    }
-                }
-            }
-
-            // Additional time-series functions
-            Function::Shift => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let n = arg_results[1][0] as i32;
-                    for i in 0..len {
-                        let shifted_idx = i as i32 - n;
-                        if shifted_idx >= 0 && shifted_idx < len as i32 {
-                            out.push(base[shifted_idx as usize]);
-                        } else {
-                            out.push(f64::NAN);
-                        }
-                    }
-                }
-            }
-
-            Function::Rank => {
-                if !arg_results.is_empty() {
-                    let base = &arg_results[0];
-                    // Create pairs of (value, original_index)
-                    let mut indexed: Vec<(f64, usize)> =
-                        base.iter().enumerate().map(|(i, &v)| (v, i)).collect();
-
-                    // Sort by value
-                    indexed.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-
-                    // Assign ranks (dense ranking - same values get same rank)
-                    let mut ranks = vec![0.0; len];
-                    let mut current_rank = 1.0;
-                    let mut last_value = f64::NAN;
-
-                    for (value, orig_idx) in indexed {
-                        if !value.is_nan() {
-                            if value != last_value && !last_value.is_nan() {
-                                current_rank += 1.0;
-                            }
-                            ranks[orig_idx] = current_rank;
-                            last_value = value;
-                        } else {
-                            ranks[orig_idx] = f64::NAN;
-                        }
-                    }
-                    out = ranks;
-                }
-            }
-
-            Function::Quantile => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let q = arg_results[1][0].clamp(0.0, 1.0);
-
-                    // Filter out NaN values and sort
-                    let mut valid_values: Vec<f64> =
-                        base.iter().filter(|&&x| !x.is_nan()).cloned().collect();
-
-                    if !valid_values.is_empty() {
-                        valid_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
-                        let index = q * (valid_values.len() - 1) as f64;
-                        let lower = index.floor() as usize;
-                        let upper = index.ceil() as usize;
-
-                        let quantile_value = if lower == upper {
-                            valid_values[lower]
-                        } else {
-                            let weight = index - lower as f64;
-                            valid_values[lower] * (1.0 - weight) + valid_values[upper] * weight
-                        };
-
-                        out.resize(len, quantile_value);
-                    } else {
-                        out.resize(len, f64::NAN);
-                    }
-                }
-            }
-
-            Function::RollingMin => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let win = arg_results[1][0] as usize;
-                    for i in 0..len {
-                        if i + 1 < win {
-                            out.push(f64::NAN);
-                        } else {
-                            let window_data = &base[i + 1 - win..=i];
-                            let min_val = window_data
-                                .iter()
-                                .filter(|&&x| !x.is_nan())
-                                .min_by(|a, b| a.partial_cmp(b).unwrap())
-                                .copied()
-                                .unwrap_or(f64::NAN);
-                            out.push(min_val);
-                        }
-                    }
-                }
-            }
-
-            Function::RollingMax => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let win = arg_results[1][0] as usize;
-                    for i in 0..len {
-                        if i + 1 < win {
-                            out.push(f64::NAN);
-                        } else {
-                            let window_data = &base[i + 1 - win..=i];
-                            let max_val = window_data
-                                .iter()
-                                .filter(|&&x| !x.is_nan())
-                                .max_by(|a, b| a.partial_cmp(b).unwrap())
-                                .copied()
-                                .unwrap_or(f64::NAN);
-                            out.push(max_val);
-                        }
-                    }
-                }
-            }
-
-            Function::RollingCount => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let win = arg_results[1][0] as usize;
-                    for i in 0..len {
-                        if i + 1 < win {
-                            let count = base[0..=i].iter().filter(|&&x| !x.is_nan()).count() as f64;
-                            out.push(count);
-                        } else {
-                            let count = base[i + 1 - win..=i]
-                                .iter()
-                                .filter(|&&x| !x.is_nan())
-                                .count() as f64;
-                            out.push(count);
-                        }
-                    }
-                }
-            }
-
-            Function::EwmStd => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let alpha = arg_results[1][0].clamp(0.001, 0.999);
-                    let adjust = arg_results
-                        .get(2)
-                        .and_then(|v| v.first())
-                        .map(|&x| x > 0.0)
-                        .unwrap_or(true);
-
-                    let mut ema = base[0];
-                    let mut ema_sq = base[0] * base[0];
-                    let mut n = 1.0;
-
-                    out.push(0.0); // First value has no variance
-
-                    for &value in base.iter().skip(1) {
-                        if !value.is_nan() {
-                            n += 1.0;
-                            let weight = if adjust {
-                                alpha / (1.0 - (1.0 - alpha).powf(n))
-                            } else {
-                                alpha
-                            };
-
-                            ema = (1.0 - weight) * ema + weight * value;
-                            ema_sq = (1.0 - weight) * ema_sq + weight * value * value;
-
-                            let variance = ema_sq - ema * ema;
-                            out.push(if variance > 0.0 { variance.sqrt() } else { 0.0 });
-                        } else {
-                            out.push(f64::NAN);
-                        }
-                    }
-                }
-            }
-
-            Function::EwmVar => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let alpha = arg_results[1][0].clamp(0.001, 0.999);
-                    let adjust = arg_results
-                        .get(2)
-                        .and_then(|v| v.first())
-                        .map(|&x| x > 0.0)
-                        .unwrap_or(true);
-
-                    let mut ema = base[0];
-                    let mut ema_sq = base[0] * base[0];
-                    let mut n = 1.0;
-
-                    out.push(0.0); // First value has no variance
-
-                    for &value in base.iter().skip(1) {
-                        if !value.is_nan() {
-                            n += 1.0;
-                            let weight = if adjust {
-                                alpha / (1.0 - (1.0 - alpha).powf(n))
-                            } else {
-                                alpha
-                            };
-
-                            ema = (1.0 - weight) * ema + weight * value;
-                            ema_sq = (1.0 - weight) * ema_sq + weight * value * value;
-
-                            let variance = ema_sq - ema * ema;
-                            out.push(if variance > 0.0 { variance } else { 0.0 });
-                        } else {
-                            out.push(f64::NAN);
-                        }
-                    }
-                }
-            }
+            Function::Shift => self.eval_shift(arg_results),
+            Function::Rank => self.eval_rank(arg_results),
+            Function::Quantile => self.eval_quantile(arg_results),
+            Function::RollingMin => self.eval_rolling_min(arg_results),
+            Function::RollingMax => self.eval_rolling_max(arg_results),
+            Function::RollingCount => self.eval_rolling_count(arg_results),
+            Function::EwmStd => self.eval_ewm_std(arg_results),
+            Function::EwmVar => self.eval_ewm_var(arg_results),
         }
-        out
     }
 
     /// Lower to a Polars expression when possible.
