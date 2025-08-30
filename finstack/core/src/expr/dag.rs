@@ -83,11 +83,12 @@ impl DagBuilder {
         // Calculate reference counts
         self.calculate_ref_counts(&root_ids);
 
-        // Determine Polars eligibility
-        self.determine_polars_eligibility();
-
-        // Build topological order
+        // Build topological order (dependencies first)
         let ordered_nodes = self.topological_sort(&root_ids);
+
+        // Determine Polars eligibility in topological order so that
+        // dependency flags are available when evaluating parents.
+        self.determine_polars_eligibility_topo(&ordered_nodes);
 
         // Generate cache strategy
         let cache_strategy = self.generate_cache_strategy(&ordered_nodes);
@@ -175,33 +176,23 @@ impl DagBuilder {
         }
     }
 
-    /// Determine which nodes are eligible for Polars execution.
-    fn determine_polars_eligibility(&mut self) {
-        let mut updates = Vec::new();
-
-        // First pass: collect all eligibility decisions
-        for (id, node) in &self.nodes {
-            let eligible = match &node.expr.node {
+    /// Determine which nodes are eligible for Polars execution using a
+    /// topological sweep so dependencies are processed first.
+    fn determine_polars_eligibility_topo(&mut self, ordered_nodes: &[DagNode]) {
+        // Local map to avoid borrowing issues while mutating self.nodes
+        let mut elig: HashMap<u64, bool> = HashMap::with_capacity(self.nodes.len());
+        for n in ordered_nodes {
+            let is_eligible = match &n.expr.node {
                 ExprNode::Column(_) | ExprNode::Literal(_) => true,
                 ExprNode::Call(func, _args) => {
-                    // Check if function supports Polars and all dependencies are eligible
-                    let func_eligible = self.function_supports_polars(*func);
-                    let deps_eligible = node.dependencies.iter().all(|&dep_id| {
-                        self.nodes
-                            .get(&dep_id)
-                            .map(|n| n.polars_eligible)
-                            .unwrap_or(false)
-                    });
-                    func_eligible && deps_eligible
+                    let func_ok = self.function_supports_polars(*func);
+                    let deps_ok = n.dependencies.iter().all(|d| elig.get(d).copied().unwrap_or(false));
+                    func_ok && deps_ok
                 }
             };
-            updates.push((*id, eligible));
-        }
-
-        // Second pass: apply updates
-        for (id, eligible) in updates {
-            if let Some(node) = self.nodes.get_mut(&id) {
-                node.polars_eligible = eligible;
+            elig.insert(n.id, is_eligible);
+            if let Some(node_mut) = self.nodes.get_mut(&n.id) {
+                node_mut.polars_eligible = is_eligible;
             }
         }
     }
@@ -211,7 +202,8 @@ impl DagBuilder {
         match func {
             Function::Lag | Function::Lead | Function::Diff | Function::PctChange => true,
             Function::RollingMean | Function::RollingSum => true,
-            Function::RollingMeanTime | Function::RollingSumTime => true,
+            // Time-based rolling requires DataFrame context; keep scalar path removed for now
+            Function::RollingMeanTime | Function::RollingSumTime => false,
             // Cumulative functions use scalar implementation for determinism
             Function::CumSum | Function::CumProd | Function::CumMin | Function::CumMax => false,
             // Statistical functions now support Polars lowering
@@ -220,11 +212,11 @@ impl DagBuilder {
             Function::RollingStd | Function::RollingVar | Function::RollingMedian => false,
             // Complex EWM functions still use scalar fallback
             Function::EwmMean => false,
-            Function::RollingStdTime | Function::RollingVarTime | Function::RollingMedianTime => {
-                false
-            }
+            Function::RollingStdTime | Function::RollingVarTime | Function::RollingMedianTime => false,
             // New functions
-            Function::Shift | Function::RollingMin | Function::RollingMax => true,
+            Function::Shift => true,
+            // Keep rolling min/max/count as scalar/unsupported until mapped
+            Function::RollingMin | Function::RollingMax => false,
             Function::Rank
             | Function::Quantile
             | Function::RollingCount

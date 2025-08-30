@@ -38,6 +38,7 @@ pub struct TimeWindowEvaluator {
 
 impl TimeWindowEvaluator {
     /// Create a new time window evaluator with the given time column.
+    #[allow(dead_code)]
     pub fn new(time_data: Vec<i64>) -> Self {
         Self {
             time_data,
@@ -46,6 +47,7 @@ impl TimeWindowEvaluator {
     }
 
     /// Find the window boundaries for a given index and duration.
+    #[allow(dead_code)]
     pub fn window_boundaries(&mut self, index: usize, period: &str) -> Option<(usize, usize)> {
         let cache_key = (index, period.to_string());
         if let Some(&bounds) = self.boundary_cache.get(&cache_key) {
@@ -76,6 +78,7 @@ impl TimeWindowEvaluator {
     }
 
     /// Compute rolling mean over a time window.
+    #[allow(dead_code)]
     pub fn rolling_mean(&mut self, values: &[f64], period: &str) -> Vec<f64> {
         let mut result = Vec::with_capacity(values.len());
 
@@ -97,6 +100,7 @@ impl TimeWindowEvaluator {
     }
 
     /// Compute rolling sum over a time window.
+    #[allow(dead_code)]
     pub fn rolling_sum(&mut self, values: &[f64], period: &str) -> Vec<f64> {
         let mut result = Vec::with_capacity(values.len());
 
@@ -114,6 +118,7 @@ impl TimeWindowEvaluator {
     }
 
     /// Compute rolling standard deviation over a time window.
+    #[allow(dead_code)]
     pub fn rolling_std(&mut self, values: &[f64], period: &str) -> Vec<f64> {
         let mut result = Vec::with_capacity(values.len());
 
@@ -137,6 +142,7 @@ impl TimeWindowEvaluator {
     }
 
     /// Compute rolling variance over a time window.
+    #[allow(dead_code)]
     pub fn rolling_var(&mut self, values: &[f64], period: &str) -> Vec<f64> {
         let mut result = Vec::with_capacity(values.len());
 
@@ -160,6 +166,7 @@ impl TimeWindowEvaluator {
     }
 
     /// Compute rolling median over a time window.
+    #[allow(dead_code)]
     pub fn rolling_median(&mut self, values: &[f64], period: &str) -> Vec<f64> {
         let mut result = Vec::with_capacity(values.len());
 

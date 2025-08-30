@@ -30,7 +30,7 @@ pub use cache::{CacheManager, CachedResult};
 pub use context::{ExpressionContext, SimpleContext};
 pub use dag::{DagBuilder, ExecutionPlan, PushdownAnalyzer, PushdownBoundaries};
 pub use eval::CompiledExpr;
-pub use time_windows::{parse_duration, TimeWindowEvaluator};
+pub use time_windows::parse_duration;
 
 // Re-export Polars Series type since it's part of CachedResult's public API
 pub use polars::prelude::Series;

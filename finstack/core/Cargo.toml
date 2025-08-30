@@ -38,6 +38,7 @@ serde = ["dep:serde", "serde/derive", "time/serde", "hashbrown/serde", "rust_dec
 parallel = ["dep:rayon"]
 index = []
 deterministic = []
+asof_join = []
 
 [package.metadata.docs.rs]
 all-features = true

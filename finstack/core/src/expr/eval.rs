@@ -5,8 +5,10 @@ use super::{
     cache::{CacheManager, CachedResult},
     context::ExpressionContext,
     dag::{DagBuilder, ExecutionPlan},
-    time_windows::TimeWindowEvaluator,
 };
+use polars::prelude as pl;
+use polars::prelude::{IntoLazy, IntoColumn, NamedFrom};
+use std::collections::HashSet;
 use std::vec::Vec;
 
 /// A compiled expression can evaluate scalars and optionally lower to Polars.
@@ -59,6 +61,10 @@ impl CompiledExpr {
         if let Some(ref plan) = self.plan {
             self.eval_with_plan(ctx, cols, plan)
         } else {
+            // Try Polars lowering for the whole expression first
+            if let Some(v) = self.eval_via_polars(ctx, cols, &self.ast) {
+                return v;
+            }
             self.eval_simple(ctx, cols, &self.ast)
         }
     }
@@ -151,6 +157,13 @@ impl CompiledExpr {
         node: &super::dag::DagNode,
         results: &std::collections::HashMap<u64, Vec<f64>>,
     ) -> Vec<f64> {
+        // If node is Polars-eligible, attempt evaluation via Polars
+        if node.polars_eligible {
+            if let Some(v) = self.eval_via_polars(ctx, cols, &node.expr) {
+                return v;
+            }
+        }
+
         match &node.expr.node {
             ExprNode::Column(name) => {
                 let idx = ctx.resolve_index(name).expect("unknown column");
@@ -195,6 +208,48 @@ impl CompiledExpr {
             }
         }
         out
+    }
+
+    // --- Polars evaluation helper ---
+
+    fn eval_via_polars<C: ExpressionContext>(&self, ctx: &C, cols: &[&[f64]], expr: &Expr) -> Option<Vec<f64>> {
+        // Lower to a Polars Expr; if not possible, return None
+        let pexpr = Self { ast: expr.clone(), plan: None, cache: None }.to_polars_expr()?;
+        let names = Self::collect_column_names(expr);
+        if names.is_empty() {
+            // A pure literal expression - defer to scalar path to match row count semantics.
+            return None;
+        }
+        // Build a DataFrame with just the required columns
+        let mut columns: Vec<pl::Column> = Vec::with_capacity(names.len());
+        for name in names.iter() {
+            let idx = ctx.resolve_index(name)?;
+            let s = pl::Series::new(name.as_str().into(), cols[idx].to_vec());
+            columns.push(s.into_column());
+        }
+        let df = pl::DataFrame::new(columns).ok()?;
+        let lf = df.lazy();
+        let out = lf.select([pexpr.alias("__out")]).collect().ok()?;
+        let s = out.column("__out").ok()?.clone();
+        let vals: Vec<f64> = s.f64().ok()?.into_iter().map(|o| o.unwrap_or(f64::NAN)).collect();
+        Some(vals)
+    }
+
+    fn collect_column_names(expr: &Expr) -> HashSet<String> {
+        fn walk(e: &Expr, acc: &mut HashSet<String>) {
+            match &e.node {
+                ExprNode::Column(name) => {
+                    acc.insert(name.clone());
+                }
+                ExprNode::Literal(_) => {}
+                ExprNode::Call(_, args) => {
+                    for a in args { walk(a, acc); }
+                }
+            }
+        }
+        let mut set = HashSet::new();
+        walk(expr, &mut set);
+        set
     }
 
     // --- Helper evaluators (scalar path) ---
@@ -498,42 +553,7 @@ impl CompiledExpr {
         out
     }
 
-    fn eval_time_rolling<C: ExpressionContext>(
-        &self,
-        which: Function,
-        arg_results: &[Vec<f64>],
-        time_window: &Option<TimeWindow>,
-        ctx: &C,
-        cols: &[&[f64]],
-    ) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
-        if !arg_results.is_empty() {
-            if let Some(TimeWindow::Duration { period, time_column }) = time_window {
-                if let Some(time_idx) = ctx.resolve_index(time_column) {
-                    if time_idx < cols.len() {
-                        let time_data: Vec<i64> = cols[time_idx].iter().map(|&t| t as i64).collect();
-                        let mut evaluator = TimeWindowEvaluator::new(time_data);
-                        out = match which {
-                            Function::RollingMeanTime => evaluator.rolling_mean(&arg_results[0], period),
-                            Function::RollingSumTime => evaluator.rolling_sum(&arg_results[0], period),
-                            Function::RollingStdTime => evaluator.rolling_std(&arg_results[0], period),
-                            Function::RollingVarTime => evaluator.rolling_var(&arg_results[0], period),
-                            Function::RollingMedianTime => evaluator.rolling_median(&arg_results[0], period),
-                            _ => Vec::new(),
-                        };
-                    } else {
-                        out.resize(len, f64::NAN);
-                    }
-                } else {
-                    out.resize(len, f64::NAN);
-                }
-            } else {
-                out.resize(len, f64::NAN);
-            }
-        }
-        out
-    }
+    // Time-based rolling (Dynamic windows) are handled via Polars only.
 
     fn eval_shift(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
@@ -745,9 +765,9 @@ impl CompiledExpr {
         &self,
         fun: Function,
         arg_results: &[Vec<f64>],
-        time_window: &Option<TimeWindow>,
-        ctx: &C,
-        cols: &[&[f64]],
+        _time_window: &Option<TimeWindow>,
+        _ctx: &C,
+        _cols: &[&[f64]],
     ) -> Vec<f64> {
         match fun {
             Function::Lag => self.eval_lag(arg_results),
@@ -771,9 +791,7 @@ impl CompiledExpr {
             | Function::RollingSumTime
             | Function::RollingStdTime
             | Function::RollingVarTime
-            | Function::RollingMedianTime => {
-                self.eval_time_rolling(fun, arg_results, time_window, ctx, cols)
-            }
+            | Function::RollingMedianTime => Vec::new(),
             Function::Shift => self.eval_shift(arg_results),
             Function::Rank => self.eval_rank(arg_results),
             Function::Quantile => self.eval_quantile(arg_results),

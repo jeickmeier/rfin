@@ -124,6 +124,57 @@ impl ScalarTimeSeries {
         }
     }
 
+    /// Vectorized retrieval for many dates. Returns values aligned to input dates.
+    /// Step uses last observation carried forward; Linear blends neighboring points.
+    pub fn values_on(&self, dates: &[Date]) -> Result<Vec<crate::F>> {
+        let query_days: Vec<i32> = dates
+            .iter()
+            .map(|&d| crate::dates::utils::date_to_days_since_epoch(d))
+            .collect();
+        let date_col = self.data.column("date").map_err(|_| crate::Error::Internal)?;
+        let value_col = self.data.column("value").map_err(|_| crate::Error::Internal)?;
+        let dates_series = date_col.i32().map_err(|_| crate::Error::Internal)?;
+        let values_series = value_col.f64().map_err(|_| crate::Error::Internal)?;
+
+        let date_vec: Vec<i32> = dates_series.into_no_null_iter().collect();
+        let value_vec: Vec<crate::F> = values_series.into_no_null_iter().collect();
+
+        let mut out = Vec::with_capacity(query_days.len());
+        match self.interpolation {
+            SeriesInterpolation::Step => {
+                for &qd in &query_days {
+                    match date_vec.binary_search(&qd) {
+                        Ok(idx) => out.push(value_vec[idx]),
+                        Err(idx) => {
+                            if idx == 0 { out.push(value_vec[0]); } else { out.push(value_vec[idx - 1]); }
+                        }
+                    }
+                }
+            }
+            SeriesInterpolation::Linear => {
+                for &qd in &query_days {
+                    match date_vec.binary_search(&qd) {
+                        Ok(idx) => out.push(value_vec[idx]),
+                        Err(idx) => {
+                            if idx == 0 { out.push(value_vec[0]); }
+                            else if idx >= date_vec.len() { out.push(*value_vec.last().unwrap()); }
+                            else {
+                                let x0 = date_vec[idx - 1] as crate::F;
+                                let x1 = date_vec[idx] as crate::F;
+                                let y0 = value_vec[idx - 1];
+                                let y1 = value_vec[idx];
+                                let w = (qd as crate::F - x0) / (x1 - x0);
+                                out.push(y0 + w * (y1 - y0));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(out)
+    }
+
     /// Expose the underlying DataFrame for advanced consumers.
     pub fn as_dataframe(&self) -> &DataFrame {
         &self.data
