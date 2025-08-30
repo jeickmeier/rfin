@@ -172,6 +172,22 @@ where
     }
 }
 
+/// Concrete return type used by `ScheduleBuilder::build` to avoid boxing.
+pub enum MaybeAdjusted<'a> {
+    Raw(ScheduleIter),
+    Adjusted(AdjustIter<'a, ScheduleIter>),
+}
+
+impl<'a> Iterator for MaybeAdjusted<'a> {
+    type Item = Date;
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            MaybeAdjusted::Raw(it) => it.next(),
+            MaybeAdjusted::Adjusted(it) => it.next(),
+        }
+    }
+}
+
 /// Internal stateful lazy iterator for forward-building schedules.
 pub struct LazyIter {
     next_date: Date,
@@ -272,7 +288,7 @@ impl<'a> ScheduleBuilder<'a> {
     }
 
     /// Generate the schedule iterator.
-    pub fn build(self) -> Box<dyn Iterator<Item = Date> + 'a> {
+    pub fn build(self) -> impl Iterator<Item = Date> + 'a {
         let builder = BuilderInternal {
             start: self.start,
             end: self.end,
@@ -283,10 +299,9 @@ impl<'a> ScheduleBuilder<'a> {
         let base_iter = builder.generate();
 
         // Wrap with business day adjustment if configured
-        if let (Some(conv), Some(cal)) = (self.conv, self.cal) {
-            Box::new(AdjustIter::new(base_iter, conv, cal))
-        } else {
-            Box::new(base_iter)
+        match (self.conv, self.cal) {
+            (Some(conv), Some(cal)) => MaybeAdjusted::Adjusted(AdjustIter::new(base_iter, conv, cal)),
+            _ => MaybeAdjusted::Raw(base_iter),
         }
     }
 

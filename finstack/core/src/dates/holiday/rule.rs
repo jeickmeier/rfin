@@ -39,7 +39,7 @@ pub enum Direction {
 // ---------------------------------------------------------------------------
 
 /// Single holiday rule covering the common patterns.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[non_exhaustive]
 pub enum Rule {
     /// Fixed calendar date (e.g. 1-Jan). Optional weekend observation logic.
@@ -318,6 +318,7 @@ fn autumnal_equinox_jp(year: i32) -> Date {
 // ---------------------------------------------------------------------------
 impl Rule {
     /// Returns `true` when the rule marks `date` a holiday.
+    #[inline]
     pub fn applies(&self, date: Date) -> bool {
         match self {
             Rule::Fixed {
@@ -346,27 +347,12 @@ impl Rule {
                 base == date
             }
             Rule::NthWeekday { n, weekday, month } => {
-                let target = if *n > 0 {
-                    // forward search
-                    let mut d = Date::from_calendar_date(date.year(), *month, 1).unwrap();
-                    while d.weekday() != *weekday {
-                        d = d + Duration::days(1);
-                    }
-                    d + Duration::weeks((*n as i64) - 1)
-                } else {
-                    // backward search from last day of month
-                    let (ny, nm) = if *month == Month::December {
-                        (date.year() + 1, Month::January)
-                    } else {
-                        (date.year(), Month::try_from(*month as u8 + 1).unwrap())
-                    };
-                    let mut d = Date::from_calendar_date(ny, nm, 1).unwrap() - Duration::days(1);
-                    while d.weekday() != *weekday {
-                        d = d - Duration::days(1);
-                    }
-                    let pos = (-*n) as i64; // 1 = last, 2 = second-last…
-                    d - Duration::weeks(pos - 1)
-                };
+                let target = crate::dates::holiday::generated::nth_weekday_of_month(
+                    date.year(),
+                    *month,
+                    *weekday,
+                    *n,
+                );
                 target == date
             }
             Rule::WeekdayShift {
@@ -396,8 +382,17 @@ impl Rule {
                 target == date
             }
             Rule::Span { start, len } => {
-                for offset in 0..*len as i64 {
-                    if start.applies(date - Duration::days(offset)) {
+                // Pre-compute start dates for this and previous year, then range-check.
+                // Previous year is needed for spans that cross year boundaries.
+                let y = date.year();
+                let mut starts = smallvec::SmallVec::<[Date; 64]>::new();
+                start.materialize_year(y, &mut starts);
+                if *len > 1 {
+                    start.materialize_year(y - 1, &mut starts);
+                }
+                let span_days = *len as i64;
+                for sd in starts {
+                    if date >= sd && date < sd + Duration::days(span_days) {
                         return true;
                     }
                 }
@@ -419,7 +414,11 @@ impl Rule {
 impl Rule {
     /// Append all dates in `year` that this rule marks as a holiday into `out`.
     /// No deduplication is performed.
-    pub fn materialize_year(&self, year: i32, out: &mut smallvec::SmallVec<[Date; 64]>) {
+    pub fn materialize_year<A: smallvec::Array<Item = Date>>(
+        &self,
+        year: i32,
+        out: &mut smallvec::SmallVec<A>,
+    ) {
         match self {
             Rule::Fixed { month, day, observed } => {
                 let mut base = Date::from_calendar_date(year, *month, *day).unwrap();

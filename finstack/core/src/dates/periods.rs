@@ -12,7 +12,7 @@ use time::Month;
 use crate::dates::utils::add_months;
 
 // Map schedule frequency to period categories we support in this module.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum PeriodKind {
     Quarterly,
     Monthly,
@@ -41,18 +41,8 @@ fn period_kind_from_frequency(freq: Frequency) -> PeriodKind {
     unreachable!("Unsupported frequency for periods")
 }
 
-#[inline]
-fn frequency_sort_key(freq: Frequency) -> u8 {
-    match period_kind_from_frequency(freq) {
-        // Preserve historical ordering from the old enum discriminants
-        // Quarterly(0), Monthly(1), Weekly(2), SemiAnnual(3), Annual(4)
-        PeriodKind::Quarterly => 0,
-        PeriodKind::Monthly => 1,
-        PeriodKind::Weekly => 2,
-        PeriodKind::SemiAnnual => 3,
-        PeriodKind::Annual => 4,
-    }
-}
+// Removed arbitrary frequency sort key; ordering across mixed frequencies now
+// uses concrete calendar bounds (start, then end) with a deterministic tie-breaker.
 
 /// Identifier for a period like 2025Q1 or 2025M03.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -477,6 +467,13 @@ fn parse_range(s: &str) -> crate::Result<(PeriodId, PeriodId)> {
             },
         }
     };
+    // Validate period kind consistency and non-inverted ranges
+    if period_kind_from_frequency(start.freq) != period_kind_from_frequency(end.freq) {
+        return Err(crate::error::InputError::Invalid.into());
+    }
+    if start > end {
+        return Err(crate::error::InputError::InvalidDateRange.into());
+    }
     Ok((start, end))
 }
 
@@ -593,6 +590,17 @@ fn step(mut id: PeriodId) -> PeriodId {
     id
 }
 
+#[inline]
+fn bounds_for_id(pid: &PeriodId) -> (Date, Date) {
+    match period_kind_from_frequency(pid.freq) {
+        PeriodKind::Quarterly => quarter_bounds(pid.year, pid.index),
+        PeriodKind::Monthly => month_bounds(pid.year, pid.index),
+        PeriodKind::Weekly => week_bounds(pid.year, pid.index),
+        PeriodKind::SemiAnnual => half_bounds(pid.year, pid.index),
+        PeriodKind::Annual => annual_bounds(pid.year),
+    }
+}
+
 // Ordering helpers for PeriodId
 impl PartialOrd for PeriodId {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -601,12 +609,39 @@ impl PartialOrd for PeriodId {
 }
 impl Ord for PeriodId {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        (
-            self.year,
-            frequency_sort_key(self.freq),
-            self.index,
-        )
-            .cmp(&(other.year, frequency_sort_key(other.freq), other.index))
+        // First compare by year for a fast path across different calendar years.
+        if self.year != other.year {
+            return self.year.cmp(&other.year);
+        }
+
+        let self_kind = period_kind_from_frequency(self.freq);
+        let other_kind = period_kind_from_frequency(other.freq);
+
+        // Within the same frequency kind and year, order by index.
+        if self_kind == other_kind {
+            return self.index.cmp(&other.index);
+        }
+
+        // Mixed frequencies in the same year: order by actual calendar span
+        // (start date, then end date). This avoids arbitrary cross-kind ordering.
+        let (self_start, self_end) = bounds_for_id(self);
+        let (other_start, other_end) = bounds_for_id(other);
+
+        let by_start = self_start.cmp(&other_start);
+        if by_start != std::cmp::Ordering::Equal {
+            return by_start;
+        }
+        let by_end = self_end.cmp(&other_end);
+        if by_end != std::cmp::Ordering::Equal {
+            return by_end;
+        }
+
+        // Deterministic tie-breaker (should be extremely rare): stable kind then index.
+        let by_kind = self_kind.cmp(&other_kind);
+        if by_kind != std::cmp::Ordering::Equal {
+            return by_kind;
+        }
+        self.index.cmp(&other.index)
     }
 }
 
@@ -804,5 +839,14 @@ mod tests {
         // Months should be consecutive
         assert_eq!(plan.periods[0].end, plan.periods[1].start);
         assert_eq!(plan.periods[1].end, plan.periods[2].start);
+    }
+
+    #[test]
+    fn inverted_range_errors() {
+        let err = build_periods("2025Q3..Q2", None).unwrap_err();
+        match err {
+            crate::error::Error::Input(crate::error::InputError::InvalidDateRange) => {}
+            other => panic!("expected InvalidDateRange, got {:?}", other),
+        }
     }
 }
