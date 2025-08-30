@@ -1,5 +1,5 @@
 //! Unified holiday rule enum replacing the previous micro-struct DSL.
-#![allow(missing_docs, dead_code)]
+#![allow(missing_docs)]
 #![allow(clippy::assign_op_pattern, clippy::unnecessary_map_or)]
 //!
 //! This module provides a single `Rule` enum with data-carrying variants that

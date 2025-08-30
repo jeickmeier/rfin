@@ -18,7 +18,6 @@
 //! assert!((vs.value_checked(1.5, 95.0).unwrap() - 0.2).abs() < 1e-12);
 //! assert!((vs.value_clamped(0.5, 80.0) - 0.2).abs() < 1e-12);
 //! ```
-#![allow(dead_code)]
 
 // Box and Vec are available from the standard prelude; no explicit alloc import needed.
 

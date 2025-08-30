@@ -1,8 +1,7 @@
-#![cfg_attr(not(feature = "std"), no_std)]
 #![warn(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
-//! Zero-std financial primitives & date utilities for the **Finstack** ecosystem.
+//! Financial primitives & date utilities for the **Finstack** ecosystem.
 //!
 //! This crate exposes lightweight, composable building-blocks that are
 //! commonly required in pricing engines and risk systems:
@@ -11,8 +10,8 @@
 //! * [`Money`] – type-safe monetary amounts that refuse to mix currencies
 //! * [`time`] – date/time scaffolding (business calendars, day-count, schedules)
 //!
-//! The implementation is `#![no_std]` by default and adds conveniences such as
-//! `std::error::Error` & `Display` impls when compiled with the **`std`** feature.
+//! Note: This crate relies on the Rust standard library. Previous `no_std` claims
+//! have been removed.
 //!
 //! # Quick start
 //! ```
@@ -31,7 +30,7 @@
 //! # Cargo features
 //! | Feature       | Purpose                                            |
 //! |-------------- |----------------------------------------------------|
-//! | `std`         | Enables `std` trait impls (`Error`, `Display`, ...) |
+//! | `std`         | Required standard library support (always enabled)   |
 //! | `serde`       | `Serialize`/`Deserialize` for public types         |
 //! | `decimal128`  | `MoneyDecimal` using `rust_decimal::Decimal`       |
 //!

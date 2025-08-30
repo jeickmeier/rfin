@@ -1,6 +1,6 @@
 //! Numerical helpers: root finding, summation, and simple statistics.
 //!
-//! The implementations are `no_std` friendly and avoid allocation. When the
+//! The implementations avoid heap allocation. When the
 //! `deterministic` feature is enabled, functions prefer numerically stable,
 //! order-preserving algorithms.
 

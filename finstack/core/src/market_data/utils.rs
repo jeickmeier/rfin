@@ -1,8 +1,8 @@
 //! Shared helper functions for the *market-data* layer.
 //!
-//! These utilities are intentionally **`no_std`–compatible** (they only depend
-//! on the parent crate and `core`) so they can be leveraged by WASM builds and
-//! other constrained targets.
+//! These utilities are intentionally lightweight and depend only on the parent
+//! crate and `core` so they can be leveraged by WASM builds and other
+//! constrained targets.
 //!
 //! The helpers are kept in a dedicated module so that they can be re-used by
 //! several interpolation schemes and term-structure builders without code

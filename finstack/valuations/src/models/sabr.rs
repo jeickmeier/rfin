@@ -246,8 +246,8 @@ pub struct SABRCalibrator {
     tolerance: F,
     /// Maximum iterations
     max_iterations: usize,
-    /// Use ATM constraint
-    #[allow(dead_code)]  // TODO: Implement ATM constraint functionality
+    /// Use ATM constraint (reserved for future)
+    #[allow(dead_code)]
     use_atm_constraint: bool,
 }
 

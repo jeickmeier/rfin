@@ -964,10 +964,4 @@ fn arg_as_i64(e: &Expr) -> i64 {
         _ => 0,
     }
 }
-#[allow(dead_code)]
-fn arg_as_f64(e: &Expr) -> f64 {
-    match &e.node {
-        ExprNode::Literal(v) => *v,
-        _ => 0.0,
-    }
-}
+// Note: arg_as_f64 removed as unused helper

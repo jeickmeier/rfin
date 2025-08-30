@@ -10,8 +10,8 @@
 //! borrowed slice of `&dyn HolidayCalendar` trait objects.  This makes it
 //! zero-sized for the common case where the slice lives on the stack.
 //!
-//! The type is deliberately lightweight and `no_std`-friendly so it can be
-//! used inside `const` contexts once trait-object support for const fn lands.
+//! The type is deliberately lightweight so it can be used inside `const`
+//! contexts once trait-object support for const fn lands.
 //!
 //! # Examples
 //! ```

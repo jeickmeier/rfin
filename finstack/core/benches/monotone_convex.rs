@@ -8,7 +8,7 @@ fn bench_monotone_convex(c: &mut Criterion) {
     let interp =
         MonotoneConvex::new(knots.clone().into_boxed_slice(), dfs.into_boxed_slice()).unwrap();
 
-    // Evaluation grid – 10  samples.
+    // Evaluation grid – 10_000 samples.
     let evals: Vec<f64> = (0..10_000).map(|i| i as f64 * 0.001).collect();
 
     c.bench_function("monotone_convex_df", |b| {

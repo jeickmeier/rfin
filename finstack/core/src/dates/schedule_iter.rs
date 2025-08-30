@@ -248,7 +248,6 @@ impl<'a> ScheduleBuilder<'a> {
 
     /// Set stub handling rule.
     #[must_use]
-    #[allow(dead_code)]
     pub fn stub_rule(mut self, stub: StubKind) -> Self {
         self.stub = stub;
         self
@@ -256,7 +255,6 @@ impl<'a> ScheduleBuilder<'a> {
 
     /// Configure business-day adjustment using `conv` and `cal`.
     #[must_use]
-    #[allow(dead_code)]
     pub fn adjust_with(
         mut self,
         conv: BusinessDayConvention,
@@ -268,7 +266,6 @@ impl<'a> ScheduleBuilder<'a> {
     }
 
     /// Generate the schedule iterator.
-    #[allow(dead_code)]
     pub fn build(self) -> Box<dyn Iterator<Item = Date> + 'a> {
         let builder = BuilderInternal {
             start: self.start,

@@ -1,7 +1,7 @@
 //! Day-count convention algorithms (ACT/360, ACT/365F, 30/360, 30E/360, ACT/ACT).
 //!
 //! The implementation follows the ISDA definitions where applicable and is **panic-free**.
-//! All helpers are `no_std` friendly and allocate no heap memory.
+//! All helpers avoid heap allocation.
 //!
 //! # Examples
 //! ```

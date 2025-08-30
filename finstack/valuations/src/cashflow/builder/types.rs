@@ -43,7 +43,6 @@ pub struct FixedCouponSpec {
 }
 
 /// Floating coupon specification.
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub struct FloatingCouponSpec {
     pub index_id: &'static str,
@@ -59,7 +58,6 @@ pub struct FloatingCouponSpec {
 }
 
 /// Fee specification.
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum FeeSpec {
     Fixed { date: Date, amount: Money },

@@ -305,9 +305,9 @@ File: finstack/core/build/generate_calendars.rs
 
 use std::io;
 
-/// Auto-discover calendar modules under `src/dates/calendars` and emit an
-/// aggregate module inside `OUT_DIR` so that the crate can reference them at
-/// runtime.
+/// Auto-discover calendar modules under `src/dates/holiday/calendars` and emit
+/// a generated lookup (`calendar_by_id`) and `ALL_IDS` inside `OUT_DIR`. This
+/// removes the need for manual registration in `calendars/mod.rs`.
 pub fn generate() -> io::Result<()> {
     use std::fs::{self, File};
     use std::io::Write;
@@ -316,10 +316,9 @@ pub fn generate() -> io::Result<()> {
     let out_dir = std::env::var("OUT_DIR").unwrap();
     let dest_path: PathBuf = Path::new(&out_dir).join("generated_calendars.rs");
 
-    // Scan directory for .rs files (excluding mod.rs)
-    let mut lines = String::new();
+    // Discover calendar files
     let mut names = Vec::<String>::new();
-    let cal_dir = Path::new("src/dates/calendars");
+    let cal_dir = Path::new("src/dates/holiday/calendars");
     if cal_dir.exists() {
         for entry in fs::read_dir(cal_dir)? {
             let path = entry?.path();
@@ -329,41 +328,74 @@ pub fn generate() -> io::Result<()> {
             if path.file_name().and_then(|s| s.to_str()) == Some("mod.rs") {
                 continue;
             }
-            let stem = path.file_stem().unwrap().to_str().unwrap();
-            // Embed each calendar file as an inline module so the compiler can find it even
-            // though this code is expanded from OUT_DIR (which would otherwise break the
-            // standard module path resolution logic).
-            lines.push_str(&format!(
-                "pub mod {name} {{\n    include!(concat!(env!(\"CARGO_MANIFEST_DIR\"), \"/src/dates/calendars/{name}.rs\"));\n}}\n",
-                name = stem
-            ));
-            lines.push_str(&format!("pub use {name}::*;\n", name = stem));
-
-            // Keep track of all discovered calendar names so we can expose a list later.
-            names.push(stem.to_string());
+            let stem = path.file_stem().unwrap().to_str().unwrap().to_string();
+            names.push(stem);
         }
     }
 
-    // Expose list of available calendars for runtime discovery
-    if !names.is_empty() {
-        names.sort();
-        lines.push_str("\n/// List of built-in holiday calendar identifiers.\n");
-        lines.push_str("pub const AVAILABLE_CALENDARS: &[&str] = &[\n");
-        for name in &names {
-            lines.push_str(&format!("    \"{}\",\n", name));
-        }
-        lines.push_str("];\n");
+    names.sort();
 
-        lines.push_str("\n\n/// Returns slice of available calendar identifiers.\n");
-        lines.push_str("#[inline]\n");
-        lines.push_str("pub const fn available_calendars() -> &'static [&'static str] {\n    AVAILABLE_CALENDARS\n}\n");
+    // Helper: convert file stem (e.g. "gblo", "target2") to type name ("Gblo", "Target2")
+    fn to_type_name(stem: &str) -> String {
+        let mut chars = stem.chars();
+        let mut out = String::new();
+        if let Some(ch) = chars.next() {
+            out.push(ch.to_ascii_uppercase());
+        }
+        for ch in chars {
+            // Keep digits as is; letters lowercased; no separators present in current stems
+            if ch.is_ascii_alphabetic() {
+                out.push(ch.to_ascii_lowercase());
+            } else {
+                out.push(ch);
+            }
+        }
+        out
     }
+
+    // Build generated source
+    let mut lines = String::new();
+    lines.push_str("use crate::dates::calendar::HolidayCalendar;\n\n");
+
+    // Static instances for &'static dyn HolidayCalendar references
+    for name in &names {
+        let upper = name.to_ascii_uppercase();
+        let ty = to_type_name(name);
+        lines.push_str(&format!("static {upper}_INSTANCE: {ty} = {ty};\n", upper = upper, ty = ty));
+    }
+
+    // calendar_by_id lookup
+    lines.push_str("\n/// Lookup a built-in calendar by its lowercase identifier (e.g. \"gblo\").\n");
+    lines.push_str("/// Returns `None` if the id is unrecognised.\n");
+    lines.push_str("pub fn calendar_by_id(id: &str) -> Option<&'static dyn HolidayCalendar> {\n");
+    lines.push_str("    match id {\n");
+    for name in &names {
+        let upper = name.to_ascii_uppercase();
+        lines.push_str(&format!(
+            "        \"{name}\" => Some(&{upper}_INSTANCE as &dyn HolidayCalendar),\n",
+            name = name,
+            upper = upper
+        ));
+    }
+    lines.push_str("        _ => None,\n");
+    lines.push_str("    }\n}\n\n");
+
+    // ALL_IDS constant (stable, sorted order)
+    lines.push_str("pub const ALL_IDS: &[&str] = &[\n");
+    for name in &names {
+        lines.push_str(&format!("    \"{}\",\n", name));
+    }
+    lines.push_str("];\n\n");
+
+    // Convenience shim mirroring the old surface
+    lines.push_str("#[inline]\n");
+    lines.push_str("pub const fn available_calendars() -> &'static [&'static str] { ALL_IDS }\n");
 
     let mut file = File::create(&dest_path)?;
     file.write_all(lines.as_bytes())?;
 
     // Rebuild if directory or its files change
-    println!("cargo:rerun-if-changed=src/dates/calendars");
+    println!("cargo:rerun-if-changed=src/dates/holiday/calendars");
 
     Ok(())
 }
@@ -394,18 +426,17 @@ fn main() -> io::Result<()> {
 File: finstack/core/src/config.rs
 ================================================================================
 
-//! Global numeric/rounding configuration for finstack-core.
+//! Numeric/rounding configuration for finstack-core.
 //!
-//! Lightweight scaffolding that provides a process-wide rounding policy and
-//! accessors. In future iterations, currency-specific scale policies can be
-//! added here. The defaults are safe and match common accounting expectations.
+//! This module defines configuration types and helper functions that operate on
+//! an explicit `FinstackConfig` passed by the caller. There is no global
+//! configuration state; call sites must provide the configuration they wish to
+//! apply.
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 use hashbrown::HashMap;
-use once_cell::sync::Lazy;
-use std::sync::{Arc, RwLock};
 
 /// Rounding modes supported by the library.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -423,7 +454,7 @@ pub enum RoundingMode {
     Ceil,
 }
 
-/// Global configuration container. Extend as needed.
+/// Configuration container. Extend as needed.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FinstackConfig {
@@ -440,31 +471,6 @@ impl Default for FinstackConfig {
             rounding: RoundingPolicy::default(),
         }
     }
-}
-
-static CONFIG: Lazy<RwLock<Arc<FinstackConfig>>> =
-    Lazy::new(|| RwLock::new(Arc::new(FinstackConfig::default())));
-
-/// Obtain the current global configuration.
-pub fn config() -> Arc<FinstackConfig> {
-    CONFIG.read().unwrap().clone()
-}
-
-/// Execute a closure with a temporary configuration, restoring the previous
-/// configuration afterward.
-pub fn with_temp_config<T>(cfg: FinstackConfig, f: impl FnOnce() -> T) -> T {
-    let prev;
-    {
-        let mut guard = CONFIG.write().unwrap();
-        prev = guard.clone();
-        *guard = Arc::new(cfg);
-    }
-    let out = f();
-    {
-        let mut guard = CONFIG.write().unwrap();
-        *guard = prev;
-    }
-    out
 }
 
 /// Policy mapping to determine decimal places for each currency at ingest/output.
@@ -544,8 +550,7 @@ pub struct ResultsMeta {
 }
 
 /// Compute the effective output scale for a currency.
-pub fn output_scale_for(ccy: crate::currency::Currency) -> u32 {
-    let cfg = config();
+pub fn output_scale_for(cfg: &FinstackConfig, ccy: crate::currency::Currency) -> u32 {
     if let Some(&s) = cfg.rounding.output_scale.overrides.get(&ccy) {
         return s;
     }
@@ -553,17 +558,15 @@ pub fn output_scale_for(ccy: crate::currency::Currency) -> u32 {
 }
 
 /// Compute the effective ingest scale for a currency.
-pub fn ingest_scale_for(ccy: crate::currency::Currency) -> u32 {
-    let cfg = config();
+pub fn ingest_scale_for(cfg: &FinstackConfig, ccy: crate::currency::Currency) -> u32 {
     if let Some(&s) = cfg.rounding.ingest_scale.overrides.get(&ccy) {
         return s;
     }
     cfg.rounding.ingest_scale.default_scale
 }
 
-/// Build a snapshot of the current rounding context.
-pub fn rounding_context() -> RoundingContext {
-    let cfg = config();
+/// Build a snapshot of the current rounding context from a config.
+pub fn rounding_context_from(cfg: &FinstackConfig) -> RoundingContext {
     RoundingContext {
         mode: cfg.rounding.mode,
         ingest_scale_by_ccy: cfg.rounding.ingest_scale.overrides.clone(),
@@ -585,34 +588,14 @@ pub fn numeric_mode() -> NumericMode {
 }
 
 /// Construct a `ResultsMeta` snapshot for stamping into result envelopes.
-pub fn results_meta() -> ResultsMeta {
+pub fn results_meta(cfg: &FinstackConfig) -> ResultsMeta {
     ResultsMeta {
         numeric_mode: numeric_mode(),
-        rounding: rounding_context(),
+        rounding: rounding_context_from(cfg),
     }
 }
 
-#[cfg(all(test, feature = "decimal128"))]
-mod tests {
-    use super::*;
-    #[test]
-    fn temp_config_roundtrip() {
-        let orig = config();
-        assert_eq!(orig.rounding.mode, RoundingMode::Bankers);
-        let out = with_temp_config(
-            FinstackConfig {
-                rounding_mode: RoundingMode::Ceil,
-                rounding: RoundingPolicy {
-                    mode: RoundingMode::Ceil,
-                    ..Default::default()
-                },
-            },
-            || config().rounding.mode,
-        );
-        assert_eq!(out, RoundingMode::Ceil);
-        assert_eq!(config().rounding.mode, RoundingMode::Bankers);
-    }
-}
+// No unit tests here rely on global configuration anymore.
 
 
 
@@ -940,44 +923,74 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
 ) -> Date {
     match conv {
         BusinessDayConvention::Unadjusted => date,
-        BusinessDayConvention::Following => adjust_following(date, cal),
+        BusinessDayConvention::Following => {
+            if cal.is_business_day(date) {
+                return date;
+            }
+            let mut d = date;
+            while !cal.is_business_day(d) {
+                d = d + Duration::days(1);
+            }
+            d
+        }
         BusinessDayConvention::ModifiedFollowing => {
-            let adj = adjust_following(date, cal);
-            if adj.month() == date.month() {
-                adj
-            } else {
-                adjust_preceding(date, cal)
+            if cal.is_business_day(date) {
+                return date;
             }
+            let original_month = date.month();
+
+            // Compute following candidate
+            let mut forward = date;
+            while !cal.is_business_day(forward) {
+                forward = forward + Duration::days(1);
+            }
+            if forward.month() == original_month {
+                return forward;
+            }
+
+            // Fallback to preceding if following crosses month
+            let mut back = date;
+            while !cal.is_business_day(back) {
+                back = back - Duration::days(1);
+            }
+            back
         }
-        BusinessDayConvention::Preceding => adjust_preceding(date, cal),
+        BusinessDayConvention::Preceding => {
+            if cal.is_business_day(date) {
+                return date;
+            }
+            let mut d = date;
+            while !cal.is_business_day(d) {
+                d = d - Duration::days(1);
+            }
+            d
+        }
         BusinessDayConvention::ModifiedPreceding => {
-            let adj = adjust_preceding(date, cal);
-            if adj.month() == date.month() {
-                adj
-            } else {
-                adjust_following(date, cal)
+            if cal.is_business_day(date) {
+                return date;
             }
+            let original_month = date.month();
+
+            // Compute preceding candidate
+            let mut back = date;
+            while !cal.is_business_day(back) {
+                back = back - Duration::days(1);
+            }
+            if back.month() == original_month {
+                return back;
+            }
+
+            // Fallback to following if preceding crosses month
+            let mut forward = date;
+            while !cal.is_business_day(forward) {
+                forward = forward + Duration::days(1);
+            }
+            forward
         }
     }
 }
 
-#[inline]
-fn adjust_following<C: HolidayCalendar + ?Sized>(mut date: Date, cal: &C) -> Date {
-    while !cal.is_business_day(date) {
-        // Safe unwrap: adding 1 day to a valid Date always succeeds within
-        // the representable range of the `time` crate (±10k years).
-        date = date + Duration::DAY;
-    }
-    date
-}
-
-#[inline]
-fn adjust_preceding<C: HolidayCalendar + ?Sized>(mut date: Date, cal: &C) -> Date {
-    while !cal.is_business_day(date) {
-        date = date - Duration::DAY;
-    }
-    date
-}
+// helper functions merged into `adjust` for a single, cohesive business-day logic surface
 
 // -----------------------------------------------------------------------------
 // Runtime discovery helpers
@@ -999,11 +1012,10 @@ File: finstack/core/src/dates/composite.rs
 //! Composite holiday calendars combining multiple underlying calendars.
 //!
 //! This helper allows treating *multiple* [`HolidayCalendar`] implementations
-//! as a single calendar using either
-//! * *union* semantics (a day is a holiday if **any** sub-calendar is a
-//!   holiday) – this is the default and matches the strictest view, and
-//! * *intersection* semantics (a day is a holiday only if **all**
-//!   sub-calendars are holidays).
+//! as a single calendar. By default it uses a strict
+//! **union** of holidays (a day is a holiday if any sub-calendar is a holiday).
+//! Optionally, you can request **intersection** semantics (a day is a holiday
+//! only if all sub-calendars are holidays) via a boolean flag.
 //!
 //! It is entirely allocation-free: a [`CompositeCalendar`] simply holds a
 //! borrowed slice of `&dyn HolidayCalendar` trait objects.  This makes it
@@ -1014,7 +1026,7 @@ File: finstack/core/src/dates/composite.rs
 //!
 //! # Examples
 //! ```
-//! use finstack_core::dates::{CompositeCalendar, MergeMode, Target2, Gblo, HolidayCalendar};
+//! use finstack_core::dates::{CompositeCalendar, Target2, Gblo, HolidayCalendar};
 //! use time::Date;
 //!
 //! let t2 = Target2;
@@ -1027,7 +1039,7 @@ File: finstack/core/src/dates/composite.rs
 //! assert!(cal_union.is_holiday(jan1_2025));
 //!
 //! // Intersection – holiday only if *both* markets are closed.
-//! let cal_inter = CompositeCalendar::merge_with_mode(&calendars, MergeMode::Intersection);
+//! let cal_inter = CompositeCalendar::merge_with_intersection(&calendars, true);
 //! let may26_2025 = Date::from_calendar_date(2025, time::Month::May, 26).unwrap();
 //! assert!(cal_union.is_holiday(may26_2025)); // U.K. spring bank holiday
 //! assert!(!cal_inter.is_holiday(may26_2025));
@@ -1036,68 +1048,57 @@ File: finstack/core/src/dates/composite.rs
 use super::HolidayCalendar;
 use time::Date;
 
-/// Merge logic for [`CompositeCalendar`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MergeMode {
-    /// Union of holidays – *any* sub-calendar marks the date a holiday.
-    Union,
-    /// Intersection of holidays – date is a holiday only when *all*
-    /// sub-calendars mark it a holiday.
-    Intersection,
-}
-
 /// A lightweight view combining several holiday calendars.
 #[derive(Clone, Copy)]
 pub struct CompositeCalendar<'a> {
     calendars: &'a [&'a dyn HolidayCalendar],
-    mode: MergeMode,
+    intersection: bool,
 }
 
 impl core::fmt::Debug for CompositeCalendar<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("CompositeCalendar")
-            .field("mode", &self.mode)
+            .field("intersection", &self.intersection)
             .field("calendars_len", &self.calendars.len())
             .finish()
     }
 }
 
 impl<'a> CompositeCalendar<'a> {
-    /// Create a new composite calendar using `mode` for merge semantics.
+    /// Create a new composite calendar using union semantics (strict by default).
     #[must_use]
-    pub const fn new(calendars: &'a [&'a dyn HolidayCalendar], mode: MergeMode) -> Self {
-        Self { calendars, mode }
+    pub const fn new(calendars: &'a [&'a dyn HolidayCalendar]) -> Self {
+        Self { calendars, intersection: false }
     }
 
     /// Convenience wrapper constructing a *union* composite (strict by default).
     #[must_use]
     pub const fn merge(calendars: &'a [&'a dyn HolidayCalendar]) -> Self {
-        Self::new(calendars, MergeMode::Union)
+        Self::new(calendars)
     }
 
-    /// Convenience wrapper constructing a composite with explicit `mode`.
+    /// Construct a composite calendar with an explicit intersection flag.
+    /// When `intersection` is `true`, a date is a holiday only if all sub-calendars
+    /// mark it as a holiday. When `false`, union semantics are used.
     #[must_use]
-    pub const fn merge_with_mode(
+    pub const fn merge_with_intersection(
         calendars: &'a [&'a dyn HolidayCalendar],
-        mode: MergeMode,
+        intersection: bool,
     ) -> Self {
-        Self::new(calendars, mode)
+        Self { calendars, intersection }
     }
 }
 
 impl HolidayCalendar for CompositeCalendar<'_> {
     fn is_holiday(&self, date: Date) -> bool {
-        match self.mode {
-            MergeMode::Union => {
-                // Empty slice ⇒ no holidays, so return false.
-                self.calendars.iter().any(|c| c.is_holiday(date))
+        if self.intersection {
+            if self.calendars.is_empty() {
+                return false;
             }
-            MergeMode::Intersection => {
-                if self.calendars.is_empty() {
-                    return false;
-                }
-                self.calendars.iter().all(|c| c.is_holiday(date))
-            }
+            self.calendars.iter().all(|c| c.is_holiday(date))
+        } else {
+            // Empty slice ⇒ no holidays, so return false.
+            self.calendars.iter().any(|c| c.is_holiday(date))
         }
     }
 }
@@ -1118,7 +1119,7 @@ mod tests {
         let calendars = [&t2 as &dyn HolidayCalendar, &gb as &dyn HolidayCalendar];
 
         let cal_union = CompositeCalendar::merge(&calendars);
-        let cal_inter = CompositeCalendar::merge_with_mode(&calendars, MergeMode::Intersection);
+        let cal_inter = CompositeCalendar::merge_with_intersection(&calendars, true);
 
         // Date that is holiday in both calendars (New Year's Day)
         let d1 = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -1383,8 +1384,8 @@ impl DayCount {
                     let total_days = (end - start).whole_days();
                     Ok(total_days as i32)
                 }
-                DayCount::Thirty360 => Ok(days_30_360_us(start, end)),
-                DayCount::ThirtyE360 => Ok(days_30e_360(start, end)),
+                DayCount::Thirty360 => Ok(days_30_360(start, end, Thirty360Convention::Us)),
+                DayCount::ThirtyE360 => Ok(days_30_360(start, end, Thirty360Convention::European)),
             },
         }
     }
@@ -1405,14 +1406,21 @@ impl DayCount {
 // -------------------------------------------------------------------------------------------------
 // 30/360 generalized helper
 // -------------------------------------------------------------------------------------------------
+/// 30/360 day-count variants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Thirty360Convention {
+pub enum Thirty360Convention {
+    /// 30U/360 (US Bond Basis).
     Us,
+    /// 30E/360 (European).
     European,
 }
 
+/// Compute day count between `start` (inclusive) and `end` (exclusive) under a 30/360 convention.
+///
+/// Precondition: `start <= end`. If violated, the returned value will be negative.
+/// This helper is panic-free and allocation-free.
 #[inline]
-fn days_30_360(start: Date, end: Date, convention: Thirty360Convention) -> i32 {
+pub fn days_30_360(start: Date, end: Date, convention: Thirty360Convention) -> i32 {
     let (y1, m1, d1) = (start.year(), start.month() as i32, start.day() as i32);
     let (y2, m2, d2) = (end.year(), end.month() as i32, end.day() as i32);
 
@@ -1429,20 +1437,7 @@ fn days_30_360(start: Date, end: Date, convention: Thirty360Convention) -> i32 {
     (y2 - y1) * 360 + (m2 - m1) * 30 + (d2_adj - d1_adj)
 }
 
-// -------------------------------------------------------------------------------------------------
-// 30U/360 (US Bond Basis) helper
-// -------------------------------------------------------------------------------------------------
-/// Calculate days per 30U/360 US convention.
-fn days_30_360_us(start: Date, end: Date) -> i32 {
-    days_30_360(start, end, Thirty360Convention::Us)
-}
-
-// -------------------------------------------------------------------------------------------------
-// 30E/360 European helper
-// -------------------------------------------------------------------------------------------------
-fn days_30e_360(start: Date, end: Date) -> i32 {
-    days_30_360(start, end, Thirty360Convention::European)
-}
+// (Wrappers removed in favor of the public `days_30_360` with `Thirty360Convention`.)
 
 // -------------------------------------------------------------------------------------------------
 // ACT/ACT (ISDA) helper
@@ -1898,7 +1893,7 @@ fn build_year(year: i32) -> HashSet<Date> {
         if CNBE_RULES.is_holiday(date) {
             set.insert(date);
         }
-        date += Duration::DAY;
+        date += Duration::days(1);
     }
     set
 }
@@ -2082,7 +2077,7 @@ fn build_year(year: i32) -> HashSet<Date> {
         if HKHK_RULES.is_holiday(date) {
             set.insert(date);
         }
-        date += Duration::DAY;
+        date += Duration::days(1);
     }
     set
 }
@@ -2259,60 +2254,8 @@ pub use sse::Sse;
 pub use target2::Target2;
 pub use usny::Usny;
 
-use crate::dates::calendar::HolidayCalendar;
-
-// Static instances for &'static dyn HolidayCalendar references
-static GBLO_INSTANCE: Gblo = Gblo;
-static TARGET2_INSTANCE: Target2 = Target2;
-static ASX_INSTANCE: Asx = Asx;
-static AUCE_INSTANCE: Auce = Auce;
-static CATO_INSTANCE: Cato = Cato;
-static DEFR_INSTANCE: Defr = Defr;
-static NYSE_INSTANCE: Nyse = Nyse;
-static USNY_INSTANCE: Usny = Usny;
-static SIFMA_INSTANCE: Sifma = Sifma;
-static BRBD_INSTANCE: Brbd = Brbd;
-static CHZH_INSTANCE: Chzh = Chzh;
-static CNBE_INSTANCE: Cnbe = Cnbe;
-static SGSI_INSTANCE: Sgsi = Sgsi;
-static SSE_INSTANCE: Sse = Sse;
-static HKHK_INSTANCE: Hkhk = Hkhk;
-static HKEX_INSTANCE: Hkex = Hkex;
-static JPTO_INSTANCE: Jpto = Jpto;
-static JPX_INSTANCE: Jpx = Jpx;
-static CME_INSTANCE: Cme = Cme;
-
-/// Lookup a built-in calendar by its lowercase identifier (e.g. "gblo", "target2").
-/// Returns `None` if the id is unrecognised.
-pub fn calendar_by_id(id: &str) -> Option<&'static dyn HolidayCalendar> {
-    match id {
-        "gblo" => Some(&GBLO_INSTANCE as &dyn HolidayCalendar),
-        "target2" => Some(&TARGET2_INSTANCE as &dyn HolidayCalendar),
-        "asx" => Some(&ASX_INSTANCE as &dyn HolidayCalendar),
-        "auce" => Some(&AUCE_INSTANCE as &dyn HolidayCalendar),
-        "cato" => Some(&CATO_INSTANCE as &dyn HolidayCalendar),
-        "defr" => Some(&DEFR_INSTANCE as &dyn HolidayCalendar),
-        "nyse" => Some(&NYSE_INSTANCE as &dyn HolidayCalendar),
-        "usny" => Some(&USNY_INSTANCE as &dyn HolidayCalendar),
-        "sifma" => Some(&SIFMA_INSTANCE as &dyn HolidayCalendar),
-        "brbd" => Some(&BRBD_INSTANCE as &dyn HolidayCalendar),
-        "chzh" => Some(&CHZH_INSTANCE as &dyn HolidayCalendar),
-        "cnbe" => Some(&CNBE_INSTANCE as &dyn HolidayCalendar),
-        "sgsi" => Some(&SGSI_INSTANCE as &dyn HolidayCalendar),
-        "sse" => Some(&SSE_INSTANCE as &dyn HolidayCalendar),
-        "hkhk" => Some(&HKHK_INSTANCE as &dyn HolidayCalendar),
-        "hkex" => Some(&HKEX_INSTANCE as &dyn HolidayCalendar),
-        "jpto" => Some(&JPTO_INSTANCE as &dyn HolidayCalendar),
-        "jpx" => Some(&JPX_INSTANCE as &dyn HolidayCalendar),
-        "cme" => Some(&CME_INSTANCE as &dyn HolidayCalendar),
-        _ => None,
-    }
-}
-
-pub const ALL_IDS: &[&str] = &[
-    "gblo", "target2", "asx", "auce", "cato", "defr", "nyse", "usny", "sifma", "brbd", "chzh",
-    "cnbe", "sgsi", "sse", "hkhk", "hkex", "jpto", "jpx", "cme",
-];
+// Include generated registry: ALL_IDS, calendar_by_id, and helpers
+include!(concat!(env!("OUT_DIR"), "/generated_calendars.rs"));
 
 
 
@@ -2802,7 +2745,7 @@ fn easter_monday(year: i32) -> Date {
         Month::April
     };
     let easter_sunday = Date::from_calendar_date(year, month, day as u8).unwrap();
-    easter_sunday + Duration::DAY // Easter Monday = Sunday +1
+    easter_sunday + Duration::days(1) // Easter Monday = Sunday +1
 }
 
 // Pre-computed Chinese New Year (Spring Festival) Gregorian dates 1990-2100.
@@ -2972,16 +2915,16 @@ impl Rule {
                     Observed::None => { /* keep base */ }
                     Observed::NextMonday => {
                         if matches!(base.weekday(), Weekday::Saturday) {
-                            base = base + Duration::DAY * 2;
+                            base = base + Duration::days(2);
                         } else if matches!(base.weekday(), Weekday::Sunday) {
-                            base = base + Duration::DAY;
+                            base = base + Duration::days(1);
                         }
                     }
                     Observed::FriIfSatMonIfSun => {
                         if matches!(base.weekday(), Weekday::Saturday) {
-                            base = base - Duration::DAY;
+                            base = base - Duration::days(1);
                         } else if matches!(base.weekday(), Weekday::Sunday) {
-                            base = base + Duration::DAY;
+                            base = base + Duration::days(1);
                         }
                     }
                 }
@@ -2992,7 +2935,7 @@ impl Rule {
                     // forward search
                     let mut d = Date::from_calendar_date(date.year(), *month, 1).unwrap();
                     while d.weekday() != *weekday {
-                        d = d + Duration::DAY;
+                        d = d + Duration::days(1);
                     }
                     d + Duration::weeks((*n as i64) - 1)
                 } else {
@@ -3002,9 +2945,9 @@ impl Rule {
                     } else {
                         (date.year(), Month::try_from(*month as u8 + 1).unwrap())
                     };
-                    let mut d = Date::from_calendar_date(ny, nm, 1).unwrap() - Duration::DAY;
+                    let mut d = Date::from_calendar_date(ny, nm, 1).unwrap() - Duration::days(1);
                     while d.weekday() != *weekday {
-                        d = d - Duration::DAY;
+                        d = d - Duration::days(1);
                     }
                     let pos = (-*n) as i64; // 1 = last, 2 = second-last…
                     d - Duration::weeks(pos - 1)
@@ -3021,12 +2964,12 @@ impl Rule {
                 match dir {
                     Direction::After => {
                         while d.weekday() != *weekday {
-                            d = d + Duration::DAY;
+                            d = d + Duration::days(1);
                         }
                     }
                     Direction::Before => {
                         while d.weekday() != *weekday {
-                            d = d - Duration::DAY;
+                            d = d - Duration::days(1);
                         }
                     }
                 }
@@ -3129,7 +3072,7 @@ pub fn third_wednesday(month: Month, year: i32) -> Date {
     // The third Wednesday is guaranteed to fall within 15..=21 of the month.
     let mut date = Date::from_calendar_date(year, month, 15).unwrap();
     while date.weekday() != Weekday::Wednesday {
-        date = date + Duration::DAY;
+        date = date + Duration::days(1);
     }
     date
 }
@@ -3247,7 +3190,7 @@ pub use date_extensions::{DateExt, OffsetDateTimeExt};
 
 mod daycount;
 
-pub use daycount::DayCount;
+pub use daycount::{DayCount, Thirty360Convention, days_30_360};
 
 mod calendar;
 
@@ -3263,16 +3206,14 @@ pub use schedule_iter::{schedule, Frequency, ScheduleBuilder, StubKind};
 
 mod composite;
 
-pub use composite::{CompositeCalendar, MergeMode};
+pub use composite::CompositeCalendar;
 
 mod imm;
 
 pub use imm::{next_cds_date, next_imm, third_wednesday};
 
 pub mod holiday;
-// Re-export primary types for ergonomic use
-pub use holiday::{Calendar as HolidayCalendarNew, Rule as HolidayRule};
-
+// Keep holiday DSL under `dates::holiday`; avoid redundant aliases at root.
 // Re-export calendars directly for `finstack_core::dates::Target2` etc.
 pub use holiday::calendars::*;
 
@@ -5892,6 +5833,549 @@ impl CompiledExpr {
         out
     }
 
+    // --- Helper evaluators (scalar path) ---
+
+    fn eval_lag(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let n = arg_results[1][0] as usize;
+            out.extend((0..len).map(|i| if i < n { f64::NAN } else { base[i - n] }));
+        }
+        out
+    }
+
+    fn eval_lead(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let n = arg_results[1][0] as usize;
+            out.extend((0..len).map(|i| if i + n >= len { f64::NAN } else { base[i + n] }));
+        }
+        out
+    }
+
+    fn eval_diff(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let base = &arg_results[0];
+            let n = if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+                arg_results[1][0] as usize
+            } else {
+                1
+            };
+            out.extend((0..len).map(|i| if i < n { f64::NAN } else { base[i] - base[i - n] }));
+        }
+        out
+    }
+
+    fn eval_pct_change(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let base = &arg_results[0];
+            let n = if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+                arg_results[1][0] as usize
+            } else {
+                1
+            };
+            out.extend((0..len).map(|i| {
+                if i < n || base[i - n] == 0.0 {
+                    f64::NAN
+                } else {
+                    (base[i] / base[i - n]) - 1.0
+                }
+            }));
+        }
+        out
+    }
+
+    fn eval_cum_sum(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let base = &arg_results[0];
+            let mut acc = 0.0;
+            for &v in base {
+                acc += v;
+                out.push(acc);
+            }
+        }
+        out
+    }
+
+    fn eval_cum_prod(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let base = &arg_results[0];
+            let mut acc = 1.0;
+            for &v in base {
+                acc *= v;
+                out.push(acc);
+            }
+        }
+        out
+    }
+
+    fn eval_cum_min(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let base = &arg_results[0];
+            let mut cur = f64::INFINITY;
+            for &v in base {
+                cur = cur.min(v);
+                out.push(cur);
+            }
+        }
+        out
+    }
+
+    fn eval_cum_max(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let base = &arg_results[0];
+            let mut cur = f64::NEG_INFINITY;
+            for &v in base {
+                cur = cur.max(v);
+                out.push(cur);
+            }
+        }
+        out
+    }
+
+    fn eval_rolling_mean(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let win = arg_results[1][0] as usize;
+            for i in 0..len {
+                if i + 1 < win {
+                    out.push(f64::NAN);
+                } else {
+                    let s: f64 = base[i + 1 - win..=i].iter().copied().sum();
+                    out.push(s / win as f64);
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_rolling_sum(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let win = arg_results[1][0] as usize;
+            for i in 0..len {
+                if i + 1 < win {
+                    out.push(f64::NAN);
+                } else {
+                    let s: f64 = base[i + 1 - win..=i].iter().copied().sum();
+                    out.push(s);
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_ewm_mean(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let alpha = arg_results[1][0];
+            let adjust = if arg_results.len() >= 3 && !arg_results[2].is_empty() {
+                arg_results[2][0] != 0.0
+            } else {
+                true
+            };
+            let mut outv = Vec::with_capacity(len);
+            let mut prev = 0.0;
+            let mut wsum = 0.0;
+            for (i, &x) in base.iter().enumerate() {
+                if i == 0 {
+                    prev = x;
+                    wsum = 1.0;
+                    outv.push(x);
+                    continue;
+                }
+                if adjust {
+                    wsum = 1.0 + (1.0 - alpha) * wsum;
+                }
+                prev = alpha * x + (1.0 - alpha) * prev;
+                outv.push(prev / if adjust { wsum } else { 1.0 });
+            }
+            out = outv;
+        }
+        out
+    }
+
+    fn eval_std(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let data = &arg_results[0];
+            if data.len() > 1 {
+                let mean = data.iter().sum::<f64>() / data.len() as f64;
+                let variance = data.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
+                    / (data.len() - 1) as f64;
+                let std = variance.sqrt();
+                out.resize(len, std);
+            } else {
+                out.resize(len, f64::NAN);
+            }
+        }
+        out
+    }
+
+    fn eval_var(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let data = &arg_results[0];
+            if data.len() > 1 {
+                let mean = data.iter().sum::<f64>() / data.len() as f64;
+                let variance = data.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
+                    / (data.len() - 1) as f64;
+                out.resize(len, variance);
+            } else {
+                out.resize(len, f64::NAN);
+            }
+        }
+        out
+    }
+
+    fn eval_median(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let mut data = arg_results[0].clone();
+            if !data.is_empty() {
+                data.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                let n = data.len();
+                let median = if n % 2 == 1 {
+                    data[n / 2]
+                } else {
+                    (data[n / 2 - 1] + data[n / 2]) * 0.5
+                };
+                out.resize(len, median);
+            } else {
+                out.resize(len, f64::NAN);
+            }
+        }
+        out
+    }
+
+    fn eval_rolling_std(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let win = arg_results[1][0] as usize;
+            for i in 0..len {
+                if i + 1 < win {
+                    out.push(f64::NAN);
+                } else {
+                    let slice = &base[i + 1 - win..=i];
+                    let m = slice.iter().copied().sum::<f64>() / win as f64;
+                    let var = slice.iter().map(|v| (v - m) * (v - m)).sum::<f64>() / win as f64;
+                    out.push(var.sqrt());
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_rolling_var(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let win = arg_results[1][0] as usize;
+            for i in 0..len {
+                if i + 1 < win {
+                    out.push(f64::NAN);
+                } else {
+                    let slice = &base[i + 1 - win..=i];
+                    let m = slice.iter().copied().sum::<f64>() / win as f64;
+                    let var = slice.iter().map(|v| (v - m) * (v - m)).sum::<f64>() / win as f64;
+                    out.push(var);
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_rolling_median(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let win = arg_results[1][0] as usize;
+            for i in 0..len {
+                if i + 1 < win {
+                    out.push(f64::NAN);
+                } else {
+                    let mut v = base[i + 1 - win..=i].to_vec();
+                    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                    let k = v.len();
+                    let med = if k % 2 == 1 { v[k / 2] } else { (v[k / 2 - 1] + v[k / 2]) * 0.5 };
+                    out.push(med);
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_time_rolling<C: ExpressionContext>(
+        &self,
+        which: Function,
+        arg_results: &[Vec<f64>],
+        time_window: &Option<TimeWindow>,
+        ctx: &C,
+        cols: &[&[f64]],
+    ) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            if let Some(TimeWindow::Duration { period, time_column }) = time_window {
+                if let Some(time_idx) = ctx.resolve_index(time_column) {
+                    if time_idx < cols.len() {
+                        let time_data: Vec<i64> = cols[time_idx].iter().map(|&t| t as i64).collect();
+                        let mut evaluator = TimeWindowEvaluator::new(time_data);
+                        out = match which {
+                            Function::RollingMeanTime => evaluator.rolling_mean(&arg_results[0], period),
+                            Function::RollingSumTime => evaluator.rolling_sum(&arg_results[0], period),
+                            Function::RollingStdTime => evaluator.rolling_std(&arg_results[0], period),
+                            Function::RollingVarTime => evaluator.rolling_var(&arg_results[0], period),
+                            Function::RollingMedianTime => evaluator.rolling_median(&arg_results[0], period),
+                            _ => Vec::new(),
+                        };
+                    } else {
+                        out.resize(len, f64::NAN);
+                    }
+                } else {
+                    out.resize(len, f64::NAN);
+                }
+            } else {
+                out.resize(len, f64::NAN);
+            }
+        }
+        out
+    }
+
+    fn eval_shift(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let n = arg_results[1][0] as i32;
+            for i in 0..len {
+                let shifted_idx = i as i32 - n;
+                if shifted_idx >= 0 && shifted_idx < len as i32 {
+                    out.push(base[shifted_idx as usize]);
+                } else {
+                    out.push(f64::NAN);
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_rank(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out: Vec<f64> = Vec::with_capacity(len);
+        if !arg_results.is_empty() {
+            let base = &arg_results[0];
+            let mut indexed: Vec<(f64, usize)> = base.iter().enumerate().map(|(i, &v)| (v, i)).collect();
+            indexed.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            let mut ranks = vec![0.0; len];
+            let mut current_rank = 1.0;
+            let mut last_value = f64::NAN;
+            for (value, orig_idx) in indexed {
+                if !value.is_nan() {
+                    if value != last_value && !last_value.is_nan() {
+                        current_rank += 1.0;
+                    }
+                    ranks[orig_idx] = current_rank;
+                    last_value = value;
+                } else {
+                    ranks[orig_idx] = f64::NAN;
+                }
+            }
+            out = ranks;
+        }
+        out
+    }
+
+    fn eval_quantile(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let q = arg_results[1][0].clamp(0.0, 1.0);
+            let mut valid_values: Vec<f64> = base.iter().filter(|&&x| !x.is_nan()).cloned().collect();
+            if !valid_values.is_empty() {
+                valid_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                let index = q * (valid_values.len() - 1) as f64;
+                let lower = index.floor() as usize;
+                let upper = index.ceil() as usize;
+                let quantile_value = if lower == upper {
+                    valid_values[lower]
+                } else {
+                    let weight = index - lower as f64;
+                    valid_values[lower] * (1.0 - weight) + valid_values[upper] * weight
+                };
+                out.resize(len, quantile_value);
+            } else {
+                out.resize(len, f64::NAN);
+            }
+        }
+        out
+    }
+
+    fn eval_rolling_min(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let win = arg_results[1][0] as usize;
+            for i in 0..len {
+                if i + 1 < win {
+                    out.push(f64::NAN);
+                } else {
+                    let window_data = &base[i + 1 - win..=i];
+                    let min_val = window_data
+                        .iter()
+                        .filter(|&&x| !x.is_nan())
+                        .min_by(|a, b| a.partial_cmp(b).unwrap())
+                        .copied()
+                        .unwrap_or(f64::NAN);
+                    out.push(min_val);
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_rolling_max(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let win = arg_results[1][0] as usize;
+            for i in 0..len {
+                if i + 1 < win {
+                    out.push(f64::NAN);
+                } else {
+                    let window_data = &base[i + 1 - win..=i];
+                    let max_val = window_data
+                        .iter()
+                        .filter(|&&x| !x.is_nan())
+                        .max_by(|a, b| a.partial_cmp(b).unwrap())
+                        .copied()
+                        .unwrap_or(f64::NAN);
+                    out.push(max_val);
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_rolling_count(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let win = arg_results[1][0] as usize;
+            for i in 0..len {
+                if i + 1 < win {
+                    let count = base[0..=i].iter().filter(|&&x| !x.is_nan()).count() as f64;
+                    out.push(count);
+                } else {
+                    let count = base[i + 1 - win..=i].iter().filter(|&&x| !x.is_nan()).count() as f64;
+                    out.push(count);
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_ewm_std(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out: Vec<f64> = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let alpha = arg_results[1][0].clamp(0.001, 0.999);
+            let adjust = arg_results
+                .get(2)
+                .and_then(|v| v.first())
+                .map(|&x| x > 0.0)
+                .unwrap_or(true);
+
+            let mut ema = base[0];
+            let mut ema_sq = base[0] * base[0];
+            let mut n = 1.0;
+
+            out.push(0.0);
+
+            for &value in base.iter().skip(1) {
+                if !value.is_nan() {
+                    n += 1.0;
+                    let weight = if adjust { alpha / (1.0 - (1.0 - alpha).powf(n)) } else { alpha };
+                    ema = (1.0 - weight) * ema + weight * value;
+                    ema_sq = (1.0 - weight) * ema_sq + weight * value * value;
+                    let variance = ema_sq - ema * ema;
+                    out.push(if variance > 0.0 { variance.sqrt() } else { 0.0 });
+                } else {
+                    out.push(f64::NAN);
+                }
+            }
+        }
+        out
+    }
+
+    fn eval_ewm_var(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        let mut out: Vec<f64> = Vec::with_capacity(len);
+        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
+            let base = &arg_results[0];
+            let alpha = arg_results[1][0].clamp(0.001, 0.999);
+            let adjust = arg_results
+                .get(2)
+                .and_then(|v| v.first())
+                .map(|&x| x > 0.0)
+                .unwrap_or(true);
+
+            let mut ema = base[0];
+            let mut ema_sq = base[0] * base[0];
+            let mut n = 1.0;
+
+            out.push(0.0);
+
+            for &value in base.iter().skip(1) {
+                if !value.is_nan() {
+                    n += 1.0;
+                    let weight = if adjust { alpha / (1.0 - (1.0 - alpha).powf(n)) } else { alpha };
+                    ema = (1.0 - weight) * ema + weight * value;
+                    ema_sq = (1.0 - weight) * ema_sq + weight * value * value;
+                    let variance = ema_sq - ema * ema;
+                    out.push(if variance > 0.0 { variance } else { 0.0 });
+                } else {
+                    out.push(f64::NAN);
+                }
+            }
+        }
+        out
+    }
+
     /// Evaluate a function with given argument results.
     fn eval_function<C: ExpressionContext>(
         &self,
@@ -5901,588 +6385,40 @@ impl CompiledExpr {
         ctx: &C,
         cols: &[&[f64]],
     ) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
-
         match fun {
-            Function::Lag => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let n = arg_results[1][0] as usize; // Assume literal
-                    out.extend((0..len).map(|i| if i < n { f64::NAN } else { base[i - n] }));
-                }
+            Function::Lag => self.eval_lag(arg_results),
+            Function::Lead => self.eval_lead(arg_results),
+            Function::Diff => self.eval_diff(arg_results),
+            Function::PctChange => self.eval_pct_change(arg_results),
+            Function::CumSum => self.eval_cum_sum(arg_results),
+            Function::CumProd => self.eval_cum_prod(arg_results),
+            Function::CumMin => self.eval_cum_min(arg_results),
+            Function::CumMax => self.eval_cum_max(arg_results),
+            Function::RollingMean => self.eval_rolling_mean(arg_results),
+            Function::RollingSum => self.eval_rolling_sum(arg_results),
+            Function::EwmMean => self.eval_ewm_mean(arg_results),
+            Function::Std => self.eval_std(arg_results),
+            Function::Var => self.eval_var(arg_results),
+            Function::Median => self.eval_median(arg_results),
+            Function::RollingStd => self.eval_rolling_std(arg_results),
+            Function::RollingVar => self.eval_rolling_var(arg_results),
+            Function::RollingMedian => self.eval_rolling_median(arg_results),
+            Function::RollingMeanTime
+            | Function::RollingSumTime
+            | Function::RollingStdTime
+            | Function::RollingVarTime
+            | Function::RollingMedianTime => {
+                self.eval_time_rolling(fun, arg_results, time_window, ctx, cols)
             }
-            Function::Lead => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let n = arg_results[1][0] as usize; // Assume literal
-                    out.extend((0..len).map(|i| if i + n >= len { f64::NAN } else { base[i + n] }));
-                }
-            }
-            Function::Diff => {
-                if !arg_results.is_empty() {
-                    let base = &arg_results[0];
-                    let n = if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                        arg_results[1][0] as usize
-                    } else {
-                        1
-                    };
-                    out.extend((0..len).map(|i| {
-                        if i < n {
-                            f64::NAN
-                        } else {
-                            base[i] - base[i - n]
-                        }
-                    }));
-                }
-            }
-            Function::PctChange => {
-                if !arg_results.is_empty() {
-                    let base = &arg_results[0];
-                    let n = if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                        arg_results[1][0] as usize
-                    } else {
-                        1
-                    };
-                    out.extend((0..len).map(|i| {
-                        if i < n || base[i - n] == 0.0 {
-                            f64::NAN
-                        } else {
-                            (base[i] / base[i - n]) - 1.0
-                        }
-                    }));
-                }
-            }
-            Function::CumSum => {
-                if !arg_results.is_empty() {
-                    let base = &arg_results[0];
-                    let mut acc = 0.0;
-                    for &v in base {
-                        acc += v;
-                        out.push(acc);
-                    }
-                }
-            }
-            Function::CumProd => {
-                if !arg_results.is_empty() {
-                    let base = &arg_results[0];
-                    let mut acc = 1.0;
-                    for &v in base {
-                        acc *= v;
-                        out.push(acc);
-                    }
-                }
-            }
-            Function::CumMin => {
-                if !arg_results.is_empty() {
-                    let base = &arg_results[0];
-                    let mut cur = f64::INFINITY;
-                    for &v in base {
-                        cur = cur.min(v);
-                        out.push(cur);
-                    }
-                }
-            }
-            Function::CumMax => {
-                if !arg_results.is_empty() {
-                    let base = &arg_results[0];
-                    let mut cur = f64::NEG_INFINITY;
-                    for &v in base {
-                        cur = cur.max(v);
-                        out.push(cur);
-                    }
-                }
-            }
-            Function::RollingMean => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let win = arg_results[1][0] as usize;
-                    for i in 0..len {
-                        if i + 1 < win {
-                            out.push(f64::NAN);
-                        } else {
-                            let s: f64 = base[i + 1 - win..=i].iter().copied().sum();
-                            out.push(s / win as f64);
-                        }
-                    }
-                }
-            }
-            Function::RollingSum => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let win = arg_results[1][0] as usize;
-                    for i in 0..len {
-                        if i + 1 < win {
-                            out.push(f64::NAN);
-                        } else {
-                            let s: f64 = base[i + 1 - win..=i].iter().copied().sum();
-                            out.push(s);
-                        }
-                    }
-                }
-            }
-            Function::EwmMean => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let alpha = arg_results[1][0];
-                    let adjust = if arg_results.len() >= 3 && !arg_results[2].is_empty() {
-                        arg_results[2][0] != 0.0
-                    } else {
-                        true
-                    };
-                    let mut outv = Vec::with_capacity(len);
-                    let mut prev = 0.0;
-                    let mut wsum = 0.0;
-                    for (i, &x) in base.iter().enumerate() {
-                        if i == 0 {
-                            prev = x;
-                            wsum = 1.0;
-                            outv.push(x);
-                            continue;
-                        }
-                        if adjust {
-                            wsum = 1.0 + (1.0 - alpha) * wsum;
-                        }
-                        prev = alpha * x + (1.0 - alpha) * prev;
-                        outv.push(prev / if adjust { wsum } else { 1.0 });
-                    }
-                    out = outv;
-                }
-            }
-            Function::Std => {
-                if !arg_results.is_empty() {
-                    let data = &arg_results[0];
-                    if data.len() > 1 {
-                        let mean = data.iter().sum::<f64>() / data.len() as f64;
-                        let variance = data.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
-                            / (data.len() - 1) as f64;
-                        let std = variance.sqrt();
-                        out.resize(len, std);
-                    } else {
-                        out.resize(len, f64::NAN);
-                    }
-                }
-            }
-            Function::Var => {
-                if !arg_results.is_empty() {
-                    let data = &arg_results[0];
-                    if data.len() > 1 {
-                        let mean = data.iter().sum::<f64>() / data.len() as f64;
-                        let variance = data.iter().map(|x| (x - mean).powi(2)).sum::<f64>()
-                            / (data.len() - 1) as f64;
-                        out.resize(len, variance);
-                    } else {
-                        out.resize(len, f64::NAN);
-                    }
-                }
-            }
-            Function::Median => {
-                if !arg_results.is_empty() {
-                    let mut data = arg_results[0].clone();
-                    if !data.is_empty() {
-                        data.sort_by(|a, b| a.partial_cmp(b).unwrap());
-                        let n = data.len();
-                        let median = if n % 2 == 1 {
-                            data[n / 2]
-                        } else {
-                            (data[n / 2 - 1] + data[n / 2]) * 0.5
-                        };
-                        out.resize(len, median);
-                    } else {
-                        out.resize(len, f64::NAN);
-                    }
-                }
-            }
-            Function::RollingStd => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let win = arg_results[1][0] as usize;
-                    for i in 0..len {
-                        if i + 1 < win {
-                            out.push(f64::NAN);
-                        } else {
-                            let slice = &base[i + 1 - win..=i];
-                            let m = slice.iter().copied().sum::<f64>() / win as f64;
-                            let var =
-                                slice.iter().map(|v| (v - m) * (v - m)).sum::<f64>() / win as f64;
-                            out.push(var.sqrt());
-                        }
-                    }
-                }
-            }
-            Function::RollingVar => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let win = arg_results[1][0] as usize;
-                    for i in 0..len {
-                        if i + 1 < win {
-                            out.push(f64::NAN);
-                        } else {
-                            let slice = &base[i + 1 - win..=i];
-                            let m = slice.iter().copied().sum::<f64>() / win as f64;
-                            let var =
-                                slice.iter().map(|v| (v - m) * (v - m)).sum::<f64>() / win as f64;
-                            out.push(var);
-                        }
-                    }
-                }
-            }
-            Function::RollingMedian => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let win = arg_results[1][0] as usize;
-                    for i in 0..len {
-                        if i + 1 < win {
-                            out.push(f64::NAN);
-                        } else {
-                            let mut v = base[i + 1 - win..=i].to_vec();
-                            v.sort_by(|a, b| a.partial_cmp(b).unwrap());
-                            let k = v.len();
-                            let med = if k % 2 == 1 {
-                                v[k / 2]
-                            } else {
-                                (v[k / 2 - 1] + v[k / 2]) * 0.5
-                            };
-                            out.push(med);
-                        }
-                    }
-                }
-            }
-            // Time-based rolling functions
-            Function::RollingMeanTime => {
-                if !arg_results.is_empty() {
-                    if let Some(TimeWindow::Duration {
-                        period,
-                        time_column,
-                    }) = time_window
-                    {
-                        if let Some(time_idx) = ctx.resolve_index(time_column) {
-                            if time_idx < cols.len() {
-                                // Convert time data to Unix timestamps (assume input is already in proper format)
-                                let time_data: Vec<i64> =
-                                    cols[time_idx].iter().map(|&t| t as i64).collect();
-                                let mut evaluator = TimeWindowEvaluator::new(time_data);
-                                out = evaluator.rolling_mean(&arg_results[0], period);
-                            } else {
-                                out.resize(len, f64::NAN);
-                            }
-                        } else {
-                            out.resize(len, f64::NAN);
-                        }
-                    } else {
-                        // Fallback for non-time window
-                        out.resize(len, f64::NAN);
-                    }
-                }
-            }
-            Function::RollingSumTime => {
-                if !arg_results.is_empty() {
-                    if let Some(TimeWindow::Duration {
-                        period,
-                        time_column,
-                    }) = time_window
-                    {
-                        if let Some(time_idx) = ctx.resolve_index(time_column) {
-                            if time_idx < cols.len() {
-                                let time_data: Vec<i64> =
-                                    cols[time_idx].iter().map(|&t| t as i64).collect();
-                                let mut evaluator = TimeWindowEvaluator::new(time_data);
-                                out = evaluator.rolling_sum(&arg_results[0], period);
-                            } else {
-                                out.resize(len, f64::NAN);
-                            }
-                        } else {
-                            out.resize(len, f64::NAN);
-                        }
-                    } else {
-                        out.resize(len, f64::NAN);
-                    }
-                }
-            }
-            Function::RollingStdTime => {
-                if !arg_results.is_empty() {
-                    if let Some(TimeWindow::Duration {
-                        period,
-                        time_column,
-                    }) = time_window
-                    {
-                        if let Some(time_idx) = ctx.resolve_index(time_column) {
-                            if time_idx < cols.len() {
-                                let time_data: Vec<i64> =
-                                    cols[time_idx].iter().map(|&t| t as i64).collect();
-                                let mut evaluator = TimeWindowEvaluator::new(time_data);
-                                out = evaluator.rolling_std(&arg_results[0], period);
-                            } else {
-                                out.resize(len, f64::NAN);
-                            }
-                        } else {
-                            out.resize(len, f64::NAN);
-                        }
-                    } else {
-                        out.resize(len, f64::NAN);
-                    }
-                }
-            }
-            Function::RollingVarTime => {
-                if !arg_results.is_empty() {
-                    if let Some(TimeWindow::Duration {
-                        period,
-                        time_column,
-                    }) = time_window
-                    {
-                        if let Some(time_idx) = ctx.resolve_index(time_column) {
-                            if time_idx < cols.len() {
-                                let time_data: Vec<i64> =
-                                    cols[time_idx].iter().map(|&t| t as i64).collect();
-                                let mut evaluator = TimeWindowEvaluator::new(time_data);
-                                out = evaluator.rolling_var(&arg_results[0], period);
-                            } else {
-                                out.resize(len, f64::NAN);
-                            }
-                        } else {
-                            out.resize(len, f64::NAN);
-                        }
-                    } else {
-                        out.resize(len, f64::NAN);
-                    }
-                }
-            }
-            Function::RollingMedianTime => {
-                if !arg_results.is_empty() {
-                    if let Some(TimeWindow::Duration {
-                        period,
-                        time_column,
-                    }) = time_window
-                    {
-                        if let Some(time_idx) = ctx.resolve_index(time_column) {
-                            if time_idx < cols.len() {
-                                let time_data: Vec<i64> =
-                                    cols[time_idx].iter().map(|&t| t as i64).collect();
-                                let mut evaluator = TimeWindowEvaluator::new(time_data);
-                                out = evaluator.rolling_median(&arg_results[0], period);
-                            } else {
-                                out.resize(len, f64::NAN);
-                            }
-                        } else {
-                            out.resize(len, f64::NAN);
-                        }
-                    } else {
-                        out.resize(len, f64::NAN);
-                    }
-                }
-            }
-
-            // Additional time-series functions
-            Function::Shift => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let n = arg_results[1][0] as i32;
-                    for i in 0..len {
-                        let shifted_idx = i as i32 - n;
-                        if shifted_idx >= 0 && shifted_idx < len as i32 {
-                            out.push(base[shifted_idx as usize]);
-                        } else {
-                            out.push(f64::NAN);
-                        }
-                    }
-                }
-            }
-
-            Function::Rank => {
-                if !arg_results.is_empty() {
-                    let base = &arg_results[0];
-                    // Create pairs of (value, original_index)
-                    let mut indexed: Vec<(f64, usize)> =
-                        base.iter().enumerate().map(|(i, &v)| (v, i)).collect();
-
-                    // Sort by value
-                    indexed.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-
-                    // Assign ranks (dense ranking - same values get same rank)
-                    let mut ranks = vec![0.0; len];
-                    let mut current_rank = 1.0;
-                    let mut last_value = f64::NAN;
-
-                    for (value, orig_idx) in indexed {
-                        if !value.is_nan() {
-                            if value != last_value && !last_value.is_nan() {
-                                current_rank += 1.0;
-                            }
-                            ranks[orig_idx] = current_rank;
-                            last_value = value;
-                        } else {
-                            ranks[orig_idx] = f64::NAN;
-                        }
-                    }
-                    out = ranks;
-                }
-            }
-
-            Function::Quantile => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let q = arg_results[1][0].clamp(0.0, 1.0);
-
-                    // Filter out NaN values and sort
-                    let mut valid_values: Vec<f64> =
-                        base.iter().filter(|&&x| !x.is_nan()).cloned().collect();
-
-                    if !valid_values.is_empty() {
-                        valid_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
-                        let index = q * (valid_values.len() - 1) as f64;
-                        let lower = index.floor() as usize;
-                        let upper = index.ceil() as usize;
-
-                        let quantile_value = if lower == upper {
-                            valid_values[lower]
-                        } else {
-                            let weight = index - lower as f64;
-                            valid_values[lower] * (1.0 - weight) + valid_values[upper] * weight
-                        };
-
-                        out.resize(len, quantile_value);
-                    } else {
-                        out.resize(len, f64::NAN);
-                    }
-                }
-            }
-
-            Function::RollingMin => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let win = arg_results[1][0] as usize;
-                    for i in 0..len {
-                        if i + 1 < win {
-                            out.push(f64::NAN);
-                        } else {
-                            let window_data = &base[i + 1 - win..=i];
-                            let min_val = window_data
-                                .iter()
-                                .filter(|&&x| !x.is_nan())
-                                .min_by(|a, b| a.partial_cmp(b).unwrap())
-                                .copied()
-                                .unwrap_or(f64::NAN);
-                            out.push(min_val);
-                        }
-                    }
-                }
-            }
-
-            Function::RollingMax => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let win = arg_results[1][0] as usize;
-                    for i in 0..len {
-                        if i + 1 < win {
-                            out.push(f64::NAN);
-                        } else {
-                            let window_data = &base[i + 1 - win..=i];
-                            let max_val = window_data
-                                .iter()
-                                .filter(|&&x| !x.is_nan())
-                                .max_by(|a, b| a.partial_cmp(b).unwrap())
-                                .copied()
-                                .unwrap_or(f64::NAN);
-                            out.push(max_val);
-                        }
-                    }
-                }
-            }
-
-            Function::RollingCount => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let win = arg_results[1][0] as usize;
-                    for i in 0..len {
-                        if i + 1 < win {
-                            let count = base[0..=i].iter().filter(|&&x| !x.is_nan()).count() as f64;
-                            out.push(count);
-                        } else {
-                            let count = base[i + 1 - win..=i]
-                                .iter()
-                                .filter(|&&x| !x.is_nan())
-                                .count() as f64;
-                            out.push(count);
-                        }
-                    }
-                }
-            }
-
-            Function::EwmStd => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let alpha = arg_results[1][0].clamp(0.001, 0.999);
-                    let adjust = arg_results
-                        .get(2)
-                        .and_then(|v| v.first())
-                        .map(|&x| x > 0.0)
-                        .unwrap_or(true);
-
-                    let mut ema = base[0];
-                    let mut ema_sq = base[0] * base[0];
-                    let mut n = 1.0;
-
-                    out.push(0.0); // First value has no variance
-
-                    for &value in base.iter().skip(1) {
-                        if !value.is_nan() {
-                            n += 1.0;
-                            let weight = if adjust {
-                                alpha / (1.0 - (1.0 - alpha).powf(n))
-                            } else {
-                                alpha
-                            };
-
-                            ema = (1.0 - weight) * ema + weight * value;
-                            ema_sq = (1.0 - weight) * ema_sq + weight * value * value;
-
-                            let variance = ema_sq - ema * ema;
-                            out.push(if variance > 0.0 { variance.sqrt() } else { 0.0 });
-                        } else {
-                            out.push(f64::NAN);
-                        }
-                    }
-                }
-            }
-
-            Function::EwmVar => {
-                if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-                    let base = &arg_results[0];
-                    let alpha = arg_results[1][0].clamp(0.001, 0.999);
-                    let adjust = arg_results
-                        .get(2)
-                        .and_then(|v| v.first())
-                        .map(|&x| x > 0.0)
-                        .unwrap_or(true);
-
-                    let mut ema = base[0];
-                    let mut ema_sq = base[0] * base[0];
-                    let mut n = 1.0;
-
-                    out.push(0.0); // First value has no variance
-
-                    for &value in base.iter().skip(1) {
-                        if !value.is_nan() {
-                            n += 1.0;
-                            let weight = if adjust {
-                                alpha / (1.0 - (1.0 - alpha).powf(n))
-                            } else {
-                                alpha
-                            };
-
-                            ema = (1.0 - weight) * ema + weight * value;
-                            ema_sq = (1.0 - weight) * ema_sq + weight * value * value;
-
-                            let variance = ema_sq - ema * ema;
-                            out.push(if variance > 0.0 { variance } else { 0.0 });
-                        } else {
-                            out.push(f64::NAN);
-                        }
-                    }
-                }
-            }
+            Function::Shift => self.eval_shift(arg_results),
+            Function::Rank => self.eval_rank(arg_results),
+            Function::Quantile => self.eval_quantile(arg_results),
+            Function::RollingMin => self.eval_rolling_min(arg_results),
+            Function::RollingMax => self.eval_rolling_max(arg_results),
+            Function::RollingCount => self.eval_rolling_count(arg_results),
+            Function::EwmStd => self.eval_ewm_std(arg_results),
+            Function::EwmVar => self.eval_ewm_var(arg_results),
         }
-        out
     }
 
     /// Lower to a Polars expression when possible.
@@ -7551,8 +7487,8 @@ File: finstack/core/src/market_data/context.rs
 
 //! Lightweight container aggregating all market data needed by valuations.
 //!
-//! `MarketContext` groups together curves (`CurveSet`), FX (`FxMatrix<P>`),
-//! 2-D surfaces (`VolSurface`) and generic prices/scalars so that pricing and
+//! `MarketContext` groups together curves, FX (`FxMatrix`), 2-D surfaces
+//! (`VolSurface`) and generic prices/scalars so that pricing and
 //! risk components have a single handle to query required inputs.
 //!
 //! The container is intentionally minimal and cloning it is cheap because it
@@ -7562,84 +7498,194 @@ extern crate alloc;
 use alloc::sync::Arc;
 use hashbrown::HashMap;
 
-use crate::money::fx::{FxMatrix, FxProvider};
+use crate::money::fx::FxMatrix;
 
 use super::{
     id::CurveId,
-    multicurve::CurveSet,
+    inflation::InflationCurve,
+    inflation_index::InflationIndex,
     primitives::{MarketScalar, ScalarTimeSeries},
     surfaces::vol_surface::VolSurface,
+    term_structures::credit_curve::CreditCurve,
+    traits::{Discount, Forward, TermStructure},
 };
 
 /// Unified market data context
 #[derive(Clone, Default)]
 pub struct MarketContext {
-    /// Curves of various types (discount/forward/hazard/inflation)
-    pub curves: CurveSet,
+    /// Discount curves keyed by identifier
+    disc: HashMap<CurveId, Arc<dyn Discount + Send + Sync>>,
+    /// Forecast curves keyed by identifier
+    fwd: HashMap<CurveId, Arc<dyn Forward + Send + Sync>>,
+    /// Hazard curves keyed by identifier
+    hazard: HashMap<CurveId, Arc<crate::market_data::hazard_curve::HazardCurve>>,
+    /// Inflation curves keyed by identifier
+    inflation: HashMap<CurveId, Arc<InflationCurve>>,
+    /// Credit curves keyed by identifier
+    credit: HashMap<CurveId, Arc<CreditCurve>>,
+    /// Inflation indices keyed by identifier
+    inflation_indices: HashMap<CurveId, Arc<InflationIndex>>,
     /// Foreign-exchange matrix used for explicit FX conversions
-    pub fx: Option<Arc<FxMatrix<P>>>,
+    pub fx: Option<Arc<FxMatrix>>,
     /// Volatility surfaces keyed by identifier
     pub surfaces: HashMap<CurveId, Arc<VolSurface>>,
     /// Ad-hoc prices and constants
     pub prices: HashMap<CurveId, MarketScalar>,
     /// Generic date-indexed series
     pub series: HashMap<CurveId, ScalarTimeSeries>,
+    /// Collateral CSA code → discount curve id mapping
+    collat: HashMap<&'static str, CurveId>,
 }
 
 impl MarketContext {
     /// Create an empty context.
     pub fn new() -> Self {
         Self {
-            curves: CurveSet::new(),
+            disc: HashMap::new(),
+            fwd: HashMap::new(),
+            hazard: HashMap::new(),
+            inflation: HashMap::new(),
+            credit: HashMap::new(),
+            inflation_indices: HashMap::new(),
             fx: None,
             surfaces: HashMap::new(),
             prices: HashMap::new(),
             series: HashMap::new(),
+            collat: HashMap::new(),
         }
     }
 
     /// Attach a FX matrix.
-    pub fn with_fx(mut self, fx: FxMatrix<P>) -> Self {
+    pub fn with_fx(mut self, fx: FxMatrix) -> Self {
         self.fx = Some(Arc::new(fx));
         self
     }
 
     /// Insert or replace a volatility surface.
     pub fn with_surface(mut self, surface: VolSurface) -> Self {
-        let id = *crate::market_data::traits::TermStructure::id(&surface);
+        let id = crate::market_data::traits::TermStructure::id(&surface).clone();
         self.surfaces.insert(id, Arc::new(surface));
         self
     }
 
+    /// Backwards compatibility helper (former CurveSet name)
+    pub fn with_vol_surface(self, surface: VolSurface) -> Self { self.with_surface(surface) }
+
     /// Insert or replace a price/scalar by id.
-    pub fn with_price(mut self, id: &'static str, price: MarketScalar) -> Self {
+    pub fn with_price(mut self, id: impl AsRef<str>, price: MarketScalar) -> Self {
         self.prices.insert(CurveId::new(id), price);
         self
     }
 
+    /// Backwards compatibility helper (former CurveSet name)
+    pub fn with_scalar(self, id: impl AsRef<str>, scalar: MarketScalar) -> Self {
+        self.with_price(id, scalar)
+    }
+
     /// Insert or replace a generic series.
     pub fn with_series(mut self, series: ScalarTimeSeries) -> Self {
-        let id = *series.id();
+        let id = series.id().clone();
         self.series.insert(id, series);
+        self
+    }
+
+    // ------------------------------
+    // Curves (formerly on CurveSet)
+    // ------------------------------
+    /// Insert discount curve.
+    pub fn with_discount<C: Discount + Send + Sync + 'static>(mut self, curve: C) -> Self {
+        let cid = TermStructure::id(&curve).clone();
+        self.disc.insert(cid, Arc::new(curve));
+        self
+    }
+
+    /// Insert forecast curve.
+    pub fn with_forecast<C: Forward + Send + Sync + 'static>(mut self, curve: C) -> Self {
+        let cid = TermStructure::id(&curve).clone();
+        self.fwd.insert(cid, Arc::new(curve));
+        self
+    }
+
+    /// Insert hazard curve.
+    pub fn with_hazard(mut self, curve: crate::market_data::hazard_curve::HazardCurve) -> Self {
+        let cid = TermStructure::id(&curve).clone();
+        self.hazard.insert(cid, Arc::new(curve));
+        self
+    }
+
+    /// Insert inflation curve.
+    pub fn with_inflation(mut self, curve: InflationCurve) -> Self {
+        let cid = TermStructure::id(&curve).clone();
+        self.inflation.insert(cid, Arc::new(curve));
+        self
+    }
+
+    /// Insert credit curve.
+    pub fn with_credit(mut self, curve: CreditCurve) -> Self {
+        let cid = curve.id.clone();
+        self.credit.insert(cid, Arc::new(curve));
+        self
+    }
+
+    /// Add a credit curve (mutable variant for tests)
+    pub fn add_credit(&mut self, curve: CreditCurve) {
+        let cid = curve.id.clone();
+        self.credit.insert(cid, Arc::new(curve));
+    }
+
+    /// Insert inflation index.
+    pub fn with_inflation_index(self, id: impl AsRef<str>, index: InflationIndex) -> Self {
+        let mut this = self;
+        let cid = CurveId::new(id);
+        this.inflation_indices.insert(cid, Arc::new(index));
+        this
+    }
+
+    /// Map collateral CSA code to discount curve id.
+    pub fn map_collateral(mut self, csa_code: &'static str, disc_id: CurveId) -> Self {
+        self.collat.insert(csa_code, disc_id);
         self
     }
 }
 
-impl From<CurveSet> for MarketContext {
-    fn from(curves: CurveSet) -> Self {
-        Self {
-            curves,
-            fx: None,
-            surfaces: HashMap::new(),
-            prices: HashMap::new(),
-            series: HashMap::new(),
-        }
-    }
-}
+// Note: we intentionally do not provide a blanket `From<MarketContext<Q>> for MarketContext<P>`
+// because it conflicts with the standard library's `impl<T> From<T> for T`.
 
 impl MarketContext {
+    /// Construct a `MarketContext<P>` from a backwards-compatible `CurveSet` alias.
+    /// The resulting context will not carry over any FX matrix.
+    pub fn from_curve_set(curve_set: crate::market_data::multicurve::CurveSet) -> Self {
+        let MarketContext {
+            disc,
+            fwd,
+            hazard,
+            inflation,
+            credit,
+            inflation_indices,
+            fx: _,
+            surfaces,
+            prices,
+            series,
+            collat,
+        } = curve_set;
+
+        Self {
+            disc,
+            fwd,
+            hazard,
+            inflation,
+            credit,
+            inflation_indices,
+            fx: None,
+            surfaces,
+            prices,
+            series,
+            collat,
+        }
+    }
+
     /// Convenience getters that forward to underlying containers
-    pub fn vol_surface(&self, id: &'static str) -> crate::Result<Arc<VolSurface>> {
+    pub fn vol_surface(&self, id: impl AsRef<str>) -> crate::Result<Arc<VolSurface>> {
         self.surfaces
             .get(&CurveId::new(id))
             .cloned()
@@ -7647,19 +7693,87 @@ impl MarketContext {
     }
 
     /// Return a reference to a market scalar (price/constant) by identifier.
-    pub fn market_scalar(&self, id: &'static str) -> crate::Result<&MarketScalar> {
+    pub fn market_scalar(&self, id: impl AsRef<str>) -> crate::Result<&MarketScalar> {
         self.prices
             .get(&CurveId::new(id))
             .ok_or(crate::error::InputError::NotFound.into())
     }
 
     /// Return a reference to a generic date-indexed scalar time series by identifier.
-    pub fn scalar_time_series(&self, id: &'static str) -> crate::Result<&ScalarTimeSeries> {
+    pub fn scalar_time_series(&self, id: impl AsRef<str>) -> crate::Result<&ScalarTimeSeries> {
         self.series
             .get(&CurveId::new(id))
             .ok_or(crate::error::InputError::NotFound.into())
     }
+
+    /// Backwards compatibility alias (former CurveSet API)
+    pub fn series(&self, id: impl AsRef<str>) -> crate::Result<&ScalarTimeSeries> {
+        self.scalar_time_series(id)
+    }
+
+    /// Backwards compatibility alias for fetching a scalar.
+    pub fn scalar(&self, id: impl AsRef<str>) -> crate::Result<&MarketScalar> {
+        self.market_scalar(id)
+    }
+
+    /// Get discount curve by id.
+    pub fn discount(&self, id: impl AsRef<str>) -> crate::Result<Arc<dyn Discount + Send + Sync>> {
+        self.disc
+            .get(&CurveId::new(id))
+            .cloned()
+            .ok_or(crate::error::InputError::NotFound.into())
+    }
+
+    /// Get forecast curve by id.
+    pub fn forecast(&self, id: impl AsRef<str>) -> crate::Result<Arc<dyn Forward + Send + Sync>> {
+        self.fwd
+            .get(&CurveId::new(id))
+            .cloned()
+            .ok_or(crate::error::InputError::NotFound.into())
+    }
+
+    /// Get hazard curve.
+    pub fn hazard(&self, id: impl AsRef<str>) -> crate::Result<Arc<crate::market_data::hazard_curve::HazardCurve>> {
+        self.hazard
+            .get(&CurveId::new(id))
+            .cloned()
+            .ok_or(crate::error::InputError::NotFound.into())
+    }
+
+    /// Get inflation curve.
+    pub fn inflation(&self, id: impl AsRef<str>) -> crate::Result<Arc<InflationCurve>> {
+        self.inflation
+            .get(&CurveId::new(id))
+            .cloned()
+            .ok_or(crate::error::InputError::NotFound.into())
+    }
+
+    /// Get credit curve by id.
+    pub fn credit(&self, id: impl AsRef<str>) -> crate::Result<Arc<CreditCurve>> {
+        self.credit
+            .get(&CurveId::new(id))
+            .cloned()
+            .ok_or(crate::error::InputError::NotFound.into())
+    }
+
+    /// Get inflation index by id.
+    pub fn inflation_index(&self, id: impl AsRef<str>) -> Option<Arc<InflationIndex>> {
+        self.inflation_indices
+            .get(&CurveId::new(id))
+            .cloned()
+    }
+
+    /// Resolve collateral discount curve for CSA code.
+    pub fn collateral(&self, csa_code: &str) -> crate::Result<Arc<dyn Discount + Send + Sync>> {
+        let id = match self.collat.get(csa_code) {
+            Some(cid) => cid,
+            None => return Err(crate::error::InputError::NotFound.into()),
+        };
+        self.discount(id.as_str())
+    }
 }
+
+// Intentionally omit `From<CurveSet>` to avoid overlap with `impl<T> From<T> for T>`.
 
 
 
@@ -7670,37 +7784,33 @@ File: finstack/core/src/market_data/id.rs
 ================================================================================
 
 use core::fmt;
+extern crate alloc;
+use alloc::sync::Arc;
 
-/// Zero‐allocation identifier for a market-data term structure.
+/// Identifier for a market-data term structure.
 ///
-/// The type intentionally uses a **transparent `&'static str` wrapper** so
-/// that it:
-/// * can be defined as a `const` and embedded directly in code, and
-/// * is **`Copy`**, hashable and comparable by a single pointer operation.
-///
-/// See unit tests and `examples/` for usage.
-#[repr(transparent)]
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct CurveId(&'static str);
+/// Wraps an `Arc<str>` so it can be created dynamically at runtime while
+/// remaining cheap to clone and share across the system.
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct CurveId(Arc<str>);
 
 impl CurveId {
-    /// Construct a new identifier from a string literal.
+    /// Construct a new identifier from a string-like value.
     ///
     /// # Panics
     /// Panics if `id` is the empty string – an identifier must contain at
     /// least one character so that it remains unique and displays
     /// meaningfully.
     #[must_use]
-    pub const fn new(id: &'static str) -> Self {
-        assert!(!id.is_empty(), "CurveId cannot be empty");
-        Self(id)
+    pub fn new(id: impl AsRef<str>) -> Self {
+        let s = id.as_ref();
+        assert!(!s.is_empty(), "CurveId cannot be empty");
+        Self(Arc::<str>::from(s))
     }
 
     /// Return the wrapped string slice.
     #[must_use]
-    pub const fn as_str(self) -> &'static str {
-        self.0
-    }
+    pub fn as_str(&self) -> &str { &self.0 }
 }
 
 impl fmt::Debug for CurveId {
@@ -7711,7 +7821,7 @@ impl fmt::Debug for CurveId {
 
 impl fmt::Display for CurveId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.0)
+        f.write_str(&self.0)
     }
 }
 
@@ -7750,9 +7860,9 @@ mod tests {
     }
 
     #[test]
-    fn curve_id_size_eight_bytes() {
-        // &str is a fat pointer (ptr + len) on 64-bit so expect 16 bytes.
-        assert_eq!(size_of::<CurveId>(), 16);
+    fn curve_id_is_small_and_cloneable() {
+        // Arc<str> is a fat pointer (ptr + len) like &str on 64-bit → 16 bytes.
+        assert_eq!(size_of::<CurveId>(), size_of::<&str>());
     }
 }
 
@@ -8780,329 +8890,42 @@ pub use crate::F;
 File: finstack/core/src/market_data/multicurve.rs
 ================================================================================
 
-//! Aggregates multiple market-data objects (yield, forward, credit, inflation
-//! curves and volatility surfaces) into a single lookup structure –
-//! [`CurveSet`].
-//!
-//! `CurveSet` offers builder-style `with_*` helpers and convenient getters such
-//! as `.discount("USD-OIS")` that return `Arc`-wrapped trait objects ready for
-//! thread-safe sharing.
-//!
-//! ## Example
-//! ```rust
-//! use finstack_core::market_data::term_structures::*;
-//! use finstack_core::market_data::multicurve::CurveSet;
-//! use finstack_core::dates::Date;
-//! use time::Month;
-//!
-//! let disc = DiscountCurve::builder("USD-OIS")
-//!     .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
-//!     .knots([(0.0, 1.0), (1.0, 0.98)])
-//!     .linear_df()
-//!     .build()
-//!     .unwrap();
-//! let set = CurveSet::new().with_discount(disc);
-//! assert!(set.discount("USD-OIS").is_ok());
-//! ```
+//! Deprecated multi-curve container. This module now aliases `CurveSet` to the
+//! unified `MarketContext` type so downstream code keeps working unchanged.
+//! New code should use `market_data::context::MarketContext` directly.
+
 #![allow(dead_code)]
 
-extern crate alloc;
-use alloc::sync::Arc;
-use hashbrown::HashMap;
+use crate::currency::Currency;
+use crate::dates::Date;
+use crate::money::fx::{FxConversionPolicy, FxProvider, FxRate};
 
-use crate::{
-    error::InputError,
-    market_data::{
-        hazard_curve::HazardCurve,
-        id::CurveId,
-        inflation::InflationCurve,
-        inflation_index::InflationIndex,
-        term_structures::credit_curve::CreditCurve,
-        traits::{Discount, Forward, TermStructure},
-    },
-};
+/// Minimal FX provider used by the `CurveSet` alias. It returns identity for
+/// same-currency requests and fails otherwise.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct NoFx;
 
-/// Multi-curve container holding discount, forecast and risk curves.
-#[derive(Clone, Default)]
-pub struct CurveSet {
-    disc: HashMap<CurveId, Arc<dyn Discount + Send + Sync>>,
-    fwd: HashMap<CurveId, Arc<dyn Forward + Send + Sync>>, // forecast curves
-    hazard: HashMap<CurveId, Arc<HazardCurve>>,            // concrete type for now
-    inflation: HashMap<CurveId, Arc<InflationCurve>>,      // concrete type
-    credit: HashMap<CurveId, Arc<CreditCurve>>,            // credit curves
-    inflation_indices: HashMap<CurveId, Arc<InflationIndex>>, // inflation indices
-    vol2d: HashMap<CurveId, Arc<crate::market_data::vol_surface::VolSurface>>, // vol surfaces
-    /// Generic market scalars (spot prices, constants)
-    scalars: HashMap<CurveId, crate::market_data::primitives::MarketScalar>,
-    /// Generic date-indexed series (economic metrics, reference tickers)
-    series: HashMap<CurveId, crate::market_data::primitives::ScalarTimeSeries>,
-    collat: HashMap<&'static str, CurveId>,                // CSA code → discount id
-}
-
-impl CurveSet {
-    /// Create an empty `CurveSet`.
-    pub fn new() -> Self {
-        Self { scalars: HashMap::new(), series: HashMap::new(), ..Self::default() }
-    }
-
-    /// Insert discount curve.
-    pub fn with_discount<C: Discount + Send + Sync + 'static>(mut self, curve: C) -> Self {
-        let cid = *TermStructure::id(&curve);
-        self.disc.insert(cid, Arc::new(curve));
-        self
-    }
-
-    /// Insert forecast curve.
-    pub fn with_forecast<C: Forward + Send + Sync + 'static>(mut self, curve: C) -> Self {
-        let cid = *TermStructure::id(&curve);
-        self.fwd.insert(cid, Arc::new(curve));
-        self
-    }
-
-    /// Insert hazard curve.
-    pub fn with_hazard(mut self, curve: HazardCurve) -> Self {
-        let cid = *crate::market_data::traits::TermStructure::id(&curve);
-        self.hazard.insert(cid, Arc::new(curve));
-        self
-    }
-
-    /// Insert inflation curve.
-    pub fn with_inflation(mut self, curve: InflationCurve) -> Self {
-        let cid = *crate::market_data::traits::TermStructure::id(&curve);
-        self.inflation.insert(cid, Arc::new(curve));
-        self
-    }
-    
-    /// Insert credit curve.
-    pub fn with_credit(mut self, curve: CreditCurve) -> Self {
-        let cid = curve.id;
-        self.credit.insert(cid, Arc::new(curve));
-        self
-    }
-    
-    /// Add a credit curve (mutable version for testing)
-    pub fn add_credit(&mut self, curve: CreditCurve) {
-        let cid = curve.id;
-        self.credit.insert(cid, Arc::new(curve));
-    }
-    
-    /// Insert inflation index.
-    pub fn with_inflation_index(mut self, id: &'static str, index: InflationIndex) -> Self {
-        let cid = CurveId::new(id);
-        self.inflation_indices.insert(cid, Arc::new(index));
-        self
-    }
-
-    /// Insert vol surface
-    pub fn with_vol_surface(
-        mut self,
-        surface: crate::market_data::vol_surface::VolSurface,
-    ) -> Self {
-        let cid = *crate::market_data::traits::TermStructure::id(&surface);
-        self.vol2d.insert(cid, Arc::new(surface));
-        self
-    }
-
-    /// Insert a generic market scalar.
-    pub fn with_scalar(
-        mut self,
-        id: &'static str,
-        scalar: crate::market_data::primitives::MarketScalar,
-    ) -> Self {
-        self.scalars.insert(CurveId::new(id), scalar);
-        self
-    }
-
-    /// Insert a generic date-indexed series.
-    pub fn with_series(
-        mut self,
-        series: crate::market_data::primitives::ScalarTimeSeries,
-    ) -> Self {
-        let id = *series.id();
-        self.series.insert(id, series);
-        self
-    }
-
-    /// Map collateral CSA code to discount curve id.
-    pub fn map_collateral(mut self, csa_code: &'static str, disc_id: CurveId) -> Self {
-        self.collat.insert(csa_code, disc_id);
-        self
-    }
-
-    /// Get discount curve by id.
-    pub fn discount(&self, id: &'static str) -> crate::Result<Arc<dyn Discount + Send + Sync>> {
-        self.disc
-            .get(&CurveId::new(id))
-            .cloned()
-            .ok_or(InputError::NotFound.into())
-    }
-
-    /// Get forecast curve by id.
-    pub fn forecast(&self, id: &'static str) -> crate::Result<Arc<dyn Forward + Send + Sync>> {
-        self.fwd
-            .get(&CurveId::new(id))
-            .cloned()
-            .ok_or(InputError::NotFound.into())
-    }
-
-    /// Get hazard curve.
-    pub fn hazard(&self, id: &'static str) -> crate::Result<Arc<HazardCurve>> {
-        self.hazard
-            .get(&CurveId::new(id))
-            .cloned()
-            .ok_or(InputError::NotFound.into())
-    }
-
-    /// Get inflation curve.
-    pub fn inflation(&self, id: &'static str) -> crate::Result<Arc<InflationCurve>> {
-        self.inflation
-            .get(&CurveId::new(id))
-            .cloned()
-            .ok_or(InputError::NotFound.into())
-    }
-
-    /// Retrieve a 2-D volatility surface by identifier.
-    pub fn vol_surface(
+impl FxProvider for NoFx {
+    fn rate(
         &self,
-        id: &'static str,
-    ) -> crate::Result<Arc<crate::market_data::vol_surface::VolSurface>> {
-        self.vol2d
-            .get(&CurveId::new(id))
-            .cloned()
-            .ok_or(InputError::NotFound.into())
-    }
-
-    /// Get generic market scalar by id.
-    pub fn scalar(
-        &self,
-        id: &'static str,
-    ) -> crate::Result<&crate::market_data::primitives::MarketScalar> {
-        self.scalars
-            .get(&CurveId::new(id))
-            .ok_or(InputError::NotFound.into())
-    }
-
-    /// Get generic series by id.
-    pub fn series(
-        &self,
-        id: &'static str,
-    ) -> crate::Result<&crate::market_data::primitives::ScalarTimeSeries> {
-        self.series
-            .get(&CurveId::new(id))
-            .ok_or(InputError::NotFound.into())
-    }
-
-    /// Resolve collateral discount curve for CSA code.
-    pub fn collateral(&self, csa_code: &str) -> crate::Result<Arc<dyn Discount + Send + Sync>> {
-        let id = match self.collat.get(csa_code) {
-            Some(cid) => cid,
-            None => return Err(InputError::NotFound.into()),
-        };
-        self.discount(id.as_str())
-    }
-    
-    /// Get credit curve by id.
-    pub fn credit(&self, id: &'static str) -> crate::Result<Arc<CreditCurve>> {
-        self.credit
-            .get(&CurveId::new(id))
-            .cloned()
-            .ok_or(InputError::NotFound.into())
-    }
-    
-    /// Get inflation index by id.
-    pub fn inflation_index(&self, id: &'static str) -> Option<Arc<InflationIndex>> {
-        self.inflation_indices
-            .get(&CurveId::new(id))
-            .cloned()
-    }
-}
-
-// -----------------------------------------------------------------------------
-// Tests
-// -----------------------------------------------------------------------------
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::dates::Date;
-    use crate::market_data::discount_curve::DiscountCurve;
-
-    fn sample_discount() -> DiscountCurve {
-        DiscountCurve::builder("USD-OIS")
-            .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
-            .knots([(0.0, 1.0), (1.0, 0.98)])
-            .linear_df()
-            .build()
-            .unwrap()
-    }
-
-    fn sample_hazard() -> HazardCurve {
-        HazardCurve::builder("USD-CRED")
-            .knots([(0.0, 0.01)])
-            .build()
-            .unwrap()
-    }
-
-    #[test]
-    fn fetch_discount_curve() {
-        let yc = sample_discount();
-        let set = CurveSet::new().with_discount(yc);
-        let disc = set.discount("USD-OIS").unwrap();
-        assert_eq!(
-            crate::market_data::traits::TermStructure::id(&*disc).as_str(),
-            "USD-OIS"
-        );
-    }
-
-    #[test]
-    fn collateral_mapping() {
-        let yc = sample_discount();
-        let id = *crate::market_data::traits::TermStructure::id(&yc);
-        let set = CurveSet::new()
-            .with_discount(yc)
-            .map_collateral("CSA-USD", id);
-        let disc = set.collateral("CSA-USD").unwrap();
-        assert_eq!(
-            crate::market_data::traits::TermStructure::id(&*disc).as_str(),
-            "USD-OIS"
-        );
-    }
-
-    #[test]
-    fn hazard_fetch() {
-        let hc = sample_hazard();
-        let set = CurveSet::new().with_hazard(hc);
-        let hz = set.hazard("USD-CRED").unwrap();
-        assert_eq!(
-            crate::market_data::traits::TermStructure::id(&*hz).as_str(),
-            "USD-CRED"
-        );
-    }
-
-    #[test]
-    fn scalar_and_series_roundtrip() {
-        use crate::market_data::primitives::{MarketScalar, ScalarTimeSeries, SeriesInterpolation};
-        let set = CurveSet::new()
-            .with_scalar("AAPL-SPOT", MarketScalar::Unitless(195.25));
-
-        let d0 = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-        let d1 = Date::from_calendar_date(2025, time::Month::February, 1).unwrap();
-        let ts = ScalarTimeSeries::new("US-UNEMP", vec![(d0, 3.0), (d1, 4.0)], None)
-            .unwrap()
-            .with_interpolation(SeriesInterpolation::Step);
-        let set = set.with_series(ts);
-
-        // Scalar fetch
-        match set.scalar("AAPL-SPOT").unwrap() {
-            MarketScalar::Unitless(v) => assert!((*v - 195.25).abs() < 1e-12),
-            _ => panic!("unexpected variant"),
+        from: Currency,
+        to: Currency,
+        _on: Date,
+        _policy: FxConversionPolicy,
+    ) -> crate::Result<FxRate> {
+        if from == to {
+            #[cfg(feature = "decimal128")]
+            { return Ok(rust_decimal::Decimal::ONE); }
+            #[cfg(not(feature = "decimal128"))]
+            { return Ok(1.0); }
         }
-
-        // Series fetch
-        let s = set.series("US-UNEMP").unwrap();
-        let mid = d0 + time::Duration::days(15);
-        assert!((s.value_on(mid).unwrap() - 3.0).abs() < 1e-12);
+        Err(crate::error::InputError::NotFound.into())
     }
 }
+
+/// Backwards-compatible alias. Prefer `MarketContext` moving forward.
+pub type CurveSet = crate::market_data::context::MarketContext;
+
 
 
 
@@ -9166,7 +8989,7 @@ pub struct ScalarTimeSeries {
 impl ScalarTimeSeries {
     /// Create a new time series from observations.
     pub fn new(
-        id: &'static str,
+        id: impl AsRef<str>,
         observations: Vec<(Date, crate::F)>,
         currency: Option<Currency>,
     ) -> Result<Self> {
@@ -11208,7 +11031,7 @@ mod tests {
     }
 
     impl FlatCurve {
-        const fn new(id: &'static str, df_const: F) -> Self {
+        fn new(id: &'static str, df_const: F) -> Self {
             Self {
                 id: CurveId::new(id),
                 df_const,
@@ -11886,10 +11709,13 @@ File: finstack/core/src/money/fx.rs
 //! `Money::convert`. Conversions are always explicit – arithmetic on `Money`
 //! requires the same currency.
 
+extern crate alloc;
+
 use crate::currency::Currency;
 use crate::dates::Date;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
+use alloc::sync::Arc;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -12021,20 +11847,20 @@ pub trait FxProvider: Send + Sync {
 }
 
 /// Enhanced FX matrix with LRU caching and closure checking
-pub struct FxMatrix<P: FxProvider> {
-    provider: P,
+pub struct FxMatrix {
+    provider: Arc<dyn FxProvider>,
     cache: std::sync::Mutex<HashMap<FxCacheKey, CachedFxEntry>>,
     config: FxCacheConfig,
 }
 
-impl<P: FxProvider> FxMatrix<P> {
+impl FxMatrix {
     /// Create a new `FxMatrix` wrapping the given provider with default cache configuration
-    pub fn new(provider: P) -> Self {
+    pub fn new(provider: Arc<dyn FxProvider>) -> Self {
         Self::with_config(provider, FxCacheConfig::default())
     }
 
     /// Create a new `FxMatrix` with custom cache configuration
-    pub fn with_config(provider: P, config: FxCacheConfig) -> Self {
+    pub fn with_config(provider: Arc<dyn FxProvider>, config: FxCacheConfig) -> Self {
         Self {
             provider,
             cache: std::sync::Mutex::new(HashMap::new()),
@@ -12236,7 +12062,7 @@ mod tests {
     #[test]
     fn fx_cache_basic_functionality() {
         let provider = MockFxProvider::new();
-        let matrix = FxMatrix::new(provider);
+        let matrix = FxMatrix::new(Arc::new(provider));
 
         // Test basic rate retrieval
         let rate = matrix
@@ -12263,7 +12089,7 @@ mod tests {
     #[test]
     fn fx_cache_identity_rates() {
         let provider = MockFxProvider::new();
-        let matrix = FxMatrix::new(provider);
+        let matrix = FxMatrix::new(Arc::new(provider));
 
         let rate = matrix
             .rate(
@@ -12289,7 +12115,7 @@ mod tests {
             closure_tolerance: 0.01, // 1% tolerance for this test
             ..Default::default()
         };
-        let matrix = FxMatrix::with_config(provider, config);
+        let matrix = FxMatrix::with_config(Arc::new(provider), config);
 
         let (rate, closure_result) = matrix
             .rate_with_closure(
@@ -12325,7 +12151,7 @@ mod tests {
             default_ttl: Duration::from_nanos(1), // Immediate expiry
             ..Default::default()
         };
-        let matrix = FxMatrix::with_config(provider, config);
+        let matrix = FxMatrix::with_config(Arc::new(provider), config);
 
         // Get rate to populate cache
         let _rate1 = matrix
@@ -12355,7 +12181,7 @@ mod tests {
             default_ttl: Duration::from_secs(60),
             ..Default::default()
         };
-        let matrix = FxMatrix::with_config(provider, config);
+        let matrix = FxMatrix::with_config(Arc::new(provider), config);
 
         // Fill cache to capacity
         let _rate1 = matrix
@@ -12395,7 +12221,7 @@ mod tests {
     #[test]
     fn fx_cache_clear() {
         let provider = MockFxProvider::new();
-        let matrix = FxMatrix::new(provider);
+        let matrix = FxMatrix::new(Arc::new(provider));
 
         // Populate cache
         let _rate = matrix
@@ -12453,10 +12279,7 @@ File: finstack/core/src/money/mod.rs
 
 #![allow(clippy::items_after_test_module)]
 
-#[cfg(not(feature = "decimal128"))]
-use crate::config::RoundingMode;
-#[cfg(feature = "decimal128")]
-use crate::config::{config, RoundingMode};
+use crate::config::{FinstackConfig, RoundingMode};
 use crate::currency::Currency;
 use crate::dates::Date;
 use crate::error::Error;
@@ -12491,22 +12314,23 @@ impl Money {
     #[must_use]
     #[inline]
     pub fn new(amount: f64, currency: Currency) -> Self {
-        let dp = crate::config::ingest_scale_for(currency);
+        // Fallback to ISO-4217 minor units when no config is provided.
+        let dp = currency.decimals();
         #[cfg(feature = "decimal128")]
         {
             let s = format!("{:.17}", amount);
-            let mut dec =
-                rust_decimal::Decimal::from_str(&s).unwrap_or(rust_decimal::Decimal::ZERO);
-            let mode = config().rounding.mode;
-            dec = round_decimal(dec, dp, mode);
+            let dec = rust_decimal::Decimal::from_str(&s)
+                .unwrap_or(rust_decimal::Decimal::ZERO);
+            let mode = RoundingMode::Bankers;
+            let rounded = round_decimal(dec, dp as u32, mode);
             Self {
-                amount: dec,
+                amount: rounded,
                 currency,
             }
         }
         #[cfg(not(feature = "decimal128"))]
         {
-            let mode = crate::config::config().rounding.mode;
+            let mode = RoundingMode::Bankers;
             let rounded = round_f64(amount, dp as i32, mode);
             Self {
                 amount: rounded,
@@ -12515,18 +12339,37 @@ impl Money {
         }
     }
 
+    /// Create a new `Money` value using an explicit configuration.
+    #[must_use]
+    #[inline]
+    pub fn new_with_config(amount: f64, currency: Currency, cfg: &FinstackConfig) -> Self {
+        let dp = crate::config::ingest_scale_for(cfg, currency);
+        #[cfg(feature = "decimal128")]
+        {
+            let s = format!("{:.17}", amount);
+            let dec = rust_decimal::Decimal::from_str(&s)
+                .unwrap_or(rust_decimal::Decimal::ZERO);
+            let mode = cfg.rounding.mode;
+            let rounded = round_decimal(dec, dp, mode);
+            Self { amount: rounded, currency }
+        }
+        #[cfg(not(feature = "decimal128"))]
+        {
+            let mode = cfg.rounding.mode;
+            let rounded = round_f64(amount, dp as i32, mode);
+            Self { amount: rounded, currency }
+        }
+    }
+
     /// Construct from a decimal when the `decimal128` feature is enabled.
     #[cfg(feature = "decimal128")]
     #[must_use]
     #[inline]
-    pub fn from_decimal(amount: rust_decimal::Decimal, currency: Currency) -> Self {
-        let dp = crate::config::ingest_scale_for(currency);
-        let mode = config().rounding.mode;
+    pub fn from_decimal_with_config(amount: rust_decimal::Decimal, currency: Currency, cfg: &FinstackConfig) -> Self {
+        let dp = crate::config::ingest_scale_for(cfg, currency);
+        let mode = cfg.rounding.mode;
         let dec = round_decimal(amount, dp, mode);
-        Self {
-            amount: dec,
-            currency,
-        }
+        Self { amount: dec, currency }
     }
 
     /// Amount accessor (by value).
@@ -12615,12 +12458,11 @@ impl Money {
 // -------------------------------------------------------------------------
 impl fmt::Display for Money {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Prefer configured output scale when available; fall back to ISO decimals.
-        let dp = crate::config::output_scale_for(self.currency) as usize;
+        // Default formatting uses ISO-4217 minor units and bankers rounding.
+        let dp = self.currency.decimals() as usize;
         #[cfg(feature = "decimal128")]
         {
-            let cfg = config();
-            let s = format_decimal(self.amount, dp as u32, cfg.rounding.mode);
+            let s = format_decimal(self.amount, dp as u32, RoundingMode::Bankers);
             write!(f, "{} {}", self.currency, s)
         }
         #[cfg(not(feature = "decimal128"))]
@@ -12634,6 +12476,22 @@ impl fmt::Display for Money {
                 val = self.amount,
                 prec = dp
             )
+        }
+    }
+}
+
+impl Money {
+    /// Format this money using an explicit configuration (rounding mode and per-currency scales).
+    pub fn format_with_config(&self, cfg: &FinstackConfig) -> String {
+        let dp = crate::config::output_scale_for(cfg, self.currency) as usize;
+        #[cfg(feature = "decimal128")]
+        {
+            let s = format_decimal(self.amount, dp as u32, cfg.rounding.mode);
+            format!("{} {}", self.currency, s)
+        }
+        #[cfg(not(feature = "decimal128"))]
+        {
+            format!("{} {val:.prec$}", self.currency, val = self.amount, prec = dp)
         }
     }
 }
@@ -12978,7 +12836,7 @@ pub use crate::currency::Currency;
 pub use crate::dates::{
     adjust, available_calendars, build_periods, next_cds_date, next_imm, third_wednesday,
     BusinessDayConvention, Date, DateExt, DayCount, HolidayCalendar,
-    MergeMode, OffsetDateTime, OffsetDateTimeExt, Period, PeriodId,
+    OffsetDateTime, OffsetDateTimeExt, Period, PeriodId,
     PeriodKey, ScheduleBuilder, StubKind,
 };
 pub use crate::error::{Error, InputError};
@@ -13019,7 +12877,7 @@ pub use crate::math::{
 
 // Configuration and policy management
 pub use crate::config::{
-    config, ingest_scale_for, output_scale_for, results_meta, with_temp_config, FinstackConfig,
+    ingest_scale_for, output_scale_for, results_meta, rounding_context_from, FinstackConfig,
     NumericMode, ResultsMeta, RoundingContext, RoundingMode, RoundingPolicy,
 };
 
@@ -17076,6 +16934,7 @@ use finstack_core::{
     currency::Currency,
     dates::Date,
 };
+use std::sync::Arc;
 
 // Simple test FX provider
 #[derive(Debug, Clone)]
@@ -17110,7 +16969,7 @@ fn test_market_context_new() {
 #[test]
 fn test_market_context_from_curve_set() {
     let curve_set = CurveSet::new();
-    let ctx: MarketContext = MarketContext::from(curve_set);
+    let ctx: MarketContext = MarketContext::from_curve_set(curve_set);
     
     // Should have the curve set but other fields empty
     assert!(ctx.fx.is_none());
@@ -17121,7 +16980,7 @@ fn test_market_context_from_curve_set() {
 
 #[test]
 fn test_market_context_with_fx() {
-    let fx_matrix = FxMatrix::new(TestFxProvider);
+    let fx_matrix = FxMatrix::new(Arc::new(TestFxProvider));
     let ctx = MarketContext::new().with_fx(fx_matrix);
     
     // Should have FX matrix
@@ -17249,7 +17108,7 @@ fn test_market_context_scalar_time_series_getter() {
 #[test]
 fn test_market_context_chaining() {
     // Test that all builder methods can be chained
-    let fx_matrix = FxMatrix::new(TestFxProvider);
+    let fx_matrix = FxMatrix::new(Arc::new(TestFxProvider));
     let price = MarketScalar::Unitless(100.0);
     
     let strikes = [90.0, 100.0];
@@ -17533,6 +17392,7 @@ File: finstack/core/tests/money_fx.rs
 use finstack_core::dates::Date;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate};
 use finstack_core::{Currency, Money};
+use std::sync::Arc;
 
 struct StaticFx {
     rate: f64,
@@ -17615,7 +17475,7 @@ fn closure_check_matrix() {
             }
         }
     }
-    let m = FxMatrix::new(Prov);
+    let m = FxMatrix::new(Arc::new(Prov));
     let d = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
     let (_rate, _closure_result) = m
         .rate_with_closure(
@@ -17634,9 +17494,7 @@ fn closure_check_matrix() {
 File: finstack/core/tests/money_rounding.rs
 ================================================================================
 
-use finstack_core::config::{
-    with_temp_config, CurrencyScalePolicy, FinstackConfig, RoundingMode, RoundingPolicy,
-};
+use finstack_core::config::{CurrencyScalePolicy, FinstackConfig, RoundingMode, RoundingPolicy};
 use finstack_core::{Currency, Money};
 
 #[test]
@@ -17656,7 +17514,8 @@ fn money_display_respects_output_scale() {
             },
         },
     };
-    let s = with_temp_config(cfg, || format!("{}", Money::new(1.23456, Currency::USD)));
+    let m = Money::new_with_config(1.23456, Currency::USD, &cfg);
+    let s = m.format_with_config(&cfg);
     assert_eq!(s, "USD 1.235");
 }
 
@@ -35434,26 +35293,7 @@ use std::sync::Arc;
 /// Calculators can declare dependencies on other metrics for efficient computation
 /// ordering and caching. Implement this trait to create custom financial metrics.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::metrics::traits::{MetricCalculator, MetricContext};
-/// use finstack_valuations::metrics::ids::MetricId;
-/// use finstack_core::Result;
-/// use std::sync::Arc;
-/// 
-/// struct CustomYieldCalculator;
-/// 
-/// impl MetricCalculator for CustomYieldCalculator {
-///     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-///         // Custom yield calculation logic
-///         Ok(0.05) // 5% yield
-///     }
-///     
-///     fn dependencies(&self) -> &[MetricId] {
-///         &[MetricId::DirtyPrice] // Depends on dirty price
-///     }
-/// }
-/// ```
+/// See unit tests and `examples/` for usage.
 pub trait MetricCalculator: Send + Sync {
     /// Computes the metric value based on the provided context.
     /// 
@@ -35531,26 +35371,7 @@ impl MetricContext {
     /// * `as_of` - Valuation date
     /// * `base_value` - Base present value of the instrument
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::traits::MetricContext;
-    /// use finstack_valuations::instruments::Instrument;
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::money::Money;
-    /// use finstack_core::dates::Date;
-    /// use finstack_core::market_data::multicurve::CurveSet;
-    /// use std::sync::Arc;
-    /// use time::Month;
-    /// 
-    /// // Note: These would be created from actual data
-    /// // let instrument: Arc<Instrument> = todo!();
-    /// // let curves: Arc<CurveSet> = todo!();
-    /// let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    /// let base_value = Money::new(1_000_000.0, Currency::USD);
-    /// 
-    /// // Note: MetricContext::new would be called here
-    /// // let context = MetricContext::new(instrument, curves, as_of, base_value);
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn new(
         instrument: Arc<Instrument>,
         curves: Arc<finstack_core::market_data::multicurve::CurveSet>,
@@ -36529,7 +36350,7 @@ pub mod registry;
 pub mod policies;
 
 pub use registry::{
-    FunctionRegistry, FunctionParam, FxProvider,
+    FunctionRegistry, FunctionParam,
     ToggleFn, FxPolicyFn, PolicyFn,
     FN_REGISTRY,
     register_toggle, register_fx_policy, register_policy,
@@ -36537,6 +36358,8 @@ pub use registry::{
     DateToggleParams, FxPolicyParams,
     init_standard_functions,
 };
+// Re-export the core FxProvider for consumers
+pub use finstack_core::money::fx::FxProvider;
 
 pub use policies::{
     GridMarginPolicy,
@@ -37036,24 +36859,7 @@ use std::any::Any;
 use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
 
-/// Simple FX provider trait for currency conversion.
-/// 
-/// This is a placeholder for more comprehensive FX functionality
-/// that could be added to finstack-core in the future.
-pub trait FxProvider: Send + Sync {
-    /// Get exchange rate from one currency to another.
-    fn get_rate(&self, from: Currency, to: Currency, date: Date) -> finstack_core::Result<finstack_core::F>;
-    
-    /// Convert an amount from one currency to another.
-    fn convert(&self, amount: Money, to: Currency, date: Date) -> finstack_core::Result<Money> {
-        let from = amount.currency();
-        if from == to {
-            return Ok(amount);
-        }
-        let rate = self.get_rate(from, to, date)?;
-        Ok(Money::new(amount.amount() * rate, to))
-    }
-}
+// Removed duplicate FxProvider – use core trait instead
 
 /// Parameter trait for function arguments.
 /// Must be serializable, cloneable, debuggable, and thread-safe.
@@ -37725,7 +37531,10 @@ impl ValuationResult {
             as_of,
             value,
             measures: HashMap::new(),
-            meta: ExtendedResultsMeta::from_core(finstack_core::config::results_meta()),
+            // Default stamping uses default configuration; callers needing custom
+            // policy should construct `ExtendedResultsMeta` manually or provide
+            // a config-aware constructor in their layer.
+            meta: ExtendedResultsMeta::from_core(finstack_core::config::results_meta(&finstack_core::config::FinstackConfig::default())),
             covenants: None,
         }
     }

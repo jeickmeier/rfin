@@ -5,9 +5,8 @@
 //! crate so that downstream code does not have to depend on it directly.  This allows
 //! the RustFin project to absorb upstream `time` version bumps behind a stable façade.
 //!
-//! The re-export is `#![no_std]`-compatible.  We compile the `time` crate with
-//! `default-features = false`, which disables heavy std / formatting functionality while
-//! still giving access to the core value types we need.
+//! We compile the `time` crate with `default-features = false` to keep dependencies
+//! lean while still providing the core value types we need.
 //!
 //! # Re-exported items
 //! * [`Date`]

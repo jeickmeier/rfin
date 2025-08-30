@@ -2,8 +2,6 @@
 //! unified `MarketContext` type so downstream code keeps working unchanged.
 //! New code should use `market_data::context::MarketContext` directly.
 
-#![allow(dead_code)]
-
 use crate::currency::Currency;
 use crate::dates::Date;
 use crate::money::fx::{FxConversionPolicy, FxProvider, FxRate};

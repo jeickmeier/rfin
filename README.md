@@ -120,7 +120,7 @@ python -m http.server 8000
 ## Features
 
 - **Core Library** (`finstack-core`):
-  - `std` - Standard library support (default: off)
+  - `std` - Standard library support (always on)
   - `decimal128` - High-precision decimal support
   - `serde` - Serialization support
   - `holidays` - Holiday calendar functionality
@@ -144,7 +144,6 @@ The project uses GitHub Actions for continuous integration:
 - Testing across multiple platforms and Rust versions
 - Python bindings testing (Python 3.8, 3.11, 3.12)
 - WASM build verification
-- no_std compatibility checks
 
 ## Code Coverage
 

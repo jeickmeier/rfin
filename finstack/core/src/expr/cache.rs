@@ -219,16 +219,6 @@ impl ExpressionCache {
         self.entries.contains_key(&node_id)
     }
 
-    /// Get memory usage as percentage of budget.
-    #[allow(dead_code)]
-    pub fn memory_utilization(&self) -> f64 {
-        if self.max_memory > 0 {
-            self.current_memory as f64 / self.max_memory as f64
-        } else {
-            0.0
-        }
-    }
-
     /// Calculate cache hit ratio.
     pub fn hit_ratio(&self) -> f64 {
         let total_accesses: usize = self.entries.values().map(|entry| entry.access_count).sum();

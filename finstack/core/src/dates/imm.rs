@@ -10,7 +10,7 @@
 //! * `next_cds_date(date)` – returns the **next CDS IMM date** (20-Mar, 20-Jun,
 //!   20-Sep, 20-Dec) *strictly after* the supplied `date`.
 //!
-//! All helpers are `no_std`-friendly, allocate no heap memory and are
+//! All helpers allocate no heap memory and are
 //! panic-free for valid Gregorian dates within the supported `time` range.
 //!
 //! # Examples

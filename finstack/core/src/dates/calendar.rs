@@ -9,10 +9,9 @@
 //! 3. [`adjust`] – helper that shifts a date according to a convention
 //!    and calendar.
 //!
-//! In addition the TARGET2 (ECB) calendar is provided behind the optional
-//! **`holidays`** feature as a reference implementation.  It purposefully
-//! remains lightweight and allocation-free so the entire module compiles
-//! in `#![no_std]` environments.
+//! In addition, this module includes several built-in holiday calendars
+//! (e.g., TARGET2/ECB) that compile unconditionally. They are provided as
+//! lightweight, allocation-free implementations.
 
 #![allow(clippy::assign_op_pattern)]
 
@@ -133,7 +132,7 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
 // -----------------------------------------------------------------------------
 
 /// Returns the identifiers of all built-in holiday calendars that have been
-/// compiled into the crate (requires enabling the `holidays` feature)
+/// compiled into the crate.
 #[inline]
 pub const fn available_calendars() -> &'static [&'static str] {
     crate::dates::holiday::calendars::ALL_IDS
