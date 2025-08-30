@@ -15,8 +15,9 @@ use crate::error::Error;
 use core::fmt;
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
+// no string-based Decimal conversions in decimal mode
 #[cfg(feature = "decimal128")]
-use core::str::FromStr;
+use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
 
 #[cfg(feature = "decimal128")]
 type AmountRepr = rust_decimal::Decimal;
@@ -29,6 +30,7 @@ pub mod fx;
 /// Monetary amount tagged with a [`Currency`].
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct Money {
     amount: AmountRepr,
     currency: Currency,
@@ -47,8 +49,8 @@ impl Money {
         let dp = currency.decimals();
         #[cfg(feature = "decimal128")]
         {
-            let s = format!("{:.17}", amount);
-            let dec = rust_decimal::Decimal::from_str(&s)
+            let dec = rust_decimal::Decimal::from_f64_retain(amount)
+                .or_else(|| rust_decimal::Decimal::from_f64(amount))
                 .unwrap_or(rust_decimal::Decimal::ZERO);
             let mode = RoundingMode::Bankers;
             let rounded = round_decimal(dec, dp as u32, mode);
@@ -75,8 +77,8 @@ impl Money {
         let dp = crate::config::ingest_scale_for(cfg, currency);
         #[cfg(feature = "decimal128")]
         {
-            let s = format!("{:.17}", amount);
-            let dec = rust_decimal::Decimal::from_str(&s)
+            let dec = rust_decimal::Decimal::from_f64_retain(amount)
+                .or_else(|| rust_decimal::Decimal::from_f64(amount))
                 .unwrap_or(rust_decimal::Decimal::ZERO);
             let mode = cfg.rounding.mode;
             let rounded = round_decimal(dec, dp, mode);
@@ -356,7 +358,7 @@ fn ensure_same_currency(lhs: &Money, rhs: &Money) -> Result<(), Error> {
 fn amount_from_repr(x: AmountRepr) -> f64 {
     #[cfg(feature = "decimal128")]
     {
-        x.to_string().parse::<f64>().unwrap_or(0.0)
+        x.to_f64().unwrap_or(0.0)
     }
     #[cfg(not(feature = "decimal128"))]
     {
@@ -392,8 +394,7 @@ fn repr_sub(a: AmountRepr, b: AmountRepr) -> AmountRepr {
 fn repr_mul_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
     #[cfg(feature = "decimal128")]
     {
-        let s = format!("{:.17}", rhs);
-        let m = AmountRepr::from_str(&s).unwrap_or(AmountRepr::ZERO);
+        let m = AmountRepr::from_f64_retain(rhs).or_else(|| AmountRepr::from_f64(rhs)).unwrap_or(AmountRepr::ZERO);
         a * m
     }
     #[cfg(not(feature = "decimal128"))]
@@ -406,8 +407,7 @@ fn repr_mul_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
 fn repr_div_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
     #[cfg(feature = "decimal128")]
     {
-        let s = format!("{:.17}", rhs);
-        let d = AmountRepr::from_str(&s).unwrap_or(AmountRepr::ONE);
+        let d = AmountRepr::from_f64_retain(rhs).or_else(|| AmountRepr::from_f64(rhs)).unwrap_or(AmountRepr::ONE);
         a / d
     }
     #[cfg(not(feature = "decimal128"))]
@@ -482,8 +482,8 @@ fn round_f64(x: f64, dp: i32, mode: RoundingMode) -> f64 {
             // Emulate bankers: round half to even using Rust's round() then adjust ties.
             let y = x * factor;
             let r = y.round();
-            if (y.abs() - y.abs().floor() - 0.5).abs() < f64::EPSILON {
-                // tie: choose even
+            let tie = (y.abs().fract() - 0.5).abs() <= 1e-15;
+            if tie {
                 if (r as i64).abs() % 2 != 0 {
                     return (r - y.signum()) / factor;
                 }

@@ -2,6 +2,7 @@
 
 use finstack_core::dates::{ScheduleBuilder, Frequency, StubKind};
 use pyo3::prelude::*;
+use pyo3::exceptions::PyValueError;
 
 use super::calendar::{PyBusDayConv, PyCalendar};
 use super::date::PyDate;
@@ -42,7 +43,7 @@ pub enum PyFrequency {
     Quarterly,
     /// Monthly payments (twelve times per year)
     Monthly,
-    /// Bi-weekly payments (every 2 weeks)
+    /// Biweekly payments (every 2 weeks)
     BiWeekly,
     /// Weekly payments (every week)
     Weekly,
@@ -195,6 +196,10 @@ pub fn py_generate_schedule(
     calendar: Option<&PyCalendar>,
     stub: Option<PyStubRule>,
 ) -> PyResult<Vec<PyDate>> {
+    // Validate input range to raise a friendly Python error instead of panicking.
+    if start.inner() > end.inner() {
+        return Err(PyValueError::new_err("Invalid date range: start must be before or equal to end"));
+    }
     // NOTE: Business-day adjustment and explicit calendar support remain reserved
     // for a follow-up PR. We now route through the core ScheduleBuilder and honor
     // the optional stub rule when provided.

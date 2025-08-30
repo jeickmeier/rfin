@@ -45,7 +45,7 @@ pub use calendar::available_calendars;
 
 mod schedule_iter;
 
-pub use schedule_iter::{schedule, Frequency, ScheduleBuilder, StubKind};
+pub use schedule_iter::{schedule, try_schedule, Frequency, ScheduleBuilder, StubKind};
 
 mod composite;
 

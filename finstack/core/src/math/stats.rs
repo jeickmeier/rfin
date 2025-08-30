@@ -5,6 +5,18 @@
 //! - Feature-flag controlled behaviour (deterministic vs. fast)
 //! - No dependencies on external crates for basic operations
 //! - Consistent numerical behaviour across platforms
+//!
+//! # Examples
+//!
+//! ```
+//! use finstack_core::math::{mean, variance, covariance, correlation};
+//! let xs = [1.0, 2.0, 3.0, 4.0];
+//! let ys = [2.0, 4.0, 6.0, 8.0];
+//! assert!((mean(&xs) - 2.5).abs() < 1e-12);
+//! assert!(variance(&xs) > 0.0);
+//! assert!(covariance(&xs, &ys) > 0.0);
+//! assert!((correlation(&xs, &ys) - 1.0).abs() < 1e-12);
+//! ```
 
 use super::summation::{kahan_sum, pairwise_sum};
 
@@ -52,13 +64,23 @@ pub fn covariance(x: &[f64], y: &[f64]) -> f64 {
     if n == 0 {
         return 0.0;
     }
-    let mx = mean(x);
-    let my = mean(y);
-    let mut acc = 0.0;
+    // One-pass Chan/Welford style covariance for deterministic, stable accumulation
+    let mut mean_x = 0.0;
+    let mut mean_y = 0.0;
+    let mut co_moment = 0.0;
+    let mut k = 0.0;
     for i in 0..n {
-        acc += (x[i] - mx) * (y[i] - my);
+        let xi = x[i];
+        let yi = y[i];
+        k += 1.0;
+        let dx = xi - mean_x;
+        mean_x += dx / k;
+        let dy = yi - mean_y;
+        mean_y += dy / k;
+        // Use updated mean_y for the second factor per Chan's formulation
+        co_moment += dx * (yi - mean_y);
     }
-    acc / n as f64
+    co_moment / n as f64
 }
 
 /// Pearson correlation.

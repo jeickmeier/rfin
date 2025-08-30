@@ -1,6 +1,26 @@
 //! Root-finding algorithms: Brent, Newton-Raphson, and safeguarded Newton.
 //!
 //! All solvers are deterministic for a given function and interval.
+//!
+//! # Examples
+//!
+//! Find the root of a quadratic with Brent:
+//!
+//! ```
+//! use finstack_core::math::brent;
+//! let f = |x: f64| x * x - 2.0;
+//! let r = brent(f, 1.0, 2.0, 1e-12, 100).unwrap();
+//! assert!((r - 2.0_f64.sqrt()).abs() < 1e-9);
+//! ```
+//!
+//! Use safeguarded Newton inside a bracket:
+//! ```
+//! use finstack_core::math::newton_bracketed;
+//! let f = |x: f64| x * x * x - x;
+//! let df = |x: f64| 3.0 * x * x - 1.0;
+//! let r = newton_bracketed(f, df, 0.2, 1.5, 1e-12, 100).unwrap();
+//! assert!((r - 1.0).abs() < 1e-9);
+//! ```
 
 /// Brent's method for finding a root of `f` on `[lo, hi]`.
 ///
@@ -13,12 +33,18 @@ where
 
     let flo = f(lo);
     let fhi = f(hi);
-    if !(flo.is_finite() && fhi.is_finite()) || flo == 0.0 {
+    // Reject non-finite endpoint evaluations
+    if !(flo.is_finite() && fhi.is_finite()) {
+        return Err(InputError::Invalid.into());
+    }
+    // Early exit if an endpoint is already a root
+    if flo == 0.0 {
         return Ok(lo);
     }
     if fhi == 0.0 {
         return Ok(hi);
     }
+    // Require a valid bracket
     if flo.signum() == fhi.signum() {
         return Err(InputError::Invalid.into());
     }
@@ -189,6 +215,9 @@ where
     
     for _ in 0..max_iter {
         let fx = f(x);
+        if !fx.is_finite() {
+            return Err(InputError::Invalid.into());
+        }
         
         // Check for convergence
         if fx.abs() < tol {
@@ -196,6 +225,9 @@ where
         }
         
         let fpx = f_prime(x);
+        if !fpx.is_finite() {
+            return Err(InputError::Invalid.into());
+        }
         
         // Avoid division by zero
         if fpx.abs() < 1e-10 {
@@ -210,11 +242,6 @@ where
         }
         
         x = x_new;
-        
-        // Keep rate within reasonable bounds for financial applications
-        if !(-0.999..=10.0).contains(&x) {
-            return Err(InputError::Invalid.into());
-        }
     }
     
     Err(InputError::Invalid.into())

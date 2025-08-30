@@ -173,7 +173,8 @@ mod tests {
         let start = make_date(2025, 3, 1);
         let end = make_date(2026, 3, 1);
         let yf = DayCount::Act365F.year_fraction(start, end).unwrap();
-        // Should be exactly 366 / 365 for leap year period 2025-03-01 -> 2026-03-01 includes leap day 2025? Actually 2025 not leap. Use tolerance.
+        // ACT/365F uses actual days / 365. For 2025-03-01 -> 2026-03-01 there are
+        // 365 actual days (no leap day), so expected = 365 / 365.
         let expected = (end - start).whole_days() as f64 / 365.0;
         assert!((yf - expected).abs() < 1e-9);
     }

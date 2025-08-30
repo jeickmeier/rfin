@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 /// See unit tests and `examples/` for usage and conversions.
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct Rate(f64);
 
 impl Rate {
@@ -141,6 +142,7 @@ impl Neg for Rate {
 /// See unit tests and `examples/` for usage.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct Bps(i32);
 
 impl Bps {
@@ -265,6 +267,7 @@ impl Neg for Bps {
 /// See unit tests and `examples/` for usage.
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct Percentage(f64);
 
 impl Percentage {

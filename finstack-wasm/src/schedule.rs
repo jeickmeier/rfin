@@ -63,6 +63,10 @@ pub fn generate_schedule(
     convention: Option<BusDayConvention>,
     stub: Option<StubRule>,
 ) -> Array {
+    // Validate range; throw JS error early instead of panicking
+    if start.inner() > end.inner() {
+        wasm_bindgen::throw_str("Invalid date range: start must be before or equal to end");
+    }
     let mut builder = ScheduleBuilder::new(start.inner(), end.inner())
         .frequency(frequency.into());
 

@@ -39,6 +39,7 @@ pub enum FxConversionPolicy {
 /// Metadata describing the policy applied by the provider.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct FxPolicyMeta {
     /// Strategy applied for the conversion.
     pub strategy: FxConversionPolicy,
@@ -72,6 +73,7 @@ struct FxCacheKey {
 struct CachedFxEntry {
     rate: FxRate,
     cached_at: Instant,
+    last_access_at: Instant,
     ttl: Duration,
 }
 
@@ -80,6 +82,7 @@ impl CachedFxEntry {
         Self {
             rate,
             cached_at: Instant::now(),
+            last_access_at: Instant::now(),
             ttl,
         }
     }
@@ -144,7 +147,7 @@ pub trait FxProvider: Send + Sync {
 /// Enhanced FX matrix with LRU caching and closure checking
 pub struct FxMatrix {
     provider: Arc<dyn FxProvider>,
-    cache: std::sync::Mutex<HashMap<FxCacheKey, CachedFxEntry>>,
+    cache: std::sync::RwLock<HashMap<FxCacheKey, CachedFxEntry>>,
     config: FxCacheConfig,
 }
 
@@ -158,7 +161,7 @@ impl FxMatrix {
     pub fn with_config(provider: Arc<dyn FxProvider>, config: FxCacheConfig) -> Self {
         Self {
             provider,
-            cache: std::sync::Mutex::new(HashMap::new()),
+            cache: std::sync::RwLock::new(HashMap::new()),
             config,
         }
     }
@@ -187,13 +190,24 @@ impl FxMatrix {
         };
 
         // Try to get from cache first
+        // Fast path: read lock for cache hit
+        let mut hit_rate: Option<FxRate> = None;
         {
-            let cache = self.cache.lock().unwrap();
+            let cache = self.cache.read().unwrap();
             if let Some(entry) = cache.get(&cache_key) {
                 if !entry.is_expired() {
-                    return Ok(entry.rate);
+                    hit_rate = Some(entry.rate);
                 }
             }
+        }
+        if let Some(rate) = hit_rate {
+            // Update recency under write lock
+            if let Ok(mut cache) = self.cache.write() {
+                if let Some(entry) = cache.get_mut(&cache_key) {
+                    entry.last_access_at = Instant::now();
+                }
+            }
+            return Ok(rate);
         }
 
         // Cache miss or expired - fetch from provider
@@ -232,19 +246,19 @@ impl FxMatrix {
 
     /// Clear expired entries from the cache
     pub fn clear_expired(&self) {
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = self.cache.write().unwrap();
         cache.retain(|_, entry| !entry.is_expired());
     }
 
     /// Clear all cache entries
     pub fn clear_cache(&self) {
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = self.cache.write().unwrap();
         cache.clear();
     }
 
     /// Get cache statistics
     pub fn cache_stats(&self) -> (usize, usize) {
-        let cache = self.cache.lock().unwrap();
+        let cache = self.cache.read().unwrap();
         let total = cache.len();
         let expired = cache.values().filter(|entry| entry.is_expired()).count();
         (total, expired)
@@ -253,19 +267,21 @@ impl FxMatrix {
     // Private helper methods
 
     fn update_cache(&self, key: FxCacheKey, rate: FxRate) {
-        let mut cache = self.cache.lock().unwrap();
-
-        // Simple LRU: if at capacity, remove oldest entry
+        let mut cache = self.cache.write().unwrap();
+        // Drop expired entries first
         if cache.len() >= self.config.max_entries {
-            if let Some(oldest_key) = cache
+            cache.retain(|_, entry| !entry.is_expired());
+        }
+        // True LRU: evict least recently accessed if still at/over capacity
+        if cache.len() >= self.config.max_entries {
+            if let Some(lru_key) = cache
                 .iter()
-                .min_by_key(|(_, entry)| entry.cached_at)
+                .min_by_key(|(_, entry)| entry.last_access_at)
                 .map(|(k, _)| k.clone())
             {
-                cache.remove(&oldest_key);
+                cache.remove(&lru_key);
             }
         }
-
         let entry = CachedFxEntry::new(rate, self.config.default_ttl);
         cache.insert(key, entry);
     }
@@ -276,18 +292,41 @@ impl FxMatrix {
         via_a: FxRate,
         via_b: FxRate,
     ) -> crate::Result<ClosureCheckResult> {
-        let direct_f64 = self.to_f64(direct_rate)?;
-        let calculated_f64 = self.to_f64(via_a)? * self.to_f64(via_b)?;
-        let difference = (direct_f64 - calculated_f64).abs();
-
-        if difference <= self.config.closure_tolerance {
-            Ok(ClosureCheckResult::Pass)
-        } else {
+        #[cfg(feature = "decimal128")]
+        {
+            // Compute entirely in Decimal to avoid precision loss, then report as f64 if needed
+            let calculated = via_a * via_b;
+            let diff = (direct_rate - calculated).abs();
+            let tol = rust_decimal::Decimal::try_from(self.config.closure_tolerance)
+                .unwrap_or(rust_decimal::Decimal::ZERO);
+            if diff <= tol {
+                return Ok(ClosureCheckResult::Pass);
+            }
+            // For reporting only, convert to f64
+            let direct_f64 = self.to_f64(direct_rate)?;
+            let calculated_f64 = self.to_f64(calculated)?;
+            let difference = (direct_f64 - calculated_f64).abs();
             Ok(ClosureCheckResult::Fail {
                 direct_rate: direct_f64,
                 calculated_rate: calculated_f64,
                 difference,
             })
+        }
+        #[cfg(not(feature = "decimal128"))]
+        {
+            let direct_f64 = self.to_f64(direct_rate)?;
+            let calculated_f64 = self.to_f64(via_a)? * self.to_f64(via_b)?;
+            let difference = (direct_f64 - calculated_f64).abs();
+
+            if difference <= self.config.closure_tolerance {
+                Ok(ClosureCheckResult::Pass)
+            } else {
+                Ok(ClosureCheckResult::Fail {
+                    direct_rate: direct_f64,
+                    calculated_rate: calculated_f64,
+                    difference,
+                })
+            }
         }
     }
 

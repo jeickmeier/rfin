@@ -22,7 +22,7 @@ type Buffer = SmallVec<[Date; 32]>;
 pub enum Frequency {
     /// Calendar-month based frequency (e.g. 3 = quarterly).
     Months(u8), // 1..=12
-    /// Day-based frequency (e.g. 14 = bi-weekly).
+    /// Day-based frequency (e.g. 14 = biweekly).
     Days(u16), // >0
 }
 
@@ -57,6 +57,11 @@ impl Frequency {
     pub const fn semi_annual() -> Self {
         Self::Months(6)
     }
+    /// Every two months.
+    pub const fn bimonthly() -> Self {
+        Self::Months(2)
+    }
+    #[deprecated(note = "Use bimonthly() instead")]
     pub const fn bi_monthly() -> Self {
         Self::Months(2)
     }
@@ -66,10 +71,11 @@ impl Frequency {
     pub const fn monthly() -> Self {
         Self::Months(1)
     }
-    pub const fn bi_weekly() -> Self {
+    pub const fn biweekly() -> Self {
         Self::Days(14)
     }
-    pub const fn biweekly() -> Self {
+    #[deprecated(note = "Use biweekly() instead")]
+    pub const fn bi_weekly() -> Self {
         Self::Days(14)
     }
     pub const fn weekly() -> Self {
@@ -231,6 +237,10 @@ impl Iterator for LazyIter {
 /// Returns an iterator of anchor dates including both the start and end dates
 /// (i.e., the sequence is inclusive of both anchors).
 ///
+/// Panics if `start` > `end`.
+///
+/// Note: Inputs must satisfy `start` <= `end`.
+///
 /// Examples
 /// ```
 /// use finstack_core::dates::{Date, Frequency, schedule};
@@ -250,6 +260,18 @@ pub fn schedule(start: Date, end: Date, freq: Frequency) -> impl Iterator<Item =
     ScheduleBuilder::new(start, end).frequency(freq).build_raw()
 }
 
+/// Fallible variant of [`schedule`]: validates that `start` <= `end` and returns
+/// an error rather than panicking when inputs are invalid.
+///
+/// Returns an iterator of anchor dates including both the start and end dates
+/// (i.e., the sequence is inclusive of both anchors).
+///
+/// Errors with [`Error::Input(InputError::InvalidDateRange)`](crate::error::InputError::InvalidDateRange)
+/// if `start` > `end`.
+pub fn try_schedule(start: Date, end: Date, freq: Frequency) -> crate::Result<ScheduleIter> {
+    ScheduleBuilder::try_new(start, end)?.frequency(freq).try_build_raw()
+}
+
 /// Public builder for configuring schedule generation with
 /// fluent API (frequency, stub rule, business-day adjustment).
 ///
@@ -267,6 +289,12 @@ pub struct ScheduleBuilder<'a> {
 impl<'a> ScheduleBuilder<'a> {
     /// Create a new builder with mandatory `start` and `end` dates.
     /// Defaults: frequency = Monthly, stub = None, no adjustment.
+    ///
+    /// # Panics
+    /// Panics if `start` > `end` when building the schedule.
+    ///
+    /// # Notes
+    /// Inputs must satisfy `start` <= `end`.
     pub fn new(start: Date, end: Date) -> Self {
         Self {
             start,
@@ -276,6 +304,15 @@ impl<'a> ScheduleBuilder<'a> {
             conv: None,
             cal: None,
         }
+    }
+
+    /// Fallible constructor that validates `start` <= `end`.
+    /// Returns an error rather than panicking when inputs are invalid.
+    pub fn try_new(start: Date, end: Date) -> crate::Result<Self> {
+        if start > end {
+            return Err(crate::error::InputError::InvalidDateRange.into());
+        }
+        Ok(Self::new(start, end))
     }
 
     /// Set coupon/payment frequency.
@@ -322,6 +359,27 @@ impl<'a> ScheduleBuilder<'a> {
         }
     }
 
+    /// Fallible variant of [`build`]: returns an error when `start` > `end`.
+    pub fn try_build(self) -> crate::Result<MaybeAdjusted<'a>> {
+        if self.start > self.end {
+            return Err(crate::error::InputError::InvalidDateRange.into());
+        }
+
+        let builder = BuilderInternal {
+            start: self.start,
+            end: self.end,
+            freq: self.freq,
+            stub: self.stub,
+        };
+
+        let base_iter = builder.generate();
+
+        Ok(match (self.conv, self.cal) {
+            (Some(conv), Some(cal)) => MaybeAdjusted::Adjusted(AdjustIter::new(base_iter, conv, cal)),
+            _ => MaybeAdjusted::Raw(base_iter),
+        })
+    }
+
     /// Generate the schedule iterator without business day adjustment.
     ///
     /// This path is zero-allocation for `StubKind::None` and `StubKind::ShortBack`
@@ -337,6 +395,22 @@ impl<'a> ScheduleBuilder<'a> {
 
         builder.generate()
     }
+
+    /// Fallible variant of [`build_raw`]: returns an error when `start` > `end`.
+    pub fn try_build_raw(self) -> crate::Result<ScheduleIter> {
+        if self.start > self.end {
+            return Err(crate::error::InputError::InvalidDateRange.into());
+        }
+
+        let builder = BuilderInternal {
+            start: self.start,
+            end: self.end,
+            freq: self.freq,
+            stub: self.stub,
+        };
+
+        Ok(builder.generate())
+    }
 }
 
 // Rename original private Builder to avoid conflict and make internal.
@@ -349,7 +423,12 @@ struct BuilderInternal {
 
 impl BuilderInternal {
     fn generate(self) -> ScheduleIter {
-        debug_assert!(self.start <= self.end);
+        if self.start > self.end {
+            panic!(
+                "ScheduleBuilder: start date must be <= end date (start={:?}, end={:?})",
+                self.start, self.end
+            );
+        }
 
         let step = self.freq.to_step();
 
