@@ -65,7 +65,7 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
             }
             let mut d = date;
             while !cal.is_business_day(d) {
-                d = d + Duration::DAY;
+                d = d + Duration::days(1);
             }
             d
         }
@@ -78,7 +78,7 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
             // Compute following candidate
             let mut forward = date;
             while !cal.is_business_day(forward) {
-                forward = forward + Duration::DAY;
+                forward = forward + Duration::days(1);
             }
             if forward.month() == original_month {
                 return forward;
@@ -87,7 +87,7 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
             // Fallback to preceding if following crosses month
             let mut back = date;
             while !cal.is_business_day(back) {
-                back = back - Duration::DAY;
+                back = back - Duration::days(1);
             }
             back
         }
@@ -97,7 +97,7 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
             }
             let mut d = date;
             while !cal.is_business_day(d) {
-                d = d - Duration::DAY;
+                d = d - Duration::days(1);
             }
             d
         }
@@ -110,7 +110,7 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
             // Compute preceding candidate
             let mut back = date;
             while !cal.is_business_day(back) {
-                back = back - Duration::DAY;
+                back = back - Duration::days(1);
             }
             if back.month() == original_month {
                 return back;
@@ -119,7 +119,7 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
             // Fallback to following if preceding crosses month
             let mut forward = date;
             while !cal.is_business_day(forward) {
-                forward = forward + Duration::DAY;
+                forward = forward + Duration::days(1);
             }
             forward
         }

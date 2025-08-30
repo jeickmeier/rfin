@@ -152,7 +152,7 @@ fn easter_monday(year: i32) -> Date {
         Month::April
     };
     let easter_sunday = Date::from_calendar_date(year, month, day as u8).unwrap();
-    easter_sunday + Duration::DAY // Easter Monday = Sunday +1
+    easter_sunday + Duration::days(1) // Easter Monday = Sunday +1
 }
 
 // Pre-computed Chinese New Year (Spring Festival) Gregorian dates 1990-2100.
@@ -322,16 +322,16 @@ impl Rule {
                     Observed::None => { /* keep base */ }
                     Observed::NextMonday => {
                         if matches!(base.weekday(), Weekday::Saturday) {
-                            base = base + Duration::DAY * 2;
+                            base = base + Duration::days(2);
                         } else if matches!(base.weekday(), Weekday::Sunday) {
-                            base = base + Duration::DAY;
+                            base = base + Duration::days(1);
                         }
                     }
                     Observed::FriIfSatMonIfSun => {
                         if matches!(base.weekday(), Weekday::Saturday) {
-                            base = base - Duration::DAY;
+                            base = base - Duration::days(1);
                         } else if matches!(base.weekday(), Weekday::Sunday) {
-                            base = base + Duration::DAY;
+                            base = base + Duration::days(1);
                         }
                     }
                 }
@@ -342,7 +342,7 @@ impl Rule {
                     // forward search
                     let mut d = Date::from_calendar_date(date.year(), *month, 1).unwrap();
                     while d.weekday() != *weekday {
-                        d = d + Duration::DAY;
+                        d = d + Duration::days(1);
                     }
                     d + Duration::weeks((*n as i64) - 1)
                 } else {
@@ -352,9 +352,9 @@ impl Rule {
                     } else {
                         (date.year(), Month::try_from(*month as u8 + 1).unwrap())
                     };
-                    let mut d = Date::from_calendar_date(ny, nm, 1).unwrap() - Duration::DAY;
+                    let mut d = Date::from_calendar_date(ny, nm, 1).unwrap() - Duration::days(1);
                     while d.weekday() != *weekday {
-                        d = d - Duration::DAY;
+                        d = d - Duration::days(1);
                     }
                     let pos = (-*n) as i64; // 1 = last, 2 = second-last…
                     d - Duration::weeks(pos - 1)
@@ -371,12 +371,12 @@ impl Rule {
                 match dir {
                     Direction::After => {
                         while d.weekday() != *weekday {
-                            d = d + Duration::DAY;
+                            d = d + Duration::days(1);
                         }
                     }
                     Direction::Before => {
                         while d.weekday() != *weekday {
-                            d = d - Duration::DAY;
+                            d = d - Duration::days(1);
                         }
                     }
                 }

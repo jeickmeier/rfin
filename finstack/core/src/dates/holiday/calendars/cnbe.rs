@@ -47,7 +47,7 @@ fn build_year(year: i32) -> HashSet<Date> {
         if CNBE_RULES.is_holiday(date) {
             set.insert(date);
         }
-        date += Duration::DAY;
+        date += Duration::days(1);
     }
     set
 }

@@ -45,7 +45,7 @@ pub fn third_wednesday(month: Month, year: i32) -> Date {
     // The third Wednesday is guaranteed to fall within 15..=21 of the month.
     let mut date = Date::from_calendar_date(year, month, 15).unwrap();
     while date.weekday() != Weekday::Wednesday {
-        date = date + Duration::DAY;
+        date = date + Duration::days(1);
     }
     date
 }
