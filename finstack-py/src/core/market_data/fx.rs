@@ -213,7 +213,7 @@ pub fn convert_money(
 ///     ... )
 #[pyclass(name = "FxMatrix", module = "finstack.market_data")]
 pub struct PyFxMatrix {
-    inner: CoreMatrix<PySimpleFxProvider>,
+    inner: CoreMatrix,
 }
 
 #[pymethods]
@@ -224,9 +224,8 @@ impl PyFxMatrix {
     ///     provider: The FX provider to use for rate lookups
     #[new]
     fn new(provider: PySimpleFxProvider) -> Self {
-        PyFxMatrix {
-            inner: CoreMatrix::new(provider),
-        }
+        use std::sync::Arc;
+        PyFxMatrix { inner: CoreMatrix::new(Arc::new(provider)) }
     }
 
 

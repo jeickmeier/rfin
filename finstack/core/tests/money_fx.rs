@@ -1,6 +1,7 @@
 use finstack_core::dates::Date;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate};
 use finstack_core::{Currency, Money};
+use std::sync::Arc;
 
 struct StaticFx {
     rate: f64,
@@ -83,7 +84,7 @@ fn closure_check_matrix() {
             }
         }
     }
-    let m = FxMatrix::new(Prov);
+    let m = FxMatrix::new(Arc::new(Prov));
     let d = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
     let (_rate, _closure_result) = m
         .rate_with_closure(

@@ -7573,7 +7573,7 @@ use super::{
 
 /// Unified market data context
 #[derive(Clone, Default)]
-pub struct MarketContext<P: FxProvider> {
+pub struct MarketContext {
     /// Curves of various types (discount/forward/hazard/inflation)
     pub curves: CurveSet,
     /// Foreign-exchange matrix used for explicit FX conversions
@@ -7586,7 +7586,7 @@ pub struct MarketContext<P: FxProvider> {
     pub series: HashMap<CurveId, ScalarTimeSeries>,
 }
 
-impl<P: FxProvider> MarketContext<P> {
+impl MarketContext {
     /// Create an empty context.
     pub fn new() -> Self {
         Self {
@@ -7625,7 +7625,7 @@ impl<P: FxProvider> MarketContext<P> {
     }
 }
 
-impl<P: FxProvider> From<CurveSet> for MarketContext<P> {
+impl From<CurveSet> for MarketContext {
     fn from(curves: CurveSet) -> Self {
         Self {
             curves,
@@ -7637,7 +7637,7 @@ impl<P: FxProvider> From<CurveSet> for MarketContext<P> {
     }
 }
 
-impl<P: FxProvider> MarketContext<P> {
+impl MarketContext {
     /// Convenience getters that forward to underlying containers
     pub fn vol_surface(&self, id: &'static str) -> crate::Result<Arc<VolSurface>> {
         self.surfaces
@@ -17098,7 +17098,7 @@ impl FxProvider for TestFxProvider {
 
 #[test]
 fn test_market_context_new() {
-    let ctx: MarketContext<TestFxProvider> = MarketContext::new();
+    let ctx: MarketContext = MarketContext::new();
     
     // Should start empty
     assert!(ctx.fx.is_none());
@@ -17110,7 +17110,7 @@ fn test_market_context_new() {
 #[test]
 fn test_market_context_from_curve_set() {
     let curve_set = CurveSet::new();
-    let ctx: MarketContext<TestFxProvider> = MarketContext::from(curve_set);
+    let ctx: MarketContext = MarketContext::from(curve_set);
     
     // Should have the curve set but other fields empty
     assert!(ctx.fx.is_none());
@@ -17143,7 +17143,7 @@ fn test_market_context_with_surface() {
         .build()
         .unwrap();
     
-    let ctx: MarketContext<TestFxProvider> = MarketContext::new().with_surface(surface);
+    let ctx: MarketContext = MarketContext::new().with_surface(surface);
     
     // Should have the surface
     assert_eq!(ctx.surfaces.len(), 1);
@@ -17153,7 +17153,7 @@ fn test_market_context_with_surface() {
 #[test]
 fn test_market_context_with_price() {
     let price = MarketScalar::Unitless(100.0);
-    let ctx: MarketContext<TestFxProvider> = MarketContext::new().with_price("SPOT_PRICE", price);
+    let ctx: MarketContext = MarketContext::new().with_price("SPOT_PRICE", price);
     
     // Should have the price
     assert_eq!(ctx.prices.len(), 1);
@@ -17173,7 +17173,7 @@ fn test_market_context_with_series() {
     let observations: Vec<(Date, f64)> = dates.into_iter().zip(values).collect();
     let series = ScalarTimeSeries::new("TEST_SERIES", observations, None).unwrap();
     
-    let ctx: MarketContext<TestFxProvider> = MarketContext::new().with_series(series);
+    let ctx: MarketContext = MarketContext::new().with_series(series);
     
     // Should have the series
     assert_eq!(ctx.series.len(), 1);
@@ -17194,7 +17194,7 @@ fn test_market_context_vol_surface_getter() {
         .build()
         .unwrap();
     
-    let ctx: MarketContext<TestFxProvider> = MarketContext::new().with_surface(surface);
+    let ctx: MarketContext = MarketContext::new().with_surface(surface);
     
     // Should be able to retrieve the surface
     let retrieved = ctx.vol_surface("TEST_VOL");
@@ -17208,7 +17208,7 @@ fn test_market_context_vol_surface_getter() {
 #[test]
 fn test_market_context_market_scalar_getter() {
     let price = MarketScalar::Unitless(123.45);
-    let ctx: MarketContext<TestFxProvider> = MarketContext::new().with_price("TEST_PRICE", price);
+    let ctx: MarketContext = MarketContext::new().with_price("TEST_PRICE", price);
     
     // Should be able to retrieve the scalar
     let retrieved = ctx.market_scalar("TEST_PRICE");
@@ -17235,7 +17235,7 @@ fn test_market_context_scalar_time_series_getter() {
     let observations: Vec<(Date, f64)> = dates.into_iter().zip(values).collect();
     let series = ScalarTimeSeries::new("TEST_SERIES", observations, None).unwrap();
     
-    let ctx: MarketContext<TestFxProvider> = MarketContext::new().with_series(series);
+    let ctx: MarketContext = MarketContext::new().with_series(series);
     
     // Should be able to retrieve the series
     let retrieved = ctx.scalar_time_series("TEST_SERIES");
@@ -17272,7 +17272,7 @@ fn test_market_context_chaining() {
     let observations: Vec<(Date, f64)> = dates.into_iter().zip(values).collect();
     let series = ScalarTimeSeries::new("SERIES", observations, None).unwrap();
     
-    let ctx: MarketContext<TestFxProvider> = MarketContext::new()
+    let ctx: MarketContext = MarketContext::new()
         .with_fx(fx_matrix)
         .with_surface(surface)
         .with_price("PRICE", price)

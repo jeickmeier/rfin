@@ -4,10 +4,13 @@
 //! `Money::convert`. Conversions are always explicit – arithmetic on `Money`
 //! requires the same currency.
 
+extern crate alloc;
+
 use crate::currency::Currency;
 use crate::dates::Date;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
+use alloc::sync::Arc;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -139,20 +142,20 @@ pub trait FxProvider: Send + Sync {
 }
 
 /// Enhanced FX matrix with LRU caching and closure checking
-pub struct FxMatrix<P: FxProvider> {
-    provider: P,
+pub struct FxMatrix {
+    provider: Arc<dyn FxProvider>,
     cache: std::sync::Mutex<HashMap<FxCacheKey, CachedFxEntry>>,
     config: FxCacheConfig,
 }
 
-impl<P: FxProvider> FxMatrix<P> {
+impl FxMatrix {
     /// Create a new `FxMatrix` wrapping the given provider with default cache configuration
-    pub fn new(provider: P) -> Self {
+    pub fn new(provider: Arc<dyn FxProvider>) -> Self {
         Self::with_config(provider, FxCacheConfig::default())
     }
 
     /// Create a new `FxMatrix` with custom cache configuration
-    pub fn with_config(provider: P, config: FxCacheConfig) -> Self {
+    pub fn with_config(provider: Arc<dyn FxProvider>, config: FxCacheConfig) -> Self {
         Self {
             provider,
             cache: std::sync::Mutex::new(HashMap::new()),
@@ -354,7 +357,7 @@ mod tests {
     #[test]
     fn fx_cache_basic_functionality() {
         let provider = MockFxProvider::new();
-        let matrix = FxMatrix::new(provider);
+        let matrix = FxMatrix::new(Arc::new(provider));
 
         // Test basic rate retrieval
         let rate = matrix
@@ -381,7 +384,7 @@ mod tests {
     #[test]
     fn fx_cache_identity_rates() {
         let provider = MockFxProvider::new();
-        let matrix = FxMatrix::new(provider);
+        let matrix = FxMatrix::new(Arc::new(provider));
 
         let rate = matrix
             .rate(
@@ -407,7 +410,7 @@ mod tests {
             closure_tolerance: 0.01, // 1% tolerance for this test
             ..Default::default()
         };
-        let matrix = FxMatrix::with_config(provider, config);
+        let matrix = FxMatrix::with_config(Arc::new(provider), config);
 
         let (rate, closure_result) = matrix
             .rate_with_closure(
@@ -443,7 +446,7 @@ mod tests {
             default_ttl: Duration::from_nanos(1), // Immediate expiry
             ..Default::default()
         };
-        let matrix = FxMatrix::with_config(provider, config);
+        let matrix = FxMatrix::with_config(Arc::new(provider), config);
 
         // Get rate to populate cache
         let _rate1 = matrix
@@ -473,7 +476,7 @@ mod tests {
             default_ttl: Duration::from_secs(60),
             ..Default::default()
         };
-        let matrix = FxMatrix::with_config(provider, config);
+        let matrix = FxMatrix::with_config(Arc::new(provider), config);
 
         // Fill cache to capacity
         let _rate1 = matrix
@@ -513,7 +516,7 @@ mod tests {
     #[test]
     fn fx_cache_clear() {
         let provider = MockFxProvider::new();
-        let matrix = FxMatrix::new(provider);
+        let matrix = FxMatrix::new(Arc::new(provider));
 
         // Populate cache
         let _rate = matrix

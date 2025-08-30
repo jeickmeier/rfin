@@ -7,7 +7,7 @@ pub mod registry;
 pub mod policies;
 
 pub use registry::{
-    FunctionRegistry, FunctionParam, FxProvider,
+    FunctionRegistry, FunctionParam,
     ToggleFn, FxPolicyFn, PolicyFn,
     FN_REGISTRY,
     register_toggle, register_fx_policy, register_policy,
@@ -15,6 +15,8 @@ pub use registry::{
     DateToggleParams, FxPolicyParams,
     init_standard_functions,
 };
+// Re-export the core FxProvider for consumers
+pub use finstack_core::money::fx::FxProvider;
 
 pub use policies::{
     GridMarginPolicy,

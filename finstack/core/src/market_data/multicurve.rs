@@ -32,5 +32,5 @@ impl FxProvider for NoFx {
 }
 
 /// Backwards-compatible alias. Prefer `MarketContext` moving forward.
-pub type CurveSet = crate::market_data::context::MarketContext<NoFx>;
+pub type CurveSet = crate::market_data::context::MarketContext;
 

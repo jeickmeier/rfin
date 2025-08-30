@@ -15,24 +15,7 @@ use std::any::Any;
 use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
 
-/// Simple FX provider trait for currency conversion.
-/// 
-/// This is a placeholder for more comprehensive FX functionality
-/// that could be added to finstack-core in the future.
-pub trait FxProvider: Send + Sync {
-    /// Get exchange rate from one currency to another.
-    fn get_rate(&self, from: Currency, to: Currency, date: Date) -> finstack_core::Result<finstack_core::F>;
-    
-    /// Convert an amount from one currency to another.
-    fn convert(&self, amount: Money, to: Currency, date: Date) -> finstack_core::Result<Money> {
-        let from = amount.currency();
-        if from == to {
-            return Ok(amount);
-        }
-        let rate = self.get_rate(from, to, date)?;
-        Ok(Money::new(amount.amount() * rate, to))
-    }
-}
+// Removed duplicate FxProvider – use core trait instead
 
 /// Parameter trait for function arguments.
 /// Must be serializable, cloneable, debuggable, and thread-safe.

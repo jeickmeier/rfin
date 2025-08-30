@@ -1,6 +1,6 @@
 //! Lightweight container aggregating all market data needed by valuations.
 //!
-//! `MarketContext` groups together curves, FX (`FxMatrix<P>`), 2-D surfaces
+//! `MarketContext` groups together curves, FX (`FxMatrix`), 2-D surfaces
 //! (`VolSurface`) and generic prices/scalars so that pricing and
 //! risk components have a single handle to query required inputs.
 //!
@@ -11,7 +11,7 @@ extern crate alloc;
 use alloc::sync::Arc;
 use hashbrown::HashMap;
 
-use crate::money::fx::{FxMatrix, FxProvider};
+use crate::money::fx::FxMatrix;
 
 use super::{
     id::CurveId,
@@ -25,7 +25,7 @@ use super::{
 
 /// Unified market data context
 #[derive(Clone, Default)]
-pub struct MarketContext<P: FxProvider> {
+pub struct MarketContext {
     /// Discount curves keyed by identifier
     disc: HashMap<CurveId, Arc<dyn Discount + Send + Sync>>,
     /// Forecast curves keyed by identifier
@@ -39,7 +39,7 @@ pub struct MarketContext<P: FxProvider> {
     /// Inflation indices keyed by identifier
     inflation_indices: HashMap<CurveId, Arc<InflationIndex>>,
     /// Foreign-exchange matrix used for explicit FX conversions
-    pub fx: Option<Arc<FxMatrix<P>>>,
+    pub fx: Option<Arc<FxMatrix>>,
     /// Volatility surfaces keyed by identifier
     pub surfaces: HashMap<CurveId, Arc<VolSurface>>,
     /// Ad-hoc prices and constants
@@ -50,7 +50,7 @@ pub struct MarketContext<P: FxProvider> {
     collat: HashMap<&'static str, CurveId>,
 }
 
-impl<P: FxProvider> MarketContext<P> {
+impl MarketContext {
     /// Create an empty context.
     pub fn new() -> Self {
         Self {
@@ -69,7 +69,7 @@ impl<P: FxProvider> MarketContext<P> {
     }
 
     /// Attach a FX matrix.
-    pub fn with_fx(mut self, fx: FxMatrix<P>) -> Self {
+    pub fn with_fx(mut self, fx: FxMatrix) -> Self {
         self.fx = Some(Arc::new(fx));
         self
     }
@@ -164,7 +164,7 @@ impl<P: FxProvider> MarketContext<P> {
 // Note: we intentionally do not provide a blanket `From<MarketContext<Q>> for MarketContext<P>`
 // because it conflicts with the standard library's `impl<T> From<T> for T`.
 
-impl<P: FxProvider> MarketContext<P> {
+impl MarketContext {
     /// Construct a `MarketContext<P>` from a backwards-compatible `CurveSet` alias.
     /// The resulting context will not carry over any FX matrix.
     pub fn from_curve_set(curve_set: crate::market_data::multicurve::CurveSet) -> Self {
