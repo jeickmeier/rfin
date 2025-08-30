@@ -23,20 +23,7 @@ use hashbrown::HashMap;
 /// The default specification includes standard tenor points:
 /// - 3M, 6M, 1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 15Y, 20Y, 30Y
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::metrics::risk::BucketSpec;
-/// 
-/// // Use default buckets
-/// let default_buckets = BucketSpec::default();
-/// assert_eq!(default_buckets.tenors.len(), 11);
-/// 
-/// // Custom buckets for specific analysis
-/// let custom_buckets = BucketSpec {
-///     tenors: vec![0.5, 1.0, 2.0, 5.0, 10.0],
-/// };
-/// assert_eq!(custom_buckets.tenors.len(), 5);
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug)]
 pub struct BucketSpec {
     /// Tenor points in years from curve base date.
@@ -64,18 +51,7 @@ impl Default for BucketSpec {
 /// 2. **Sensitivity Calculation**: DV01 is computed per bucket using small rate shifts
 /// 3. **Risk Aggregation**: Total risk is the sum of all bucket sensitivities
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::metrics::risk::{BucketedDv01Calculator, BucketSpec};
-/// 
-/// let custom_buckets = BucketSpec {
-///     tenors: vec![0.5, 1.0, 2.0, 5.0, 10.0],
-/// };
-/// let calculator = BucketedDv01Calculator::with_buckets(custom_buckets);
-/// 
-/// // Use with standard buckets
-/// let standard_calculator = BucketedDv01Calculator::default();
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Default)]
 pub struct BucketedDv01Calculator {
     /// Bucket specification to use.
@@ -88,15 +64,7 @@ impl BucketedDv01Calculator {
     /// # Arguments
     /// * `buckets` - Custom bucket specification for the analysis
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::risk::{BucketedDv01Calculator, BucketSpec};
-    /// 
-    /// let custom_buckets = BucketSpec {
-    ///     tenors: vec![0.5, 1.0, 2.0, 5.0, 10.0],
-    /// };
-    /// let calculator = BucketedDv01Calculator::with_buckets(custom_buckets);
-/// ```
+    /// See unit tests and `examples/` for usage.
     pub fn with_buckets(buckets: BucketSpec) -> Self {
         Self { buckets }
     }
@@ -280,40 +248,7 @@ impl MetricCalculator for ThetaCalculator {
 /// for risk calculations that need cashflows, discount curves, and
 /// day count conventions.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::metrics::risk::CashflowCaching;
-/// use finstack_valuations::metrics::traits::MetricContext;
-/// use finstack_core::dates::DayCount;
-/// use finstack_core::money::Money;
-/// use finstack_core::dates::Date;
-/// use finstack_valuations::instruments::Instrument;
-/// use finstack_core::currency::Currency;
-/// use finstack_core::market_data::multicurve::CurveSet;
-/// use std::sync::Arc;
-/// use time::Month;
-/// 
-/// struct MyInstrument;
-/// 
-/// impl CashflowCaching for MyInstrument {
-///     // Inherit default implementations
-/// }
-/// 
-/// // Note: In practice, you would create a real instrument and curves
-/// // let instrument = Arc::new(Instrument::Bond(real_bond));
-/// // let curves = Arc::new(real_curves);
-/// let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-/// let base_value = Money::new(1000.0, Currency::USD);
-/// 
-/// // This example shows the structure but would need real data to run
-/// // let mut context = MetricContext::new(instrument, curves, as_of, base_value);
-/// let flows = vec![(Date::from_calendar_date(2025, Month::June, 15).unwrap(), Money::new(50.0, Currency::USD))];
-/// 
-/// let instrument_helper = MyInstrument;
-/// // instrument_helper.cache_cashflows(&mut context, flows);
-/// // instrument_helper.cache_discount_curve(&mut context, "USD-OIS");
-/// // instrument_helper.cache_day_count(&mut context, DayCount::Act365F);
-/// ```
+/// See unit tests and `examples/` for usage.
 pub trait CashflowCaching {
     /// Caches cashflows in the metric context for risk calculations.
     /// 
@@ -361,18 +296,7 @@ pub trait CashflowCaching {
 /// # Arguments
 /// * `registry` - Metric registry to add risk metrics to
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::metrics::registry::MetricRegistry;
-/// use finstack_valuations::metrics::risk::register_risk_metrics;
-/// 
-/// let mut registry = MetricRegistry::new();
-/// register_risk_metrics(&mut registry);
-/// 
-/// // Check that risk metrics are registered
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::BucketedDv01));
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::Theta));
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn register_risk_metrics(registry: &mut super::MetricRegistry) {
     use std::sync::Arc;
     use super::MetricId;

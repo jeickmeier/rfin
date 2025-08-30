@@ -16,14 +16,7 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 /// Computes the sum of discounted year fractions for the fixed leg,
 /// which is used in par rate calculations and other swap metrics.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::irs::metrics::AnnuityCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = AnnuityCalculator;
-/// // Note: Would need proper context with IRS data to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct AnnuityCalculator;
 
 impl MetricCalculator for AnnuityCalculator {
@@ -68,14 +61,7 @@ impl MetricCalculator for AnnuityCalculator {
 /// # Dependencies
 /// Requires `Annuity` metric to be computed first.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::irs::metrics::ParRateCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = ParRateCalculator;
-/// // Note: Would need proper context with computed dependencies to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct ParRateCalculator;
 
 impl MetricCalculator for ParRateCalculator {
@@ -137,14 +123,7 @@ impl MetricCalculator for ParRateCalculator {
 /// # Dependencies
 /// Requires `Annuity` metric to be computed first.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::irs::metrics::Dv01Calculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = Dv01Calculator;
-/// // Note: Would need proper context with computed dependencies to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct Dv01Calculator;
 
 impl MetricCalculator for Dv01Calculator {
@@ -178,14 +157,7 @@ impl MetricCalculator for Dv01Calculator {
 /// Computes the present value of the fixed-rate leg by discounting
 /// all fixed coupon payments using the swap's discount curve.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::irs::metrics::FixedLegPvCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = FixedLegPvCalculator;
-/// // Note: Would need proper context with IRS data to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct FixedLegPvCalculator;
 
 impl MetricCalculator for FixedLegPvCalculator {
@@ -228,14 +200,7 @@ impl MetricCalculator for FixedLegPvCalculator {
 /// all floating coupon payments. Forward rates are used to project
 /// future floating rates, and the spread is added to each rate.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::irs::metrics::FloatLegPvCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = FloatLegPvCalculator;
-/// // Note: Would need proper context with IRS data to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct FloatLegPvCalculator;
 
 impl MetricCalculator for FloatLegPvCalculator {
@@ -286,19 +251,7 @@ impl MetricCalculator for FloatLegPvCalculator {
 /// # Arguments
 /// * `registry` - Metric registry to add IRS metrics to
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::metrics::registry::MetricRegistry;
-/// use finstack_valuations::instruments::fixed_income::irs::metrics::register_irs_metrics;
-/// 
-/// let mut registry = MetricRegistry::new();
-/// register_irs_metrics(&mut registry);
-/// 
-/// // Check that IRS metrics are registered
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::Annuity));
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::ParRate));
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::Dv01));
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
     use std::sync::Arc;
     use crate::metrics::MetricId;

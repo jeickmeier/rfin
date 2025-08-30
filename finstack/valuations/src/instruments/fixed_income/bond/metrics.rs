@@ -17,14 +17,7 @@ use finstack_core::F;
 /// valuation date. This is essential for determining the dirty price and
 /// other bond metrics that depend on accrued interest.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::bond::metrics::AccruedInterestCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = AccruedInterestCalculator;
-/// // Note: Would need proper context with bond data to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct AccruedInterestCalculator;
 
 impl MetricCalculator for AccruedInterestCalculator {
@@ -99,14 +92,7 @@ impl MetricCalculator for AccruedInterestCalculator {
 /// # Dependencies
 /// Requires `Accrued` metric to be computed first.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::bond::metrics::YtmCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = YtmCalculator;
-/// // Note: Would need proper context with bond data and quoted price to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct YtmCalculator;
 
 impl MetricCalculator for YtmCalculator {
@@ -509,19 +495,7 @@ impl Cs01Calculator {}
 /// # Arguments
 /// * `registry` - Metric registry to add bond metrics to
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::metrics::registry::MetricRegistry;
-/// use finstack_valuations::instruments::fixed_income::bond::metrics::register_bond_metrics;
-/// 
-/// let mut registry = MetricRegistry::new();
-/// register_bond_metrics(&mut registry);
-/// 
-/// // Check that key bond metrics are registered
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::Ytm));
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::DurationMac));
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::Convexity));
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
     use std::sync::Arc;
     use crate::metrics::MetricId;

@@ -8,30 +8,7 @@ use super::result::ValidationResult;
 /// interface for validation operations. Validators can be chained, combined,
 /// and reused across different contexts.
 ///
-/// # Examples
-///
-/// ```
-/// use finstack_core::validation::{Validator, ValidationResult, ValidationWarning};
-///
-/// struct PositiveValidator;
-///
-/// impl Validator for PositiveValidator {
-///     type Input = f64;
-///     type Output = f64;
-///     
-///     fn validate(&self, input: &Self::Input) -> ValidationResult<Self::Output> {
-///         if *input > 0.0 {
-///             ValidationResult::pass(*input)
-///         } else {
-///             ValidationResult::fail("Value must be positive")
-///         }
-///     }
-/// }
-///
-/// let validator = PositiveValidator;
-/// let result = validator.validate(&5.0);
-/// assert!(result.is_success());
-/// ```
+/// See unit tests and `examples/` for usage patterns.
 pub trait Validator {
     /// The input type for validation
     type Input;

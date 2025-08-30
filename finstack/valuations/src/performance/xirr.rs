@@ -28,21 +28,7 @@ use finstack_core::F;
 /// - No sign change in cash flows (all positive or all negative)
 /// - Cannot converge to a solution within tolerance
 ///
-/// # Example
-/// ```rust
-/// use finstack_valuations::performance::xirr;
-/// use finstack_core::dates::Date;
-/// use time::Month;
-///
-/// let flows = vec![
-///     (Date::from_calendar_date(2024, Month::January, 1).unwrap(), -100_000.0),
-///     (Date::from_calendar_date(2024, Month::July, 1).unwrap(), 5_000.0),
-///     (Date::from_calendar_date(2025, Month::January, 1).unwrap(), 110_000.0),
-/// ];
-///
-/// let irr = xirr(&flows, None).unwrap();
-/// // irr should be approximately 0.15 (15%)
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn xirr(
     cash_flows: &[(Date, F)],
     guess: Option<F>,

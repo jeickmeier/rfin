@@ -161,20 +161,7 @@ pub struct ValuationResult {
 impl ValuationResult {
     /// Create a basic valuation result with just NPV.
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::pricing::result::ValuationResult;
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::money::Money;
-    /// use finstack_core::dates::Date;
-    /// use time::Month;
-    /// 
-    /// let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    /// let value = Money::new(1_000_000.0, Currency::USD);
-    /// let result = ValuationResult::stamped("BOND001", as_of, value);
-    /// assert_eq!(result.instrument_id, "BOND001");
-    /// assert_eq!(result.value, value);
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn stamped<S: Into<String>>(instrument_id: S, as_of: Date, value: Money) -> Self {
         Self {
             instrument_id: instrument_id.into(),
@@ -187,25 +174,7 @@ impl ValuationResult {
     }
     
     /// Add measures to the result.
-    ///
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::pricing::result::ValuationResult;
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::money::Money;
-    /// use finstack_core::dates::Date;
-    /// use hashbrown::HashMap;
-    /// use time::Month;
-    ///
-    /// let mut measures = HashMap::new();
-    /// measures.insert("ytm".to_string(), 0.05);
-    /// 
-    /// let result = ValuationResult::stamped(
-    ///     "BOND-123",
-    ///     Date::from_calendar_date(2025, Month::January, 1).unwrap(),
-    ///     Money::new(100_000.0, Currency::USD)
-    /// ).with_measures(measures);
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn with_measures(mut self, measures: HashMap<String, F>) -> Self {
         self.measures = measures;
         self

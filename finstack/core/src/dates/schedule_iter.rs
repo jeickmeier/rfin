@@ -206,15 +206,7 @@ impl Iterator for LazyIter {
 
 /// Public entry-point creating a schedule iterator.
 ///
-/// Example:
-/// ```
-/// use finstack_core::dates::{schedule, Frequency};
-/// use time::{Date, Month};
-/// let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-/// let end   = Date::from_calendar_date(2026, Month::January, 15).unwrap();
-/// let dates: Vec<_> = schedule(start, end, Frequency::quarterly()).collect();
-/// assert_eq!(dates[0], start);
-/// ```
+/// Example usage is covered by unit tests and `examples/`.
 pub fn schedule(start: Date, end: Date, freq: Frequency) -> impl Iterator<Item = Date> {
     ScheduleBuilder::new(start, end).frequency(freq).build_raw()
 }
@@ -222,97 +214,7 @@ pub fn schedule(start: Date, end: Date, freq: Frequency) -> impl Iterator<Item =
 /// Public builder for configuring schedule generation with
 /// fluent API (frequency, stub rule, business-day adjustment).
 ///
-/// # Examples
-///
-/// ## Basic monthly schedule
-/// ```
-/// use finstack_core::dates::{ScheduleBuilder, Frequency};
-/// use time::{Date, Month};
-///
-/// let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-/// let end = Date::from_calendar_date(2025, Month::April, 15).unwrap();
-///
-/// let dates: Vec<_> = ScheduleBuilder::new(start, end)
-///     .frequency(Frequency::monthly())
-///     .build_raw()
-///     .collect();
-///     
-/// assert_eq!(dates.len(), 4);
-/// assert_eq!(dates[0], Date::from_calendar_date(2025, Month::January, 15).unwrap());
-/// assert_eq!(dates[3], Date::from_calendar_date(2025, Month::April, 15).unwrap());
-/// ```
-///
-/// ## Short-back stub example
-/// ```
-/// use finstack_core::dates::{ScheduleBuilder, Frequency, StubKind};
-/// use time::{Date, Month};
-///
-/// // Period not evenly divisible by quarterly frequency
-/// let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-/// let end = Date::from_calendar_date(2025, Month::November, 1).unwrap();  // 10 months
-///
-/// let dates: Vec<_> = ScheduleBuilder::new(start, end)
-///     .frequency(Frequency::quarterly())  // 3-month periods
-///     .stub_rule(StubKind::None)  // For now use None to see default behavior
-///     .build_raw()
-///     .collect();
-///
-/// // Debug: print actual dates
-/// // for (i, d) in dates.iter().enumerate() {
-///     // println!("{}: {}", i, d);
-/// // }
-///     
-/// // With StubKind::None, we get all dates including partial period at end
-/// assert_eq!(dates.len(), 5);  // Jan, Apr, Jul, Oct, Nov
-/// assert_eq!(dates[0], Date::from_calendar_date(2025, Month::January, 1).unwrap());
-/// assert_eq!(dates[1], Date::from_calendar_date(2025, Month::April, 1).unwrap());
-/// assert_eq!(dates[2], Date::from_calendar_date(2025, Month::July, 1).unwrap());
-/// assert_eq!(dates[3], Date::from_calendar_date(2025, Month::October, 1).unwrap());
-/// assert_eq!(dates[4], Date::from_calendar_date(2025, Month::November, 1).unwrap());
-/// ```
-///
-/// ## Short-front stub example
-/// ```
-/// use finstack_core::dates::{ScheduleBuilder, Frequency, StubKind};
-/// use time::{Date, Month};
-///
-/// // Same period with short-front stub
-/// let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-/// let end = Date::from_calendar_date(2025, Month::November, 1).unwrap();
-///
-/// let dates: Vec<_> = ScheduleBuilder::new(start, end)
-///     .frequency(Frequency::quarterly())
-///     .stub_rule(StubKind::ShortFront)
-///     .build_raw()
-///     .collect();
-///     
-/// // Short stub first: Jan-Feb (1 month), then regular quarters
-/// assert_eq!(dates.len(), 5);  // Start, Feb, May, Aug, Nov
-/// assert_eq!(dates[0], Date::from_calendar_date(2025, Month::January, 1).unwrap());
-/// assert_eq!(dates[1], Date::from_calendar_date(2025, Month::February, 1).unwrap());
-/// assert_eq!(dates[2], Date::from_calendar_date(2025, Month::May, 1).unwrap());
-/// assert_eq!(dates[3], Date::from_calendar_date(2025, Month::August, 1).unwrap());
-/// assert_eq!(dates[4], Date::from_calendar_date(2025, Month::November, 1).unwrap());
-/// ```
-///
-/// ## Business day adjustment
-/// ```
-/// use finstack_core::dates::{ScheduleBuilder, Frequency, BusinessDayConvention, calendars::Target2};
-/// use time::{Date, Month};
-///
-/// let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();  // Wed
-/// let end = Date::from_calendar_date(2025, Month::July, 1).unwrap();
-///
-/// let cal = Target2;
-/// let dates: Vec<_> = ScheduleBuilder::new(start, end)
-///     .frequency(Frequency::quarterly())
-///     .adjust_with(BusinessDayConvention::Following, &cal)
-///     .build()
-///     .collect();
-///     
-/// // Jan 1 is New Year's Day, adjusts to Jan 2
-/// assert_eq!(dates[0], Date::from_calendar_date(2025, Month::January, 2).unwrap());
-/// ```
+/// See unit tests and `examples/` for usage patterns (stubs, adjustments, frequencies).
 #[derive(Clone, Copy)]
 pub struct ScheduleBuilder<'a> {
     start: Date,

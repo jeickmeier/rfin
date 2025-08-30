@@ -49,24 +49,11 @@ pub struct CashFlow {
 
 impl CashFlow {
     /// Create a fixed coupon cash-flow (`CFKind::Fixed`).
-    ///
+    /// 
     /// # Errors
     /// Returns [`Error::InvalidInput`] if the `amount` is zero.
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_core::dates::Date;
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::money::Money;
-    /// use finstack_valuations::cashflow::primitives::CashFlow;
-    /// use time::Month;
-    /// 
-    /// let date = Date::from_calendar_date(2025, Month::June, 15).unwrap();
-    /// let amount = Money::new(25_000.0, Currency::USD);
-    /// let cf = CashFlow::fixed_cf(date, amount)?;
-    /// assert_eq!(cf.kind, finstack_valuations::cashflow::primitives::CFKind::Fixed);
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn fixed_cf(date: Date, amount: Money) -> finstack_core::Result<Self> {
         if amount.amount() == 0.0 {
             return Err(InputError::Invalid.into());

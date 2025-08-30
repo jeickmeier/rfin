@@ -11,7 +11,6 @@ pub use rule::{Direction, Observed, Rule};
 // This keeps the public API surface small while allowing direct usage.
 //
 // Example:
-// use finstack_core::dates::holiday::{Rule, Calendar};
 //
 // fn foo(cal: &impl Calendar) { /* ... */ }
 

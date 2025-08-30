@@ -38,16 +38,6 @@ finstack_io = { package = "finstack-io", path = "io", optional = true }
 
 
 ================================================================================
-File: finstack/__pycache__/__init__.cpython-311.pyc
-================================================================================
-
-
-================================================================================
-File: finstack/analysis
-================================================================================
-
-
-================================================================================
 File: finstack/analysis/Cargo.toml
 ================================================================================
 
@@ -65,11 +55,6 @@ finstack-core = { path = "../core" }
 
 
 ================================================================================
-File: finstack/analysis/src
-================================================================================
-
-
-================================================================================
 File: finstack/analysis/src/lib.rs
 ================================================================================
 
@@ -77,11 +62,6 @@ File: finstack/analysis/src/lib.rs
 
 pub fn _placeholder() {}
 
-
-
-================================================================================
-File: finstack/analysis/tests
-================================================================================
 
 
 ================================================================================
@@ -97,11 +77,6 @@ fn test_placeholder() {
     // Test passes if no panic occurs
 }
 
-
-
-================================================================================
-File: finstack/core
-================================================================================
 
 
 ================================================================================
@@ -155,11 +130,6 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 
 ================================================================================
-File: finstack/core/benches
-================================================================================
-
-
-================================================================================
 File: finstack/core/benches/monotone_convex.rs
 ================================================================================
 
@@ -190,11 +160,6 @@ fn bench_monotone_convex(c: &mut Criterion) {
 criterion_group!(benches, bench_monotone_convex);
 criterion_main!(benches);
 
-
-
-================================================================================
-File: finstack/core/build
-================================================================================
 
 
 ================================================================================
@@ -423,180 +388,6 @@ fn main() -> io::Result<()> {
     generate_calendars::generate()
 }
 
-
-
-================================================================================
-File: finstack/core/data
-================================================================================
-
-
-================================================================================
-File: finstack/core/data/iso_4217.csv
-================================================================================
-
-code,numeric,minor_units,name
-AED,784,2,UAE Dirham
-AFN,971,2,Afghani
-ALL,8,2,Lek
-AMD,51,2,Armenian Dram
-ANG,532,2,Netherlands Antillean Guilder
-AOA,973,2,Kwanza
-ARS,32,2,Argentine Peso
-AUD,36,2,Australian Dollar
-AWG,533,2,Aruban Florin
-AZN,944,2,Azerbaijan Manat
-BAM,977,2,Convertible Mark
-BBD,52,2,Barbados Dollar
-BDT,50,2,Taka
-BGN,975,2,Bulgarian Lev
-BHD,48,3,Bahraini Dinar
-BIF,108,0,Burundi Franc
-BMD,60,2,Bermudian Dollar
-BND,96,2,Brunei Dollar
-BOB,68,2,Boliviano
-BRL,986,2,Brazilian Real
-BSD,44,2,Bahamian Dollar
-BTN,64,2,Ngultrum
-BWP,72,2,Pula
-BYN,933,2,Belarusian Ruble
-BZD,84,2,Belize Dollar
-CAD,124,2,Canadian Dollar
-CDF,976,2,Congolese Franc
-CHF,756,2,Swiss Franc
-CLP,152,0,Chilean Peso
-CNY,156,2,Yuan Renminbi
-COP,170,2,Colombian Peso
-CRC,188,2,Costa Rican Colon
-CUC,931,2,Peso Convertible
-CUP,192,2,Cuban Peso
-CVE,132,2,Cabo Verde Escudo
-CZK,203,2,Czech Koruna
-DJF,262,0,Djibouti Franc
-DKK,208,2,Danish Krone
-DOP,214,2,Dominican Peso
-DZD,12,2,Algerian Dinar
-EGP,818,2,Egyptian Pound
-ERN,232,2,Nakfa
-ETB,230,2,Ethiopian Birr
-EUR,978,2,Euro
-FJD,242,2,Fiji Dollar
-FKP,238,2,Falkland Islands Pound
-GBP,826,2,Pound Sterling
-GEL,981,2,Lari
-GHS,936,2,Ghana Cedi
-GIP,292,2,Gibraltar Pound
-GMD,270,2,Dalasi
-GNF,324,0,Guinean Franc
-GTQ,320,2,Quetzal
-GYD,328,2,Guyana Dollar
-HKD,344,2,Hong Kong Dollar
-HNL,340,2,Lempira
-HRK,191,2,Kuna
-HTG,332,2,Gourde
-HUF,348,2,Forint
-IDR,360,2,Rupiah
-ILS,376,2,New Israeli Sheqel
-INR,356,2,Indian Rupee
-IQD,368,3,Iraqi Dinar
-IRR,364,2,Iranian Rial
-ISK,352,0,Iceland Krona
-JMD,388,2,Jamaican Dollar
-JOD,400,3,Jordanian Dinar
-JPY,392,0,Yen
-KES,404,2,Kenyan Shilling
-KGS,417,2,Som
-KHR,116,2,Riel
-KMF,174,0,Comorian Franc
-KPW,408,2,North Korean Won
-KRW,410,0,Won
-KWD,414,3,Kuwaiti Dinar
-KYD,136,2,Cayman Islands Dollar
-KZT,398,2,Tenge
-LAK,418,2,Lao Kip
-LBP,422,2,Lebanese Pound
-LKR,144,2,Sri Lanka Rupee
-LRD,430,2,Liberian Dollar
-LSL,426,2,Loti
-LYD,434,3,Libyan Dinar
-MAD,504,2,Moroccan Dirham
-MDL,498,2,Moldovan Leu
-MGA,969,2,Malagasy Ariary
-MKD,807,2,Denar
-MMK,104,2,Kyat
-MNT,496,2,Tugrik
-MOP,446,2,Pataca
-MRU,929,2,Ouguiya
-MUR,480,2,Mauritius Rupee
-MVR,462,2,Rufiyaa
-MWK,454,2,Malawi Kwacha
-MXN,484,2,Mexican Peso
-MYR,458,2,Malaysian Ringgit
-MZN,943,2,Mozambique Metical
-NAD,516,2,Namibia Dollar
-NGN,566,2,Naira
-NIO,558,2,Cordoba Oro
-NOK,578,2,Norwegian Krone
-NPR,524,2,Nepalese Rupee
-NZD,554,2,New Zealand Dollar
-OMR,512,3,Rial Omani
-PAB,590,2,Balboa
-PEN,604,2,Sol
-PGK,598,2,Kina
-PHP,608,2,Philippine Peso
-PKR,586,2,Pakistan Rupee
-PLN,985,2,Zloty
-PYG,600,0,Guarani
-QAR,634,2,Qatari Rial
-RON,946,2,Romanian Leu
-RSD,941,2,Serbian Dinar
-RUB,643,2,Russian Ruble
-RWF,646,0,Rwanda Franc
-SAR,682,2,Saudi Riyal
-SBD,90,2,Solomon Islands Dollar
-SCR,690,2,Seychelles Rupee
-SDG,938,2,Sudanese Pound
-SEK,752,2,Swedish Krona
-SGD,702,2,Singapore Dollar
-SHP,654,2,Saint Helena Pound
-SLE,925,2,Leone
-SLL,694,2,Leone
-SOS,706,2,Somali Shilling
-SRD,968,2,Surinam Dollar
-STN,930,2,Dobra
-SYP,760,2,Syrian Pound
-SZL,748,2,Lilangeni
-THB,764,2,Baht
-TJS,972,2,Somoni
-TMT,934,2,Turkmenistan New Manat
-TND,788,3,Tunisian Dinar
-TOP,776,2,Pa'anga
-TRY,949,2,Turkish Lira
-TTD,780,2,Trinidad and Tobago Dollar
-TWD,901,2,New Taiwan Dollar
-TZS,834,2,Tanzanian Shilling
-UAH,980,2,Hryvnia
-UGX,800,0,Uganda Shilling
-USD,840,2,US Dollar
-UYU,858,2,Peso Uruguayo
-UZS,860,2,Uzbekistan Sum
-VED,926,2,Bolívar Soberano
-VES,928,2,Bolívar Soberano
-VND,704,0,Dong
-VUV,548,0,Vatu
-WST,882,2,Tala
-XAF,950,0,CFA Franc BEAC
-XCD,951,2,East Caribbean Dollar
-XOF,952,0,CFA Franc BCEAO
-XPF,953,0,CFP Franc
-YER,886,2,Yemeni Rial
-ZAR,710,2,Rand
-ZMW,967,2,Zambian Kwacha
-ZWL,932,2,Zimbabwe Dollar
-
-
-================================================================================
-File: finstack/core/src
-================================================================================
 
 
 ================================================================================
@@ -1085,11 +876,6 @@ mod tests {
 
 
 ================================================================================
-File: finstack/core/src/dates
-================================================================================
-
-
-================================================================================
 File: finstack/core/src/dates/calendar.rs
 ================================================================================
 
@@ -1231,8 +1017,8 @@ File: finstack/core/src/dates/composite.rs
 //! use finstack_core::dates::{CompositeCalendar, MergeMode, Target2, Gblo, HolidayCalendar};
 //! use time::Date;
 //!
-//! let t2 = Target2::new();
-//! let gb = Gblo::new();
+//! let t2 = Target2;
+//! let gb = Gblo;
 //! let calendars = [&t2 as &dyn HolidayCalendar, &gb as &dyn HolidayCalendar];
 //!
 //! // Union (default) – treat the day as a holiday if *either* market is closed.
@@ -1327,8 +1113,8 @@ mod tests {
 
     #[test]
     fn union_vs_intersection() {
-        let t2 = Target2::new();
-        let gb = Gblo::new();
+        let t2 = Target2;
+        let gb = Gblo;
         let calendars = [&t2 as &dyn HolidayCalendar, &gb as &dyn HolidayCalendar];
 
         let cal_union = CompositeCalendar::merge(&calendars);
@@ -1341,8 +1127,8 @@ mod tests {
 
         // Date that is holiday only in GBLO (Spring bank holiday 26-May-2025)
         let d2 = Date::from_calendar_date(2025, Month::May, 26).unwrap();
-        assert!(Gblo::new().is_holiday(d2));
-        assert!(!Target2::new().is_holiday(d2));
+        assert!(Gblo.is_holiday(d2));
+        assert!(!Target2.is_holiday(d2));
 
         assert!(cal_union.is_holiday(d2));
         assert!(!cal_inter.is_holiday(d2));
@@ -1392,16 +1178,7 @@ pub trait DateExt {
     ///
     /// This is a thin convenience wrapper around
     /// [`HolidayCalendar::is_business_day`], enabling fluent method-style
-    /// calls:
-    /// ```
-    /// use finstack_core::dates::DateExt;
-    /// use finstack_core::dates::calendars::Gblo;
-    /// use time::Date;
-    ///
-    /// let cal = Gblo::new();
-    /// let d = Date::from_calendar_date(2025, time::Month::March, 14).unwrap();
-    /// assert!(d.is_business_day(&cal));
-    /// ```
+    /// calls. See repository examples under `examples/` for usage.
     fn is_business_day<C: crate::dates::calendar::HolidayCalendar>(self, cal: &C) -> bool;
 
     /// Returns the **next IMM date** (third Wednesday of Mar/Jun/Sep/Dec)
@@ -1626,30 +1403,45 @@ impl DayCount {
 }
 
 // -------------------------------------------------------------------------------------------------
-// 30U/360 (US Bond Basis) helper
+// 30/360 generalized helper
 // -------------------------------------------------------------------------------------------------
-/// Calculate days per 30U/360 US convention.
-fn days_30_360_us(start: Date, end: Date) -> i32 {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Thirty360Convention {
+    Us,
+    European,
+}
+
+#[inline]
+fn days_30_360(start: Date, end: Date, convention: Thirty360Convention) -> i32 {
     let (y1, m1, d1) = (start.year(), start.month() as i32, start.day() as i32);
     let (y2, m2, d2) = (end.year(), end.month() as i32, end.day() as i32);
 
     let d1_adj = if d1 == 31 { 30 } else { d1 };
-    let d2_adj = if d2 == 31 && d1_adj == 30 { 30 } else { d2 };
+    let d2_adj = match convention {
+        Thirty360Convention::Us => {
+            if d2 == 31 && d1_adj == 30 { 30 } else { d2 }
+        }
+        Thirty360Convention::European => {
+            if d2 == 31 { 30 } else { d2 }
+        }
+    };
 
     (y2 - y1) * 360 + (m2 - m1) * 30 + (d2_adj - d1_adj)
+}
+
+// -------------------------------------------------------------------------------------------------
+// 30U/360 (US Bond Basis) helper
+// -------------------------------------------------------------------------------------------------
+/// Calculate days per 30U/360 US convention.
+fn days_30_360_us(start: Date, end: Date) -> i32 {
+    days_30_360(start, end, Thirty360Convention::Us)
 }
 
 // -------------------------------------------------------------------------------------------------
 // 30E/360 European helper
 // -------------------------------------------------------------------------------------------------
 fn days_30e_360(start: Date, end: Date) -> i32 {
-    let (y1, m1, d1) = (start.year(), start.month() as i32, start.day() as i32);
-    let (y2, m2, d2) = (end.year(), end.month() as i32, end.day() as i32);
-
-    let d1_adj = if d1 == 31 { 30 } else { d1 };
-    let d2_adj = if d2 == 31 { 30 } else { d2 };
-
-    (y2 - y1) * 360 + (m2 - m1) * 30 + (d2_adj - d1_adj)
+    days_30_360(start, end, Thirty360Convention::European)
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -1692,16 +1484,11 @@ fn year_fraction_act_act_isda(start: Date, end: Date) -> f64 {
 
 #[inline]
 const fn days_in_year(year: i32) -> i32 {
-    if is_leap_year(year) {
+    if crate::dates::utils::is_leap_year(year) {
         366
     } else {
         365
     }
-}
-
-#[inline]
-const fn is_leap_year(year: i32) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -1762,16 +1549,6 @@ mod tests {
     }
 }
 
-
-
-================================================================================
-File: finstack/core/src/dates/holiday
-================================================================================
-
-
-================================================================================
-File: finstack/core/src/dates/holiday/calendars
-================================================================================
 
 
 ================================================================================
@@ -2537,16 +2314,6 @@ pub const ALL_IDS: &[&str] = &[
     "cnbe", "sgsi", "sse", "hkhk", "hkex", "jpto", "jpx", "cme",
 ];
 
-macro_rules! impl_new {
-    ( $( $t:ty ),* $(,)? ) => {
-        $( impl $t { #[inline] pub const fn new() -> Self { Self } } )*
-    };
-}
-
-impl_new!(
-    Gblo, Target2, Asx, Auce, Cato, Defr, Nyse, Usny, Sifma, Brbd, Chzh, Cnbe, Sgsi, Sse, Hkhk,
-    Hkex, Jpto, Jpx, Cme
-);
 
 
 
@@ -2867,7 +2634,6 @@ pub use rule::{Direction, Observed, Rule};
 // This keeps the public API surface small while allowing direct usage.
 //
 // Example:
-// use finstack_core::dates::holiday::{Rule, Calendar};
 //
 // fn foo(cal: &impl Calendar) { /* ... */ }
 
@@ -3012,42 +2778,7 @@ impl Rule {
 // Internal helpers reused by applies()
 // ---------------------------------------------------------------------------
 
-#[inline]
-fn is_leap_year(year: i32) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
-}
-
-pub(crate) fn add_months(date: Date, months: i32) -> Date {
-    let total_months = date.year() * 12 + (date.month() as i32 - 1) + months;
-    let new_year = total_months.div_euclid(12);
-    let new_month_index = total_months.rem_euclid(12);
-    let new_month = Month::try_from((new_month_index + 1) as u8).unwrap();
-
-    let day = date.day();
-    let max_day = match new_month {
-        Month::January => 31,
-        Month::February => {
-            if is_leap_year(new_year) {
-                29
-            } else {
-                28
-            }
-        }
-        Month::March => 31,
-        Month::April => 30,
-        Month::May => 31,
-        Month::June => 30,
-        Month::July => 31,
-        Month::August => 31,
-        Month::September => 30,
-        Month::October => 31,
-        Month::November => 30,
-        Month::December => 31,
-    };
-
-    let new_day = day.min(max_day);
-    Date::from_calendar_date(new_year, new_month, new_day).unwrap()
-}
+// is_leap_year and add_months provided by shared utils
 
 /// Compute Easter Monday using the algorithm from the previous `easter_offset` module.
 fn easter_monday(year: i32) -> Date {
@@ -3548,6 +3279,9 @@ pub use holiday::calendars::*;
 mod periods;
 pub use periods::{build_periods, build_fiscal_periods, FiscalConfig, Period, PeriodId, PeriodKey};
 
+pub mod utils;
+pub use utils::{add_months, is_leap_year, date_to_days_since_epoch, days_since_epoch_to_date};
+
 pub mod calendars {
     #![allow(missing_docs)]
     pub use crate::dates::holiday::calendars::*;
@@ -3570,6 +3304,7 @@ use crate::dates::Date;
 use core::fmt;
 use core::str::FromStr;
 use time::Month;
+use crate::dates::utils::add_months;
 
 /// Period frequency.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -3935,23 +3670,6 @@ fn fiscal_year_start(fiscal_year: i32, config: FiscalConfig) -> Date {
     })
 }
 
-/// Add months to a date, preserving the day if possible
-fn add_months(date: Date, months: i32) -> Date {
-    let year = date.year();
-    let month = date.month() as i32;
-    let day = date.day();
-    
-    let total_months = month + months;
-    let new_year = year + (total_months - 1) / 12;
-    let new_month = ((total_months - 1) % 12 + 1) as u8;
-    
-    let month_enum = Month::try_from(new_month).unwrap();
-    let max_day = days_in_month(new_year, new_month);
-    let new_day = day.min(max_day);
-    
-    Date::from_calendar_date(new_year, month_enum, new_day).unwrap()
-}
-
 /// Get the number of days in a month
 fn days_in_month(year: i32, month: u8) -> u8 {
     match month {
@@ -3959,7 +3677,7 @@ fn days_in_month(year: i32, month: u8) -> u8 {
         4 | 6 | 9 | 11 => 30,
         2 => {
             // Check for leap year
-            if (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0) {
+            if crate::dates::utils::is_leap_year(year) {
                 29
             } else {
                 28
@@ -4370,7 +4088,7 @@ use smallvec::SmallVec;
 use time::{Date, Duration};
 
 use super::{adjust, BusinessDayConvention, HolidayCalendar};
-use crate::dates::holiday::rule::add_months;
+use crate::dates::utils::add_months;
 
 /// Small helper alias when we need to pre-buffer (used only for `ShortFront`).
 type Buffer = SmallVec<[Date; 32]>;
@@ -4565,15 +4283,7 @@ impl Iterator for LazyIter {
 
 /// Public entry-point creating a schedule iterator.
 ///
-/// Example:
-/// ```
-/// use finstack_core::dates::{schedule, Frequency};
-/// use time::{Date, Month};
-/// let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-/// let end   = Date::from_calendar_date(2026, Month::January, 15).unwrap();
-/// let dates: Vec<_> = schedule(start, end, Frequency::quarterly()).collect();
-/// assert_eq!(dates[0], start);
-/// ```
+/// Example usage is covered by unit tests and `examples/`.
 pub fn schedule(start: Date, end: Date, freq: Frequency) -> impl Iterator<Item = Date> {
     ScheduleBuilder::new(start, end).frequency(freq).build_raw()
 }
@@ -4581,97 +4291,7 @@ pub fn schedule(start: Date, end: Date, freq: Frequency) -> impl Iterator<Item =
 /// Public builder for configuring schedule generation with
 /// fluent API (frequency, stub rule, business-day adjustment).
 ///
-/// # Examples
-///
-/// ## Basic monthly schedule
-/// ```
-/// use finstack_core::dates::{ScheduleBuilder, Frequency};
-/// use time::{Date, Month};
-///
-/// let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-/// let end = Date::from_calendar_date(2025, Month::April, 15).unwrap();
-///
-/// let dates: Vec<_> = ScheduleBuilder::new(start, end)
-///     .frequency(Frequency::monthly())
-///     .build_raw()
-///     .collect();
-///     
-/// assert_eq!(dates.len(), 4);
-/// assert_eq!(dates[0], Date::from_calendar_date(2025, Month::January, 15).unwrap());
-/// assert_eq!(dates[3], Date::from_calendar_date(2025, Month::April, 15).unwrap());
-/// ```
-///
-/// ## Short-back stub example
-/// ```
-/// use finstack_core::dates::{ScheduleBuilder, Frequency, StubKind};
-/// use time::{Date, Month};
-///
-/// // Period not evenly divisible by quarterly frequency
-/// let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-/// let end = Date::from_calendar_date(2025, Month::November, 1).unwrap();  // 10 months
-///
-/// let dates: Vec<_> = ScheduleBuilder::new(start, end)
-///     .frequency(Frequency::quarterly())  // 3-month periods
-///     .stub_rule(StubKind::None)  // For now use None to see default behavior
-///     .build_raw()
-///     .collect();
-///
-/// // Debug: print actual dates
-/// // for (i, d) in dates.iter().enumerate() {
-///     // println!("{}: {}", i, d);
-/// // }
-///     
-/// // With StubKind::None, we get all dates including partial period at end
-/// assert_eq!(dates.len(), 5);  // Jan, Apr, Jul, Oct, Nov
-/// assert_eq!(dates[0], Date::from_calendar_date(2025, Month::January, 1).unwrap());
-/// assert_eq!(dates[1], Date::from_calendar_date(2025, Month::April, 1).unwrap());
-/// assert_eq!(dates[2], Date::from_calendar_date(2025, Month::July, 1).unwrap());
-/// assert_eq!(dates[3], Date::from_calendar_date(2025, Month::October, 1).unwrap());
-/// assert_eq!(dates[4], Date::from_calendar_date(2025, Month::November, 1).unwrap());
-/// ```
-///
-/// ## Short-front stub example
-/// ```
-/// use finstack_core::dates::{ScheduleBuilder, Frequency, StubKind};
-/// use time::{Date, Month};
-///
-/// // Same period with short-front stub
-/// let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-/// let end = Date::from_calendar_date(2025, Month::November, 1).unwrap();
-///
-/// let dates: Vec<_> = ScheduleBuilder::new(start, end)
-///     .frequency(Frequency::quarterly())
-///     .stub_rule(StubKind::ShortFront)
-///     .build_raw()
-///     .collect();
-///     
-/// // Short stub first: Jan-Feb (1 month), then regular quarters
-/// assert_eq!(dates.len(), 5);  // Start, Feb, May, Aug, Nov
-/// assert_eq!(dates[0], Date::from_calendar_date(2025, Month::January, 1).unwrap());
-/// assert_eq!(dates[1], Date::from_calendar_date(2025, Month::February, 1).unwrap());
-/// assert_eq!(dates[2], Date::from_calendar_date(2025, Month::May, 1).unwrap());
-/// assert_eq!(dates[3], Date::from_calendar_date(2025, Month::August, 1).unwrap());
-/// assert_eq!(dates[4], Date::from_calendar_date(2025, Month::November, 1).unwrap());
-/// ```
-///
-/// ## Business day adjustment
-/// ```
-/// use finstack_core::dates::{ScheduleBuilder, Frequency, BusinessDayConvention, calendars::Target2};
-/// use time::{Date, Month};
-///
-/// let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();  // Wed
-/// let end = Date::from_calendar_date(2025, Month::July, 1).unwrap();
-///
-/// let cal = Target2::new();
-/// let dates: Vec<_> = ScheduleBuilder::new(start, end)
-///     .frequency(Frequency::quarterly())
-///     .adjust_with(BusinessDayConvention::Following, &cal)
-///     .build()
-///     .collect();
-///     
-/// // Jan 1 is New Year's Day, adjusts to Jan 2
-/// assert_eq!(dates[0], Date::from_calendar_date(2025, Month::January, 2).unwrap());
-/// ```
+/// See unit tests and `examples/` for usage patterns (stubs, adjustments, frequencies).
 #[derive(Clone, Copy)]
 pub struct ScheduleBuilder<'a> {
     start: Date,
@@ -4816,6 +4436,71 @@ impl BuilderInternal {
 
 
 ================================================================================
+File: finstack/core/src/dates/utils.rs
+================================================================================
+
+//! Date utilities shared across the `dates` module.
+
+use time::{Date, Month};
+
+/// Return true if `year` is a leap year in the Gregorian calendar.
+#[inline]
+pub const fn is_leap_year(year: i32) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+}
+
+/// Add `months` to `date`, preserving the day when possible.
+///
+/// Handles negative month offsets correctly and clamps the day to the last
+/// valid day for the target month (e.g. Jan 31 + 1 month → Feb 28/29).
+#[inline]
+pub fn add_months(date: Date, months: i32) -> Date {
+    let total_months = date.year() * 12 + (date.month() as i32 - 1) + months;
+    let new_year = total_months.div_euclid(12);
+    let new_month_index = total_months.rem_euclid(12);
+    let new_month = Month::try_from((new_month_index + 1) as u8).unwrap();
+
+    let day = date.day();
+    let max_day = match new_month {
+        Month::January => 31,
+        Month::February => {
+            if is_leap_year(new_year) { 29 } else { 28 }
+        }
+        Month::March => 31,
+        Month::April => 30,
+        Month::May => 31,
+        Month::June => 30,
+        Month::July => 31,
+        Month::August => 31,
+        Month::September => 30,
+        Month::October => 31,
+        Month::November => 30,
+        Month::December => 31,
+    };
+
+    let new_day = day.min(max_day);
+    Date::from_calendar_date(new_year, new_month, new_day).unwrap()
+}
+
+/// Convert a `Date` to the number of days since the Unix epoch (1970-01-01).
+#[inline]
+pub fn date_to_days_since_epoch(date: Date) -> i32 {
+    let epoch = Date::from_calendar_date(1970, Month::January, 1).unwrap();
+    (date - epoch).whole_days() as i32
+}
+
+/// Convert days since Unix epoch (1970-01-01) back to a `Date`.
+#[inline]
+pub fn days_since_epoch_to_date(days: i32) -> Date {
+    let epoch = Date::from_calendar_date(1970, Month::January, 1).unwrap();
+    epoch + time::Duration::days(days as i64)
+}
+
+
+
+
+
+================================================================================
 File: finstack/core/src/error.rs
 ================================================================================
 
@@ -4898,11 +4583,6 @@ mod tests {
     }
 }
 
-
-
-================================================================================
-File: finstack/core/src/expr
-================================================================================
 
 
 ================================================================================
@@ -7267,11 +6947,6 @@ mod tests {
 
 
 ================================================================================
-File: finstack/core/src/generated
-================================================================================
-
-
-================================================================================
 File: finstack/core/src/generated/currency_generated.rs
 ================================================================================
 
@@ -7871,11 +7546,6 @@ pub use crate::dates::Frequency;
 
 
 ================================================================================
-File: finstack/core/src/market_data
-================================================================================
-
-
-================================================================================
 File: finstack/core/src/market_data/context.rs
 ================================================================================
 
@@ -8008,12 +7678,7 @@ use core::fmt;
 /// * can be defined as a `const` and embedded directly in code, and
 /// * is **`Copy`**, hashable and comparable by a single pointer operation.
 ///
-/// # Example
-/// ```rust
-/// use finstack_core::market_data::id::CurveId;
-/// const USD_SOFR: CurveId = CurveId::new("USD-SOFR");
-/// assert_eq!(USD_SOFR.as_str(), "USD-SOFR");
-/// ```
+/// See unit tests and `examples/` for usage.
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CurveId(&'static str);
@@ -8055,15 +7720,7 @@ impl fmt::Display for CurveId {
 /// This is useful when functions accept multiple identifiers of different
 /// nature and need to pattern-match on the factor category.
 ///
-/// ```rust
-/// use finstack_core::market_data::id::{CurveId, FactorKey};
-/// let usd_ois = CurveId::new("USD-OIS");
-/// let key = FactorKey::Yield(&usd_ois);
-/// match key {
-///     FactorKey::Yield(id) => println!("Yield curve: {id}"),
-///     _ => unreachable!(),
-/// }
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum FactorKey<'a> {
@@ -8105,14 +7762,14 @@ mod tests {
 File: finstack/core/src/market_data/inflation_index.rs
 ================================================================================
 
-//! Inflation indices (CPI/RPI) using Polars DataFrames
+//! Inflation indices (CPI/RPI) – wrapper over ScalarTimeSeries with optional seasonality
 //!
-//! This module provides inflation index functionality using Polars DataFrames
-//! as the canonical time-series representation, replacing the ad-hoc IndexSeries type.
+//! This module wraps [`ScalarTimeSeries`] to provide an inflation index surface with
+//! lag handling and optional monthly seasonality, avoiding duplicate interpolation code.
 
 use crate::{Currency, Date, Error, Result};
 use polars::prelude::*;
-use time::Duration as TimeDuration;
+use crate::market_data::primitives::{ScalarTimeSeries, SeriesInterpolation};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -8159,15 +7816,16 @@ impl Default for InflationLag {
 pub struct InflationIndex {
     /// Unique identifier for this index (e.g., "US-CPI-U", "UK-RPI")
     pub id: String,
-    /// DataFrame containing index observations
-    /// Schema: date (Date), value (f64), seasonality (optional f64)
-    data: DataFrame,
+    /// Underlying time series providing interpolation and storage
+    series: ScalarTimeSeries,
     /// Interpolation method between observations
     pub interpolation: InflationInterpolation,
     /// Lag policy for index application
     pub lag: InflationLag,
     /// Currency of the index
     pub currency: Currency,
+    /// Optional monthly seasonality factors (index by month-1)
+    seasonality: Option<[f64; 12]>,
 }
 
 impl InflationIndex {
@@ -8186,43 +7844,16 @@ impl InflationIndex {
             return Err(Error::Input(crate::error::InputError::TooFewPoints));
         }
 
-        // Convert observations to Polars DataFrame
-        let mut dates: Vec<i32> = Vec::with_capacity(observations.len());
-        let mut values: Vec<f64> = Vec::with_capacity(observations.len());
-        
-        for (date, value) in observations {
-            // Convert Date to days since Unix epoch for Polars compatibility
-            let epoch = time::Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
-            let days = (date - epoch).whole_days() as i32;
-            dates.push(days);
-            values.push(value);
-        }
-
-        // Create DataFrame with date and value columns
-        let date_series = Series::new("date".into(), dates);
-        let value_series = Series::new("value".into(), values);
-        
-        let mut df = DataFrame::new(vec![date_series.into_column(), value_series.into_column()])
-            .map_err(|_| Error::Internal)?;
-        
-        // Sort by date to ensure proper ordering
-        let sort_options = SortMultipleOptions::default();
-        df = df.sort(["date"], sort_options)
-            .map_err(|_| Error::Internal)?;
-        
-        // Check for duplicate dates
-        let date_col = df.column("date").map_err(|_| Error::Internal)?;
-        let dates_series = date_col.as_series().ok_or(Error::Internal)?;
-        if dates_series.n_unique().map_err(|_| Error::Internal)? != dates_series.len() {
-            return Err(Error::Input(crate::error::InputError::NonMonotonicKnots));
-        }
+        // Use a placeholder internal id; external id is stored separately.
+        let series = ScalarTimeSeries::new("inflation-index", observations, Some(currency))?;
 
         Ok(Self {
             id: id.into(),
-            data: df,
+            series,
             interpolation: InflationInterpolation::default(),
             lag: InflationLag::default(),
             currency,
+            seasonality: None,
         })
     }
 
@@ -8240,26 +7871,7 @@ impl InflationIndex {
 
     /// Add seasonal adjustment factors (12 monthly factors)
     pub fn with_seasonality(mut self, factors: [f64; 12]) -> Result<Self> {
-        // Add seasonality column based on month
-        let date_col = self.data.column("date").map_err(|_| Error::Internal)?;
-        let date_values = date_col.i32().map_err(|_| Error::Internal)?;
-        
-        // Calculate month for each date and map to seasonal factor
-        let seasonal_values: Vec<f64> = date_values
-            .into_no_null_iter()
-            .map(|days| {
-                // Convert days since epoch back to Date to get month
-                let epoch = time::Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
-                let date = epoch + TimeDuration::days(days as i64);
-                let month_idx = (date.month() as usize) - 1;
-                factors[month_idx]
-            })
-            .collect();
-        
-        let seasonal_series = Series::new("seasonality".into(), seasonal_values);
-        self.data = self.data.with_column(seasonal_series.into_column())
-            .map_err(|_| Error::Internal)?.clone();
-        
+        self.seasonality = Some(factors);
         Ok(self)
     }
 
@@ -8267,16 +7879,16 @@ impl InflationIndex {
     pub fn value_on(&self, date: Date) -> Result<f64> {
         // Apply lag to get the effective date
         let effective_date = self.apply_lag(date)?;
-        let effective_days = date_to_days_since_epoch(effective_date);
-        
-        // Get base value using appropriate interpolation
-        let base_value = match self.interpolation {
-            InflationInterpolation::Step => self.step_interpolate(effective_days)?,
-            InflationInterpolation::Linear => self.linear_interpolate(effective_days)?,
+        // Set underlying series interpolation to match
+        let interp = match self.interpolation {
+            InflationInterpolation::Step => SeriesInterpolation::Step,
+            InflationInterpolation::Linear => SeriesInterpolation::Linear,
         };
-        
+        let series = self.series.clone().with_interpolation(interp);
+        let base_value = series.value_on(effective_date)?;
+
         // Apply seasonality if present
-        let adjusted_value = self.apply_seasonality(base_value, effective_days)?;
+        let adjusted_value = self.apply_seasonality(base_value, effective_date)?;
         
         Ok(adjusted_value)
     }
@@ -8295,21 +7907,21 @@ impl InflationIndex {
 
     /// Get the date range covered by observations
     pub fn date_range(&self) -> Result<(Date, Date)> {
-        let date_col = self.data.column("date").map_err(|_| Error::Internal)?;
+        let date_col = self.series.as_dataframe().column("date").map_err(|_| Error::Internal)?;
         let date_values = date_col.i32().map_err(|_| Error::Internal)?;
         
         let min_days = date_values.min().ok_or(Error::Internal)?;
         let max_days = date_values.max().ok_or(Error::Internal)?;
         
-        let start_date = days_since_epoch_to_date(min_days);
-        let end_date = days_since_epoch_to_date(max_days);
+        let start_date = crate::dates::utils::days_since_epoch_to_date(min_days);
+        let end_date = crate::dates::utils::days_since_epoch_to_date(max_days);
         
         Ok((start_date, end_date))
     }
 
     /// Get the underlying DataFrame (for advanced operations)
     pub fn as_dataframe(&self) -> &DataFrame {
-        &self.data
+        self.series.as_dataframe()
     }
 
     /// Create from an existing DataFrame
@@ -8320,21 +7932,23 @@ impl InflationIndex {
         data: DataFrame,
         currency: Currency,
     ) -> Result<Self> {
-        // Validate schema
+        // Validate schema and reconstruct observations
         let column_names = data.get_column_names();
         let has_date = column_names.iter().any(|name| name.as_str() == "date");
         let has_value = column_names.iter().any(|name| name.as_str() == "value");
         if !has_date || !has_value {
             return Err(Error::Input(crate::error::InputError::Invalid));
         }
-        
-        Ok(Self {
-            id: id.into(),
-            data,
-            interpolation: InflationInterpolation::default(),
-            lag: InflationLag::default(),
-            currency,
-        })
+
+        let dates = data.column("date").map_err(|_| Error::Internal)?.i32().map_err(|_| Error::Internal)?;
+        let values = data.column("value").map_err(|_| Error::Internal)?.f64().map_err(|_| Error::Internal)?;
+        let observations: Vec<(Date, f64)> = dates
+            .into_no_null_iter()
+            .zip(values.into_no_null_iter())
+            .map(|(d, v)| (crate::dates::utils::days_since_epoch_to_date(d), v))
+            .collect();
+
+        Self::new(id, observations, currency)
     }
 
     // Private helper methods
@@ -8343,110 +7957,27 @@ impl InflationIndex {
         match self.lag {
             InflationLag::None => Ok(date),
             InflationLag::Days(days) => {
-                date.checked_sub(TimeDuration::days(days as i64))
+                date.checked_sub(time::Duration::days(days as i64))
                     .ok_or(Error::Input(crate::error::InputError::InvalidDateRange))
             }
             InflationLag::Months(months) => {
-                // Proper month arithmetic
-                let mut year = date.year();
-                let mut month = date.month() as i32 - months as i32;
-                
-                while month <= 0 {
-                    month += 12;
-                    year -= 1;
-                }
-                
-                time::Date::from_calendar_date(
-                    year,
-                    time::Month::try_from(month as u8).unwrap(),
-                    date.day(),
-                ).map_err(|_| Error::Input(crate::error::InputError::InvalidDateRange))
+                // Proper month arithmetic using shared helper
+                Ok(crate::dates::utils::add_months(date, -(months as i32)))
             }
         }
     }
 
-    fn step_interpolate(&self, target_days: i32) -> Result<f64> {
-        // Use Polars' asof join semantics (last observation carried forward)
-        let date_col = self.data.column("date").map_err(|_| Error::Internal)?;
-        let value_col = self.data.column("value").map_err(|_| Error::Internal)?;
-        
-        let dates = date_col.i32().map_err(|_| Error::Internal)?;
-        let values = value_col.f64().map_err(|_| Error::Internal)?;
-        
-        // Binary search for the appropriate index
-        let date_vec: Vec<i32> = dates.into_no_null_iter().collect();
-        let value_vec: Vec<f64> = values.into_no_null_iter().collect();
-        
-        match date_vec.binary_search(&target_days) {
-            Ok(idx) => Ok(value_vec[idx]),
-            Err(idx) => {
-                if idx == 0 {
-                    // Before first observation
-                    Ok(value_vec[0])
-                } else {
-                    // Use previous value (step interpolation)
-                    Ok(value_vec[idx - 1])
-                }
-            }
-        }
-    }
-
-    fn linear_interpolate(&self, target_days: i32) -> Result<f64> {
-        let date_col = self.data.column("date").map_err(|_| Error::Internal)?;
-        let value_col = self.data.column("value").map_err(|_| Error::Internal)?;
-        
-        let dates = date_col.i32().map_err(|_| Error::Internal)?;
-        let values = value_col.f64().map_err(|_| Error::Internal)?;
-        
-        let date_vec: Vec<i32> = dates.into_no_null_iter().collect();
-        let value_vec: Vec<f64> = values.into_no_null_iter().collect();
-        
-        match date_vec.binary_search(&target_days) {
-            Ok(idx) => Ok(value_vec[idx]),
-            Err(idx) => {
-                if idx == 0 {
-                    Ok(value_vec[0])
-                } else if idx >= date_vec.len() {
-                    Ok(*value_vec.last().unwrap())
-                } else {
-                    // Linear interpolation between points
-                    let x0 = date_vec[idx - 1] as f64;
-                    let x1 = date_vec[idx] as f64;
-                    let y0 = value_vec[idx - 1];
-                    let y1 = value_vec[idx];
-                    
-                    let weight = (target_days as f64 - x0) / (x1 - x0);
-                    Ok(y0 + weight * (y1 - y0))
-                }
-            }
-        }
-    }
-
-    fn apply_seasonality(&self, base_value: f64, target_days: i32) -> Result<f64> {
-        if let Ok(_seasonality_col) = self.data.column("seasonality") {
-            // Find the seasonal factor for this date
-            let _date = days_since_epoch_to_date(target_days);
-            let _month_idx = (_date.month() as usize) - 1;
-            
-            // For simplicity, use the month index directly
-            // In production, might want to interpolate seasonal factors too
-            Ok(base_value)
+    fn apply_seasonality(&self, base_value: f64, date: Date) -> Result<f64> {
+        if let Some(factors) = &self.seasonality {
+            let month_idx = (date.month() as usize) - 1;
+            Ok(base_value * factors[month_idx])
         } else {
             Ok(base_value)
         }
     }
 }
 
-// Helper functions for date conversion
-fn date_to_days_since_epoch(date: Date) -> i32 {
-    let epoch = time::Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
-    (date - epoch).whole_days() as i32
-}
-
-fn days_since_epoch_to_date(days: i32) -> Date {
-    let epoch = time::Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
-    epoch + TimeDuration::days(days as i64)
-}
+// (moved) date conversion helpers are centralized in crate::dates::utils
 
 /// Builder for creating inflation indices from various sources
 pub struct InflationIndexBuilder {
@@ -8611,11 +8142,6 @@ mod tests {
 
 
 ================================================================================
-File: finstack/core/src/market_data/interp
-================================================================================
-
-
-================================================================================
 File: finstack/core/src/market_data/interp/cubic_hermite.rs
 ================================================================================
 
@@ -8633,14 +8159,7 @@ use crate::{
 /// factors are monotone (strictly decreasing and positive).  Evaluation is
 /// O(log N) thanks to binary search on the knot vector.
 ///
-/// # Example
-/// ```text
-/// use crate::market_data::interp::CubicHermite;
-/// let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
-/// let dfs   = vec![1.0, 0.95, 0.9].into_boxed_slice();
-/// let interp = CubicHermite::new(knots, dfs).unwrap();
-/// let _df = interp.interp(1.5);
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Debug)]
 pub struct CubicHermite {
     knots: Box<[F]>, // strictly increasing times
@@ -8787,15 +8306,7 @@ use crate::{
 /// Flat-forward DF interpolator – constant instantaneous forward rate between knots.
 /// Implemented via linear interpolation on log DF (equivalent behaviour).
 ///
-/// # Example
-/// ```text
-/// use crate::market_data::interp::FlatFwd;
-/// let interp = FlatFwd::new(
-///     vec![0.0, 1.0].into_boxed_slice(),
-///     vec![1.0, 0.95].into_boxed_slice(),
-/// ).unwrap();
-/// let _ = interp.interp(0.5);
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Debug)]
 pub struct FlatFwd {
     inner: LogLinearDf,
@@ -8830,15 +8341,7 @@ use crate::{error::InputError, market_data::interp::InterpFn, F};
 
 /// Piece-wise linear interpolation on discount factors.
 ///
-/// # Example
-/// ```text
-/// use crate::market_data::interp::LinearDf;
-/// let interp = LinearDf::new(
-///     vec![0.0, 1.0].into_boxed_slice(),
-///     vec![1.0, 0.95].into_boxed_slice(),
-/// ).unwrap();
-/// let _ = interp.interp(0.5);
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Debug)]
 pub struct LinearDf {
     knots: Box<[F]>,
@@ -8894,14 +8397,7 @@ use std::vec::Vec;
 /// Interpolator that performs linear interpolation on the natural logarithm
 /// of discount factors (i.e. piecewise‐constant zero rates).
 ///
-/// # Example
-/// ```text
-/// use crate::market_data::interp::LogLinearDf;
-/// let knots = vec![0.0, 1.0].into_boxed_slice();
-/// let dfs = vec![1.0, 0.95].into_boxed_slice();
-/// let interp = LogLinearDf::new(knots, dfs).unwrap();
-/// let _ = interp.interp(0.5);
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Debug)]
 pub struct LogLinearDf {
     knots: Box<[F]>,
@@ -8965,14 +8461,7 @@ use std::vec::Vec;
 /// (non-increasing).  Evaluation is O(log N) due to binary search on the knot
 /// vector.
 ///
-/// # Example
-/// ```text
-/// let interp = MonotoneConvex::new(
-///     vec![0.0, 1.0].into_boxed_slice(),
-///     vec![1.0, 0.95].into_boxed_slice(),
-/// ).unwrap();
-/// let _ = interp.interp(0.5);
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Debug)]
 pub struct MonotoneConvex {
     /// Knot times _tᵢ_ (strictly increasing).  Length ≥ 2.
@@ -9278,24 +8767,6 @@ pub use surfaces::vol_surface;
 pub use surfaces::vol_surface::VolSurface;
 // Re-export context types
 pub use context::MarketContext;
-
-pub mod trees {
-    //! Tree-based lattice structures (option, rate, credit).
-    pub mod credit_tree;
-    pub mod option_tree;
-    pub mod rate_tree;
-
-    // Re-export aliases – suppress unused warnings for now
-    #[allow(unused_imports)]
-    pub use credit_tree::*;
-    #[allow(unused_imports)]
-    pub use option_tree::*;
-    #[allow(unused_imports)]
-    pub use rate_tree::*;
-}
-
-// Backwards re-export at market_data::* level
-pub use trees::{credit_tree, option_tree, rate_tree};
 
 pub mod multicurve;
 
@@ -9705,9 +9176,8 @@ impl ScalarTimeSeries {
 
         let mut dates: Vec<i32> = Vec::with_capacity(observations.len());
         let mut values: Vec<crate::F> = Vec::with_capacity(observations.len());
-        let epoch = time::Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
         for (d, v) in observations {
-            let days = (d - epoch).whole_days() as i32;
+            let days = crate::dates::utils::date_to_days_since_epoch(d);
             dates.push(days);
             values.push(v);
         }
@@ -9759,7 +9229,7 @@ impl ScalarTimeSeries {
 
     /// Retrieve value on a given date according to the selected interpolation.
     pub fn value_on(&self, date: Date) -> Result<crate::F> {
-        let days = date_to_days_since_epoch(date);
+        let days = crate::dates::utils::date_to_days_since_epoch(date);
         match self.interpolation {
             SeriesInterpolation::Step => self.step_interpolate(days),
             SeriesInterpolation::Linear => self.linear_interpolate(days),
@@ -9821,10 +9291,7 @@ impl ScalarTimeSeries {
     }
 }
 
-fn date_to_days_since_epoch(date: Date) -> i32 {
-    let epoch = time::Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
-    (date - epoch).whole_days() as i32
-}
+// (moved) helper centralized in crate::dates::utils
 
 #[cfg(test)]
 mod tests {
@@ -9854,11 +9321,6 @@ mod tests {
 
 
 
-
-
-================================================================================
-File: finstack/core/src/market_data/surfaces
-================================================================================
 
 
 ================================================================================
@@ -10203,11 +9665,6 @@ mod tests {
     }
 }
 
-
-
-================================================================================
-File: finstack/core/src/market_data/term_structures
-================================================================================
 
 
 ================================================================================
@@ -11794,44 +11251,6 @@ mod tests {
 
 
 ================================================================================
-File: finstack/core/src/market_data/trees
-================================================================================
-
-
-================================================================================
-File: finstack/core/src/market_data/trees/credit_tree.rs
-================================================================================
-
-//! Credit-tree lattice implementation (placeholder).
-//!
-//! The module will host a recombining lattice for modelling credit-spread
-//! dynamics consistent with a calibrated hazard surface.
-
-
-
-================================================================================
-File: finstack/core/src/market_data/trees/option_tree.rs
-================================================================================
-
-//! Option-pricing lattice (placeholder).
-//!
-//! A future release will implement a recombining tree for evaluating American
-//! and Bermudan options under stochastic interest rates.
-
-
-
-================================================================================
-File: finstack/core/src/market_data/trees/rate_tree.rs
-================================================================================
-
-//! Short-rate lattice implementation (placeholder).
-//!
-//! Will eventually hold a Hull-White or Bachelier short-rate tree for
-//! path-dependent fixed-income instrument valuation.
-
-
-
-================================================================================
 File: finstack/core/src/market_data/utils.rs
 ================================================================================
 
@@ -11927,11 +11346,6 @@ pub fn validate_dfs(dfs: &[F], monotone: bool) -> crate::Result<()> {
 
 
 ================================================================================
-File: finstack/core/src/math
-================================================================================
-
-
-================================================================================
 File: finstack/core/src/math/mod.rs
 ================================================================================
 
@@ -11944,7 +11358,6 @@ File: finstack/core/src/math/mod.rs
 pub mod root_finding;
 pub mod stats;
 pub mod summation;
-pub mod newton_raphson;
 
 // Re-exports for ergonomic access
 pub use root_finding::{
@@ -11952,317 +11365,6 @@ pub use root_finding::{
 };
 pub use stats::{correlation, covariance, mean, mean_var, variance};
 pub use summation::{kahan_sum, pairwise_sum, stable_sum};
-
-
-
-================================================================================
-File: finstack/core/src/math/newton_raphson.rs
-================================================================================
-
-//! Newton-Raphson root finding algorithm with automatic fallback.
-//!
-//! Provides a robust implementation of the Newton-Raphson method for finding
-//! roots of functions, with automatic fallback to Brent's method when
-//! convergence is poor.
-
-use crate::{F, Result};
-use crate::error::InputError;
-
-/// Configuration for Newton-Raphson solver
-#[derive(Clone, Debug)]
-pub struct NewtonRaphsonConfig {
-    /// Maximum number of iterations
-    pub max_iterations: usize,
-    /// Absolute tolerance for convergence
-    pub tolerance: F,
-    /// Relative tolerance for convergence
-    pub relative_tolerance: F,
-    /// Maximum allowed step size
-    pub max_step: F,
-    /// Minimum allowed step size (to detect convergence issues)
-    pub min_step: F,
-    /// Whether to automatically fallback to Brent's method
-    pub auto_fallback: bool,
-}
-
-impl Default for NewtonRaphsonConfig {
-    fn default() -> Self {
-        Self {
-            max_iterations: 50,
-            tolerance: 1e-12,
-            relative_tolerance: 1e-10,
-            max_step: 1.0,
-            min_step: 1e-15,
-            auto_fallback: true,
-        }
-    }
-}
-
-/// Result of Newton-Raphson solver
-#[derive(Clone, Debug)]
-pub struct NewtonRaphsonResult {
-    /// The found root
-    pub root: F,
-    /// Number of iterations taken
-    pub iterations: usize,
-    /// Final error estimate
-    pub error: F,
-    /// Whether fallback was used
-    pub used_fallback: bool,
-}
-
-/// Newton-Raphson solver with automatic fallback
-///
-/// Finds a root of the equation f(x) = 0 using Newton-Raphson iteration
-/// with automatic fallback to Brent's method if convergence is poor.
-///
-/// # Arguments
-/// * `f` - The function to find the root of
-/// * `df` - The derivative of the function
-/// * `initial_guess` - Starting point for iteration
-/// * `config` - Solver configuration
-///
-/// # Returns
-/// * `Ok(NewtonRaphsonResult)` - The solution and metadata
-/// * `Err(MathError)` - If no root could be found
-///
-/// # Example
-/// ```rust
-/// use finstack_core::math::newton_raphson::{newton_raphson_with_fallback, NewtonRaphsonConfig};
-///
-/// // Find root of x^2 - 2 = 0 (sqrt(2))
-/// let f = |x: f64| x * x - 2.0;
-/// let df = |x: f64| 2.0 * x;
-///
-/// let config = NewtonRaphsonConfig::default();
-/// let result = newton_raphson_with_fallback(f, df, 1.5, &config).unwrap();
-/// assert!((result.root - 1.41421356237).abs() < 1e-10);
-/// ```
-pub fn newton_raphson_with_fallback<F, D>(
-    f: F,
-    df: D,
-    initial_guess: f64,
-    config: &NewtonRaphsonConfig,
-) -> Result<NewtonRaphsonResult>
-where
-    F: Fn(f64) -> f64,
-    D: Fn(f64) -> f64,
-{
-    let mut x = initial_guess;
-    let mut iterations = 0;
-    let mut last_error = f64::INFINITY;
-    let mut convergence_failures = 0;
-    
-    // Try Newton-Raphson first
-    while iterations < config.max_iterations {
-        let fx = f(x);
-        
-        // Check for convergence
-        if fx.abs() < config.tolerance {
-            return Ok(NewtonRaphsonResult {
-                root: x,
-                iterations,
-                error: fx.abs(),
-                used_fallback: false,
-            });
-        }
-        
-        // Check relative convergence
-        if iterations > 0 && (fx.abs() / initial_guess.abs()).abs() < config.relative_tolerance {
-            return Ok(NewtonRaphsonResult {
-                root: x,
-                iterations,
-                error: fx.abs(),
-                used_fallback: false,
-            });
-        }
-        
-        let dfx = df(x);
-        
-        // Check for zero derivative
-        if dfx.abs() < 1e-15 {
-            if config.auto_fallback {
-                break; // Switch to fallback
-            } else {
-                return Err(InputError::Invalid.into());
-            }
-        }
-        
-        // Calculate Newton step
-        let step = fx / dfx;
-        
-        // Check for convergence issues
-        if step.abs() < config.min_step {
-            return Ok(NewtonRaphsonResult {
-                root: x,
-                iterations,
-                error: fx.abs(),
-                used_fallback: false,
-            });
-        }
-        
-        // Limit step size
-        let limited_step = if step.abs() > config.max_step {
-            config.max_step * step.signum()
-        } else {
-            step
-        };
-        
-        // Update x
-        x -= limited_step;
-        
-        // Check for divergence
-        if fx.abs() > last_error {
-            convergence_failures += 1;
-            if convergence_failures > 3 && config.auto_fallback {
-                break; // Switch to fallback
-            }
-        } else {
-            convergence_failures = 0;
-        }
-        
-        last_error = fx.abs();
-        iterations += 1;
-    }
-    
-    // Fallback to Brent's method if enabled
-    if config.auto_fallback {
-        use super::root_finding::brent;
-        
-        // Determine bracket for Brent's method
-        let (a, b) = determine_bracket(&f, initial_guess);
-        
-        match brent(f, a, b, config.tolerance, config.max_iterations) {
-            Ok(root) => Ok(NewtonRaphsonResult {
-                root,
-                iterations: config.max_iterations, // Approximate
-                error: config.tolerance,
-                used_fallback: true,
-            }),
-            Err(_) => Err(InputError::Invalid.into()),
-        }
-    } else {
-        Err(InputError::Invalid.into())
-    }
-}
-
-/// Simple Newton-Raphson without fallback
-///
-/// # Example
-/// ```rust
-/// use finstack_core::math::newton_raphson::newton_raphson;
-///
-/// let f = |x: f64| x * x - 2.0;
-/// let df = |x: f64| 2.0 * x;
-///
-/// let root = newton_raphson(f, df, 1.5, 1e-10, 50).unwrap();
-/// assert!((root - 1.41421356237).abs() < 1e-10);
-/// ```
-pub fn newton_raphson<F, D>(
-    f: F,
-    df: D,
-    initial_guess: f64,
-    tolerance: f64,
-    max_iterations: usize,
-) -> Result<f64>
-where
-    F: Fn(f64) -> f64,
-    D: Fn(f64) -> f64,
-{
-    let config = NewtonRaphsonConfig {
-        max_iterations,
-        tolerance,
-        auto_fallback: false,
-        ..Default::default()
-    };
-    
-    newton_raphson_with_fallback(f, df, initial_guess, &config)
-        .map(|result| result.root)
-}
-
-/// Determine a bracket for root finding
-fn determine_bracket<F>(f: &F, initial: f64) -> (f64, f64)
-where
-    F: Fn(f64) -> f64,
-{
-    let _f_initial = f(initial);
-    
-    // Try to find a bracket around the initial guess
-    let mut a = initial - 1.0;
-    let mut b = initial + 1.0;
-    
-    // Expand bracket if needed
-    for _ in 0..10 {
-        let fa = f(a);
-        let fb = f(b);
-        
-        if fa * fb < 0.0 {
-            return (a, b);
-        }
-        
-        if fa.abs() < fb.abs() {
-            a -= b - a;
-        } else {
-            b += b - a;
-        }
-    }
-    
-    // Default bracket if we can't find a sign change
-    (-10.0, 10.0)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_newton_raphson_quadratic() {
-        // Find root of x^2 - 2 = 0
-        let f = |x: f64| x * x - 2.0;
-        let df = |x: f64| 2.0 * x;
-        
-        let root = newton_raphson(f, df, 1.5, 1e-10, 50).unwrap();
-        assert!((root - 2.0_f64.sqrt()).abs() < 1e-10);
-    }
-    
-    #[test]
-    fn test_newton_raphson_with_fallback() {
-        // Function with poor convergence properties
-        let f = |x: f64| x.powi(3) - 2.0 * x - 5.0;
-        let df = |x: f64| 3.0 * x.powi(2) - 2.0;
-        
-        let config = NewtonRaphsonConfig::default();
-        let result = newton_raphson_with_fallback(f, df, 0.0, &config).unwrap();
-        
-        // Check that we found a root
-        assert!(f(result.root).abs() < 1e-10);
-    }
-    
-    #[test]
-    fn test_newton_raphson_zero_derivative() {
-        // Function with zero derivative at root: f(x) = x³
-        // This is a challenging case because df(x) = 3x² → 0 as x → 0
-        let f = |x: f64| x.powi(3);
-        let df = |x: f64| 3.0 * x.powi(2);
-        
-        let config = NewtonRaphsonConfig::default();
-        let result = newton_raphson_with_fallback(f, df, 0.1, &config);
-        
-        // Should find a point where f(x) ≈ 0, even if x isn't exactly 0
-        match result {
-            Ok(res) => {
-                // For functions with zero derivative at root, Newton-Raphson
-                // may not converge exactly to the root, but should find where f(x) ≈ 0
-                assert!(res.error < 1e-10, "Function value {} should be near zero", res.error);
-                // For this specific function, check that we're reasonably close to the true root
-                assert!(res.root.abs() < 1e-3, "Root {} should be reasonably close to 0", res.root);
-            }
-            Err(e) => {
-                panic!("Failed to find root: {:?}", e);
-            }
-        }
-    }
-}
 
 
 
@@ -12772,11 +11874,6 @@ pub fn stable_sum(xs: &[f64]) -> f64 {
     }
 }
 
-
-
-================================================================================
-File: finstack/core/src/money
-================================================================================
 
 
 ================================================================================
@@ -13352,12 +12449,7 @@ File: finstack/core/src/money/mod.rs
 //! single concrete type using `f64` for the numeric representation.
 //! The struct guarantees that all arithmetic keeps the same [`Currency`].
 //!
-//! ```
-//! use finstack_core::{Money, Currency};
-//! let price = Money::new(19.99, Currency::USD);
-//! let tax   = Money::new( 5.0, Currency::EUR); // different currency ➜ error on addition
-//! assert!((price + tax).is_err());
-//! ```
+//! See unit tests and `examples/` for usage and behaviour.
 
 #![allow(clippy::items_after_test_module)]
 
@@ -13619,12 +12711,7 @@ from_numeric_tuple!(f64, i64, u64);
 // -------------------------------------------------------------------------
 
 /// Shorthand for constructing [`Money`] literals.
-///
-/// ```
-/// use finstack_core::{money, Currency, Money};
-/// let price: Money = money!(99.99, USD);
-/// assert_eq!(price, Money::new(99.99, Currency::USD));
-/// ```
+/// See unit tests and `examples/` for usage.
 #[macro_export]
 macro_rules! money {
     ($amount:expr, $code:ident) => {
@@ -13939,11 +13026,6 @@ pub use crate::config::{
 
 
 ================================================================================
-File: finstack/core/src/types
-================================================================================
-
-
-================================================================================
 File: finstack/core/src/types/id.rs
 ================================================================================
 
@@ -13953,23 +13035,7 @@ File: finstack/core/src/types/id.rs
 //! type safety when dealing with different kinds of identifiers. This prevents
 //! common bugs like passing a user ID where an account ID was expected.
 //!
-//! # Examples
-//!
-//! ```
-//! use finstack_core::types::{Id, TypeTag};
-//!
-//! // Define marker types for different domains
-//! struct User;
-//! struct Account;
-//! struct Trade;
-//!
-//! // Create type-safe IDs
-//! let user_id = Id::<User>::new("user123");
-//! let account_id = Id::<Account>::new("acc456");
-//!
-//! // This would be a compile error:
-//! // let wrong = user_id == account_id;
-//! ```
+//! See unit tests and `examples/` for usage.
 
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -13993,26 +13059,7 @@ impl<T> TypeTag for T {}
 /// type safety at compile time. Different `Id<T>` types with different `T`
 /// cannot be compared or mixed accidentally.
 ///
-/// # Examples
-///
-/// ```
-/// use finstack_core::types::Id;
-///
-/// #[derive(Debug)]
-/// struct User;
-/// #[derive(Debug)]
-/// struct Account;
-///
-/// let user_id = Id::<User>::new("user123");
-/// let account_id = Id::<Account>::new("acc456");
-///
-/// // These are different types and cannot be compared directly
-/// // assert_eq!(user_id, account_id); // Compile error!
-///
-/// // But the same type can be compared
-/// let another_user_id = Id::<User>::new("user123");
-/// assert_eq!(user_id, another_user_id);
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Id<T: TypeTag> {
@@ -14307,24 +13354,7 @@ use serde::{Deserialize, Serialize};
 /// Internally stored as a decimal value where 0.05 represents 5%.
 /// Provides methods for conversion to/from basis points and percentages.
 ///
-/// # Examples
-///
-/// ```
-/// use finstack_core::types::{Rate, Bps, Percentage};
-///
-/// // Create rates in different ways
-/// let rate1 = Rate::from_decimal(0.025);  // 2.5%
-/// let rate2 = Rate::from_percent(2.5);    // 2.5%
-/// let rate3 = Rate::from_bps(250);        // 2.5% (250 basis points)
-///
-/// assert_eq!(rate1, rate2);
-/// assert_eq!(rate2, rate3);
-///
-/// // Convert to different representations
-/// assert_eq!(rate1.as_decimal(), 0.025);
-/// assert_eq!(rate1.as_percent(), 2.5);
-/// assert_eq!(rate1.as_bps(), 250);
-/// ```
+/// See unit tests and `examples/` for usage and conversions.
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Rate(f64);
@@ -14448,15 +13478,7 @@ impl Neg for Rate {
 /// Commonly used in financial markets where small rate differences matter.
 /// 10,000 basis points = 100%.
 ///
-/// # Examples
-///
-/// ```
-/// use finstack_core::types::Bps;
-///
-/// let spread = Bps::new(25);  // 25 basis points = 0.25%
-/// assert_eq!(spread.as_decimal(), 0.0025);
-/// assert_eq!(spread.as_percent(), 0.25);
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Bps(i32);
@@ -14580,15 +13602,7 @@ impl Neg for Bps {
 ///
 /// Provides a clear type for percentage values with appropriate display formatting.
 ///
-/// # Examples
-///
-/// ```
-/// use finstack_core::types::Percentage;
-///
-/// let pct = Percentage::new(12.5);
-/// assert_eq!(pct.as_decimal(), 0.125);
-/// assert_eq!(format!("{}", pct), "12.50%");
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Percentage(f64);
@@ -14891,11 +13905,6 @@ mod tests {
     }
 }
 
-
-
-================================================================================
-File: finstack/core/src/validation
-================================================================================
 
 
 ================================================================================
@@ -15323,30 +14332,7 @@ use super::result::ValidationResult;
 /// interface for validation operations. Validators can be chained, combined,
 /// and reused across different contexts.
 ///
-/// # Examples
-///
-/// ```
-/// use finstack_core::validation::{Validator, ValidationResult, ValidationWarning};
-///
-/// struct PositiveValidator;
-///
-/// impl Validator for PositiveValidator {
-///     type Input = f64;
-///     type Output = f64;
-///     
-///     fn validate(&self, input: &Self::Input) -> ValidationResult<Self::Output> {
-///         if *input > 0.0 {
-///             ValidationResult::pass(*input)
-///         } else {
-///             ValidationResult::fail("Value must be positive")
-///         }
-///     }
-/// }
-///
-/// let validator = PositiveValidator;
-/// let result = validator.validate(&5.0);
-/// assert!(result.is_success());
-/// ```
+/// See unit tests and `examples/` for usage patterns.
 pub trait Validator {
     /// The input type for validation
     type Input;
@@ -15777,11 +14763,6 @@ mod tests {
 
 
 ================================================================================
-File: finstack/core/tests
-================================================================================
-
-
-================================================================================
 File: finstack/core/tests/calendar_adjust.rs
 ================================================================================
 
@@ -15946,30 +14927,30 @@ fn test_unknown_calendar_id() {
 #[test]
 fn test_calendar_id_methods() {
     // Test that each calendar type's id() method returns the correct string
-    assert_eq!(Gblo::new().id(), "gblo");
-    assert_eq!(Target2::new().id(), "target2");
-    assert_eq!(Asx::new().id(), "asx");
-    assert_eq!(Auce::new().id(), "auce");
-    assert_eq!(Cato::new().id(), "cato");
-    assert_eq!(Defr::new().id(), "defr");
-    assert_eq!(Nyse::new().id(), "nyse");
-    assert_eq!(Usny::new().id(), "usny");
-    assert_eq!(Sifma::new().id(), "sifma");
-    assert_eq!(Brbd::new().id(), "brbd");
-    assert_eq!(Chzh::new().id(), "chzh");
-    assert_eq!(Cnbe::new().id(), "cnbe");
-    assert_eq!(Sgsi::new().id(), "sgsi");
-    assert_eq!(Sse::new().id(), "sse");
-    assert_eq!(Hkhk::new().id(), "hkhk");
-    assert_eq!(Hkex::new().id(), "hkex");
-    assert_eq!(Jpto::new().id(), "jpto");
-    assert_eq!(Jpx::new().id(), "jpx");
-    assert_eq!(Cme::new().id(), "cme");
+    assert_eq!(Gblo.id(), "gblo");
+    assert_eq!(Target2.id(), "target2");
+    assert_eq!(Asx.id(), "asx");
+    assert_eq!(Auce.id(), "auce");
+    assert_eq!(Cato.id(), "cato");
+    assert_eq!(Defr.id(), "defr");
+    assert_eq!(Nyse.id(), "nyse");
+    assert_eq!(Usny.id(), "usny");
+    assert_eq!(Sifma.id(), "sifma");
+    assert_eq!(Brbd.id(), "brbd");
+    assert_eq!(Chzh.id(), "chzh");
+    assert_eq!(Cnbe.id(), "cnbe");
+    assert_eq!(Sgsi.id(), "sgsi");
+    assert_eq!(Sse.id(), "sse");
+    assert_eq!(Hkhk.id(), "hkhk");
+    assert_eq!(Hkex.id(), "hkex");
+    assert_eq!(Jpto.id(), "jpto");
+    assert_eq!(Jpx.id(), "jpx");
+    assert_eq!(Cme.id(), "cme");
 }
 
 #[test]
 fn test_gblo_known_holidays() {
-    let cal = Gblo::new();
+    let cal = Gblo;
     
     // Test some known UK holidays in 2025
     // New Year's Day 2025 (January 1) - Wednesday
@@ -15987,7 +14968,7 @@ fn test_gblo_known_holidays() {
 
 #[test]
 fn test_target2_known_holidays() {
-    let cal = Target2::new();
+    let cal = Target2;
     
     // Test some known TARGET2 holidays in 2025
     // New Year's Day 2025 (January 1) - Wednesday
@@ -16002,7 +14983,7 @@ fn test_target2_known_holidays() {
 
 #[test]
 fn test_nyse_known_holidays() {
-    let cal = Nyse::new();
+    let cal = Nyse;
     
     // Test some known NYSE holidays in 2025
     // New Year's Day 2025 (January 1) - Wednesday
@@ -16018,7 +14999,7 @@ fn test_nyse_known_holidays() {
 #[test]
 fn test_calendar_weekend_behavior() {
     // Test that all calendars properly handle weekends via the trait default
-    let cal = Gblo::new();
+    let cal = Gblo;
     
     // Saturday and Sunday should not be business days
     assert!(!cal.is_business_day(make_date(2025, 6, 21))); // Saturday
@@ -16031,32 +15012,27 @@ fn test_calendar_weekend_behavior() {
 #[test]
 fn test_all_calendar_constructors() {
     // Test that all calendar types can be constructed without panicking
-    let _gblo = Gblo::new();
-    let _target2 = Target2::new();
-    let _asx = Asx::new();
-    let _auce = Auce::new();
-    let _cato = Cato::new();
-    let _defr = Defr::new();
-    let _nyse = Nyse::new();
-    let _usny = Usny::new();
-    let _sifma = Sifma::new();
-    let _brbd = Brbd::new();
-    let _chzh = Chzh::new();
-    let _cnbe = Cnbe::new();
-    let _sgsi = Sgsi::new();
-    let _sse = Sse::new();
-    let _hkhk = Hkhk::new();
-    let _hkex = Hkex::new();
-    let _jpto = Jpto::new();
-    let _jpx = Jpx::new();
-    let _cme = Cme::new();
+    let _gblo = Gblo;
+    let _target2 = Target2;
+    let _asx = Asx;
+    let _auce = Auce;
+    let _cato = Cato;
+    let _defr = Defr;
+    let _nyse = Nyse;
+    let _usny = Usny;
+    let _sifma = Sifma;
+    let _brbd = Brbd;
+    let _chzh = Chzh;
+    let _cnbe = Cnbe;
+    let _sgsi = Sgsi;
+    let _sse = Sse;
+    let _hkhk = Hkhk;
+    let _hkex = Hkex;
+    let _jpto = Jpto;
+    let _jpx = Jpx;
+    let _cme = Cme;
 }
 
-
-
-================================================================================
-File: finstack/core/tests/common
-================================================================================
 
 
 ================================================================================
@@ -16157,11 +15133,6 @@ impl finstack_core::expr::ExpressionContext for TestExprCtx {
 
 
 ================================================================================
-File: finstack/core/tests/dates
-================================================================================
-
-
-================================================================================
 File: finstack/core/tests/dates/calendars.rs
 ================================================================================
 
@@ -16190,7 +15161,7 @@ macro_rules! assert_holidays_exact {
 
 #[test]
 fn usny_2024_2025() {
-    let cal = Usny::new();
+    let cal = Usny;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,1,15), (2024,2,19), (2024,5,27), (2024,6,19),
         (2024,7,4), (2024,9,2), (2024,10,14), (2024,11,11), (2024,11,28), (2024,12,25)
@@ -16203,7 +15174,7 @@ fn usny_2024_2025() {
 
 #[test]
 fn target2_2024_2025() {
-    let cal = Target2::default();
+    let cal = Target2;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1),
         (2024,3,29), // Good Fri
@@ -16224,7 +15195,7 @@ fn target2_2024_2025() {
 
 #[test]
 fn defr_2024_2025() {
-    let cal = Defr::default();
+    let cal = Defr;
     // Same date set as TARGET2 plus May1
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,3,29), (2024,4,1), (2024,5,1), (2024,12,25), (2024,12,26)
@@ -16236,7 +15207,7 @@ fn defr_2024_2025() {
 
 #[test]
 fn nyse_2024_2025() {
-    let cal = Nyse::default();
+    let cal = Nyse;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,1,15), (2024,2,19), (2024,3,29), (2024,5,27),
         (2024,6,19), (2024,7,4), (2024,9,2), (2024,11,28), (2024,12,25)
@@ -16249,7 +15220,7 @@ fn nyse_2024_2025() {
 
 #[test]
 fn cme_2024_2025() {
-    let cal = Cme::default();
+    let cal = Cme;
     // CME mirrors NYSE
     nyse_2024_2025(); // will panic if mismatched; reuse
     // Additional direct check: ensure Good Friday 2024 is holiday
@@ -16258,7 +15229,7 @@ fn cme_2024_2025() {
 
 #[test]
 fn sifma_2024_2025() {
-    let cal = Sifma::default();
+    let cal = Sifma;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,1,15), (2024,2,19), (2024,3,29), (2024,5,27),
         (2024,6,19), (2024,7,4), (2024,9,2), (2024,10,14), (2024,11,11),
@@ -16273,7 +15244,7 @@ fn sifma_2024_2025() {
 
 #[test]
 fn cato_2024_2025() {
-    let cal = Cato::default();
+    let cal = Cato;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,2,19), (2024,3,29), (2024,5,20), (2024,7,1),
         (2024,8,5), (2024,9,2), (2024,9,30), (2024,10,14), (2024,11,11),
@@ -16288,7 +15259,7 @@ fn cato_2024_2025() {
 
 #[test]
 fn gblo_2024_2025() {
-    let cal = Gblo::default();
+    let cal = Gblo;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,3,29), (2024,4,1), (2024,5,6), (2024,5,27),
         (2024,8,26), (2024,12,25), (2024,12,26)
@@ -16301,7 +15272,7 @@ fn gblo_2024_2025() {
 
 #[test]
 fn asx_2024_2025() {
-    let cal = Asx::default();
+    let cal = Asx;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,1,29), (2024,3,29), (2024,4,1), (2024,4,25),
         (2024,12,25), (2024,12,26)
@@ -16314,7 +15285,7 @@ fn asx_2024_2025() {
 
 #[test]
 fn brbd_2024_2025() {
-    let cal = Brbd::default();
+    let cal = Brbd;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,2,12), (2024,2,13), (2024,3,29), (2024,5,1),
         (2024,5,30), (2024,11,15), (2024,11,20), (2024,12,25)
@@ -16327,7 +15298,7 @@ fn brbd_2024_2025() {
 
 #[test]
 fn auce_2024_2025() {
-    let cal = Auce::default();
+    let cal = Auce;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,1,29), (2024,3,29), (2024,4,1), (2024,4,25),
         (2024,6,10), (2024,8,5), (2024,10,7), (2024,12,25), (2024,12,26)
@@ -16340,7 +15311,7 @@ fn auce_2024_2025() {
 
 #[test]
 fn chzh_2024_2025() {
-    let cal = Chzh::default();
+    let cal = Chzh;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,1,2), (2024,3,29), (2024,4,1), (2024,5,1),
         (2024,5,9), (2024,5,20), (2024,8,1), (2024,12,25), (2024,12,26)
@@ -16353,7 +15324,7 @@ fn chzh_2024_2025() {
 
 #[test]
 fn sgsi_2024_2025() {
-    let cal = Sgsi::default();
+    let cal = Sgsi;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,2,10), (2024,2,11), (2024,3,29), (2024,5,1),
         (2024,8,9), (2024,12,25)
@@ -16366,7 +15337,7 @@ fn sgsi_2024_2025() {
 
 #[test]
 fn cnbe_2024_2025() {
-    let cal = Cnbe::default();
+    let cal = Cnbe;
     // 2024 holiday dates per approx block implementation
     assert_holidays_exact!(cal, 2024, [
         // New Year block
@@ -16398,7 +15369,7 @@ fn cnbe_2024_2025() {
 
 #[test]
 fn sse_2024_2025() {
-    let cal = Sse::default();
+    let cal = Sse;
     // Should match CNBE exactly
     cnbe_2024_2025();
     // Spot check one date
@@ -16407,7 +15378,7 @@ fn sse_2024_2025() {
 
 // #[test]
 // fn jpto_2024_2025() {
-//     let cal = Jpto::default();
+//     let cal = Jpto;
 //     assert_holidays_exact!(cal, 2024, [
 //         (2024,1,1),(2024,1,2),(2024,1,3),(2024,1,8),
 //         (2024,2,12),(2024,2,23),(2024,3,20),(2024,4,29),
@@ -16426,7 +15397,7 @@ fn sse_2024_2025() {
 
 // #[test]
 // fn jpx_2024_2025() {
-//     let cal = Jpx::default();
+//     let cal = Jpx;
 //     // Use JPTO list plus 31-Dec
 //     // 2024
 //     assert_holidays_exact!(cal, 2024, [
@@ -16448,7 +15419,7 @@ fn sse_2024_2025() {
 
 #[test]
 fn hkhk_2024_2025() {
-    let cal = Hkhk::default();
+    let cal = Hkhk;
     assert_holidays_exact!(cal, 2024, [
         (2024,1,1), (2024,2,10), (2024,2,11), (2024,2,12), (2024,4,4),
         (2024,5,1), (2024,5,15), (2024,7,1), (2024,10,1), (2024,12,25), (2024,12,26)
@@ -16461,7 +15432,7 @@ fn hkhk_2024_2025() {
 
 #[test]
 fn hkex_2024_2025() {
-    let cal = Hkex::default();
+    let cal = Hkex;
     // HKEX mirrors HKHK
     hkhk_2024_2025();
     // spot check
@@ -18317,11 +17288,6 @@ fn test_market_context_chaining() {
 
 
 ================================================================================
-File: finstack/core/tests/market_data
-================================================================================
-
-
-================================================================================
 File: finstack/core/tests/market_data/interp_cubic_hermite.rs
 ================================================================================
 
@@ -18874,11 +17840,6 @@ fn test_uneven_period_clamping() {
 
 
 ================================================================================
-File: finstack/io
-================================================================================
-
-
-================================================================================
 File: finstack/io/Cargo.toml
 ================================================================================
 
@@ -18896,11 +17857,6 @@ finstack-core = { path = "../core" }
 
 
 ================================================================================
-File: finstack/io/src
-================================================================================
-
-
-================================================================================
 File: finstack/io/src/lib.rs
 ================================================================================
 
@@ -18908,11 +17864,6 @@ File: finstack/io/src/lib.rs
 
 pub fn _placeholder() {}
 
-
-
-================================================================================
-File: finstack/io/tests
-================================================================================
 
 
 ================================================================================
@@ -18928,11 +17879,6 @@ fn test_placeholder() {
     // Test passes if no panic occurs
 }
 
-
-
-================================================================================
-File: finstack/portfolio
-================================================================================
 
 
 ================================================================================
@@ -18953,11 +17899,6 @@ finstack-core = { path = "../core" }
 
 
 ================================================================================
-File: finstack/portfolio/src
-================================================================================
-
-
-================================================================================
 File: finstack/portfolio/src/lib.rs
 ================================================================================
 
@@ -18965,11 +17906,6 @@ File: finstack/portfolio/src/lib.rs
 
 pub fn _placeholder() {}
 
-
-
-================================================================================
-File: finstack/portfolio/tests
-================================================================================
 
 
 ================================================================================
@@ -18985,11 +17921,6 @@ fn test_placeholder() {
     // Test passes if no panic occurs
 }
 
-
-
-================================================================================
-File: finstack/scenarios
-================================================================================
 
 
 ================================================================================
@@ -19010,11 +17941,6 @@ finstack-core = { path = "../core" }
 
 
 ================================================================================
-File: finstack/scenarios/src
-================================================================================
-
-
-================================================================================
 File: finstack/scenarios/src/lib.rs
 ================================================================================
 
@@ -19022,11 +17948,6 @@ File: finstack/scenarios/src/lib.rs
 
 pub fn _placeholder() {}
 
-
-
-================================================================================
-File: finstack/scenarios/tests
-================================================================================
 
 
 ================================================================================
@@ -19042,11 +17963,6 @@ fn test_placeholder() {
     // Test passes if no panic occurs
 }
 
-
-
-================================================================================
-File: finstack/src
-================================================================================
 
 
 ================================================================================
@@ -19081,11 +17997,6 @@ pub use finstack_structured_credit as structured_credit;
 
 
 ================================================================================
-File: finstack/statements
-================================================================================
-
-
-================================================================================
 File: finstack/statements/Cargo.toml
 ================================================================================
 
@@ -19103,11 +18014,6 @@ finstack-core = { path = "../core" }
 
 
 ================================================================================
-File: finstack/statements/src
-================================================================================
-
-
-================================================================================
 File: finstack/statements/src/lib.rs
 ================================================================================
 
@@ -19115,11 +18021,6 @@ File: finstack/statements/src/lib.rs
 
 pub fn _placeholder() {}
 
-
-
-================================================================================
-File: finstack/statements/tests
-================================================================================
 
 
 ================================================================================
@@ -19135,11 +18036,6 @@ fn test_placeholder() {
     // Test passes if no panic occurs
 }
 
-
-
-================================================================================
-File: finstack/structured-credit
-================================================================================
 
 
 ================================================================================
@@ -19160,11 +18056,6 @@ finstack-core = { path = "../core" }
 
 
 ================================================================================
-File: finstack/structured-credit/src
-================================================================================
-
-
-================================================================================
 File: finstack/structured-credit/src/lib.rs
 ================================================================================
 
@@ -19172,11 +18063,6 @@ File: finstack/structured-credit/src/lib.rs
 
 pub fn _placeholder() {}
 
-
-
-================================================================================
-File: finstack/structured-credit/tests
-================================================================================
 
 
 ================================================================================
@@ -19192,11 +18078,6 @@ fn test_placeholder() {
     // Test passes if no panic occurs
 }
 
-
-
-================================================================================
-File: finstack/valuations
-================================================================================
 
 
 ================================================================================
@@ -19238,16 +18119,6 @@ index = []
 
 
 ================================================================================
-File: finstack/valuations/src
-================================================================================
-
-
-================================================================================
-File: finstack/valuations/src/cashflow
-================================================================================
-
-
-================================================================================
 File: finstack/valuations/src/cashflow/aggregation.rs
 ================================================================================
 
@@ -19267,24 +18138,7 @@ pub type DatedFlow = (Date, Money);
 /// Groups cashflows by time period while preserving currency separation.
 /// Returns a map: `PeriodId -> (Currency -> amount)`.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_core::dates::{Date, Period, PeriodId};
-/// use finstack_core::currency::Currency;
-/// use finstack_core::money::Money;
-/// use finstack_valuations::cashflow::aggregation::aggregate_by_period;
-/// use time::Month;
-/// 
-/// let flows = vec![
-///     (Date::from_calendar_date(2025, Month::June, 15).unwrap(), Money::new(25_000.0, Currency::USD)),
-///     (Date::from_calendar_date(2025, Month::December, 15).unwrap(), Money::new(25_000.0, Currency::USD)),
-/// ];
-/// let periods = vec![
-///     Period { id: PeriodId::half(2025, 1), start: Date::from_calendar_date(2025, Month::January, 1).unwrap(), end: Date::from_calendar_date(2025, Month::July, 1).unwrap(), is_actual: false },
-///     Period { id: PeriodId::half(2025, 2), start: Date::from_calendar_date(2025, Month::July, 1).unwrap(), end: Date::from_calendar_date(2026, Month::January, 1).unwrap(), is_actual: false },
-/// ];
-/// let aggregated = aggregate_by_period(&flows, &periods);
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn aggregate_by_period(
     flows: &[DatedFlow],
     periods: &[Period],
@@ -19433,11 +18287,6 @@ impl Notional {
 }
 
 
-
-
-================================================================================
-File: finstack/valuations/src/cashflow/builder
-================================================================================
 
 
 ================================================================================
@@ -21270,24 +20119,11 @@ pub struct CashFlow {
 
 impl CashFlow {
     /// Create a fixed coupon cash-flow (`CFKind::Fixed`).
-    ///
+    /// 
     /// # Errors
     /// Returns [`Error::InvalidInput`] if the `amount` is zero.
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_core::dates::Date;
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::money::Money;
-    /// use finstack_valuations::cashflow::primitives::CashFlow;
-    /// use time::Month;
-    /// 
-    /// let date = Date::from_calendar_date(2025, Month::June, 15).unwrap();
-    /// let amount = Money::new(25_000.0, Currency::USD);
-    /// let cf = CashFlow::fixed_cf(date, amount)?;
-    /// assert_eq!(cf.kind, finstack_valuations::cashflow::primitives::CFKind::Fixed);
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn fixed_cf(date: Date, amount: Money) -> finstack_core::Result<Self> {
         if amount.amount() == 0.0 {
             return Err(InputError::Invalid.into());
@@ -21426,11 +20262,6 @@ mod tests {
     }
 }
 
-
-
-================================================================================
-File: finstack/valuations/src/covenants
-================================================================================
 
 
 ================================================================================
@@ -21955,22 +20786,13 @@ pub use engine::{
 
 
 ================================================================================
-File: finstack/valuations/src/instruments
-================================================================================
-
-
-================================================================================
-File: finstack/valuations/src/instruments/equity
-================================================================================
-
-
-================================================================================
 File: finstack/valuations/src/instruments/equity/instrument.rs
 ================================================================================
 
 //! Equity spot instrument implementation.
 
 use crate::traits::{CashflowProvider, Priceable, Attributes};
+use crate::impl_attributable;
 use crate::pricing::result::ValuationResult;
 use crate::metrics::MetricId;
 use finstack_core::prelude::*;
@@ -21987,20 +20809,7 @@ pub type Ticker = String;
 /// The price can come from direct market quotes or be computed from
 /// underlying fundamentals.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::equity::Equity;
-/// use finstack_core::currency::Currency;
-/// 
-/// let equity = Equity {
-///     id: "AAPL".to_string(),
-///     ticker: "AAPL".to_string(),
-///     currency: Currency::USD,
-///     shares: Some(100.0),
-///     price_quote: None,
-///     attributes: Default::default(),
-/// };
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug)]
 pub struct Equity {
     /// Unique identifier for the equity
@@ -22282,16 +21091,6 @@ pub use instrument::Equity;
 
 
 ================================================================================
-File: finstack/valuations/src/instruments/fixed_income
-================================================================================
-
-
-================================================================================
-File: finstack/valuations/src/instruments/fixed_income/bond
-================================================================================
-
-
-================================================================================
 File: finstack/valuations/src/instruments/fixed_income/bond/builder.rs
 ================================================================================
 
@@ -22309,40 +21108,7 @@ use super::{Bond, CallPutSchedule};
 /// 
 /// # Example
 /// 
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::bond::Bond;
-/// use finstack_valuations::cashflow::builder::{cf, FixedCouponSpec, CouponType};
-/// use finstack_core::currency::Currency;
-/// use finstack_core::money::Money;
-/// use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention, StubKind};
-/// use time::Month;
-/// 
-/// // Build with custom cashflows
-/// let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-/// let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
-/// 
-/// let custom_schedule = cf()
-///     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
-///     .fixed_cf(FixedCouponSpec {
-///         coupon_type: CouponType::Cash,
-///         rate: 0.05,
-///         freq: Frequency::semi_annual(),
-///         dc: DayCount::Act365F,
-///         bdc: BusinessDayConvention::Following,
-///         calendar_id: None,
-///         stub: StubKind::None,
-///     })
-///     .build()
-///     .unwrap();
-/// 
-/// let bond = Bond::builder()
-///     .id("CUSTOM_BOND")
-///     .cashflows(custom_schedule)
-///     .disc_curve("USD-OIS")
-///     .quoted_clean(Some(99.5))
-///     .build()
-///     .unwrap();
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Default)]
 pub struct BondBuilder {
     id: Option<String>,
@@ -22536,46 +21302,7 @@ use finstack_core::prelude::*;
 /// # Returns
 /// Vector of (date, money) tuples representing the bond's cashflow schedule
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::bond::helpers::flows_from_context_or_build;
-/// use finstack_valuations::metrics::traits::MetricContext;
-/// use finstack_valuations::instruments::fixed_income::bond::Bond;
-/// use finstack_valuations::instruments::Instrument;
-/// use std::sync::Arc;
-/// use finstack_core::currency::Currency;
-/// use finstack_core::money::Money;
-/// use finstack_core::dates::{Date, Frequency, DayCount};
-/// use time::Month;
-/// 
-/// // Create a simple bond for the example
-/// let bond = Bond {
-///     id: "BOND001".to_string(),
-///     notional: Money::new(1000.0, Currency::USD),
-///     coupon: 0.05,
-///     freq: Frequency::semi_annual(),
-///     dc: DayCount::Act365F,
-///     issue: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
-///     maturity: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
-///     disc_id: "USD-OIS",
-///     quoted_clean: None,
-///     call_put: None,
-///     amortization: None,
-///     custom_cashflows: None,
-///     attributes: finstack_valuations::traits::Attributes::new(),
-/// };
-/// 
-/// let mut context = MetricContext::new(
-///     Arc::new(Instrument::Bond(bond.clone())),
-///     Arc::new(finstack_core::market_data::multicurve::CurveSet::new()),
-///     Date::from_calendar_date(2025, Month::January, 1).unwrap(),
-///     Money::new(1000.0, Currency::USD)
-/// );
-/// 
-/// // Note: This would require proper market data to work
-/// // let flows = flows_from_context_or_build(&mut context, &bond).unwrap();
-/// // assert!(!flows.is_empty());
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn flows_from_context_or_build(
     context: &mut MetricContext,
     bond: &Bond,
@@ -22605,44 +21332,7 @@ pub fn flows_from_context_or_build(
 /// # Returns
 /// Present value of the cashflow stream
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::bond::helpers::price_from_ytm;
-/// use finstack_valuations::instruments::fixed_income::bond::Bond;
-/// use finstack_core::dates::{Date, Frequency, DayCount};
-/// use finstack_core::money::Money;
-/// use finstack_core::currency::Currency;
-/// use time::Month;
-/// 
-/// // Create a simple bond for the example
-/// let bond = Bond {
-///     id: "BOND001".to_string(),
-///     notional: Money::new(1000.0, Currency::USD),
-///     coupon: 0.05,
-///     freq: Frequency::semi_annual(),
-///     dc: DayCount::Act365F,
-///     issue: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
-///     maturity: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
-///     disc_id: "USD-OIS",
-///     quoted_clean: None,
-///     call_put: None,
-///     amortization: None,
-///     custom_cashflows: None,
-///     attributes: finstack_valuations::traits::Attributes::new(),
-/// };
-/// 
-/// let flows = vec![
-///     (Date::from_calendar_date(2025, Month::June, 15).unwrap(), 
-///      Money::new(50.0, Currency::USD)),
-///     (Date::from_calendar_date(2025, Month::December, 15).unwrap(), 
-///      Money::new(1050.0, Currency::USD))
-/// ];
-/// let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-/// let ytm = 0.05; // 5% yield
-/// 
-/// let pv = price_from_ytm(&bond, &flows, as_of, ytm).unwrap();
-/// assert!(pv > 0.0);
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn price_from_ytm(
     bond: &Bond,
     flows: &[(Date, Money)],
@@ -22689,14 +21379,7 @@ use finstack_core::F;
 /// valuation date. This is essential for determining the dirty price and
 /// other bond metrics that depend on accrued interest.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::bond::metrics::AccruedInterestCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = AccruedInterestCalculator;
-/// // Note: Would need proper context with bond data to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct AccruedInterestCalculator;
 
 impl MetricCalculator for AccruedInterestCalculator {
@@ -22771,14 +21454,7 @@ impl MetricCalculator for AccruedInterestCalculator {
 /// # Dependencies
 /// Requires `Accrued` metric to be computed first.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::bond::metrics::YtmCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = YtmCalculator;
-/// // Note: Would need proper context with bond data and quoted price to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct YtmCalculator;
 
 impl MetricCalculator for YtmCalculator {
@@ -23181,19 +21857,7 @@ impl Cs01Calculator {}
 /// # Arguments
 /// * `registry` - Metric registry to add bond metrics to
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::metrics::registry::MetricRegistry;
-/// use finstack_valuations::instruments::fixed_income::bond::metrics::register_bond_metrics;
-/// 
-/// let mut registry = MetricRegistry::new();
-/// register_bond_metrics(&mut registry);
-/// 
-/// // Check that key bond metrics are registered
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::Ytm));
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::DurationMac));
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::Convexity));
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
     use std::sync::Arc;
     use crate::metrics::MetricId;
@@ -23232,6 +21896,7 @@ use crate::cashflow::primitives::CFKind;
 use crate::cashflow::builder::{cf, FixedCouponSpec, CouponType, CashFlowSchedule};
 use crate::metrics::MetricId;
 use finstack_core::dates::{BusinessDayConvention, StubKind};
+use crate::impl_attributable;
 
 // Re-export for compatibility in tests and external users referencing bond::AmortizationSpec
 pub use crate::cashflow::amortization_notional::AmortizationSpec;
@@ -23381,37 +22046,9 @@ impl Priceable for Bond {
         as_of: finstack_core::dates::Date, 
         metrics: &[crate::metrics::MetricId]
     ) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
-        use crate::metrics::{MetricContext, standard_registry};
-        use std::sync::Arc;
-        
-        // Compute base value
         let base_value = self.value(curves, as_of)?;
-        
-        // Create metric context with self wrapped in Instrument enum
-        let instrument: crate::instruments::Instrument = 
-            crate::instruments::Instrument::Bond(self.clone());
-        let mut context = MetricContext::new(
-            Arc::new(instrument),
-            Arc::new(curves.clone()),
-            as_of,
-            base_value,
-        );
-        
-        // Get registry and compute requested metrics
-        let registry = standard_registry();
-        let metric_measures = registry.compute(metrics, &mut context)?;
-        
-        // Convert MetricId keys to String keys for ValuationResult
-        let measures: hashbrown::HashMap<String, finstack_core::F> = metric_measures
-            .into_iter()
-            .map(|(k, v)| (k.as_str().to_string(), v))
-            .collect();
-        
-        // Create result
-        let mut result = crate::pricing::result::ValuationResult::stamped(self.id.clone(), as_of, base_value);
-        result.measures = measures;
-        
-        Ok(result)
+        let instrument: crate::instruments::Instrument = crate::instruments::Instrument::Bond(self.clone());
+        crate::pricing::build_with_metrics(instrument, curves, as_of, base_value, metrics)
     }
     
     fn price(&self, curves: &finstack_core::market_data::multicurve::CurveSet, as_of: finstack_core::dates::Date) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
@@ -23800,7 +22437,7 @@ use finstack_core::{F, Result};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::math::newton_raphson::{newton_raphson_with_fallback, NewtonRaphsonConfig};
+use finstack_core::math::root_finding::newton_raphson;
 
 /// Configuration for YTM solver
 #[derive(Clone, Debug)]
@@ -23898,21 +22535,15 @@ impl YtmSolver {
         
         if self.config.use_newton {
             // Try Newton-Raphson with automatic fallback
-            let nr_config = NewtonRaphsonConfig {
-                tolerance: self.config.tolerance,
-                max_iterations: self.config.max_iterations,
-                auto_fallback: true,
-                ..Default::default()
-            };
-            
-            let result = newton_raphson_with_fallback(
-                price_fn,
-                price_derivative,
-                initial_guess,
-                &nr_config,
-            )?;
-            
-            Ok(result.root)
+            // Try standard Newton first; if it fails, fallback to Brent
+            match newton_raphson(price_fn, price_derivative, initial_guess, self.config.tolerance, self.config.max_iterations) {
+                Ok(root) => Ok(root),
+                Err(_) => {
+                    use finstack_core::math::root_finding::brent;
+                    let (a, b) = self.determine_bracket(&price_fn, initial_guess);
+                    brent(price_fn, a, b, self.config.tolerance, self.config.max_iterations)
+                }
+            }
         } else {
             // Direct to Brent's method
             use finstack_core::math::root_finding::brent;
@@ -24150,11 +22781,6 @@ mod tests {
     }
 }
 
-
-
-================================================================================
-File: finstack/valuations/src/instruments/fixed_income/cds
-================================================================================
 
 
 ================================================================================
@@ -24484,58 +23110,19 @@ impl EnhancedCDSPricer {
     
     /// Generate payment schedule for CDS
     fn generate_schedule(&self, cds: &CreditDefaultSwap, _as_of: Date) -> Result<Vec<Date>> {
-        // Generate schedule manually based on frequency
-        let mut dates = Vec::new();
-        let mut current = cds.premium.start;
-        dates.push(current);
-        
-        // Calculate period in months
-        let months = match cds.premium.freq.months() {
-            Some(m) => m as i32,
-            None => 3, // Default to quarterly if not month-based
-        };
-        
-        while current < cds.premium.end {
-            // Add months to current date
-            let next = self.add_months(current, months)?;
-            if next > cds.premium.end {
-                break;
-            }
-            dates.push(next);
-            current = next;
-        }
-        
-        // Always include end date
-        if dates.last() != Some(&cds.premium.end) {
-            dates.push(cds.premium.end);
-        }
-        
-        Ok(dates)
+        // Centralized schedule/date adjustment
+        let sched = crate::cashflow::builder::build_dates(
+            cds.premium.start,
+            cds.premium.end,
+            cds.premium.freq,
+            cds.premium.stub,
+            cds.premium.bdc,
+            cds.premium.calendar_id,
+        );
+        Ok(sched.dates)
     }
     
-    /// Helper to add months to a date
-    fn add_months(&self, date: Date, months: i32) -> Result<Date> {
-        let (year, month, day) = date.to_calendar_date();
-        let total_months = month as i32 + months;
-        let new_year = year + (total_months - 1) / 12;
-        let new_month = ((total_months - 1) % 12 + 1) as u8;
-        
-        // Handle day overflow (e.g., Jan 31 + 1 month = Feb 28/29)
-        let max_day = match new_month {
-            2 => if Self::is_leap_year(new_year) { 29 } else { 28 },
-            4 | 6 | 9 | 11 => 30,
-            _ => 31,
-        };
-        let new_day = day.min(max_day);
-        
-        Date::from_calendar_date(new_year, time::Month::try_from(new_month).unwrap(), new_day)
-            .map_err(|_| Error::Internal)
-    }
-    
-    /// Check if year is leap year
-    fn is_leap_year(year: i32) -> bool {
-        (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
-    }
+    // removed manual date math; schedule comes from builder
     
     /// Calculate year fraction with exact day count
     fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<F> {
@@ -25064,7 +23651,7 @@ use finstack_core::market_data::term_structures::credit_curve::CreditCurve;
 use finstack_core::market_data::traits::Discount;
 use finstack_core::money::Money;
 use finstack_core::dates::{Date, DayCount, BusinessDayConvention, Frequency, StubKind};
-use hashbrown::HashMap;
+use crate::impl_attributable;
 
 pub mod metrics;
 pub mod enhanced;
@@ -25243,21 +23830,27 @@ impl CreditDefaultSwap {
 
     /// Build premium leg cashflows
     pub fn build_premium_schedule(&self, _curves: &CurveSet, _as_of: Date) -> finstack_core::Result<DatedFlows> {
-        // Simplified implementation - would use CashflowBuilder in full implementation
-        let mut flows = Vec::new();
-        
-        // Generate payment dates based on frequency
-        let mut current = self.premium.start;
-        while current < self.premium.end {
-            let next = current + time::Duration::days(90); // Quarterly
-            if next <= self.premium.end {
-                let year_frac = self.premium.dc.year_fraction(current, next)?;
-                let amount = self.notional * (self.premium.spread_bp / 10000.0) * year_frac;
-                flows.push((next, amount));
-            }
-            current = next;
+        // Use centralized schedule builder and standard DayCount accrual
+        let sched = crate::cashflow::builder::build_dates(
+            self.premium.start,
+            self.premium.end,
+            self.premium.freq,
+            self.premium.stub,
+            self.premium.bdc,
+            self.premium.calendar_id,
+        );
+        let dates = sched.dates;
+        if dates.len() < 2 { return Ok(vec![]); }
+
+        let mut flows = Vec::with_capacity(dates.len() - 1);
+        let mut prev = dates[0];
+        for &d in &dates[1..] {
+            let year_frac = self.premium.dc.year_fraction(prev, d)?;
+            let amount = self.notional * (self.premium.spread_bp / 10000.0) * year_frac;
+            flows.push((d, amount));
+            prev = d;
         }
-        
+
         Ok(flows)
     }
 
@@ -25407,35 +24000,27 @@ impl Priceable for CreditDefaultSwap {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<ValuationResult> {
         use crate::instruments::Instrument;
-        use crate::metrics::{MetricContext, standard_registry};
+        use crate::metrics::MetricContext;
         use std::sync::Arc;
         
         // Compute base value
         let base_value = self.value(curves, as_of)?;
         
         // Create metric context
-        let mut context = MetricContext::new(
+        let _context = MetricContext::new(
             Arc::new(Instrument::CDS(self.clone())),
             Arc::new(curves.clone()),
             as_of,
             base_value,
         );
         
-        // Get registry and compute requested metrics
-        let registry = standard_registry();
-        let metric_measures = registry.compute(metrics, &mut context)?;
-        
-        // Convert MetricId keys to String keys for ValuationResult
-        let measures: HashMap<String, F> = metric_measures
-            .into_iter()
-            .map(|(k, v)| (k.as_str().to_string(), v))
-            .collect();
-        
-        // Create result
-        let mut result = ValuationResult::stamped(self.id.clone(), as_of, base_value);
-        result.measures = measures;
-        
-        Ok(result)
+        crate::pricing::build_with_metrics(
+            Instrument::CDS(self.clone()),
+            curves,
+            as_of,
+            base_value,
+            metrics,
+        )
     }
 
     /// Compute full valuation with all standard CDS metrics
@@ -25594,27 +24179,9 @@ impl CDSBuilder {
     }
 }
 
-// Add conversion to both Instrument enums
-impl From<CreditDefaultSwap> for crate::instruments::unified::Instrument {
-    fn from(value: CreditDefaultSwap) -> Self {
-        crate::instruments::unified::Instrument::CDS(value)
-    }
-}
-
 impl From<CreditDefaultSwap> for crate::instruments::Instrument {
     fn from(value: CreditDefaultSwap) -> Self {
         crate::instruments::Instrument::CDS(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::unified::Instrument> for CreditDefaultSwap {
-    type Error = finstack_core::Error;
-    
-    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::unified::Instrument::CDS(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
-        }
     }
 }
 
@@ -25718,11 +24285,6 @@ mod tests {
 
 
 ================================================================================
-File: finstack/valuations/src/instruments/fixed_income/deposit
-================================================================================
-
-
-================================================================================
 File: finstack/valuations/src/instruments/fixed_income/deposit/metrics.rs
 ================================================================================
 
@@ -25742,31 +24304,7 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 /// Computes the time period between start and end dates using the deposit's
 /// day count convention. This is fundamental for all other deposit calculations.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::deposit::metrics::YearFractionCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// use finstack_valuations::instruments::fixed_income::deposit::Deposit;
-/// use finstack_valuations::instruments::Instrument;
-/// use finstack_core::dates::{Date, DayCount};
-/// use finstack_core::money::Money;
-/// use finstack_core::currency::Currency;
-/// use time::Month;
-/// 
-/// let deposit = Deposit {
-///     id: "DEP001".to_string(),
-///     notional: Money::new(1000.0, Currency::USD),
-///     start: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
-///     end: Date::from_calendar_date(2025, Month::July, 1).unwrap(),
-///     day_count: DayCount::Act365F,
-///     disc_id: "USD-OIS",
-///     quote_rate: Some(0.05),
-///     attributes: Default::default(),
-/// };
-/// 
-/// let calculator = YearFractionCalculator;
-/// // Note: Would need proper context to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct YearFractionCalculator;
 
 impl MetricCalculator for YearFractionCalculator {
@@ -25785,14 +24323,7 @@ impl MetricCalculator for YearFractionCalculator {
 /// Computes the present value of $1 received at the deposit start date,
 /// using the deposit's discount curve and day count convention.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::deposit::metrics::DfStartCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = DfStartCalculator;
-/// // Note: Would need proper context with curves to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct DfStartCalculator;
 
 impl MetricCalculator for DfStartCalculator {
@@ -25814,14 +24345,7 @@ impl MetricCalculator for DfStartCalculator {
 /// Computes the present value of $1 received at the deposit end date,
 /// using the deposit's discount curve and day count convention.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::deposit::metrics::DfEndCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = DfEndCalculator;
-/// // Note: Would need proper context with curves to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct DfEndCalculator;
 
 impl MetricCalculator for DfEndCalculator {
@@ -25846,14 +24370,7 @@ impl MetricCalculator for DfEndCalculator {
 /// # Dependencies
 /// Requires `DfStart`, `DfEnd`, and `Yf` metrics to be computed first.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::deposit::metrics::DepositParRateCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = DepositParRateCalculator;
-/// // Note: Would need proper context with computed dependencies to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct DepositParRateCalculator;
 
 impl MetricCalculator for DepositParRateCalculator {
@@ -25885,14 +24402,7 @@ impl MetricCalculator for DepositParRateCalculator {
 /// # Dependencies
 /// Requires `DfStart` and `Yf` metrics to be computed first.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::deposit::metrics::DfEndFromQuoteCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = DfEndFromQuoteCalculator;
-/// // Note: Would need proper context with computed dependencies to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct DfEndFromQuoteCalculator;
 
 impl MetricCalculator for DfEndFromQuoteCalculator {
@@ -25923,14 +24433,7 @@ impl MetricCalculator for DfEndFromQuoteCalculator {
 /// Returns the quoted rate from the deposit instrument. This is a simple
 /// pass-through metric that extracts the rate from the instrument data.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::deposit::metrics::QuoteRateCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = QuoteRateCalculator;
-/// // Note: Would need proper context with deposit data to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct QuoteRateCalculator;
 
 impl MetricCalculator for QuoteRateCalculator {
@@ -25954,19 +24457,7 @@ impl MetricCalculator for QuoteRateCalculator {
 /// # Arguments
 /// * `registry` - Metric registry to add deposit metrics to
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::metrics::registry::MetricRegistry;
-/// use finstack_valuations::instruments::fixed_income::deposit::metrics::register_deposit_metrics;
-/// 
-/// let mut registry = MetricRegistry::new();
-/// register_deposit_metrics(&mut registry);
-/// 
-/// // Check that deposit metrics are registered
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::Yf));
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::DfStart));
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::DfEnd));
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn register_deposit_metrics(registry: &mut crate::metrics::MetricRegistry) {
     use std::sync::Arc;
     use crate::metrics::MetricId;
@@ -25995,6 +24486,7 @@ use finstack_core::F;
 use finstack_core::market_data::multicurve::CurveSet;
 
 use crate::traits::{Priceable, CashflowProvider, DatedFlows, Attributes};
+use crate::{impl_attributable, impl_builder};
 use crate::cashflow::builder::{cf, FixedCouponSpec, CouponType};
 use finstack_core::dates::{BusinessDayConvention, StubKind, Frequency};
 use crate::metrics::MetricId;
@@ -26041,37 +24533,9 @@ impl Priceable for Deposit {
         as_of: finstack_core::dates::Date, 
         metrics: &[crate::metrics::MetricId]
     ) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
-        use crate::metrics::{MetricContext, standard_registry};
-        use std::sync::Arc;
-        
-        // Compute base value
         let base_value = self.value(curves, as_of)?;
-        
-        // Create metric context with self wrapped in Instrument enum
-        let instrument: crate::instruments::Instrument = 
-            crate::instruments::Instrument::Deposit(self.clone());
-        let mut context = MetricContext::new(
-            Arc::new(instrument),
-            Arc::new(curves.clone()),
-            as_of,
-            base_value,
-        );
-        
-        // Get registry and compute requested metrics
-        let registry = standard_registry();
-        let metric_measures = registry.compute(metrics, &mut context)?;
-        
-        // Convert MetricId keys to String keys for ValuationResult
-        let measures: hashbrown::HashMap<String, finstack_core::F> = metric_measures
-            .into_iter()
-            .map(|(k, v)| (k.as_str().to_string(), v))
-            .collect();
-        
-        // Create result
-        let mut result = crate::pricing::result::ValuationResult::stamped(self.id.clone(), as_of, base_value);
-        result.measures = measures;
-        
-        Ok(result)
+        let instrument: crate::instruments::Instrument = crate::instruments::Instrument::Deposit(self.clone());
+        crate::pricing::build_with_metrics(instrument, curves, as_of, base_value, metrics)
     }
     
     fn price(&self, curves: &finstack_core::market_data::multicurve::CurveSet, as_of: finstack_core::dates::Date) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
@@ -26153,11 +24617,6 @@ impl CashflowProvider for Deposit {
         Ok(vec![(self.start, self.notional * -1.0), (self.end, redemption)])
     }
 }
-
-
-================================================================================
-File: finstack/valuations/src/instruments/fixed_income/ilb
-================================================================================
 
 
 ================================================================================
@@ -26313,7 +24772,7 @@ use finstack_core::market_data::inflation_index::{InflationIndex, InflationLag};
 use finstack_core::money::Money;
 
 use finstack_core::dates::{Date, DayCount, Frequency, BusinessDayConvention, StubKind};
-use hashbrown::HashMap;
+use crate::impl_attributable;
 
 pub mod metrics;
 
@@ -26522,31 +24981,39 @@ impl InflationLinkedBond {
             .ok_or_else(|| finstack_core::Error::from(
                 finstack_core::error::InputError::NotFound
             ))?;
-        
-        // Simplified implementation - would use CashflowBuilder in full implementation
-        let mut flows = Vec::new();
-        
-        // Generate coupon dates based on frequency
-        let mut current = self.issue;
-        while current < self.maturity {
-            let next = current + time::Duration::days(180); // Semi-annual
-            if next <= self.maturity {
-                let year_frac = self.dc.year_fraction(current, next)?;
-                let base_amount = self.notional * self.real_coupon * year_frac;
-                
-                // Apply inflation adjustment
-                let ratio = self.index_ratio(next, &inflation_index).unwrap_or(1.0);
-                let adjusted_amount = base_amount * ratio;
-                
-                flows.push((next, adjusted_amount));
-            }
-            current = next;
+
+        // Use centralized schedule builder for coupon dates
+        let sched = crate::cashflow::builder::build_dates(
+            self.issue,
+            self.maturity,
+            self.freq,
+            self.stub,
+            self.bdc,
+            self.calendar_id,
+        );
+        let dates = sched.dates;
+        if dates.len() < 2 {
+            return Ok(vec![]);
         }
-        
-        // Add principal payment at maturity
+
+        let mut flows = Vec::with_capacity(dates.len());
+        let mut prev = dates[0];
+        for &d in &dates[1..] {
+            // Accrual over the period using standard DayCount
+            let year_frac = self.dc.year_fraction(prev, d)?;
+            let base_amount = self.notional * self.real_coupon * year_frac;
+
+            // Apply inflation adjustment at payment date
+            let ratio = self.index_ratio(d, &inflation_index).unwrap_or(1.0);
+            let adjusted_amount = base_amount * ratio;
+            flows.push((d, adjusted_amount));
+            prev = d;
+        }
+
+        // Add principal payment at maturity (inflation-adjusted)
         let principal_ratio = self.index_ratio(self.maturity, &inflation_index).unwrap_or(1.0);
         flows.push((self.maturity, self.notional * principal_ratio));
-        
+
         Ok(flows)
     }
     
@@ -26619,19 +25086,15 @@ impl Priceable for InflationLinkedBond {
         
         // Get registry and compute requested metrics
         let registry = standard_registry();
-        let metric_measures = registry.compute(metrics, &mut context)?;
+        let _metric_measures = registry.compute(metrics, &mut context)?;
         
-        // Convert MetricId keys to String keys for ValuationResult
-        let measures: HashMap<String, F> = metric_measures
-            .into_iter()
-            .map(|(k, v)| (k.as_str().to_string(), v))
-            .collect();
-        
-        // Create result
-        let mut result = ValuationResult::stamped(self.id.clone(), as_of, base_value);
-        result.measures = measures;
-        
-        Ok(result)
+        crate::pricing::build_with_metrics(
+            crate::instruments::Instrument::ILB(self.clone()),
+            curves,
+            as_of,
+            base_value,
+            metrics,
+        )
     }
     
     /// Compute full valuation with all standard ILB metrics
@@ -26655,27 +25118,9 @@ impl Priceable for InflationLinkedBond {
 // Generate standard Attributable implementation using macro
 impl_attributable!(InflationLinkedBond);
 
-// Add conversion to both Instrument enums
-impl From<InflationLinkedBond> for crate::instruments::unified::Instrument {
-    fn from(value: InflationLinkedBond) -> Self {
-        crate::instruments::unified::Instrument::ILB(value)
-    }
-}
-
 impl From<InflationLinkedBond> for crate::instruments::Instrument {
     fn from(value: InflationLinkedBond) -> Self {
         crate::instruments::Instrument::ILB(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::unified::Instrument> for InflationLinkedBond {
-    type Error = finstack_core::Error;
-    
-    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::unified::Instrument::ILB(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
-        }
     }
 }
 
@@ -26954,11 +25399,6 @@ impl ILBBuilder {
 
 
 ================================================================================
-File: finstack/valuations/src/instruments/fixed_income/irs
-================================================================================
-
-
-================================================================================
 File: finstack/valuations/src/instruments/fixed_income/irs/metrics.rs
 ================================================================================
 
@@ -26980,14 +25420,7 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 /// Computes the sum of discounted year fractions for the fixed leg,
 /// which is used in par rate calculations and other swap metrics.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::irs::metrics::AnnuityCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = AnnuityCalculator;
-/// // Note: Would need proper context with IRS data to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct AnnuityCalculator;
 
 impl MetricCalculator for AnnuityCalculator {
@@ -27032,14 +25465,7 @@ impl MetricCalculator for AnnuityCalculator {
 /// # Dependencies
 /// Requires `Annuity` metric to be computed first.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::irs::metrics::ParRateCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = ParRateCalculator;
-/// // Note: Would need proper context with computed dependencies to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct ParRateCalculator;
 
 impl MetricCalculator for ParRateCalculator {
@@ -27101,14 +25527,7 @@ impl MetricCalculator for ParRateCalculator {
 /// # Dependencies
 /// Requires `Annuity` metric to be computed first.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::irs::metrics::Dv01Calculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = Dv01Calculator;
-/// // Note: Would need proper context with computed dependencies to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct Dv01Calculator;
 
 impl MetricCalculator for Dv01Calculator {
@@ -27142,14 +25561,7 @@ impl MetricCalculator for Dv01Calculator {
 /// Computes the present value of the fixed-rate leg by discounting
 /// all fixed coupon payments using the swap's discount curve.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::irs::metrics::FixedLegPvCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = FixedLegPvCalculator;
-/// // Note: Would need proper context with IRS data to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct FixedLegPvCalculator;
 
 impl MetricCalculator for FixedLegPvCalculator {
@@ -27192,14 +25604,7 @@ impl MetricCalculator for FixedLegPvCalculator {
 /// all floating coupon payments. Forward rates are used to project
 /// future floating rates, and the spread is added to each rate.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::irs::metrics::FloatLegPvCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = FloatLegPvCalculator;
-/// // Note: Would need proper context with IRS data to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct FloatLegPvCalculator;
 
 impl MetricCalculator for FloatLegPvCalculator {
@@ -27250,29 +25655,17 @@ impl MetricCalculator for FloatLegPvCalculator {
 /// # Arguments
 /// * `registry` - Metric registry to add IRS metrics to
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::metrics::registry::MetricRegistry;
-/// use finstack_valuations::instruments::fixed_income::irs::metrics::register_irs_metrics;
-/// 
-/// let mut registry = MetricRegistry::new();
-/// register_irs_metrics(&mut registry);
-/// 
-/// // Check that IRS metrics are registered
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::Annuity));
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::ParRate));
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::Dv01));
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
     use std::sync::Arc;
     use crate::metrics::MetricId;
     
     registry
-        .register_metric(MetricId::Annuity, Arc::new(AnnuityCalculator), &["IRS"])
-        .register_metric(MetricId::ParRate, Arc::new(ParRateCalculator), &["IRS"])
-        .register_metric(MetricId::Dv01, Arc::new(Dv01Calculator), &["IRS"])
-        .register_metric(MetricId::PvFixed, Arc::new(FixedLegPvCalculator), &["IRS"])
-        .register_metric(MetricId::PvFloat, Arc::new(FloatLegPvCalculator), &["IRS"]);
+        .register_metric(MetricId::Annuity, Arc::new(AnnuityCalculator), &["InterestRateSwap"]) 
+        .register_metric(MetricId::ParRate, Arc::new(ParRateCalculator), &["InterestRateSwap"]) 
+        .register_metric(MetricId::Dv01, Arc::new(Dv01Calculator), &["InterestRateSwap"]) 
+        .register_metric(MetricId::PvFixed, Arc::new(FixedLegPvCalculator), &["InterestRateSwap"]) 
+        .register_metric(MetricId::PvFloat, Arc::new(FloatLegPvCalculator), &["InterestRateSwap"]);
 }
 
 
@@ -27288,6 +25681,7 @@ pub mod metrics;
 use finstack_core::prelude::*;
 use finstack_core::F;
 use finstack_core::dates::{Frequency, BusinessDayConvention, StubKind};
+use crate::impl_attributable;
 use finstack_core::dates::holiday::calendars::calendar_by_id;
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::market_data::traits::{Discount, Forward};
@@ -27470,35 +25864,27 @@ impl Priceable for InterestRateSwap {
         metrics: &[crate::metrics::MetricId]
     ) -> finstack_core::Result<ValuationResult> {
         use crate::instruments::Instrument;
-        use crate::metrics::{MetricContext, standard_registry};
+        use crate::metrics::MetricContext;
         use std::sync::Arc;
         
         // Compute base value
         let base_value = self.value(curves, as_of)?;
         
         // Create metric context
-        let mut context = MetricContext::new(
+        let _context = MetricContext::new(
             Arc::new(Instrument::IRS(self.clone())),
             Arc::new(curves.clone()),
             as_of,
             base_value,
         );
         
-        // Get registry and compute requested metrics
-        let registry = standard_registry();
-        let metric_measures = registry.compute(metrics, &mut context)?;
-        
-        // Convert MetricId keys to String keys for ValuationResult
-        let measures: hashbrown::HashMap<String, finstack_core::F> = metric_measures
-            .into_iter()
-            .map(|(k, v)| (k.as_str().to_string(), v))
-            .collect();
-        
-        // Create result
-        let mut result = ValuationResult::stamped(self.id.clone(), as_of, base_value);
-        result.measures = measures;
-        
-        Ok(result)
+        crate::pricing::build_with_metrics(
+            crate::instruments::Instrument::IRS(self.clone()),
+            curves,
+            as_of,
+            base_value,
+            metrics,
+        )
     }
     
     /// Compute full valuation with all standard IRS metrics (backward compatible).
@@ -27956,11 +26342,6 @@ mod tests {
         assert_eq!(irs.float.spread_bp, 0.0);
     }
 }
-
-
-================================================================================
-File: finstack/valuations/src/instruments/fixed_income/loan
-================================================================================
 
 
 ================================================================================
@@ -28538,10 +26919,13 @@ impl Priceable for DelayedDrawTermLoan {
         // 2. Value expected future draws
         let future_draws = self.get_expected_future_draws(as_of);
         for (draw_date, draw_amount, probability) in future_draws {
-            // For each future draw, we need to value:
-            // a) The negative cashflow of the draw itself (funding outflow from lender perspective)
-            let draw_yf = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(disc.base_date(), draw_date, self.day_count);
-            let draw_df = disc.df(draw_yf);
+            // For each future draw, discount using centralized helper
+            let draw_df = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
+                &*disc,
+                disc.base_date(),
+                draw_date,
+                self.day_count,
+            );
             total_npv -= draw_amount.amount() * draw_df * probability;
             
             // b) The positive value of future interest payments on that draw
@@ -28553,8 +26937,12 @@ impl Priceable for DelayedDrawTermLoan {
                 total_npv += interest_value * draw_df * probability;
                 
                 // Add principal repayment at maturity
-                let maturity_yf = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(disc.base_date(), self.maturity, self.day_count);
-                let maturity_df = disc.df(maturity_yf);
+                let maturity_df = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
+                    &*disc,
+                    disc.base_date(),
+                    self.maturity,
+                    self.day_count,
+                );
                 total_npv += draw_amount.amount() * maturity_df * probability;
             }
         }
@@ -29262,8 +27650,12 @@ impl Priceable for RevolvingCreditFacility {
             projected_drawn = Money::new(new_drawn, self.commitment.currency());
             
             // For each future event, value the change in interest payments
-            let event_yf = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(disc.base_date(), event_date, self.day_count);
-            let event_df = disc.df(event_yf);
+            let event_df = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
+                &*disc,
+                disc.base_date(),
+                event_date,
+                self.day_count,
+            );
             
             if event_amount.amount() > 0.0 {
                 // Draw event - value as negative cashflow (funding outflow)
@@ -29401,6 +27793,7 @@ use super::prepayment::PrepaymentSchedule;
 use super::covenants::Covenant;
 use crate::metrics::MetricId;
 use crate::traits::{CashflowProvider, Attributes};
+use crate::impl_attributable;
 use finstack_core::dates::{Date, DayCount, Frequency, BusinessDayConvention, StubKind};
 use finstack_core::market_data::multicurve::CurveSet;
 
@@ -29786,35 +28179,44 @@ impl CashflowProvider for Loan {
     }
 }
 
-// Use macro for standard Priceable implementation
-impl_priceable!(Loan, [
-    MetricId::Ytm
-]);
+// Implement Priceable directly (replaces deprecated impl_priceable! usage)
+impl crate::traits::Priceable for Loan {
+    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
+        use crate::pricing::discountable::Discountable;
+        let flows = <Self as crate::traits::CashflowProvider>::build_schedule(self, curves, as_of)?;
+        let disc = curves.discount(self.disc_id)?;
+        flows.npv(&*disc, disc.base_date(), self.day_count)
+    }
+
+    fn price_with_metrics(
+        &self,
+        curves: &CurveSet,
+        as_of: Date,
+        metrics: &[MetricId]
+    ) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
+        let base_value = self.value(curves, as_of)?;
+
+        crate::pricing::build_with_metrics(
+            crate::instruments::Instrument::Loan(self.clone()),
+            curves,
+            as_of,
+            base_value,
+            metrics,
+        )
+    }
+
+    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
+        let standard_metrics = vec![MetricId::Ytm];
+        self.price_with_metrics(curves, as_of, &standard_metrics)
+    }
+}
 
 // Generate standard Attributable implementation using macro
 impl_attributable!(Loan);
 
-// Add conversion to both Instrument enums
-impl From<Loan> for crate::instruments::unified::Instrument {
-    fn from(value: Loan) -> Self {
-        crate::instruments::unified::Instrument::Loan(value)
-    }
-}
-
 impl From<Loan> for crate::instruments::Instrument {
     fn from(value: Loan) -> Self {
         crate::instruments::Instrument::Loan(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::unified::Instrument> for Loan {
-    type Error = finstack_core::Error;
-    
-    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::unified::Instrument::Loan(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
-        }
     }
 }
 
@@ -30117,6 +28519,7 @@ File: finstack/valuations/src/instruments/fx_spot.rs
 //! FX Spot instrument implementation.
 
 use crate::traits::{CashflowProvider, Priceable, Attributes};
+use crate::impl_attributable;
 use crate::pricing::result::ValuationResult;
 use crate::metrics::MetricId;
 use finstack_core::prelude::*;
@@ -30130,24 +28533,7 @@ use hashbrown::HashMap;
 /// The value represents how many units of the quote currency
 /// are needed to buy one unit of the base currency.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fx_spot::FxSpot;
-/// use finstack_core::currency::Currency;
-/// use time::Month;
-/// use finstack_core::dates::Date;
-/// 
-/// let fx = FxSpot {
-///     id: "EURUSD".to_string(),
-///     base: Currency::EUR,
-///     quote: Currency::USD,
-///     settlement: Some(Date::from_calendar_date(2025, Month::January, 3).unwrap()),
-///     spot_rate: Some(1.08),
-///     notional: None,
-///     attributes: Default::default(),
-/// };
-/// // This means 1 EUR = 1.08 USD
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug)]
 pub struct FxSpot {
     /// Unique identifier for the FX pair
@@ -30499,11 +28885,6 @@ impl std::convert::TryFrom<crate::instruments::Instrument> for FxSpot {
 
 
 ================================================================================
-File: finstack/valuations/src/instruments/macros
-================================================================================
-
-
-================================================================================
 File: finstack/valuations/src/instruments/macros/mod.rs
 ================================================================================
 
@@ -30512,70 +28893,7 @@ File: finstack/valuations/src/instruments/macros/mod.rs
 //! This module provides derive-like macros for reducing boilerplate 
 //! in instrument implementations.
 
-/// Generate standard Priceable implementation for an instrument.
-/// 
-/// Requirements:
-/// - Struct must have an `id: String` field
-/// - Struct must implement Clone
-/// - Must specify which metrics are standard for this instrument type
-#[macro_export]
-macro_rules! impl_priceable {
-    ($type:ident, [$($metric:expr),* $(,)?]) => {
-        impl $crate::traits::Priceable for $type {
-            fn value(&self, curves: &finstack_core::market_data::multicurve::CurveSet, as_of: finstack_core::dates::Date) -> finstack_core::Result<finstack_core::money::Money> {
-                use $crate::pricing::discountable::Discountable;
-                // Default implementation - instruments should override if needed
-                let flows = <Self as $crate::traits::CashflowProvider>::build_schedule(self, curves, as_of)?;
-                let disc = curves.discount(self.disc_id)?;
-                flows.npv(&*disc, disc.base_date(), self.day_count)
-            }
-            
-            fn price_with_metrics(
-                &self, 
-                curves: &finstack_core::market_data::multicurve::CurveSet, 
-                as_of: finstack_core::dates::Date, 
-                metrics: &[$crate::metrics::MetricId]
-            ) -> finstack_core::Result<$crate::pricing::result::ValuationResult> {
-                use $crate::metrics::{MetricContext, standard_registry};
-                use std::sync::Arc;
-                
-                // Compute base value
-                let base_value = self.value(curves, as_of)?;
-                
-                // Create metric context with self wrapped in Instrument enum
-                let instrument: $crate::instruments::Instrument = 
-                    $crate::instruments::Instrument::$type(self.clone());
-                let mut context = MetricContext::new(
-                    Arc::new(instrument),
-                    Arc::new(curves.clone()),
-                    as_of,
-                    base_value,
-                );
-                
-                // Get registry and compute requested metrics
-                let registry = standard_registry();
-                let metric_measures = registry.compute(metrics, &mut context)?;
-                
-                // Convert MetricId keys to String keys for ValuationResult
-                let measures: hashbrown::HashMap<String, finstack_core::F> = metric_measures
-                    .into_iter()
-                    .map(|(k, v)| (k.as_str().to_string(), v))
-                    .collect();
-                
-                // Create result
-                let mut result = $crate::pricing::result::ValuationResult::stamped(self.id.clone(), as_of, base_value);
-                result.measures = measures;
-                
-                Ok(result)
-            }
-            
-            fn price(&self, curves: &finstack_core::market_data::multicurve::CurveSet, as_of: finstack_core::dates::Date) -> finstack_core::Result<$crate::pricing::result::ValuationResult> {
-                let standard_metrics = vec![$($metric),*];
-                self.price_with_metrics(curves, as_of, &standard_metrics)
-            }
-        }
-    };
-}
+//! Note: The legacy `impl_priceable!` macro has been removed.
 
 /// Generate standard Attributable implementation.
 /// 
@@ -30656,74 +28974,7 @@ macro_rules! impl_builder {
     };
 }
 
-/// Combined macro that implements all common patterns for an instrument.
-/// 
-/// This macro:
-/// 1. Implements Priceable with standard metrics
-/// 2. Implements Attributable 
-/// 3. Generates a builder pattern
-/// 4. Adds conversion to/from Instrument enum
-#[macro_export]
-macro_rules! instrument {
-    (
-        $type:ident {
-            metrics: [$($metric:expr),* $(,)?],
-            required: [$($req_field:ident: $req_type:ty),* $(,)?],
-            optional: [$($opt_field:ident: $opt_type:ty),* $(,)?]
-        }
-    ) => {
-        // Generate builder
-        paste::paste! {
-            $crate::impl_builder!(
-                $type,
-                [<$type Builder>],
-                required: [$($req_field: $req_type),*],
-                optional: [$($opt_field: $opt_type),*]
-            );
-        }
-        
-        // Implement Priceable
-        $crate::impl_priceable!($type, [$($metric),*]);
-        
-        // Implement Attributable
-        $crate::impl_attributable!($type);
-        
-        // Add conversion to both Instrument enums
-        impl From<$type> for $crate::instruments::unified::Instrument {
-            fn from(value: $type) -> Self {
-                $crate::instruments::unified::Instrument::$type(value)
-            }
-        }
-        
-        impl From<$type> for $crate::instruments::Instrument {
-            fn from(value: $type) -> Self {
-                $crate::instruments::Instrument::$type(value)
-            }
-        }
-        
-        impl std::convert::TryFrom<$crate::instruments::unified::Instrument> for $type {
-            type Error = finstack_core::Error;
-            
-            fn try_from(value: $crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
-                match value {
-                    $crate::instruments::unified::Instrument::$type(v) => Ok(v),
-                    _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
-                }
-            }
-        }
-        
-        impl std::convert::TryFrom<$crate::instruments::Instrument> for $type {
-            type Error = finstack_core::Error;
-            
-            fn try_from(value: $crate::instruments::Instrument) -> finstack_core::Result<Self> {
-                match value {
-                    $crate::instruments::Instrument::$type(v) => Ok(v),
-                    _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
-                }
-            }
-        }
-    };
-}
+// The legacy `instrument!` macro was unused; removed to reduce maintenance surface.
 
 
 
@@ -30828,8 +29079,6 @@ File: finstack/valuations/src/instruments/mod.rs
 #[macro_use]
 pub mod macros;
 
-// Macros are available via #[macro_use]
-
 // Unified instrument handling with common operations
 pub mod unified;
 
@@ -30849,11 +29098,6 @@ pub use fx_spot::FxSpot;
 pub use options::{EquityOption, FxOption, InterestRateOption, CreditOption, Swaption};
 // The canonical Instrument enum and helpers now live in `unified` and are re-exported above.
 
-
-
-================================================================================
-File: finstack/valuations/src/instruments/options
-================================================================================
 
 
 ================================================================================
@@ -31358,11 +29602,6 @@ mod tests {
 
 
 ================================================================================
-File: finstack/valuations/src/instruments/options/credit_option
-================================================================================
-
-
-================================================================================
 File: finstack/valuations/src/instruments/options/credit_option/metrics.rs
 ================================================================================
 
@@ -31527,12 +29766,12 @@ pub mod metrics;
 
 use crate::pricing::result::ValuationResult;
 use crate::traits::{Attributes, Priceable};
+use crate::impl_attributable;
 use finstack_core::F;
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::money::Money;
 
 use finstack_core::dates::Date;
-use hashbrown::HashMap;
 
 use super::{OptionType, ExerciseStyle, SettlementType, black_scholes_common};
 
@@ -31783,35 +30022,27 @@ impl Priceable for CreditOption {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<ValuationResult> {
         use crate::instruments::Instrument;
-        use crate::metrics::{MetricContext, standard_registry};
+        use crate::metrics::MetricContext;
         use std::sync::Arc;
         
         // Compute base value
         let base_value = self.value(curves, as_of)?;
         
         // Create metric context
-        let mut context = MetricContext::new(
+        let _context = MetricContext::new(
             Arc::new(Instrument::CreditOption(self.clone())),
             Arc::new(curves.clone()),
             as_of,
             base_value,
         );
         
-        // Get registry and compute requested metrics
-        let registry = standard_registry();
-        let metric_measures = registry.compute(metrics, &mut context)?;
-        
-        // Convert MetricId keys to String keys for ValuationResult
-        let measures: HashMap<String, F> = metric_measures
-            .into_iter()
-            .map(|(k, v)| (k.as_str().to_string(), v))
-            .collect();
-        
-        // Create result
-        let mut result = ValuationResult::stamped(self.id.clone(), as_of, base_value);
-        result.measures = measures;
-        
-        Ok(result)
+        crate::pricing::build_with_metrics(
+            Instrument::CreditOption(self.clone()),
+            curves,
+            as_of,
+            base_value,
+            metrics,
+        )
     }
     
     /// Compute full valuation with all standard option metrics
@@ -31833,27 +30064,9 @@ impl Priceable for CreditOption {
 // Generate standard Attributable implementation using macro
 impl_attributable!(CreditOption);
 
-// Add conversion to both Instrument enums
-impl From<CreditOption> for crate::instruments::unified::Instrument {
-    fn from(value: CreditOption) -> Self {
-        crate::instruments::unified::Instrument::CreditOption(value)
-    }
-}
-
 impl From<CreditOption> for crate::instruments::Instrument {
     fn from(value: CreditOption) -> Self {
         crate::instruments::Instrument::CreditOption(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::unified::Instrument> for CreditOption {
-    type Error = finstack_core::Error;
-    
-    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::unified::Instrument::CreditOption(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
-        }
     }
 }
 
@@ -31975,11 +30188,6 @@ mod tests {
     }
 }
 
-
-
-================================================================================
-File: finstack/valuations/src/instruments/options/equity_option
-================================================================================
 
 
 ================================================================================
@@ -32146,11 +30354,11 @@ pub mod metrics;
 
 use crate::pricing::result::ValuationResult;
 use crate::traits::{Attributes, Priceable};
+use crate::impl_attributable;
 use finstack_core::F;use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::money::Money;
 
 use finstack_core::dates::Date;
-use hashbrown::HashMap;
 
 use super::{OptionType, ExerciseStyle, SettlementType, black_scholes_common};
 
@@ -32357,35 +30565,27 @@ impl Priceable for EquityOption {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<ValuationResult> {
         use crate::instruments::Instrument;
-        use crate::metrics::{MetricContext, standard_registry};
+        use crate::metrics::MetricContext;
         use std::sync::Arc;
         
         // Compute base value
         let base_value = self.value(curves, as_of)?;
         
         // Create metric context
-        let mut context = MetricContext::new(
+        let _context = MetricContext::new(
             Arc::new(Instrument::EquityOption(self.clone())),
             Arc::new(curves.clone()),
             as_of,
             base_value,
         );
         
-        // Get registry and compute requested metrics
-        let registry = standard_registry();
-        let metric_measures = registry.compute(metrics, &mut context)?;
-        
-        // Convert MetricId keys to String keys for ValuationResult
-        let measures: HashMap<String, F> = metric_measures
-            .into_iter()
-            .map(|(k, v)| (k.as_str().to_string(), v))
-            .collect();
-        
-        // Create result
-        let mut result = ValuationResult::stamped(self.id.clone(), as_of, base_value);
-        result.measures = measures;
-        
-        Ok(result)
+        crate::pricing::build_with_metrics(
+            crate::instruments::Instrument::EquityOption(self.clone()),
+            curves,
+            as_of,
+            base_value,
+            metrics,
+        )
     }
     
     /// Compute full valuation with all standard option metrics
@@ -32407,27 +30607,9 @@ impl Priceable for EquityOption {
 // Generate standard Attributable implementation using macro
 impl_attributable!(EquityOption);
 
-// Add conversion to both Instrument enums
-impl From<EquityOption> for crate::instruments::unified::Instrument {
-    fn from(value: EquityOption) -> Self {
-        crate::instruments::unified::Instrument::EquityOption(value)
-    }
-}
-
 impl From<EquityOption> for crate::instruments::Instrument {
     fn from(value: EquityOption) -> Self {
         crate::instruments::Instrument::EquityOption(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::unified::Instrument> for EquityOption {
-    type Error = finstack_core::Error;
-    
-    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::unified::Instrument::EquityOption(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
-        }
     }
 }
 
@@ -32647,11 +30829,6 @@ impl EquityOptionBuilder {
 
 
 ================================================================================
-File: finstack/valuations/src/instruments/options/fx_option
-================================================================================
-
-
-================================================================================
 File: finstack/valuations/src/instruments/options/fx_option/metrics.rs
 ================================================================================
 
@@ -32844,12 +31021,12 @@ pub mod metrics;
 
 use crate::pricing::result::ValuationResult;
 use crate::traits::{Attributes, Priceable};
+use crate::impl_attributable;
 use finstack_core::F;
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::money::Money;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
-use hashbrown::HashMap;
 
 use super::{OptionType, ExerciseStyle, SettlementType, black_scholes_common};
 
@@ -33080,35 +31257,27 @@ impl Priceable for FxOption {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<ValuationResult> {
         use crate::instruments::Instrument;
-        use crate::metrics::{MetricContext, standard_registry};
+        use crate::metrics::MetricContext;
         use std::sync::Arc;
         
         // Compute base value
         let base_value = self.value(curves, as_of)?;
         
         // Create metric context
-        let mut context = MetricContext::new(
+        let _context = MetricContext::new(
             Arc::new(Instrument::FxOption(self.clone())),
             Arc::new(curves.clone()),
             as_of,
             base_value,
         );
         
-        // Get registry and compute requested metrics
-        let registry = standard_registry();
-        let metric_measures = registry.compute(metrics, &mut context)?;
-        
-        // Convert MetricId keys to String keys for ValuationResult
-        let measures: HashMap<String, F> = metric_measures
-            .into_iter()
-            .map(|(k, v)| (k.as_str().to_string(), v))
-            .collect();
-        
-        // Create result
-        let mut result = ValuationResult::stamped(self.id.clone(), as_of, base_value);
-        result.measures = measures;
-        
-        Ok(result)
+        crate::pricing::build_with_metrics(
+            Instrument::FxOption(self.clone()),
+            curves,
+            as_of,
+            base_value,
+            metrics,
+        )
     }
     
     /// Compute full valuation with all standard option metrics
@@ -33130,27 +31299,9 @@ impl Priceable for FxOption {
 // Generate standard Attributable implementation using macro
 impl_attributable!(FxOption);
 
-// Add conversion to both Instrument enums
-impl From<FxOption> for crate::instruments::unified::Instrument {
-    fn from(value: FxOption) -> Self {
-        crate::instruments::unified::Instrument::FxOption(value)
-    }
-}
-
 impl From<FxOption> for crate::instruments::Instrument {
     fn from(value: FxOption) -> Self {
         crate::instruments::Instrument::FxOption(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::unified::Instrument> for FxOption {
-    type Error = finstack_core::Error;
-    
-    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::unified::Instrument::FxOption(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
-        }
     }
 }
 
@@ -34592,11 +32743,6 @@ mod tests {
 
 
 ================================================================================
-File: finstack/valuations/src/instruments/options/interest_rate_option
-================================================================================
-
-
-================================================================================
 File: finstack/valuations/src/instruments/options/interest_rate_option/metrics.rs
 ================================================================================
 
@@ -34761,12 +32907,12 @@ pub mod metrics;
 
 use crate::pricing::result::ValuationResult;
 use crate::traits::{Attributes, Priceable};
+use crate::impl_attributable;
 use finstack_core::F;
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::money::Money;
 
 use finstack_core::dates::{Date, DayCount, Frequency};
-use hashbrown::HashMap;
 
 use super::{ExerciseStyle, SettlementType, black_scholes_common};
 
@@ -35112,35 +33258,27 @@ impl Priceable for InterestRateOption {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<ValuationResult> {
         use crate::instruments::Instrument;
-        use crate::metrics::{MetricContext, standard_registry};
+        use crate::metrics::MetricContext;
         use std::sync::Arc;
         
         // Compute base value
         let base_value = self.value(curves, as_of)?;
         
         // Create metric context
-        let mut context = MetricContext::new(
+        let _context = MetricContext::new(
             Arc::new(Instrument::InterestRateOption(self.clone())),
             Arc::new(curves.clone()),
             as_of,
             base_value,
         );
         
-        // Get registry and compute requested metrics
-        let registry = standard_registry();
-        let metric_measures = registry.compute(metrics, &mut context)?;
-        
-        // Convert MetricId keys to String keys for ValuationResult
-        let measures: HashMap<String, F> = metric_measures
-            .into_iter()
-            .map(|(k, v)| (k.as_str().to_string(), v))
-            .collect();
-        
-        // Create result
-        let mut result = ValuationResult::stamped(self.id.clone(), as_of, base_value);
-        result.measures = measures;
-        
-        Ok(result)
+        crate::pricing::build_with_metrics(
+            Instrument::InterestRateOption(self.clone()),
+            curves,
+            as_of,
+            base_value,
+            metrics,
+        )
     }
     
     /// Compute full valuation with all standard option metrics
@@ -35162,27 +33300,9 @@ impl Priceable for InterestRateOption {
 // Generate standard Attributable implementation using macro
 impl_attributable!(InterestRateOption);
 
-// Add conversion to both Instrument enums
-impl From<InterestRateOption> for crate::instruments::unified::Instrument {
-    fn from(value: InterestRateOption) -> Self {
-        crate::instruments::unified::Instrument::InterestRateOption(value)
-    }
-}
-
 impl From<InterestRateOption> for crate::instruments::Instrument {
     fn from(value: InterestRateOption) -> Self {
         crate::instruments::Instrument::InterestRateOption(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::unified::Instrument> for InterestRateOption {
-    type Error = finstack_core::Error;
-    
-    fn try_from(value: crate::instruments::unified::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::unified::Instrument::InterestRateOption(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
-        }
     }
 }
 
@@ -35442,7 +33562,7 @@ File: finstack/valuations/src/instruments/options/swaption.rs
 //! Swaption (option on interest rate swap) implementation with SABR volatility.
 
 use finstack_core::{F, Result, Error};
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Frequency, BusinessDayConvention, StubKind};
 use finstack_core::money::Money;
 use finstack_core::market_data::traits::Discount;
 use crate::models::sabr::{SABRModel, SABRParameters};
@@ -35583,25 +33703,28 @@ impl Swaption {
     fn swap_annuity(&self, disc: &dyn Discount) -> Result<F> {
         let base_date = disc.base_date();
         let mut annuity = 0.0;
-        
-        // Generate fixed leg schedule
-        let mut current = self.swap_start;
-        while current < self.swap_end {
-            let next = self.add_period(current, self.fixed_freq)?;
-            let payment_date = next.min(self.swap_end);
-            
-            let t = self.year_fraction(base_date, payment_date, self.day_count)?;
-            let accrual = self.year_fraction(current, payment_date, self.day_count)?;
+
+        // Generate fixed leg schedule via centralized builder
+        let sched = crate::cashflow::builder::build_dates(
+            self.swap_start,
+            self.swap_end,
+            self.fixed_freq,
+            StubKind::None,
+            BusinessDayConvention::Following,
+            None,
+        );
+        let dates = sched.dates;
+        if dates.len() < 2 { return Ok(0.0); }
+
+        let mut prev = dates[0];
+        for &d in &dates[1..] {
+            let t = self.year_fraction(base_date, d, self.day_count)?;
+            let accrual = self.year_fraction(prev, d, self.day_count)?;
             let df = disc.df(t);
-            
             annuity += accrual * df;
-            current = next;
-            
-            if current >= self.swap_end {
-                break;
-            }
+            prev = d;
         }
-        
+
         Ok(annuity)
     }
     
@@ -35678,15 +33801,7 @@ impl Swaption {
         self.black_price(disc, sabr_vol)
     }
     
-    /// Helper to add period based on frequency
-    fn add_period(&self, date: Date, freq: Frequency) -> Result<Date> {
-        let months = match freq.months() {
-            Some(m) => m as i64,
-            None => return Err(Error::Internal),
-        };
-        
-        Ok(date + time::Duration::days(months * 30)) // Simplified
-    }
+    // Removed ad-hoc add_period: schedule comes from ScheduleBuilder
     
     /// Calculate year fraction
     fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<F> {
@@ -36309,11 +34424,6 @@ pub use finstack_core::prelude::*;
 
 
 ================================================================================
-File: finstack/valuations/src/metrics
-================================================================================
-
-
-================================================================================
 File: finstack/valuations/src/metrics/ids.rs
 ================================================================================
 
@@ -36339,22 +34449,7 @@ use std::str::FromStr;
 /// Provides compile-time validation, autocomplete support, and safe refactoring
 /// when metric names change. Covers bond, IRS, deposit, and risk metrics.
 /// 
-/// # Examples
-/// 
-/// ```rust
-/// use finstack_valuations::metrics::ids::MetricId;
-/// 
-/// // Standard metrics
-/// let ytm = MetricId::Ytm;
-/// let dv01 = MetricId::Dv01;
-/// 
-/// // Custom metrics
-/// let custom = MetricId::custom("my_metric");
-/// 
-/// // String conversion
-/// assert_eq!(ytm.as_str(), "ytm");
-/// assert_eq!(dv01.as_str(), "dv01");
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum MetricId {
     // Bond metrics
@@ -36443,14 +34538,7 @@ impl MetricId {
     /// # Arguments
     /// * `id` - String identifier for the custom metric
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::ids::MetricId;
-    /// 
-    /// let custom = MetricId::custom("my_metric");
-    /// assert!(matches!(custom, MetricId::Custom(_)));
-    /// assert_eq!(custom.as_str(), "my_metric");
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn custom(id: impl Into<String>) -> Self {
         MetricId::Custom(id.into())
     }
@@ -36460,14 +34548,7 @@ impl MetricId {
     /// Returns a lowercase, snake_case string that can be used for
     /// serialization, logging, or API interfaces.
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::ids::MetricId;
-    /// 
-    /// assert_eq!(MetricId::Ytm.as_str(), "ytm");
-    /// assert_eq!(MetricId::Dv01.as_str(), "dv01");
-    /// assert_eq!(MetricId::DurationMac.as_str(), "duration_mac");
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn as_str(&self) -> &str {
         match self {
             // Bond metrics
@@ -36522,17 +34603,7 @@ impl MetricId {
     /// This constant provides access to all predefined metrics for
     /// iteration, validation, or registry initialization.
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::ids::MetricId;
-    /// 
-    /// let standard_count = MetricId::ALL_STANDARD.len();
-    /// assert!(standard_count > 20); // Should have many standard metrics
-    /// 
-    /// // Check if a metric is standard
-    /// assert!(MetricId::ALL_STANDARD.contains(&MetricId::Ytm));
-    /// assert!(!MetricId::ALL_STANDARD.contains(&MetricId::custom("custom")));
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub const ALL_STANDARD: &'static [MetricId] = &[
         // Bond metrics
         MetricId::Accrued,
@@ -36592,19 +34663,7 @@ impl FromStr for MetricId {
     /// This method never fails - any unrecognized string becomes a custom metric.
     /// Standard metrics are matched case-insensitively in snake_case format.
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::ids::MetricId;
-    /// use std::str::FromStr;
-    /// 
-    /// // Standard metrics
-    /// assert_eq!(MetricId::from_str("ytm").unwrap(), MetricId::Ytm);
-    /// assert_eq!(MetricId::from_str("DV01").unwrap(), MetricId::Dv01);
-    /// 
-    /// // Custom metrics
-    /// let custom = MetricId::from_str("my_metric").unwrap();
-    /// assert!(matches!(custom, MetricId::Custom(_)));
-    /// ```
+    /// See unit tests and `examples/` for usage.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let metric_id = match s.to_lowercase().as_str() {
             // Bond metrics
@@ -36677,18 +34736,7 @@ File: finstack/valuations/src/metrics/mod.rs
 //! - **Instrument-specific**: Metrics can be registered for specific instrument types
 //! - **Standard registry**: Pre-configured registry with common financial metrics
 //! 
-//! # Quick Start
-//! 
-//! ```rust
-//! use finstack_valuations::metrics::standard_registry;
-//! 
-//! // Get a registry with all built-in metrics
-//! let registry = standard_registry();
-//! 
-//! // Check available metrics
-//! let metrics = registry.available_metrics();
-//! assert!(!metrics.is_empty());
-//! ```
+//! See unit tests and `examples/` for usage.
 //! 
 //! # Architecture
 //! 
@@ -36716,17 +34764,7 @@ pub use risk::{BucketedDv01Calculator, BucketSpec, CashflowCaching};
 /// - **Deposits**: Discount factors, par rates, year fractions
 /// - **Risk**: Bucketed DV01, time decay (theta)
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::metrics::standard_registry;
-/// 
-/// let registry = standard_registry();
-/// let bond_metrics = registry.metrics_for_instrument("Bond");
-/// 
-/// // Check that key bond metrics are available
-/// assert!(bond_metrics.contains(&finstack_valuations::metrics::MetricId::Ytm));
-/// assert!(bond_metrics.contains(&finstack_valuations::metrics::MetricId::DurationMac));
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn standard_registry() -> MetricRegistry {
     let mut registry = MetricRegistry::new();
     crate::instruments::fixed_income::bond::metrics::register_bond_metrics(&mut registry);
@@ -36800,13 +34838,7 @@ pub struct MetricRegistry {
 impl MetricRegistry {
     /// Creates a new empty registry.
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::registry::MetricRegistry;
-    /// 
-    /// let registry = MetricRegistry::new();
-    /// assert_eq!(registry.available_metrics().len(), 0);
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn new() -> Self {
         Self {
             calculators: HashMap::new(),
@@ -36836,27 +34868,7 @@ impl MetricRegistry {
     /// # Returns
     /// Mutable reference to self for method chaining
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::registry::MetricRegistry;
-    /// use finstack_valuations::metrics::ids::MetricId;
-    /// use finstack_valuations::metrics::traits::MetricCalculator;
-    /// use std::sync::Arc;
-    /// 
-    /// struct MyCalculator;
-    /// impl MetricCalculator for MyCalculator {
-    ///     fn calculate(&self, _context: &mut finstack_valuations::metrics::traits::MetricContext) -> finstack_core::Result<f64> {
-    ///         Ok(42.0)
-    ///     }
-    /// }
-    /// 
-    /// let mut registry = MetricRegistry::new();
-    /// registry.register_metric(
-    ///     MetricId::Ytm,
-    ///     Arc::new(MyCalculator),
-    ///     &["Bond"]
-    /// );
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn register_metric(
         &mut self, 
         id: MetricId,
@@ -36876,14 +34888,7 @@ impl MetricRegistry {
     /// # Returns
     /// `true` if the metric is registered, `false` otherwise
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::registry::MetricRegistry;
-    /// use finstack_valuations::metrics::ids::MetricId;
-    /// 
-    /// let registry = MetricRegistry::new();
-    /// assert!(!registry.has_metric(MetricId::Ytm));
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn has_metric(&self, id: MetricId) -> bool {
         self.calculators.contains_key(&id)
     }
@@ -36893,14 +34898,7 @@ impl MetricRegistry {
     /// # Returns
     /// Vector of all registered metric IDs
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::registry::MetricRegistry;
-    /// 
-    /// let registry = MetricRegistry::new();
-    /// let metrics = registry.available_metrics();
-    /// assert_eq!(metrics.len(), 0);
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn available_metrics(&self) -> Vec<MetricId> {
         self.calculators.keys().cloned().collect()
     }
@@ -36916,14 +34914,7 @@ impl MetricRegistry {
     /// # Returns
     /// Vector of metric IDs applicable to the instrument type
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::registry::MetricRegistry;
-    /// 
-    /// let registry = MetricRegistry::new();
-    /// let bond_metrics = registry.metrics_for_instrument("Bond");
-    /// assert_eq!(bond_metrics.len(), 0); // Empty registry
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn metrics_for_instrument(&self, instrument_type: &str) -> Vec<MetricId> {
         self.applicability
             .iter()
@@ -36947,19 +34938,7 @@ impl MetricRegistry {
     /// # Returns
     /// `true` if the metric is applicable, `false` otherwise
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::registry::MetricRegistry;
-    /// use finstack_valuations::metrics::ids::MetricId;
-    /// 
-    /// let registry = MetricRegistry::new();
-    /// // Register a bond-specific metric
-    /// // registry.register_metric(MetricId::Ytm, calculator, &["Bond"]);
-    /// 
-    /// // Check applicability
-    /// // assert!(registry.is_applicable(&MetricId::Ytm, "Bond"));
-    /// // assert!(!registry.is_applicable(&MetricId::Ytm, "IRS"));
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn is_applicable(&self, metric_id: &MetricId, instrument_type: &str) -> bool {
         if let Some(applicable) = self.applicability.get(metric_id) {
             applicable.is_empty() || applicable.contains(&instrument_type)
@@ -36987,39 +34966,7 @@ impl MetricRegistry {
     /// - A metric has unregistered dependencies
     /// - Any metric calculation fails
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::registry::MetricRegistry;
-    /// use finstack_valuations::metrics::ids::MetricId;
-    /// use finstack_valuations::metrics::traits::MetricContext;
-    /// use finstack_valuations::instruments::Instrument;
-    /// use finstack_core::dates::Date;
-    /// use finstack_core::money::Money;
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::market_data::multicurve::CurveSet;
-    /// use std::sync::Arc;
-    /// use time::Month;
-    /// 
-    /// let registry = MetricRegistry::new();
-    /// 
-    /// // Note: In practice, you would create a real instrument and curves
-    /// // let instrument = Arc::new(Instrument::Bond(real_bond));
-    /// // let curves = Arc::new(real_curves);
-    /// let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    /// let base_value = Money::new(1000.0, Currency::USD);
-    /// 
-    /// // This example shows the structure but would need real data to run
-    /// // let mut context = MetricContext::new(instrument, curves, as_of, base_value);
-    /// 
-    /// // Compute specific metrics
-    /// // let results = registry.compute(
-    /// //     &[MetricId::Ytm, MetricId::DurationMac],
-    /// //     &mut context
-    /// // ).unwrap();
-    /// 
-    /// // assert!(results.contains_key(&MetricId::Ytm));
-    /// // assert!(results.contains_key(&MetricId::DurationMac));
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn compute(
         &self,
         metric_ids: &[MetricId],
@@ -37077,35 +35024,7 @@ impl MetricRegistry {
     /// # Returns
     /// HashMap mapping all applicable metric IDs to computed values
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::registry::MetricRegistry;
-    /// use finstack_valuations::metrics::traits::MetricContext;
-    /// use finstack_valuations::instruments::Instrument;
-    /// use finstack_core::dates::Date;
-    /// use finstack_core::money::Money;
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::market_data::multicurve::CurveSet;
-    /// use std::sync::Arc;
-    /// use time::Month;
-    /// 
-    /// let registry = MetricRegistry::new();
-    /// 
-    /// // Note: In practice, you would create a real instrument and curves
-    /// // let instrument = Arc::new(Instrument::Bond(real_bond));
-    /// // let curves = Arc::new(real_curves);
-    /// let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    /// let base_value = Money::new(1000.0, Currency::USD);
-    /// 
-    /// // This example shows the structure but would need real data to run
-    /// // let mut context = MetricContext::new(instrument, curves, as_of, base_value);
-    /// 
-    /// // Compute all applicable metrics
-    /// // let all_results = registry.compute_all(&mut context).unwrap();
-    /// 
-    /// // Check that we got some results
-    /// // assert!(!all_results.is_empty());
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn compute_all(
         &self,
         context: &mut MetricContext,
@@ -37208,20 +35127,7 @@ use hashbrown::HashMap;
 /// The default specification includes standard tenor points:
 /// - 3M, 6M, 1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 15Y, 20Y, 30Y
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::metrics::risk::BucketSpec;
-/// 
-/// // Use default buckets
-/// let default_buckets = BucketSpec::default();
-/// assert_eq!(default_buckets.tenors.len(), 11);
-/// 
-/// // Custom buckets for specific analysis
-/// let custom_buckets = BucketSpec {
-///     tenors: vec![0.5, 1.0, 2.0, 5.0, 10.0],
-/// };
-/// assert_eq!(custom_buckets.tenors.len(), 5);
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug)]
 pub struct BucketSpec {
     /// Tenor points in years from curve base date.
@@ -37249,18 +35155,7 @@ impl Default for BucketSpec {
 /// 2. **Sensitivity Calculation**: DV01 is computed per bucket using small rate shifts
 /// 3. **Risk Aggregation**: Total risk is the sum of all bucket sensitivities
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::metrics::risk::{BucketedDv01Calculator, BucketSpec};
-/// 
-/// let custom_buckets = BucketSpec {
-///     tenors: vec![0.5, 1.0, 2.0, 5.0, 10.0],
-/// };
-/// let calculator = BucketedDv01Calculator::with_buckets(custom_buckets);
-/// 
-/// // Use with standard buckets
-/// let standard_calculator = BucketedDv01Calculator::default();
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Default)]
 pub struct BucketedDv01Calculator {
     /// Bucket specification to use.
@@ -37273,15 +35168,7 @@ impl BucketedDv01Calculator {
     /// # Arguments
     /// * `buckets` - Custom bucket specification for the analysis
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::risk::{BucketedDv01Calculator, BucketSpec};
-    /// 
-    /// let custom_buckets = BucketSpec {
-    ///     tenors: vec![0.5, 1.0, 2.0, 5.0, 10.0],
-    /// };
-    /// let calculator = BucketedDv01Calculator::with_buckets(custom_buckets);
-/// ```
+    /// See unit tests and `examples/` for usage.
     pub fn with_buckets(buckets: BucketSpec) -> Self {
         Self { buckets }
     }
@@ -37465,40 +35352,7 @@ impl MetricCalculator for ThetaCalculator {
 /// for risk calculations that need cashflows, discount curves, and
 /// day count conventions.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::metrics::risk::CashflowCaching;
-/// use finstack_valuations::metrics::traits::MetricContext;
-/// use finstack_core::dates::DayCount;
-/// use finstack_core::money::Money;
-/// use finstack_core::dates::Date;
-/// use finstack_valuations::instruments::Instrument;
-/// use finstack_core::currency::Currency;
-/// use finstack_core::market_data::multicurve::CurveSet;
-/// use std::sync::Arc;
-/// use time::Month;
-/// 
-/// struct MyInstrument;
-/// 
-/// impl CashflowCaching for MyInstrument {
-///     // Inherit default implementations
-/// }
-/// 
-/// // Note: In practice, you would create a real instrument and curves
-/// // let instrument = Arc::new(Instrument::Bond(real_bond));
-/// // let curves = Arc::new(real_curves);
-/// let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-/// let base_value = Money::new(1000.0, Currency::USD);
-/// 
-/// // This example shows the structure but would need real data to run
-/// // let mut context = MetricContext::new(instrument, curves, as_of, base_value);
-/// let flows = vec![(Date::from_calendar_date(2025, Month::June, 15).unwrap(), Money::new(50.0, Currency::USD))];
-/// 
-/// let instrument_helper = MyInstrument;
-/// // instrument_helper.cache_cashflows(&mut context, flows);
-/// // instrument_helper.cache_discount_curve(&mut context, "USD-OIS");
-/// // instrument_helper.cache_day_count(&mut context, DayCount::Act365F);
-/// ```
+/// See unit tests and `examples/` for usage.
 pub trait CashflowCaching {
     /// Caches cashflows in the metric context for risk calculations.
     /// 
@@ -37546,18 +35400,7 @@ pub trait CashflowCaching {
 /// # Arguments
 /// * `registry` - Metric registry to add risk metrics to
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::metrics::registry::MetricRegistry;
-/// use finstack_valuations::metrics::risk::register_risk_metrics;
-/// 
-/// let mut registry = MetricRegistry::new();
-/// register_risk_metrics(&mut registry);
-/// 
-/// // Check that risk metrics are registered
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::BucketedDv01));
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::Theta));
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn register_risk_metrics(registry: &mut super::MetricRegistry) {
     use std::sync::Arc;
     use super::MetricId;
@@ -37729,11 +35572,6 @@ impl MetricContext {
 
 
 
-
-
-================================================================================
-File: finstack/valuations/src/models
-================================================================================
 
 
 ================================================================================
@@ -38453,11 +36291,6 @@ mod tests {
 
 
 ================================================================================
-File: finstack/valuations/src/performance
-================================================================================
-
-
-================================================================================
 File: finstack/valuations/src/performance/mod.rs
 ================================================================================
 
@@ -38506,21 +36339,7 @@ use finstack_core::F;
 /// - No sign change in cash flows (all positive or all negative)
 /// - Cannot converge to a solution within tolerance
 ///
-/// # Example
-/// ```rust
-/// use finstack_valuations::performance::xirr;
-/// use finstack_core::dates::Date;
-/// use time::Month;
-///
-/// let flows = vec![
-///     (Date::from_calendar_date(2024, Month::January, 1).unwrap(), -100_000.0),
-///     (Date::from_calendar_date(2024, Month::July, 1).unwrap(), 5_000.0),
-///     (Date::from_calendar_date(2025, Month::January, 1).unwrap(), 110_000.0),
-/// ];
-///
-/// let irr = xirr(&flows, None).unwrap();
-/// // irr should be approximately 0.15 (15%)
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn xirr(
     cash_flows: &[(Date, F)],
     guess: Option<F>,
@@ -38695,11 +36514,6 @@ mod tests {
     }
 }
 
-
-
-================================================================================
-File: finstack/valuations/src/policy
-================================================================================
 
 
 ================================================================================
@@ -39315,32 +37129,7 @@ impl FunctionRegistry {
     /// * `name` - Unique identifier for the toggle
     /// * `func` - Toggle function implementation
     ///
-    /// # Example
-    /// ```rust,ignore
-    /// use finstack_valuations::policy::registry::{FunctionRegistry, FunctionParam};
-    /// use finstack_valuations::impl_function_param;
-    /// use std::sync::Arc;
-    /// use std::any::Any;
-    /// 
-    /// let mut registry = FunctionRegistry::new();
-    /// 
-    /// #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    /// struct ThresholdParams {
-    ///     value: f64,
-    ///     threshold: f64,
-    /// }
-    /// 
-    /// impl_function_param!(ThresholdParams);
-    /// 
-    /// registry.register_toggle(
-    ///     "above_threshold",
-    ///     Arc::new(|params| {
-    ///         let p = params.as_any().downcast_ref::<ThresholdParams>()
-    ///             .ok_or(finstack_core::error::InputError::Invalid)?;
-    ///         Ok(p.value > p.threshold)
-    ///     })
-    /// );
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn register_toggle(&mut self, name: impl Into<String>, func: ToggleFn) {
         self.toggles.insert(name.into(), func);
     }
@@ -39418,31 +37207,7 @@ pub static FN_REGISTRY: Lazy<RwLock<FunctionRegistry>> = Lazy::new(|| {
 
 /// Register a toggle function in the global registry.
 ///
-/// # Example
-/// ```rust,ignore
-/// use finstack_valuations::policy::registry::{register_toggle, FunctionParam};
-/// use finstack_valuations::impl_function_param;
-/// use std::sync::Arc;
-/// use std::any::Any;
-/// 
-/// #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-/// struct DateRangeParams {
-///     date: finstack_core::dates::Date,
-///     start: finstack_core::dates::Date,
-///     end: finstack_core::dates::Date,
-/// }
-/// 
-/// impl_function_param!(DateRangeParams);
-/// 
-/// register_toggle(
-///     "in_date_range",
-///     Arc::new(|params| {
-///         let p = params.as_any().downcast_ref::<DateRangeParams>()
-///             .ok_or(finstack_core::error::InputError::Invalid)?;
-///         Ok(p.date >= p.start && p.date <= p.end)
-///     })
-/// );
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn register_toggle(name: impl Into<String>, func: ToggleFn) {
     FN_REGISTRY.write().unwrap().register_toggle(name, func);
 }
@@ -39584,11 +37349,6 @@ mod tests {
 
 
 ================================================================================
-File: finstack/valuations/src/pricing
-================================================================================
-
-
-================================================================================
 File: finstack/valuations/src/pricing/discountable.rs
 ================================================================================
 
@@ -39633,34 +37393,7 @@ impl Discountable for crate::cashflow::builder::CashFlowSchedule {
     /// Extracts date-amount pairs from the schedule and computes
     /// present value using the provided discount curve.
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::cashflow::builder::CashFlowSchedule;
-    /// use finstack_valuations::pricing::discountable::Discountable;
-    /// use finstack_core::market_data::traits::Discount;
-    /// use finstack_core::dates::DayCount;
-    /// use finstack_core::market_data::id::CurveId;
-    /// use finstack_core::market_data::traits::TermStructure;
-    /// use finstack_core::dates::Date;
-    /// use time::Month;
-    /// 
-    /// struct FlatCurve { id: CurveId }
-    /// impl TermStructure for FlatCurve { 
-    ///     fn id(&self) -> &CurveId { &self.id } 
-    /// }
-    /// impl Discount for FlatCurve {
-    ///     fn base_date(&self) -> Date { 
-    ///         Date::from_calendar_date(2025, Month::January, 1).unwrap() 
-    ///     }
-    ///     fn df(&self, _t: f64) -> f64 { 1.0 }
-    /// }
-    /// 
-    /// // Note: These would be created from actual data
-    /// // let schedule: CashFlowSchedule = todo!();
-    /// // let curve: &dyn Discount = &FlatCurve { id: CurveId::new("USD-OIS") };
-    /// // let base = curve.base_date();
-    /// // let pv = schedule.npv(curve, base, DayCount::Act365F)?;
-    /// ```
+    /// See unit tests and `examples/` for usage.
     fn npv(&self, disc: &dyn Discount, base: Date, dc: DayCount) -> finstack_core::Result<Money> {
         let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
         super::npv::npv(disc, base, dc, &flows)
@@ -39709,6 +37442,44 @@ pub mod result;
 pub mod npv;
 pub mod discountable;
 
+/// Shared helper to build a ValuationResult with a set of metrics.
+///
+/// This centralizes the repeated pattern across instruments to compute
+/// base value, build metric context, compute metrics and stamp a result.
+pub fn build_with_metrics(
+    instrument: crate::instruments::Instrument,
+    curves: &finstack_core::market_data::multicurve::CurveSet,
+    as_of: finstack_core::dates::Date,
+    base_value: finstack_core::money::Money,
+    metrics: &[crate::metrics::MetricId],
+) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
+    use crate::metrics::{MetricContext, standard_registry};
+    use std::sync::Arc;
+
+    let mut context = MetricContext::new(
+        Arc::new(instrument),
+        Arc::new(curves.clone()),
+        as_of,
+        base_value,
+    );
+
+    let registry = standard_registry();
+    let metric_measures = registry.compute(metrics, &mut context)?;
+
+    let measures: hashbrown::HashMap<String, finstack_core::F> = metric_measures
+        .into_iter()
+        .map(|(k, v)| (k.as_str().to_string(), v))
+        .collect();
+
+    let mut result = crate::pricing::result::ValuationResult::stamped(
+        context.instrument.id().to_string(),
+        as_of,
+        base_value,
+    );
+    result.measures = measures;
+    Ok(result)
+}
+
 
 
 
@@ -39731,39 +37502,7 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 /// # Errors
 /// Returns an error if the flows list is empty.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::pricing::npv::npv;
-/// use finstack_core::currency::Currency;
-/// use finstack_core::money::Money;
-/// use finstack_core::dates::Date;
-/// use finstack_core::dates::DayCount;
-/// use finstack_core::market_data::traits::Discount;
-/// use finstack_core::market_data::id::CurveId;
-/// use finstack_core::market_data::traits::TermStructure;
-/// use time::Month;
-/// 
-/// struct FlatCurve { id: CurveId }
-/// impl TermStructure for FlatCurve { 
-///     fn id(&self) -> &CurveId { &self.id } 
-/// }
-/// impl Discount for FlatCurve {
-///     fn base_date(&self) -> Date { 
-///         Date::from_calendar_date(2025, Month::January, 1).unwrap() 
-///     }
-///     fn df(&self, _t: f64) -> f64 { 1.0 } // No discount for simplicity
-/// }
-/// 
-/// let curve = FlatCurve { id: CurveId::new("USD-OIS") };
-/// let base = curve.base_date();
-/// let flows = vec![
-///     (Date::from_calendar_date(2025, Month::June, 15).unwrap(), Money::new(50_000.0, Currency::USD)),
-///     (Date::from_calendar_date(2025, Month::December, 15).unwrap(), Money::new(1_050_000.0, Currency::USD)),
-/// ];
-/// let pv = npv(&curve, base, DayCount::Act365F, &flows)?;
-/// assert!((pv.amount() - 1_100_000.0).abs() < 1e-6);
-/// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn npv(
     disc: &dyn Discount,
     base: Date,
@@ -39979,20 +37718,7 @@ pub struct ValuationResult {
 impl ValuationResult {
     /// Create a basic valuation result with just NPV.
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::pricing::result::ValuationResult;
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::money::Money;
-    /// use finstack_core::dates::Date;
-    /// use time::Month;
-    /// 
-    /// let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    /// let value = Money::new(1_000_000.0, Currency::USD);
-    /// let result = ValuationResult::stamped("BOND001", as_of, value);
-    /// assert_eq!(result.instrument_id, "BOND001");
-    /// assert_eq!(result.value, value);
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn stamped<S: Into<String>>(instrument_id: S, as_of: Date, value: Money) -> Self {
         Self {
             instrument_id: instrument_id.into(),
@@ -40005,25 +37731,7 @@ impl ValuationResult {
     }
     
     /// Add measures to the result.
-    ///
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::pricing::result::ValuationResult;
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::money::Money;
-    /// use finstack_core::dates::Date;
-    /// use hashbrown::HashMap;
-    /// use time::Month;
-    ///
-    /// let mut measures = HashMap::new();
-    /// measures.insert("ytm".to_string(), 0.05);
-    /// 
-    /// let result = ValuationResult::stamped(
-    ///     "BOND-123",
-    ///     Date::from_calendar_date(2025, Month::January, 1).unwrap(),
-    ///     Money::new(100_000.0, Currency::USD)
-    /// ).with_measures(measures);
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn with_measures(mut self, measures: HashMap<String, F>) -> Self {
         self.measures = measures;
         self
@@ -40110,21 +37818,7 @@ pub trait CashflowProvider: Send + Sync {
 
     /// Convenience: present value the built schedule against a discount curve and day-count.
     /// 
-    /// # Example
-    /// ```rust
-    /// # use finstack_valuations::traits::CashflowProvider;
-    /// # use finstack_core::market_data::multicurve::CurveSet;
-    /// # use finstack_core::dates::Date;
-    /// # use finstack_core::market_data::traits::Discount;
-    /// # use finstack_core::dates::DayCount;
-    /// # // Note: These would be created from actual data
-    /// # // let provider: &dyn CashflowProvider = todo!();
-    /// # // let curves: &CurveSet = todo!();
-    /// # let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-    /// # // let disc: &dyn Discount = todo!();
-    /// # let dc = DayCount::Act365F;
-    /// # // let npv = provider.npv_with(curves, as_of, disc, dc)?;
-    /// ```
+    /// See unit tests and `examples/` for usage.
     #[inline]
     fn npv_with(
         &self,
@@ -40161,19 +37855,7 @@ pub trait Priceable: Send + Sync {
     
     /// Compute value with specific metrics.
     /// 
-    /// # Example
-    /// ```rust
-    /// # use finstack_valuations::traits::Priceable;
-    /// # use finstack_core::market_data::multicurve::CurveSet;
-    /// # use finstack_core::dates::Date;
-    /// # use finstack_valuations::metrics::MetricId;
-    /// # // Note: These would be created from actual data
-    /// # // let instrument: &dyn Priceable = todo!();
-    /// # // let curves: &CurveSet = todo!();
-    /// # let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-    /// # let metrics = [MetricId::Ytm, MetricId::DurationMac];
-    /// # // let result = instrument.price_with_metrics(curves, as_of, &metrics)?;
-    /// ```
+    /// See unit tests and `examples/` for usage.
     fn price_with_metrics(
         &self, 
         curves: &CurveSet, 
@@ -40397,11 +38079,6 @@ pub trait RiskMeasurable: Send + Sync {
         None
     }
 }
-
-
-================================================================================
-File: finstack/valuations/src/workout
-================================================================================
 
 
 ================================================================================
@@ -40911,11 +38588,6 @@ pub use engine::{
     ClaimAmount,
 };
 
-
-
-================================================================================
-File: finstack/valuations/tests
-================================================================================
 
 
 ================================================================================

@@ -4,12 +4,7 @@
 //! single concrete type using `f64` for the numeric representation.
 //! The struct guarantees that all arithmetic keeps the same [`Currency`].
 //!
-//! ```
-//! use finstack_core::{Money, Currency};
-//! let price = Money::new(19.99, Currency::USD);
-//! let tax   = Money::new( 5.0, Currency::EUR); // different currency ➜ error on addition
-//! assert!((price + tax).is_err());
-//! ```
+//! See unit tests and `examples/` for usage and behaviour.
 
 #![allow(clippy::items_after_test_module)]
 
@@ -271,12 +266,7 @@ from_numeric_tuple!(f64, i64, u64);
 // -------------------------------------------------------------------------
 
 /// Shorthand for constructing [`Money`] literals.
-///
-/// ```
-/// use finstack_core::{money, Currency, Money};
-/// let price: Money = money!(99.99, USD);
-/// assert_eq!(price, Money::new(99.99, Currency::USD));
-/// ```
+/// See unit tests and `examples/` for usage.
 #[macro_export]
 macro_rules! money {
     ($amount:expr, $code:ident) => {

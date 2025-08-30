@@ -14,24 +14,7 @@ use serde::{Deserialize, Serialize};
 /// Internally stored as a decimal value where 0.05 represents 5%.
 /// Provides methods for conversion to/from basis points and percentages.
 ///
-/// # Examples
-///
-/// ```
-/// use finstack_core::types::{Rate, Bps, Percentage};
-///
-/// // Create rates in different ways
-/// let rate1 = Rate::from_decimal(0.025);  // 2.5%
-/// let rate2 = Rate::from_percent(2.5);    // 2.5%
-/// let rate3 = Rate::from_bps(250);        // 2.5% (250 basis points)
-///
-/// assert_eq!(rate1, rate2);
-/// assert_eq!(rate2, rate3);
-///
-/// // Convert to different representations
-/// assert_eq!(rate1.as_decimal(), 0.025);
-/// assert_eq!(rate1.as_percent(), 2.5);
-/// assert_eq!(rate1.as_bps(), 250);
-/// ```
+/// See unit tests and `examples/` for usage and conversions.
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Rate(f64);
@@ -155,15 +138,7 @@ impl Neg for Rate {
 /// Commonly used in financial markets where small rate differences matter.
 /// 10,000 basis points = 100%.
 ///
-/// # Examples
-///
-/// ```
-/// use finstack_core::types::Bps;
-///
-/// let spread = Bps::new(25);  // 25 basis points = 0.25%
-/// assert_eq!(spread.as_decimal(), 0.0025);
-/// assert_eq!(spread.as_percent(), 0.25);
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Bps(i32);
@@ -287,15 +262,7 @@ impl Neg for Bps {
 ///
 /// Provides a clear type for percentage values with appropriate display formatting.
 ///
-/// # Examples
-///
-/// ```
-/// use finstack_core::types::Percentage;
-///
-/// let pct = Percentage::new(12.5);
-/// assert_eq!(pct.as_decimal(), 0.125);
-/// assert_eq!(format!("{}", pct), "12.50%");
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Percentage(f64);

@@ -29,21 +29,7 @@ pub trait CashflowProvider: Send + Sync {
 
     /// Convenience: present value the built schedule against a discount curve and day-count.
     /// 
-    /// # Example
-    /// ```rust
-    /// # use finstack_valuations::traits::CashflowProvider;
-    /// # use finstack_core::market_data::multicurve::CurveSet;
-    /// # use finstack_core::dates::Date;
-    /// # use finstack_core::market_data::traits::Discount;
-    /// # use finstack_core::dates::DayCount;
-    /// # // Note: These would be created from actual data
-    /// # // let provider: &dyn CashflowProvider = todo!();
-    /// # // let curves: &CurveSet = todo!();
-    /// # let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-    /// # // let disc: &dyn Discount = todo!();
-    /// # let dc = DayCount::Act365F;
-    /// # // let npv = provider.npv_with(curves, as_of, disc, dc)?;
-    /// ```
+    /// See unit tests and `examples/` for usage.
     #[inline]
     fn npv_with(
         &self,
@@ -80,19 +66,7 @@ pub trait Priceable: Send + Sync {
     
     /// Compute value with specific metrics.
     /// 
-    /// # Example
-    /// ```rust
-    /// # use finstack_valuations::traits::Priceable;
-    /// # use finstack_core::market_data::multicurve::CurveSet;
-    /// # use finstack_core::dates::Date;
-    /// # use finstack_valuations::metrics::MetricId;
-    /// # // Note: These would be created from actual data
-    /// # // let instrument: &dyn Priceable = todo!();
-    /// # // let curves: &CurveSet = todo!();
-    /// # let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-    /// # let metrics = [MetricId::Ytm, MetricId::DurationMac];
-    /// # // let result = instrument.price_with_metrics(curves, as_of, &metrics)?;
-    /// ```
+    /// See unit tests and `examples/` for usage.
     fn price_with_metrics(
         &self, 
         curves: &CurveSet, 

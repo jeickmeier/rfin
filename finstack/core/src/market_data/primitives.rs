@@ -64,9 +64,8 @@ impl ScalarTimeSeries {
 
         let mut dates: Vec<i32> = Vec::with_capacity(observations.len());
         let mut values: Vec<crate::F> = Vec::with_capacity(observations.len());
-        let epoch = time::Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
         for (d, v) in observations {
-            let days = (d - epoch).whole_days() as i32;
+            let days = crate::dates::utils::date_to_days_since_epoch(d);
             dates.push(days);
             values.push(v);
         }

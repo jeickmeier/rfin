@@ -1,6 +1,6 @@
 //! Python bindings for schedule generation
 
-use finstack_core::dates::{schedule, Frequency, StubKind};
+use finstack_core::dates::{ScheduleBuilder, Frequency, StubKind};
 use pyo3::prelude::*;
 
 use super::calendar::{PyBusDayConv, PyCalendar};
@@ -195,10 +195,19 @@ pub fn py_generate_schedule(
     calendar: Option<&PyCalendar>,
     stub: Option<PyStubRule>,
 ) -> PyResult<Vec<PyDate>> {
-    // NOTE: Stub handling & business-day adjustment to be re-exposed in follow-up PR.
-    let _ = (convention, calendar, stub);
-    // Generate iterator
-    let iter = schedule(start.inner(), end.inner(), frequency.into());
-    let result = iter.map(PyDate::from_core).collect::<Vec<_>>();
+    // NOTE: Business-day adjustment and explicit calendar support remain reserved
+    // for a follow-up PR. We now route through the core ScheduleBuilder and honor
+    // the optional stub rule when provided.
+    let mut builder = ScheduleBuilder::new(start.inner(), end.inner())
+        .frequency(frequency.into());
+    if let Some(s) = stub { builder = builder.stub_rule(s.into()); }
+
+    // Ignore convention/calendar for now to preserve existing API behavior
+    let _ = (convention, calendar);
+
+    let result = builder
+        .build_raw()
+        .map(PyDate::from_core)
+        .collect::<Vec<_>>();
     Ok(result)
 }

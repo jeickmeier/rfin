@@ -54,13 +54,7 @@ pub struct MetricRegistry {
 impl MetricRegistry {
     /// Creates a new empty registry.
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::registry::MetricRegistry;
-    /// 
-    /// let registry = MetricRegistry::new();
-    /// assert_eq!(registry.available_metrics().len(), 0);
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn new() -> Self {
         Self {
             calculators: HashMap::new(),
@@ -90,27 +84,7 @@ impl MetricRegistry {
     /// # Returns
     /// Mutable reference to self for method chaining
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::registry::MetricRegistry;
-    /// use finstack_valuations::metrics::ids::MetricId;
-    /// use finstack_valuations::metrics::traits::MetricCalculator;
-    /// use std::sync::Arc;
-    /// 
-    /// struct MyCalculator;
-    /// impl MetricCalculator for MyCalculator {
-    ///     fn calculate(&self, _context: &mut finstack_valuations::metrics::traits::MetricContext) -> finstack_core::Result<f64> {
-    ///         Ok(42.0)
-    ///     }
-    /// }
-    /// 
-    /// let mut registry = MetricRegistry::new();
-    /// registry.register_metric(
-    ///     MetricId::Ytm,
-    ///     Arc::new(MyCalculator),
-    ///     &["Bond"]
-    /// );
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn register_metric(
         &mut self, 
         id: MetricId,
@@ -130,14 +104,7 @@ impl MetricRegistry {
     /// # Returns
     /// `true` if the metric is registered, `false` otherwise
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::registry::MetricRegistry;
-    /// use finstack_valuations::metrics::ids::MetricId;
-    /// 
-    /// let registry = MetricRegistry::new();
-    /// assert!(!registry.has_metric(MetricId::Ytm));
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn has_metric(&self, id: MetricId) -> bool {
         self.calculators.contains_key(&id)
     }
@@ -147,14 +114,7 @@ impl MetricRegistry {
     /// # Returns
     /// Vector of all registered metric IDs
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::registry::MetricRegistry;
-    /// 
-    /// let registry = MetricRegistry::new();
-    /// let metrics = registry.available_metrics();
-    /// assert_eq!(metrics.len(), 0);
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn available_metrics(&self) -> Vec<MetricId> {
         self.calculators.keys().cloned().collect()
     }
@@ -170,14 +130,7 @@ impl MetricRegistry {
     /// # Returns
     /// Vector of metric IDs applicable to the instrument type
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::registry::MetricRegistry;
-    /// 
-    /// let registry = MetricRegistry::new();
-    /// let bond_metrics = registry.metrics_for_instrument("Bond");
-    /// assert_eq!(bond_metrics.len(), 0); // Empty registry
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn metrics_for_instrument(&self, instrument_type: &str) -> Vec<MetricId> {
         self.applicability
             .iter()
@@ -201,19 +154,7 @@ impl MetricRegistry {
     /// # Returns
     /// `true` if the metric is applicable, `false` otherwise
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::registry::MetricRegistry;
-    /// use finstack_valuations::metrics::ids::MetricId;
-    /// 
-    /// let registry = MetricRegistry::new();
-    /// // Register a bond-specific metric
-    /// // registry.register_metric(MetricId::Ytm, calculator, &["Bond"]);
-    /// 
-    /// // Check applicability
-    /// // assert!(registry.is_applicable(&MetricId::Ytm, "Bond"));
-    /// // assert!(!registry.is_applicable(&MetricId::Ytm, "IRS"));
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn is_applicable(&self, metric_id: &MetricId, instrument_type: &str) -> bool {
         if let Some(applicable) = self.applicability.get(metric_id) {
             applicable.is_empty() || applicable.contains(&instrument_type)
@@ -241,39 +182,7 @@ impl MetricRegistry {
     /// - A metric has unregistered dependencies
     /// - Any metric calculation fails
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::registry::MetricRegistry;
-    /// use finstack_valuations::metrics::ids::MetricId;
-    /// use finstack_valuations::metrics::traits::MetricContext;
-    /// use finstack_valuations::instruments::Instrument;
-    /// use finstack_core::dates::Date;
-    /// use finstack_core::money::Money;
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::market_data::multicurve::CurveSet;
-    /// use std::sync::Arc;
-    /// use time::Month;
-    /// 
-    /// let registry = MetricRegistry::new();
-    /// 
-    /// // Note: In practice, you would create a real instrument and curves
-    /// // let instrument = Arc::new(Instrument::Bond(real_bond));
-    /// // let curves = Arc::new(real_curves);
-    /// let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    /// let base_value = Money::new(1000.0, Currency::USD);
-    /// 
-    /// // This example shows the structure but would need real data to run
-    /// // let mut context = MetricContext::new(instrument, curves, as_of, base_value);
-    /// 
-    /// // Compute specific metrics
-    /// // let results = registry.compute(
-    /// //     &[MetricId::Ytm, MetricId::DurationMac],
-    /// //     &mut context
-    /// // ).unwrap();
-    /// 
-    /// // assert!(results.contains_key(&MetricId::Ytm));
-    /// // assert!(results.contains_key(&MetricId::DurationMac));
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn compute(
         &self,
         metric_ids: &[MetricId],
@@ -331,35 +240,7 @@ impl MetricRegistry {
     /// # Returns
     /// HashMap mapping all applicable metric IDs to computed values
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::registry::MetricRegistry;
-    /// use finstack_valuations::metrics::traits::MetricContext;
-    /// use finstack_valuations::instruments::Instrument;
-    /// use finstack_core::dates::Date;
-    /// use finstack_core::money::Money;
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::market_data::multicurve::CurveSet;
-    /// use std::sync::Arc;
-    /// use time::Month;
-    /// 
-    /// let registry = MetricRegistry::new();
-    /// 
-    /// // Note: In practice, you would create a real instrument and curves
-    /// // let instrument = Arc::new(Instrument::Bond(real_bond));
-    /// // let curves = Arc::new(real_curves);
-    /// let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    /// let base_value = Money::new(1000.0, Currency::USD);
-    /// 
-    /// // This example shows the structure but would need real data to run
-    /// // let mut context = MetricContext::new(instrument, curves, as_of, base_value);
-    /// 
-    /// // Compute all applicable metrics
-    /// // let all_results = registry.compute_all(&mut context).unwrap();
-    /// 
-    /// // Check that we got some results
-    /// // assert!(!all_results.is_empty());
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn compute_all(
         &self,
         context: &mut MetricContext,

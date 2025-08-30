@@ -15,24 +15,7 @@ use hashbrown::HashMap;
 /// The value represents how many units of the quote currency
 /// are needed to buy one unit of the base currency.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fx_spot::FxSpot;
-/// use finstack_core::currency::Currency;
-/// use time::Month;
-/// use finstack_core::dates::Date;
-/// 
-/// let fx = FxSpot {
-///     id: "EURUSD".to_string(),
-///     base: Currency::EUR,
-///     quote: Currency::USD,
-///     settlement: Some(Date::from_calendar_date(2025, Month::January, 3).unwrap()),
-///     spot_rate: Some(1.08),
-///     notional: None,
-///     attributes: Default::default(),
-/// };
-/// // This means 1 EUR = 1.08 USD
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug)]
 pub struct FxSpot {
     /// Unique identifier for the FX pair

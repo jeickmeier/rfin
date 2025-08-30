@@ -108,32 +108,7 @@ impl FunctionRegistry {
     /// * `name` - Unique identifier for the toggle
     /// * `func` - Toggle function implementation
     ///
-    /// # Example
-    /// ```rust,ignore
-    /// use finstack_valuations::policy::registry::{FunctionRegistry, FunctionParam};
-    /// use finstack_valuations::impl_function_param;
-    /// use std::sync::Arc;
-    /// use std::any::Any;
-    /// 
-    /// let mut registry = FunctionRegistry::new();
-    /// 
-    /// #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-    /// struct ThresholdParams {
-    ///     value: f64,
-    ///     threshold: f64,
-    /// }
-    /// 
-    /// impl_function_param!(ThresholdParams);
-    /// 
-    /// registry.register_toggle(
-    ///     "above_threshold",
-    ///     Arc::new(|params| {
-    ///         let p = params.as_any().downcast_ref::<ThresholdParams>()
-    ///             .ok_or(finstack_core::error::InputError::Invalid)?;
-    ///         Ok(p.value > p.threshold)
-    ///     })
-    /// );
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn register_toggle(&mut self, name: impl Into<String>, func: ToggleFn) {
         self.toggles.insert(name.into(), func);
     }
@@ -211,31 +186,7 @@ pub static FN_REGISTRY: Lazy<RwLock<FunctionRegistry>> = Lazy::new(|| {
 
 /// Register a toggle function in the global registry.
 ///
-/// # Example
-/// ```rust,ignore
-/// use finstack_valuations::policy::registry::{register_toggle, FunctionParam};
-/// use finstack_valuations::impl_function_param;
-/// use std::sync::Arc;
-/// use std::any::Any;
-/// 
-/// #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-/// struct DateRangeParams {
-///     date: finstack_core::dates::Date,
-///     start: finstack_core::dates::Date,
-///     end: finstack_core::dates::Date,
-/// }
-/// 
-/// impl_function_param!(DateRangeParams);
-/// 
-/// register_toggle(
-///     "in_date_range",
-///     Arc::new(|params| {
-///         let p = params.as_any().downcast_ref::<DateRangeParams>()
-///             .ok_or(finstack_core::error::InputError::Invalid)?;
-///         Ok(p.date >= p.start && p.date <= p.end)
-///     })
-/// );
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn register_toggle(name: impl Into<String>, func: ToggleFn) {
     FN_REGISTRY.write().unwrap().register_toggle(name, func);
 }

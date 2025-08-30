@@ -14,31 +14,7 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 /// Computes the time period between start and end dates using the deposit's
 /// day count convention. This is fundamental for all other deposit calculations.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::deposit::metrics::YearFractionCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// use finstack_valuations::instruments::fixed_income::deposit::Deposit;
-/// use finstack_valuations::instruments::Instrument;
-/// use finstack_core::dates::{Date, DayCount};
-/// use finstack_core::money::Money;
-/// use finstack_core::currency::Currency;
-/// use time::Month;
-/// 
-/// let deposit = Deposit {
-///     id: "DEP001".to_string(),
-///     notional: Money::new(1000.0, Currency::USD),
-///     start: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
-///     end: Date::from_calendar_date(2025, Month::July, 1).unwrap(),
-///     day_count: DayCount::Act365F,
-///     disc_id: "USD-OIS",
-///     quote_rate: Some(0.05),
-///     attributes: Default::default(),
-/// };
-/// 
-/// let calculator = YearFractionCalculator;
-/// // Note: Would need proper context to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct YearFractionCalculator;
 
 impl MetricCalculator for YearFractionCalculator {
@@ -57,14 +33,7 @@ impl MetricCalculator for YearFractionCalculator {
 /// Computes the present value of $1 received at the deposit start date,
 /// using the deposit's discount curve and day count convention.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::deposit::metrics::DfStartCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = DfStartCalculator;
-/// // Note: Would need proper context with curves to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct DfStartCalculator;
 
 impl MetricCalculator for DfStartCalculator {
@@ -86,14 +55,7 @@ impl MetricCalculator for DfStartCalculator {
 /// Computes the present value of $1 received at the deposit end date,
 /// using the deposit's discount curve and day count convention.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::deposit::metrics::DfEndCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = DfEndCalculator;
-/// // Note: Would need proper context with curves to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct DfEndCalculator;
 
 impl MetricCalculator for DfEndCalculator {
@@ -118,14 +80,7 @@ impl MetricCalculator for DfEndCalculator {
 /// # Dependencies
 /// Requires `DfStart`, `DfEnd`, and `Yf` metrics to be computed first.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::deposit::metrics::DepositParRateCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = DepositParRateCalculator;
-/// // Note: Would need proper context with computed dependencies to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct DepositParRateCalculator;
 
 impl MetricCalculator for DepositParRateCalculator {
@@ -157,14 +112,7 @@ impl MetricCalculator for DepositParRateCalculator {
 /// # Dependencies
 /// Requires `DfStart` and `Yf` metrics to be computed first.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::deposit::metrics::DfEndFromQuoteCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = DfEndFromQuoteCalculator;
-/// // Note: Would need proper context with computed dependencies to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct DfEndFromQuoteCalculator;
 
 impl MetricCalculator for DfEndFromQuoteCalculator {
@@ -195,14 +143,7 @@ impl MetricCalculator for DfEndFromQuoteCalculator {
 /// Returns the quoted rate from the deposit instrument. This is a simple
 /// pass-through metric that extracts the rate from the instrument data.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::deposit::metrics::QuoteRateCalculator;
-/// use finstack_valuations::metrics::traits::MetricCalculator;
-/// 
-/// let calculator = QuoteRateCalculator;
-/// // Note: Would need proper context with deposit data to test calculation
-/// ```
+/// See unit tests and `examples/` for usage.
 pub struct QuoteRateCalculator;
 
 impl MetricCalculator for QuoteRateCalculator {
@@ -226,19 +167,7 @@ impl MetricCalculator for QuoteRateCalculator {
 /// # Arguments
 /// * `registry` - Metric registry to add deposit metrics to
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::metrics::registry::MetricRegistry;
-/// use finstack_valuations::instruments::fixed_income::deposit::metrics::register_deposit_metrics;
-/// 
-/// let mut registry = MetricRegistry::new();
-/// register_deposit_metrics(&mut registry);
-/// 
-/// // Check that deposit metrics are registered
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::Yf));
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::DfStart));
-/// assert!(registry.has_metric(finstack_valuations::metrics::MetricId::DfEnd));
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn register_deposit_metrics(registry: &mut crate::metrics::MetricRegistry) {
     use std::sync::Arc;
     use crate::metrics::MetricId;

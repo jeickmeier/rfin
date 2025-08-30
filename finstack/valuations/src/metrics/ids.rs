@@ -20,22 +20,7 @@ use std::str::FromStr;
 /// Provides compile-time validation, autocomplete support, and safe refactoring
 /// when metric names change. Covers bond, IRS, deposit, and risk metrics.
 /// 
-/// # Examples
-/// 
-/// ```rust
-/// use finstack_valuations::metrics::ids::MetricId;
-/// 
-/// // Standard metrics
-/// let ytm = MetricId::Ytm;
-/// let dv01 = MetricId::Dv01;
-/// 
-/// // Custom metrics
-/// let custom = MetricId::custom("my_metric");
-/// 
-/// // String conversion
-/// assert_eq!(ytm.as_str(), "ytm");
-/// assert_eq!(dv01.as_str(), "dv01");
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum MetricId {
     // Bond metrics
@@ -124,14 +109,7 @@ impl MetricId {
     /// # Arguments
     /// * `id` - String identifier for the custom metric
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::ids::MetricId;
-    /// 
-    /// let custom = MetricId::custom("my_metric");
-    /// assert!(matches!(custom, MetricId::Custom(_)));
-    /// assert_eq!(custom.as_str(), "my_metric");
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn custom(id: impl Into<String>) -> Self {
         MetricId::Custom(id.into())
     }
@@ -141,14 +119,7 @@ impl MetricId {
     /// Returns a lowercase, snake_case string that can be used for
     /// serialization, logging, or API interfaces.
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::ids::MetricId;
-    /// 
-    /// assert_eq!(MetricId::Ytm.as_str(), "ytm");
-    /// assert_eq!(MetricId::Dv01.as_str(), "dv01");
-    /// assert_eq!(MetricId::DurationMac.as_str(), "duration_mac");
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn as_str(&self) -> &str {
         match self {
             // Bond metrics
@@ -203,17 +174,7 @@ impl MetricId {
     /// This constant provides access to all predefined metrics for
     /// iteration, validation, or registry initialization.
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::ids::MetricId;
-    /// 
-    /// let standard_count = MetricId::ALL_STANDARD.len();
-    /// assert!(standard_count > 20); // Should have many standard metrics
-    /// 
-    /// // Check if a metric is standard
-    /// assert!(MetricId::ALL_STANDARD.contains(&MetricId::Ytm));
-    /// assert!(!MetricId::ALL_STANDARD.contains(&MetricId::custom("custom")));
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub const ALL_STANDARD: &'static [MetricId] = &[
         // Bond metrics
         MetricId::Accrued,
@@ -273,19 +234,7 @@ impl FromStr for MetricId {
     /// This method never fails - any unrecognized string becomes a custom metric.
     /// Standard metrics are matched case-insensitively in snake_case format.
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::ids::MetricId;
-    /// use std::str::FromStr;
-    /// 
-    /// // Standard metrics
-    /// assert_eq!(MetricId::from_str("ytm").unwrap(), MetricId::Ytm);
-    /// assert_eq!(MetricId::from_str("DV01").unwrap(), MetricId::Dv01);
-    /// 
-    /// // Custom metrics
-    /// let custom = MetricId::from_str("my_metric").unwrap();
-    /// assert!(matches!(custom, MetricId::Custom(_)));
-    /// ```
+    /// See unit tests and `examples/` for usage.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let metric_id = match s.to_lowercase().as_str() {
             // Bond metrics

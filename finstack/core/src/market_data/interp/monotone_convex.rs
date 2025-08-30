@@ -14,14 +14,7 @@ use std::vec::Vec;
 /// (non-increasing).  Evaluation is O(log N) due to binary search on the knot
 /// vector.
 ///
-/// # Example
-/// ```text
-/// let interp = MonotoneConvex::new(
-///     vec![0.0, 1.0].into_boxed_slice(),
-///     vec![1.0, 0.95].into_boxed_slice(),
-/// ).unwrap();
-/// let _ = interp.interp(0.5);
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Debug)]
 pub struct MonotoneConvex {
     /// Knot times _tᵢ_ (strictly increasing).  Length ≥ 2.

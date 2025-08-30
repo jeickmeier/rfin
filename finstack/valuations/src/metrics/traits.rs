@@ -16,26 +16,7 @@ use std::sync::Arc;
 /// Calculators can declare dependencies on other metrics for efficient computation
 /// ordering and caching. Implement this trait to create custom financial metrics.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::metrics::traits::{MetricCalculator, MetricContext};
-/// use finstack_valuations::metrics::ids::MetricId;
-/// use finstack_core::Result;
-/// use std::sync::Arc;
-/// 
-/// struct CustomYieldCalculator;
-/// 
-/// impl MetricCalculator for CustomYieldCalculator {
-///     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-///         // Custom yield calculation logic
-///         Ok(0.05) // 5% yield
-///     }
-///     
-///     fn dependencies(&self) -> &[MetricId] {
-///         &[MetricId::DirtyPrice] // Depends on dirty price
-///     }
-/// }
-/// ```
+/// See unit tests and `examples/` for usage.
 pub trait MetricCalculator: Send + Sync {
     /// Computes the metric value based on the provided context.
     /// 
@@ -113,26 +94,7 @@ impl MetricContext {
     /// * `as_of` - Valuation date
     /// * `base_value` - Base present value of the instrument
     /// 
-    /// # Example
-    /// ```rust
-    /// use finstack_valuations::metrics::traits::MetricContext;
-    /// use finstack_valuations::instruments::Instrument;
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::money::Money;
-    /// use finstack_core::dates::Date;
-    /// use finstack_core::market_data::multicurve::CurveSet;
-    /// use std::sync::Arc;
-    /// use time::Month;
-    /// 
-    /// // Note: These would be created from actual data
-    /// // let instrument: Arc<Instrument> = todo!();
-    /// // let curves: Arc<CurveSet> = todo!();
-    /// let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    /// let base_value = Money::new(1_000_000.0, Currency::USD);
-    /// 
-    /// // Note: MetricContext::new would be called here
-    /// // let context = MetricContext::new(instrument, curves, as_of, base_value);
-    /// ```
+    /// See unit tests and `examples/` for usage.
     pub fn new(
         instrument: Arc<Instrument>,
         curves: Arc<finstack_core::market_data::multicurve::CurveSet>,

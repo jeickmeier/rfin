@@ -7,12 +7,7 @@ use core::fmt;
 /// * can be defined as a `const` and embedded directly in code, and
 /// * is **`Copy`**, hashable and comparable by a single pointer operation.
 ///
-/// # Example
-/// ```rust
-/// use finstack_core::market_data::id::CurveId;
-/// const USD_SOFR: CurveId = CurveId::new("USD-SOFR");
-/// assert_eq!(USD_SOFR.as_str(), "USD-SOFR");
-/// ```
+/// See unit tests and `examples/` for usage.
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CurveId(&'static str);
@@ -54,15 +49,7 @@ impl fmt::Display for CurveId {
 /// This is useful when functions accept multiple identifiers of different
 /// nature and need to pattern-match on the factor category.
 ///
-/// ```rust
-/// use finstack_core::market_data::id::{CurveId, FactorKey};
-/// let usd_ois = CurveId::new("USD-OIS");
-/// let key = FactorKey::Yield(&usd_ois);
-/// match key {
-///     FactorKey::Yield(id) => println!("Yield curve: {id}"),
-///     _ => unreachable!(),
-/// }
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum FactorKey<'a> {

@@ -12,40 +12,7 @@ use super::{Bond, CallPutSchedule};
 /// 
 /// # Example
 /// 
-/// ```rust
-/// use finstack_valuations::instruments::fixed_income::bond::Bond;
-/// use finstack_valuations::cashflow::builder::{cf, FixedCouponSpec, CouponType};
-/// use finstack_core::currency::Currency;
-/// use finstack_core::money::Money;
-/// use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention, StubKind};
-/// use time::Month;
-/// 
-/// // Build with custom cashflows
-/// let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-/// let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
-/// 
-/// let custom_schedule = cf()
-///     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
-///     .fixed_cf(FixedCouponSpec {
-///         coupon_type: CouponType::Cash,
-///         rate: 0.05,
-///         freq: Frequency::semi_annual(),
-///         dc: DayCount::Act365F,
-///         bdc: BusinessDayConvention::Following,
-///         calendar_id: None,
-///         stub: StubKind::None,
-///     })
-///     .build()
-///     .unwrap();
-/// 
-/// let bond = Bond::builder()
-///     .id("CUSTOM_BOND")
-///     .cashflows(custom_schedule)
-///     .disc_curve("USD-OIS")
-///     .quoted_clean(Some(99.5))
-///     .build()
-///     .unwrap();
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Default)]
 pub struct BondBuilder {
     id: Option<String>,

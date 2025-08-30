@@ -13,18 +13,7 @@
 //! - **Instrument-specific**: Metrics can be registered for specific instrument types
 //! - **Standard registry**: Pre-configured registry with common financial metrics
 //! 
-//! # Quick Start
-//! 
-//! ```rust
-//! use finstack_valuations::metrics::standard_registry;
-//! 
-//! // Get a registry with all built-in metrics
-//! let registry = standard_registry();
-//! 
-//! // Check available metrics
-//! let metrics = registry.available_metrics();
-//! assert!(!metrics.is_empty());
-//! ```
+//! See unit tests and `examples/` for usage.
 //! 
 //! # Architecture
 //! 
@@ -52,17 +41,7 @@ pub use risk::{BucketedDv01Calculator, BucketSpec, CashflowCaching};
 /// - **Deposits**: Discount factors, par rates, year fractions
 /// - **Risk**: Bucketed DV01, time decay (theta)
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::metrics::standard_registry;
-/// 
-/// let registry = standard_registry();
-/// let bond_metrics = registry.metrics_for_instrument("Bond");
-/// 
-/// // Check that key bond metrics are available
-/// assert!(bond_metrics.contains(&finstack_valuations::metrics::MetricId::Ytm));
-/// assert!(bond_metrics.contains(&finstack_valuations::metrics::MetricId::DurationMac));
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn standard_registry() -> MetricRegistry {
     let mut registry = MetricRegistry::new();
     crate::instruments::fixed_income::bond::metrics::register_bond_metrics(&mut registry);

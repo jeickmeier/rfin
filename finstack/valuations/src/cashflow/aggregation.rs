@@ -14,24 +14,7 @@ pub type DatedFlow = (Date, Money);
 /// Groups cashflows by time period while preserving currency separation.
 /// Returns a map: `PeriodId -> (Currency -> amount)`.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_core::dates::{Date, Period, PeriodId};
-/// use finstack_core::currency::Currency;
-/// use finstack_core::money::Money;
-/// use finstack_valuations::cashflow::aggregation::aggregate_by_period;
-/// use time::Month;
-/// 
-/// let flows = vec![
-///     (Date::from_calendar_date(2025, Month::June, 15).unwrap(), Money::new(25_000.0, Currency::USD)),
-///     (Date::from_calendar_date(2025, Month::December, 15).unwrap(), Money::new(25_000.0, Currency::USD)),
-/// ];
-/// let periods = vec![
-///     Period { id: PeriodId::half(2025, 1), start: Date::from_calendar_date(2025, Month::January, 1).unwrap(), end: Date::from_calendar_date(2025, Month::July, 1).unwrap(), is_actual: false },
-///     Period { id: PeriodId::half(2025, 2), start: Date::from_calendar_date(2025, Month::July, 1).unwrap(), end: Date::from_calendar_date(2026, Month::January, 1).unwrap(), is_actual: false },
-/// ];
-/// let aggregated = aggregate_by_period(&flows, &periods);
-/// ```
+/// See unit tests and `examples/` for usage.
 pub fn aggregate_by_period(
     flows: &[DatedFlow],
     periods: &[Period],

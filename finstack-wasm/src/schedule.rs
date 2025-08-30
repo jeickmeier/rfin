@@ -1,7 +1,7 @@
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
-use finstack_core::dates::{schedule, Frequency as CoreFrequency, StubKind as CoreStubRule};
+use finstack_core::dates::{ScheduleBuilder, Frequency as CoreFrequency, StubKind as CoreStubRule};
 
 use crate::calendar::BusDayConvention;
 use crate::dates::Date;
@@ -63,18 +63,23 @@ pub fn generate_schedule(
     convention: Option<BusDayConvention>,
     stub: Option<StubRule>,
 ) -> Array {
-    let _ = stub; // not yet supported
+    let mut builder = ScheduleBuilder::new(start.inner(), end.inner())
+        .frequency(frequency.into());
 
-    let iter = schedule(start.inner(), end.inner(), frequency.into());
+    if let Some(s) = stub {
+        builder = builder.stub_rule(s.into());
+    }
 
     let arr = Array::new();
-    for d in iter {
-        let mut d_mut = d;
-        if let Some(conv) = convention {
-            let cal = finstack_core::dates::Target2;
-            d_mut = finstack_core::dates::adjust(d_mut, conv.into(), &cal);
+    if let Some(conv) = convention {
+        let cal = finstack_core::dates::Target2;
+        for d in builder.adjust_with(conv.into(), &cal).build() {
+            arr.push(&Date::from_core(d).into());
         }
-        arr.push(&Date::from_core(d_mut).into());
+    } else {
+        for d in builder.build_raw() {
+            arr.push(&Date::from_core(d).into());
+        }
     }
     arr
 }

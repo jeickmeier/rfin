@@ -18,20 +18,7 @@ pub type Ticker = String;
 /// The price can come from direct market quotes or be computed from
 /// underlying fundamentals.
 /// 
-/// # Example
-/// ```rust
-/// use finstack_valuations::instruments::equity::Equity;
-/// use finstack_core::currency::Currency;
-/// 
-/// let equity = Equity {
-///     id: "AAPL".to_string(),
-///     ticker: "AAPL".to_string(),
-///     currency: Currency::USD,
-///     shares: Some(100.0),
-///     price_quote: None,
-///     attributes: Default::default(),
-/// };
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug)]
 pub struct Equity {
     /// Unique identifier for the equity

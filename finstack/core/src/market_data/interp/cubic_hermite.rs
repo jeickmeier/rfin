@@ -12,14 +12,7 @@ use crate::{
 /// factors are monotone (strictly decreasing and positive).  Evaluation is
 /// O(log N) thanks to binary search on the knot vector.
 ///
-/// # Example
-/// ```text
-/// use crate::market_data::interp::CubicHermite;
-/// let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
-/// let dfs   = vec![1.0, 0.95, 0.9].into_boxed_slice();
-/// let interp = CubicHermite::new(knots, dfs).unwrap();
-/// let _df = interp.interp(1.5);
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Debug)]
 pub struct CubicHermite {
     knots: Box<[F]>, // strictly increasing times

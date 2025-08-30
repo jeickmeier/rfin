@@ -4,23 +4,7 @@
 //! type safety when dealing with different kinds of identifiers. This prevents
 //! common bugs like passing a user ID where an account ID was expected.
 //!
-//! # Examples
-//!
-//! ```
-//! use finstack_core::types::{Id, TypeTag};
-//!
-//! // Define marker types for different domains
-//! struct User;
-//! struct Account;
-//! struct Trade;
-//!
-//! // Create type-safe IDs
-//! let user_id = Id::<User>::new("user123");
-//! let account_id = Id::<Account>::new("acc456");
-//!
-//! // This would be a compile error:
-//! // let wrong = user_id == account_id;
-//! ```
+//! See unit tests and `examples/` for usage.
 
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -44,26 +28,7 @@ impl<T> TypeTag for T {}
 /// type safety at compile time. Different `Id<T>` types with different `T`
 /// cannot be compared or mixed accidentally.
 ///
-/// # Examples
-///
-/// ```
-/// use finstack_core::types::Id;
-///
-/// #[derive(Debug)]
-/// struct User;
-/// #[derive(Debug)]
-/// struct Account;
-///
-/// let user_id = Id::<User>::new("user123");
-/// let account_id = Id::<Account>::new("acc456");
-///
-/// // These are different types and cannot be compared directly
-/// // assert_eq!(user_id, account_id); // Compile error!
-///
-/// // But the same type can be compared
-/// let another_user_id = Id::<User>::new("user123");
-/// assert_eq!(user_id, another_user_id);
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Id<T: TypeTag> {

@@ -35,16 +35,7 @@ pub trait DateExt {
     ///
     /// This is a thin convenience wrapper around
     /// [`HolidayCalendar::is_business_day`], enabling fluent method-style
-    /// calls:
-    /// ```
-    /// use finstack_core::dates::DateExt;
-    /// use finstack_core::dates::calendars::Gblo;
-    /// use time::Date;
-    ///
-    /// let cal = Gblo;
-    /// let d = Date::from_calendar_date(2025, time::Month::March, 14).unwrap();
-    /// assert!(d.is_business_day(&cal));
-    /// ```
+    /// calls. See repository examples under `examples/` for usage.
     fn is_business_day<C: crate::dates::calendar::HolidayCalendar>(self, cal: &C) -> bool;
 
     /// Returns the **next IMM date** (third Wednesday of Mar/Jun/Sep/Dec)

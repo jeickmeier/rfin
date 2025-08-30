@@ -2,15 +2,7 @@ use crate::{error::InputError, market_data::interp::InterpFn, F};
 
 /// Piece-wise linear interpolation on discount factors.
 ///
-/// # Example
-/// ```text
-/// use crate::market_data::interp::LinearDf;
-/// let interp = LinearDf::new(
-///     vec![0.0, 1.0].into_boxed_slice(),
-///     vec![1.0, 0.95].into_boxed_slice(),
-/// ).unwrap();
-/// let _ = interp.interp(0.5);
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Debug)]
 pub struct LinearDf {
     knots: Box<[F]>,

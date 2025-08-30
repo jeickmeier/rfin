@@ -4,14 +4,7 @@ use std::vec::Vec;
 /// Interpolator that performs linear interpolation on the natural logarithm
 /// of discount factors (i.e. piecewise‐constant zero rates).
 ///
-/// # Example
-/// ```text
-/// use crate::market_data::interp::LogLinearDf;
-/// let knots = vec![0.0, 1.0].into_boxed_slice();
-/// let dfs = vec![1.0, 0.95].into_boxed_slice();
-/// let interp = LogLinearDf::new(knots, dfs).unwrap();
-/// let _ = interp.interp(0.5);
-/// ```
+/// See unit tests and `examples/` for usage.
 #[derive(Debug)]
 pub struct LogLinearDf {
     knots: Box<[F]>,

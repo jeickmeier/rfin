@@ -19,6 +19,26 @@ include_paths = [
 # Define patterns to exclude
 exclude_patterns = [
     "**/__pycache__",
+    "**/__pycache__/**",
+    "**/*.pyc",
+    "**/*.pyo",
+    "**/*.pyd",
+    "**/*.so",
+    "**/*.dylib",
+    "**/*.dll",
+    "**/*.wasm",
+    "**/*.png",
+    "**/*.jpg",
+    "**/*.jpeg",
+    "**/*.gif",
+    "**/*.svg",
+    "**/*.pdf",
+    "**/*.zip",
+    "**/*.tar",
+    "**/*.gz",
+    "**/*.bz2",
+    "**/*.xz",
+    "**/*.lock",
     "**/*.md",
 ]
 
@@ -42,6 +62,17 @@ def is_excluded(path, patterns):
 def concatenate_files(output_filename="concatenated_code.txt"):
     """Concatenate all Python files and specified other files in the specified directories."""
     file_paths = []
+    allowed_suffixes = {
+        ".rs",
+        ".toml",
+        ".py",
+        ".json",
+        ".yml",
+        ".yaml",
+        ".sh",
+        ".txt",
+    }
+    allowed_filenames = {"Makefile", "LICENSE", "Cargo.lock"}
 
     # If no includes specified, include everything at the top level
     paths_to_include = include_paths or get_default_includes()
@@ -51,12 +82,34 @@ def concatenate_files(output_filename="concatenated_code.txt"):
         if path.exists():
             # Only descend into dirs, or add the file directly
             if path.is_dir():
-                for py_file in path.rglob("*"):
-                    if not is_excluded(py_file, exclude_patterns):
-                        file_paths.append(py_file)
+                # Skip heavy/binary build and vendor directories
+                skip_dirs = {"target", "node_modules", "pkg", ".git", "__pycache__"}
+                for candidate in path.rglob("*"):
+                    # Fast skip for directories by name
+                    try:
+                        if candidate.is_dir() and candidate.name in skip_dirs:
+                            continue
+                    except Exception:
+                        # Be resilient to permission or symlink errors
+                        continue
+
+                    if (
+                        candidate.is_file()
+                        and not is_excluded(candidate, exclude_patterns)
+                        and (
+                            candidate.suffix in allowed_suffixes
+                            or candidate.name in allowed_filenames
+                        )
+                    ):
+                        file_paths.append(candidate)
             elif path.is_file():
                 # Include any file type, not just .py files
-                if not is_excluded(path, exclude_patterns):
+                if (
+                    not is_excluded(path, exclude_patterns)
+                    and (
+                        path.suffix in allowed_suffixes or path.name in allowed_filenames
+                    )
+                ):
                     file_paths.append(path)
 
     file_paths.sort()
