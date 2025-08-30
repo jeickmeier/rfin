@@ -1,5 +1,5 @@
 use crate::dates::holiday::rule::Rule;
-use time::{Date, Month};
+use time::{Month};
 
 /// European TARGET2 settlement calendar (ECB).
 const TARGET2_RULES: &[Rule] = &[
@@ -21,8 +21,4 @@ impl Target2 {
     }
 }
 
-impl crate::dates::calendar::HolidayCalendar for Target2 {
-    fn is_holiday(&self, date: Date) -> bool {
-        TARGET2_RULES.is_holiday(date)
-    }
-}
+crate::impl_calendar_generated!(Target2, "target2", TARGET2_RULES);

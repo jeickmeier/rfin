@@ -1,5 +1,5 @@
 use crate::dates::holiday::rule::Rule;
-use time::{Date, Month, Weekday};
+use time::{Month, Weekday};
 
 /// New York Stock Exchange full-day holiday calendar (code: NYSE).
 const NYSE_RULES: &[Rule] = &[
@@ -48,8 +48,4 @@ impl Nyse {
     }
 }
 
-impl crate::dates::calendar::HolidayCalendar for Nyse {
-    fn is_holiday(&self, date: Date) -> bool {
-        NYSE_RULES.is_holiday(date)
-    }
-}
+crate::impl_calendar_generated!(Nyse, "nyse", NYSE_RULES);

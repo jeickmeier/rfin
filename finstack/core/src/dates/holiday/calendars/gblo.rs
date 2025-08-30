@@ -1,5 +1,5 @@
 use crate::dates::holiday::rule::Rule;
-use time::{Date, Month, Weekday};
+use time::{Month, Weekday};
 
 /// U.K. inter-bank business calendar (code: GBLO).
 /// Observes England & Wales Bank Holidays with Monday substitution rule.
@@ -42,8 +42,4 @@ impl Gblo {
     }
 }
 
-impl crate::dates::calendar::HolidayCalendar for Gblo {
-    fn is_holiday(&self, date: Date) -> bool {
-        GBLO_RULES.is_holiday(date)
-    }
-}
+crate::impl_calendar_generated!(Gblo, "gblo", GBLO_RULES);

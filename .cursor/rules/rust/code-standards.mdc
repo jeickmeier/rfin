@@ -34,6 +34,7 @@ alwaysApply: false
 /// ```
 pub struct MyType;
 ```
+- Do not add #[allow(missing_docs)], add missing docs instead
 
 ## Error Handling
 

@@ -1,5 +1,5 @@
 use crate::dates::holiday::rule::{Direction, Rule};
-use time::{Date, Month, Weekday};
+use time::{Month, Weekday};
 
 /// Canadian banking CAD funds calendar (code: CATO).
 const CATO_RULES: &[Rule] = &[
@@ -55,8 +55,4 @@ impl Cato {
     }
 }
 
-impl crate::dates::calendar::HolidayCalendar for Cato {
-    fn is_holiday(&self, date: Date) -> bool {
-        CATO_RULES.is_holiday(date)
-    }
-}
+crate::impl_calendar_generated!(Cato, "cato", CATO_RULES);

@@ -1,5 +1,5 @@
 use crate::dates::holiday::rule::Rule;
-use time::{Date, Month, Weekday};
+use time::{Month, Weekday};
 
 /// SIFMA recommended U.S. bond-market holiday calendar (code: SIFMA).
 /// Based on NYSE holidays plus Columbus Day and Veterans Day when weekday.
@@ -54,8 +54,4 @@ impl Sifma {
     }
 }
 
-impl crate::dates::calendar::HolidayCalendar for Sifma {
-    fn is_holiday(&self, date: Date) -> bool {
-        SIFMA_RULES.is_holiday(date)
-    }
-}
+crate::impl_calendar_generated!(Sifma, "sifma", SIFMA_RULES);

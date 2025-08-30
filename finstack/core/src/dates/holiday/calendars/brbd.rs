@@ -1,5 +1,5 @@
 use crate::dates::holiday::rule::Rule;
-use time::{Date, Month, Weekday};
+use time::{Month};
 
 /// Brazil B3 exchange holiday calendar (code: BRBD).
 /// Market ignores weekends for holiday purposes (i.e. if holiday falls on Sat/Sun, market open).
@@ -31,12 +31,5 @@ impl Brbd {
     }
 }
 
-impl crate::dates::calendar::HolidayCalendar for Brbd {
-    fn is_holiday(&self, date: Date) -> bool {
-        // Ignore weekends entirely.
-        if matches!(date.weekday(), Weekday::Saturday | Weekday::Sunday) {
-            return false;
-        }
-        BRBD_RULES.is_holiday(date)
-    }
-}
+// BRBD ignores weekends for holiday purposes.
+crate::impl_calendar_generated!(Brbd, "brbd", BRBD_RULES, ignore_weekends = true);

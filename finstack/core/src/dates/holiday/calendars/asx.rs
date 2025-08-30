@@ -1,5 +1,5 @@
 use crate::dates::holiday::rule::{Direction, Rule};
-use time::{Date, Month, Weekday};
+use time::{Month, Weekday};
 
 /// Australian Securities Exchange holiday calendar (code: ASX).
 const ASX_RULES: &[Rule] = &[
@@ -33,8 +33,4 @@ impl Asx {
     }
 }
 
-impl crate::dates::calendar::HolidayCalendar for Asx {
-    fn is_holiday(&self, date: Date) -> bool {
-        ASX_RULES.is_holiday(date)
-    }
-}
+crate::impl_calendar_generated!(Asx, "asx", ASX_RULES);

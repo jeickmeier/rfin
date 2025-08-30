@@ -1,5 +1,5 @@
 use crate::dates::holiday::rule::{Direction, Rule};
-use time::{Date, Month, Weekday};
+use time::{Month, Weekday};
 
 /// Australia NSW inter-bank calendar (code: AUCE).
 const AUCE_RULES: &[Rule] = &[
@@ -50,8 +50,4 @@ impl Auce {
     }
 }
 
-impl crate::dates::calendar::HolidayCalendar for Auce {
-    fn is_holiday(&self, date: Date) -> bool {
-        AUCE_RULES.is_holiday(date)
-    }
-}
+crate::impl_calendar_generated!(Auce, "auce", AUCE_RULES);

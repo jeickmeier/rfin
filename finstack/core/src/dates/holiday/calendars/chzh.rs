@@ -1,5 +1,5 @@
 use crate::dates::holiday::rule::Rule;
-use time::{Date, Month};
+use time::{Month};
 
 /// Swiss SIX exchange calendar (code: CHZH).
 const CHZH_RULES: &[Rule] = &[
@@ -25,8 +25,4 @@ impl Chzh {
     }
 }
 
-impl crate::dates::calendar::HolidayCalendar for Chzh {
-    fn is_holiday(&self, date: Date) -> bool {
-        CHZH_RULES.is_holiday(date)
-    }
-}
+crate::impl_calendar_generated!(Chzh, "chzh", CHZH_RULES);

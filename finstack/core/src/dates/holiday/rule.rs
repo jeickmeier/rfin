@@ -278,6 +278,14 @@ fn is_cny(date: Date) -> bool {
         .any(|&(y, m, d)| y == date.year() && m == date.month() as u8 && d == date.day())
 }
 
+#[inline]
+fn cny_date(year: i32) -> Option<Date> {
+    CNY_DATES
+        .iter()
+        .find(|&&(y, _, _)| y == year)
+        .and_then(|&(_, m, d)| Date::from_calendar_date(year, Month::try_from(m).ok()?, d).ok())
+}
+
 // Add helper to compute Qing Ming day
 fn qing_ming_day(year: i32) -> u8 {
     let y = year - 1900;
@@ -404,6 +412,84 @@ impl Rule {
             }
             Rule::VernalEquinoxJP => date == vernal_equinox_jp(date.year()),
             Rule::AutumnalEquinoxJP => date == autumnal_equinox_jp(date.year()),
+        }
+    }
+}
+
+impl Rule {
+    /// Append all dates in `year` that this rule marks as a holiday into `out`.
+    /// No deduplication is performed.
+    pub fn materialize_year(&self, year: i32, out: &mut smallvec::SmallVec<[Date; 64]>) {
+        match self {
+            Rule::Fixed { month, day, observed } => {
+                let mut base = Date::from_calendar_date(year, *month, *day).unwrap();
+                match observed {
+                    Observed::None => {}
+                    Observed::NextMonday => {
+                        if matches!(base.weekday(), Weekday::Saturday) {
+                            base = base + Duration::days(2);
+                        } else if matches!(base.weekday(), Weekday::Sunday) {
+                            base = base + Duration::days(1);
+                        }
+                    }
+                    Observed::FriIfSatMonIfSun => {
+                        if matches!(base.weekday(), Weekday::Saturday) {
+                            base = base - Duration::days(1);
+                        } else if matches!(base.weekday(), Weekday::Sunday) {
+                            base = base + Duration::days(1);
+                        }
+                    }
+                }
+                out.push(base);
+            }
+            Rule::NthWeekday { n, weekday, month } => {
+                let d = crate::dates::holiday::generated::nth_weekday_of_month(year, *month, *weekday, *n);
+                out.push(d);
+            }
+            Rule::WeekdayShift { weekday, month, day, dir } => {
+                let mut d = Date::from_calendar_date(year, *month, *day).unwrap();
+                match dir {
+                    Direction::After => {
+                        while d.weekday() != *weekday {
+                            d = d + Duration::days(1);
+                        }
+                    }
+                    Direction::Before => {
+                        while d.weekday() != *weekday {
+                            d = d - Duration::days(1);
+                        }
+                    }
+                }
+                out.push(d);
+            }
+            Rule::EasterOffset(offset) => {
+                let em = easter_monday(year);
+                out.push(em + Duration::days(*offset as i64));
+            }
+            Rule::Span { start, len } => {
+                let mut tmp = smallvec::SmallVec::<[Date; 64]>::new();
+                start.materialize_year(year, &mut tmp);
+                for sd in tmp {
+                    for k in 0..*len as i64 {
+                        out.push(sd + Duration::days(k));
+                    }
+                }
+            }
+            Rule::ChineseNewYear => {
+                if let Some(d) = cny_date(year) {
+                    out.push(d);
+                }
+            }
+            Rule::QingMing => {
+                out.push(Date::from_calendar_date(year, Month::April, qing_ming_day(year)).unwrap());
+            }
+            Rule::BuddhasBirthday => {
+                if let Some(d) = buddhas_birthday_date(year) {
+                    out.push(d);
+                }
+            }
+            Rule::VernalEquinoxJP => out.push(vernal_equinox_jp(year)),
+            Rule::AutumnalEquinoxJP => out.push(autumnal_equinox_jp(year)),
         }
     }
 }

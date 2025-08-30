@@ -1,9 +1,6 @@
-use crate::dates::calendar::HolidayCalendar;
+use crate::dates::holiday::generated::{CNBE_ORDS, CNBE_ORDS_OFFSETS};
 use crate::dates::holiday::rule::Rule;
-use once_cell::sync::Lazy;
-use std::collections::{HashMap, HashSet};
-use std::sync::Mutex;
-use time::{Date, Duration, Month};
+use time::Month;
 
 const JAN1: Rule = Rule::fixed(Month::January, 1);
 const MAY1: Rule = Rule::fixed(Month::May, 1);
@@ -36,21 +33,7 @@ const CNBE_RULES: &[Rule] = &[
     },
 ];
 
-static CNBE_CACHE: Lazy<Mutex<HashMap<i32, HashSet<Date>>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
-
-fn build_year(year: i32) -> HashSet<Date> {
-    let mut set: HashSet<Date> = HashSet::new();
-    // Iterate through all days of the year and collect holidays once.
-    let mut date = Date::from_calendar_date(year, Month::January, 1).unwrap();
-    while date.year() == year {
-        if CNBE_RULES.is_holiday(date) {
-            set.insert(date);
-        }
-        date += Duration::days(1);
-    }
-    set
-}
+// Bitset macro using build-time CSV ordinals (falls back to rules if empty year).
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Cnbe;
@@ -61,12 +44,4 @@ impl Cnbe {
         "cnbe"
     }
 }
-
-impl HolidayCalendar for Cnbe {
-    fn is_holiday(&self, date: Date) -> bool {
-        let year = date.year();
-        let mut map = CNBE_CACHE.lock().unwrap();
-        let set = map.entry(year).or_insert_with(|| build_year(year));
-        set.contains(&date)
-    }
-}
+crate::impl_calendar_generated_from_ords!(Cnbe, "cnbe", CNBE_ORDS, CNBE_ORDS_OFFSETS, CNBE_RULES);

@@ -1,5 +1,5 @@
 use crate::dates::holiday::rule::Rule;
-use time::{Date, Month};
+use time::{Month};
 
 const CNY: Rule = Rule::ChineseNewYear;
 
@@ -29,8 +29,4 @@ impl Sgsi {
     }
 }
 
-impl crate::dates::calendar::HolidayCalendar for Sgsi {
-    fn is_holiday(&self, date: Date) -> bool {
-        SGSI_RULES.is_holiday(date)
-    }
-}
+crate::impl_calendar_generated!(Sgsi, "sgsi", SGSI_RULES);

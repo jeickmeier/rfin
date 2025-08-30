@@ -1,5 +1,5 @@
 use crate::dates::holiday::rule::Rule;
-use time::{Date, Month, Weekday};
+use time::{Month, Weekday};
 
 /// Japanese banking calendar (code: JPTO) – simplified modern-era rules.
 const JPTO_RULES: &[Rule] = &[
@@ -55,8 +55,4 @@ impl Jpto {
     }
 }
 
-impl crate::dates::calendar::HolidayCalendar for Jpto {
-    fn is_holiday(&self, date: Date) -> bool {
-        JPTO_RULES.is_holiday(date)
-    }
-}
+crate::impl_calendar_generated!(Jpto, "jpto", JPTO_RULES);

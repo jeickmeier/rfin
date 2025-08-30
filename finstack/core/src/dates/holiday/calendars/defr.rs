@@ -1,5 +1,5 @@
 use crate::dates::holiday::rule::Rule;
-use time::{Date, Month};
+use time::{Month};
 
 /// German XETRA stock-exchange calendar (code: DEFR).
 const DEFR_RULES: &[Rule] = &[
@@ -21,8 +21,4 @@ impl Defr {
     }
 }
 
-impl crate::dates::calendar::HolidayCalendar for Defr {
-    fn is_holiday(&self, date: Date) -> bool {
-        DEFR_RULES.is_holiday(date)
-    }
-}
+crate::impl_calendar_generated!(Defr, "defr", DEFR_RULES);

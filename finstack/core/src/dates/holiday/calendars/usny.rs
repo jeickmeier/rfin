@@ -1,5 +1,5 @@
 use crate::dates::holiday::rule::Rule;
-use time::{Date, Month, Weekday};
+use time::{Month, Weekday};
 
 /// U.S. Fedwire / Government Securities settlement calendar (code: USNY).
 const USNY_RULES: &[Rule] = &[
@@ -52,8 +52,4 @@ impl Usny {
     }
 }
 
-impl crate::dates::calendar::HolidayCalendar for Usny {
-    fn is_holiday(&self, date: Date) -> bool {
-        USNY_RULES.is_holiday(date)
-    }
-}
+crate::impl_calendar_generated!(Usny, "usny", USNY_RULES);
