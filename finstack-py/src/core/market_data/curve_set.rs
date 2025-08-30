@@ -6,8 +6,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 use super::curves::{PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyInflationCurve};
-use super::surfaces::PyVolSurface;
 use super::primitives::{PyMarketScalar, PyScalarTimeSeries};
+use super::surfaces::PyVolSurface;
 
 /// Type-safe curve storage
 #[derive(Clone)]
@@ -109,7 +109,7 @@ impl PyCurveSet {
             CurveType::Series(ts)
         } else {
             return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                "Expected a market object (Curve, VolSurface, MarketScalar, or ScalarTimeSeries)"
+                "Expected a market object (Curve, VolSurface, MarketScalar, or ScalarTimeSeries)",
             ));
         };
 

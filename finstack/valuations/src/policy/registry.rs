@@ -22,10 +22,10 @@ use std::sync::{Arc, RwLock};
 pub trait FunctionParam: Debug + Send + Sync {
     /// Convert to Any for downcasting
     fn as_any(&self) -> &dyn Any;
-    
+
     /// Clone the parameter as a boxed trait object
     fn clone_box(&self) -> Box<dyn FunctionParam>;
-    
+
     /// Serialize to JSON
     fn to_json(&self) -> finstack_core::Result<String>;
 }
@@ -38,11 +38,11 @@ macro_rules! impl_function_param {
             fn as_any(&self) -> &dyn Any {
                 self
             }
-            
+
             fn clone_box(&self) -> Box<dyn FunctionParam> {
                 Box::new(self.clone())
             }
-            
+
             fn to_json(&self) -> finstack_core::Result<String> {
                 serde_json::to_string(self)
                     .map_err(|_| finstack_core::error::InputError::Invalid.into())
@@ -57,11 +57,13 @@ pub type ToggleFn = Arc<dyn Fn(&dyn Any) -> finstack_core::Result<bool> + Send +
 
 /// FX policy function type for currency conversions.
 /// Takes parameters and returns an FxProvider implementation.
-pub type FxPolicyFn = Arc<dyn Fn(&dyn Any) -> finstack_core::Result<Box<dyn FxProvider>> + Send + Sync>;
+pub type FxPolicyFn =
+    Arc<dyn Fn(&dyn Any) -> finstack_core::Result<Box<dyn FxProvider>> + Send + Sync>;
 
 /// General policy function type for custom behaviors.
 /// Takes parameters and returns a serializable result.
-pub type PolicyFn = Arc<dyn Fn(&dyn Any) -> finstack_core::Result<Box<dyn Any + Send + Sync>> + Send + Sync>;
+pub type PolicyFn =
+    Arc<dyn Fn(&dyn Any) -> finstack_core::Result<Box<dyn Any + Send + Sync>> + Send + Sync>;
 
 /// Registry for named financial functions.
 ///
@@ -71,10 +73,10 @@ pub type PolicyFn = Arc<dyn Fn(&dyn Any) -> finstack_core::Result<Box<dyn Any + 
 pub struct FunctionRegistry {
     /// Toggle functions for conditional logic
     toggles: HashMap<String, ToggleFn>,
-    
+
     /// FX policy functions for currency conversions
     fx_policies: HashMap<String, FxPolicyFn>,
-    
+
     /// General policy functions for custom behaviors
     policies: HashMap<String, PolicyFn>,
 }
@@ -84,7 +86,7 @@ impl FunctionRegistry {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Register a toggle function.
     ///
     /// # Arguments
@@ -95,7 +97,7 @@ impl FunctionRegistry {
     pub fn register_toggle(&mut self, name: impl Into<String>, func: ToggleFn) {
         self.toggles.insert(name.into(), func);
     }
-    
+
     /// Register an FX policy function.
     ///
     /// # Arguments
@@ -104,7 +106,7 @@ impl FunctionRegistry {
     pub fn register_fx_policy(&mut self, name: impl Into<String>, func: FxPolicyFn) {
         self.fx_policies.insert(name.into(), func);
     }
-    
+
     /// Register a general policy function.
     ///
     /// # Arguments
@@ -113,47 +115,47 @@ impl FunctionRegistry {
     pub fn register_policy(&mut self, name: impl Into<String>, func: PolicyFn) {
         self.policies.insert(name.into(), func);
     }
-    
+
     /// Get a toggle function by name.
     pub fn get_toggle(&self, name: &str) -> Option<&ToggleFn> {
         self.toggles.get(name)
     }
-    
+
     /// Get an FX policy function by name.
     pub fn get_fx_policy(&self, name: &str) -> Option<&FxPolicyFn> {
         self.fx_policies.get(name)
     }
-    
+
     /// Get a general policy function by name.
     pub fn get_policy(&self, name: &str) -> Option<&PolicyFn> {
         self.policies.get(name)
     }
-    
+
     /// Check if a toggle exists.
     pub fn has_toggle(&self, name: &str) -> bool {
         self.toggles.contains_key(name)
     }
-    
+
     /// Check if an FX policy exists.
     pub fn has_fx_policy(&self, name: &str) -> bool {
         self.fx_policies.contains_key(name)
     }
-    
+
     /// Check if a general policy exists.
     pub fn has_policy(&self, name: &str) -> bool {
         self.policies.contains_key(name)
     }
-    
+
     /// List all registered toggle names.
     pub fn toggle_names(&self) -> Vec<String> {
         self.toggles.keys().cloned().collect()
     }
-    
+
     /// List all registered FX policy names.
     pub fn fx_policy_names(&self) -> Vec<String> {
         self.fx_policies.keys().cloned().collect()
     }
-    
+
     /// List all registered general policy names.
     pub fn policy_names(&self) -> Vec<String> {
         self.policies.keys().cloned().collect()
@@ -163,9 +165,8 @@ impl FunctionRegistry {
 /// Global function registry singleton.
 ///
 /// Provides thread-safe access to the shared registry instance.
-pub static FN_REGISTRY: Lazy<RwLock<FunctionRegistry>> = Lazy::new(|| {
-    RwLock::new(FunctionRegistry::new())
-});
+pub static FN_REGISTRY: Lazy<RwLock<FunctionRegistry>> =
+    Lazy::new(|| RwLock::new(FunctionRegistry::new()));
 
 /// Register a toggle function in the global registry.
 ///
@@ -229,21 +230,23 @@ pub fn init_standard_functions() {
     register_toggle(
         "after_date",
         Arc::new(|params| {
-            let p = params.downcast_ref::<DateToggleParams>()
+            let p = params
+                .downcast_ref::<DateToggleParams>()
                 .ok_or(finstack_core::error::InputError::Invalid)?;
             Ok(p.date > p.reference)
-        })
+        }),
     );
-    
+
     register_toggle(
         "before_date",
         Arc::new(|params| {
-            let p = params.downcast_ref::<DateToggleParams>()
+            let p = params
+                .downcast_ref::<DateToggleParams>()
                 .ok_or(finstack_core::error::InputError::Invalid)?;
             Ok(p.date < p.reference)
-        })
+        }),
     );
-    
+
     // More standard functions can be added here as needed
 }
 
@@ -251,54 +254,52 @@ pub fn init_standard_functions() {
 mod tests {
     use super::*;
     use time::Month;
-    
+
     #[derive(Clone, Debug, Serialize, Deserialize)]
     struct TestParams {
         value: f64,
     }
-    
+
     impl_function_param!(TestParams);
-    
+
     #[test]
     fn test_registry_toggle() {
         let mut registry = FunctionRegistry::new();
-        
+
         registry.register_toggle(
             "is_positive",
             Arc::new(|params| {
-                let p = params.downcast_ref::<TestParams>()
+                let p = params
+                    .downcast_ref::<TestParams>()
                     .ok_or(finstack_core::error::InputError::Invalid)?;
                 Ok(p.value > 0.0)
-            })
+            }),
         );
-        
+
         assert!(registry.has_toggle("is_positive"));
         assert!(!registry.has_toggle("nonexistent"));
-        
+
         let toggle = registry.get_toggle("is_positive").unwrap();
         let params = TestParams { value: 5.0 };
         assert!(toggle(&params).unwrap());
-        
+
         let params = TestParams { value: -5.0 };
         assert!(!toggle(&params).unwrap());
     }
-    
+
     #[test]
     fn test_global_registry() {
-        register_toggle(
-            "test_toggle",
-            Arc::new(|_| Ok(true))
-        );
-        
+        register_toggle("test_toggle", Arc::new(|_| Ok(true)));
+
         let toggle = get_toggle("test_toggle").unwrap();
         let params = TestParams { value: 0.0 };
         assert!(toggle(&params).unwrap());
     }
-    
+
     #[test]
     fn test_standard_functions() {
         init_standard_functions();
-        
+
         let toggle = get_toggle("after_date").unwrap();
         let params = DateToggleParams {
             date: Date::from_calendar_date(2025, Month::June, 1).unwrap(),

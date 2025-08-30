@@ -3,11 +3,9 @@
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
-use finstack_valuations::covenants::{
-    CovenantEngine, CovenantSpec, CovenantBreach,
-};
+use finstack_valuations::covenants::{CovenantBreach, CovenantEngine, CovenantSpec};
 use finstack_valuations::instruments::fixed_income::loan::covenants::{
-    Covenant, CovenantType, CovenantConsequence, ThresholdTest,
+    Covenant, CovenantConsequence, CovenantType, ThresholdTest,
 };
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::pricing::result::CovenantReport;
@@ -15,7 +13,6 @@ use std::collections::HashMap;
 
 use crate::core::dates::PyDate;
 use crate::core::dates::PyFrequency;
-
 
 /// Python wrapper for covenant types.
 #[pyclass(name = "CovenantType")]
@@ -38,7 +35,11 @@ pub enum PyCovenantType {
     /// Affirmative covenant
     Affirmative { requirement: String },
     /// Custom metric test
-    Custom { metric: String, test_type: String, threshold: f64 },
+    Custom {
+        metric: String,
+        test_type: String,
+        threshold: f64,
+    },
 }
 
 #[pymethods]
@@ -51,63 +52,81 @@ impl PyCovenantType {
                 let threshold = kwargs
                     .and_then(|d| d.get_item("threshold").ok()?)
                     .and_then(|v| v.extract::<f64>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("threshold required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("threshold required")
+                    })?;
                 Ok(Self::MaxDebtToEBITDA { threshold })
             }
             "min_interest_coverage" => {
                 let threshold = kwargs
                     .and_then(|d| d.get_item("threshold").ok()?)
                     .and_then(|v| v.extract::<f64>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("threshold required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("threshold required")
+                    })?;
                 Ok(Self::MinInterestCoverage { threshold })
             }
             "min_fixed_charge_coverage" => {
                 let threshold = kwargs
                     .and_then(|d| d.get_item("threshold").ok()?)
                     .and_then(|v| v.extract::<f64>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("threshold required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("threshold required")
+                    })?;
                 Ok(Self::MinFixedChargeCoverage { threshold })
             }
             "max_total_leverage" => {
                 let threshold = kwargs
                     .and_then(|d| d.get_item("threshold").ok()?)
                     .and_then(|v| v.extract::<f64>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("threshold required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("threshold required")
+                    })?;
                 Ok(Self::MaxTotalLeverage { threshold })
             }
             "max_senior_leverage" => {
                 let threshold = kwargs
                     .and_then(|d| d.get_item("threshold").ok()?)
                     .and_then(|v| v.extract::<f64>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("threshold required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("threshold required")
+                    })?;
                 Ok(Self::MaxSeniorLeverage { threshold })
             }
             "min_asset_coverage" => {
                 let threshold = kwargs
                     .and_then(|d| d.get_item("threshold").ok()?)
                     .and_then(|v| v.extract::<f64>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("threshold required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("threshold required")
+                    })?;
                 Ok(Self::MinAssetCoverage { threshold })
             }
             "negative" => {
                 let restriction = kwargs
                     .and_then(|d| d.get_item("restriction").ok()?)
                     .and_then(|v| v.extract::<String>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("restriction required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("restriction required")
+                    })?;
                 Ok(Self::Negative { restriction })
             }
             "affirmative" => {
                 let requirement = kwargs
                     .and_then(|d| d.get_item("requirement").ok()?)
                     .and_then(|v| v.extract::<String>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("requirement required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("requirement required")
+                    })?;
                 Ok(Self::Affirmative { requirement })
             }
             "custom" => {
                 let metric = kwargs
                     .and_then(|d| d.get_item("metric").ok()?)
                     .and_then(|v| v.extract::<String>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("metric required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("metric required")
+                    })?;
                 let test_type = kwargs
                     .and_then(|d| d.get_item("test_type").ok()?)
                     .and_then(|v| v.extract::<String>().ok())
@@ -115,27 +134,54 @@ impl PyCovenantType {
                 let threshold = kwargs
                     .and_then(|d| d.get_item("threshold").ok()?)
                     .and_then(|v| v.extract::<f64>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("threshold required"))?;
-                Ok(Self::Custom { metric, test_type, threshold })
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("threshold required")
+                    })?;
+                Ok(Self::Custom {
+                    metric,
+                    test_type,
+                    threshold,
+                })
             }
-            _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                format!("Unknown covenant type: {}", covenant_type),
-            )),
+            _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Unknown covenant type: {}",
+                covenant_type
+            ))),
         }
     }
 
     fn __str__(&self) -> String {
         match self {
-            Self::MaxDebtToEBITDA { threshold } => format!("MaxDebtToEBITDA(threshold={})", threshold),
-            Self::MinInterestCoverage { threshold } => format!("MinInterestCoverage(threshold={})", threshold),
-            Self::MinFixedChargeCoverage { threshold } => format!("MinFixedChargeCoverage(threshold={})", threshold),
-            Self::MaxTotalLeverage { threshold } => format!("MaxTotalLeverage(threshold={})", threshold),
-            Self::MaxSeniorLeverage { threshold } => format!("MaxSeniorLeverage(threshold={})", threshold),
-            Self::MinAssetCoverage { threshold } => format!("MinAssetCoverage(threshold={})", threshold),
+            Self::MaxDebtToEBITDA { threshold } => {
+                format!("MaxDebtToEBITDA(threshold={})", threshold)
+            }
+            Self::MinInterestCoverage { threshold } => {
+                format!("MinInterestCoverage(threshold={})", threshold)
+            }
+            Self::MinFixedChargeCoverage { threshold } => {
+                format!("MinFixedChargeCoverage(threshold={})", threshold)
+            }
+            Self::MaxTotalLeverage { threshold } => {
+                format!("MaxTotalLeverage(threshold={})", threshold)
+            }
+            Self::MaxSeniorLeverage { threshold } => {
+                format!("MaxSeniorLeverage(threshold={})", threshold)
+            }
+            Self::MinAssetCoverage { threshold } => {
+                format!("MinAssetCoverage(threshold={})", threshold)
+            }
             Self::Negative { restriction } => format!("Negative(restriction='{}')", restriction),
-            Self::Affirmative { requirement } => format!("Affirmative(requirement='{}')", requirement),
-            Self::Custom { metric, test_type, threshold } => 
-                format!("Custom(metric='{}', test_type='{}', threshold={})", metric, test_type, threshold),
+            Self::Affirmative { requirement } => {
+                format!("Affirmative(requirement='{}')", requirement)
+            }
+            Self::Custom {
+                metric,
+                test_type,
+                threshold,
+            } => format!(
+                "Custom(metric='{}', test_type='{}', threshold={})",
+                metric, test_type, threshold
+            ),
         }
     }
 
@@ -147,21 +193,44 @@ impl PyCovenantType {
 impl PyCovenantType {
     fn to_rust(&self) -> CovenantType {
         match self {
-            Self::MaxDebtToEBITDA { threshold } => CovenantType::MaxDebtToEBITDA { threshold: *threshold },
-            Self::MinInterestCoverage { threshold } => CovenantType::MinInterestCoverage { threshold: *threshold },
-            Self::MinFixedChargeCoverage { threshold } => CovenantType::MinFixedChargeCoverage { threshold: *threshold },
-            Self::MaxTotalLeverage { threshold } => CovenantType::MaxTotalLeverage { threshold: *threshold },
-            Self::MaxSeniorLeverage { threshold } => CovenantType::MaxSeniorLeverage { threshold: *threshold },
-            Self::MinAssetCoverage { threshold } => CovenantType::MinAssetCoverage { threshold: *threshold },
-            Self::Negative { restriction } => CovenantType::Negative { restriction: restriction.clone() },
-            Self::Affirmative { requirement } => CovenantType::Affirmative { requirement: requirement.clone() },
-            Self::Custom { metric, test_type, threshold } => {
+            Self::MaxDebtToEBITDA { threshold } => CovenantType::MaxDebtToEBITDA {
+                threshold: *threshold,
+            },
+            Self::MinInterestCoverage { threshold } => CovenantType::MinInterestCoverage {
+                threshold: *threshold,
+            },
+            Self::MinFixedChargeCoverage { threshold } => CovenantType::MinFixedChargeCoverage {
+                threshold: *threshold,
+            },
+            Self::MaxTotalLeverage { threshold } => CovenantType::MaxTotalLeverage {
+                threshold: *threshold,
+            },
+            Self::MaxSeniorLeverage { threshold } => CovenantType::MaxSeniorLeverage {
+                threshold: *threshold,
+            },
+            Self::MinAssetCoverage { threshold } => CovenantType::MinAssetCoverage {
+                threshold: *threshold,
+            },
+            Self::Negative { restriction } => CovenantType::Negative {
+                restriction: restriction.clone(),
+            },
+            Self::Affirmative { requirement } => CovenantType::Affirmative {
+                requirement: requirement.clone(),
+            },
+            Self::Custom {
+                metric,
+                test_type,
+                threshold,
+            } => {
                 let test = if test_type == "minimum" {
                     ThresholdTest::Minimum(*threshold)
                 } else {
                     ThresholdTest::Maximum(*threshold)
                 };
-                CovenantType::Custom { metric: metric.clone(), test }
+                CovenantType::Custom {
+                    metric: metric.clone(),
+                    test,
+                }
             }
         }
     }
@@ -196,14 +265,18 @@ impl PyCovenantConsequence {
                 let bp_increase = kwargs
                     .and_then(|d| d.get_item("bp_increase").ok()?)
                     .and_then(|v| v.extract::<f64>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("bp_increase required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("bp_increase required")
+                    })?;
                 Ok(Self::RateIncrease { bp_increase })
             }
             "cash_sweep" => {
                 let sweep_percentage = kwargs
                     .and_then(|d| d.get_item("sweep_percentage").ok()?)
                     .and_then(|v| v.extract::<f64>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("sweep_percentage required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("sweep_percentage required")
+                    })?;
                 Ok(Self::CashSweep { sweep_percentage })
             }
             "block_distributions" => Ok(Self::BlockDistributions()),
@@ -211,30 +284,43 @@ impl PyCovenantConsequence {
                 let description = kwargs
                     .and_then(|d| d.get_item("description").ok()?)
                     .and_then(|v| v.extract::<String>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("description required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("description required")
+                    })?;
                 Ok(Self::RequireCollateral { description })
             }
             "accelerate_maturity" => {
                 let new_maturity = kwargs
                     .and_then(|d| d.get_item("new_maturity").ok()?)
                     .and_then(|v| v.extract::<PyDate>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("new_maturity required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("new_maturity required")
+                    })?;
                 Ok(Self::AccelerateMaturity { new_maturity })
             }
-            _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                format!("Unknown consequence type: {}", consequence_type),
-            )),
+            _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Unknown consequence type: {}",
+                consequence_type
+            ))),
         }
     }
 
     fn __str__(&self) -> String {
         match self {
             Self::Default() => "Default".to_string(),
-            Self::RateIncrease { bp_increase } => format!("RateIncrease(bp_increase={})", bp_increase),
-            Self::CashSweep { sweep_percentage } => format!("CashSweep(sweep_percentage={})", sweep_percentage),
+            Self::RateIncrease { bp_increase } => {
+                format!("RateIncrease(bp_increase={})", bp_increase)
+            }
+            Self::CashSweep { sweep_percentage } => {
+                format!("CashSweep(sweep_percentage={})", sweep_percentage)
+            }
             Self::BlockDistributions() => "BlockDistributions".to_string(),
-            Self::RequireCollateral { description } => format!("RequireCollateral(description='{}')", description),
-            Self::AccelerateMaturity { new_maturity } => format!("AccelerateMaturity(new_maturity={})", new_maturity),
+            Self::RequireCollateral { description } => {
+                format!("RequireCollateral(description='{}')", description)
+            }
+            Self::AccelerateMaturity { new_maturity } => {
+                format!("AccelerateMaturity(new_maturity={})", new_maturity)
+            }
         }
     }
 
@@ -247,11 +333,19 @@ impl PyCovenantConsequence {
     fn to_rust(&self) -> CovenantConsequence {
         match self {
             Self::Default() => CovenantConsequence::Default,
-            Self::RateIncrease { bp_increase } => CovenantConsequence::RateIncrease { bp_increase: *bp_increase },
-            Self::CashSweep { sweep_percentage } => CovenantConsequence::CashSweep { sweep_percentage: *sweep_percentage },
+            Self::RateIncrease { bp_increase } => CovenantConsequence::RateIncrease {
+                bp_increase: *bp_increase,
+            },
+            Self::CashSweep { sweep_percentage } => CovenantConsequence::CashSweep {
+                sweep_percentage: *sweep_percentage,
+            },
             Self::BlockDistributions() => CovenantConsequence::BlockDistributions,
-            Self::RequireCollateral { description } => CovenantConsequence::RequireCollateral { description: description.clone() },
-            Self::AccelerateMaturity { new_maturity } => CovenantConsequence::AccelerateMaturity { new_maturity: new_maturity.inner() },
+            Self::RequireCollateral { description } => CovenantConsequence::RequireCollateral {
+                description: description.clone(),
+            },
+            Self::AccelerateMaturity { new_maturity } => CovenantConsequence::AccelerateMaturity {
+                new_maturity: new_maturity.inner(),
+            },
         }
     }
 }
@@ -435,7 +529,10 @@ impl PyCovenantBreach {
 
     fn __str__(&self) -> String {
         let status = if self.is_cured { "CURED" } else { "ACTIVE" };
-        format!("CovenantBreach({} on {} - {})", self.covenant_type, self.breach_date, status)
+        format!(
+            "CovenantBreach({} on {} - {})",
+            self.covenant_type, self.breach_date, status
+        )
     }
 
     fn __repr__(&self) -> String {
@@ -482,7 +579,11 @@ impl PyCovenantEngine {
     }
 
     /// Evaluate covenants and return reports.
-    pub fn evaluate(&self, _context: PyObject, _test_date: PyDate) -> PyResult<HashMap<String, PyCovenantReport>> {
+    pub fn evaluate(
+        &self,
+        _context: PyObject,
+        _test_date: PyDate,
+    ) -> PyResult<HashMap<String, PyCovenantReport>> {
         // Note: This would require proper MetricContext wrapping
         // For now, return empty results
         Ok(HashMap::new())
@@ -503,9 +604,11 @@ impl PyCovenantEngine {
     }
 
     fn __str__(&self) -> String {
-        format!("CovenantEngine(specs={}, breaches={})", 
-                self.engine.specs.len(),
-                self.engine.breach_history.len())
+        format!(
+            "CovenantEngine(specs={}, breaches={})",
+            self.engine.specs.len(),
+            self.engine.breach_history.len()
+        )
     }
 
     fn __repr__(&self) -> String {
@@ -516,19 +619,20 @@ impl PyCovenantEngine {
 /// Register the covenants module with Python.
 pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "covenants")?;
-    
+
     m.add_class::<PyCovenantType>()?;
     m.add_class::<PyCovenantConsequence>()?;
     m.add_class::<PyCovenant>()?;
     m.add_class::<PyCovenantReport>()?;
     m.add_class::<PyCovenantBreach>()?;
     m.add_class::<PyCovenantEngine>()?;
-    
+
     parent.add_submodule(&m)?;
-    parent.py()
+    parent
+        .py()
         .import("sys")?
         .getattr("modules")?
         .set_item("finstack.covenants", &m)?;
-    
+
     Ok(())
 }

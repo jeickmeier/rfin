@@ -55,7 +55,6 @@ impl DiscountCurve {
         }
         dc.year_fraction(base, date).unwrap_or(0.0)
     }
-
     /// Convenience: discount factor on a specific date `date` given a curve and
     /// the curve base `base` and `day_count`.
     /// This is equivalent to `disc.df(t)` where `t` is the year fraction from `base` to `date`.

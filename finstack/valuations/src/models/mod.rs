@@ -7,4 +7,4 @@
 
 pub mod sabr;
 
-pub use sabr::{SABRModel, SABRParameters, SABRCalibrator, SABRSmile};
+pub use sabr::{SABRCalibrator, SABRModel, SABRParameters, SABRSmile};

@@ -1,8 +1,8 @@
 //! Python bindings for loan instruments - simplified implementation.
 
-use pyo3::prelude::*;
 use finstack_core::F;
-use finstack_valuations::instruments::fixed_income::loan::term_loan::{Loan, InterestSpec};
+use finstack_valuations::instruments::fixed_income::loan::term_loan::{InterestSpec, Loan};
+use pyo3::prelude::*;
 
 use crate::core::dates::PyDate;
 use crate::core::money::PyMoney;
@@ -74,15 +74,15 @@ impl PyLoan {
     ) -> PyResult<Self> {
         if maturity_date.inner() <= issue_date.inner() {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "Maturity date must be after issue date"
+                "Maturity date must be after issue date",
             ));
         }
-        
-        let interest = InterestSpec::Fixed { 
-            rate, 
-            step_ups: None 
+
+        let interest = InterestSpec::Fixed {
+            rate,
+            step_ups: None,
         };
-        
+
         let loan = Loan::new(
             id.as_str(),
             amount.inner(),
@@ -90,10 +90,12 @@ impl PyLoan {
             maturity_date.inner(),
             interest,
         );
-        
-        Ok(Self { inner: Arc::new(loan) })
+
+        Ok(Self {
+            inner: Arc::new(loan),
+        })
     }
-    
+
     /// The unique identifier of the loan.
     ///
     /// Returns:
@@ -102,7 +104,7 @@ impl PyLoan {
     fn id(&self) -> String {
         self.inner.id.clone()
     }
-    
+
     /// The borrower entity ID.
     ///
     /// Returns:
@@ -111,7 +113,7 @@ impl PyLoan {
     fn borrower(&self) -> String {
         self.inner.borrower.clone()
     }
-    
+
     /// The original loan amount.
     ///
     /// Returns:
@@ -120,7 +122,7 @@ impl PyLoan {
     fn original_amount(&self, py: Python) -> PyResult<PyObject> {
         PyMoney::from_inner(self.inner.original_amount).into_py_any(py)
     }
-    
+
     /// The current outstanding amount.
     ///
     /// Returns:
@@ -129,7 +131,7 @@ impl PyLoan {
     fn outstanding(&self, py: Python) -> PyResult<PyObject> {
         PyMoney::from_inner(self.inner.outstanding).into_py_any(py)
     }
-    
+
     /// The loan issue/origination date.
     ///
     /// Returns:
@@ -138,7 +140,7 @@ impl PyLoan {
     fn issue_date(&self, py: Python) -> PyResult<PyObject> {
         PyDate::from_core(self.inner.issue_date).into_py_any(py)
     }
-    
+
     /// The loan maturity date.
     ///
     /// Returns:
@@ -147,7 +149,7 @@ impl PyLoan {
     fn maturity_date(&self, py: Python) -> PyResult<PyObject> {
         PyDate::from_core(self.inner.maturity_date).into_py_any(py)
     }
-    
+
     /// Set the borrower entity ID.
     ///
     /// Args:
@@ -164,7 +166,7 @@ impl PyLoan {
         self.inner = Arc::new(loan);
         Ok(self.clone())
     }
-    
+
     /// Set the discount curve ID for valuation.
     ///
     /// Args:
@@ -181,17 +183,17 @@ impl PyLoan {
         self.inner = Arc::new(loan);
         Ok(self.clone())
     }
-    
+
     /// Get string representation.
     fn __str__(&self) -> String {
         format!(
-            "Loan(id='{}', amount={}, maturity={})", 
+            "Loan(id='{}', amount={}, maturity={})",
             self.inner.id,
             self.inner.original_amount.amount(),
             self.inner.maturity_date
         )
     }
-    
+
     /// Get detailed representation.
     fn __repr__(&self) -> String {
         format!(
@@ -236,18 +238,19 @@ pub struct PyDrawEvent {
 impl PyDrawEvent {
     #[new]
     #[pyo3(signature = (date, amount, purpose=None, conditional=false))]
-    fn new(
-        date: PyDate,
-        amount: PyMoney,
-        purpose: Option<String>,
-        conditional: bool,
-    ) -> Self {
-        Self { date, amount, purpose, conditional }
+    fn new(date: PyDate, amount: PyMoney, purpose: Option<String>, conditional: bool) -> Self {
+        Self {
+            date,
+            amount,
+            purpose,
+            conditional,
+        }
     }
-    
+
     fn __str__(&self) -> String {
-        format!("DrawEvent(date={}, amount={}, conditional={})", 
-            self.date.inner(), 
+        format!(
+            "DrawEvent(date={}, amount={}, conditional={})",
+            self.date.inner(),
             self.amount.inner().amount(),
             self.conditional
         )
@@ -291,13 +294,16 @@ impl PyExpectedFundingCurve {
         if let Some(ref probs) = draw_probabilities {
             if probs.len() != expected_draws.len() {
                 return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                    "Number of probabilities must match number of draws"
+                    "Number of probabilities must match number of draws",
                 ));
             }
         }
-        Ok(Self { expected_draws, draw_probabilities })
+        Ok(Self {
+            expected_draws,
+            draw_probabilities,
+        })
     }
-    
+
     fn __str__(&self) -> String {
         format!("ExpectedFundingCurve({} draws)", self.expected_draws.len())
     }
@@ -350,15 +356,11 @@ impl PyDelayedDrawTermLoan {
     /// Returns:
     ///     DelayedDrawTermLoan: A new DDTL instrument
     #[new]
-    fn new(
-        id: String,
-        commitment: PyMoney,
-        commitment_expiry: PyDate,
-        maturity: PyDate,
-    ) -> Self {
-        let drawn = PyMoney::from_inner(
-            finstack_core::money::Money::new(0.0, commitment.inner().currency())
-        );
+    fn new(id: String, commitment: PyMoney, commitment_expiry: PyDate, maturity: PyDate) -> Self {
+        let drawn = PyMoney::from_inner(finstack_core::money::Money::new(
+            0.0,
+            commitment.inner().currency(),
+        ));
         Self {
             id,
             commitment,
@@ -368,19 +370,19 @@ impl PyDelayedDrawTermLoan {
             expected_funding_curve: None,
         }
     }
-    
+
     /// The total commitment amount.
     #[getter]
     fn commitment(&self) -> PyMoney {
         self.commitment.clone()
     }
-    
+
     /// The currently drawn amount.
     #[getter]
     fn drawn(&self) -> PyMoney {
         self.drawn.clone()
     }
-    
+
     /// Draw funds from the commitment.
     ///
     /// Args:
@@ -391,33 +393,30 @@ impl PyDelayedDrawTermLoan {
     fn draw(&mut self, amount: f64) -> PyResult<()> {
         let current_drawn = self.drawn.inner().amount();
         let commitment_amount = self.commitment.inner().amount();
-        
+
         if current_drawn + amount > commitment_amount {
-            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                format!("Draw amount {} exceeds available commitment {}", 
-                    amount, commitment_amount - current_drawn)
-            ));
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Draw amount {} exceeds available commitment {}",
+                amount,
+                commitment_amount - current_drawn
+            )));
         }
-        
-        self.drawn = PyMoney::from_inner(
-            finstack_core::money::Money::new(
-                current_drawn + amount,
-                self.drawn.inner().currency()
-            )
-        );
+
+        self.drawn = PyMoney::from_inner(finstack_core::money::Money::new(
+            current_drawn + amount,
+            self.drawn.inner().currency(),
+        ));
         Ok(())
     }
-    
+
     /// Get undrawn amount available.
     fn undrawn(&self) -> PyMoney {
-        PyMoney::from_inner(
-            finstack_core::money::Money::new(
-                self.commitment.inner().amount() - self.drawn.inner().amount(),
-                self.commitment.inner().currency()
-            )
-        )
+        PyMoney::from_inner(finstack_core::money::Money::new(
+            self.commitment.inner().amount() - self.drawn.inner().amount(),
+            self.commitment.inner().currency(),
+        ))
     }
-    
+
     /// Set expected funding curve for pricing.
     ///
     /// Args:
@@ -429,7 +428,7 @@ impl PyDelayedDrawTermLoan {
         self.expected_funding_curve = Some(curve);
         Ok(self.clone())
     }
-    
+
     /// Add expected draws for pricing.
     ///
     /// Args:
@@ -444,7 +443,7 @@ impl PyDelayedDrawTermLoan {
         });
         Ok(self.clone())
     }
-    
+
     /// Get string representation.
     fn __str__(&self) -> String {
         format!(
@@ -505,15 +504,11 @@ impl PyRevolvingCreditFacility {
     /// Returns:
     ///     RevolvingCreditFacility: A new RCF instrument
     #[new]
-    fn new(
-        id: String,
-        commitment: PyMoney,
-        availability_start: PyDate,
-        maturity: PyDate,
-    ) -> Self {
-        let drawn = PyMoney::from_inner(
-            finstack_core::money::Money::new(0.0, commitment.inner().currency())
-        );
+    fn new(id: String, commitment: PyMoney, availability_start: PyDate, maturity: PyDate) -> Self {
+        let drawn = PyMoney::from_inner(finstack_core::money::Money::new(
+            0.0,
+            commitment.inner().currency(),
+        ));
         Self {
             id,
             commitment,
@@ -523,19 +518,19 @@ impl PyRevolvingCreditFacility {
             expected_funding_curve: None,
         }
     }
-    
+
     /// The total commitment amount.
     #[getter]
     fn commitment(&self) -> PyMoney {
         self.commitment.clone()
     }
-    
+
     /// The currently drawn amount.
     #[getter]
     fn drawn(&self) -> PyMoney {
         self.drawn.clone()
     }
-    
+
     /// Draw funds from the facility.
     ///
     /// Args:
@@ -546,27 +541,28 @@ impl PyRevolvingCreditFacility {
     fn draw(&mut self, amount: f64) -> PyResult<()> {
         let current_drawn = self.drawn.inner().amount();
         let commitment_amount = self.commitment.inner().amount();
-        
+
         let new_drawn = current_drawn + amount;
         if new_drawn > commitment_amount {
-            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                format!("Draw would exceed commitment: {} > {}", 
-                    new_drawn, commitment_amount)
-            ));
+            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Draw would exceed commitment: {} > {}",
+                new_drawn, commitment_amount
+            )));
         }
-        
+
         if new_drawn < 0.0 {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "Cannot have negative drawn amount"
+                "Cannot have negative drawn amount",
             ));
         }
-        
-        self.drawn = PyMoney::from_inner(
-            finstack_core::money::Money::new(new_drawn, self.drawn.inner().currency())
-        );
+
+        self.drawn = PyMoney::from_inner(finstack_core::money::Money::new(
+            new_drawn,
+            self.drawn.inner().currency(),
+        ));
         Ok(())
     }
-    
+
     /// Repay funds to the facility.
     ///
     /// Args:
@@ -577,17 +573,15 @@ impl PyRevolvingCreditFacility {
     fn repay(&mut self, amount: f64) -> PyResult<()> {
         self.draw(-amount)
     }
-    
+
     /// Get undrawn amount available.
     fn undrawn(&self) -> PyMoney {
-        PyMoney::from_inner(
-            finstack_core::money::Money::new(
-                self.commitment.inner().amount() - self.drawn.inner().amount(),
-                self.commitment.inner().currency()
-            )
-        )
+        PyMoney::from_inner(finstack_core::money::Money::new(
+            self.commitment.inner().amount() - self.drawn.inner().amount(),
+            self.commitment.inner().currency(),
+        ))
     }
-    
+
     /// Get utilization percentage (0.0 to 1.0).
     fn utilization(&self) -> f64 {
         let commitment_amount = self.commitment.inner().amount();
@@ -597,7 +591,7 @@ impl PyRevolvingCreditFacility {
             0.0
         }
     }
-    
+
     /// Set expected funding curve for pricing.
     ///
     /// Args:
@@ -609,7 +603,7 @@ impl PyRevolvingCreditFacility {
         self.expected_funding_curve = Some(curve);
         Ok(self.clone())
     }
-    
+
     /// Add expected events for pricing.
     ///
     /// Args:
@@ -625,7 +619,7 @@ impl PyRevolvingCreditFacility {
         });
         Ok(self.clone())
     }
-    
+
     /// Get string representation.
     fn __str__(&self) -> String {
         format!(
@@ -646,7 +640,11 @@ trait IntoPyAny {
 impl IntoPyAny for PyMoney {
     fn into_py_any(self, py: Python) -> PyResult<PyObject> {
         let money_class = py.import("finstack")?.getattr("Money")?;
-        money_class.call1((self.inner().amount(), format!("{}", self.inner().currency())))
+        money_class
+            .call1((
+                self.inner().amount(),
+                format!("{}", self.inner().currency()),
+            ))
             .map(|obj| obj.into())
     }
 }
@@ -655,7 +653,8 @@ impl IntoPyAny for PyDate {
     fn into_py_any(self, py: Python) -> PyResult<PyObject> {
         let date_class = py.import("finstack")?.getattr("Date")?;
         let d = self.inner();
-        date_class.call1((d.year(), d.month() as u8, d.day()))
+        date_class
+            .call1((d.year(), d.month() as u8, d.day()))
             .map(|obj| obj.into())
     }
 }

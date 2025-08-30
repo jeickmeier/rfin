@@ -4,9 +4,8 @@ use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
 use finstack_valuations::workout::{
-    WorkoutEngine, WorkoutState, WorkoutPolicy, WorkoutStrategy,
-    RateModification, PrincipalModification, RecoveryWaterfall, RecoveryTier,
-    ClaimAmount,
+    ClaimAmount, PrincipalModification, RateModification, RecoveryTier, RecoveryWaterfall,
+    WorkoutEngine, WorkoutPolicy, WorkoutState, WorkoutStrategy,
 };
 use std::collections::HashMap;
 
@@ -18,11 +17,25 @@ use crate::core::money::PyMoney;
 #[derive(Clone, Debug)]
 pub enum PyWorkoutState {
     Performing(),
-    Stressed { indicators: Vec<String> },
-    Default { default_date: PyDate, reason: String },
-    Workout { start_date: PyDate, workout_type: String },
-    Recovered { recovery_date: PyDate, recovery_rate: f64 },
-    WrittenOff { writeoff_date: PyDate, loss_amount: PyMoney },
+    Stressed {
+        indicators: Vec<String>,
+    },
+    Default {
+        default_date: PyDate,
+        reason: String,
+    },
+    Workout {
+        start_date: PyDate,
+        workout_type: String,
+    },
+    Recovered {
+        recovery_date: PyDate,
+        recovery_rate: f64,
+    },
+    WrittenOff {
+        writeoff_date: PyDate,
+        loss_amount: PyMoney,
+    },
 }
 
 #[pymethods]
@@ -43,49 +56,78 @@ impl PyWorkoutState {
                 let default_date = kwargs
                     .and_then(|d| d.get_item("default_date").ok()?)
                     .and_then(|v| v.extract::<PyDate>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("default_date required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("default_date required")
+                    })?;
                 let reason = kwargs
                     .and_then(|d| d.get_item("reason").ok()?)
                     .and_then(|v| v.extract::<String>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("reason required"))?;
-                Ok(Self::Default { default_date, reason })
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("reason required")
+                    })?;
+                Ok(Self::Default {
+                    default_date,
+                    reason,
+                })
             }
             "workout" => {
                 let start_date = kwargs
                     .and_then(|d| d.get_item("start_date").ok()?)
                     .and_then(|v| v.extract::<PyDate>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("start_date required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("start_date required")
+                    })?;
                 let workout_type = kwargs
                     .and_then(|d| d.get_item("workout_type").ok()?)
                     .and_then(|v| v.extract::<String>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("workout_type required"))?;
-                Ok(Self::Workout { start_date, workout_type })
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("workout_type required")
+                    })?;
+                Ok(Self::Workout {
+                    start_date,
+                    workout_type,
+                })
             }
             "recovered" => {
                 let recovery_date = kwargs
                     .and_then(|d| d.get_item("recovery_date").ok()?)
                     .and_then(|v| v.extract::<PyDate>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("recovery_date required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("recovery_date required")
+                    })?;
                 let recovery_rate = kwargs
                     .and_then(|d| d.get_item("recovery_rate").ok()?)
                     .and_then(|v| v.extract::<f64>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("recovery_rate required"))?;
-                Ok(Self::Recovered { recovery_date, recovery_rate })
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("recovery_rate required")
+                    })?;
+                Ok(Self::Recovered {
+                    recovery_date,
+                    recovery_rate,
+                })
             }
             "written_off" => {
                 let writeoff_date = kwargs
                     .and_then(|d| d.get_item("writeoff_date").ok()?)
                     .and_then(|v| v.extract::<PyDate>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("writeoff_date required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("writeoff_date required")
+                    })?;
                 let loss_amount = kwargs
                     .and_then(|d| d.get_item("loss_amount").ok()?)
                     .and_then(|v| v.extract::<PyMoney>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("loss_amount required"))?;
-                Ok(Self::WrittenOff { writeoff_date, loss_amount })
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("loss_amount required")
+                    })?;
+                Ok(Self::WrittenOff {
+                    writeoff_date,
+                    loss_amount,
+                })
             }
-            _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                format!("Unknown state type: {}", state_type),
-            )),
+            _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Unknown state type: {}",
+                state_type
+            ))),
         }
     }
 
@@ -93,10 +135,26 @@ impl PyWorkoutState {
         match self {
             Self::Performing() => "Performing".to_string(),
             Self::Stressed { indicators } => format!("Stressed(indicators={:?})", indicators),
-            Self::Default { default_date, reason } => format!("Default(date={}, reason='{}')", default_date, reason),
-            Self::Workout { start_date, workout_type } => format!("Workout(start={}, type='{}')", start_date, workout_type),
-            Self::Recovered { recovery_date, recovery_rate } => format!("Recovered(date={}, rate={:.2}%)", recovery_date, recovery_rate * 100.0),
-            Self::WrittenOff { writeoff_date, loss_amount } => format!("WrittenOff(date={}, loss={})", writeoff_date, loss_amount),
+            Self::Default {
+                default_date,
+                reason,
+            } => format!("Default(date={}, reason='{}')", default_date, reason),
+            Self::Workout {
+                start_date,
+                workout_type,
+            } => format!("Workout(start={}, type='{}')", start_date, workout_type),
+            Self::Recovered {
+                recovery_date,
+                recovery_rate,
+            } => format!(
+                "Recovered(date={}, rate={:.2}%)",
+                recovery_date,
+                recovery_rate * 100.0
+            ),
+            Self::WrittenOff {
+                writeoff_date,
+                loss_amount,
+            } => format!("WrittenOff(date={}, loss={})", writeoff_date, loss_amount),
         }
     }
 
@@ -109,11 +167,37 @@ impl PyWorkoutState {
     fn to_rust(&self) -> WorkoutState {
         match self {
             Self::Performing() => WorkoutState::Performing,
-            Self::Stressed { indicators } => WorkoutState::Stressed { indicators: indicators.clone() },
-            Self::Default { default_date, reason } => WorkoutState::Default { default_date: default_date.inner(), reason: reason.clone() },
-            Self::Workout { start_date, workout_type } => WorkoutState::Workout { start_date: start_date.inner(), workout_type: workout_type.clone() },
-            Self::Recovered { recovery_date, recovery_rate } => WorkoutState::Recovered { recovery_date: recovery_date.inner(), recovery_rate: *recovery_rate },
-            Self::WrittenOff { writeoff_date, loss_amount } => WorkoutState::WrittenOff { writeoff_date: writeoff_date.inner(), loss_amount: loss_amount.inner() },
+            Self::Stressed { indicators } => WorkoutState::Stressed {
+                indicators: indicators.clone(),
+            },
+            Self::Default {
+                default_date,
+                reason,
+            } => WorkoutState::Default {
+                default_date: default_date.inner(),
+                reason: reason.clone(),
+            },
+            Self::Workout {
+                start_date,
+                workout_type,
+            } => WorkoutState::Workout {
+                start_date: start_date.inner(),
+                workout_type: workout_type.clone(),
+            },
+            Self::Recovered {
+                recovery_date,
+                recovery_rate,
+            } => WorkoutState::Recovered {
+                recovery_date: recovery_date.inner(),
+                recovery_rate: *recovery_rate,
+            },
+            Self::WrittenOff {
+                writeoff_date,
+                loss_amount,
+            } => WorkoutState::WrittenOff {
+                writeoff_date: writeoff_date.inner(),
+                loss_amount: loss_amount.inner(),
+            },
         }
     }
 }
@@ -138,37 +222,51 @@ impl PyRateModification {
                 let bps = kwargs
                     .and_then(|d| d.get_item("bps").ok()?)
                     .and_then(|v| v.extract::<f64>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("bps required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("bps required")
+                    })?;
                 Ok(Self::ReduceBy { bps })
             }
             "set_to" => {
                 let rate = kwargs
                     .and_then(|d| d.get_item("rate").ok()?)
                     .and_then(|v| v.extract::<f64>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("rate required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("rate required")
+                    })?;
                 Ok(Self::SetTo { rate })
             }
             "convert_to_pik" => {
                 let pik_rate = kwargs
                     .and_then(|d| d.get_item("pik_rate").ok()?)
                     .and_then(|v| v.extract::<f64>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("pik_rate required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("pik_rate required")
+                    })?;
                 Ok(Self::ConvertToPIK { pik_rate })
             }
             "split_cash_pik" => {
                 let cash_rate = kwargs
                     .and_then(|d| d.get_item("cash_rate").ok()?)
                     .and_then(|v| v.extract::<f64>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("cash_rate required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("cash_rate required")
+                    })?;
                 let pik_rate = kwargs
                     .and_then(|d| d.get_item("pik_rate").ok()?)
                     .and_then(|v| v.extract::<f64>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("pik_rate required"))?;
-                Ok(Self::SplitCashPIK { cash_rate, pik_rate })
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("pik_rate required")
+                    })?;
+                Ok(Self::SplitCashPIK {
+                    cash_rate,
+                    pik_rate,
+                })
             }
-            _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                format!("Unknown modification type: {}", mod_type),
-            )),
+            _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Unknown modification type: {}",
+                mod_type
+            ))),
         }
     }
 
@@ -177,8 +275,14 @@ impl PyRateModification {
             Self::ReduceBy { bps } => format!("ReduceBy({} bps)", bps),
             Self::SetTo { rate } => format!("SetTo({:.2}%)", rate * 100.0),
             Self::ConvertToPIK { pik_rate } => format!("ConvertToPIK({:.2}%)", pik_rate * 100.0),
-            Self::SplitCashPIK { cash_rate, pik_rate } => 
-                format!("SplitCashPIK(cash={:.2}%, pik={:.2}%)", cash_rate * 100.0, pik_rate * 100.0),
+            Self::SplitCashPIK {
+                cash_rate,
+                pik_rate,
+            } => format!(
+                "SplitCashPIK(cash={:.2}%, pik={:.2}%)",
+                cash_rate * 100.0,
+                pik_rate * 100.0
+            ),
         }
     }
 }
@@ -188,9 +292,16 @@ impl PyRateModification {
         match self {
             Self::ReduceBy { bps } => RateModification::ReduceBy { bps: *bps },
             Self::SetTo { rate } => RateModification::SetTo { rate: *rate },
-            Self::ConvertToPIK { pik_rate } => RateModification::ConvertToPIK { pik_rate: *pik_rate },
-            Self::SplitCashPIK { cash_rate, pik_rate } => 
-                RateModification::SplitCashPIK { cash_rate: *cash_rate, pik_rate: *pik_rate },
+            Self::ConvertToPIK { pik_rate } => RateModification::ConvertToPIK {
+                pik_rate: *pik_rate,
+            },
+            Self::SplitCashPIK {
+                cash_rate,
+                pik_rate,
+            } => RateModification::SplitCashPIK {
+                cash_rate: *cash_rate,
+                pik_rate: *pik_rate,
+            },
         }
     }
 }
@@ -214,26 +325,33 @@ impl PyPrincipalModification {
                 let percentage = kwargs
                     .and_then(|d| d.get_item("percentage").ok()?)
                     .and_then(|v| v.extract::<f64>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("percentage required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("percentage required")
+                    })?;
                 Ok(Self::Forgive { percentage })
             }
             "defer" => {
                 let percentage = kwargs
                     .and_then(|d| d.get_item("percentage").ok()?)
                     .and_then(|v| v.extract::<f64>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("percentage required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("percentage required")
+                    })?;
                 Ok(Self::Defer { percentage })
             }
             "reamortize" => {
                 let months = kwargs
                     .and_then(|d| d.get_item("months").ok()?)
                     .and_then(|v| v.extract::<i32>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("months required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("months required")
+                    })?;
                 Ok(Self::Reamortize { months })
             }
-            _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                format!("Unknown modification type: {}", mod_type),
-            )),
+            _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Unknown modification type: {}",
+                mod_type
+            ))),
         }
     }
 
@@ -249,8 +367,12 @@ impl PyPrincipalModification {
 impl PyPrincipalModification {
     fn to_rust(&self) -> PrincipalModification {
         match self {
-            Self::Forgive { percentage } => PrincipalModification::Forgive { percentage: *percentage },
-            Self::Defer { percentage } => PrincipalModification::Defer { percentage: *percentage },
+            Self::Forgive { percentage } => PrincipalModification::Forgive {
+                percentage: *percentage,
+            },
+            Self::Defer { percentage } => PrincipalModification::Defer {
+                percentage: *percentage,
+            },
             Self::Reamortize { months } => PrincipalModification::Reamortize { months: *months },
         }
     }
@@ -345,26 +467,33 @@ impl PyClaimAmount {
                 let amount = kwargs
                     .and_then(|d| d.get_item("amount").ok()?)
                     .and_then(|v| v.extract::<PyMoney>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("amount required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("amount required")
+                    })?;
                 Ok(Self::Fixed { amount })
             }
             "percent" => {
                 let percentage = kwargs
                     .and_then(|d| d.get_item("percentage").ok()?)
                     .and_then(|v| v.extract::<f64>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("percentage required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("percentage required")
+                    })?;
                 Ok(Self::PercentOfOutstanding { percentage })
             }
             "calculated" => {
                 let formula = kwargs
                     .and_then(|d| d.get_item("formula").ok()?)
                     .and_then(|v| v.extract::<String>().ok())
-                    .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("formula required"))?;
+                    .ok_or_else(|| {
+                        PyErr::new::<pyo3::exceptions::PyValueError, _>("formula required")
+                    })?;
                 Ok(Self::Calculated { formula })
             }
-            _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                format!("Unknown amount type: {}", amount_type),
-            )),
+            _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Unknown amount type: {}",
+                amount_type
+            ))),
         }
     }
 }
@@ -373,7 +502,9 @@ impl PyClaimAmount {
     fn to_rust(&self) -> ClaimAmount {
         match self {
             Self::Fixed { amount } => ClaimAmount::Fixed(amount.inner()),
-            Self::PercentOfOutstanding { percentage } => ClaimAmount::PercentOfOutstanding(*percentage),
+            Self::PercentOfOutstanding { percentage } => {
+                ClaimAmount::PercentOfOutstanding(*percentage)
+            }
             Self::Calculated { formula } => ClaimAmount::Calculated(formula.clone()),
         }
     }
@@ -397,8 +528,12 @@ impl PyRecoveryTier {
     }
 
     fn __str__(&self) -> String {
-        format!("RecoveryTier(name='{}', type='{}', recovery={:.1}%)", 
-                self.name, self.claim_type, self.recovery_pct * 100.0)
+        format!(
+            "RecoveryTier(name='{}', type='{}', recovery={:.1}%)",
+            self.name,
+            self.claim_type,
+            self.recovery_pct * 100.0
+        )
     }
 }
 
@@ -453,10 +588,7 @@ pub struct PyWorkoutPolicy {
 #[pymethods]
 impl PyWorkoutPolicy {
     #[new]
-    pub fn new(
-        name: String,
-        recovery_waterfall: PyRecoveryWaterfall,
-    ) -> Self {
+    pub fn new(name: String, recovery_waterfall: PyRecoveryWaterfall) -> Self {
         Self {
             name,
             stress_thresholds: HashMap::new(),
@@ -472,12 +604,16 @@ impl PyWorkoutPolicy {
 
     /// Add a workout strategy.
     pub fn add_strategy(&mut self, strategy: PyWorkoutStrategy) {
-        self.workout_strategies.insert(strategy.name.clone(), strategy);
+        self.workout_strategies
+            .insert(strategy.name.clone(), strategy);
     }
 
     fn __str__(&self) -> String {
-        format!("WorkoutPolicy(name='{}', strategies={})", 
-                self.name, self.workout_strategies.len())
+        format!(
+            "WorkoutPolicy(name='{}', strategies={})",
+            self.name,
+            self.workout_strategies.len()
+        )
     }
 }
 
@@ -487,7 +623,9 @@ impl PyWorkoutPolicy {
             name: self.name.clone(),
             stress_thresholds: self.stress_thresholds.clone(),
             default_triggers: Vec::new(), // Would need proper mapping
-            workout_strategies: self.workout_strategies.iter()
+            workout_strategies: self
+                .workout_strategies
+                .iter()
                 .map(|(k, v)| (k.clone(), v.to_rust()))
                 .collect(),
             recovery_waterfall: self.recovery_waterfall.to_rust(),
@@ -521,15 +659,18 @@ impl PyRecoveryAnalysis {
     pub fn tier_recoveries(&self) -> Vec<(String, PyMoney)> {
         self.tier_recoveries.clone()
     }
-    
+
     #[getter]
     pub fn recovery_schedule(&self) -> Vec<(PyDate, PyMoney)> {
         self.recovery_schedule.clone()
     }
 
     fn __str__(&self) -> String {
-        format!("RecoveryAnalysis(expected={}, rate={:.1}%)", 
-                self.expected_recovery, self.recovery_rate * 100.0)
+        format!(
+            "RecoveryAnalysis(expected={}, rate={:.1}%)",
+            self.expected_recovery,
+            self.recovery_rate * 100.0
+        )
     }
 }
 
@@ -555,7 +696,8 @@ impl PyWorkoutEngine {
         date: PyDate,
         description: String,
     ) -> PyResult<()> {
-        self.engine.transition(new_state.to_rust(), date.inner(), description)
+        self.engine
+            .transition(new_state.to_rust(), date.inner(), description)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
     }
 
@@ -563,28 +705,37 @@ impl PyWorkoutEngine {
     pub fn get_state(&self) -> PyWorkoutState {
         match &self.engine.state {
             WorkoutState::Performing => PyWorkoutState::Performing(),
-            WorkoutState::Stressed { indicators } => 
-                PyWorkoutState::Stressed { indicators: indicators.clone() },
-            WorkoutState::Default { default_date, reason } => 
-                PyWorkoutState::Default { 
-                    default_date: PyDate::from_core(*default_date),
-                    reason: reason.clone(),
-                },
-            WorkoutState::Workout { start_date, workout_type } => 
-                PyWorkoutState::Workout {
-                    start_date: PyDate::from_core(*start_date),
-                    workout_type: workout_type.clone(),
-                },
-            WorkoutState::Recovered { recovery_date, recovery_rate } => 
-                PyWorkoutState::Recovered {
-                    recovery_date: PyDate::from_core(*recovery_date),
-                    recovery_rate: *recovery_rate,
-                },
-            WorkoutState::WrittenOff { writeoff_date, loss_amount } => 
-                PyWorkoutState::WrittenOff {
-                    writeoff_date: PyDate::from_core(*writeoff_date),
-                    loss_amount: PyMoney::from_inner(*loss_amount),
-                },
+            WorkoutState::Stressed { indicators } => PyWorkoutState::Stressed {
+                indicators: indicators.clone(),
+            },
+            WorkoutState::Default {
+                default_date,
+                reason,
+            } => PyWorkoutState::Default {
+                default_date: PyDate::from_core(*default_date),
+                reason: reason.clone(),
+            },
+            WorkoutState::Workout {
+                start_date,
+                workout_type,
+            } => PyWorkoutState::Workout {
+                start_date: PyDate::from_core(*start_date),
+                workout_type: workout_type.clone(),
+            },
+            WorkoutState::Recovered {
+                recovery_date,
+                recovery_rate,
+            } => PyWorkoutState::Recovered {
+                recovery_date: PyDate::from_core(*recovery_date),
+                recovery_rate: *recovery_rate,
+            },
+            WorkoutState::WrittenOff {
+                writeoff_date,
+                loss_amount,
+            } => PyWorkoutState::WrittenOff {
+                writeoff_date: PyDate::from_core(*writeoff_date),
+                loss_amount: PyMoney::from_inner(*loss_amount),
+            },
         }
     }
 
@@ -595,27 +746,33 @@ impl PyWorkoutEngine {
         collateral_value: PyMoney,
         as_of: PyDate,
     ) -> PyResult<PyRecoveryAnalysis> {
-        let analysis = self.engine.generate_recovery_flows(
-            outstanding.inner(),
-            collateral_value.inner(),
-            as_of.inner(),
-        ).map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+        let analysis = self
+            .engine
+            .generate_recovery_flows(outstanding.inner(), collateral_value.inner(), as_of.inner())
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
         Ok(PyRecoveryAnalysis {
             expected_recovery: PyMoney::from_inner(analysis.expected_recovery),
             recovery_rate: analysis.recovery_rate,
-            tier_recoveries: analysis.tier_recoveries.into_iter()
+            tier_recoveries: analysis
+                .tier_recoveries
+                .into_iter()
                 .map(|(name, amount)| (name, PyMoney::from_inner(amount)))
                 .collect(),
-            recovery_schedule: analysis.recovery_schedule.into_iter()
+            recovery_schedule: analysis
+                .recovery_schedule
+                .into_iter()
                 .map(|(date, amount)| (PyDate::from_core(date), PyMoney::from_inner(amount)))
                 .collect(),
         })
     }
 
     fn __str__(&self) -> String {
-        format!("WorkoutEngine(state={:?}, events={})", 
-                self.get_state(), self.engine.events.len())
+        format!(
+            "WorkoutEngine(state={:?}, events={})",
+            self.get_state(),
+            self.engine.events.len()
+        )
     }
 
     fn __repr__(&self) -> String {
@@ -626,7 +783,7 @@ impl PyWorkoutEngine {
 /// Register the workout module with Python.
 pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "workout")?;
-    
+
     m.add_class::<PyWorkoutState>()?;
     m.add_class::<PyRateModification>()?;
     m.add_class::<PyPrincipalModification>()?;
@@ -637,12 +794,13 @@ pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyWorkoutPolicy>()?;
     m.add_class::<PyRecoveryAnalysis>()?;
     m.add_class::<PyWorkoutEngine>()?;
-    
+
     parent.add_submodule(&m)?;
-    parent.py()
+    parent
+        .py()
         .import("sys")?
         .getattr("modules")?
         .set_item("finstack.workout", &m)?;
-    
+
     Ok(())
 }

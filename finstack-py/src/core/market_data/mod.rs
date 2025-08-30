@@ -12,28 +12,28 @@
 
 use pyo3::prelude::*;
 
+pub mod context;
 pub mod curve_id;
 pub mod curve_set;
 pub mod curves;
 pub mod fx;
 pub mod inflation_index;
-pub mod primitives;
-pub mod context;
 pub mod interpolation;
+pub mod primitives;
 pub mod surfaces;
 
 // Re-export commonly used types
+pub use context::PyMarketContext;
 pub use curve_id::PyCurveId;
 pub use curve_set::PyCurveSet;
 pub use curves::{PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyInflationCurve};
 pub use fx::{PyFxConversionPolicy, PyFxMatrix, PySimpleFxProvider};
 pub use inflation_index::{
-    PyInflationIndex, PyInflationIndexBuilder, PyInflationInterpolation, PyInflationLag
+    PyInflationIndex, PyInflationIndexBuilder, PyInflationInterpolation, PyInflationLag,
 };
-pub use primitives::{PyMarketScalar, PyScalarTimeSeries, PySeriesInterpolation};
 pub use interpolation::PyInterpStyle;
+pub use primitives::{PyMarketScalar, PyScalarTimeSeries, PySeriesInterpolation};
 pub use surfaces::PyVolSurface;
-pub use context::PyMarketContext;
 
 /// Register the market_data submodule with Python
 pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -52,18 +52,18 @@ pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyScalarTimeSeries>()?;
     m.add_class::<PySeriesInterpolation>()?;
     m.add_class::<PyMarketContext>()?;
-    
+
     // Register FX classes
     m.add_class::<PyFxConversionPolicy>()?;
     m.add_class::<PySimpleFxProvider>()?;
     m.add_class::<PyFxMatrix>()?;
-    
+
     // Register inflation index classes
     m.add_class::<PyInflationIndex>()?;
     m.add_class::<PyInflationIndexBuilder>()?;
     m.add_class::<PyInflationInterpolation>()?;
     m.add_class::<PyInflationLag>()?;
-    
+
     // Register market context
     context::register_context(&m)?;
 

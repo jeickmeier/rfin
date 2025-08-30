@@ -82,13 +82,19 @@ impl Money {
                 .unwrap_or(rust_decimal::Decimal::ZERO);
             let mode = cfg.rounding.mode;
             let rounded = round_decimal(dec, dp, mode);
-            Self { amount: rounded, currency }
+            Self {
+                amount: rounded,
+                currency,
+            }
         }
         #[cfg(not(feature = "decimal128"))]
         {
             let mode = cfg.rounding.mode;
             let rounded = round_f64(amount, dp as i32, mode);
-            Self { amount: rounded, currency }
+            Self {
+                amount: rounded,
+                currency,
+            }
         }
     }
 
@@ -96,11 +102,18 @@ impl Money {
     #[cfg(feature = "decimal128")]
     #[must_use]
     #[inline]
-    pub fn from_decimal_with_config(amount: rust_decimal::Decimal, currency: Currency, cfg: &FinstackConfig) -> Self {
+    pub fn from_decimal_with_config(
+        amount: rust_decimal::Decimal,
+        currency: Currency,
+        cfg: &FinstackConfig,
+    ) -> Self {
         let dp = crate::config::ingest_scale_for(cfg, currency);
         let mode = cfg.rounding.mode;
         let dec = round_decimal(amount, dp, mode);
-        Self { amount: dec, currency }
+        Self {
+            amount: dec,
+            currency,
+        }
     }
 
     /// Amount accessor (by value).
@@ -222,7 +235,12 @@ impl Money {
         }
         #[cfg(not(feature = "decimal128"))]
         {
-            format!("{} {val:.prec$}", self.currency, val = self.amount, prec = dp)
+            format!(
+                "{} {val:.prec$}",
+                self.currency,
+                val = self.amount,
+                prec = dp
+            )
         }
     }
 }
@@ -394,7 +412,9 @@ fn repr_sub(a: AmountRepr, b: AmountRepr) -> AmountRepr {
 fn repr_mul_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
     #[cfg(feature = "decimal128")]
     {
-        let m = AmountRepr::from_f64_retain(rhs).or_else(|| AmountRepr::from_f64(rhs)).unwrap_or(AmountRepr::ZERO);
+        let m = AmountRepr::from_f64_retain(rhs)
+            .or_else(|| AmountRepr::from_f64(rhs))
+            .unwrap_or(AmountRepr::ZERO);
         a * m
     }
     #[cfg(not(feature = "decimal128"))]
@@ -407,7 +427,9 @@ fn repr_mul_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
 fn repr_div_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
     #[cfg(feature = "decimal128")]
     {
-        let d = AmountRepr::from_f64_retain(rhs).or_else(|| AmountRepr::from_f64(rhs)).unwrap_or(AmountRepr::ONE);
+        let d = AmountRepr::from_f64_retain(rhs)
+            .or_else(|| AmountRepr::from_f64(rhs))
+            .unwrap_or(AmountRepr::ONE);
         a / d
     }
     #[cfg(not(feature = "decimal128"))]
@@ -483,10 +505,8 @@ fn round_f64(x: f64, dp: i32, mode: RoundingMode) -> f64 {
             let y = x * factor;
             let r = y.round();
             let tie = (y.abs().fract() - 0.5).abs() <= 1e-15;
-            if tie {
-                if (r as i64).abs() % 2 != 0 {
-                    return (r - y.signum()) / factor;
-                }
+            if tie && (r as i64).abs() % 2 != 0 {
+                return (r - y.signum()) / factor;
             }
             r / factor
         }

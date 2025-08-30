@@ -49,16 +49,22 @@ pub struct CashFlow {
 
 impl CashFlow {
     /// Create a fixed coupon cash-flow (`CFKind::Fixed`).
-    /// 
+    ///
     /// # Errors
     /// Returns [`Error::InvalidInput`] if the `amount` is zero.
-    /// 
+    ///
     /// See unit tests and `examples/` for usage.
     pub fn fixed_cf(date: Date, amount: Money) -> finstack_core::Result<Self> {
         if amount.amount() == 0.0 {
             return Err(InputError::Invalid.into());
         }
-        Ok(Self { date, reset_date: None, amount, kind: CFKind::Fixed, accrual_factor: 0.0 })
+        Ok(Self {
+            date,
+            reset_date: None,
+            amount,
+            kind: CFKind::Fixed,
+            accrual_factor: 0.0,
+        })
     }
 
     /// Create a floating coupon cash-flow (stored as `CFKind::FloatReset`).
@@ -67,11 +73,21 @@ impl CashFlow {
     ///
     /// # Errors
     /// Returns [`Error::InvalidInput`] if the `amount` is zero.
-    pub fn floating_cf(date: Date, amount: Money, reset_date: Option<Date>) -> finstack_core::Result<Self> {
+    pub fn floating_cf(
+        date: Date,
+        amount: Money,
+        reset_date: Option<Date>,
+    ) -> finstack_core::Result<Self> {
         if amount.amount() == 0.0 {
             return Err(InputError::Invalid.into());
         }
-        Ok(Self { date, reset_date: Some(reset_date.unwrap_or(date)), amount, kind: CFKind::FloatReset, accrual_factor: 0.0 })
+        Ok(Self {
+            date,
+            reset_date: Some(reset_date.unwrap_or(date)),
+            amount,
+            kind: CFKind::FloatReset,
+            accrual_factor: 0.0,
+        })
     }
 
     /// Create a Payment-in-Kind cash-flow (`CFKind::PIK`).
@@ -84,7 +100,13 @@ impl CashFlow {
         if amount.amount() == 0.0 {
             return Err(InputError::Invalid.into());
         }
-        Ok(Self { date, reset_date: None, amount, kind: CFKind::PIK, accrual_factor: 0.0 })
+        Ok(Self {
+            date,
+            reset_date: None,
+            amount,
+            kind: CFKind::PIK,
+            accrual_factor: 0.0,
+        })
     }
 
     /// Create an amortization principal cash-flow (`CFKind::Amortization`).
@@ -97,7 +119,13 @@ impl CashFlow {
         if amount.amount() == 0.0 {
             return Err(InputError::Invalid.into());
         }
-        Ok(Self { date, reset_date: None, amount, kind: CFKind::Amortization, accrual_factor: 0.0 })
+        Ok(Self {
+            date,
+            reset_date: None,
+            amount,
+            kind: CFKind::Amortization,
+            accrual_factor: 0.0,
+        })
     }
 
     /// Create a **principal exchange** (`CFKind::Notional`) cash-flow.
@@ -133,7 +161,6 @@ impl CashFlow {
             accrual_factor: 0.0,
         })
     }
-
 }
 
 // -------------------------------------------------------------------------

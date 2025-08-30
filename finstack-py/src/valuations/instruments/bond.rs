@@ -1,14 +1,14 @@
 //! Python bindings for bond instruments.
 
-use pyo3::prelude::*;
-use pyo3::types::PyDict;
-use std::str::FromStr;
-use finstack_valuations::instruments::fixed_income::bond::Bond;
 use crate::core::{
     dates::{PyDate, PyDayCount, PyFrequency},
     money::PyMoney,
 };
 use crate::valuations::cashflow::PyCashFlowSchedule;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use pyo3::prelude::*;
+use pyo3::types::PyDict;
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// Bond instrument for fixed-income valuation.
@@ -91,7 +91,7 @@ impl PyBond {
     ///     ... )
     #[new]
     #[pyo3(signature = (id, notional, coupon, frequency, day_count, issue_date, maturity, discount_curve, quoted_clean_price=None, custom_cashflows=None))]
-    #[allow(clippy::too_many_arguments)]  // Python API requires all these parameters
+    #[allow(clippy::too_many_arguments)] // Python API requires all these parameters
     fn new(
         id: String,
         notional: &PyMoney,
@@ -107,13 +107,13 @@ impl PyBond {
         // Validate dates
         if maturity.inner() <= issue_date.inner() {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "Maturity date must be after issue date"
+                "Maturity date must be after issue date",
             ));
         }
-        
+
         // Create static str for discount curve id
         let disc_id: &'static str = Box::leak(discount_curve.to_string().into_boxed_str());
-        
+
         let bond = Bond {
             id: id.clone(),
             notional: notional.inner(),
@@ -129,12 +129,12 @@ impl PyBond {
             custom_cashflows: custom_cashflows.map(|cf| cf.inner()),
             attributes: finstack_valuations::traits::Attributes::new(),
         };
-        
+
         Ok(Self {
             inner: Arc::new(bond),
         })
     }
-    
+
     /// The unique identifier of the bond.
     ///
     /// Returns:
@@ -147,7 +147,7 @@ impl PyBond {
     fn id(&self) -> String {
         self.inner.id.clone()
     }
-    
+
     /// The principal amount of the bond.
     ///
     /// Returns:
@@ -160,7 +160,7 @@ impl PyBond {
     fn notional(&self) -> PyMoney {
         PyMoney::from_inner(self.inner.notional)
     }
-    
+
     /// The annual coupon rate.
     ///
     /// Returns:
@@ -173,7 +173,7 @@ impl PyBond {
     fn coupon(&self) -> f64 {
         self.inner.coupon
     }
-    
+
     /// The coupon payment frequency.
     ///
     /// Returns:
@@ -186,7 +186,7 @@ impl PyBond {
     fn frequency(&self) -> PyFrequency {
         PyFrequency::from_inner(self.inner.freq)
     }
-    
+
     /// The day count convention.
     ///
     /// Returns:
@@ -199,7 +199,7 @@ impl PyBond {
     fn day_count(&self) -> PyDayCount {
         PyDayCount::from_inner(self.inner.dc)
     }
-    
+
     /// The issue date of the bond.
     ///
     /// Returns:
@@ -212,7 +212,7 @@ impl PyBond {
     fn issue_date(&self) -> PyDate {
         PyDate::from_core(self.inner.issue)
     }
-    
+
     /// The maturity date of the bond.
     ///
     /// Returns:
@@ -225,7 +225,7 @@ impl PyBond {
     fn maturity(&self) -> PyDate {
         PyDate::from_core(self.inner.maturity)
     }
-    
+
     /// The discount curve identifier used for pricing.
     ///
     /// Returns:
@@ -238,7 +238,7 @@ impl PyBond {
     fn discount_curve(&self) -> &str {
         self.inner.disc_id
     }
-    
+
     /// The quoted clean price (if provided).
     ///
     /// Returns:
@@ -251,7 +251,7 @@ impl PyBond {
     fn quoted_clean_price(&self) -> Option<f64> {
         self.inner.quoted_clean
     }
-    
+
     /// Calculate the number of coupon payments remaining.
     ///
     /// Args:
@@ -265,50 +265,66 @@ impl PyBond {
     ///     8  # For a semi-annual bond with 4 years remaining
     fn num_coupons_remaining(&self, as_of: &PyDate) -> PyResult<usize> {
         let as_of_inner = as_of.inner();
-        
+
         if as_of_inner >= self.inner.maturity {
             return Ok(0);
         }
-        
+
         if as_of_inner <= self.inner.issue {
             // Full term remaining
-            let years = self.inner.dc.year_fraction(self.inner.issue, self.inner.maturity)
-                .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-                    format!("Failed to calculate year fraction: {:?}", e)
-                ))?;
-            
+            let years = self
+                .inner
+                .dc
+                .year_fraction(self.inner.issue, self.inner.maturity)
+                .map_err(|e| {
+                    PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                        "Failed to calculate year fraction: {:?}",
+                        e
+                    ))
+                })?;
+
             let payments_per_year = match self.inner.freq.months() {
                 Some(12) => 1.0,
                 Some(6) => 2.0,
                 Some(3) => 4.0,
                 Some(1) => 12.0,
-                _ => return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                    "Unsupported frequency for coupon count"
-                )),
+                _ => {
+                    return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                        "Unsupported frequency for coupon count",
+                    ))
+                }
             };
-            
+
             Ok((years * payments_per_year).ceil() as usize)
         } else {
             // Calculate based on remaining time
-            let years_remaining = self.inner.dc.year_fraction(as_of_inner, self.inner.maturity)
-                .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-                    format!("Failed to calculate year fraction: {:?}", e)
-                ))?;
-            
+            let years_remaining = self
+                .inner
+                .dc
+                .year_fraction(as_of_inner, self.inner.maturity)
+                .map_err(|e| {
+                    PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                        "Failed to calculate year fraction: {:?}",
+                        e
+                    ))
+                })?;
+
             let payments_per_year = match self.inner.freq.months() {
                 Some(12) => 1.0,
                 Some(6) => 2.0,
                 Some(3) => 4.0,
                 Some(1) => 12.0,
-                _ => return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                    "Unsupported frequency for coupon count"
-                )),
+                _ => {
+                    return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
+                        "Unsupported frequency for coupon count",
+                    ))
+                }
             };
-            
+
             Ok((years_remaining * payments_per_year).ceil() as usize)
         }
     }
-    
+
     /// Calculate years to maturity from a given date.
     ///
     /// Args:
@@ -322,19 +338,25 @@ impl PyBond {
     ///     4.0  # For a bond maturing in 2028
     fn years_to_maturity(&self, as_of: &PyDate) -> PyResult<f64> {
         let as_of_inner = as_of.inner();
-        
+
         if as_of_inner >= self.inner.maturity {
             return Ok(0.0);
         }
-        
-        let years = self.inner.dc.year_fraction(as_of_inner, self.inner.maturity)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-                format!("Failed to calculate years to maturity: {:?}", e)
-            ))?;
-            
+
+        let years = self
+            .inner
+            .dc
+            .year_fraction(as_of_inner, self.inner.maturity)
+            .map_err(|e| {
+                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                    "Failed to calculate years to maturity: {:?}",
+                    e
+                ))
+            })?;
+
         Ok(years)
     }
-    
+
     /// String representation of the bond.
     ///
     /// Returns:
@@ -351,7 +373,7 @@ impl PyBond {
             Some(1) => "Monthly",
             _ => "Custom",
         };
-        
+
         format!(
             "Bond('{}', {:.2}% {}, Matures {})",
             self.inner.id,
@@ -360,12 +382,12 @@ impl PyBond {
             self.inner.maturity
         )
     }
-    
+
     /// Compare bonds by ID for equality.
     fn __eq__(&self, other: &Self) -> bool {
         self.inner.id == other.inner.id
     }
-    
+
     /// Get the bond's attributes for tagging and metadata.
     ///
     /// Returns:
@@ -381,7 +403,7 @@ impl PyBond {
         let attrs = self.inner.attributes().clone();
         crate::valuations::attributes::PyAttributes::from_inner(attrs)
     }
-    
+
     /// Set the bond's attributes.
     ///
     /// Args:
@@ -393,17 +415,20 @@ impl PyBond {
     ///     >>> attrs.add_tag("high_yield")
     ///     >>> bond.set_attributes(attrs)
     #[setter]
-    fn set_attributes(&mut self, attributes: &crate::valuations::attributes::PyAttributes) -> PyResult<()> {
+    fn set_attributes(
+        &mut self,
+        attributes: &crate::valuations::attributes::PyAttributes,
+    ) -> PyResult<()> {
         use finstack_valuations::traits::Attributable;
         use std::sync::Arc;
-        
+
         // We need to clone the bond to modify it since it's in an Arc
         let mut bond = (*self.inner).clone();
         *bond.attributes_mut() = attributes.inner.clone();
         self.inner = Arc::new(bond);
         Ok(())
     }
-    
+
     /// Add a tag to the bond's attributes.
     ///
     /// Args:
@@ -415,13 +440,13 @@ impl PyBond {
     fn add_tag(&mut self, tag: String) -> PyResult<()> {
         use finstack_valuations::traits::Attributable;
         use std::sync::Arc;
-        
+
         let mut bond = (*self.inner).clone();
         bond.attributes_mut().tags.insert(tag);
         self.inner = Arc::new(bond);
         Ok(())
     }
-    
+
     /// Check if the bond has a specific tag.
     ///
     /// Args:
@@ -433,7 +458,7 @@ impl PyBond {
         use finstack_valuations::traits::Attributable;
         self.inner.has_tag(tag)
     }
-    
+
     /// Set a metadata value on the bond.
     ///
     /// Args:
@@ -446,13 +471,13 @@ impl PyBond {
     fn set_meta(&mut self, key: String, value: String) -> PyResult<()> {
         use finstack_valuations::traits::Attributable;
         use std::sync::Arc;
-        
+
         let mut bond = (*self.inner).clone();
         bond.attributes_mut().meta.insert(key, value);
         self.inner = Arc::new(bond);
         Ok(())
     }
-    
+
     /// Get a metadata value from the bond.
     ///
     /// Args:
@@ -464,7 +489,7 @@ impl PyBond {
         use finstack_valuations::traits::Attributable;
         self.inner.get_meta(key).map(|s| s.to_string())
     }
-    
+
     /// Check if the bond matches a selector.
     ///
     /// Args:
@@ -476,7 +501,7 @@ impl PyBond {
         use finstack_valuations::traits::Attributable;
         self.inner.matches_selector(selector)
     }
-    
+
     /// Generate a comprehensive risk report for the bond.
     ///
     /// Calculates key risk metrics, bucketed sensitivities, and categorizes
@@ -494,7 +519,7 @@ impl PyBond {
     ///     >>> report = bond.risk_report(context, Date(2024, 1, 1))
     ///     >>> print(f"DV01: {report.get_metric('Dv01', 0)}")
     ///     >>> print(f"Duration: {report.get_metric('DurationMod', 0)}")
-    ///     >>> 
+    ///     >>>
     ///     >>> # Check bucketed sensitivities
     ///     >>> dv01_buckets = report.get_bucketed_risk("DV01")
     ///     >>> if dv01_buckets:
@@ -504,16 +529,17 @@ impl PyBond {
         &self,
         market_context: &crate::core::market_data::context::PyMarketContext,
         as_of: &PyDate,
-        bucket_spec: Option<Vec<crate::valuations::risk::PyRiskBucket>>
+        bucket_spec: Option<Vec<crate::valuations::risk::PyRiskBucket>>,
     ) -> PyResult<crate::valuations::risk::PyRiskReport> {
         use finstack_valuations::traits::RiskMeasurable;
-        
+
         let curves = market_context.inner();
         let as_of_date = as_of.inner();
-        
+
         // Convert Python bucket spec to Rust if provided
         let rust_buckets = bucket_spec.map(|buckets| {
-            buckets.into_iter()
+            buckets
+                .into_iter()
                 .map(|b| finstack_valuations::traits::RiskBucket {
                     id: b.inner.id,
                     tenor_years: b.inner.tenor_years,
@@ -521,17 +547,22 @@ impl PyBond {
                 })
                 .collect::<Vec<_>>()
         });
-        
+
         let bucket_spec_ref = rust_buckets.as_deref();
-        
-        let report = self.inner.risk_report(&curves, as_of_date, bucket_spec_ref)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-                format!("Failed to generate risk report: {:?}", e)
-            ))?;
-        
+
+        let report = self
+            .inner
+            .risk_report(&curves, as_of_date, bucket_spec_ref)
+            .map_err(|e| {
+                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                    "Failed to generate risk report: {:?}",
+                    e
+                ))
+            })?;
+
         Ok(crate::valuations::risk::PyRiskReport::from_inner(report))
     }
-    
+
     /// Price the bond using market data.
     ///
     /// Calculates the present value and risk metrics for the bond using
@@ -548,32 +579,36 @@ impl PyBond {
     /// Examples:
     ///     >>> from finstack.market_data import MarketContext
     ///     >>> from finstack import Date
-    ///     >>> 
+    ///     >>>
     ///     >>> context = MarketContext()
     ///     >>> # ... add curves to context ...
-    ///     >>> 
+    ///     >>>
     ///     >>> result = bond.price(context, Date(2024, 1, 1))
     ///     >>> print(f"PV: ${result.value.amount:,.2f}")
     ///     >>> print(f"YTM: {result.get_metric('Ytm', 0):.2%}")
     fn price(
-        &self, 
+        &self,
         market_context: &crate::core::market_data::context::PyMarketContext,
-        as_of: &PyDate
+        as_of: &PyDate,
     ) -> PyResult<crate::valuations::results::PyValuationResult> {
         use finstack_valuations::traits::Priceable;
-        
+
         let curves = market_context.inner();
         let as_of_date = as_of.inner();
-        
+
         // Call the Rust pricing implementation
-        let result = self.inner.price(&curves, as_of_date)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-                format!("Failed to price bond: {:?}", e)
-            ))?;
-        
-        Ok(crate::valuations::results::PyValuationResult::from_inner(result))
+        let result = self.inner.price(&curves, as_of_date).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                "Failed to price bond: {:?}",
+                e
+            ))
+        })?;
+
+        Ok(crate::valuations::results::PyValuationResult::from_inner(
+            result,
+        ))
     }
-    
+
     /// Calculate the present value only (no metrics).
     ///
     /// This is faster than `price()` when you only need the PV.
@@ -591,22 +626,24 @@ impl PyBond {
     fn value(
         &self,
         market_context: &crate::core::market_data::context::PyMarketContext,
-        as_of: &PyDate
+        as_of: &PyDate,
     ) -> PyResult<PyMoney> {
         use finstack_valuations::traits::Priceable;
-        
+
         let curves = market_context.inner();
         let as_of_date = as_of.inner();
-        
+
         // Call the Rust value implementation
-        let value = self.inner.value(&curves, as_of_date)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-                format!("Failed to calculate bond value: {:?}", e)
-            ))?;
-        
+        let value = self.inner.value(&curves, as_of_date).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                "Failed to calculate bond value: {:?}",
+                e
+            ))
+        })?;
+
         Ok(PyMoney::from_inner(value))
     }
-    
+
     /// Create a bond from a pre-built cashflow schedule.
     ///
     /// This factory method creates a bond that uses custom cashflows for all
@@ -624,7 +661,7 @@ impl PyBond {
     ///
     /// Examples:
     ///     >>> from finstack.cashflow import CashflowBuilder
-    ///     >>> 
+    ///     >>>
     ///     >>> # Build custom cashflow schedule with step-up rates
     ///     >>> builder = CashflowBuilder()
     ///     >>> custom_schedule = (builder
@@ -634,7 +671,7 @@ impl PyBond {
     ///     ...                    (Date(2026, 1, 1), 0.04),
     ///     ...                    (Date(2027, 1, 1), 0.05)])
     ///     ...     .build())
-    ///     >>> 
+    ///     >>>
     ///     >>> # Create bond from custom cashflows
     ///     >>> bond = Bond.from_cashflows(
     ///     ...     "STEPUP-BOND",
@@ -651,18 +688,21 @@ impl PyBond {
     ) -> PyResult<Self> {
         // Create static str for discount curve id
         let disc_id: &'static str = Box::leak(discount_curve.to_string().into_boxed_str());
-        
+
         // Use the Rust from_cashflows method
         let bond = Bond::from_cashflows(id, schedule.inner(), disc_id, quoted_clean_price)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-                format!("Failed to create bond from cashflows: {:?}", e)
-            ))?;
-        
+            .map_err(|e| {
+                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                    "Failed to create bond from cashflows: {:?}",
+                    e
+                ))
+            })?;
+
         Ok(Self {
             inner: Arc::new(bond),
         })
     }
-    
+
     /// Set custom cashflows for this bond.
     ///
     /// When custom cashflows are set, they will be used instead of generating
@@ -686,7 +726,7 @@ impl PyBond {
     ///     ...     maturity=Date(2025, 1, 1),
     ///     ...     discount_curve="USD-OIS"
     ///     ... )
-    ///     >>> 
+    ///     >>>
     ///     >>> # Build custom cashflows with different structure
     ///     >>> custom_schedule = (CashflowBuilder()
     ///     ...     .principal(Money(1000000, Currency.usd()),
@@ -694,18 +734,18 @@ impl PyBond {
     ///     ...     .fixed_coupon(rate=0.06, frequency=Frequency.SemiAnnual,
     ///     ...                   day_count=DayCount.act365f())
     ///     ...     .build())
-    ///     >>> 
+    ///     >>>
     ///     >>> # Apply custom cashflows to bond
     ///     >>> bond_with_custom = bond.with_cashflows(custom_schedule)
     fn with_cashflows(&self, schedule: &PyCashFlowSchedule) -> PyResult<Self> {
         let mut new_bond = (*self.inner).clone();
         new_bond.custom_cashflows = Some(schedule.inner());
-        
+
         Ok(Self {
             inner: Arc::new(new_bond),
         })
     }
-    
+
     /// Calculate yield to maturity (YTM).
     ///
     /// Requires a quoted clean price to be set on the bond. Returns the yield
@@ -726,23 +766,19 @@ impl PyBond {
     fn yield_to_maturity(
         &self,
         market_context: &crate::core::market_data::context::PyMarketContext,
-        as_of: &PyDate
+        as_of: &PyDate,
     ) -> PyResult<f64> {
         if self.inner.quoted_clean.is_none() {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "Bond must have a quoted clean price to calculate YTM"
+                "Bond must have a quoted clean price to calculate YTM",
             ));
         }
-        
-        let result = self.price_with_metrics(
-            market_context, 
-            as_of, 
-            vec!["ytm".to_string()]
-        )?;
-        
+
+        let result = self.price_with_metrics(market_context, as_of, vec!["ytm".to_string()])?;
+
         Ok(result.get_metric("ytm", None))
     }
-    
+
     /// Calculate modified duration.
     ///
     /// Modified duration measures price sensitivity to yield changes.
@@ -762,17 +798,14 @@ impl PyBond {
     fn modified_duration(
         &self,
         market_context: &crate::core::market_data::context::PyMarketContext,
-        as_of: &PyDate
+        as_of: &PyDate,
     ) -> PyResult<f64> {
-        let result = self.price_with_metrics(
-            market_context, 
-            as_of, 
-            vec!["duration_mod".to_string()]
-        )?;
-        
+        let result =
+            self.price_with_metrics(market_context, as_of, vec!["duration_mod".to_string()])?;
+
         Ok(result.get_metric("duration_mod", None))
     }
-    
+
     /// Calculate Macaulay duration.
     ///
     /// Macaulay duration is the weighted average time to receive the bond's
@@ -791,17 +824,14 @@ impl PyBond {
     fn macaulay_duration(
         &self,
         market_context: &crate::core::market_data::context::PyMarketContext,
-        as_of: &PyDate
+        as_of: &PyDate,
     ) -> PyResult<f64> {
-        let result = self.price_with_metrics(
-            market_context, 
-            as_of, 
-            vec!["duration_mac".to_string()]
-        )?;
-        
+        let result =
+            self.price_with_metrics(market_context, as_of, vec!["duration_mac".to_string()])?;
+
         Ok(result.get_metric("duration_mac", None))
     }
-    
+
     /// Calculate bond convexity.
     ///
     /// Convexity measures the curvature of the price-yield relationship.
@@ -821,17 +851,14 @@ impl PyBond {
     fn convexity(
         &self,
         market_context: &crate::core::market_data::context::PyMarketContext,
-        as_of: &PyDate
+        as_of: &PyDate,
     ) -> PyResult<f64> {
-        let result = self.price_with_metrics(
-            market_context, 
-            as_of, 
-            vec!["convexity".to_string()]
-        )?;
-        
+        let result =
+            self.price_with_metrics(market_context, as_of, vec!["convexity".to_string()])?;
+
         Ok(result.get_metric("convexity", None))
     }
-    
+
     /// Calculate accrued interest.
     ///
     /// Computes the interest that has accrued since the last coupon payment
@@ -850,17 +877,13 @@ impl PyBond {
     fn accrued_interest(
         &self,
         market_context: &crate::core::market_data::context::PyMarketContext,
-        as_of: &PyDate
+        as_of: &PyDate,
     ) -> PyResult<f64> {
-        let result = self.price_with_metrics(
-            market_context, 
-            as_of, 
-            vec!["accrued".to_string()]
-        )?;
-        
+        let result = self.price_with_metrics(market_context, as_of, vec!["accrued".to_string()])?;
+
         Ok(result.get_metric("accrued", None))
     }
-    
+
     /// Calculate clean price.
     ///
     /// For bonds with quoted clean prices, returns the quoted price.
@@ -879,17 +902,14 @@ impl PyBond {
     fn clean_price(
         &self,
         market_context: &crate::core::market_data::context::PyMarketContext,
-        as_of: &PyDate
+        as_of: &PyDate,
     ) -> PyResult<f64> {
-        let result = self.price_with_metrics(
-            market_context, 
-            as_of, 
-            vec!["clean_price".to_string()]
-        )?;
-        
+        let result =
+            self.price_with_metrics(market_context, as_of, vec!["clean_price".to_string()])?;
+
         Ok(result.get_metric("clean_price", None))
     }
-    
+
     /// Calculate dirty price.
     ///
     /// Dirty price includes accrued interest and represents the actual
@@ -908,17 +928,14 @@ impl PyBond {
     fn dirty_price(
         &self,
         market_context: &crate::core::market_data::context::PyMarketContext,
-        as_of: &PyDate
+        as_of: &PyDate,
     ) -> PyResult<f64> {
-        let result = self.price_with_metrics(
-            market_context, 
-            as_of, 
-            vec!["dirty_price".to_string()]
-        )?;
-        
+        let result =
+            self.price_with_metrics(market_context, as_of, vec!["dirty_price".to_string()])?;
+
         Ok(result.get_metric("dirty_price", None))
     }
-    
+
     /// Calculate credit spread sensitivity (CS01).
     ///
     /// CS01 measures the change in bond value for a 1 basis point
@@ -938,17 +955,13 @@ impl PyBond {
     fn cs01(
         &self,
         market_context: &crate::core::market_data::context::PyMarketContext,
-        as_of: &PyDate
+        as_of: &PyDate,
     ) -> PyResult<f64> {
-        let result = self.price_with_metrics(
-            market_context, 
-            as_of, 
-            vec!["cs01".to_string()]
-        )?;
-        
+        let result = self.price_with_metrics(market_context, as_of, vec!["cs01".to_string()])?;
+
         Ok(result.get_metric("cs01", None))
     }
-    
+
     /// Calculate yield to worst (YTW).
     ///
     /// For callable or puttable bonds, calculates the yield assuming
@@ -968,17 +981,13 @@ impl PyBond {
     fn yield_to_worst(
         &self,
         market_context: &crate::core::market_data::context::PyMarketContext,
-        as_of: &PyDate
+        as_of: &PyDate,
     ) -> PyResult<f64> {
-        let result = self.price_with_metrics(
-            market_context, 
-            as_of, 
-            vec!["ytw".to_string()]
-        )?;
-        
+        let result = self.price_with_metrics(market_context, as_of, vec!["ytw".to_string()])?;
+
         Ok(result.get_metric("ytw", None))
     }
-    
+
     /// Calculate comprehensive bond metrics in one call.
     ///
     /// Efficiently computes multiple bond metrics in a single operation
@@ -987,7 +996,7 @@ impl PyBond {
     /// Args:
     ///     market_context: Market data including discount curves
     ///     as_of: Valuation date
-    ///     metrics: Optional list of metric names to compute. If None, 
+    ///     metrics: Optional list of metric names to compute. If None,
     ///             computes standard bond metrics: ytm, duration_mod, convexity, accrued
     ///
     /// Returns:
@@ -999,10 +1008,10 @@ impl PyBond {
     ///     >>> print(f"YTM: {metrics['ytm']:.2%}")
     ///     >>> print(f"Modified Duration: {metrics['duration_mod']:.2f}")
     ///     >>> print(f"Convexity: {metrics['convexity']:.2f}")
-    ///     >>> 
+    ///     >>>
     ///     >>> # Calculate specific metrics
     ///     >>> custom_metrics = bond.calculate_metrics(
-    ///     ...     context, Date(2024, 1, 1), 
+    ///     ...     context, Date(2024, 1, 1),
     ///     ...     metrics=["ytm", "clean_price", "cs01"]
     ///     ... )
     fn calculate_metrics(
@@ -1010,46 +1019,56 @@ impl PyBond {
         py: Python,
         market_context: &crate::core::market_data::context::PyMarketContext,
         as_of: &PyDate,
-        metrics: Option<Vec<String>>
+        metrics: Option<Vec<String>>,
     ) -> PyResult<Py<PyDict>> {
         // Use standard bond metrics if none specified
         let metric_names = metrics.unwrap_or_else(|| {
             vec![
                 "ytm".to_string(),
-                "duration_mod".to_string(), 
+                "duration_mod".to_string(),
                 "convexity".to_string(),
-                "accrued".to_string()
+                "accrued".to_string(),
             ]
         });
-        
+
         let result = self.price_with_metrics(market_context, as_of, metric_names)?;
         result.measures_dict(py)
     }
-    
+
     /// Helper method to call price_with_metrics.
     fn price_with_metrics(
         &self,
         market_context: &crate::core::market_data::context::PyMarketContext,
         as_of: &PyDate,
-        metrics: Vec<String>
+        metrics: Vec<String>,
     ) -> PyResult<crate::valuations::results::PyValuationResult> {
         use finstack_valuations::traits::Priceable;
-        
+
         let curves = market_context.inner();
         let as_of_date = as_of.inner();
-        
+
         // Convert metric names to MetricId
-        let metric_ids: Vec<finstack_valuations::metrics::MetricId> = metrics.iter()
-            .map(|name| finstack_valuations::metrics::MetricId::from_str(name)
-                .unwrap_or_else(|_| finstack_valuations::metrics::MetricId::custom(name)))
+        let metric_ids: Vec<finstack_valuations::metrics::MetricId> = metrics
+            .iter()
+            .map(|name| {
+                finstack_valuations::metrics::MetricId::from_str(name)
+                    .unwrap_or_else(|_| finstack_valuations::metrics::MetricId::custom(name))
+            })
             .collect();
-        
+
         // Call the Rust price_with_metrics implementation
-        let result = self.inner.price_with_metrics(&curves, as_of_date, &metric_ids)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-                format!("Failed to calculate bond metrics: {:?}", e)
-            ))?;
-        
-        Ok(crate::valuations::results::PyValuationResult::from_inner(result))
+        let result = self
+            .inner
+            .price_with_metrics(&curves, as_of_date, &metric_ids)
+            .map_err(|e| {
+                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                    "Failed to calculate bond metrics: {:?}",
+                    e
+                ))
+            })?;
+
+        Ok(crate::valuations::results::PyValuationResult::from_inner(
+            result,
+        ))
     }
 }

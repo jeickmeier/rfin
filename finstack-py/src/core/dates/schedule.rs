@@ -1,8 +1,8 @@
 //! Python bindings for schedule generation
 
-use finstack_core::dates::{ScheduleBuilder, Frequency, StubKind};
-use pyo3::prelude::*;
+use finstack_core::dates::{Frequency, ScheduleBuilder, StubKind};
 use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
 
 use super::calendar::{PyBusDayConv, PyCalendar};
 use super::date::PyDate;
@@ -198,14 +198,17 @@ pub fn py_generate_schedule(
 ) -> PyResult<Vec<PyDate>> {
     // Validate input range to raise a friendly Python error instead of panicking.
     if start.inner() > end.inner() {
-        return Err(PyValueError::new_err("Invalid date range: start must be before or equal to end"));
+        return Err(PyValueError::new_err(
+            "Invalid date range: start must be before or equal to end",
+        ));
     }
     // NOTE: Business-day adjustment and explicit calendar support remain reserved
     // for a follow-up PR. We now route through the core ScheduleBuilder and honor
     // the optional stub rule when provided.
-    let mut builder = ScheduleBuilder::new(start.inner(), end.inner())
-        .frequency(frequency.into());
-    if let Some(s) = stub { builder = builder.stub_rule(s.into()); }
+    let mut builder = ScheduleBuilder::new(start.inner(), end.inner()).frequency(frequency.into());
+    if let Some(s) = stub {
+        builder = builder.stub_rule(s.into());
+    }
 
     // Ignore convention/calendar for now to preserve existing API behavior
     let _ = (convention, calendar);

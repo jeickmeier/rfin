@@ -5,8 +5,8 @@
 //! It returns `PeriodSchedule` with helper maps for previous date lookups and
 //! flags for first/last periods to aid stub classification.
 
-use finstack_core::dates::{Date, Frequency, BusinessDayConvention, StubKind, ScheduleBuilder};
 use finstack_core::dates::holiday::calendars::calendar_by_id;
+use finstack_core::dates::{BusinessDayConvention, Date, Frequency, ScheduleBuilder, StubKind};
 
 /// Period schedule with helper maps/flags for coupon generation.
 #[derive(Clone, Debug)]
@@ -25,7 +25,7 @@ pub struct PeriodSchedule {
 /// use finstack_core::dates::{Date, Frequency, BusinessDayConvention, StubKind};
 /// use finstack_valuations::cashflow::builder::schedule_utils::build_dates;
 /// use time::Month;
-/// 
+///
 /// let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
 /// let end = Date::from_calendar_date(2025, Month::July, 15).unwrap();
 /// let sched = build_dates(start, end, Frequency::quarterly(), StubKind::None, BusinessDayConvention::Following, None);
@@ -55,15 +55,22 @@ pub fn build_dates(
 
     let mut prev = hashbrown::HashMap::with_capacity(dates.len());
     let mut p = dates[0];
-    for &d in dates.iter().skip(1) { prev.insert(d, p); p = d; }
+    for &d in dates.iter().skip(1) {
+        prev.insert(d, p);
+        p = d;
+    }
 
     let mut first_or_last: hashbrown::HashSet<Date> = hashbrown::HashSet::new();
     if dates.len() >= 2 {
         first_or_last.insert(dates[1]);
-        if let Some(&last) = dates.last() { first_or_last.insert(last); }
+        if let Some(&last) = dates.last() {
+            first_or_last.insert(last);
+        }
     }
 
-    PeriodSchedule { dates, prev, first_or_last }
+    PeriodSchedule {
+        dates,
+        prev,
+        first_or_last,
+    }
 }
-
-

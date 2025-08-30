@@ -1,5 +1,5 @@
 //! Option metrics registration module
-//! 
+//!
 //! This module provides a unified interface to register all option-specific
 //! metrics by delegating to each option type's individual metrics module.
 

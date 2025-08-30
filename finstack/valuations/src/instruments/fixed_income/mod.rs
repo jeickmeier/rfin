@@ -5,16 +5,16 @@
 //! inflation-linked bonds.
 
 pub mod bond;
-pub mod irs;
-pub mod deposit;
-pub mod loan;
 pub mod cds;
+pub mod deposit;
 pub mod ilb;
+pub mod irs;
+pub mod loan;
 
 // Re-export all fixed income instrument types
 pub use bond::Bond;
-pub use irs::InterestRateSwap;
-pub use deposit::Deposit;
-pub use loan::Loan;
 pub use cds::CreditDefaultSwap;
+pub use deposit::Deposit;
 pub use ilb::InflationLinkedBond;
+pub use irs::InterestRateSwap;
+pub use loan::Loan;

@@ -16,9 +16,9 @@ pub enum PrepaymentType {
     /// Prepayment allowed with make-whole premium
     MakeWhole,
     /// Soft call protection with premium
-    SoftCall { 
+    SoftCall {
         /// Premium as percentage of prepaid amount
-        premium_pct: F 
+        premium_pct: F,
     },
 }
 
@@ -43,16 +43,16 @@ pub enum PenaltyType {
     /// Percentage of prepaid amount
     Percentage(F),
     /// Make-whole premium based on benchmark curve
-    MakeWhole { 
+    MakeWhole {
         /// Benchmark curve ID
         benchmark_curve: String,
         /// Spread in basis points over benchmark
-        spread_bp: F 
+        spread_bp: F,
     },
     /// Yield maintenance penalty
     YieldMaintenance {
         /// Reference rate for calculation
-        reference_rate: F
+        reference_rate: F,
     },
 }
 
@@ -67,8 +67,6 @@ pub struct PrepaymentSchedule {
     /// Schedule of penalties by date range
     pub penalties: Vec<PrepaymentPenalty>,
 }
-
-
 
 impl PrepaymentSchedule {
     /// Creates a new prepayment schedule.
@@ -113,24 +111,27 @@ impl PrepaymentSchedule {
 
         // Find applicable penalty
         for penalty in &self.penalties {
-            let in_range = date >= penalty.start && 
-                          penalty.end.map_or(true, |end| date <= end);
-            
+            let in_range = date >= penalty.start && penalty.end.map_or(true, |end| date <= end);
+
             if in_range {
                 return match &penalty.penalty {
                     PenaltyType::Fixed(fee) => Ok(*fee),
                     PenaltyType::Percentage(pct) => {
                         Ok(Money::new(amount.amount() * pct, amount.currency()))
-                    },
+                    }
                     PenaltyType::MakeWhole { .. } => {
                         // Make-whole calculation would require market data
                         // For now, return a placeholder
-                        Ok(Money::new(amount.amount() * 0.03, amount.currency())) // 3% placeholder
-                    },
+                        Ok(Money::new(amount.amount() * 0.03, amount.currency()))
+                        // 3% placeholder
+                    }
                     PenaltyType::YieldMaintenance { reference_rate } => {
                         // Simplified yield maintenance
-                        Ok(Money::new(amount.amount() * reference_rate * 0.5, amount.currency()))
-                    },
+                        Ok(Money::new(
+                            amount.amount() * reference_rate * 0.5,
+                            amount.currency(),
+                        ))
+                    }
                 };
             }
         }
@@ -150,19 +151,17 @@ mod tests {
     fn test_prepayment_lockout() {
         let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let end = Date::from_calendar_date(2025, Month::June, 30).unwrap();
-        
-        let schedule = PrepaymentSchedule::new(PrepaymentType::Allowed)
-            .with_lockout(start, end);
+
+        let schedule = PrepaymentSchedule::new(PrepaymentType::Allowed).with_lockout(start, end);
 
         // During lockout
-        assert!(!schedule.is_prepayment_allowed(
-            Date::from_calendar_date(2025, Month::March, 15).unwrap()
-        ));
+        assert!(!schedule
+            .is_prepayment_allowed(Date::from_calendar_date(2025, Month::March, 15).unwrap()));
 
         // After lockout
-        assert!(schedule.is_prepayment_allowed(
-            Date::from_calendar_date(2025, Month::July, 1).unwrap()
-        ));
+        assert!(
+            schedule.is_prepayment_allowed(Date::from_calendar_date(2025, Month::July, 1).unwrap())
+        );
     }
 
     #[test]
@@ -176,7 +175,7 @@ mod tests {
 
         let amount = Money::new(1_000_000.0, Currency::USD);
         let date = Date::from_calendar_date(2025, Month::June, 15).unwrap();
-        
+
         let penalty = schedule.calculate_penalty(date, amount).unwrap();
         assert_eq!(penalty.amount(), 30_000.0); // 3% of 1M
     }

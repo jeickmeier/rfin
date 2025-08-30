@@ -1,18 +1,17 @@
 //! Term loan instrument implementation.
 
-use crate::cashflow::builder::{cf, FixedCouponSpec, FloatingCouponSpec, CouponType, FeeSpec};
-use crate::cashflow::amortization_notional::AmortizationSpec;
-use super::prepayment::PrepaymentSchedule;
 use super::covenants::Covenant;
-use crate::metrics::MetricId;
-use crate::traits::{CashflowProvider, Attributes};
+use super::prepayment::PrepaymentSchedule;
+use crate::cashflow::amortization_notional::AmortizationSpec;
+use crate::cashflow::builder::{cf, CouponType, FeeSpec, FixedCouponSpec, FloatingCouponSpec};
 use crate::impl_attributable;
-use finstack_core::dates::{Date, DayCount, Frequency, BusinessDayConvention, StubKind};
+use crate::metrics::MetricId;
+use crate::traits::{Attributes, CashflowProvider};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::multicurve::CurveSet;
 
 use finstack_core::money::Money;
 use finstack_core::F;
-
 
 /// Interest rate specification for loans.
 #[derive(Clone, Debug)]
@@ -106,7 +105,7 @@ impl Loan {
     pub fn builder() -> LoanBuilder {
         LoanBuilder::new()
     }
-    
+
     /// Creates a new term loan.
     pub fn new(
         id: impl Into<String>,
@@ -225,8 +224,14 @@ impl Loan {
                     };
                     builder.fixed_cf(spec);
                 }
-            },
-            InterestSpec::Floating { index_id, spread_bp, spread_step_ups, gearing, reset_lag_days } => {
+            }
+            InterestSpec::Floating {
+                index_id,
+                spread_bp,
+                spread_step_ups,
+                gearing,
+                reset_lag_days,
+            } => {
                 if let Some(steps) = spread_step_ups {
                     // Use margin step-up functionality
                     let base_params = crate::cashflow::builder::FloatCouponParams {
@@ -263,7 +268,7 @@ impl Loan {
                     };
                     builder.floating_cf(spec);
                 }
-            },
+            }
             InterestSpec::PIK { rate } => {
                 let spec = FixedCouponSpec {
                     coupon_type: CouponType::PIK,
@@ -275,12 +280,15 @@ impl Loan {
                     stub: self.stub,
                 };
                 builder.fixed_cf(spec);
-            },
-            InterestSpec::CashPlusPIK { cash_rate, pik_rate } => {
+            }
+            InterestSpec::CashPlusPIK {
+                cash_rate,
+                pik_rate,
+            } => {
                 let total_rate = cash_rate + pik_rate;
                 let cash_pct = cash_rate / total_rate;
                 let pik_pct = pik_rate / total_rate;
-                
+
                 let spec = FixedCouponSpec {
                     coupon_type: CouponType::Split { cash_pct, pik_pct },
                     rate: total_rate,
@@ -291,19 +299,27 @@ impl Loan {
                     stub: self.stub,
                 };
                 builder.fixed_cf(spec);
-            },
-            InterestSpec::PIKToggle { cash_rate, pik_rate: _, toggle_schedule } => {
+            }
+            InterestSpec::PIKToggle {
+                cash_rate,
+                pik_rate: _,
+                toggle_schedule,
+            } => {
                 // Use payment split program for toggle dates
                 let mut payment_steps = Vec::new();
                 for &(date, use_pik) in toggle_schedule {
-                    let split = if use_pik { CouponType::PIK } else { CouponType::Cash };
+                    let split = if use_pik {
+                        CouponType::PIK
+                    } else {
+                        CouponType::Cash
+                    };
                     payment_steps.push((date, split));
                 }
-                
+
                 // Add the base rate (will be split according to toggle)
                 let spec = FixedCouponSpec {
                     coupon_type: CouponType::Cash, // Default, will be overridden by program
-                    rate: *cash_rate, // Use cash rate as base
+                    rate: *cash_rate,              // Use cash rate as base
                     freq: self.frequency,
                     dc: self.day_count,
                     bdc: self.bdc,
@@ -312,7 +328,7 @@ impl Loan {
                 };
                 builder.fixed_cf(spec);
                 builder.payment_split_program(&payment_steps);
-            },
+            }
         }
 
         builder.build()
@@ -320,15 +336,24 @@ impl Loan {
 }
 
 impl CashflowProvider for Loan {
-    fn build_schedule(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Vec<(Date, Money)>> {
+    fn build_schedule(
+        &self,
+        curves: &CurveSet,
+        as_of: Date,
+    ) -> finstack_core::Result<Vec<(Date, Money)>> {
         // For floating rate loans, we need special handling
-        if let InterestSpec::Floating { index_id, spread_bp, .. } = &self.interest {
+        if let InterestSpec::Floating {
+            index_id,
+            spread_bp,
+            ..
+        } = &self.interest
+        {
             // Build a simplified floating rate schedule
             let mut flows = Vec::new();
-            
+
             // Get the forward curve
             let fwd_curve = curves.forecast(index_id)?;
-            
+
             // Generate payment dates
             let period_schedule = crate::cashflow::builder::schedule_utils::build_dates(
                 self.issue_date,
@@ -339,55 +364,59 @@ impl CashflowProvider for Loan {
                 self.calendar_id,
             );
             let periods = period_schedule.dates;
-            
+
             // Calculate floating rate coupons
             let mut remaining_notional = self.outstanding.amount();
-            
+
             for i in 1..periods.len() {
                 let start = periods[i - 1];
                 let end = periods[i];
-                
+
                 // Get forward rate for the period - convert dates to year fractions from as_of date
                 let t1 = self.day_count.year_fraction(as_of, start)?;
                 let t2 = self.day_count.year_fraction(as_of, end)?;
                 let fwd_rate = fwd_curve.rate_period(t1, t2);
                 let total_rate = fwd_rate + spread_bp / 10000.0;
-                
+
                 // Calculate accrual
                 let yf = self.day_count.year_fraction(start, end)?;
                 let interest = remaining_notional * total_rate * yf;
-                
+
                 flows.push((end, Money::new(interest, self.outstanding.currency())));
-                
+
                 // Apply amortization if any
                 if let AmortizationSpec::LinearTo { final_notional } = &self.amortization {
                     // Simplified linear amortization
-                    let amort_amount = (self.outstanding.amount() - final_notional.amount()) / (periods.len() - 1) as f64;
+                    let amort_amount = (self.outstanding.amount() - final_notional.amount())
+                        / (periods.len() - 1) as f64;
                     remaining_notional -= amort_amount;
                     flows.push((end, Money::new(amort_amount, self.outstanding.currency())));
                 }
             }
-            
+
             // Add final principal if remaining
             if remaining_notional > 0.0 {
-                flows.push((self.maturity_date, Money::new(remaining_notional, self.outstanding.currency())));
+                flows.push((
+                    self.maturity_date,
+                    Money::new(remaining_notional, self.outstanding.currency()),
+                ));
             }
-            
+
             return Ok(flows);
         }
-        
+
         // For non-floating rate loans, use the standard builder
         let schedule = self.build_cashflows()?;
-        
+
         // Convert to dated flows
         let mut flows = Vec::new();
         for cf in &schedule.flows {
             flows.push((cf.date, cf.amount));
         }
-        
+
         // Add prepayment penalty if applicable
         // This would be computed based on prepayment schedule and market conditions
-        
+
         Ok(flows)
     }
 }
@@ -405,7 +434,7 @@ impl crate::traits::Priceable for Loan {
         &self,
         curves: &CurveSet,
         as_of: Date,
-        metrics: &[MetricId]
+        metrics: &[MetricId],
     ) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
 
@@ -418,7 +447,11 @@ impl crate::traits::Priceable for Loan {
         )
     }
 
-    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
+    fn price(
+        &self,
+        curves: &CurveSet,
+        as_of: Date,
+    ) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
         let standard_metrics = vec![MetricId::Ytm];
         self.price_with_metrics(curves, as_of, &standard_metrics)
     }
@@ -435,11 +468,13 @@ impl From<Loan> for crate::instruments::Instrument {
 
 impl std::convert::TryFrom<crate::instruments::Instrument> for Loan {
     type Error = finstack_core::Error;
-    
+
     fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
         match value {
             crate::instruments::Instrument::Loan(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+            _ => Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            )),
         }
     }
 }
@@ -470,109 +505,109 @@ impl LoanBuilder {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn id(mut self, value: impl Into<String>) -> Self {
         self.id = Some(value.into());
         self
     }
-    
+
     pub fn borrower(mut self, value: impl Into<String>) -> Self {
         self.borrower = Some(value.into());
         self
     }
-    
+
     pub fn original_amount(mut self, value: Money) -> Self {
         self.original_amount = Some(value);
         self
     }
-    
+
     pub fn outstanding(mut self, value: Money) -> Self {
         self.outstanding = Some(value);
         self
     }
-    
+
     pub fn issue_date(mut self, value: Date) -> Self {
         self.issue_date = Some(value);
         self
     }
-    
+
     pub fn maturity_date(mut self, value: Date) -> Self {
         self.maturity_date = Some(value);
         self
     }
-    
+
     pub fn interest(mut self, value: InterestSpec) -> Self {
         self.interest = Some(value);
         self
     }
-    
+
     pub fn frequency(mut self, value: Frequency) -> Self {
         self.frequency = Some(value);
         self
     }
-    
+
     pub fn day_count(mut self, value: DayCount) -> Self {
         self.day_count = Some(value);
         self
     }
-    
+
     pub fn bdc(mut self, value: BusinessDayConvention) -> Self {
         self.bdc = Some(value);
         self
     }
-    
+
     pub fn calendar_id(mut self, value: &'static str) -> Self {
         self.calendar_id = Some(value);
         self
     }
-    
+
     pub fn stub(mut self, value: StubKind) -> Self {
         self.stub = Some(value);
         self
     }
-    
+
     pub fn amortization(mut self, value: AmortizationSpec) -> Self {
         self.amortization = Some(value);
         self
     }
-    
+
     pub fn prepayment(mut self, value: PrepaymentSchedule) -> Self {
         self.prepayment = Some(value);
         self
     }
-    
+
     pub fn fees(mut self, value: Vec<FeeSpec>) -> Self {
         self.fees = Some(value);
         self
     }
-    
+
     pub fn covenants(mut self, value: Vec<Covenant>) -> Self {
         self.covenants = Some(value);
         self
     }
-    
+
     pub fn disc_id(mut self, value: &'static str) -> Self {
         self.disc_id = Some(value);
         self
     }
-    
+
     pub fn build(self) -> finstack_core::Result<Loan> {
-        let id = self.id.ok_or_else(|| finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid
-        ))?;
-        let original_amount = self.original_amount.ok_or_else(|| finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid
-        ))?;
-        let issue_date = self.issue_date.ok_or_else(|| finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid
-        ))?;
-        let maturity_date = self.maturity_date.ok_or_else(|| finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid
-        ))?;
-        let interest = self.interest.ok_or_else(|| finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid
-        ))?;
-        
+        let id = self
+            .id
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let original_amount = self
+            .original_amount
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let issue_date = self
+            .issue_date
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let maturity_date = self
+            .maturity_date
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let interest = self
+            .interest
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+
         Ok(Loan {
             id,
             borrower: self.borrower.unwrap_or_default(),
@@ -609,7 +644,10 @@ mod tests {
             Money::new(10_000_000.0, Currency::USD),
             Date::from_calendar_date(2025, Month::January, 1).unwrap(),
             Date::from_calendar_date(2030, Month::January, 1).unwrap(),
-            InterestSpec::Fixed { rate: 0.065, step_ups: None },
+            InterestSpec::Fixed {
+                rate: 0.065,
+                step_ups: None,
+            },
         );
 
         assert_eq!(loan.id, "LOAN-001");
@@ -619,8 +657,14 @@ mod tests {
     #[test]
     fn test_loan_with_step_ups() {
         let step_ups = vec![
-            (Date::from_calendar_date(2026, Month::January, 1).unwrap(), 0.07),
-            (Date::from_calendar_date(2027, Month::January, 1).unwrap(), 0.075),
+            (
+                Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+                0.07,
+            ),
+            (
+                Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+                0.075,
+            ),
         ];
 
         let loan = Loan::new(
@@ -628,7 +672,10 @@ mod tests {
             Money::new(5_000_000.0, Currency::USD),
             Date::from_calendar_date(2025, Month::January, 1).unwrap(),
             Date::from_calendar_date(2030, Month::January, 1).unwrap(),
-            InterestSpec::Fixed { rate: 0.065, step_ups: Some(step_ups) },
+            InterestSpec::Fixed {
+                rate: 0.065,
+                step_ups: Some(step_ups),
+            },
         );
 
         // Build cashflows to ensure it works
@@ -639,9 +686,18 @@ mod tests {
     #[test]
     fn test_loan_with_pik_toggle() {
         let toggle_schedule = vec![
-            (Date::from_calendar_date(2025, Month::January, 1).unwrap(), false), // Cash
-            (Date::from_calendar_date(2026, Month::January, 1).unwrap(), true),  // PIK
-            (Date::from_calendar_date(2027, Month::January, 1).unwrap(), false), // Cash
+            (
+                Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+                false,
+            ), // Cash
+            (
+                Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+                true,
+            ), // PIK
+            (
+                Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+                false,
+            ), // Cash
         ];
 
         let loan = Loan::new(
@@ -665,7 +721,7 @@ mod tests {
         let amount = Money::new(5_000_000.0, Currency::USD);
         let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
-        
+
         let loan = Loan::builder()
             .id("LOAN-BUILDER-001")
             .borrower("Test Borrower LLC")
@@ -673,13 +729,16 @@ mod tests {
             .outstanding(amount)
             .issue_date(issue)
             .maturity_date(maturity)
-            .interest(InterestSpec::Fixed { rate: 0.075, step_ups: None })
+            .interest(InterestSpec::Fixed {
+                rate: 0.075,
+                step_ups: None,
+            })
             .frequency(Frequency::quarterly())
             .day_count(DayCount::Act360)
             .disc_id("USD-OIS")
             .build()
             .unwrap();
-        
+
         assert_eq!(loan.id, "LOAN-BUILDER-001");
         assert_eq!(loan.borrower, "Test Borrower LLC");
         assert_eq!(loan.original_amount.amount(), 5_000_000.0);
@@ -688,7 +747,7 @@ mod tests {
         assert_eq!(loan.maturity_date, maturity);
         assert_eq!(loan.day_count, DayCount::Act360);
         assert_eq!(loan.disc_id, "USD-OIS");
-        
+
         match loan.interest {
             InterestSpec::Fixed { rate, .. } => assert_eq!(rate, 0.075),
             _ => panic!("Expected Fixed interest"),

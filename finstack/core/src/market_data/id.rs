@@ -7,6 +7,7 @@ use alloc::sync::Arc;
 /// Wraps an `Arc<str>` so it can be created dynamically at runtime while
 /// remaining cheap to clone and share across the system.
 #[derive(Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CurveId(Arc<str>);
 
 impl CurveId {
@@ -25,7 +26,9 @@ impl CurveId {
 
     /// Return the wrapped string slice.
     #[must_use]
-    pub fn as_str(&self) -> &str { &self.0 }
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 }
 
 impl fmt::Debug for CurveId {

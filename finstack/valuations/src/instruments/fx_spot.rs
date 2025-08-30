@@ -1,20 +1,20 @@
 //! FX Spot instrument implementation.
 
-use crate::traits::{CashflowProvider, Priceable, Attributes};
 use crate::impl_attributable;
-use crate::pricing::result::ValuationResult;
 use crate::metrics::MetricId;
-use finstack_core::prelude::*;
+use crate::pricing::result::ValuationResult;
+use crate::traits::{Attributes, CashflowProvider, Priceable};
 use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::prelude::*;
 use finstack_core::F;
 use hashbrown::HashMap;
 
 /// FX Spot instrument (1 unit of `base` priced in `quote`).
-/// 
+///
 /// Represents the spot exchange rate between two currencies.
 /// The value represents how many units of the quote currency
 /// are needed to buy one unit of the base currency.
-/// 
+///
 /// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug)]
 pub struct FxSpot {
@@ -39,7 +39,7 @@ impl FxSpot {
     pub fn builder() -> FxSpotBuilder {
         FxSpotBuilder::new()
     }
-    
+
     /// Create a new FX spot instrument
     pub fn new(id: impl Into<String>, base: Currency, quote: Currency) -> Self {
         Self {
@@ -89,14 +89,13 @@ impl FxSpot {
 impl Priceable for FxSpot {
     fn value(&self, _curves: &CurveSet, _as_of: Date) -> finstack_core::Result<Money> {
         // For FX spot, we need the rate from market data or quote
-        let rate = self.spot_rate
-            .ok_or_else(|| finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound
-            ))?;
-        
+        let rate = self.spot_rate.ok_or_else(|| {
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+        })?;
+
         let notional_amount = self.effective_notional().amount();
         let quote_amount = notional_amount * rate;
-        
+
         Ok(Money::new(quote_amount, self.quote))
     }
 
@@ -107,9 +106,9 @@ impl Priceable for FxSpot {
         metrics: &[MetricId],
     ) -> finstack_core::Result<ValuationResult> {
         let value = self.value(curves, as_of)?;
-        
+
         let mut measures = HashMap::new();
-        
+
         for metric_id in metrics {
             match metric_id {
                 MetricId::Custom(name) if name == "spot_rate" => {
@@ -134,12 +133,8 @@ impl Priceable for FxSpot {
                 }
             }
         }
-        
-        Ok(ValuationResult::stamped(
-            self.id.clone(),
-            as_of,
-            value,
-        ).with_measures(measures))
+
+        Ok(ValuationResult::stamped(self.id.clone(), as_of, value).with_measures(measures))
     }
 
     fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
@@ -155,18 +150,22 @@ impl Priceable for FxSpot {
 }
 
 impl CashflowProvider for FxSpot {
-    fn build_schedule(&self, _curves: &CurveSet, as_of: Date) -> finstack_core::Result<Vec<(Date, Money)>> {
+    fn build_schedule(
+        &self,
+        _curves: &CurveSet,
+        as_of: Date,
+    ) -> finstack_core::Result<Vec<(Date, Money)>> {
         // FX spot settles on settlement date (or T+2 if not specified)
         let settle_date = self.settlement.unwrap_or_else(|| {
             // Simple T+2 calculation (should use proper business day adjustment in production)
             as_of.saturating_add(time::Duration::days(2))
         });
-        
+
         if settle_date > as_of {
             // Future settlement
             let value = Money::new(
                 self.effective_notional().amount() * self.spot_rate.unwrap_or(0.0),
-                self.quote
+                self.quote,
             );
             Ok(vec![(settle_date, value)])
         } else {
@@ -186,12 +185,15 @@ mod tests {
         let fx = FxSpot::new("EURUSD", Currency::EUR, Currency::USD)
             .with_rate(1.08)
             .with_notional(Money::new(100_000.0, Currency::EUR));
-        
+
         assert_eq!(fx.id, "EURUSD");
         assert_eq!(fx.base, Currency::EUR);
         assert_eq!(fx.quote, Currency::USD);
         assert_eq!(fx.spot_rate, Some(1.08));
-        assert_eq!(fx.effective_notional(), Money::new(100_000.0, Currency::EUR));
+        assert_eq!(
+            fx.effective_notional(),
+            Money::new(100_000.0, Currency::EUR)
+        );
     }
 
     #[test]
@@ -211,10 +213,10 @@ mod tests {
         let fx = FxSpot::new("EURUSD", Currency::EUR, Currency::USD)
             .with_rate(1.08)
             .with_notional(Money::new(1_000_000.0, Currency::EUR));
-        
+
         let curves = CurveSet::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         let value = fx.value(&curves, as_of).unwrap();
         assert_eq!(value.amount(), 1_080_000.0);
         assert_eq!(value.currency(), Currency::USD);
@@ -224,14 +226,14 @@ mod tests {
     fn test_fx_spot_cashflow_future_settlement() {
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let settlement = Date::from_calendar_date(2025, Month::January, 3).unwrap();
-        
+
         let fx = FxSpot::new("EURUSD", Currency::EUR, Currency::USD)
             .with_rate(1.08)
             .with_settlement(settlement);
-        
+
         let curves = CurveSet::new();
         let flows = fx.build_schedule(&curves, as_of).unwrap();
-        
+
         assert_eq!(flows.len(), 1);
         assert_eq!(flows[0].0, settlement);
         assert_eq!(flows[0].1.amount(), 1.08);
@@ -242,14 +244,14 @@ mod tests {
     fn test_fx_spot_cashflow_past_settlement() {
         let as_of = Date::from_calendar_date(2025, Month::January, 5).unwrap();
         let settlement = Date::from_calendar_date(2025, Month::January, 3).unwrap();
-        
+
         let fx = FxSpot::new("EURUSD", Currency::EUR, Currency::USD)
             .with_rate(1.08)
             .with_settlement(settlement);
-        
+
         let curves = CurveSet::new();
         let flows = fx.build_schedule(&curves, as_of).unwrap();
-        
+
         assert!(flows.is_empty()); // Already settled
     }
 
@@ -258,10 +260,10 @@ mod tests {
         let fx = FxSpot::new("EURUSD", Currency::EUR, Currency::USD)
             .with_rate(1.25)
             .with_notional(Money::new(100.0, Currency::EUR));
-        
+
         let curves = CurveSet::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         let result = fx.price(&curves, as_of).unwrap();
         assert_eq!(result.value.amount(), 125.0);
         assert_eq!(result.measures.get("spot_rate"), Some(&1.25));
@@ -278,7 +280,6 @@ mod tests {
     }
 }
 
-
 #[derive(Default)]
 pub struct FxSpotBuilder {
     id: Option<String>,
@@ -293,48 +294,48 @@ impl FxSpotBuilder {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn id(mut self, value: impl Into<String>) -> Self {
         self.id = Some(value.into());
         self
     }
-    
+
     pub fn base(mut self, value: Currency) -> Self {
         self.base = Some(value);
         self
     }
-    
+
     pub fn quote(mut self, value: Currency) -> Self {
         self.quote = Some(value);
         self
     }
-    
+
     pub fn settlement(mut self, value: Date) -> Self {
         self.settlement = Some(value);
         self
     }
-    
+
     pub fn spot_rate(mut self, value: F) -> Self {
         self.spot_rate = Some(value);
         self
     }
-    
+
     pub fn notional(mut self, value: Money) -> Self {
         self.notional = Some(value);
         self
     }
-    
+
     pub fn build(self) -> finstack_core::Result<FxSpot> {
         Ok(FxSpot {
-            id: self.id.ok_or_else(|| finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid
-            ))?,
-            base: self.base.ok_or_else(|| finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid
-            ))?,
-            quote: self.quote.ok_or_else(|| finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid
-            ))?,
+            id: self.id.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            base: self.base.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            quote: self.quote.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
             settlement: self.settlement,
             spot_rate: self.spot_rate,
             notional: self.notional,
@@ -354,12 +355,13 @@ impl From<FxSpot> for crate::instruments::Instrument {
 
 impl std::convert::TryFrom<crate::instruments::Instrument> for FxSpot {
     type Error = finstack_core::Error;
-    
+
     fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
         match value {
             crate::instruments::Instrument::FxSpot(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+            _ => Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            )),
         }
     }
 }
-

@@ -1,15 +1,13 @@
 //! Python bindings for inflation index (CPI/RPI) functionality.
 
+use crate::core::currency::PyCurrency;
+use crate::core::dates::PyDate;
 use finstack_core::market_data::inflation_index::{
-    InflationIndex as CoreInflationIndex,
-    InflationIndexBuilder as CoreBuilder,
-    InflationInterpolation as CoreInterpolation,
-    InflationLag as CoreLag,
+    InflationIndex as CoreInflationIndex, InflationIndexBuilder as CoreBuilder,
+    InflationInterpolation as CoreInterpolation, InflationLag as CoreLag,
 };
 use pyo3::prelude::*;
 use pyo3::types::PyList;
-use crate::core::currency::PyCurrency;
-use crate::core::dates::PyDate;
 
 /// Interpolation method for index values between observations.
 ///
@@ -29,17 +27,17 @@ pub enum PyInflationInterpolation {
 impl PyInflationInterpolation {
     #[classattr]
     const STEP: Self = Self::Step;
-    
+
     #[classattr]
     const LINEAR: Self = Self::Linear;
-    
+
     fn __str__(&self) -> &'static str {
         match self {
             Self::Step => "Step",
             Self::Linear => "Linear",
         }
     }
-    
+
     fn __repr__(&self) -> String {
         format!("InflationInterpolation.{}", self.__str__())
     }
@@ -90,7 +88,7 @@ impl PyInflationLag {
             inner: CoreLag::Months(months),
         }
     }
-    
+
     /// Create a lag policy with a specified number of days.
     ///
     /// Args:
@@ -104,7 +102,7 @@ impl PyInflationLag {
             inner: CoreLag::Days(days),
         }
     }
-    
+
     /// Create a no-lag policy.
     ///
     /// Example:
@@ -115,7 +113,7 @@ impl PyInflationLag {
             inner: CoreLag::None,
         }
     }
-    
+
     fn __str__(&self) -> String {
         match self.inner {
             CoreLag::Months(m) => format!("{}-month lag", m),
@@ -123,7 +121,7 @@ impl PyInflationLag {
             CoreLag::None => "No lag".to_string(),
         }
     }
-    
+
     fn __repr__(&self) -> String {
         match self.inner {
             CoreLag::Months(m) => format!("InflationLag.months({})", m),
@@ -148,7 +146,7 @@ impl From<CoreLag> for PyInflationLag {
 /// Example:
 ///     >>> from finstack import Date, Currency
 ///     >>> from finstack.market_data import InflationIndex, InflationInterpolation, InflationLag
-///     >>> 
+///     >>>
 ///     >>> # Create CPI observations
 ///     >>> observations = [
 ///     ...     (Date(2023, 1, 31), 300.0),
@@ -156,15 +154,15 @@ impl From<CoreLag> for PyInflationLag {
 ///     ...     (Date(2023, 3, 31), 306.0),
 ///     ...     (Date(2023, 4, 30), 309.0),
 ///     ... ]
-///     >>> 
+///     >>>
 ///     >>> # Create index with step interpolation (default for CPI)
 ///     >>> cpi = InflationIndex("US-CPI", observations, Currency.USD)
 ///     >>> cpi = cpi.with_interpolation(InflationInterpolation.STEP)
 ///     >>> cpi = cpi.with_lag(InflationLag.months(3))  # 3-month lag for TIPS
-///     >>> 
+///     >>>
 ///     >>> # Get index value on a specific date
 ///     >>> value = cpi.value_on(Date(2023, 3, 15))
-///     >>> 
+///     >>>
 ///     >>> # Calculate index ratio for inflation adjustment
 ///     >>> ratio = cpi.ratio(Date(2023, 1, 31), Date(2023, 4, 30))
 #[pyclass(name = "InflationIndex")]
@@ -204,24 +202,28 @@ impl PyInflationIndex {
             let tuple = item.extract::<(PyDate, f64)>()?;
             obs_vec.push((tuple.0.inner(), tuple.1));
         }
-        
+
         // Create the index
-        let mut index = CoreInflationIndex::new(id, obs_vec, currency.inner())
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Failed to create inflation index: {}", e)))?;
-        
+        let mut index = CoreInflationIndex::new(id, obs_vec, currency.inner()).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "Failed to create inflation index: {}",
+                e
+            ))
+        })?;
+
         // Apply optional interpolation
         if let Some(interp) = interpolation {
             index = index.with_interpolation(interp.into());
         }
-        
+
         // Apply optional lag
         if let Some(lag) = lag {
             index = index.with_lag(lag.inner);
         }
-        
+
         Ok(Self { inner: index })
     }
-    
+
     /// Set the interpolation method.
     ///
     /// Args:
@@ -233,7 +235,7 @@ impl PyInflationIndex {
         let new_inner = self.inner.clone().with_interpolation(interpolation.into());
         Ok(Self { inner: new_inner })
     }
-    
+
     /// Set the lag policy.
     ///
     /// Args:
@@ -245,7 +247,7 @@ impl PyInflationIndex {
         let new_inner = self.inner.clone().with_lag(lag.inner);
         Ok(Self { inner: new_inner })
     }
-    
+
     /// Add seasonal adjustment factors.
     ///
     /// Args:
@@ -259,17 +261,22 @@ impl PyInflationIndex {
     fn with_seasonality(&mut self, factors: Vec<f64>) -> PyResult<Self> {
         if factors.len() != 12 {
             return Err(pyo3::exceptions::PyValueError::new_err(
-                "Seasonal factors must contain exactly 12 values (one per month)"
+                "Seasonal factors must contain exactly 12 values (one per month)",
             ));
         }
-        
+
         let factors_array: [f64; 12] = factors.try_into().unwrap();
-        let new_inner = self.inner.clone().with_seasonality(factors_array)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Failed to set seasonality: {}", e)))?;
-        
+        let new_inner = self
+            .inner
+            .clone()
+            .with_seasonality(factors_array)
+            .map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!("Failed to set seasonality: {}", e))
+            })?;
+
         Ok(Self { inner: new_inner })
     }
-    
+
     /// Get the index value on a given date.
     ///
     /// Applies interpolation, lag, and seasonal adjustments as configured.
@@ -283,10 +290,11 @@ impl PyInflationIndex {
     /// Raises:
     ///     ValueError: If the date is invalid or calculation fails
     fn value_on(&self, date: PyDate) -> PyResult<f64> {
-        self.inner.value_on(date.inner())
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Failed to get value: {}", e)))
+        self.inner.value_on(date.inner()).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Failed to get value: {}", e))
+        })
     }
-    
+
     /// Calculate index ratio I(settle_date)/I(base_date).
     ///
     /// This is commonly used in inflation-linked bond calculations.
@@ -301,10 +309,13 @@ impl PyInflationIndex {
     /// Raises:
     ///     ValueError: If calculation fails or base value is zero
     fn ratio(&self, base_date: PyDate, settle_date: PyDate) -> PyResult<f64> {
-        self.inner.ratio(base_date.inner(), settle_date.inner())
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Failed to calculate ratio: {}", e)))
+        self.inner
+            .ratio(base_date.inner(), settle_date.inner())
+            .map_err(|e| {
+                pyo3::exceptions::PyValueError::new_err(format!("Failed to calculate ratio: {}", e))
+            })
     }
-    
+
     /// Get the date range covered by observations.
     ///
     /// Returns:
@@ -315,35 +326,38 @@ impl PyInflationIndex {
             Err(_) => Ok(None),
         }
     }
-    
+
     /// Get the index identifier.
     #[getter]
     fn id(&self) -> String {
         self.inner.id.clone()
     }
-    
+
     /// Get the currency.
     #[getter]
     fn currency(&self) -> PyCurrency {
         PyCurrency::from_inner(self.inner.currency)
     }
-    
+
     /// Get the interpolation method.
     #[getter]
     fn interpolation(&self) -> PyInflationInterpolation {
         self.inner.interpolation.into()
     }
-    
+
     /// Get the lag policy.
     #[getter]
     fn lag(&self) -> PyInflationLag {
         self.inner.lag.into()
     }
-    
+
     fn __str__(&self) -> String {
-        format!("InflationIndex(id='{}', currency={})", self.inner.id, self.inner.currency)
+        format!(
+            "InflationIndex(id='{}', currency={})",
+            self.inner.id, self.inner.currency
+        )
     }
-    
+
     fn __repr__(&self) -> String {
         format!(
             "InflationIndex(id='{}', currency={}, interpolation={:?}, lag={:?})",
@@ -392,7 +406,7 @@ impl PyInflationIndexBuilder {
             seasonality: None,
         }
     }
-    
+
     /// Add a single observation to the index.
     ///
     /// Args:
@@ -405,7 +419,7 @@ impl PyInflationIndexBuilder {
         self.observations.push((date.inner(), value));
         Ok(())
     }
-    
+
     /// Set all observations at once.
     ///
     /// Args:
@@ -421,7 +435,7 @@ impl PyInflationIndexBuilder {
         }
         Ok(())
     }
-    
+
     /// Set the interpolation method.
     ///
     /// Args:
@@ -433,19 +447,19 @@ impl PyInflationIndexBuilder {
         self.interpolation = interpolation.into();
         Ok(())
     }
-    
+
     /// Set the lag policy.
     ///
     /// Args:
     ///     lag: The lag policy to apply
     ///
     /// Returns:
-    ///     None (mutates in place) 
+    ///     None (mutates in place)
     fn with_lag(&mut self, lag: PyInflationLag) -> PyResult<()> {
         self.lag = lag.inner;
         Ok(())
     }
-    
+
     /// Set seasonal adjustment factors.
     ///
     /// Args:
@@ -459,15 +473,15 @@ impl PyInflationIndexBuilder {
     fn with_seasonality(&mut self, factors: Vec<f64>) -> PyResult<()> {
         if factors.len() != 12 {
             return Err(pyo3::exceptions::PyValueError::new_err(
-                "Seasonal factors must contain exactly 12 values (one per month)"
+                "Seasonal factors must contain exactly 12 values (one per month)",
             ));
         }
-        
+
         let factors_array: [f64; 12] = factors.try_into().unwrap();
         self.seasonality = Some(factors_array);
         Ok(())
     }
-    
+
     /// Build the inflation index.
     ///
     /// Returns:
@@ -481,14 +495,15 @@ impl PyInflationIndexBuilder {
         builder = builder.with_observations(self.observations.clone());
         builder = builder.with_interpolation(self.interpolation);
         builder = builder.with_lag(self.lag);
-        
+
         if let Some(factors) = self.seasonality {
             builder = builder.with_seasonality(factors);
         }
-        
-        let index = builder.build()
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Failed to build index: {}", e)))?;
-        
+
+        let index = builder.build().map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Failed to build index: {}", e))
+        })?;
+
         Ok(PyInflationIndex { inner: index })
     }
 }

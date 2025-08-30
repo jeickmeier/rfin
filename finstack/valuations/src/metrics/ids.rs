@@ -1,11 +1,11 @@
 //! Strongly-typed metric identifiers for compile-time validation.
-//! 
+//!
 //! Provides a comprehensive set of metric IDs covering bond, IRS, deposit,
 //! and risk metrics. Each ID is strongly-typed to prevent runtime errors
 //! and enable compile-time validation of metric dependencies.
-//! 
+//!
 //! # Metric Categories
-//! 
+//!
 //! - **Bond metrics**: Yield, duration, convexity, pricing, credit spreads
 //! - **IRS metrics**: DV01, annuity factors, par rates, present values
 //! - **Deposit metrics**: Discount factors, par rates, year fractions
@@ -16,10 +16,10 @@ use std::fmt;
 use std::str::FromStr;
 
 /// Strongly-typed metric identifier.
-/// 
+///
 /// Provides compile-time validation, autocomplete support, and safe refactoring
 /// when metric names change. Covers bond, IRS, deposit, and risk metrics.
-/// 
+///
 /// See unit tests and `examples/` for usage.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum MetricId {
@@ -42,7 +42,7 @@ pub enum MetricId {
     CleanPrice,
     /// Credit spread sensitivity (CS01)
     Cs01,
-    
+
     // IRS metrics
     /// Annuity factor for fixed leg
     Annuity,
@@ -54,7 +54,7 @@ pub enum MetricId {
     PvFixed,
     /// Present value of floating leg
     PvFloat,
-    
+
     // Deposit metrics
     /// Year fraction
     Yf,
@@ -68,13 +68,13 @@ pub enum MetricId {
     DfEndFromQuote,
     /// Quote rate
     QuoteRate,
-    
+
     // Risk metrics
     /// Bucketed DV01 risk
     BucketedDv01,
     /// Time decay (theta)
     Theta,
-    
+
     // CDS metrics
     /// Par spread for CDS
     ParSpread,
@@ -84,7 +84,7 @@ pub enum MetricId {
     ProtectionLegPv,
     /// Premium leg present value
     PremiumLegPv,
-    
+
     // Option metrics
     /// Delta (price sensitivity to underlying)
     Delta,
@@ -94,7 +94,7 @@ pub enum MetricId {
     Vega,
     /// Rho (price sensitivity to interest rates)
     Rho,
-    
+
     // Custom metrics
     /// Custom metric with a dynamic identifier
     Custom(String),
@@ -102,23 +102,23 @@ pub enum MetricId {
 
 impl MetricId {
     /// Creates a custom metric ID.
-    /// 
+    ///
     /// Use this for user-defined metrics that aren't part of the standard set.
     /// Custom metrics are stored as strings and can have any identifier.
-    /// 
+    ///
     /// # Arguments
     /// * `id` - String identifier for the custom metric
-    /// 
+    ///
     /// See unit tests and `examples/` for usage.
     pub fn custom(id: impl Into<String>) -> Self {
         MetricId::Custom(id.into())
     }
-    
+
     /// Converts to string representation for compatibility.
-    /// 
+    ///
     /// Returns a lowercase, snake_case string that can be used for
     /// serialization, logging, or API interfaces.
-    /// 
+    ///
     /// See unit tests and `examples/` for usage.
     pub fn as_str(&self) -> &str {
         match self {
@@ -132,14 +132,14 @@ impl MetricId {
             MetricId::DirtyPrice => "dirty_price",
             MetricId::CleanPrice => "clean_price",
             MetricId::Cs01 => "cs01",
-            
+
             // IRS metrics
             MetricId::Annuity => "annuity",
             MetricId::ParRate => "par_rate",
             MetricId::Dv01 => "dv01",
             MetricId::PvFixed => "pv_fixed",
             MetricId::PvFloat => "pv_float",
-            
+
             // Deposit metrics
             MetricId::Yf => "yf",
             MetricId::DfStart => "df_start",
@@ -147,33 +147,33 @@ impl MetricId {
             MetricId::DepositParRate => "deposit_par_rate",
             MetricId::DfEndFromQuote => "df_end_from_quote",
             MetricId::QuoteRate => "quote_rate",
-            
+
             // Risk metrics
             MetricId::BucketedDv01 => "bucketed_dv01",
             MetricId::Theta => "theta",
-            
+
             // CDS metrics
             MetricId::ParSpread => "par_spread",
             MetricId::RiskyPv01 => "risky_pv01",
             MetricId::ProtectionLegPv => "protection_leg_pv",
             MetricId::PremiumLegPv => "premium_leg_pv",
-            
+
             // Option metrics
             MetricId::Delta => "delta",
             MetricId::Gamma => "gamma",
             MetricId::Vega => "vega",
             MetricId::Rho => "rho",
-            
+
             // Custom metrics
             MetricId::Custom(s) => s.as_str(),
         }
     }
-    
+
     /// All standard (non-custom) metric IDs.
-    /// 
+    ///
     /// This constant provides access to all predefined metrics for
     /// iteration, validation, or registry initialization.
-    /// 
+    ///
     /// See unit tests and `examples/` for usage.
     pub const ALL_STANDARD: &'static [MetricId] = &[
         // Bond metrics
@@ -186,14 +186,12 @@ impl MetricId {
         MetricId::DirtyPrice,
         MetricId::CleanPrice,
         MetricId::Cs01,
-        
         // IRS metrics
         MetricId::Annuity,
         MetricId::ParRate,
         MetricId::Dv01,
         MetricId::PvFixed,
         MetricId::PvFloat,
-        
         // Deposit metrics
         MetricId::Yf,
         MetricId::DfStart,
@@ -201,17 +199,14 @@ impl MetricId {
         MetricId::DepositParRate,
         MetricId::DfEndFromQuote,
         MetricId::QuoteRate,
-        
         // Risk metrics
         MetricId::BucketedDv01,
         MetricId::Theta,
-        
         // CDS metrics
         MetricId::ParSpread,
         MetricId::RiskyPv01,
         MetricId::ProtectionLegPv,
         MetricId::PremiumLegPv,
-        
         // Option metrics
         MetricId::Delta,
         MetricId::Gamma,
@@ -228,12 +223,12 @@ impl fmt::Display for MetricId {
 
 impl FromStr for MetricId {
     type Err = (); // Never fails since we have a catch-all Custom variant
-    
+
     /// Parses a string into a MetricId.
-    /// 
+    ///
     /// This method never fails - any unrecognized string becomes a custom metric.
     /// Standard metrics are matched case-insensitively in snake_case format.
-    /// 
+    ///
     /// See unit tests and `examples/` for usage.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let metric_id = match s.to_lowercase().as_str() {
@@ -247,14 +242,14 @@ impl FromStr for MetricId {
             "dirty_price" => MetricId::DirtyPrice,
             "clean_price" => MetricId::CleanPrice,
             "cs01" => MetricId::Cs01,
-            
+
             // IRS metrics
             "annuity" => MetricId::Annuity,
             "par_rate" => MetricId::ParRate,
             "dv01" => MetricId::Dv01,
             "pv_fixed" => MetricId::PvFixed,
             "pv_float" => MetricId::PvFloat,
-            
+
             // Deposit metrics
             "yf" => MetricId::Yf,
             "df_start" => MetricId::DfStart,
@@ -262,23 +257,23 @@ impl FromStr for MetricId {
             "deposit_par_rate" => MetricId::DepositParRate,
             "df_end_from_quote" => MetricId::DfEndFromQuote,
             "quote_rate" => MetricId::QuoteRate,
-            
+
             // Risk metrics
             "bucketed_dv01" => MetricId::BucketedDv01,
             "theta" => MetricId::Theta,
-            
+
             // CDS metrics
             "par_spread" => MetricId::ParSpread,
             "risky_pv01" => MetricId::RiskyPv01,
             "protection_leg_pv" => MetricId::ProtectionLegPv,
             "premium_leg_pv" => MetricId::PremiumLegPv,
-            
+
             // Option metrics
             "delta" => MetricId::Delta,
             "gamma" => MetricId::Gamma,
             "vega" => MetricId::Vega,
             "rho" => MetricId::Rho,
-            
+
             // Any other string becomes a custom metric
             s => MetricId::Custom(s.to_string()),
         };

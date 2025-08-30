@@ -1,5 +1,5 @@
 //! Small statistics helpers (mean/variance/covariance/correlation).
-//! 
+//!
 //! We implement these ourselves rather than using external crates to ensure:
 //! - Deterministic results using our custom summation algorithm
 //! - Feature-flag controlled behaviour (deterministic vs. fast)

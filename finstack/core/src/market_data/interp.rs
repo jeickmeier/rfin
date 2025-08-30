@@ -62,6 +62,8 @@ use alloc::boxed::Box;
 
 /// Enum of supported interpolation styles. The default is `Linear`.
 #[derive(Copy, Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum InterpStyle {
     /// Linear interpolation in discount factors.
     #[default]

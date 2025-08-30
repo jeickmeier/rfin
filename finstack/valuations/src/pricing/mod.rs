@@ -1,8 +1,8 @@
 //! Pricing-related utilities and interfaces.
 
-pub mod result;
-pub mod npv;
 pub mod discountable;
+pub mod npv;
+pub mod result;
 
 /// Shared helper to build a ValuationResult with a set of metrics.
 ///
@@ -15,7 +15,7 @@ pub fn build_with_metrics(
     base_value: finstack_core::money::Money,
     metrics: &[crate::metrics::MetricId],
 ) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
-    use crate::metrics::{MetricContext, standard_registry};
+    use crate::metrics::{standard_registry, MetricContext};
     use std::sync::Arc;
 
     let mut context = MetricContext::new(
@@ -41,5 +41,3 @@ pub fn build_with_metrics(
     result.measures = measures;
     Ok(result)
 }
-
-

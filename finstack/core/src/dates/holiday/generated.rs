@@ -76,7 +76,9 @@ pub fn compute_year_bits_for_rules(rules: &[Rule], year: i32) -> YearBits {
 pub fn nth_weekday_of_month(year: i32, month: Month, weekday: Weekday, n: i8) -> Date {
     if n > 0 {
         let mut d = Date::from_calendar_date(year, month, 1).unwrap();
-        while d.weekday() != weekday { d += Duration::days(1); }
+        while d.weekday() != weekday {
+            d += Duration::days(1);
+        }
         d + Duration::weeks((n as i64) - 1)
     } else {
         let (ny, nm) = if month == Month::December {
@@ -85,12 +87,12 @@ pub fn nth_weekday_of_month(year: i32, month: Month, weekday: Weekday, n: i8) ->
             (year, Month::try_from(month as u8 + 1).unwrap())
         };
         let mut d = Date::from_calendar_date(ny, nm, 1).unwrap() - Duration::days(1);
-        while d.weekday() != weekday { d -= Duration::days(1); }
+        while d.weekday() != weekday {
+            d -= Duration::days(1);
+        }
         let pos = (-n) as i64; // 1=last, 2=second-last
         d - Duration::weeks(pos - 1)
     }
 }
 
 // The calendar helper macro is defined in `holiday::mod` to ensure availability in submodules.
-
-

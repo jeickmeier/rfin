@@ -3,20 +3,20 @@
 //! Provides comprehensive CDS valuation including par spread calculation,
 //! risky PV01, CS01, and protection leg valuation.
 
-use crate::pricing::result::ValuationResult;
-use crate::traits::{Priceable, Attributes, DatedFlows};
 use crate::metrics::MetricId;
+use crate::pricing::result::ValuationResult;
+use crate::traits::{Attributes, DatedFlows, Priceable};
 
-use finstack_core::F;
+use crate::impl_attributable;
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::market_data::term_structures::credit_curve::CreditCurve;
 use finstack_core::market_data::traits::Discount;
 use finstack_core::money::Money;
-use finstack_core::dates::{Date, DayCount, BusinessDayConvention, Frequency, StubKind};
-use crate::impl_attributable;
+use finstack_core::F;
 
-pub mod metrics;
 pub mod enhanced;
+pub mod metrics;
 
 /// CDS payment types
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -141,7 +141,7 @@ impl CreditDefaultSwap {
     pub fn builder() -> CDSBuilder {
         CDSBuilder::new()
     }
-    
+
     /// Create a new CDS with standard ISDA conventions
     #[allow(clippy::too_many_arguments)]
     pub fn new_isda(
@@ -191,7 +191,11 @@ impl CreditDefaultSwap {
     }
 
     /// Build premium leg cashflows
-    pub fn build_premium_schedule(&self, _curves: &CurveSet, _as_of: Date) -> finstack_core::Result<DatedFlows> {
+    pub fn build_premium_schedule(
+        &self,
+        _curves: &CurveSet,
+        _as_of: Date,
+    ) -> finstack_core::Result<DatedFlows> {
         // Use centralized schedule builder and standard DayCount accrual
         let sched = crate::cashflow::builder::build_dates(
             self.premium.start,
@@ -202,7 +206,9 @@ impl CreditDefaultSwap {
             self.premium.calendar_id,
         );
         let dates = sched.dates;
-        if dates.len() < 2 { return Ok(vec![]); }
+        if dates.len() < 2 {
+            return Ok(vec![]);
+        }
 
         let mut flows = Vec::with_capacity(dates.len() - 1);
         let mut prev = dates[0];
@@ -217,91 +223,111 @@ impl CreditDefaultSwap {
     }
 
     /// Calculate premium leg PV
-    pub fn pv_premium_leg(&self, disc: &dyn Discount, surv: &CreditCurve) -> finstack_core::Result<Money> {
+    pub fn pv_premium_leg(
+        &self,
+        disc: &dyn Discount,
+        surv: &CreditCurve,
+    ) -> finstack_core::Result<Money> {
         let flows = self.build_premium_schedule(&CurveSet::default(), disc.base_date())?;
-        
+
         // Calculate risky PV by adjusting for survival probability
         let mut pv = Money::new(0.0, self.notional.currency());
-        
+
         for (pay_date, amount) in flows.iter() {
             let t = self.premium.dc.year_fraction(disc.base_date(), *pay_date)?;
             let df = disc.df(t);
             let surv_prob = survival_probability(surv, t)?;
             pv = (pv + *amount * (df * surv_prob))?;
         }
-        
+
         Ok(pv)
     }
 
     /// Calculate protection leg PV
-    pub fn pv_protection_leg(&self, disc: &dyn Discount, credit: &CreditCurve) -> finstack_core::Result<Money> {
+    pub fn pv_protection_leg(
+        &self,
+        disc: &dyn Discount,
+        credit: &CreditCurve,
+    ) -> finstack_core::Result<Money> {
         // Protection payment = Notional * (1 - Recovery) * Default Probability
         let lgd = 1.0 - self.protection.recovery_rate; // Loss given default
-        
+
         // Discretize protection leg calculation (quarterly for accuracy)
         let dt = 0.25; // Quarterly steps
-        let num_steps = ((self.premium.end - self.premium.start).whole_days() as F / 365.25 / dt).ceil() as usize;
-        
+        let num_steps = ((self.premium.end - self.premium.start).whole_days() as F / 365.25 / dt)
+            .ceil() as usize;
+
         let mut pv = Money::new(0.0, self.notional.currency());
         let _base_date = disc.base_date();
-        
+
         for i in 0..num_steps {
             let t1 = i as F * dt;
-            let t2 = ((i + 1) as F * dt).min(
-                (self.premium.end - self.premium.start).whole_days() as F / 365.25
-            );
-            
+            let t2 = ((i + 1) as F * dt)
+                .min((self.premium.end - self.premium.start).whole_days() as F / 365.25);
+
             if t2 <= t1 {
                 break;
             }
-            
+
             // Survival probabilities
             let surv1 = survival_probability(credit, t1)?;
             let surv2 = survival_probability(credit, t2)?;
-            
+
             // Default probability in period
             let default_prob = surv1 - surv2;
-            
+
             // Discount factor at mid-point (assuming default at mid-period)
             let t_mid = (t1 + t2) / 2.0;
             let df = disc.df(t_mid);
-            
+
             // Protection payment
             pv = (pv + self.notional * (lgd * default_prob * df))?;
         }
-        
+
         Ok(pv)
     }
 
     /// Calculate par spread (spread that makes PV = 0)
-    pub fn par_spread(&self, disc: &dyn Discount, credit: &CreditCurve) -> finstack_core::Result<F> {
+    pub fn par_spread(
+        &self,
+        disc: &dyn Discount,
+        credit: &CreditCurve,
+    ) -> finstack_core::Result<F> {
         // Par spread = Protection Leg PV / Risky Annuity
         let protection_pv = self.pv_protection_leg(disc, credit)?;
         let risky_annuity = self.risky_annuity(disc, credit)?;
-        
+
         if risky_annuity == 0.0 {
             return Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NonPositiveValue
+                finstack_core::error::InputError::NonPositiveValue,
             ));
         }
-        
+
         // Convert to basis points
         Ok(protection_pv.amount() / risky_annuity * 10000.0)
     }
 
     /// Calculate risky annuity (premium leg PV per bp)
-    pub fn risky_annuity(&self, disc: &dyn Discount, credit: &CreditCurve) -> finstack_core::Result<F> {
+    pub fn risky_annuity(
+        &self,
+        disc: &dyn Discount,
+        credit: &CreditCurve,
+    ) -> finstack_core::Result<F> {
         // Create a 1bp CDS to get the annuity
         let mut unit_cds = self.clone();
         unit_cds.premium.spread_bp = 1.0;
         unit_cds.notional = Money::new(1.0, self.notional.currency());
-        
+
         let pv = unit_cds.pv_premium_leg(disc, credit)?;
         Ok(pv.amount())
     }
 
     /// Calculate risky PV01 (change in PV for 1bp spread change)
-    pub fn risky_pv01(&self, disc: &dyn Discount, credit: &CreditCurve) -> finstack_core::Result<F> {
+    pub fn risky_pv01(
+        &self,
+        disc: &dyn Discount,
+        credit: &CreditCurve,
+    ) -> finstack_core::Result<F> {
         self.risky_annuity(disc, credit)
     }
 
@@ -309,23 +335,23 @@ impl CreditDefaultSwap {
     pub fn cs01(&self, curves: &CurveSet) -> finstack_core::Result<F> {
         let disc = curves.discount(self.premium.disc_id)?;
         let credit = curves.credit(self.protection.credit_id)?;
-        
+
         // Base PV
         let base_pv = self.value(curves, disc.base_date())?;
-        
+
         // Bump credit spread by 1bp
         let mut bumped_credit = (*credit).clone();
         for spread in &mut bumped_credit.spreads_bp {
             *spread += 1.0;
         }
-        
+
         // Create bumped curve set
         let mut bumped_curves = curves.clone();
         bumped_curves.add_credit(bumped_credit);
-        
+
         // Bumped PV
         let bumped_pv = self.value(&bumped_curves, disc.base_date())?;
-        
+
         // CS01 is the difference
         Ok((bumped_pv - base_pv)?.amount())
     }
@@ -337,15 +363,15 @@ impl Priceable for CreditDefaultSwap {
     fn value(&self, curves: &CurveSet, _as_of: Date) -> finstack_core::Result<Money> {
         let disc = curves.discount(self.premium.disc_id)?;
         let credit = curves.credit(self.protection.credit_id)?;
-        
+
         let pv_premium = self.pv_premium_leg(&*disc, &credit)?;
         let pv_protection = self.pv_protection_leg(&*disc, &credit)?;
-        
+
         let pv = match self.side {
             PayReceive::PayProtection => (pv_protection - pv_premium)?,
             PayReceive::ReceiveProtection => (pv_premium - pv_protection)?,
         };
-        
+
         // Add upfront payment if any
         if let Some(upfront) = self.upfront {
             Ok((pv + upfront)?)
@@ -364,10 +390,10 @@ impl Priceable for CreditDefaultSwap {
         use crate::instruments::Instrument;
         use crate::metrics::MetricContext;
         use std::sync::Arc;
-        
+
         // Compute base value
         let base_value = self.value(curves, as_of)?;
-        
+
         // Create metric context
         let _context = MetricContext::new(
             Arc::new(Instrument::CDS(self.clone())),
@@ -375,7 +401,7 @@ impl Priceable for CreditDefaultSwap {
             as_of,
             base_value,
         );
-        
+
         crate::pricing::build_with_metrics(
             Instrument::CDS(self.clone()),
             curves,
@@ -394,7 +420,7 @@ impl Priceable for CreditDefaultSwap {
             MetricId::ProtectionLegPv,
             MetricId::PremiumLegPv,
         ];
-        
+
         self.price_with_metrics(curves, as_of, &standard_metrics)
     }
 }
@@ -423,102 +449,102 @@ impl CDSBuilder {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn id(mut self, value: impl Into<String>) -> Self {
         self.id = Some(value.into());
         self
     }
-    
+
     pub fn notional(mut self, value: Money) -> Self {
         self.notional = Some(value);
         self
     }
-    
+
     pub fn reference_entity(mut self, value: impl Into<String>) -> Self {
         self.reference_entity = Some(value.into());
         self
     }
-    
+
     pub fn side(mut self, value: PayReceive) -> Self {
         self.side = Some(value);
         self
     }
-    
+
     pub fn convention(mut self, value: CDSConvention) -> Self {
         self.convention = Some(value);
         self
     }
-    
+
     pub fn start(mut self, value: Date) -> Self {
         self.start = Some(value);
         self
     }
-    
+
     pub fn end(mut self, value: Date) -> Self {
         self.end = Some(value);
         self
     }
-    
+
     pub fn spread_bp(mut self, value: F) -> Self {
         self.spread_bp = Some(value);
         self
     }
-    
+
     pub fn credit_id(mut self, value: &'static str) -> Self {
         self.credit_id = Some(value);
         self
     }
-    
+
     pub fn recovery_rate(mut self, value: F) -> Self {
         self.recovery_rate = Some(value);
         self
     }
-    
+
     pub fn disc_id(mut self, value: &'static str) -> Self {
         self.disc_id = Some(value);
         self
     }
-    
+
     pub fn upfront(mut self, value: Money) -> Self {
         self.upfront = Some(value);
         self
     }
-    
+
     pub fn build(self) -> finstack_core::Result<CreditDefaultSwap> {
-        let id = self.id.ok_or_else(|| finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid
-        ))?;
-        let notional = self.notional.ok_or_else(|| finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid
-        ))?;
-        let reference_entity = self.reference_entity.ok_or_else(|| finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid
-        ))?;
-        let side = self.side.ok_or_else(|| finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid
-        ))?;
-        let convention = self.convention.ok_or_else(|| finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid
-        ))?;
-        let start = self.start.ok_or_else(|| finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid
-        ))?;
-        let end = self.end.ok_or_else(|| finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid
-        ))?;
-        let spread_bp = self.spread_bp.ok_or_else(|| finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid
-        ))?;
-        let credit_id = self.credit_id.ok_or_else(|| finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid
-        ))?;
-        let recovery_rate = self.recovery_rate.ok_or_else(|| finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid
-        ))?;
-        let disc_id = self.disc_id.ok_or_else(|| finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid
-        ))?;
-        
+        let id = self
+            .id
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let notional = self
+            .notional
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let reference_entity = self
+            .reference_entity
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let side = self
+            .side
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let convention = self
+            .convention
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let start = self
+            .start
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let end = self
+            .end
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let spread_bp = self
+            .spread_bp
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let credit_id = self
+            .credit_id
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let recovery_rate = self
+            .recovery_rate
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let disc_id = self
+            .disc_id
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+
         // Use the new_isda method for proper construction
         let mut cds = CreditDefaultSwap::new_isda(
             id,
@@ -533,10 +559,10 @@ impl CDSBuilder {
             recovery_rate,
             disc_id,
         );
-        
+
         // Set optional upfront payment
         cds.upfront = self.upfront;
-        
+
         Ok(cds)
     }
 }
@@ -549,11 +575,13 @@ impl From<CreditDefaultSwap> for crate::instruments::Instrument {
 
 impl std::convert::TryFrom<crate::instruments::Instrument> for CreditDefaultSwap {
     type Error = finstack_core::Error;
-    
+
     fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
         match value {
             crate::instruments::Instrument::CDS(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+            _ => Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            )),
         }
     }
 }
@@ -563,11 +591,11 @@ fn survival_probability(credit: &CreditCurve, t: F) -> finstack_core::Result<F> 
     if t <= 0.0 {
         return Ok(1.0);
     }
-    
+
     // Convert spread to hazard rate (simplified)
     let spread_decimal = credit.spread_bp(t) / 10000.0;
     let hazard_rate = spread_decimal / (1.0 - credit.recovery_rate);
-    
+
     // Survival probability = exp(-hazard_rate * t)
     Ok((-hazard_rate * t).exp())
 }
@@ -583,7 +611,7 @@ mod tests {
         let notional = Money::new(10_000_000.0, Currency::USD);
         let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
-        
+
         let cds = CreditDefaultSwap::new_isda(
             "CDS001",
             notional,
@@ -597,7 +625,7 @@ mod tests {
             0.4, // 40% recovery
             "USD-OIS",
         );
-        
+
         assert_eq!(cds.id, "CDS001");
         assert_eq!(cds.reference_entity, "ABC Corp");
         assert_eq!(cds.premium.spread_bp, 100.0);
@@ -617,7 +645,7 @@ mod tests {
         let notional = Money::new(10_000_000.0, Currency::USD);
         let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
-        
+
         let cds = CreditDefaultSwap::builder()
             .id("CDS002")
             .notional(notional)
@@ -633,7 +661,7 @@ mod tests {
             .upfront(Money::new(50_000.0, Currency::USD))
             .build()
             .unwrap();
-        
+
         assert_eq!(cds.id, "CDS002");
         assert_eq!(cds.reference_entity, "XYZ Corp");
         assert_eq!(cds.premium.spread_bp, 150.0);

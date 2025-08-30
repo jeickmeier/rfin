@@ -60,7 +60,7 @@ impl PyFxConversionPolicy {
 /// Examples:
 ///     >>> from finstack.market_data import SimpleFxProvider
 ///     >>> from finstack import Currency
-///     >>> 
+///     >>>
 ///     >>> # Create provider with some rates
 ///     >>> provider = SimpleFxProvider()
 ///     >>> provider.set_rate(Currency("USD"), Currency("EUR"), 0.85)
@@ -197,16 +197,16 @@ pub fn convert_money(
 /// Examples:
 ///     >>> from finstack.market_data import FxMatrix, SimpleFxProvider
 ///     >>> from finstack import Currency, Date
-///     >>> 
+///     >>>
 ///     >>> # Create matrix with a provider
 ///     >>> provider = SimpleFxProvider()
 ///     >>> provider.set_rate(Currency("USD"), Currency("EUR"), 0.85)
 ///     >>> matrix = FxMatrix(provider)
-///     >>> 
+///     >>>
 ///     >>> # Get rates (with caching)
 ///     >>> date = Date(2025, 1, 15)
 ///     >>> rate = matrix.get_rate(
-///     ...     Currency("USD"), 
+///     ...     Currency("USD"),
 ///     ...     Currency("EUR"),
 ///     ...     date,
 ///     ...     FxConversionPolicy.CashflowDate
@@ -225,9 +225,10 @@ impl PyFxMatrix {
     #[new]
     fn new(provider: PySimpleFxProvider) -> Self {
         use std::sync::Arc;
-        PyFxMatrix { inner: CoreMatrix::new(Arc::new(provider)) }
+        PyFxMatrix {
+            inner: CoreMatrix::new(Arc::new(provider)),
+        }
     }
-
 
     /// Get an FX rate with caching.
     ///

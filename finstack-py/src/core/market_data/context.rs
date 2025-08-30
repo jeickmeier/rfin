@@ -1,9 +1,7 @@
 //! Market context for pricing and valuation.
 
+use finstack_core::market_data::multicurve::CurveSet;
 use pyo3::prelude::*;
-use finstack_core::market_data::{
-    multicurve::CurveSet,
-};
 use std::sync::Arc;
 
 use super::curves::{PyDiscountCurve, PyForwardCurve, PyHazardCurve};
@@ -17,14 +15,14 @@ use super::curves::{PyDiscountCurve, PyForwardCurve, PyHazardCurve};
 /// Examples:
 ///     >>> from finstack.market_data import MarketContext, DiscountCurve
 ///     >>> from finstack import Date
-///     >>> 
+///     >>>
 ///     >>> # Create a simple market context with a discount curve
 ///     >>> context = MarketContext()
-///     >>> 
+///     >>>
 ///     >>> # Add a USD discount curve
 ///     >>> usd_curve = DiscountCurve.flat("USD-OIS", Date(2024, 1, 1), 0.95)
 ///     >>> context.add_discount_curve(usd_curve)
-///     >>> 
+///     >>>
 ///     >>> # Use context for pricing
 ///     >>> bond.price(context, Date(2024, 1, 1))
 #[pyclass(name = "MarketContext", module = "finstack.market_data")]
@@ -41,7 +39,7 @@ impl PyMarketContext {
             inner: Arc::new(CurveSet::new()),
         }
     }
-    
+
     /// Add a discount curve to the market context.
     ///
     /// Args:
@@ -54,30 +52,30 @@ impl PyMarketContext {
         // Note: This is a simplified implementation
         // In production, we'd need proper mutability handling for Arc<CurveSet>
         Err(PyErr::new::<pyo3::exceptions::PyNotImplementedError, _>(
-            "Adding curves to context not yet implemented. Create with all curves at once."
+            "Adding curves to context not yet implemented. Create with all curves at once.",
         ))
     }
-    
+
     /// Add a forward curve to the market context.
     ///
     /// Args:
     ///     curve: The forward curve to add
     fn add_forward_curve(&mut self, _curve: &PyForwardCurve) -> PyResult<()> {
         Err(PyErr::new::<pyo3::exceptions::PyNotImplementedError, _>(
-            "Adding curves to context not yet implemented. Create with all curves at once."
+            "Adding curves to context not yet implemented. Create with all curves at once.",
         ))
     }
-    
+
     /// Add a hazard curve to the market context.
     ///
     /// Args:
     ///     curve: The hazard curve to add
     fn add_hazard_curve(&mut self, _curve: &PyHazardCurve) -> PyResult<()> {
         Err(PyErr::new::<pyo3::exceptions::PyNotImplementedError, _>(
-            "Adding curves to context not yet implemented. Create with all curves at once."
+            "Adding curves to context not yet implemented. Create with all curves at once.",
         ))
     }
-    
+
     /// Get a discount curve by ID.
     ///
     /// Args:
@@ -91,18 +89,21 @@ impl PyMarketContext {
     fn get_discount_curve(&self, py: Python, curve_id: &str) -> PyResult<PyObject> {
         // Create a static string for the curve ID to satisfy lifetime requirements
         let static_id: &'static str = Box::leak(curve_id.to_string().into_boxed_str());
-        
+
         self.inner
             .discount(static_id)
             .map(|_curve| {
                 // Return a Python None for now
                 py.None()
             })
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyKeyError, _>(
-                format!("Discount curve '{}' not found: {:?}", curve_id, e)
-            ))
+            .map_err(|e| {
+                PyErr::new::<pyo3::exceptions::PyKeyError, _>(format!(
+                    "Discount curve '{}' not found: {:?}",
+                    curve_id, e
+                ))
+            })
     }
-    
+
     fn __repr__(&self) -> String {
         "MarketContext()".to_string()
     }
@@ -113,7 +114,7 @@ impl PyMarketContext {
     pub fn inner(&self) -> Arc<CurveSet> {
         self.inner.clone()
     }
-    
+
     /// Create from an existing CurveSet
     pub fn from_curve_set(curves: CurveSet) -> Self {
         Self {

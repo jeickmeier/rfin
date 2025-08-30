@@ -1,5 +1,5 @@
 use crate::dates::holiday::rule::Rule;
-use time::{Month};
+use time::Month;
 
 /// European TARGET2 settlement calendar (ECB).
 const TARGET2_RULES: &[Rule] = &[

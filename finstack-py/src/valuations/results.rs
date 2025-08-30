@@ -1,13 +1,10 @@
 //! Valuation results and metrics.
 
+use finstack_valuations::pricing::result::ValuationResult;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
-use finstack_valuations::pricing::result::ValuationResult;
 
-use crate::core::{
-    money::PyMoney,
-    dates::PyDate,
-};
+use crate::core::{dates::PyDate, money::PyMoney};
 
 /// Result of a valuation calculation.
 ///
@@ -32,19 +29,19 @@ impl PyValuationResult {
     fn instrument_id(&self) -> String {
         self.inner.instrument_id.clone()
     }
-    
+
     /// The valuation date.
     #[getter]
     fn as_of(&self) -> PyDate {
         PyDate::from_core(self.inner.as_of)
     }
-    
+
     /// The present value of the instrument.
     #[getter]
     fn value(&self) -> PyMoney {
         PyMoney::from_inner(self.inner.value)
     }
-    
+
     /// Get all computed metrics as a dictionary.
     ///
     /// Returns:
@@ -62,7 +59,7 @@ impl PyValuationResult {
         }
         Ok(dict.into())
     }
-    
+
     /// Get covenant check results if available.
     ///
     /// Returns:
@@ -103,10 +100,10 @@ impl PyValuationResult {
                 }
                 Ok(Some(dict.into()))
             }
-            None => Ok(None)
+            None => Ok(None),
         }
     }
-    
+
     /// Get FX policy metadata if available.
     ///
     /// Returns:
@@ -128,14 +125,14 @@ impl PyValuationResult {
         if self.inner.meta.fx_policies.is_empty() {
             return Ok(None);
         }
-        
+
         let dict = PyDict::new(py);
         for (key, policy) in &self.inner.meta.fx_policies {
             let policy_dict = PyDict::new(py);
             policy_dict.set_item("policy_name", &policy.policy_name)?;
             policy_dict.set_item("source", &policy.source)?;
             policy_dict.set_item("effective_date", format!("{}", policy.effective_date))?;
-            
+
             // Convert currency pair conversions
             let conversions_dict = PyDict::new(py);
             for ((from, to), rate) in &policy.conversions {
@@ -143,12 +140,12 @@ impl PyValuationResult {
                 conversions_dict.set_item(pair_key, rate)?;
             }
             policy_dict.set_item("conversions", conversions_dict)?;
-            
+
             dict.set_item(key, policy_dict)?;
         }
         Ok(Some(dict.into()))
     }
-    
+
     /// Check if all covenants passed.
     ///
     /// Returns:
@@ -160,7 +157,7 @@ impl PyValuationResult {
     fn all_covenants_passed(&self) -> bool {
         self.inner.all_covenants_passed()
     }
-    
+
     /// Get list of failed covenant names.
     ///
     /// Returns:
@@ -171,12 +168,13 @@ impl PyValuationResult {
     ///     >>> for name in failed:
     ///     ...     print(f"Failed covenant: {name}")
     fn failed_covenants(&self) -> Vec<String> {
-        self.inner.failed_covenants()
+        self.inner
+            .failed_covenants()
             .into_iter()
             .map(|s| s.to_string())
             .collect()
     }
-    
+
     /// Get a specific metric value.
     ///
     /// Args:
@@ -190,12 +188,13 @@ impl PyValuationResult {
     ///     >>> ytm = result.get_metric('Ytm', 0.0)
     ///     >>> duration = result.get_metric('DurationMod', 0.0)
     pub fn get_metric(&self, metric_name: &str, default: Option<f64>) -> f64 {
-        self.inner.measures
+        self.inner
+            .measures
             .get(metric_name)
             .copied()
             .unwrap_or_else(|| default.unwrap_or(0.0))
     }
-    
+
     /// Check if a metric was computed.
     ///
     /// Args:
@@ -206,7 +205,7 @@ impl PyValuationResult {
     fn has_metric(&self, metric_name: &str) -> bool {
         self.inner.measures.contains_key(metric_name)
     }
-    
+
     /// Get list of all computed metric names.
     ///
     /// Returns:
@@ -215,7 +214,7 @@ impl PyValuationResult {
         let list = PyList::new(py, self.inner.measures.keys())?;
         Ok(list.into())
     }
-    
+
     /// Convert results to a dictionary.
     ///
     /// Returns:
@@ -230,17 +229,17 @@ impl PyValuationResult {
         dict.set_item("as_of", format!("{}", self.inner.as_of))?;
         dict.set_item("value", self.inner.value.amount())?;
         dict.set_item("currency", format!("{}", self.inner.value.currency()))?;
-        
+
         // Add all metrics
         let metrics_dict = PyDict::new(py);
         for (key, value) in &self.inner.measures {
             metrics_dict.set_item(key, value)?;
         }
         dict.set_item("metrics", metrics_dict)?;
-        
+
         Ok(dict.into())
     }
-    
+
     fn __repr__(&self) -> String {
         format!(
             "ValuationResult(instrument='{}', value={:.2} {}, {} metrics)",
@@ -250,7 +249,7 @@ impl PyValuationResult {
             self.inner.measures.len()
         )
     }
-    
+
     /// Get computed metrics as a dictionary (convenience method).
     ///
     /// Returns:

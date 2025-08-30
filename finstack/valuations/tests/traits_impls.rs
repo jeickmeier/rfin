@@ -1,19 +1,16 @@
 //! Tests for valuations traits implementations.
 
-use finstack_valuations::{
-    traits::{CashflowProvider, Priceable, DatedFlows},
-    pricing::result::ValuationResult,
-    metrics::MetricId,
-};
 use finstack_core::{
-    market_data::{
-        multicurve::CurveSet, 
-        term_structures::discount_curve::DiscountCurve,
-    },
-    money::Money,
     currency::Currency,
     dates::{Date, DayCount},
+    market_data::{multicurve::CurveSet, term_structures::discount_curve::DiscountCurve},
+    money::Money,
     F,
+};
+use finstack_valuations::{
+    metrics::MetricId,
+    pricing::result::ValuationResult,
+    traits::{CashflowProvider, DatedFlows, Priceable},
 };
 use hashbrown::HashMap;
 
@@ -30,7 +27,11 @@ impl TestCashflowProvider {
 }
 
 impl CashflowProvider for TestCashflowProvider {
-    fn build_schedule(&self, _curves: &CurveSet, _as_of: Date) -> finstack_core::Result<DatedFlows> {
+    fn build_schedule(
+        &self,
+        _curves: &CurveSet,
+        _as_of: Date,
+    ) -> finstack_core::Result<DatedFlows> {
         Ok(self.flows.clone())
     }
 }
@@ -48,14 +49,18 @@ impl TestPriceable {
         let mut measures = HashMap::new();
         measures.insert("duration".to_string(), 2.5);
         measures.insert("convexity".to_string(), 0.1);
-        
+
         Self { value, measures }
     }
 }
 
 impl Priceable for TestPriceable {
     fn price(&self, _curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
-        Ok(ValuationResult::stamped("TEST_INSTRUMENT", as_of, self.value))
+        Ok(ValuationResult::stamped(
+            "TEST_INSTRUMENT",
+            as_of,
+            self.value,
+        ))
     }
 }
 
@@ -63,16 +68,16 @@ impl Priceable for TestPriceable {
 fn test_cashflow_provider_build_schedule() {
     let date1 = Date::from_calendar_date(2025, time::Month::March, 1).unwrap();
     let date2 = Date::from_calendar_date(2025, time::Month::June, 1).unwrap();
-    
+
     let flows = vec![
         (date1, Money::new(100.0, Currency::USD)),
         (date2, Money::new(200.0, Currency::USD)),
     ];
-    
+
     let provider = TestCashflowProvider::new(flows.clone());
     let curves = CurveSet::new();
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-    
+
     let result = provider.build_schedule(&curves, as_of).unwrap();
     assert_eq!(result.len(), 2);
     assert_eq!(result[0].0, date1);
@@ -85,17 +90,17 @@ fn test_cashflow_provider_build_schedule() {
 fn test_cashflow_provider_npv_with() {
     let date1 = Date::from_calendar_date(2025, time::Month::March, 1).unwrap();
     let date2 = Date::from_calendar_date(2025, time::Month::June, 1).unwrap();
-    
+
     let flows = vec![
         (date1, Money::new(100.0, Currency::USD)),
         (date2, Money::new(200.0, Currency::USD)),
     ];
-    
+
     let provider = TestCashflowProvider::new(flows);
     let curves = CurveSet::new();
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
     let base_date = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-    
+
     // Create a simple flat discount curve
     let discount = DiscountCurve::builder("TEST_DISC")
         .base_date(base_date)
@@ -104,10 +109,10 @@ fn test_cashflow_provider_npv_with() {
         .build()
         .unwrap();
     let daycount = DayCount::Act365F;
-    
+
     let result = provider.npv_with(&curves, as_of, &discount, daycount);
     assert!(result.is_ok());
-    
+
     let npv = result.unwrap();
     // With flat discount factor of 1.0, NPV should equal sum of amounts
     assert_eq!(npv, Money::new(300.0, Currency::USD));
@@ -119,7 +124,7 @@ fn test_priceable_price() {
     let instrument = TestPriceable::new(value);
     let curves = CurveSet::new();
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-    
+
     let result = instrument.price(&curves, as_of).unwrap();
     assert_eq!(result.value, value);
     assert_eq!(result.instrument_id, "TEST_INSTRUMENT");
@@ -134,7 +139,7 @@ fn test_priceable_value() {
     let instrument = TestPriceable::new(value);
     let curves = CurveSet::new();
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-    
+
     let result = instrument.value(&curves, as_of).unwrap();
     assert_eq!(result, value);
 }
@@ -145,11 +150,13 @@ fn test_priceable_price_with_metrics() {
     let instrument = TestPriceable::new(value);
     let curves = CurveSet::new();
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-    
+
     // Request specific metrics
     let metrics = [MetricId::DurationMac];
-    let result = instrument.price_with_metrics(&curves, as_of, &metrics).unwrap();
-    
+    let result = instrument
+        .price_with_metrics(&curves, as_of, &metrics)
+        .unwrap();
+
     assert_eq!(result.value, value);
     // The default implementation creates a basic stamped result and then filters
     // Since we're using stamped(), it starts with empty measures
@@ -162,11 +169,13 @@ fn test_priceable_price_with_no_metrics() {
     let instrument = TestPriceable::new(value);
     let curves = CurveSet::new();
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-    
+
     // Request no metrics
     let metrics = [];
-    let result = instrument.price_with_metrics(&curves, as_of, &metrics).unwrap();
-    
+    let result = instrument
+        .price_with_metrics(&curves, as_of, &metrics)
+        .unwrap();
+
     assert_eq!(result.value, value);
     // Should contain no measures when none are requested
     assert_eq!(result.measures.len(), 0);

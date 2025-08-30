@@ -80,7 +80,7 @@ fn closure_check_matrix() {
                     (Currency::GBP, Currency::EUR) => 1.2,
                     _ => 1.0,
                 };
-                return Ok(r);
+                Ok(r)
             }
         }
     }

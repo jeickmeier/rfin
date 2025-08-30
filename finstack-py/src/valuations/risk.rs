@@ -1,13 +1,10 @@
 //! Risk metrics and sensitivity calculations.
 
+use finstack_valuations::traits::{RiskBucket, RiskReport};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
-use finstack_valuations::traits::{RiskReport, RiskBucket};
 
-use crate::core::{
-    dates::PyDate,
-    market_data::context::PyMarketContext,
-};
+use crate::core::{dates::PyDate, market_data::context::PyMarketContext};
 
 /// DV01 (Dollar Value of One Basis Point) calculator.
 ///
@@ -18,11 +15,11 @@ use crate::core::{
 /// Examples:
 ///     >>> from finstack.risk import calculate_dv01
 ///     >>> from finstack import Date
-///     >>> 
+///     >>>
 ///     >>> # Calculate DV01 for a bond
 ///     >>> dv01 = calculate_dv01(bond, market_context, Date(2024, 1, 1))
 ///     >>> print(f"DV01: ${dv01:,.2f}")
-///     >>> 
+///     >>>
 ///     >>> # For a swap
 ///     >>> dv01 = calculate_dv01(swap, market_context, Date(2024, 1, 1))
 ///     >>> print(f"Swap DV01: ${dv01:,.2f}")
@@ -36,9 +33,9 @@ pub fn py_calculate_dv01(
 ) -> PyResult<f64> {
     // Extract the instrument type and calculate DV01
     // This is a simplified version - in production we'd need proper instrument dispatch
-    
+
     Err(PyErr::new::<pyo3::exceptions::PyNotImplementedError, _>(
-        "DV01 calculation requires instrument dispatch implementation"
+        "DV01 calculation requires instrument dispatch implementation",
     ))
 }
 
@@ -50,7 +47,7 @@ pub fn py_calculate_dv01(
 ///
 /// Examples:
 ///     >>> from finstack.risk import calculate_cs01
-///     >>> 
+///     >>>
 ///     >>> # Calculate CS01 for a corporate bond
 ///     >>> cs01 = calculate_cs01(bond, market_context, Date(2024, 1, 1))
 ///     >>> print(f"CS01: ${cs01:,.2f}")
@@ -64,7 +61,7 @@ pub fn py_calculate_cs01(
 ) -> PyResult<f64> {
     // This would calculate credit spread sensitivity
     Err(PyErr::new::<pyo3::exceptions::PyNotImplementedError, _>(
-        "CS01 calculation requires credit spread curve implementation"
+        "CS01 calculation requires credit spread curve implementation",
     ))
 }
 
@@ -75,10 +72,10 @@ pub fn py_calculate_cs01(
 ///
 /// Examples:
 ///     >>> from finstack.risk import BucketedDv01
-///     >>> 
+///     >>>
 ///     >>> # Create calculator with custom buckets
 ///     >>> calc = BucketedDv01([0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30])
-///     >>> 
+///     >>>
 ///     >>> # Calculate bucketed sensitivities
 ///     >>> buckets = calc.calculate(bond, market_context, Date(2024, 1, 1))
 ///     >>> for tenor, dv01 in buckets.items():
@@ -93,15 +90,13 @@ impl PyBucketedDv01 {
     #[new]
     #[pyo3(signature = (tenors = None))]
     fn new(tenors: Option<Vec<f64>>) -> Self {
-        let default_tenors = vec![
-            0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0
-        ];
-        
+        let default_tenors = vec![0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0];
+
         Self {
             tenors: tenors.unwrap_or(default_tenors),
         }
     }
-    
+
     /// Calculate bucketed DV01 for an instrument.
     ///
     /// Args:
@@ -123,17 +118,17 @@ impl PyBucketedDv01 {
         _as_of: &PyDate,
     ) -> PyResult<Py<PyDict>> {
         let dict = PyDict::new(py);
-        
+
         // Add sample buckets for demonstration
         for &tenor in &self.tenors {
             let label = format_tenor_label(tenor);
             // In production, this would calculate actual sensitivities
             dict.set_item(label, 0.0)?;
         }
-        
+
         Ok(dict.into())
     }
-    
+
     /// Get the tenor points used for bucketing.
     ///
     /// Returns:
@@ -142,7 +137,7 @@ impl PyBucketedDv01 {
     fn tenors(&self, py: Python) -> PyResult<Py<PyList>> {
         Ok(PyList::new(py, &self.tenors)?.into())
     }
-    
+
     /// Set custom tenor points for bucketing.
     ///
     /// Args:
@@ -154,7 +149,7 @@ impl PyBucketedDv01 {
     fn set_tenors(&mut self, tenors: Vec<f64>) {
         self.tenors = tenors;
     }
-    
+
     fn __repr__(&self) -> String {
         format!("BucketedDv01({} buckets)", self.tenors.len())
     }
@@ -176,13 +171,13 @@ impl PyBucketedDv01 {
 ///
 /// Examples:
 ///     >>> from finstack.risk import calculate_risk_metrics
-///     >>> 
+///     >>>
 ///     >>> # Calculate all risk metrics
 ///     >>> metrics = calculate_risk_metrics(bond, context, Date(2024, 1, 1))
 ///     >>> print(f"DV01: ${metrics['Dv01']:,.2f}")
 ///     >>> print(f"Duration: {metrics['DurationMod']:.2f}")
 ///     >>> print(f"Convexity: {metrics['Convexity']:.2f}")
-///     >>> 
+///     >>>
 ///     >>> # Calculate specific metrics only
 ///     >>> metrics = calculate_risk_metrics(
 ///     ...     bond, context, Date(2024, 1, 1),
@@ -198,21 +193,23 @@ pub fn py_calculate_risk_metrics(
     metrics: Option<Vec<String>>,
 ) -> PyResult<Py<PyDict>> {
     let dict = PyDict::new(py);
-    
+
     // Default risk metrics if none specified
-    let metric_names = metrics.unwrap_or_else(|| vec![
-        "Dv01".to_string(),
-        "DurationMod".to_string(),
-        "DurationMac".to_string(),
-        "Convexity".to_string(),
-        "Ytm".to_string(),
-    ]);
-    
+    let metric_names = metrics.unwrap_or_else(|| {
+        vec![
+            "Dv01".to_string(),
+            "DurationMod".to_string(),
+            "DurationMac".to_string(),
+            "Convexity".to_string(),
+            "Ytm".to_string(),
+        ]
+    });
+
     // In production, this would call the actual metric calculation engine
     for metric in metric_names {
         dict.set_item(metric, 0.0)?;
     }
-    
+
     Ok(dict.into())
 }
 
@@ -223,7 +220,7 @@ pub fn py_calculate_risk_metrics(
 ///
 /// Examples:
 ///     >>> from finstack.risk import KeyRateDuration
-///     >>> 
+///     >>>
 ///     >>> krd = KeyRateDuration()
 ///     >>> durations = krd.calculate(bond, context, Date(2024, 1, 1))
 ///     >>> for tenor, duration in durations.items():
@@ -238,15 +235,13 @@ impl PyKeyRateDuration {
     #[new]
     #[pyo3(signature = (key_rates = None))]
     fn new(key_rates: Option<Vec<f64>>) -> Self {
-        let default_rates = vec![
-            0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 20.0, 30.0
-        ];
-        
+        let default_rates = vec![0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 20.0, 30.0];
+
         Self {
             key_rates: key_rates.unwrap_or(default_rates),
         }
     }
-    
+
     /// Calculate key rate durations.
     ///
     /// Args:
@@ -264,16 +259,16 @@ impl PyKeyRateDuration {
         _as_of: &PyDate,
     ) -> PyResult<Py<PyDict>> {
         let dict = PyDict::new(py);
-        
+
         for &rate in &self.key_rates {
             let label = format_tenor_label(rate);
             // In production, calculate actual key rate duration
             dict.set_item(label, 0.0)?;
         }
-        
+
         Ok(dict.into())
     }
-    
+
     fn __repr__(&self) -> String {
         format!("KeyRateDuration({} key rates)", self.key_rates.len())
     }
@@ -297,7 +292,7 @@ fn format_tenor_label(tenor: f64) -> String {
 ///
 /// Examples:
 ///     >>> from finstack.risk import RiskBucket
-///     >>> 
+///     >>>
 ///     >>> bucket = RiskBucket("5Y", 5.0, "Medium-term")
 ///     >>> print(f"Bucket: {bucket.id}, Tenor: {bucket.tenor_years}Y")
 #[pyclass(name = "RiskBucket", module = "finstack.risk")]
@@ -321,34 +316,32 @@ impl PyRiskBucket {
                 id,
                 tenor_years,
                 classification,
-            }
+            },
         }
     }
-    
+
     /// Bucket identifier.
     #[getter]
     fn id(&self) -> String {
         self.inner.id.clone()
     }
-    
+
     /// Tenor in years.
     #[getter]
     fn tenor_years(&self) -> Option<f64> {
         self.inner.tenor_years
     }
-    
+
     /// Classification string.
     #[getter]
     fn classification(&self) -> Option<String> {
         self.inner.classification.clone()
     }
-    
+
     fn __repr__(&self) -> String {
         format!(
             "RiskBucket(id='{}', tenor={:?}, classification={:?})",
-            self.inner.id,
-            self.inner.tenor_years,
-            self.inner.classification
+            self.inner.id, self.inner.tenor_years, self.inner.classification
         )
     }
 }
@@ -367,11 +360,11 @@ impl PyRiskBucket {
 /// Examples:
 ///     >>> # Get risk report for a bond
 ///     >>> report = bond.risk_report(market_context, Date(2024, 1, 1))
-///     >>> 
+///     >>>
 ///     >>> # Access key metrics
 ///     >>> print(f"DV01: {report.metrics.get('Dv01', 0)}")
 ///     >>> print(f"Duration: {report.metrics.get('DurationMod', 0)}")
-///     >>> 
+///     >>>
 ///     >>> # Check bucketed risks
 ///     >>> if report.bucketed_risks:
 ///     ...     dv01_buckets = report.bucketed_risks.get('DV01', {})
@@ -390,13 +383,13 @@ impl PyRiskReport {
     fn instrument_id(&self) -> String {
         self.inner.instrument_id.clone()
     }
-    
+
     /// Base currency for risk measures.
     #[getter]
     fn base_currency(&self) -> String {
         format!("{}", self.inner.base_currency)
     }
-    
+
     /// Key risk metrics as a dictionary.
     ///
     /// Returns:
@@ -409,7 +402,7 @@ impl PyRiskReport {
         }
         Ok(dict.into())
     }
-    
+
     /// Bucketed sensitivities.
     ///
     /// Returns:
@@ -430,21 +423,23 @@ impl PyRiskReport {
         }
         Ok(dict.into())
     }
-    
+
     /// Risk buckets this instrument belongs to.
     ///
     /// Returns:
     ///     list: List of RiskBucket objects
     #[getter]
     fn buckets(&self, py: Python) -> PyResult<Py<PyList>> {
-        let buckets: Vec<PyRiskBucket> = self.inner.buckets
+        let buckets: Vec<PyRiskBucket> = self
+            .inner
+            .buckets
             .iter()
             .map(|b| PyRiskBucket::from_inner(b.clone()))
             .collect();
         let list = PyList::new(py, buckets)?;
         Ok(list.into())
     }
-    
+
     /// Additional risk metadata.
     ///
     /// Returns:
@@ -457,7 +452,7 @@ impl PyRiskReport {
         }
         Ok(dict.into())
     }
-    
+
     /// Get a specific metric value.
     ///
     /// Args:
@@ -467,12 +462,13 @@ impl PyRiskReport {
     /// Returns:
     ///     The metric value or default
     fn get_metric(&self, metric_name: &str, default: Option<f64>) -> f64 {
-        self.inner.metrics
+        self.inner
+            .metrics
             .get(metric_name)
             .copied()
             .unwrap_or_else(|| default.unwrap_or(0.0))
     }
-    
+
     /// Get bucketed values for a specific risk type.
     ///
     /// Args:
@@ -489,10 +485,10 @@ impl PyRiskReport {
                 }
                 Ok(Some(dict.into()))
             }
-            None => Ok(None)
+            None => Ok(None),
         }
     }
-    
+
     /// Convert to dictionary representation.
     ///
     /// Returns:
@@ -501,14 +497,14 @@ impl PyRiskReport {
         let dict = PyDict::new(py);
         dict.set_item("instrument_id", &self.inner.instrument_id)?;
         dict.set_item("base_currency", format!("{}", self.inner.base_currency))?;
-        
+
         // Add metrics
         let metrics_dict = PyDict::new(py);
         for (key, value) in &self.inner.metrics {
             metrics_dict.set_item(key, value)?;
         }
         dict.set_item("metrics", metrics_dict)?;
-        
+
         // Add bucketed risks
         let bucketed_dict = PyDict::new(py);
         for (risk_type, buckets) in &self.inner.bucketed_risks {
@@ -519,9 +515,10 @@ impl PyRiskReport {
             bucketed_dict.set_item(risk_type, bucket_dict)?;
         }
         dict.set_item("bucketed_risks", bucketed_dict)?;
-        
+
         // Add buckets
-        let buckets_list = PyList::new(py, 
+        let buckets_list = PyList::new(
+            py,
             self.inner.buckets.iter().map(|b| {
                 let b_dict = PyDict::new(py);
                 b_dict.set_item("id", &b.id).unwrap();
@@ -532,20 +529,20 @@ impl PyRiskReport {
                     b_dict.set_item("classification", class).unwrap();
                 }
                 b_dict
-            })
+            }),
         )?;
         dict.set_item("buckets", buckets_list)?;
-        
+
         // Add meta
         let meta_dict = PyDict::new(py);
         for (key, value) in &self.inner.meta {
             meta_dict.set_item(key, value)?;
         }
         dict.set_item("meta", meta_dict)?;
-        
+
         Ok(dict.into())
     }
-    
+
     fn __repr__(&self) -> String {
         format!(
             "RiskReport(instrument='{}', {} metrics, {} buckets)",
@@ -565,18 +562,18 @@ impl PyRiskReport {
 /// Register risk module functions and classes.
 pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "risk")?;
-    
+
     // Register classes
     m.add_class::<PyBucketedDv01>()?;
     m.add_class::<PyKeyRateDuration>()?;
     m.add_class::<PyRiskBucket>()?;
     m.add_class::<PyRiskReport>()?;
-    
+
     // Register functions
     m.add_function(pyo3::wrap_pyfunction!(py_calculate_dv01, &m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(py_calculate_cs01, &m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(py_calculate_risk_metrics, &m)?)?;
-    
+
     // Add the submodule to parent
     parent.add_submodule(&m)?;
     parent
@@ -584,6 +581,6 @@ pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
         .import("sys")?
         .getattr("modules")?
         .set_item("finstack.risk", &m)?;
-    
+
     Ok(())
 }

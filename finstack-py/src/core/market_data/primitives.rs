@@ -3,10 +3,13 @@
 use pyo3::prelude::*;
 use pyo3::types::PyList;
 
-use finstack_core::market_data::primitives::{MarketScalar as CoreMarketScalar, ScalarTimeSeries as CoreSeries, SeriesInterpolation as CoreInterp};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::PyDate;
 use crate::core::money::PyMoney;
+use finstack_core::market_data::primitives::{
+    MarketScalar as CoreMarketScalar, ScalarTimeSeries as CoreSeries,
+    SeriesInterpolation as CoreInterp,
+};
 
 #[pyclass(name = "SeriesInterpolation")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -43,25 +46,35 @@ impl PyMarketScalar {
     /// Construct a unitless scalar.
     #[staticmethod]
     pub fn unitless(value: f64) -> Self {
-        Self { inner: CoreMarketScalar::Unitless(value) }
+        Self {
+            inner: CoreMarketScalar::Unitless(value),
+        }
     }
 
     /// Construct a price scalar from a Money value.
     #[staticmethod]
     pub fn price(money: &PyMoney) -> Self {
-        Self { inner: CoreMarketScalar::Price(money.inner()) }
+        Self {
+            inner: CoreMarketScalar::Price(money.inner()),
+        }
     }
 
     fn __repr__(&self) -> String {
         match &self.inner {
             CoreMarketScalar::Unitless(v) => format!("MarketScalar.unitless({})", v),
-            CoreMarketScalar::Price(m) => format!("MarketScalar.price(Money({}, {}))", m.amount(), m.currency()),
+            CoreMarketScalar::Price(m) => format!(
+                "MarketScalar.price(Money({}, {}))",
+                m.amount(),
+                m.currency()
+            ),
         }
     }
 }
 
 impl PyMarketScalar {
-    pub fn inner(&self) -> CoreMarketScalar { self.inner.clone() }
+    pub fn inner(&self) -> CoreMarketScalar {
+        self.inner.clone()
+    }
 }
 
 #[pyclass(name = "ScalarTimeSeries")]
@@ -91,29 +104,46 @@ impl PyScalarTimeSeries {
             Box::leak(id.into_boxed_str()),
             obs,
             currency.map(|c| c.inner()),
-        ).map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("{}", e)))?;
-        let inner = if let Some(interp) = interpolation { series.with_interpolation(interp.into()) } else { series };
+        )
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("{}", e)))?;
+        let inner = if let Some(interp) = interpolation {
+            series.with_interpolation(interp.into())
+        } else {
+            series
+        };
         Ok(Self { inner })
     }
 
     /// Identifier
     #[getter]
-    pub fn id(&self) -> String { self.inner.id().as_str().to_string() }
+    pub fn id(&self) -> String {
+        self.inner.id().as_str().to_string()
+    }
 
     /// Optional currency
     #[getter]
-    pub fn currency(&self) -> Option<PyCurrency> { self.inner.currency().map(PyCurrency::from_inner) }
+    pub fn currency(&self) -> Option<PyCurrency> {
+        self.inner.currency().map(PyCurrency::from_inner)
+    }
 
     /// Value on a given date
     pub fn value_on(&self, date: PyDate) -> PyResult<f64> {
-        self.inner.value_on(date.inner()).map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("{}", e)))
+        self.inner
+            .value_on(date.inner())
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("{}", e)))
     }
 
     fn __repr__(&self) -> String {
-        format!("ScalarTimeSeries(id='{}', currency={:?})", self.id(), self.currency())
+        format!(
+            "ScalarTimeSeries(id='{}', currency={:?})",
+            self.id(),
+            self.currency()
+        )
     }
 }
 
-impl PyScalarTimeSeries { pub fn inner(&self) -> CoreSeries { self.inner.clone() } }
-
-
+impl PyScalarTimeSeries {
+    pub fn inner(&self) -> CoreSeries {
+        self.inner.clone()
+    }
+}

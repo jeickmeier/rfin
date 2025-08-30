@@ -1,5 +1,5 @@
 use crate::dates::holiday::rule::Rule;
-use time::{Month};
+use time::Month;
 
 const CNY: Rule = Rule::ChineseNewYear;
 

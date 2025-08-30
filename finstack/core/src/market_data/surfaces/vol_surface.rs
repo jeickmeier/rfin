@@ -76,8 +76,16 @@ impl VolSurface {
         let q21 = self.vols[[ie1, is0]];
         let q12 = self.vols[[ie0, is1]];
         let q22 = self.vols[[ie1, is1]];
-        let t = if exact_e { 0.0 } else { (expiry - e0) / (e1 - e0) };
-        let u = if exact_s { 0.0 } else { (strike - s0) / (s1 - s0) };
+        let t = if exact_e {
+            0.0
+        } else {
+            (expiry - e0) / (e1 - e0)
+        };
+        let u = if exact_s {
+            0.0
+        } else {
+            (strike - s0) / (s1 - s0)
+        };
         Self::bilinear(q11, q21, q12, q22, t, u)
     }
 
@@ -98,8 +106,16 @@ impl VolSurface {
         let q21 = self.vols[[ie1, is0]];
         let q12 = self.vols[[ie0, is1]];
         let q22 = self.vols[[ie1, is1]];
-        let t = if exact_e { 0.0 } else { (expiry - e0) / (e1 - e0) };
-        let u = if exact_s { 0.0 } else { (strike - s0) / (s1 - s0) };
+        let t = if exact_e {
+            0.0
+        } else {
+            (expiry - e0) / (e1 - e0)
+        };
+        let u = if exact_s {
+            0.0
+        } else {
+            (strike - s0) / (s1 - s0)
+        };
         Ok(Self::bilinear(q11, q21, q12, q22, t, u))
     }
 
@@ -251,8 +267,9 @@ impl VolSurface {
                 return Err(InputError::NegativeValue.into());
             }
         }
-        let array = Array2::from_shape_vec((expiries.len(), strikes.len()), vols_row_major.to_vec())
-            .map_err(|_| Error::Internal)?;
+        let array =
+            Array2::from_shape_vec((expiries.len(), strikes.len()), vols_row_major.to_vec())
+                .map_err(|_| Error::Internal)?;
         Ok(Self {
             id: CurveId::new(id),
             expiries: expiries.to_vec().into_boxed_slice(),

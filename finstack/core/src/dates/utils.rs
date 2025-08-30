@@ -23,7 +23,11 @@ pub fn add_months(date: Date, months: i32) -> Date {
     let max_day = match new_month {
         Month::January => 31,
         Month::February => {
-            if is_leap_year(new_year) { 29 } else { 28 }
+            if is_leap_year(new_year) {
+                29
+            } else {
+                28
+            }
         }
         Month::March => 31,
         Month::April => 30,
@@ -54,5 +58,3 @@ pub fn days_since_epoch_to_date(days: i32) -> Date {
     let epoch = Date::from_calendar_date(1970, Month::January, 1).unwrap();
     epoch + time::Duration::days(days as i64)
 }
-
-

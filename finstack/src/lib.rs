@@ -3,10 +3,10 @@
 #[cfg(feature = "core")]
 pub use finstack_core as core;
 
-#[cfg(feature = "valuations")]
-pub use finstack_valuations as valuations;
 #[cfg(feature = "statements")]
 pub use finstack_statements as statements;
+#[cfg(feature = "valuations")]
+pub use finstack_valuations as valuations;
 
 #[cfg(feature = "io")]
 pub use finstack_io as io;
@@ -21,4 +21,3 @@ pub use finstack_scenarios as scenarios;
 
 #[cfg(feature = "structured_credit")]
 pub use finstack_structured_credit as structured_credit;
-

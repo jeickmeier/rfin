@@ -420,7 +420,11 @@ impl Rule {
         out: &mut smallvec::SmallVec<A>,
     ) {
         match self {
-            Rule::Fixed { month, day, observed } => {
+            Rule::Fixed {
+                month,
+                day,
+                observed,
+            } => {
                 let mut base = Date::from_calendar_date(year, *month, *day).unwrap();
                 match observed {
                     Observed::None => {}
@@ -442,10 +446,17 @@ impl Rule {
                 out.push(base);
             }
             Rule::NthWeekday { n, weekday, month } => {
-                let d = crate::dates::holiday::generated::nth_weekday_of_month(year, *month, *weekday, *n);
+                let d = crate::dates::holiday::generated::nth_weekday_of_month(
+                    year, *month, *weekday, *n,
+                );
                 out.push(d);
             }
-            Rule::WeekdayShift { weekday, month, day, dir } => {
+            Rule::WeekdayShift {
+                weekday,
+                month,
+                day,
+                dir,
+            } => {
                 let mut d = Date::from_calendar_date(year, *month, *day).unwrap();
                 match dir {
                     Direction::After => {
@@ -480,7 +491,9 @@ impl Rule {
                 }
             }
             Rule::QingMing => {
-                out.push(Date::from_calendar_date(year, Month::April, qing_ming_day(year)).unwrap());
+                out.push(
+                    Date::from_calendar_date(year, Month::April, qing_ming_day(year)).unwrap(),
+                );
             }
             Rule::BuddhasBirthday => {
                 if let Some(d) = buddhas_birthday_date(year) {

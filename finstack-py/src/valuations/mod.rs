@@ -21,9 +21,9 @@ pub mod workout;
 // Re-export commonly used types at the valuations module level
 
 // Display implementations for types used across multiple modules
-use std::fmt;
 use crate::core::dates::PyDate;
 use crate::core::money::PyMoney;
+use std::fmt;
 
 impl fmt::Display for PyDate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

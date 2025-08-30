@@ -1,17 +1,17 @@
 //! NPV calculation for dated `Money` flows.
 
-use finstack_core::prelude::*;
-use finstack_core::market_data::traits::Discount;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::traits::Discount;
+use finstack_core::prelude::*;
 
 /// Compute NPV of dated `Money` flows using a `Discount` curve and `DayCount`.
-/// 
+///
 /// Discounts each cashflow to the base date using the provided curve.
 /// All flows must be in the same currency for the calculation to succeed.
-/// 
+///
 /// # Errors
 /// Returns an error if the flows list is empty.
-/// 
+///
 /// See unit tests and `examples/` for usage.
 pub fn npv(
     disc: &dyn Discount,
@@ -37,20 +37,32 @@ pub fn npv(
 mod tests {
     use super::*;
     use finstack_core::market_data::id::CurveId;
-    use finstack_core::market_data::traits::TermStructure;
     use finstack_core::market_data::traits::Discount;
+    use finstack_core::market_data::traits::TermStructure;
     use time::Month;
 
-    struct UnitCurve { id: CurveId }
-    impl TermStructure for UnitCurve { fn id(&self) -> &CurveId { &self.id } }
+    struct UnitCurve {
+        id: CurveId,
+    }
+    impl TermStructure for UnitCurve {
+        fn id(&self) -> &CurveId {
+            &self.id
+        }
+    }
     impl Discount for UnitCurve {
-        fn base_date(&self) -> Date { Date::from_calendar_date(2025, Month::January, 1).unwrap() }
-        fn df(&self, _t: finstack_core::F) -> finstack_core::F { 1.0 }
+        fn base_date(&self) -> Date {
+            Date::from_calendar_date(2025, Month::January, 1).unwrap()
+        }
+        fn df(&self, _t: finstack_core::F) -> finstack_core::F {
+            1.0
+        }
     }
 
     #[test]
     fn npv_errors_on_empty_flows() {
-        let curve = UnitCurve { id: CurveId::new("USD-OIS") };
+        let curve = UnitCurve {
+            id: CurveId::new("USD-OIS"),
+        };
         let base = curve.base_date();
         let flows: Vec<(Date, Money)> = vec![];
         let err = npv(&curve, base, DayCount::Act365F, &flows).unwrap_err();

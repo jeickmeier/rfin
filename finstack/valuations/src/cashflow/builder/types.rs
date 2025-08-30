@@ -3,8 +3,8 @@
 //! These types describe coupon, fee, and scheduling specifications used by
 //! `CashflowBuilder` to produce deterministic schedules.
 
-use finstack_core::dates::{Date, DayCount, Frequency, StubKind};
 use finstack_core::dates::BusinessDayConvention;
+use finstack_core::dates::{Date, DayCount, Frequency, StubKind};
 use finstack_core::money::Money;
 
 /// Coupon cashflow type for fixed/floating coupons.
@@ -60,8 +60,19 @@ pub struct FloatingCouponSpec {
 /// Fee specification.
 #[derive(Debug, Clone)]
 pub enum FeeSpec {
-    Fixed { date: Date, amount: Money },
-    PeriodicBps { base: FeeBase, bps: f64, freq: Frequency, dc: DayCount, bdc: BusinessDayConvention, calendar_id: Option<&'static str>, stub: StubKind },
+    Fixed {
+        date: Date,
+        amount: Money,
+    },
+    PeriodicBps {
+        base: FeeBase,
+        bps: f64,
+        freq: Frequency,
+        dc: DayCount,
+        bdc: BusinessDayConvention,
+        calendar_id: Option<&'static str>,
+        stub: StubKind,
+    },
 }
 
 /// Fee base for periodic bps fees.
@@ -101,5 +112,3 @@ pub struct FloatWindow {
     pub params: FloatCouponParams,
     pub schedule: ScheduleParams,
 }
-
-

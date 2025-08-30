@@ -7,8 +7,8 @@
 //! - Market data structures
 
 pub mod currency;
-pub mod money;
 pub mod dates;
 pub mod market_data;
+pub mod money;
 
 // Re-export commonly used types at the core module level

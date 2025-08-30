@@ -1,14 +1,14 @@
 //! Python bindings for interest rate swap instruments.
 
-use pyo3::prelude::*;
-use finstack_valuations::instruments::fixed_income::irs::{InterestRateSwap, PayReceive, FixedLegSpec, FloatLegSpec};
-use finstack_core::{
-    dates::{BusinessDayConvention, StubKind},
-};
 use crate::core::{
-    dates::{PyDate, PyDayCount, PyFrequency, PyBusDayConv, PyStubRule},
+    dates::{PyBusDayConv, PyDate, PyDayCount, PyFrequency, PyStubRule},
     money::PyMoney,
 };
+use finstack_core::dates::{BusinessDayConvention, StubKind};
+use finstack_valuations::instruments::fixed_income::irs::{
+    FixedLegSpec, FloatLegSpec, InterestRateSwap, PayReceive,
+};
+use pyo3::prelude::*;
 use std::sync::Arc;
 
 /// Direction of an interest rate swap from the perspective of fixed rate.
@@ -17,10 +17,10 @@ use std::sync::Arc;
 ///
 /// Examples:
 ///     >>> from finstack.instruments import PayReceive
-///     >>> 
+///     >>>
 ///     >>> # Pay fixed, receive floating (typical hedging position)
 ///     >>> direction = PayReceive.PayFixed
-///     >>> 
+///     >>>
 ///     >>> # Receive fixed, pay floating (typical investment position)
 ///     >>> direction = PayReceive.ReceiveFixed
 #[pyclass(name = "PayReceive", module = "finstack.instruments")]
@@ -49,7 +49,7 @@ impl From<PyPayReceive> for PayReceive {
 ///     >>> from finstack.instruments import FixedLeg
 ///     >>> from finstack import Date, DayCount
 ///     >>> from finstack.dates import Frequency, BusDayConvention, StubRule
-///     >>> 
+///     >>>
 ///     >>> fixed_leg = FixedLeg(
 ///     ...     discount_curve="USD-OIS",
 ///     ...     rate=0.025,  # 2.5% fixed rate
@@ -94,15 +94,13 @@ impl PyFixedLeg {
         let bdc = business_day_conv
             .map(|b| b.inner())
             .unwrap_or(BusinessDayConvention::ModifiedFollowing);
-            
-        let stub_kind = stub
-            .map(|s| s.inner())
-            .unwrap_or(StubKind::None);
-        
+
+        let stub_kind = stub.map(|s| s.inner()).unwrap_or(StubKind::None);
+
         // Convert to static string for curve ID
         let disc_id: &'static str = Box::leak(discount_curve.to_string().into_boxed_str());
         let cal_id = calendar_id.map(|s| Box::leak(s.to_string().into_boxed_str()) as &'static str);
-        
+
         Ok(Self {
             inner: FixedLegSpec {
                 disc_id,
@@ -114,40 +112,40 @@ impl PyFixedLeg {
                 stub: stub_kind,
                 start: start_date.inner(),
                 end: end_date.inner(),
-            }
+            },
         })
     }
-    
+
     #[getter]
     fn discount_curve(&self) -> &str {
         self.inner.disc_id
     }
-    
+
     #[getter]
     fn rate(&self) -> f64 {
         self.inner.rate
     }
-    
+
     #[getter]
     fn frequency(&self) -> PyFrequency {
         PyFrequency::from_inner(self.inner.freq)
     }
-    
+
     #[getter]
     fn day_count(&self) -> PyDayCount {
         PyDayCount::from_inner(self.inner.dc)
     }
-    
+
     #[getter]
     fn start_date(&self) -> PyDate {
         PyDate::from_core(self.inner.start)
     }
-    
+
     #[getter]
     fn end_date(&self) -> PyDate {
         PyDate::from_core(self.inner.end)
     }
-    
+
     fn __repr__(&self) -> String {
         format!(
             "FixedLeg(rate={:.2}%, freq={:?}, start={}, end={})",
@@ -167,7 +165,7 @@ impl PyFixedLeg {
 ///     >>> from finstack.instruments import FloatLeg
 ///     >>> from finstack import Date, DayCount
 ///     >>> from finstack.dates import Frequency, BusDayConvention
-///     >>> 
+///     >>>
 ///     >>> float_leg = FloatLeg(
 ///     ...     discount_curve="USD-OIS",
 ///     ...     forward_curve="USD-SOFR-3M",
@@ -214,16 +212,14 @@ impl PyFloatLeg {
         let bdc = business_day_conv
             .map(|b| b.inner())
             .unwrap_or(BusinessDayConvention::ModifiedFollowing);
-            
-        let stub_kind = stub
-            .map(|s| s.inner())
-            .unwrap_or(StubKind::None);
-        
+
+        let stub_kind = stub.map(|s| s.inner()).unwrap_or(StubKind::None);
+
         // Convert to static strings for curve IDs
         let disc_id: &'static str = Box::leak(discount_curve.to_string().into_boxed_str());
         let fwd_id: &'static str = Box::leak(forward_curve.to_string().into_boxed_str());
         let cal_id = calendar_id.map(|s| Box::leak(s.to_string().into_boxed_str()) as &'static str);
-        
+
         Ok(Self {
             inner: FloatLegSpec {
                 disc_id,
@@ -236,45 +232,45 @@ impl PyFloatLeg {
                 stub: stub_kind,
                 start: start_date.inner(),
                 end: end_date.inner(),
-            }
+            },
         })
     }
-    
+
     #[getter]
     fn discount_curve(&self) -> &str {
         self.inner.disc_id
     }
-    
+
     #[getter]
     fn forward_curve(&self) -> &str {
         self.inner.fwd_id
     }
-    
+
     #[getter]
     fn spread_bp(&self) -> f64 {
         self.inner.spread_bp
     }
-    
+
     #[getter]
     fn frequency(&self) -> PyFrequency {
         PyFrequency::from_inner(self.inner.freq)
     }
-    
+
     #[getter]
     fn day_count(&self) -> PyDayCount {
         PyDayCount::from_inner(self.inner.dc)
     }
-    
+
     #[getter]
     fn start_date(&self) -> PyDate {
         PyDate::from_core(self.inner.start)
     }
-    
+
     #[getter]
     fn end_date(&self) -> PyDate {
         PyDate::from_core(self.inner.end)
     }
-    
+
     fn __repr__(&self) -> String {
         format!(
             "FloatLeg(index={}, spread={}bp, freq={:?}, start={}, end={})",
@@ -300,7 +296,7 @@ impl PyFloatLeg {
 ///     >>> from finstack.instruments import InterestRateSwap, PayReceive, FixedLeg, FloatLeg
 ///     >>> from finstack import Money, Currency, Date, DayCount
 ///     >>> from finstack.dates import Frequency
-///     >>> 
+///     >>>
 ///     >>> # Create swap legs
 ///     >>> fixed = FixedLeg(
 ///     ...     discount_curve="USD-OIS",
@@ -310,9 +306,9 @@ impl PyFloatLeg {
 ///     ...     start_date=Date(2024, 1, 1),
 ///     ...     end_date=Date(2029, 1, 1)
 ///     ... )
-///     >>> 
+///     >>>
 ///     >>> floating = FloatLeg(
-///     ...     discount_curve="USD-OIS", 
+///     ...     discount_curve="USD-OIS",
 ///     ...     forward_curve="USD-SOFR-3M",
 ///     ...     spread_bp=0,
 ///     ...     frequency=Frequency.Quarterly,
@@ -320,7 +316,7 @@ impl PyFloatLeg {
 ///     ...     start_date=Date(2024, 1, 1),
 ///     ...     end_date=Date(2029, 1, 1)
 ///     ... )
-///     >>> 
+///     >>>
 ///     >>> # Create the swap
 ///     >>> swap = InterestRateSwap(
 ///     ...     id="USD-5Y-SOFR",
@@ -329,7 +325,7 @@ impl PyFloatLeg {
 ///     ...     fixed_leg=fixed,
 ///     ...     float_leg=floating
 ///     ... )
-///     >>> 
+///     >>>
 ///     >>> # Price the swap
 ///     >>> result = swap.price(market_context, Date(2024, 1, 1))
 ///     >>> print(f"NPV: ${result.value.amount:,.2f}")
@@ -359,20 +355,20 @@ impl PyInterestRateSwap {
                 fixed: fixed_leg.inner.clone(),
                 float: float_leg.inner.clone(),
                 attributes: finstack_valuations::traits::Attributes::new(),
-            })
+            }),
         })
     }
-    
+
     #[getter]
     fn id(&self) -> String {
         self.inner.id.clone()
     }
-    
+
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::from_inner(self.inner.notional)
     }
-    
+
     #[getter]
     fn side(&self) -> PyPayReceive {
         match self.inner.side {
@@ -380,21 +376,21 @@ impl PyInterestRateSwap {
             PayReceive::ReceiveFixed => PyPayReceive::ReceiveFixed,
         }
     }
-    
+
     #[getter]
     fn fixed_leg(&self) -> PyFixedLeg {
         PyFixedLeg {
-            inner: self.inner.fixed.clone()
+            inner: self.inner.fixed.clone(),
         }
     }
-    
+
     #[getter]
     fn float_leg(&self) -> PyFloatLeg {
         PyFloatLeg {
-            inner: self.inner.float.clone()
+            inner: self.inner.float.clone(),
         }
     }
-    
+
     /// Calculate the par swap rate.
     ///
     /// The par rate is the fixed rate that makes the swap have zero NPV
@@ -415,41 +411,41 @@ impl PyInterestRateSwap {
         market_context: &crate::core::market_data::context::PyMarketContext,
         as_of: &PyDate,
     ) -> PyResult<f64> {
-        use finstack_valuations::metrics::{MetricId, standard_registry, MetricContext};
         use finstack_valuations::instruments::Instrument;
-        
+        use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
+
         let curves = market_context.inner();
         let as_of_date = as_of.inner();
-        
+
         // Create instrument wrapper
         let instrument = Instrument::IRS((*self.inner).clone());
-        
+
         // Calculate base value first
         use finstack_valuations::traits::Priceable;
-        let base_value = self.inner.value(&curves, as_of_date)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-                format!("Failed to calculate swap value: {:?}", e)
-            ))?;
-        
+        let base_value = self.inner.value(&curves, as_of_date).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                "Failed to calculate swap value: {:?}",
+                e
+            ))
+        })?;
+
         // Create metric context
-        let mut context = MetricContext::new(
-            Arc::new(instrument),
-            curves.clone(),
-            as_of_date,
-            base_value,
-        );
-        
+        let mut context =
+            MetricContext::new(Arc::new(instrument), curves.clone(), as_of_date, base_value);
+
         // Get standard registry and compute par rate
         let registry = standard_registry();
         let metrics = vec![MetricId::ParRate];
-        let results = registry.compute(&metrics, &mut context)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-                format!("Failed to calculate par rate: {:?}", e)
-            ))?;
-        
+        let results = registry.compute(&metrics, &mut context).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                "Failed to calculate par rate: {:?}",
+                e
+            ))
+        })?;
+
         Ok(results.get(&MetricId::ParRate).copied().unwrap_or(0.0))
     }
-    
+
     /// Get the swap's attributes for tagging and metadata.
     ///
     /// Returns:
@@ -460,22 +456,25 @@ impl PyInterestRateSwap {
         let attrs = self.inner.attributes().clone();
         crate::valuations::attributes::PyAttributes::from_inner(attrs)
     }
-    
+
     /// Set the swap's attributes.
     ///
     /// Args:
     ///     attributes: New attributes to set
     #[setter]
-    fn set_attributes(&mut self, attributes: &crate::valuations::attributes::PyAttributes) -> PyResult<()> {
+    fn set_attributes(
+        &mut self,
+        attributes: &crate::valuations::attributes::PyAttributes,
+    ) -> PyResult<()> {
         use finstack_valuations::traits::Attributable;
         use std::sync::Arc;
-        
+
         let mut swap = (*self.inner).clone();
         *swap.attributes_mut() = attributes.inner.clone();
         self.inner = Arc::new(swap);
         Ok(())
     }
-    
+
     /// Add a tag to the swap's attributes.
     ///
     /// Args:
@@ -483,13 +482,13 @@ impl PyInterestRateSwap {
     fn add_tag(&mut self, tag: String) -> PyResult<()> {
         use finstack_valuations::traits::Attributable;
         use std::sync::Arc;
-        
+
         let mut swap = (*self.inner).clone();
         swap.attributes_mut().tags.insert(tag);
         self.inner = Arc::new(swap);
         Ok(())
     }
-    
+
     /// Check if the swap has a specific tag.
     ///
     /// Args:
@@ -501,7 +500,7 @@ impl PyInterestRateSwap {
         use finstack_valuations::traits::Attributable;
         self.inner.has_tag(tag)
     }
-    
+
     /// Set a metadata value on the swap.
     ///
     /// Args:
@@ -510,13 +509,13 @@ impl PyInterestRateSwap {
     fn set_meta(&mut self, key: String, value: String) -> PyResult<()> {
         use finstack_valuations::traits::Attributable;
         use std::sync::Arc;
-        
+
         let mut swap = (*self.inner).clone();
         swap.attributes_mut().meta.insert(key, value);
         self.inner = Arc::new(swap);
         Ok(())
     }
-    
+
     /// Get a metadata value from the swap.
     ///
     /// Args:
@@ -528,7 +527,7 @@ impl PyInterestRateSwap {
         use finstack_valuations::traits::Attributable;
         self.inner.get_meta(key).map(|s| s.to_string())
     }
-    
+
     /// Check if the swap matches a selector.
     ///
     /// Args:
@@ -540,7 +539,7 @@ impl PyInterestRateSwap {
         use finstack_valuations::traits::Attributable;
         self.inner.matches_selector(selector)
     }
-    
+
     /// Generate a comprehensive risk report for the swap.
     ///
     /// Calculates key risk metrics, bucketed sensitivities, and categorizes
@@ -562,16 +561,17 @@ impl PyInterestRateSwap {
         &self,
         market_context: &crate::core::market_data::context::PyMarketContext,
         as_of: &PyDate,
-        bucket_spec: Option<Vec<crate::valuations::risk::PyRiskBucket>>
+        bucket_spec: Option<Vec<crate::valuations::risk::PyRiskBucket>>,
     ) -> PyResult<crate::valuations::risk::PyRiskReport> {
         use finstack_valuations::traits::RiskMeasurable;
-        
+
         let curves = market_context.inner();
         let as_of_date = as_of.inner();
-        
+
         // Convert Python bucket spec to Rust if provided
         let rust_buckets = bucket_spec.map(|buckets| {
-            buckets.into_iter()
+            buckets
+                .into_iter()
                 .map(|b| finstack_valuations::traits::RiskBucket {
                     id: b.inner.id,
                     tenor_years: b.inner.tenor_years,
@@ -579,17 +579,22 @@ impl PyInterestRateSwap {
                 })
                 .collect::<Vec<_>>()
         });
-        
+
         let bucket_spec_ref = rust_buckets.as_deref();
-        
-        let report = self.inner.risk_report(&curves, as_of_date, bucket_spec_ref)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-                format!("Failed to generate risk report: {:?}", e)
-            ))?;
-        
+
+        let report = self
+            .inner
+            .risk_report(&curves, as_of_date, bucket_spec_ref)
+            .map_err(|e| {
+                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                    "Failed to generate risk report: {:?}",
+                    e
+                ))
+            })?;
+
         Ok(crate::valuations::risk::PyRiskReport::from_inner(report))
     }
-    
+
     /// Price the swap using market data.
     ///
     /// Calculates the net present value and risk metrics for the swap.
@@ -611,19 +616,23 @@ impl PyInterestRateSwap {
         as_of: &PyDate,
     ) -> PyResult<crate::valuations::results::PyValuationResult> {
         use finstack_valuations::traits::Priceable;
-        
+
         let curves = market_context.inner();
         let as_of_date = as_of.inner();
-        
+
         // Call the Rust pricing implementation
-        let result = self.inner.price(&curves, as_of_date)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-                format!("Failed to price swap: {:?}", e)
-            ))?;
-        
-        Ok(crate::valuations::results::PyValuationResult::from_inner(result))
+        let result = self.inner.price(&curves, as_of_date).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                "Failed to price swap: {:?}",
+                e
+            ))
+        })?;
+
+        Ok(crate::valuations::results::PyValuationResult::from_inner(
+            result,
+        ))
     }
-    
+
     /// Calculate the present value only (no metrics).
     ///
     /// Args:
@@ -638,24 +647,26 @@ impl PyInterestRateSwap {
         as_of: &PyDate,
     ) -> PyResult<PyMoney> {
         use finstack_valuations::traits::Priceable;
-        
+
         let curves = market_context.inner();
         let as_of_date = as_of.inner();
-        
-        let value = self.inner.value(&curves, as_of_date)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
-                format!("Failed to calculate swap value: {:?}", e)
-            ))?;
-        
+
+        let value = self.inner.value(&curves, as_of_date).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                "Failed to calculate swap value: {:?}",
+                e
+            ))
+        })?;
+
         Ok(PyMoney::from_inner(value))
     }
-    
+
     fn __repr__(&self) -> String {
         let side_str = match self.inner.side {
             PayReceive::PayFixed => "PayFixed",
             PayReceive::ReceiveFixed => "ReceiveFixed",
         };
-        
+
         format!(
             "InterestRateSwap('{}', {}, notional={:.2} {})",
             self.inner.id,
@@ -664,7 +675,7 @@ impl PyInterestRateSwap {
             self.inner.notional.currency()
         )
     }
-    
+
     fn __eq__(&self, other: &Self) -> bool {
         self.inner.id == other.inner.id
     }

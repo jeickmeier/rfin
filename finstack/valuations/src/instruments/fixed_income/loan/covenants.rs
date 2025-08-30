@@ -165,12 +165,10 @@ impl Covenant {
             CovenantType::Affirmative { requirement } => {
                 format!("Affirmative: {}", requirement)
             }
-            CovenantType::Custom { metric, test } => {
-                match test {
-                    ThresholdTest::Maximum(v) => format!("{} ≤ {:.2}", metric, v),
-                    ThresholdTest::Minimum(v) => format!("{} ≥ {:.2}", metric, v),
-                }
-            }
+            CovenantType::Custom { metric, test } => match test {
+                ThresholdTest::Maximum(v) => format!("{} ≤ {:.2}", metric, v),
+                ThresholdTest::Minimum(v) => format!("{} ≥ {:.2}", metric, v),
+            },
         }
     }
 }
@@ -183,7 +181,7 @@ mod tests {
     fn test_covenant_creation() {
         let covenant = Covenant::new(
             CovenantType::MaxDebtToEBITDA { threshold: 3.5 },
-            Frequency::quarterly()
+            Frequency::quarterly(),
         )
         .with_cure_period(Some(15))
         .with_consequence(CovenantConsequence::RateIncrease { bp_increase: 50.0 });
@@ -197,7 +195,7 @@ mod tests {
     fn test_covenant_description() {
         let covenant = Covenant::new(
             CovenantType::MinInterestCoverage { threshold: 2.0 },
-            Frequency::quarterly()
+            Frequency::quarterly(),
         );
 
         assert_eq!(covenant.description(), "Interest Coverage ≥ 2.00x");

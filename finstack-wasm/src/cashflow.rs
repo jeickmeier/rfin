@@ -3,16 +3,15 @@ use wasm_bindgen::prelude::*;
 use std::sync::Arc;
 
 use finstack_core::dates::DayCount as CoreDayCount;
-use finstack_valuations::cashflow::builder::{CashFlowSchedule, FixedCouponSpec, CouponType, cf};
 use finstack_core::dates::{BusinessDayConvention, StubKind};
-use finstack_valuations::pricing::discountable::Discountable;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
 use finstack_core::market_data::traits::Discount as _;
+use finstack_valuations::cashflow::builder::{cf, CashFlowSchedule, CouponType, FixedCouponSpec};
+use finstack_valuations::pricing::discountable::Discountable;
 
 use crate::currency::Currency;
 use crate::dates::{Date, DayCount};
 use crate::schedule::Frequency;
-
 
 /// Fixed-rate cash-flow leg exposed to JavaScript.
 #[wasm_bindgen]
@@ -62,7 +61,12 @@ impl FixedRateLeg {
     /// Present value (flat discount 1.0).
     #[wasm_bindgen(js_name = "npv")]
     pub fn npv_js(&self) -> f64 {
-        let base = self.inner.flows.first().map(|cf| cf.date).unwrap_or_else(|| finstack_core::dates::Date::from_ordinal_date(1970, 1).unwrap());
+        let base = self
+            .inner
+            .flows
+            .first()
+            .map(|cf| cf.date)
+            .unwrap_or_else(|| finstack_core::dates::Date::from_ordinal_date(1970, 1).unwrap());
         let curve = CoreDiscCurve::builder("USD-OIS")
             .base_date(base)
             .knots([(0.0, 1.0), (30.0, 1.0)])
@@ -80,14 +84,26 @@ impl FixedRateLeg {
     pub fn accrued_js(&self, val_date: &Date) -> f64 {
         // Implement accrued calculation for CashFlowSchedule
         let val_date_inner = val_date.inner();
-        
+
         // No accrual before first period
-        if val_date_inner <= self.inner.flows.first().map(|cf| cf.date).unwrap_or(val_date_inner) {
+        if val_date_inner
+            <= self
+                .inner
+                .flows
+                .first()
+                .map(|cf| cf.date)
+                .unwrap_or(val_date_inner)
+        {
             return 0.0;
         }
 
         // Find index of first flow after valuation date
-        let idx = match self.inner.flows.iter().position(|cf| cf.date > val_date_inner) {
+        let idx = match self
+            .inner
+            .flows
+            .iter()
+            .position(|cf| cf.date > val_date_inner)
+        {
             Some(i) => i,
             None => return 0.0, // past last payment
         };
@@ -106,9 +122,12 @@ impl FixedRateLeg {
         }
 
         // Derive coupon rate from stored amount and accrual factor
-        let coupon_rate = curr_flow.amount.amount() / (self.inner.notional.initial.amount() * curr_flow.accrual_factor);
+        let coupon_rate = curr_flow.amount.amount()
+            / (self.inner.notional.initial.amount() * curr_flow.accrual_factor);
 
-        let elapsed_yf = self.inner.day_count
+        let elapsed_yf = self
+            .inner
+            .day_count
             .year_fraction(prev_date, val_date_inner)
             .unwrap_or(0.0);
 

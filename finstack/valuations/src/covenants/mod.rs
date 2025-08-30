@@ -3,11 +3,6 @@
 pub mod engine;
 
 pub use engine::{
-    CovenantEngine,
-    CovenantSpec,
-    CovenantTestSpec,
-    CovenantWindow,
-    CovenantBreach,
-    ConsequenceApplication,
-    InstrumentMutator,
+    ConsequenceApplication, CovenantBreach, CovenantEngine, CovenantSpec, CovenantTestSpec,
+    CovenantWindow, InstrumentMutator,
 };

@@ -1,16 +1,16 @@
 //! Interface for objects that can be present-valued against a `Discount` curve.
 
-use finstack_core::prelude::*;
 use finstack_core::market_data::traits::Discount;
+use finstack_core::prelude::*;
 
 /// Objects that can be present-valued against a `Discount` curve.
-/// 
+///
 /// Provides a unified interface for NPV calculations across different
 /// cashflow representations and instrument types.
 pub trait Discountable {
     /// Output type for the NPV calculation.
     type PVOutput;
-    
+
     /// Compute present value using the given discount curve and day count.
     fn npv(&self, disc: &dyn Discount, base: Date, dc: DayCount) -> Self::PVOutput;
 }
@@ -35,10 +35,10 @@ impl Discountable for crate::cashflow::builder::CashFlowSchedule {
     type PVOutput = finstack_core::Result<Money>;
 
     /// Compute NPV of the cashflow schedule.
-    /// 
+    ///
     /// Extracts date-amount pairs from the schedule and computes
     /// present value using the provided discount curve.
-    /// 
+    ///
     /// See unit tests and `examples/` for usage.
     fn npv(&self, disc: &dyn Discount, base: Date, dc: DayCount) -> finstack_core::Result<Money> {
         let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
@@ -54,16 +54,28 @@ mod tests {
     use finstack_core::F;
     use time::Month;
 
-    struct FlatCurve { id: CurveId }
-    impl TermStructure for FlatCurve { fn id(&self) -> &CurveId { &self.id } }
+    struct FlatCurve {
+        id: CurveId,
+    }
+    impl TermStructure for FlatCurve {
+        fn id(&self) -> &CurveId {
+            &self.id
+        }
+    }
     impl Discount for FlatCurve {
-        fn base_date(&self) -> Date { Date::from_calendar_date(2025, Month::January, 1).unwrap() }
-        fn df(&self, _t: F) -> F { 1.0 }
+        fn base_date(&self) -> Date {
+            Date::from_calendar_date(2025, Month::January, 1).unwrap()
+        }
+        fn df(&self, _t: F) -> F {
+            1.0
+        }
     }
 
     #[test]
     fn tuples_discountable_paths_through() {
-        let curve = FlatCurve { id: CurveId::new("USD-OIS") };
+        let curve = FlatCurve {
+            id: CurveId::new("USD-OIS"),
+        };
         let base = curve.base_date();
         let flows = vec![
             (base, Money::new(10.0, Currency::USD)),
@@ -73,5 +85,3 @@ mod tests {
         assert!((pv.amount() - 15.0).abs() < 1e-12);
     }
 }
-
-

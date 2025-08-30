@@ -2,10 +2,8 @@
 
 use pyo3::prelude::*;
 
-
 use finstack_valuations::policy::policies::{
-    GridMarginPolicy, IndexFallbackPolicy, DSCRSweepPolicy,
-
+    DSCRSweepPolicy, GridMarginPolicy, IndexFallbackPolicy,
 };
 use std::collections::HashMap;
 
@@ -34,12 +32,7 @@ impl PyGridMarginPolicy {
     }
 
     /// Calculate credit spread based on rating, sector, and maturity.
-    pub fn calculate_spread(
-        &self,
-        rating: &str,
-        sector: Option<&str>,
-        maturity_years: f64,
-    ) -> f64 {
+    pub fn calculate_spread(&self, rating: &str, sector: Option<&str>, maturity_years: f64) -> f64 {
         self.inner.calculate_spread(rating, sector, maturity_years)
     }
 
@@ -56,7 +49,9 @@ impl PyGridMarginPolicy {
     /// Add maturity bucket.
     pub fn add_maturity_bucket(&mut self, years: f64, adjustment_bps: f64) {
         self.inner.maturity_buckets.push((years, adjustment_bps));
-        self.inner.maturity_buckets.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        self.inner
+            .maturity_buckets
+            .sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
     }
 
     /// Set floor spread.
@@ -70,9 +65,11 @@ impl PyGridMarginPolicy {
     }
 
     fn __str__(&self) -> String {
-        format!("GridMarginPolicy(ratings={}, sectors={})", 
-                self.inner.base_spreads.len(),
-                self.inner.sector_adjustments.len())
+        format!(
+            "GridMarginPolicy(ratings={}, sectors={})",
+            self.inner.base_spreads.len(),
+            self.inner.sector_adjustments.len()
+        )
     }
 
     fn __repr__(&self) -> String {
@@ -103,12 +100,9 @@ impl PyIndexFallbackPolicy {
     }
 
     /// Get rate for an index with fallback logic.
-    pub fn get_rate(
-        &self,
-        index: &str,
-        available_rates: HashMap<String, f64>,
-    ) -> PyResult<f64> {
-        self.inner.get_rate(index, &available_rates)
+    pub fn get_rate(&self, index: &str, available_rates: HashMap<String, f64>) -> PyResult<f64> {
+        self.inner
+            .get_rate(index, &available_rates)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
     }
 
@@ -128,9 +122,11 @@ impl PyIndexFallbackPolicy {
     }
 
     fn __str__(&self) -> String {
-        format!("IndexFallbackPolicy(chains={}, static_rates={})", 
-                self.inner.fallback_chain.len(),
-                self.inner.static_rates.len())
+        format!(
+            "IndexFallbackPolicy(chains={}, static_rates={})",
+            self.inner.fallback_chain.len(),
+            self.inner.static_rates.len()
+        )
     }
 
     fn __repr__(&self) -> String {
@@ -172,14 +168,20 @@ impl PyDSCRSweepPolicy {
         excess_cash: PyMoney,
         minimum_cash: PyMoney,
     ) -> PyMoney {
-        let amount = self.inner.calculate_sweep_amount(dscr, excess_cash.inner(), minimum_cash.inner());
+        let amount =
+            self.inner
+                .calculate_sweep_amount(dscr, excess_cash.inner(), minimum_cash.inner());
         PyMoney::from_inner(amount)
     }
 
     /// Add sweep tier.
     pub fn add_sweep_tier(&mut self, dscr_threshold: f64, sweep_percentage: f64) {
-        self.inner.sweep_schedule.push((dscr_threshold, sweep_percentage));
-        self.inner.sweep_schedule.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        self.inner
+            .sweep_schedule
+            .push((dscr_threshold, sweep_percentage));
+        self.inner
+            .sweep_schedule
+            .sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
     }
 
     /// Set minimum DSCR.
@@ -193,10 +195,12 @@ impl PyDSCRSweepPolicy {
     }
 
     fn __str__(&self) -> String {
-        format!("DSCRSweepPolicy(tiers={}, min_dscr={:.2}, max_sweep={:.1}%)", 
-                self.inner.sweep_schedule.len(),
-                self.inner.min_dscr,
-                self.inner.max_sweep * 100.0)
+        format!(
+            "DSCRSweepPolicy(tiers={}, min_dscr={:.2}, max_sweep={:.1}%)",
+            self.inner.sweep_schedule.len(),
+            self.inner.min_dscr,
+            self.inner.max_sweep * 100.0
+        )
     }
 
     fn __repr__(&self) -> String {
@@ -228,20 +232,30 @@ pub fn py_create_default_dscr_sweep_policy() -> PyDSCRSweepPolicy {
 /// Register the policy module with Python.
 pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "policy")?;
-    
+
     m.add_class::<PyGridMarginPolicy>()?;
     m.add_class::<PyIndexFallbackPolicy>()?;
     m.add_class::<PyDSCRSweepPolicy>()?;
-    
-    m.add_function(pyo3::wrap_pyfunction!(py_create_default_grid_margin_policy, &m)?)?;
-    m.add_function(pyo3::wrap_pyfunction!(py_create_default_index_fallback_policy, &m)?)?;
-    m.add_function(pyo3::wrap_pyfunction!(py_create_default_dscr_sweep_policy, &m)?)?;
-    
+
+    m.add_function(pyo3::wrap_pyfunction!(
+        py_create_default_grid_margin_policy,
+        &m
+    )?)?;
+    m.add_function(pyo3::wrap_pyfunction!(
+        py_create_default_index_fallback_policy,
+        &m
+    )?)?;
+    m.add_function(pyo3::wrap_pyfunction!(
+        py_create_default_dscr_sweep_policy,
+        &m
+    )?)?;
+
     parent.add_submodule(&m)?;
-    parent.py()
+    parent
+        .py()
         .import("sys")?
         .getattr("modules")?
         .set_item("finstack.policy", &m)?;
-    
+
     Ok(())
 }

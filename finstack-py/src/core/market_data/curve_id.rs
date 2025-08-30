@@ -51,14 +51,20 @@ impl PyCurveId {
                 "CurveId cannot be empty",
             ));
         }
-        Ok(PyCurveId { inner: CurveId::new(id) })
+        Ok(PyCurveId {
+            inner: CurveId::new(id),
+        })
     }
 
     /// The string value of the curve ID.
     #[getter]
-    fn value(&self) -> String { self.inner.as_str().to_string() }
+    fn value(&self) -> String {
+        self.inner.as_str().to_string()
+    }
 
-    fn __str__(&self) -> String { self.inner.as_str().to_string() }
+    fn __str__(&self) -> String {
+        self.inner.as_str().to_string()
+    }
 
     fn __repr__(&self) -> String {
         format!("CurveId('{}')", self.inner.as_str())
@@ -84,5 +90,7 @@ impl PyCurveId {
     }
 
     /// Get the inner CurveId
-    pub fn to_core(&self) -> CurveId { self.inner.clone() }
+    pub fn to_core(&self) -> CurveId {
+        self.inner.clone()
+    }
 }

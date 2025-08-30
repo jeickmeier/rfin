@@ -1,11 +1,11 @@
 //! Equity spot instrument implementation.
 
-use crate::traits::{CashflowProvider, Priceable, Attributes};
 use crate::impl_attributable;
-use crate::pricing::result::ValuationResult;
 use crate::metrics::MetricId;
-use finstack_core::prelude::*;
+use crate::pricing::result::ValuationResult;
+use crate::traits::{Attributes, CashflowProvider, Priceable};
 use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::prelude::*;
 use finstack_core::F;
 use hashbrown::HashMap;
 
@@ -13,11 +13,11 @@ use hashbrown::HashMap;
 pub type Ticker = String;
 
 /// Simple equity (spot) instrument.
-/// 
+///
 /// Represents a spot equity position that can be priced using market data.
 /// The price can come from direct market quotes or be computed from
 /// underlying fundamentals.
-/// 
+///
 /// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug)]
 pub struct Equity {
@@ -40,7 +40,7 @@ impl Equity {
     pub fn builder() -> EquityBuilder {
         EquityBuilder::new()
     }
-    
+
     /// Create a new equity instrument with default 1 share
     pub fn new(id: impl Into<String>, ticker: impl Into<String>, currency: Currency) -> Self {
         Self {
@@ -75,11 +75,10 @@ impl Equity {
 impl Priceable for Equity {
     fn value(&self, _curves: &CurveSet, _as_of: Date) -> finstack_core::Result<Money> {
         // For equities, we need the price from market data or quote
-        let price_per_share = self.price_quote
-            .ok_or_else(|| finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound
-            ))?;
-        
+        let price_per_share = self.price_quote.ok_or_else(|| {
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+        })?;
+
         let total_value = price_per_share * self.effective_shares();
         Ok(Money::new(total_value, self.currency))
     }
@@ -91,10 +90,10 @@ impl Priceable for Equity {
         metrics: &[MetricId],
     ) -> finstack_core::Result<ValuationResult> {
         let value = self.value(curves, as_of)?;
-        
+
         // Equities have limited metrics - mainly just the spot price
         let mut measures = HashMap::new();
-        
+
         for metric_id in metrics {
             match metric_id {
                 MetricId::Custom(name) if name == "price_per_share" => {
@@ -112,12 +111,8 @@ impl Priceable for Equity {
                 }
             }
         }
-        
-        Ok(ValuationResult::stamped(
-            self.id.clone(),
-            as_of,
-            value,
-        ).with_measures(measures))
+
+        Ok(ValuationResult::stamped(self.id.clone(), as_of, value).with_measures(measures))
     }
 
     fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
@@ -142,11 +137,13 @@ impl From<Equity> for crate::instruments::Instrument {
 
 impl std::convert::TryFrom<crate::instruments::Instrument> for Equity {
     type Error = finstack_core::Error;
-    
+
     fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
         match value {
             crate::instruments::Instrument::Equity(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+            _ => Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            )),
         }
     }
 }
@@ -165,43 +162,43 @@ impl EquityBuilder {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn id(mut self, value: impl Into<String>) -> Self {
         self.id = Some(value.into());
         self
     }
-    
+
     pub fn ticker(mut self, value: impl Into<String>) -> Self {
         self.ticker = Some(value.into());
         self
     }
-    
+
     pub fn currency(mut self, value: Currency) -> Self {
         self.currency = Some(value);
         self
     }
-    
+
     pub fn shares(mut self, value: F) -> Self {
         self.shares = Some(value);
         self
     }
-    
+
     pub fn price_quote(mut self, value: F) -> Self {
         self.price_quote = Some(value);
         self
     }
-    
+
     pub fn build(self) -> finstack_core::Result<Equity> {
         Ok(Equity {
-            id: self.id.ok_or_else(|| finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid
-            ))?,
-            ticker: self.ticker.ok_or_else(|| finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid
-            ))?,
-            currency: self.currency.ok_or_else(|| finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid
-            ))?,
+            id: self.id.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            ticker: self.ticker.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            currency: self.currency.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
             shares: self.shares,
             price_quote: self.price_quote,
             attributes: Attributes::new(),
@@ -210,7 +207,11 @@ impl EquityBuilder {
 }
 
 impl CashflowProvider for Equity {
-    fn build_schedule(&self, _curves: &CurveSet, _as_of: Date) -> finstack_core::Result<Vec<(Date, Money)>> {
+    fn build_schedule(
+        &self,
+        _curves: &CurveSet,
+        _as_of: Date,
+    ) -> finstack_core::Result<Vec<(Date, Money)>> {
         // Spot equities have no scheduled cashflows (dividends would be separate)
         Ok(vec![])
     }
@@ -226,7 +227,7 @@ mod tests {
         let equity = Equity::new("AAPL", "AAPL", Currency::USD)
             .with_shares(100.0)
             .with_price(150.0);
-        
+
         assert_eq!(equity.id, "AAPL");
         assert_eq!(equity.ticker, "AAPL");
         assert_eq!(equity.currency, Currency::USD);
@@ -245,10 +246,10 @@ mod tests {
         let equity = Equity::new("AAPL", "AAPL", Currency::USD)
             .with_shares(100.0)
             .with_price(150.0);
-        
+
         let curves = CurveSet::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         let value = equity.value(&curves, as_of).unwrap();
         assert_eq!(value.amount(), 15_000.0);
         assert_eq!(value.currency(), Currency::USD);
@@ -259,7 +260,7 @@ mod tests {
         let equity = Equity::new("AAPL", "AAPL", Currency::USD);
         let curves = CurveSet::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         let flows = equity.build_schedule(&curves, as_of).unwrap();
         assert!(flows.is_empty());
     }
@@ -269,10 +270,10 @@ mod tests {
         let equity = Equity::new("AAPL", "AAPL", Currency::USD)
             .with_shares(50.0)
             .with_price(200.0);
-        
+
         let curves = CurveSet::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         let result = equity.price(&curves, as_of).unwrap();
         assert_eq!(result.value.amount(), 10_000.0);
         assert_eq!(result.measures.get("price_per_share"), Some(&200.0));

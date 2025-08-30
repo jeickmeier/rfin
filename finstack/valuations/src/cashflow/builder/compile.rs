@@ -27,8 +27,7 @@ use finstack_core::error::InputError;
 use finstack_core::money::Money;
 
 use super::types::{
-    CouponType, FixedCouponSpec, FloatingCouponSpec, ScheduleParams,
-    FeeBase, FeeSpec,
+    CouponType, FeeBase, FeeSpec, FixedCouponSpec, FloatingCouponSpec, ScheduleParams,
 };
 
 pub(super) type FixedSchedule = (
@@ -94,7 +93,7 @@ pub(super) fn build_fee_schedules(
     //! use finstack_valuations::cashflow::builder::types::{FeeSpec, FeeBase};
     //! use finstack_core::dates::StubKind;
     //! use time::Month;
-    //! 
+    //!
     //! let issue = Date::from_calendar_date(2024, Month::January, 1).unwrap();
     //! let maturity = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     //! let fees = vec![
@@ -115,11 +114,34 @@ pub(super) fn build_fee_schedules(
     for fee in fees {
         match fee {
             FeeSpec::Fixed { date, amount } => fixed_fees.push((*date, *amount)),
-            FeeSpec::PeriodicBps { base, bps, freq, dc, bdc, calendar_id, stub } => {
-                let sched = crate::cashflow::builder::build_dates(issue, maturity, *freq, *stub, *bdc, *calendar_id);
+            FeeSpec::PeriodicBps {
+                base,
+                bps,
+                freq,
+                dc,
+                bdc,
+                calendar_id,
+                stub,
+            } => {
+                let sched = crate::cashflow::builder::build_dates(
+                    issue,
+                    maturity,
+                    *freq,
+                    *stub,
+                    *bdc,
+                    *calendar_id,
+                );
                 let dates = sched.dates;
-                if dates.len() < 2 { return Err(InputError::TooFewPoints.into()); }
-                periodic_fees.push(PeriodicFee { base: base.clone(), bps: *bps, dc: *dc, dates, prev: sched.prev });
+                if dates.len() < 2 {
+                    return Err(InputError::TooFewPoints.into());
+                }
+                periodic_fees.push(PeriodicFee {
+                    base: base.clone(),
+                    bps: *bps,
+                    dc: *dc,
+                    dates,
+                    prev: sched.prev,
+                });
             }
         }
     }
@@ -134,8 +156,15 @@ pub(super) struct DateWindow {
 
 #[derive(Debug, Clone, Copy)]
 pub(super) enum CouponSpec {
-    Fixed { rate: f64 },
-    Float { index_id: &'static str, margin_bp: f64, gearing: f64, reset_lag_days: i32 },
+    Fixed {
+        rate: f64,
+    },
+    Float {
+        index_id: &'static str,
+        margin_bp: f64,
+        gearing: f64,
+        reset_lag_days: i32,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -191,17 +220,27 @@ pub(super) fn collect_dates(
     set.insert(maturity);
 
     for (_, ds, _, _) in fixed_schedules {
-        for &d in ds.iter() { set.insert(d); }
+        for &d in ds.iter() {
+            set.insert(d);
+        }
     }
     for (_, ds, _) in float_schedules {
-        for &d in ds.iter() { set.insert(d); }
+        for &d in ds.iter() {
+            set.insert(d);
+        }
     }
     for dates in periodic_fee_date_slices {
-        for &d in dates.iter() { set.insert(d); }
+        for &d in dates.iter() {
+            set.insert(d);
+        }
     }
-    for (d, _) in fixed_fees { set.insert(*d); }
+    for (d, _) in fixed_fees {
+        set.insert(*d);
+    }
     if let AmortizationSpec::CustomPrincipal { items } = &notional.amort {
-        for (d, _) in items { set.insert(*d); }
+        for (d, _) in items {
+            set.insert(*d);
+        }
     }
 
     set.into_iter().collect()
@@ -242,7 +281,7 @@ pub(super) fn compute_coupon_schedules(
     //! use finstack_valuations::cashflow::builder::types::{FixedCouponSpec, CouponType};
     //! use finstack_core::dates::StubKind;
     //! use time::Month;
-    //! 
+    //!
     //! let issue = Date::from_calendar_date(2024, Month::January, 1).unwrap();
     //! let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
     //! // Note: CashflowBuilder would be created here
@@ -265,8 +304,17 @@ pub(super) fn compute_coupon_schedules(
         let add_payment_defaults = builder.payment_program.is_empty();
         for s in &builder.fixed {
             coupon_pieces.push(CouponProgramPiece {
-                window: DateWindow { start: issue, end: maturity },
-                schedule: ScheduleParams { freq: s.freq, dc: s.dc, bdc: s.bdc, calendar_id: s.calendar_id, stub: s.stub },
+                window: DateWindow {
+                    start: issue,
+                    end: maturity,
+                },
+                schedule: ScheduleParams {
+                    freq: s.freq,
+                    dc: s.dc,
+                    bdc: s.bdc,
+                    calendar_id: s.calendar_id,
+                    stub: s.stub,
+                },
                 coupon: CouponSpec::Fixed { rate: s.rate },
             });
             if add_payment_defaults {
@@ -275,9 +323,23 @@ pub(super) fn compute_coupon_schedules(
         }
         for s in &builder.floating {
             coupon_pieces.push(CouponProgramPiece {
-                window: DateWindow { start: issue, end: maturity },
-                schedule: ScheduleParams { freq: s.freq, dc: s.dc, bdc: s.bdc, calendar_id: s.calendar_id, stub: s.stub },
-                coupon: CouponSpec::Float { index_id: s.index_id, margin_bp: s.margin_bp, gearing: s.gearing, reset_lag_days: s.reset_lag_days },
+                window: DateWindow {
+                    start: issue,
+                    end: maturity,
+                },
+                schedule: ScheduleParams {
+                    freq: s.freq,
+                    dc: s.dc,
+                    bdc: s.bdc,
+                    calendar_id: s.calendar_id,
+                    stub: s.stub,
+                },
+                coupon: CouponSpec::Float {
+                    index_id: s.index_id,
+                    margin_bp: s.margin_bp,
+                    gearing: s.gearing,
+                    reset_lag_days: s.reset_lag_days,
+                },
             });
             if add_payment_defaults {
                 // defaults appended later
@@ -301,30 +363,49 @@ pub(super) fn compute_coupon_schedules(
     let mut payment_pieces: Vec<PaymentProgramPiece> = builder.payment_program.clone();
     if builder.coupon_program.is_empty() && builder.payment_program.is_empty() {
         for s in &builder.fixed {
-            payment_pieces.push(PaymentProgramPiece { window: DateWindow { start: issue, end: maturity }, split: s.coupon_type });
+            payment_pieces.push(PaymentProgramPiece {
+                window: DateWindow {
+                    start: issue,
+                    end: maturity,
+                },
+                split: s.coupon_type,
+            });
         }
         for s in &builder.floating {
-            payment_pieces.push(PaymentProgramPiece { window: DateWindow { start: issue, end: maturity }, split: s.coupon_type });
+            payment_pieces.push(PaymentProgramPiece {
+                window: DateWindow {
+                    start: issue,
+                    end: maturity,
+                },
+                split: s.coupon_type,
+            });
         }
     }
 
     // Validate windows are within [issue, maturity] and build boundary grid
-    let within = |w: &DateWindow| -> bool { w.start >= issue && w.end <= maturity && w.start < w.end };
+    let within =
+        |w: &DateWindow| -> bool { w.start >= issue && w.end <= maturity && w.start < w.end };
     let mut bounds: BTreeSet<Date> = BTreeSet::new();
     bounds.insert(issue);
     bounds.insert(maturity);
     for p in &coupon_pieces {
-        if !within(&p.window) { return Err(InputError::Invalid.into()); }
+        if !within(&p.window) {
+            return Err(InputError::Invalid.into());
+        }
         bounds.insert(p.window.start);
         bounds.insert(p.window.end);
     }
     for p in &payment_pieces {
-        if !within(&p.window) { return Err(InputError::Invalid.into()); }
+        if !within(&p.window) {
+            return Err(InputError::Invalid.into());
+        }
         bounds.insert(p.window.start);
         bounds.insert(p.window.end);
     }
     let grid: Vec<Date> = bounds.into_iter().collect();
-    if grid.len() < 2 { return Err(InputError::TooFewPoints.into()); }
+    if grid.len() < 2 {
+        return Err(InputError::TooFewPoints.into());
+    }
 
     let mut fixed_schedules: Vec<FixedSchedule> = Vec::new();
     let mut float_schedules: Vec<FloatSchedule> = Vec::new();
@@ -334,13 +415,17 @@ pub(super) fn compute_coupon_schedules(
     for w in grid.windows(2) {
         let s = w[0];
         let e = w[1];
-        if s >= e { continue; }
+        if s >= e {
+            continue;
+        }
 
         // Select single covering coupon piece
         let mut chosen_coupon: Option<&CouponProgramPiece> = None;
         for p in &coupon_pieces {
             if p.window.start <= s && e <= p.window.end {
-                if chosen_coupon.is_some() { return Err(InputError::Invalid.into()); }
+                if chosen_coupon.is_some() {
+                    return Err(InputError::Invalid.into());
+                }
                 chosen_coupon = Some(p);
             }
         }
@@ -354,8 +439,10 @@ pub(super) fn compute_coupon_schedules(
                 match chosen {
                     None => chosen = Some((&p.window, p.split)),
                     Some((win, _)) => {
-                        let p_within_chosen = p.window.start >= win.start && p.window.end <= win.end;
-                        let chosen_within_p = win.start >= p.window.start && win.end <= p.window.end;
+                        let p_within_chosen =
+                            p.window.start >= win.start && p.window.end <= win.end;
+                        let chosen_within_p =
+                            win.start >= p.window.start && win.end <= p.window.end;
                         if p_within_chosen {
                             chosen = Some((&p.window, p.split)); // prefer more specific
                         } else if chosen_within_p {
@@ -378,7 +465,9 @@ pub(super) fn compute_coupon_schedules(
             chosen_coupon.schedule.calendar_id,
         );
         let dates = sched.dates;
-        if dates.len() < 2 { return Err(InputError::TooFewPoints.into()); }
+        if dates.len() < 2 {
+            return Err(InputError::TooFewPoints.into());
+        }
 
         match chosen_coupon.coupon {
             CouponSpec::Fixed { rate } => {
@@ -394,7 +483,12 @@ pub(super) fn compute_coupon_schedules(
                 used_fixed_specs.push(spec);
                 fixed_schedules.push((spec, dates.clone(), sched.prev, sched.first_or_last));
             }
-            CouponSpec::Float { index_id, margin_bp, gearing, reset_lag_days } => {
+            CouponSpec::Float {
+                index_id,
+                margin_bp,
+                gearing,
+                reset_lag_days,
+            } => {
                 let spec = FloatingCouponSpec {
                     index_id,
                     margin_bp,
@@ -420,5 +514,3 @@ pub(super) fn compute_coupon_schedules(
         used_float_specs,
     })
 }
-
-

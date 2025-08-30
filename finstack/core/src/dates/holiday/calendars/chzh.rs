@@ -1,5 +1,5 @@
 use crate::dates::holiday::rule::Rule;
-use time::{Month};
+use time::Month;
 
 /// Swiss SIX exchange calendar (code: CHZH).
 const CHZH_RULES: &[Rule] = &[

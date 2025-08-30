@@ -1,16 +1,16 @@
 #![cfg(test)]
 
 use finstack_core::dates::Date;
-use finstack_core::F;
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::prelude::*;
-use finstack_valuations::instruments::fixed_income::{bond, deposit, irs};
+use finstack_core::F;
 use finstack_valuations as _; // ensure crate is linked
-use finstack_valuations::traits::Priceable;
 use finstack_valuations::cashflow::aggregation::aggregate_by_period;
+use finstack_valuations::instruments::fixed_income::{bond, deposit, irs};
 use finstack_valuations::metrics::{standard_registry, MetricContext};
+use finstack_valuations::traits::Priceable;
 use std::sync::Arc;
 use time::Month;
 
@@ -173,7 +173,10 @@ fn irs_dv01_sign_and_magnitude() {
     assert!(dv01.abs() > 0.5 * ann * 1_000_000.0 / 1_000_000.0); // rough lower bound
 
     // Pay-fixed swap: dv01 should be negative
-    let irs_pay = irs::InterestRateSwap { side: irs::PayReceive::PayFixed, ..irs_recv };
+    let irs_pay = irs::InterestRateSwap {
+        side: irs::PayReceive::PayFixed,
+        ..irs_recv
+    };
     let res2 = irs_pay.price(&curves, base).unwrap();
     let dv01_pay = *res2.measures.get("dv01").unwrap();
     assert!(dv01 * dv01_pay < 0.0);
@@ -199,7 +202,13 @@ fn bond_ytm_ytw_and_amortization() {
         maturity: mat,
         disc_id: "USD-OIS",
         quoted_clean: Some(1_000.0),
-        call_put: Some(bond::CallPutSchedule { calls: vec![bond::CallPut { date: mat_short, price_pct_of_par: 102.0 }], puts: vec![] }),
+        call_put: Some(bond::CallPutSchedule {
+            calls: vec![bond::CallPut {
+                date: mat_short,
+                price_pct_of_par: 102.0,
+            }],
+            puts: vec![],
+        }),
         amortization: None,
         custom_cashflows: None,
         attributes: finstack_valuations::traits::Attributes::new(),
@@ -210,13 +219,15 @@ fn bond_ytm_ytw_and_amortization() {
     assert!(ytw <= ytm + 1e-9);
 
     // Amortizing version (linear to 800)
-    let amort = bond::Bond { 
-        id: "BOND-AMORT".into(), 
-        amortization: Some(bond::AmortizationSpec::LinearTo { final_notional: Money::new(800.0, Currency::USD) }), 
-        quoted_clean: None, 
-        call_put: None, 
+    let amort = bond::Bond {
+        id: "BOND-AMORT".into(),
+        amortization: Some(bond::AmortizationSpec::LinearTo {
+            final_notional: Money::new(800.0, Currency::USD),
+        }),
+        quoted_clean: None,
+        call_put: None,
         attributes: finstack_valuations::traits::Attributes::new(),
-        ..bullet 
+        ..bullet
     };
     let res_amort = amort.price(&curves, issue).unwrap();
     assert!(res_amort.value.amount() < res_bullet.value.amount());
@@ -224,14 +235,44 @@ fn bond_ytm_ytw_and_amortization() {
     // Aggregate a couple of flows into monthly periods
     let plan = finstack_core::dates::build_periods("2025M01..M03", None).unwrap();
     let flows = vec![
-        (Date::from_calendar_date(2025, Month::January, 15).unwrap(), Money::new(10.0, Currency::USD)),
-        (Date::from_calendar_date(2025, Month::February, 10).unwrap(), Money::new(5.0, Currency::USD)),
-        (Date::from_calendar_date(2025, Month::February, 20).unwrap(), Money::new(7.0, Currency::EUR)),
+        (
+            Date::from_calendar_date(2025, Month::January, 15).unwrap(),
+            Money::new(10.0, Currency::USD),
+        ),
+        (
+            Date::from_calendar_date(2025, Month::February, 10).unwrap(),
+            Money::new(5.0, Currency::USD),
+        ),
+        (
+            Date::from_calendar_date(2025, Month::February, 20).unwrap(),
+            Money::new(7.0, Currency::EUR),
+        ),
     ];
     let agg = aggregate_by_period(&flows, &plan.periods);
-    assert_eq!(agg.get(&finstack_core::dates::PeriodId::month(2025,1)).unwrap().get(&Currency::USD).copied().unwrap_or(0.0), 10.0);
-    assert_eq!(agg.get(&finstack_core::dates::PeriodId::month(2025,2)).unwrap().get(&Currency::USD).copied().unwrap_or(0.0), 5.0);
-    assert_eq!(agg.get(&finstack_core::dates::PeriodId::month(2025,2)).unwrap().get(&Currency::EUR).copied().unwrap_or(0.0), 7.0);
+    assert_eq!(
+        agg.get(&finstack_core::dates::PeriodId::month(2025, 1))
+            .unwrap()
+            .get(&Currency::USD)
+            .copied()
+            .unwrap_or(0.0),
+        10.0
+    );
+    assert_eq!(
+        agg.get(&finstack_core::dates::PeriodId::month(2025, 2))
+            .unwrap()
+            .get(&Currency::USD)
+            .copied()
+            .unwrap_or(0.0),
+        5.0
+    );
+    assert_eq!(
+        agg.get(&finstack_core::dates::PeriodId::month(2025, 2))
+            .unwrap()
+            .get(&Currency::EUR)
+            .copied()
+            .unwrap_or(0.0),
+        7.0
+    );
 }
 
 #[test]
@@ -260,29 +301,31 @@ fn dv01_bucketed_bond_simple() {
 
     // Use the metrics framework to compute bucketed DV01
     let base_value = bond.value(&curves, issue).unwrap();
-    
+
     // Create metric context and compute with standard metrics (which includes risk metrics)
     let mut context = MetricContext::new(
-        Arc::new(finstack_valuations::instruments::Instrument::Bond(bond.clone())),
+        Arc::new(finstack_valuations::instruments::Instrument::Bond(
+            bond.clone(),
+        )),
         curves.clone(),
         issue,
         base_value,
     );
-    
+
     // Compute accrued first (which caches flows) and then bucketed DV01
     use finstack_valuations::metrics::MetricId;
     let registry = standard_registry();
-    let metrics = registry.compute(&[MetricId::Accrued, MetricId::BucketedDv01], &mut context).unwrap();
-    
+    let metrics = registry
+        .compute(&[MetricId::Accrued, MetricId::BucketedDv01], &mut context)
+        .unwrap();
+
     // Get bucketed DV01 total
     let total = *metrics.get(&MetricId::BucketedDv01).unwrap_or(&0.0);
     assert!(total > 0.0);
-    
+
     // Check individual buckets from context.computed
     // Note: Individual bucket results are currently not stored in context.computed
     // due to dynamic key nature. The total is returned from the calculator.
     // This is a TODO for future enhancement - we could store bucketed results
     // in a structured way or use dynamic MetricId::Custom variants
 }
-
-

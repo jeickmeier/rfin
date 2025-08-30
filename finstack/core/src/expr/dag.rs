@@ -186,7 +186,10 @@ impl DagBuilder {
                 ExprNode::Column(_) | ExprNode::Literal(_) => true,
                 ExprNode::Call(func, _args) => {
                     let func_ok = self.function_supports_polars(*func);
-                    let deps_ok = n.dependencies.iter().all(|d| elig.get(d).copied().unwrap_or(false));
+                    let deps_ok = n
+                        .dependencies
+                        .iter()
+                        .all(|d| elig.get(d).copied().unwrap_or(false));
                     func_ok && deps_ok
                 }
             };
@@ -212,7 +215,9 @@ impl DagBuilder {
             Function::RollingStd | Function::RollingVar | Function::RollingMedian => false,
             // Complex EWM functions still use scalar fallback
             Function::EwmMean => false,
-            Function::RollingStdTime | Function::RollingVarTime | Function::RollingMedianTime => false,
+            Function::RollingStdTime | Function::RollingVarTime | Function::RollingMedianTime => {
+                false
+            }
             // New functions
             Function::Shift => true,
             // Keep rolling min/max/count as scalar/unsupported until mapped

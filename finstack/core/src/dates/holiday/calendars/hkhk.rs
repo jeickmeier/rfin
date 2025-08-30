@@ -1,7 +1,7 @@
 use crate::dates::calendar::HolidayCalendar;
 use crate::dates::holiday::generated::{BASE_YEAR, HKHK_ORDS, HKHK_ORDS_OFFSETS};
 use crate::dates::holiday::rule::Rule;
-use std::collections::{HashSet};
+use std::collections::HashSet;
 use time::{Date, Duration, Month};
 
 const CNY: Rule = Rule::ChineseNewYear;
@@ -44,7 +44,9 @@ fn build_year(year: i32) -> HashSet<Date> {
     // Fallback: generate from rules
     let mut date = Date::from_calendar_date(year, Month::January, 1).unwrap();
     while date.year() == year {
-        if HKHK_RULES.is_holiday(date) { set.insert(date); }
+        if HKHK_RULES.is_holiday(date) {
+            set.insert(date);
+        }
         date += Duration::days(1);
     }
     set

@@ -46,4 +46,3 @@ pub use usny::Usny;
 
 // Include generated registry: ALL_IDS, calendar_by_id, and helpers
 include!(concat!(env!("OUT_DIR"), "/generated_calendars.rs"));
-

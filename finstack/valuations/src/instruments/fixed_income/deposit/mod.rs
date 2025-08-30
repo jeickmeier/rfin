@@ -2,18 +2,18 @@
 
 pub mod metrics;
 
+use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::prelude::*;
 use finstack_core::F;
-use finstack_core::market_data::multicurve::CurveSet;
 
-use crate::traits::{Priceable, CashflowProvider, DatedFlows, Attributes};
-use crate::{impl_attributable, impl_builder};
-use crate::cashflow::builder::{cf, FixedCouponSpec, CouponType};
-use finstack_core::dates::{BusinessDayConvention, StubKind, Frequency};
+use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec};
 use crate::metrics::MetricId;
+use crate::traits::{Attributes, CashflowProvider, DatedFlows, Priceable};
+use crate::{impl_attributable, impl_builder};
+use finstack_core::dates::{BusinessDayConvention, Frequency, StubKind};
 
 /// Simple deposit instrument with optional quoted rate.
-/// 
+///
 /// Represents a single-period deposit where principal is exchanged
 /// at start and principal plus interest at maturity.
 #[derive(Clone, Debug)]
@@ -41,30 +41,39 @@ impl_attributable!(Deposit);
 
 // Custom Priceable implementation for Deposit (uses day_count field)
 impl Priceable for Deposit {
-    fn value(&self, curves: &finstack_core::market_data::multicurve::CurveSet, as_of: finstack_core::dates::Date) -> finstack_core::Result<finstack_core::money::Money> {
+    fn value(
+        &self,
+        curves: &finstack_core::market_data::multicurve::CurveSet,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::pricing::discountable::Discountable;
         let flows = self.build_schedule(curves, as_of)?;
         let disc = curves.discount(self.disc_id)?;
         flows.npv(&*disc, disc.base_date(), self.day_count)
     }
-    
+
     fn price_with_metrics(
-        &self, 
-        curves: &finstack_core::market_data::multicurve::CurveSet, 
-        as_of: finstack_core::dates::Date, 
-        metrics: &[crate::metrics::MetricId]
+        &self,
+        curves: &finstack_core::market_data::multicurve::CurveSet,
+        as_of: finstack_core::dates::Date,
+        metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        let instrument: crate::instruments::Instrument = crate::instruments::Instrument::Deposit(self.clone());
+        let instrument: crate::instruments::Instrument =
+            crate::instruments::Instrument::Deposit(self.clone());
         crate::pricing::build_with_metrics(instrument, curves, as_of, base_value, metrics)
     }
-    
-    fn price(&self, curves: &finstack_core::market_data::multicurve::CurveSet, as_of: finstack_core::dates::Date) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
+
+    fn price(
+        &self,
+        curves: &finstack_core::market_data::multicurve::CurveSet,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
         let standard_metrics = vec![
             MetricId::Yf,
             MetricId::DfStart,
             MetricId::DfEnd,
-            MetricId::DepositParRate
+            MetricId::DepositParRate,
         ];
         self.price_with_metrics(curves, as_of, &standard_metrics)
     }
@@ -95,17 +104,23 @@ impl From<Deposit> for crate::instruments::Instrument {
 
 impl std::convert::TryFrom<crate::instruments::Instrument> for Deposit {
     type Error = finstack_core::Error;
-    
+
     fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
         match value {
             crate::instruments::Instrument::Deposit(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+            _ => Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            )),
         }
     }
 }
 
 impl CashflowProvider for Deposit {
-    fn build_schedule(&self, _curves: &CurveSet, _as_of: Date) -> finstack_core::Result<DatedFlows> {
+    fn build_schedule(
+        &self,
+        _curves: &CurveSet,
+        _as_of: Date,
+    ) -> finstack_core::Result<DatedFlows> {
         // Build a single-period schedule using a custom day-step equal to the total span
         let days = (self.end - self.start).whole_days();
         let rate = self.quote_rate.unwrap_or(0.0);
@@ -115,10 +130,15 @@ impl CashflowProvider for Deposit {
             .fixed_cf(FixedCouponSpec {
                 coupon_type: CouponType::Cash,
                 rate,
-                freq: if days <= 1 { Frequency::daily() } 
-                      else if days == 7 { Frequency::weekly() } 
-                      else if days == 14 { Frequency::biweekly() } 
-                      else { Frequency::monthly() },
+                freq: if days <= 1 {
+                    Frequency::daily()
+                } else if days == 7 {
+                    Frequency::weekly()
+                } else if days == 14 {
+                    Frequency::biweekly()
+                } else {
+                    Frequency::monthly()
+                },
                 dc: self.day_count,
                 bdc: BusinessDayConvention::Unadjusted,
                 calendar_id: None,
@@ -135,6 +155,9 @@ impl CashflowProvider for Deposit {
                 redemption = (redemption + cf.amount)?;
             }
         }
-        Ok(vec![(self.start, self.notional * -1.0), (self.end, redemption)])
+        Ok(vec![
+            (self.start, self.notional * -1.0),
+            (self.end, redemption),
+        ])
     }
 }

@@ -3,8 +3,8 @@
 //! Provides the canonical `CashFlowSchedule` type and helpers for sorting and
 //! deriving schedule metadata. Downstream pricing/risk code consumes this shape.
 
-use crate::cashflow::primitives::{CFKind, CashFlow};
 use crate::cashflow::amortization_notional::Notional;
+use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
 
@@ -37,13 +37,27 @@ pub(crate) fn finalize_flows(
     });
 
     let mut cals: Vec<&'static str> = Vec::new();
-    for s in fixed { if let Some(id) = s.calendar_id { cals.push(id); } }
-    for s in floating { if let Some(id) = s.calendar_id { cals.push(id); } }
+    for s in fixed {
+        if let Some(id) = s.calendar_id {
+            cals.push(id);
+        }
+    }
+    for s in floating {
+        if let Some(id) = s.calendar_id {
+            cals.push(id);
+        }
+    }
     cals.sort_unstable();
     cals.dedup();
     let meta = CashflowMeta { calendar_ids: cals };
 
-    let out_dc = if let Some(s) = fixed.first() { s.dc } else if let Some(s) = floating.first() { s.dc } else { DayCount::Act365F };
+    let out_dc = if let Some(s) = fixed.first() {
+        s.dc
+    } else if let Some(s) = floating.first() {
+        s.dc
+    } else {
+        DayCount::Act365F
+    };
     (flows, meta, out_dc)
 }
 
@@ -93,7 +107,7 @@ impl CashFlowSchedule {
     /// use finstack_valuations::cashflow::primitives::{CashFlow, CFKind};
     /// use finstack_valuations::cashflow::amortization_notional::Notional;
     /// use time::Month;
-    /// 
+    ///
     /// let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     /// let notional = Notional { initial: Money::new(100.0, Currency::USD), amort: Default::default() };
     /// let flows = vec![
@@ -128,17 +142,23 @@ impl CashFlowSchedule {
     // Convenience iterators for callers to avoid ad-hoc filtering.
     #[inline]
     pub fn coupons(&self) -> impl Iterator<Item = &CashFlow> {
-        self.flows.iter().filter(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub)
+        self.flows
+            .iter()
+            .filter(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub)
     }
 
     #[inline]
     pub fn amortizations(&self) -> impl Iterator<Item = &CashFlow> {
-        self.flows.iter().filter(|cf| cf.kind == CFKind::Amortization)
+        self.flows
+            .iter()
+            .filter(|cf| cf.kind == CFKind::Amortization)
     }
 
     #[inline]
     pub fn redemptions(&self) -> impl Iterator<Item = &CashFlow> {
-        self.flows.iter().filter(|cf| cf.kind == CFKind::Notional && cf.amount.amount() > 0.0)
+        self.flows
+            .iter()
+            .filter(|cf| cf.kind == CFKind::Notional && cf.amount.amount() > 0.0)
     }
 
     /// End-of-date outstanding path: one entry per unique date after applying
@@ -177,5 +197,3 @@ impl CashFlowSchedule {
         result
     }
 }
-
-

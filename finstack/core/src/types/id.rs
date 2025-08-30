@@ -32,6 +32,7 @@ impl<T> TypeTag for T {}
 /// See unit tests and `examples/` for usage.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct Id<T: TypeTag> {
     value: Arc<str>,
@@ -43,7 +44,10 @@ impl<T: TypeTag> Id<T> {
     /// Create a new ID with the given string value
     pub fn new(value: impl Into<String>) -> Self {
         let s: String = value.into();
-        Self { value: Arc::<str>::from(s), _marker: PhantomData }
+        Self {
+            value: Arc::<str>::from(s),
+            _marker: PhantomData,
+        }
     }
 
     /// Get the string representation of this ID
@@ -58,7 +62,10 @@ impl<T: TypeTag> Id<T> {
 
     /// Create an ID from a string slice
     pub fn from_string_slice(value: &str) -> Self {
-        Self { value: Arc::<str>::from(value), _marker: PhantomData }
+        Self {
+            value: Arc::<str>::from(value),
+            _marker: PhantomData,
+        }
     }
 
     /// Check if this ID is empty
@@ -108,13 +115,19 @@ impl<T: TypeTag> fmt::Display for Id<T> {
 
 impl<T: TypeTag> From<String> for Id<T> {
     fn from(value: String) -> Self {
-        Self { value: Arc::<str>::from(value), _marker: PhantomData }
+        Self {
+            value: Arc::<str>::from(value),
+            _marker: PhantomData,
+        }
     }
 }
 
 impl<T: TypeTag> From<&str> for Id<T> {
     fn from(value: &str) -> Self {
-        Self { value: Arc::<str>::from(value), _marker: PhantomData }
+        Self {
+            value: Arc::<str>::from(value),
+            _marker: PhantomData,
+        }
     }
 }
 
@@ -128,7 +141,10 @@ impl<T: TypeTag> std::str::FromStr for Id<T> {
     type Err = std::convert::Infallible;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self { value: Arc::<str>::from(s), _marker: PhantomData })
+        Ok(Self {
+            value: Arc::<str>::from(s),
+            _marker: PhantomData,
+        })
     }
 }
 

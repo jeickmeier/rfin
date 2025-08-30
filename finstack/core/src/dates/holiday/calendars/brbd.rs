@@ -1,5 +1,5 @@
 use crate::dates::holiday::rule::Rule;
-use time::{Month};
+use time::Month;
 
 /// Brazil B3 exchange holiday calendar (code: BRBD).
 /// Market ignores weekends for holiday purposes (i.e. if holiday falls on Sat/Sun, market open).

@@ -12,7 +12,7 @@
 //! use finstack_core::money::Money;
 //! use finstack_valuations::cashflow::builder::{cf, FixedCouponSpec, CouponType};
 //! use time::Month;
-//! 
+//!
 //! let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
 //! let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
 //! let mut b = cf();
@@ -30,26 +30,26 @@
 //! assert!(!schedule.flows.is_empty());
 //! ```
 
+use super::schedule::{finalize_flows, CashFlowSchedule};
 use crate::cashflow::amortization_notional::AmortizationSpec;
 use crate::cashflow::amortization_notional::Notional;
 use crate::cashflow::primitives::{CFKind, CashFlow};
-use super::schedule::{CashFlowSchedule, finalize_flows};
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
-use finstack_core::dates::holiday::calendars::calendar_by_id;
 use finstack_core::dates::adjust;
+use finstack_core::dates::holiday::calendars::calendar_by_id;
+use finstack_core::dates::Date;
 use finstack_core::error::InputError;
 use finstack_core::money::Money;
 use time::Duration;
 
-use super::types::{
-    CouponType, FixedCouponSpec, FloatingCouponSpec, FloatCouponParams, ScheduleParams,
-    FixedWindow, FloatWindow, FeeSpec, FeeBase,
-};
 use super::compile::{
-    FixedSchedule, FloatSchedule, PeriodicFee,
-    build_fee_schedules, collect_dates, compute_coupon_schedules,
-    CouponProgramPiece, PaymentProgramPiece, DateWindow, CouponSpec, CompiledSchedules,
+    build_fee_schedules, collect_dates, compute_coupon_schedules, CompiledSchedules,
+    CouponProgramPiece, CouponSpec, DateWindow, FixedSchedule, FloatSchedule, PaymentProgramPiece,
+    PeriodicFee,
+};
+use super::types::{
+    CouponType, FeeBase, FeeSpec, FixedCouponSpec, FixedWindow, FloatCouponParams, FloatWindow,
+    FloatingCouponSpec, ScheduleParams,
 };
 
 // -------------------------------------------------------------------------
@@ -83,17 +83,32 @@ where
     let mut new_flows: Vec<CashFlow> = Vec::new();
     for sched in schedules {
         if let Some(prev) = prev_of(sched, ctx.d) {
-            let base_out = *ctx.outstanding_after.get(&prev).unwrap_or(&ctx.outstanding_fallback);
+            let base_out = *ctx
+                .outstanding_after
+                .get(&prev)
+                .unwrap_or(&ctx.outstanding_fallback);
             let (yf, coupon_total, reset_date) = compute(sched, prev, ctx.d, base_out)?;
             let (cash_pct, pik_pct) = split_parts(sched);
             let cash_amt = coupon_total * cash_pct;
             let pik_amt = coupon_total * pik_pct;
             if cash_amt > 0.0 {
                 let kind = cash_flow_kind(sched, ctx.d);
-                new_flows.push(CashFlow { date: ctx.d, reset_date, amount: Money::new(cash_amt, ctx.ccy), kind, accrual_factor: yf });
+                new_flows.push(CashFlow {
+                    date: ctx.d,
+                    reset_date,
+                    amount: Money::new(cash_amt, ctx.ccy),
+                    kind,
+                    accrual_factor: yf,
+                });
             }
             if pik_amt > 0.0 {
-                new_flows.push(CashFlow { date: ctx.d, reset_date: None, amount: Money::new(pik_amt, ctx.ccy), kind: CFKind::PIK, accrual_factor: 0.0 });
+                new_flows.push(CashFlow {
+                    date: ctx.d,
+                    reset_date: None,
+                    amount: Money::new(pik_amt, ctx.ccy),
+                    kind: CFKind::PIK,
+                    accrual_factor: 0.0,
+                });
                 pik_to_add += pik_amt;
             }
         }
@@ -108,11 +123,15 @@ fn emit_fixed_coupons_on(
     outstanding_after: &hashbrown::HashMap<Date, f64>,
     outstanding_fallback: f64,
     ccy: Currency,
-    
 ) -> finstack_core::Result<(f64, Vec<CashFlow>)> {
     emit_coupons_on(
         fixed_schedules,
-        CouponEmissionCtx { d, outstanding_after, outstanding_fallback, ccy },
+        CouponEmissionCtx {
+            d,
+            outstanding_after,
+            outstanding_fallback,
+            ccy,
+        },
         |(_, _, prev_map, _), dd| prev_map.get(&dd).copied(),
         |(spec, _ds, _pm, _fl), prev, dd, base_out| {
             let yf = spec.dc.year_fraction(prev, dd)?;
@@ -120,7 +139,11 @@ fn emit_fixed_coupons_on(
             Ok((yf, coupon_total, None))
         },
         |(_, _ds, _pm, first_last), dd| {
-            if first_last.contains(&dd) { CFKind::Stub } else { CFKind::Fixed }
+            if first_last.contains(&dd) {
+                CFKind::Stub
+            } else {
+                CFKind::Fixed
+            }
         },
         |(spec, ..)| spec.coupon_type.split_parts(),
     )
@@ -133,11 +156,15 @@ fn emit_float_coupons_on(
     outstanding_after: &hashbrown::HashMap<Date, f64>,
     outstanding_fallback: f64,
     ccy: Currency,
-    
 ) -> finstack_core::Result<(f64, Vec<CashFlow>)> {
     emit_coupons_on(
         float_schedules,
-        CouponEmissionCtx { d, outstanding_after, outstanding_fallback, ccy },
+        CouponEmissionCtx {
+            d,
+            outstanding_after,
+            outstanding_fallback,
+            ccy,
+        },
         |(_, _, prev_map), dd| prev_map.get(&dd).copied(),
         |(spec, _ds, _pm), prev, dd, base_out| {
             let yf = spec.dc.year_fraction(prev, dd)?;
@@ -180,7 +207,13 @@ fn emit_amortization_on(
                 if let Some(delta) = params.linear_delta {
                     let pay = delta.min(*outstanding);
                     if pay > 0.0 {
-                        new_flows.push(CashFlow { date: d, reset_date: None, amount: Money::new(-pay, params.ccy), kind: CFKind::Amortization, accrual_factor: 0.0 });
+                        new_flows.push(CashFlow {
+                            date: d,
+                            reset_date: None,
+                            amount: Money::new(-pay, params.ccy),
+                            kind: CFKind::Amortization,
+                            accrual_factor: 0.0,
+                        });
                         *outstanding -= pay;
                     }
                 }
@@ -192,7 +225,13 @@ fn emit_amortization_on(
                     let target = rem_after.amount();
                     let pay = (*outstanding - target).max(0.0).min(*outstanding);
                     if pay > 0.0 {
-                        new_flows.push(CashFlow { date: d, reset_date: None, amount: Money::new(-pay, params.ccy), kind: CFKind::Amortization, accrual_factor: 0.0 });
+                        new_flows.push(CashFlow {
+                            date: d,
+                            reset_date: None,
+                            amount: Money::new(-pay, params.ccy),
+                            kind: CFKind::Amortization,
+                            accrual_factor: 0.0,
+                        });
                         *outstanding -= pay;
                     }
                 }
@@ -203,7 +242,13 @@ fn emit_amortization_on(
                 if let Some(per) = params.percent_per {
                     let pay = per.min(*outstanding);
                     if pay > 0.0 {
-                        new_flows.push(CashFlow { date: d, reset_date: None, amount: Money::new(-pay, params.ccy), kind: CFKind::Amortization, accrual_factor: 0.0 });
+                        new_flows.push(CashFlow {
+                            date: d,
+                            reset_date: None,
+                            amount: Money::new(-pay, params.ccy),
+                            kind: CFKind::Amortization,
+                            accrual_factor: 0.0,
+                        });
                         *outstanding -= pay;
                     }
                 }
@@ -214,7 +259,13 @@ fn emit_amortization_on(
                 if *dd == d {
                     let pay = amt.amount().max(0.0).min(*outstanding);
                     if pay > 0.0 {
-                        new_flows.push(CashFlow { date: d, reset_date: None, amount: Money::new(-pay, params.ccy), kind: CFKind::Amortization, accrual_factor: 0.0 });
+                        new_flows.push(CashFlow {
+                            date: d,
+                            reset_date: None,
+                            amount: Money::new(-pay, params.ccy),
+                            kind: CFKind::Amortization,
+                            accrual_factor: 0.0,
+                        });
                         *outstanding -= pay;
                     }
                 }
@@ -231,7 +282,6 @@ fn emit_fees_on(
     fixed_fees: &[(Date, Money)],
     outstanding: f64,
     ccy: Currency,
-    
 ) -> finstack_core::Result<Vec<CashFlow>> {
     let mut new_flows: Vec<CashFlow> = Vec::new();
     for pf in periodic_fees {
@@ -240,18 +290,36 @@ fn emit_fees_on(
             let base_amt = match &pf.base {
                 FeeBase::Drawn => outstanding,
                 FeeBase::Undrawn { facility_limit } => {
-                    if facility_limit.currency() != ccy { return Err(InputError::Invalid.into()); }
+                    if facility_limit.currency() != ccy {
+                        return Err(InputError::Invalid.into());
+                    }
                     (facility_limit.amount() - outstanding).max(0.0)
                 }
             };
             let fee_amt = base_amt * (pf.bps * 1e-4 * yf);
             if fee_amt > 0.0 {
-                new_flows.push(CashFlow { date: d, reset_date: None, amount: Money::new(fee_amt, ccy), kind: CFKind::Fee, accrual_factor: 0.0 });
+                new_flows.push(CashFlow {
+                    date: d,
+                    reset_date: None,
+                    amount: Money::new(fee_amt, ccy),
+                    kind: CFKind::Fee,
+                    accrual_factor: 0.0,
+                });
             }
         }
     }
 
-    for (fd, amt) in fixed_fees { if *fd == d { new_flows.push(CashFlow { date: d, reset_date: None, amount: *amt, kind: CFKind::Fee, accrual_factor: 0.0 }); } }
+    for (fd, amt) in fixed_fees {
+        if *fd == d {
+            new_flows.push(CashFlow {
+                date: d,
+                reset_date: None,
+                amount: *amt,
+                kind: CFKind::Fee,
+                accrual_factor: 0.0,
+            });
+        }
+    }
     Ok(new_flows)
 }
 
@@ -268,8 +336,20 @@ fn emit_coupons(
     outstanding_fallback: f64,
     ccy: Currency,
 ) -> finstack_core::Result<(f64, Vec<CashFlow>)> {
-    let (pik_f, fixed_new) = emit_fixed_coupons_on(d, fixed_schedules, outstanding_after, outstanding_fallback, ccy)?;
-    let (pik_fl, float_new) = emit_float_coupons_on(d, float_schedules, outstanding_after, outstanding_fallback, ccy)?;
+    let (pik_f, fixed_new) = emit_fixed_coupons_on(
+        d,
+        fixed_schedules,
+        outstanding_after,
+        outstanding_fallback,
+        ccy,
+    )?;
+    let (pik_fl, float_new) = emit_float_coupons_on(
+        d,
+        float_schedules,
+        outstanding_after,
+        outstanding_fallback,
+        ccy,
+    )?;
     let mut flows: Vec<CashFlow> = Vec::with_capacity(fixed_new.len() + float_new.len());
     flows.extend(fixed_new);
     flows.extend(float_new);
@@ -288,7 +368,9 @@ fn apply_amortization(
 
 #[inline]
 fn apply_pik(outstanding: &mut f64, pik_to_add: f64) {
-    if pik_to_add > 0.0 { *outstanding += pik_to_add; }
+    if pik_to_add > 0.0 {
+        *outstanding += pik_to_add;
+    }
 }
 
 #[inline]
@@ -310,7 +392,13 @@ fn redeem_at_maturity(
     ccy: Currency,
 ) -> Option<CashFlow> {
     if d == maturity && *outstanding > 0.0 {
-        let cf = CashFlow { date: d, reset_date: None, amount: Money::new(*outstanding, ccy), kind: CFKind::Notional, accrual_factor: 0.0 };
+        let cf = CashFlow {
+            date: d,
+            reset_date: None,
+            amount: Money::new(*outstanding, ccy),
+            kind: CFKind::Notional,
+            accrual_factor: 0.0,
+        };
         *outstanding = 0.0;
         Some(cf)
     } else {
@@ -346,23 +434,36 @@ pub struct CashflowBuilder {
 
 impl CashflowBuilder {
     /// Creates a new composable cashflow builder.
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
     /// Sets principal details and instrument horizon.
     pub fn principal(&mut self, initial: Money, issue_date: Date, maturity: Date) -> &mut Self {
-        self.notional = Some(Notional { initial, amort: AmortizationSpec::None });
+        self.notional = Some(Notional {
+            initial,
+            amort: AmortizationSpec::None,
+        });
         self.issue = Some(issue_date);
         self.maturity = Some(maturity);
         self
     }
 
     /// Convenience helper to set principal by amount and currency.
-    pub fn principal_amount(&mut self, amount: f64, currency: Currency, issue_date: Date, maturity: Date) -> &mut Self {
+    pub fn principal_amount(
+        &mut self,
+        amount: f64,
+        currency: Currency,
+        issue_date: Date,
+        maturity: Date,
+    ) -> &mut Self {
         self.principal(Money::new(amount, currency), issue_date, maturity)
     }
 
     /// Configures amortization on the current notional.
     pub fn amortization(&mut self, spec: AmortizationSpec) -> &mut Self {
-        if let Some(n) = &mut self.notional { n.amort = spec; }
+        if let Some(n) = &mut self.notional {
+            n.amort = spec;
+        }
         self
     }
 
@@ -417,7 +518,12 @@ impl CashflowBuilder {
         self.coupon_program.push(CouponProgramPiece {
             window: DateWindow { start, end },
             schedule,
-            coupon: CouponSpec::Float { index_id: params.index_id, margin_bp: params.margin_bp, gearing: params.gearing, reset_lag_days: params.reset_lag_days },
+            coupon: CouponSpec::Float {
+                index_id: params.index_id,
+                margin_bp: params.margin_bp,
+                gearing: params.gearing,
+                reset_lag_days: params.reset_lag_days,
+            },
         });
         self.payment_program.push(PaymentProgramPiece {
             window: DateWindow { start, end },
@@ -479,7 +585,9 @@ impl CashflowBuilder {
         }
         if prev != maturity {
             let mut params = base_params;
-            if let Some(&(_, margin_bp)) = steps.last() { params.margin_bp = margin_bp; }
+            if let Some(&(_, margin_bp)) = steps.last() {
+                params.margin_bp = margin_bp;
+            }
             self.add_float_coupon_window(prev, maturity, params, schedule, default_split);
         }
         self
@@ -494,17 +602,35 @@ impl CashflowBuilder {
         default_split: CouponType,
     ) -> &mut Self {
         let issue = self.issue.expect("issue must be set before fixed_to_float");
-        let maturity = self.maturity.expect("maturity must be set before fixed_to_float");
-        self.add_fixed_coupon_window(issue, switch, fixed_win.rate, fixed_win.schedule, default_split);
-        self.add_float_coupon_window(switch, maturity, float_win.params, float_win.schedule, default_split);
+        let maturity = self
+            .maturity
+            .expect("maturity must be set before fixed_to_float");
+        self.add_fixed_coupon_window(
+            issue,
+            switch,
+            fixed_win.rate,
+            fixed_win.schedule,
+            default_split,
+        );
+        self.add_float_coupon_window(
+            switch,
+            maturity,
+            float_win.params,
+            float_win.schedule,
+            default_split,
+        );
         self
     }
 
     /// Convenience: payment split program with boundary dates (PIK toggle windows).
     /// Provide a list of `(end, split)`; default outside windows is Cash.
     pub fn payment_split_program(&mut self, steps: &[(Date, CouponType)]) -> &mut Self {
-        let issue = self.issue.expect("issue must be set before payment program");
-        let maturity = self.maturity.expect("maturity must be set before payment program");
+        let issue = self
+            .issue
+            .expect("issue must be set before payment program");
+        let maturity = self
+            .maturity
+            .expect("maturity must be set before payment program");
         let mut prev = issue;
         for &(end, split) in steps {
             if prev < end {
@@ -521,17 +647,29 @@ impl CashflowBuilder {
     /// Builds the complete cashflow schedule.
     pub fn build(&self) -> finstack_core::Result<CashFlowSchedule> {
         // Validate principal
-        let notional = self.notional.clone().ok_or_else(|| finstack_core::Error::from(InputError::Invalid))?;
-        let issue = self.issue.ok_or_else(|| finstack_core::Error::from(InputError::Invalid))?;
-        let maturity = self.maturity.ok_or_else(|| finstack_core::Error::from(InputError::Invalid))?;
+        let notional = self
+            .notional
+            .clone()
+            .ok_or_else(|| finstack_core::Error::from(InputError::Invalid))?;
+        let issue = self
+            .issue
+            .ok_or_else(|| finstack_core::Error::from(InputError::Invalid))?;
+        let maturity = self
+            .maturity
+            .ok_or_else(|| finstack_core::Error::from(InputError::Invalid))?;
 
         // Build coupon schedules: segmented (if any program provided) or legacy full-span
-        let CompiledSchedules { fixed_schedules, float_schedules, used_fixed_specs, used_float_specs } =
-            compute_coupon_schedules(self, issue, maturity)?;
+        let CompiledSchedules {
+            fixed_schedules,
+            float_schedules,
+            used_fixed_specs,
+            used_float_specs,
+        } = compute_coupon_schedules(self, issue, maturity)?;
         let (periodic_fees, fixed_fees) = build_fee_schedules(issue, maturity, &self.fees)?;
 
         // Collect all relevant dates using an ordered set for deterministic traversal
-        let periodic_date_slices: Vec<&[Date]> = periodic_fees.iter().map(|pf| pf.dates.as_slice()).collect();
+        let periodic_date_slices: Vec<&[Date]> =
+            periodic_fees.iter().map(|pf| pf.dates.as_slice()).collect();
         let dates: Vec<Date> = collect_dates(
             issue,
             maturity,
@@ -541,23 +679,42 @@ impl CashflowBuilder {
             &fixed_fees,
             &notional,
         );
-        if dates.len() < 2 { return Err(InputError::TooFewPoints.into()); }
+        if dates.len() < 2 {
+            return Err(InputError::TooFewPoints.into());
+        }
 
         // Determine amortization cadence when needed (linear/percent)
-        let amort_base_schedule: Option<Vec<Date>> = if matches!(notional.amort, AmortizationSpec::LinearTo { .. } | AmortizationSpec::PercentPerPeriod { .. }) {
-            if let Some((_, ds, _, _)) = fixed_schedules.first() { Some(ds.clone()) }
-            else if let Some((_, ds, _)) = float_schedules.first() { Some(ds.clone()) }
-            else { None }
-        } else { None };
+        let amort_base_schedule: Option<Vec<Date>> = if matches!(
+            notional.amort,
+            AmortizationSpec::LinearTo { .. } | AmortizationSpec::PercentPerPeriod { .. }
+        ) {
+            if let Some((_, ds, _, _)) = fixed_schedules.first() {
+                Some(ds.clone())
+            } else if let Some((_, ds, _)) = float_schedules.first() {
+                Some(ds.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
 
-        if amort_base_schedule.is_none() && matches!(notional.amort, AmortizationSpec::LinearTo { .. } | AmortizationSpec::PercentPerPeriod { .. }) {
-            return Err(InputError::Invalid.into()); }
+        if amort_base_schedule.is_none()
+            && matches!(
+                notional.amort,
+                AmortizationSpec::LinearTo { .. } | AmortizationSpec::PercentPerPeriod { .. }
+            )
+        {
+            return Err(InputError::Invalid.into());
+        }
 
         // Precompute amortization helpers
         let step_remaining_map: Option<hashbrown::HashMap<Date, Money>> = match &notional.amort {
             AmortizationSpec::StepRemaining { schedule } => {
                 let mut m = hashbrown::HashMap::with_capacity(schedule.len());
-                for (d, mny) in schedule { m.insert(*d, *mny); }
+                for (d, mny) in schedule {
+                    m.insert(*d, *mny);
+                }
                 Some(m)
             }
             _ => None,
@@ -566,16 +723,27 @@ impl CashflowBuilder {
             AmortizationSpec::LinearTo { final_notional } => {
                 let base = amort_base_schedule.as_ref().unwrap();
                 let steps = (base.len() - 1) as f64;
-                (Some(((notional.initial.amount() - final_notional.amount()) / steps).max(0.0)), None)
+                (
+                    Some(((notional.initial.amount() - final_notional.amount()) / steps).max(0.0)),
+                    None,
+                )
             }
-            AmortizationSpec::PercentPerPeriod { pct } => (None, Some((notional.initial.amount() * *pct).max(0.0))),
+            AmortizationSpec::PercentPerPeriod { pct } => {
+                (None, Some((notional.initial.amount() * *pct).max(0.0)))
+            }
             _ => (None, None),
         };
 
         // Start with initial principal exchange (outflow)
         let mut flows: Vec<CashFlow> = Vec::new();
         let ccy = notional.initial.currency();
-        flows.push(CashFlow { date: issue, reset_date: None, amount: notional.initial * -1.0, kind: CFKind::Notional, accrual_factor: 0.0 });
+        flows.push(CashFlow {
+            date: issue,
+            reset_date: None,
+            amount: notional.initial * -1.0,
+            kind: CFKind::Notional,
+            accrual_factor: 0.0,
+        });
 
         // Track outstanding after each processed date
         let mut outstanding_after: hashbrown::HashMap<Date, f64> = hashbrown::HashMap::new();
@@ -589,15 +757,29 @@ impl CashflowBuilder {
             .unwrap_or_default();
 
         // Amortization parameters are constant across dates
-        let amort_params = AmortizationParams { ccy, amort_dates: &amort_dates, linear_delta, percent_per, step_remaining_map: &step_remaining_map };
+        let amort_params = AmortizationParams {
+            ccy,
+            amort_dates: &amort_dates,
+            linear_delta,
+            percent_per,
+            step_remaining_map: &step_remaining_map,
+        };
 
         for &d in dates.iter().skip(1) {
             // 1) Coupons (fixed + float)
-            let (pik_to_add, mut coupon_flows) = emit_coupons(d, &fixed_schedules, &float_schedules, &outstanding_after, outstanding, ccy)?;
+            let (pik_to_add, mut coupon_flows) = emit_coupons(
+                d,
+                &fixed_schedules,
+                &float_schedules,
+                &outstanding_after,
+                outstanding,
+                ccy,
+            )?;
             flows.append(&mut coupon_flows);
 
             // 2) Amortization
-            let mut amort_flows = apply_amortization(d, &notional, &mut outstanding, &amort_params)?;
+            let mut amort_flows =
+                apply_amortization(d, &notional, &mut outstanding, &amort_params)?;
             flows.append(&mut amort_flows);
 
             // 3) PIK capitalization
@@ -608,7 +790,9 @@ impl CashflowBuilder {
             flows.append(&mut fee_flows);
 
             // 5) Redemption at maturity
-            if let Some(cf) = redeem_at_maturity(d, maturity, &mut outstanding, ccy) { flows.push(cf); }
+            if let Some(cf) = redeem_at_maturity(d, maturity, &mut outstanding, ccy) {
+                flows.push(cf);
+            }
 
             // 6) Record outstanding
             record_outstanding(&mut outstanding_after, d, outstanding);
@@ -616,21 +800,26 @@ impl CashflowBuilder {
 
         // Finalize flows and produce meta/day count (use actual specs used)
         let (flows, meta, out_dc) = finalize_flows(flows, &used_fixed_specs, &used_float_specs);
-        Ok(CashFlowSchedule { flows, notional, day_count: out_dc, meta })
+        Ok(CashFlowSchedule {
+            flows,
+            notional,
+            day_count: out_dc,
+            meta,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cashflow::builder::schedule::kind_rank;
-    use finstack_core::dates::{Frequency, StubKind, BusinessDayConvention, DayCount};
     use crate::cashflow::builder::cf;
+    use crate::cashflow::builder::schedule::kind_rank;
     use crate::pricing::discountable::Discountable;
     use finstack_core::currency::Currency;
+    use finstack_core::dates::ScheduleBuilder;
+    use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
     use finstack_core::market_data::traits::Discount as _;
-    use finstack_core::dates::ScheduleBuilder;
     use time::Month;
 
     #[test]
@@ -653,7 +842,9 @@ mod tests {
         // Linear
         let mut b1 = cf();
         b1.principal(init, issue, maturity)
-            .amortization(AmortizationSpec::LinearTo { final_notional: Money::new(0.0, Currency::USD) })
+            .amortization(AmortizationSpec::LinearTo {
+                final_notional: Money::new(0.0, Currency::USD),
+            })
             .fixed_cf(fixed);
         let s1 = b1.build().unwrap();
 
@@ -705,7 +896,13 @@ mod tests {
         let s = b.build().unwrap();
         let path = s.outstanding_path();
         // Find last outstanding before redemption
-        let last_before = path.iter().rev().find(|(d, _)| *d < maturity).unwrap().1.amount();
+        let last_before = path
+            .iter()
+            .rev()
+            .find(|(d, _)| *d < maturity)
+            .unwrap()
+            .1
+            .amount();
         assert!(last_before > init.amount());
     }
 
@@ -715,7 +912,10 @@ mod tests {
         let maturity = Date::from_calendar_date(2025, Month::July, 15).unwrap();
         let init = Money::new(1_000.0, Currency::USD);
         let fixed = FixedCouponSpec {
-            coupon_type: CouponType::Split { cash_pct: 0.5, pik_pct: 0.5 },
+            coupon_type: CouponType::Split {
+                cash_pct: 0.5,
+                pik_pct: 0.5,
+            },
             rate: 0.10,
             freq: Frequency::quarterly(),
             dc: DayCount::Act365F,
@@ -733,7 +933,9 @@ mod tests {
 
         // On coupon dates where multiple flows exist, enforce order: Fixed/Stub -> Amortization -> PIK -> Notional
         let mut by_date: hashbrown::HashMap<Date, Vec<CFKind>> = hashbrown::HashMap::new();
-        for cf in &s.flows { by_date.entry(cf.date).or_default().push(cf.kind); }
+        for cf in &s.flows {
+            by_date.entry(cf.date).or_default().push(cf.kind);
+        }
 
         for (_d, kinds) in by_date {
             let mut sorted = kinds.clone();
@@ -770,7 +972,9 @@ mod tests {
             .build()
             .unwrap();
 
-        let pv = schedule.npv(&curve, curve.base_date(), schedule.day_count).unwrap();
+        let pv = schedule
+            .npv(&curve, curve.base_date(), schedule.day_count)
+            .unwrap();
 
         // PV with flat curve 1.0 should equal sum of coupon amounts
         let expected = schedule
@@ -802,11 +1006,18 @@ mod tests {
         let schedule = b.build().unwrap();
 
         // Find coupon flows (not notional)
-        let coupon_flows: Vec<&CashFlow> = schedule.flows.iter().filter(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub).collect();
-        
+        let coupon_flows: Vec<&CashFlow> = schedule
+            .flows
+            .iter()
+            .filter(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub)
+            .collect();
+
         // At least one should be a stub due to irregular start date
         let has_stub = coupon_flows.iter().any(|cf| cf.kind == CFKind::Stub);
-        assert!(has_stub, "Should detect stub period with irregular start date");
+        assert!(
+            has_stub,
+            "Should detect stub period with irregular start date"
+        );
     }
 
     #[test]
@@ -817,7 +1028,10 @@ mod tests {
 
         // Force multiple flows per date: split coupon (cash + PIK) and amortization on coupon dates
         let fixed = FixedCouponSpec {
-            coupon_type: CouponType::Split { cash_pct: 0.5, pik_pct: 0.5 },
+            coupon_type: CouponType::Split {
+                cash_pct: 0.5,
+                pik_pct: 0.5,
+            },
             rate: 0.12,
             freq: Frequency::quarterly(),
             dc: DayCount::Act365F,
@@ -835,7 +1049,8 @@ mod tests {
         let end_by_date = s.outstanding_by_date();
 
         // 1) One entry per unique date
-        let unique_dates: std::collections::BTreeSet<Date> = s.flows.iter().map(|cf| cf.date).collect();
+        let unique_dates: std::collections::BTreeSet<Date> =
+            s.flows.iter().map(|cf| cf.date).collect();
         assert_eq!(end_by_date.len(), unique_dates.len());
         // Dates are ordered
         for ((d1, _), d2) in end_by_date.iter().zip(unique_dates.iter()) {
@@ -845,7 +1060,9 @@ mod tests {
         // 2) Values match the final outstanding on each date from outstanding_path()
         let path = s.outstanding_path();
         let mut last_by_date: hashbrown::HashMap<Date, f64> = hashbrown::HashMap::new();
-        for (d, m) in path { last_by_date.insert(d, m.amount()); }
+        for (d, m) in path {
+            last_by_date.insert(d, m.amount());
+        }
 
         for (d, m) in end_by_date {
             let expected = *last_by_date.get(&d).unwrap();

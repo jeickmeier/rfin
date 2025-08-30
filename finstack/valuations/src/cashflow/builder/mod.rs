@@ -43,20 +43,20 @@
 //! assert!(schedule.flows.len() > 0);
 //! ```
 
-pub mod schedule;
-pub mod types;
 mod compile;
+pub mod schedule;
 pub mod schedule_utils;
 mod state;
+pub mod types;
 
-pub use state::{CashflowBuilder};
+pub use state::CashflowBuilder;
 #[inline]
-pub fn cf() -> CashflowBuilder { CashflowBuilder::default() }
+pub fn cf() -> CashflowBuilder {
+    CashflowBuilder::default()
+}
 pub use schedule::{CashFlowSchedule, CashflowMeta};
-pub use types::{
-    CouponType, FixedCouponSpec, FloatingCouponSpec, FloatCouponParams,
-    ScheduleParams, FixedWindow, FloatWindow, FeeSpec, FeeBase,
-};
 pub use schedule_utils::{build_dates, PeriodSchedule};
-
-
+pub use types::{
+    CouponType, FeeBase, FeeSpec, FixedCouponSpec, FixedWindow, FloatCouponParams, FloatWindow,
+    FloatingCouponSpec, ScheduleParams,
+};

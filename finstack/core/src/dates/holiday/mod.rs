@@ -11,8 +11,8 @@
 //!   [`crate::dates::calendar::is_weekend`] if you need to only detect Saturday/Sunday.
 
 pub mod calendars;
-pub mod rule;
 pub mod generated;
+pub mod rule;
 
 // Re-export commonly used items for ergonomic imports.
 pub use rule::{Direction, Observed, Rule};
@@ -52,7 +52,8 @@ macro_rules! impl_calendar_generated {
     ($ty:ident, $id:literal, $rules:path, ignore_weekends = $ignore_weekends:expr) => {
         impl $crate::dates::calendar::HolidayCalendar for $ty {
             fn is_holiday(&self, date: time::Date) -> bool {
-                if ($crate::dates::holiday::generated::BASE_YEAR..=$crate::dates::holiday::generated::END_YEAR)
+                if ($crate::dates::holiday::generated::BASE_YEAR
+                    ..=$crate::dates::holiday::generated::END_YEAR)
                     .contains(&date.year())
                 {
                     static STORE: once_cell::sync::Lazy<
@@ -66,14 +67,20 @@ macro_rules! impl_calendar_generated {
                     });
                     let idx = (date.year() - $crate::dates::holiday::generated::BASE_YEAR) as usize;
                     let bits = STORE[idx].get_or_init(|| {
-                        $crate::dates::holiday::generated::compute_year_bits_for_rules($rules, date.year())
+                        $crate::dates::holiday::generated::compute_year_bits_for_rules(
+                            $rules,
+                            date.year(),
+                        )
                     });
                     let mut is_h = $crate::dates::holiday::generated::bit_test(
                         bits,
                         $crate::dates::holiday::generated::day_of_year_0_based(date),
                     );
                     if $ignore_weekends
-                        && matches!(date.weekday(), time::Weekday::Saturday | time::Weekday::Sunday)
+                        && matches!(
+                            date.weekday(),
+                            time::Weekday::Saturday | time::Weekday::Sunday
+                        )
                     {
                         is_h = false;
                     }
@@ -81,7 +88,10 @@ macro_rules! impl_calendar_generated {
                 }
                 let mut res = $rules.is_holiday(date);
                 if $ignore_weekends
-                    && matches!(date.weekday(), time::Weekday::Saturday | time::Weekday::Sunday)
+                    && matches!(
+                        date.weekday(),
+                        time::Weekday::Saturday | time::Weekday::Sunday
+                    )
                 {
                     res = false;
                 }
@@ -105,7 +115,8 @@ macro_rules! impl_calendar_generated_from_ords {
     ($ty:ident, $id:literal, $ords:path, $offs:path, $rules:path) => {
         impl $crate::dates::calendar::HolidayCalendar for $ty {
             fn is_holiday(&self, date: time::Date) -> bool {
-                if ($crate::dates::holiday::generated::BASE_YEAR..=$crate::dates::holiday::generated::END_YEAR)
+                if ($crate::dates::holiday::generated::BASE_YEAR
+                    ..=$crate::dates::holiday::generated::END_YEAR)
                     .contains(&date.year())
                 {
                     static STORE: once_cell::sync::Lazy<
@@ -121,7 +132,8 @@ macro_rules! impl_calendar_generated_from_ords {
                     let bits = STORE[idx].get_or_init(|| {
                         let start = $offs[idx] as usize;
                         let end = $offs[idx + 1] as usize;
-                        let mut b: $crate::dates::holiday::generated::YearBits = [0u64; $crate::dates::holiday::generated::BITSET_WORDS];
+                        let mut b: $crate::dates::holiday::generated::YearBits =
+                            [0u64; $crate::dates::holiday::generated::BITSET_WORDS];
                         if start < end {
                             for &doy in &$ords[start..end] {
                                 let i = doy as usize;
@@ -129,12 +141,19 @@ macro_rules! impl_calendar_generated_from_ords {
                             }
                         } else {
                             // Fallback to rules if no CSV entries for this year.
-                            let tmp = $crate::dates::holiday::generated::compute_year_bits_for_rules($rules, (idx as i32) + $crate::dates::holiday::generated::BASE_YEAR);
+                            let tmp =
+                                $crate::dates::holiday::generated::compute_year_bits_for_rules(
+                                    $rules,
+                                    (idx as i32) + $crate::dates::holiday::generated::BASE_YEAR,
+                                );
                             b = tmp;
                         }
                         b
                     });
-                    return $crate::dates::holiday::generated::bit_test(bits, $crate::dates::holiday::generated::day_of_year_0_based(date));
+                    return $crate::dates::holiday::generated::bit_test(
+                        bits,
+                        $crate::dates::holiday::generated::day_of_year_0_based(date),
+                    );
                 }
                 $rules.is_holiday(date)
             }

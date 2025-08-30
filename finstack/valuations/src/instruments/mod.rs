@@ -1,25 +1,25 @@
 //! Financial instruments for valuation and risk analysis.
-//! 
+//!
 //! This module provides concrete implementations of common financial instruments
 //! including bonds, interest rate swaps, and deposits. Each instrument type
 //! implements the necessary traits for pricing, cashflow generation, and
 //! metric calculation.
-//! 
+//!
 //! # Supported Instruments
-//! 
+//!
 //! - **Bonds**: Fixed-rate bonds with configurable coupon schedules and day counts
 //! - **Interest Rate Swaps**: Fixed-for-floating interest rate swaps
 //! - **Deposits**: Simple interest-bearing deposits with various day count conventions
-//! 
+//!
 //! # Quick Start
-//! 
+//!
 //! ```rust
 //! use finstack_valuations::instruments::{Instrument, Bond, InterestRateSwap, Deposit};
 //! use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention, StubKind};
 //! use finstack_core::money::Money;
 //! use finstack_core::currency::Currency;
 //! use time::Month;
-//! 
+//!
 //! // Create instruments with proper constructors
 //! let bond = Bond {
 //!     id: "BOND001".to_string(),
@@ -36,7 +36,7 @@
 //!     custom_cashflows: None,
 //!     attributes: finstack_valuations::traits::Attributes::new(),
 //! };
-//! 
+//!
 //! let irs = InterestRateSwap {
 //!     id: "IRS001".to_string(),
 //!     notional: Money::new(1000.0, Currency::USD),
@@ -66,7 +66,7 @@
 //!     },
 //!     attributes: finstack_valuations::traits::Attributes::new(),
 //! };
-//! 
+//!
 //! let deposit = Deposit {
 //!     id: "DEP001".to_string(),
 //!     notional: Money::new(1000.0, Currency::USD),
@@ -77,14 +77,14 @@
 //!     quote_rate: Some(0.05),
 //!     attributes: finstack_valuations::traits::Attributes::new(),
 //! };
-//! 
+//!
 //! // Use unified interface
 //! let instruments: Vec<Instrument> = vec![
 //!     Instrument::Bond(bond),
 //!     Instrument::IRS(irs),
 //!     Instrument::Deposit(deposit),
 //! ];
-//! 
+//!
 //! // Check instrument types
 //! for instrument in &instruments {
 //!     println!("Instrument type: {}", instrument.instrument_type());
@@ -99,8 +99,8 @@ pub mod macros;
 pub mod unified;
 
 // Grouped instrument implementations
-pub mod fixed_income;
 pub mod equity;
+pub mod fixed_income;
 pub mod fx_spot;
 pub mod options;
 
@@ -108,8 +108,10 @@ pub mod options;
 pub use unified::{Instrument, InstrumentPortfolio};
 
 // Re-export individual instrument types
-pub use fixed_income::{Bond, InterestRateSwap, Deposit, Loan, CreditDefaultSwap, InflationLinkedBond};
 pub use equity::Equity;
+pub use fixed_income::{
+    Bond, CreditDefaultSwap, Deposit, InflationLinkedBond, InterestRateSwap, Loan,
+};
 pub use fx_spot::FxSpot;
-pub use options::{EquityOption, FxOption, InterestRateOption, CreditOption, Swaption};
+pub use options::{CreditOption, EquityOption, FxOption, InterestRateOption, Swaption};
 // The canonical Instrument enum and helpers now live in `unified` and are re-exported above.

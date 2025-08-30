@@ -1,13 +1,13 @@
 //! Delayed-Draw Term Loan (DDTL) implementation.
 
-use crate::cashflow::builder::{cf, FixedCouponSpec, CouponType, FeeSpec, FeeBase};
-use crate::cashflow::amortization_notional::AmortizationSpec;
-use super::term_loan::InterestSpec;
 use super::covenants::Covenant;
-use crate::pricing::result::ValuationResult;
+use super::term_loan::InterestSpec;
+use crate::cashflow::amortization_notional::AmortizationSpec;
+use crate::cashflow::builder::{cf, CouponType, FeeBase, FeeSpec, FixedCouponSpec};
 use crate::pricing::discountable::Discountable;
+use crate::pricing::result::ValuationResult;
 use crate::traits::{CashflowProvider, Priceable};
-use finstack_core::dates::{Date, DayCount, Frequency, BusinessDayConvention, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::money::Money;
 use finstack_core::F;
@@ -54,7 +54,7 @@ impl ExpectedFundingCurve {
             draw_probabilities: None,
         }
     }
-    
+
     /// Create with probabilities for each draw.
     pub fn with_probabilities(expected_draws: Vec<DrawEvent>, probabilities: Vec<F>) -> Self {
         Self {
@@ -153,7 +153,7 @@ impl DelayedDrawTermLoan {
     pub fn undrawn_amount(&self) -> Money {
         Money::new(
             self.commitment.amount() - self.drawn_amount.amount(),
-            self.commitment.currency()
+            self.commitment.currency(),
         )
     }
 
@@ -180,13 +180,13 @@ impl DelayedDrawTermLoan {
         self.draw_conditions.push(covenant);
         self
     }
-    
+
     /// Set expected funding curve for pricing.
     pub fn with_expected_funding_curve(mut self, curve: ExpectedFundingCurve) -> Self {
         self.expected_funding_curve = Some(curve);
         self
     }
-    
+
     /// Add expected draws for pricing.
     pub fn with_expected_draws(mut self, draws: Vec<DrawEvent>) -> Self {
         self.expected_funding_curve = Some(ExpectedFundingCurve::new(draws));
@@ -196,7 +196,7 @@ impl DelayedDrawTermLoan {
     /// Simulates draws up to a given date and returns the drawn amount.
     fn simulate_draws_to_date(&self, as_of: Date) -> Money {
         let mut drawn = self.drawn_amount;
-        
+
         for draw in &self.planned_draws {
             if draw.date <= as_of && draw.date <= self.commitment_expiry {
                 // In a full implementation, would check draw conditions here
@@ -208,26 +208,28 @@ impl DelayedDrawTermLoan {
                 }
             }
         }
-        
+
         drawn
     }
-    
+
     /// Get all expected future draws for pricing (includes planned + expected).
     fn get_expected_future_draws(&self, as_of: Date) -> Vec<(Date, Money, F)> {
         let mut future_draws = Vec::new();
-        
+
         // Add planned draws that are after as_of
         for draw in &self.planned_draws {
             if draw.date > as_of && draw.date <= self.commitment_expiry && !draw.conditional {
                 future_draws.push((draw.date, draw.amount, 1.0));
             }
         }
-        
+
         // Add expected draws from funding curve
         if let Some(ref curve) = self.expected_funding_curve {
             for (i, draw) in curve.expected_draws.iter().enumerate() {
                 if draw.date > as_of && draw.date <= self.commitment_expiry && !draw.conditional {
-                    let prob = curve.draw_probabilities.as_ref()
+                    let prob = curve
+                        .draw_probabilities
+                        .as_ref()
                         .and_then(|probs| probs.get(i))
                         .copied()
                         .unwrap_or(1.0);
@@ -235,29 +237,30 @@ impl DelayedDrawTermLoan {
                 }
             }
         }
-        
+
         // Sort by date
         future_draws.sort_by_key(|(date, _, _)| *date);
         future_draws
     }
 
     /// Builds the cashflow schedule.
-    fn build_cashflows(&self, as_of: Date) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
+    fn build_cashflows(
+        &self,
+        as_of: Date,
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         // Simulate draws to determine outstanding amount
         let drawn = self.simulate_draws_to_date(as_of);
         let undrawn = Money::new(
             self.commitment.amount() - drawn.amount(),
-            self.commitment.currency()
+            self.commitment.currency(),
         );
 
         let mut builder = cf();
-        
+
         // For the drawn portion, create a term loan
         if drawn.amount() > 0.0 {
-            let issue = self.planned_draws.first()
-                .map(|d| d.date)
-                .unwrap_or(as_of);
-            
+            let issue = self.planned_draws.first().map(|d| d.date).unwrap_or(as_of);
+
             builder.principal(drawn, issue, self.maturity);
             builder.amortization(self.amortization.clone());
 
@@ -274,7 +277,7 @@ impl DelayedDrawTermLoan {
                         stub: self.stub,
                     };
                     builder.fixed_cf(spec);
-                },
+                }
                 _ => {
                     // Other interest types would be handled similarly
                 }
@@ -284,15 +287,15 @@ impl DelayedDrawTermLoan {
             builder.principal(
                 Money::new(0.0, self.commitment.currency()),
                 as_of,
-                self.maturity
+                self.maturity,
             );
         }
 
         // Add commitment fee on undrawn amount
         if undrawn.amount() > 0.0 && as_of < self.commitment_expiry {
             let fee_spec = FeeSpec::PeriodicBps {
-                base: FeeBase::Undrawn { 
-                    facility_limit: self.commitment 
+                base: FeeBase::Undrawn {
+                    facility_limit: self.commitment,
                 },
                 bps: self.commitment_fee_rate * 10000.0, // Convert to bps
                 freq: self.frequency,
@@ -308,8 +311,8 @@ impl DelayedDrawTermLoan {
         if let Some(ticking_rate) = self.ticking_fee_rate {
             if undrawn.amount() > 0.0 && as_of < self.commitment_expiry {
                 let fee_spec = FeeSpec::PeriodicBps {
-                    base: FeeBase::Undrawn { 
-                        facility_limit: self.commitment 
+                    base: FeeBase::Undrawn {
+                        facility_limit: self.commitment,
                     },
                     bps: ticking_rate * 10000.0,
                     freq: Frequency::monthly(),
@@ -332,14 +335,18 @@ impl DelayedDrawTermLoan {
 }
 
 impl CashflowProvider for DelayedDrawTermLoan {
-    fn build_schedule(&self, _curves: &CurveSet, as_of: Date) -> finstack_core::Result<Vec<(Date, Money)>> {
+    fn build_schedule(
+        &self,
+        _curves: &CurveSet,
+        as_of: Date,
+    ) -> finstack_core::Result<Vec<(Date, Money)>> {
         let schedule = self.build_cashflows(as_of)?;
-        
+
         let mut flows = Vec::new();
         for cf in &schedule.flows {
             flows.push((cf.date, cf.amount));
         }
-        
+
         Ok(flows)
     }
 }
@@ -348,24 +355,25 @@ impl Priceable for DelayedDrawTermLoan {
     fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
         let disc = curves.discount(self.disc_id)?;
         let mut total_npv = 0.0;
-        
+
         // 1. Value existing drawn amount
         let existing_flows = self.build_schedule(curves, as_of)?;
         let existing_npv = existing_flows.npv(&*disc, disc.base_date(), self.day_count)?;
         total_npv += existing_npv.amount();
-        
+
         // 2. Value expected future draws
         let future_draws = self.get_expected_future_draws(as_of);
         for (draw_date, draw_amount, probability) in future_draws {
             // For each future draw, discount using centralized helper
-            let draw_df = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
-                &*disc,
-                disc.base_date(),
-                draw_date,
-                self.day_count,
-            );
+            let draw_df =
+                finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
+                    &*disc,
+                    disc.base_date(),
+                    draw_date,
+                    self.day_count,
+                );
             total_npv -= draw_amount.amount() * draw_df * probability;
-            
+
             // b) The positive value of future interest payments on that draw
             // This is simplified - in practice would build full schedule from draw_date to maturity
             let remaining_years = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(draw_date, self.maturity, self.day_count);
@@ -373,7 +381,7 @@ impl Priceable for DelayedDrawTermLoan {
                 // Approximate value of future interest payments
                 let interest_value = draw_amount.amount() * rate * remaining_years;
                 total_npv += interest_value * draw_df * probability;
-                
+
                 // Add principal repayment at maturity
                 let maturity_df = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
                     &*disc,
@@ -384,10 +392,10 @@ impl Priceable for DelayedDrawTermLoan {
                 total_npv += draw_amount.amount() * maturity_df * probability;
             }
         }
-        
+
         // 3. Value commitment fees on undrawn amounts
         // This would be more complex in practice, accounting for the changing undrawn balance
-        
+
         Ok(Money::new(total_npv, self.commitment.currency()))
     }
 
@@ -398,15 +406,18 @@ impl Priceable for DelayedDrawTermLoan {
         _metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        
+
         let mut result = ValuationResult::stamped(&self.id, as_of, base_value);
-        
+
         // Add some basic metrics
         let mut measures = HashMap::new();
-        measures.insert("drawn".to_string(), self.simulate_draws_to_date(as_of).amount());
+        measures.insert(
+            "drawn".to_string(),
+            self.simulate_draws_to_date(as_of).amount(),
+        );
         measures.insert("undrawn".to_string(), self.undrawn_amount().amount());
         measures.insert("commitment".to_string(), self.commitment.amount());
-        
+
         result = result.with_measures(measures);
         Ok(result)
     }
@@ -429,7 +440,10 @@ mod tests {
             Money::new(10_000_000.0, Currency::USD),
             Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             Date::from_calendar_date(2030, Month::January, 1).unwrap(),
-            InterestSpec::Fixed { rate: 0.065, step_ups: None },
+            InterestSpec::Fixed {
+                rate: 0.065,
+                step_ups: None,
+            },
         );
 
         assert_eq!(ddtl.id, "DDTL-001");
@@ -444,7 +458,10 @@ mod tests {
             Money::new(10_000_000.0, Currency::USD),
             Date::from_calendar_date(2026, Month::January, 1).unwrap(),
             Date::from_calendar_date(2030, Month::January, 1).unwrap(),
-            InterestSpec::Fixed { rate: 0.065, step_ups: None },
+            InterestSpec::Fixed {
+                rate: 0.065,
+                step_ups: None,
+            },
         )
         .with_draw(DrawEvent {
             date: Date::from_calendar_date(2025, Month::June, 1).unwrap(),

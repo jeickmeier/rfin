@@ -269,7 +269,9 @@ pub fn schedule(start: Date, end: Date, freq: Frequency) -> impl Iterator<Item =
 /// Errors with [`Error::Input(InputError::InvalidDateRange)`](crate::error::InputError::InvalidDateRange)
 /// if `start` > `end`.
 pub fn try_schedule(start: Date, end: Date, freq: Frequency) -> crate::Result<ScheduleIter> {
-    ScheduleBuilder::try_new(start, end)?.frequency(freq).try_build_raw()
+    ScheduleBuilder::try_new(start, end)?
+        .frequency(freq)
+        .try_build_raw()
 }
 
 /// Public builder for configuring schedule generation with
@@ -354,7 +356,9 @@ impl<'a> ScheduleBuilder<'a> {
 
         // Wrap with business day adjustment if configured
         match (self.conv, self.cal) {
-            (Some(conv), Some(cal)) => MaybeAdjusted::Adjusted(AdjustIter::new(base_iter, conv, cal)),
+            (Some(conv), Some(cal)) => {
+                MaybeAdjusted::Adjusted(AdjustIter::new(base_iter, conv, cal))
+            }
             _ => MaybeAdjusted::Raw(base_iter),
         }
     }
@@ -375,7 +379,9 @@ impl<'a> ScheduleBuilder<'a> {
         let base_iter = builder.generate();
 
         Ok(match (self.conv, self.cal) {
-            (Some(conv), Some(cal)) => MaybeAdjusted::Adjusted(AdjustIter::new(base_iter, conv, cal)),
+            (Some(conv), Some(cal)) => {
+                MaybeAdjusted::Adjusted(AdjustIter::new(base_iter, conv, cal))
+            }
             _ => MaybeAdjusted::Raw(base_iter),
         })
     }

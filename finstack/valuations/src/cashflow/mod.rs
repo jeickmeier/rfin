@@ -1,7 +1,7 @@
 //! Cashflow primitive types, builder, aggregation, and more.
-//! 
+//!
 //! Rustfin **CashFlow** module — *Phase 1 Bootstrap* (in-core variant).
-//! 
+//!
 //! # Example
 //! ```rust
 //! use finstack_core::currency::Currency;
@@ -9,7 +9,7 @@
 //! use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention};
 //! use finstack_core::dates::StubKind;
 //! use time::Month;
-//! 
+//!
 //! let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
 //! let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
 //! // Note: Cashflow builder would be used here

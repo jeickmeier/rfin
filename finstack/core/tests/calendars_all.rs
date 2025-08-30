@@ -12,7 +12,7 @@ fn test_calendar_by_id_lookup() {
     for &id in ALL_IDS {
         let cal = calendar_by_id(id);
         assert!(cal.is_some(), "Calendar '{}' should be found", id);
-        
+
         // Test that each calendar can be used (call is_holiday on a mid-week date)
         let mid_week_date = make_date(2025, 6, 18); // Wednesday
         let _is_holiday = cal.unwrap().is_holiday(mid_week_date);
@@ -54,17 +54,17 @@ fn test_calendar_id_methods() {
 #[test]
 fn test_gblo_known_holidays() {
     let cal = Gblo;
-    
+
     // Test some known UK holidays in 2025
     // New Year's Day 2025 (January 1) - Wednesday
     assert!(cal.is_holiday(make_date(2025, 1, 1)));
-    
+
     // Christmas Day 2025 (December 25) - Thursday
     assert!(cal.is_holiday(make_date(2025, 12, 25)));
-    
+
     // Boxing Day 2025 (December 26) - Friday
     assert!(cal.is_holiday(make_date(2025, 12, 26)));
-    
+
     // A regular business day should not be a holiday
     assert!(!cal.is_holiday(make_date(2025, 6, 18))); // Wednesday
 }
@@ -72,14 +72,14 @@ fn test_gblo_known_holidays() {
 #[test]
 fn test_target2_known_holidays() {
     let cal = Target2;
-    
+
     // Test some known TARGET2 holidays in 2025
     // New Year's Day 2025 (January 1) - Wednesday
     assert!(cal.is_holiday(make_date(2025, 1, 1)));
-    
+
     // Christmas Day 2025 (December 25) - Thursday
     assert!(cal.is_holiday(make_date(2025, 12, 25)));
-    
+
     // A regular business day should not be a holiday
     assert!(!cal.is_holiday(make_date(2025, 6, 18))); // Wednesday
 }
@@ -87,14 +87,14 @@ fn test_target2_known_holidays() {
 #[test]
 fn test_nyse_known_holidays() {
     let cal = Nyse;
-    
+
     // Test some known NYSE holidays in 2025
     // New Year's Day 2025 (January 1) - Wednesday
     assert!(cal.is_holiday(make_date(2025, 1, 1)));
-    
+
     // Christmas Day 2025 (December 25) - Thursday
     assert!(cal.is_holiday(make_date(2025, 12, 25)));
-    
+
     // A regular business day should not be a holiday
     assert!(!cal.is_holiday(make_date(2025, 6, 18))); // Wednesday
 }
@@ -103,11 +103,11 @@ fn test_nyse_known_holidays() {
 fn test_calendar_weekend_behavior() {
     // Test that all calendars properly handle weekends via the trait default
     let cal = Gblo;
-    
+
     // Saturday and Sunday should not be business days
     assert!(!cal.is_business_day(make_date(2025, 6, 21))); // Saturday
     assert!(!cal.is_business_day(make_date(2025, 6, 22))); // Sunday
-    
+
     // Regular weekday should be a business day (assuming no holiday)
     assert!(cal.is_business_day(make_date(2025, 6, 18))); // Wednesday
 }

@@ -3,17 +3,7 @@
 pub mod engine;
 
 pub use engine::{
-    WorkoutEngine,
-    WorkoutState,
-    WorkoutPolicy,
-    WorkoutStrategy,
-    WorkoutEvent,
-    WorkoutApplication,
-    DefaultTrigger,
-    RateModification,
-    PrincipalModification,
-    RecoveryWaterfall,
-    RecoveryTier,
-    RecoveryAnalysis,
-    ClaimAmount,
+    ClaimAmount, DefaultTrigger, PrincipalModification, RateModification, RecoveryAnalysis,
+    RecoveryTier, RecoveryWaterfall, WorkoutApplication, WorkoutEngine, WorkoutEvent,
+    WorkoutPolicy, WorkoutState, WorkoutStrategy,
 };

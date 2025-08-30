@@ -11,27 +11,29 @@ pub mod swap;
 
 // Re-export main types
 pub use bond::PyBond;
-pub use swap::{PyInterestRateSwap, PyPayReceive, PyFixedLeg, PyFloatLeg};
-pub use loan::{PyLoan, PyDelayedDrawTermLoan, PyRevolvingCreditFacility, PyDrawEvent, PyExpectedFundingCurve};
+pub use loan::{
+    PyDelayedDrawTermLoan, PyDrawEvent, PyExpectedFundingCurve, PyLoan, PyRevolvingCreditFacility,
+};
+pub use swap::{PyFixedLeg, PyFloatLeg, PyInterestRateSwap, PyPayReceive};
 
 /// Register the instruments submodule with Python
 pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "instruments")?;
-    
+
     // Register instrument classes
     m.add_class::<PyBond>()?;
     m.add_class::<PyInterestRateSwap>()?;
     m.add_class::<PyPayReceive>()?;
     m.add_class::<PyFixedLeg>()?;
     m.add_class::<PyFloatLeg>()?;
-    
+
     // Register loan-related classes
     m.add_class::<PyLoan>()?;
     m.add_class::<PyDrawEvent>()?;
     m.add_class::<PyExpectedFundingCurve>()?;
     m.add_class::<PyDelayedDrawTermLoan>()?;
     m.add_class::<PyRevolvingCreditFacility>()?;
-    
+
     // Add the submodule to parent
     parent.add_submodule(&m)?;
     parent
@@ -39,6 +41,6 @@ pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
         .import("sys")?
         .getattr("modules")?
         .set_item("finstack.instruments", &m)?;
-    
+
     Ok(())
 }

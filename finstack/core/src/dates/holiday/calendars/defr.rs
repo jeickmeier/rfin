@@ -1,5 +1,5 @@
 use crate::dates::holiday::rule::Rule;
-use time::{Month};
+use time::Month;
 
 /// German XETRA stock-exchange calendar (code: DEFR).
 const DEFR_RULES: &[Rule] = &[

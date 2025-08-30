@@ -222,7 +222,11 @@ impl ExpressionCache {
     /// Calculate cache hit ratio.
     pub fn hit_ratio(&self) -> f64 {
         let total = self.stats.hits + self.stats.misses;
-        if total == 0 { 0.0 } else { self.stats.hits as f64 / total as f64 }
+        if total == 0 {
+            0.0
+        } else {
+            self.stats.hits as f64 / total as f64
+        }
     }
 }
 

@@ -29,10 +29,7 @@ use finstack_core::F;
 /// - Cannot converge to a solution within tolerance
 ///
 /// See unit tests and `examples/` for usage.
-pub fn xirr(
-    cash_flows: &[(Date, F)],
-    guess: Option<F>,
-) -> finstack_core::Result<F> {
+pub fn xirr(cash_flows: &[(Date, F)], guess: Option<F>) -> finstack_core::Result<F> {
     // Validate inputs
     if cash_flows.len() < 2 {
         return Err(InputError::TooFewPoints.into());
@@ -74,7 +71,7 @@ pub fn xirr(
 
     // Use Newton-Raphson method with Brent fallback
     let initial_guess = guess.unwrap_or(0.1);
-    
+
     // Try Newton-Raphson first (faster convergence when it works)
     if let Ok(result) = newton_raphson(npv, npv_prime, initial_guess, 1e-6, 100) {
         return Ok(result);
@@ -114,10 +111,16 @@ mod tests {
     #[test]
     fn test_xirr_basic() {
         let flows = vec![
-            (Date::from_calendar_date(2024, Month::January, 1).unwrap(), -100_000.0),
-            (Date::from_calendar_date(2025, Month::January, 1).unwrap(), 110_000.0),
+            (
+                Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+                -100_000.0,
+            ),
+            (
+                Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+                110_000.0,
+            ),
         ];
-        
+
         let result = xirr(&flows, None).unwrap();
         assert!((result - 0.1).abs() < 0.001); // Should be approximately 10%
     }
@@ -125,11 +128,20 @@ mod tests {
     #[test]
     fn test_xirr_multiple_flows() {
         let flows = vec![
-            (Date::from_calendar_date(2024, Month::January, 1).unwrap(), -100_000.0),
-            (Date::from_calendar_date(2024, Month::July, 1).unwrap(), 5_000.0),
-            (Date::from_calendar_date(2025, Month::January, 1).unwrap(), 110_000.0),
+            (
+                Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+                -100_000.0,
+            ),
+            (
+                Date::from_calendar_date(2024, Month::July, 1).unwrap(),
+                5_000.0,
+            ),
+            (
+                Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+                110_000.0,
+            ),
         ];
-        
+
         let result = xirr(&flows, None).unwrap();
         assert!(result > 0.1 && result < 0.2); // Should be between 10% and 20%
     }
@@ -137,10 +149,16 @@ mod tests {
     #[test]
     fn test_xirr_negative_return() {
         let flows = vec![
-            (Date::from_calendar_date(2024, Month::January, 1).unwrap(), -100_000.0),
-            (Date::from_calendar_date(2025, Month::January, 1).unwrap(), 90_000.0),
+            (
+                Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+                -100_000.0,
+            ),
+            (
+                Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+                90_000.0,
+            ),
         ];
-        
+
         let result = xirr(&flows, None).unwrap();
         assert!((result + 0.1).abs() < 0.001); // Should be approximately -10%
     }
@@ -148,20 +166,27 @@ mod tests {
     #[test]
     fn test_xirr_no_sign_change() {
         let flows = vec![
-            (Date::from_calendar_date(2024, Month::January, 1).unwrap(), 100_000.0),
-            (Date::from_calendar_date(2025, Month::January, 1).unwrap(), 110_000.0),
+            (
+                Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+                100_000.0,
+            ),
+            (
+                Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+                110_000.0,
+            ),
         ];
-        
+
         let result = xirr(&flows, None);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_xirr_too_few_flows() {
-        let flows = vec![
-            (Date::from_calendar_date(2024, Month::January, 1).unwrap(), -100_000.0),
-        ];
-        
+        let flows = vec![(
+            Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+            -100_000.0,
+        )];
+
         let result = xirr(&flows, None);
         assert!(result.is_err());
     }
@@ -170,18 +195,36 @@ mod tests {
     fn test_xirr_complex_schedule() {
         // More realistic example with irregular payments
         let flows = vec![
-            (Date::from_calendar_date(2023, Month::January, 15).unwrap(), -50_000.0),
-            (Date::from_calendar_date(2023, Month::March, 31).unwrap(), -30_000.0),
-            (Date::from_calendar_date(2023, Month::June, 15).unwrap(), 10_000.0),
-            (Date::from_calendar_date(2023, Month::September, 30).unwrap(), 15_000.0),
-            (Date::from_calendar_date(2023, Month::December, 31).unwrap(), 20_000.0),
-            (Date::from_calendar_date(2024, Month::June, 15).unwrap(), 45_000.0),
+            (
+                Date::from_calendar_date(2023, Month::January, 15).unwrap(),
+                -50_000.0,
+            ),
+            (
+                Date::from_calendar_date(2023, Month::March, 31).unwrap(),
+                -30_000.0,
+            ),
+            (
+                Date::from_calendar_date(2023, Month::June, 15).unwrap(),
+                10_000.0,
+            ),
+            (
+                Date::from_calendar_date(2023, Month::September, 30).unwrap(),
+                15_000.0,
+            ),
+            (
+                Date::from_calendar_date(2023, Month::December, 31).unwrap(),
+                20_000.0,
+            ),
+            (
+                Date::from_calendar_date(2024, Month::June, 15).unwrap(),
+                45_000.0,
+            ),
         ];
-        
+
         let result = xirr(&flows, None);
         assert!(result.is_ok());
         let irr = result.unwrap();
-        
+
         // Verify NPV is approximately zero at the calculated rate
         let npv = compute_npv(&flows, irr);
         assert!(npv.abs() < 1.0); // NPV should be very close to zero
@@ -191,7 +234,7 @@ mod tests {
         let first_date = flows[0].0;
         let dc = DayCount::Act365F;
         let mut sum = 0.0;
-        
+
         for &(date, amount) in flows {
             let years = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(
                 first_date, date, dc

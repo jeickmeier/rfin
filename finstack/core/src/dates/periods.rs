@@ -5,11 +5,11 @@
 //! range expressions like "2025Q1..Q2" (relative end within the same year) or
 //! "2024Q4..2025Q2" (absolute). Tracks actual vs forecast flags per period.
 
+use crate::dates::utils::add_months;
 use crate::dates::{Date, Frequency};
 use core::fmt;
 use core::str::FromStr;
 use time::Month;
-use crate::dates::utils::add_months;
 
 // Map schedule frequency to period categories we support in this module.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -129,7 +129,7 @@ impl FiscalConfig {
             start_day,
         })
     }
-    
+
     /// Standard calendar year (January 1).
     pub fn calendar_year() -> Self {
         Self {
@@ -137,7 +137,7 @@ impl FiscalConfig {
             start_day: 1,
         }
     }
-    
+
     /// US Federal fiscal year (October 1).
     pub fn us_federal() -> Self {
         Self {
@@ -145,7 +145,7 @@ impl FiscalConfig {
             start_day: 1,
         }
     }
-    
+
     /// UK fiscal year (April 6).
     pub fn uk() -> Self {
         Self {
@@ -153,7 +153,7 @@ impl FiscalConfig {
             start_day: 6,
         }
     }
-    
+
     /// Japanese fiscal year (April 1).
     pub fn japan() -> Self {
         Self {
@@ -237,11 +237,7 @@ fn make_period(pid: PeriodId, cut: Option<&PeriodId>) -> Period {
     }
 }
 
-fn make_fiscal_period(
-    pid: PeriodId,
-    config: FiscalConfig,
-    cut: Option<&PeriodId>,
-) -> Period {
+fn make_fiscal_period(pid: PeriodId, config: FiscalConfig, cut: Option<&PeriodId>) -> Period {
     let (start, end) = match period_kind_from_frequency(pid.freq) {
         PeriodKind::Quarterly => fiscal_quarter_bounds(pid.year, pid.index, config),
         PeriodKind::Monthly => fiscal_month_bounds(pid.year, pid.index, config),
@@ -316,53 +312,53 @@ fn annual_bounds(year: i32) -> (Date, Date) {
 fn fiscal_quarter_bounds(fiscal_year: i32, q: u8, config: FiscalConfig) -> (Date, Date) {
     // Calculate the start of the fiscal year
     let fy_start = fiscal_year_start(fiscal_year, config);
-    
+
     // Each quarter is 3 months
     let quarter_start_month_offset = (q - 1) * 3;
     let quarter_end_month_offset = q * 3;
-    
+
     // Calculate start and end dates for the quarter
     let start = add_months(fy_start, quarter_start_month_offset as i32);
     let end = add_months(fy_start, quarter_end_month_offset as i32);
-    
+
     (start, end)
 }
 
 fn fiscal_month_bounds(fiscal_year: i32, m: u8, config: FiscalConfig) -> (Date, Date) {
     // Calculate the start of the fiscal year
     let fy_start = fiscal_year_start(fiscal_year, config);
-    
+
     // Calculate start and end dates for the month
     let start = add_months(fy_start, (m - 1) as i32);
     let end = add_months(fy_start, m as i32);
-    
+
     (start, end)
 }
 
 fn fiscal_week_bounds(fiscal_year: i32, w: u8, config: FiscalConfig) -> (Date, Date) {
     use time::Duration;
-    
+
     // Calculate the start of the fiscal year
     let fy_start = fiscal_year_start(fiscal_year, config);
-    
+
     // Calculate start and end dates for the week
     let start = fy_start + Duration::days(((w - 1) as i64) * 7);
     let end = start + Duration::days(7);
-    
+
     (start, end)
 }
 
 fn fiscal_half_bounds(fiscal_year: i32, h: u8, config: FiscalConfig) -> (Date, Date) {
     // Calculate the start of the fiscal year
     let fy_start = fiscal_year_start(fiscal_year, config);
-    
+
     // Each half is 6 months
     let half_start_month_offset = (h - 1) * 6;
     let half_end_month_offset = h * 6;
-    
+
     let start = add_months(fy_start, half_start_month_offset as i32);
     let end = add_months(fy_start, half_end_month_offset as i32);
-    
+
     (start, end)
 }
 
@@ -384,7 +380,7 @@ fn fiscal_year_start(fiscal_year: i32, config: FiscalConfig) -> Date {
         // E.g., FY2025 starting Apr 1 begins on Apr 1, 2024
         fiscal_year - 1
     };
-    
+
     let month = Month::try_from(config.start_month).unwrap();
     Date::from_calendar_date(calendar_year, month, config.start_day).unwrap_or_else(|_| {
         // If the day doesn't exist (e.g., Feb 30), use the last day of the month
@@ -731,13 +727,13 @@ mod tests {
         // US Federal fiscal year starts October 1
         let config = FiscalConfig::us_federal();
         let plan = build_fiscal_periods("2025Q1..Q4", config, Some("2025Q2")).unwrap();
-        
+
         assert_eq!(plan.periods.len(), 4);
         assert!(plan.periods[0].is_actual);
         assert!(plan.periods[1].is_actual);
         assert!(!plan.periods[2].is_actual);
         assert!(!plan.periods[3].is_actual);
-        
+
         // FY2025Q1 starts October 1, 2024
         assert_eq!(
             plan.periods[0].start,
@@ -747,7 +743,7 @@ mod tests {
             plan.periods[0].end,
             Date::from_calendar_date(2025, Month::January, 1).unwrap()
         );
-        
+
         // FY2025Q2 is January-March 2025
         assert_eq!(
             plan.periods[1].start,
@@ -757,7 +753,7 @@ mod tests {
             plan.periods[1].end,
             Date::from_calendar_date(2025, Month::April, 1).unwrap()
         );
-        
+
         // FY2025Q4 ends September 30, 2025 (October 1, 2025)
         assert_eq!(
             plan.periods[3].end,
@@ -770,9 +766,9 @@ mod tests {
         // Japanese fiscal year starts April 1
         let config = FiscalConfig::japan();
         let plan = build_fiscal_periods("2025..2026", config, None).unwrap();
-        
+
         assert_eq!(plan.periods.len(), 2);
-        
+
         // FY2025 starts April 1, 2024
         assert_eq!(
             plan.periods[0].start,
@@ -782,7 +778,7 @@ mod tests {
             plan.periods[0].end,
             Date::from_calendar_date(2025, Month::April, 1).unwrap()
         );
-        
+
         // FY2026 starts April 1, 2025
         assert_eq!(
             plan.periods[1].start,
@@ -799,9 +795,9 @@ mod tests {
         // Custom fiscal year starting July 1
         let config = FiscalConfig::new(7, 1).unwrap();
         let plan = build_fiscal_periods("2025H1..H2", config, None).unwrap();
-        
+
         assert_eq!(plan.periods.len(), 2);
-        
+
         // FY2025H1 is July-December 2024
         assert_eq!(
             plan.periods[0].start,
@@ -811,7 +807,7 @@ mod tests {
             plan.periods[0].end,
             Date::from_calendar_date(2025, Month::January, 1).unwrap()
         );
-        
+
         // FY2025H2 is January-June 2025
         assert_eq!(
             plan.periods[1].start,
@@ -827,15 +823,15 @@ mod tests {
     fn test_fiscal_months() {
         let config = FiscalConfig::uk(); // April 6
         let plan = build_fiscal_periods("2025M01..M03", config, None).unwrap();
-        
+
         assert_eq!(plan.periods.len(), 3);
-        
+
         // FY2025M01 starts April 6, 2024
         assert_eq!(
             plan.periods[0].start,
             Date::from_calendar_date(2024, Month::April, 6).unwrap()
         );
-        
+
         // Months should be consecutive
         assert_eq!(plan.periods[0].end, plan.periods[1].start);
         assert_eq!(plan.periods[1].end, plan.periods[2].start);

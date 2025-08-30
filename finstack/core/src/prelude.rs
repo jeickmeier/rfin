@@ -13,23 +13,24 @@
 pub use crate::currency::Currency;
 pub use crate::dates::{
     adjust, available_calendars, build_periods, next_cds_date, next_imm, third_wednesday,
-    BusinessDayConvention, Date, DateExt, DayCount, HolidayCalendar,
-    OffsetDateTime, OffsetDateTimeExt, Period, PeriodId,
-    PeriodKey, ScheduleBuilder, StubKind,
+    BusinessDayConvention, Date, DateExt, DayCount, HolidayCalendar, OffsetDateTime,
+    OffsetDateTimeExt, Period, PeriodId, PeriodKey, ScheduleBuilder, StubKind,
 };
 pub use crate::error::{Error, InputError};
 pub use crate::types::{
-    Bps, CounterpartyId, CurveId, Id, InstrumentId, Percentage, PortfolioId, PositionId,
-    Rate, ScenarioId, Timestamp, TradeId, TypeTag,
+    Bps, CounterpartyId, CurveId, Id, InstrumentId, Percentage, PortfolioId, PositionId, Rate,
+    ScenarioId, Timestamp, TradeId, TypeTag,
 };
 // Expression engine - only re-export public items
 pub use crate::expr::CompiledExpr;
 pub use crate::market_data::{
-    inflation_index::{InflationIndex, InflationIndexBuilder, InflationInterpolation, InflationLag},
+    inflation_index::{
+        InflationIndex, InflationIndexBuilder, InflationInterpolation, InflationLag,
+    },
     interp::{InterpFn, InterpStyle},
     primitives::{MarketScalar, ScalarTimeSeries, SeriesInterpolation},
-    MarketContext,
     traits::{Discount, Forward, Inflation as InflationTs, Surface, Survival, TermStructure},
+    MarketContext,
 };
 pub use crate::money::{
     fx::{

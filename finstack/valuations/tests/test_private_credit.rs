@@ -7,13 +7,15 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::amortization_notional::AmortizationSpec;
-use finstack_valuations::instruments::fixed_income::loan::{
-    Loan, InterestSpec, PrepaymentSchedule, PrepaymentType, PrepaymentPenalty, PenaltyType,
-    DelayedDrawTermLoan, DrawEvent, RevolvingCreditFacility,
-    UtilizationFeeSchedule, Covenant, CovenantType,
+use finstack_valuations::instruments::fixed_income::loan::ddtl::ExpectedFundingCurve;
+use finstack_valuations::instruments::fixed_income::loan::revolver::{
+    DrawRepayEvent, RevolverFundingCurve,
 };
-use finstack_valuations::instruments::fixed_income::loan::revolver::{DrawRepayEvent, RevolverFundingCurve};
-use finstack_valuations::instruments::fixed_income::loan::ddtl::{ExpectedFundingCurve};
+use finstack_valuations::instruments::fixed_income::loan::{
+    Covenant, CovenantType, DelayedDrawTermLoan, DrawEvent, InterestSpec, Loan, PenaltyType,
+    PrepaymentPenalty, PrepaymentSchedule, PrepaymentType, RevolvingCreditFacility,
+    UtilizationFeeSchedule,
+};
 use finstack_valuations::traits::{CashflowProvider, Priceable};
 use std::sync::Arc;
 use time::Month;
@@ -21,18 +23,30 @@ use time::Month;
 fn setup_curves(base: Date) -> Arc<CurveSet> {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(base)
-        .knots([(0.0, 1.0), (1.0, 0.97), (2.0, 0.94), (5.0, 0.85), (10.0, 0.70)])
+        .knots([
+            (0.0, 1.0),
+            (1.0, 0.97),
+            (2.0, 0.94),
+            (5.0, 0.85),
+            (10.0, 0.70),
+        ])
         .linear_df()
         .build()
         .unwrap();
 
     let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25) // 3-month tenor = 0.25 years
         .base_date(base)
-        .knots([(0.0, 0.05), (1.0, 0.055), (2.0, 0.06), (5.0, 0.065), (10.0, 0.07)])
+        .knots([
+            (0.0, 0.05),
+            (1.0, 0.055),
+            (2.0, 0.06),
+            (5.0, 0.065),
+            (10.0, 0.07),
+        ])
         .linear_df()
         .build()
         .unwrap();
-    
+
     Arc::new(CurveSet::new().with_discount(disc).with_forecast(fwd))
 }
 
@@ -41,13 +55,13 @@ fn test_loan_fixed_rate() {
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
     let curves = setup_curves(issue);
-    
+
     let loan = Loan::new(
         "LOAN-001",
         Money::new(10_000_000.0, Currency::USD),
         issue,
         maturity,
-        InterestSpec::Fixed { 
+        InterestSpec::Fixed {
             rate: 0.065,
             step_ups: None,
         },
@@ -69,11 +83,20 @@ fn test_loan_with_step_ups() {
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
     let curves = setup_curves(issue);
-    
+
     let step_ups = vec![
-        (Date::from_calendar_date(2026, Month::January, 1).unwrap(), 0.07),
-        (Date::from_calendar_date(2027, Month::January, 1).unwrap(), 0.075),
-        (Date::from_calendar_date(2028, Month::January, 1).unwrap(), 0.08),
+        (
+            Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+            0.07,
+        ),
+        (
+            Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+            0.075,
+        ),
+        (
+            Date::from_calendar_date(2028, Month::January, 1).unwrap(),
+            0.08,
+        ),
     ];
 
     let loan = Loan::new(
@@ -81,7 +104,7 @@ fn test_loan_with_step_ups() {
         Money::new(5_000_000.0, Currency::USD),
         issue,
         maturity,
-        InterestSpec::Fixed { 
+        InterestSpec::Fixed {
             rate: 0.065,
             step_ups: Some(step_ups),
         },
@@ -100,13 +123,13 @@ fn test_loan_with_amortization() {
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
     let curves = setup_curves(issue);
-    
+
     let loan = Loan::new(
         "LOAN-003",
         Money::new(10_000_000.0, Currency::USD),
         issue,
         maturity,
-        InterestSpec::Fixed { 
+        InterestSpec::Fixed {
             rate: 0.065,
             step_ups: None,
         },
@@ -116,9 +139,10 @@ fn test_loan_with_amortization() {
     });
 
     let flows = loan.build_schedule(&curves, issue).unwrap();
-    
+
     // Should have both interest and principal payments
-    let principal_flows: Vec<_> = flows.iter()
+    let principal_flows: Vec<_> = flows
+        .iter()
         .filter(|(_, amount)| amount.amount() > 0.0)
         .collect();
     assert!(!principal_flows.is_empty());
@@ -129,11 +153,20 @@ fn test_loan_pik_toggle() {
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
     let curves = setup_curves(issue);
-    
+
     let toggle_schedule = vec![
-        (Date::from_calendar_date(2025, Month::January, 1).unwrap(), false), // Cash
-        (Date::from_calendar_date(2026, Month::January, 1).unwrap(), true),  // PIK
-        (Date::from_calendar_date(2027, Month::January, 1).unwrap(), false), // Back to Cash
+        (
+            Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+            false,
+        ), // Cash
+        (
+            Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+            true,
+        ), // PIK
+        (
+            Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+            false,
+        ), // Back to Cash
     ];
 
     let loan = Loan::new(
@@ -156,7 +189,7 @@ fn test_loan_pik_toggle() {
 fn test_loan_with_prepayment() {
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
-    
+
     let prepayment = PrepaymentSchedule::new(PrepaymentType::SoftCall { premium_pct: 0.02 })
         .with_lockout(
             issue,
@@ -189,10 +222,9 @@ fn test_loan_with_prepayment() {
     assert!(prepayment.is_prepayment_allowed(after_lockout));
 
     // Test penalty calculation
-    let penalty_amount = prepayment.calculate_penalty(
-        after_lockout,
-        Money::new(1_000_000.0, Currency::USD),
-    ).unwrap();
+    let penalty_amount = prepayment
+        .calculate_penalty(after_lockout, Money::new(1_000_000.0, Currency::USD))
+        .unwrap();
     assert_eq!(penalty_amount.amount(), 30_000.0); // 3% of 1M
 }
 
@@ -202,7 +234,7 @@ fn test_ddtl_with_draws() {
     let commitment_expiry = Date::from_calendar_date(2027, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
     let curves = setup_curves(issue);
-    
+
     let ddtl = DelayedDrawTermLoan::new(
         "DDTL-001",
         Money::new(20_000_000.0, Currency::USD),
@@ -246,12 +278,12 @@ fn test_revolver_with_utilization_fees() {
     let availability_end = Date::from_calendar_date(2028, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
     let curves = setup_curves(issue);
-    
+
     let util_fees = UtilizationFeeSchedule::new()
-        .with_tier(0.0, 0.33, 10.0)   // < 33%: 10 bps
-        .with_tier(0.33, 0.66, 15.0)  // 33-66%: 15 bps
-        .with_tier(0.66, 1.0, 25.0);  // > 66%: 25 bps
-    
+        .with_tier(0.0, 0.33, 10.0) // < 33%: 10 bps
+        .with_tier(0.33, 0.66, 15.0) // 33-66%: 15 bps
+        .with_tier(0.66, 1.0, 25.0); // > 66%: 25 bps
+
     let revolver = RevolvingCreditFacility::new(
         "RCF-001",
         Money::new(50_000_000.0, Currency::USD),
@@ -304,13 +336,13 @@ fn test_revolver_with_utilization_fees() {
 fn test_loan_with_covenants() {
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
-    
+
     let leverage_covenant = Covenant::new(
         CovenantType::MaxDebtToEBITDA { threshold: 4.0 },
         Frequency::quarterly(),
     )
     .with_cure_period(Some(30));
-    
+
     let coverage_covenant = Covenant::new(
         CovenantType::MinInterestCoverage { threshold: 2.5 },
         Frequency::quarterly(),
@@ -342,7 +374,7 @@ fn test_floating_rate_loan() {
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
     let curves = setup_curves(issue);
-    
+
     let loan = Loan::new(
         "LOAN-FLOAT",
         Money::new(10_000_000.0, Currency::USD),
@@ -368,16 +400,19 @@ fn test_floating_rate_loan() {
 fn test_ddtl_with_expected_funding_curve() {
     let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let curves = setup_curves(base);
-    
+
     // Create DDTL with expected future draws
     let mut ddtl = DelayedDrawTermLoan::new(
         "DDTL-002",
         Money::new(30_000_000.0, Currency::USD),
-        Date::from_calendar_date(2026, Month::December, 31).unwrap(),  // Commitment expiry
-        Date::from_calendar_date(2030, Month::December, 31).unwrap(),  // Maturity
-        InterestSpec::Fixed { rate: 0.08, step_ups: None },
+        Date::from_calendar_date(2026, Month::December, 31).unwrap(), // Commitment expiry
+        Date::from_calendar_date(2030, Month::December, 31).unwrap(), // Maturity
+        InterestSpec::Fixed {
+            rate: 0.08,
+            step_ups: None,
+        },
     );
-    ddtl.drawn_amount = Money::new(5_000_000.0, Currency::USD);  // Already drawn 5M
+    ddtl.drawn_amount = Money::new(5_000_000.0, Currency::USD); // Already drawn 5M
     let ddtl = ddtl.with_expected_draws(vec![
         DrawEvent {
             date: Date::from_calendar_date(2025, Month::June, 1).unwrap(),
@@ -392,34 +427,35 @@ fn test_ddtl_with_expected_funding_curve() {
             conditional: false,
         },
     ]);
-    
+
     // Price should include expected future draws
     let value = ddtl.value(&curves, base).unwrap();
-    
+
     // The value should be negative (from lender perspective) as we're funding future draws
     // but positive from interest payments
     assert!(value.amount() != 0.0);
-    
+
     // Also test with probabilities
     let ddtl_with_probs = DelayedDrawTermLoan::new(
         "DDTL-003",
         Money::new(30_000_000.0, Currency::USD),
         Date::from_calendar_date(2026, Month::December, 31).unwrap(),
         Date::from_calendar_date(2030, Month::December, 31).unwrap(),
-        InterestSpec::Fixed { rate: 0.08, step_ups: None },
+        InterestSpec::Fixed {
+            rate: 0.08,
+            step_ups: None,
+        },
     )
     .with_expected_funding_curve(ExpectedFundingCurve::with_probabilities(
-        vec![
-            DrawEvent {
-                date: Date::from_calendar_date(2025, Month::June, 1).unwrap(),
-                amount: Money::new(10_000_000.0, Currency::USD),
-                purpose: None,
-                conditional: false,
-            },
-        ],
-        vec![0.75],  // 75% probability
+        vec![DrawEvent {
+            date: Date::from_calendar_date(2025, Month::June, 1).unwrap(),
+            amount: Money::new(10_000_000.0, Currency::USD),
+            purpose: None,
+            conditional: false,
+        }],
+        vec![0.75], // 75% probability
     ));
-    
+
     let value_with_probs = ddtl_with_probs.value(&curves, base).unwrap();
     assert!(value_with_probs.amount() != 0.0);
 }
@@ -428,7 +464,7 @@ fn test_ddtl_with_expected_funding_curve() {
 fn test_revolver_with_expected_funding_curve() {
     let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let curves = setup_curves(base);
-    
+
     // Create RCF with expected draws and repayments
     let mut rcf = RevolvingCreditFacility::new(
         "RCF-002",
@@ -437,33 +473,36 @@ fn test_revolver_with_expected_funding_curve() {
         Date::from_calendar_date(2026, Month::December, 31).unwrap(),
         Date::from_calendar_date(2028, Month::December, 31).unwrap(),
     )
-    .with_interest(InterestSpec::Fixed { rate: 0.06, step_ups: None });
-    rcf.drawn_amount = Money::new(10_000_000.0, Currency::USD);  // Currently drawn 10M
+    .with_interest(InterestSpec::Fixed {
+        rate: 0.06,
+        step_ups: None,
+    });
+    rcf.drawn_amount = Money::new(10_000_000.0, Currency::USD); // Currently drawn 10M
     let rcf = rcf.with_expected_events(vec![
         DrawRepayEvent {
             date: Date::from_calendar_date(2025, Month::March, 1).unwrap(),
-            amount: Money::new(15_000_000.0, Currency::USD),  // Draw 15M
+            amount: Money::new(15_000_000.0, Currency::USD), // Draw 15M
             mandatory: false,
             description: Some("Q1 draw".to_string()),
         },
         DrawRepayEvent {
             date: Date::from_calendar_date(2025, Month::September, 1).unwrap(),
-            amount: Money::new(-10_000_000.0, Currency::USD),  // Repay 10M
+            amount: Money::new(-10_000_000.0, Currency::USD), // Repay 10M
             mandatory: false,
             description: Some("Q3 repayment".to_string()),
         },
         DrawRepayEvent {
             date: Date::from_calendar_date(2026, Month::March, 1).unwrap(),
-            amount: Money::new(20_000_000.0, Currency::USD),  // Draw 20M
+            amount: Money::new(20_000_000.0, Currency::USD), // Draw 20M
             mandatory: false,
             description: Some("Q1 2026 draw".to_string()),
         },
     ]);
-    
+
     // Price should reflect expected future funding activity
     let value = rcf.value(&curves, base).unwrap();
     assert!(value.amount() != 0.0);
-    
+
     // Test with probabilities
     let rcf_with_probs = RevolvingCreditFacility::new(
         "RCF-003",
@@ -472,19 +511,20 @@ fn test_revolver_with_expected_funding_curve() {
         Date::from_calendar_date(2026, Month::December, 31).unwrap(),
         Date::from_calendar_date(2028, Month::December, 31).unwrap(),
     )
-    .with_interest(InterestSpec::Fixed { rate: 0.06, step_ups: None })
+    .with_interest(InterestSpec::Fixed {
+        rate: 0.06,
+        step_ups: None,
+    })
     .with_expected_funding_curve(RevolverFundingCurve::with_probabilities(
-        vec![
-            DrawRepayEvent {
-                date: Date::from_calendar_date(2025, Month::June, 1).unwrap(),
-                amount: Money::new(25_000_000.0, Currency::USD),
-                mandatory: false,
-                description: None,
-            },
-        ],
-        vec![0.5],  // 50% probability
+        vec![DrawRepayEvent {
+            date: Date::from_calendar_date(2025, Month::June, 1).unwrap(),
+            amount: Money::new(25_000_000.0, Currency::USD),
+            mandatory: false,
+            description: None,
+        }],
+        vec![0.5], // 50% probability
     ));
-    
+
     let value_with_probs = rcf_with_probs.value(&curves, base).unwrap();
     assert!(value_with_probs.amount() != 0.0);
 }
@@ -494,7 +534,7 @@ fn test_cash_plus_pik_loan() {
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
     let curves = setup_curves(issue);
-    
+
     let loan = Loan::new(
         "LOAN-MIXED",
         Money::new(8_000_000.0, Currency::USD),

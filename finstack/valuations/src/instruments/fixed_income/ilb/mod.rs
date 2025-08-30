@@ -4,14 +4,14 @@
 //! TIPS, UK Index-Linked Gilts, and other inflation-protected securities.
 
 use crate::pricing::result::ValuationResult;
-use crate::traits::{Attributes, Priceable, DatedFlows};
-use finstack_core::F;
-use finstack_core::market_data::multicurve::CurveSet;
+use crate::traits::{Attributes, DatedFlows, Priceable};
 use finstack_core::market_data::inflation_index::{InflationIndex, InflationLag};
+use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::money::Money;
+use finstack_core::F;
 
-use finstack_core::dates::{Date, DayCount, Frequency, BusinessDayConvention, StubKind};
 use crate::impl_attributable;
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 
 pub mod metrics;
 
@@ -40,7 +40,7 @@ impl IndexationMethod {
             IndexationMethod::Japanese => InflationLag::Months(3),
         }
     }
-    
+
     /// Whether this method uses daily interpolation
     pub fn uses_daily_interpolation(&self) -> bool {
         matches!(self, IndexationMethod::Canadian | IndexationMethod::TIPS)
@@ -106,7 +106,7 @@ impl InflationLinkedBond {
     pub fn builder() -> ILBBuilder {
         ILBBuilder::new()
     }
-    
+
     /// Create a new US TIPS bond
     #[allow(clippy::too_many_arguments)]
     pub fn new_tips(
@@ -141,7 +141,7 @@ impl InflationLinkedBond {
             attributes: Attributes::new(),
         }
     }
-    
+
     /// Create a new UK Index-Linked Gilt
     #[allow(clippy::too_many_arguments)]
     pub fn new_uk_linker(
@@ -177,16 +177,20 @@ impl InflationLinkedBond {
             attributes: Attributes::new(),
         }
     }
-    
+
     /// Calculate index ratio for a given date
-    pub fn index_ratio(&self, date: Date, inflation_index: &InflationIndex) -> finstack_core::Result<F> {
+    pub fn index_ratio(
+        &self,
+        date: Date,
+        inflation_index: &InflationIndex,
+    ) -> finstack_core::Result<F> {
         // Apply lag to get reference date
         let reference_date = match self.lag {
             InflationLag::Months(m) => date - time::Duration::days((m as i64) * 30),
             InflationLag::Days(d) => date - time::Duration::days(d as i64),
             InflationLag::None => date,
         };
-        
+
         // Get index value at reference date
         let current_index = if self.indexation_method.uses_daily_interpolation() {
             // Use linear interpolation for daily index values
@@ -195,10 +199,10 @@ impl InflationLinkedBond {
             // Use monthly index value
             inflation_index.value_on(reference_date)?
         };
-        
+
         // Calculate ratio
         let ratio = current_index / self.base_index;
-        
+
         // Apply deflation floor if applicable
         Ok(match self.deflation_protection {
             DeflationProtection::None => ratio,
@@ -208,18 +212,21 @@ impl InflationLinkedBond {
                 } else {
                     ratio
                 }
-            },
+            }
             DeflationProtection::AllPayments => ratio.max(1.0),
         })
     }
-    
+
     /// Build inflation-adjusted cashflow schedule
-    pub fn build_schedule(&self, curves: &CurveSet, _as_of: Date) -> finstack_core::Result<DatedFlows> {
+    pub fn build_schedule(
+        &self,
+        curves: &CurveSet,
+        _as_of: Date,
+    ) -> finstack_core::Result<DatedFlows> {
         // Get inflation index
-        let inflation_index = curves.inflation_index(self.inflation_id)
-            .ok_or_else(|| finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound
-            ))?;
+        let inflation_index = curves.inflation_index(self.inflation_id).ok_or_else(|| {
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+        })?;
 
         // Use centralized schedule builder for coupon dates
         let sched = crate::cashflow::builder::build_dates(
@@ -250,20 +257,27 @@ impl InflationLinkedBond {
         }
 
         // Add principal payment at maturity (inflation-adjusted)
-        let principal_ratio = self.index_ratio(self.maturity, &inflation_index).unwrap_or(1.0);
+        let principal_ratio = self
+            .index_ratio(self.maturity, &inflation_index)
+            .unwrap_or(1.0);
         flows.push((self.maturity, self.notional * principal_ratio));
 
         Ok(flows)
     }
-    
+
     /// Calculate real yield (yield in real terms, before inflation)
-    pub fn real_yield(&self, _clean_price: F, _curves: &CurveSet, _as_of: Date) -> finstack_core::Result<F> {
+    pub fn real_yield(
+        &self,
+        _clean_price: F,
+        _curves: &CurveSet,
+        _as_of: Date,
+    ) -> finstack_core::Result<F> {
         // This would implement the actual real yield calculation
         // using Newton-Raphson or similar solver
         // For now, return a placeholder
         Ok(self.real_coupon)
     }
-    
+
     /// Calculate breakeven inflation rate
     pub fn breakeven_inflation(
         &self,
@@ -271,17 +285,13 @@ impl InflationLinkedBond {
         curves: &CurveSet,
         as_of: Date,
     ) -> finstack_core::Result<F> {
-        let real_yield = self.real_yield(
-            self.quoted_clean.unwrap_or(100.0),
-            curves,
-            as_of,
-        )?;
-        
+        let real_yield = self.real_yield(self.quoted_clean.unwrap_or(100.0), curves, as_of)?;
+
         // Fisher equation: (1 + nominal) = (1 + real) * (1 + inflation)
         // Simplified: breakeven ≈ nominal - real
         Ok(nominal_bond_yield - real_yield)
     }
-    
+
     /// Calculate inflation-adjusted duration
     pub fn real_duration(&self, _curves: &CurveSet, as_of: Date) -> finstack_core::Result<F> {
         // This would calculate the duration with respect to real yields
@@ -295,12 +305,12 @@ impl Priceable for InflationLinkedBond {
     /// Compute the present value of the ILB
     fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
         use crate::pricing::npv::npv;
-        
+
         let disc = curves.discount(self.disc_id)?;
         let flows = self.build_schedule(curves, as_of)?;
         npv(&*disc, disc.base_date(), self.dc, &flows)
     }
-    
+
     /// Compute value with specific metrics
     fn price_with_metrics(
         &self,
@@ -309,12 +319,12 @@ impl Priceable for InflationLinkedBond {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<ValuationResult> {
         use crate::instruments::Instrument;
-        use crate::metrics::{MetricContext, standard_registry};
+        use crate::metrics::{standard_registry, MetricContext};
         use std::sync::Arc;
-        
+
         // Compute base value
         let base_value = self.value(curves, as_of)?;
-        
+
         // Create metric context
         let mut context = MetricContext::new(
             Arc::new(Instrument::ILB(self.clone())),
@@ -322,11 +332,11 @@ impl Priceable for InflationLinkedBond {
             as_of,
             base_value,
         );
-        
+
         // Get registry and compute requested metrics
         let registry = standard_registry();
         let _metric_measures = registry.compute(metrics, &mut context)?;
-        
+
         crate::pricing::build_with_metrics(
             crate::instruments::Instrument::ILB(self.clone()),
             curves,
@@ -335,11 +345,11 @@ impl Priceable for InflationLinkedBond {
             metrics,
         )
     }
-    
+
     /// Compute full valuation with all standard ILB metrics
     fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
         use crate::metrics::MetricId;
-        
+
         let standard_metrics = vec![
             MetricId::Accrued,
             MetricId::CleanPrice,
@@ -349,7 +359,7 @@ impl Priceable for InflationLinkedBond {
             MetricId::custom("real_duration"),
             MetricId::custom("breakeven_inflation"),
         ];
-        
+
         self.price_with_metrics(curves, as_of, &standard_metrics)
     }
 }
@@ -365,11 +375,13 @@ impl From<InflationLinkedBond> for crate::instruments::Instrument {
 
 impl std::convert::TryFrom<crate::instruments::Instrument> for InflationLinkedBond {
     type Error = finstack_core::Error;
-    
+
     fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
         match value {
             crate::instruments::Instrument::ILB(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+            _ => Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            )),
         }
     }
 }
@@ -385,7 +397,7 @@ mod tests {
         let notional = Money::new(1_000_000.0, Currency::USD);
         let issue = Date::from_calendar_date(2020, Month::January, 15).unwrap();
         let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
-        
+
         let tips = InflationLinkedBond::new_tips(
             "US_TIPS_2030",
             notional,
@@ -396,7 +408,7 @@ mod tests {
             "USD-REAL",
             "US-CPI-U",
         );
-        
+
         assert_eq!(tips.id, "US_TIPS_2030");
         assert_eq!(tips.indexation_method, IndexationMethod::TIPS);
         assert_eq!(tips.deflation_protection, DeflationProtection::MaturityOnly);
@@ -409,7 +421,7 @@ mod tests {
         let issue = Date::from_calendar_date(2015, Month::March, 22).unwrap();
         let maturity = Date::from_calendar_date(2040, Month::March, 22).unwrap();
         let base_date = Date::from_calendar_date(2014, Month::November, 1).unwrap();
-        
+
         let linker = InflationLinkedBond::new_uk_linker(
             "UK_LINKER_2040",
             notional,
@@ -421,7 +433,7 @@ mod tests {
             "GBP-NOMINAL",
             "UK-RPI",
         );
-        
+
         assert_eq!(linker.id, "UK_LINKER_2040");
         assert_eq!(linker.indexation_method, IndexationMethod::UK);
         assert_eq!(linker.deflation_protection, DeflationProtection::None);
@@ -433,45 +445,43 @@ mod tests {
         let notional = Money::new(1_000_000.0, Currency::USD);
         let issue = Date::from_calendar_date(2020, Month::January, 15).unwrap();
         let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
-        
+
         let tips = InflationLinkedBond::new_tips(
-            "TIPS",
-            notional,
-            0.0125,
-            issue,
-            maturity,
-            250.0,
-            "USD-REAL",
-            "US-CPI-U",
+            "TIPS", notional, 0.0125, issue, maturity, 250.0, "USD-REAL", "US-CPI-U",
         );
-        
+
         // Create mock inflation index with deflation and intermediate points
         let observations = vec![
             (issue, 250.0),
             (issue + time::Duration::days(365), 249.0), // Year 1: slight deflation
             (issue + time::Duration::days(365 * 5), 245.0), // Year 5: more deflation
-            (maturity, 240.0), // Final: deflation scenario
+            (maturity, 240.0),                          // Final: deflation scenario
         ];
-        
+
         let inflation_index = InflationIndex::new("US-CPI-U", observations, Currency::USD).unwrap();
-        
+
         // Test deflation floor at maturity
         let ratio_at_maturity = tips.index_ratio(maturity, &inflation_index).unwrap();
         assert_eq!(ratio_at_maturity, 1.0); // Should be floored at 1.0
-        
+
         // Test no floor before maturity (accounting for 3-month TIPS lag)
         let test_date = issue + time::Duration::days(365 + 90); // 1 year + 3 months to account for lag
         let ratio_before = tips.index_ratio(test_date, &inflation_index).unwrap();
-        
+
         // Debug: check the reference date after applying lag
         let reference_date = test_date - time::Duration::days(90); // 3-month lag
-        println!("Test date: {:?}, Reference date (after lag): {:?}, Ratio: {}", 
-                test_date, reference_date, ratio_before);
-        
-        assert!(ratio_before < 1.0, "Ratio {} should be < 1.0 for deflation scenario", ratio_before); // Should not be floored
+        println!(
+            "Test date: {:?}, Reference date (after lag): {:?}, Ratio: {}",
+            test_date, reference_date, ratio_before
+        );
+
+        assert!(
+            ratio_before < 1.0,
+            "Ratio {} should be < 1.0 for deflation scenario",
+            ratio_before
+        ); // Should not be floored
     }
 }
-
 
 /// Builder pattern for ILB instruments
 #[derive(Default)]
@@ -500,137 +510,138 @@ impl ILBBuilder {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn id(mut self, value: impl Into<String>) -> Self {
         self.id = Some(value.into());
         self
     }
-    
+
     pub fn notional(mut self, value: Money) -> Self {
         self.notional = Some(value);
         self
     }
-    
+
     pub fn real_coupon(mut self, value: F) -> Self {
         self.real_coupon = Some(value);
         self
     }
-    
+
     pub fn freq(mut self, value: Frequency) -> Self {
         self.freq = Some(value);
         self
     }
-    
+
     pub fn dc(mut self, value: DayCount) -> Self {
         self.dc = Some(value);
         self
     }
-    
+
     pub fn issue(mut self, value: Date) -> Self {
         self.issue = Some(value);
         self
     }
-    
+
     pub fn maturity(mut self, value: Date) -> Self {
         self.maturity = Some(value);
         self
     }
-    
+
     pub fn base_index(mut self, value: F) -> Self {
         self.base_index = Some(value);
         self
     }
-    
+
     pub fn base_date(mut self, value: Date) -> Self {
         self.base_date = Some(value);
         self
     }
-    
+
     pub fn indexation_method(mut self, value: IndexationMethod) -> Self {
         self.indexation_method = Some(value);
         self
     }
-    
+
     pub fn lag(mut self, value: InflationLag) -> Self {
         self.lag = Some(value);
         self
     }
-    
+
     pub fn deflation_protection(mut self, value: DeflationProtection) -> Self {
         self.deflation_protection = Some(value);
         self
     }
-    
+
     pub fn bdc(mut self, value: BusinessDayConvention) -> Self {
         self.bdc = Some(value);
         self
     }
-    
+
     pub fn stub(mut self, value: StubKind) -> Self {
         self.stub = Some(value);
         self
     }
-    
+
     pub fn calendar_id(mut self, value: &'static str) -> Self {
         self.calendar_id = Some(value);
         self
     }
-    
+
     pub fn disc_id(mut self, value: &'static str) -> Self {
         self.disc_id = Some(value);
         self
     }
-    
+
     pub fn inflation_id(mut self, value: &'static str) -> Self {
         self.inflation_id = Some(value);
         self
     }
-    
+
     pub fn quoted_clean(mut self, value: F) -> Self {
         self.quoted_clean = Some(value);
         self
     }
-    
+
     pub fn build(self) -> finstack_core::Result<InflationLinkedBond> {
-        let issue = self.issue.ok_or_else(|| finstack_core::Error::from(
-            finstack_core::error::InputError::Invalid
-        ))?;
-        
+        let issue = self
+            .issue
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+
         Ok(InflationLinkedBond {
-            id: self.id.ok_or_else(|| finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid
-            ))?,
-            notional: self.notional.ok_or_else(|| finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid
-            ))?,
-            real_coupon: self.real_coupon.ok_or_else(|| finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid
-            ))?,
+            id: self.id.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            notional: self.notional.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            real_coupon: self.real_coupon.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
             freq: self.freq.unwrap_or_else(Frequency::semi_annual),
             dc: self.dc.unwrap_or(DayCount::ActAct),
             issue,
-            maturity: self.maturity.ok_or_else(|| finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid
-            ))?,
-            base_index: self.base_index.ok_or_else(|| finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid
-            ))?,
+            maturity: self.maturity.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            base_index: self.base_index.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
             base_date: self.base_date.unwrap_or(issue),
             indexation_method: self.indexation_method.unwrap_or(IndexationMethod::TIPS),
             lag: self.lag.unwrap_or(InflationLag::Months(3)),
-            deflation_protection: self.deflation_protection.unwrap_or(DeflationProtection::MaturityOnly),
+            deflation_protection: self
+                .deflation_protection
+                .unwrap_or(DeflationProtection::MaturityOnly),
             bdc: self.bdc.unwrap_or(BusinessDayConvention::Following),
             stub: self.stub.unwrap_or(StubKind::None),
             calendar_id: self.calendar_id,
-            disc_id: self.disc_id.ok_or_else(|| finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid
-            ))?,
-            inflation_id: self.inflation_id.ok_or_else(|| finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid
-            ))?,
+            disc_id: self.disc_id.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            inflation_id: self.inflation_id.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
             quoted_clean: self.quoted_clean,
             attributes: Attributes::new(),
         })
     }
 }
-

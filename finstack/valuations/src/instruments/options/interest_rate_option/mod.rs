@@ -2,16 +2,16 @@
 
 pub mod metrics;
 
+use crate::impl_attributable;
 use crate::pricing::result::ValuationResult;
 use crate::traits::{Attributes, Priceable};
-use crate::impl_attributable;
-use finstack_core::F;
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::money::Money;
+use finstack_core::F;
 
 use finstack_core::dates::{Date, DayCount, Frequency};
 
-use super::{ExerciseStyle, SettlementType, black_scholes_common};
+use super::{black_scholes_common, ExerciseStyle, SettlementType};
 
 /// Type of interest rate option
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -96,7 +96,7 @@ impl InterestRateOption {
             attributes: Attributes::new(),
         }
     }
-    
+
     /// Create a cap instrument
     #[allow(clippy::too_many_arguments)]
     pub fn new_cap(
@@ -123,7 +123,7 @@ impl InterestRateOption {
             forward_id,
         )
     }
-    
+
     /// Create a floor instrument
     #[allow(clippy::too_many_arguments)]
     pub fn new_floor(
@@ -150,7 +150,7 @@ impl InterestRateOption {
             forward_id,
         )
     }
-    
+
     /// Create a swaption instrument
     #[allow(clippy::too_many_arguments)]
     pub fn new_swaption(
@@ -166,7 +166,7 @@ impl InterestRateOption {
         forward_id: &'static str,
     ) -> Self {
         let swap_end = swap_start + time::Duration::days((swap_tenor_years * 365.25) as i64);
-        
+
         let mut swaption = Self::new(
             id,
             RateOptionType::Swaption,
@@ -182,9 +182,9 @@ impl InterestRateOption {
         swaption.swap_tenor = Some(swap_tenor_years);
         swaption
     }
-    
+
     /// Calculate caplet/floorlet price using Black's model
-    /// 
+    ///
     /// # Arguments
     /// * `forward_rate` - Forward rate for the period
     /// * `df` - Discount factor to payment date
@@ -204,10 +204,10 @@ impl InterestRateOption {
             let payoff = match self.rate_option_type {
                 RateOptionType::Caplet | RateOptionType::Cap => {
                     (forward_rate - self.strike_rate).max(0.0)
-                },
+                }
                 RateOptionType::Floorlet | RateOptionType::Floor => {
                     (self.strike_rate - forward_rate).max(0.0)
-                },
+                }
                 _ => 0.0,
             };
             return Ok(Money::new(
@@ -215,7 +215,7 @@ impl InterestRateOption {
                 self.notional.currency(),
             ));
         }
-        
+
         // Black's formula for caplet/floorlet
         let d1 = if sigma > 0.0 && t > 0.0 {
             ((forward_rate / self.strike_rate).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt())
@@ -223,28 +223,28 @@ impl InterestRateOption {
             0.0
         };
         let d2 = d1 - sigma * t.sqrt();
-        
+
         let price = match self.rate_option_type {
             RateOptionType::Caplet | RateOptionType::Cap => {
-                df * tau * self.notional.amount() * (
-                    forward_rate * black_scholes_common::norm_cdf(d1)
-                    - self.strike_rate * black_scholes_common::norm_cdf(d2)
-                )
-            },
+                df * tau
+                    * self.notional.amount()
+                    * (forward_rate * black_scholes_common::norm_cdf(d1)
+                        - self.strike_rate * black_scholes_common::norm_cdf(d2))
+            }
             RateOptionType::Floorlet | RateOptionType::Floor => {
-                df * tau * self.notional.amount() * (
-                    self.strike_rate * black_scholes_common::norm_cdf(-d2)
-                    - forward_rate * black_scholes_common::norm_cdf(-d1)
-                )
-            },
+                df * tau
+                    * self.notional.amount()
+                    * (self.strike_rate * black_scholes_common::norm_cdf(-d2)
+                        - forward_rate * black_scholes_common::norm_cdf(-d1))
+            }
             _ => 0.0,
         };
-        
+
         Ok(Money::new(price, self.notional.currency()))
     }
-    
+
     /// Calculate swaption price using Black's model
-    /// 
+    ///
     /// # Arguments
     /// * `swap_rate` - Forward swap rate
     /// * `annuity` - Annuity factor for the underlying swap
@@ -265,7 +265,7 @@ impl InterestRateOption {
                 self.notional.currency(),
             ));
         }
-        
+
         // Black's formula for swaption
         let d1 = if sigma > 0.0 && t > 0.0 {
             ((swap_rate / self.strike_rate).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt())
@@ -273,62 +273,74 @@ impl InterestRateOption {
             0.0
         };
         let d2 = d1 - sigma * t.sqrt();
-        
+
         // Payer swaption (right to pay fixed)
-        let price = annuity * self.notional.amount() * (
-            swap_rate * black_scholes_common::norm_cdf(d1)
-            - self.strike_rate * black_scholes_common::norm_cdf(d2)
-        );
-        
+        let price = annuity
+            * self.notional.amount()
+            * (swap_rate * black_scholes_common::norm_cdf(d1)
+                - self.strike_rate * black_scholes_common::norm_cdf(d2));
+
         Ok(Money::new(price, self.notional.currency()))
     }
-    
+
     /// Calculate option delta
     pub fn delta(&self, forward_rate: F, sigma: F, t: F) -> F {
         if t <= 0.0 || sigma <= 0.0 {
             return match self.rate_option_type {
                 RateOptionType::Caplet | RateOptionType::Cap => {
-                    if forward_rate > self.strike_rate { 1.0 } else { 0.0 }
-                },
+                    if forward_rate > self.strike_rate {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
                 RateOptionType::Floorlet | RateOptionType::Floor => {
-                    if forward_rate < self.strike_rate { -1.0 } else { 0.0 }
-                },
+                    if forward_rate < self.strike_rate {
+                        -1.0
+                    } else {
+                        0.0
+                    }
+                }
                 _ => 0.0,
             };
         }
-        
-        let d1 = ((forward_rate / self.strike_rate).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
-        
+
+        let d1 =
+            ((forward_rate / self.strike_rate).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
+
         match self.rate_option_type {
             RateOptionType::Caplet | RateOptionType::Cap => black_scholes_common::norm_cdf(d1),
-            RateOptionType::Floorlet | RateOptionType::Floor => -black_scholes_common::norm_cdf(-d1),
+            RateOptionType::Floorlet | RateOptionType::Floor => {
+                -black_scholes_common::norm_cdf(-d1)
+            }
             RateOptionType::Swaption => black_scholes_common::norm_cdf(d1),
         }
     }
-    
+
     /// Calculate option gamma
     pub fn gamma(&self, forward_rate: F, sigma: F, t: F) -> F {
         if t <= 0.0 || sigma <= 0.0 || forward_rate <= 0.0 {
             return 0.0;
         }
-        
-        let d1 = ((forward_rate / self.strike_rate).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
-        
+
+        let d1 =
+            ((forward_rate / self.strike_rate).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
+
         black_scholes_common::norm_pdf(d1) / (forward_rate * sigma * t.sqrt())
     }
-    
+
     /// Calculate option vega
     pub fn vega(&self, forward_rate: F, sigma: F, t: F) -> F {
         if t <= 0.0 || forward_rate <= 0.0 {
             return 0.0;
         }
-        
+
         let d1 = if sigma > 0.0 {
             ((forward_rate / self.strike_rate).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt())
         } else {
             0.0
         };
-        
+
         forward_rate * black_scholes_common::norm_pdf(d1) * t.sqrt() / 100.0 // Per 1% vega
     }
 }
@@ -339,14 +351,14 @@ impl Priceable for InterestRateOption {
         // Get market data
         let _disc = curves.discount(self.disc_id)?;
         let _forward = curves.forecast(self.forward_id)?;
-        
+
         // Would need to implement full valuation logic here
         // For now, return error as we need volatility surface
         Err(finstack_core::Error::from(
-            finstack_core::error::InputError::NotFound
+            finstack_core::error::InputError::NotFound,
         ))
     }
-    
+
     /// Compute value with specific metrics
     fn price_with_metrics(
         &self,
@@ -357,10 +369,10 @@ impl Priceable for InterestRateOption {
         use crate::instruments::Instrument;
         use crate::metrics::MetricContext;
         use std::sync::Arc;
-        
+
         // Compute base value
         let base_value = self.value(curves, as_of)?;
-        
+
         // Create metric context
         let _context = MetricContext::new(
             Arc::new(Instrument::InterestRateOption(self.clone())),
@@ -368,7 +380,7 @@ impl Priceable for InterestRateOption {
             as_of,
             base_value,
         );
-        
+
         crate::pricing::build_with_metrics(
             Instrument::InterestRateOption(self.clone()),
             curves,
@@ -377,11 +389,11 @@ impl Priceable for InterestRateOption {
             metrics,
         )
     }
-    
+
     /// Compute full valuation with all standard option metrics
     fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
         use crate::metrics::MetricId;
-        
+
         let standard_metrics = vec![
             MetricId::Delta,
             MetricId::Gamma,
@@ -389,7 +401,7 @@ impl Priceable for InterestRateOption {
             MetricId::Theta,
             MetricId::Rho,
         ];
-        
+
         self.price_with_metrics(curves, as_of, &standard_metrics)
     }
 }
@@ -405,11 +417,13 @@ impl From<InterestRateOption> for crate::instruments::Instrument {
 
 impl std::convert::TryFrom<crate::instruments::Instrument> for InterestRateOption {
     type Error = finstack_core::Error;
-    
+
     fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
         match value {
             crate::instruments::Instrument::InterestRateOption(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+            _ => Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            )),
         }
     }
 }
@@ -425,7 +439,7 @@ mod tests {
         let notional = Money::new(10_000_000.0, Currency::USD);
         let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
-        
+
         let cap = InterestRateOption::new_cap(
             "USD_CAP_3%",
             notional,
@@ -437,7 +451,7 @@ mod tests {
             "USD-OIS",
             "USD-LIBOR-3M",
         );
-        
+
         assert_eq!(cap.id, "USD_CAP_3%");
         assert_eq!(cap.rate_option_type, RateOptionType::Cap);
         assert_eq!(cap.strike_rate, 0.03);
@@ -448,7 +462,7 @@ mod tests {
         let notional = Money::new(10_000_000.0, Currency::USD);
         let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let end = Date::from_calendar_date(2025, Month::April, 1).unwrap();
-        
+
         let caplet = InterestRateOption {
             id: "CAPLET".to_string(),
             rate_option_type: RateOptionType::Caplet,
@@ -466,33 +480,35 @@ mod tests {
             swap_tenor: None,
             attributes: Attributes::new(),
         };
-        
+
         // Test parameters
         let forward_rate = 0.035; // 3.5% forward rate
         let df = 0.99; // Discount factor
         let sigma = 0.20; // 20% volatility
         let t = 0.25; // 3 months to expiry
         let tau = 0.25; // 3-month period
-        
-        let price = caplet.black_price_caplet_floorlet(forward_rate, df, sigma, t, tau).unwrap();
-        
+
+        let price = caplet
+            .black_price_caplet_floorlet(forward_rate, df, sigma, t, tau)
+            .unwrap();
+
         // Caplet should have positive value when forward > strike
         assert!(price.amount() > 0.0);
-        
+
         // Test Greeks
         let delta = caplet.delta(forward_rate, sigma, t);
         assert!(delta > 0.0 && delta < 1.0);
-        
+
         let gamma = caplet.gamma(forward_rate, sigma, t);
         assert!(gamma > 0.0);
     }
-    
+
     #[test]
     fn test_swaption_creation() {
         let notional = Money::new(50_000_000.0, Currency::EUR);
         let option_expiry = Date::from_calendar_date(2025, Month::June, 30).unwrap();
         let swap_start = Date::from_calendar_date(2025, Month::July, 1).unwrap();
-        
+
         let swaption = InterestRateOption::new_swaption(
             "EUR_5Y10Y_SWAPTION",
             notional,
@@ -505,7 +521,7 @@ mod tests {
             "EUR-OIS",
             "EUR-EURIBOR-6M",
         );
-        
+
         assert_eq!(swaption.id, "EUR_5Y10Y_SWAPTION");
         assert_eq!(swaption.rate_option_type, RateOptionType::Swaption);
         assert_eq!(swaption.swap_tenor, Some(10.0));

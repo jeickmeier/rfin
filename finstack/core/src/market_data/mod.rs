@@ -40,24 +40,24 @@
 //! assert!(df < 1.0);
 //! ```
 
+/// Unified market-data context for valuations.
+pub mod context;
 /// Identifier utilities (see [`id::CurveId`]).
 pub mod id;
 /// Inflation index data (CPI/RPI) using Polars DataFrames.
 pub mod inflation_index;
 /// Interpolation framework and concrete algorithms.
 pub mod interp;
+/// Generic market primitives: scalars and time series
+pub mod primitives;
 /// Two-dimensional surfaces (e.g. volatility).
 pub mod surfaces;
 /// One-dimensional term structures (yield, credit, ...).
 pub mod term_structures;
-/// Generic market primitives: scalars and time series
-pub mod primitives;
 /// Public trait hierarchy used by pricing components.
 pub mod traits;
 /// Helper validation utilities shared across market-data code.
 pub mod utils;
-/// Unified market-data context for valuations.
-pub mod context;
 // Re-export helper(s)
 pub use utils::validate_knots;
 

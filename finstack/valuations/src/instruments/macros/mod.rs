@@ -1,12 +1,12 @@
 //! Procedural-style macros for instruments
 //!
-//! This module provides derive-like macros for reducing boilerplate 
+//! This module provides derive-like macros for reducing boilerplate
 //! in instrument implementations.
 
 //! Note: The legacy `impl_priceable!` macro has been removed.
 
 /// Generate standard Attributable implementation.
-/// 
+///
 /// Requirements:
 /// - Struct must have an `attributes: Attributes` field
 #[macro_export]
@@ -16,7 +16,7 @@ macro_rules! impl_attributable {
             fn attributes(&self) -> &$crate::traits::Attributes {
                 &self.attributes
             }
-            
+
             fn attributes_mut(&mut self) -> &mut $crate::traits::Attributes {
                 &mut self.attributes
             }
@@ -25,7 +25,7 @@ macro_rules! impl_attributable {
 }
 
 /// Generate builder pattern for an instrument.
-/// 
+///
 /// Creates a builder struct with setter methods for all fields.
 #[macro_export]
 macro_rules! impl_builder {
@@ -40,26 +40,26 @@ macro_rules! impl_builder {
             $($req_field: Option<$req_type>,)*
             $($opt_field: Option<$opt_type>,)*
         }
-        
+
         impl $builder {
             pub fn new() -> Self {
                 Self::default()
             }
-            
+
             $(
                 pub fn $req_field(mut self, value: $req_type) -> Self {
                     self.$req_field = Some(value);
                     self
                 }
             )*
-            
+
             $(
                 pub fn $opt_field(mut self, value: $opt_type) -> Self {
                     self.$opt_field = Some(value);
                     self
                 }
             )*
-            
+
             pub fn build(self) -> finstack_core::Result<$type> {
                 Ok($type {
                     $(
@@ -75,7 +75,7 @@ macro_rules! impl_builder {
                 })
             }
         }
-        
+
         impl $type {
             pub fn builder() -> $builder {
                 $builder::new()

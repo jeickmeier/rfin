@@ -3,12 +3,19 @@ use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use time::{Date, Duration, Month};
 
-use finstack_core::dates::HolidayCalendar;
 use finstack_core::dates::holiday::calendars::{Cnbe, Hkhk};
+use finstack_core::dates::HolidayCalendar;
 
-fn write_calendar_csv<P: Into<PathBuf>>(path: P, cal: &dyn HolidayCalendar, start_year: i32, end_year: i32) -> std::io::Result<()> {
+fn write_calendar_csv<P: Into<PathBuf>>(
+    path: P,
+    cal: &dyn HolidayCalendar,
+    start_year: i32,
+    end_year: i32,
+) -> std::io::Result<()> {
     let path: PathBuf = path.into();
-    if let Some(dir) = path.parent() { create_dir_all(dir)?; }
+    if let Some(dir) = path.parent() {
+        create_dir_all(dir)?;
+    }
     let file = File::create(path)?;
     let mut w = BufWriter::new(file);
 
@@ -41,5 +48,3 @@ fn main() -> std::io::Result<()> {
 
     Ok(())
 }
-
-

@@ -1,8 +1,8 @@
 //! Common test helpers and utilities.
 
+use finstack_core::dates::HolidayCalendar;
 use std::collections::HashSet;
 use time::Date;
-use finstack_core::dates::HolidayCalendar;
 
 /// Approximate equality for floating point values.
 #[allow(dead_code)]

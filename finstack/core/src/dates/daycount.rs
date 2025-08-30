@@ -24,6 +24,8 @@ use crate::error::InputError;
 
 /// Supported day-count conventions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 #[non_exhaustive]
 pub enum DayCount {
     /// Actual / 360 — year fraction = actual days ÷ 360.
@@ -95,10 +97,18 @@ pub fn days_30_360(start: Date, end: Date, convention: Thirty360Convention) -> i
     let d1_adj = if d1 == 31 { 30 } else { d1 };
     let d2_adj = match convention {
         Thirty360Convention::Us => {
-            if d2 == 31 && d1_adj == 30 { 30 } else { d2 }
+            if d2 == 31 && d1_adj == 30 {
+                30
+            } else {
+                d2
+            }
         }
         Thirty360Convention::European => {
-            if d2 == 31 { 30 } else { d2 }
+            if d2 == 31 {
+                30
+            } else {
+                d2
+            }
         }
     };
 

@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion, black_box};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use finstack_core::math::{brent, newton_bracketed};
 
 fn bench_brent(c: &mut Criterion) {
@@ -24,5 +24,3 @@ fn bench_newton_bracketed(c: &mut Criterion) {
 
 criterion_group!(benches, bench_brent, bench_newton_bracketed);
 criterion_main!(benches);
-
-

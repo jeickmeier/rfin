@@ -1,8 +1,8 @@
 //! Amortization specification for principal over time.
 
 use finstack_core::dates::Date;
-use finstack_core::money::Money;
 use finstack_core::error::InputError;
+use finstack_core::money::Money;
 
 /// Amortization specification for principal over time.
 ///
@@ -37,11 +37,13 @@ pub enum AmortizationSpec {
 }
 
 impl Default for AmortizationSpec {
-    fn default() -> Self { Self::None }
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 /// Notional amount with an optional amortisation rule.
-/// 
+///
 /// Combines initial principal with amortization behavior for complete
 /// notional lifecycle management.
 #[derive(Clone, Debug, PartialEq)]
@@ -54,12 +56,12 @@ pub struct Notional {
 
 impl Notional {
     /// Plain (non-amortising) notional helper.
-    /// 
+    ///
     /// # Example
     /// ```rust
     /// use finstack_core::currency::Currency;
     /// use finstack_valuations::cashflow::amortization_notional::Notional;
-    /// 
+    ///
     /// let notional = Notional::par(1_000_000.0, Currency::USD);
     /// assert_eq!(notional.initial.amount(), 1_000_000.0);
     /// assert!(matches!(notional.amort, finstack_valuations::cashflow::amortization_notional::AmortizationSpec::None));
@@ -72,7 +74,7 @@ impl Notional {
     }
 
     /// Validate amortisation schedule (sum of amort steps ≤ initial).
-    /// 
+    ///
     /// # Errors
     /// Returns an error if the amortization schedule is invalid:
     /// - Currency mismatch between initial and final amounts
@@ -116,4 +118,3 @@ impl Notional {
         self.initial.currency()
     }
 }
-

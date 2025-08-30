@@ -82,7 +82,9 @@ impl MarketContext {
     }
 
     /// Backwards compatibility helper (former CurveSet name)
-    pub fn with_vol_surface(self, surface: VolSurface) -> Self { self.with_surface(surface) }
+    pub fn with_vol_surface(self, surface: VolSurface) -> Self {
+        self.with_surface(surface)
+    }
 
     /// Insert or replace a price/scalar by id.
     pub fn with_price(mut self, id: impl AsRef<str>, price: MarketScalar) -> Self {
@@ -246,7 +248,10 @@ impl MarketContext {
     }
 
     /// Get hazard curve.
-    pub fn hazard(&self, id: impl AsRef<str>) -> crate::Result<Arc<crate::market_data::hazard_curve::HazardCurve>> {
+    pub fn hazard(
+        &self,
+        id: impl AsRef<str>,
+    ) -> crate::Result<Arc<crate::market_data::hazard_curve::HazardCurve>> {
         self.hazard
             .get(&CurveId::new(id))
             .cloned()
@@ -271,9 +276,7 @@ impl MarketContext {
 
     /// Get inflation index by id.
     pub fn inflation_index(&self, id: impl AsRef<str>) -> Option<Arc<InflationIndex>> {
-        self.inflation_indices
-            .get(&CurveId::new(id))
-            .cloned()
+        self.inflation_indices.get(&CurveId::new(id)).cloned()
     }
 
     /// Resolve collateral discount curve for CSA code.
@@ -287,5 +290,3 @@ impl MarketContext {
 }
 
 // Intentionally omit `From<CurveSet>` to avoid overlap with `impl<T> From<T> for T>`.
-
-

@@ -57,7 +57,10 @@ impl<'a> CompositeCalendar<'a> {
     /// Create a new composite calendar using union semantics (strict by default).
     #[must_use]
     pub const fn new(calendars: &'a [&'a dyn HolidayCalendar]) -> Self {
-        Self { calendars, intersection: false }
+        Self {
+            calendars,
+            intersection: false,
+        }
     }
 
     /// Convenience wrapper constructing a *union* composite (strict by default).
@@ -74,7 +77,10 @@ impl<'a> CompositeCalendar<'a> {
         calendars: &'a [&'a dyn HolidayCalendar],
         intersection: bool,
     ) -> Self {
-        Self { calendars, intersection }
+        Self {
+            calendars,
+            intersection,
+        }
     }
 }
 

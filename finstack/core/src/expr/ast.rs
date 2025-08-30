@@ -1,6 +1,7 @@
 //! AST nodes and function registry for the expression engine.
 
 use core::hash::{Hash, Hasher};
+use super::time_windows::DurationSpec;
 
 /// Expression AST with optional unique ID for DAG planning and caching.
 #[derive(Clone, Debug)]
@@ -18,8 +19,8 @@ pub struct Expr {
 pub enum ExprNode {
     /// Reference a column by name.
     Column(String),
-    /// Literal scalar value (f64 for now).
-    Literal(f64),
+    /// Literal scalar value using the crate's numeric type alias.
+    Literal(crate::F),
     /// Call a registered function with positional arguments.
     Call(Function, Vec<Expr>),
 }
@@ -35,7 +36,7 @@ impl Expr {
     }
 
     /// Create a new literal value.
-    pub fn literal(value: f64) -> Self {
+    pub fn literal(value: crate::F) -> Self {
         Self {
             id: None,
             node: ExprNode::Literal(value),
@@ -66,6 +67,11 @@ impl Expr {
 }
 
 /// Hash implementation for Expr to support deduplication in DAG planning.
+///
+/// Note: Structural identity only. The opaque `id` field is intentionally
+/// excluded from both `Hash` and `Eq` so that DAG deduplication and caches
+/// consider two expressions identical if their `node` and `time_window`
+/// match, regardless of their runtime-assigned ids.
 impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match &self.node {
@@ -75,7 +81,8 @@ impl Hash for Expr {
             }
             ExprNode::Literal(val) => {
                 1u8.hash(state);
-                val.to_bits().hash(state);
+                // Hash via raw f64 bits for determinism (covers NaN payloads)
+                (*val).to_bits().hash(state);
             }
             ExprNode::Call(func, args) => {
                 2u8.hash(state);
@@ -92,7 +99,10 @@ impl PartialEq for Expr {
     fn eq(&self, other: &Self) -> bool {
         let nodes_eq = match (&self.node, &other.node) {
             (ExprNode::Column(a), ExprNode::Column(b)) => a == b,
-            (ExprNode::Literal(a), ExprNode::Literal(b)) => a.to_bits() == b.to_bits(),
+            (ExprNode::Literal(a), ExprNode::Literal(b)) => {
+                // f64 equality via raw bits for deterministic NaN handling
+                (*a).to_bits() == (*b).to_bits()
+            }
             (ExprNode::Call(f1, a1), ExprNode::Call(f2, a2)) => f1 == f2 && a1 == a2,
             _ => false,
         };
@@ -109,8 +119,8 @@ pub enum TimeWindow {
     Rows(usize),
     /// Time-based window with duration string (e.g., "30d", "1h").
     Duration {
-        /// Duration specification (e.g., "30d", "1h").
-        period: String,
+        /// Parsed duration specification. String is kept only at IO boundaries.
+        period: DurationSpec,
         /// Name of the time column to use for windowing.
         time_column: String,
     },
@@ -211,7 +221,7 @@ pub struct ExecMeta {
 #[derive(Clone, Debug)]
 pub struct EvaluationResult {
     /// The computed values.
-    pub values: Vec<f64>,
+    pub values: Vec<crate::F>,
     /// Execution metadata stamped into result.
     pub metadata: ResultMetadata,
 }

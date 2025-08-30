@@ -489,12 +489,12 @@ impl PyMoney {
     /// Examples:
     ///     >>> from finstack import Money, Currency, Date
     ///     >>> from finstack.market_data import SimpleFxProvider, FxConversionPolicy
-    ///     >>> 
+    ///     >>>
     ///     >>> # Set up FX provider with rates
     ///     >>> provider = SimpleFxProvider()
     ///     >>> provider.set_rate(Currency("USD"), Currency("EUR"), 0.85)
     ///     >>> provider.set_rate(Currency("EUR"), Currency("USD"), 1.18)
-    ///     >>> 
+    ///     >>>
     ///     >>> # Convert USD to EUR
     ///     >>> usd_money = Money(100.0, Currency("USD"))
     ///     >>> date = Date(2025, 1, 15)

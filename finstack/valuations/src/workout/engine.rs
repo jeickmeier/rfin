@@ -6,10 +6,10 @@
 //! - Penalty and recovery flow generation
 //! - Waterfall application for recoveries
 
+use crate::cashflow::primitives::CashFlow;
+use crate::instruments::fixed_income::loan::term_loan::{InterestSpec, Loan};
 use finstack_core::prelude::*;
 use finstack_core::F;
-use crate::cashflow::primitives::CashFlow;
-use crate::instruments::fixed_income::loan::term_loan::{Loan, InterestSpec};
 use std::collections::HashMap;
 
 /// Workout state for a loan.
@@ -206,7 +206,7 @@ impl WorkoutEngine {
             recovery_analysis: None,
         }
     }
-    
+
     /// Transition to a new state.
     pub fn transition(
         &mut self,
@@ -218,7 +218,7 @@ impl WorkoutEngine {
         if !self.is_valid_transition(&self.state, &new_state) {
             return Err(finstack_core::error::InputError::Invalid.into());
         }
-        
+
         // Record event
         let event = WorkoutEvent {
             date,
@@ -228,16 +228,16 @@ impl WorkoutEngine {
             impact: None,
         };
         self.events.push(event);
-        
+
         // Update state
         self.state = new_state;
-        
+
         // Clear cached analysis on state change
         self.recovery_analysis = None;
-        
+
         Ok(())
     }
-    
+
     /// Apply workout strategy to a loan.
     pub fn apply(
         &mut self,
@@ -246,36 +246,41 @@ impl WorkoutEngine {
         as_of: Date,
     ) -> finstack_core::Result<WorkoutApplication> {
         // Get strategy and clone it to avoid borrowing issues
-        let strategy = self.policy.workout_strategies.get(strategy_name)
+        let strategy = self
+            .policy
+            .workout_strategies
+            .get(strategy_name)
             .ok_or(finstack_core::error::InputError::NotFound)?
             .clone();
-        
+
         // Track modifications
         let mut modifications = Vec::new();
-        
+
         // Apply rate modification
         if let Some(ref rate_mod) = strategy.rate_modification {
             self.apply_rate_modification(loan, rate_mod)?;
             modifications.push(format!("Rate modified: {:?}", rate_mod));
         }
-        
+
         // Apply principal modification
         if let Some(ref principal_mod) = strategy.principal_modification {
             self.apply_principal_modification(loan, principal_mod)?;
             modifications.push(format!("Principal modified: {:?}", principal_mod));
         }
-        
+
         // Apply maturity extension
         if let Some(months) = strategy.maturity_extension_months {
-            let new_maturity = loan.maturity_date.checked_add(time::Duration::days(months as i64 * 30))
+            let new_maturity = loan
+                .maturity_date
+                .checked_add(time::Duration::days(months as i64 * 30))
                 .ok_or(finstack_core::error::InputError::Invalid)?;
             loan.maturity_date = new_maturity;
             modifications.push(format!("Maturity extended by {} months", months));
         }
-        
+
         // Calculate exit fee if applicable
         let exit_fee = strategy.exit_fee_pct.map(|pct| loan.outstanding * pct);
-        
+
         // Transition to workout state
         self.transition(
             WorkoutState::Workout {
@@ -285,18 +290,20 @@ impl WorkoutEngine {
             as_of,
             format!("Applied workout strategy: {}", strategy.name),
         )?;
-        
+
         Ok(WorkoutApplication {
             strategy_name: strategy.name,
             applied_date: as_of,
             modifications,
             exit_fee,
             forbearance_end: strategy.forbearance_months.map(|months| {
-                as_of.checked_add(time::Duration::days(months as i64 * 30)).unwrap()
+                as_of
+                    .checked_add(time::Duration::days(months as i64 * 30))
+                    .unwrap()
             }),
         })
     }
-    
+
     /// Generate penalty flows for workout.
     pub fn generate_penalty_flows(
         &self,
@@ -304,7 +311,7 @@ impl WorkoutEngine {
         as_of: Date,
     ) -> finstack_core::Result<Vec<CashFlow>> {
         let mut flows = Vec::new();
-        
+
         match &self.state {
             WorkoutState::Default { .. } => {
                 // Default interest penalty
@@ -313,7 +320,7 @@ impl WorkoutEngine {
                     finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(
                         as_of, loan.maturity_date, loan.day_count
                     );
-                
+
                 flows.push(CashFlow {
                     date: loan.maturity_date,
                     reset_date: None,
@@ -321,7 +328,7 @@ impl WorkoutEngine {
                     kind: crate::cashflow::primitives::CFKind::Fee,
                     accrual_factor: 0.0,
                 });
-            },
+            }
             WorkoutState::Workout { .. } => {
                 // Workout fees
                 if let Some(strategy) = self.policy.workout_strategies.values().next() {
@@ -336,13 +343,13 @@ impl WorkoutEngine {
                         });
                     }
                 }
-            },
+            }
             _ => {}
         }
-        
+
         Ok(flows)
     }
-    
+
     /// Generate recovery flows based on waterfall.
     pub fn generate_recovery_flows(
         &mut self,
@@ -353,54 +360,63 @@ impl WorkoutEngine {
         let mut available = collateral_value.amount();
         let mut tier_recoveries = Vec::new();
         let mut total_recovery = 0.0;
-        
+
         for tier in &self.policy.recovery_waterfall.tiers {
             let claim = match &tier.claim_amount {
                 ClaimAmount::Fixed(amount) => amount.amount(),
                 ClaimAmount::PercentOfOutstanding(pct) => outstanding.amount() * pct,
                 ClaimAmount::Calculated(_formula) => outstanding.amount(), // Simplified
             };
-            
+
             let recovery = (claim * tier.recovery_pct).min(available);
             available -= recovery;
             total_recovery += recovery;
-            
-            tier_recoveries.push((tier.name.clone(), Money::new(recovery, outstanding.currency())));
+
+            tier_recoveries.push((
+                tier.name.clone(),
+                Money::new(recovery, outstanding.currency()),
+            ));
         }
-        
+
         let recovery_rate = total_recovery / outstanding.amount();
-        
+
         // Simple recovery schedule (immediate recovery for now)
         let recovery_schedule = vec![(as_of, Money::new(total_recovery, outstanding.currency()))];
-        
+
         let analysis = RecoveryAnalysis {
             expected_recovery: Money::new(total_recovery, outstanding.currency()),
             recovery_rate,
             tier_recoveries,
             recovery_schedule,
         };
-        
+
         self.recovery_analysis = Some(analysis.clone());
-        
+
         Ok(analysis)
     }
-    
+
     // Helper methods
-    
+
     fn is_valid_transition(&self, from: &WorkoutState, to: &WorkoutState) -> bool {
         matches!(
             (from, to),
-            (WorkoutState::Performing, WorkoutState::Stressed { .. }) |
-            (WorkoutState::Performing, WorkoutState::Default { .. }) |
-            (WorkoutState::Stressed { .. }, WorkoutState::Default { .. }) |
-            (WorkoutState::Stressed { .. }, WorkoutState::Performing) |
-            (WorkoutState::Default { .. }, WorkoutState::Workout { .. }) |
-            (WorkoutState::Workout { .. }, WorkoutState::Recovered { .. }) |
-            (WorkoutState::Workout { .. }, WorkoutState::WrittenOff { .. }) |
-            (WorkoutState::Default { .. }, WorkoutState::WrittenOff { .. })
+            (WorkoutState::Performing, WorkoutState::Stressed { .. })
+                | (WorkoutState::Performing, WorkoutState::Default { .. })
+                | (WorkoutState::Stressed { .. }, WorkoutState::Default { .. })
+                | (WorkoutState::Stressed { .. }, WorkoutState::Performing)
+                | (WorkoutState::Default { .. }, WorkoutState::Workout { .. })
+                | (WorkoutState::Workout { .. }, WorkoutState::Recovered { .. })
+                | (
+                    WorkoutState::Workout { .. },
+                    WorkoutState::WrittenOff { .. }
+                )
+                | (
+                    WorkoutState::Default { .. },
+                    WorkoutState::WrittenOff { .. }
+                )
         )
     }
-    
+
     fn apply_rate_modification(
         &self,
         loan: &mut Loan,
@@ -411,28 +427,29 @@ impl WorkoutEngine {
                 if let InterestSpec::Fixed { rate, .. } = &mut loan.interest {
                     *rate -= bps / 10000.0;
                 }
-            },
+            }
             RateModification::SetTo { rate } => {
                 loan.interest = InterestSpec::Fixed {
                     rate: *rate,
                     step_ups: None,
                 };
-            },
+            }
             RateModification::ConvertToPIK { pik_rate } => {
-                loan.interest = InterestSpec::PIK {
-                    rate: *pik_rate,
-                };
-            },
-            RateModification::SplitCashPIK { cash_rate, pik_rate } => {
+                loan.interest = InterestSpec::PIK { rate: *pik_rate };
+            }
+            RateModification::SplitCashPIK {
+                cash_rate,
+                pik_rate,
+            } => {
                 loan.interest = InterestSpec::CashPlusPIK {
                     cash_rate: *cash_rate,
                     pik_rate: *pik_rate,
                 };
-            },
+            }
         }
         Ok(())
     }
-    
+
     fn apply_principal_modification(
         &self,
         loan: &mut Loan,
@@ -441,20 +458,20 @@ impl WorkoutEngine {
         match modification {
             PrincipalModification::Forgive { percentage } => {
                 loan.outstanding *= 1.0 - percentage;
-            },
+            }
             PrincipalModification::Defer { percentage } => {
                 // Create balloon payment
                 let deferred = loan.outstanding * *percentage;
                 loan.outstanding = (loan.outstanding - deferred)?;
                 // Note: Would need to track deferred amount separately
-            },
+            }
             PrincipalModification::Reamortize { months: _ } => {
                 // Update amortization schedule
                 use crate::cashflow::amortization_notional::AmortizationSpec;
                 loan.amortization = AmortizationSpec::LinearTo {
                     final_notional: Money::new(0.0, loan.outstanding.currency()),
                 };
-            },
+            }
         }
         Ok(())
     }

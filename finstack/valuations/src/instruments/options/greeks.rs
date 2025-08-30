@@ -43,7 +43,7 @@ impl Greeks {
             speed: None,
         }
     }
-    
+
     /// Create a Greeks instance with all Greeks
     #[allow(clippy::too_many_arguments)]
     pub fn full(
@@ -101,9 +101,9 @@ impl GreeksCalculator {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// Calculate Greeks using finite differences
-    /// 
+    ///
     /// # Arguments
     /// * `price_fn` - Function that calculates option price given parameters
     /// * `spot` - Current spot price
@@ -122,21 +122,21 @@ impl GreeksCalculator {
     ) -> Greeks {
         // Base price
         let base_price = price_fn(spot, r, sigma, t, q);
-        
+
         // Delta: first derivative with respect to spot
         let spot_bump = spot * self.delta_bump;
         let price_up = price_fn(spot + spot_bump, r, sigma, t, q);
         let price_down = price_fn(spot - spot_bump, r, sigma, t, q);
         let delta = (price_up - price_down) / (2.0 * spot_bump);
-        
+
         // Gamma: second derivative with respect to spot
         let gamma = (price_up - 2.0 * base_price + price_down) / (spot_bump * spot_bump);
-        
+
         // Vega: derivative with respect to volatility
         let vega_up = price_fn(spot, r, sigma + self.vega_bump, t, q);
         let vega_down = price_fn(spot, r, sigma - self.vega_bump, t, q);
         let vega = (vega_up - vega_down) / (2.0 * self.vega_bump);
-        
+
         // Theta: derivative with respect to time (negative of time derivative)
         let t_bump = self.theta_bump / 365.25; // Convert days to years
         let theta = if t > t_bump {
@@ -145,15 +145,15 @@ impl GreeksCalculator {
         } else {
             0.0
         };
-        
+
         // Rho: derivative with respect to interest rate
         let rho_up = price_fn(spot, r + self.rho_bump, sigma, t, q);
         let rho_down = price_fn(spot, r - self.rho_bump, sigma, t, q);
         let rho = (rho_up - rho_down) / (2.0 * self.rho_bump);
-        
+
         Greeks::new(delta, gamma, vega, theta, rho)
     }
-    
+
     /// Calculate extended Greeks including second-order sensitivities
     pub fn calculate_extended_greeks<F: Fn(f64, f64, f64, f64, f64) -> f64>(
         &self,
@@ -166,23 +166,24 @@ impl GreeksCalculator {
     ) -> Greeks {
         // Calculate basic Greeks first
         let basic = self.calculate_greeks(&price_fn, spot, r, sigma, t, q);
-        
+
         // Volga: second derivative with respect to volatility
         let base_price = price_fn(spot, r, sigma, t, q);
         let vega_up = price_fn(spot, r, sigma + self.vega_bump, t, q);
         let vega_down = price_fn(spot, r, sigma - self.vega_bump, t, q);
         let volga = (vega_up - 2.0 * base_price + vega_down) / (self.vega_bump * self.vega_bump);
-        
+
         // Vanna: cross derivative of delta with respect to volatility
         let spot_bump = spot * self.delta_bump;
         let price_up_vol_up = price_fn(spot + spot_bump, r, sigma + self.vega_bump, t, q);
         let price_up_vol_down = price_fn(spot + spot_bump, r, sigma - self.vega_bump, t, q);
         let price_down_vol_up = price_fn(spot - spot_bump, r, sigma + self.vega_bump, t, q);
         let price_down_vol_down = price_fn(spot - spot_bump, r, sigma - self.vega_bump, t, q);
-        
-        let vanna = ((price_up_vol_up - price_up_vol_down) - (price_down_vol_up - price_down_vol_down))
+
+        let vanna = ((price_up_vol_up - price_up_vol_down)
+            - (price_down_vol_up - price_down_vol_down))
             / (4.0 * spot_bump * self.vega_bump);
-        
+
         // Charm: cross derivative of delta with respect to time
         let t_bump = self.theta_bump / 365.25;
         let charm = if t > t_bump {
@@ -193,7 +194,7 @@ impl GreeksCalculator {
         } else {
             0.0
         };
-        
+
         // Color: cross derivative of gamma with respect to time
         let color = if t > t_bump {
             let _price_up = price_fn(spot + spot_bump, r, sigma, t, q);
@@ -201,22 +202,24 @@ impl GreeksCalculator {
             let price_up_later = price_fn(spot + spot_bump, r, sigma, t - t_bump, q);
             let price_down_later = price_fn(spot - spot_bump, r, sigma, t - t_bump, q);
             let base_later = price_fn(spot, r, sigma, t - t_bump, q);
-            
-            let gamma_later = (price_up_later - 2.0 * base_later + price_down_later) / (spot_bump * spot_bump);
+
+            let gamma_later =
+                (price_up_later - 2.0 * base_later + price_down_later) / (spot_bump * spot_bump);
             -(basic.gamma - gamma_later) / t_bump * 365.25
         } else {
             0.0
         };
-        
+
         // Speed: third derivative with respect to spot
         let h = spot_bump / 2.0;
         let price_3up = price_fn(spot + 3.0 * h, r, sigma, t, q);
         let price_up = price_fn(spot + h, r, sigma, t, q);
         let price_down = price_fn(spot - h, r, sigma, t, q);
         let price_3down = price_fn(spot - 3.0 * h, r, sigma, t, q);
-        
-        let speed = (price_3up - 3.0 * price_up + 3.0 * price_down - price_3down) / (8.0 * h * h * h);
-        
+
+        let speed =
+            (price_3up - 3.0 * price_up + 3.0 * price_down - price_3down) / (8.0 * h * h * h);
+
         Greeks::full(
             basic.delta,
             basic.gamma,
@@ -239,7 +242,7 @@ mod tests {
     #[test]
     fn test_greeks_creation() {
         let greeks = Greeks::new(0.5, 0.02, 0.1, -0.05, 0.03);
-        
+
         assert_eq!(greeks.delta, 0.5);
         assert_eq!(greeks.gamma, 0.02);
         assert_eq!(greeks.vega, 0.1);
@@ -247,29 +250,29 @@ mod tests {
         assert_eq!(greeks.rho, 0.03);
         assert!(greeks.volga.is_none());
     }
-    
+
     #[test]
     fn test_extended_greeks() {
-        let greeks = Greeks::full(0.5, 0.02, 0.1, -0.05, 0.03, 0.01, 0.005, -0.002, -0.001, 0.0005);
-        
+        let greeks = Greeks::full(
+            0.5, 0.02, 0.1, -0.05, 0.03, 0.01, 0.005, -0.002, -0.001, 0.0005,
+        );
+
         assert_eq!(greeks.volga, Some(0.01));
         assert_eq!(greeks.vanna, Some(0.005));
         assert_eq!(greeks.charm, Some(-0.002));
         assert_eq!(greeks.color, Some(-0.001));
         assert_eq!(greeks.speed, Some(0.0005));
     }
-    
+
     #[test]
     fn test_greeks_calculator() {
         let calc = GreeksCalculator::new();
-        
+
         // Simple test function: linear in spot
-        let price_fn = |spot: f64, _r: f64, _sigma: f64, _t: f64, _q: f64| -> f64 {
-            spot * 0.5
-        };
-        
+        let price_fn = |spot: f64, _r: f64, _sigma: f64, _t: f64, _q: f64| -> f64 { spot * 0.5 };
+
         let greeks = calc.calculate_greeks(price_fn, 100.0, 0.05, 0.25, 1.0, 0.02);
-        
+
         // For a linear function, delta should be constant (0.5) and gamma should be 0
         assert!((greeks.delta - 0.5).abs() < 0.01);
         assert!(greeks.gamma.abs() < 0.01);

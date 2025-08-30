@@ -1,14 +1,14 @@
 //! Swaption (option on interest rate swap) implementation with SABR volatility.
 
-use finstack_core::{F, Result, Error};
-use finstack_core::dates::{Date, DayCount, Frequency, BusinessDayConvention, StubKind};
-use finstack_core::money::Money;
-use finstack_core::market_data::traits::Discount;
-use crate::models::sabr::{SABRModel, SABRParameters};
 use super::OptionType;
-use crate::traits::{Priceable, Attributable, Attributes};
+use crate::models::sabr::{SABRModel, SABRParameters};
 use crate::pricing::result::ValuationResult;
+use crate::traits::{Attributable, Attributes, Priceable};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::traits::Discount;
+use finstack_core::money::Money;
+use finstack_core::{Error, Result, F};
 
 /// Swaption settlement type
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -99,7 +99,7 @@ impl Swaption {
             attributes: Attributes::default(),
         }
     }
-    
+
     /// Create new European receiver swaption
     #[allow(clippy::too_many_arguments)]
     pub fn new_receiver(
@@ -131,13 +131,13 @@ impl Swaption {
             attributes: Attributes::default(),
         }
     }
-    
+
     /// Set SABR parameters for pricing
     pub fn with_sabr(mut self, params: SABRParameters) -> Self {
         self.sabr_params = Some(params);
         self
     }
-    
+
     /// Calculate swap annuity (PV of $1 paid on fixed leg)
     fn swap_annuity(&self, disc: &dyn Discount) -> Result<F> {
         let base_date = disc.base_date();
@@ -153,7 +153,9 @@ impl Swaption {
             None,
         );
         let dates = sched.dates;
-        if dates.len() < 2 { return Ok(0.0); }
+        if dates.len() < 2 {
+            return Ok(0.0);
+        }
 
         let mut prev = dates[0];
         for &d in &dates[1..] {
@@ -166,82 +168,88 @@ impl Swaption {
 
         Ok(annuity)
     }
-    
+
     /// Calculate forward swap rate
     fn forward_swap_rate(&self, disc: &dyn Discount) -> Result<F> {
         let base_date = disc.base_date();
-        
+
         // Calculate PV of floating leg (approximately par at inception)
         let t_start = self.year_fraction(base_date, self.swap_start, self.day_count)?;
         let t_end = self.year_fraction(base_date, self.swap_end, self.day_count)?;
-        
+
         let df_start = disc.df(t_start);
         let df_end = disc.df(t_end);
-        
+
         // Forward swap rate = (df_start - df_end) / annuity
         let annuity = self.swap_annuity(disc)?;
-        
+
         Ok((df_start - df_end) / annuity)
     }
-    
+
     /// Price using Black's model (baseline)
     pub fn black_price(&self, disc: &dyn Discount, volatility: F) -> Result<Money> {
         let base_date = disc.base_date();
         let time_to_expiry = self.year_fraction(base_date, self.expiry, self.day_count)?;
-        
+
         if time_to_expiry <= 0.0 {
             // Option has expired
             return Ok(Money::new(0.0, self.notional.currency()));
         }
-        
+
         let forward_rate = self.forward_swap_rate(disc)?;
         let annuity = self.swap_annuity(disc)?;
         let df_expiry = disc.df(time_to_expiry);
-        
+
         // Black's formula
         let variance = volatility.powi(2) * time_to_expiry;
         let d1 = ((forward_rate / self.strike_rate).ln() + 0.5 * variance) / variance.sqrt();
         let d2 = d1 - variance.sqrt();
-        
+
         let value = match self.option_type {
             OptionType::Call => {
                 // Payer swaption
-                annuity * df_expiry * (forward_rate * norm_cdf(d1) - self.strike_rate * norm_cdf(d2))
-            },
+                annuity
+                    * df_expiry
+                    * (forward_rate * norm_cdf(d1) - self.strike_rate * norm_cdf(d2))
+            }
             OptionType::Put => {
                 // Receiver swaption
-                annuity * df_expiry * (self.strike_rate * norm_cdf(-d2) - forward_rate * norm_cdf(-d1))
+                annuity
+                    * df_expiry
+                    * (self.strike_rate * norm_cdf(-d2) - forward_rate * norm_cdf(-d1))
             }
         };
-        
-        Ok(Money::new(value * self.notional.amount(), self.notional.currency()))
+
+        Ok(Money::new(
+            value * self.notional.amount(),
+            self.notional.currency(),
+        ))
     }
-    
+
     /// Price using SABR model
     pub fn sabr_price(&self, disc: &dyn Discount) -> Result<Money> {
-        let sabr_params = self.sabr_params.as_ref()
-            .ok_or(Error::Internal)?; // No SABR parameters
-        
+        let sabr_params = self.sabr_params.as_ref().ok_or(Error::Internal)?; // No SABR parameters
+
         let model = SABRModel::new(sabr_params.clone());
-        
+
         let base_date = disc.base_date();
         let time_to_expiry = self.year_fraction(base_date, self.expiry, self.day_count)?;
-        
+
         if time_to_expiry <= 0.0 {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
-        
+
         let forward_rate = self.forward_swap_rate(disc)?;
-        
+
         // Get SABR implied volatility
         let sabr_vol = model.implied_volatility(forward_rate, self.strike_rate, time_to_expiry)?;
-        
+
         // Price using Black's formula with SABR vol
         self.black_price(disc, sabr_vol)
     }
-    
+
     // Removed ad-hoc add_period: schedule comes from ScheduleBuilder
-    
+
     /// Calculate year fraction
     fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<F> {
         dc.year_fraction(start, end)
@@ -251,7 +259,7 @@ impl Swaption {
 impl Priceable for Swaption {
     fn value(&self, curves: &CurveSet, _as_of: Date) -> Result<Money> {
         let disc = curves.discount(self.disc_id)?;
-        
+
         if self.sabr_params.is_some() {
             self.sabr_price(disc.as_ref())
         } else {
@@ -259,7 +267,7 @@ impl Priceable for Swaption {
             self.black_price(disc.as_ref(), 0.20) // 20% default vol
         }
     }
-    
+
     fn price_with_metrics(
         &self,
         curves: &CurveSet,
@@ -267,21 +275,21 @@ impl Priceable for Swaption {
         _metrics: &[crate::metrics::MetricId],
     ) -> Result<ValuationResult> {
         let value = self.value(curves, as_of)?;
-        
+
         let mut result = ValuationResult::stamped(self.id.clone(), as_of, value);
-        
+
         // Add forward swap rate as a metric
         let disc = curves.discount(self.disc_id)?;
         let forward_rate = self.forward_swap_rate(disc.as_ref())?;
         result.measures.insert("FORWARD_RATE".into(), forward_rate);
-        
+
         // Add annuity
         let annuity = self.swap_annuity(disc.as_ref())?;
         result.measures.insert("ANNUITY".into(), annuity);
-        
+
         Ok(result)
     }
-    
+
     fn price(&self, curves: &CurveSet, as_of: Date) -> Result<ValuationResult> {
         self.price_with_metrics(curves, as_of, &[])
     }
@@ -291,7 +299,7 @@ impl Attributable for Swaption {
     fn attributes(&self) -> &Attributes {
         &self.attributes
     }
-    
+
     fn attributes_mut(&mut self) -> &mut Attributes {
         &mut self.attributes
     }
@@ -304,24 +312,24 @@ fn norm_cdf(x: F) -> F {
 
 /// Error function approximation
 fn erf(x: F) -> F {
-    let a1 =  0.254829592;
+    let a1 = 0.254829592;
     let a2 = -0.284496736;
-    let a3 =  1.421413741;
+    let a3 = 1.421413741;
     let a4 = -1.453152027;
-    let a5 =  1.061405429;
-    let p  =  0.3275911;
-    
+    let a5 = 1.061405429;
+    let p = 0.3275911;
+
     let sign = if x < 0.0 { -1.0 } else { 1.0 };
     let x = x.abs();
-    
+
     let t = 1.0 / (1.0 + p * x);
     let t2 = t * t;
     let t3 = t2 * t;
     let t4 = t3 * t;
     let t5 = t4 * t;
-    
+
     let y = 1.0 - ((((a5 * t5 + a4 * t4) + a3 * t3) + a2 * t2) + a1 * t) * (-x * x).exp();
-    
+
     sign * y
 }
 
@@ -330,7 +338,7 @@ mod tests {
     use super::*;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    
+
     fn create_test_curve() -> DiscountCurve {
         DiscountCurve::builder("USD-OIS")
             .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
@@ -344,13 +352,13 @@ mod tests {
             .build()
             .unwrap()
     }
-    
+
     #[test]
     fn test_swaption_creation() {
         let expiry = Date::from_calendar_date(2025, time::Month::June, 1).unwrap();
         let swap_start = Date::from_calendar_date(2025, time::Month::June, 1).unwrap();
         let swap_end = Date::from_calendar_date(2030, time::Month::June, 1).unwrap();
-        
+
         let swaption = Swaption::new_payer(
             "5Y5Y-PAYER",
             Money::new(10_000_000.0, Currency::USD),
@@ -361,18 +369,18 @@ mod tests {
             "USD-OIS",
             "USD-LIBOR-3M",
         );
-        
+
         assert_eq!(swaption.strike_rate, 0.03);
         assert_eq!(swaption.option_type, OptionType::Call);
     }
-    
+
     #[test]
     fn test_swaption_black_pricing() {
         let _base_date = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
         let expiry = Date::from_calendar_date(2026, time::Month::January, 1).unwrap();
         let swap_start = expiry;
         let swap_end = Date::from_calendar_date(2031, time::Month::January, 1).unwrap();
-        
+
         let swaption = Swaption::new_payer(
             "1Y5Y-PAYER",
             Money::new(10_000_000.0, Currency::USD),
@@ -383,24 +391,24 @@ mod tests {
             "USD-OIS",
             "USD-LIBOR-3M",
         );
-        
+
         let curve = create_test_curve();
         let price = swaption.black_price(&curve, 0.25).unwrap(); // 25% vol
-        
+
         // Price should be positive
         assert!(price.amount() > 0.0);
     }
-    
+
     #[test]
     fn test_swaption_with_sabr() {
         let _base_date = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
         let expiry = Date::from_calendar_date(2026, time::Month::January, 1).unwrap();
         let swap_start = expiry;
         let swap_end = Date::from_calendar_date(2031, time::Month::January, 1).unwrap();
-        
+
         // Create SABR parameters
         let sabr_params = SABRParameters::new(0.01, 0.5, 0.3, -0.2).unwrap();
-        
+
         let swaption = Swaption::new_receiver(
             "1Y5Y-RECEIVER",
             Money::new(10_000_000.0, Currency::USD),
@@ -410,22 +418,21 @@ mod tests {
             swap_end,
             "USD-OIS",
             "USD-LIBOR-3M",
-        ).with_sabr(sabr_params);
-        
+        )
+        .with_sabr(sabr_params);
+
         let curve = create_test_curve();
         let price = swaption.sabr_price(&curve).unwrap();
-        
+
         // Price should be positive
         assert!(price.amount() > 0.0);
-        
+
         // Compare with Black price
         let black_price = swaption.black_price(&curve, 0.20).unwrap();
-        
+
         // Prices should be different (SABR accounts for smile)
         assert!((price.amount() - black_price.amount()).abs() > 0.01);
     }
 }
 
-
 // Generate standard Attributable implementation using macro
-

@@ -8,9 +8,9 @@ extern crate alloc;
 
 use crate::currency::Currency;
 use crate::dates::Date;
+use alloc::sync::Arc;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use alloc::sync::Arc;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -25,6 +25,7 @@ pub type FxRate = f64;
 /// Standard FX conversion strategies. These are metadata hints for providers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum FxConversionPolicy {
     /// Use spot/forward on the cashflow date.
     CashflowDate,
@@ -124,11 +125,11 @@ pub enum ClosureCheckResult {
     /// Closure check failed - provides direct rate and calculated rate for comparison
     Fail {
         /// The direct FX rate from the provider
-        direct_rate: f64,
+        direct_rate: FxRate,
         /// The calculated rate via intermediate currency
-        calculated_rate: f64,
+        calculated_rate: FxRate,
         /// The absolute difference between direct and calculated rates
-        difference: f64,
+        difference: FxRate,
     },
 }
 
@@ -294,7 +295,7 @@ impl FxMatrix {
     ) -> crate::Result<ClosureCheckResult> {
         #[cfg(feature = "decimal128")]
         {
-            // Compute entirely in Decimal to avoid precision loss, then report as f64 if needed
+            // Compute entirely in Decimal to avoid precision loss
             let calculated = via_a * via_b;
             let diff = (direct_rate - calculated).abs();
             let tol = rust_decimal::Decimal::try_from(self.config.closure_tolerance)
@@ -302,20 +303,16 @@ impl FxMatrix {
             if diff <= tol {
                 return Ok(ClosureCheckResult::Pass);
             }
-            // For reporting only, convert to f64
-            let direct_f64 = self.to_f64(direct_rate)?;
-            let calculated_f64 = self.to_f64(calculated)?;
-            let difference = (direct_f64 - calculated_f64).abs();
             Ok(ClosureCheckResult::Fail {
-                direct_rate: direct_f64,
-                calculated_rate: calculated_f64,
-                difference,
+                direct_rate,
+                calculated_rate: calculated,
+                difference: diff,
             })
         }
         #[cfg(not(feature = "decimal128"))]
         {
-            let direct_f64 = self.to_f64(direct_rate)?;
-            let calculated_f64 = self.to_f64(via_a)? * self.to_f64(via_b)?;
+            let direct_f64 = direct_rate;
+            let calculated_f64 = via_a * via_b;
             let difference = (direct_f64 - calculated_f64).abs();
 
             if difference <= self.config.closure_tolerance {
@@ -328,18 +325,6 @@ impl FxMatrix {
                 })
             }
         }
-    }
-
-    #[cfg(feature = "decimal128")]
-    fn to_f64(&self, rate: FxRate) -> crate::Result<f64> {
-        rate.to_string()
-            .parse::<f64>()
-            .map_err(|_| crate::Error::Internal)
-    }
-
-    #[cfg(not(feature = "decimal128"))]
-    fn to_f64(&self, rate: FxRate) -> crate::Result<f64> {
-        Ok(rate)
     }
 }
 

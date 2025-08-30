@@ -1,7 +1,7 @@
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
-use finstack_core::dates::{ScheduleBuilder, Frequency as CoreFrequency, StubKind as CoreStubRule};
+use finstack_core::dates::{Frequency as CoreFrequency, ScheduleBuilder, StubKind as CoreStubRule};
 
 use crate::calendar::BusDayConvention;
 use crate::dates::Date;
@@ -67,8 +67,7 @@ pub fn generate_schedule(
     if start.inner() > end.inner() {
         wasm_bindgen::throw_str("Invalid date range: start must be before or equal to end");
     }
-    let mut builder = ScheduleBuilder::new(start.inner(), end.inner())
-        .frequency(frequency.into());
+    let mut builder = ScheduleBuilder::new(start.inner(), end.inner()).frequency(frequency.into());
 
     if let Some(s) = stub {
         builder = builder.stub_rule(s.into());

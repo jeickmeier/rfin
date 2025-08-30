@@ -210,40 +210,40 @@ where
     G: Fn(f64) -> f64,
 {
     use crate::error::InputError;
-    
+
     let mut x = x0;
-    
+
     for _ in 0..max_iter {
         let fx = f(x);
         if !fx.is_finite() {
             return Err(InputError::Invalid.into());
         }
-        
+
         // Check for convergence
         if fx.abs() < tol {
             return Ok(x);
         }
-        
+
         let fpx = f_prime(x);
         if !fpx.is_finite() {
             return Err(InputError::Invalid.into());
         }
-        
+
         // Avoid division by zero
         if fpx.abs() < 1e-10 {
             return Err(InputError::Invalid.into());
         }
-        
+
         let x_new = x - fx / fpx;
-        
+
         // Check for convergence in x
         if (x_new - x).abs() < tol {
             return Ok(x_new);
         }
-        
+
         x = x_new;
     }
-    
+
     Err(InputError::Invalid.into())
 }
 
@@ -262,10 +262,10 @@ where
     F: Fn(f64) -> f64,
 {
     use crate::error::InputError;
-    
+
     let mut fa = f(a);
     let mut fb = f(b);
-    
+
     // Check if root is already at boundaries
     if fa.abs() < tol {
         return Ok(a);
@@ -273,7 +273,7 @@ where
     if fb.abs() < tol {
         return Ok(b);
     }
-    
+
     // Ensure bracketing
     if fa * fb > 0.0 {
         // Try to find bracketing interval
@@ -283,26 +283,26 @@ where
         fa = f(a);
         fb = f(b);
     }
-    
+
     let mut c = a;
     let mut fc = fa;
-    let mut _d = b - a;  // Track step size (used for algorithm state)
+    let mut _d = b - a; // Track step size (used for algorithm state)
     let mut e = b - a;
-    
+
     for _ in 0..max_iter {
         if fb.abs() < fa.abs() {
             // Swap
             std::mem::swap(&mut a, &mut b);
             std::mem::swap(&mut fa, &mut fb);
         }
-        
+
         let tolerance = 2.0 * f64::EPSILON * b.abs() + tol;
         let m = 0.5 * (c - b);
-        
+
         if m.abs() <= tolerance || fb.abs() < tol {
             return Ok(b);
         }
-        
+
         if e.abs() >= tolerance && fa.abs() > fb.abs() {
             let s = if (a - c).abs() < f64::EPSILON {
                 // Linear interpolation
@@ -315,27 +315,27 @@ where
                 let q_val = (q - 1.0) * (r - 1.0);
                 p / q_val
             };
-            
+
             let s = s.max(-0.75 * m).min(0.75 * m);
-            let _d = e;  // Track previous step size (for algorithm correctness)
+            let _d = e; // Track previous step size (for algorithm correctness)
             e = s;
         } else {
             // Bisection
-            let _d = m;  // Track step size (for algorithm correctness)
+            let _d = m; // Track step size (for algorithm correctness)
             e = m;
         }
-        
+
         a = b;
         fa = fb;
-        
+
         if e.abs() > tolerance {
             b += e;
         } else {
             b += if m > 0.0 { tolerance } else { -tolerance };
         }
-        
+
         fb = f(b);
-        
+
         if fa * fb > 0.0 {
             c = a;
             fc = fa;
@@ -343,7 +343,7 @@ where
             e = _d;
         }
     }
-    
+
     Err(InputError::Invalid.into())
 }
 
@@ -360,27 +360,27 @@ where
     F: Fn(f64) -> f64,
 {
     use crate::error::InputError;
-    
+
     // Try expanding the interval
     let mut a = initial_a;
     let mut b = initial_b;
-    
+
     for _ in 0..10 {
         let fa = f(a);
         let fb = f(b);
-        
+
         if fa * fb < 0.0 {
             return Ok((a, b));
         }
-        
+
         // Expand interval
         a = a * 2.0 - 1.0;
         b = b * 2.0 + 1.0;
-        
+
         // Keep within reasonable bounds
         a = a.max(-0.999);
         b = b.min(10.0);
     }
-    
+
     Err(InputError::Invalid.into())
 }

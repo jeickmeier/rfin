@@ -32,7 +32,7 @@
 //! # Build cashflow schedule
 //! builder = CashflowBuilder()
 //! schedule = (builder
-//!     .principal(Money(1000000, Currency.usd()), 
+//!     .principal(Money(1000000, Currency.usd()),
 //!                Date(2023, 1, 1), Date(2024, 1, 1))
 //!     .fixed_coupon(rate=0.05, frequency=Frequency.SemiAnnual,
 //!                   day_count=DayCount.thirty360())
@@ -59,7 +59,7 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // =============================
     // Core Submodules
     // =============================
-    
+
     // Create currency submodule
     let currency_module = PyModule::new(m.py(), "currency")?;
     currency_module.add_class::<core::currency::PyCurrency>()?;
@@ -100,8 +100,14 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     dates_module.add_function(pyo3::wrap_pyfunction!(py_third_wednesday, &dates_module)?)?;
     dates_module.add_function(pyo3::wrap_pyfunction!(py_next_imm, &dates_module)?)?;
     dates_module.add_function(pyo3::wrap_pyfunction!(py_next_cds_date, &dates_module)?)?;
-    dates_module.add_function(pyo3::wrap_pyfunction!(core::dates::py_build_periods, &dates_module)?)?;
-    dates_module.add_function(pyo3::wrap_pyfunction!(core::dates::py_build_fiscal_periods, &dates_module)?)?;
+    dates_module.add_function(pyo3::wrap_pyfunction!(
+        core::dates::py_build_periods,
+        &dates_module
+    )?)?;
+    dates_module.add_function(pyo3::wrap_pyfunction!(
+        core::dates::py_build_fiscal_periods,
+        &dates_module
+    )?)?;
     m.add_submodule(&dates_module)?;
     m.py()
         .import("sys")?
@@ -131,19 +137,19 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Register instruments submodule
     valuations::instruments::register_module(m)?;
-    
+
     // Register risk metrics submodule
     valuations::risk::register_module(m)?;
-    
+
     // Register covenants submodule
     valuations::covenants::register_module(m)?;
-    
+
     // Register workout submodule
     valuations::workout::register_module(m)?;
-    
+
     // Register policy submodule
     valuations::policy::register_module(m)?;
-    
+
     // Register valuation results and attributes
     m.add_class::<valuations::results::PyValuationResult>()?;
     m.add_class::<valuations::attributes::PyAttributes>()?;
@@ -172,7 +178,7 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<valuations::cashflow::PyAmortization>()?;
     m.add_class::<valuations::cashflow::PyCashFlowSchedule>()?;
     m.add_class::<valuations::cashflow::PyCashflowBuilder>()?;
-    
+
     // Covenant types
     m.add_class::<valuations::covenants::PyCovenantType>()?;
     m.add_class::<valuations::covenants::PyCovenantConsequence>()?;
@@ -180,7 +186,7 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<valuations::covenants::PyCovenantReport>()?;
     m.add_class::<valuations::covenants::PyCovenantBreach>()?;
     m.add_class::<valuations::covenants::PyCovenantEngine>()?;
-    
+
     // Workout types
     m.add_class::<valuations::workout::PyWorkoutState>()?;
     m.add_class::<valuations::workout::PyRateModification>()?;
@@ -192,7 +198,7 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<valuations::workout::PyWorkoutPolicy>()?;
     m.add_class::<valuations::workout::PyRecoveryAnalysis>()?;
     m.add_class::<valuations::workout::PyWorkoutEngine>()?;
-    
+
     // Policy types
     m.add_class::<valuations::policy::PyGridMarginPolicy>()?;
     m.add_class::<valuations::policy::PyIndexFallbackPolicy>()?;
@@ -208,13 +214,22 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("JPY", PC::from_inner(CoreCurrency::JPY))?;
 
     // Top-level functions
-    m.add_function(pyo3::wrap_pyfunction!(core::dates::py_generate_schedule, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(
+        core::dates::py_generate_schedule,
+        m
+    )?)?;
     m.add_function(pyo3::wrap_pyfunction!(py_third_wednesday, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(py_next_imm, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(py_next_cds_date, m)?)?;
     m.add_function(pyo3::wrap_pyfunction!(core::dates::py_build_periods, m)?)?;
-    m.add_function(pyo3::wrap_pyfunction!(core::dates::py_build_fiscal_periods, m)?)?;
-    m.add_function(pyo3::wrap_pyfunction!(valuations::cashflow::py_cashflows_to_dataframe, m)?)?;
+    m.add_function(pyo3::wrap_pyfunction!(
+        core::dates::py_build_fiscal_periods,
+        m
+    )?)?;
+    m.add_function(pyo3::wrap_pyfunction!(
+        valuations::cashflow::py_cashflows_to_dataframe,
+        m
+    )?)?;
 
     Ok(())
 }

@@ -1,12 +1,10 @@
 //! Python bindings for period/frequency functionality.
 
-use finstack_core::dates::{build_periods, build_fiscal_periods, FiscalConfig, Period, PeriodId};
+use finstack_core::dates::{build_fiscal_periods, build_periods, FiscalConfig, Period, PeriodId};
 use pyo3::prelude::*;
 use pyo3::types::PyList;
 
 use super::PyDate;
-
-
 
 /// Python wrapper for PeriodId.
 ///
@@ -52,9 +50,7 @@ impl PyPeriodId {
     #[pyo3(name = "week")]
     fn py_week(year: i32, w: u8) -> PyResult<Self> {
         if !(1..=53).contains(&w) {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                "Week must be 1-53",
-            ));
+            return Err(pyo3::exceptions::PyValueError::new_err("Week must be 1-53"));
         }
         Ok(Self {
             inner: PeriodId::week(year, w),
@@ -66,9 +62,7 @@ impl PyPeriodId {
     #[pyo3(name = "half")]
     fn py_half(year: i32, h: u8) -> PyResult<Self> {
         if !(1..=2).contains(&h) {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                "Half must be 1-2",
-            ));
+            return Err(pyo3::exceptions::PyValueError::new_err("Half must be 1-2"));
         }
         Ok(Self {
             inner: PeriodId::half(year, h),
@@ -170,8 +164,10 @@ impl PyPeriod {
     }
 
     fn __repr__(&self) -> String {
-        format!("Period(id='{}', start='{}', end='{}', is_actual={})",
-            self.inner.id, self.inner.start, self.inner.end, self.inner.is_actual)
+        format!(
+            "Period(id='{}', start='{}', end='{}', is_actual={})",
+            self.inner.id, self.inner.start, self.inner.end, self.inner.is_actual
+        )
     }
 }
 
@@ -251,11 +247,17 @@ impl PyFiscalConfig {
     }
 
     fn __str__(&self) -> String {
-        format!("FiscalConfig(month={}, day={})", self.inner.start_month, self.inner.start_day)
+        format!(
+            "FiscalConfig(month={}, day={})",
+            self.inner.start_month, self.inner.start_day
+        )
     }
 
     fn __repr__(&self) -> String {
-        format!("FiscalConfig(start_month={}, start_day={})", self.inner.start_month, self.inner.start_day)
+        format!(
+            "FiscalConfig(start_month={}, start_day={})",
+            self.inner.start_month, self.inner.start_day
+        )
     }
 }
 

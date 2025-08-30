@@ -9,8 +9,8 @@
 //! Both are integrated into the [`crate::market_data::multicurve::CurveSet`]
 //! so downstream code can reference them by `CurveId` alongside other curves.
 
-use crate::{error::InputError, Currency, Date, Result};
 use crate::market_data::id::CurveId;
+use crate::{error::InputError, Currency, Date, Result};
 use polars::prelude::*;
 #[cfg(test)]
 use time::Duration as TimeDuration;
@@ -18,6 +18,7 @@ use time::Duration as TimeDuration;
 /// Interpolation method for generic scalar time series
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum SeriesInterpolation {
     /// Last observation carried forward
     Step,
@@ -34,6 +35,7 @@ impl Default for SeriesInterpolation {
 /// A single market scalar which can be unitless or a price in a currency.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum MarketScalar {
     /// Unitless numeric (e.g., equity beta, recovery rate assumption)
     Unitless(crate::F),
@@ -75,9 +77,7 @@ impl ScalarTimeSeries {
             Series::new("value".into(), values).into_column(),
         ])
         .map_err(|_| crate::Error::Internal)?
-        .sort([
-            "date"
-        ], SortMultipleOptions::default())
+        .sort(["date"], SortMultipleOptions::default())
         .map_err(|_| crate::Error::Internal)?;
 
         // Check for strictly increasing dates (no duplicates)
@@ -131,8 +131,14 @@ impl ScalarTimeSeries {
             .iter()
             .map(|&d| crate::dates::utils::date_to_days_since_epoch(d))
             .collect();
-        let date_col = self.data.column("date").map_err(|_| crate::Error::Internal)?;
-        let value_col = self.data.column("value").map_err(|_| crate::Error::Internal)?;
+        let date_col = self
+            .data
+            .column("date")
+            .map_err(|_| crate::Error::Internal)?;
+        let value_col = self
+            .data
+            .column("value")
+            .map_err(|_| crate::Error::Internal)?;
         let dates_series = date_col.i32().map_err(|_| crate::Error::Internal)?;
         let values_series = value_col.f64().map_err(|_| crate::Error::Internal)?;
 
@@ -146,7 +152,11 @@ impl ScalarTimeSeries {
                     match date_vec.binary_search(&qd) {
                         Ok(idx) => out.push(value_vec[idx]),
                         Err(idx) => {
-                            if idx == 0 { out.push(value_vec[0]); } else { out.push(value_vec[idx - 1]); }
+                            if idx == 0 {
+                                out.push(value_vec[0]);
+                            } else {
+                                out.push(value_vec[idx - 1]);
+                            }
                         }
                     }
                 }
@@ -156,9 +166,11 @@ impl ScalarTimeSeries {
                     match date_vec.binary_search(&qd) {
                         Ok(idx) => out.push(value_vec[idx]),
                         Err(idx) => {
-                            if idx == 0 { out.push(value_vec[0]); }
-                            else if idx >= date_vec.len() { out.push(*value_vec.last().unwrap()); }
-                            else {
+                            if idx == 0 {
+                                out.push(value_vec[0]);
+                            } else if idx >= date_vec.len() {
+                                out.push(*value_vec.last().unwrap());
+                            } else {
                                 let x0 = date_vec[idx - 1] as crate::F;
                                 let x1 = date_vec[idx] as crate::F;
                                 let y0 = value_vec[idx - 1];
@@ -181,8 +193,14 @@ impl ScalarTimeSeries {
     }
 
     fn step_interpolate(&self, target_days: i32) -> Result<crate::F> {
-        let date_col = self.data.column("date").map_err(|_| crate::Error::Internal)?;
-        let value_col = self.data.column("value").map_err(|_| crate::Error::Internal)?;
+        let date_col = self
+            .data
+            .column("date")
+            .map_err(|_| crate::Error::Internal)?;
+        let value_col = self
+            .data
+            .column("value")
+            .map_err(|_| crate::Error::Internal)?;
         let dates = date_col.i32().map_err(|_| crate::Error::Internal)?;
         let values = value_col.f64().map_err(|_| crate::Error::Internal)?;
 
@@ -202,8 +220,14 @@ impl ScalarTimeSeries {
     }
 
     fn linear_interpolate(&self, target_days: i32) -> Result<crate::F> {
-        let date_col = self.data.column("date").map_err(|_| crate::Error::Internal)?;
-        let value_col = self.data.column("value").map_err(|_| crate::Error::Internal)?;
+        let date_col = self
+            .data
+            .column("date")
+            .map_err(|_| crate::Error::Internal)?;
+        let value_col = self
+            .data
+            .column("value")
+            .map_err(|_| crate::Error::Internal)?;
         let dates = date_col.i32().map_err(|_| crate::Error::Internal)?;
         let values = value_col.f64().map_err(|_| crate::Error::Internal)?;
 
@@ -241,21 +265,23 @@ mod tests {
         let d0 = time::Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
         let d1 = time::Date::from_calendar_date(2025, time::Month::February, 1).unwrap();
         let d2 = time::Date::from_calendar_date(2025, time::Month::March, 1).unwrap();
-        let s = ScalarTimeSeries::new(
-            "US-UNEMP",
-            vec![(d0, 3.0), (d1, 4.0), (d2, 5.0)],
-            None,
-        )
-        .unwrap();
+        let s =
+            ScalarTimeSeries::new("US-UNEMP", vec![(d0, 3.0), (d1, 4.0), (d2, 5.0)], None).unwrap();
 
         // Midpoint between d0 and d1
         let mid = d0 + TimeDuration::days(15);
-        let step_v = s.clone().with_interpolation(SeriesInterpolation::Step).value_on(mid).unwrap();
+        let step_v = s
+            .clone()
+            .with_interpolation(SeriesInterpolation::Step)
+            .value_on(mid)
+            .unwrap();
         assert!((step_v - 3.0).abs() < 1e-12);
 
-        let lin_v = s.clone().with_interpolation(SeriesInterpolation::Linear).value_on(mid).unwrap();
+        let lin_v = s
+            .clone()
+            .with_interpolation(SeriesInterpolation::Linear)
+            .value_on(mid)
+            .unwrap();
         assert!(lin_v > 3.0 && lin_v < 4.0);
     }
 }
-
-

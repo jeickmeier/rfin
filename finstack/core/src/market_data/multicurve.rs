@@ -21,9 +21,13 @@ impl FxProvider for NoFx {
     ) -> crate::Result<FxRate> {
         if from == to {
             #[cfg(feature = "decimal128")]
-            { return Ok(rust_decimal::Decimal::ONE); }
+            {
+                return Ok(rust_decimal::Decimal::ONE);
+            }
             #[cfg(not(feature = "decimal128"))]
-            { return Ok(1.0); }
+            {
+                return Ok(1.0);
+            }
         }
         Err(crate::error::InputError::NotFound.into())
     }
@@ -31,4 +35,3 @@ impl FxProvider for NoFx {
 
 /// Backwards-compatible alias. Prefer `MarketContext` moving forward.
 pub type CurveSet = crate::market_data::context::MarketContext;
-

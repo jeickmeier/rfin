@@ -2,16 +2,16 @@
 
 pub mod metrics;
 
+use crate::impl_attributable;
 use crate::pricing::result::ValuationResult;
 use crate::traits::{Attributes, Priceable};
-use crate::impl_attributable;
-use finstack_core::F;
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::money::Money;
+use finstack_core::F;
 
 use finstack_core::dates::Date;
 
-use super::{OptionType, ExerciseStyle, SettlementType, black_scholes_common};
+use super::{black_scholes_common, ExerciseStyle, OptionType, SettlementType};
 
 /// Credit option instrument (option on CDS spread)
 #[derive(Clone, Debug)]
@@ -78,9 +78,9 @@ impl CreditOption {
             attributes: Attributes::new(),
         }
     }
-    
+
     /// Calculate option price using modified Black model for credit spreads
-    /// 
+    ///
     /// # Arguments
     /// * `forward_spread_bp` - Forward CDS spread in basis points
     /// * `df` - Discount factor to option expiry
@@ -106,134 +106,143 @@ impl CreditOption {
                 self.notional.currency(),
             ));
         }
-        
+
         // Use Black's formula with spreads
         let forward = forward_spread_bp / 10000.0; // Convert to decimal
         let strike = self.strike_spread_bp / 10000.0; // Convert to decimal
-        
+
         if forward <= 0.0 || strike <= 0.0 {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
-        
+
         let d1 = ((forward / strike).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
         let d2 = d1 - sigma * t.sqrt();
-        
+
         let option_value = match self.option_type {
             OptionType::Call => {
                 // Call option on CDS spread (right to buy protection at strike spread)
-                df * risky_annuity * self.notional.amount() * (
-                    forward * black_scholes_common::norm_cdf(d1)
-                    - strike * black_scholes_common::norm_cdf(d2)
-                )
-            },
+                df * risky_annuity
+                    * self.notional.amount()
+                    * (forward * black_scholes_common::norm_cdf(d1)
+                        - strike * black_scholes_common::norm_cdf(d2))
+            }
             OptionType::Put => {
                 // Put option on CDS spread (right to sell protection at strike spread)
-                df * risky_annuity * self.notional.amount() * (
-                    strike * black_scholes_common::norm_cdf(-d2)
-                    - forward * black_scholes_common::norm_cdf(-d1)
-                )
-            },
+                df * risky_annuity
+                    * self.notional.amount()
+                    * (strike * black_scholes_common::norm_cdf(-d2)
+                        - forward * black_scholes_common::norm_cdf(-d1))
+            }
         };
-        
+
         Ok(Money::new(option_value, self.notional.currency()))
     }
-    
+
     /// Calculate option delta (sensitivity to credit spread)
     pub fn delta(&self, forward_spread_bp: F, sigma: F, t: F) -> F {
         if t <= 0.0 || sigma <= 0.0 {
             return match self.option_type {
                 OptionType::Call => {
-                    if forward_spread_bp > self.strike_spread_bp { 1.0 } else { 0.0 }
-                },
+                    if forward_spread_bp > self.strike_spread_bp {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
                 OptionType::Put => {
-                    if forward_spread_bp < self.strike_spread_bp { -1.0 } else { 0.0 }
-                },
+                    if forward_spread_bp < self.strike_spread_bp {
+                        -1.0
+                    } else {
+                        0.0
+                    }
+                }
             };
         }
-        
+
         let forward = forward_spread_bp / 10000.0;
         let strike = self.strike_spread_bp / 10000.0;
-        
+
         if forward <= 0.0 || strike <= 0.0 {
             return 0.0;
         }
-        
+
         let d1 = ((forward / strike).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
-        
+
         match self.option_type {
             OptionType::Call => black_scholes_common::norm_cdf(d1),
             OptionType::Put => -black_scholes_common::norm_cdf(-d1),
         }
     }
-    
+
     /// Calculate option gamma
     pub fn gamma(&self, forward_spread_bp: F, sigma: F, t: F) -> F {
         if t <= 0.0 || sigma <= 0.0 {
             return 0.0;
         }
-        
+
         let forward = forward_spread_bp / 10000.0;
         let strike = self.strike_spread_bp / 10000.0;
-        
+
         if forward <= 0.0 || strike <= 0.0 {
             return 0.0;
         }
-        
+
         let d1 = ((forward / strike).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
-        
+
         black_scholes_common::norm_pdf(d1) / (forward * 10000.0 * sigma * t.sqrt())
     }
-    
+
     /// Calculate option vega (sensitivity to credit spread volatility)
     pub fn vega(&self, forward_spread_bp: F, sigma: F, t: F) -> F {
         if t <= 0.0 {
             return 0.0;
         }
-        
+
         let forward = forward_spread_bp / 10000.0;
         let strike = self.strike_spread_bp / 10000.0;
-        
+
         if forward <= 0.0 || strike <= 0.0 {
             return 0.0;
         }
-        
+
         let d1 = if sigma > 0.0 {
             ((forward / strike).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt())
         } else {
             0.0
         };
-        
-        forward * 10000.0 * black_scholes_common::norm_pdf(d1) * t.sqrt() / 100.0 // Per 1% vega
+
+        forward * 10000.0 * black_scholes_common::norm_pdf(d1) * t.sqrt() / 100.0
+        // Per 1% vega
     }
-    
+
     /// Calculate option theta (time decay)
     pub fn theta(&self, forward_spread_bp: F, r: F, sigma: F, t: F) -> F {
         if t <= 0.0 {
             return 0.0;
         }
-        
+
         let forward = forward_spread_bp / 10000.0;
         let strike = self.strike_spread_bp / 10000.0;
-        
+
         if forward <= 0.0 || strike <= 0.0 {
             return 0.0;
         }
-        
+
         let d1 = ((forward / strike).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
         let d2 = d1 - sigma * t.sqrt();
         let sqrt_t = t.sqrt();
-        
+
         match self.option_type {
             OptionType::Call => {
                 let term1 = -forward * black_scholes_common::norm_pdf(d1) * sigma / (2.0 * sqrt_t);
                 let term2 = -r * strike * (-r * t).exp() * black_scholes_common::norm_cdf(d2);
                 (term1 + term2) * 10000.0 / 365.0 // Daily theta in bp
-            },
+            }
             OptionType::Put => {
                 let term1 = -forward * black_scholes_common::norm_pdf(d1) * sigma / (2.0 * sqrt_t);
                 let term2 = r * strike * (-r * t).exp() * black_scholes_common::norm_cdf(-d2);
                 (term1 + term2) * 10000.0 / 365.0 // Daily theta in bp
-            },
+            }
         }
     }
 }
@@ -244,14 +253,14 @@ impl Priceable for CreditOption {
         // Get market data
         let _disc = curves.discount(self.disc_id)?;
         let _credit = curves.credit(self.credit_id)?;
-        
+
         // Would need to compute forward spread and risky annuity
         // For now, return error as we need volatility surface
         Err(finstack_core::Error::from(
-            finstack_core::error::InputError::NotFound
+            finstack_core::error::InputError::NotFound,
         ))
     }
-    
+
     /// Compute value with specific metrics
     fn price_with_metrics(
         &self,
@@ -262,10 +271,10 @@ impl Priceable for CreditOption {
         use crate::instruments::Instrument;
         use crate::metrics::MetricContext;
         use std::sync::Arc;
-        
+
         // Compute base value
         let base_value = self.value(curves, as_of)?;
-        
+
         // Create metric context
         let _context = MetricContext::new(
             Arc::new(Instrument::CreditOption(self.clone())),
@@ -273,7 +282,7 @@ impl Priceable for CreditOption {
             as_of,
             base_value,
         );
-        
+
         crate::pricing::build_with_metrics(
             Instrument::CreditOption(self.clone()),
             curves,
@@ -282,11 +291,11 @@ impl Priceable for CreditOption {
             metrics,
         )
     }
-    
+
     /// Compute full valuation with all standard option metrics
     fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
         use crate::metrics::MetricId;
-        
+
         let standard_metrics = vec![
             MetricId::Delta,
             MetricId::Gamma,
@@ -294,7 +303,7 @@ impl Priceable for CreditOption {
             MetricId::Theta,
             MetricId::Rho,
         ];
-        
+
         self.price_with_metrics(curves, as_of, &standard_metrics)
     }
 }
@@ -310,11 +319,13 @@ impl From<CreditOption> for crate::instruments::Instrument {
 
 impl std::convert::TryFrom<crate::instruments::Instrument> for CreditOption {
     type Error = finstack_core::Error;
-    
+
     fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
         match value {
             crate::instruments::Instrument::CreditOption(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)),
+            _ => Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            )),
         }
     }
 }
@@ -330,7 +341,7 @@ mod tests {
         let notional = Money::new(10_000_000.0, Currency::USD);
         let expiry = Date::from_calendar_date(2025, Month::June, 30).unwrap();
         let cds_maturity = Date::from_calendar_date(2030, Month::June, 30).unwrap();
-        
+
         let option = CreditOption::new(
             "ABC_CDS_CALL_200",
             "ABC Corp",
@@ -343,7 +354,7 @@ mod tests {
             "USD-OIS",
             "ABC-SENIOR",
         );
-        
+
         assert_eq!(option.id, "ABC_CDS_CALL_200");
         assert_eq!(option.reference_entity, "ABC Corp");
         assert_eq!(option.strike_spread_bp, 200.0);
@@ -355,7 +366,7 @@ mod tests {
         let notional = Money::new(10_000_000.0, Currency::USD);
         let expiry = Date::from_calendar_date(2025, Month::June, 30).unwrap();
         let cds_maturity = Date::from_calendar_date(2030, Month::June, 30).unwrap();
-        
+
         let option = CreditOption::new(
             "CALL",
             "XYZ Corp",
@@ -368,33 +379,35 @@ mod tests {
             "USD-OIS",
             "XYZ-SENIOR",
         );
-        
+
         // Test parameters
         let forward_spread_bp = 200.0; // 200bp forward spread
         let df = 0.98; // Discount factor
         let risky_annuity = 4.5; // Risky annuity
         let sigma = 0.30; // 30% credit spread volatility
         let t = 0.5; // 6 months to expiry
-        
-        let price = option.credit_option_price(forward_spread_bp, df, risky_annuity, sigma, t).unwrap();
-        
+
+        let price = option
+            .credit_option_price(forward_spread_bp, df, risky_annuity, sigma, t)
+            .unwrap();
+
         // Call should have positive value when forward > strike
         assert!(price.amount() > 0.0);
-        
+
         // Test Greeks
         let delta = option.delta(forward_spread_bp, sigma, t);
         assert!(delta > 0.0 && delta < 1.0);
-        
+
         let gamma = option.gamma(forward_spread_bp, sigma, t);
         assert!(gamma > 0.0);
     }
-    
+
     #[test]
     fn test_credit_put_option() {
         let notional = Money::new(10_000_000.0, Currency::USD);
         let expiry = Date::from_calendar_date(2025, Month::June, 30).unwrap();
         let cds_maturity = Date::from_calendar_date(2030, Month::June, 30).unwrap();
-        
+
         let option = CreditOption::new(
             "PUT",
             "XYZ Corp",
@@ -407,19 +420,21 @@ mod tests {
             "USD-OIS",
             "XYZ-SENIOR",
         );
-        
+
         // Test parameters
         let forward_spread_bp = 200.0; // 200bp forward spread
         let df = 0.98;
         let risky_annuity = 4.5;
         let sigma = 0.30;
         let t = 0.5;
-        
-        let price = option.credit_option_price(forward_spread_bp, df, risky_annuity, sigma, t).unwrap();
-        
+
+        let price = option
+            .credit_option_price(forward_spread_bp, df, risky_annuity, sigma, t)
+            .unwrap();
+
         // Put should have positive value when strike > forward
         assert!(price.amount() > 0.0);
-        
+
         // Test Greeks
         let delta = option.delta(forward_spread_bp, sigma, t);
         assert!(delta < 0.0 && delta > -1.0);

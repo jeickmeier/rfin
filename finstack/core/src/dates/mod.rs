@@ -33,12 +33,12 @@ pub use date_extensions::{DateExt, OffsetDateTimeExt};
 
 mod daycount;
 
-pub use daycount::{DayCount, Thirty360Convention, days_30_360};
+pub use daycount::{days_30_360, DayCount, Thirty360Convention};
 
 mod calendar;
 
 // Re-export new holiday calendars at the top level for convenience
-pub use calendar::{adjust, BusinessDayConvention, HolidayCalendar, is_weekend};
+pub use calendar::{adjust, is_weekend, BusinessDayConvention, HolidayCalendar};
 
 // The canonical public discovery helper
 pub use calendar::available_calendars;
@@ -61,10 +61,10 @@ pub mod holiday;
 pub use holiday::calendars::*;
 
 mod periods;
-pub use periods::{build_periods, build_fiscal_periods, FiscalConfig, Period, PeriodId, PeriodKey};
+pub use periods::{build_fiscal_periods, build_periods, FiscalConfig, Period, PeriodId, PeriodKey};
 
 pub mod utils;
-pub use utils::{add_months, is_leap_year, date_to_days_since_epoch, days_since_epoch_to_date};
+pub use utils::{add_months, date_to_days_since_epoch, days_since_epoch_to_date, is_leap_year};
 
 pub mod calendars {
     #![allow(missing_docs)]

@@ -3,9 +3,9 @@
 //! This module wraps [`ScalarTimeSeries`] to provide an inflation index surface with
 //! lag handling and optional monthly seasonality, avoiding duplicate interpolation code.
 
+use crate::market_data::primitives::{ScalarTimeSeries, SeriesInterpolation};
 use crate::{Currency, Date, Error, Result};
 use polars::prelude::*;
-use crate::market_data::primitives::{ScalarTimeSeries, SeriesInterpolation};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 /// Interpolation method for index values between observations
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum InflationInterpolation {
     /// Last observation carried forward (typical for monthly CPI)
     Step,
@@ -29,6 +30,7 @@ impl Default for InflationInterpolation {
 /// Lag policy for index application
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum InflationLag {
     /// Lag by specified number of months (e.g., 3-month lag)
     Months(u8),
@@ -125,7 +127,7 @@ impl InflationIndex {
 
         // Apply seasonality if present
         let adjusted_value = self.apply_seasonality(base_value, effective_date)?;
-        
+
         Ok(adjusted_value)
     }
 
@@ -133,25 +135,29 @@ impl InflationIndex {
     pub fn ratio(&self, base_date: Date, settle_date: Date) -> Result<f64> {
         let base_value = self.value_on(base_date)?;
         let settle_value = self.value_on(settle_date)?;
-        
+
         if base_value == 0.0 {
             return Err(Error::Input(crate::error::InputError::NonPositiveValue));
         }
-        
+
         Ok(settle_value / base_value)
     }
 
     /// Get the date range covered by observations
     pub fn date_range(&self) -> Result<(Date, Date)> {
-        let date_col = self.series.as_dataframe().column("date").map_err(|_| Error::Internal)?;
+        let date_col = self
+            .series
+            .as_dataframe()
+            .column("date")
+            .map_err(|_| Error::Internal)?;
         let date_values = date_col.i32().map_err(|_| Error::Internal)?;
-        
+
         let min_days = date_values.min().ok_or(Error::Internal)?;
         let max_days = date_values.max().ok_or(Error::Internal)?;
-        
+
         let start_date = crate::dates::utils::days_since_epoch_to_date(min_days);
         let end_date = crate::dates::utils::days_since_epoch_to_date(max_days);
-        
+
         Ok((start_date, end_date))
     }
 
@@ -176,8 +182,16 @@ impl InflationIndex {
             return Err(Error::Input(crate::error::InputError::Invalid));
         }
 
-        let dates = data.column("date").map_err(|_| Error::Internal)?.i32().map_err(|_| Error::Internal)?;
-        let values = data.column("value").map_err(|_| Error::Internal)?.f64().map_err(|_| Error::Internal)?;
+        let dates = data
+            .column("date")
+            .map_err(|_| Error::Internal)?
+            .i32()
+            .map_err(|_| Error::Internal)?;
+        let values = data
+            .column("value")
+            .map_err(|_| Error::Internal)?
+            .f64()
+            .map_err(|_| Error::Internal)?;
         let observations: Vec<(Date, f64)> = dates
             .into_no_null_iter()
             .zip(values.into_no_null_iter())
@@ -192,10 +206,9 @@ impl InflationIndex {
     fn apply_lag(&self, date: Date) -> Result<Date> {
         match self.lag {
             InflationLag::None => Ok(date),
-            InflationLag::Days(days) => {
-                date.checked_sub(time::Duration::days(days as i64))
-                    .ok_or(Error::Input(crate::error::InputError::InvalidDateRange))
-            }
+            InflationLag::Days(days) => date
+                .checked_sub(time::Duration::days(days as i64))
+                .ok_or(Error::Input(crate::error::InputError::InvalidDateRange)),
             InflationLag::Months(months) => {
                 // Proper month arithmetic using shared helper
                 Ok(crate::dates::utils::add_months(date, -(months as i32)))
@@ -273,11 +286,11 @@ impl InflationIndexBuilder {
         let mut index = InflationIndex::new(self.id, self.observations, self.currency)?
             .with_interpolation(self.interpolation)
             .with_lag(self.lag);
-        
+
         if let Some(factors) = self.seasonality {
             index = index.with_seasonality(factors)?;
         }
-        
+
         Ok(index)
     }
 }
@@ -299,7 +312,7 @@ mod tests {
             (make_date(2023, 4, 30), 102.5),
             (make_date(2023, 5, 31), 103.0),
         ];
-        
+
         InflationIndex::new("US-CPI", observations, Currency::USD).unwrap()
     }
 
@@ -308,7 +321,7 @@ mod tests {
         let index = sample_cpi();
         assert_eq!(index.id, "US-CPI");
         assert_eq!(index.currency, Currency::USD);
-        
+
         let (start, end) = index.date_range().unwrap();
         assert_eq!(start, make_date(2023, 1, 31));
         assert_eq!(end, make_date(2023, 5, 31));
@@ -317,11 +330,11 @@ mod tests {
     #[test]
     fn test_step_interpolation() {
         let index = sample_cpi();
-        
+
         // Exact date match
         let value = index.value_on(make_date(2023, 2, 28)).unwrap();
         assert_eq!(value, 101.0);
-        
+
         // Between dates - should use previous value
         let value = index.value_on(make_date(2023, 3, 15)).unwrap();
         assert_eq!(value, 101.0);
@@ -330,11 +343,11 @@ mod tests {
     #[test]
     fn test_linear_interpolation() {
         let index = sample_cpi().with_interpolation(InflationInterpolation::Linear);
-        
+
         // Exact date
         let value = index.value_on(make_date(2023, 2, 28)).unwrap();
         assert_eq!(value, 101.0);
-        
+
         // Interpolated value
         let value = index.value_on(make_date(2023, 3, 15)).unwrap();
         assert!(value > 101.0 && value < 102.0);
@@ -343,15 +356,17 @@ mod tests {
     #[test]
     fn test_ratio_calculation() {
         let index = sample_cpi();
-        
-        let ratio = index.ratio(make_date(2023, 1, 31), make_date(2023, 5, 31)).unwrap();
+
+        let ratio = index
+            .ratio(make_date(2023, 1, 31), make_date(2023, 5, 31))
+            .unwrap();
         assert_eq!(ratio, 103.0 / 100.0);
     }
 
     #[test]
     fn test_with_lag() {
         let index = sample_cpi().with_lag(InflationLag::Months(1));
-        
+
         // Value on Apr 30 with 1-month lag should give Mar 31 value (102.0)
         // However, with step interpolation (default), we get the previous value (101.0)
         // since March 30 (Apr 30 - 1 month) is between Feb 28 and Mar 31
@@ -368,7 +383,7 @@ mod tests {
             .with_lag(InflationLag::Days(90))
             .build()
             .unwrap();
-        
+
         assert_eq!(index.id, "UK-RPI");
         assert_eq!(index.currency, Currency::GBP);
         assert_eq!(index.interpolation, InflationInterpolation::Linear);

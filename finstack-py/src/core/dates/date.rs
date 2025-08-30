@@ -11,7 +11,7 @@ use finstack_core::dates::{
 };
 use finstack_core::Date as CoreDate;
 use pyo3::prelude::*;
-use time::{Month, Duration};
+use time::{Duration, Month};
 
 /// Calendar date representation (YYYY-MM-DD).
 ///
@@ -269,16 +269,16 @@ impl PyDate {
             let days = duration.whole_days();
             return Ok(days.into_pyobject(py).unwrap().into());
         }
-        
+
         // Try to extract as integer (Date - int)
         if let Ok(days) = other.extract::<i64>() {
             let new_date = self.inner - Duration::days(days);
             let result = PyDate { inner: new_date };
             return Py::new(py, result).map(|obj| obj.into());
         }
-        
+
         Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            "unsupported operand type(s) for -: 'Date' and type of argument"
+            "unsupported operand type(s) for -: 'Date' and type of argument",
         ))
     }
 
