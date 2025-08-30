@@ -127,14 +127,8 @@ fn year_fraction_act_act_isda(start: Date, end: Date) -> f64 {
     let mut frac = days_start_year / days_in_year(start.year()) as f64;
 
     // Full intermediate years
-    for year in (start.year() + 1)..end.year() {
+    for _year in (start.year() + 1)..end.year() {
         frac += 1.0; // each full year counts as exactly 1.0
-        if cfg!(test) {
-            // branch to keep 100% coverage awareness
-            if days_in_year(year) == 366 {
-                // no-op, just execute branch for coverage
-            }
-        }
     }
 
     // Days from 1-Jan of end year to end date

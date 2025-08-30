@@ -849,4 +849,56 @@ mod tests {
             other => panic!("expected InvalidDateRange, got {:?}", other),
         }
     }
+
+    #[test]
+    fn contiguity_quarters() {
+        let plan = build_periods("2025Q1..Q4", None).unwrap();
+        for w in plan.periods.windows(2) {
+            assert_eq!(w[0].end, w[1].start);
+        }
+    }
+
+    #[test]
+    fn contiguity_months() {
+        let plan = build_periods("2025M01..M06", None).unwrap();
+        for w in plan.periods.windows(2) {
+            assert_eq!(w[0].end, w[1].start);
+        }
+    }
+
+    #[test]
+    fn contiguity_weeks() {
+        let plan = build_periods("2025W01..W10", None).unwrap();
+        for w in plan.periods.windows(2) {
+            assert_eq!(w[0].end, w[1].start);
+        }
+    }
+
+    #[test]
+    fn contiguity_halves_and_annual() {
+        let halves = build_periods("2025H1..H2", None).unwrap();
+        for w in halves.periods.windows(2) {
+            assert_eq!(w[0].end, w[1].start);
+        }
+        let annual = build_periods("2024..2026", None).unwrap();
+        for w in annual.periods.windows(2) {
+            assert_eq!(w[0].end, w[1].start);
+        }
+    }
+
+    #[test]
+    fn contiguity_fiscal_quarters_us_federal() {
+        let plan = build_fiscal_periods("2025Q1..Q4", FiscalConfig::us_federal(), None).unwrap();
+        for w in plan.periods.windows(2) {
+            assert_eq!(w[0].end, w[1].start);
+        }
+    }
+
+    #[test]
+    fn contiguity_fiscal_months_uk() {
+        let plan = build_fiscal_periods("2025M01..M06", FiscalConfig::uk(), None).unwrap();
+        for w in plan.periods.windows(2) {
+            assert_eq!(w[0].end, w[1].start);
+        }
+    }
 }

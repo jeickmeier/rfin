@@ -228,7 +228,24 @@ impl Iterator for LazyIter {
 
 /// Public entry-point creating a schedule iterator.
 ///
-/// Example usage is covered by unit tests and `examples/`.
+/// Returns an iterator of anchor dates including both the start and end dates
+/// (i.e., the sequence is inclusive of both anchors).
+///
+/// Examples
+/// ```
+/// use finstack_core::dates::{Date, Frequency, schedule};
+/// use time::Month;
+///
+/// let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+/// let end   = Date::from_calendar_date(2025, Month::April,   15).unwrap();
+/// let dates: Vec<_> = schedule(start, end, Frequency::monthly()).collect();
+/// assert_eq!(dates, vec![
+///   start,
+///   Date::from_calendar_date(2025, Month::February, 15).unwrap(),
+///   Date::from_calendar_date(2025, Month::March,    15).unwrap(),
+///   end,
+/// ]);
+/// ```
 pub fn schedule(start: Date, end: Date, freq: Frequency) -> impl Iterator<Item = Date> {
     ScheduleBuilder::new(start, end).frequency(freq).build_raw()
 }
@@ -306,6 +323,10 @@ impl<'a> ScheduleBuilder<'a> {
     }
 
     /// Generate the schedule iterator without business day adjustment.
+    ///
+    /// This path is zero-allocation for `StubKind::None` and `StubKind::ShortBack`
+    /// (streaming lazy iterator). For `StubKind::ShortFront`, a small fixed-size
+    /// stack buffer is used internally.
     pub fn build_raw(self) -> ScheduleIter {
         let builder = BuilderInternal {
             start: self.start,
