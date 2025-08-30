@@ -54,7 +54,7 @@ pub struct ScalarTimeSeries {
 impl ScalarTimeSeries {
     /// Create a new time series from observations.
     pub fn new(
-        id: &'static str,
+        id: impl AsRef<str>,
         observations: Vec<(Date, crate::F)>,
         currency: Option<Currency>,
     ) -> Result<Self> {

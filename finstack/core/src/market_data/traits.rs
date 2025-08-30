@@ -129,7 +129,7 @@ mod tests {
     }
 
     impl FlatCurve {
-        const fn new(id: &'static str, df_const: F) -> Self {
+        fn new(id: &'static str, df_const: F) -> Self {
             Self {
                 id: CurveId::new(id),
                 df_const,

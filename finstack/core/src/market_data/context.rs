@@ -76,7 +76,7 @@ impl<P: FxProvider> MarketContext<P> {
 
     /// Insert or replace a volatility surface.
     pub fn with_surface(mut self, surface: VolSurface) -> Self {
-        let id = *crate::market_data::traits::TermStructure::id(&surface);
+        let id = crate::market_data::traits::TermStructure::id(&surface).clone();
         self.surfaces.insert(id, Arc::new(surface));
         self
     }
@@ -85,19 +85,19 @@ impl<P: FxProvider> MarketContext<P> {
     pub fn with_vol_surface(self, surface: VolSurface) -> Self { self.with_surface(surface) }
 
     /// Insert or replace a price/scalar by id.
-    pub fn with_price(mut self, id: &'static str, price: MarketScalar) -> Self {
+    pub fn with_price(mut self, id: impl AsRef<str>, price: MarketScalar) -> Self {
         self.prices.insert(CurveId::new(id), price);
         self
     }
 
     /// Backwards compatibility helper (former CurveSet name)
-    pub fn with_scalar(self, id: &'static str, scalar: MarketScalar) -> Self {
+    pub fn with_scalar(self, id: impl AsRef<str>, scalar: MarketScalar) -> Self {
         self.with_price(id, scalar)
     }
 
     /// Insert or replace a generic series.
     pub fn with_series(mut self, series: ScalarTimeSeries) -> Self {
-        let id = *series.id();
+        let id = series.id().clone();
         self.series.insert(id, series);
         self
     }
@@ -107,47 +107,47 @@ impl<P: FxProvider> MarketContext<P> {
     // ------------------------------
     /// Insert discount curve.
     pub fn with_discount<C: Discount + Send + Sync + 'static>(mut self, curve: C) -> Self {
-        let cid = *TermStructure::id(&curve);
+        let cid = TermStructure::id(&curve).clone();
         self.disc.insert(cid, Arc::new(curve));
         self
     }
 
     /// Insert forecast curve.
     pub fn with_forecast<C: Forward + Send + Sync + 'static>(mut self, curve: C) -> Self {
-        let cid = *TermStructure::id(&curve);
+        let cid = TermStructure::id(&curve).clone();
         self.fwd.insert(cid, Arc::new(curve));
         self
     }
 
     /// Insert hazard curve.
     pub fn with_hazard(mut self, curve: crate::market_data::hazard_curve::HazardCurve) -> Self {
-        let cid = *TermStructure::id(&curve);
+        let cid = TermStructure::id(&curve).clone();
         self.hazard.insert(cid, Arc::new(curve));
         self
     }
 
     /// Insert inflation curve.
     pub fn with_inflation(mut self, curve: InflationCurve) -> Self {
-        let cid = *TermStructure::id(&curve);
+        let cid = TermStructure::id(&curve).clone();
         self.inflation.insert(cid, Arc::new(curve));
         self
     }
 
     /// Insert credit curve.
     pub fn with_credit(mut self, curve: CreditCurve) -> Self {
-        let cid = curve.id;
+        let cid = curve.id.clone();
         self.credit.insert(cid, Arc::new(curve));
         self
     }
 
     /// Add a credit curve (mutable variant for tests)
     pub fn add_credit(&mut self, curve: CreditCurve) {
-        let cid = curve.id;
+        let cid = curve.id.clone();
         self.credit.insert(cid, Arc::new(curve));
     }
 
     /// Insert inflation index.
-    pub fn with_inflation_index(self, id: &'static str, index: InflationIndex) -> Self {
+    pub fn with_inflation_index(self, id: impl AsRef<str>, index: InflationIndex) -> Self {
         let mut this = self;
         let cid = CurveId::new(id);
         this.inflation_indices.insert(cid, Arc::new(index));
@@ -198,7 +198,7 @@ impl<P: FxProvider> MarketContext<P> {
     }
 
     /// Convenience getters that forward to underlying containers
-    pub fn vol_surface(&self, id: &'static str) -> crate::Result<Arc<VolSurface>> {
+    pub fn vol_surface(&self, id: impl AsRef<str>) -> crate::Result<Arc<VolSurface>> {
         self.surfaces
             .get(&CurveId::new(id))
             .cloned()
@@ -206,31 +206,31 @@ impl<P: FxProvider> MarketContext<P> {
     }
 
     /// Return a reference to a market scalar (price/constant) by identifier.
-    pub fn market_scalar(&self, id: &'static str) -> crate::Result<&MarketScalar> {
+    pub fn market_scalar(&self, id: impl AsRef<str>) -> crate::Result<&MarketScalar> {
         self.prices
             .get(&CurveId::new(id))
             .ok_or(crate::error::InputError::NotFound.into())
     }
 
     /// Return a reference to a generic date-indexed scalar time series by identifier.
-    pub fn scalar_time_series(&self, id: &'static str) -> crate::Result<&ScalarTimeSeries> {
+    pub fn scalar_time_series(&self, id: impl AsRef<str>) -> crate::Result<&ScalarTimeSeries> {
         self.series
             .get(&CurveId::new(id))
             .ok_or(crate::error::InputError::NotFound.into())
     }
 
     /// Backwards compatibility alias (former CurveSet API)
-    pub fn series(&self, id: &'static str) -> crate::Result<&ScalarTimeSeries> {
+    pub fn series(&self, id: impl AsRef<str>) -> crate::Result<&ScalarTimeSeries> {
         self.scalar_time_series(id)
     }
 
     /// Backwards compatibility alias for fetching a scalar.
-    pub fn scalar(&self, id: &'static str) -> crate::Result<&MarketScalar> {
+    pub fn scalar(&self, id: impl AsRef<str>) -> crate::Result<&MarketScalar> {
         self.market_scalar(id)
     }
 
     /// Get discount curve by id.
-    pub fn discount(&self, id: &'static str) -> crate::Result<Arc<dyn Discount + Send + Sync>> {
+    pub fn discount(&self, id: impl AsRef<str>) -> crate::Result<Arc<dyn Discount + Send + Sync>> {
         self.disc
             .get(&CurveId::new(id))
             .cloned()
@@ -238,7 +238,7 @@ impl<P: FxProvider> MarketContext<P> {
     }
 
     /// Get forecast curve by id.
-    pub fn forecast(&self, id: &'static str) -> crate::Result<Arc<dyn Forward + Send + Sync>> {
+    pub fn forecast(&self, id: impl AsRef<str>) -> crate::Result<Arc<dyn Forward + Send + Sync>> {
         self.fwd
             .get(&CurveId::new(id))
             .cloned()
@@ -246,7 +246,7 @@ impl<P: FxProvider> MarketContext<P> {
     }
 
     /// Get hazard curve.
-    pub fn hazard(&self, id: &'static str) -> crate::Result<Arc<crate::market_data::hazard_curve::HazardCurve>> {
+    pub fn hazard(&self, id: impl AsRef<str>) -> crate::Result<Arc<crate::market_data::hazard_curve::HazardCurve>> {
         self.hazard
             .get(&CurveId::new(id))
             .cloned()
@@ -254,7 +254,7 @@ impl<P: FxProvider> MarketContext<P> {
     }
 
     /// Get inflation curve.
-    pub fn inflation(&self, id: &'static str) -> crate::Result<Arc<InflationCurve>> {
+    pub fn inflation(&self, id: impl AsRef<str>) -> crate::Result<Arc<InflationCurve>> {
         self.inflation
             .get(&CurveId::new(id))
             .cloned()
@@ -262,7 +262,7 @@ impl<P: FxProvider> MarketContext<P> {
     }
 
     /// Get credit curve by id.
-    pub fn credit(&self, id: &'static str) -> crate::Result<Arc<CreditCurve>> {
+    pub fn credit(&self, id: impl AsRef<str>) -> crate::Result<Arc<CreditCurve>> {
         self.credit
             .get(&CurveId::new(id))
             .cloned()
@@ -270,7 +270,7 @@ impl<P: FxProvider> MarketContext<P> {
     }
 
     /// Get inflation index by id.
-    pub fn inflation_index(&self, id: &'static str) -> Option<Arc<InflationIndex>> {
+    pub fn inflation_index(&self, id: impl AsRef<str>) -> Option<Arc<InflationIndex>> {
         self.inflation_indices
             .get(&CurveId::new(id))
             .cloned()

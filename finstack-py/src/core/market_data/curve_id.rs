@@ -51,22 +51,14 @@ impl PyCurveId {
                 "CurveId cannot be empty",
             ));
         }
-        // Leak the string to get 'static lifetime
-        let id_static: &'static str = Box::leak(id.into_boxed_str());
-        Ok(PyCurveId {
-            inner: CurveId::new(id_static),
-        })
+        Ok(PyCurveId { inner: CurveId::new(id) })
     }
 
     /// The string value of the curve ID.
     #[getter]
-    fn value(&self) -> &'static str {
-        self.inner.as_str()
-    }
+    fn value(&self) -> String { self.inner.as_str().to_string() }
 
-    fn __str__(&self) -> &'static str {
-        self.inner.as_str()
-    }
+    fn __str__(&self) -> String { self.inner.as_str().to_string() }
 
     fn __repr__(&self) -> String {
         format!("CurveId('{}')", self.inner.as_str())
@@ -92,7 +84,5 @@ impl PyCurveId {
     }
 
     /// Get the inner CurveId
-    pub fn to_core(&self) -> CurveId {
-        self.inner
-    }
+    pub fn to_core(&self) -> CurveId { self.inner.clone() }
 }

@@ -1,35 +1,31 @@
 use core::fmt;
+extern crate alloc;
+use alloc::sync::Arc;
 
-/// Zero‐allocation identifier for a market-data term structure.
+/// Identifier for a market-data term structure.
 ///
-/// The type intentionally uses a **transparent `&'static str` wrapper** so
-/// that it:
-/// * can be defined as a `const` and embedded directly in code, and
-/// * is **`Copy`**, hashable and comparable by a single pointer operation.
-///
-/// See unit tests and `examples/` for usage.
-#[repr(transparent)]
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct CurveId(&'static str);
+/// Wraps an `Arc<str>` so it can be created dynamically at runtime while
+/// remaining cheap to clone and share across the system.
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub struct CurveId(Arc<str>);
 
 impl CurveId {
-    /// Construct a new identifier from a string literal.
+    /// Construct a new identifier from a string-like value.
     ///
     /// # Panics
     /// Panics if `id` is the empty string – an identifier must contain at
     /// least one character so that it remains unique and displays
     /// meaningfully.
     #[must_use]
-    pub const fn new(id: &'static str) -> Self {
-        assert!(!id.is_empty(), "CurveId cannot be empty");
-        Self(id)
+    pub fn new(id: impl AsRef<str>) -> Self {
+        let s = id.as_ref();
+        assert!(!s.is_empty(), "CurveId cannot be empty");
+        Self(Arc::<str>::from(s))
     }
 
     /// Return the wrapped string slice.
     #[must_use]
-    pub const fn as_str(self) -> &'static str {
-        self.0
-    }
+    pub fn as_str(&self) -> &str { &self.0 }
 }
 
 impl fmt::Debug for CurveId {
@@ -40,7 +36,7 @@ impl fmt::Debug for CurveId {
 
 impl fmt::Display for CurveId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.0)
+        f.write_str(&self.0)
     }
 }
 
@@ -79,8 +75,8 @@ mod tests {
     }
 
     #[test]
-    fn curve_id_size_eight_bytes() {
-        // &str is a fat pointer (ptr + len) on 64-bit so expect 16 bytes.
-        assert_eq!(size_of::<CurveId>(), 16);
+    fn curve_id_is_small_and_cloneable() {
+        // Arc<str> is a fat pointer (ptr + len) like &str on 64-bit → 16 bytes.
+        assert_eq!(size_of::<CurveId>(), size_of::<&str>());
     }
 }
