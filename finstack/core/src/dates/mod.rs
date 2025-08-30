@@ -34,7 +34,7 @@ pub use date_extensions::{DateExt, OffsetDateTimeExt};
 
 mod daycount;
 
-pub use daycount::DayCount;
+pub use daycount::{DayCount, Thirty360Convention, days_30_360};
 
 mod calendar;
 

@@ -52,8 +52,8 @@ impl DayCount {
                     let total_days = (end - start).whole_days();
                     Ok(total_days as i32)
                 }
-                DayCount::Thirty360 => Ok(days_30_360_us(start, end)),
-                DayCount::ThirtyE360 => Ok(days_30e_360(start, end)),
+                DayCount::Thirty360 => Ok(days_30_360(start, end, Thirty360Convention::Us)),
+                DayCount::ThirtyE360 => Ok(days_30_360(start, end, Thirty360Convention::European)),
             },
         }
     }
@@ -74,14 +74,21 @@ impl DayCount {
 // -------------------------------------------------------------------------------------------------
 // 30/360 generalized helper
 // -------------------------------------------------------------------------------------------------
+/// 30/360 day-count variants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Thirty360Convention {
+pub enum Thirty360Convention {
+    /// 30U/360 (US Bond Basis).
     Us,
+    /// 30E/360 (European).
     European,
 }
 
+/// Compute day count between `start` (inclusive) and `end` (exclusive) under a 30/360 convention.
+///
+/// Precondition: `start <= end`. If violated, the returned value will be negative.
+/// This helper is panic-free and allocation-free.
 #[inline]
-fn days_30_360(start: Date, end: Date, convention: Thirty360Convention) -> i32 {
+pub fn days_30_360(start: Date, end: Date, convention: Thirty360Convention) -> i32 {
     let (y1, m1, d1) = (start.year(), start.month() as i32, start.day() as i32);
     let (y2, m2, d2) = (end.year(), end.month() as i32, end.day() as i32);
 
@@ -98,20 +105,7 @@ fn days_30_360(start: Date, end: Date, convention: Thirty360Convention) -> i32 {
     (y2 - y1) * 360 + (m2 - m1) * 30 + (d2_adj - d1_adj)
 }
 
-// -------------------------------------------------------------------------------------------------
-// 30U/360 (US Bond Basis) helper
-// -------------------------------------------------------------------------------------------------
-/// Calculate days per 30U/360 US convention.
-fn days_30_360_us(start: Date, end: Date) -> i32 {
-    days_30_360(start, end, Thirty360Convention::Us)
-}
-
-// -------------------------------------------------------------------------------------------------
-// 30E/360 European helper
-// -------------------------------------------------------------------------------------------------
-fn days_30e_360(start: Date, end: Date) -> i32 {
-    days_30_360(start, end, Thirty360Convention::European)
-}
+// (Wrappers removed in favor of the public `days_30_360` with `Thirty360Convention`.)
 
 // -------------------------------------------------------------------------------------------------
 // ACT/ACT (ISDA) helper
