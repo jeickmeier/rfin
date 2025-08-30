@@ -57,9 +57,7 @@ mod imm;
 pub use imm::{next_cds_date, next_imm, third_wednesday};
 
 pub mod holiday;
-// Re-export primary types for ergonomic use
-pub use holiday::{Calendar as HolidayCalendarNew, Rule as HolidayRule};
-
+// Keep holiday DSL under `dates::holiday`; avoid redundant aliases at root.
 // Re-export calendars directly for `finstack_core::dates::Target2` etc.
 pub use holiday::calendars::*;
 
