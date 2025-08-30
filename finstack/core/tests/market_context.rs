@@ -46,7 +46,7 @@ fn test_market_context_new() {
 #[test]
 fn test_market_context_from_curve_set() {
     let curve_set = CurveSet::new();
-    let ctx: MarketContext<TestFxProvider> = MarketContext::from(curve_set);
+    let ctx: MarketContext<TestFxProvider> = MarketContext::from_curve_set(curve_set);
     
     // Should have the curve set but other fields empty
     assert!(ctx.fx.is_none());
