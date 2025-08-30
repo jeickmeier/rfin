@@ -15,7 +15,7 @@ use finstack_core::market_data::traits::Discount;
 use finstack_core::money::Money;
 use finstack_core::F;
 
-pub mod enhanced;
+pub mod cds_pricer;
 pub mod metrics;
 
 /// CDS payment types
@@ -228,7 +228,7 @@ impl CreditDefaultSwap {
         disc: &dyn Discount,
         surv: &CreditCurve,
     ) -> finstack_core::Result<Money> {
-        let pricer = enhanced::EnhancedCDSPricer::new();
+        let pricer = cds_pricer::CDSPricer::new();
         let as_of = disc.base_date();
         pricer.pv_premium_leg(self, disc, surv, as_of)
     }
@@ -239,7 +239,7 @@ impl CreditDefaultSwap {
         disc: &dyn Discount,
         credit: &CreditCurve,
     ) -> finstack_core::Result<Money> {
-        let pricer = enhanced::EnhancedCDSPricer::new();
+        let pricer = cds_pricer::CDSPricer::new();
         let as_of = disc.base_date();
         pricer.pv_protection_leg(self, disc, credit, as_of)
     }
@@ -250,7 +250,7 @@ impl CreditDefaultSwap {
         disc: &dyn Discount,
         credit: &CreditCurve,
     ) -> finstack_core::Result<F> {
-        let pricer = enhanced::EnhancedCDSPricer::new();
+        let pricer = cds_pricer::CDSPricer::new();
         let as_of = disc.base_date();
         pricer.par_spread(self, disc, credit, as_of)
     }
@@ -261,7 +261,7 @@ impl CreditDefaultSwap {
         disc: &dyn Discount,
         credit: &CreditCurve,
     ) -> finstack_core::Result<F> {
-        let pricer = enhanced::EnhancedCDSPricer::new();
+        let pricer = cds_pricer::CDSPricer::new();
         let as_of = disc.base_date();
         pricer.risky_annuity(self, disc, credit, as_of)
     }
@@ -272,12 +272,14 @@ impl CreditDefaultSwap {
         disc: &dyn Discount,
         credit: &CreditCurve,
     ) -> finstack_core::Result<F> {
-        self.risky_annuity(disc, credit)
+        let pricer = cds_pricer::CDSPricer::new();
+        let as_of = disc.base_date();
+        pricer.risky_pv01(self, disc, credit, as_of)
     }
 
     /// Calculate CS01 (change in PV for 1bp credit spread change) via enhanced pricer
     pub fn cs01(&self, curves: &CurveSet) -> finstack_core::Result<F> {
-        let pricer = enhanced::EnhancedCDSPricer::new();
+        let pricer = cds_pricer::CDSPricer::new();
         pricer.cs01(self, curves, curves.discount(self.premium.disc_id)?.base_date())
     }
 }
@@ -511,20 +513,7 @@ impl std::convert::TryFrom<crate::instruments::Instrument> for CreditDefaultSwap
     }
 }
 
-// Helper function to calculate survival probability from credit curve
-#[allow(dead_code)]
-fn survival_probability(credit: &CreditCurve, t: F) -> finstack_core::Result<F> {
-    if t <= 0.0 {
-        return Ok(1.0);
-    }
-
-    // Convert spread to hazard rate (simplified)
-    let spread_decimal = credit.spread_bp(t) / 10000.0;
-    let hazard_rate = spread_decimal / (1.0 - credit.recovery_rate);
-
-    // Survival probability = exp(-hazard_rate * t)
-    Ok((-hazard_rate * t).exp())
-}
+// (Removed legacy survival_probability helper; Enhanced pricer handles this.)
 
 #[cfg(test)]
 mod tests {

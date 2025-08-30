@@ -1,4 +1,4 @@
-//! Enhanced CDS pricing with accrual-on-default and finer discretization.
+//! CDS pricing with accrual-on-default and finer discretization.
 //!
 //! Implements FinancePy-style CDS valuation with improved accuracy through:
 //! - Accrual-on-default calculation
@@ -16,9 +16,9 @@ use finstack_core::market_data::traits::Discount;
 use finstack_core::money::Money;
 use finstack_core::{Error, Result, F};
 
-/// Configuration for enhanced CDS pricing
+/// Configuration for CDS pricing
 #[derive(Clone, Debug)]
-pub struct EnhancedCDSConfig {
+pub struct CDSPricerConfig {
     /// Number of integration steps per year for protection leg
     pub steps_per_year: usize,
     /// Include accrual on default
@@ -29,7 +29,7 @@ pub struct EnhancedCDSConfig {
     pub tolerance: F,
 }
 
-impl Default for EnhancedCDSConfig {
+impl Default for CDSPricerConfig {
     fn default() -> Self {
         Self {
             steps_per_year: 365, // Daily integration (FinancePy default)
@@ -40,21 +40,21 @@ impl Default for EnhancedCDSConfig {
     }
 }
 
-/// Enhanced CDS pricer with FinancePy methodology
-pub struct EnhancedCDSPricer {
-    config: EnhancedCDSConfig,
+/// CDS pricer with FinancePy methodology
+pub struct CDSPricer {
+    config: CDSPricerConfig,
 }
 
-impl EnhancedCDSPricer {
+impl CDSPricer {
     /// Create new pricer with default config
     pub fn new() -> Self {
         Self {
-            config: EnhancedCDSConfig::default(),
+            config: CDSPricerConfig::default(),
         }
     }
 
     /// Create pricer with custom config
-    pub fn with_config(config: EnhancedCDSConfig) -> Self {
+    pub fn with_config(config: CDSPricerConfig) -> Self {
         Self { config }
     }
 
@@ -352,7 +352,7 @@ impl EnhancedCDSPricer {
     }
 }
 
-impl Default for EnhancedCDSPricer {
+impl Default for CDSPricer {
     fn default() -> Self {
         Self::new()
     }
@@ -360,14 +360,14 @@ impl Default for EnhancedCDSPricer {
 
 /// Bootstrap hazard rates from CDS spreads
 pub struct CDSBootstrapper {
-    config: EnhancedCDSConfig,
+    config: CDSPricerConfig,
 }
 
 impl CDSBootstrapper {
     /// Create new bootstrapper
     pub fn new() -> Self {
         Self {
-            config: EnhancedCDSConfig::default(),
+            config: CDSPricerConfig::default(),
         }
     }
 
@@ -380,7 +380,7 @@ impl CDSBootstrapper {
         base_date: Date,
     ) -> Result<HazardCurve> {
         let mut hazard_rates = Vec::new();
-        let pricer = EnhancedCDSPricer::with_config(self.config.clone());
+        let pricer = CDSPricer::with_config(self.config.clone());
 
         for &(tenor, spread_bps) in cds_spreads {
             // Create synthetic CDS for this tenor
@@ -430,7 +430,7 @@ impl CDSBootstrapper {
         cds: &CreditDefaultSwap,
         disc: &dyn Discount,
         target_spread_bps: F,
-        pricer: &EnhancedCDSPricer,
+        pricer: &CDSPricer,
     ) -> Result<F> {
         let mut hazard_rate = target_spread_bps / 10000.0 / (1.0 - cds.protection.recovery_rate);
 
@@ -545,7 +545,7 @@ mod tests {
             "USD-OIS",
         );
 
-        let pricer = EnhancedCDSPricer::new();
+        let pricer = CDSPricer::new();
         let protection_pv = pricer
             .pv_protection_leg(&cds, &disc, &credit, as_of)
             .unwrap();
@@ -574,8 +574,8 @@ mod tests {
         );
 
         // Test with and without accrual
-        let pricer_with = EnhancedCDSPricer::new();
-        let pricer_without = EnhancedCDSPricer::with_config(EnhancedCDSConfig {
+        let pricer_with = CDSPricer::new();
+        let pricer_without = CDSPricer::with_config(CDSPricerConfig {
             include_accrual: false,
             ..Default::default()
         });
@@ -611,8 +611,8 @@ mod tests {
         );
 
         // Test with different discretization levels
-        let pricer_daily = EnhancedCDSPricer::new();
-        let pricer_monthly = EnhancedCDSPricer::with_config(EnhancedCDSConfig {
+        let pricer_daily = CDSPricer::new();
+        let pricer_monthly = CDSPricer::with_config(CDSPricerConfig {
             steps_per_year: 12,
             ..Default::default()
         });
@@ -656,7 +656,7 @@ mod tests {
             "USD-OIS",
         );
 
-        let pricer = EnhancedCDSPricer::new();
+        let pricer = CDSPricer::new();
 
         let par_spread = pricer.par_spread(&cds, &disc, &credit, as_of).unwrap();
 
