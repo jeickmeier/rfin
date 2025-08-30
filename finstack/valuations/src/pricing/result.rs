@@ -155,7 +155,7 @@ pub struct ValuationResult {
     /// Present value of the instrument.
     pub value: Money,
     /// Computed risk measures and metrics.
-    pub measures: HashMap<String, F>,
+    pub measures: IndexMap<String, F>,
     /// Metadata about the calculation (timing, precision, etc.).
     pub meta: ExtendedResultsMeta,
     /// Covenant check results (if applicable).
@@ -171,7 +171,7 @@ impl ValuationResult {
             instrument_id: instrument_id.into(),
             as_of,
             value,
-            measures: HashMap::new(),
+            measures: IndexMap::new(),
             // Default stamping uses default configuration; callers needing custom
             // policy should construct `ExtendedResultsMeta` manually or provide
             // a config-aware constructor in their layer.
@@ -184,7 +184,7 @@ impl ValuationResult {
 
     /// Add measures to the result.
     /// See unit tests and `examples/` for usage.
-    pub fn with_measures(mut self, measures: HashMap<String, F>) -> Self {
+    pub fn with_measures(mut self, measures: IndexMap<String, F>) -> Self {
         self.measures = measures;
         self
     }

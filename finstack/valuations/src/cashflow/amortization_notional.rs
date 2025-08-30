@@ -92,8 +92,33 @@ impl Notional {
                 Ok(())
             }
             AmortizationSpec::StepRemaining { schedule } => {
+                // Enforce strictly increasing dates with no duplicates and validate amounts
+                // in chronological order. We sort a local copy to check timeline consistency
+                // and then ensure the provided input is already strictly increasing.
+                let mut sorted = schedule.clone();
+                sorted.sort_by_key(|(d, _)| *d);
+
+                // Reject duplicates and non-increasing dates
+                let mut prev_date: Option<Date> = None;
+                for (d, _) in &sorted {
+                    if let Some(p) = prev_date {
+                        if *d <= p {
+                            return Err(InputError::Invalid.into());
+                        }
+                    }
+                    prev_date = Some(*d);
+                }
+
+                // Require that input is already strictly increasing by date
+                let input_dates_iter = schedule.iter().map(|(d, _)| *d);
+                let sorted_dates_iter = sorted.iter().map(|(d, _)| *d);
+                if !input_dates_iter.eq(sorted_dates_iter) {
+                    return Err(InputError::Invalid.into());
+                }
+
+                // Validate currency consistency and non-increasing remaining amounts
                 let mut remaining = self.initial.amount();
-                for (_, notl) in schedule {
+                for (_, notl) in &sorted {
                     if notl.currency() != self.initial.currency() || notl.amount() > remaining {
                         return Err(InputError::Invalid.into());
                     }

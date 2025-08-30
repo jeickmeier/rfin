@@ -77,7 +77,7 @@ where
     PrevFn: Fn(&S, Date) -> Option<Date>,
     ComputeFn: Fn(&S, Date, Date, f64) -> finstack_core::Result<(f64, f64, Option<Date>)>,
     KindFn: Fn(&S, Date) -> CFKind,
-    SplitFn: Fn(&S) -> (f64, f64),
+    SplitFn: Fn(&S) -> finstack_core::Result<(f64, f64)>,
 {
     let mut pik_to_add = 0.0;
     let mut new_flows: Vec<CashFlow> = Vec::new();
@@ -88,7 +88,7 @@ where
                 .get(&prev)
                 .unwrap_or(&ctx.outstanding_fallback);
             let (yf, coupon_total, reset_date) = compute(sched, prev, ctx.d, base_out)?;
-            let (cash_pct, pik_pct) = split_parts(sched);
+            let (cash_pct, pik_pct) = split_parts(sched)?;
             let cash_amt = coupon_total * cash_pct;
             let pik_amt = coupon_total * pik_pct;
             if cash_amt > 0.0 {

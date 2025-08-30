@@ -11,7 +11,7 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, Stu
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::money::Money;
 use finstack_core::F;
-use hashbrown::HashMap;
+use indexmap::IndexMap;
 
 /// Draw rules for a DDTL.
 #[derive(Clone, Debug)]
@@ -410,7 +410,7 @@ impl Priceable for DelayedDrawTermLoan {
         let mut result = ValuationResult::stamped(&self.id, as_of, base_value);
 
         // Add some basic metrics
-        let mut measures = HashMap::new();
+        let mut measures = IndexMap::new();
         measures.insert(
             "drawn".to_string(),
             self.simulate_draws_to_date(as_of).amount(),

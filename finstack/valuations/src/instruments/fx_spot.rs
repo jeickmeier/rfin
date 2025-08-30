@@ -7,7 +7,7 @@ use crate::traits::{Attributes, CashflowProvider, Priceable};
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::prelude::*;
 use finstack_core::F;
-use hashbrown::HashMap;
+use indexmap::IndexMap;
 
 /// FX Spot instrument (1 unit of `base` priced in `quote`).
 ///
@@ -107,7 +107,7 @@ impl Priceable for FxSpot {
     ) -> finstack_core::Result<ValuationResult> {
         let value = self.value(curves, as_of)?;
 
-        let mut measures = HashMap::new();
+        let mut measures = IndexMap::new();
 
         for metric_id in metrics {
             match metric_id {

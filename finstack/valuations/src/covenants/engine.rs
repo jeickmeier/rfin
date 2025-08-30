@@ -15,15 +15,17 @@ use finstack_core::prelude::*;
 use finstack_core::F;
 use indexmap::IndexMap;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Type alias for custom evaluator functions.
-pub type CustomEvaluator = Box<dyn Fn(&MetricContext) -> finstack_core::Result<bool> + Send + Sync>;
+pub type CustomEvaluator = Arc<dyn Fn(&MetricContext) -> finstack_core::Result<bool> + Send + Sync>;
 
 /// Type alias for custom metric calculators.
 pub type CustomMetricCalculator =
-    Box<dyn Fn(&MetricContext) -> finstack_core::Result<finstack_core::F> + Send + Sync>;
+    Arc<dyn Fn(&MetricContext) -> finstack_core::Result<finstack_core::F> + Send + Sync>;
 
 /// Covenant evaluation specification.
+#[derive(Clone)]
 pub struct CovenantSpec {
     /// The covenant to evaluate
     pub covenant: Covenant,
@@ -33,15 +35,7 @@ pub struct CovenantSpec {
     pub custom_evaluator: Option<CustomEvaluator>,
 }
 
-impl Clone for CovenantSpec {
-    fn clone(&self) -> Self {
-        Self {
-            covenant: self.covenant.clone(),
-            metric_id: self.metric_id.clone(),
-            custom_evaluator: None, // Custom evaluators cannot be cloned
-        }
-    }
-}
+// Derive-based Clone now works because custom_evaluator uses Arc
 
 impl std::fmt::Debug for CovenantSpec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -71,7 +65,7 @@ impl CovenantSpec {
         Self {
             covenant,
             metric_id: None,
-            custom_evaluator: Some(Box::new(evaluator)),
+            custom_evaluator: Some(Arc::new(evaluator)),
         }
     }
 }
@@ -171,7 +165,7 @@ impl CovenantEngine {
             Fn(&MetricContext) -> finstack_core::Result<finstack_core::F> + Send + Sync + 'static,
     {
         self.custom_metrics
-            .insert(name.into(), Box::new(calculator));
+            .insert(name.into(), Arc::new(calculator));
         self
     }
 

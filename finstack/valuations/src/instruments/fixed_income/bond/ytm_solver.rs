@@ -8,6 +8,18 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::root_finding::newton_raphson;
 use finstack_core::money::Money;
 use finstack_core::{Result, F};
+use finstack_core::dates::Frequency;
+
+use super::helpers::{df_and_derivative_from_yield, df_from_yield, YieldCompounding};
+/// Pricing specification for YTM solving and pricing from yield.
+#[derive(Clone, Copy, Debug)]
+pub struct YtmPricingSpec {
+    pub day_count: DayCount,
+    pub notional: Money,
+    pub coupon_rate: F,
+    pub compounding: YieldCompounding,
+    pub frequency: Frequency,
+}
 
 /// Configuration for YTM solver
 #[derive(Clone, Debug)]
@@ -63,9 +75,7 @@ impl YtmSolver {
     /// * `cashflows` - Vector of (date, amount) tuples
     /// * `as_of` - Valuation date
     /// * `target_price` - Target dirty price
-    /// * `day_count` - Day count convention
-    /// * `notional` - Bond notional for scaling
-    /// * `coupon_rate` - Annual coupon rate (for initial guess)
+    /// * `spec` - Pricing spec including day count, notional, coupon, compounding, frequency
     ///
     /// # Returns
     /// The yield-to-maturity that produces the target price
@@ -74,9 +84,7 @@ impl YtmSolver {
         cashflows: &[(Date, Money)],
         as_of: Date,
         target_price: Money,
-        day_count: DayCount,
-        notional: Money,
-        coupon_rate: F,
+        spec: YtmPricingSpec,
     ) -> Result<F> {
         let target = target_price.amount();
 
@@ -86,20 +94,36 @@ impl YtmSolver {
                 cashflows,
                 as_of,
                 target_price,
-                day_count,
-                notional,
-                coupon_rate,
+                spec.day_count,
+                spec.notional,
+                spec.coupon_rate,
             )?
         } else {
-            coupon_rate // Simple fallback
+            spec.coupon_rate // Simple fallback
         };
 
         // Define the price function and its derivative
-        let price_fn =
-            |y: f64| -> f64 { self.calculate_price(cashflows, as_of, y, day_count) - target };
+        let price_fn = |y: f64| -> f64 {
+            self.calculate_price(
+                cashflows,
+                as_of,
+                y,
+                spec.day_count,
+                spec.compounding,
+                spec.frequency,
+            ) - target
+        };
 
-        let price_derivative =
-            |y: f64| -> f64 { self.calculate_price_derivative(cashflows, as_of, y, day_count) };
+        let price_derivative = |y: f64| -> f64 {
+            self.calculate_price_derivative(
+                cashflows,
+                as_of,
+                y,
+                spec.day_count,
+                spec.compounding,
+                spec.frequency,
+            )
+        };
 
         if self.config.use_newton {
             // Try Newton-Raphson with automatic fallback
@@ -146,6 +170,8 @@ impl YtmSolver {
         as_of: Date,
         yield_rate: F,
         day_count: DayCount,
+        comp: YieldCompounding,
+        freq: Frequency,
     ) -> F {
         let mut price = 0.0;
 
@@ -156,7 +182,7 @@ impl YtmSolver {
 
             let t = DiscountCurve::year_fraction(as_of, date, day_count);
             if t > 0.0 {
-                let df = (1.0 + yield_rate).powf(-t);
+                let df = df_from_yield(yield_rate, t, comp, freq);
                 price += amount.amount() * df;
             }
         }
@@ -171,6 +197,8 @@ impl YtmSolver {
         as_of: Date,
         yield_rate: F,
         day_count: DayCount,
+        comp: YieldCompounding,
+        freq: Frequency,
     ) -> F {
         let mut derivative = 0.0;
 
@@ -181,8 +209,8 @@ impl YtmSolver {
 
             let t = DiscountCurve::year_fraction(as_of, date, day_count);
             if t > 0.0 {
-                let df = (1.0 + yield_rate).powf(-t);
-                derivative -= t * amount.amount() * df / (1.0 + yield_rate);
+                let (_df, ddf_dy) = df_and_derivative_from_yield(yield_rate, t, comp, freq);
+                derivative += amount.amount() * ddf_dy;
             }
         }
 
@@ -226,9 +254,9 @@ impl YtmSolver {
     }
 
     /// Determine bracket for Brent's method
-    fn determine_bracket<F>(&self, f: &F, _initial: f64) -> (f64, f64)
+    fn determine_bracket<Func>(&self, f: &Func, _initial: f64) -> (f64, f64)
     where
-        F: Fn(f64) -> f64,
+        Func: Fn(f64) -> f64,
     {
         // Start with a reasonable bracket for yields
         let mut a = -0.99; // -99% yield (deep discount)
@@ -257,19 +285,10 @@ pub fn solve_ytm(
     cashflows: &[(Date, Money)],
     as_of: Date,
     target_price: Money,
-    day_count: DayCount,
-    notional: Money,
-    coupon_rate: F,
+    spec: YtmPricingSpec,
 ) -> Result<F> {
     let solver = YtmSolver::new();
-    solver.solve(
-        cashflows,
-        as_of,
-        target_price,
-        day_count,
-        notional,
-        coupon_rate,
-    )
+    solver.solve(cashflows, as_of, target_price, spec)
 }
 
 #[cfg(test)]
@@ -304,9 +323,13 @@ mod tests {
                 &cashflows,
                 as_of,
                 notional, // Par price
-                DayCount::Act365F,
-                notional,
-                coupon_rate,
+                YtmPricingSpec {
+                    day_count: DayCount::Act365F,
+                    notional,
+                    coupon_rate,
+                    compounding: YieldCompounding::Street,
+                    frequency: Frequency::annual(),
+                },
             )
             .unwrap();
 
@@ -345,9 +368,13 @@ mod tests {
                 &cashflows,
                 as_of,
                 discount_price,
-                DayCount::Act365F,
-                notional,
-                coupon_rate,
+                YtmPricingSpec {
+                    day_count: DayCount::Act365F,
+                    notional,
+                    coupon_rate,
+                    compounding: YieldCompounding::Street,
+                    frequency: Frequency::annual(),
+                },
             )
             .unwrap();
 
@@ -382,9 +409,13 @@ mod tests {
                 &cashflows,
                 as_of,
                 premium_price,
-                DayCount::Act365F,
-                notional,
-                coupon_rate,
+                YtmPricingSpec {
+                    day_count: DayCount::Act365F,
+                    notional,
+                    coupon_rate,
+                    compounding: YieldCompounding::Street,
+                    frequency: Frequency::annual(),
+                },
             )
             .unwrap();
 

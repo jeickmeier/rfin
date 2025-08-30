@@ -7,7 +7,7 @@ use crate::traits::{Attributes, CashflowProvider, Priceable};
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::prelude::*;
 use finstack_core::F;
-use hashbrown::HashMap;
+use indexmap::IndexMap;
 
 /// Type alias for ticker symbols
 pub type Ticker = String;
@@ -92,7 +92,7 @@ impl Priceable for Equity {
         let value = self.value(curves, as_of)?;
 
         // Equities have limited metrics - mainly just the spot price
-        let mut measures = HashMap::new();
+        let mut measures = IndexMap::new();
 
         for metric_id in metrics {
             match metric_id {

@@ -2,7 +2,7 @@
 
 use finstack_core::prelude::*;
 use finstack_core::F;
-use hashbrown::HashMap;
+use indexmap::IndexMap;
 
 /// A single dated cashflow (date, money). Generic across instruments.
 ///
@@ -18,10 +18,10 @@ pub type DatedFlow = (Date, Money);
 pub fn aggregate_by_period(
     flows: &[DatedFlow],
     periods: &[Period],
-) -> HashMap<PeriodId, HashMap<Currency, F>> {
-    let mut out: HashMap<PeriodId, HashMap<Currency, F>> = HashMap::new();
+) -> IndexMap<PeriodId, IndexMap<Currency, F>> {
+    let mut out: IndexMap<PeriodId, IndexMap<Currency, F>> = IndexMap::new();
     for p in periods {
-        let mut per_ccy: HashMap<Currency, F> = HashMap::new();
+        let mut per_ccy: IndexMap<Currency, F> = IndexMap::new();
         for (d, m) in flows {
             if *d >= p.start && *d < p.end {
                 let e = per_ccy.entry(m.currency()).or_insert(0.0);

@@ -6,6 +6,7 @@
 use finstack_core::dates::BusinessDayConvention;
 use finstack_core::dates::{Date, DayCount, Frequency, StubKind};
 use finstack_core::money::Money;
+use finstack_core::error::InputError;
 
 /// Coupon cashflow type for fixed/floating coupons.
 ///
@@ -21,11 +22,29 @@ pub enum CouponType {
 
 impl CouponType {
     #[inline]
-    pub(crate) fn split_parts(self) -> (f64, f64) {
+    pub(crate) fn split_parts(self) -> finstack_core::Result<(f64, f64)> {
         match self {
-            CouponType::Cash => (1.0, 0.0),
-            CouponType::PIK => (0.0, 1.0),
-            CouponType::Split { cash_pct, pik_pct } => (cash_pct, pik_pct),
+            CouponType::Cash => Ok((1.0, 0.0)),
+            CouponType::PIK => Ok((0.0, 1.0)),
+            CouponType::Split { cash_pct, pik_pct } => {
+                // Validate finite and within [0,1]
+                if !cash_pct.is_finite() || !pik_pct.is_finite() {
+                    return Err(InputError::Invalid.into());
+                }
+                if !(0.0..=1.0).contains(&cash_pct) || !(0.0..=1.0).contains(&pik_pct) {
+                    return Err(InputError::Invalid.into());
+                }
+                // Sum must be ~ 1.0; normalize within tolerance
+                let sum = cash_pct + pik_pct;
+                let tol = 1e-6;
+                if (sum - 1.0).abs() <= tol {
+                    let norm_cash = cash_pct / sum;
+                    let norm_pik = pik_pct / sum;
+                    Ok((norm_cash, norm_pik))
+                } else {
+                    Err(InputError::Invalid.into())
+                }
+            }
         }
     }
 }

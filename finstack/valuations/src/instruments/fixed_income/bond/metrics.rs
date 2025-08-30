@@ -10,6 +10,7 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use crate::traits::CashflowProvider;
 use finstack_core::prelude::*;
 use finstack_core::F;
+use super::helpers::{df_from_yield, periods_per_year, YieldCompounding};
 
 /// Calculates accrued interest for bonds.
 ///
@@ -136,55 +137,25 @@ impl MetricCalculator for YtmCalculator {
         let as_of = context.as_of;
         let flows = super::helpers::flows_from_context_or_build(context, &bond)?;
 
-        // Solve for YTM using Brent's method
-        let ytm = self.solve_ytm_from_flows(&bond, &flows, as_of, dirty)?;
+        // Solve for YTM using shared solver with Street compounding (default)
+        let ytm = super::ytm_solver::solve_ytm(
+            &flows,
+            as_of,
+            dirty,
+            super::ytm_solver::YtmPricingSpec {
+                day_count: bond.dc,
+                notional: bond.notional,
+                coupon_rate: bond.coupon,
+                compounding: YieldCompounding::Street,
+                frequency: bond.freq,
+            },
+        )?;
 
         Ok(ytm)
     }
 }
 
-impl YtmCalculator {
-    fn solve_ytm_from_flows(
-        &self,
-        bond: &Bond,
-        flows: &[(Date, Money)],
-        as_of: Date,
-        target_price: Money,
-    ) -> finstack_core::Result<F> {
-        use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-        use finstack_core::math::root_finding::brent;
-
-        let target = target_price.amount();
-
-        let f = |y: f64| -> f64 {
-            let mut pv = 0.0;
-            for &(date, amount) in flows {
-                if date <= as_of {
-                    continue;
-                }
-                let t = DiscountCurve::year_fraction(as_of, date, bond.dc);
-                if t > 0.0 {
-                    let df = (1.0 + y).powf(-t);
-                    pv += amount.amount() * df;
-                }
-            }
-            pv - target
-        };
-
-        // Try bracket [-0.99, 1.0] first, then widen if needed
-        let mut a = -0.99;
-        let mut b = 1.0;
-        let mut root = brent(f, a, b, 1e-10, 128).unwrap_or(0.05);
-
-        if !root.is_finite() {
-            a = -0.99;
-            b = 5.0;
-            root = brent(f, a, b, 1e-10, 256).unwrap_or(0.05);
-        }
-
-        Ok(if root.is_finite() { root } else { 0.05 })
-    }
-}
+impl YtmCalculator {}
 
 /// Calculates Macaulay duration for bonds.
 pub struct MacaulayDurationCalculator;
@@ -222,15 +193,14 @@ impl MetricCalculator for MacaulayDurationCalculator {
         }
 
         // Calculate Macaulay duration
-        use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
         let mut weighted_time = 0.0;
 
         for &(date, amount) in &flows {
             if date <= context.as_of {
                 continue;
             }
-            let t = DiscountCurve::year_fraction(context.as_of, date, bond.dc).max(0.0);
-            let df = (1.0 + ytm).powf(-t);
+            let t = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(context.as_of, date, bond.dc).max(0.0);
+            let df = df_from_yield(ytm, t, YieldCompounding::Street, bond.freq);
             weighted_time += t * amount.amount() * df;
         }
 
@@ -249,7 +219,7 @@ impl MetricCalculator for ModifiedDurationCalculator {
     }
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let _bond = match &*context.instrument {
+        let bond = match &*context.instrument {
             Instrument::Bond(bond) => bond,
             _ => {
                 return Err(finstack_core::Error::from(
@@ -274,8 +244,9 @@ impl MetricCalculator for ModifiedDurationCalculator {
                 finstack_core::Error::from(finstack_core::error::InputError::NotFound)
             })?;
 
-        // Modified duration = Macaulay duration / (1 + ytm)
-        Ok(d_mac / (1.0 + ytm))
+        // Modified duration depends on compounding; default to Street (periodic with bond freq)
+        let m = periods_per_year(bond.freq).max(1.0);
+        Ok(d_mac / (1.0 + ytm / m))
     }
 }
 
@@ -399,48 +370,28 @@ impl YtwCalculator {
         exercise_date: Date,
         redemption: Money,
     ) -> finstack_core::Result<F> {
-        use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-        use finstack_core::math::root_finding::brent;
-
-        let target = target_price.amount();
-
-        let f = |y: f64| -> f64 {
-            let mut pv = 0.0;
-
-            // Include cashflows up to exercise date
-            for &(date, amount) in flows {
-                if date <= as_of || date > exercise_date {
-                    continue;
-                }
-                let t = DiscountCurve::year_fraction(as_of, date, bond.dc);
-                if t > 0.0 {
-                    let df = (1.0 + y).powf(-t);
-                    pv += amount.amount() * df;
-                }
+        // Build truncated flows up to exercise plus redemption and reuse solver
+        let mut ex_flows: Vec<(Date, Money)> = Vec::with_capacity(flows.len());
+        for &(date, amount) in flows {
+            if date <= as_of || date > exercise_date {
+                continue;
             }
-
-            // Add redemption at exercise date
-            let t_exercise = DiscountCurve::year_fraction(as_of, exercise_date, bond.dc);
-            if t_exercise > 0.0 {
-                let df_exercise = (1.0 + y).powf(-t_exercise);
-                pv += redemption.amount() * df_exercise;
-            }
-
-            pv - target
-        };
-
-        // Try bracket [-0.99, 1.0] first, then widen if needed
-        let mut a = -0.99;
-        let mut b = 1.0;
-        let mut root = brent(f, a, b, 1e-10, 128).unwrap_or(0.05);
-
-        if !root.is_finite() {
-            a = -0.99;
-            b = 5.0;
-            root = brent(f, a, b, 1e-10, 256).unwrap_or(0.05);
+            ex_flows.push((date, amount));
         }
+        ex_flows.push((exercise_date, redemption));
 
-        Ok(if root.is_finite() { root } else { 0.05 })
+        super::ytm_solver::solve_ytm(
+            &ex_flows,
+            as_of,
+            target_price,
+            super::ytm_solver::YtmPricingSpec {
+                day_count: bond.dc,
+                notional: bond.notional,
+                coupon_rate: bond.coupon,
+                compounding: YieldCompounding::Street,
+                frequency: bond.freq,
+            },
+        )
     }
 }
 

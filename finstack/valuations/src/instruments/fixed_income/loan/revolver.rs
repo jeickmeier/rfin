@@ -10,7 +10,7 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, Stu
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::money::Money;
 use finstack_core::F;
-use hashbrown::HashMap;
+use indexmap::IndexMap;
 
 /// Utilization fee tier.
 #[derive(Clone, Debug)]
@@ -458,7 +458,7 @@ impl Priceable for RevolvingCreditFacility {
         let mut result = ValuationResult::stamped(&self.id, as_of, base_value);
 
         // Add facility metrics
-        let mut measures = HashMap::new();
+        let mut measures = IndexMap::new();
         measures.insert(
             "drawn".to_string(),
             self.simulate_drawn_to_date(as_of).amount(),

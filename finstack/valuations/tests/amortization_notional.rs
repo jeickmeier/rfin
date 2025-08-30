@@ -88,6 +88,45 @@ fn test_amortization_spec_step_remaining_validation_ok() {
 }
 
 #[test]
+fn test_amortization_spec_step_remaining_validation_unsorted_dates_rejected() {
+    let date1 = Date::from_calendar_date(2025, time::Month::March, 1).unwrap();
+    let date2 = Date::from_calendar_date(2025, time::Month::June, 1).unwrap();
+
+    // Intentionally unsorted input (later date first)
+    let notional = Notional {
+        initial: Money::new(1_000_000.0, Currency::USD),
+        amort: AmortizationSpec::StepRemaining {
+            schedule: vec![
+                (date2, Money::new(500_000.0, Currency::USD)),
+                (date1, Money::new(750_000.0, Currency::USD)),
+            ],
+        },
+    };
+
+    let result = notional.validate();
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_amortization_spec_step_remaining_validation_duplicate_dates_rejected() {
+    let date1 = Date::from_calendar_date(2025, time::Month::March, 1).unwrap();
+
+    // Duplicate same date
+    let notional = Notional {
+        initial: Money::new(1_000_000.0, Currency::USD),
+        amort: AmortizationSpec::StepRemaining {
+            schedule: vec![
+                (date1, Money::new(800_000.0, Currency::USD)),
+                (date1, Money::new(700_000.0, Currency::USD)),
+            ],
+        },
+    };
+
+    let result = notional.validate();
+    assert!(result.is_err());
+}
+
+#[test]
 fn test_amortization_spec_step_remaining_validation_currency_mismatch() {
     let date1 = Date::from_calendar_date(2025, time::Month::March, 1).unwrap();
 
