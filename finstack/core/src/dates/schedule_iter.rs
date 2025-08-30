@@ -57,11 +57,17 @@ impl Frequency {
     pub const fn semi_annual() -> Self {
         Self::Months(6)
     }
+    pub const fn bi_monthly() -> Self {
+        Self::Months(2)
+    }
     pub const fn quarterly() -> Self {
         Self::Months(3)
     }
     pub const fn monthly() -> Self {
         Self::Months(1)
+    }
+    pub const fn bi_weekly() -> Self {
+        Self::Days(14)
     }
     pub const fn biweekly() -> Self {
         Self::Days(14)
