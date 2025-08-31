@@ -270,7 +270,7 @@ impl MetricCalculator for MacaulayDurationCalculator {
                     continue;
                 }
                 let t = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(context.as_of, date, bond.dc).max(0.0);
-                let df = df_from_yield(ytm, t, YieldCompounding::Street, bond.freq);
+                let df = df_from_yield(ytm, t, YieldCompounding::Street, bond.freq).unwrap_or(0.0);
                 weighted_time += t * amount.amount() * df;
             }
         }
@@ -309,7 +309,7 @@ impl MetricCalculator for ModifiedDurationCalculator {
             })?;
 
         // Modified duration depends on compounding; default to Street (periodic with bond freq)
-        let m = periods_per_year(bond.freq).max(1.0);
+        let m = periods_per_year(bond.freq).unwrap_or(1.0).max(1.0);
         Ok(d_mac / (1.0 + ytm / m))
     }
 }

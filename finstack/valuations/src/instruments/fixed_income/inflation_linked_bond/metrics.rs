@@ -13,11 +13,10 @@ impl MetricCalculator for RealYieldCalculator {
 
 
         let ilb: &InflationLinkedBond = context.instrument_as()?;
-        ilb.real_yield(
-            ilb.quoted_clean.unwrap_or(100.0),
-            &context.curves,
-            context.as_of,
-        )
+        let clean_price = ilb.quoted_clean.ok_or_else(|| {
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+        })?;
+        ilb.real_yield(clean_price, &context.curves, context.as_of)
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -70,13 +69,11 @@ pub struct BreakevenInflationCalculator;
 
 impl MetricCalculator for BreakevenInflationCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-
-
-        let ilb: &InflationLinkedBond = context.instrument_as()?;
-            // Would need nominal bond yield from market context
-            // For now, use a placeholder
-            let nominal_yield = 0.03; // 3% nominal yield
-            ilb.breakeven_inflation(nominal_yield, &context.curves, context.as_of)
+        let _ilb: &InflationLinkedBond = context.instrument_as()?;
+        // Breakeven inflation requires a nominal bond yield which is not available
+        // in the current market context. This metric should be computed externally
+        // with the appropriate nominal yield input.
+        Err(finstack_core::Error::from(finstack_core::error::InputError::NotFound))
     }
 
     fn dependencies(&self) -> &[MetricId] {

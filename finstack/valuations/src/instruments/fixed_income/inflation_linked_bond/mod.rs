@@ -268,14 +268,18 @@ impl InflationLinkedBond {
     /// Calculate real yield (yield in real terms, before inflation)
     pub fn real_yield(
         &self,
-        _clean_price: F,
+        clean_price: F,
         _curves: &CurveSet,
         _as_of: Date,
     ) -> finstack_core::Result<F> {
-        // This would implement the actual real yield calculation
-        // using Newton-Raphson or similar solver
-        // For now, return a placeholder
-        Ok(self.real_coupon)
+        // Real yield calculation requires iterative solving similar to YTM
+        // For now, return the coupon rate only if price is at par
+        if (clean_price - 100.0).abs() < 1e-6 {
+            Ok(self.real_coupon)
+        } else {
+            // Proper real yield calculation not yet implemented
+            Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid))
+        }
     }
 
     /// Calculate breakeven inflation rate

@@ -87,6 +87,14 @@ impl YtmSolver {
         spec: YtmPricingSpec,
     ) -> Result<F> {
         let target = target_price.amount();
+        
+        // Early validation
+        if target <= 0.0 {
+            return Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid));
+        }
+        if cashflows.is_empty() {
+            return Err(finstack_core::Error::from(finstack_core::error::InputError::TooFewPoints));
+        }
 
         // Calculate initial guess
         let initial_guess = if self.config.use_smart_guess {
@@ -182,7 +190,7 @@ impl YtmSolver {
 
             let t = DiscountCurve::year_fraction(as_of, date, day_count);
             if t > 0.0 {
-                let df = df_from_yield(yield_rate, t, comp, freq);
+                let df = df_from_yield(yield_rate, t, comp, freq).unwrap_or(0.0);
                 price += amount.amount() * df;
             }
         }
@@ -209,7 +217,7 @@ impl YtmSolver {
 
             let t = DiscountCurve::year_fraction(as_of, date, day_count);
             if t > 0.0 {
-                let (_df, ddf_dy) = df_and_derivative_from_yield(yield_rate, t, comp, freq);
+                let (_df, ddf_dy) = df_and_derivative_from_yield(yield_rate, t, comp, freq).unwrap_or((0.0, 0.0));
                 derivative += amount.amount() * ddf_dy;
             }
         }
@@ -253,30 +261,33 @@ impl YtmSolver {
         Ok(initial_guess.clamp(-0.5, 0.5))
     }
 
-    /// Determine bracket for Brent's method
-    fn determine_bracket<Func>(&self, f: &Func, _initial: f64) -> (f64, f64)
+    /// Determine bracket for Brent's method with smarter bounds
+    fn determine_bracket<Func>(&self, f: &Func, initial: f64) -> (f64, f64)
     where
         Func: Fn(f64) -> f64,
     {
-        // Start with a reasonable bracket for yields
-        let mut a = -0.99; // -99% yield (deep discount)
-        let mut b = 1.0; // 100% yield
+        // Start with bounds around the initial guess
+        let width = 0.05; // 5% initial bracket width
+        let mut a = (initial - width).max(-0.95); // Avoid extreme negative yields
+        let mut b = (initial + width).min(0.5); // Cap at 50% yield for normal bonds
 
         // Check if initial bracket works
         if f(a) * f(b) < 0.0 {
             return (a, b);
         }
 
-        // Try wider bracket
-        a = -0.99;
-        b = 5.0; // 500% yield (distressed)
-
-        if f(a) * f(b) < 0.0 {
-            return (a, b);
+        // Expand bracket gradually
+        for expansion in [2.0, 5.0, 10.0] {
+            a = (initial - width * expansion).max(-0.95);
+            b = (initial + width * expansion).min(2.0); // 200% max for distressed
+            
+            if f(a) * f(b) < 0.0 {
+                return (a, b);
+            }
         }
 
-        // Last resort: very wide bracket
-        (-0.99, 10.0)
+        // Last resort: wide but bounded bracket
+        (-0.95, 2.0)
     }
 }
 

@@ -8,6 +8,8 @@ use crate::metrics::MetricContext;
 use crate::cashflow::traits::CashflowProvider;
 use finstack_core::prelude::*;
 
+
+
 /// Yield compounding convention for discounting cashflows from a flat yield.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum YieldCompounding {
@@ -27,22 +29,23 @@ pub enum YieldCompounding {
 ///
 /// In fixed-income, coupon frequencies are represented using only `Months(m)`
 /// (e.g., 3 for quarterly, 6 for semi-annual) or `Days(d)` (e.g., 7 for weekly).
-/// Any other `Frequency` variants are unsupported here and will cause a panic.
-/// Zero values are invalid and will also cause a panic.
+/// Returns an error for unsupported frequency variants or zero values.
 #[inline]
-pub fn periods_per_year(freq: finstack_core::dates::Frequency) -> finstack_core::F {
+pub fn periods_per_year(freq: finstack_core::dates::Frequency) -> finstack_core::Result<finstack_core::F> {
     match freq {
         finstack_core::dates::Frequency::Months(m) => {
-            assert!(m > 0, "Frequency::Months(0) is invalid for bond helpers");
-            12.0 / (m as finstack_core::F)
+            if m == 0 {
+                return Err(finstack_core::error::InputError::Invalid.into());
+            }
+            Ok(12.0 / (m as finstack_core::F))
         }
         finstack_core::dates::Frequency::Days(d) => {
-            assert!(d > 0, "Frequency::Days(0) is invalid for bond helpers");
-            365.0 / (d as finstack_core::F)
+            if d == 0 {
+                return Err(finstack_core::error::InputError::Invalid.into());
+            }
+            Ok(365.0 / (d as finstack_core::F))
         }
-        _ => panic!(
-            "Unsupported Frequency variant in bond helpers: only Months(_) or Days(_) are allowed"
-        ),
+        _ => Err(finstack_core::error::InputError::Invalid.into()),
     }
 }
 
@@ -53,11 +56,11 @@ pub fn df_from_yield(
     t: finstack_core::F,
     comp: YieldCompounding,
     bond_freq: finstack_core::dates::Frequency,
-) -> finstack_core::F {
+) -> finstack_core::Result<finstack_core::F> {
     if t <= 0.0 {
-        return 1.0;
+        return Ok(1.0);
     }
-    match comp {
+    Ok(match comp {
         YieldCompounding::Simple => 1.0 / (1.0 + ytm * t),
         YieldCompounding::Annual => (1.0 + ytm).powf(-t),
         YieldCompounding::Periodic(m) => {
@@ -66,10 +69,10 @@ pub fn df_from_yield(
         }
         YieldCompounding::Continuous => (-ytm * t).exp(),
         YieldCompounding::Street => {
-            let m = periods_per_year(bond_freq).max(1.0);
+            let m = periods_per_year(bond_freq)?.max(1.0);
             (1.0 + ytm / m).powf(-m * t)
         }
-    }
+    })
 }
 
 /// Discount factor and its derivative with respect to yield under a compounding convention.
@@ -79,10 +82,10 @@ pub fn df_and_derivative_from_yield(
     t: finstack_core::F,
     comp: YieldCompounding,
     bond_freq: finstack_core::dates::Frequency,
-) -> (finstack_core::F, finstack_core::F) {
-    let df = df_from_yield(ytm, t, comp, bond_freq);
+) -> finstack_core::Result<(finstack_core::F, finstack_core::F)> {
+    let df = df_from_yield(ytm, t, comp, bond_freq)?;
     if t <= 0.0 {
-        return (df, 0.0);
+        return Ok((df, 0.0));
     }
     let ddf_dy = match comp {
         YieldCompounding::Simple => {
@@ -104,11 +107,11 @@ pub fn df_and_derivative_from_yield(
             -t * df
         }
         YieldCompounding::Street => {
-            let m = periods_per_year(bond_freq).max(1.0);
+            let m = periods_per_year(bond_freq)?.max(1.0);
             -t * df / (1.0 + ytm / m)
         }
     };
-    (df, ddf_dy)
+    Ok((df, ddf_dy))
 }
 
 /// Retrieves cached cashflows from context or builds and caches them.
@@ -133,9 +136,11 @@ pub fn flows_from_context_or_build(
         return Ok(flows.clone());
     }
     let flows = bond.build_schedule(&context.curves, context.as_of)?;
-    context.cashflows = Some(flows.clone());
+    // Cache metadata
     context.discount_curve_id = Some(bond.disc_id);
     context.day_count = Some(bond.dc);
+    // Move flows into cache and return a clone (only one clone instead of two)
+    context.cashflows = Some(flows.clone());
     Ok(flows)
 }
 
@@ -180,7 +185,7 @@ pub fn price_from_ytm_compounded(
         }
         let t = DiscountCurve::year_fraction(as_of, date, bond.dc);
         if t > 0.0 {
-            let df = df_from_yield(ytm, t, comp, bond.freq);
+            let df = df_from_yield(ytm, t, comp, bond.freq)?;
             pv += amount.amount() * df;
         }
     }

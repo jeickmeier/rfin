@@ -74,7 +74,13 @@ impl FxSpot {
         self
     }
 
-    /// Set the notional amount
+    /// Set the notional amount (fallible version - preferred)
+    pub fn with_notional_checked(self, notional: Money) -> finstack_core::Result<Self> {
+        self.try_with_notional(notional)
+    }
+
+    /// Set the notional amount (panicking version - deprecated)
+    #[deprecated(since = "0.1.0", note = "Use with_notional_checked instead to avoid panics")]
     pub fn with_notional(self, notional: Money) -> Self {
         // Keep infallible builder for ergonomics in existing call sites; safe as long as
         // callers pass correct currency. In tests we will verify the fallible path.
@@ -191,9 +197,12 @@ impl CashflowProvider for FxSpot {
         };
 
         if settle_date > as_of {
-            // Future settlement
+            // Future settlement - require spot rate to be available
+            let rate = self.spot_rate.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+            })?;
             let value = Money::new(
-                self.effective_notional().amount() * self.spot_rate.unwrap_or(0.0),
+                self.effective_notional().amount() * rate,
                 self.quote,
             );
             Ok(vec![(settle_date, value)])
@@ -214,7 +223,8 @@ mod tests {
     fn test_fx_spot_creation() {
         let fx = FxSpot::new("EURUSD", Currency::EUR, Currency::USD)
             .with_rate(1.08)
-            .with_notional(Money::new(100_000.0, Currency::EUR));
+            .with_notional_checked(Money::new(100_000.0, Currency::EUR))
+            .unwrap();
 
         assert_eq!(fx.id, "EURUSD");
         assert_eq!(fx.base, Currency::EUR);
@@ -242,7 +252,8 @@ mod tests {
     fn test_fx_spot_valuation() {
         let fx = FxSpot::new("EURUSD", Currency::EUR, Currency::USD)
             .with_rate(1.08)
-            .with_notional(Money::new(1_000_000.0, Currency::EUR));
+            .with_notional_checked(Money::new(1_000_000.0, Currency::EUR))
+            .unwrap();
 
         let curves = CurveSet::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -289,7 +300,8 @@ mod tests {
     fn test_fx_spot_metrics() {
         let fx = FxSpot::new("EURUSD", Currency::EUR, Currency::USD)
             .with_rate(1.25)
-            .with_notional(Money::new(100.0, Currency::EUR));
+            .with_notional_checked(Money::new(100.0, Currency::EUR))
+            .unwrap();
 
         let curves = CurveSet::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -314,6 +326,22 @@ mod tests {
             }
             _ => panic!("expected CurrencyMismatch error"),
         }
+    }
+
+    #[test]
+    fn test_fx_spot_schedule_requires_rate() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let settlement = Date::from_calendar_date(2025, Month::January, 3).unwrap();
+
+        // FX spot without rate should fail in schedule generation
+        let fx = FxSpot::new("EURUSD", Currency::EUR, Currency::USD)
+            .with_settlement(settlement);
+
+        let curves = CurveSet::new();
+        let result = fx.build_schedule(&curves, as_of);
+
+        // Should fail because no spot rate is provided
+        assert!(result.is_err());
     }
 }
 
