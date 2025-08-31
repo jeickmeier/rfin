@@ -18,6 +18,7 @@
 //! // Note: Bond constructor would be used here
 //! ```
 
+pub mod calibration;
 pub mod cashflow;
 pub mod market_data;
 pub mod results;

@@ -40,9 +40,9 @@ pub struct VolSurface {
 
 impl VolSurface {
     /// Start building a new volatility surface with identifier `id`.
-    pub fn builder(id: &'static str) -> VolSurfaceBuilder {
+    pub fn builder(id: impl Into<String>) -> VolSurfaceBuilder {
         VolSurfaceBuilder {
-            id,
+            id: id.into(),
             expiries: Vec::new(),
             strikes: Vec::new(),
             vols: Vec::new(),
@@ -176,7 +176,7 @@ impl TermStructure for VolSurface {
 
 /// Fluent builder for [`VolSurface`].
 pub struct VolSurfaceBuilder {
-    id: &'static str,
+    id: String,
     expiries: Vec<F>,
     strikes: Vec<F>,
     vols: Vec<Vec<F>>, // row-major expiries
@@ -245,7 +245,7 @@ impl VolSurfaceBuilder {
 impl VolSurface {
     /// Construct directly from axes and a row-major flat values array.
     pub fn from_grid(
-        id: &'static str,
+        id: impl AsRef<str>,
         expiries: &[F],
         strikes: &[F],
         vols_row_major: &[F],
@@ -271,7 +271,7 @@ impl VolSurface {
             Array2::from_shape_vec((expiries.len(), strikes.len()), vols_row_major.to_vec())
                 .map_err(|_| Error::Internal)?;
         Ok(Self {
-            id: CurveId::new(id),
+            id: CurveId::new(id.as_ref()),
             expiries: expiries.to_vec().into_boxed_slice(),
             strikes: strikes.to_vec().into_boxed_slice(),
             vols: array,
