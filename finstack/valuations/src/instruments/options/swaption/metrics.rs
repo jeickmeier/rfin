@@ -1,5 +1,6 @@
 //! Swaption-specific metrics calculators
 
+use crate::instruments::options::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::{Result, F};
 use std::sync::Arc;
@@ -9,35 +10,28 @@ pub struct DeltaCalculator;
 
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
+        let option: &Swaption = context.instrument_as()?;
+        // Temporary inputs until forecast/annuity wiring is added
+        let disc = context.curves.discount(option.disc_id)?;
+        // Approximate forward swap rate and annuity from pricer helpers
+        let forward = option.forward_swap_rate(disc.as_ref())?;
+        let t = option
+            .year_fraction(disc.base_date(), option.expiry, option.day_count)?;
+        let sigma = option.sabr_params.as_ref().map(|p| p.alpha).unwrap_or(0.20);
 
-        if let Instrument::Swaption(option) = &*context.instrument {
-            // Temporary inputs until forecast/annuity wiring is added
-            let disc = context.curves.discount(option.disc_id)?;
-            // Approximate forward swap rate and annuity from pricer helpers
-            let forward = option.forward_swap_rate(disc.as_ref())?;
-            let t = option
-                .year_fraction(disc.base_date(), option.expiry, option.day_count)?;
-            let sigma = option.sabr_params.as_ref().map(|p| p.alpha).unwrap_or(0.20);
-
-            // Use Black delta approximation via d1 CDF (dimensionless w.r.t forward)
-            // Here we approximate delta as N(d1) for payer, -N(-d1) for receiver
-            let variance = sigma * sigma * t;
-            let d1 = if variance > 0.0 {
-                ((forward / option.strike_rate).ln() + 0.5 * variance) / variance.sqrt()
-            } else {
-                0.0
-            };
-            let delta = match option.option_type {
-                super::OptionType::Call => crate::instruments::options::models::norm_cdf(d1),
-                super::OptionType::Put => -crate::instruments::options::models::norm_cdf(-d1),
-            };
-            Ok(delta)
+        // Use Black delta approximation via d1 CDF (dimensionless w.r.t forward)
+        // Here we approximate delta as N(d1) for payer, -N(-d1) for receiver
+        let variance = sigma * sigma * t;
+        let d1 = if variance > 0.0 {
+            ((forward / option.strike_rate).ln() + 0.5 * variance) / variance.sqrt()
         } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
+            0.0
+        };
+        let delta = match option.option_type {
+            super::OptionType::Call => crate::instruments::options::models::norm_cdf(d1),
+            super::OptionType::Put => -crate::instruments::options::models::norm_cdf(-d1),
+        };
+        Ok(delta)
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -50,9 +44,7 @@ pub struct GammaCalculator;
 
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
-
-        if let Instrument::Swaption(option) = &*context.instrument {
+        let option: &Swaption = context.instrument_as()?;
             let disc = context.curves.discount(option.disc_id)?;
             let forward = option.forward_swap_rate(disc.as_ref())?;
             let t = option
@@ -66,11 +58,6 @@ impl MetricCalculator for GammaCalculator {
             let gamma = crate::instruments::options::models::norm_pdf(d1)
                 / (forward * sigma * t.sqrt());
             Ok(gamma)
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -83,9 +70,7 @@ pub struct VegaCalculator;
 
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
-
-        if let Instrument::Swaption(option) = &*context.instrument {
+        let option: &Swaption = context.instrument_as()?;
             let disc = context.curves.discount(option.disc_id)?;
             let forward = option.forward_swap_rate(disc.as_ref())?;
             let t = option
@@ -99,11 +84,6 @@ impl MetricCalculator for VegaCalculator {
             };
             let vega = forward * crate::instruments::options::models::norm_pdf(d1) * t.sqrt() / 100.0;
             Ok(vega)
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -116,9 +96,7 @@ pub struct ThetaCalculator;
 
 impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
-
-        if let Instrument::Swaption(option) = &*context.instrument {
+        let option: &Swaption = context.instrument_as()?;
             let disc = context.curves.discount(option.disc_id)?;
             let base = disc.base_date();
             let t = option.year_fraction(base, option.expiry, option.day_count)?;
@@ -150,11 +128,6 @@ impl MetricCalculator for ThetaCalculator {
                 }
             };
             Ok(theta)
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -181,15 +154,8 @@ pub struct ImpliedVolCalculator;
 
 impl MetricCalculator for ImpliedVolCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
-
-        if let Instrument::Swaption(_option) = &*context.instrument {
-            Ok(0.0)
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
+        let _option: &Swaption = context.instrument_as()?;
+        Ok(0.0)
     }
 
     fn dependencies(&self) -> &[MetricId] { &[] }

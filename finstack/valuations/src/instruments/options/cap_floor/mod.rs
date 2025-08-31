@@ -347,7 +347,7 @@ impl InterestRateOption {
 use crate::metrics::MetricId;
 
 impl_instrument!(
-    InterestRateOption, InterestRateOption,
+    InterestRateOption, "InterestRateOption",
     pv = |s, curves, _as_of| {
         let _disc = curves.discount(s.disc_id)?;
         let _forward = curves.forecast(s.forward_id)?;

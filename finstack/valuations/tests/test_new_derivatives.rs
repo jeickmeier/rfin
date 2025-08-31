@@ -6,7 +6,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::cds::{
     CDSConvention, PayReceive as CDSPayReceive,
 };
-use finstack_valuations::instruments::fixed_income::ilb::IndexationMethod;
+use finstack_valuations::instruments::fixed_income::inflation_linked_bond::IndexationMethod;
 use finstack_valuations::instruments::options::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::{
     CreditDefaultSwap, CreditOption, EquityOption, FxOption, InflationLinkedBond,

@@ -75,7 +75,7 @@ impl FxSwap {
 }
 
 impl_instrument!(
-    FxSwap, FxSwap,
+    FxSwap, "FxSwap",
     pv = |s, _curves, _as_of| Ok(Money::new(0.0, s.quote_currency)),
     metrics = |_s| vec![MetricId::custom("near_rate"), MetricId::custom("far_rate")]
 );

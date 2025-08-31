@@ -4,7 +4,7 @@
 //! with the metrics registry. Real implementations should use an index loss
 //! model (e.g., base correlation / Gaussian copula) and survival/loss curves.
 
-use crate::instruments::Instrument;
+use crate::instruments::fixed_income::cds_tranche::CdsTranche;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::F;
 
@@ -13,12 +13,8 @@ pub struct Upfront;
 
 impl MetricCalculator for Upfront {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        match &*context.instrument {
-            Instrument::CDSTranche(_) => Ok(0.0),
-            _ => Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            )),
-        }
+        let _tranche: &CdsTranche = context.instrument_as()?;
+        Ok(0.0)
     }
 }
 
@@ -28,12 +24,8 @@ pub struct SpreadDv01;
 
 impl MetricCalculator for SpreadDv01 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        match &*context.instrument {
-            Instrument::CDSTranche(_) => Ok(0.0),
-            _ => Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            )),
-        }
+        let _tranche: &CdsTranche = context.instrument_as()?;
+        Ok(0.0)
     }
 }
 
@@ -42,12 +34,8 @@ pub struct ExpectedLoss;
 
 impl MetricCalculator for ExpectedLoss {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        match &*context.instrument {
-            Instrument::CDSTranche(_) => Ok(0.0),
-            _ => Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            )),
-        }
+        let _tranche: &CdsTranche = context.instrument_as()?;
+        Ok(0.0)
     }
 }
 
@@ -56,12 +44,8 @@ pub struct JumpToDefault;
 
 impl MetricCalculator for JumpToDefault {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        match &*context.instrument {
-            Instrument::CDSTranche(_) => Ok(0.0),
-            _ => Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            )),
-        }
+        let _tranche: &CdsTranche = context.instrument_as()?;
+        Ok(0.0)
     }
 }
 

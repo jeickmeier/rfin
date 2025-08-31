@@ -24,38 +24,46 @@ macro_rules! impl_attributable {
     };
 }
 
+/// Generate InstrumentLike implementation.
+///
+/// Requirements:
+/// - Struct must have an `id: String` field
+/// - Must already implement Priceable and Attributable
+#[macro_export]
+macro_rules! impl_instrument_like {
+    ($type:ident, $type_name:literal) => {
+        impl $crate::instruments::traits::InstrumentLike for $type {
+            fn id(&self) -> &str {
+                &self.id
+            }
+
+            fn instrument_type(&self) -> &'static str {
+                $type_name
+            }
+
+            fn as_any(&self) -> &dyn ::std::any::Any {
+                self
+            }
+        }
+    };
+}
+
 /// Generate a full instrument implementation:
 /// - Attributable
-/// - From<T> / TryFrom<Instrument>
+/// - InstrumentLike
 /// - Priceable: value (via pv closure), price_with_metrics, price (via metrics closure)
 #[macro_export]
 macro_rules! impl_instrument {
     (
-        $type:ident, $variant:ident,
+        $type:ident, $type_name:literal,
         pv = |$s:ident, $curves:ident, $as_of:ident| $pv_expr:expr,
         metrics = |$ms:ident| $metrics_expr:expr $(,)?
     ) => {
         // Attributes
         impl_attributable!($type);
 
-        // Conversions to/from unified Instrument
-        impl From<$type> for $crate::instruments::Instrument {
-            fn from(value: $type) -> Self {
-                $crate::instruments::Instrument::$variant(value)
-            }
-        }
-
-        impl ::std::convert::TryFrom<$crate::instruments::Instrument> for $type {
-            type Error = finstack_core::Error;
-            fn try_from(value: $crate::instruments::Instrument) -> finstack_core::Result<Self> {
-                match value {
-                    $crate::instruments::Instrument::$variant(v) => Ok(v),
-                    _ => Err(finstack_core::Error::from(
-                        finstack_core::error::InputError::Invalid,
-                    )),
-                }
-            }
-        }
+        // InstrumentLike implementation
+        impl_instrument_like!($type, $type_name);
 
         // Pricing surface (PV + metrics)
         impl $crate::instruments::traits::Priceable for $type {
@@ -97,17 +105,17 @@ macro_rules! impl_instrument {
 /// and reads `disc_id` and day-count field names from the instrument.
 ///
 /// Usage:
-/// impl_instrument_schedule_pv!(Type, EnumVariant, disc_field: disc_id, dc_field: dc, metrics = |s| expr);
+/// impl_instrument_schedule_pv!(Type, "TypeName", disc_field: disc_id, dc_field: dc, metrics = |s| expr);
 #[macro_export]
 macro_rules! impl_instrument_schedule_pv {
     (
-        $type:ident, $variant:ident,
+        $type:ident, $type_name:literal,
         disc_field: $disc:ident,
         dc_field: $dc:ident
         $(, metrics = |$ms:ident| $metrics_expr:expr)?
     ) => {
         $crate::impl_instrument!(
-            $type, $variant,
+            $type, $type_name,
             pv = |s, curves, as_of| {
                 use $crate::instruments::fixed_income::discountable::Discountable;
                 let flows = <$type as $crate::cashflow::traits::CashflowProvider>::build_schedule(s, curves, as_of)?;

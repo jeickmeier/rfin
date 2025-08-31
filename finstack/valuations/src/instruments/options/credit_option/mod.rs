@@ -247,7 +247,7 @@ impl CreditOption {
 }
 
 impl_instrument!(
-    CreditOption, CreditOption,
+    CreditOption, "CreditOption",
     pv = |s, curves, _as_of| {
         let _disc = curves.discount(s.disc_id)?;
         let _credit = curves.credit(s.credit_id)?;

@@ -4,7 +4,7 @@
 //! metrics. The `MetricCalculator` trait enables custom metric implementations,
 //! while `MetricContext` provides the execution environment with caching.
 
-use crate::instruments::Instrument;
+use crate::instruments::traits::InstrumentLike;
 use crate::metrics::MetricId;
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -61,7 +61,7 @@ pub trait MetricCalculator: Send + Sync {
 /// - **Metadata**: Discount curve ID and day count convention
 pub struct MetricContext {
     /// The instrument being valued.
-    pub instrument: Arc<Instrument>,
+    pub instrument: Arc<dyn InstrumentLike>,
 
     /// Market curves for discounting and forwarding.
     pub curves: Arc<finstack_core::market_data::multicurve::CurveSet>,
@@ -96,7 +96,7 @@ impl MetricContext {
     ///
     /// See unit tests and `examples/` for usage.
     pub fn new(
-        instrument: Arc<Instrument>,
+        instrument: Arc<dyn InstrumentLike>,
         curves: Arc<finstack_core::market_data::multicurve::CurveSet>,
         as_of: Date,
         base_value: Money,
@@ -111,5 +111,19 @@ impl MetricContext {
             discount_curve_id: None,
             day_count: None,
         }
+    }
+
+    /// Downcast the instrument to a specific concrete type.
+    ///
+    /// # Returns
+    /// Reference to the concrete instrument type if the downcast succeeds
+    ///
+    /// # Errors
+    /// Returns an error if the instrument is not of the expected type
+    pub fn instrument_as<T: 'static>(&self) -> finstack_core::Result<&T> {
+        self.instrument
+            .as_any()
+            .downcast_ref::<T>()
+            .ok_or_else(|| finstack_core::error::InputError::Invalid.into())
     }
 }

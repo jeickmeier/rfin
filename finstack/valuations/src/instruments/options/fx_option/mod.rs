@@ -238,7 +238,7 @@ impl FxOption {
 use crate::metrics::MetricId;
 
 impl_instrument!(
-    FxOption, FxOption,
+    FxOption, "FxOption",
     pv = |s, curves, _as_of| {
         let _disc = curves.discount(s.domestic_disc_id)?;
         let r_d = 0.0; // TODO derive from curve

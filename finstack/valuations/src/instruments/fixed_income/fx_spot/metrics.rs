@@ -5,7 +5,7 @@
 //! metrics via `MetricId::custom("...")` and registered under the
 //! instrument type "FxSpot".
 
-use crate::instruments::Instrument;
+use crate::instruments::fixed_income::fx_spot::FxSpot;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::F;
 
@@ -14,14 +14,7 @@ pub struct SpotRateCalculator;
 
 impl MetricCalculator for SpotRateCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let fx = match &*context.instrument {
-            Instrument::FxSpot(fx) => fx,
-            _ => {
-                return Err(finstack_core::Error::from(
-                    finstack_core::error::InputError::Invalid,
-                ))
-            }
-        };
+        let fx: &FxSpot = context.instrument_as()?;
 
         let base_amt = fx.effective_notional().amount();
         if base_amt == 0.0 {
@@ -36,14 +29,7 @@ pub struct BaseAmountCalculator;
 
 impl MetricCalculator for BaseAmountCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let fx = match &*context.instrument {
-            Instrument::FxSpot(fx) => fx,
-            _ => {
-                return Err(finstack_core::Error::from(
-                    finstack_core::error::InputError::Invalid,
-                ))
-            }
-        };
+        let fx: &FxSpot = context.instrument_as()?;
         Ok(fx.effective_notional().amount())
     }
 }
@@ -62,14 +48,7 @@ pub struct InverseRateCalculator;
 
 impl MetricCalculator for InverseRateCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let fx = match &*context.instrument {
-            Instrument::FxSpot(fx) => fx,
-            _ => {
-                return Err(finstack_core::Error::from(
-                    finstack_core::error::InputError::Invalid,
-                ))
-            }
-        };
+        let fx: &FxSpot = context.instrument_as()?;
         let base_amt = fx.effective_notional().amount();
         if base_amt == 0.0 {
             return Ok(0.0);

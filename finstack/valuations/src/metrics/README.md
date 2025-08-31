@@ -144,7 +144,7 @@ use crate::metrics::{MetricContext, MetricId, standard_registry};
 use std::sync::Arc;
 
 let mut context = MetricContext::new(
-    Arc::new(Instrument::Bond(bond.clone())),
+    Arc::new(bond.clone()),
     Arc::new(curves.clone()),
     as_of,
     base_value,

@@ -85,23 +85,21 @@ fn test_covenant_evaluation() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let curves = Arc::new(CurveSet::new());
     let mut context = MetricContext::new(
-        Arc::new(finstack_valuations::instruments::Instrument::Bond(
-            finstack_valuations::instruments::fixed_income::bond::Bond {
-                id: "TEST".to_string(),
-                notional: Money::new(1_000_000.0, Currency::USD),
-                coupon: 0.05,
-                freq: finstack_core::dates::Frequency::semi_annual(),
-                dc: DayCount::Act365F,
-                issue: as_of,
-                maturity: Date::from_calendar_date(2030, Month::January, 1).unwrap(),
-                disc_id: "USD-OIS",
-                quoted_clean: None,
-                call_put: None,
-                amortization: None,
-                custom_cashflows: None,
-                attributes: finstack_valuations::instruments::traits::Attributes::new(),
-            },
-        )),
+        Arc::new(finstack_valuations::instruments::fixed_income::bond::Bond {
+            id: "TEST".to_string(),
+            notional: Money::new(1_000_000.0, Currency::USD),
+            coupon: 0.05,
+            freq: finstack_core::dates::Frequency::semi_annual(),
+            dc: DayCount::Act365F,
+            issue: as_of,
+            maturity: Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+            disc_id: "USD-OIS",
+            quoted_clean: None,
+            call_put: None,
+            amortization: None,
+            custom_cashflows: None,
+            attributes: finstack_valuations::instruments::traits::Attributes::new(),
+        }),
         curves,
         as_of,
         Money::new(1_000_000.0, Currency::USD),

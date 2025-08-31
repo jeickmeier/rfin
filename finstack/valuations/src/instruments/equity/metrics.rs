@@ -1,15 +1,13 @@
 //! Equity metrics: price per share, shares, and market value.
 
+use crate::instruments::equity::Equity;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::F;
 
 struct PricePerShareCalculator;
 impl MetricCalculator for PricePerShareCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let equity = context
-            .instrument
-            .as_equity()
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let equity: &Equity = context.instrument_as()?;
         equity
             .price_quote
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))
@@ -19,10 +17,7 @@ impl MetricCalculator for PricePerShareCalculator {
 struct SharesCalculator;
 impl MetricCalculator for SharesCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let equity = context
-            .instrument
-            .as_equity()
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let equity: &Equity = context.instrument_as()?;
         Ok(equity.effective_shares())
     }
 }
@@ -30,10 +25,7 @@ impl MetricCalculator for SharesCalculator {
 struct MarketValueCalculator;
 impl MetricCalculator for MarketValueCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let equity = context
-            .instrument
-            .as_equity()
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let equity: &Equity = context.instrument_as()?;
         let price = equity
             .price_quote
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;

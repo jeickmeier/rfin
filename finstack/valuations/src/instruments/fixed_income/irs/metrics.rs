@@ -5,7 +5,7 @@
 //! These metrics are essential for swap valuation and risk management.
 
 use super::PayReceive;
-use crate::instruments::Instrument;
+use crate::instruments::fixed_income::irs::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::prelude::*;
@@ -21,14 +21,7 @@ pub struct AnnuityCalculator;
 
 impl MetricCalculator for AnnuityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let irs = match &*context.instrument {
-            Instrument::IRS(irs) => irs,
-            _ => {
-                return Err(finstack_core::Error::from(
-                    finstack_core::error::InputError::Invalid,
-                ))
-            }
-        };
+        let irs: &InterestRateSwap = context.instrument_as()?;
 
         let disc = context.curves.discount(irs.fixed.disc_id)?;
         let base = disc.base_date();
@@ -76,14 +69,7 @@ impl MetricCalculator for ParRateCalculator {
     }
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let irs = match &*context.instrument {
-            Instrument::IRS(irs) => irs,
-            _ => {
-                return Err(finstack_core::Error::from(
-                    finstack_core::error::InputError::Invalid,
-                ))
-            }
-        };
+        let irs: &InterestRateSwap = context.instrument_as()?;
 
         let disc = context.curves.discount(irs.fixed.disc_id)?;
         let fwd = context.curves.forecast(irs.float.fwd_id)?;
@@ -151,14 +137,7 @@ impl MetricCalculator for Dv01Calculator {
     }
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let irs = match &*context.instrument {
-            Instrument::IRS(irs) => irs,
-            _ => {
-                return Err(finstack_core::Error::from(
-                    finstack_core::error::InputError::Invalid,
-                ))
-            }
-        };
+        let irs: &InterestRateSwap = context.instrument_as()?;
 
         // Get annuity from computed metrics
         let annuity = context
@@ -189,14 +168,7 @@ pub struct FixedLegPvCalculator;
 
 impl MetricCalculator for FixedLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let irs = match &*context.instrument {
-            Instrument::IRS(irs) => irs,
-            _ => {
-                return Err(finstack_core::Error::from(
-                    finstack_core::error::InputError::Invalid,
-                ))
-            }
-        };
+        let irs: &InterestRateSwap = context.instrument_as()?;
 
         let disc = context.curves.discount(irs.fixed.disc_id)?;
         let base = disc.base_date();
@@ -241,14 +213,7 @@ pub struct FloatLegPvCalculator;
 
 impl MetricCalculator for FloatLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let irs = match &*context.instrument {
-            Instrument::IRS(irs) => irs,
-            _ => {
-                return Err(finstack_core::Error::from(
-                    finstack_core::error::InputError::Invalid,
-                ))
-            }
-        };
+        let irs: &InterestRateSwap = context.instrument_as()?;
 
         let disc = context.curves.discount(irs.float.disc_id)?;
         let fwd = context.curves.forecast(irs.float.fwd_id)?;

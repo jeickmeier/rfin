@@ -302,7 +302,7 @@ impl InflationLinkedBond {
 }
 
 impl_instrument_schedule_pv!(
-    InflationLinkedBond, ILB,
+    InflationLinkedBond, "InflationLinkedBond",
     disc_field: disc_id,
     dc_field: dc,
     metrics = |_s| {

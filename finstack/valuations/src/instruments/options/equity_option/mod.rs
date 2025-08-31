@@ -219,7 +219,7 @@ impl EquityOption {
 use crate::metrics::MetricId;
 
 impl_instrument!(
-    EquityOption, EquityOption,
+    EquityOption, "EquityOption",
     pv = |s, curves, _as_of| {
         let _disc = curves.discount(s.disc_id)?;
         Err(finstack_core::Error::from(finstack_core::error::InputError::NotFound))

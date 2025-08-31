@@ -106,7 +106,7 @@ impl CdsTranche {
 }
 
 impl_instrument!(
-    CdsTranche, CDSTranche,
+    CdsTranche, "CDSTranche",
     pv = |s, _curves, _as_of| Ok(Money::new(0.0, s.notional.currency())),
     metrics = |_s| {
         vec![

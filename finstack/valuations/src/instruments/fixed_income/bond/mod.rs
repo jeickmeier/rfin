@@ -160,7 +160,7 @@ impl Bond {
 
 // Custom Priceable implementation for Bond (can't use macro due to different field names)
 impl_instrument_schedule_pv!(
-    Bond, Bond,
+    Bond, "Bond",
     disc_field: disc_id,
     dc_field: dc,
     metrics = |s| s.get_standard_metrics()
@@ -173,7 +173,7 @@ impl RiskMeasurable for Bond {
         as_of: Date,
         _bucket_spec: Option<&[RiskBucket]>,
     ) -> finstack_core::Result<RiskReport> {
-        use crate::instruments::Instrument;
+
         use crate::metrics::MetricContext;
         use crate::metrics::{standard_registry, MetricId};
         use std::sync::Arc;
@@ -186,7 +186,7 @@ impl RiskMeasurable for Bond {
 
         // Create metric context
         let mut context = MetricContext::new(
-            Arc::new(Instrument::Bond(self.clone())),
+            Arc::new(self.clone()),
             Arc::new(curves.clone()),
             as_of,
             base_value,

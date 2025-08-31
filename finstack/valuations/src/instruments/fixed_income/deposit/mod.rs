@@ -38,7 +38,7 @@ pub struct Deposit {
 }
 
 impl_instrument_schedule_pv!(
-    Deposit, Deposit,
+    Deposit, "Deposit",
     disc_field: disc_id,
     dc_field: day_count,
     metrics = |_s| {

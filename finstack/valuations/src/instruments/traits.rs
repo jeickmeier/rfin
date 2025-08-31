@@ -110,4 +110,19 @@ pub trait Attributable: Send + Sync {
     fn get_meta(&self, key: &str) -> Option<&str> { self.attributes().get_meta(key) }
 }
 
+/// Object-safe trait that all instruments implement for unified handling.
+///
+/// This trait provides the minimal interface needed for metrics computation
+/// and portfolio management without requiring hardcoded enum matching.
+pub trait InstrumentLike: Priceable + Attributable + Send + Sync {
+    /// Get the instrument's unique identifier.
+    fn id(&self) -> &str;
+    
+    /// Get the instrument type as a string identifier.
+    fn instrument_type(&self) -> &'static str;
+    
+    /// Get access to the concrete type for downcasting.
+    fn as_any(&self) -> &dyn std::any::Any;
+}
+
 

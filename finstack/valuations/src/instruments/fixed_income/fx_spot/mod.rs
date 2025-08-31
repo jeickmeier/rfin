@@ -114,7 +114,7 @@ impl FxSpot {
 }
 
 impl_instrument!(
-    FxSpot, FxSpot,
+    FxSpot, "FxSpot",
     pv = |s, curves, as_of| {
         if let Some(rate) = s.spot_rate {
             let notional_amount = s.effective_notional().amount();

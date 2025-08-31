@@ -260,7 +260,7 @@ impl Swaption {
 }
 
 impl_instrument!(
-    Swaption, Swaption,
+    Swaption, "Swaption",
     pv = |s, curves, _as_of| {
         let disc = curves.discount(s.disc_id)?;
         if s.sabr_params.is_some() {

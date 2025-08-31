@@ -1,5 +1,6 @@
 //! Interest rate option specific metrics calculators
 
+use crate::instruments::options::cap_floor::InterestRateOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::{Result, F};
 use std::sync::Arc;
@@ -9,20 +10,13 @@ pub struct DeltaCalculator;
 
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
-
-        if let Instrument::InterestRateOption(option) = &*context.instrument {
+        let option: &InterestRateOption = context.instrument_as()?;
             // Minimal example: require inputs via attributes or implied_vol
             let sigma = option.implied_vol.unwrap_or(0.20);
             // Placeholder forward and t until forward curve utilities are exposed
             let forward_rate = option.strike_rate;
             let t = 1.0;
             Ok(option.delta(forward_rate, sigma, t))
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -35,18 +29,11 @@ pub struct GammaCalculator;
 
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
-
-        if let Instrument::InterestRateOption(option) = &*context.instrument {
+        let option: &InterestRateOption = context.instrument_as()?;
             let sigma = option.implied_vol.unwrap_or(0.20);
             let forward_rate = option.strike_rate;
             let t = 1.0;
             Ok(option.gamma(forward_rate, sigma, t))
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -59,18 +46,11 @@ pub struct VegaCalculator;
 
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
-
-        if let Instrument::InterestRateOption(option) = &*context.instrument {
+        let option: &InterestRateOption = context.instrument_as()?;
             let sigma = option.implied_vol.unwrap_or(0.20);
             let forward_rate = option.strike_rate;
             let t = 1.0;
             Ok(option.vega(forward_rate, sigma, t))
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -83,9 +63,7 @@ pub struct ThetaCalculator;
 
 impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
-
-        if let Instrument::InterestRateOption(option) = &*context.instrument {
+        let option: &InterestRateOption = context.instrument_as()?;
             // Approximate theta via finite difference on t (per day)
             let sigma = option.implied_vol.unwrap_or(0.20);
             let forward_rate = option.strike_rate;
@@ -94,11 +72,6 @@ impl MetricCalculator for ThetaCalculator {
             let base = option.delta(forward_rate, sigma, t); // not ideal; would prefer price fn
             let later = option.delta(forward_rate, sigma, t - dt);
             Ok(-(base - later) / dt / 365.25)
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -111,16 +84,9 @@ pub struct RhoCalculator;
 
 impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
-
-        if let Instrument::InterestRateOption(_option) = &*context.instrument {
-            // Placeholder: rho requires rate bump; not available here
-            Ok(0.0)
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
+        let _option: &InterestRateOption = context.instrument_as()?;
+        // Placeholder: rho requires rate bump; not available here
+        Ok(0.0)
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -133,15 +99,8 @@ pub struct ImpliedVolCalculator;
 
 impl MetricCalculator for ImpliedVolCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
-
-        if let Instrument::InterestRateOption(_option) = &*context.instrument {
-            Ok(0.0)
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
+        let _option: &InterestRateOption = context.instrument_as()?;
+        Ok(0.0)
     }
 
     fn dependencies(&self) -> &[MetricId] { &[] }

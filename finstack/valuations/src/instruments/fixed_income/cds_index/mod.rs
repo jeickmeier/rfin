@@ -117,7 +117,7 @@ impl CDSIndex {
 }
 
 impl_instrument!(
-    CDSIndex, CDSIndex,
+    CDSIndex, "CDSIndex",
     pv = |s, curves, as_of| {
         let cds = s.to_synthetic_cds();
         cds.value(curves, as_of)

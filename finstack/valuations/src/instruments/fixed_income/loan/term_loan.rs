@@ -423,7 +423,7 @@ impl CashflowProvider for Loan {
 }
 
 impl_instrument_schedule_pv!(
-    Loan, Loan,
+    Loan, "Loan",
     disc_field: disc_id,
     dc_field: day_count,
     metrics = |_s| vec![]

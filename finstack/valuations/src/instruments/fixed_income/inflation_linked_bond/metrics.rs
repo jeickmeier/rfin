@@ -1,5 +1,6 @@
 //! ILB-specific metrics calculators
 
+use crate::instruments::fixed_income::inflation_linked_bond::InflationLinkedBond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::{Result, F};
 use std::sync::Arc;
@@ -9,19 +10,14 @@ pub struct RealYieldCalculator;
 
 impl MetricCalculator for RealYieldCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
 
-        if let Instrument::ILB(ilb) = &*context.instrument {
-            ilb.real_yield(
-                ilb.quoted_clean.unwrap_or(100.0),
-                &context.curves,
-                context.as_of,
-            )
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
+
+        let ilb: &InflationLinkedBond = context.instrument_as()?;
+        ilb.real_yield(
+            ilb.quoted_clean.unwrap_or(100.0),
+            &context.curves,
+            context.as_of,
+        )
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -34,9 +30,9 @@ pub struct IndexRatioCalculator;
 
 impl MetricCalculator for IndexRatioCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
 
-        if let Instrument::ILB(ilb) = &*context.instrument {
+
+        let ilb: &InflationLinkedBond = context.instrument_as()?;
             // Get inflation index
             let inflation_index = context
                 .curves
@@ -46,11 +42,6 @@ impl MetricCalculator for IndexRatioCalculator {
                 })?;
 
             ilb.index_ratio(context.as_of, &inflation_index)
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -63,15 +54,10 @@ pub struct RealDurationCalculator;
 
 impl MetricCalculator for RealDurationCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
 
-        if let Instrument::ILB(ilb) = &*context.instrument {
-            ilb.real_duration(&context.curves, context.as_of)
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
+
+        let ilb: &InflationLinkedBond = context.instrument_as()?;
+        ilb.real_duration(&context.curves, context.as_of)
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -84,18 +70,13 @@ pub struct BreakevenInflationCalculator;
 
 impl MetricCalculator for BreakevenInflationCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
 
-        if let Instrument::ILB(ilb) = &*context.instrument {
+
+        let ilb: &InflationLinkedBond = context.instrument_as()?;
             // Would need nominal bond yield from market context
             // For now, use a placeholder
             let nominal_yield = 0.03; // 3% nominal yield
             ilb.breakeven_inflation(nominal_yield, &context.curves, context.as_of)
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
     }
 
     fn dependencies(&self) -> &[MetricId] {

@@ -286,7 +286,7 @@ impl CreditDefaultSwap {
 
 // Custom Priceable implementation for CDS (has nested fields like premium.disc_id)
 impl_instrument!(
-    CreditDefaultSwap, CDS,
+    CreditDefaultSwap, "CreditDefaultSwap",
     pv = |s, curves, _as_of| {
         let disc = curves.discount(s.premium.disc_id)?;
         let credit = curves.credit(s.protection.credit_id)?;

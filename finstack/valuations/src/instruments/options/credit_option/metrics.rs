@@ -1,5 +1,6 @@
 //! Credit option specific metrics calculators
 
+use crate::instruments::options::credit_option::CreditOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::{Result, F};
 use std::sync::Arc;
@@ -9,16 +10,9 @@ pub struct DeltaCalculator;
 
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
-
-        if let Instrument::CreditOption(_option) = &*context.instrument {
+        let _option: &CreditOption = context.instrument_as()?;
             // Would calculate actual delta here with forward credit spread and volatility
             Ok(0.5)
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -31,16 +25,9 @@ pub struct GammaCalculator;
 
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
-
-        if let Instrument::CreditOption(_option) = &*context.instrument {
+        let _option: &CreditOption = context.instrument_as()?;
             // Would calculate actual gamma here
             Ok(0.02)
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -53,16 +40,9 @@ pub struct VegaCalculator;
 
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
-
-        if let Instrument::CreditOption(_option) = &*context.instrument {
+        let _option: &CreditOption = context.instrument_as()?;
             // Would calculate actual vega here
             Ok(0.1)
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -75,16 +55,9 @@ pub struct ThetaCalculator;
 
 impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
-
-        if let Instrument::CreditOption(_option) = &*context.instrument {
+        let _option: &CreditOption = context.instrument_as()?;
             // Would calculate actual theta here
             Ok(-0.05)
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -97,16 +70,9 @@ pub struct RhoCalculator;
 
 impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
-
-        if let Instrument::CreditOption(_option) = &*context.instrument {
+        let _option: &CreditOption = context.instrument_as()?;
             // Would calculate actual rho here
             Ok(0.03)
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -119,15 +85,8 @@ pub struct ImpliedVolCalculator;
 
 impl MetricCalculator for ImpliedVolCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        use crate::instruments::Instrument;
-
-        if let Instrument::CreditOption(_option) = &*context.instrument {
+        let _option: &CreditOption = context.instrument_as()?;
             Ok(0.0)
-        } else {
-            Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound,
-            ))
-        }
     }
 
     fn dependencies(&self) -> &[MetricId] { &[] }

@@ -14,7 +14,7 @@
 //! # Quick Start
 //!
 //! ```rust
-//! use finstack_valuations::instruments::{Instrument, Bond, InterestRateSwap, Deposit};
+//! use finstack_valuations::instruments::{Bond, InterestRateSwap, Deposit};
 //! use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention, StubKind};
 //! use finstack_core::money::Money;
 //! use finstack_core::currency::Currency;
@@ -78,11 +78,12 @@
 //!     attributes: finstack_valuations::instruments::traits::Attributes::new(),
 //! };
 //!
-//! // Use unified interface
-//! let instruments: Vec<Instrument> = vec![
-//!     Instrument::Bond(bond),
-//!     Instrument::IRS(irs),
-//!     Instrument::Deposit(deposit),
+//! // Use trait objects for unified handling
+//! use finstack_valuations::instruments::traits::InstrumentLike;
+//! let instruments: Vec<Box<dyn InstrumentLike>> = vec![
+//!     Box::new(bond),
+//!     Box::new(irs),
+//!     Box::new(deposit),
 //! ];
 //!
 //! // Check instrument types
@@ -95,8 +96,7 @@
 #[macro_use]
 pub mod macros;
 
-// Unified instrument handling with common operations
-pub mod unified;
+
 
 // Instrument-level traits and metadata
 pub mod traits;
@@ -107,37 +107,37 @@ pub mod fixed_income;
 // fx_spot moved under fixed_income
 pub mod options;
 
-// Re-export unified types as the canonical Instrument
-pub use unified::{Instrument, InstrumentPortfolio};
+
 
 // Re-export individual instrument types
 pub use equity::Equity;
 pub use fixed_income::{
-    Bond, CreditDefaultSwap, Deposit, InflationLinkedBond, InterestRateSwap, Loan,
+    Bond, ConvertibleBond, CreditDefaultSwap, Deposit, InflationLinkedBond, InterestRateSwap, Loan,
 };
 pub use fixed_income::fx_spot::FxSpot;
 pub use options::{CreditOption, EquityOption, FxOption, InterestRateOption, Swaption};
-// The canonical Instrument enum and helpers now live in `unified` and are re-exported above.
+// Individual instrument types can be used directly or via trait objects for unified handling.
 
 /// Shared helper to build a ValuationResult with a set of metrics.
 ///
 /// Centralizes the repeated pattern across instruments to compute base value,
 /// build metric context, compute metrics and stamp a result.
-pub fn build_with_metrics<I: Into<crate::instruments::Instrument>>(
+pub fn build_with_metrics<I>(
     instrument: I,
     curves: &finstack_core::market_data::multicurve::CurveSet,
     as_of: finstack_core::dates::Date,
     base_value: finstack_core::money::Money,
     metrics: &[crate::metrics::MetricId],
-) -> finstack_core::Result<crate::results::ValuationResult> {
+) -> finstack_core::Result<crate::results::ValuationResult>
+where
+    I: traits::InstrumentLike + Clone + 'static,
+{
     use crate::metrics::{standard_registry, MetricContext};
     use indexmap::IndexMap;
     use std::sync::Arc;
 
-    let instrument: crate::instruments::Instrument = instrument.into();
-
     let mut context = MetricContext::new(
-        Arc::new(instrument),
+        Arc::new(instrument.clone()),
         Arc::new(curves.clone()),
         as_of,
         base_value,
@@ -155,7 +155,7 @@ pub fn build_with_metrics<I: Into<crate::instruments::Instrument>>(
     }
 
     let mut result = crate::results::ValuationResult::stamped(
-        context.instrument.id().to_string(),
+        instrument.id().to_string(),
         as_of,
         base_value,
     );

@@ -176,7 +176,7 @@ impl InterestRateSwap {
 // Generate standard Attributable implementation using macro
 // Keep manual Priceable for IRS, but add conversions/attributes via macro to reduce boilerplate
 impl_instrument!(
-    InterestRateSwap, IRS,
+    InterestRateSwap, "InterestRateSwap",
     pv = |s, curves, _as_of| {
         let disc = curves.discount(s.fixed.disc_id)?;
         let fwd = curves.forecast(s.float.fwd_id)?;
@@ -473,7 +473,7 @@ impl RiskMeasurable for InterestRateSwap {
         as_of: Date,
         _bucket_spec: Option<&[RiskBucket]>,
     ) -> finstack_core::Result<RiskReport> {
-        use crate::instruments::Instrument;
+
         use crate::metrics::MetricContext;
         use crate::metrics::{standard_registry, MetricId};
         use std::sync::Arc;
@@ -486,7 +486,7 @@ impl RiskMeasurable for InterestRateSwap {
 
         // Create metric context
         let mut context = MetricContext::new(
-            Arc::new(Instrument::IRS(self.clone())),
+            Arc::new(self.clone()),
             Arc::new(curves.clone()),
             as_of,
             base_value,

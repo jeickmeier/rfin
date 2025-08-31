@@ -417,9 +417,6 @@ impl PyInterestRateSwap {
         let curves = market_context.inner();
         let as_of_date = as_of.inner();
 
-        // Create instrument wrapper
-        let instrument = finstack_valuations::instruments::Instrument::IRS((*self.inner).clone());
-
         // Calculate base value first
         // use already imported Priceable
         let base_value = self.inner.value(&curves, as_of_date).map_err(|e| {
@@ -431,7 +428,7 @@ impl PyInterestRateSwap {
 
         // Create metric context
         let mut context =
-            finstack_valuations::metrics::MetricContext::new(Arc::new(instrument), curves.clone(), as_of_date, base_value);
+            finstack_valuations::metrics::MetricContext::new(Arc::new((*self.inner).clone()), curves.clone(), as_of_date, base_value);
 
         // Get standard registry and compute par rate
         let registry = standard_registry();
