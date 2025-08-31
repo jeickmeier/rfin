@@ -3,7 +3,7 @@
 pub mod metrics;
 
 use crate::instruments::traits::Attributes;
-// use finstack_core::market_data::multicurve::CurveSet;
+// use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::F;
 
@@ -224,7 +224,6 @@ impl EquityOption {
     }
 }
 
-use crate::metrics::MetricId;
 
 impl_instrument!(
     EquityOption,
@@ -285,14 +284,7 @@ impl_instrument!(
         
         // Price using Black-Scholes
         s.black_scholes_price(spot, r, sigma, time_to_expiry, q)
-    },
-    metrics = |_s| vec![
-        MetricId::Delta,
-        MetricId::Gamma,
-        MetricId::Vega,
-        MetricId::Theta,
-        MetricId::Rho
-    ]
+    }
 );
 
 // Conversions and Attributable provided by macro

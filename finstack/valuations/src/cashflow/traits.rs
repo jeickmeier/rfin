@@ -1,7 +1,7 @@
 //! Cashflow-related traits and aliases.
 
 use crate::instruments::fixed_income::discountable::Discountable;
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::traits::Discount;
 use finstack_core::prelude::*;
 
@@ -21,7 +21,7 @@ pub trait CashflowProvider: Send + Sync {
     /// # Errors
     /// Returns an error if the schedule cannot be built due to invalid
     /// instrument parameters or missing market data.
-    fn build_schedule(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<DatedFlows>;
+    fn build_schedule(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<DatedFlows>;
 
     /// Convenience: present value the built schedule against a discount curve and day-count.
     ///
@@ -29,7 +29,7 @@ pub trait CashflowProvider: Send + Sync {
     #[inline]
     fn npv_with(
         &self,
-        curves: &CurveSet,
+        curves: &MarketContext,
         as_of: Date,
         disc: &dyn Discount,
         dc: DayCount,

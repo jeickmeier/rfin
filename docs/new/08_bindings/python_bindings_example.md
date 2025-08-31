@@ -250,18 +250,18 @@ print("Vol(0.75, 95):", vs.value(0.75, 95.0))
 print("Smile@1Y:", vs.get_expiry_slice(2).tolist())
 ```
 
-### CurveSet container
+### MarketContext container
 
 ```python
 from rfin import Date
-from rfin.market_data import CurveSet, DiscountCurve, ForwardCurve
+from rfin.market_data import MarketContext, DiscountCurve, ForwardCurve
 
 base = Date(2025, 1, 1)
 usd = DiscountCurve(id="USD-OIS", base_date=base, times=[0.0,1.0,5.0], discount_factors=[1.0,0.97,0.85])
 eur = DiscountCurve(id="EUR-OIS", base_date=base, times=[0.0,1.0,5.0], discount_factors=[1.0,0.98,0.88])
 sofr3m = ForwardCurve(id="USD-SOFR3M", tenor=0.25, base_date=base, times=[0.0,1.0,5.0], forward_rates=[0.035,0.04,0.045])
 
-curves = CurveSet()
+curves = MarketContext()
 curves["USD-OIS"] = usd
 curves["EUR-OIS"] = eur
 curves["USD-SOFR3M"] = sofr3m

@@ -51,13 +51,12 @@ macro_rules! impl_instrument_like {
 /// Generate a full instrument implementation:
 /// - Attributable
 /// - InstrumentLike
-/// - Priceable: value (via pv closure), price_with_metrics, price (via metrics closure)
+/// - Priceable: value (via pv closure), price_with_metrics
 #[macro_export]
 macro_rules! impl_instrument {
     (
         $type:ident, $type_name:literal,
-        pv = |$s:ident, $curves:ident, $as_of:ident| $pv_expr:expr,
-        metrics = |$ms:ident| $metrics_expr:expr $(,)?
+        pv = |$s:ident, $curves:ident, $as_of:ident| $pv_expr:expr $(,)?
     ) => {
         // Attributes
         impl_attributable!($type);
@@ -69,7 +68,7 @@ macro_rules! impl_instrument {
         impl $crate::instruments::traits::Priceable for $type {
             fn value(
                 &self,
-                curves: &finstack_core::market_data::multicurve::CurveSet,
+                curves: &finstack_core::market_data::MarketContext,
                 as_of: finstack_core::dates::Date,
             ) -> finstack_core::Result<finstack_core::money::Money> {
                 let $s = self;
@@ -80,7 +79,7 @@ macro_rules! impl_instrument {
 
             fn price_with_metrics(
                 &self,
-                curves: &finstack_core::market_data::multicurve::CurveSet,
+                curves: &finstack_core::market_data::MarketContext,
                 as_of: finstack_core::dates::Date,
                 metrics: &[$crate::metrics::MetricId],
             ) -> finstack_core::Result<$crate::results::ValuationResult> {
@@ -93,17 +92,6 @@ macro_rules! impl_instrument {
                     metrics,
                 )
             }
-
-            fn price(
-                &self,
-                curves: &finstack_core::market_data::multicurve::CurveSet,
-                as_of: finstack_core::dates::Date,
-            ) -> finstack_core::Result<$crate::results::ValuationResult> {
-                let $ms = self;
-                let standard_metrics: ::std::vec::Vec<$crate::metrics::MetricId> =
-                    { $metrics_expr };
-                self.price_with_metrics(curves, as_of, &standard_metrics)
-            }
         }
     };
 }
@@ -112,14 +100,13 @@ macro_rules! impl_instrument {
 /// and reads `disc_id` and day-count field names from the instrument.
 ///
 /// Usage:
-/// impl_instrument_schedule_pv!(Type, "TypeName", disc_field: disc_id, dc_field: dc, metrics = |s| expr);
+/// impl_instrument_schedule_pv!(Type, "TypeName", disc_field: disc_id, dc_field: dc);
 #[macro_export]
 macro_rules! impl_instrument_schedule_pv {
     (
         $type:ident, $type_name:literal,
         disc_field: $disc:ident,
         dc_field: $dc:ident
-        $(, metrics = |$ms:ident| $metrics_expr:expr)?
     ) => {
         $crate::impl_instrument!(
             $type, $type_name,
@@ -128,21 +115,9 @@ macro_rules! impl_instrument_schedule_pv {
                 let flows = <$type as $crate::cashflow::traits::CashflowProvider>::build_schedule(s, curves, as_of)?;
                 let disc = curves.discount(s.$disc)?;
                 flows.npv(&*disc, disc.base_date(), s.$dc)
-            },
-            metrics = |mself| {
-                impl_instrument_schedule_pv!(@metrics_body mself $(, metrics = |$ms| $metrics_expr)? )
             }
         );
     };
-
-    (@metrics_body $mself:ident, metrics = |$ms:ident| $metrics_expr:expr) => {{
-        let $ms = $mself;
-        $metrics_expr
-    }};
-
-    (@metrics_body $mself:ident) => {{
-        ::std::vec::Vec::new()
-    }};
 }
 
 /// Generate builder pattern for an instrument.

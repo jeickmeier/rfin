@@ -120,7 +120,7 @@ pub use options::{CreditOption, EquityOption, FxOption, InterestRateOption, Swap
 /// build metric context, compute metrics and stamp a result.
 pub fn build_with_metrics<I>(
     instrument: I,
-    curves: &finstack_core::market_data::multicurve::CurveSet,
+    curves: &finstack_core::market_data::MarketContext,
     as_of: finstack_core::dates::Date,
     base_value: finstack_core::money::Money,
     metrics: &[crate::metrics::MetricId],

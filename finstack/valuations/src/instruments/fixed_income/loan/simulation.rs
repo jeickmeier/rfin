@@ -8,7 +8,7 @@ use super::revolver::UtilizationFeeSchedule;
 use super::term_loan::InterestSpec;
 use crate::instruments::fixed_income::discountable::Discountable;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::traits::Discount;
 use finstack_core::money::Money;
@@ -165,7 +165,7 @@ impl LoanSimulator {
     pub fn simulate<T: LoanFacility>(
         &self,
         facility: &T,
-        curves: &CurveSet,
+        curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<SimulationResult> {
         // Build event timeline
@@ -254,7 +254,7 @@ impl LoanSimulator {
     fn value_existing_balance<T: LoanFacility>(
         &self,
         facility: &T,
-        curves: &CurveSet,
+        curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
         let disc = curves.discount(facility.disc_id())?;
@@ -266,7 +266,7 @@ impl LoanSimulator {
     fn simulate_deterministic<T: LoanFacility>(
         &self,
         facility: &T,
-        curves: &CurveSet,
+        curves: &MarketContext,
         as_of: Date,
         timeline: &[Date],
     ) -> finstack_core::Result<(PVBreakdown, Vec<FacilityState>)> {
@@ -343,7 +343,7 @@ impl LoanSimulator {
     fn simulate_monte_carlo<T: LoanFacility>(
         &self,
         facility: &T,
-        curves: &CurveSet,
+        curves: &MarketContext,
         as_of: Date,
         timeline: &[Date],
     ) -> finstack_core::Result<(PVBreakdown, Vec<FacilityState>)> {
@@ -396,7 +396,7 @@ impl LoanSimulator {
     fn simulate_single_path<T: LoanFacility>(
         &self,
         facility: &T,
-        curves: &CurveSet,
+        curves: &MarketContext,
         as_of: Date,
         timeline: &[Date],
         rng: &mut dyn RandomNumberGenerator,
@@ -475,7 +475,7 @@ impl LoanSimulator {
         &self,
         facility: &T,
         disc: &dyn Discount,
-        curves: &CurveSet,
+        curves: &MarketContext,
         period_start: Date,
         period_end: Date,
         drawn_start: F,
@@ -721,7 +721,7 @@ pub trait LoanFacility {
     fn events_on_date(&self, date: Date) -> Vec<SimulationEvent>;
     
     /// Build cash flows for existing drawn balance
-    fn build_existing_flows(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Vec<(Date, Money)>>;
+    fn build_existing_flows(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Vec<(Date, Money)>>;
 }
 
 /// Random number generator trait for Monte Carlo

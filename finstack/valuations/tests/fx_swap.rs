@@ -109,7 +109,18 @@ fn test_fx_swap_metrics() {
         .unwrap();
 
     let market_context = setup_market_data(as_of);
-    let result = fx_swap.price(&market_context, as_of).unwrap();
+    let result = fx_swap
+        .price_with_metrics(
+            &market_context,
+            as_of,
+            &[
+                finstack_valuations::metrics::MetricId::custom("forward_points"),
+                finstack_valuations::metrics::MetricId::custom("ir01_domestic"),
+                finstack_valuations::metrics::MetricId::custom("ir01_foreign"),
+                finstack_valuations::metrics::MetricId::custom("fx01"),
+            ],
+        )
+        .unwrap();
 
     // Check forward points
     let forward_points = *result.measures.get("forward_points").unwrap();

@@ -8,9 +8,8 @@
 pub mod metrics;
 
 use crate::instruments::traits::Attributes;
-use crate::metrics::MetricId;
 use finstack_core::dates::Date;
-// use finstack_core::market_data::multicurve::CurveSet; // not needed directly here
+// use finstack_core::market_data::MarketContext; // not needed directly here
 use finstack_core::money::Money;
 use finstack_core::F;
 
@@ -127,15 +126,6 @@ impl_instrument!(
     pv = |s, curves, as_of| {
         let cds = s.to_synthetic_cds();
         cds.value(curves, as_of)
-    },
-    metrics = |_s| {
-        vec![
-            MetricId::ParSpread,
-            MetricId::RiskyPv01,
-            MetricId::Cs01,
-            MetricId::ProtectionLegPv,
-            MetricId::PremiumLegPv,
-        ]
     }
 );
 

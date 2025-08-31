@@ -1,6 +1,6 @@
 //! Integration tests for covenant and workout functionality.
 
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::F;
 use finstack_valuations::covenants::{
@@ -83,7 +83,7 @@ fn test_covenant_evaluation() {
 
     // Setup context
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    let curves = Arc::new(CurveSet::new());
+    let curves = Arc::new(MarketContext::new());
     let mut context = MetricContext::new(
         Arc::new(finstack_valuations::instruments::fixed_income::bond::Bond {
             id: "TEST".to_string(),

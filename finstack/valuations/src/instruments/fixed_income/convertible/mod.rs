@@ -106,10 +106,6 @@ impl_instrument!(
     pv = |s, curves, _as_of| {
         // Use the new tree-based pricing model
         model::price_convertible_bond(s, curves, model::ConvertibleTreeType::default())
-    },
-    metrics = |_s| {
-        // No standard metrics yet; to be expanded with equity sensitivity, parity, etc.
-        vec![]
     }
 );
 

@@ -91,9 +91,9 @@ def main():
     ).with_expected_funding_curve(funding_curve) \
      .with_commitment_fee(0.0050)  # 50 bps commitment fee
     
-    # Price with enhanced simulation
-    result = ddtl.price(curves, base_date)
-    print(f"DDTL Value: ${result.value.amount:,.2f} {result.value.currency}")
+    # PV only with enhanced simulation
+    pv = ddtl.value(curves, base_date)
+    print(f"DDTL Value: ${pv.amount:,.2f} {pv.currency}")
     
     # Show Expected Exposure metrics
     print(f"Expected Exposure (1Y): ${result.measures.get('expected_exposure_1y', 0):,.0f}")
@@ -154,10 +154,12 @@ def main():
      .with_utilization_fees(util_schedule) \
      .with_expected_funding_curve(revolver_curve)
     
-    # Price with standard deterministic simulation
-    result_det = revolver.price(curves, base_date)
-    print(f"Revolver Value (Deterministic): ${result_det.value.amount:,.2f}")
-    print(f"Expected Exposure (1Y): ${result_det.measures.get('expected_exposure_1y', 0):,.0f}")
+    # PV only with standard deterministic simulation
+    pv_det = revolver.value(curves, base_date)
+    print(f"Revolver Value (Deterministic): ${pv_det.amount:,.2f}")
+    # Example metrics (if needed):
+    # result_det = revolver.price_with_metrics(curves, base_date, ["expected_exposure_1y"])
+    # print(f"Expected Exposure (1Y): ${result_det.measures.get('expected_exposure_1y', 0):,.0f}")
     print(f"Utilization Fee PV: ${result_det.measures.get('utilization_fee_pv', 0):,.2f}")
     
     # Price with Monte Carlo for utilization tier accuracy

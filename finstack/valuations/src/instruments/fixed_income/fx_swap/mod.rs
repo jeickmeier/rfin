@@ -9,7 +9,6 @@
 pub mod metrics;
 
 use crate::instruments::traits::Attributes;
-use crate::metrics::MetricId;
 use finstack_core::money::fx::FxConversionPolicy;
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -162,14 +161,6 @@ impl_instrument!(
         let total_pv = pv_for_leg * spot_rate + pv_dom_leg;
 
         Ok(Money::new(total_pv, s.quote_currency))
-    },
-    metrics = |_s| {
-        vec![
-            MetricId::custom("forward_points"),
-            MetricId::custom("fx01"),
-            MetricId::custom("ir01_domestic"),
-            MetricId::custom("ir01_foreign"),
-        ]
     }
 );
 

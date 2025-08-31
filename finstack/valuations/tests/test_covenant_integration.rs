@@ -46,7 +46,7 @@ fn test_loan_covenant_breach_rate_increase() {
     engine.register_metric("debt_to_ebitda", |_ctx| Ok(5.0)); // 5.0 > 4.0 threshold
 
     // Create metric context for evaluation
-    let curves = finstack_core::market_data::multicurve::CurveSet::new();
+    let curves = finstack_core::market_data::MarketContext::new();
     let test_date = Date::from_calendar_date(2025, Month::March, 31).unwrap();
     let mut metric_ctx = MetricContext::new(
         Arc::new(loan.clone()),

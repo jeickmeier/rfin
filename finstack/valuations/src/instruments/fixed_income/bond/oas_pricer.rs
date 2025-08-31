@@ -71,7 +71,7 @@ impl BondValuator {
         let time_steps: Vec<F> = (0..=tree_steps).map(|i| i as F * dt).collect();
         
         // Build cashflow schedule
-        let curves = market_context; // MarketContext implements the same interface as CurveSet
+        let curves = market_context; // Use MarketContext directly
         let base_date = market_context.discount(bond.disc_id)?.base_date();
         let flows = bond.build_schedule(curves, base_date)?;
         

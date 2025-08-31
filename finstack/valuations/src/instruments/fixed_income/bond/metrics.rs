@@ -630,10 +630,8 @@ impl MetricCalculator for OasCalculator {
                 finstack_core::Error::from(finstack_core::error::InputError::NotFound)
             })?;
             
-        // Convert CurveSet to MarketContext (they have compatible interfaces)
-        let market_context = finstack_core::market_data::context::MarketContext::from_curve_set(
-            context.curves.as_ref().clone()
-        );
+        // Use MarketContext directly (no conversion needed)
+        let market_context = context.curves.as_ref().clone();
         
         // Use OAS calculator to solve for OAS
         let oas_calculator = OASCalculator::new();

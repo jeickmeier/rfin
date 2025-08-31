@@ -7,7 +7,7 @@
 use crate::cashflow::traits::DatedFlows;
 use crate::instruments::traits::Attributes;
 use finstack_core::market_data::inflation_index::{InflationIndex, InflationLag};
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::F;
 
@@ -220,7 +220,7 @@ impl InflationLinkedBond {
     /// Build inflation-adjusted cashflow schedule
     pub fn build_schedule(
         &self,
-        curves: &CurveSet,
+        curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
         // Get inflation index
@@ -269,7 +269,7 @@ impl InflationLinkedBond {
     pub fn real_yield(
         &self,
         clean_price: F,
-        _curves: &CurveSet,
+        _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<F> {
         // Real yield calculation requires iterative solving similar to YTM
@@ -288,7 +288,7 @@ impl InflationLinkedBond {
     pub fn breakeven_inflation(
         &self,
         nominal_bond_yield: F,
-        curves: &CurveSet,
+        curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<F> {
         let real_yield = self.real_yield(self.quoted_clean.unwrap_or(100.0), curves, as_of)?;
@@ -299,7 +299,7 @@ impl InflationLinkedBond {
     }
 
     /// Calculate inflation-adjusted duration
-    pub fn real_duration(&self, _curves: &CurveSet, as_of: Date) -> finstack_core::Result<F> {
+    pub fn real_duration(&self, _curves: &MarketContext, as_of: Date) -> finstack_core::Result<F> {
         // This would calculate the duration with respect to real yields
         // For now, return a placeholder
         let years_to_maturity = (self.maturity - as_of).whole_days() as F / 365.25;
@@ -310,25 +310,14 @@ impl InflationLinkedBond {
 impl_instrument_schedule_pv!(
     InflationLinkedBond, "InflationLinkedBond",
     disc_field: disc_id,
-    dc_field: dc,
-    metrics = |_s| {
-        vec![
-            crate::metrics::MetricId::Accrued,
-            crate::metrics::MetricId::CleanPrice,
-            crate::metrics::MetricId::DirtyPrice,
-            crate::metrics::MetricId::custom("real_yield"),
-            crate::metrics::MetricId::custom("index_ratio"),
-            crate::metrics::MetricId::custom("real_duration"),
-            crate::metrics::MetricId::custom("breakeven_inflation"),
-        ]
-    }
+    dc_field: dc
 );
 
 // Provide the required CashflowProvider trait implementation used by the macro
 impl crate::cashflow::traits::CashflowProvider for InflationLinkedBond {
     fn build_schedule(
         &self,
-        curves: &CurveSet,
+        curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::traits::DatedFlows> {
         // Delegate to the inherent method defined above

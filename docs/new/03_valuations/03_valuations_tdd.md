@@ -1767,7 +1767,7 @@ mod tests {
         };
         
         let market = create_test_market();
-        let result = bond.price(&market, date!(2025-01-01))?;
+        let result = bond.price_with_metrics(&market, date!(2025-01-01), &[MetricId::Ytm])?;
         
         assert_relative_eq!(
             result.value.value.to_f64().unwrap(),
@@ -1816,7 +1816,7 @@ fn test_irs_npv_parity() {
     let swap = create_test_swap();
     let market = create_market_from_fixture("test_data/market_20250101.json");
     
-    let result = swap.price(&market, date!(2025-01-01))?;
+    let result = swap.price_with_metrics(&market, date!(2025-01-01), &[MetricId::ParRate])?;
     
     // Should match QuantLib within tolerance
     assert_relative_eq!(
@@ -1938,7 +1938,7 @@ where
     
     instruments
         .par_iter()
-        .map(|inst| inst.price(market, as_of))
+        .map(|inst| inst.price_with_metrics(market, as_of, MetricId::ALL_STANDARD))
         .collect()
 }
 ```
@@ -1967,7 +1967,7 @@ fn main() -> Result<(), ValuationError> {
         .coupon(Rate(dec!(0.04)))
         .build()?;
     
-    let result = bond.price(&market, market.as_of)?;
+    let result = bond.price_with_metrics(&market, market.as_of, &[MetricId::Ytm])?;
     println!("NPV: {:?}", result.value);
     println!("YTM: {:?}", result.measures.get("ytm"));
     
@@ -2000,7 +2000,7 @@ fn value_portfolio(
     
     for (pos_id, position) in &portfolio.positions {
         let instrument = position.resolve_instrument()?;
-        let result = instrument.price(market, market.as_of)?;
+        let result = instrument.price_with_metrics(market, market.as_of, MetricId::ALL_STANDARD)?;
         results.insert(pos_id.clone(), result);
     }
     

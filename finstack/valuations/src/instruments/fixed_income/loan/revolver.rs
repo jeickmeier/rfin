@@ -6,7 +6,7 @@ use super::term_loan::InterestSpec;
 use crate::cashflow::builder::{cf, CouponType, FeeBase, FeeSpec, FloatingCouponSpec};
 use crate::cashflow::traits::CashflowProvider;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::F;
 
@@ -387,7 +387,7 @@ impl RevolvingCreditFacility {
 impl CashflowProvider for RevolvingCreditFacility {
     fn build_schedule(
         &self,
-        _curves: &CurveSet,
+        _curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Vec<(Date, Money)>> {
         let schedule = self.build_cashflows(as_of)?;
@@ -515,7 +515,7 @@ impl LoanFacility for RevolvingCreditFacility {
             .collect()
     }
     
-    fn build_existing_flows(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Vec<(Date, Money)>> {
+    fn build_existing_flows(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Vec<(Date, Money)>> {
         self.build_schedule(curves, as_of)
     }
 }
@@ -528,14 +528,7 @@ impl_instrument!(
         let simulator = LoanSimulator::new();
         let result = simulator.simulate(s, curves, as_of)?;
         Ok(result.total_pv)
-    },
-    metrics = |_s| vec![
-        crate::metrics::MetricId::custom("drawn"),
-        crate::metrics::MetricId::custom("undrawn"),
-        crate::metrics::MetricId::custom("commitment"),
-        crate::metrics::MetricId::custom("utilization"),
-        crate::metrics::MetricId::custom("expected_exposure_1y"),
-    ]
+    }
 );
 
 impl crate::covenants::engine::InstrumentMutator for RevolvingCreditFacility {

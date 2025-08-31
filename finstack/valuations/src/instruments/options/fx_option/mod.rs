@@ -6,7 +6,7 @@ pub mod metrics;
 use crate::instruments::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
-// use finstack_core::market_data::multicurve::CurveSet;
+// use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::F;
 use num_traits::ToPrimitive;
@@ -243,7 +243,6 @@ impl FxOption {
     }
 }
 
-use crate::metrics::MetricId;
 
 impl_instrument!(
     FxOption,
@@ -287,15 +286,6 @@ impl_instrument!(
         
         // Price using Garman-Kohlhagen
         s.garman_kohlhagen_price(spot.to_f64().unwrap_or(0.0), r_d, r_f, sigma, time_to_expiry)
-    },
-    metrics = |_s| {
-        vec![
-            MetricId::Delta,
-            MetricId::Gamma,
-            MetricId::Vega,
-            MetricId::Theta,
-            MetricId::Rho,
-        ]
     }
 );
 

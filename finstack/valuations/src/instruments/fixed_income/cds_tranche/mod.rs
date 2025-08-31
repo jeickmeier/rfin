@@ -114,17 +114,17 @@ use crate::instruments::build_with_metrics;
 use crate::instruments::traits::Priceable;
 use crate::market_data::ValuationMarketContext;
 use crate::results::ValuationResult;
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 
 impl_attributable!(CdsTranche);
 impl_instrument_like!(CdsTranche, "CDSTranche");
 
 impl Priceable for CdsTranche {
-    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
+    fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         // Try to use the Gaussian Copula model if credit index data is available
         // Otherwise, fall back to zero PV for backward compatibility
 
-        // Convert CurveSet to ValuationMarketContext
+        // Convert MarketContext to ValuationMarketContext
         let val_market_ctx = ValuationMarketContext::from_core(curves.clone());
 
         // Check if credit index data is available
@@ -140,24 +140,12 @@ impl Priceable for CdsTranche {
 
     fn price_with_metrics(
         &self,
-        curves: &CurveSet,
+        curves: &MarketContext,
         as_of: Date,
         metrics: &[MetricId],
     ) -> finstack_core::Result<ValuationResult> {
         let base_value = self.value(curves, as_of)?;
         build_with_metrics(self.clone(), curves, as_of, base_value, metrics)
-    }
-
-    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
-        let standard_metrics = vec![
-            MetricId::custom("upfront"),
-            MetricId::custom("spread_dv01"),
-            MetricId::ExpectedLoss,
-            MetricId::JumpToDefault,
-            MetricId::custom("cs01"),
-            MetricId::custom("correlation_delta"),
-        ];
-        self.price_with_metrics(curves, as_of, &standard_metrics)
     }
 }
 

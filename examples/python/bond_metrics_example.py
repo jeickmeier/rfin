@@ -10,7 +10,7 @@ both quoted and model-valued bonds.
 from finstack import Currency, Date, DayCount, Money
 from finstack.dates import Frequency
 from finstack.instruments import Bond
-from finstack.market_data import MarketContext, DiscountCurve, CurveSet
+from finstack.market_data import MarketContext, DiscountCurve
 import pandas as pd
 
 
@@ -142,8 +142,8 @@ def demonstrate_model_valued_bond():
         pv = bond.value(market_context, as_of)
         print(f"\n💰 Model Value: {pv}")
 
-        # Full pricing with metrics
-        result = bond.price(market_context, as_of)
+        # Full pricing with metrics (request standard set)
+        result = bond.price_with_metrics(market_context, as_of, ["ytm", "duration_mod", "convexity", "accrued"])
         print(f"\n📊 Full Valuation Results:")
         print(f"   PV: {result.value}")
         print(f"   Metrics Available: {len(result.metric_names())}")

@@ -6,7 +6,7 @@ pub mod metrics;
 pub mod oas_pricer;
 pub mod ytm_solver;
 
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::F;
 
@@ -15,7 +15,6 @@ use crate::cashflow::primitives::CFKind;
 // removed direct impl_attributable! usage; handled by unified macro
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::traits::{Attributes, Priceable};
-use crate::metrics::MetricId;
 use crate::metrics::{RiskBucket, RiskMeasurable, RiskReport};
 use finstack_core::dates::{BusinessDayConvention, StubKind};
 
@@ -134,44 +133,20 @@ impl Bond {
         self
     }
 
-    /// Get the standard metrics for a bond based on its configuration.
-    fn get_standard_metrics(&self) -> Vec<crate::metrics::MetricId> {
-        let mut metrics = vec![MetricId::Accrued, MetricId::CleanPrice];
-
-        // Add dirty price and YTM-related metrics only if we have a quoted price
-        if self.quoted_clean.is_some() {
-            metrics.extend_from_slice(&[
-                MetricId::DirtyPrice,
-                MetricId::Ytm,
-                MetricId::DurationMac,
-                MetricId::DurationMod,
-                MetricId::Convexity,
-                MetricId::Cs01,
-            ]);
-        }
-
-        // YTW and OAS only if we have call/put schedule and quoted price
-        if self.call_put.is_some() && self.quoted_clean.is_some() {
-            metrics.push(MetricId::Ytw);
-            metrics.push(MetricId::Oas);
-        }
-
-        metrics
-    }
+    // Removed standard metrics helper; callers should request metrics explicitly.
 }
 
 // Custom Priceable implementation for Bond (can't use macro due to different field names)
 impl_instrument_schedule_pv!(
     Bond, "Bond",
     disc_field: disc_id,
-    dc_field: dc,
-    metrics = |s| s.get_standard_metrics()
+    dc_field: dc
 );
 
 impl RiskMeasurable for Bond {
     fn risk_report(
         &self,
-        curves: &CurveSet,
+        curves: &MarketContext,
         as_of: Date,
         _bucket_spec: Option<&[RiskBucket]>,
     ) -> finstack_core::Result<RiskReport> {
@@ -285,7 +260,7 @@ impl RiskMeasurable for Bond {
 impl CashflowProvider for Bond {
     fn build_schedule(
         &self,
-        _curves: &CurveSet,
+        _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
         // Use custom cashflows if provided
@@ -350,7 +325,7 @@ mod tests {
     use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
     use finstack_core::currency::Currency;
     use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
-    use finstack_core::market_data::multicurve::CurveSet;
+    use finstack_core::market_data::MarketContext;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use time::Month;
 
@@ -405,7 +380,7 @@ mod tests {
             .linear_df()
             .build()
             .unwrap();
-        let curves = CurveSet::new().with_discount(disc_curve);
+        let curves = MarketContext::new().with_discount(disc_curve);
 
         // Build schedule and verify it uses custom cashflows
         let flows = bond.build_schedule(&curves, issue).unwrap();
@@ -556,7 +531,7 @@ mod tests {
             .linear_df()
             .build()
             .unwrap();
-        let curves = CurveSet::new().with_discount(disc_curve);
+        let curves = MarketContext::new().with_discount(disc_curve);
 
         // Build schedules
         let regular_flows = regular_bond.build_schedule(&curves, issue).unwrap();

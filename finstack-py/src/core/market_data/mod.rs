@@ -7,7 +7,7 @@
 //! - `interpolation`: Interpolation style enumeration
 //! - `curves`: Discount, forward, hazard, and inflation curves
 //! - `surfaces`: Volatility surfaces
-//! - `curve_set`: Container for managing multiple curves
+//! - `context`: MarketContext for managing multiple curves and market data
 //! - `curve_id`: Curve identifier wrapper
 
 use pyo3::prelude::*;
@@ -25,7 +25,7 @@ pub mod surfaces;
 // Re-export commonly used types
 pub use context::PyMarketContext;
 pub use curve_id::PyCurveId;
-pub use curve_set::PyCurveSet;
+
 pub use curves::{PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyInflationCurve};
 pub use fx::{PyFxConversionPolicy, PyFxMatrix, PySimpleFxProvider};
 pub use inflation_index::{
@@ -46,7 +46,7 @@ pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyHazardCurve>()?;
     m.add_class::<PyInflationCurve>()?;
     m.add_class::<PyVolSurface>()?;
-    m.add_class::<PyCurveSet>()?;
+
     m.add_class::<PyCurveId>()?;
     m.add_class::<PyMarketScalar>()?;
     m.add_class::<PyScalarTimeSeries>()?;

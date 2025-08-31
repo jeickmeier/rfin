@@ -9,7 +9,7 @@ use crate::cashflow::primitives::AmortizationSpec;
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 
 use finstack_core::money::Money;
 use finstack_core::F;
@@ -348,7 +348,7 @@ impl Loan {
 impl CashflowProvider for Loan {
     fn build_schedule(
         &self,
-        curves: &CurveSet,
+        curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Vec<(Date, Money)>> {
         // For floating rate loans, we need special handling
@@ -434,8 +434,7 @@ impl CashflowProvider for Loan {
 impl_instrument_schedule_pv!(
     Loan, "Loan",
     disc_field: disc_id,
-    dc_field: day_count,
-    metrics = |_s| vec![]
+    dc_field: day_count
 );
 
 // Conversions and Attributable provided by macro

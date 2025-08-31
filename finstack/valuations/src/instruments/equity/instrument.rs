@@ -2,8 +2,7 @@
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::traits::Attributes;
-use crate::metrics::MetricId;
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::F;
 // use indexmap::IndexMap;
@@ -79,13 +78,6 @@ impl_instrument!(
         })?;
         let total_value = price_per_share * s.effective_shares();
         Ok(Money::new(total_value, s.currency))
-    },
-    metrics = |_s| {
-        vec![
-            MetricId::custom("price_per_share"),
-            MetricId::custom("shares"),
-            MetricId::custom("market_value"),
-        ]
     }
 );
 
@@ -152,7 +144,7 @@ impl EquityBuilder {
 impl CashflowProvider for Equity {
     fn build_schedule(
         &self,
-        _curves: &CurveSet,
+        _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<Vec<(Date, Money)>> {
         // Spot equities have no scheduled cashflows (dividends would be separate)
@@ -190,7 +182,7 @@ mod tests {
             .with_shares(100.0)
             .with_price(150.0);
 
-        let curves = CurveSet::new();
+        let curves = MarketContext::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
         use crate::instruments::traits::Priceable;
@@ -202,7 +194,7 @@ mod tests {
     #[test]
     fn test_equity_no_cashflows() {
         let equity = Equity::new("AAPL", "AAPL", Currency::USD);
-        let curves = CurveSet::new();
+        let curves = MarketContext::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
         let flows = equity.build_schedule(&curves, as_of).unwrap();
@@ -215,11 +207,21 @@ mod tests {
             .with_shares(50.0)
             .with_price(200.0);
 
-        let curves = CurveSet::new();
+        let curves = MarketContext::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
         use crate::instruments::traits::Priceable;
-        let result = Priceable::price(&equity, &curves, as_of).unwrap();
+        let result = equity
+            .price_with_metrics(
+                &curves,
+                as_of,
+                &[
+                    crate::metrics::MetricId::custom("price_per_share"),
+                    crate::metrics::MetricId::custom("shares"),
+                    crate::metrics::MetricId::custom("market_value"),
+                ],
+            )
+            .unwrap();
         assert_eq!(result.value.amount(), 10_000.0);
         assert_eq!(result.measures.get("price_per_share"), Some(&200.0));
         assert_eq!(result.measures.get("shares"), Some(&50.0));

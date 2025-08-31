@@ -91,7 +91,7 @@ EE(t) = DrawnBalance(as_of) + Σ_{as_of < t_i ≤ t} (D_i × p_i)
 
 3. **Enhanced Priceable**: Both DDTL and Revolver now use:
    ```rust
-   fn value(&self, curves: &CurveSet, as_of: Date) -> Result<Money> {
+   fn value(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
        let simulator = LoanSimulator::new();
        let result = simulator.simulate(self, curves, as_of)?;
        Ok(result.total_pv)

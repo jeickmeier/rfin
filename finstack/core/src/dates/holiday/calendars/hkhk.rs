@@ -1,5 +1,4 @@
 use crate::dates::calendar::HolidayCalendar;
-use crate::dates::holiday::generated::{BASE_YEAR, HKHK_ORDS, HKHK_ORDS_OFFSETS};
 use crate::dates::holiday::rule::Rule;
 use std::collections::HashSet;
 use time::{Date, Duration, Month};
@@ -27,21 +26,7 @@ const HKHK_RULES: &[Rule] = &[
 #[allow(dead_code)]
 fn build_year(year: i32) -> HashSet<Date> {
     let mut set: HashSet<Date> = HashSet::new();
-    // Prefer CSV ordinals if available for this year
-    if (BASE_YEAR..=2150).contains(&year) {
-        let idx = (year - BASE_YEAR) as usize;
-        let start = HKHK_ORDS_OFFSETS[idx] as usize;
-        let end = HKHK_ORDS_OFFSETS[idx + 1] as usize;
-        if start < end {
-            let jan1 = Date::from_calendar_date(year, Month::January, 1).unwrap();
-            for &doy in &HKHK_ORDS[start..end] {
-                let d = jan1 + Duration::days(doy as i64);
-                set.insert(d);
-            }
-            return set;
-        }
-    }
-    // Fallback: generate from rules
+    // Generate from rules
     let mut date = Date::from_calendar_date(year, Month::January, 1).unwrap();
     while date.year() == year {
         if HKHK_RULES.is_holiday(date) {
@@ -62,4 +47,4 @@ impl Hkhk {
     }
 }
 
-crate::impl_calendar_generated_from_ords!(Hkhk, "hkhk", HKHK_ORDS, HKHK_ORDS_OFFSETS, HKHK_RULES);
+crate::impl_calendar_generated!(Hkhk, "hkhk", HKHK_RULES);

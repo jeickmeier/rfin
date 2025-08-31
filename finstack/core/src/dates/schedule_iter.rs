@@ -61,10 +61,7 @@ impl Frequency {
     pub const fn bimonthly() -> Self {
         Self::Months(2)
     }
-    #[deprecated(note = "Use bimonthly() instead")]
-    pub const fn bi_monthly() -> Self {
-        Self::Months(2)
-    }
+
     pub const fn quarterly() -> Self {
         Self::Months(3)
     }
@@ -74,10 +71,7 @@ impl Frequency {
     pub const fn biweekly() -> Self {
         Self::Days(14)
     }
-    #[deprecated(note = "Use biweekly() instead")]
-    pub const fn bi_weekly() -> Self {
-        Self::Days(14)
-    }
+
     pub const fn weekly() -> Self {
         Self::Days(7)
     }

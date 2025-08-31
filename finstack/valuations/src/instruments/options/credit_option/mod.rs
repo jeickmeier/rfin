@@ -3,7 +3,6 @@
 pub mod metrics;
 
 use crate::instruments::traits::Attributes;
-use crate::metrics::MetricId;
 use finstack_core::money::Money;
 use finstack_core::F;
 
@@ -299,14 +298,7 @@ impl_instrument!(
         
         // Price using Black model on credit spreads
         s.credit_option_price(forward_spread_bp, df_expiry, risky_annuity, sigma, time_to_expiry)
-    },
-    metrics = |_s| vec![
-        MetricId::Delta,
-        MetricId::Gamma,
-        MetricId::Vega,
-        MetricId::Theta,
-        MetricId::Rho
-    ]
+    }
 );
 
 #[cfg(test)]

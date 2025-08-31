@@ -18,7 +18,7 @@ impl MetricCalculator for Upfront {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let tranche: &CdsTranche = context.instrument_as()?;
 
-        // Convert CurveSet to ValuationMarketContext
+        // Convert MarketContext to ValuationMarketContext
         let val_market_ctx = ValuationMarketContext::from_core(context.curves.as_ref().clone());
 
         // Check if credit index data is available
@@ -42,7 +42,7 @@ impl MetricCalculator for SpreadDv01 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let tranche: &CdsTranche = context.instrument_as()?;
 
-        // Convert CurveSet to ValuationMarketContext
+        // Convert MarketContext to ValuationMarketContext
         let val_market_ctx = ValuationMarketContext::from_core(context.curves.as_ref().clone());
 
         // Check if credit index data is available
@@ -66,7 +66,7 @@ impl MetricCalculator for ExpectedLoss {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let tranche: &CdsTranche = context.instrument_as()?;
 
-        // Convert CurveSet to ValuationMarketContext
+        // Convert MarketContext to ValuationMarketContext
         let val_market_ctx = ValuationMarketContext::from_core(context.curves.as_ref().clone());
 
         // Check if credit index data is available
@@ -91,7 +91,7 @@ impl MetricCalculator for JumpToDefault {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let tranche: &CdsTranche = context.instrument_as()?;
 
-        // Convert CurveSet to ValuationMarketContext
+        // Convert MarketContext to ValuationMarketContext
         let val_market_ctx = ValuationMarketContext::from_core(context.curves.as_ref().clone());
 
         // Check if credit index data is available
@@ -115,7 +115,7 @@ impl MetricCalculator for Cs01 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let tranche: &CdsTranche = context.instrument_as()?;
 
-        // Convert CurveSet to ValuationMarketContext
+        // Convert MarketContext to ValuationMarketContext
         let val_market_ctx = ValuationMarketContext::from_core(context.curves.as_ref().clone());
 
         // Check if credit index data is available
@@ -139,7 +139,7 @@ impl MetricCalculator for CorrelationDelta {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let tranche: &CdsTranche = context.instrument_as()?;
 
-        // Convert CurveSet to ValuationMarketContext
+        // Convert MarketContext to ValuationMarketContext
         let val_market_ctx = ValuationMarketContext::from_core(context.curves.as_ref().clone());
 
         // Check if credit index data is available

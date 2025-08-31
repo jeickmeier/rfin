@@ -74,7 +74,7 @@ pub trait RiskMeasurable: Send + Sync {
     /// Generate a risk report for the instrument.
     fn risk_report(
         &self,
-        curves: &finstack_core::market_data::multicurve::CurveSet,
+        curves: &finstack_core::market_data::MarketContext,
         as_of: Date,
         bucket_spec: Option<&[RiskBucket]>,
     ) -> finstack_core::Result<RiskReport>;

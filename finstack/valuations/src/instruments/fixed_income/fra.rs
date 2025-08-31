@@ -5,9 +5,8 @@
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::traits::Attributes;
-use crate::metrics::MetricId;
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::traits::{Discount, Forward};
 use finstack_core::money::Money;
@@ -133,18 +132,13 @@ impl_instrument!(
         let discount_curve = curves.discount(s.disc_id)?;
         let forward_curve = curves.forecast(s.forward_id)?;
         s.fra_value(discount_curve.as_ref(), forward_curve.as_ref(), as_of)
-    },
-    metrics = |_s| vec![
-        MetricId::custom("forward_rate"),
-        MetricId::custom("par_rate"),
-        MetricId::custom("dv01")
-    ]
+    }
 );
 
 impl CashflowProvider for ForwardRateAgreement {
     fn build_schedule(
         &self,
-        curves: &CurveSet,
+        curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Vec<(Date, Money)>> {
         // FRA settlement is at start of interest period
@@ -312,18 +306,13 @@ impl_instrument!(
         let discount_curve = curves.discount(s.disc_id)?;
         let forward_curve = curves.forecast(s.forward_id)?;
         s.future_value(discount_curve.as_ref(), forward_curve.as_ref(), as_of)
-    },
-    metrics = |_s| vec![
-        MetricId::custom("implied_rate"),
-        MetricId::custom("forward_rate"),
-        MetricId::custom("convexity_adjustment")
-    ]
+    }
 );
 
 impl CashflowProvider for InterestRateFuture {
     fn build_schedule(
         &self,
-        curves: &CurveSet,
+        curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Vec<(Date, Money)>> {
         // Futures settle daily (mark-to-market), but for simplicity

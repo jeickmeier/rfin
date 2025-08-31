@@ -1,6 +1,6 @@
 //! Market context for pricing and valuation.
 
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 use pyo3::prelude::*;
 use std::sync::Arc;
 
@@ -23,12 +23,12 @@ use super::curves::{PyDiscountCurve, PyForwardCurve, PyHazardCurve};
 ///     >>> usd_curve = DiscountCurve.flat("USD-OIS", Date(2024, 1, 1), 0.95)
 ///     >>> context.add_discount_curve(usd_curve)
 ///     >>>
-///     >>> # Use context for pricing
-///     >>> bond.price(context, Date(2024, 1, 1))
+///     >>> # Use context for valuation
+///     >>> bond.value(context, Date(2024, 1, 1))
 #[pyclass(name = "MarketContext", module = "finstack.market_data")]
 #[derive(Clone)]
 pub struct PyMarketContext {
-    inner: Arc<CurveSet>,
+    inner: Arc<MarketContext>,
 }
 
 #[pymethods]
@@ -36,7 +36,7 @@ impl PyMarketContext {
     #[new]
     fn new() -> Self {
         Self {
-            inner: Arc::new(CurveSet::new()),
+            inner: Arc::new(MarketContext::new()),
         }
     }
 
@@ -50,7 +50,7 @@ impl PyMarketContext {
     ///     >>> context.add_discount_curve(curve)
     fn add_discount_curve(&mut self, _curve: &PyDiscountCurve) -> PyResult<()> {
         // Note: This is a simplified implementation
-        // In production, we'd need proper mutability handling for Arc<CurveSet>
+        // In production, we'd need proper mutability handling for Arc<MarketContext>
         Err(PyErr::new::<pyo3::exceptions::PyNotImplementedError, _>(
             "Adding curves to context not yet implemented. Create with all curves at once.",
         ))
@@ -110,13 +110,13 @@ impl PyMarketContext {
 }
 
 impl PyMarketContext {
-    /// Get the inner CurveSet for Rust-side operations
-    pub fn inner(&self) -> Arc<CurveSet> {
+    /// Get the inner MarketContext for Rust-side operations
+    pub fn inner(&self) -> Arc<MarketContext> {
         self.inner.clone()
     }
 
-    /// Create from an existing CurveSet
-    pub fn from_curve_set(curves: CurveSet) -> Self {
+    /// Create from an existing MarketContext
+    pub fn from_market_context(curves: MarketContext) -> Self {
         Self {
             inner: Arc::new(curves),
         }

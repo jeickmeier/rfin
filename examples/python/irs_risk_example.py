@@ -119,7 +119,7 @@ def analyze_swap_risk(swap):
     # Note: Actual pricing would require complete market context
     print("\nRisk Metrics (API demonstration):")
     print("  swap.par_rate(context, as_of) -> Par swap rate")
-    print("  swap.price(context, as_of) -> Full valuation with metrics")
+    print("  swap.price_with_metrics(context, as_of, [..]) -> PV + selected metrics")
     print("  swap.value(context, as_of) -> NPV only")
 
 

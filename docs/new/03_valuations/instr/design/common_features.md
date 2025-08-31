@@ -5,7 +5,7 @@ The **instr** module provides concrete financial instrument representations and 
 
 Key design objectives:
 * Uniform trait-based valuation (`Priced`) and risk extraction (`Risky`) interfaces.
-* Composable with previously defined `CashFlow`, `CurveSet`, and `Schedule` types.
+* Composable with previously defined `CashFlow`, `MarketContext`, and `Schedule` types.
 * Zero-unsafe public API, `no_std` compatible except where noted.
 * Extensible class hierarchy enabling future exotic products without breaking ABI.
 

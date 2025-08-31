@@ -2,14 +2,13 @@
 
 pub mod metrics;
 
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::F;
 
 // (no longer using cashflow builder for deposits)
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::traits::Attributes;
-use crate::metrics::MetricId;
 use crate::{impl_attributable, impl_builder};
 // (no scheduling knobs needed in the two-flow model)
 
@@ -40,15 +39,7 @@ pub struct Deposit {
 impl_instrument_schedule_pv!(
     Deposit, "Deposit",
     disc_field: disc_id,
-    dc_field: day_count,
-    metrics = |_s| {
-        vec![
-            MetricId::Yf,
-            MetricId::DfStart,
-            MetricId::DfEnd,
-            MetricId::DepositParRate,
-        ]
-    }
+    dc_field: day_count
 );
 
 // Generate builder pattern for Deposit
@@ -73,7 +64,7 @@ impl_builder!(
 impl CashflowProvider for Deposit {
     fn build_schedule(
         &self,
-        _curves: &CurveSet,
+        _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
         // True single-period deposit: two flows with simple interest

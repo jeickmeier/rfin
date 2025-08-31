@@ -8,7 +8,7 @@ use super::OptionType;
 // use crate::results::ValuationResult;
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
-// use finstack_core::market_data::multicurve::CurveSet;
+// use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::traits::Discount;
 use finstack_core::money::Money;
 use finstack_core::{Error, Result, F};
@@ -283,10 +283,7 @@ impl_instrument!(
             s.black_price(disc.as_ref(), vol)
         }
     },
-    metrics = |_s| vec![
-        crate::metrics::MetricId::custom("FORWARD_RATE"),
-        crate::metrics::MetricId::custom("ANNUITY")
-    ]
+    
 );
 
 #[cfg(test)]

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Example: Using MarketScalar and ScalarTimeSeries in CurveSet.
+Example: Using MarketScalar and ScalarTimeSeries in MarketContext.
 
 Demonstrates how to:
-- Create and insert a MarketScalar (spot price) into CurveSet
+- Create and insert a MarketScalar (spot price) into MarketContext
 - Create a generic ScalarTimeSeries for an economic metric
 - Retrieve and use them in analysis
 """
@@ -11,7 +11,7 @@ Demonstrates how to:
 from finstack import Date, Currency
 from finstack.money import Money
 from finstack.market_data import (
-    CurveSet,
+    MarketContext,
     MarketScalar,
     ScalarTimeSeries,
     SeriesInterpolation,
@@ -19,7 +19,7 @@ from finstack.market_data import (
 
 
 def main() -> None:
-    curves = CurveSet()
+    curves = MarketContext()
 
     # 1) Add a scalar (spot price)
     aapl_spot = MarketScalar.unitless(

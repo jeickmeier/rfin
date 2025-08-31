@@ -84,7 +84,7 @@ def analyze_bond(bond, context, as_of):
     # This demonstrates the API structure
     try:
         # This would work with a fully configured market context
-        # result = bond.price(context, as_of)
+        # result = bond.price_with_metrics(context, as_of, ["ytm"]) 
         # print(f"\nValuation Results:")
         # print(f"  Present Value: ${result.value.amount:,.2f}")
         # print(f"  YTM: {result.get_metric('Ytm', 0):.2%}")
@@ -93,7 +93,7 @@ def analyze_bond(bond, context, as_of):
         # print(f"  DV01: ${result.get_metric('Dv01', 0):,.2f}")
 
         print(f"\nNote: Full pricing requires complete market data setup")
-        print(f"The pricing API is available as: bond.price(context, as_of)")
+        print(f"Use: bond.value(context, as_of) for PV, or bond.price_with_metrics(context, as_of, [..]) for metrics")
 
     except Exception as e:
         print(f"\nPricing not available in demo: {e}")

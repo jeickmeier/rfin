@@ -5,7 +5,7 @@ The **instr** module provides concrete financial instrument representations and 
 
 Key design objectives:
 * Uniform trait-based valuation (`Priced`) and risk extraction (`Risky`) interfaces.
-* Composable with previously defined `CashFlow`, `CurveSet`, and `Schedule` types.
+* Composable with previously defined `CashFlow`, `MarketContext`, and `Schedule` types.
 * Zero-unsafe public API, `no_std` compatible except where noted.
 * Extensible class hierarchy enabling future exotic products without breaking ABI.
 
@@ -90,7 +90,7 @@ API additions will live in per-asset extension traits (`SwapAnalytics`, `FxAnaly
 
 ### 5.3 Interest-Rate Swap (C-23)
 * Legs: fixed and floating `CashFlowLeg`.
-* Collateral CSA selects discount curve via `CurveSet`.
+* Collateral CSA selects discount curve via `MarketContext`.
 * PV = PV_fixed – PV_float.
 
 ### 5.4 Caps/Floors (C-24)

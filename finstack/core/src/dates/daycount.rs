@@ -90,7 +90,7 @@ pub enum Thirty360Convention {
 /// Precondition: `start <= end`. If violated, the returned value will be negative.
 /// This helper is panic-free and allocation-free.
 #[inline]
-pub fn days_30_360(start: Date, end: Date, convention: Thirty360Convention) -> i32 {
+pub(crate) fn days_30_360(start: Date, end: Date, convention: Thirty360Convention) -> i32 {
     let (y1, m1, d1) = (start.year(), start.month() as i32, start.day() as i32);
     let (y2, m2, d2) = (end.year(), end.month() as i32, end.day() as i32);
 

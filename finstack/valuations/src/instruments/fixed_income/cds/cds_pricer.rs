@@ -9,7 +9,7 @@
 use super::{CDSConvention, CreditDefaultSwap, PayReceive};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::credit_curve::CreditCurve;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::traits::Discount;
@@ -267,7 +267,7 @@ impl CDSPricer {
     }
 
     /// Calculate CS01 (change in value for 1bp credit spread change)
-    pub fn cs01(&self, cds: &CreditDefaultSwap, curves: &CurveSet, as_of: Date) -> Result<F> {
+    pub fn cs01(&self, cds: &CreditDefaultSwap, curves: &MarketContext, as_of: Date) -> Result<F> {
         let disc = curves.discount(cds.premium.disc_id)?;
         let credit = curves.credit(cds.protection.credit_id)?;
 

@@ -22,7 +22,7 @@ Key attributes:
    • Volatility & variance surfaces (C-42)
    • Option-pricing trees (binomial, trinomial) for equity/FX rates.
    • Short-rate and credit-spread trees for IR and credit derivatives.
-5. Expose **multi-curve framework** allowing a `CurveSet` to hold discount, forecast and collateral curves (C-33, C-45).
+5. Expose **multi-curve framework** allowing a `MarketContext` to hold discount, forecast and collateral curves (C-33, C-45).
 6. Deliver **serde derives** on all public structs once stabilised (C-07).
 
 ### 2.2 Non-Goals
@@ -32,7 +32,7 @@ Key attributes:
 
 ## 3 High-Level API Sketch
 ```rust
-use rustfin::curves::{CurveId, DiscountCurve, CurveSet};
+use rustfin::curves::{CurveId, DiscountCurve, MarketContext};
 use rustfin::dates::Date;
 
 let yc = YieldCurve::builder("USD-OIS")
@@ -43,7 +43,7 @@ let yc = YieldCurve::builder("USD-OIS")
 
 let df = yc.df(2.75);      // discount factor for 2.75 years
 
-let curves = CurveSet::new()
+let curves = MarketContext::new()
     .with_discount(yc)
     .with_forecast("USD-LIB3M", fwd_curve)
     .with_collateral("CSA-USD", coll_curve);
@@ -66,7 +66,7 @@ src/curves/
   ├─ option_tree.rs   // Binomial / trinomial lattices
   ├─ rate_tree.rs     // Short-rate trees (Ho-Lee, BDT, HW)
   ├─ credit_tree.rs   // Default-intensity lattices
-  ├─ multicurve.rs    // CurveSet & collateral spec (C-33, C-45)
+  ├─ multicurve.rs    // MarketContext & collateral spec (C-33, C-45)
   ├─ math.rs          // helper maths (log/linear DF ↔ zero, roots)
   └─ tests.rs
 ```
@@ -202,9 +202,9 @@ pub struct SwaptionSurface3D {
 * Memory stored in `C`-contiguous order for cache locality when looping over strikes.
 * For SABR-param surfaces the 3-D grid is replaced by analytic model parameters behind the `sabr` feature flag.
 
-### 5.10 CurveSet / Multi-Curve (C-33) _updated_
+### 5.10 MarketContext / Multi-Curve (C-33) _updated_
 ```rust
-pub struct CurveSet {
+pub struct MarketContext {
     disc: HashMap<CurveId, Arc<dyn DiscountCurve + Send + Sync>>,
     fwd:  HashMap<CurveId, Arc<dyn Curve + Send + Sync>>,  // forecast curves
     hazard: HashMap<CurveId, Arc<HazardCurve>>,
@@ -236,7 +236,7 @@ pub struct ForwardIndexCurve {
 | Aspect | Design Choice |
 |--------|---------------|
 | **FactorKey Taxonomy** (C-19) | Planned keys: `Yield`, `FwdIdx`, `Hazard`, `Inflation`, `Vol2D`, `Swaption3D`, `Liquidity`. The enum is `non_exhaustive` for forward-compatibility. |
-| **Collateral Mapping** (C-45) | `type CsaCode = &'static str`; `CurveSet::collateral(csa_code)` resolves to discount curve id via the `collat` map. |
+| **Collateral Mapping** (C-45) | `type CsaCode = &'static str`; `MarketContext::collateral(csa_code)` resolves to discount curve id via the `collat` map. |
 | **Serialisation** (C-07) | Serde with `#[serde(tag = "type", version = 1)]`; adding fields bumps `version`. Unit tests assert round-trip compatibility. |
 | **Thread-Safety** | All concrete curves stored behind `Arc<.. + Send + Sync>`; `Clone` is O(1). |
 | **Error Handling** | Constructors return `Error::Input` for empty knots, non-sorted times, negative DF; runtime eval returns `Error::InterpOutOfBounds` when extrapolation not permitted. |
@@ -306,7 +306,7 @@ pub struct CreditTree {
 * **dates**: `Date` & year-fraction helpers.
 * **cashflow**: uses `DiscountCurve` in NPV.
 * **bootstrap**: curve builders consume market quotes, produce concrete curves.
-* **risk**: risk bump engine operates on `CurveSet`.
+* **risk**: risk bump engine operates on `MarketContext`.
 
 ## 9 Testing Strategy
 * Golden-vector tests: compare DF / hazard / CPI / vol outputs vs QuantLib.
@@ -321,7 +321,7 @@ pub struct CreditTree {
 
 ## 11 Timeline
 * **v0.1.0** – Traits, CurveId, Interpolator, YieldCurve (linear/log DF).
-* **v0.2.0** – Hazard & Inflation curves; CurveSet infrastructure.
+* **v0.2.0** – Hazard & Inflation curves; MarketContext infrastructure.
 * **v0.3.0** – VolSurface (grid), advanced interp; SABR feature.
 * **v1.0.0** – API freeze after bootstrap & risk metrics integration.
 

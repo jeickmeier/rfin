@@ -6,7 +6,7 @@
 //! - `MarketScalar`: single numeric value (unitless or price in a currency)
 //! - `ScalarTimeSeries`: generic date → value series with step/linear interp
 //!
-//! Both are integrated into the [`crate::market_data::multicurve::CurveSet`]
+//! Both are integrated into the [`crate::market_data::MarketContext`]
 //! so downstream code can reference them by `CurveId` alongside other curves.
 
 use crate::types::CurveId;

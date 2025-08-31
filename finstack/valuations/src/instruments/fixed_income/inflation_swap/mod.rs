@@ -7,8 +7,7 @@
 pub mod metrics;
 
 use crate::instruments::traits::Attributes;
-use crate::metrics::MetricId;
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -59,7 +58,7 @@ impl InflationSwap {
 
 impl InflationSwap {
     /// Calculate PV of the fixed leg (real rate leg)
-    fn pv_fixed_leg(&self, curves: &CurveSet, _as_of: Date) -> finstack_core::Result<Money> {
+    fn pv_fixed_leg(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
         let disc = curves.discount(self.disc_id)?;
         let base = disc.base_date();
         
@@ -77,7 +76,7 @@ impl InflationSwap {
     }
     
     /// Calculate PV of the inflation leg
-    fn pv_inflation_leg(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
+    fn pv_inflation_leg(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         let disc = curves.discount(self.disc_id)?;
         let base = disc.base_date();
         
@@ -121,15 +120,7 @@ impl_instrument!(
             PayReceiveInflation::PayFixed => pv_inflation - pv_fixed,
         }
     },
-    metrics = |_s| {
-        vec![
-            MetricId::custom("breakeven"),
-            MetricId::custom("fixed_leg_pv"),
-            MetricId::custom("inflation_leg_pv"),
-            MetricId::custom("ir01"),
-            MetricId::custom("inflation01"),
-        ]
-    }
+    
 );
 
 /// Builder for `InflationSwap`

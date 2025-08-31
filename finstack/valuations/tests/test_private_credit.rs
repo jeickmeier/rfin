@@ -2,7 +2,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency};
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::money::Money;
@@ -21,7 +21,7 @@ use finstack_valuations::instruments::traits::Priceable;
 use std::sync::Arc;
 use time::Month;
 
-fn setup_curves(base: Date) -> Arc<CurveSet> {
+fn setup_curves(base: Date) -> Arc<MarketContext> {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(base)
         .knots([
@@ -48,7 +48,7 @@ fn setup_curves(base: Date) -> Arc<CurveSet> {
         .build()
         .unwrap();
 
-    Arc::new(CurveSet::new().with_discount(disc).with_forecast(fwd))
+    Arc::new(MarketContext::new().with_discount(disc).with_forecast(fwd))
 }
 
 #[test]

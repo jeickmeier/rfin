@@ -1,4 +1,3 @@
-use crate::dates::holiday::generated::{CNBE_ORDS, CNBE_ORDS_OFFSETS};
 use crate::dates::holiday::rule::Rule;
 use time::Month;
 
@@ -44,4 +43,4 @@ impl Cnbe {
         "cnbe"
     }
 }
-crate::impl_calendar_generated_from_ords!(Cnbe, "cnbe", CNBE_ORDS, CNBE_ORDS_OFFSETS, CNBE_RULES);
+crate::impl_calendar_generated!(Cnbe, "cnbe", CNBE_RULES);

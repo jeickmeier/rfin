@@ -3,13 +3,12 @@
 //! Provides comprehensive CDS valuation including par spread calculation,
 //! risky PV01, CS01, and protection leg valuation.
 
-use crate::metrics::MetricId;
 // use crate::results::ValuationResult; // not needed with macro-based impl
 use crate::cashflow::traits::DatedFlows;
 use crate::instruments::traits::Attributes;
 
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::credit_curve::CreditCurve;
 use finstack_core::market_data::traits::Discount;
 use finstack_core::money::Money;
@@ -193,7 +192,7 @@ impl CreditDefaultSwap {
     /// Build premium leg cashflows
     pub fn build_premium_schedule(
         &self,
-        _curves: &CurveSet,
+        _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
         // Use centralized schedule builder and standard DayCount accrual
@@ -278,7 +277,7 @@ impl CreditDefaultSwap {
     }
 
     /// Calculate CS01 (change in PV for 1bp credit spread change) via enhanced pricer
-    pub fn cs01(&self, curves: &CurveSet) -> finstack_core::Result<F> {
+    pub fn cs01(&self, curves: &MarketContext) -> finstack_core::Result<F> {
         let pricer = cds_pricer::CDSPricer::new();
         pricer.cs01(
             self,
@@ -306,15 +305,6 @@ impl_instrument!(
         } else {
             Ok(pv)
         }
-    },
-    metrics = |_s| {
-        vec![
-            MetricId::ParSpread,
-            MetricId::RiskyPv01,
-            MetricId::Cs01,
-            MetricId::ProtectionLegPv,
-            MetricId::PremiumLegPv,
-        ]
     }
 );
 

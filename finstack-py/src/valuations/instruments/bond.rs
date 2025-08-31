@@ -563,46 +563,37 @@ impl PyBond {
         Ok(crate::valuations::risk::PyRiskReport::from_inner(report))
     }
 
-    /// Price the bond using market data.
+    /// Price the bond with selected metrics.
     ///
-    /// Calculates the present value and risk metrics for the bond using
-    /// the provided market context and valuation date.
-    ///
-    /// Args:
-    ///     market_context: Market data including discount curves
-    ///     as_of: Valuation date
-    ///     metrics: Optional list of metric names to compute
-    ///
-    /// Returns:
-    ///     ValuationResult: Pricing result with PV and metrics
-    ///
-    /// Examples:
-    ///     >>> from finstack.market_data import MarketContext
-    ///     >>> from finstack import Date
-    ///     >>>
-    ///     >>> context = MarketContext()
-    ///     >>> # ... add curves to context ...
-    ///     >>>
-    ///     >>> result = bond.price(context, Date(2024, 1, 1))
-    ///     >>> print(f"PV: ${result.value.amount:,.2f}")
-    ///     >>> print(f"YTM: {result.get_metric('Ytm', 0):.2%}")
-    fn price(
+    /// Computes PV and the provided metrics. For PV only, use `value()`.
+    fn price_with_metrics(
         &self,
         market_context: &crate::core::market_data::context::PyMarketContext,
         as_of: &PyDate,
+        metrics: Vec<String>,
     ) -> PyResult<crate::valuations::results::PyValuationResult> {
         use finstack_valuations::instruments::traits::Priceable;
 
         let curves = market_context.inner();
         let as_of_date = as_of.inner();
 
-        // Call the Rust pricing implementation
-        let result = self.inner.price(&curves, as_of_date).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                "Failed to price bond: {:?}",
-                e
-            ))
-        })?;
+        // Convert metric names to MetricId
+        let metric_ids: Vec<finstack_valuations::metrics::MetricId> = metrics
+            .iter()
+            .map(|name| finstack_valuations::metrics::MetricId::from_str(name))
+            .collect::<Result<_, _>>()
+            .unwrap_or_else(|_| metrics.iter().map(finstack_valuations::metrics::MetricId::custom).collect());
+
+        // Call the Rust price_with_metrics implementation
+        let result = self
+            .inner
+            .price_with_metrics(&curves, as_of_date, &metric_ids)
+            .map_err(|e| {
+                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                    "Failed to calculate bond metrics: {:?}",
+                    e
+                ))
+            })?;
 
         Ok(crate::valuations::results::PyValuationResult::from_inner(
             result,
@@ -1035,40 +1026,5 @@ impl PyBond {
         result.measures_dict(py)
     }
 
-    /// Helper method to call price_with_metrics.
-    fn price_with_metrics(
-        &self,
-        market_context: &crate::core::market_data::context::PyMarketContext,
-        as_of: &PyDate,
-        metrics: Vec<String>,
-    ) -> PyResult<crate::valuations::results::PyValuationResult> {
-        use finstack_valuations::instruments::traits::Priceable;
-
-        let curves = market_context.inner();
-        let as_of_date = as_of.inner();
-
-        // Convert metric names to MetricId
-        let metric_ids: Vec<finstack_valuations::metrics::MetricId> = metrics
-            .iter()
-            .map(|name| {
-                finstack_valuations::metrics::MetricId::from_str(name)
-                    .unwrap_or_else(|_| finstack_valuations::metrics::MetricId::custom(name))
-            })
-            .collect();
-
-        // Call the Rust price_with_metrics implementation
-        let result = self
-            .inner
-            .price_with_metrics(&curves, as_of_date, &metric_ids)
-            .map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                    "Failed to calculate bond metrics: {:?}",
-                    e
-                ))
-            })?;
-
-        Ok(crate::valuations::results::PyValuationResult::from_inner(
-            result,
-        ))
-    }
+    // Helper removed; `price_with_metrics` above is the primary surface.
 }

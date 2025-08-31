@@ -3,12 +3,11 @@
 pub mod metrics;
 
 // impl_attributable provided via unified macro
-use crate::metrics::MetricId;
 // use crate::results::ValuationResult; // handled via macro-based implementation
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::holiday::calendars::calendar_by_id;
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::F;
 
@@ -156,21 +155,13 @@ impl_instrument!(
         let policy = finstack_core::money::fx::FxConversionPolicy::CashflowDate;
         s.effective_notional()
             .convert(s.quote, as_of, &provider, policy)
-    },
-    metrics = |_s| {
-        vec![
-            MetricId::custom("spot_rate"),
-            MetricId::custom("base_amount"),
-            MetricId::custom("quote_amount"),
-            MetricId::custom("inverse_rate"),
-        ]
     }
 );
 
 impl CashflowProvider for FxSpot {
     fn build_schedule(
         &self,
-        _curves: &CurveSet,
+        _curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Vec<(Date, Money)>> {
         // FX spot settles on provided settlement date (BDC-adjusted if calendar present)
@@ -225,6 +216,7 @@ impl CashflowProvider for FxSpot {
 mod tests {
     use super::*;
     use crate::instruments::traits::Priceable;
+    use crate::metrics::MetricId;
     use time::Month;
 
     #[test]
@@ -263,7 +255,7 @@ mod tests {
             .with_notional_checked(Money::new(1_000_000.0, Currency::EUR))
             .unwrap();
 
-        let curves = CurveSet::new();
+        let curves = MarketContext::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
         let value = fx.value(&curves, as_of).unwrap();
@@ -280,7 +272,7 @@ mod tests {
             .with_rate(1.08)
             .with_settlement(settlement);
 
-        let curves = CurveSet::new();
+        let curves = MarketContext::new();
         let flows = fx.build_schedule(&curves, as_of).unwrap();
 
         assert_eq!(flows.len(), 1);
@@ -298,7 +290,7 @@ mod tests {
             .with_rate(1.08)
             .with_settlement(settlement);
 
-        let curves = CurveSet::new();
+        let curves = MarketContext::new();
         let flows = fx.build_schedule(&curves, as_of).unwrap();
 
         assert!(flows.is_empty()); // Already settled
@@ -311,10 +303,18 @@ mod tests {
             .with_notional_checked(Money::new(100.0, Currency::EUR))
             .unwrap();
 
-        let curves = CurveSet::new();
+        let curves = MarketContext::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
-        let result = fx.price(&curves, as_of).unwrap();
+        use crate::instruments::traits::Priceable;
+        let result = fx
+            .price_with_metrics(&curves, as_of, &[
+                MetricId::custom("spot_rate"),
+                MetricId::custom("base_amount"),
+                MetricId::custom("quote_amount"),
+                MetricId::custom("inverse_rate"),
+            ])
+            .unwrap();
         assert_eq!(result.value.amount(), 125.0);
         assert_eq!(result.measures.get("spot_rate"), Some(&1.25));
         assert_eq!(result.measures.get("base_amount"), Some(&100.0));
@@ -344,7 +344,7 @@ mod tests {
         // FX spot without rate should fail in schedule generation
         let fx = FxSpot::new("EURUSD", Currency::EUR, Currency::USD).with_settlement(settlement);
 
-        let curves = CurveSet::new();
+        let curves = MarketContext::new();
         let result = fx.build_schedule(&curves, as_of);
 
         // Should fail because no spot rate is provided

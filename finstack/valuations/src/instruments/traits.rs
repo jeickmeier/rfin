@@ -1,47 +1,25 @@
 //! Instrument-level traits and metadata types.
 
 use crate::metrics::MetricId;
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use hashbrown::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 
-/// Priceable instruments produce a `ValuationResult` at `as_of` using curves.
-///
-/// The default implementation uses the metrics framework to compute
-/// measures, delegating to `value()` for base NPV calculation.
+/// Priceable instruments expose a fast present-value surface and optional metrics.
 pub trait Priceable: Send + Sync {
-    /// Compute full valuation with all standard metrics (backward compatible).
-    fn price(
-        &self,
-        curves: &CurveSet,
-        as_of: Date,
-    ) -> finstack_core::Result<crate::results::ValuationResult>;
-
     /// Compute only the base present value (fast, no metrics).
-    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
-        // Default implementation for backward compatibility
-        self.price(curves, as_of).map(|r| r.value)
-    }
+    fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money>;
 
-    /// Compute value with specific metrics.
+    /// Compute value with a specific set of metrics.
+    ///
+    /// Implementations should build on `value()` and compute only the requested metrics.
     fn price_with_metrics(
         &self,
-        curves: &CurveSet,
+        curves: &MarketContext,
         as_of: Date,
         metrics: &[MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        // Default implementation: just calls price() and filters metrics
-        let result = self.price(curves, as_of)?;
-        let mut filtered_result = result.clone();
-
-        // Convert MetricIds to strings for filtering
-        let metric_strs: Vec<String> = metrics.iter().map(|m| m.as_str().to_string()).collect();
-        filtered_result
-            .measures
-            .retain(|k, _| metric_strs.contains(k));
-        Ok(filtered_result)
-    }
+    ) -> finstack_core::Result<crate::results::ValuationResult>;
 }
 
 /// Attributes for scenario selection and tagging.

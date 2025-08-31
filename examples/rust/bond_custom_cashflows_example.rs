@@ -5,7 +5,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::money::Money;
 
@@ -59,11 +59,15 @@ fn example_stepup_bond() -> finstack_core::Result<()> {
         .linear_df()
         .build()?;
 
-    let curves = CurveSet::new().with_discount(disc_curve);
+    let curves = MarketContext::new().with_discount(disc_curve);
 
-    // Price the bond
-    let result = bond.price(&curves, issue)?;
-    println!("Step-up bond PV: {}", result.value);
+    // Price the bond (PV only)
+    let pv = bond.value(&curves, issue)?;
+    println!("Step-up bond PV: {}", pv);
+    // Compute selected metrics
+    use finstack_valuations::instruments::traits::Priceable;
+    use finstack_valuations::metrics::MetricId;
+    let result = bond.price_with_metrics(&curves, issue, &[MetricId::CleanPrice, MetricId::Ytm])?;
     if let Some(clean_price) = result.measures.get("clean_price") {
         println!("Clean price: {:.2}", clean_price);
     }
@@ -136,11 +140,11 @@ fn example_pik_toggle_bond() -> finstack_core::Result<()> {
         .linear_df()
         .build()?;
 
-    let curves = CurveSet::new().with_discount(disc_curve);
+    let curves = MarketContext::new().with_discount(disc_curve);
 
-    // Price the bond
-    let result = bond.price(&curves, issue)?;
-    println!("PIK toggle bond PV: {}", result.value);
+    // Price the bond (PV only)
+    let pv = bond.value(&curves, issue)?;
+    println!("PIK toggle bond PV: {}", pv);
 
     // Show outstanding path (PIK increases principal)
     let outstanding_path = custom_schedule.outstanding_path();
@@ -196,11 +200,11 @@ fn example_amortizing_bond_with_fees() -> finstack_core::Result<()> {
         .linear_df()
         .build()?;
 
-    let curves = CurveSet::new().with_discount(disc_curve);
+    let curves = MarketContext::new().with_discount(disc_curve);
 
-    // Price the bond
-    let result = bond.price(&curves, issue)?;
-    println!("Amortizing bond PV: {}", result.value);
+    // Price the bond (PV only)
+    let pv = bond.value(&curves, issue)?;
+    println!("Amortizing bond PV: {}", pv);
 
     // Show flow breakdown by type
     use finstack_valuations::cashflow::primitives::CFKind;
@@ -270,16 +274,16 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
         .linear_df()
         .build()?;
 
-    let curves = CurveSet::new().with_discount(disc_curve);
+    let curves = MarketContext::new().with_discount(disc_curve);
 
     // Compare pricing
-    let regular_result = regular_bond.price(&curves, issue)?;
-    let custom_result = custom_bond.price(&curves, issue)?;
+    let regular_pv = regular_bond.value(&curves, issue)?;
+    let custom_pv = custom_bond.value(&curves, issue)?;
 
-    println!("Regular bond (annual payments): {}", regular_result.value);
+    println!("Regular bond (annual payments): {}", regular_pv);
     println!(
         "Custom bond (semi-annual payments): {}",
-        custom_result.value
+        custom_pv
     );
 
     let regular_flows = regular_bond.build_schedule(&curves, issue)?;

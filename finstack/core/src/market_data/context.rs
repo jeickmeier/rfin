@@ -81,10 +81,7 @@ impl MarketContext {
         self
     }
 
-    /// Backwards compatibility helper (former CurveSet name)
-    pub fn with_vol_surface(self, surface: VolSurface) -> Self {
-        self.with_surface(surface)
-    }
+
 
     /// Insert or replace a price/scalar by id.
     pub fn with_price(mut self, id: impl AsRef<str>, price: MarketScalar) -> Self {
@@ -92,10 +89,7 @@ impl MarketContext {
         self
     }
 
-    /// Backwards compatibility helper (former CurveSet name)
-    pub fn with_scalar(self, id: impl AsRef<str>, scalar: MarketScalar) -> Self {
-        self.with_price(id, scalar)
-    }
+
 
     /// Insert or replace a generic series.
     pub fn with_series(mut self, series: ScalarTimeSeries) -> Self {
@@ -105,7 +99,7 @@ impl MarketContext {
     }
 
     // ------------------------------
-    // Curves (formerly on CurveSet)
+    // Curves
     // ------------------------------
     /// Insert discount curve.
     pub fn with_discount<C: Discount + Send + Sync + 'static>(mut self, curve: C) -> Self {
@@ -167,37 +161,7 @@ impl MarketContext {
 // because it conflicts with the standard library's `impl<T> From<T> for T`.
 
 impl MarketContext {
-    /// Construct a `MarketContext<P>` from a backwards-compatible `CurveSet` alias.
-    /// The resulting context will not carry over any FX matrix.
-    pub fn from_curve_set(curve_set: crate::market_data::multicurve::CurveSet) -> Self {
-        let MarketContext {
-            disc,
-            fwd,
-            hazard,
-            inflation,
-            credit,
-            inflation_indices,
-            fx: _,
-            surfaces,
-            prices,
-            series,
-            collat,
-        } = curve_set;
 
-        Self {
-            disc,
-            fwd,
-            hazard,
-            inflation,
-            credit,
-            inflation_indices,
-            fx: None,
-            surfaces,
-            prices,
-            series,
-            collat,
-        }
-    }
 
     /// Convenience getters that forward to underlying containers
     pub fn vol_surface(&self, id: impl AsRef<str>) -> crate::Result<Arc<VolSurface>> {
@@ -221,10 +185,7 @@ impl MarketContext {
             .ok_or(crate::error::InputError::NotFound.into())
     }
 
-    /// Backwards compatibility alias (former CurveSet API)
-    pub fn series(&self, id: impl AsRef<str>) -> crate::Result<&ScalarTimeSeries> {
-        self.scalar_time_series(id)
-    }
+
 
     /// Backwards compatibility alias for fetching a scalar.
     pub fn scalar(&self, id: impl AsRef<str>) -> crate::Result<&MarketScalar> {
@@ -291,4 +252,4 @@ impl MarketContext {
     }
 }
 
-// Intentionally omit `From<CurveSet>` to avoid overlap with `impl<T> From<T> for T>`.
+

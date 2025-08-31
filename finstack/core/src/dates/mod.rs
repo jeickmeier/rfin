@@ -33,12 +33,12 @@ pub use date_extensions::{DateExt, OffsetDateTimeExt};
 
 mod daycount;
 
-pub use daycount::{days_30_360, DayCount, Thirty360Convention};
+pub use daycount::{DayCount, Thirty360Convention};
 
 mod calendar;
 
 // Re-export new holiday calendars at the top level for convenience
-pub use calendar::{adjust, is_weekend, BusinessDayConvention, HolidayCalendar};
+pub use calendar::{adjust, BusinessDayConvention, HolidayCalendar};
 
 // The canonical public discovery helper
 pub use calendar::available_calendars;

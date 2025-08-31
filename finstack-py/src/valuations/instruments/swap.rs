@@ -9,6 +9,7 @@ use finstack_valuations::instruments::fixed_income::irs::{
     FixedLegSpec, FloatLegSpec, InterestRateSwap, PayReceive,
 };
 use pyo3::prelude::*;
+use std::str::FromStr;
 use std::sync::Arc;
 
 /// Direction of an interest rate swap from the perspective of fixed rate.
@@ -326,8 +327,8 @@ impl PyFloatLeg {
 ///     ...     float_leg=floating
 ///     ... )
 ///     >>>
-///     >>> # Price the swap
-///     >>> result = swap.price(market_context, Date(2024, 1, 1))
+///     >>> # Price the swap with metrics
+///     >>> result = swap.price_with_metrics(market_context, Date(2024, 1, 1), ["par_rate"]) 
 ///     >>> print(f"NPV: ${result.value.amount:,.2f}")
 ///     >>> print(f"Par Rate: {result.get_metric('ParRate', 0):.4%}")
 ///     >>> print(f"DV01: ${result.get_metric('Dv01', 0):,.2f}")
@@ -596,38 +597,35 @@ impl PyInterestRateSwap {
         Ok(crate::valuations::risk::PyRiskReport::from_inner(report))
     }
 
-    /// Price the swap using market data.
+    /// Price the swap with selected metrics.
     ///
-    /// Calculates the net present value and risk metrics for the swap.
-    ///
-    /// Args:
-    ///     market_context: Market data including discount and forward curves
-    ///     as_of: Valuation date
-    ///
-    /// Returns:
-    ///     ValuationResult: Pricing result with NPV and metrics
-    ///
-    /// Examples:
-    ///     >>> result = swap.price(context, Date(2024, 1, 1))
-    ///     >>> print(f"NPV: ${result.value.amount:,.2f}")
-    ///     >>> print(f"DV01: ${result.get_metric('Dv01', 0):,.2f}")
-    fn price(
+    /// Computes PV and provided metrics. For PV only, use `value()`.
+    fn price_with_metrics(
         &self,
         market_context: &crate::core::market_data::context::PyMarketContext,
         as_of: &PyDate,
+        metrics: Vec<String>,
     ) -> PyResult<crate::valuations::results::PyValuationResult> {
         use finstack_valuations::instruments::traits::Priceable;
 
         let curves = market_context.inner();
         let as_of_date = as_of.inner();
 
-        // Call the Rust pricing implementation
-        let result = self.inner.price(&curves, as_of_date).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                "Failed to price swap: {:?}",
-                e
-            ))
-        })?;
+        let metric_ids: Vec<finstack_valuations::metrics::MetricId> = metrics
+            .iter()
+            .map(|name| finstack_valuations::metrics::MetricId::from_str(name))
+            .collect::<Result<_, _>>()
+            .unwrap_or_else(|_| metrics.iter().map(finstack_valuations::metrics::MetricId::custom).collect());
+
+        let result = self
+            .inner
+            .price_with_metrics(&curves, as_of_date, &metric_ids)
+            .map_err(|e| {
+                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                    "Failed to calculate swap metrics: {:?}",
+                    e
+                ))
+            })?;
 
         Ok(crate::valuations::results::PyValuationResult::from_inner(
             result,

@@ -9,7 +9,7 @@ This module provides a clean separation between core pricing logic and financial
 ```rust
 // Everything mixed together in one method
 impl Priceable for Bond {
-    fn price(&self, curves: &CurveSet, as_of: Date) -> Result<ValuationResult> {
+    fn price(&self, curves: &MarketContext, as_of: Date) -> Result<ValuationResult> {
         // Core pricing
         let value = self.pv(&*disc, curves, as_of)?;
         

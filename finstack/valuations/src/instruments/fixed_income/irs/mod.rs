@@ -5,7 +5,7 @@ pub mod metrics;
 // impl_attributable! replaced by unified macro where applicable
 use finstack_core::dates::holiday::calendars::calendar_by_id;
 use finstack_core::dates::{BusinessDayConvention, Frequency, StubKind};
-use finstack_core::market_data::multicurve::CurveSet;
+use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::traits::{Discount, Forward};
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -17,7 +17,6 @@ use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::fixed_income::discountable::Discountable;
 use crate::instruments::traits::Attributes;
 use crate::instruments::traits::Priceable;
-use crate::metrics::MetricId;
 use crate::metrics::{RiskBucket, RiskMeasurable, RiskReport};
 
 /// Direction of the swap from the perspective of the fixed rate.
@@ -187,15 +186,6 @@ impl_instrument!(
             PayReceive::PayFixed => pv_float - pv_fixed,
             PayReceive::ReceiveFixed => pv_fixed - pv_float,
         }
-    },
-    metrics = |_s| {
-        vec![
-            MetricId::Annuity,
-            MetricId::ParRate,
-            MetricId::Dv01,
-            MetricId::PvFixed,
-            MetricId::PvFloat,
-        ]
     }
 );
 
@@ -470,7 +460,7 @@ impl IRSBuilder {
 impl RiskMeasurable for InterestRateSwap {
     fn risk_report(
         &self,
-        curves: &CurveSet,
+        curves: &MarketContext,
         as_of: Date,
         _bucket_spec: Option<&[RiskBucket]>,
     ) -> finstack_core::Result<RiskReport> {
@@ -582,7 +572,7 @@ impl RiskMeasurable for InterestRateSwap {
 impl CashflowProvider for InterestRateSwap {
     fn build_schedule(
         &self,
-        _curves: &CurveSet,
+        _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
         // Use builder to generate both legs; then map signs by side

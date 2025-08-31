@@ -125,7 +125,7 @@ The `market_data` module provides:
 - **Hazard Curves**: For credit risk modeling
 - **Inflation Curves**: For real/nominal calculations
 - **Volatility Surfaces**: For option pricing
-- **CurveSet**: Container for managing multiple curves
+- **MarketContext**: Container for managing multiple curves
 
 #### Interpolation Methods
 

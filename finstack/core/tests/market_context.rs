@@ -5,7 +5,6 @@ use finstack_core::{
     dates::Date,
     market_data::{
         context::MarketContext,
-        multicurve::CurveSet,
         primitives::{MarketScalar, ScalarTimeSeries},
         surfaces::vol_surface::VolSurface,
     },
@@ -44,17 +43,7 @@ fn test_market_context_new() {
     assert!(ctx.series.is_empty());
 }
 
-#[test]
-fn test_market_context_from_curve_set() {
-    let curve_set = CurveSet::new();
-    let ctx: MarketContext = MarketContext::from_curve_set(curve_set);
 
-    // Should have the curve set but other fields empty
-    assert!(ctx.fx.is_none());
-    assert!(ctx.surfaces.is_empty());
-    assert!(ctx.prices.is_empty());
-    assert!(ctx.series.is_empty());
-}
 
 #[test]
 fn test_market_context_with_fx() {

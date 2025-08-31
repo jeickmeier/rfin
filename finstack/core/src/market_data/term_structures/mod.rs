@@ -20,10 +20,10 @@
 //! pick an [`crate::market_data::interp::InterpStyle`].  The same
 //! interpolation engine therefore underpins *all* term structures.
 //!
-//! ## Example – building three curves and bundling them in a `CurveSet`
+//! ## Example – building three curves and bundling them in a `MarketContext`
 //! ```no_run
 //! use finstack_core::market_data::term_structures::*;
-//! use finstack_core::market_data::multicurve::CurveSet;
+//! use finstack_core::market_data::MarketContext;
 //! use finstack_core::dates::Date;
 //! use time::Month;
 //!
@@ -45,7 +45,7 @@
 //!     .build()
 //!     .unwrap();
 //!
-//! let curves = CurveSet::new()
+//! let curves = MarketContext::new()
 //!     .with_discount(disc)
 //!     .with_forecast(fwd3m)
 //!     .with_hazard(hazard);

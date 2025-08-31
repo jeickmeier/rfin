@@ -71,12 +71,7 @@ pub use surfaces::vol_surface::VolSurface;
 // Re-export context types
 pub use context::MarketContext;
 
-// Deprecated alias module kept for backward compatibility. Prefer `MarketContext`.
-#[doc(hidden)]
-pub mod multicurve {
-    //! Deprecated: use `market_data::context::MarketContext` instead.
-    pub type CurveSet = super::context::MarketContext;
-}
+
 
 /// Numeric precision alias re-exported from the surrounding crate so that
 /// downstream code can simply `use finstack_core::market_data::F`.

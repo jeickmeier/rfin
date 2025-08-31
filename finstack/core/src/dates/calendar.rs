@@ -25,7 +25,8 @@
 
 #![allow(clippy::assign_op_pattern)]
 
-use time::{Date, Duration, Weekday};
+use time::{Date, Duration};
+use crate::dates::DateExt;
 
 /// Trait representing a holiday calendar.
 ///
@@ -52,7 +53,7 @@ pub trait HolidayCalendar {
     /// particular calendar chooses to label weekends in [`is_holiday`].
     #[inline]
     fn is_business_day(&self, date: Date) -> bool {
-        !is_weekend(date) && !self.is_holiday(date)
+        !date.is_weekend() && !self.is_holiday(date)
     }
 }
 
@@ -147,16 +148,6 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
 }
 
 // helper functions merged into `adjust` for a single, cohesive business-day logic surface
-
-// -----------------------------------------------------------------------------
-// Weekend helper
-// -----------------------------------------------------------------------------
-
-/// Returns `true` if `date` falls on Saturday or Sunday.
-#[inline]
-pub fn is_weekend(date: Date) -> bool {
-    matches!(date.weekday(), Weekday::Saturday | Weekday::Sunday)
-}
 
 // -----------------------------------------------------------------------------
 // Runtime discovery helpers

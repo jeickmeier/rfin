@@ -49,8 +49,8 @@ pub use metrics::*;
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::traits::{Attributes};
-use crate::metrics::{MetricId, MetricRegistry};
-use finstack_core::market_data::multicurve::CurveSet;
+use crate::metrics::MetricRegistry;
+use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 
 /// Private equity fund investment instrument.
@@ -122,16 +122,7 @@ impl PrivateEquityInvestment {
         Ok(ledger.lp_cashflows())
     }
 
-    /// Get standard metrics for this instrument type.
-    fn get_standard_metrics(&self) -> Vec<MetricId> {
-        vec![
-            MetricId::custom("lp_irr"),
-            MetricId::custom("gp_irr"), 
-            MetricId::custom("moic_lp"),
-            MetricId::custom("dpi_lp"),
-            MetricId::custom("tvpi_lp"),
-        ]
-    }
+    // Removed legacy standard metrics helper.
 }
 
 // Manual Priceable implementation since we have optional disc_id
@@ -141,7 +132,7 @@ crate::impl_instrument_like!(PrivateEquityInvestment, "PrivateEquityInvestment")
 impl crate::instruments::traits::Priceable for PrivateEquityInvestment {
     fn value(
         &self,
-        curves: &CurveSet,
+        curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<Money> {
         // If discount curve is specified, calculate NPV of LP flows
@@ -162,7 +153,7 @@ impl crate::instruments::traits::Priceable for PrivateEquityInvestment {
 
     fn price_with_metrics(
         &self,
-        curves: &CurveSet,
+        curves: &MarketContext,
         as_of: Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
@@ -175,21 +166,12 @@ impl crate::instruments::traits::Priceable for PrivateEquityInvestment {
             metrics,
         )
     }
-
-    fn price(
-        &self,
-        curves: &CurveSet,
-        as_of: Date,
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let standard_metrics = self.get_standard_metrics();
-        self.price_with_metrics(curves, as_of, &standard_metrics)
-    }
 }
 
 impl CashflowProvider for PrivateEquityInvestment {
     fn build_schedule(
         &self,
-        _curves: &CurveSet,
+        _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
         self.lp_cashflows()

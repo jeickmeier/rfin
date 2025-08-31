@@ -3,7 +3,7 @@
 use finstack_core::{
     currency::Currency,
     dates::{Date, DayCount},
-    market_data::{multicurve::CurveSet, term_structures::discount_curve::DiscountCurve},
+    market_data::{MarketContext, term_structures::discount_curve::DiscountCurve},
     money::Money,
     F,
 };
@@ -30,7 +30,7 @@ impl TestCashflowProvider {
 impl CashflowProvider for TestCashflowProvider {
     fn build_schedule(
         &self,
-        _curves: &CurveSet,
+        _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
         Ok(self.flows.clone())
@@ -56,7 +56,16 @@ impl TestPriceable {
 }
 
 impl Priceable for TestPriceable {
-    fn price(&self, _curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
+    fn value(&self, _curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+        Ok(self.value)
+    }
+
+    fn price_with_metrics(
+        &self,
+        _curves: &MarketContext,
+        as_of: Date,
+        _metrics: &[MetricId],
+    ) -> finstack_core::Result<ValuationResult> {
         Ok(ValuationResult::stamped(
             "TEST_INSTRUMENT",
             as_of,
@@ -76,7 +85,7 @@ fn test_cashflow_provider_build_schedule() {
     ];
 
     let provider = TestCashflowProvider::new(flows.clone());
-    let curves = CurveSet::new();
+    let curves = MarketContext::new();
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
     let result = provider.build_schedule(&curves, as_of).unwrap();
@@ -98,7 +107,7 @@ fn test_cashflow_provider_npv_with() {
     ];
 
     let provider = TestCashflowProvider::new(flows);
-    let curves = CurveSet::new();
+    let curves = MarketContext::new();
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
     let base_date = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
@@ -120,17 +129,16 @@ fn test_cashflow_provider_npv_with() {
 }
 
 #[test]
-fn test_priceable_price() {
+fn test_priceable_price_with_metrics_basic() {
     let value = Money::new(1000.0, Currency::USD);
     let instrument = TestPriceable::new(value);
-    let curves = CurveSet::new();
+    let curves = MarketContext::new();
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
-    let result = instrument.price(&curves, as_of).unwrap();
+    let result = instrument.price_with_metrics(&curves, as_of, &[]).unwrap();
     assert_eq!(result.value, value);
     assert_eq!(result.instrument_id, "TEST_INSTRUMENT");
     assert_eq!(result.as_of, as_of);
-    // The stamped result won't have the custom measures, just the basic structure
     assert!(result.measures.is_empty());
 }
 
@@ -138,7 +146,7 @@ fn test_priceable_price() {
 fn test_priceable_value() {
     let value = Money::new(1500.0, Currency::EUR);
     let instrument = TestPriceable::new(value);
-    let curves = CurveSet::new();
+    let curves = MarketContext::new();
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
     let result = instrument.value(&curves, as_of).unwrap();
@@ -149,7 +157,7 @@ fn test_priceable_value() {
 fn test_priceable_price_with_metrics() {
     let value = Money::new(2000.0, Currency::GBP);
     let instrument = TestPriceable::new(value);
-    let curves = CurveSet::new();
+    let curves = MarketContext::new();
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
     // Request specific metrics
@@ -168,7 +176,7 @@ fn test_priceable_price_with_metrics() {
 fn test_priceable_price_with_no_metrics() {
     let value = Money::new(500.0, Currency::JPY);
     let instrument = TestPriceable::new(value);
-    let curves = CurveSet::new();
+    let curves = MarketContext::new();
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
     // Request no metrics

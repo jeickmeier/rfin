@@ -3,7 +3,7 @@
 Example: Building a full MarketContext for pricing.
 
 Demonstrates how to:
-- Create curves and insert into a CurveSet
+- Create curves and insert into a MarketContext
 - Configure FX via a provider/FX matrix and attach to MarketContext
 - Add a volatility surface
 - Add MarketScalar prices and ScalarTimeSeries series
@@ -13,7 +13,7 @@ from finstack import Date, Currency
 from finstack.money import Money
 from finstack.market_data import (
     InterpStyle,
-    CurveSet,
+    MarketContext,
     DiscountCurve,
     ForwardCurve,
     HazardCurve,
@@ -24,7 +24,6 @@ from finstack.market_data import (
     SeriesInterpolation,
     SimpleFxProvider,
     FxMatrix,
-    MarketContext,
 )
 
 
@@ -32,7 +31,7 @@ def build_market_context() -> MarketContext:
     base_date = Date(2025, 1, 1)
 
     # Curves ---------------------------------------------------------------
-    curves = CurveSet()
+    curves = MarketContext()
 
     usd_ois = DiscountCurve(
         id="USD-OIS",
@@ -105,7 +104,7 @@ def build_market_context() -> MarketContext:
     # The curves would be passed during pricing operations or accessed via properties
     # ctx.set_fx_matrix(fx_matrix)  # This might also not exist yet
 
-    # Stash surface/scalars/series into the CurveSet so they can be accessed centrally
+    # Stash surface/scalars/series into the MarketContext so they can be accessed centrally
     curves["SPX-IV"] = surface
     curves["AAPL-SPOT"] = aapl_spot
     curves["BTC-USD-SPOT"] = btc_spot
@@ -118,12 +117,12 @@ def main() -> None:
     ctx, curves = build_market_context()
     print("MarketContext built:")
     print("- Market context created successfully")
-    print("- Curves created in CurveSet")
+    print("- Curves created in MarketContext")
     print("- curve ids:", list(curves.keys()))
     # Note: In current implementation, FX access may be limited
     # print("- has FX:", ctx.has_fx)
 
-    # Access items from CurveSet (demonstration of structure)
+    # Access items from MarketContext (demonstration of structure)
     print("\nDemonstrating market data access:")
 
     # 1) Curves

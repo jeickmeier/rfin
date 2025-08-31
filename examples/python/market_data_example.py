@@ -6,7 +6,7 @@ This example shows how to:
 - Create various types of curves (discount, forward, hazard, inflation)
 - Use different interpolation styles
 - Create volatility surfaces
-- Use the CurveSet container for managing multiple curves
+- Use the MarketContext container for managing multiple curves
 - Work with numpy arrays for batch operations
 """
 
@@ -19,7 +19,7 @@ from finstack.market_data import (
     HazardCurve,
     InflationCurve,
     VolSurface,
-    CurveSet,
+    MarketContext,
 )
 
 
@@ -202,9 +202,9 @@ def example_volatility_surface():
     print()
 
 
-def example_curve_set():
-    """Example: Using CurveSet to manage multiple curves."""
-    print("=== CurveSet Container Example ===")
+def example_market_context():
+    """Example: Using MarketContext to manage multiple curves."""
+    print("=== MarketContext Container Example ===")
 
     # Create various curves
     base_date = Date(2025, 1, 1)
@@ -241,8 +241,8 @@ def example_curve_set():
         hazard_rates=[0.01, 0.02],
     )
 
-    # Create CurveSet and add all curves using dictionary interface
-    curves = CurveSet()
+    # Create MarketContext and add all curves using dictionary interface
+    curves = MarketContext()
     curves["USD-OIS"] = usd_ois
     curves["EUR-OIS"] = eur_ois
     curves["USD-SOFR3M"] = usd_sofr3m
@@ -253,7 +253,7 @@ def example_curve_set():
     curves.map_collateral("CSA-EUR", "EUR-OIS")
 
     # Access curves by ID
-    print("Accessing curves from CurveSet:")
+    print("Accessing curves from MarketContext:")
 
     # Generic access (returns appropriate type)
     usd_curve = curves["USD-OIS"]
@@ -325,7 +325,7 @@ def main():
     example_hazard_curve()
     example_inflation_curve()
     example_volatility_surface()
-    example_curve_set()
+    example_market_context()
     example_interpolation_styles()
 
     print("All examples completed successfully!")

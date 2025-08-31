@@ -136,10 +136,10 @@ This document splits the **Curves** Detailed Design into manageable pull-request
 
 ---
 
-## PR #8 — `CurveSet` multi-curve container & registry
+## PR #8 — `MarketContext` multi-curve container & registry
 
 **Goals**
-* Implement `CurveSet` with discount, forward, hazard, inflation maps.
+* Implement `MarketContext` with discount, forward, hazard, inflation maps.
 * Provide getters (`discount(id)`, `forward(id)`, …) returning `Result`.
 * Support collateral map.
 
@@ -149,8 +149,8 @@ This document splits the **Curves** Detailed Design into manageable pull-request
 3. Integration test: assemble set, fetch curves, compute PV on sample leg.
 
 **Acceptance criteria**
-* `CurveSet::discount("USD-OIS")?` returns reference.
-* `Clone` of `CurveSet` is O(1) (Arc pointer copy).
+* `MarketContext::discount("USD-OIS")?` returns reference.
+* `Clone` of `MarketContext` is O(1) (Arc pointer copy).
 
 ---
 
