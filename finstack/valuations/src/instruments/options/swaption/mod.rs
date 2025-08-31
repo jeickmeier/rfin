@@ -272,7 +272,15 @@ impl_instrument!(
         if s.sabr_params.is_some() {
             s.sabr_price(disc.as_ref())
         } else {
-            s.black_price(disc.as_ref(), 0.20)
+            // Get volatility from surface
+            let time_to_expiry = s.year_fraction(disc.base_date(), s.expiry, s.day_count)?;
+            let vol = if let Some(impl_vol) = s.implied_vol {
+                impl_vol
+            } else {
+                let vol_surface = curves.vol_surface(s.vol_id)?;
+                vol_surface.value_clamped(time_to_expiry, s.strike_rate)
+            };
+            s.black_price(disc.as_ref(), vol)
         }
     },
     metrics = |_s| vec![

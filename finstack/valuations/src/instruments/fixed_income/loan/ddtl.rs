@@ -1,11 +1,11 @@
 //! Delayed-Draw Term Loan (DDTL) implementation.
 
 use super::covenants::Covenant;
+use super::simulation::{LoanFacility, LoanSimulator, SimulationEvent, EventType};
 use super::term_loan::InterestSpec;
 use crate::cashflow::builder::{cf, CouponType, FeeBase, FeeSpec, FixedCouponSpec};
 use crate::cashflow::primitives::AmortizationSpec;
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::fixed_income::discountable::Discountable;
 use crate::instruments::traits::Priceable;
 use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
@@ -214,6 +214,7 @@ impl DelayedDrawTermLoan {
     }
 
     /// Get all expected future draws for pricing (includes planned + expected).
+    #[allow(dead_code)]
     fn get_expected_future_draws(&self, as_of: Date) -> Vec<(Date, Money, F)> {
         let mut future_draws = Vec::new();
 
@@ -352,52 +353,115 @@ impl CashflowProvider for DelayedDrawTermLoan {
     }
 }
 
-impl Priceable for DelayedDrawTermLoan {
-    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
-        let disc = curves.discount(self.disc_id)?;
-        let mut total_npv = 0.0;
-
-        // 1. Value existing drawn amount
-        let existing_flows = self.build_schedule(curves, as_of)?;
-        let existing_npv = existing_flows.npv(&*disc, disc.base_date(), self.day_count)?;
-        total_npv += existing_npv.amount();
-
-        // 2. Value expected future draws
-        let future_draws = self.get_expected_future_draws(as_of);
-        for (draw_date, draw_amount, probability) in future_draws {
-            // For each future draw, discount using centralized helper
-            let draw_df =
-                finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
-                    &*disc,
-                    disc.base_date(),
-                    draw_date,
-                    self.day_count,
-                );
-            total_npv -= draw_amount.amount() * draw_df * probability;
-
-            // b) The positive value of future interest payments on that draw
-            // This is simplified - in practice would build full schedule from draw_date to maturity
-            let remaining_years = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(draw_date, self.maturity, self.day_count);
-            if let InterestSpec::Fixed { rate, .. } = &self.interest_spec {
-                // Approximate value of future interest payments
-                let interest_value = draw_amount.amount() * rate * remaining_years;
-                total_npv += interest_value * draw_df * probability;
-
-                // Add principal repayment at maturity
-                let maturity_df = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
-                    &*disc,
-                    disc.base_date(),
-                    self.maturity,
-                    self.day_count,
-                );
-                total_npv += draw_amount.amount() * maturity_df * probability;
+impl LoanFacility for DelayedDrawTermLoan {
+    fn currency(&self) -> finstack_core::currency::Currency {
+        self.commitment.currency()
+    }
+    
+    fn commitment(&self) -> Money {
+        self.commitment
+    }
+    
+    fn drawn_amount(&self) -> Money {
+        self.drawn_amount
+    }
+    
+    fn commitment_expiry(&self) -> Date {
+        self.commitment_expiry
+    }
+    
+    fn maturity(&self) -> Date {
+        self.maturity
+    }
+    
+    fn interest_spec(&self) -> &InterestSpec {
+        &self.interest_spec
+    }
+    
+    fn commitment_fee_rate(&self) -> F {
+        self.commitment_fee_rate
+    }
+    
+    fn frequency(&self) -> Frequency {
+        self.frequency
+    }
+    
+    fn day_count(&self) -> DayCount {
+        self.day_count
+    }
+    
+    fn bdc(&self) -> BusinessDayConvention {
+        self.bdc
+    }
+    
+    fn calendar_id(&self) -> Option<&'static str> {
+        self.calendar_id
+    }
+    
+    fn stub(&self) -> StubKind {
+        self.stub
+    }
+    
+    fn disc_id(&self) -> &'static str {
+        self.disc_id
+    }
+    
+    fn expected_events(&self) -> Vec<SimulationEvent> {
+        let mut events = Vec::new();
+        
+        // Add planned draws
+        for draw in &self.planned_draws {
+            if !draw.conditional {
+                events.push(SimulationEvent {
+                    date: draw.date,
+                    balance_change: draw.amount.amount(),
+                    probability: 1.0,
+                    event_type: EventType::Draw,
+                });
             }
         }
+        
+        // Add expected draws from funding curve
+        if let Some(ref curve) = self.expected_funding_curve {
+            for (i, draw) in curve.expected_draws.iter().enumerate() {
+                if !draw.conditional {
+                    let prob = curve.draw_probabilities
+                        .as_ref()
+                        .and_then(|probs| probs.get(i))
+                        .copied()
+                        .unwrap_or(1.0);
+                    
+                    events.push(SimulationEvent {
+                        date: draw.date,
+                        balance_change: draw.amount.amount(),
+                        probability: prob,
+                        event_type: EventType::Draw,
+                    });
+                }
+            }
+        }
+        
+        events
+    }
+    
+    fn events_on_date(&self, date: Date) -> Vec<SimulationEvent> {
+        self.expected_events()
+            .into_iter()
+            .filter(|event| event.date == date)
+            .collect()
+    }
+    
+    fn build_existing_flows(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Vec<(Date, Money)>> {
+        self.build_schedule(curves, as_of)
+    }
+}
 
-        // 3. Value commitment fees on undrawn amounts
-        // This would be more complex in practice, accounting for the changing undrawn balance
-
-        Ok(Money::new(total_npv, self.commitment.currency()))
+impl Priceable for DelayedDrawTermLoan {
+    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
+        // Use enhanced simulation-based valuation
+        let simulator = LoanSimulator::new();
+        let result = simulator.simulate(self, curves, as_of)?;
+        Ok(result.total_pv)
     }
 
     fn price_with_metrics(

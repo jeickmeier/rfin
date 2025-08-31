@@ -294,7 +294,7 @@ impl_instrument!(
             impl_vol
         } else {
             let vol_surface = curves.vol_surface(s.vol_id)?;
-            vol_surface.value_checked(time_to_expiry, s.strike_spread_bp)?
+            vol_surface.value_clamped(time_to_expiry, s.strike_spread_bp)
         };
         
         // Price using Black model on credit spreads

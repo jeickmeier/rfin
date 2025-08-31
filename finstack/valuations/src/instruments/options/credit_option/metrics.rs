@@ -26,7 +26,7 @@ impl MetricCalculator for DeltaCalculator {
         let sigma = if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            context.curves.vol_surface(option.vol_id)?.value_checked(time_to_expiry, option.strike_spread_bp)?
+            context.curves.vol_surface(option.vol_id)?.value_clamped(time_to_expiry, option.strike_spread_bp)
         };
         
         let delta = option.delta(forward_spread_bp, sigma, time_to_expiry);
@@ -60,7 +60,7 @@ impl MetricCalculator for GammaCalculator {
         let sigma = if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            context.curves.vol_surface(option.vol_id)?.value_checked(time_to_expiry, option.strike_spread_bp)?
+            context.curves.vol_surface(option.vol_id)?.value_clamped(time_to_expiry, option.strike_spread_bp)
         };
         
         let gamma = option.gamma(forward_spread_bp, sigma, time_to_expiry);
@@ -93,7 +93,7 @@ impl MetricCalculator for VegaCalculator {
         let sigma = if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            context.curves.vol_surface(option.vol_id)?.value_checked(time_to_expiry, option.strike_spread_bp)?
+            context.curves.vol_surface(option.vol_id)?.value_clamped(time_to_expiry, option.strike_spread_bp)
         };
         
         let vega = option.vega(forward_spread_bp, sigma, time_to_expiry);
@@ -129,7 +129,7 @@ impl MetricCalculator for ThetaCalculator {
         let sigma = if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            context.curves.vol_surface(option.vol_id)?.value_checked(time_to_expiry, option.strike_spread_bp)?
+            context.curves.vol_surface(option.vol_id)?.value_clamped(time_to_expiry, option.strike_spread_bp)
         };
         
         let theta = option.theta(forward_spread_bp, r, sigma, time_to_expiry);

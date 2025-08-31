@@ -1,10 +1,10 @@
 //! Revolving Credit Facility implementation.
 
 use super::covenants::Covenant;
+use super::simulation::{LoanFacility, LoanSimulator, SimulationEvent, EventType};
 use super::term_loan::InterestSpec;
 use crate::cashflow::builder::{cf, CouponType, FeeBase, FeeSpec, FloatingCouponSpec};
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::fixed_income::discountable::Discountable;
 use crate::instruments::traits::Priceable;
 use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
@@ -244,6 +244,7 @@ impl RevolvingCreditFacility {
     }
 
     /// Get all expected future events for pricing (includes scheduled + expected).
+    #[allow(dead_code)]
     fn get_expected_future_events(&self, as_of: Date) -> Vec<(Date, Money, F)> {
         let mut future_events = Vec::new();
 
@@ -391,61 +392,127 @@ impl CashflowProvider for RevolvingCreditFacility {
     }
 }
 
-impl Priceable for RevolvingCreditFacility {
-    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
-        let disc = curves.discount(self.disc_id)?;
-        let mut total_npv = 0.0;
-
-        // 1. Value existing drawn amount and scheduled cashflows
-        let existing_flows = self.build_schedule(curves, as_of)?;
-        let existing_npv = existing_flows.npv(&*disc, disc.base_date(), self.day_count)?;
-        total_npv += existing_npv.amount();
-
-        // 2. Value expected future draws and repayments
-        let future_events = self.get_expected_future_events(as_of);
-        let mut projected_drawn = self.simulate_drawn_to_date(as_of);
-
-        for (event_date, event_amount, probability) in future_events {
-            // Update projected drawn amount
-            let new_drawn = projected_drawn.amount() + event_amount.amount();
-
-            // Ensure drawn amount stays within bounds [0, commitment]
-            let new_drawn = new_drawn.max(0.0).min(self.commitment.amount());
-            projected_drawn = Money::new(new_drawn, self.commitment.currency());
-
-            // For each future event, value the change in interest payments
-            let event_df =
-                finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
-                    &*disc,
-                    disc.base_date(),
-                    event_date,
-                    self.day_count,
-                );
-
-            if event_amount.amount() > 0.0 {
-                // Draw event - value as negative cashflow (funding outflow)
-                total_npv -= event_amount.amount() * event_df * probability;
-
-                // Add value of future interest on the additional drawn amount
-                if let InterestSpec::Fixed { rate, .. } = &self.interest_spec {
-                    let remaining_years = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(event_date, self.maturity, self.day_count);
-                    let interest_value = event_amount.amount() * rate * remaining_years;
-                    total_npv += interest_value * event_df * probability;
-                }
+impl LoanFacility for RevolvingCreditFacility {
+    fn currency(&self) -> finstack_core::currency::Currency {
+        self.commitment.currency()
+    }
+    
+    fn commitment(&self) -> Money {
+        self.commitment
+    }
+    
+    fn drawn_amount(&self) -> Money {
+        self.drawn_amount
+    }
+    
+    fn commitment_expiry(&self) -> Date {
+        self.availability_end
+    }
+    
+    fn maturity(&self) -> Date {
+        self.maturity
+    }
+    
+    fn interest_spec(&self) -> &InterestSpec {
+        &self.interest_spec
+    }
+    
+    fn commitment_fee_rate(&self) -> F {
+        self.commitment_fee_rate
+    }
+    
+    fn utilization_fee_schedule(&self) -> Option<&UtilizationFeeSchedule> {
+        self.utilization_fees.as_ref()
+    }
+    
+    fn frequency(&self) -> Frequency {
+        self.frequency
+    }
+    
+    fn day_count(&self) -> DayCount {
+        self.day_count
+    }
+    
+    fn bdc(&self) -> BusinessDayConvention {
+        self.bdc
+    }
+    
+    fn calendar_id(&self) -> Option<&'static str> {
+        self.calendar_id
+    }
+    
+    fn stub(&self) -> StubKind {
+        self.stub
+    }
+    
+    fn disc_id(&self) -> &'static str {
+        self.disc_id
+    }
+    
+    fn expected_events(&self) -> Vec<SimulationEvent> {
+        let mut events = Vec::new();
+        
+        // Add scheduled draw/repay events
+        for event in &self.draw_repay_schedule {
+            let event_type = if event.amount.amount() > 0.0 {
+                EventType::Draw
             } else {
-                // Repayment event - value as positive cashflow
-                total_npv += event_amount.amount().abs() * event_df * probability;
-
-                // Reduce future interest payments
-                if let InterestSpec::Fixed { rate, .. } = &self.interest_spec {
-                    let remaining_years = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(event_date, self.maturity, self.day_count);
-                    let interest_savings = event_amount.amount().abs() * rate * remaining_years;
-                    total_npv -= interest_savings * event_df * probability;
-                }
+                EventType::Repayment
+            };
+            
+            events.push(SimulationEvent {
+                date: event.date,
+                balance_change: event.amount.amount(),
+                probability: 1.0,
+                event_type,
+            });
+        }
+        
+        // Add expected events from funding curve
+        if let Some(ref curve) = self.expected_funding_curve {
+            for (i, event) in curve.expected_events.iter().enumerate() {
+                let prob = curve.event_probabilities
+                    .as_ref()
+                    .and_then(|probs| probs.get(i))
+                    .copied()
+                    .unwrap_or(1.0);
+                
+                let event_type = if event.amount.amount() > 0.0 {
+                    EventType::Draw
+                } else {
+                    EventType::Repayment
+                };
+                
+                events.push(SimulationEvent {
+                    date: event.date,
+                    balance_change: event.amount.amount(),
+                    probability: prob,
+                    event_type,
+                });
             }
         }
+        
+        events
+    }
+    
+    fn events_on_date(&self, date: Date) -> Vec<SimulationEvent> {
+        self.expected_events()
+            .into_iter()
+            .filter(|event| event.date == date)
+            .collect()
+    }
+    
+    fn build_existing_flows(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Vec<(Date, Money)>> {
+        self.build_schedule(curves, as_of)
+    }
+}
 
-        Ok(Money::new(total_npv, self.commitment.currency()))
+impl Priceable for RevolvingCreditFacility {
+    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
+        // Use enhanced simulation-based valuation
+        let simulator = LoanSimulator::new();
+        let result = simulator.simulate(self, curves, as_of)?;
+        Ok(result.total_pv)
     }
 
     fn price_with_metrics(

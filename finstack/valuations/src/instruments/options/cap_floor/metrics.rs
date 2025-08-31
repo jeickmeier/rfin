@@ -46,7 +46,7 @@ impl MetricCalculator for DeltaCalculator {
                     let sigma = if let Some(impl_vol) = option.implied_vol {
                         impl_vol
                     } else {
-                        context.curves.vol_surface(option.vol_id)?.value_checked(time_to_fixing, option.strike_rate)?
+                        context.curves.vol_surface(option.vol_id)?.value_clamped(time_to_fixing, option.strike_rate)
                     };
                     
                     let caplet_delta = option.delta(forward_rate, sigma, time_to_fixing);
@@ -70,7 +70,7 @@ impl MetricCalculator for DeltaCalculator {
             let sigma = if let Some(impl_vol) = option.implied_vol {
                 impl_vol
             } else {
-                context.curves.vol_surface(option.vol_id)?.value_checked(time_to_fixing, option.strike_rate)?
+                context.curves.vol_surface(option.vol_id)?.value_clamped(time_to_fixing, option.strike_rate)
             };
             
             let delta = option.delta(forward_rate, sigma, time_to_fixing);
@@ -123,7 +123,7 @@ impl MetricCalculator for GammaCalculator {
                     let sigma = if let Some(impl_vol) = option.implied_vol {
                         impl_vol
                     } else {
-                        context.curves.vol_surface(option.vol_id)?.value_checked(time_to_fixing, option.strike_rate)?
+                        context.curves.vol_surface(option.vol_id)?.value_clamped(time_to_fixing, option.strike_rate)
                     };
                     
                     let caplet_gamma = option.gamma(forward_rate, sigma, time_to_fixing);
@@ -146,7 +146,7 @@ impl MetricCalculator for GammaCalculator {
             let sigma = if let Some(impl_vol) = option.implied_vol {
                 impl_vol
             } else {
-                context.curves.vol_surface(option.vol_id)?.value_checked(time_to_fixing, option.strike_rate)?
+                context.curves.vol_surface(option.vol_id)?.value_clamped(time_to_fixing, option.strike_rate)
             };
             
             let gamma = option.gamma(forward_rate, sigma, time_to_fixing);
@@ -197,7 +197,7 @@ impl MetricCalculator for VegaCalculator {
                     let sigma = if let Some(impl_vol) = option.implied_vol {
                         impl_vol
                     } else {
-                        context.curves.vol_surface(option.vol_id)?.value_checked(time_to_fixing, option.strike_rate)?
+                        context.curves.vol_surface(option.vol_id)?.value_clamped(time_to_fixing, option.strike_rate)
                     };
                     
                     let caplet_vega = option.vega(forward_rate, sigma, time_to_fixing);
@@ -219,7 +219,7 @@ impl MetricCalculator for VegaCalculator {
             let sigma = if let Some(impl_vol) = option.implied_vol {
                 impl_vol
             } else {
-                context.curves.vol_surface(option.vol_id)?.value_checked(time_to_fixing, option.strike_rate)?
+                context.curves.vol_surface(option.vol_id)?.value_clamped(time_to_fixing, option.strike_rate)
             };
             
             let vega = option.vega(forward_rate, sigma, time_to_fixing);

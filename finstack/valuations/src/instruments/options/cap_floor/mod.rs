@@ -398,7 +398,7 @@ impl_instrument!(
             let sigma = if let Some(impl_vol) = s.implied_vol {
                 impl_vol
             } else if let Some(vol_surf) = &vol_surface {
-                vol_surf.value_checked(time_to_fixing, s.strike_rate)?
+                vol_surf.value_clamped(time_to_fixing, s.strike_rate)
             } else {
                 return Err(finstack_core::error::InputError::NotFound.into());
             };
@@ -436,7 +436,7 @@ impl_instrument!(
                 let sigma = if let Some(impl_vol) = s.implied_vol {
                     impl_vol
                 } else if let Some(vol_surf) = &vol_surface {
-                    vol_surf.value_checked(time_to_fixing, s.strike_rate)?
+                    vol_surf.value_clamped(time_to_fixing, s.strike_rate)
                 } else {
                     return Err(finstack_core::error::InputError::NotFound.into());
                 };

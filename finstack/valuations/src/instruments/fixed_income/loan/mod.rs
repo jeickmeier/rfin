@@ -9,8 +9,10 @@
 
 pub mod covenants;
 pub mod ddtl;
+pub mod metrics;
 pub mod prepayment;
 pub mod revolver;
+pub mod simulation;
 pub mod term_loan;
 
 pub use covenants::{Covenant, CovenantConsequence, CovenantType};

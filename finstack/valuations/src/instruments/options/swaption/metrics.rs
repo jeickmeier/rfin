@@ -25,7 +25,7 @@ impl MetricCalculator for DeltaCalculator {
         } else if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            context.curves.vol_surface(option.vol_id)?.value_checked(t, option.strike_rate)?
+            context.curves.vol_surface(option.vol_id)?.value_clamped(t, option.strike_rate)
         };
         
         let variance = sigma * sigma * t;
@@ -69,7 +69,7 @@ impl MetricCalculator for GammaCalculator {
         } else if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            context.curves.vol_surface(option.vol_id)?.value_checked(t, option.strike_rate)?
+            context.curves.vol_surface(option.vol_id)?.value_clamped(t, option.strike_rate)
         };
         
         if sigma <= 0.0 || forward <= 0.0 { return Ok(0.0); }
@@ -107,7 +107,7 @@ impl MetricCalculator for VegaCalculator {
         } else if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            context.curves.vol_surface(option.vol_id)?.value_checked(t, option.strike_rate)?
+            context.curves.vol_surface(option.vol_id)?.value_clamped(t, option.strike_rate)
         };
         
         let variance = sigma * sigma * t;

@@ -70,7 +70,7 @@ impl MetricCalculator for GammaCalculator {
         let sigma = if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            context.curves.vol_surface(option.vol_id)?.value_checked(time_to_expiry, option.strike)?
+            context.curves.vol_surface(option.vol_id)?.value_clamped(time_to_expiry, option.strike)
         };
         
         Ok(option.gamma(spot, r_d, r_f, sigma, time_to_expiry) * option.notional.amount())
@@ -99,7 +99,7 @@ impl MetricCalculator for VegaCalculator {
         let sigma = if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            context.curves.vol_surface(option.vol_id)?.value_checked(time_to_expiry, option.strike)?
+            context.curves.vol_surface(option.vol_id)?.value_clamped(time_to_expiry, option.strike)
         };
         
         Ok(option.vega(spot, r_d, r_f, sigma, time_to_expiry) * option.notional.amount())
@@ -128,7 +128,7 @@ impl MetricCalculator for ThetaCalculator {
         let sigma = if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            context.curves.vol_surface(option.vol_id)?.value_checked(time_to_expiry, option.strike)?
+            context.curves.vol_surface(option.vol_id)?.value_clamped(time_to_expiry, option.strike)
         };
         
         Ok(option.theta(spot, r_d, r_f, sigma, time_to_expiry) * option.notional.amount())
@@ -157,7 +157,7 @@ impl MetricCalculator for RhoDomesticCalculator {
         let sigma = if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            context.curves.vol_surface(option.vol_id)?.value_checked(time_to_expiry, option.strike)?
+            context.curves.vol_surface(option.vol_id)?.value_clamped(time_to_expiry, option.strike)
         };
         
         Ok(option.rho_domestic(spot, r_d, r_f, sigma, time_to_expiry) * option.notional.amount())
@@ -186,7 +186,7 @@ impl MetricCalculator for RhoForeignCalculator {
         let sigma = if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            context.curves.vol_surface(option.vol_id)?.value_checked(time_to_expiry, option.strike)?
+            context.curves.vol_surface(option.vol_id)?.value_clamped(time_to_expiry, option.strike)
         };
         
         Ok(option.rho_foreign(spot, r_d, r_f, sigma, time_to_expiry) * option.notional.amount())

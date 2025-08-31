@@ -55,7 +55,7 @@ impl MetricCalculator for DeltaCalculator {
             impl_vol
         } else {
             let vol_surface = context.curves.vol_surface(option.vol_id)?;
-            vol_surface.value_checked(time_to_expiry, option.strike.amount())?
+            vol_surface.value_clamped(time_to_expiry, option.strike.amount())
         };
         
         // Calculate delta using existing method
@@ -106,7 +106,7 @@ impl MetricCalculator for GammaCalculator {
             impl_vol
         } else {
             let vol_surface = context.curves.vol_surface(option.vol_id)?;
-            vol_surface.value_checked(time_to_expiry, option.strike.amount())?
+            vol_surface.value_clamped(time_to_expiry, option.strike.amount())
         };
         
         Ok(option.gamma(spot, r, sigma, time_to_expiry, q))
@@ -156,7 +156,7 @@ impl MetricCalculator for VegaCalculator {
             impl_vol
         } else {
             let vol_surface = context.curves.vol_surface(option.vol_id)?;
-            vol_surface.value_checked(time_to_expiry, option.strike.amount())?
+            vol_surface.value_clamped(time_to_expiry, option.strike.amount())
         };
         
         // Scale vega by contract size for full cash vega
@@ -207,7 +207,7 @@ impl MetricCalculator for ThetaCalculator {
             impl_vol
         } else {
             let vol_surface = context.curves.vol_surface(option.vol_id)?;
-            vol_surface.value_checked(time_to_expiry, option.strike.amount())?
+            vol_surface.value_clamped(time_to_expiry, option.strike.amount())
         };
         
         // Scale theta by contract size for full cash theta
@@ -258,7 +258,7 @@ impl MetricCalculator for RhoCalculator {
             impl_vol
         } else {
             let vol_surface = context.curves.vol_surface(option.vol_id)?;
-            vol_surface.value_checked(time_to_expiry, option.strike.amount())?
+            vol_surface.value_clamped(time_to_expiry, option.strike.amount())
         };
         
         // Scale rho by contract size for full cash rho

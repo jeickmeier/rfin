@@ -24,36 +24,36 @@ use time::Month;
 fn create_test_market_context() -> MarketContext {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     
-    // Create discount curves
+    // Create discount curves with extended maturity for swaption testing
     let usd_ois = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
-        .knots(vec![(0.0, 1.0), (0.25, 0.9875), (0.5, 0.975), (1.0, 0.95), (2.0, 0.90), (5.0, 0.75)])
+        .knots(vec![(0.0, 1.0), (0.25, 0.9875), (0.5, 0.975), (1.0, 0.95), (2.0, 0.90), (5.0, 0.75), (10.0, 0.60)])
         .monotone_convex()
         .build()
         .unwrap();
     
     let eur_ois = DiscountCurve::builder("EUR-OIS")
         .base_date(base_date)
-        .knots(vec![(0.0, 1.0), (0.25, 0.99), (0.5, 0.98), (1.0, 0.96), (2.0, 0.92), (5.0, 0.80)])
+        .knots(vec![(0.0, 1.0), (0.25, 0.99), (0.5, 0.98), (1.0, 0.96), (2.0, 0.92), (5.0, 0.80), (10.0, 0.65)])
         .monotone_convex()
         .build()
         .unwrap();
     
-    // Create forward curve
+    // Create forward curve with extended maturity
     let usd_sofr3m = ForwardCurve::builder("USD-SOFR-3M", 0.25)
         .base_date(base_date)
-        .knots(vec![(0.0, 0.045), (1.0, 0.04), (2.0, 0.035), (5.0, 0.03)])
+        .knots(vec![(0.0, 0.045), (1.0, 0.04), (2.0, 0.035), (5.0, 0.03), (10.0, 0.028)])
         .linear_df()
         .build()
         .unwrap();
     
-    // Create credit curve
+    // Create credit curve with extended maturity
     let abc_credit = CreditCurve::builder("ABC-SENIOR")
         .issuer("ABC Corp")
         .seniority(Seniority::Senior)
         .recovery_rate(0.4)
         .base_date(base_date)
-        .spreads(vec![(0.5, 150.0), (1.0, 180.0), (2.0, 200.0), (5.0, 250.0)])
+        .spreads(vec![(0.5, 150.0), (1.0, 180.0), (2.0, 200.0), (5.0, 250.0), (10.0, 280.0)])
         .build()
         .unwrap();
     
@@ -90,12 +90,27 @@ fn create_test_market_context() -> MarketContext {
         .unwrap();
     
     let cds_vol = VolSurface::builder("ABC-CDS-VOL")
-        .expiries(&[0.25, 0.5, 1.0, 2.0])
+        .expiries(&[0.25, 0.5, 1.0, 2.0, 5.0, 10.0])
         .strikes(&[100.0, 200.0, 300.0])
         .row(&[0.40, 0.35, 0.32])  // 3M
         .row(&[0.38, 0.33, 0.30])  // 6M
         .row(&[0.35, 0.30, 0.28])  // 1Y
         .row(&[0.32, 0.28, 0.25])  // 2Y
+        .row(&[0.30, 0.26, 0.23])  // 5Y
+        .row(&[0.28, 0.24, 0.21])  // 10Y
+        .build()
+        .unwrap();
+    
+    // Create swaption volatility surface (reuse cap vol structure but with swaption strikes)
+    let swaption_vol = VolSurface::builder("USD-SWAPTION-VOL")
+        .expiries(&[0.25, 0.5, 1.0, 2.0, 5.0, 10.0])
+        .strikes(&[0.02, 0.03, 0.035, 0.04, 0.05])
+        .row(&[0.25, 0.20, 0.18, 0.17, 0.16])  // 3M
+        .row(&[0.23, 0.18, 0.16, 0.15, 0.14])  // 6M
+        .row(&[0.22, 0.17, 0.15, 0.14, 0.13])  // 1Y
+        .row(&[0.21, 0.16, 0.14, 0.13, 0.12])  // 2Y
+        .row(&[0.20, 0.15, 0.13, 0.12, 0.11])  // 5Y
+        .row(&[0.19, 0.14, 0.12, 0.11, 0.10])  // 10Y
         .build()
         .unwrap();
     
@@ -131,6 +146,7 @@ fn create_test_market_context() -> MarketContext {
         .with_surface(eurusd_vol)
         .with_surface(cap_vol)
         .with_surface(cds_vol)
+        .with_surface(swaption_vol)
         .with_fx(fx_matrix)
         .with_price("AAPL-SPOT", MarketScalar::Unitless(110.0))
         .with_price("AAPL-DIV-YIELD", MarketScalar::Unitless(0.02))
@@ -309,7 +325,7 @@ fn test_swaption_full_integration() {
         swap_end,
         "USD-OIS",
         "USD-SOFR-3M",
-        "USD-CAP-VOL", // Reuse cap vol for simplicity
+        "USD-SWAPTION-VOL",
     );
     
     // Test pricing with market data
@@ -343,7 +359,7 @@ fn test_options_pricing_consistency() {
     let call = EquityOption::new(
         "AAPL_CALL_100",
         "AAPL",
-        strike.clone(),
+        strike,
         OptionType::Call,
         expiry,
         1.0, // 1 share
