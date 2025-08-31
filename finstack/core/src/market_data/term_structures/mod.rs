@@ -12,6 +12,7 @@
 //! | [`discount_curve::DiscountCurve`]   | Rates   | [`traits::Discount`](crate::market_data::traits::Discount) |
 //! | [`forward_curve::ForwardCurve`]     | Rates   | [`traits::Forward`](crate::market_data::traits::Forward)   |
 //! | [`hazard_curve::HazardCurve`]       | Credit  | [`traits::Survival`](crate::market_data::traits::Survival) |
+//! | [`base_correlation::BaseCorrelationCurve`] | Credit | (none) |
 //! | [`inflation::InflationCurve`]       | CPI     | [`traits::Inflation`](crate::market_data::traits::Inflation) |
 //!
 //! ## Choosing an interpolation style
@@ -51,6 +52,8 @@
 //! assert!(curves.discount("USD-OIS").is_ok());
 //! ```
 
+/// Base correlation curves for CDS tranche pricing.
+pub mod base_correlation;
 /// Credit curves for risky discounting.
 pub mod credit_curve;
 /// Discount factor curves.
@@ -68,6 +71,7 @@ pub mod inflation;
 pub use crate::error::InputError as CurveError;
 
 // Re-export for ergonomic access
+pub use base_correlation::*;
 pub use discount_curve::*;
 pub use forward_curve::*;
 pub use hazard_curve::*;

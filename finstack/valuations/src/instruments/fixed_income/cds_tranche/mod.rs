@@ -7,6 +7,8 @@
 //! instrument currency until tranche pricing models are implemented.
 
 pub mod metrics;
+pub mod model;
+pub mod numerical;
 
 use crate::metrics::MetricId;
 // use crate::results::ValuationResult; // not needed with macro-based impl
@@ -105,18 +107,61 @@ impl CdsTranche {
     pub fn builder() -> CdsTrancheBuilder { CdsTrancheBuilder::new() }
 }
 
-impl_instrument!(
-    CdsTranche, "CDSTranche",
-    pv = |s, _curves, _as_of| Ok(Money::new(0.0, s.notional.currency())),
-    metrics = |_s| {
-        vec![
+// Manual implementation of traits to support complex market data
+use crate::market_data::ValuationMarketContext;
+use crate::instruments::traits::Priceable;
+use crate::instruments::build_with_metrics;
+use crate::results::ValuationResult;
+use finstack_core::market_data::multicurve::CurveSet;
+
+impl_attributable!(CdsTranche);
+impl_instrument_like!(CdsTranche, "CDSTranche");
+
+impl Priceable for CdsTranche {
+    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
+        // Try to use the Gaussian Copula model if credit index data is available
+        // Otherwise, fall back to zero PV for backward compatibility
+        
+        // Convert CurveSet to ValuationMarketContext
+        let val_market_ctx = ValuationMarketContext::from_core(curves.clone());
+        
+        // Check if credit index data is available
+        if val_market_ctx.has_credit_index(self.credit_index_id) {
+            // Use the Gaussian Copula model
+            let model = model::GaussianCopulaModel::new();
+            model.price_tranche(self, &val_market_ctx, as_of)
+        } else {
+            // Fallback to zero PV when credit index data is not available
+            Ok(Money::new(0.0, self.notional.currency()))
+        }
+    }
+
+    fn price_with_metrics(
+        &self,
+        curves: &CurveSet,
+        as_of: Date,
+        metrics: &[MetricId],
+    ) -> finstack_core::Result<ValuationResult> {
+        let base_value = self.value(curves, as_of)?;
+        build_with_metrics(self.clone(), curves, as_of, base_value, metrics)
+    }
+
+    fn price(
+        &self,
+        curves: &CurveSet,
+        as_of: Date,
+    ) -> finstack_core::Result<ValuationResult> {
+        let standard_metrics = vec![
             MetricId::custom("upfront"),
             MetricId::custom("spread_dv01"),
             MetricId::ExpectedLoss,
             MetricId::JumpToDefault,
-        ]
+            MetricId::custom("cs01"),
+            MetricId::custom("correlation_delta"),
+        ];
+        self.price_with_metrics(curves, as_of, &standard_metrics)
     }
-);
+}
 
 // Builder pattern for CdsTranche
 #[derive(Default)]
