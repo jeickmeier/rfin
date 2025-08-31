@@ -1,17 +1,23 @@
 //! Convertible bond instrument boilerplate.
 
 pub mod metrics;
+pub mod model;
+
+#[cfg(test)]
+pub mod tests;
 
 use finstack_core::prelude::*;
 use finstack_core::F;
 
 use crate::instruments::traits::Attributes;
 use crate::instruments::fixed_income::bond::CallPutSchedule;
+use crate::cashflow::builder::types::{FixedCouponSpec, FloatingCouponSpec};
 
-/// Simplified convertible bond placeholder.
+/// Convertible bond instrument with embedded equity conversion option.
 ///
-/// This is a fixed income instrument with an embedded equity conversion option.
-/// Initial boilerplate supports identity PV (0) and no default metrics.
+/// This fixed income instrument combines debt characteristics (coupons, principal)
+/// with equity optionality (conversion rights). Uses the CashflowBuilder for
+/// robust schedule generation and tree-based pricing for the hybrid valuation.
 #[derive(Clone, Debug)]
 pub struct ConvertibleBond {
     /// Unique identifier for the instrument.
@@ -30,6 +36,10 @@ pub struct ConvertibleBond {
     pub underlying_equity_id: Option<String>,
     /// Optional call/put schedule (issuer/holder redemption before maturity).
     pub call_put: Option<CallPutSchedule>,
+    /// Fixed coupon specification (if applicable).
+    pub fixed_coupon: Option<FixedCouponSpec>,
+    /// Floating coupon specification (if applicable).
+    pub floating_coupon: Option<FloatingCouponSpec>,
     /// Attributes for selection and tagging.
     pub attributes: Attributes,
 }
@@ -89,9 +99,13 @@ pub struct ConversionSpec {
 
 impl_instrument!(
     ConvertibleBond, "ConvertibleBond",
-    pv = |_s, _curves, _as_of| {
-        // Placeholder PV; real implementation will separate debt and option legs
-        Ok(Money::new(0.0, _s.notional.currency()))
+    pv = |s, curves, _as_of| {
+        // Use the new tree-based pricing model
+        model::price_convertible_bond(
+            s,
+            curves,
+            model::ConvertibleTreeType::default()
+        )
     },
     metrics = |_s| {
         // No standard metrics yet; to be expanded with equity sensitivity, parity, etc.
@@ -113,7 +127,9 @@ impl_builder!(
     ],
     optional: [
         underlying_equity_id: String,
-        call_put: CallPutSchedule
+        call_put: CallPutSchedule,
+        fixed_coupon: FixedCouponSpec,
+        floating_coupon: FloatingCouponSpec
     ]
 );
 

@@ -2,9 +2,17 @@
 //!
 //! Implements various binomial tree methods including Cox-Ross-Rubinstein (CRR)
 //! and Leisen-Reimer for American and Bermudan option pricing.
+//!
+//! Now includes generic TreeModel implementation for pricing arbitrary instruments.
 
 use crate::instruments::options::{ExerciseStyle, OptionType};
 use finstack_core::{Error, Result, F};
+use finstack_core::market_data::context::MarketContext;
+
+// Import the generic tree framework
+use super::tree_framework::{
+    NodeState, StateVariables, TreeModel, TreeValuator, TreeGreeks, state_keys
+};
 
 /// Binomial tree types
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -376,6 +384,82 @@ impl BinomialTree {
             theta,
         })
     }
+
+    /// Generic pricing engine for arbitrary instruments
+    ///
+    /// This method implements the TreeModel trait, providing a flexible
+    /// interface for pricing any instrument that implements TreeValuator.
+    pub fn price_generic<V: TreeValuator>(
+        &self,
+        initial_vars: StateVariables,
+        time_to_maturity: F,
+        market_context: &MarketContext,
+        valuator: &V,
+    ) -> Result<F> {
+        // Extract required parameters from state variables
+        let spot = initial_vars.get(state_keys::SPOT)
+            .ok_or(Error::Internal)?;
+        let r = initial_vars.get(state_keys::INTEREST_RATE)
+            .ok_or(Error::Internal)?;
+        let q = initial_vars.get(state_keys::DIVIDEND_YIELD)
+            .unwrap_or(&0.0);
+        let sigma = initial_vars.get(state_keys::VOLATILITY)
+            .ok_or(Error::Internal)?;
+
+        // Calculate tree parameters using existing logic
+        let (u, d, p) = self.calculate_parameters(*spot, 0.0, *r, *sigma, time_to_maturity, *q)?;
+        let dt = time_to_maturity / self.steps as f64;
+        let df = (-r * dt).exp();
+
+        // Initialize values at terminal nodes using the valuator
+        let mut values = Vec::with_capacity(self.steps + 1);
+        for i in 0..=self.steps {
+            let spot_t = spot * u.powi(i as i32) * d.powi((self.steps - i) as i32);
+            let time_t = time_to_maturity;
+            
+            // Create state variables for this terminal node
+            let mut terminal_vars = initial_vars.clone();
+            terminal_vars.insert(state_keys::SPOT, spot_t);
+            
+            let terminal_state = NodeState::new(
+                self.steps,
+                time_t,
+                terminal_vars,
+                market_context,
+            );
+            
+            let payoff = valuator.value_at_maturity(&terminal_state)?;
+            values.push(payoff);
+        }
+
+        // Backward induction using the valuator
+        for step in (0..self.steps).rev() {
+            for i in 0..=step {
+                // Calculate continuation value (discounted expected value)
+                let continuation = df * (p * values[i + 1] + (1.0 - p) * values[i]);
+
+                // Create state for this node
+                let spot_t = spot * u.powi(i as i32) * d.powi((step - i) as i32);
+                let time_t = step as f64 * dt;
+                
+                let mut node_vars = initial_vars.clone();
+                node_vars.insert(state_keys::SPOT, spot_t);
+                
+                let node_state = NodeState::new(
+                    step,
+                    time_t,
+                    node_vars,
+                    market_context,
+                );
+
+                // Let the valuator determine the final value at this node
+                values[i] = valuator.value_at_node(&node_state, continuation)?;
+            }
+            values.pop();
+        }
+
+        Ok(values[0])
+    }
 }
 
 /// Greeks calculated from binomial tree
@@ -389,6 +473,91 @@ pub struct BinomialGreeks {
     pub gamma: F,
     /// Theta
     pub theta: F,
+}
+
+/// Implementation of TreeModel trait for BinomialTree
+impl TreeModel for BinomialTree {
+    fn price<V: TreeValuator>(
+        &self,
+        initial_vars: StateVariables,
+        time_to_maturity: F,
+        market_context: &MarketContext,
+        valuator: &V,
+    ) -> Result<F> {
+        self.price_generic(initial_vars, time_to_maturity, market_context, valuator)
+    }
+
+    fn calculate_greeks<V: TreeValuator>(
+        &self,
+        initial_vars: StateVariables,
+        time_to_maturity: F,
+        market_context: &MarketContext,
+        valuator: &V,
+        bump_size: Option<F>,
+    ) -> Result<TreeGreeks> {
+        let bump = bump_size.unwrap_or(0.01);
+        
+        // Base price
+        let base_price = self.price(initial_vars.clone(), time_to_maturity, market_context, valuator)?;
+
+        let mut greeks = TreeGreeks {
+            price: base_price,
+            delta: 0.0,
+            gamma: 0.0,
+            vega: 0.0,
+            theta: 0.0,
+            rho: 0.0,
+        };
+
+        // Calculate Delta and Gamma (spot sensitivity)
+        if let Some(&spot) = initial_vars.get(state_keys::SPOT) {
+            let h = bump * spot;
+            
+            // Spot up
+            let mut vars_up = initial_vars.clone();
+            vars_up.insert(state_keys::SPOT, spot + h);
+            let price_up = self.price(vars_up, time_to_maturity, market_context, valuator)?;
+            
+            // Spot down
+            let mut vars_down = initial_vars.clone();
+            vars_down.insert(state_keys::SPOT, spot - h);
+            let price_down = self.price(vars_down, time_to_maturity, market_context, valuator)?;
+            
+            greeks.delta = (price_up - price_down) / (2.0 * h);
+            greeks.gamma = (price_up - 2.0 * base_price + price_down) / (h * h);
+        }
+
+        // Calculate Vega (volatility sensitivity)
+        if let Some(&vol) = initial_vars.get(state_keys::VOLATILITY) {
+            let h = 0.01; // 1% vol bump
+            
+            let mut vars_vol_up = initial_vars.clone();
+            vars_vol_up.insert(state_keys::VOLATILITY, vol + h);
+            let price_vol_up = self.price(vars_vol_up, time_to_maturity, market_context, valuator)?;
+            
+            greeks.vega = price_vol_up - base_price;
+        }
+
+        // Calculate Rho (rate sensitivity)
+        if let Some(&rate) = initial_vars.get(state_keys::INTEREST_RATE) {
+            let h = 0.0001; // 1bp rate bump
+            
+            let mut vars_rate_up = initial_vars.clone();
+            vars_rate_up.insert(state_keys::INTEREST_RATE, rate + h);
+            let price_rate_up = self.price(vars_rate_up, time_to_maturity, market_context, valuator)?;
+            
+            greeks.rho = price_rate_up - base_price;
+        }
+
+        // Calculate Theta (time decay) - use 1 day bump
+        let dt = 1.0 / 365.25;
+        if time_to_maturity > dt {
+            let price_tomorrow = self.price(initial_vars, time_to_maturity - dt, market_context, valuator)?;
+            greeks.theta = -(base_price - price_tomorrow) / dt;
+        }
+
+        Ok(greeks)
+    }
 }
 
 #[cfg(test)]
