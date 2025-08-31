@@ -99,6 +99,12 @@ pub struct Loan {
     pub disc_id: &'static str,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
+    /// Cash sweep percentage applied due to covenant breach (0.0 = no sweep)
+    pub cash_sweep_pct: F,
+    /// Whether loan is in default
+    pub is_default: bool,
+    /// Whether distributions are blocked
+    pub distribution_blocked: bool,
 }
 
 impl Loan {
@@ -134,6 +140,9 @@ impl Loan {
             covenants: Vec::new(),
             disc_id: "USD-OIS",
             attributes: Attributes::new(),
+            cash_sweep_pct: 0.0,
+            is_default: false,
+            distribution_blocked: false,
         }
     }
 
@@ -431,6 +440,86 @@ impl_instrument_schedule_pv!(
 
 // Conversions and Attributable provided by macro
 
+impl crate::covenants::engine::InstrumentMutator for Loan {
+    fn set_default_status(&mut self, is_default: bool, _as_of: Date) -> finstack_core::Result<()> {
+        self.is_default = is_default;
+        Ok(())
+    }
+
+    fn increase_rate(&mut self, increase: F) -> finstack_core::Result<()> {
+        match &mut self.interest {
+            InterestSpec::Fixed { rate, step_ups } => {
+                if let Some(ref mut steps) = step_ups {
+                    // Add a step-up from today forward with the increased rate
+                    let new_rate = *rate + increase;
+                    // Find if there's already a step for today or later, update the latest one
+                    if let Some((_, last_rate)) = steps.last_mut() {
+                        *last_rate += increase;
+                    } else {
+                        steps.push((self.issue_date, new_rate));
+                    }
+                } else {
+                    // Create new step-ups starting from today
+                    let new_rate = *rate + increase;
+                    *step_ups = Some(vec![(self.issue_date, new_rate)]);
+                }
+            }
+            InterestSpec::Floating { spread_bp, spread_step_ups, .. } => {
+                let increase_bp = increase * 10000.0;
+                if let Some(ref mut steps) = spread_step_ups {
+                    // Add spread step-up
+                    if let Some((_, last_spread)) = steps.last_mut() {
+                        *last_spread += increase_bp;
+                    } else {
+                        steps.push((self.issue_date, *spread_bp + increase_bp));
+                    }
+                } else {
+                    *spread_step_ups = Some(vec![(self.issue_date, *spread_bp + increase_bp)]);
+                }
+            }
+            InterestSpec::PIK { rate } => {
+                *rate += increase;
+            }
+            InterestSpec::CashPlusPIK { cash_rate, pik_rate } => {
+                // Apply increase proportionally
+                let total = *cash_rate + *pik_rate;
+                if total > 0.0 {
+                    let cash_portion = *cash_rate / total;
+                    let pik_portion = *pik_rate / total;
+                    *cash_rate += increase * cash_portion;
+                    *pik_rate += increase * pik_portion;
+                } else {
+                    *cash_rate += increase * 0.5;
+                    *pik_rate += increase * 0.5;
+                }
+            }
+            InterestSpec::PIKToggle { cash_rate, pik_rate, .. } => {
+                *cash_rate += increase;
+                *pik_rate += increase;
+            }
+        }
+        Ok(())
+    }
+
+    fn set_cash_sweep(&mut self, percentage: F) -> finstack_core::Result<()> {
+        self.cash_sweep_pct = percentage.clamp(0.0, 1.0);
+        Ok(())
+    }
+
+    fn set_distribution_block(&mut self, blocked: bool) -> finstack_core::Result<()> {
+        self.distribution_blocked = blocked;
+        Ok(())
+    }
+
+    fn set_maturity(&mut self, new_maturity: Date) -> finstack_core::Result<()> {
+        if new_maturity < self.issue_date {
+            return Err(finstack_core::error::InputError::Invalid.into());
+        }
+        self.maturity_date = new_maturity;
+        Ok(())
+    }
+}
+
 /// Builder pattern for Loan instruments
 #[derive(Default)]
 pub struct LoanBuilder {
@@ -579,6 +668,9 @@ impl LoanBuilder {
             covenants: self.covenants.unwrap_or_default(),
             disc_id: self.disc_id.unwrap_or("USD-OIS"),
             attributes: Attributes::new(),
+            cash_sweep_pct: 0.0,
+            is_default: false,
+            distribution_blocked: false,
         })
     }
 }
@@ -704,5 +796,82 @@ mod tests {
             InterestSpec::Fixed { rate, .. } => assert_eq!(rate, 0.075),
             _ => panic!("Expected Fixed interest"),
         }
+    }
+
+    #[test]
+    fn test_covenant_consequence_rate_increase() {
+        use crate::covenants::engine::InstrumentMutator;
+        
+        let mut loan = Loan::new(
+            "LOAN-COVENANT-TEST",
+            Money::new(1_000_000.0, Currency::USD),
+            Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+            InterestSpec::Fixed {
+                rate: 0.05,
+                step_ups: None,
+            },
+        );
+
+        // Apply rate increase
+        loan.increase_rate(0.01).unwrap(); // 100bps increase
+
+        // Verify rate increase was applied
+        match &loan.interest {
+            InterestSpec::Fixed { step_ups, .. } => {
+                assert!(step_ups.is_some());
+                let steps = step_ups.as_ref().unwrap();
+                assert_eq!(steps.len(), 1);
+                assert!((steps[0].1 - 0.06).abs() < 1e-10); // Original 5% + 1% = 6%
+            }
+            _ => panic!("Expected Fixed interest"),
+        }
+    }
+
+    #[test]
+    fn test_covenant_consequence_cash_sweep() {
+        use crate::covenants::engine::InstrumentMutator;
+        
+        let mut loan = Loan::new(
+            "LOAN-SWEEP-TEST",
+            Money::new(1_000_000.0, Currency::USD),
+            Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+            InterestSpec::Fixed {
+                rate: 0.05,
+                step_ups: None,
+            },
+        );
+
+        assert_eq!(loan.cash_sweep_pct, 0.0);
+
+        // Apply cash sweep
+        loan.set_cash_sweep(0.5).unwrap(); // 50% sweep
+        assert_eq!(loan.cash_sweep_pct, 0.5);
+
+        // Test clamping
+        loan.set_cash_sweep(1.5).unwrap(); // Should be clamped to 1.0
+        assert_eq!(loan.cash_sweep_pct, 1.0);
+    }
+
+    #[test]
+    fn test_covenant_consequence_default_status() {
+        use crate::covenants::engine::InstrumentMutator;
+        
+        let mut loan = Loan::new(
+            "LOAN-DEFAULT-TEST",
+            Money::new(1_000_000.0, Currency::USD),
+            Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+            InterestSpec::Fixed {
+                rate: 0.05,
+                step_ups: None,
+            },
+        );
+
+        assert!(!loan.is_default);
+
+        loan.set_default_status(true, Date::from_calendar_date(2025, Month::June, 1).unwrap()).unwrap();
+        assert!(loan.is_default);
     }
 }

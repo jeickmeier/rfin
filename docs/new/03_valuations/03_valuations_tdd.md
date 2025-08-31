@@ -57,10 +57,7 @@ finstack/
 │  │  ├─ aggregation/       # Period-based aggregation
 │  │  ├─ covenants/         # Covenant types, evaluator, and consequence application
 │  │  ├─ formulas/          # Valuation-specific formulas
-│  │  ├─ real_estate/
-│  │  │  ├─ property/        # Property CF engine (rent roll/opex/taxes/capex/reserves)
-│  │  │  └─ debt/            # Construction loans & RE term debt policies
-│  │  ├─ waterfall/          # Deterministic equity waterfall engine
+
 │  │  └─ error.rs
 │  ├─ benches/
 │  └─ tests/
@@ -1031,247 +1028,7 @@ Moved to a separate, feature-gated crate: `finstack-structured-credit`.
 
 ---
 
-### 6.7 Real Estate: Property Asset & Cash Flows
 
-```rust
-use finstack_core::prelude::*;
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PropertyAsset {
-    pub id: InstrumentId,
-    pub currency: Currency,
-    pub leases: Vec<Lease>,
-    #[serde(default)]
-    pub opex: Vec<OpexItem>,
-    #[serde(default)]
-    pub taxes: Option<TaxesSpec>,
-    #[serde(default)]
-    pub reserves: Option<ReservePolicy>,
-    /// Optional valuation method: NPV using discount curve or cap rate echo
-    #[serde(default)]
-    pub valuation: Option<PropertyValuationSpec>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Lease {
-    pub tenant: String,
-    pub start: time::Date,
-    pub end: time::Date,
-    pub area_sqft: Decimal,
-    pub base_rent: Vec<RentStep>,
-    #[serde(default)]
-    pub indexation: Option<IndexationSpec>,
-    #[serde(default)]
-    pub free_rent: Vec<FreeRentWindow>,
-    #[serde(default)]
-    pub renewal: Option<RenewalOption>,
-    #[serde(default)]
-    pub passthrough: Option<PassThroughPolicy>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RentStep {
-    pub start: time::Date,
-    pub amount_per_sqft_per_year: Decimal,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct IndexationSpec {
-    pub index_id: IndexId, // e.g., CPI series id from MarketData
-    pub lag: finstack_core::time::IndexLag,
-    pub interpolation: finstack_core::time::IndexInterpolation,
-    pub cap: Option<Decimal>,
-    pub floor: Option<Decimal>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct FreeRentWindow {
-    pub start: time::Date,
-    pub end: time::Date,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RenewalOption {
-    pub probability: Decimal,
-    pub term_months: i32,
-    #[serde(default)]
-    pub rent_bump_pct: Option<Decimal>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum OpexItem {
-    Fixed { name: String, amount_per_period: Amount, frequency: Frequency },
-    PercentOfRent { name: String, pct: Decimal },
-    PerArea { name: String, amount_per_sqft_per_year: Decimal },
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TaxesSpec {
-    pub assessed_value: Decimal,
-    pub mill_rate: Decimal,
-    #[serde(default)]
-    pub passthrough: Option<PassThroughPolicy>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum PassThroughPolicy {
-    None,
-    ProRataArea,
-    Custom(String),
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ReservePolicy {
-    pub accrual_per_period: Amount,
-    pub permitted_uses: Vec<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum PropertyValuationSpec {
-    DiscountCurve { curve: CurveId },
-    CapRate { cap_rate: Decimal },
-}
-
-impl CashflowProvider for PropertyAsset {
-    fn build_schedule(&self, market: &MarketData, as_of: time::Date) -> Result<CashflowSchedule, ValuationError> {
-        // 1) Generate expected rent receipts with step-ups and CPI indexation
-        // 2) Apply free-rent windows and renewal probabilities (expected cash flows)
-        // 3) Compute opex and taxes; apply passthrough policies and reserves
-        // 4) Emit tagged flows: {rent, opex, taxes, reserves}
-        // Currency-preserving schedule
-    }
-}
-
-impl Priceable for PropertyAsset {
-    fn price(&self, market: &MarketData, as_of: time::Date) -> Result<ValuationResult, ValuationError> {
-        // Optional: NPV of net cash flows using discount curve or echo a cap-rate value
-    }
-}
-```
-
-Notes:
-- Lease flows are tagged; aggregation by period remains currency-safe.
-- CPI/RPI series pulled from `MarketData.inflation_indices` per `IndexationSpec`.
-- Renewal options produce expected cash flows via probability weighting.
-
-### 6.8 Real Estate Debt: Construction Loan
-
-```rust
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ConstructionLoan {
-    pub id: InstrumentId,
-    pub borrower: EntityId,
-    pub commitment: Amount,
-    pub draw_schedule: Vec<DrawEvent>,
-    pub interest: InterestType, // uses floating/fixed from §6.2
-    pub fees: Vec<FeeSpec>,
-    pub reserve: InterestReserveSpec,
-    pub capitalization: CapitalizationPolicy,
-    pub convert_to_term_on: Option<time::Date>,
-    #[serde(default)]
-    pub conversion: Option<TermConversionSpec>,
-    #[serde(default)]
-    pub dscr_sweep: Option<ToggleFnSpec>, // registry fn returning sweep pct
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct InterestReserveSpec {
-    pub initial_funding: Amount,
-    pub top_up_on_shortfall: bool,
-}
-
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum CapitalizationPolicy {
-    CapitalizeInterest,
-    PayFromReserveThenCapitalize,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TermConversionSpec {
-    pub term_maturity: time::Date,
-    pub amortization: AmortizationType,
-    pub interest: InterestType,
-}
-
-impl CashflowProvider for ConstructionLoan {
-    fn build_schedule(&self, market: &MarketData, as_of: time::Date) -> Result<CashflowSchedule, ValuationError> {
-        // 1) Accrue interest on drawn balance, consume/add to interest reserve per policy
-        // 2) Emit draw and repayment events; fees on undrawn (ticking/commitment)
-        // 3) Optional DSCR sweep via FN_REGISTRY toggle spec -> additional principal prepay
-        // 4) On conversion date, switch to term loan parameters prospectively
-    }
-}
-
-impl Priceable for ConstructionLoan {
-    fn price(&self, market: &MarketData, as_of: time::Date) -> Result<ValuationResult, ValuationError> {
-        // Discount projected debt service using OIS; expose measures: npv, interest_reserve_used
-    }
-}
-```
-
-Notes:
-- Interest reserve tracked as an internal ledger; cannot go negative.
-- DSCR sweep uses a deterministic registry predicate returning sweep percentage.
-
-### 6.9 Equity Waterfall Engine
-
-```rust
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct WaterfallSpec {
-    pub tiers: Vec<WaterfallTier>,
-    #[serde(default)]
-    pub clawback: Option<ClawbackSpec>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct WaterfallTier {
-    pub hurdle: Hurdle,
-    pub split: SplitSpec,   // e.g., 80/20 LP/GP
-    #[serde(default)]
-    pub catch_up: Option<CatchUpSpec>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum Hurdle { IRR(Decimal), Multiple(Decimal) }
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SplitSpec { pub lp_pct: Decimal, pub gp_pct: Decimal }
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CatchUpSpec { pub gp_pct: Decimal }
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ClawbackSpec { pub lookback_periods: i32 }
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AllocationLedgerRow {
-    pub period: PeriodId,
-    pub distributable: Amount,
-    pub allocated_lp: Amount,
-    pub allocated_gp: Amount,
-    pub tier_index: usize,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AllocationLedger { pub rows: Vec<AllocationLedgerRow> }
-
-pub struct WaterfallEngine;
-
-impl WaterfallEngine {
-    pub fn allocate(
-        spec: &WaterfallSpec,
-        contributions: &[(time::Date, Amount)],
-        distributable: &[(time::Date, Amount)],
-        periods: &[Period],
-    ) -> Result<AllocationLedger, ValuationError> {
-        // Deterministic, tiered allocation; prefer earliest tier on ties.
-    }
-}
-```
-
-Notes:
-- Uses `xirr` for hurdle checks; deterministic tie-breakers (earliest tier).
-- Outputs long-format friendly `AllocationLedgerRow` with explicit tier attribution.
 
 
 ## 7) Pricing & Valuation
@@ -1333,10 +1090,7 @@ pub mod measures {
     pub const VEGA: &str = "vega";
     pub const THETA: &str = "theta";
     pub const RHO: &str = "rho";
-    // Real estate
-    pub const NET_OPERATING_INCOME: &str = "noi";
-    pub const INTEREST_RESERVE_USED: &str = "interest_reserve_used";
-    pub const EQUITY_DISTRIBUTABLE: &str = "equity_distributable";
+
 }
 ```
 
@@ -1951,12 +1705,7 @@ pub use instruments::{
     CallSchedule, FeeSpec, FeeType,
 };
 
-// Real Estate
-pub use real_estate::property::{PropertyAsset, Lease, RentStep, IndexationSpec, FreeRentWindow, RenewalOption, OpexItem, TaxesSpec, PassThroughPolicy, ReservePolicy, PropertyValuationSpec};
-pub use real_estate::debt::{ConstructionLoan, InterestReserveSpec, CapitalizationPolicy, TermConversionSpec};
 
-// Waterfall
-pub use waterfall::{WaterfallSpec, WaterfallTier, Hurdle, SplitSpec, CatchUpSpec, ClawbackSpec, AllocationLedgerRow, AllocationLedger, WaterfallEngine};
 
 // Structured Credit instruments and utilities are provided by the separate
 // `finstack-structured-credit` crate and re-exported by the meta-crate when
@@ -2027,21 +1776,7 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_property_asset_schedule_basic() {
-        // Build a simple property with one lease and no indexation
-        // Assert rent, opex, and taxes flows are generated and tagged correctly
-    }
 
-    #[test]
-    fn test_construction_loan_interest_reserve_usage() {
-        // Draw schedule with interest-only period; verify reserve consumption and measure exposure
-    }
-
-    #[test]
-    fn test_waterfall_allocation_basic_tiers() {
-        // Simple two-tier IRR hurdle with catch-up; verify allocation ledger rows
-    }
 }
 ```
 
@@ -2284,10 +2019,7 @@ fn value_portfolio(
 * **Real-time Greeks** with automatic differentiation
 * **Structured Credit** with cashflow waterfalls, OC tests, pre-payments/defaults/recovery
 
-### 16.1 Real Estate and Private Equity Underwriting (Shipped)
 
-- Property cashflows engine, construction loans, and equity waterfall are now first-class (see §§6.7–6.9).
-- Future: add DSCR-targeted amortization and lockbox mechanics as policies in `real_estate::debt`.
 
 ---
 
@@ -2319,9 +2051,7 @@ fn value_portfolio(
  - [ ] Scenario hooks: selectors can toggle enforcement, shock thresholds, and edit grid margins deterministically
  - [ ] DDTL instrument: commitment/ticking fees, draw conditions, expiry, and post-draw accruals
 
- - [ ] Real Estate: PropertyAsset generates rent/opex/taxes/reserve flows with CPI indexation and renewal expectations; NOI measure validated against golden models
- - [ ] ConstructionLoan interest reserve usage, capitalization policy, and conversion to term validated; measure `interest_reserve_used` exposed
- - [ ] Equity Waterfall: allocation ledger deterministic; IRR hurdle checks stable; parity vs Excel/golden within tolerance
+
 
 ---
 

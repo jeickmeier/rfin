@@ -321,6 +321,14 @@ impl LoanSimulator {
             breakdown.utilization_fees += period_pv.utilization_fees;
             breakdown.other_fees += period_pv.other_fees;
             
+            // Apply cash sweep (reduces outstanding)
+            let df_end = disc.df(DiscountCurve::year_fraction(
+                disc.base_date(), period_end, facility.day_count()
+            ));
+            current_drawn -= period_pv.cash_sweep / df_end; // Undiscount to get notional impact
+            current_drawn = current_drawn.max(0.0); // Ensure non-negative
+            breakdown.incremental_principal += period_pv.cash_sweep; // Add to principal PV
+            
             // Update state for PIK capitalization
             current_drawn += period_pv.pik_capitalization;
             
@@ -442,6 +450,14 @@ impl LoanSimulator {
             breakdown.utilization_fees += period_pv.utilization_fees;
             breakdown.other_fees += period_pv.other_fees;
             
+            // Apply cash sweep (reduces outstanding) 
+            let df_end = disc.df(DiscountCurve::year_fraction(
+                disc.base_date(), period_end, facility.day_count()
+            ));
+            current_drawn -= period_pv.cash_sweep / df_end; // Undiscount to get notional impact
+            current_drawn = current_drawn.max(0.0); // Ensure non-negative
+            breakdown.incremental_principal += period_pv.cash_sweep; // Add to principal PV
+            
             // Apply PIK capitalization
             current_drawn += period_pv.pik_capitalization;
             
@@ -551,6 +567,18 @@ impl LoanSimulator {
         // This is simplified - full implementation would need to track 
         // proportional amortization for each incremental draw
         
+        // Cash sweep calculation
+        let sweep_pct = facility.cash_sweep_percentage();
+        if sweep_pct > 0.0 && drawn_start > 0.0 {
+            // Calculate available cash (simplified as a fraction of interest income)
+            // In practice, this would come from borrower's cash flow statement
+            let available_cash = result.interest * 0.5; // Assume 50% of interest as available cash
+            let sweep_amount = available_cash * sweep_pct;
+            let max_sweep = drawn_start; // Can't sweep more than outstanding
+            
+            result.cash_sweep = sweep_amount.min(max_sweep) * df_end;
+        }
+        
         Ok(result)
     }
 
@@ -631,6 +659,8 @@ struct PeriodCashFlows {
     utilization_fees: F,
     /// Other fees
     other_fees: F,
+    /// Cash sweep amount (additional principal repayment)
+    cash_sweep: F,
 }
 
 /// Trait for loan facilities that can be simulated
@@ -659,6 +689,11 @@ pub trait LoanFacility {
     /// Get utilization fee schedule (for revolvers)
     fn utilization_fee_schedule(&self) -> Option<&UtilizationFeeSchedule> {
         None
+    }
+    
+    /// Get cash sweep percentage (0.0 = no sweep)
+    fn cash_sweep_percentage(&self) -> F {
+        0.0
     }
     
     /// Get payment frequency

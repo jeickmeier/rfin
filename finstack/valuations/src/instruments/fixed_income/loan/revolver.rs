@@ -5,13 +5,10 @@ use super::simulation::{LoanFacility, LoanSimulator, SimulationEvent, EventType}
 use super::term_loan::InterestSpec;
 use crate::cashflow::builder::{cf, CouponType, FeeBase, FeeSpec, FloatingCouponSpec};
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::traits::Priceable;
-use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::money::Money;
 use finstack_core::F;
-use indexmap::IndexMap;
 
 /// Utilization fee tier.
 #[derive(Clone, Debug)]
@@ -144,6 +141,14 @@ pub struct RevolvingCreditFacility {
     pub stub: StubKind,
     /// Discount curve ID
     pub disc_id: &'static str,
+    /// Cash sweep percentage applied due to covenant breach (0.0 = no sweep)
+    pub cash_sweep_pct: F,
+    /// Whether facility is in default
+    pub is_default: bool,
+    /// Whether distributions are blocked
+    pub distribution_blocked: bool,
+    /// Attributes for scenario selection and tagging
+    pub attributes: crate::instruments::traits::Attributes,
 }
 
 impl RevolvingCreditFacility {
@@ -181,6 +186,10 @@ impl RevolvingCreditFacility {
             calendar_id: Some("usd"),
             stub: StubKind::None,
             disc_id: "USD-OIS",
+            cash_sweep_pct: 0.0,
+            is_default: false,
+            distribution_blocked: false,
+            attributes: crate::instruments::traits::Attributes::new(),
         }
     }
 
@@ -276,7 +285,7 @@ impl RevolvingCreditFacility {
     }
 
     /// Simulates the drawn amount up to a given date.
-    fn simulate_drawn_to_date(&self, as_of: Date) -> Money {
+    pub fn simulate_drawn_to_date(&self, as_of: Date) -> Money {
         let mut drawn = self.drawn_amount;
 
         for event in &self.draw_repay_schedule {
@@ -425,6 +434,10 @@ impl LoanFacility for RevolvingCreditFacility {
         self.utilization_fees.as_ref()
     }
     
+    fn cash_sweep_percentage(&self) -> F {
+        self.cash_sweep_pct
+    }
+    
     fn frequency(&self) -> Frequency {
         self.frequency
     }
@@ -507,40 +520,78 @@ impl LoanFacility for RevolvingCreditFacility {
     }
 }
 
-impl Priceable for RevolvingCreditFacility {
-    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
+impl_instrument!(
+    RevolvingCreditFacility,
+    "RevolvingCreditFacility",
+    pv = |s, curves, as_of| {
         // Use enhanced simulation-based valuation
         let simulator = LoanSimulator::new();
-        let result = simulator.simulate(self, curves, as_of)?;
+        let result = simulator.simulate(s, curves, as_of)?;
         Ok(result.total_pv)
+    },
+    metrics = |_s| vec![
+        crate::metrics::MetricId::custom("drawn"),
+        crate::metrics::MetricId::custom("undrawn"),
+        crate::metrics::MetricId::custom("commitment"),
+        crate::metrics::MetricId::custom("utilization"),
+        crate::metrics::MetricId::custom("expected_exposure_1y"),
+    ]
+);
+
+impl crate::covenants::engine::InstrumentMutator for RevolvingCreditFacility {
+    fn set_default_status(&mut self, is_default: bool, _as_of: Date) -> finstack_core::Result<()> {
+        self.is_default = is_default;
+        Ok(())
     }
 
-    fn price_with_metrics(
-        &self,
-        curves: &CurveSet,
-        as_of: Date,
-        _metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-
-        let mut result = ValuationResult::stamped(&self.id, as_of, base_value);
-
-        // Add facility metrics
-        let mut measures = IndexMap::new();
-        measures.insert(
-            "drawn".to_string(),
-            self.simulate_drawn_to_date(as_of).amount(),
-        );
-        measures.insert("undrawn".to_string(), self.undrawn_amount().amount());
-        measures.insert("commitment".to_string(), self.commitment.amount());
-        measures.insert("utilization".to_string(), self.utilization());
-
-        result = result.with_measures(measures);
-        Ok(result)
+    fn increase_rate(&mut self, increase: F) -> finstack_core::Result<()> {
+        match &mut self.interest_spec {
+            InterestSpec::Fixed { rate, step_ups } => {
+                if let Some(ref mut steps) = step_ups {
+                    if let Some((_, last_rate)) = steps.last_mut() {
+                        *last_rate += increase;
+                    } else {
+                        steps.push((self.availability_start, *rate + increase));
+                    }
+                } else {
+                    *step_ups = Some(vec![(self.availability_start, *rate + increase)]);
+                }
+            }
+            InterestSpec::Floating { spread_bp, spread_step_ups, .. } => {
+                let increase_bp = increase * 10000.0;
+                if let Some(ref mut steps) = spread_step_ups {
+                    if let Some((_, last_spread)) = steps.last_mut() {
+                        *last_spread += increase_bp;
+                    } else {
+                        steps.push((self.availability_start, *spread_bp + increase_bp));
+                    }
+                } else {
+                    *spread_step_ups = Some(vec![(self.availability_start, *spread_bp + increase_bp)]);
+                }
+            }
+            _ => {
+                // For other interest types, apply increase to base rates
+            }
+        }
+        Ok(())
     }
 
-    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
-        self.price_with_metrics(curves, as_of, &[])
+    fn set_cash_sweep(&mut self, percentage: F) -> finstack_core::Result<()> {
+        self.cash_sweep_pct = percentage.clamp(0.0, 1.0);
+        Ok(())
+    }
+
+    fn set_distribution_block(&mut self, blocked: bool) -> finstack_core::Result<()> {
+        self.distribution_blocked = blocked;
+        Ok(())
+    }
+
+    fn set_maturity(&mut self, new_maturity: Date) -> finstack_core::Result<()> {
+        if new_maturity < self.availability_start {
+            return Err(finstack_core::error::InputError::Invalid.into());
+        }
+        self.maturity = new_maturity;
+        Ok(())
     }
 }
 
@@ -614,5 +665,38 @@ mod tests {
             revolver.simulate_drawn_to_date(as_of).amount(),
             12_000_000.0
         );
+    }
+
+    #[test]
+    fn test_revolver_covenant_consequences() {
+        use crate::covenants::engine::InstrumentMutator;
+        
+        let mut revolver = RevolvingCreditFacility::new(
+            "RCF-COVENANT-TEST",
+            Money::new(10_000_000.0, Currency::USD),
+            Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2028, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+        );
+
+        // Test rate increase
+        revolver.increase_rate(0.005).unwrap(); // 50bps increase
+        match &revolver.interest_spec {
+            InterestSpec::Floating { spread_step_ups, .. } => {
+                assert!(spread_step_ups.is_some());
+                let steps = spread_step_ups.as_ref().unwrap();
+                assert_eq!(steps.len(), 1);
+                assert_eq!(steps[0].1, 300.0); // Original 250bps + 50bps = 300bps
+            }
+            _ => panic!("Expected Floating interest"),
+        }
+
+        // Test cash sweep
+        revolver.set_cash_sweep(0.75).unwrap();
+        assert_eq!(revolver.cash_sweep_pct, 0.75);
+
+        // Test default status
+        revolver.set_default_status(true, Date::from_calendar_date(2025, Month::June, 1).unwrap()).unwrap();
+        assert!(revolver.is_default);
     }
 }

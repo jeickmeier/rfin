@@ -326,11 +326,16 @@ fn test_revolver_with_utilization_fees() {
     let flows = revolver.build_schedule(&curves, as_of).unwrap();
     assert!(!flows.is_empty());
 
-    // Compute value with metrics
-    let result = revolver.price_with_metrics(&curves, as_of, &[]).unwrap();
-    assert!(result.measures.contains_key("utilization"));
-    assert!(result.measures.contains_key("drawn"));
-    assert!(result.measures.contains_key("undrawn"));
+    // Compute value (basic test to ensure pricing works)
+    let value = revolver.value(&curves, as_of).unwrap();
+    assert_eq!(value.currency(), Currency::USD);
+    
+    // Test initial utilization (before events)
+    assert_eq!(revolver.utilization(), 0.0); // No initial drawn amount
+    
+    // Test simulated drawn amount after events
+    let simulated_drawn = revolver.simulate_drawn_to_date(as_of);
+    assert_eq!(simulated_drawn.amount(), 20_000_000.0); // 10M + 15M - 5M = 20M
 }
 
 #[test]

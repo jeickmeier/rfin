@@ -8,12 +8,13 @@
 
 ## 1) Executive Summary
 
-The Statements engine lets users build financial statements as a graph of metrics evaluated over discrete periods (e.g., months, quarters). Users provide values, forecasts, and formulas for each metric, and the engine produces deterministic, currency‑aware results suitable for analysis, reporting, and downstream modeling. Outputs are easy to consume in Python notebooks, data pipelines, and web apps.
+The Statements engine lets users build financial statements as a graph of metrics evaluated over discrete periods (e.g., months, quarters). Users provide values, forecasts, and formulas for each metric, and the engine produces deterministic, currency‑aware results suitable for analysis, reporting, and downstream modeling. It also provides specialized real estate underwriting capabilities including property cash flow modeling, construction loan tracking, and equity waterfall allocation. Outputs are easy to consume in Python notebooks, data pipelines, and web apps.
 
 Outcomes:
 - **Deterministic numbers** across machines and runs (no drift between serial vs parallel).
 - **Currency‑safe modeling** with explicit FX conversions only when requested.
 - **Transparent models** with readable formulas, clear precedence (Value > Forecast > Formula), and predictable handling of missing data.
+- **Real estate underwriting** with property cash flows, construction loans, and equity waterfall allocation modeling.
 - **Portable results** with stable schemas and convenient DataFrame exports.
 
 ---
@@ -25,6 +26,7 @@ Goals:
 - Ensure deterministic evaluation and stable ordering; parallel runs do not change results.
 - Make currency behavior explicit; stamp FX policies into result metadata when used.
 - Provide a small, namespaced set of built‑in metrics that users can extend.
+- Support real estate underwriting workflows with property cash flows, construction loans, and equity waterfalls.
 - Offer first‑class DataFrame outputs and strict, versioned wire formats for interchange.
 
 Non‑Goals:
@@ -37,6 +39,7 @@ Non‑Goals:
 ## 3) Target Users & Personas
 
 - **Financial Analyst:** Builds and reviews statements, runs forecasts, and inspects standardized metrics.
+- **Real Estate Analyst:** Models property cash flows, tracks construction loan performance, and analyzes equity waterfall distributions.
 - **Quant/Engineer:** Integrates statements with pricing and risk models; needs determinism and performance.
 - **Data Scientist (Python):** Consumes DataFrames, prototypes scenarios, and exports reports reliably.
 - **Web/App Engineer (WASM):** Embeds statement previews; relies on stable JSON shapes.
@@ -49,6 +52,7 @@ Non‑Goals:
 - **Forecasting:** Apply simple deterministic methods (forward‑fill, growth %) and explicit overrides.
 - **Metric standardization:** Use a namespaced registry (e.g., `fin.`) to align key metrics across models.
 - **Period planning:** Define ranges (monthly/quarterly/yearly) and mark actuals versus forecast periods.
+- **Real estate modeling:** Track property cash flows (rent, opex, taxes, reserves), construction loans with interest reserves, and equity waterfall allocations.
 - **Analysis & reporting:** Export long/wide tables to DataFrames for dashboards, notebooks, and BI tools.
 
 - **Balance Sheet articulation & plugs:** Automatically reconcile Assets with Liabilities + Equity using deterministic plug selection and clear metadata.
@@ -69,7 +73,7 @@ In‑Scope:
 - Dedicated corkscrew schedule nodes for roll‑forward accounting.
 
 Out‑of‑Scope (here):
-- Pricing instruments, scenario engines, and portfolio aggregation (separate crates).
+- Instrument pricing (except real estate property valuations), scenario engines, and portfolio aggregation (separate crates).
 - Implicit FX conversions; any conversion must be explicit in formulas/policies.
 - File formats and connectors (handled by an optional IO layer).
 
@@ -124,6 +128,13 @@ Out‑of‑Scope (here):
 - Vectorized evaluation over periods; schedules export cleanly to long/wide DataFrames (including begin/end columns if requested).
 - Configurable legs (e.g., additions, disposals, depreciation, amortization, accretion) with deterministic signs.
 
+### 6.10 Real Estate: Property Cash Flows
+- Model rent rolls with step‑ups and CPI/RPI indexation (lag/interpolation, caps/floors); free‑rent windows; renewal probabilities and expected cash flows.
+- Track operating expenses (fixed and % of rent or area), reimbursements/passthroughs, CAM recoveries with gross‑up policies.
+- Calculate property taxes (assessed value × mill rate), exemptions and phase‑ins; optional passthroughs per lease.
+- Manage capex, TI/LC and reserves: dated outflows; reserve accrual/use; policy‑driven capitalization vs expense treatment.
+- Currency‑preserving period aggregation across property flows; optional explicit FX collapse stamped in metadata.
+
 ---
 
 ## 7) Non‑Functional Requirements
@@ -146,7 +157,7 @@ Out‑of‑Scope (here):
 - JSON IO mirrors serde names; feature flags enable small bundles for browser demos.
 
 ### 8.3 Documentation
-- Quickstarts: build a simple model, add forecasts, add formulas, export DataFrames.
+- Quickstarts: build a simple model, add forecasts, add formulas, export DataFrames; real estate examples for property cash flows, construction loans, and equity waterfalls.
 - Policy visibility examples: FX conversion choices and rounding context in results.
 
 ---
@@ -170,6 +181,7 @@ Out‑of‑Scope (here):
 
 - Balance Sheet articulation enforces Assets ≡ Liabilities + Equity per period with deterministic plug selection and zero residuals (Decimal mode) unless a user‑configured tolerance is set.
 - Corkscrew schedules enforce begin/end roll‑forwards per period and across periods; mismatches produce typed errors.
+- Real estate underwriting: property cash flows, construction loans, and equity waterfalls model complex real estate scenarios with deterministic period‑based calculations.
 
 ---
 

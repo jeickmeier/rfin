@@ -8,12 +8,11 @@
 
 ## 1) Executive Summary
 
-Valuations is the quantitative finance engine for finstack. It turns instruments and market data into trustworthy prices, risk, and tagged cash flows. It covers public markets (bonds, swaps, CDS, options, equities) and private credit (term loans, DDTL, revolvers, complex fees, cash/PIK/toggle coupons, amortization, calls/prepayment). It also provides first‑class real estate underwriting: property cash flows (rent rolls, opex, taxes, capex/reserves), construction loans with interest reserves and conversion to term, and a deterministic equity waterfall engine with audit‑ready allocation ledgers. Results are deterministic, currency‑safe, and portable across Rust, Python, and WASM, with transparent FX and rounding policies and stable, analytics‑friendly outputs.
+Valuations is the quantitative finance engine for finstack. It turns instruments and market data into trustworthy prices, risk, and tagged cash flows. It covers public markets (bonds, swaps, CDS, options, equities) and private credit (term loans, DDTL, revolvers, complex fees, cash/PIK/toggle coupons, amortization, calls/prepayment). Results are deterministic, currency‑safe, and portable across Rust, Python, and WASM, with transparent FX and rounding policies and stable, analytics‑friendly outputs.
 
 Key outcomes:
 - **Accurate pricing and risk** with market‑standard conventions and multi‑curve discounting.
 - **Private credit readiness**: cash/PIK/toggle interest, fees, amortization, call/prepayment logic, covenants.
-- **Real estate underwriting**: property cash flows, construction loans (interest reserve, capitalization, term conversion), and a deterministic equity waterfall with auditable ledgers.
 - **Deterministic, auditable results**: explicit FX policies and rounding context stamped in outputs.
 - **Analytics at scale**: currency‑preserving cashflow tags/rollups and DataFrame‑ready long‑format exports.
 
@@ -26,7 +25,7 @@ Goals:
 - Deliver pricing, yield, spread, and risk measures that match desk expectations and vendor benchmarks.
 - Generate tagged cash flows suitable for period aggregation and portfolio analysis, with currency safety.
 - Support private credit workflows: covenants, enforcement toggles, rate step‑ups, cash sweeps.
-- Support real‑estate underwriting: construction loans, and a deterministic equity waterfall.
+
 
 Non‑Goals:
 - Portfolio aggregation and reporting (lives in `portfolio`).
@@ -66,7 +65,7 @@ In‑Scope:
 - Cashflow engine: deterministic schedules, tagging, and currency‑preserving period aggregation.
 - Market data use: OIS discounting, projection curves for floating legs, credit curves, vol surfaces, inflation indices, and explicit IBOR→RFR fallbacks.
 - Private credit: fees (origination/commitment/utilization/amendment/exit/prepayment), grids for margins, covenants.
-- Real estate: property cash flows (rent roll, opex, taxes, capex/reserves), construction loans (commitment/draws, interest reserve, capitalization, conversion to term), and a deterministic equity waterfall engine.
+
 
 Out‑of‑Scope (now):
 - Structured credit waterfalls (separate crate/feature).
@@ -120,23 +119,7 @@ Out‑of‑Scope (now):
 - Metadata includes numeric mode, parallel flag, rounding context, and any FX policy applied.
 - Provide long‑format, DataFrame‑friendly views for batch analysis; stable serde/JSON shapes across bindings.
 
-### 6.9 Property Cash Flows (Real Estate)
-- Rent roll with step‑ups and CPI/RPI indexation (lag/interp, caps/floors); free‑rent windows; renewal probabilities and expected cashflows.
-- Operating expenses (fixed and % of rent or area), reimbursements/passthroughs, CAM recoveries with gross‑up policies.
-- Property taxes (assessed value × mill rate), exemptions and phase‑ins; optional passthroughs per lease.
-- Capex, TI/LC and reserves: dated outflows; reserve accrual/use; policy‑driven capitalization vs expense.
-- Currency‑preserving period aggregation across property flows; optional explicit FX collapse stamped in metadata.
 
-### 6.10 Construction Loans (Real Estate Debt)
-- Commitment and staged draw schedules with notice/min/max draw rules; ticking/commitment fees on undrawn.
-- Interest‑only during construction with interest reserve funding/usage; configurable capitalization of interest and fees.
-- Conversion to term loan on substantial completion or a target date; DSCR‑based cash sweep policy hooks supported.
-- Fees: origination, inspection, extension; covenants/tests as needed; deterministic schedule generation and tagging.
-
-### 6.11 Deterministic Equity Waterfall Engine
-- Serializable waterfall spec with pref IRR hurdles, catch‑up, promote splits, and clawback rules.
-- Deterministic, auditable allocation ledger per period and tranche; IRR calculations use robust root finding.
-- Stable serde shapes across bindings; DataFrame‑ready outputs for analysis and reporting.
 
 ---
 
@@ -157,7 +140,7 @@ Out‑of‑Scope (now):
 - **Python:** Simple constructors and pricing calls; Pydantic models mirror wire shapes; DataFrame outputs first‑class.
 - **WASM:** Small bundles via features; JSON IO mirrors serde names; examples for cashflow previews and basic pricing.
 - **Errors:** Clear, contextual messages for missing market data, invalid specs, and convergence failures.
-- **Docs & Examples:** Quickstarts for bonds, loans, swaps, options, CDS, covenants/workout, period aggregation, property cash flows, construction loans, and equity waterfalls.
+- **Docs & Examples:** Quickstarts for bonds, loans, swaps, options, CDS, covenants/workout, and period aggregation.
 
 ---
 
@@ -172,7 +155,7 @@ Out‑of‑Scope (now):
 - Covenant engine evaluates ratio tests per period with grace/cure windows and applies consequences prospectively.
 - Outputs include numeric mode, rounding context, and FX policy when used; long‑format exports work in Python/WASM.
 - Performance targets met for reference workloads; CI covers unit/property/parity tests on core pricing logic.
-- Real estate: Property cash flows compute rent, opex/taxes, and reserves correctly with indexation and policies; Construction loans accrue interest/reserve and convert to term as specified; Equity waterfall allocations match Excel/golden models within tolerance and produce an auditable ledger.
+
 
 ---
 
@@ -190,9 +173,9 @@ Out‑of‑Scope (now):
 
 - **Phase A — Core pricing + aggregation:** Bonds, swaps, FX spot, equities, basic options; cashflow tagging and period aggregation; quote adapters; long‑format outputs.
 - **Phase B — Private credit:** Loans, DDTL, revolvers; fees, amortization, call/prepayment; covenant engine and enforcement toggles.
-- **Phase C — Real estate underwriting:** Property cash flows, construction loans (interest reserve, capitalization, conversion), equity waterfall engine with allocation ledgers.
-- **Phase D — Risk & derivatives:** CDS pricing, option Greeks, bucketed risk; inflation‑linked bonds; index fallback and grid margin policies.
-- **Phase E — Performance & parity:** Benchmarks, parallel portfolio pricing, and vendor/golden parity tests; UX polish and examples.
+
+- **Phase C — Risk & derivatives:** CDS pricing, option Greeks, bucketed risk; inflation‑linked bonds; index fallback and grid margin policies.
+- **Phase D — Performance & parity:** Benchmarks, parallel portfolio pricing, and vendor/golden parity tests; UX polish and examples.
 
 Each phase ships with examples, docs, and CI acceptance criteria aligned to the above.
 
