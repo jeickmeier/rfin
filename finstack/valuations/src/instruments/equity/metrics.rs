@@ -51,4 +51,7 @@ pub fn register_equity_metrics(registry: &mut MetricRegistry) {
         Arc::new(MarketValueCalculator),
         &["Equity"],
     );
+
+    // Register private equity metrics
+    crate::instruments::equity::private_equity::register_private_equity_metrics(registry);
 }

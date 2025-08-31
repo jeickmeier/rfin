@@ -85,6 +85,7 @@ Out‑of‑Scope (here):
 - Users define a model ID and a period plan (e.g., `2025Q1..2026Q4`) with optional actuals marking.
 - Nodes are identified by stable IDs and optional display names and tags.
 - Precedence per period is enforced: **Value > Forecast > Formula**.
+- Use periods from /core crate
 
 ### 6.2 Values, Forecasts, and Formulas
 - Values can be currency amounts or unitless scalars; currency math requires matching currencies.
