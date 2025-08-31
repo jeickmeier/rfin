@@ -53,5 +53,3 @@ pub fn d1(spot: F, strike: F, r: F, sigma: F, t: F, q: F) -> F {
 pub fn d2(spot: F, strike: F, r: F, sigma: F, t: F, q: F) -> F {
     d1(spot, strike, r, sigma, t, q) - sigma * t.sqrt()
 }
-
-

@@ -280,13 +280,18 @@ impl CreditDefaultSwap {
     /// Calculate CS01 (change in PV for 1bp credit spread change) via enhanced pricer
     pub fn cs01(&self, curves: &CurveSet) -> finstack_core::Result<F> {
         let pricer = cds_pricer::CDSPricer::new();
-        pricer.cs01(self, curves, curves.discount(self.premium.disc_id)?.base_date())
+        pricer.cs01(
+            self,
+            curves,
+            curves.discount(self.premium.disc_id)?.base_date(),
+        )
     }
 }
 
 // Custom Priceable implementation for CDS (has nested fields like premium.disc_id)
 impl_instrument!(
-    CreditDefaultSwap, "CreditDefaultSwap",
+    CreditDefaultSwap,
+    "CreditDefaultSwap",
     pv = |s, curves, _as_of| {
         let disc = curves.discount(s.premium.disc_id)?;
         let credit = curves.credit(s.protection.credit_id)?;
@@ -296,7 +301,11 @@ impl_instrument!(
             PayReceive::PayProtection => (pv_protection - pv_premium)?,
             PayReceive::ReceiveProtection => (pv_premium - pv_protection)?,
         };
-        if let Some(upfront) = s.upfront { pv + upfront } else { Ok(pv) }
+        if let Some(upfront) = s.upfront {
+            pv + upfront
+        } else {
+            Ok(pv)
+        }
     },
     metrics = |_s| {
         vec![

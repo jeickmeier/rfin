@@ -7,9 +7,9 @@ use finstack_core::prelude::*;
 use finstack_core::F;
 
 // (no longer using cashflow builder for deposits)
-use crate::metrics::MetricId;
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::traits::Attributes;
+use crate::metrics::MetricId;
 use crate::{impl_attributable, impl_builder};
 // (no scheduling knobs needed in the two-flow model)
 
@@ -84,6 +84,9 @@ impl CashflowProvider for Deposit {
         );
         let r = self.quote_rate.unwrap_or(0.0);
         let redemption = self.notional * (1.0 + r * yf);
-        Ok(vec![(self.start, self.notional * -1.0), (self.end, redemption)])
+        Ok(vec![
+            (self.start, self.notional * -1.0),
+            (self.end, redemption),
+        ])
     }
 }

@@ -10,8 +10,6 @@ pub struct RealYieldCalculator;
 
 impl MetricCalculator for RealYieldCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-
-
         let ilb: &InflationLinkedBond = context.instrument_as()?;
         let clean_price = ilb.quoted_clean.ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound)
@@ -29,18 +27,16 @@ pub struct IndexRatioCalculator;
 
 impl MetricCalculator for IndexRatioCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-
-
         let ilb: &InflationLinkedBond = context.instrument_as()?;
-            // Get inflation index
-            let inflation_index = context
-                .curves
-                .inflation_index(ilb.inflation_id)
-                .ok_or_else(|| {
-                    finstack_core::Error::from(finstack_core::error::InputError::NotFound)
-                })?;
+        // Get inflation index
+        let inflation_index = context
+            .curves
+            .inflation_index(ilb.inflation_id)
+            .ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+            })?;
 
-            ilb.index_ratio(context.as_of, &inflation_index)
+        ilb.index_ratio(context.as_of, &inflation_index)
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -53,8 +49,6 @@ pub struct RealDurationCalculator;
 
 impl MetricCalculator for RealDurationCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-
-
         let ilb: &InflationLinkedBond = context.instrument_as()?;
         ilb.real_duration(&context.curves, context.as_of)
     }
@@ -73,7 +67,9 @@ impl MetricCalculator for BreakevenInflationCalculator {
         // Breakeven inflation requires a nominal bond yield which is not available
         // in the current market context. This metric should be computed externally
         // with the appropriate nominal yield input.
-        Err(finstack_core::Error::from(finstack_core::error::InputError::NotFound))
+        Err(finstack_core::Error::from(
+            finstack_core::error::InputError::NotFound,
+        ))
     }
 
     fn dependencies(&self) -> &[MetricId] {

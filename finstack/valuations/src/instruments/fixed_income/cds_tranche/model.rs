@@ -3,14 +3,14 @@
 //! Implements the industry-standard base correlation approach for pricing
 //! synthetic CDO tranches using a one-factor Gaussian Copula model.
 
-use crate::market_data::{CreditIndexData, ValuationMarketContext};
-use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
 use crate::instruments::fixed_income::cds_tranche::numerical::{
-    GaussHermiteQuadrature, standard_normal_cdf, standard_normal_inv_cdf
+    standard_normal_cdf, standard_normal_inv_cdf, GaussHermiteQuadrature,
 };
-use finstack_core::prelude::*;
+use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
+use crate::market_data::{CreditIndexData, ValuationMarketContext};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::traits::Discount;
+use finstack_core::prelude::*;
 use finstack_core::F;
 
 /// Parameters for the Gaussian Copula pricing model.
@@ -29,10 +29,10 @@ pub struct GaussianCopulaParams {
 impl Default for GaussianCopulaParams {
     fn default() -> Self {
         Self {
-            quadrature_order: 7,        // Good balance of accuracy and performance
-            use_issuer_curves: true,     // Use heterogeneous modeling when available
-            min_correlation: 0.01,       // Numerical stability floor
-            max_correlation: 0.99,       // Numerical stability ceiling
+            quadrature_order: 7,     // Good balance of accuracy and performance
+            use_issuer_curves: true, // Use heterogeneous modeling when available
+            min_correlation: 0.01,   // Numerical stability floor
+            max_correlation: 0.99,   // Numerical stability ceiling
         }
     }
 }
@@ -78,16 +78,13 @@ impl GaussianCopulaModel {
     ) -> Result<Money> {
         // Get the credit index data
         let index_data = market_ctx.get_credit_index(tranche.credit_index_id)?;
-        
+
         // Get the discount curve
         let discount_curve = market_ctx.discount(tranche.disc_id)?;
 
         // Calculate expected tranche loss using base correlation approach
-        let expected_loss = self.calculate_expected_tranche_loss(
-            tranche,
-            index_data,
-            tranche.maturity,
-        )?;
+        let expected_loss =
+            self.calculate_expected_tranche_loss(tranche, index_data, tranche.maturity)?;
 
         // Calculate present values of premium and protection legs
         let pv_premium = self.calculate_premium_leg_pv(
@@ -134,23 +131,17 @@ impl GaussianCopulaModel {
         let corr_detach = index_data.base_correlation_curve.correlation(detach_pct);
 
         // Clamp correlations for numerical stability
-        let corr_attach = corr_attach.clamp(self.params.min_correlation, self.params.max_correlation);
-        let corr_detach = corr_detach.clamp(self.params.min_correlation, self.params.max_correlation);
+        let corr_attach =
+            corr_attach.clamp(self.params.min_correlation, self.params.max_correlation);
+        let corr_detach =
+            corr_detach.clamp(self.params.min_correlation, self.params.max_correlation);
 
         // Calculate expected losses for equity tranches [0, A] and [0, D]
-        let el_to_attach = self.calculate_equity_tranche_loss(
-            attach_pct,
-            corr_attach,
-            index_data,
-            maturity,
-        )?;
+        let el_to_attach =
+            self.calculate_equity_tranche_loss(attach_pct, corr_attach, index_data, maturity)?;
 
-        let el_to_detach = self.calculate_equity_tranche_loss(
-            detach_pct,
-            corr_detach,
-            index_data,
-            maturity,
-        )?;
+        let el_to_detach =
+            self.calculate_equity_tranche_loss(detach_pct, corr_detach, index_data, maturity)?;
 
         // The [A, D] tranche loss is the difference
         let tranche_loss = el_to_detach - el_to_attach;
@@ -176,10 +167,10 @@ impl GaussianCopulaModel {
     ) -> Result<F> {
         let num_constituents = index_data.num_constituents as usize;
         let recovery_rate = index_data.recovery_rate;
-        
+
         // Convert detachment from percent to number of constituents
         let detachment_notional = detachment_pct / 100.0;
-        
+
         // Get the appropriate quadrature
         let quad = match self.params.quadrature_order {
             5 => GaussHermiteQuadrature::order_5(),
@@ -198,11 +189,8 @@ impl GaussianCopulaModel {
         // Integrate expected loss over all states of the market factor Z
         let expected_loss = quad.integrate(|z| {
             // Conditional default probability given market factor Z
-            let conditional_default_prob = self.conditional_default_probability(
-                default_threshold,
-                correlation,
-                z,
-            );
+            let conditional_default_prob =
+                self.conditional_default_probability(default_threshold, correlation, z);
 
             // Expected loss of equity tranche conditional on Z
             self.conditional_equity_tranche_loss(
@@ -228,7 +216,8 @@ impl GaussianCopulaModel {
         let sqrt_rho = correlation.sqrt();
         let sqrt_one_minus_rho = (1.0 - correlation).sqrt();
 
-        let conditional_threshold = (default_threshold - sqrt_rho * market_factor) / sqrt_one_minus_rho;
+        let conditional_threshold =
+            (default_threshold - sqrt_rho * market_factor) / sqrt_one_minus_rho;
         standard_normal_cdf(conditional_threshold)
     }
 
@@ -244,23 +233,20 @@ impl GaussianCopulaModel {
     ) -> F {
         let loss_given_default = 1.0 - recovery_rate;
         let individual_notional = 1.0 / num_constituents as F; // Normalized to 1.0 total
-        
+
         let mut expected_loss = 0.0;
 
         // Sum over all possible numbers of defaults
         for k in 0..=num_constituents {
-            let prob_k_defaults = binomial_probability(
-                num_constituents,
-                k,
-                conditional_default_prob,
-            );
+            let prob_k_defaults =
+                binomial_probability(num_constituents, k, conditional_default_prob);
 
             // Portfolio loss given k defaults
             let portfolio_loss = k as F * individual_notional * loss_given_default;
-            
+
             // Tranche loss (equity tranche [0, detachment_notional])
             let tranche_loss = portfolio_loss.min(detachment_notional);
-            
+
             expected_loss += prob_k_defaults * tranche_loss;
         }
 
@@ -280,34 +266,34 @@ impl GaussianCopulaModel {
     ) -> Result<F> {
         let coupon = tranche.running_coupon_bp / 10000.0; // Convert bp to decimal
         let initial_notional = tranche.notional.amount();
-        
+
         // For simplicity, assume linear amortization of expected loss over time
         // In practice, this would use payment schedule dates
         let maturity_years = self.years_from_base(index_data, tranche.maturity);
         let payment_dates = self.generate_payment_schedule(tranche, as_of)?;
-        
+
         let mut pv_premium = 0.0;
-        
+
         for payment_date in payment_dates {
             let t = self.years_from_base(index_data, payment_date);
             if t <= 0.0 {
                 continue;
             }
-            
+
             // Approximate expected loss at this payment date (linear interpolation)
             let expected_loss_at_t = if t >= maturity_years {
                 expected_loss_at_maturity
             } else {
                 expected_loss_at_maturity * (t / maturity_years)
             };
-            
+
             // Outstanding notional at this date
             let outstanding_notional = initial_notional - expected_loss_at_t;
-            
+
             if outstanding_notional <= 0.0 {
                 break; // Tranche fully written down
             }
-            
+
             // Accrual period calculation
             let accrual_period = match tranche.payment_frequency {
                 finstack_core::dates::Frequency::Months(m) => (m as F) / 12.0,
@@ -315,10 +301,10 @@ impl GaussianCopulaModel {
                 _ => 0.25, // Default to quarterly
             };
             let discount_factor = discount_curve.df(t);
-            
+
             pv_premium += coupon * accrual_period * discount_factor * outstanding_notional;
         }
-        
+
         Ok(pv_premium)
     }
 
@@ -335,41 +321,46 @@ impl GaussianCopulaModel {
     ) -> Result<F> {
         let payment_dates = self.generate_payment_schedule(tranche, as_of)?;
         let maturity_years = self.years_from_base(index_data, tranche.maturity);
-        
+
         let mut pv_protection = 0.0;
         let mut prev_expected_loss = 0.0;
-        
+
         for payment_date in payment_dates {
             let t = self.years_from_base(index_data, payment_date);
             if t <= 0.0 {
                 continue;
             }
-            
+
             // Expected loss at this payment date (linear approximation)
             let expected_loss_at_t = if t >= maturity_years {
                 expected_loss_at_maturity
             } else {
                 expected_loss_at_maturity * (t / maturity_years)
             };
-            
+
             // Incremental loss since last payment
             let incremental_loss = expected_loss_at_t - prev_expected_loss;
-            
+
             if incremental_loss > 0.0 {
                 let discount_factor = discount_curve.df(t);
                 pv_protection += incremental_loss * discount_factor;
             }
-            
+
             prev_expected_loss = expected_loss_at_t;
         }
-        
+
         Ok(pv_protection)
     }
 
     /// Get default probability for the index at a given maturity.
-    fn get_default_probability(&self, index_data: &CreditIndexData, maturity_years: F) -> Result<F> {
+    fn get_default_probability(
+        &self,
+        index_data: &CreditIndexData,
+        maturity_years: F,
+    ) -> Result<F> {
         let survival_prob = index_data.index_credit_curve.survival_probability(
-            index_data.index_credit_curve.base_date + time::Duration::days((maturity_years * 365.25) as i64)
+            index_data.index_credit_curve.base_date
+                + time::Duration::days((maturity_years * 365.25) as i64),
         );
         Ok(1.0 - survival_prob)
     }
@@ -377,7 +368,9 @@ impl GaussianCopulaModel {
     /// Calculate years from the credit curve base date.
     fn years_from_base(&self, index_data: &CreditIndexData, date: Date) -> F {
         let base_date = index_data.index_credit_curve.base_date;
-        DayCount::Act365F.year_fraction(base_date, date).unwrap_or(0.0)
+        DayCount::Act365F
+            .year_fraction(base_date, date)
+            .unwrap_or(0.0)
     }
 
     /// Generate payment schedule for the tranche.
@@ -389,7 +382,7 @@ impl GaussianCopulaModel {
         let freq_months = match tranche.payment_frequency {
             finstack_core::dates::Frequency::Months(m) => m as i32,
             finstack_core::dates::Frequency::Days(_) => 3, // Default to quarterly for days-based frequencies
-            _ => 3, // Default to quarterly
+            _ => 3,                                        // Default to quarterly
         };
 
         let mut current_date = as_of;
@@ -434,7 +427,9 @@ impl GaussianCopulaModel {
         bumped_tranche.running_coupon_bp += 1.0;
 
         let base_pv = self.price_tranche(tranche, market_ctx, as_of)?.amount();
-        let bumped_pv = self.price_tranche(&bumped_tranche, market_ctx, as_of)?.amount();
+        let bumped_pv = self
+            .price_tranche(&bumped_tranche, market_ctx, as_of)?
+            .amount();
 
         Ok(bumped_pv - base_pv)
     }
@@ -470,7 +465,7 @@ impl GaussianCopulaModel {
         _as_of: Date,
     ) -> Result<F> {
         // This would require bumping the base correlation curve
-        // For now, return a placeholder  
+        // For now, return a placeholder
         // TODO: Implement proper correlation sensitivity calculation
         Ok(0.0)
     }
@@ -489,7 +484,8 @@ fn binomial_probability(n: usize, k: usize, p: F) -> F {
     }
 
     // Use log-space calculation to avoid overflow for large n
-    let log_prob = log_binomial_coefficient(n, k) + (k as F) * p.ln() + ((n - k) as F) * (1.0 - p).ln();
+    let log_prob =
+        log_binomial_coefficient(n, k) + (k as F) * p.ln() + ((n - k) as F) * (1.0 - p).ln();
     log_prob.exp()
 }
 
@@ -534,17 +530,19 @@ fn add_months(date: Date, months: i32) -> Date {
 mod tests {
     use super::*;
     use crate::market_data::credit_index::CreditIndexData;
-    use std::sync::Arc;
-    use finstack_core::market_data::term_structures::{BaseCorrelationCurve, credit_curve::CreditCurve};
+    use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::credit_curve::Seniority;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::currency::Currency;
+    use finstack_core::market_data::term_structures::{
+        credit_curve::CreditCurve, BaseCorrelationCurve,
+    };
     use finstack_core::money::Money;
+    use std::sync::Arc;
     use time::Month;
 
     fn sample_market_context() -> ValuationMarketContext {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         // Create discount curve
         let discount_curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
@@ -566,11 +564,11 @@ mod tests {
         // Create base correlation curve
         let base_corr_curve = BaseCorrelationCurve::builder("CDX.NA.IG.42_5Y")
             .points(vec![
-                (3.0, 0.25),   // 0-3% equity
-                (7.0, 0.45),   // 0-7% junior mezzanine  
-                (10.0, 0.60),  // 0-10% senior mezzanine
-                (15.0, 0.75),  // 0-15% senior
-                (30.0, 0.85),  // 0-30% super senior
+                (3.0, 0.25),  // 0-3% equity
+                (7.0, 0.45),  // 0-7% junior mezzanine
+                (10.0, 0.60), // 0-10% senior mezzanine
+                (15.0, 0.75), // 0-15% senior
+                (30.0, 0.85), // 0-30% super senior
             ])
             .build()
             .unwrap();
@@ -592,23 +590,23 @@ mod tests {
     fn sample_tranche() -> CdsTranche {
         let _issue_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
-        
+
         CdsTranche::new(
-            "CDX_IG42_3_7_5Y",           // id
-            "CDX.NA.IG.42",              // index_name
-            42,                          // series
-            3.0,                         // attach_pct (3%)
-            7.0,                         // detach_pct (7%)
-            Money::new(10_000_000.0, Currency::USD), // $10MM notional
-            maturity,                    // maturity
-            500.0,                       // running_coupon_bp (5%)
-            finstack_core::dates::Frequency::quarterly(), // payment_frequency
-            finstack_core::dates::DayCount::Act360,     // day_count
+            "CDX_IG42_3_7_5Y",                                      // id
+            "CDX.NA.IG.42",                                         // index_name
+            42,                                                     // series
+            3.0,                                                    // attach_pct (3%)
+            7.0,                                                    // detach_pct (7%)
+            Money::new(10_000_000.0, Currency::USD),                // $10MM notional
+            maturity,                                               // maturity
+            500.0,                                                  // running_coupon_bp (5%)
+            finstack_core::dates::Frequency::quarterly(),           // payment_frequency
+            finstack_core::dates::DayCount::Act360,                 // day_count
             finstack_core::dates::BusinessDayConvention::Following, // business_day_convention
-            None,                        // calendar_id
-            "USD-OIS",                   // disc_id
-            "CDX.NA.IG.42",             // credit_index_id
-            TrancheSide::SellProtection, // side
+            None,                                                   // calendar_id
+            "USD-OIS",                                              // disc_id
+            "CDX.NA.IG.42",                                         // credit_index_id
+            TrancheSide::SellProtection,                            // side
         )
     }
 
@@ -624,17 +622,23 @@ mod tests {
         let model = GaussianCopulaModel::new();
         let correlation = 0.30;
         let default_threshold = standard_normal_inv_cdf(0.05); // 5% default probability
-        
+
         // Test with market factor = 0 (should be reasonable value close to original default prob)
         let cond_prob = model.conditional_default_probability(default_threshold, correlation, 0.0);
-        assert!(cond_prob > 0.01 && cond_prob < 0.1, "Expected reasonable default prob, got {}", cond_prob);
-        
+        assert!(
+            cond_prob > 0.01 && cond_prob < 0.1,
+            "Expected reasonable default prob, got {}",
+            cond_prob
+        );
+
         // Test with negative market factor (should increase default prob)
-        let cond_prob_neg = model.conditional_default_probability(default_threshold, correlation, -1.0);
+        let cond_prob_neg =
+            model.conditional_default_probability(default_threshold, correlation, -1.0);
         assert!(cond_prob_neg > 0.05);
-        
+
         // Test with positive market factor (should decrease default prob)
-        let cond_prob_pos = model.conditional_default_probability(default_threshold, correlation, 1.0);
+        let cond_prob_pos =
+            model.conditional_default_probability(default_threshold, correlation, 1.0);
         assert!(cond_prob_pos < 0.05);
     }
 
@@ -643,7 +647,7 @@ mod tests {
         // Test known values
         assert!((binomial_probability(10, 5, 0.5) - 0.24609375).abs() < 1e-6);
         assert!((binomial_probability(5, 0, 0.1) - 0.59049).abs() < 1e-6);
-        
+
         // Test edge cases
         assert_eq!(binomial_probability(10, 0, 0.0), 1.0);
         assert_eq!(binomial_probability(10, 10, 1.0), 1.0);
@@ -654,8 +658,11 @@ mod tests {
     fn test_log_factorial() {
         // Test small values (exact calculation)
         assert!((log_factorial(1) - 0.0).abs() < 1e-12);
-        assert!((log_factorial(5) - (2.0_f64.ln() + 3.0_f64.ln() + 4.0_f64.ln() + 5.0_f64.ln())).abs() < 1e-12);
-        
+        assert!(
+            (log_factorial(5) - (2.0_f64.ln() + 3.0_f64.ln() + 4.0_f64.ln() + 5.0_f64.ln())).abs()
+                < 1e-12
+        );
+
         // Test that Stirling's approximation is reasonable for large n
         let log_100_factorial = log_factorial(100);
         assert!(log_100_factorial > 360.0 && log_100_factorial < 370.0); // Should be around 363.7
@@ -671,7 +678,7 @@ mod tests {
         // Test that pricing doesn't panic and returns a reasonable result
         let result = model.price_tranche(&tranche, &market_ctx, as_of);
         assert!(result.is_ok());
-        
+
         let pv = result.unwrap();
         assert_eq!(pv.currency(), Currency::USD);
         // PV should be finite (could be positive or negative)
@@ -686,7 +693,7 @@ mod tests {
 
         let expected_loss = model.calculate_expected_loss(&tranche, &market_ctx);
         assert!(expected_loss.is_ok());
-        
+
         let loss = expected_loss.unwrap();
         assert!(loss >= 0.0); // Expected loss should be non-negative
         assert!(loss.is_finite());

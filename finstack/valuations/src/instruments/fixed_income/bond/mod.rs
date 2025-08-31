@@ -12,9 +12,9 @@ use finstack_core::F;
 use crate::cashflow::builder::{cf, CashFlowSchedule, CouponType, FixedCouponSpec};
 use crate::cashflow::primitives::CFKind;
 // removed direct impl_attributable! usage; handled by unified macro
-use crate::metrics::MetricId;
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::traits::{Attributes, Priceable};
+use crate::metrics::MetricId;
 use crate::metrics::{RiskBucket, RiskMeasurable, RiskReport};
 use finstack_core::dates::{BusinessDayConvention, StubKind};
 
@@ -173,7 +173,6 @@ impl RiskMeasurable for Bond {
         as_of: Date,
         _bucket_spec: Option<&[RiskBucket]>,
     ) -> finstack_core::Result<RiskReport> {
-
         use crate::metrics::MetricContext;
         use crate::metrics::{standard_registry, MetricId};
         use std::sync::Arc;

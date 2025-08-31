@@ -7,10 +7,10 @@ use crate::metrics::MetricId;
 // use crate::results::ValuationResult; // handled via macro-based implementation
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::traits::Attributes;
+use finstack_core::dates::holiday::calendars::calendar_by_id;
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::prelude::*;
 use finstack_core::F;
-use finstack_core::dates::holiday::calendars::calendar_by_id;
 
 /// FX Spot instrument (1 unit of `base` priced in `quote`).
 ///
@@ -80,11 +80,15 @@ impl FxSpot {
     }
 
     /// Set the notional amount (panicking version - deprecated)
-    #[deprecated(since = "0.1.0", note = "Use with_notional_checked instead to avoid panics")]
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use with_notional_checked instead to avoid panics"
+    )]
     pub fn with_notional(self, notional: Money) -> Self {
         // Keep infallible builder for ergonomics in existing call sites; safe as long as
         // callers pass correct currency. In tests we will verify the fallible path.
-        self.try_with_notional(notional).expect("Notional currency must match base currency")
+        self.try_with_notional(notional)
+            .expect("Notional currency must match base currency")
     }
 
     /// Set the business day convention
@@ -102,7 +106,10 @@ impl FxSpot {
     /// Fallible setter for notional that validates currency matches base
     pub fn try_with_notional(mut self, notional: Money) -> finstack_core::Result<Self> {
         if notional.currency() != self.base {
-            return Err(finstack_core::Error::CurrencyMismatch { expected: self.base, actual: notional.currency() });
+            return Err(finstack_core::Error::CurrencyMismatch {
+                expected: self.base,
+                actual: notional.currency(),
+            });
         }
         self.notional = Some(notional);
         Ok(self)
@@ -120,7 +127,8 @@ impl FxSpot {
 }
 
 impl_instrument!(
-    FxSpot, "FxSpot",
+    FxSpot,
+    "FxSpot",
     pv = |s, curves, as_of| {
         if let Some(rate) = s.spot_rate {
             let notional_amount = s.effective_notional().amount();
@@ -130,7 +138,9 @@ impl_instrument!(
         let matrix = curves.fx.as_ref().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound)
         })?;
-        struct MatrixProvider<'a> { m: &'a finstack_core::money::fx::FxMatrix }
+        struct MatrixProvider<'a> {
+            m: &'a finstack_core::money::fx::FxMatrix,
+        }
         impl finstack_core::money::fx::FxProvider for MatrixProvider<'_> {
             fn rate(
                 &self,
@@ -144,7 +154,8 @@ impl_instrument!(
         }
         let provider = MatrixProvider { m: matrix };
         let policy = finstack_core::money::fx::FxConversionPolicy::CashflowDate;
-        s.effective_notional().convert(s.quote, as_of, &provider, policy)
+        s.effective_notional()
+            .convert(s.quote, as_of, &provider, policy)
     },
     metrics = |_s| {
         vec![
@@ -201,10 +212,7 @@ impl CashflowProvider for FxSpot {
             let rate = self.spot_rate.ok_or_else(|| {
                 finstack_core::Error::from(finstack_core::error::InputError::NotFound)
             })?;
-            let value = Money::new(
-                self.effective_notional().amount() * rate,
-                self.quote,
-            );
+            let value = Money::new(self.effective_notional().amount() * rate, self.quote);
             Ok(vec![(settle_date, value)])
         } else {
             // Already settled
@@ -334,8 +342,7 @@ mod tests {
         let settlement = Date::from_calendar_date(2025, Month::January, 3).unwrap();
 
         // FX spot without rate should fail in schedule generation
-        let fx = FxSpot::new("EURUSD", Currency::EUR, Currency::USD)
-            .with_settlement(settlement);
+        let fx = FxSpot::new("EURUSD", Currency::EUR, Currency::USD).with_settlement(settlement);
 
         let curves = CurveSet::new();
         let result = fx.build_schedule(&curves, as_of);

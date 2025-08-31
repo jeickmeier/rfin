@@ -48,7 +48,9 @@ pub fn aggregate_by_period(
         let mut i = lo;
         while i < sorted.len() {
             let (d, m) = sorted[i];
-            if d >= p.end { break; }
+            if d >= p.end {
+                break;
+            }
             // We know d >= p.start by construction of lower bound
             let e = per_ccy.entry(m.currency()).or_insert(0.0);
             *e += m.amount();

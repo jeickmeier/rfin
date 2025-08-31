@@ -121,7 +121,9 @@ def monthly_periods_across_years():
     for period in periods:
         status = "ACTUAL  " if period.is_actual else "FORECAST"
         # Format dates nicely
-        start_str = f"{period.start.year}-{period.start.month:02d}-{period.start.day:02d}"
+        start_str = (
+            f"{period.start.year}-{period.start.month:02d}-{period.start.day:02d}"
+        )
         end_str = f"{period.end.year}-{period.end.month:02d}-{period.end.day:02d}"
         print(f"{str(period.id):8} ({status}): {start_str} to {end_str}")
     print()

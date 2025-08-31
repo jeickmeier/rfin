@@ -659,11 +659,8 @@ impl CompiledExpr {
         let mut out: Vec<crate::F> = Vec::with_capacity(len);
         if !arg_results.is_empty() {
             let base = &arg_results[0];
-            let mut indexed: Vec<(f64, usize)> = base
-                .iter()
-                .enumerate()
-                .map(|(i, &v)| (v, i))
-                .collect();
+            let mut indexed: Vec<(f64, usize)> =
+                base.iter().enumerate().map(|(i, &v)| (v, i)).collect();
             indexed.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
             let mut ranks: Vec<crate::F> = vec![0.0 as crate::F; len];
             let mut current_rank: f64 = 1.0;
@@ -769,11 +766,8 @@ impl CompiledExpr {
             let win = arg_results[1][0] as usize;
             for i in 0..len {
                 if i + 1 < win {
-                    let count = base[0..=i]
-                        .iter()
-                        .copied()
-                        .filter(|&x| !x.is_nan())
-                        .count() as crate::F;
+                    let count =
+                        base[0..=i].iter().copied().filter(|&x| !x.is_nan()).count() as crate::F;
                     out.push(count);
                 } else {
                     let count = base[i + 1 - win..=i]

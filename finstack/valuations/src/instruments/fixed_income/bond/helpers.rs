@@ -4,11 +4,9 @@
 //! using yield-to-maturity calculations with proper day count conventions.
 
 use super::Bond;
-use crate::metrics::MetricContext;
 use crate::cashflow::traits::CashflowProvider;
+use crate::metrics::MetricContext;
 use finstack_core::prelude::*;
-
-
 
 /// Yield compounding convention for discounting cashflows from a flat yield.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -31,7 +29,9 @@ pub enum YieldCompounding {
 /// (e.g., 3 for quarterly, 6 for semi-annual) or `Days(d)` (e.g., 7 for weekly).
 /// Returns an error for unsupported frequency variants or zero values.
 #[inline]
-pub fn periods_per_year(freq: finstack_core::dates::Frequency) -> finstack_core::Result<finstack_core::F> {
+pub fn periods_per_year(
+    freq: finstack_core::dates::Frequency,
+) -> finstack_core::Result<finstack_core::F> {
     match freq {
         finstack_core::dates::Frequency::Months(m) => {
             if m == 0 {

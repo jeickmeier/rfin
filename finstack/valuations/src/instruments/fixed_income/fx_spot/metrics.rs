@@ -54,7 +54,11 @@ impl MetricCalculator for InverseRateCalculator {
             return Ok(0.0);
         }
         let spot = context.base_value.amount() / base_amt;
-        if spot == 0.0 { Ok(0.0) } else { Ok(1.0 / spot) }
+        if spot == 0.0 {
+            Ok(0.0)
+        } else {
+            Ok(1.0 / spot)
+        }
     }
 }
 
@@ -84,5 +88,3 @@ pub fn register_fx_spot_metrics(registry: &mut MetricRegistry) {
             &["FxSpot"],
         );
 }
-
-

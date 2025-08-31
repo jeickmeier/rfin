@@ -13,11 +13,11 @@ use finstack_core::F;
 use crate::cashflow::builder::{
     cf, CouponType, FixedCouponSpec, FloatingCouponSpec as BuilderFloat,
 };
-use crate::metrics::MetricId;
-use crate::instruments::fixed_income::discountable::Discountable;
-use crate::instruments::traits::Priceable;
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
+use crate::instruments::fixed_income::discountable::Discountable;
 use crate::instruments::traits::Attributes;
+use crate::instruments::traits::Priceable;
+use crate::metrics::MetricId;
 use crate::metrics::{RiskBucket, RiskMeasurable, RiskReport};
 
 /// Direction of the swap from the perspective of the fixed rate.
@@ -176,7 +176,8 @@ impl InterestRateSwap {
 // Generate standard Attributable implementation using macro
 // Keep manual Priceable for IRS, but add conversions/attributes via macro to reduce boilerplate
 impl_instrument!(
-    InterestRateSwap, "InterestRateSwap",
+    InterestRateSwap,
+    "InterestRateSwap",
     pv = |s, curves, _as_of| {
         let disc = curves.discount(s.fixed.disc_id)?;
         let fwd = curves.forecast(s.float.fwd_id)?;
@@ -473,7 +474,6 @@ impl RiskMeasurable for InterestRateSwap {
         as_of: Date,
         _bucket_spec: Option<&[RiskBucket]>,
     ) -> finstack_core::Result<RiskReport> {
-
         use crate::metrics::MetricContext;
         use crate::metrics::{standard_registry, MetricId};
         use std::sync::Arc;

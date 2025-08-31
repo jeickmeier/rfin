@@ -96,8 +96,6 @@
 #[macro_use]
 pub mod macros;
 
-
-
 // Instrument-level traits and metadata
 pub mod traits;
 
@@ -107,14 +105,12 @@ pub mod fixed_income;
 // fx_spot moved under fixed_income
 pub mod options;
 
-
-
 // Re-export individual instrument types
 pub use equity::Equity;
+pub use fixed_income::fx_spot::FxSpot;
 pub use fixed_income::{
     Bond, ConvertibleBond, CreditDefaultSwap, Deposit, InflationLinkedBond, InterestRateSwap, Loan,
 };
-pub use fixed_income::fx_spot::FxSpot;
 pub use options::{CreditOption, EquityOption, FxOption, InterestRateOption, Swaption};
 // Individual instrument types can be used directly or via trait objects for unified handling.
 
@@ -154,11 +150,8 @@ where
         }
     }
 
-    let mut result = crate::results::ValuationResult::stamped(
-        instrument.id().to_string(),
-        as_of,
-        base_value,
-    );
+    let mut result =
+        crate::results::ValuationResult::stamped(instrument.id().to_string(), as_of, base_value);
     result.measures = measures;
     Ok(result)
 }

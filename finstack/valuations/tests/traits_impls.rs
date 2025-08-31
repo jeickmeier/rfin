@@ -8,10 +8,10 @@ use finstack_core::{
     F,
 };
 use finstack_valuations::{
-    metrics::MetricId,
-    results::ValuationResult,
     cashflow::traits::{CashflowProvider, DatedFlows},
     instruments::traits::Priceable,
+    metrics::MetricId,
+    results::ValuationResult,
 };
 use hashbrown::HashMap;
 

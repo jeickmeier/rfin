@@ -5,13 +5,13 @@
 //! - Greeks (Delta, Gamma, Vega, Rho, Theta)
 //! - Credit-sensitive measures
 
-use crate::metrics::{MetricRegistry, MetricId, MetricCalculator, MetricContext};
+use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::{Result, F};
 use std::sync::Arc;
 
 use super::model::{
-    calculate_parity, calculate_conversion_premium, calculate_convertible_greeks,
-    ConvertibleTreeType
+    calculate_conversion_premium, calculate_convertible_greeks, calculate_parity,
+    ConvertibleTreeType,
 };
 use super::ConvertibleBond;
 
@@ -50,11 +50,7 @@ pub fn register_convertible_metrics(registry: &mut MetricRegistry) {
         &["ConvertibleBond"],
     );
 
-    registry.register_metric(
-        MetricId::Rho,
-        Arc::new(RhoCalculator),
-        &["ConvertibleBond"],
-    );
+    registry.register_metric(MetricId::Rho, Arc::new(RhoCalculator), &["ConvertibleBond"]);
 
     registry.register_metric(
         MetricId::Theta,
@@ -70,7 +66,8 @@ impl MetricCalculator for ParityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let bond = context.instrument_as::<ConvertibleBond>()?;
 
-        let underlying_id = bond.underlying_equity_id
+        let underlying_id = bond
+            .underlying_equity_id
             .as_ref()
             .ok_or(finstack_core::Error::Internal)?;
 
@@ -95,7 +92,8 @@ impl MetricCalculator for ConversionPremiumCalculator {
         let bond_price = context.base_value.amount();
 
         // Get current spot price
-        let underlying_id = bond.underlying_equity_id
+        let underlying_id = bond
+            .underlying_equity_id
             .as_ref()
             .ok_or(finstack_core::Error::Internal)?;
 
@@ -114,7 +112,11 @@ impl MetricCalculator for ConversionPremiumCalculator {
             return Err(finstack_core::Error::Internal);
         };
 
-        Ok(calculate_conversion_premium(bond_price, spot, conversion_ratio))
+        Ok(calculate_conversion_premium(
+            bond_price,
+            spot,
+            conversion_ratio,
+        ))
     }
 }
 
@@ -196,5 +198,3 @@ impl MetricCalculator for ThetaCalculator {
         GreeksCalculator::new(GreekType::Theta).calculate(context)
     }
 }
-
-

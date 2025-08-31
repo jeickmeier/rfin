@@ -2,9 +2,9 @@
 
 pub mod metrics;
 
-use super::OptionType;
 use super::models::norm_cdf;
 use super::models::{SABRModel, SABRParameters};
+use super::OptionType;
 // use crate::results::ValuationResult;
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
@@ -260,7 +260,8 @@ impl Swaption {
 }
 
 impl_instrument!(
-    Swaption, "Swaption",
+    Swaption,
+    "Swaption",
     pv = |s, curves, _as_of| {
         let disc = curves.discount(s.disc_id)?;
         if s.sabr_params.is_some() {
@@ -269,10 +270,11 @@ impl_instrument!(
             s.black_price(disc.as_ref(), 0.20)
         }
     },
-    metrics = |_s| vec![crate::metrics::MetricId::custom("FORWARD_RATE"), crate::metrics::MetricId::custom("ANNUITY")]
+    metrics = |_s| vec![
+        crate::metrics::MetricId::custom("FORWARD_RATE"),
+        crate::metrics::MetricId::custom("ANNUITY")
+    ]
 );
-
-
 
 #[cfg(test)]
 mod tests {

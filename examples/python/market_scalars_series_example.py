@@ -22,7 +22,9 @@ def main() -> None:
     curves = CurveSet()
 
     # 1) Add a scalar (spot price)
-    aapl_spot = MarketScalar.unitless(195.25)  # could also be MarketScalar.price(Money(...))
+    aapl_spot = MarketScalar.unitless(
+        195.25
+    )  # could also be MarketScalar.price(Money(...))
     curves["AAPL-SPOT"] = aapl_spot
 
     # 2) Add a scalar time series (e.g., unemployment rate)
@@ -52,5 +54,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

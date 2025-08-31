@@ -105,7 +105,11 @@ impl TimeWindowEvaluator {
 
     /// Find the window boundaries for a given index and duration.
     #[allow(dead_code)]
-    pub fn window_boundaries(&mut self, index: usize, period: &DurationSpec) -> Option<(usize, usize)> {
+    pub fn window_boundaries(
+        &mut self,
+        index: usize,
+        period: &DurationSpec,
+    ) -> Option<(usize, usize)> {
         let cache_key = (index, period.clone());
         if let Some(&bounds) = self.boundary_cache.get(&cache_key) {
             return Some(bounds);
@@ -191,8 +195,7 @@ impl TimeWindowEvaluator {
                 if window_data.len() < 2 {
                     result.push(f64::NAN as crate::F);
                 } else {
-                    let mean = window_data.iter().copied().sum::<f64>()
-                        / window_data.len() as f64;
+                    let mean = window_data.iter().copied().sum::<f64>() / window_data.len() as f64;
                     let variance = window_data
                         .iter()
                         .map(|&x| {
@@ -222,8 +225,7 @@ impl TimeWindowEvaluator {
                 if window_data.len() < 2 {
                     result.push(f64::NAN as crate::F);
                 } else {
-                    let mean = window_data.iter().copied().sum::<f64>()
-                        / window_data.len() as f64;
+                    let mean = window_data.iter().copied().sum::<f64>() / window_data.len() as f64;
                     let variance = window_data
                         .iter()
                         .map(|&x| {

@@ -26,9 +26,9 @@ struct MarketValueCalculator;
 impl MetricCalculator for MarketValueCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let equity: &Equity = context.instrument_as()?;
-        let price = equity
-            .price_quote
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))?;
+        let price = equity.price_quote.ok_or_else(|| {
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+        })?;
         Ok(price * equity.effective_shares())
     }
 }
@@ -52,5 +52,3 @@ pub fn register_equity_metrics(registry: &mut MetricRegistry) {
         &["Equity"],
     );
 }
-
-

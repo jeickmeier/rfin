@@ -9,9 +9,9 @@ pub mod tests;
 use finstack_core::prelude::*;
 use finstack_core::F;
 
-use crate::instruments::traits::Attributes;
-use crate::instruments::fixed_income::bond::CallPutSchedule;
 use crate::cashflow::builder::types::{FixedCouponSpec, FloatingCouponSpec};
+use crate::instruments::fixed_income::bond::CallPutSchedule;
+use crate::instruments::traits::Attributes;
 
 /// Convertible bond instrument with embedded equity conversion option.
 ///
@@ -63,7 +63,10 @@ pub enum ConversionEvent {
     QualifiedIpo,
     ChangeOfControl,
     /// Forced conversion if share price meets threshold for a lookback period.
-    PriceTrigger { threshold: F, lookback_days: u32 },
+    PriceTrigger {
+        threshold: F,
+        lookback_days: u32,
+    },
 }
 
 /// Anti-dilution protection applied to conversion terms.
@@ -98,14 +101,11 @@ pub struct ConversionSpec {
 }
 
 impl_instrument!(
-    ConvertibleBond, "ConvertibleBond",
+    ConvertibleBond,
+    "ConvertibleBond",
     pv = |s, curves, _as_of| {
         // Use the new tree-based pricing model
-        model::price_convertible_bond(
-            s,
-            curves,
-            model::ConvertibleTreeType::default()
-        )
+        model::price_convertible_bond(s, curves, model::ConvertibleTreeType::default())
     },
     metrics = |_s| {
         // No standard metrics yet; to be expanded with equity sensitivity, parity, etc.
@@ -132,5 +132,3 @@ impl_builder!(
         floating_coupon: FloatingCouponSpec
     ]
 );
-
-

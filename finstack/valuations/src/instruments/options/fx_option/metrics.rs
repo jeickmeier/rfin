@@ -11,8 +11,8 @@ pub struct DeltaCalculator;
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let _option: &FxOption = context.instrument_as()?;
-            // Would calculate actual delta here with FX spot and volatility
-            Ok(0.5)
+        // Would calculate actual delta here with FX spot and volatility
+        Ok(0.5)
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -26,8 +26,8 @@ pub struct GammaCalculator;
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let _option: &FxOption = context.instrument_as()?;
-            // Would calculate actual gamma here
-            Ok(0.02)
+        // Would calculate actual gamma here
+        Ok(0.02)
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -41,8 +41,8 @@ pub struct VegaCalculator;
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let _option: &FxOption = context.instrument_as()?;
-            // Would calculate actual vega here
-            Ok(0.1)
+        // Would calculate actual vega here
+        Ok(0.1)
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -56,8 +56,8 @@ pub struct ThetaCalculator;
 impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let _option: &FxOption = context.instrument_as()?;
-            // Would calculate actual theta here
-            Ok(-0.05)
+        // Would calculate actual theta here
+        Ok(-0.05)
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -71,8 +71,8 @@ pub struct RhoDomesticCalculator;
 impl MetricCalculator for RhoDomesticCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let _option: &FxOption = context.instrument_as()?;
-            // Would calculate actual domestic rho here
-            Ok(0.03)
+        // Would calculate actual domestic rho here
+        Ok(0.03)
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -86,8 +86,8 @@ pub struct RhoForeignCalculator;
 impl MetricCalculator for RhoForeignCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let _option: &FxOption = context.instrument_as()?;
-            // Would calculate actual foreign rho here
-            Ok(-0.02)
+        // Would calculate actual foreign rho here
+        Ok(-0.02)
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -103,7 +103,9 @@ impl MetricCalculator for ImpliedVolCalculator {
         Ok(0.0)
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
 
 /// Register FX option metrics with the registry
@@ -131,6 +133,6 @@ pub fn register_fx_option_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::ImpliedVol,
         Arc::new(ImpliedVolCalculator),
-        & ["FxOption"],
+        &["FxOption"],
     );
 }

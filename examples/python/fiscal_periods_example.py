@@ -38,7 +38,9 @@ def compare_calendar_vs_fiscal_quarters():
 
     print("\n2025 Quarter Comparison:")
     print("-" * 70)
-    print(f"{'Quarter':<10} {'Calendar Year':<30} {'US Federal FY':<30} {'Japan FY':<30}")
+    print(
+        f"{'Quarter':<10} {'Calendar Year':<30} {'US Federal FY':<30} {'Japan FY':<30}"
+    )
     print("-" * 70)
 
     for i in range(4):
@@ -61,7 +63,9 @@ def us_federal_fiscal_year_example():
     print("=" * 70)
 
     config = FiscalConfig.us_federal()
-    print(f"US Federal fiscal year starts: Month {config.start_month}, Day {config.start_day}")
+    print(
+        f"US Federal fiscal year starts: Month {config.start_month}, Day {config.start_day}"
+    )
     print()
 
     # Build fiscal quarters for FY2025 with actuals through Q2
@@ -181,10 +185,14 @@ def fiscal_budget_planning_example():
         status = "Actual" if period.is_actual else "Planned"
         period_str = f"{period.start} to {period.end}"
 
-        print(f"FY{str(period.id):<13} {period_str:<25} ${budget:>10.2f}M  {status:<10}")
+        print(
+            f"FY{str(period.id):<13} {period_str:<25} ${budget:>10.2f}M  {status:<10}"
+        )
 
     print("-" * 60)
-    total_budget = sum(base_budget * (1 + inflation_rate) ** (i / 4.0) for i in range(len(periods)))
+    total_budget = sum(
+        base_budget * (1 + inflation_rate) ** (i / 4.0) for i in range(len(periods))
+    )
     print(f"{'Total Budget':<41} ${total_budget:>10.2f}M")
     print()
 
@@ -208,7 +216,9 @@ def fiscal_vs_calendar_reporting():
 
     print("Quarterly Revenue Report (in thousands):")
     print("-" * 70)
-    print(f"{'Fiscal Quarter':<15} {'Calendar Coverage':<20} {'Revenue':<12} {'Status':<10}")
+    print(
+        f"{'Fiscal Quarter':<15} {'Calendar Coverage':<20} {'Revenue':<12} {'Status':<10}"
+    )
     print("-" * 70)
 
     # Simulated quarterly revenues
@@ -221,11 +231,17 @@ def fiscal_vs_calendar_reporting():
         # Show which calendar quarters the fiscal quarter spans
         cal_coverage = f"{calendar.id}"
 
-        print(f"FY2025{fiscal.id.index:5} {cal_coverage:<20} ${revenue:>10}K  {status:<10}")
+        print(
+            f"FY2025{fiscal.id.index:5} {cal_coverage:<20} ${revenue:>10}K  {status:<10}"
+        )
 
     print("-" * 70)
-    actual_revenue = sum(revenues[i] for i, p in enumerate(fiscal_periods) if p.is_actual)
-    forecast_revenue = sum(revenues[i] for i, p in enumerate(fiscal_periods) if not p.is_actual)
+    actual_revenue = sum(
+        revenues[i] for i, p in enumerate(fiscal_periods) if p.is_actual
+    )
+    forecast_revenue = sum(
+        revenues[i] for i, p in enumerate(fiscal_periods) if not p.is_actual
+    )
     print(f"{'Actual Revenue':<36} ${actual_revenue:>10}K")
     print(f"{'Forecast Revenue':<36} ${forecast_revenue:>10}K")
     print(f"{'Total FY2025':<36} ${sum(revenues):>10}K")

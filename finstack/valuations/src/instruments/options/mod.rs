@@ -5,18 +5,18 @@
 
 // keep minimal imports; F not directly used here
 
-pub mod models;
+pub mod cap_floor;
 pub mod credit_option;
 pub mod equity_option;
 pub mod fx_option;
-pub mod cap_floor;
+pub mod models;
 pub mod swaption;
 
-pub use models::{BinomialTree, TreeType};
+pub use cap_floor::{InterestRateOption, RateOptionType};
 pub use credit_option::CreditOption;
 pub use equity_option::EquityOption;
 pub use fx_option::FxOption;
-pub use cap_floor::{InterestRateOption, RateOptionType};
+pub use models::{BinomialTree, TreeType};
 pub use swaption::Swaption;
 
 /// Option type (Call or Put)

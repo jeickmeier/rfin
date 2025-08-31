@@ -163,7 +163,6 @@ impl CashFlow {
     }
 }
 
-
 /// Amortization specification for principal over time.
 ///
 /// Describes how principal amortizes or is exchanged during the life of the contract.

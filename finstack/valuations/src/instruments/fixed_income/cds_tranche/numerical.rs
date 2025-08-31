@@ -19,7 +19,7 @@ pub struct GaussHermiteQuadrature {
 
 impl GaussHermiteQuadrature {
     /// Get the 5-point Gauss-Hermite quadrature.
-    /// 
+    ///
     /// This provides a good balance between accuracy and performance
     /// for most credit modeling applications.
     pub fn order_5() -> Self {
@@ -42,7 +42,7 @@ impl GaussHermiteQuadrature {
     }
 
     /// Get the 7-point Gauss-Hermite quadrature.
-    /// 
+    ///
     /// Higher accuracy for more demanding applications where precision
     /// is critical and computational cost is acceptable.
     pub fn order_7() -> Self {
@@ -69,7 +69,7 @@ impl GaussHermiteQuadrature {
     }
 
     /// Get the 10-point Gauss-Hermite quadrature.
-    /// 
+    ///
     /// High accuracy for demanding applications where very precise
     /// integration is required.
     pub fn order_10() -> Self {
@@ -114,13 +114,13 @@ impl GaussHermiteQuadrature {
         F2: Fn(F) -> F,
     {
         let mut result = 0.0;
-        let sqrt_2 = std::f64::consts::SQRT_2;  // √2
-        
+        let sqrt_2 = std::f64::consts::SQRT_2; // √2
+
         for (i, &z) in self.points.iter().enumerate() {
-            result += self.weights[i] * f(sqrt_2 * z);   // Evaluate at √2 * node
+            result += self.weights[i] * f(sqrt_2 * z); // Evaluate at √2 * node
         }
-        
-        result / std::f64::consts::PI.sqrt()  // 1/√π
+
+        result / std::f64::consts::PI.sqrt() // 1/√π
     }
 }
 
@@ -147,17 +147,9 @@ pub fn standard_normal_inv_cdf(p: F) -> F {
     }
 
     // Rational approximation (Beasley-Springer-Moro algorithm)
-    let c = [
-        2.515517,
-        0.802853,
-        0.010328,
-    ];
-    
-    let d = [
-        1.432788,
-        0.189269,
-        0.001308,
-    ];
+    let c = [2.515517, 0.802853, 0.010328];
+
+    let d = [1.432788, 0.189269, 0.001308];
 
     if p < 0.5 {
         // Use symmetry for p < 0.5
@@ -180,7 +172,7 @@ mod tests {
     #[test]
     fn test_gauss_hermite_quadrature_normalization() {
         let quad = GaussHermiteQuadrature::order_5();
-        
+
         // Test that integrating 1 over standard normal gives approximately 1
         let integral = quad.integrate(|_x| 1.0);
         assert!((integral - 1.0).abs() < 1e-6);
@@ -189,10 +181,14 @@ mod tests {
     #[test]
     fn test_gauss_hermite_quadrature_polynomial() {
         let quad = GaussHermiteQuadrature::order_7();
-        
+
         // Test that integrating x^2 over standard normal gives 1 (variance)
         let integral = quad.integrate(|x| x * x);
-        assert!((integral - 1.0).abs() < 0.1, "Integral of x² should be ~1, got {}", integral);
+        assert!(
+            (integral - 1.0).abs() < 0.1,
+            "Integral of x² should be ~1, got {}",
+            integral
+        );
     }
 
     #[test]
@@ -201,7 +197,7 @@ mod tests {
         assert!((standard_normal_cdf(0.0) - 0.5).abs() < 1e-6);
         assert!((standard_normal_cdf(1.0) - 0.8413447460685429).abs() < 1e-6);
         assert!((standard_normal_cdf(-1.0) - 0.15865525393145705).abs() < 1e-6);
-        
+
         // Test extreme values
         assert!(standard_normal_cdf(-10.0) < 1e-10);
         assert!(standard_normal_cdf(10.0) > 1.0 - 1e-10);
@@ -218,11 +214,17 @@ mod tests {
     #[test]
     fn test_normal_cdf_inv_cdf_roundtrip() {
         let test_values = [0.1, 0.25, 0.5, 0.75, 0.9]; // Skip extreme values for robustness
-        
+
         for &p in &test_values {
             let x = standard_normal_inv_cdf(p);
             let p_back = standard_normal_cdf(x);
-            assert!((p - p_back).abs() < 1e-3, "Failed roundtrip for p={}, got x={}, p_back={}", p, x, p_back);
+            assert!(
+                (p - p_back).abs() < 1e-3,
+                "Failed roundtrip for p={}, got x={}, p_back={}",
+                p,
+                x,
+                p_back
+            );
         }
     }
 }

@@ -10,11 +10,7 @@ pub use binomial_tree::{BinomialTree, TreeType};
 pub use black::{d1, d2, norm_cdf, norm_pdf};
 pub use sabr::{SABRCalibrator, SABRModel, SABRParameters, SABRSmile};
 pub use tree_framework::{
-    NodeState, StateVariables, TreeModel, TreeValuator, TreeGreeks,
-    EvolutionParams, TreeParameters, TreeBranching, state_keys,
-    single_factor_equity_state, two_factor_equity_rates_state
+    single_factor_equity_state, state_keys, two_factor_equity_rates_state, EvolutionParams,
+    NodeState, StateVariables, TreeBranching, TreeGreeks, TreeModel, TreeParameters, TreeValuator,
 };
 pub use trinomial_tree::{TrinomialTree, TrinomialTreeType};
-
-
-

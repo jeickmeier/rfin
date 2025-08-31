@@ -9,7 +9,7 @@
 //! ## Example
 //! ```rust
 //! use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
-//! 
+//!
 //! let curve = BaseCorrelationCurve::builder("CDX.NA.IG.42_5Y")
 //!     .points(vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)])
 //!     .build()
@@ -47,7 +47,7 @@ impl BaseCorrelationCurve {
     }
 
     /// Get the interpolated correlation for a given detachment point.
-    /// 
+    ///
     /// Uses linear interpolation between points and flat extrapolation
     /// beyond the curve boundaries.
     pub fn correlation(&self, detachment_pct: F) -> F {
@@ -70,7 +70,7 @@ impl BaseCorrelationCurve {
                 let x2 = self.detachment_points[j];
                 let y1 = self.correlations[i];
                 let y2 = self.correlations[j];
-                
+
                 if (x2 - x1).abs() < 1e-12 {
                     return y1;
                 }
@@ -105,9 +105,10 @@ impl BaseCorrelationCurve {
         }
 
         // Binary search for bracketing interval
-        let pos = self
-            .detachment_points
-            .binary_search_by(|x| x.partial_cmp(&detachment_pct).unwrap_or(std::cmp::Ordering::Equal));
+        let pos = self.detachment_points.binary_search_by(|x| {
+            x.partial_cmp(&detachment_pct)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         match pos {
             Ok(i) => {
@@ -207,10 +208,10 @@ mod tests {
     fn sample_curve() -> BaseCorrelationCurve {
         BaseCorrelationCurve::builder("CDX.NA.IG.42_5Y")
             .points(vec![
-                (3.0, 0.25),   // 0-3% tranche has 25% base correlation
-                (7.0, 0.45),   // 0-7% tranche has 45% base correlation
-                (10.0, 0.60),  // 0-10% tranche has 60% base correlation
-                (15.0, 0.75),  // 0-15% tranche has 75% base correlation
+                (3.0, 0.25),  // 0-3% tranche has 25% base correlation
+                (7.0, 0.45),  // 0-7% tranche has 45% base correlation
+                (10.0, 0.60), // 0-10% tranche has 60% base correlation
+                (15.0, 0.75), // 0-15% tranche has 75% base correlation
             ])
             .build()
             .unwrap()
@@ -238,10 +239,10 @@ mod tests {
         assert!((curve.correlation(12.5) - 0.675).abs() < 1e-9);
 
         // Extrapolated flat
-        assert!((curve.correlation(1.0) - 0.25).abs() < 1e-9);  // Below first point
+        assert!((curve.correlation(1.0) - 0.25).abs() < 1e-9); // Below first point
         assert!((curve.correlation(20.0) - 0.75).abs() < 1e-9); // Above last point
     }
-    
+
     #[test]
     fn test_build_validation() {
         // Test rejection of correlation > 1.0

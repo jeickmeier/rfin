@@ -9,8 +9,8 @@ use finstack_core::F;
 use finstack_valuations as _; // ensure crate is linked
 use finstack_valuations::cashflow::aggregation::aggregate_by_period;
 use finstack_valuations::instruments::fixed_income::{bond, deposit, irs};
-use finstack_valuations::metrics::{standard_registry, MetricContext};
 use finstack_valuations::instruments::traits::Priceable;
+use finstack_valuations::metrics::{standard_registry, MetricContext};
 use std::sync::Arc;
 use time::Month;
 
@@ -303,12 +303,7 @@ fn dv01_bucketed_bond_simple() {
     let base_value = bond.value(&curves, issue).unwrap();
 
     // Create metric context and compute with standard metrics (which includes risk metrics)
-    let mut context = MetricContext::new(
-        Arc::new(bond.clone()),
-        curves.clone(),
-        issue,
-        base_value,
-    );
+    let mut context = MetricContext::new(Arc::new(bond.clone()), curves.clone(), issue, base_value);
 
     // Compute accrued first (which caches flows) and then bucketed DV01
     use finstack_valuations::metrics::MetricId;

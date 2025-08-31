@@ -10,8 +10,6 @@ pub struct ParSpreadCalculator;
 
 impl MetricCalculator for ParSpreadCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-
-
         let cds: &CreditDefaultSwap = context.instrument_as()?;
         let disc = context.curves.discount(cds.premium.disc_id)?;
         let credit = context.curves.credit(cds.protection.credit_id)?;
@@ -28,8 +26,6 @@ pub struct RiskyPv01Calculator;
 
 impl MetricCalculator for RiskyPv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-
-
         let cds: &CreditDefaultSwap = context.instrument_as()?;
         let disc = context.curves.discount(cds.premium.disc_id)?;
         let credit = context.curves.credit(cds.protection.credit_id)?;
@@ -46,8 +42,6 @@ pub struct Cs01Calculator;
 
 impl MetricCalculator for Cs01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-
-
         let cds: &CreditDefaultSwap = context.instrument_as()?;
         cds.cs01(&context.curves)
     }
@@ -62,8 +56,6 @@ pub struct ProtectionLegPvCalculator;
 
 impl MetricCalculator for ProtectionLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-
-
         let cds: &CreditDefaultSwap = context.instrument_as()?;
         let disc = context.curves.discount(cds.premium.disc_id)?;
         let credit = context.curves.credit(cds.protection.credit_id)?;
@@ -81,8 +73,6 @@ pub struct PremiumLegPvCalculator;
 
 impl MetricCalculator for PremiumLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-
-
         let cds: &CreditDefaultSwap = context.instrument_as()?;
         let disc = context.curves.discount(cds.premium.disc_id)?;
         let credit = context.curves.credit(cds.protection.credit_id)?;

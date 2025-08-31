@@ -5,19 +5,19 @@
 //! 2. Applies tree-based pricing to capture the equity conversion option
 //! 3. Handles call/put provisions and various conversion policies
 
-use finstack_core::prelude::*;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::prelude::*;
 use finstack_core::{Error, Result, F};
 
 use crate::cashflow::builder::{cf, CashFlowSchedule};
 use crate::cashflow::primitives::CFKind;
-use crate::instruments::options::models::{
-    NodeState, TreeModel, TreeValuator, TreeGreeks, 
-    BinomialTree, TrinomialTree, single_factor_equity_state
-};
 use crate::instruments::fixed_income::bond::CallPutSchedule;
+use crate::instruments::options::models::{
+    single_factor_equity_state, BinomialTree, NodeState, TreeGreeks, TreeModel, TreeValuator,
+    TrinomialTree,
+};
 
-use super::{ConvertibleBond, ConversionPolicy};
+use super::{ConversionPolicy, ConvertibleBond};
 
 /// Tree model type selection for convertible bond pricing
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -45,7 +45,7 @@ pub struct ConvertibleBondValuator {
     /// Call schedule (if any)
     #[allow(dead_code)]
     call_schedule: Option<CallPutSchedule>,
-    /// Put schedule (if any) 
+    /// Put schedule (if any)
     #[allow(dead_code)]
     put_schedule: Option<CallPutSchedule>,
     /// Conversion policy
@@ -78,7 +78,7 @@ impl ConvertibleBondValuator {
         let dt = time_to_maturity / steps as F;
         let mut cashflows_at_step = vec![0.0; steps + 1];
         let mut time_steps = Vec::with_capacity(steps + 1);
-        
+
         for i in 0..=steps {
             time_steps.push(i as F * dt);
         }
@@ -110,7 +110,7 @@ impl ConvertibleBondValuator {
     /// Check if conversion is allowed at a given time step
     fn conversion_allowed(&self, step: usize) -> bool {
         let _time = self.time_steps.get(step).copied().unwrap_or(0.0);
-        
+
         match &self.conversion_policy {
             ConversionPolicy::Voluntary => true,
             ConversionPolicy::MandatoryOn(_date) => {
@@ -146,22 +146,30 @@ impl ConvertibleBondValuator {
 impl TreeValuator for ConvertibleBondValuator {
     fn value_at_maturity(&self, state: &NodeState) -> Result<F> {
         let spot = state.spot().ok_or(Error::Internal)?;
-        
+
         // At maturity, choose between conversion and redemption
         let conversion_value = spot * self.conversion_ratio;
         let redemption_value = self.face_value;
-        
+
         // Add any final coupon payment
-        let final_coupon = self.cashflows_at_step.get(state.step).copied().unwrap_or(0.0);
-        
+        let final_coupon = self
+            .cashflows_at_step
+            .get(state.step)
+            .copied()
+            .unwrap_or(0.0);
+
         Ok(conversion_value.max(redemption_value) + final_coupon)
     }
 
     fn value_at_node(&self, state: &NodeState, continuation_value: F) -> Result<F> {
         let spot = state.spot().ok_or(Error::Internal)?;
-        
+
         // Start with continuation value plus any coupon at this step
-        let coupon = self.cashflows_at_step.get(state.step).copied().unwrap_or(0.0);
+        let coupon = self
+            .cashflows_at_step
+            .get(state.step)
+            .copied()
+            .unwrap_or(0.0);
         let hold_value = continuation_value + coupon;
 
         // Check conversion option
@@ -194,28 +202,24 @@ pub fn price_convertible_bond(
     // Step 1: Generate cashflow schedule using CashflowBuilder
     let mut builder = cf();
     builder.principal(bond.notional, bond.issue, bond.maturity);
-    
+
     // Add fixed coupon if specified
     if let Some(fixed_spec) = bond.fixed_coupon {
         builder.fixed_cf(fixed_spec);
     }
-    
-    // Add floating coupon if specified  
+
+    // Add floating coupon if specified
     if let Some(floating_spec) = bond.floating_coupon {
         builder.floating_cf(floating_spec);
     }
-    
+
     let cashflow_schedule = builder.build()?;
 
     // Step 2: Extract market data
-    let underlying_id = bond.underlying_equity_id
-        .as_ref()
-        .ok_or(Error::Internal)?;
-    
-    let spot_price = market_context
-        .market_scalar(underlying_id)?
-        .clone();
-    
+    let underlying_id = bond.underlying_equity_id.as_ref().ok_or(Error::Internal)?;
+
+    let spot_price = market_context.market_scalar(underlying_id)?.clone();
+
     let spot = match spot_price {
         finstack_core::market_data::primitives::MarketScalar::Price(money) => {
             if money.currency() != bond.notional.currency() {
@@ -246,12 +250,12 @@ pub fn price_convertible_bond(
     // Get risk-free rate from discount curve
     let discount_curve = market_context.discount(bond.disc_id)?;
     let base_date = discount_curve.base_date();
-    
+
     // Calculate time to maturity
     let time_to_maturity = finstack_core::dates::DayCount::Act365F
         .year_fraction(base_date, bond.maturity)
         .unwrap_or(0.0);
-    
+
     if time_to_maturity <= 0.0 {
         return Ok(Money::new(0.0, bond.notional.currency()));
     }
@@ -268,21 +272,11 @@ pub fn price_convertible_bond(
         ConvertibleTreeType::Binomial(n) => n,
         ConvertibleTreeType::Trinomial(n) => n,
     };
-    
-    let valuator = ConvertibleBondValuator::new(
-        bond,
-        &cashflow_schedule,
-        time_to_maturity,
-        steps,
-    )?;
+
+    let valuator = ConvertibleBondValuator::new(bond, &cashflow_schedule, time_to_maturity, steps)?;
 
     // Step 4: Create initial state variables
-    let initial_vars = single_factor_equity_state(
-        spot,
-        risk_free_rate,
-        dividend_yield,
-        volatility,
-    );
+    let initial_vars = single_factor_equity_state(spot, risk_free_rate, dividend_yield, volatility);
 
     // Step 5: Price using selected tree model
     let pv_amount = match tree_type {
@@ -309,22 +303,20 @@ pub fn calculate_convertible_greeks(
     // Generate cashflow schedule
     let mut builder = cf();
     builder.principal(bond.notional, bond.issue, bond.maturity);
-    
+
     if let Some(fixed_spec) = bond.fixed_coupon {
         builder.fixed_cf(fixed_spec);
     }
-    
+
     if let Some(floating_spec) = bond.floating_coupon {
         builder.floating_cf(floating_spec);
     }
-    
+
     let cashflow_schedule = builder.build()?;
 
     // Extract market data (same logic as price_convertible_bond)
-    let underlying_id = bond.underlying_equity_id
-        .as_ref()
-        .ok_or(Error::Internal)?;
-    
+    let underlying_id = bond.underlying_equity_id.as_ref().ok_or(Error::Internal)?;
+
     let spot_price = market_context.market_scalar(underlying_id)?;
     let spot = match spot_price {
         finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
@@ -351,7 +343,7 @@ pub fn calculate_convertible_greeks(
     let time_to_maturity = finstack_core::dates::DayCount::Act365F
         .year_fraction(base_date, bond.maturity)
         .unwrap_or(0.0);
-    
+
     let risk_free_rate = if time_to_maturity > 0.0 {
         -discount_curve.df(time_to_maturity).ln() / time_to_maturity
     } else {
@@ -363,30 +355,34 @@ pub fn calculate_convertible_greeks(
         ConvertibleTreeType::Binomial(n) => n,
         ConvertibleTreeType::Trinomial(n) => n,
     };
-    
-    let valuator = ConvertibleBondValuator::new(
-        bond,
-        &cashflow_schedule,
-        time_to_maturity,
-        steps,
-    )?;
 
-    let initial_vars = single_factor_equity_state(
-        spot,
-        risk_free_rate,
-        dividend_yield,
-        volatility,
-    );
+    let valuator = ConvertibleBondValuator::new(bond, &cashflow_schedule, time_to_maturity, steps)?;
+
+    let initial_vars = single_factor_equity_state(spot, risk_free_rate, dividend_yield, volatility);
 
     // Calculate Greeks using selected tree model
     match tree_type {
         ConvertibleTreeType::Binomial(steps) => {
             let tree = BinomialTree::crr(steps);
-            TreeModel::calculate_greeks(&tree, initial_vars, time_to_maturity, market_context, &valuator, bump_size)
+            TreeModel::calculate_greeks(
+                &tree,
+                initial_vars,
+                time_to_maturity,
+                market_context,
+                &valuator,
+                bump_size,
+            )
         }
         ConvertibleTreeType::Trinomial(steps) => {
             let tree = TrinomialTree::standard(steps);
-            TreeModel::calculate_greeks(&tree, initial_vars, time_to_maturity, market_context, &valuator, bump_size)
+            TreeModel::calculate_greeks(
+                &tree,
+                initial_vars,
+                time_to_maturity,
+                market_context,
+                &valuator,
+                bump_size,
+            )
         }
     }
 }
@@ -400,7 +396,7 @@ pub fn calculate_parity(bond: &ConvertibleBond, current_spot: F) -> F {
     } else {
         return 0.0;
     };
-    
+
     (current_spot * conversion_ratio) / bond.notional.amount()
 }
 
@@ -417,12 +413,14 @@ pub fn calculate_conversion_premium(bond_price: F, current_spot: F, conversion_r
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cashflow::builder::types::{CouponType, FixedCouponSpec};
+    use crate::instruments::fixed_income::convertible::{
+        AntiDilutionPolicy, ConversionPolicy, ConversionSpec, DividendAdjustment,
+    };
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{Date, DayCount, Frequency, BusinessDayConvention, StubKind};
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
     use finstack_core::market_data::primitives::MarketScalar;
-    use crate::cashflow::builder::types::{FixedCouponSpec, CouponType};
-    use crate::instruments::fixed_income::convertible::{ConversionPolicy, ConversionSpec, AntiDilutionPolicy, DividendAdjustment};
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use time::Month;
 
     fn create_test_bond() -> ConvertibleBond {
@@ -483,7 +481,7 @@ mod tests {
     fn test_convertible_bond_parity() {
         let bond = create_test_bond();
         let parity = calculate_parity(&bond, 150.0);
-        
+
         // With 10 shares per bond and $150 stock price:
         // Conversion value = 10 * 150 = $1,500
         // Parity = $1,500 / $1,000 = 1.5 (150%)
@@ -494,20 +492,17 @@ mod tests {
     fn test_convertible_bond_pricing() {
         let bond = create_test_bond();
         let market_context = create_test_market_context();
-        
-        let price = price_convertible_bond(
-            &bond,
-            &market_context,
-            ConvertibleTreeType::Binomial(50),
-        );
-        
+
+        let price =
+            price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(50));
+
         assert!(price.is_ok());
         let price = price.unwrap();
-        
+
         // Should be worth at least the conversion value
         let conversion_value = 150.0 * 10.0; // $1,500
         assert!(price.amount() >= conversion_value);
-        
+
         // Should be in a reasonable range
         assert!(price.amount() > 1000.0 && price.amount() < 2000.0);
     }
@@ -516,23 +511,23 @@ mod tests {
     fn test_convertible_greeks_calculation() {
         let bond = create_test_bond();
         let market_context = create_test_market_context();
-        
+
         let greeks = calculate_convertible_greeks(
             &bond,
             &market_context,
             ConvertibleTreeType::Binomial(50),
             Some(0.01),
         );
-        
+
         assert!(greeks.is_ok());
         let greeks = greeks.unwrap();
-        
+
         // Delta should be positive for convertible bonds (increases with stock price)
         assert!(greeks.delta > 0.0);
-        
-        // Gamma should be positive 
+
+        // Gamma should be positive
         assert!(greeks.gamma >= 0.0);
-        
+
         // Price should be reasonable
         assert!(greeks.price > 1000.0);
     }

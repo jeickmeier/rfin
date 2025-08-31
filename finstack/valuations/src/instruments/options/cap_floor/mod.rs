@@ -9,8 +9,8 @@ use finstack_core::F;
 
 use finstack_core::dates::{Date, DayCount, Frequency};
 
-use super::{ExerciseStyle, SettlementType};
 use super::models;
+use super::{ExerciseStyle, SettlementType};
 
 /// Type of interest rate option
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -276,8 +276,7 @@ impl InterestRateOption {
         // Payer swaption (right to pay fixed)
         let price = annuity
             * self.notional.amount()
-            * (swap_rate * models::norm_cdf(d1)
-                - self.strike_rate * models::norm_cdf(d2));
+            * (swap_rate * models::norm_cdf(d1) - self.strike_rate * models::norm_cdf(d2));
 
         Ok(Money::new(price, self.notional.currency()))
     }
@@ -309,9 +308,7 @@ impl InterestRateOption {
 
         match self.rate_option_type {
             RateOptionType::Caplet | RateOptionType::Cap => models::norm_cdf(d1),
-            RateOptionType::Floorlet | RateOptionType::Floor => {
-                -models::norm_cdf(-d1)
-            }
+            RateOptionType::Floorlet | RateOptionType::Floor => -models::norm_cdf(-d1),
             RateOptionType::Swaption => models::norm_cdf(d1),
         }
     }
@@ -347,13 +344,22 @@ impl InterestRateOption {
 use crate::metrics::MetricId;
 
 impl_instrument!(
-    InterestRateOption, "InterestRateOption",
+    InterestRateOption,
+    "InterestRateOption",
     pv = |s, curves, _as_of| {
         let _disc = curves.discount(s.disc_id)?;
         let _forward = curves.forecast(s.forward_id)?;
-        Err(finstack_core::Error::from(finstack_core::error::InputError::NotFound))
+        Err(finstack_core::Error::from(
+            finstack_core::error::InputError::NotFound,
+        ))
     },
-    metrics = |_s| vec![MetricId::Delta, MetricId::Gamma, MetricId::Vega, MetricId::Theta, MetricId::Rho]
+    metrics = |_s| vec![
+        MetricId::Delta,
+        MetricId::Gamma,
+        MetricId::Vega,
+        MetricId::Theta,
+        MetricId::Rho
+    ]
 );
 
 // Conversions and Attributable provided by macro

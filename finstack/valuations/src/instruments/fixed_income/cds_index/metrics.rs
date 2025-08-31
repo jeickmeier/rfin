@@ -20,7 +20,9 @@ impl MetricCalculator for ParSpreadCalculator {
         cds.par_spread(&*disc, &credit)
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
 
 /// Risky PV01 calculator for CDS Index
@@ -35,7 +37,9 @@ impl MetricCalculator for RiskyPv01Calculator {
         cds.risky_pv01(&*disc, &credit)
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
 
 /// CS01 calculator for CDS Index
@@ -49,7 +53,9 @@ impl MetricCalculator for Cs01Calculator {
         pricer.cs01(&cds, &context.curves, context.as_of)
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
 
 /// Protection leg PV calculator
@@ -65,7 +71,9 @@ impl MetricCalculator for ProtectionLegPvCalculator {
         Ok(pv.amount())
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
 
 /// Premium leg PV calculator
@@ -81,16 +89,32 @@ impl MetricCalculator for PremiumLegPvCalculator {
         Ok(pv.amount())
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
 
 /// Register all CDS Index metrics with the registry
 pub fn register_cds_index_metrics(registry: &mut MetricRegistry) {
-    registry.register_metric(MetricId::ParSpread, Arc::new(ParSpreadCalculator), &["CDSIndex"]);
-    registry.register_metric(MetricId::RiskyPv01, Arc::new(RiskyPv01Calculator), &["CDSIndex"]);
+    registry.register_metric(
+        MetricId::ParSpread,
+        Arc::new(ParSpreadCalculator),
+        &["CDSIndex"],
+    );
+    registry.register_metric(
+        MetricId::RiskyPv01,
+        Arc::new(RiskyPv01Calculator),
+        &["CDSIndex"],
+    );
     registry.register_metric(MetricId::Cs01, Arc::new(Cs01Calculator), &["CDSIndex"]);
-    registry.register_metric(MetricId::ProtectionLegPv, Arc::new(ProtectionLegPvCalculator), &["CDSIndex"]);
-    registry.register_metric(MetricId::PremiumLegPv, Arc::new(PremiumLegPvCalculator), &["CDSIndex"]);
+    registry.register_metric(
+        MetricId::ProtectionLegPv,
+        Arc::new(ProtectionLegPvCalculator),
+        &["CDSIndex"],
+    );
+    registry.register_metric(
+        MetricId::PremiumLegPv,
+        Arc::new(PremiumLegPvCalculator),
+        &["CDSIndex"],
+    );
 }
-
-

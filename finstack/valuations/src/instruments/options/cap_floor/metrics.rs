@@ -11,12 +11,12 @@ pub struct DeltaCalculator;
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &InterestRateOption = context.instrument_as()?;
-            // Minimal example: require inputs via attributes or implied_vol
-            let sigma = option.implied_vol.unwrap_or(0.20);
-            // Placeholder forward and t until forward curve utilities are exposed
-            let forward_rate = option.strike_rate;
-            let t = 1.0;
-            Ok(option.delta(forward_rate, sigma, t))
+        // Minimal example: require inputs via attributes or implied_vol
+        let sigma = option.implied_vol.unwrap_or(0.20);
+        // Placeholder forward and t until forward curve utilities are exposed
+        let forward_rate = option.strike_rate;
+        let t = 1.0;
+        Ok(option.delta(forward_rate, sigma, t))
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -30,10 +30,10 @@ pub struct GammaCalculator;
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &InterestRateOption = context.instrument_as()?;
-            let sigma = option.implied_vol.unwrap_or(0.20);
-            let forward_rate = option.strike_rate;
-            let t = 1.0;
-            Ok(option.gamma(forward_rate, sigma, t))
+        let sigma = option.implied_vol.unwrap_or(0.20);
+        let forward_rate = option.strike_rate;
+        let t = 1.0;
+        Ok(option.gamma(forward_rate, sigma, t))
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -47,10 +47,10 @@ pub struct VegaCalculator;
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &InterestRateOption = context.instrument_as()?;
-            let sigma = option.implied_vol.unwrap_or(0.20);
-            let forward_rate = option.strike_rate;
-            let t = 1.0;
-            Ok(option.vega(forward_rate, sigma, t))
+        let sigma = option.implied_vol.unwrap_or(0.20);
+        let forward_rate = option.strike_rate;
+        let t = 1.0;
+        Ok(option.vega(forward_rate, sigma, t))
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -64,14 +64,14 @@ pub struct ThetaCalculator;
 impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &InterestRateOption = context.instrument_as()?;
-            // Approximate theta via finite difference on t (per day)
-            let sigma = option.implied_vol.unwrap_or(0.20);
-            let forward_rate = option.strike_rate;
-            let t = 1.0;
-            let dt = 1.0 / 365.25;
-            let base = option.delta(forward_rate, sigma, t); // not ideal; would prefer price fn
-            let later = option.delta(forward_rate, sigma, t - dt);
-            Ok(-(base - later) / dt / 365.25)
+        // Approximate theta via finite difference on t (per day)
+        let sigma = option.implied_vol.unwrap_or(0.20);
+        let forward_rate = option.strike_rate;
+        let t = 1.0;
+        let dt = 1.0 / 365.25;
+        let base = option.delta(forward_rate, sigma, t); // not ideal; would prefer price fn
+        let later = option.delta(forward_rate, sigma, t - dt);
+        Ok(-(base - later) / dt / 365.25)
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -103,7 +103,9 @@ impl MetricCalculator for ImpliedVolCalculator {
         Ok(0.0)
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
 
 /// Register interest rate option metrics with the registry

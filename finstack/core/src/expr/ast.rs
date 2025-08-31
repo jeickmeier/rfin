@@ -1,7 +1,7 @@
 //! AST nodes and function registry for the expression engine.
 
-use core::hash::{Hash, Hasher};
 use super::time_windows::DurationSpec;
+use core::hash::{Hash, Hasher};
 
 /// Expression AST with optional unique ID for DAG planning and caching.
 #[derive(Clone, Debug)]

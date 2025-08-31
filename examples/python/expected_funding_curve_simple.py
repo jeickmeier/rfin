@@ -6,13 +6,15 @@ This shows the structure and API for adding expected future draws
 to DDTL and RCF instruments for pricing.
 """
 
+
 def demo_expected_funding_concept():
     """Demonstrate the concept of expected funding curves."""
     print("=" * 60)
     print("EXPECTED FUNDING CURVES - CONCEPT DEMONSTRATION")
     print("=" * 60)
-    
-    print("""
+
+    print(
+        """
 Expected funding curves enable more accurate pricing by incorporating:
 
 1. DELAYED-DRAW TERM LOAN (DDTL) Example:
@@ -74,7 +76,9 @@ Expected funding curves enable more accurate pricing by incorporating:
    ```
 
 This functionality is now implemented in both Rust and Python bindings!
-    """)
+    """
+    )
+
 
 if __name__ == "__main__":
     demo_expected_funding_concept()

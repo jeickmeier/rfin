@@ -58,9 +58,7 @@ impl ValuationMarketContext {
         self.credit_indices
             .get(index_id)
             .map(|arc| arc.as_ref())
-            .ok_or_else(|| {
-                finstack_core::error::InputError::NotFound.into()
-            })
+            .ok_or_else(|| finstack_core::error::InputError::NotFound.into())
     }
 
     /// Check if credit index data is available for a given index.
@@ -74,29 +72,44 @@ impl ValuationMarketContext {
     }
 
     // Delegate common market data access to the core context
-    
+
     /// Get discount curve by id (delegates to core).
-    pub fn discount(&self, id: impl AsRef<str>) -> Result<Arc<dyn finstack_core::market_data::traits::Discount + Send + Sync>> {
+    pub fn discount(
+        &self,
+        id: impl AsRef<str>,
+    ) -> Result<Arc<dyn finstack_core::market_data::traits::Discount + Send + Sync>> {
         self.core.discount(id)
     }
 
     /// Get forecast curve by id (delegates to core).
-    pub fn forecast(&self, id: impl AsRef<str>) -> Result<Arc<dyn finstack_core::market_data::traits::Forward + Send + Sync>> {
+    pub fn forecast(
+        &self,
+        id: impl AsRef<str>,
+    ) -> Result<Arc<dyn finstack_core::market_data::traits::Forward + Send + Sync>> {
         self.core.forecast(id)
     }
 
     /// Get credit curve by id (delegates to core).
-    pub fn credit(&self, id: impl AsRef<str>) -> Result<Arc<finstack_core::market_data::term_structures::credit_curve::CreditCurve>> {
+    pub fn credit(
+        &self,
+        id: impl AsRef<str>,
+    ) -> Result<Arc<finstack_core::market_data::term_structures::credit_curve::CreditCurve>> {
         self.core.credit(id)
     }
 
     /// Get hazard curve by id (delegates to core).
-    pub fn hazard(&self, id: impl AsRef<str>) -> Result<Arc<finstack_core::market_data::hazard_curve::HazardCurve>> {
+    pub fn hazard(
+        &self,
+        id: impl AsRef<str>,
+    ) -> Result<Arc<finstack_core::market_data::hazard_curve::HazardCurve>> {
         self.core.hazard(id)
     }
 
     /// Get volatility surface by id (delegates to core).
-    pub fn vol_surface(&self, id: impl AsRef<str>) -> Result<Arc<finstack_core::market_data::surfaces::vol_surface::VolSurface>> {
+    pub fn vol_surface(
+        &self,
+        id: impl AsRef<str>,
+    ) -> Result<Arc<finstack_core::market_data::surfaces::vol_surface::VolSurface>> {
         self.core.vol_surface(id)
     }
 
@@ -110,9 +123,11 @@ impl ValuationMarketContext {
 
 impl ValuationMarketContext {
     /// Add a discount curve (delegates to core).
-    pub fn with_discount<C: finstack_core::market_data::traits::Discount + Send + Sync + 'static>(
-        mut self, 
-        curve: C
+    pub fn with_discount<
+        C: finstack_core::market_data::traits::Discount + Send + Sync + 'static,
+    >(
+        mut self,
+        curve: C,
     ) -> Self {
         self.core = self.core.with_discount(curve);
         self
@@ -120,27 +135,36 @@ impl ValuationMarketContext {
 
     /// Add a forecast curve (delegates to core).
     pub fn with_forecast<C: finstack_core::market_data::traits::Forward + Send + Sync + 'static>(
-        mut self, 
-        curve: C
+        mut self,
+        curve: C,
     ) -> Self {
         self.core = self.core.with_forecast(curve);
         self
     }
 
     /// Add a credit curve (delegates to core).
-    pub fn with_credit(mut self, curve: finstack_core::market_data::term_structures::credit_curve::CreditCurve) -> Self {
+    pub fn with_credit(
+        mut self,
+        curve: finstack_core::market_data::term_structures::credit_curve::CreditCurve,
+    ) -> Self {
         self.core = self.core.with_credit(curve);
         self
     }
 
     /// Add a hazard curve (delegates to core).
-    pub fn with_hazard(mut self, curve: finstack_core::market_data::hazard_curve::HazardCurve) -> Self {
+    pub fn with_hazard(
+        mut self,
+        curve: finstack_core::market_data::hazard_curve::HazardCurve,
+    ) -> Self {
         self.core = self.core.with_hazard(curve);
         self
     }
 
     /// Add a volatility surface (delegates to core).
-    pub fn with_surface(mut self, surface: finstack_core::market_data::surfaces::vol_surface::VolSurface) -> Self {
+    pub fn with_surface(
+        mut self,
+        surface: finstack_core::market_data::surfaces::vol_surface::VolSurface,
+    ) -> Self {
         self.core = self.core.with_surface(surface);
         self
     }
@@ -170,14 +194,16 @@ impl From<ValuationMarketContext> for CoreMarketContext {
 mod tests {
     use super::*;
     use crate::market_data::credit_index::CreditIndexData;
-    use finstack_core::market_data::term_structures::{BaseCorrelationCurve, credit_curve::CreditCurve};
-    use finstack_core::market_data::term_structures::credit_curve::Seniority;
     use finstack_core::dates::Date;
+    use finstack_core::market_data::term_structures::credit_curve::Seniority;
+    use finstack_core::market_data::term_structures::{
+        credit_curve::CreditCurve, BaseCorrelationCurve,
+    };
     use time::Month;
 
     fn sample_credit_index_data() -> CreditIndexData {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         let index_curve = CreditCurve::builder("CDX.NA.IG.42")
             .issuer("CDX.NA.IG.42")
             .seniority(Seniority::Senior)
@@ -211,8 +237,7 @@ mod tests {
     #[test]
     fn test_with_credit_index() {
         let data = sample_credit_index_data();
-        let ctx = ValuationMarketContext::new()
-            .with_credit_index("CDX.NA.IG.42", data);
+        let ctx = ValuationMarketContext::new().with_credit_index("CDX.NA.IG.42", data);
 
         assert!(ctx.has_credit_index("CDX.NA.IG.42"));
         assert_eq!(ctx.credit_index_ids(), vec!["CDX.NA.IG.42"]);
@@ -239,12 +264,11 @@ mod tests {
     #[test]
     fn test_conversion_between_contexts() {
         let data = sample_credit_index_data();
-        let val_ctx = ValuationMarketContext::new()
-            .with_credit_index("CDX.NA.IG.42", data);
+        let val_ctx = ValuationMarketContext::new().with_credit_index("CDX.NA.IG.42", data);
 
         // Convert to core context (should work)
         let core_ctx: CoreMarketContext = val_ctx.clone().into();
-        
+
         // Convert back from core context
         let val_ctx2 = ValuationMarketContext::from(core_ctx);
         assert!(val_ctx2.credit_index_ids().is_empty()); // Credit indices don't survive conversion

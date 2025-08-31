@@ -1,7 +1,7 @@
 //! Interface for objects that can be present-valued against a `Discount` curve.
 
-use finstack_core::market_data::traits::Discount;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::traits::Discount;
 use finstack_core::prelude::*;
 
 /// Objects that can be present-valued against a `Discount` curve.

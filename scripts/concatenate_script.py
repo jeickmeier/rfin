@@ -104,11 +104,8 @@ def concatenate_files(output_filename="concatenated_code.txt"):
                         file_paths.append(candidate)
             elif path.is_file():
                 # Include any file type, not just .py files
-                if (
-                    not is_excluded(path, exclude_patterns)
-                    and (
-                        path.suffix in allowed_suffixes or path.name in allowed_filenames
-                    )
+                if not is_excluded(path, exclude_patterns) and (
+                    path.suffix in allowed_suffixes or path.name in allowed_filenames
                 ):
                     file_paths.append(path)
 

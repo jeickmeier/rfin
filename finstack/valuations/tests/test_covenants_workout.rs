@@ -167,7 +167,6 @@ fn test_covenant_consequences() {
     assert!(loan.distributions_blocked);
 }
 
-
 #[test]
 fn test_covenant_windows() {
     let mut engine = CovenantEngine::new();

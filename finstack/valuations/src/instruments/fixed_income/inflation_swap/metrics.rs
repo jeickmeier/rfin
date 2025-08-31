@@ -58,5 +58,3 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
             &["InflationSwap"],
         );
 }
-
-

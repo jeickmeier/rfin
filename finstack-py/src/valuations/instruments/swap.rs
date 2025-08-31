@@ -411,8 +411,8 @@ impl PyInterestRateSwap {
         market_context: &crate::core::market_data::context::PyMarketContext,
         as_of: &PyDate,
     ) -> PyResult<f64> {
-        use finstack_valuations::metrics::{standard_registry, MetricId};
         use finstack_valuations::instruments::traits::Priceable;
+        use finstack_valuations::metrics::{standard_registry, MetricId};
 
         let curves = market_context.inner();
         let as_of_date = as_of.inner();
@@ -427,8 +427,12 @@ impl PyInterestRateSwap {
         })?;
 
         // Create metric context
-        let mut context =
-            finstack_valuations::metrics::MetricContext::new(Arc::new((*self.inner).clone()), curves.clone(), as_of_date, base_value);
+        let mut context = finstack_valuations::metrics::MetricContext::new(
+            Arc::new((*self.inner).clone()),
+            curves.clone(),
+            as_of_date,
+            base_value,
+        );
 
         // Get standard registry and compute par rate
         let registry = standard_registry();

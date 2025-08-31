@@ -39,5 +39,3 @@ pub trait CashflowProvider: Send + Sync {
         flows.npv(disc, base, dc)
     }
 }
-
-

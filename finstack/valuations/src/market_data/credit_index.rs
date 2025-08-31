@@ -3,7 +3,9 @@
 //! Aggregates all market data components required for pricing instruments
 //! on a specific credit index (e.g., CDX.NA.IG.42, iTraxx Europe).
 
-use finstack_core::market_data::term_structures::{BaseCorrelationCurve, credit_curve::CreditCurve};
+use finstack_core::market_data::term_structures::{
+    credit_curve::CreditCurve, BaseCorrelationCurve,
+};
 use finstack_core::prelude::*;
 use finstack_core::F;
 use std::collections::HashMap;
@@ -35,12 +37,13 @@ impl CreditIndexData {
     }
 
     /// Get the credit curve for a specific issuer.
-    /// 
+    ///
     /// Returns the issuer-specific curve if available, otherwise falls back
     /// to the index curve (homogeneous portfolio assumption).
     pub fn get_issuer_curve(&self, issuer_id: &str) -> &CreditCurve {
         match &self.issuer_credit_curves {
-            Some(curves) => curves.get(issuer_id)
+            Some(curves) => curves
+                .get(issuer_id)
                 .map(|arc| arc.as_ref())
                 .unwrap_or(self.index_credit_curve.as_ref()),
             None => self.index_credit_curve.as_ref(),
@@ -48,11 +51,12 @@ impl CreditIndexData {
     }
 
     /// Check if heterogeneous pricing mode is available.
-    /// 
+    ///
     /// Returns true if individual issuer curves are provided, enabling
     /// more granular portfolio loss modeling.
     pub fn has_issuer_curves(&self) -> bool {
-        self.issuer_credit_curves.as_ref()
+        self.issuer_credit_curves
+            .as_ref()
             .map(|curves| !curves.is_empty())
             .unwrap_or(false)
     }
@@ -129,25 +133,32 @@ impl CreditIndexDataBuilder {
 
     /// Build the credit index data.
     pub fn build(self) -> Result<CreditIndexData> {
-        let num_constituents = self.num_constituents
+        let num_constituents = self
+            .num_constituents
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        
+
         let recovery_rate = self.recovery_rate.unwrap_or(0.40); // Industry standard 40%
-        
-        let index_credit_curve = self.index_credit_curve
+
+        let index_credit_curve = self
+            .index_credit_curve
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        
-        let base_correlation_curve = self.base_correlation_curve
+
+        let base_correlation_curve = self
+            .base_correlation_curve
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
 
         // Validate recovery rate
         if !(0.0..=1.0).contains(&recovery_rate) {
-            return Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid));
+            return Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            ));
         }
 
         // Validate number of constituents
         if num_constituents == 0 {
-            return Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid));
+            return Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            ));
         }
 
         Ok(CreditIndexData {
@@ -163,39 +174,47 @@ impl CreditIndexDataBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use finstack_core::market_data::term_structures::{BaseCorrelationCurve, credit_curve::CreditCurve};
-    use finstack_core::market_data::term_structures::credit_curve::Seniority;
     use finstack_core::dates::Date;
+    use finstack_core::market_data::term_structures::credit_curve::Seniority;
+    use finstack_core::market_data::term_structures::{
+        credit_curve::CreditCurve, BaseCorrelationCurve,
+    };
     use time::Month;
 
     fn sample_index_data() -> CreditIndexData {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         // Create sample index credit curve
         let index_curve = CreditCurve::builder("CDX.NA.IG.42")
             .issuer("CDX.NA.IG.42")
             .seniority(Seniority::Senior)
             .recovery_rate(0.40)
             .base_date(base_date)
-            .spreads(vec![(1.0, 60.0), (3.0, 80.0), (5.0, 100.0), (7.0, 120.0), (10.0, 140.0)])
+            .spreads(vec![
+                (1.0, 60.0),
+                (3.0, 80.0),
+                (5.0, 100.0),
+                (7.0, 120.0),
+                (10.0, 140.0),
+            ])
             .build()
             .unwrap();
 
         // Create sample base correlation curve
         let base_corr_curve = BaseCorrelationCurve::builder("CDX.NA.IG.42_5Y")
             .points(vec![
-                (3.0, 0.25),   // 0-3% equity tranche
-                (7.0, 0.45),   // 0-7% junior mezzanine
-                (10.0, 0.60),  // 0-10% senior mezzanine
-                (15.0, 0.75),  // 0-15% senior
-                (30.0, 0.85),  // 0-30% super senior
+                (3.0, 0.25),  // 0-3% equity tranche
+                (7.0, 0.45),  // 0-7% junior mezzanine
+                (10.0, 0.60), // 0-10% senior mezzanine
+                (15.0, 0.75), // 0-15% senior
+                (30.0, 0.85), // 0-30% super senior
             ])
             .build()
             .unwrap();
 
         CreditIndexData::builder()
             .num_constituents(125) // Standard CDX IG has 125 constituents
-            .recovery_rate(0.40)   // Industry standard 40%
+            .recovery_rate(0.40) // Industry standard 40%
             .index_credit_curve(Arc::new(index_curve))
             .base_correlation_curve(Arc::new(base_corr_curve))
             .build()
@@ -213,7 +232,7 @@ mod tests {
     #[test]
     fn test_get_issuer_curve_fallback() {
         let data = sample_index_data();
-        
+
         // Should return index curve for any issuer ID when no issuer curves available
         let curve = data.get_issuer_curve("AAPL");
         assert_eq!(curve.id().as_str(), "CDX.NA.IG.42");
@@ -222,7 +241,7 @@ mod tests {
     #[test]
     fn test_with_issuer_curves() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         let index_curve = CreditCurve::builder("CDX.NA.IG.42")
             .issuer("CDX.NA.IG.42")
             .base_date(base_date)
@@ -253,10 +272,10 @@ mod tests {
 
         assert!(data.has_issuer_curves());
         assert_eq!(data.issuer_ids(), vec!["AAPL"]);
-        
+
         let aapl_curve = data.get_issuer_curve("AAPL");
         assert_eq!(aapl_curve.issuer, "Apple Inc.");
-        
+
         // Non-existent issuer should fall back to index curve
         let unknown_curve = data.get_issuer_curve("UNKNOWN");
         assert_eq!(unknown_curve.id().as_str(), "CDX.NA.IG.42");

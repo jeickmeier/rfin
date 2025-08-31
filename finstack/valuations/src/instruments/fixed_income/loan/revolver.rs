@@ -3,10 +3,10 @@
 use super::covenants::Covenant;
 use super::term_loan::InterestSpec;
 use crate::cashflow::builder::{cf, CouponType, FeeBase, FeeSpec, FloatingCouponSpec};
-use crate::instruments::fixed_income::discountable::Discountable;
-use crate::results::ValuationResult;
 use crate::cashflow::traits::CashflowProvider;
+use crate::instruments::fixed_income::discountable::Discountable;
 use crate::instruments::traits::Priceable;
+use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::money::Money;

@@ -16,6 +16,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 time = { version = "0.3" }
 paste = "1.0"
+num-traits = "0.2"
+rust_decimal = { version = "1.36", optional = true, features = ["serde-float"] }
 
 [dev-dependencies]
 time = { version = "0.3", features = ["macros"] }
@@ -25,7 +27,8 @@ name = "bond_custom_cashflows_example"
 path = "../../examples/rust/bond_custom_cashflows_example.rs"
 
 [features]
-default = ["serde"]
+default = ["serde", "decimal128"]
 parallel = ["dep:rayon"]
 serde = ["finstack-core/serde", "hashbrown/serde"]
 index = []
+decimal128 = ["finstack-core/decimal128", "dep:rust_decimal"]

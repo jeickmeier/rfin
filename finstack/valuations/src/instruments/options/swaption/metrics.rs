@@ -15,8 +15,7 @@ impl MetricCalculator for DeltaCalculator {
         let disc = context.curves.discount(option.disc_id)?;
         // Approximate forward swap rate and annuity from pricer helpers
         let forward = option.forward_swap_rate(disc.as_ref())?;
-        let t = option
-            .year_fraction(disc.base_date(), option.expiry, option.day_count)?;
+        let t = option.year_fraction(disc.base_date(), option.expiry, option.day_count)?;
         let sigma = option.sabr_params.as_ref().map(|p| p.alpha).unwrap_or(0.20);
 
         // Use Black delta approximation via d1 CDF (dimensionless w.r.t forward)
@@ -45,19 +44,18 @@ pub struct GammaCalculator;
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &Swaption = context.instrument_as()?;
-            let disc = context.curves.discount(option.disc_id)?;
-            let forward = option.forward_swap_rate(disc.as_ref())?;
-            let t = option
-                .year_fraction(disc.base_date(), option.expiry, option.day_count)?;
-            let sigma = option.sabr_params.as_ref().map(|p| p.alpha).unwrap_or(0.20);
-            if t <= 0.0 || sigma <= 0.0 || forward <= 0.0 {
-                return Ok(0.0);
-            }
-            let variance = sigma * sigma * t;
-            let d1 = ((forward / option.strike_rate).ln() + 0.5 * variance) / variance.sqrt();
-            let gamma = crate::instruments::options::models::norm_pdf(d1)
-                / (forward * sigma * t.sqrt());
-            Ok(gamma)
+        let disc = context.curves.discount(option.disc_id)?;
+        let forward = option.forward_swap_rate(disc.as_ref())?;
+        let t = option.year_fraction(disc.base_date(), option.expiry, option.day_count)?;
+        let sigma = option.sabr_params.as_ref().map(|p| p.alpha).unwrap_or(0.20);
+        if t <= 0.0 || sigma <= 0.0 || forward <= 0.0 {
+            return Ok(0.0);
+        }
+        let variance = sigma * sigma * t;
+        let d1 = ((forward / option.strike_rate).ln() + 0.5 * variance) / variance.sqrt();
+        let gamma =
+            crate::instruments::options::models::norm_pdf(d1) / (forward * sigma * t.sqrt());
+        Ok(gamma)
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -71,19 +69,18 @@ pub struct VegaCalculator;
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &Swaption = context.instrument_as()?;
-            let disc = context.curves.discount(option.disc_id)?;
-            let forward = option.forward_swap_rate(disc.as_ref())?;
-            let t = option
-                .year_fraction(disc.base_date(), option.expiry, option.day_count)?;
-            let sigma = option.sabr_params.as_ref().map(|p| p.alpha).unwrap_or(0.20);
-            let variance = sigma * sigma * t;
-            let d1 = if variance > 0.0 {
-                ((forward / option.strike_rate).ln() + 0.5 * variance) / variance.sqrt()
-            } else {
-                0.0
-            };
-            let vega = forward * crate::instruments::options::models::norm_pdf(d1) * t.sqrt() / 100.0;
-            Ok(vega)
+        let disc = context.curves.discount(option.disc_id)?;
+        let forward = option.forward_swap_rate(disc.as_ref())?;
+        let t = option.year_fraction(disc.base_date(), option.expiry, option.day_count)?;
+        let sigma = option.sabr_params.as_ref().map(|p| p.alpha).unwrap_or(0.20);
+        let variance = sigma * sigma * t;
+        let d1 = if variance > 0.0 {
+            ((forward / option.strike_rate).ln() + 0.5 * variance) / variance.sqrt()
+        } else {
+            0.0
+        };
+        let vega = forward * crate::instruments::options::models::norm_pdf(d1) * t.sqrt() / 100.0;
+        Ok(vega)
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -97,37 +94,37 @@ pub struct ThetaCalculator;
 impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &Swaption = context.instrument_as()?;
-            let disc = context.curves.discount(option.disc_id)?;
-            let base = disc.base_date();
-            let t = option.year_fraction(base, option.expiry, option.day_count)?;
-            if t <= 0.0 {
-                return Ok(0.0);
+        let disc = context.curves.discount(option.disc_id)?;
+        let base = disc.base_date();
+        let t = option.year_fraction(base, option.expiry, option.day_count)?;
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
+        let forward = option.forward_swap_rate(disc.as_ref())?;
+        let sigma = option.sabr_params.as_ref().map(|p| p.alpha).unwrap_or(0.20);
+        let variance = sigma * sigma * t;
+        let d1 = if variance > 0.0 {
+            ((forward / option.strike_rate).ln() + 0.5 * variance) / variance.sqrt()
+        } else {
+            0.0
+        };
+        let d2 = d1 - variance.sqrt();
+        let sqrt_t = t.sqrt();
+        let term1 =
+            -forward * crate::instruments::options::models::norm_pdf(d1) * sigma / (2.0 * sqrt_t);
+        let theta = match option.option_type {
+            super::OptionType::Call => {
+                // Payer
+                let term3 = -0.0 * crate::instruments::options::models::norm_cdf(d2);
+                (term1 + term3) * 10000.0 / 365.0 // scaled similar to IR options
             }
-            let forward = option.forward_swap_rate(disc.as_ref())?;
-            let sigma = option.sabr_params.as_ref().map(|p| p.alpha).unwrap_or(0.20);
-            let variance = sigma * sigma * t;
-            let d1 = if variance > 0.0 {
-                ((forward / option.strike_rate).ln() + 0.5 * variance) / variance.sqrt()
-            } else {
-                0.0
-            };
-            let d2 = d1 - variance.sqrt();
-            let sqrt_t = t.sqrt();
-            let term1 = -forward * crate::instruments::options::models::norm_pdf(d1) * sigma
-                / (2.0 * sqrt_t);
-            let theta = match option.option_type {
-                super::OptionType::Call => {
-                    // Payer
-                    let term3 = -0.0 * crate::instruments::options::models::norm_cdf(d2);
-                    (term1 + term3) * 10000.0 / 365.0 // scaled similar to IR options
-                }
-                super::OptionType::Put => {
-                    // Receiver
-                    let term3 = 0.0 * crate::instruments::options::models::norm_cdf(-d2);
-                    (term1 + term3) * 10000.0 / 365.0
-                }
-            };
-            Ok(theta)
+            super::OptionType::Put => {
+                // Receiver
+                let term3 = 0.0 * crate::instruments::options::models::norm_cdf(-d2);
+                (term1 + term3) * 10000.0 / 365.0
+            }
+        };
+        Ok(theta)
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -158,7 +155,9 @@ impl MetricCalculator for ImpliedVolCalculator {
         Ok(0.0)
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
 
 /// Register swaption metrics with the registry
@@ -168,5 +167,9 @@ pub fn register_swaption_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(MetricId::Vega, Arc::new(VegaCalculator), &["Swaption"]);
     registry.register_metric(MetricId::Theta, Arc::new(ThetaCalculator), &["Swaption"]);
     registry.register_metric(MetricId::Rho, Arc::new(RhoCalculator), &["Swaption"]);
-    registry.register_metric(MetricId::ImpliedVol, Arc::new(ImpliedVolCalculator), &["Swaption"]);
+    registry.register_metric(
+        MetricId::ImpliedVol,
+        Arc::new(ImpliedVolCalculator),
+        &["Swaption"],
+    );
 }

@@ -82,10 +82,16 @@ macro_rules! impl_instrument {
                 &self,
                 curves: &finstack_core::market_data::multicurve::CurveSet,
                 as_of: finstack_core::dates::Date,
-                metrics: &[ $crate::metrics::MetricId ],
+                metrics: &[$crate::metrics::MetricId],
             ) -> finstack_core::Result<$crate::results::ValuationResult> {
                 let base_value = self.value(curves, as_of)?;
-                $crate::instruments::build_with_metrics(self.clone(), curves, as_of, base_value, metrics)
+                $crate::instruments::build_with_metrics(
+                    self.clone(),
+                    curves,
+                    as_of,
+                    base_value,
+                    metrics,
+                )
             }
 
             fn price(
@@ -94,7 +100,8 @@ macro_rules! impl_instrument {
                 as_of: finstack_core::dates::Date,
             ) -> finstack_core::Result<$crate::results::ValuationResult> {
                 let $ms = self;
-                let standard_metrics: ::std::vec::Vec<$crate::metrics::MetricId> = { $metrics_expr };
+                let standard_metrics: ::std::vec::Vec<$crate::metrics::MetricId> =
+                    { $metrics_expr };
                 self.price_with_metrics(curves, as_of, &standard_metrics)
             }
         }

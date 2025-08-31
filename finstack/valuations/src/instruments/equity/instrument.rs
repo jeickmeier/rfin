@@ -1,8 +1,8 @@
 //! Equity spot instrument implementation.
 
-use crate::metrics::MetricId;
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::traits::Attributes;
+use crate::metrics::MetricId;
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -71,7 +71,8 @@ impl Equity {
 }
 
 impl_instrument!(
-    Equity, "Equity",
+    Equity,
+    "Equity",
     pv = |s, _curves, _as_of| {
         let price_per_share = s.price_quote.ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound)

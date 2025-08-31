@@ -86,7 +86,9 @@ def build_market_context() -> MarketContext:
         [0.23, 0.20, 0.18, 0.20, 0.23],
         [0.22, 0.19, 0.17, 0.19, 0.22],
     ]
-    surface = VolSurface(id="SPX-IV", expiries=expiries, strikes=strikes, values=vol_data)
+    surface = VolSurface(
+        id="SPX-IV", expiries=expiries, strikes=strikes, values=vol_data
+    )
 
     # Scalars & Series -----------------------------------------------------
     aapl_spot = MarketScalar.unitless(195.25)
@@ -123,27 +125,27 @@ def main() -> None:
 
     # Access items from CurveSet (demonstration of structure)
     print("\nDemonstrating market data access:")
-    
+
     # 1) Curves
     try:
         usd_ois = curves["USD-OIS"]
         print("- USD-OIS curve: ", usd_ois)
     except Exception as e:
         print("- USD-OIS curve access:", str(e))
-    
+
     # 2) Other market data stored in curves
     print("- Available market data:")
     for key in curves.keys():
         print(f"  {key}: {type(curves[key]).__name__}")
-    
+
     # Note: In a full implementation, you would access curves like:
     # usd_ois = curves.discount_curve("USD-OIS")
-    # spx_vol = curves.vol_surface("SPX-IV") 
+    # spx_vol = curves.vol_surface("SPX-IV")
     # fx_rate = fx_matrix.get_rate(from_ccy, to_ccy, date, policy)
-    
+
     print("\nMarket data framework structure is ready for:")
     print("✓ Discount, forward, hazard, and inflation curves")
-    print("✓ Volatility surfaces") 
+    print("✓ Volatility surfaces")
     print("✓ FX rate matrices")
     print("✓ Market scalars and time series")
     print("✓ Integration with instrument pricing")
@@ -151,5 +153,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

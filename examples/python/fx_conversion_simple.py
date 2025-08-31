@@ -14,22 +14,19 @@ def main():
     fx_provider = SimpleFxProvider()
     fx_provider.set_rate(Currency("USD"), Currency("EUR"), 0.85)  # 1 USD = 0.85 EUR
     fx_provider.set_rate(Currency("EUR"), Currency("USD"), 1.18)  # 1 EUR = 1.18 USD
-    
+
     # Step 2: Create a money value
     usd_100 = Money(100.0, Currency("USD"))
     print(f"Original: {usd_100}")
-    
+
     # Step 3: Convert to another currency
     date = Date(2025, 1, 15)  # Date for the conversion
     eur_amount = usd_100.convert(
-        Currency("EUR"),
-        date,
-        fx_provider,
-        FxConversionPolicy.CashflowDate
+        Currency("EUR"), date, fx_provider, FxConversionPolicy.CashflowDate
     )
     print(f"Converted: {eur_amount}")
     print(f"Exchange rate: 1 USD = 0.85 EUR")
-    
+
 
 if __name__ == "__main__":
     main()

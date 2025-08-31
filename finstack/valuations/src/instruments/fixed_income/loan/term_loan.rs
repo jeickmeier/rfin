@@ -2,8 +2,8 @@
 
 use super::covenants::Covenant;
 use super::prepayment::PrepaymentSchedule;
-use crate::cashflow::primitives::AmortizationSpec;
 use crate::cashflow::builder::{cf, CouponType, FeeSpec, FixedCouponSpec, FloatingCouponSpec};
+use crate::cashflow::primitives::AmortizationSpec;
 // impl_attributable provided by macro when we switch to macro-based impls
 // use crate::metrics::MetricId; // no longer needed with schedule macro default metrics
 use crate::cashflow::traits::CashflowProvider;

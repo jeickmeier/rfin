@@ -278,7 +278,9 @@ impl InflationLinkedBond {
             Ok(self.real_coupon)
         } else {
             // Proper real yield calculation not yet implemented
-            Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid))
+            Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            ))
         }
     }
 

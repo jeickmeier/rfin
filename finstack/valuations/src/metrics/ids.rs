@@ -128,7 +128,7 @@ define_metrics! {
 
     // Spread metrics
     /// Z-spread - Zero-vol spread
-    ZSpread => "z_spread",    
+    ZSpread => "z_spread",
     /// OAS - Option-adjusted spread
     Oas => "oas",
     /// G-spread - Govvie spread
@@ -203,7 +203,7 @@ define_metrics! {
     Speed => "speed",
     /// Implied volatility (from price)
     ImpliedVol => "implied_vol",
-    
+
     // Risk metrics
     /// Credit spread sensitivity (CS01) - Parallel shift in credit spread
     Cs01 => "cs01",

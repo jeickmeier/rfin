@@ -3,11 +3,11 @@
 //! Implements trinomial tree methods with three-way branching (up/middle/down)
 //! for improved convergence and flexibility in modeling complex instruments.
 
-use finstack_core::{Error, Result, F};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::{Error, Result, F};
 
 use super::tree_framework::{
-    NodeState, StateVariables, TreeModel, TreeValuator, TreeGreeks, state_keys
+    state_keys, NodeState, StateVariables, TreeGreeks, TreeModel, TreeValuator,
 };
 
 /// Trinomial tree types
@@ -51,13 +51,7 @@ impl TrinomialTree {
     }
 
     /// Calculate trinomial tree parameters
-    fn calculate_parameters(
-        &self,
-        r: F,
-        sigma: F,
-        t: F,
-        q: F,
-    ) -> Result<(F, F, F, F, F, F)> {
+    fn calculate_parameters(&self, r: F, sigma: F, t: F, q: F) -> Result<(F, F, F, F, F, F)> {
         if t <= 0.0 || sigma <= 0.0 {
             return Err(Error::Internal);
         }
@@ -75,11 +69,11 @@ impl TrinomialTree {
                 // Calculate probabilities to match first two moments
                 let sqrt_dt_half = (dt / 2.0).sqrt();
                 let exp_drift_half = (drift * dt / 2.0).exp();
-                
+
                 let exp_vol_up = (sigma * sqrt_dt_half).exp();
                 let exp_vol_down = (-sigma * sqrt_dt_half).exp();
                 let denominator = exp_vol_up - exp_vol_down;
-                
+
                 let p_u = ((exp_drift_half - exp_vol_down) / denominator).powi(2);
                 let p_d = ((exp_vol_up - exp_drift_half) / denominator).powi(2);
                 let p_m = 1.0 - p_u - p_d;
@@ -98,8 +92,12 @@ impl TrinomialTree {
                 let d = (-lambda).exp();
                 let m = 1.0;
 
-                let p_u = 0.5 * ((sigma * sigma * dt + drift * drift * dt * dt) / (lambda * lambda) + drift * dt / lambda);
-                let p_d = 0.5 * ((sigma * sigma * dt + drift * drift * dt * dt) / (lambda * lambda) - drift * dt / lambda);
+                let p_u = 0.5
+                    * ((sigma * sigma * dt + drift * drift * dt * dt) / (lambda * lambda)
+                        + drift * dt / lambda);
+                let p_d = 0.5
+                    * ((sigma * sigma * dt + drift * drift * dt * dt) / (lambda * lambda)
+                        - drift * dt / lambda);
                 let p_m = 1.0 - p_u - p_d;
 
                 // Validate probabilities
@@ -123,17 +121,18 @@ impl TrinomialTree {
         valuator: &V,
     ) -> Result<F> {
         // Extract required parameters from state variables
-        let spot = initial_vars.get(state_keys::SPOT)
+        let spot = initial_vars.get(state_keys::SPOT).ok_or(Error::Internal)?;
+        let r = initial_vars
+            .get(state_keys::INTEREST_RATE)
             .ok_or(Error::Internal)?;
-        let r = initial_vars.get(state_keys::INTEREST_RATE)
-            .ok_or(Error::Internal)?;
-        let q = initial_vars.get(state_keys::DIVIDEND_YIELD)
-            .unwrap_or(&0.0);
-        let sigma = initial_vars.get(state_keys::VOLATILITY)
+        let q = initial_vars.get(state_keys::DIVIDEND_YIELD).unwrap_or(&0.0);
+        let sigma = initial_vars
+            .get(state_keys::VOLATILITY)
             .ok_or(Error::Internal)?;
 
         // Calculate tree parameters
-        let (u, d, _m, p_u, p_d, p_m) = self.calculate_parameters(*r, *sigma, time_to_maturity, *q)?;
+        let (u, d, _m, p_u, p_d, p_m) =
+            self.calculate_parameters(*r, *sigma, time_to_maturity, *q)?;
         let dt = time_to_maturity / self.steps as f64;
         let df = (-r * dt).exp();
 
@@ -149,17 +148,13 @@ impl TrinomialTree {
                 let net_moves = j as i32 - self.steps as i32;
                 let spot_t = spot * u.powi(net_moves.max(0)) * d.powi((-net_moves).max(0));
                 let time_t = time_to_maturity;
-                
+
                 let mut terminal_vars = initial_vars.clone();
                 terminal_vars.insert(state_keys::SPOT, spot_t);
-                
-                let terminal_state = NodeState::new(
-                    self.steps,
-                    time_t,
-                    terminal_vars,
-                    market_context,
-                );
-                
+
+                let terminal_state =
+                    NodeState::new(self.steps, time_t, terminal_vars, market_context);
+
                 let payoff = valuator.value_at_maturity(&terminal_state)?;
                 values[self.steps][j] = payoff;
             }
@@ -178,22 +173,16 @@ impl TrinomialTree {
                 let mid_idx = j + 1;
                 let down_idx = j;
 
-                let continuation = df * (
-                    p_u * values[step + 1][up_idx] +
-                    p_m * values[step + 1][mid_idx] +
-                    p_d * values[step + 1][down_idx]
-                );
+                let continuation = df
+                    * (p_u * values[step + 1][up_idx]
+                        + p_m * values[step + 1][mid_idx]
+                        + p_d * values[step + 1][down_idx]);
 
                 // Create state for this node
                 let mut node_vars = initial_vars.clone();
                 node_vars.insert(state_keys::SPOT, spot_t);
-                
-                let node_state = NodeState::new(
-                    step,
-                    time_t,
-                    node_vars,
-                    market_context,
-                );
+
+                let node_state = NodeState::new(step, time_t, node_vars, market_context);
 
                 // Let the valuator determine the final value at this node
                 values[step][j] = valuator.value_at_node(&node_state, continuation)?;
@@ -225,9 +214,14 @@ impl TreeModel for TrinomialTree {
         bump_size: Option<F>,
     ) -> Result<TreeGreeks> {
         let bump = bump_size.unwrap_or(0.01);
-        
+
         // Base price
-        let base_price = self.price(initial_vars.clone(), time_to_maturity, market_context, valuator)?;
+        let base_price = self.price(
+            initial_vars.clone(),
+            time_to_maturity,
+            market_context,
+            valuator,
+        )?;
 
         let mut greeks = TreeGreeks {
             price: base_price,
@@ -241,17 +235,17 @@ impl TreeModel for TrinomialTree {
         // Calculate Delta and Gamma (spot sensitivity)
         if let Some(&spot) = initial_vars.get(state_keys::SPOT) {
             let h = bump * spot;
-            
+
             // Spot up
             let mut vars_up = initial_vars.clone();
             vars_up.insert(state_keys::SPOT, spot + h);
             let price_up = self.price(vars_up, time_to_maturity, market_context, valuator)?;
-            
+
             // Spot down
             let mut vars_down = initial_vars.clone();
             vars_down.insert(state_keys::SPOT, spot - h);
             let price_down = self.price(vars_down, time_to_maturity, market_context, valuator)?;
-            
+
             greeks.delta = (price_up - price_down) / (2.0 * h);
             greeks.gamma = (price_up - 2.0 * base_price + price_down) / (h * h);
         }
@@ -259,29 +253,36 @@ impl TreeModel for TrinomialTree {
         // Calculate Vega (volatility sensitivity)
         if let Some(&vol) = initial_vars.get(state_keys::VOLATILITY) {
             let h = 0.01; // 1% vol bump
-            
+
             let mut vars_vol_up = initial_vars.clone();
             vars_vol_up.insert(state_keys::VOLATILITY, vol + h);
-            let price_vol_up = self.price(vars_vol_up, time_to_maturity, market_context, valuator)?;
-            
+            let price_vol_up =
+                self.price(vars_vol_up, time_to_maturity, market_context, valuator)?;
+
             greeks.vega = price_vol_up - base_price;
         }
 
         // Calculate Rho (rate sensitivity)
         if let Some(&rate) = initial_vars.get(state_keys::INTEREST_RATE) {
             let h = 0.0001; // 1bp rate bump
-            
+
             let mut vars_rate_up = initial_vars.clone();
             vars_rate_up.insert(state_keys::INTEREST_RATE, rate + h);
-            let price_rate_up = self.price(vars_rate_up, time_to_maturity, market_context, valuator)?;
-            
+            let price_rate_up =
+                self.price(vars_rate_up, time_to_maturity, market_context, valuator)?;
+
             greeks.rho = price_rate_up - base_price;
         }
 
         // Calculate Theta (time decay) - use 1 day bump
         let dt = 1.0 / 365.25;
         if time_to_maturity > dt {
-            let price_tomorrow = self.price(initial_vars, time_to_maturity - dt, market_context, valuator)?;
+            let price_tomorrow = self.price(
+                initial_vars,
+                time_to_maturity - dt,
+                market_context,
+                valuator,
+            )?;
             greeks.theta = -(base_price - price_tomorrow) / dt;
         }
 
@@ -291,8 +292,8 @@ impl TreeModel for TrinomialTree {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::tree_framework::single_factor_equity_state;
+    use super::*;
 
     // Simple test valuator that returns intrinsic value of a call option
     struct TestCallValuator {
@@ -315,14 +316,14 @@ mod tests {
     fn test_trinomial_tree_basic_functionality() {
         let tree = TrinomialTree::standard(50);
         let market_context = MarketContext::new();
-        
+
         let initial_vars = single_factor_equity_state(100.0, 0.05, 0.0, 0.20);
         let valuator = TestCallValuator { strike: 100.0 };
-        
+
         let price = tree.price(initial_vars, 1.0, &market_context, &valuator);
         assert!(price.is_ok());
         let price = price.unwrap();
-        
+
         // Should be positive for ATM call
         assert!(price > 0.0);
         // Should be reasonable value (close to Black-Scholes ~10.45)
@@ -332,17 +333,21 @@ mod tests {
     #[test]
     fn test_trinomial_vs_binomial_convergence() {
         use super::super::binomial_tree::BinomialTree;
-        
+
         let binomial = BinomialTree::crr(100);
         let trinomial = TrinomialTree::standard(100);
         let market_context = MarketContext::new();
-        
+
         let initial_vars = single_factor_equity_state(100.0, 0.05, 0.0, 0.20);
         let valuator = TestCallValuator { strike: 100.0 };
-        
-        let bin_price = binomial.price(initial_vars.clone(), 1.0, &market_context, &valuator).unwrap();
-        let tri_price = trinomial.price(initial_vars, 1.0, &market_context, &valuator).unwrap();
-        
+
+        let bin_price = binomial
+            .price(initial_vars.clone(), 1.0, &market_context, &valuator)
+            .unwrap();
+        let tri_price = trinomial
+            .price(initial_vars, 1.0, &market_context, &valuator)
+            .unwrap();
+
         // Should converge to similar values
         assert!((bin_price - tri_price).abs() < 0.5);
     }

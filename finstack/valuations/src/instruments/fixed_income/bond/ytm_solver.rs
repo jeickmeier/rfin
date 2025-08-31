@@ -3,12 +3,12 @@
 //! Provides a robust yield-to-maturity solver using Newton-Raphson with
 //! intelligent initial guesses and automatic fallback to Brent's method.
 
+use finstack_core::dates::Frequency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::root_finding::newton_raphson;
 use finstack_core::money::Money;
 use finstack_core::{Result, F};
-use finstack_core::dates::Frequency;
 
 use super::helpers::{df_and_derivative_from_yield, df_from_yield, YieldCompounding};
 /// Pricing specification for YTM solving and pricing from yield.
@@ -87,13 +87,17 @@ impl YtmSolver {
         spec: YtmPricingSpec,
     ) -> Result<F> {
         let target = target_price.amount();
-        
+
         // Early validation
         if target <= 0.0 {
-            return Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid));
+            return Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            ));
         }
         if cashflows.is_empty() {
-            return Err(finstack_core::Error::from(finstack_core::error::InputError::TooFewPoints));
+            return Err(finstack_core::Error::from(
+                finstack_core::error::InputError::TooFewPoints,
+            ));
         }
 
         // Calculate initial guess
@@ -217,7 +221,8 @@ impl YtmSolver {
 
             let t = DiscountCurve::year_fraction(as_of, date, day_count);
             if t > 0.0 {
-                let (_df, ddf_dy) = df_and_derivative_from_yield(yield_rate, t, comp, freq).unwrap_or((0.0, 0.0));
+                let (_df, ddf_dy) =
+                    df_and_derivative_from_yield(yield_rate, t, comp, freq).unwrap_or((0.0, 0.0));
                 derivative += amount.amount() * ddf_dy;
             }
         }
@@ -280,7 +285,7 @@ impl YtmSolver {
         for expansion in [2.0, 5.0, 10.0] {
             a = (initial - width * expansion).max(-0.95);
             b = (initial + width * expansion).min(2.0); // 200% max for distressed
-            
+
             if f(a) * f(b) < 0.0 {
                 return (a, b);
             }

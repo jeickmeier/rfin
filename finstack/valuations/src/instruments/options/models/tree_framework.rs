@@ -1,7 +1,7 @@
 //! Generic tree-based pricing framework for financial instruments.
 //!
 //! This module provides a flexible lattice pricing engine that can accommodate
-//! various tree types (binomial, trinomial) and multiple state variables 
+//! various tree types (binomial, trinomial) and multiple state variables
 //! (equity + rates, equity + credit spread, etc.) without requiring code changes
 //! to the core pricing logic.
 
@@ -87,7 +87,7 @@ pub trait TreeValuator {
     fn value_at_maturity(&self, state: &NodeState) -> Result<F>;
 
     /// Calculate the instrument's value at an intermediate node
-    /// 
+    ///
     /// This method implements the core decision logic (e.g., hold vs. exercise)
     /// and receives the discounted expected continuation value from child nodes.
     fn value_at_node(&self, state: &NodeState, continuation_value: F) -> Result<F>;
@@ -127,9 +127,14 @@ pub trait TreeModel {
         bump_size: Option<F>,
     ) -> Result<TreeGreeks> {
         let bump = bump_size.unwrap_or(0.01);
-        
+
         // Base price
-        let base_price = self.price(initial_vars.clone(), time_to_maturity, market_context, valuator)?;
+        let base_price = self.price(
+            initial_vars.clone(),
+            time_to_maturity,
+            market_context,
+            valuator,
+        )?;
 
         // Calculate Delta (spot sensitivity)
         let mut greeks = TreeGreeks {
@@ -143,17 +148,17 @@ pub trait TreeModel {
 
         if let Some(&spot) = initial_vars.get(state_keys::SPOT) {
             let h = bump * spot;
-            
+
             // Spot up
             let mut vars_up = initial_vars.clone();
             vars_up.insert(state_keys::SPOT, spot + h);
             let price_up = self.price(vars_up, time_to_maturity, market_context, valuator)?;
-            
+
             // Spot down
             let mut vars_down = initial_vars.clone();
             vars_down.insert(state_keys::SPOT, spot - h);
             let price_down = self.price(vars_down, time_to_maturity, market_context, valuator)?;
-            
+
             greeks.delta = (price_up - price_down) / (2.0 * h);
             greeks.gamma = (price_up - 2.0 * base_price + price_down) / (h * h);
         }
@@ -161,29 +166,36 @@ pub trait TreeModel {
         // Calculate Vega (volatility sensitivity)
         if let Some(&vol) = initial_vars.get(state_keys::VOLATILITY) {
             let h = 0.01; // 1% vol bump
-            
+
             let mut vars_vol_up = initial_vars.clone();
             vars_vol_up.insert(state_keys::VOLATILITY, vol + h);
-            let price_vol_up = self.price(vars_vol_up, time_to_maturity, market_context, valuator)?;
-            
+            let price_vol_up =
+                self.price(vars_vol_up, time_to_maturity, market_context, valuator)?;
+
             greeks.vega = price_vol_up - base_price;
         }
 
         // Calculate Rho (rate sensitivity)
         if let Some(&rate) = initial_vars.get(state_keys::INTEREST_RATE) {
             let h = 0.0001; // 1bp rate bump
-            
+
             let mut vars_rate_up = initial_vars.clone();
             vars_rate_up.insert(state_keys::INTEREST_RATE, rate + h);
-            let price_rate_up = self.price(vars_rate_up, time_to_maturity, market_context, valuator)?;
-            
+            let price_rate_up =
+                self.price(vars_rate_up, time_to_maturity, market_context, valuator)?;
+
             greeks.rho = price_rate_up - base_price;
         }
 
         // Calculate Theta (time decay) - use 1 day bump
         let dt = 1.0 / 365.25;
         if time_to_maturity > dt {
-            let price_tomorrow = self.price(initial_vars, time_to_maturity - dt, market_context, valuator)?;
+            let price_tomorrow = self.price(
+                initial_vars,
+                time_to_maturity - dt,
+                market_context,
+                valuator,
+            )?;
             greeks.theta = -(base_price - price_tomorrow) / dt;
         }
 
@@ -276,11 +288,11 @@ impl EvolutionParams {
         let u = (volatility * (2.0 * dt).sqrt()).exp();
         let d = 1.0 / u;
         let m = 1.0;
-        
+
         let drift = risk_free_rate - dividend_yield;
         let sqrt_dt_half = (dt / 2.0).sqrt();
         let exp_drift_half = (drift * dt / 2.0).exp();
-        
+
         let denominator = (volatility * sqrt_dt_half).exp() - (-volatility * sqrt_dt_half).exp();
         let p_u = ((exp_drift_half - (-volatility * sqrt_dt_half).exp()) / denominator).powi(2);
         let p_d = (((volatility * sqrt_dt_half).exp() - exp_drift_half) / denominator).powi(2);
@@ -303,7 +315,7 @@ impl EvolutionParams {
         // Simplified Vasicek evolution for demonstration
         let drift = mean_reversion * long_term_rate * dt;
         let vol_factor = volatility * dt.sqrt();
-        
+
         Self {
             volatility,
             drift,

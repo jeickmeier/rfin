@@ -25,11 +25,7 @@ print(f"  ... ({len(periods)} total periods)")
 print("\n=== InflationIndex API (NEW!) ===")
 print("IndexSeries has been replaced with InflationIndex using Polars DataFrames")
 
-from finstack.market_data import (
-    InflationIndex, 
-    InflationInterpolation, 
-    InflationLag
-)
+from finstack.market_data import InflationIndex, InflationInterpolation, InflationLag
 
 # Historical CPI observations
 observations = [
@@ -47,7 +43,7 @@ cpi = InflationIndex(
     observations,
     Currency("USD"),
     interpolation=InflationInterpolation.STEP,  # Standard for CPI
-    lag=InflationLag.months(3)  # 3-month lag for US TIPS
+    lag=InflationLag.months(3),  # 3-month lag for US TIPS
 )
 
 print(f"\nCreated: {cpi}")
@@ -82,7 +78,7 @@ linear_cpi = InflationIndex(
     "US-CPI-LINEAR",
     observations,
     Currency("USD"),
-    interpolation=InflationInterpolation.LINEAR
+    interpolation=InflationInterpolation.LINEAR,
 )
 
 mid_month = Date(2023, 3, 15)

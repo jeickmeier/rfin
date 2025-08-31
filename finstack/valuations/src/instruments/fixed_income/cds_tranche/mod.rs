@@ -13,8 +13,8 @@ pub mod numerical;
 use crate::metrics::MetricId;
 // use crate::results::ValuationResult; // not needed with macro-based impl
 use crate::instruments::traits::Attributes;
-use finstack_core::prelude::*;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
+use finstack_core::prelude::*;
 use finstack_core::F;
 
 /// Buyer/seller perspective for CDS tranche premium/protection
@@ -104,13 +104,15 @@ impl CdsTranche {
     }
 
     /// Builder entrypoint
-    pub fn builder() -> CdsTrancheBuilder { CdsTrancheBuilder::new() }
+    pub fn builder() -> CdsTrancheBuilder {
+        CdsTrancheBuilder::new()
+    }
 }
 
 // Manual implementation of traits to support complex market data
-use crate::market_data::ValuationMarketContext;
-use crate::instruments::traits::Priceable;
 use crate::instruments::build_with_metrics;
+use crate::instruments::traits::Priceable;
+use crate::market_data::ValuationMarketContext;
 use crate::results::ValuationResult;
 use finstack_core::market_data::multicurve::CurveSet;
 
@@ -121,10 +123,10 @@ impl Priceable for CdsTranche {
     fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
         // Try to use the Gaussian Copula model if credit index data is available
         // Otherwise, fall back to zero PV for backward compatibility
-        
+
         // Convert CurveSet to ValuationMarketContext
         let val_market_ctx = ValuationMarketContext::from_core(curves.clone());
-        
+
         // Check if credit index data is available
         if val_market_ctx.has_credit_index(self.credit_index_id) {
             // Use the Gaussian Copula model
@@ -146,11 +148,7 @@ impl Priceable for CdsTranche {
         build_with_metrics(self.clone(), curves, as_of, base_value, metrics)
     }
 
-    fn price(
-        &self,
-        curves: &CurveSet,
-        as_of: Date,
-    ) -> finstack_core::Result<ValuationResult> {
+    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
         let standard_metrics = vec![
             MetricId::custom("upfront"),
             MetricId::custom("spread_dv01"),
@@ -184,46 +182,115 @@ pub struct CdsTrancheBuilder {
 }
 
 impl CdsTrancheBuilder {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
-    pub fn id(mut self, value: impl Into<String>) -> Self { self.id = Some(value.into()); self }
-    pub fn index_name(mut self, value: impl Into<String>) -> Self { self.index_name = Some(value.into()); self }
-    pub fn series(mut self, value: u16) -> Self { self.series = Some(value); self }
-    pub fn attach_pct(mut self, value: F) -> Self { self.attach_pct = Some(value); self }
-    pub fn detach_pct(mut self, value: F) -> Self { self.detach_pct = Some(value); self }
-    pub fn notional(mut self, value: Money) -> Self { self.notional = Some(value); self }
-    pub fn maturity(mut self, value: Date) -> Self { self.maturity = Some(value); self }
-    pub fn running_coupon_bp(mut self, value: F) -> Self { self.running_coupon_bp = Some(value); self }
-    pub fn payment_frequency(mut self, value: Frequency) -> Self { self.payment_frequency = Some(value); self }
-    pub fn day_count(mut self, value: DayCount) -> Self { self.day_count = Some(value); self }
-    pub fn business_day_convention(mut self, value: BusinessDayConvention) -> Self { self.business_day_convention = Some(value); self }
-    pub fn calendar_id(mut self, value: &'static str) -> Self { self.calendar_id = Some(value); self }
-    pub fn disc_id(mut self, value: &'static str) -> Self { self.disc_id = Some(value); self }
-    pub fn credit_index_id(mut self, value: &'static str) -> Self { self.credit_index_id = Some(value); self }
-    pub fn side(mut self, value: TrancheSide) -> Self { self.side = Some(value); self }
+    pub fn id(mut self, value: impl Into<String>) -> Self {
+        self.id = Some(value.into());
+        self
+    }
+    pub fn index_name(mut self, value: impl Into<String>) -> Self {
+        self.index_name = Some(value.into());
+        self
+    }
+    pub fn series(mut self, value: u16) -> Self {
+        self.series = Some(value);
+        self
+    }
+    pub fn attach_pct(mut self, value: F) -> Self {
+        self.attach_pct = Some(value);
+        self
+    }
+    pub fn detach_pct(mut self, value: F) -> Self {
+        self.detach_pct = Some(value);
+        self
+    }
+    pub fn notional(mut self, value: Money) -> Self {
+        self.notional = Some(value);
+        self
+    }
+    pub fn maturity(mut self, value: Date) -> Self {
+        self.maturity = Some(value);
+        self
+    }
+    pub fn running_coupon_bp(mut self, value: F) -> Self {
+        self.running_coupon_bp = Some(value);
+        self
+    }
+    pub fn payment_frequency(mut self, value: Frequency) -> Self {
+        self.payment_frequency = Some(value);
+        self
+    }
+    pub fn day_count(mut self, value: DayCount) -> Self {
+        self.day_count = Some(value);
+        self
+    }
+    pub fn business_day_convention(mut self, value: BusinessDayConvention) -> Self {
+        self.business_day_convention = Some(value);
+        self
+    }
+    pub fn calendar_id(mut self, value: &'static str) -> Self {
+        self.calendar_id = Some(value);
+        self
+    }
+    pub fn disc_id(mut self, value: &'static str) -> Self {
+        self.disc_id = Some(value);
+        self
+    }
+    pub fn credit_index_id(mut self, value: &'static str) -> Self {
+        self.credit_index_id = Some(value);
+        self
+    }
+    pub fn side(mut self, value: TrancheSide) -> Self {
+        self.side = Some(value);
+        self
+    }
 
     pub fn build(self) -> finstack_core::Result<CdsTranche> {
         Ok(CdsTranche {
-            id: self.id.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
-            index_name: self.index_name.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
-            series: self.series.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
-            attach_pct: self.attach_pct.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
-            detach_pct: self.detach_pct.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
-            notional: self.notional.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
-            maturity: self.maturity.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
-            running_coupon_bp: self.running_coupon_bp.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
+            id: self.id.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            index_name: self.index_name.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            series: self.series.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            attach_pct: self.attach_pct.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            detach_pct: self.detach_pct.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            notional: self.notional.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            maturity: self.maturity.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            running_coupon_bp: self.running_coupon_bp.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
             payment_frequency: self.payment_frequency.unwrap_or_else(Frequency::quarterly),
             day_count: self.day_count.unwrap_or(DayCount::Act360),
-            business_day_convention: self.business_day_convention.unwrap_or(BusinessDayConvention::Following),
+            business_day_convention: self
+                .business_day_convention
+                .unwrap_or(BusinessDayConvention::Following),
             calendar_id: self.calendar_id,
-            disc_id: self.disc_id.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
-            credit_index_id: self.credit_index_id.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
-            side: self.side.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
+            disc_id: self.disc_id.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            credit_index_id: self.credit_index_id.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            side: self.side.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
             attributes: Attributes::new(),
         })
     }
 }
 
 // Conversions and Attributable provided by macro
-
-

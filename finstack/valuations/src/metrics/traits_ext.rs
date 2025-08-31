@@ -80,7 +80,7 @@ pub trait RiskMeasurable: Send + Sync {
     ) -> finstack_core::Result<RiskReport>;
 
     /// Get default risk buckets for this instrument type.
-    fn default_risk_buckets(&self) -> Option<Vec<RiskBucket>> { None }
+    fn default_risk_buckets(&self) -> Option<Vec<RiskBucket>> {
+        None
+    }
 }
-
-

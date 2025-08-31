@@ -55,10 +55,15 @@ pub struct Attributes {
 
 impl Attributes {
     /// Create empty attributes.
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Add a tag.
-    pub fn with_tag(mut self, tag: impl Into<String>) -> Self { self.tags.insert(tag.into()); self }
+    pub fn with_tag(mut self, tag: impl Into<String>) -> Self {
+        self.tags.insert(tag.into());
+        self
+    }
 
     /// Add multiple tags.
     pub fn with_tags<I, S>(mut self, tags: I) -> Self
@@ -66,7 +71,9 @@ impl Attributes {
         I: IntoIterator<Item = S>,
         S: Into<String>,
     {
-        for tag in tags { self.tags.insert(tag.into()); }
+        for tag in tags {
+            self.tags.insert(tag.into());
+        }
         self
     }
 
@@ -77,15 +84,23 @@ impl Attributes {
     }
 
     /// Check if a tag exists.
-    pub fn has_tag(&self, tag: &str) -> bool { self.tags.contains(tag) }
+    pub fn has_tag(&self, tag: &str) -> bool {
+        self.tags.contains(tag)
+    }
 
     /// Get a metadata value by key.
-    pub fn get_meta(&self, key: &str) -> Option<&str> { self.meta.get(key).map(|s| s.as_str()) }
+    pub fn get_meta(&self, key: &str) -> Option<&str> {
+        self.meta.get(key).map(|s| s.as_str())
+    }
 
     /// Check if attributes match a selector pattern.
     pub fn matches_selector(&self, selector: &str) -> bool {
-        if selector == "*" { return true; }
-        if let Some(tag) = selector.strip_prefix("tag:") { return self.has_tag(tag); }
+        if selector == "*" {
+            return true;
+        }
+        if let Some(tag) = selector.strip_prefix("tag:") {
+            return self.has_tag(tag);
+        }
         if let Some(meta_spec) = selector.strip_prefix("meta:") {
             if let Some((key, value)) = meta_spec.split_once('=') {
                 return self.get_meta(key) == Some(value);
@@ -103,11 +118,17 @@ pub trait Attributable: Send + Sync {
     fn attributes_mut(&mut self) -> &mut Attributes;
 
     /// Check if the instrument matches a selector.
-    fn matches_selector(&self, selector: &str) -> bool { self.attributes().matches_selector(selector) }
+    fn matches_selector(&self, selector: &str) -> bool {
+        self.attributes().matches_selector(selector)
+    }
     /// Check if the instrument has a specific tag.
-    fn has_tag(&self, tag: &str) -> bool { self.attributes().has_tag(tag) }
+    fn has_tag(&self, tag: &str) -> bool {
+        self.attributes().has_tag(tag)
+    }
     /// Get a metadata value by key.
-    fn get_meta(&self, key: &str) -> Option<&str> { self.attributes().get_meta(key) }
+    fn get_meta(&self, key: &str) -> Option<&str> {
+        self.attributes().get_meta(key)
+    }
 }
 
 /// Object-safe trait that all instruments implement for unified handling.
@@ -117,12 +138,10 @@ pub trait Attributable: Send + Sync {
 pub trait InstrumentLike: Priceable + Attributable + Send + Sync {
     /// Get the instrument's unique identifier.
     fn id(&self) -> &str;
-    
+
     /// Get the instrument type as a string identifier.
     fn instrument_type(&self) -> &'static str;
-    
+
     /// Get access to the concrete type for downcasting.
     fn as_any(&self) -> &dyn std::any::Any;
 }
-
-

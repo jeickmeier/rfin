@@ -9,8 +9,8 @@ use finstack_core::F;
 
 use finstack_core::dates::Date;
 
-use super::{ExerciseStyle, OptionType, SettlementType};
 use super::models;
+use super::{ExerciseStyle, OptionType, SettlementType};
 
 /// Equity option instrument
 #[derive(Clone, Debug)]
@@ -182,15 +182,13 @@ impl EquityOption {
 
         match self.option_type {
             OptionType::Call => {
-                let term1 = -spot * models::norm_pdf(d1) * sigma * (-q * t).exp()
-                    / (2.0 * sqrt_t);
+                let term1 = -spot * models::norm_pdf(d1) * sigma * (-q * t).exp() / (2.0 * sqrt_t);
                 let term2 = q * spot * models::norm_cdf(d1) * (-q * t).exp();
                 let term3 = -r * k * (-r * t).exp() * models::norm_cdf(d2);
                 (term1 + term2 + term3) / 365.0 // Daily theta
             }
             OptionType::Put => {
-                let term1 = -spot * models::norm_pdf(d1) * sigma * (-q * t).exp()
-                    / (2.0 * sqrt_t);
+                let term1 = -spot * models::norm_pdf(d1) * sigma * (-q * t).exp() / (2.0 * sqrt_t);
                 let term2 = -q * spot * models::norm_cdf(-d1) * (-q * t).exp();
                 let term3 = r * k * (-r * t).exp() * models::norm_cdf(-d2);
                 (term1 + term2 + term3) / 365.0 // Daily theta
@@ -209,9 +207,7 @@ impl EquityOption {
 
         match self.option_type {
             OptionType::Call => k * t * (-r * t).exp() * models::norm_cdf(d2) / 100.0, // Per 1% rate change
-            OptionType::Put => {
-                -k * t * (-r * t).exp() * models::norm_cdf(-d2) / 100.0
-            }
+            OptionType::Put => -k * t * (-r * t).exp() * models::norm_cdf(-d2) / 100.0,
         }
     }
 }
@@ -219,12 +215,21 @@ impl EquityOption {
 use crate::metrics::MetricId;
 
 impl_instrument!(
-    EquityOption, "EquityOption",
+    EquityOption,
+    "EquityOption",
     pv = |s, curves, _as_of| {
         let _disc = curves.discount(s.disc_id)?;
-        Err(finstack_core::Error::from(finstack_core::error::InputError::NotFound))
+        Err(finstack_core::Error::from(
+            finstack_core::error::InputError::NotFound,
+        ))
     },
-    metrics = |_s| vec![MetricId::Delta, MetricId::Gamma, MetricId::Vega, MetricId::Theta, MetricId::Rho]
+    metrics = |_s| vec![
+        MetricId::Delta,
+        MetricId::Gamma,
+        MetricId::Vega,
+        MetricId::Theta,
+        MetricId::Rho
+    ]
 );
 
 // Conversions and Attributable provided by macro

@@ -5,13 +5,13 @@
 //! These metrics are essential for bond valuation, risk management, and
 //! portfolio analysis.
 
+use super::helpers::{df_from_yield, periods_per_year, YieldCompounding};
+use crate::cashflow::primitives::CFKind;
+use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use crate::cashflow::traits::CashflowProvider;
 use finstack_core::prelude::*;
 use finstack_core::F;
-use crate::cashflow::primitives::CFKind;
-use super::helpers::{df_from_yield, periods_per_year, YieldCompounding};
 
 /// Calculates accrued interest for bonds.
 ///
@@ -29,7 +29,8 @@ impl MetricCalculator for AccruedInterestCalculator {
             let bond: &Bond = context.instrument_as()?;
 
             // Determine coupon periods from actual schedule when available
-            let (last, next, period_coupon_amount) = if let Some(ref custom) = bond.custom_cashflows {
+            let (last, next, period_coupon_amount) = if let Some(ref custom) = bond.custom_cashflows
+            {
                 // Use coupon flows (Fixed/Stub) from custom schedule
                 let mut coupon_dates: Vec<(
                     finstack_core::dates::Date,
@@ -103,7 +104,14 @@ impl MetricCalculator for AccruedInterestCalculator {
                 None
             };
 
-            (last, next, period_coupon_amount, bond.disc_id, bond.dc, maybe_flows)
+            (
+                last,
+                next,
+                period_coupon_amount,
+                bond.disc_id,
+                bond.dc,
+                maybe_flows,
+            )
         };
 
         // Calculate accrued interest linearly within the coupon period
