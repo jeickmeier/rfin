@@ -201,7 +201,7 @@ fn bond_ytm_ytw_and_amortization() {
         issue,
         maturity: mat,
         disc_id: "USD-OIS",
-        quoted_clean: Some(1_000.0),
+        quoted_clean: Some(100.0), // 100% of par (realistic price)
         call_put: Some(bond::CallPutSchedule {
             calls: vec![bond::CallPut {
                 date: mat_short,

@@ -3,6 +3,7 @@
 pub mod builder;
 pub mod helpers;
 pub mod metrics;
+pub mod oas_pricer;
 pub mod ytm_solver;
 
 use finstack_core::market_data::multicurve::CurveSet;
@@ -149,9 +150,10 @@ impl Bond {
             ]);
         }
 
-        // YTW only if we have call/put schedule and quoted price
+        // YTW and OAS only if we have call/put schedule and quoted price
         if self.call_put.is_some() && self.quoted_clean.is_some() {
             metrics.push(MetricId::Ytw);
+            metrics.push(MetricId::Oas);
         }
 
         metrics

@@ -6,6 +6,7 @@
 //! portfolio analysis.
 
 use super::helpers::{df_from_yield, periods_per_year, YieldCompounding};
+use super::oas_pricer::OASCalculator;
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::Bond;
@@ -601,6 +602,47 @@ impl MetricCalculator for Cs01Calculator {
 
 impl Cs01Calculator {}
 
+/// Calculates Option-Adjusted Spread for bonds with embedded options.
+///
+/// Uses short-rate trees to value callable/putable bonds and solve for the
+/// spread that makes the model price equal to the market price.
+pub struct OasCalculator;
+
+impl MetricCalculator for OasCalculator {
+    fn dependencies(&self) -> &[MetricId] {
+        &[MetricId::Accrued] // Need accrued to calculate dirty target price
+    }
+
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+        let bond: &Bond = context.instrument_as()?;
+        
+        // Require quoted clean price
+        let clean_price = bond.quoted_clean.ok_or_else(|| {
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+        })?;
+        
+        // Get accrued interest from computed metrics
+        let accrued = context
+            .computed
+            .get(&MetricId::Accrued)
+            .copied()
+            .ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+            })?;
+            
+        // Convert CurveSet to MarketContext (they have compatible interfaces)
+        let market_context = finstack_core::market_data::context::MarketContext::from_curve_set(
+            context.curves.as_ref().clone()
+        );
+        
+        // Use OAS calculator to solve for OAS
+        let oas_calculator = OASCalculator::new();
+        let dirty_price = clean_price + accrued;
+        
+        oas_calculator.calculate_oas(bond, &market_context, context.as_of, dirty_price)
+    }
+}
+
 /// Registers all bond metrics to a registry.
 ///
 /// This function adds all bond-specific metrics to the provided metric
@@ -648,5 +690,6 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
             &["Bond"],
         )
         .register_metric(MetricId::Ytw, Arc::new(YtwCalculator), &["Bond"])
+        .register_metric(MetricId::Oas, Arc::new(OasCalculator), &["Bond"])
         .register_metric(MetricId::Cs01, Arc::new(Cs01Calculator), &["Bond"]);
 }
