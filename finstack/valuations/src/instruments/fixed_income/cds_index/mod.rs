@@ -7,12 +7,10 @@
 
 pub mod metrics;
 
-use crate::impl_attributable;
 use crate::metrics::MetricId;
-use crate::results::ValuationResult;
-use crate::instruments::traits::{Attributes, Priceable};
+use crate::instruments::traits::Attributes;
 use finstack_core::dates::Date;
-use finstack_core::market_data::multicurve::CurveSet;
+// use finstack_core::market_data::multicurve::CurveSet; // not needed directly here
 use finstack_core::money::Money;
 use finstack_core::F;
 
@@ -118,65 +116,24 @@ impl CDSIndex {
     }
 }
 
-impl Priceable for CDSIndex {
-    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
-        // Delegate to synthetic CDS valuation
-        let cds = self.to_synthetic_cds();
+impl_instrument!(
+    CDSIndex, CDSIndex,
+    pv = |s, curves, as_of| {
+        let cds = s.to_synthetic_cds();
         cds.value(curves, as_of)
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &CurveSet,
-        as_of: Date,
-        metrics: &[MetricId],
-    ) -> finstack_core::Result<ValuationResult> {
-        // Compute base value
-        let base_value = self.value(curves, as_of)?;
-
-        crate::instruments::build_with_metrics(
-            crate::instruments::Instrument::CDSIndex(self.clone()),
-            curves,
-            as_of,
-            base_value,
-            metrics,
-        )
-    }
-
-    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
-        // Standard CDS metrics apply to CDS indices as well
-        let standard_metrics = [
+    },
+    metrics = |_s| {
+        vec![
             MetricId::ParSpread,
             MetricId::RiskyPv01,
             MetricId::Cs01,
             MetricId::ProtectionLegPv,
             MetricId::PremiumLegPv,
-        ];
-        self.price_with_metrics(curves, as_of, &standard_metrics)
+        ]
     }
-}
+);
 
-// Generate standard Attributable implementation using macro
-impl_attributable!(CDSIndex);
-
-impl From<CDSIndex> for crate::instruments::Instrument {
-    fn from(value: CDSIndex) -> Self {
-        crate::instruments::Instrument::CDSIndex(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::Instrument> for CDSIndex {
-    type Error = finstack_core::Error;
-
-    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::Instrument::CDSIndex(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            )),
-        }
-    }
-}
+// Conversions and Attributable provided by macro
 
 /// Builder pattern for CDS Index instruments
 #[derive(Default)]

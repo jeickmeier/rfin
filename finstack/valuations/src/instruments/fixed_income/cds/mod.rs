@@ -4,11 +4,10 @@
 //! risky PV01, CS01, and protection leg valuation.
 
 use crate::metrics::MetricId;
-use crate::results::ValuationResult;
+// use crate::results::ValuationResult; // not needed with macro-based impl
 use crate::cashflow::traits::DatedFlows;
-use crate::instruments::traits::{Attributes, Priceable};
+use crate::instruments::traits::Attributes;
 
-use crate::impl_attributable;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::market_data::term_structures::credit_curve::CreditCurve;
@@ -286,65 +285,29 @@ impl CreditDefaultSwap {
 }
 
 // Custom Priceable implementation for CDS (has nested fields like premium.disc_id)
-impl Priceable for CreditDefaultSwap {
-    /// Compute the present value of the CDS
-    fn value(&self, curves: &CurveSet, _as_of: Date) -> finstack_core::Result<Money> {
-        let disc = curves.discount(self.premium.disc_id)?;
-        let credit = curves.credit(self.protection.credit_id)?;
-
-        let pv_premium = self.pv_premium_leg(&*disc, &credit)?;
-        let pv_protection = self.pv_protection_leg(&*disc, &credit)?;
-
-        let pv = match self.side {
+impl_instrument!(
+    CreditDefaultSwap, CDS,
+    pv = |s, curves, _as_of| {
+        let disc = curves.discount(s.premium.disc_id)?;
+        let credit = curves.credit(s.protection.credit_id)?;
+        let pv_premium = s.pv_premium_leg(&*disc, &credit)?;
+        let pv_protection = s.pv_protection_leg(&*disc, &credit)?;
+        let pv = match s.side {
             PayReceive::PayProtection => (pv_protection - pv_premium)?,
             PayReceive::ReceiveProtection => (pv_premium - pv_protection)?,
         };
-
-        // Add upfront payment if any
-        if let Some(upfront) = self.upfront {
-            Ok((pv + upfront)?)
-        } else {
-            Ok(pv)
-        }
-    }
-
-    /// Compute value with specific metrics using the metrics framework
-    fn price_with_metrics(
-        &self,
-        curves: &CurveSet,
-        as_of: Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<ValuationResult> {
-        use crate::instruments::Instrument;
-
-        // Compute base value
-        let base_value = self.value(curves, as_of)?;
-
-        crate::instruments::build_with_metrics(
-            Instrument::CDS(self.clone()),
-            curves,
-            as_of,
-            base_value,
-            metrics,
-        )
-    }
-
-    /// Compute full valuation with all standard CDS metrics
-    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
-        let standard_metrics = vec![
+        if let Some(upfront) = s.upfront { pv + upfront } else { Ok(pv) }
+    },
+    metrics = |_s| {
+        vec![
             MetricId::ParSpread,
             MetricId::RiskyPv01,
             MetricId::Cs01,
             MetricId::ProtectionLegPv,
             MetricId::PremiumLegPv,
-        ];
-
-        self.price_with_metrics(curves, as_of, &standard_metrics)
+        ]
     }
-}
-
-// Generate standard Attributable implementation using macro
-impl_attributable!(CreditDefaultSwap);
+);
 
 /// Builder pattern for CDS instruments
 #[derive(Default)]
@@ -485,24 +448,7 @@ impl CDSBuilder {
     }
 }
 
-impl From<CreditDefaultSwap> for crate::instruments::Instrument {
-    fn from(value: CreditDefaultSwap) -> Self {
-        crate::instruments::Instrument::CDS(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::Instrument> for CreditDefaultSwap {
-    type Error = finstack_core::Error;
-
-    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::Instrument::CDS(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            )),
-        }
-    }
-}
+// Conversions and Attributable provided by macro
 
 // (Removed legacy survival_probability helper; Enhanced pricer handles this.)
 

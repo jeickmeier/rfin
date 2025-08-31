@@ -8,10 +8,8 @@
 
 pub mod metrics;
 
-use crate::impl_attributable;
+use crate::instruments::traits::Attributes;
 use crate::metrics::MetricId;
-use crate::results::ValuationResult;
-use crate::instruments::traits::{Attributes, Priceable};
 use finstack_core::prelude::*;
 use finstack_core::F;
 
@@ -76,35 +74,11 @@ impl FxSwap {
     }
 }
 
-impl Priceable for FxSwap {
-    /// Minimal PV implementation: returns 0 in quote currency as placeholder
-    fn value(&self, _curves: &finstack_core::market_data::multicurve::CurveSet, _as_of: Date) -> finstack_core::Result<Money> {
-        Ok(Money::new(0.0, self.quote_currency))
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &finstack_core::market_data::multicurve::CurveSet,
-        as_of: Date,
-        metrics: &[MetricId],
-    ) -> finstack_core::Result<ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        let instrument: crate::instruments::Instrument = crate::instruments::Instrument::FxSwap(self.clone());
-        crate::instruments::build_with_metrics(instrument, curves, as_of, base_value, metrics)
-    }
-
-    fn price(
-        &self,
-        curves: &finstack_core::market_data::multicurve::CurveSet,
-        as_of: Date,
-    ) -> finstack_core::Result<ValuationResult> {
-        // No standard metrics yet for boilerplate; compute just PV
-        self.price_with_metrics(curves, as_of, &[])
-    }
-}
-
-// Generate standard Attributable implementation using macro
-impl_attributable!(FxSwap);
+impl_instrument!(
+    FxSwap, FxSwap,
+    pv = |s, _curves, _as_of| Ok(Money::new(0.0, s.quote_currency)),
+    metrics = |_s| vec![MetricId::custom("near_rate"), MetricId::custom("far_rate")]
+);
 
 // Builder pattern using simple struct for clarity (avoids too_many_arguments for new)
 #[derive(Default)]
@@ -151,24 +125,4 @@ impl FxSwapBuilder {
         })
     }
 }
-
-impl From<FxSwap> for crate::instruments::Instrument {
-    fn from(value: FxSwap) -> Self {
-        crate::instruments::Instrument::FxSwap(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::Instrument> for FxSwap {
-    type Error = finstack_core::Error;
-
-    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::Instrument::FxSwap(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            )),
-        }
-    }
-}
-
 

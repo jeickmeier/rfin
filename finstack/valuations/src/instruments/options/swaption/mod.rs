@@ -5,10 +5,10 @@ pub mod metrics;
 use super::OptionType;
 use super::models::norm_cdf;
 use super::models::{SABRModel, SABRParameters};
-use crate::results::ValuationResult;
-use crate::instruments::traits::{Attributable, Attributes, Priceable};
+// use crate::results::ValuationResult;
+use crate::instruments::traits::Attributes;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
-use finstack_core::market_data::multicurve::CurveSet;
+// use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::market_data::traits::Discount;
 use finstack_core::money::Money;
 use finstack_core::{Error, Result, F};
@@ -259,76 +259,20 @@ impl Swaption {
     }
 }
 
-impl Priceable for Swaption {
-    fn value(&self, curves: &CurveSet, _as_of: Date) -> Result<Money> {
-        let disc = curves.discount(self.disc_id)?;
-
-        if self.sabr_params.is_some() {
-            self.sabr_price(disc.as_ref())
+impl_instrument!(
+    Swaption, Swaption,
+    pv = |s, curves, _as_of| {
+        let disc = curves.discount(s.disc_id)?;
+        if s.sabr_params.is_some() {
+            s.sabr_price(disc.as_ref())
         } else {
-            // Use default volatility if no SABR params
-            self.black_price(disc.as_ref(), 0.20) // 20% default vol
+            s.black_price(disc.as_ref(), 0.20)
         }
-    }
+    },
+    metrics = |_s| vec![crate::metrics::MetricId::custom("FORWARD_RATE"), crate::metrics::MetricId::custom("ANNUITY")]
+);
 
-    fn price_with_metrics(
-        &self,
-        curves: &CurveSet,
-        as_of: Date,
-        _metrics: &[crate::metrics::MetricId],
-    ) -> Result<ValuationResult> {
-        let value = self.value(curves, as_of)?;
 
-        let mut result = ValuationResult::stamped(self.id.clone(), as_of, value);
-
-        // Add forward swap rate as a metric
-        let disc = curves.discount(self.disc_id)?;
-        let forward_rate = self.forward_swap_rate(disc.as_ref())?;
-        result.measures.insert("FORWARD_RATE".into(), forward_rate);
-
-        // Add annuity
-        let annuity = self.swap_annuity(disc.as_ref())?;
-        result.measures.insert("ANNUITY".into(), annuity);
-
-        Ok(result)
-    }
-
-    fn price(&self, curves: &CurveSet, as_of: Date) -> Result<ValuationResult> {
-        self.price_with_metrics(curves, as_of, &[])
-    }
-}
-
-impl Attributable for Swaption {
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
-    }
-}
-
-// CDF/PDF provided by options::models::black
-
-// Wire into unified Instrument for metrics/routing
-impl From<Swaption> for crate::instruments::Instrument {
-    fn from(value: Swaption) -> Self {
-        crate::instruments::Instrument::Swaption(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::Instrument> for Swaption {
-    type Error = finstack_core::Error;
-
-    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::Instrument::Swaption(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            )),
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {

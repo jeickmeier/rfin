@@ -4,8 +4,8 @@ use super::covenants::Covenant;
 use super::prepayment::PrepaymentSchedule;
 use crate::cashflow::primitives::AmortizationSpec;
 use crate::cashflow::builder::{cf, CouponType, FeeSpec, FixedCouponSpec, FloatingCouponSpec};
-use crate::impl_attributable;
-use crate::metrics::MetricId;
+// impl_attributable provided by macro when we switch to macro-based impls
+// use crate::metrics::MetricId; // no longer needed with schedule macro default metrics
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
@@ -422,63 +422,14 @@ impl CashflowProvider for Loan {
     }
 }
 
-// Implement Priceable directly (replaces deprecated impl_priceable! usage)
-impl crate::instruments::traits::Priceable for Loan {
-    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
-        use crate::instruments::fixed_income::discountable::Discountable;
-        let flows = <Self as crate::cashflow::traits::CashflowProvider>::build_schedule(self, curves, as_of)?;
-        let disc = curves.discount(self.disc_id)?;
-        flows.npv(&*disc, disc.base_date(), self.day_count)
-    }
+impl_instrument_schedule_pv!(
+    Loan, Loan,
+    disc_field: disc_id,
+    dc_field: day_count,
+    metrics = |_s| vec![]
+);
 
-    fn price_with_metrics(
-        &self,
-        curves: &CurveSet,
-        as_of: Date,
-        metrics: &[MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-
-        crate::instruments::build_with_metrics(
-            crate::instruments::Instrument::Loan(self.clone()),
-            curves,
-            as_of,
-            base_value,
-            metrics,
-        )
-    }
-
-    fn price(
-        &self,
-        curves: &CurveSet,
-        as_of: Date,
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let standard_metrics = vec![MetricId::Ytm];
-        self.price_with_metrics(curves, as_of, &standard_metrics)
-    }
-}
-
-// Generate standard Attributable implementation using macro
-impl_attributable!(Loan);
-
-impl From<Loan> for crate::instruments::Instrument {
-    fn from(value: Loan) -> Self {
-        crate::instruments::Instrument::Loan(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::Instrument> for Loan {
-    type Error = finstack_core::Error;
-
-    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::Instrument::Loan(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            )),
-        }
-    }
-}
+// Conversions and Attributable provided by macro
 
 /// Builder pattern for Loan instruments
 #[derive(Default)]

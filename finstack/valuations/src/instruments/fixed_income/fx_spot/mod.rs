@@ -2,11 +2,11 @@
 
 pub mod metrics;
 
-use crate::impl_attributable;
+// impl_attributable provided via unified macro
 use crate::metrics::MetricId;
-use crate::results::ValuationResult;
+// use crate::results::ValuationResult; // handled via macro-based implementation
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::traits::{Attributes, Priceable};
+use crate::instruments::traits::Attributes;
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -113,16 +113,14 @@ impl FxSpot {
     }
 }
 
-impl Priceable for FxSpot {
-    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
-        // If quoted, compute directly
-        if let Some(rate) = self.spot_rate {
-            let notional_amount = self.effective_notional().amount();
+impl_instrument!(
+    FxSpot, FxSpot,
+    pv = |s, curves, as_of| {
+        if let Some(rate) = s.spot_rate {
+            let notional_amount = s.effective_notional().amount();
             let quote_amount = notional_amount * rate;
-            return Ok(Money::new(quote_amount, self.quote));
+            return Ok(Money::new(quote_amount, s.quote));
         }
-
-        // Otherwise convert via FX matrix into quote currency
         let matrix = curves.fx.as_ref().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound)
         })?;
@@ -140,31 +138,17 @@ impl Priceable for FxSpot {
         }
         let provider = MatrixProvider { m: matrix };
         let policy = finstack_core::money::fx::FxConversionPolicy::CashflowDate;
-        self.effective_notional().convert(self.quote, as_of, &provider, policy)
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &CurveSet,
-        as_of: Date,
-        metrics: &[MetricId],
-    ) -> finstack_core::Result<ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        let instrument: crate::instruments::Instrument = crate::instruments::Instrument::FxSpot(self.clone());
-        crate::instruments::build_with_metrics(instrument, curves, as_of, base_value, metrics)
-    }
-
-    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
-        // Default metrics for FX spot
-        let metrics = vec![
+        s.effective_notional().convert(s.quote, as_of, &provider, policy)
+    },
+    metrics = |_s| {
+        vec![
             MetricId::custom("spot_rate"),
             MetricId::custom("base_amount"),
             MetricId::custom("quote_amount"),
             MetricId::custom("inverse_rate"),
-        ];
-        self.price_with_metrics(curves, as_of, &metrics)
+        ]
     }
-}
+);
 
 impl CashflowProvider for FxSpot {
     fn build_schedule(
@@ -223,6 +207,7 @@ impl CashflowProvider for FxSpot {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instruments::traits::Priceable;
     use time::Month;
 
     #[test]
@@ -410,24 +395,4 @@ impl FxSpotBuilder {
     }
 }
 
-// Generate standard Attributable implementation using macro
-impl_attributable!(FxSpot);
-
-impl From<FxSpot> for crate::instruments::Instrument {
-    fn from(value: FxSpot) -> Self {
-        crate::instruments::Instrument::FxSpot(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::Instrument> for FxSpot {
-    type Error = finstack_core::Error;
-
-    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::Instrument::FxSpot(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            )),
-        }
-    }
-}
+// Conversions and Attributable provided by macro

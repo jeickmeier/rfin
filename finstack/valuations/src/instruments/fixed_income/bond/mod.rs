@@ -11,7 +11,7 @@ use finstack_core::F;
 
 use crate::cashflow::builder::{cf, CashFlowSchedule, CouponType, FixedCouponSpec};
 use crate::cashflow::primitives::CFKind;
-use crate::impl_attributable;
+// removed direct impl_attributable! usage; handled by unified macro
 use crate::metrics::MetricId;
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::traits::{Attributes, Priceable};
@@ -159,62 +159,12 @@ impl Bond {
 }
 
 // Custom Priceable implementation for Bond (can't use macro due to different field names)
-impl Priceable for Bond {
-    fn value(
-        &self,
-        curves: &finstack_core::market_data::multicurve::CurveSet,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::fixed_income::discountable::Discountable;
-        let flows = self.build_schedule(curves, as_of)?;
-        let disc = curves.discount(self.disc_id)?;
-        flows.npv(&*disc, disc.base_date(), self.dc)
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &finstack_core::market_data::multicurve::CurveSet,
-        as_of: finstack_core::dates::Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        let instrument: crate::instruments::Instrument =
-            crate::instruments::Instrument::Bond(self.clone());
-        crate::instruments::build_with_metrics(instrument, curves, as_of, base_value, metrics)
-    }
-
-    fn price(
-        &self,
-        curves: &finstack_core::market_data::multicurve::CurveSet,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        // Use dynamic metrics based on bond configuration
-        let standard_metrics = self.get_standard_metrics();
-        self.price_with_metrics(curves, as_of, &standard_metrics)
-    }
-}
-
-// Generate standard Attributable implementation
-impl_attributable!(Bond);
-
-impl From<Bond> for crate::instruments::Instrument {
-    fn from(value: Bond) -> Self {
-        crate::instruments::Instrument::Bond(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::Instrument> for Bond {
-    type Error = finstack_core::Error;
-
-    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::Instrument::Bond(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            )),
-        }
-    }
-}
+impl_instrument_schedule_pv!(
+    Bond, Bond,
+    disc_field: disc_id,
+    dc_field: dc,
+    metrics = |s| s.get_standard_metrics()
+);
 
 impl RiskMeasurable for Bond {
     fn risk_report(

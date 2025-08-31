@@ -2,10 +2,8 @@
 
 pub mod metrics;
 
-use crate::impl_attributable;
-use crate::results::ValuationResult;
-use crate::instruments::traits::{Attributes, Priceable};
-use finstack_core::market_data::multicurve::CurveSet;
+use crate::instruments::traits::Attributes;
+use crate::metrics::MetricId;
 use finstack_core::money::Money;
 use finstack_core::F;
 
@@ -248,78 +246,15 @@ impl CreditOption {
     }
 }
 
-impl Priceable for CreditOption {
-    /// Compute the present value of the option
-    fn value(&self, curves: &CurveSet, _as_of: Date) -> finstack_core::Result<Money> {
-        // Get market data
-        let _disc = curves.discount(self.disc_id)?;
-        let _credit = curves.credit(self.credit_id)?;
-
-        // Would need to compute forward spread and risky annuity
-        // For now, return error as we need volatility surface
-        Err(finstack_core::Error::from(
-            finstack_core::error::InputError::NotFound,
-        ))
-    }
-
-    /// Compute value with specific metrics
-    fn price_with_metrics(
-        &self,
-        curves: &CurveSet,
-        as_of: Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<ValuationResult> {
-        use crate::instruments::Instrument;
-
-        // Compute base value
-        let base_value = self.value(curves, as_of)?;
-
-        crate::instruments::build_with_metrics(
-            Instrument::CreditOption(self.clone()),
-            curves,
-            as_of,
-            base_value,
-            metrics,
-        )
-    }
-
-    /// Compute full valuation with all standard option metrics
-    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
-        use crate::metrics::MetricId;
-
-        let standard_metrics = vec![
-            MetricId::Delta,
-            MetricId::Gamma,
-            MetricId::Vega,
-            MetricId::Theta,
-            MetricId::Rho,
-        ];
-
-        self.price_with_metrics(curves, as_of, &standard_metrics)
-    }
-}
-
-// Generate standard Attributable implementation using macro
-impl_attributable!(CreditOption);
-
-impl From<CreditOption> for crate::instruments::Instrument {
-    fn from(value: CreditOption) -> Self {
-        crate::instruments::Instrument::CreditOption(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::Instrument> for CreditOption {
-    type Error = finstack_core::Error;
-
-    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::Instrument::CreditOption(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            )),
-        }
-    }
-}
+impl_instrument!(
+    CreditOption, CreditOption,
+    pv = |s, curves, _as_of| {
+        let _disc = curves.discount(s.disc_id)?;
+        let _credit = curves.credit(s.credit_id)?;
+        Err(finstack_core::Error::from(finstack_core::error::InputError::NotFound))
+    },
+    metrics = |_s| vec![MetricId::Delta, MetricId::Gamma, MetricId::Vega, MetricId::Theta, MetricId::Rho]
+);
 
 #[cfg(test)]
 mod tests {

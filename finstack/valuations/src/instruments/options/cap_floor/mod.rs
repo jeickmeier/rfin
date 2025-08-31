@@ -2,10 +2,8 @@
 
 pub mod metrics;
 
-use crate::impl_attributable;
-use crate::results::ValuationResult;
-use crate::instruments::traits::{Attributes, Priceable};
-use finstack_core::market_data::multicurve::CurveSet;
+use crate::instruments::traits::Attributes;
+// use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::money::Money;
 use finstack_core::F;
 
@@ -346,78 +344,19 @@ impl InterestRateOption {
     }
 }
 
-impl Priceable for InterestRateOption {
-    /// Compute the present value of the option
-    fn value(&self, curves: &CurveSet, _as_of: Date) -> finstack_core::Result<Money> {
-        // Get market data
-        let _disc = curves.discount(self.disc_id)?;
-        let _forward = curves.forecast(self.forward_id)?;
+use crate::metrics::MetricId;
 
-        // Would need to implement full valuation logic here
-        // For now, return error as we need volatility surface
-        Err(finstack_core::Error::from(
-            finstack_core::error::InputError::NotFound,
-        ))
-    }
+impl_instrument!(
+    InterestRateOption, InterestRateOption,
+    pv = |s, curves, _as_of| {
+        let _disc = curves.discount(s.disc_id)?;
+        let _forward = curves.forecast(s.forward_id)?;
+        Err(finstack_core::Error::from(finstack_core::error::InputError::NotFound))
+    },
+    metrics = |_s| vec![MetricId::Delta, MetricId::Gamma, MetricId::Vega, MetricId::Theta, MetricId::Rho]
+);
 
-    /// Compute value with specific metrics
-    fn price_with_metrics(
-        &self,
-        curves: &CurveSet,
-        as_of: Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<ValuationResult> {
-        use crate::instruments::Instrument;
-
-        // Compute base value
-        let base_value = self.value(curves, as_of)?;
-
-        crate::instruments::build_with_metrics(
-            Instrument::InterestRateOption(self.clone()),
-            curves,
-            as_of,
-            base_value,
-            metrics,
-        )
-    }
-
-    /// Compute full valuation with all standard option metrics
-    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
-        use crate::metrics::MetricId;
-
-        let standard_metrics = vec![
-            MetricId::Delta,
-            MetricId::Gamma,
-            MetricId::Vega,
-            MetricId::Theta,
-            MetricId::Rho,
-        ];
-
-        self.price_with_metrics(curves, as_of, &standard_metrics)
-    }
-}
-
-// Generate standard Attributable implementation using macro
-impl_attributable!(InterestRateOption);
-
-impl From<InterestRateOption> for crate::instruments::Instrument {
-    fn from(value: InterestRateOption) -> Self {
-        crate::instruments::Instrument::InterestRateOption(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::Instrument> for InterestRateOption {
-    type Error = finstack_core::Error;
-
-    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::Instrument::InterestRateOption(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            )),
-        }
-    }
-}
+// Conversions and Attributable provided by macro
 
 #[cfg(test)]
 mod tests {

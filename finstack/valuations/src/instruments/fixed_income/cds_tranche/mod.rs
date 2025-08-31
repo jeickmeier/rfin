@@ -8,10 +8,9 @@
 
 pub mod metrics;
 
-use crate::impl_attributable;
 use crate::metrics::MetricId;
-use crate::results::ValuationResult;
-use crate::instruments::traits::{Attributes, Priceable};
+// use crate::results::ValuationResult; // not needed with macro-based impl
+use crate::instruments::traits::Attributes;
 use finstack_core::prelude::*;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
 use finstack_core::F;
@@ -106,41 +105,18 @@ impl CdsTranche {
     pub fn builder() -> CdsTrancheBuilder { CdsTrancheBuilder::new() }
 }
 
-impl Priceable for CdsTranche {
-    /// Minimal PV implementation: returns 0.0 in instrument currency as placeholder
-    fn value(&self, _curves: &finstack_core::market_data::multicurve::CurveSet, _as_of: Date) -> finstack_core::Result<Money> {
-        Ok(Money::new(0.0, self.notional.currency()))
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &finstack_core::market_data::multicurve::CurveSet,
-        as_of: Date,
-        metrics: &[MetricId],
-    ) -> finstack_core::Result<ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        let instrument: crate::instruments::Instrument = crate::instruments::Instrument::CDSTranche(self.clone());
-        crate::instruments::build_with_metrics(instrument, curves, as_of, base_value, metrics)
-    }
-
-    fn price(
-        &self,
-        curves: &finstack_core::market_data::multicurve::CurveSet,
-        as_of: Date,
-    ) -> finstack_core::Result<ValuationResult> {
-        // Provide a small standard set of tranche metrics by default
-        let standard_metrics = vec![
+impl_instrument!(
+    CdsTranche, CDSTranche,
+    pv = |s, _curves, _as_of| Ok(Money::new(0.0, s.notional.currency())),
+    metrics = |_s| {
+        vec![
             MetricId::custom("upfront"),
             MetricId::custom("spread_dv01"),
             MetricId::ExpectedLoss,
             MetricId::JumpToDefault,
-        ];
-        self.price_with_metrics(curves, as_of, &standard_metrics)
+        ]
     }
-}
-
-// Generate standard Attributable implementation using macro
-impl_attributable!(CdsTranche);
+);
 
 // Builder pattern for CdsTranche
 #[derive(Default)]
@@ -203,23 +179,6 @@ impl CdsTrancheBuilder {
     }
 }
 
-impl From<CdsTranche> for crate::instruments::Instrument {
-    fn from(value: CdsTranche) -> Self {
-        crate::instruments::Instrument::CDSTranche(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::Instrument> for CdsTranche {
-    type Error = finstack_core::Error;
-
-    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::Instrument::CDSTranche(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            )),
-        }
-    }
-}
+// Conversions and Attributable provided by macro
 
 

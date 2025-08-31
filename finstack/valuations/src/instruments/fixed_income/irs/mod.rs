@@ -2,7 +2,7 @@
 
 pub mod metrics;
 
-use crate::impl_attributable;
+// impl_attributable! replaced by unified macro where applicable
 use finstack_core::dates::holiday::calendars::calendar_by_id;
 use finstack_core::dates::{BusinessDayConvention, Frequency, StubKind};
 use finstack_core::market_data::multicurve::CurveSet;
@@ -15,9 +15,9 @@ use crate::cashflow::builder::{
 };
 use crate::metrics::MetricId;
 use crate::instruments::fixed_income::discountable::Discountable;
-use crate::results::ValuationResult;
+use crate::instruments::traits::Priceable;
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::traits::{Attributes, Priceable};
+use crate::instruments::traits::Attributes;
 use crate::metrics::{RiskBucket, RiskMeasurable, RiskReport};
 
 /// Direction of the swap from the perspective of the fixed rate.
@@ -171,76 +171,32 @@ impl InterestRateSwap {
     }
 }
 
-impl Priceable for InterestRateSwap {
-    /// Compute only the base present value (fast, no metrics).
-    fn value(&self, curves: &CurveSet, _as_of: Date) -> finstack_core::Result<Money> {
-        let disc = curves.discount(self.fixed.disc_id)?;
-        let fwd = curves.forecast(self.float.fwd_id)?;
+// Priceable implementation is provided by the impl_instrument! macro below
 
-        let pv_fixed = self.pv_fixed_leg(&*disc)?;
-        let pv_float = self.pv_float_leg(&*disc, &*fwd)?;
-
-        match self.side {
+// Generate standard Attributable implementation using macro
+// Keep manual Priceable for IRS, but add conversions/attributes via macro to reduce boilerplate
+impl_instrument!(
+    InterestRateSwap, IRS,
+    pv = |s, curves, _as_of| {
+        let disc = curves.discount(s.fixed.disc_id)?;
+        let fwd = curves.forecast(s.float.fwd_id)?;
+        let pv_fixed = s.pv_fixed_leg(&*disc)?;
+        let pv_float = s.pv_float_leg(&*disc, &*fwd)?;
+        match s.side {
             PayReceive::PayFixed => pv_float - pv_fixed,
             PayReceive::ReceiveFixed => pv_fixed - pv_float,
         }
-    }
-
-    /// Compute value with specific metrics using the metrics framework.
-    fn price_with_metrics(
-        &self,
-        curves: &CurveSet,
-        as_of: Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<ValuationResult> {
-
-        // Compute base value
-        let base_value = self.value(curves, as_of)?;
-
-        crate::instruments::build_with_metrics(
-            crate::instruments::Instrument::IRS(self.clone()),
-            curves,
-            as_of,
-            base_value,
-            metrics,
-        )
-    }
-
-    /// Compute full valuation with all standard IRS metrics (backward compatible).
-    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
-        // Standard IRS metrics
-        let standard_metrics = [
+    },
+    metrics = |_s| {
+        vec![
             MetricId::Annuity,
             MetricId::ParRate,
             MetricId::Dv01,
             MetricId::PvFixed,
             MetricId::PvFloat,
-        ];
-        self.price_with_metrics(curves, as_of, &standard_metrics)
+        ]
     }
-}
-
-// Generate standard Attributable implementation using macro
-impl_attributable!(InterestRateSwap);
-
-impl From<InterestRateSwap> for crate::instruments::Instrument {
-    fn from(value: InterestRateSwap) -> Self {
-        crate::instruments::Instrument::IRS(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::Instrument> for InterestRateSwap {
-    type Error = finstack_core::Error;
-
-    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::Instrument::IRS(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            )),
-        }
-    }
-}
+);
 
 /// Builder pattern for IRS instruments
 #[derive(Default)]

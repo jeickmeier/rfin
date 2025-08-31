@@ -123,8 +123,8 @@ pub use options::{CreditOption, EquityOption, FxOption, InterestRateOption, Swap
 ///
 /// Centralizes the repeated pattern across instruments to compute base value,
 /// build metric context, compute metrics and stamp a result.
-pub fn build_with_metrics(
-    instrument: crate::instruments::Instrument,
+pub fn build_with_metrics<I: Into<crate::instruments::Instrument>>(
+    instrument: I,
     curves: &finstack_core::market_data::multicurve::CurveSet,
     as_of: finstack_core::dates::Date,
     base_value: finstack_core::money::Money,
@@ -133,6 +133,8 @@ pub fn build_with_metrics(
     use crate::metrics::{standard_registry, MetricContext};
     use indexmap::IndexMap;
     use std::sync::Arc;
+
+    let instrument: crate::instruments::Instrument = instrument.into();
 
     let mut context = MetricContext::new(
         Arc::new(instrument),

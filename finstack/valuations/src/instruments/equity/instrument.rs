@@ -1,14 +1,12 @@
 //! Equity spot instrument implementation.
 
-use crate::impl_attributable;
 use crate::metrics::MetricId;
-use crate::results::ValuationResult;
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::traits::{Attributes, Priceable};
+use crate::instruments::traits::Attributes;
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::prelude::*;
 use finstack_core::F;
-use indexmap::IndexMap;
+// use indexmap::IndexMap;
 
 /// Type alias for ticker symbols
 pub type Ticker = String;
@@ -72,82 +70,25 @@ impl Equity {
     }
 }
 
-// Custom Priceable implementation for Equity (doesn't use standard disc_id/day_count fields)
-impl Priceable for Equity {
-    fn value(&self, _curves: &CurveSet, _as_of: Date) -> finstack_core::Result<Money> {
-        // For equities, we need the price from market data or quote
-        let price_per_share = self.price_quote.ok_or_else(|| {
+impl_instrument!(
+    Equity, Equity,
+    pv = |s, _curves, _as_of| {
+        let price_per_share = s.price_quote.ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound)
         })?;
-
-        let total_value = price_per_share * self.effective_shares();
-        Ok(Money::new(total_value, self.currency))
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &CurveSet,
-        as_of: Date,
-        metrics: &[MetricId],
-    ) -> finstack_core::Result<ValuationResult> {
-        let value = self.value(curves, as_of)?;
-
-        // Equities have limited metrics - mainly just the spot price
-        let mut measures = IndexMap::new();
-
-        for metric_id in metrics {
-            match metric_id {
-                MetricId::Custom(name) if name == "price_per_share" => {
-                    let price = self.price_quote.unwrap_or(0.0);
-                    measures.insert(name.clone(), price);
-                }
-                MetricId::Custom(name) if name == "shares" => {
-                    measures.insert(name.clone(), self.effective_shares());
-                }
-                MetricId::Custom(name) if name == "market_value" => {
-                    measures.insert(name.clone(), value.amount());
-                }
-                _ => {
-                    // Skip metrics not applicable to equities
-                }
-            }
-        }
-
-        Ok(ValuationResult::stamped(self.id.clone(), as_of, value).with_measures(measures))
-    }
-
-    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
-        // Default metrics for equities
-        let metrics = vec![
+        let total_value = price_per_share * s.effective_shares();
+        Ok(Money::new(total_value, s.currency))
+    },
+    metrics = |_s| {
+        vec![
             MetricId::custom("price_per_share"),
             MetricId::custom("shares"),
             MetricId::custom("market_value"),
-        ];
-        self.price_with_metrics(curves, as_of, &metrics)
+        ]
     }
-}
+);
 
-// Generate standard Attributable implementation using macro
-impl_attributable!(Equity);
-
-impl From<Equity> for crate::instruments::Instrument {
-    fn from(value: Equity) -> Self {
-        crate::instruments::Instrument::Equity(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::Instrument> for Equity {
-    type Error = finstack_core::Error;
-
-    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::Instrument::Equity(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            )),
-        }
-    }
-}
+// Conversions and Attributable provided by macro
 
 /// Builder pattern for Equity instruments
 #[derive(Default)]
@@ -251,7 +192,8 @@ mod tests {
         let curves = CurveSet::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
-        let value = equity.value(&curves, as_of).unwrap();
+        use crate::instruments::traits::Priceable;
+        let value = Priceable::value(&equity, &curves, as_of).unwrap();
         assert_eq!(value.amount(), 15_000.0);
         assert_eq!(value.currency(), Currency::USD);
     }
@@ -275,7 +217,8 @@ mod tests {
         let curves = CurveSet::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
-        let result = equity.price(&curves, as_of).unwrap();
+        use crate::instruments::traits::Priceable;
+        let result = Priceable::price(&equity, &curves, as_of).unwrap();
         assert_eq!(result.value.amount(), 10_000.0);
         assert_eq!(result.measures.get("price_per_share"), Some(&200.0));
         assert_eq!(result.measures.get("shares"), Some(&50.0));

@@ -3,15 +3,14 @@
 //! Provides comprehensive support for inflation-indexed bonds including
 //! TIPS, UK Index-Linked Gilts, and other inflation-protected securities.
 
-use crate::results::ValuationResult;
+// use crate::results::ValuationResult; // not needed with macro-based impl
 use crate::cashflow::traits::DatedFlows;
-use crate::instruments::traits::{Attributes, Priceable};
+use crate::instruments::traits::Attributes;
 use finstack_core::market_data::inflation_index::{InflationIndex, InflationLag};
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::money::Money;
 use finstack_core::F;
 
-use crate::impl_attributable;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 
 pub mod metrics;
@@ -302,72 +301,32 @@ impl InflationLinkedBond {
     }
 }
 
-impl Priceable for InflationLinkedBond {
-    /// Compute the present value of the ILB
-    fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
-        use crate::instruments::fixed_income::discountable::Discountable;
-
-        let disc = curves.discount(self.disc_id)?;
-        let flows = self.build_schedule(curves, as_of)?;
-        flows.npv(&*disc, disc.base_date(), self.dc)
+impl_instrument_schedule_pv!(
+    InflationLinkedBond, ILB,
+    disc_field: disc_id,
+    dc_field: dc,
+    metrics = |_s| {
+        vec![
+            crate::metrics::MetricId::Accrued,
+            crate::metrics::MetricId::CleanPrice,
+            crate::metrics::MetricId::DirtyPrice,
+            crate::metrics::MetricId::custom("real_yield"),
+            crate::metrics::MetricId::custom("index_ratio"),
+            crate::metrics::MetricId::custom("real_duration"),
+            crate::metrics::MetricId::custom("breakeven_inflation"),
+        ]
     }
+);
 
-    /// Compute value with specific metrics
-    fn price_with_metrics(
+// Provide the required CashflowProvider trait implementation used by the macro
+impl crate::cashflow::traits::CashflowProvider for InflationLinkedBond {
+    fn build_schedule(
         &self,
         curves: &CurveSet,
         as_of: Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<ValuationResult> {
-        // Compute base value
-        let base_value = self.value(curves, as_of)?;
-
-        crate::instruments::build_with_metrics(
-            crate::instruments::Instrument::ILB(self.clone()),
-            curves,
-            as_of,
-            base_value,
-            metrics,
-        )
-    }
-
-    /// Compute full valuation with all standard ILB metrics
-    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
-        use crate::metrics::MetricId;
-
-        let standard_metrics = vec![
-            MetricId::Accrued,
-            MetricId::CleanPrice,
-            MetricId::DirtyPrice,
-            MetricId::custom("real_yield"),
-            MetricId::custom("index_ratio"),
-            MetricId::custom("real_duration"),
-            MetricId::custom("breakeven_inflation"),
-        ];
-
-        self.price_with_metrics(curves, as_of, &standard_metrics)
-    }
-}
-
-// Generate standard Attributable implementation using macro
-impl_attributable!(InflationLinkedBond);
-
-impl From<InflationLinkedBond> for crate::instruments::Instrument {
-    fn from(value: InflationLinkedBond) -> Self {
-        crate::instruments::Instrument::ILB(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::Instrument> for InflationLinkedBond {
-    type Error = finstack_core::Error;
-
-    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::Instrument::ILB(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            )),
-        }
+    ) -> finstack_core::Result<crate::cashflow::traits::DatedFlows> {
+        // Delegate to the inherent method defined above
+        InflationLinkedBond::build_schedule(self, curves, as_of)
     }
 }
 

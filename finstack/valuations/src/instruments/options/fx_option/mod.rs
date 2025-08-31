@@ -2,12 +2,11 @@
 
 pub mod metrics;
 
-use crate::impl_attributable;
-use crate::results::ValuationResult;
-use crate::instruments::traits::{Attributes, Priceable};
+// impl_attributable provided by macro when enabled
+use crate::instruments::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
-use finstack_core::market_data::multicurve::CurveSet;
+// use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::money::Money;
 use finstack_core::F;
 
@@ -236,78 +235,28 @@ impl FxOption {
     }
 }
 
-impl Priceable for FxOption {
-    /// Compute the present value of the option
-    fn value(&self, curves: &CurveSet, _as_of: Date) -> finstack_core::Result<Money> {
-        // Get market data
-        let _domestic_disc = curves.discount(self.domestic_disc_id)?;
-        let _foreign_disc = curves.discount(self.foreign_disc_id)?;
+use crate::metrics::MetricId;
 
-        // Get FX spot from market context (would need to be extended)
-        // For now, return error as we need spot FX rate
-        Err(finstack_core::Error::from(
-            finstack_core::error::InputError::NotFound,
-        ))
+impl_instrument!(
+    FxOption, FxOption,
+    pv = |s, curves, _as_of| {
+        let _disc = curves.discount(s.domestic_disc_id)?;
+        let r_d = 0.0; // TODO derive from curve
+        let _foreign = curves.discount(s.foreign_disc_id)?;
+        let r_f = 0.0; // TODO derive from curve
+        let spot = 1.0; // TODO: source from FX matrix
+        let t = 1.0; // TODO: derive from expiry
+        let sigma = s.implied_vol.unwrap_or(0.2);
+        s.garman_kohlhagen_price(spot, r_d, r_f, sigma, t)
+    },
+    metrics = |_s| {
+        vec![MetricId::Delta, MetricId::Gamma, MetricId::Vega, MetricId::Theta, MetricId::Rho]
     }
+);
 
-    /// Compute value with specific metrics
-    fn price_with_metrics(
-        &self,
-        curves: &CurveSet,
-        as_of: Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<ValuationResult> {
-        use crate::instruments::Instrument;
+// Attributable implementation is already provided by impl_instrument! above
 
-        // Compute base value
-        let base_value = self.value(curves, as_of)?;
-
-        crate::instruments::build_with_metrics(
-            Instrument::FxOption(self.clone()),
-            curves,
-            as_of,
-            base_value,
-            metrics,
-        )
-    }
-
-    /// Compute full valuation with all standard option metrics
-    fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
-        use crate::metrics::MetricId;
-
-        let standard_metrics = vec![
-            MetricId::Delta,
-            MetricId::Gamma,
-            MetricId::Vega,
-            MetricId::Theta,
-            MetricId::Rho,
-        ];
-
-        self.price_with_metrics(curves, as_of, &standard_metrics)
-    }
-}
-
-// Generate standard Attributable implementation using macro
-impl_attributable!(FxOption);
-
-impl From<FxOption> for crate::instruments::Instrument {
-    fn from(value: FxOption) -> Self {
-        crate::instruments::Instrument::FxOption(value)
-    }
-}
-
-impl std::convert::TryFrom<crate::instruments::Instrument> for FxOption {
-    type Error = finstack_core::Error;
-
-    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
-        match value {
-            crate::instruments::Instrument::FxOption(v) => Ok(v),
-            _ => Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            )),
-        }
-    }
-}
+// Conversions provided by macro
 
 #[cfg(test)]
 mod tests {

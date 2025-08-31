@@ -4,6 +4,7 @@
 //! and related equity derivatives.
 
 mod instrument;
+pub mod metrics;
 
 // Re-export equity types
 pub use instrument::Equity;
