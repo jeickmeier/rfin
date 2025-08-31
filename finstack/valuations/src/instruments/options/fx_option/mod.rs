@@ -5,10 +5,11 @@ pub mod metrics;
 // impl_attributable provided by macro when enabled
 use crate::instruments::traits::Attributes;
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DayCount};
 // use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::money::Money;
 use finstack_core::F;
+use num_traits::ToPrimitive;
 
 use super::models;
 use super::{ExerciseStyle, OptionType, SettlementType};
@@ -30,6 +31,8 @@ pub struct FxOption {
     pub exercise_style: ExerciseStyle,
     /// Expiry date
     pub expiry: Date,
+    /// Day count convention for time calculations
+    pub day_count: finstack_core::dates::DayCount,
     /// Notional amount in base currency
     pub notional: Money,
     /// Settlement type
@@ -38,7 +41,9 @@ pub struct FxOption {
     pub domestic_disc_id: &'static str,
     /// Foreign discount curve identifier
     pub foreign_disc_id: &'static str,
-    /// Implied volatility (if known)
+    /// Volatility surface identifier
+    pub vol_id: &'static str,
+    /// Implied volatility (if known, overrides vol surface)
     pub implied_vol: Option<F>,
     /// Additional attributes
     pub attributes: Attributes,
@@ -57,6 +62,7 @@ impl FxOption {
         notional: Money,
         domestic_disc_id: &'static str,
         foreign_disc_id: &'static str,
+        vol_id: &'static str,
     ) -> Self {
         Self {
             id: id.into(),
@@ -66,10 +72,12 @@ impl FxOption {
             option_type,
             exercise_style: ExerciseStyle::European,
             expiry,
+            day_count: DayCount::Act365F,
             notional,
             settlement: SettlementType::Cash,
             domestic_disc_id,
             foreign_disc_id,
+            vol_id,
             implied_vol: None,
             attributes: Attributes::new(),
         }
@@ -240,15 +248,45 @@ use crate::metrics::MetricId;
 impl_instrument!(
     FxOption,
     "FxOption",
-    pv = |s, curves, _as_of| {
-        let _disc = curves.discount(s.domestic_disc_id)?;
-        let r_d = 0.0; // TODO derive from curve
-        let _foreign = curves.discount(s.foreign_disc_id)?;
-        let r_f = 0.0; // TODO derive from curve
-        let spot = 1.0; // TODO: source from FX matrix
-        let t = 1.0; // TODO: derive from expiry
-        let sigma = s.implied_vol.unwrap_or(0.2);
-        s.garman_kohlhagen_price(spot, r_d, r_f, sigma, t)
+    pv = |s, curves, as_of| {
+        // Calculate time to expiry in years
+        let time_to_expiry = s.day_count.year_fraction(as_of, s.expiry)?;
+        
+        if time_to_expiry <= 0.0 {
+            // Option expired - return intrinsic value
+            let fx_matrix = curves.fx.as_ref().ok_or(finstack_core::error::InputError::NotFound)?;
+            let spot = fx_matrix.rate(s.base_currency, s.quote_currency, as_of, finstack_core::money::fx::FxConversionPolicy::CashflowDate)?;
+            
+            let intrinsic = match s.option_type {
+                OptionType::Call => (spot.to_f64().unwrap_or(0.0) - s.strike).max(0.0),
+                OptionType::Put => (s.strike - spot.to_f64().unwrap_or(0.0)).max(0.0),
+            };
+            
+            return Ok(finstack_core::money::Money::new(
+                intrinsic * s.notional.amount(),
+                s.quote_currency,
+            ));
+        }
+        
+        // Get market data
+        let domestic_disc = curves.discount(s.domestic_disc_id)?;
+        let foreign_disc = curves.discount(s.foreign_disc_id)?;
+        let r_d = domestic_disc.zero(time_to_expiry);
+        let r_f = foreign_disc.zero(time_to_expiry);
+        
+        let fx_matrix = curves.fx.as_ref().ok_or(finstack_core::error::InputError::NotFound)?;
+        let spot = fx_matrix.rate(s.base_currency, s.quote_currency, as_of, finstack_core::money::fx::FxConversionPolicy::CashflowDate)?;
+        
+        // Get volatility (use implied_vol if set, otherwise fetch from surface)
+        let sigma = if let Some(impl_vol) = s.implied_vol {
+            impl_vol
+        } else {
+            let vol_surface = curves.vol_surface(s.vol_id)?;
+            vol_surface.value_checked(time_to_expiry, s.strike)?
+        };
+        
+        // Price using Garman-Kohlhagen
+        s.garman_kohlhagen_price(spot.to_f64().unwrap_or(0.0), r_d, r_f, sigma, time_to_expiry)
     },
     metrics = |_s| {
         vec![
@@ -285,6 +323,7 @@ mod tests {
             notional,
             "USD-OIS",
             "EUR-OIS",
+            "EURUSD-VOL",
         );
 
         assert_eq!(option.id, "EURUSD_CALL_1.20");
@@ -308,6 +347,7 @@ mod tests {
             notional,
             "USD-OIS",
             "EUR-OIS",
+            "EURUSD-VOL",
         );
 
         // Test parameters
@@ -348,6 +388,7 @@ mod tests {
             notional,
             "USD-OIS",
             "EUR-OIS",
+            "EURUSD-VOL",
         );
 
         // Test parameters

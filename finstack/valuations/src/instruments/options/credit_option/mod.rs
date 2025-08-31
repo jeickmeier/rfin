@@ -7,7 +7,7 @@ use crate::metrics::MetricId;
 use finstack_core::money::Money;
 use finstack_core::F;
 
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DayCount};
 
 use super::models;
 use super::{ExerciseStyle, OptionType, SettlementType};
@@ -29,6 +29,8 @@ pub struct CreditOption {
     pub expiry: Date,
     /// Underlying CDS maturity date
     pub cds_maturity: Date,
+    /// Day count convention for time calculations
+    pub day_count: finstack_core::dates::DayCount,
     /// Notional amount
     pub notional: Money,
     /// Settlement type
@@ -39,7 +41,9 @@ pub struct CreditOption {
     pub disc_id: &'static str,
     /// Credit curve identifier
     pub credit_id: &'static str,
-    /// Implied volatility of credit spread (if known)
+    /// Volatility surface identifier
+    pub vol_id: &'static str,
+    /// Implied volatility of credit spread (if known, overrides vol surface)
     pub implied_vol: Option<F>,
     /// Additional attributes
     pub attributes: Attributes,
@@ -59,6 +63,7 @@ impl CreditOption {
         recovery_rate: F,
         disc_id: &'static str,
         credit_id: &'static str,
+        vol_id: &'static str,
     ) -> Self {
         Self {
             id: id.into(),
@@ -68,11 +73,13 @@ impl CreditOption {
             exercise_style: ExerciseStyle::European,
             expiry,
             cds_maturity,
+            day_count: DayCount::Act360,
             notional,
             settlement: SettlementType::Cash,
             recovery_rate,
             disc_id,
             credit_id,
+            vol_id,
             implied_vol: None,
             attributes: Attributes::new(),
         }
@@ -247,12 +254,51 @@ impl CreditOption {
 impl_instrument!(
     CreditOption,
     "CreditOption",
-    pv = |s, curves, _as_of| {
-        let _disc = curves.discount(s.disc_id)?;
-        let _credit = curves.credit(s.credit_id)?;
-        Err(finstack_core::Error::from(
-            finstack_core::error::InputError::NotFound,
-        ))
+    pv = |s, curves, as_of| {
+        // Calculate time to expiry in years
+        let time_to_expiry = s.day_count.year_fraction(as_of, s.expiry)?;
+        
+        // Get market curves
+        let disc_curve = curves.discount(s.disc_id)?;
+        let credit_curve = curves.credit(s.credit_id)?;
+        
+        // Calculate risky annuity (RPV01) of the underlying CDS
+        // This is a simplified calculation - in practice would need full CDS schedule
+        let cds_tenor = s.day_count.year_fraction(s.expiry, s.cds_maturity)?;
+        let mut risky_annuity = 0.0;
+        
+        // Approximate quarterly payments for CDS premium leg
+        let num_payments = (cds_tenor * 4.0).ceil() as usize;
+        for i in 1..=num_payments {
+            let t = cds_tenor * (i as f64) / (num_payments as f64);
+            let df = disc_curve.df(time_to_expiry + t);
+            let survival = credit_curve.survival_probability(
+                as_of.checked_add(time::Duration::days(((time_to_expiry + t) * 365.25) as i64)).unwrap_or(as_of)
+            );
+            risky_annuity += 0.25 * df * survival; // 0.25 = quarterly accrual
+        }
+        
+        // Calculate forward CDS spread (simplified)
+        let current_tenor = s.day_count.year_fraction(as_of, s.cds_maturity)?;
+        let forward_spread_bp = if current_tenor > 0.0 {
+            credit_curve.spread_bp(current_tenor)
+        } else {
+            s.strike_spread_bp // Fallback if CDS has expired
+        };
+        
+        // Get discount factor to option expiry
+        let df_expiry = disc_curve.df(time_to_expiry);
+        
+        // Get volatility (use implied_vol if set, otherwise fetch from surface)
+        let sigma = if let Some(impl_vol) = s.implied_vol {
+            impl_vol
+        } else {
+            let vol_surface = curves.vol_surface(s.vol_id)?;
+            vol_surface.value_checked(time_to_expiry, s.strike_spread_bp)?
+        };
+        
+        // Price using Black model on credit spreads
+        s.credit_option_price(forward_spread_bp, df_expiry, risky_annuity, sigma, time_to_expiry)
     },
     metrics = |_s| vec![
         MetricId::Delta,
@@ -286,6 +332,7 @@ mod tests {
             0.4, // 40% recovery
             "USD-OIS",
             "ABC-SENIOR",
+            "ABC-CDS-VOL",
         );
 
         assert_eq!(option.id, "ABC_CDS_CALL_200");
@@ -311,6 +358,7 @@ mod tests {
             0.4,
             "USD-OIS",
             "XYZ-SENIOR",
+            "XYZ-CDS-VOL",
         );
 
         // Test parameters
@@ -352,6 +400,7 @@ mod tests {
             0.4,
             "USD-OIS",
             "XYZ-SENIOR",
+            "XYZ-CDS-VOL",
         );
 
         // Test parameters

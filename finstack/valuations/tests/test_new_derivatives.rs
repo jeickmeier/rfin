@@ -55,6 +55,8 @@ fn test_equity_option_creation() {
         expiry,
         100.0, // Contract size
         "USD-OIS",
+        "AAPL-SPOT",
+        "AAPL-VOL",
     );
 
     assert_eq!(option.id, "AAPL_CALL_100");
@@ -96,6 +98,7 @@ fn test_fx_option_creation() {
         notional,
         "USD-OIS",
         "EUR-OIS",
+        "EURUSD-VOL",
     );
 
     assert_eq!(option.id, "EURUSD_CALL_1.20");
@@ -133,6 +136,7 @@ fn test_interest_rate_option_creation() {
         DayCount::Act360,
         "USD-OIS",
         "USD-LIBOR-3M",
+        "USD-CAP-VOL",
     );
 
     assert_eq!(cap.id, "USD_CAP_3%");
@@ -157,6 +161,7 @@ fn test_credit_option_creation() {
         0.4, // 40% recovery
         "USD-OIS",
         "ABC-SENIOR",
+        "ABC-CDS-VOL",
     );
 
     assert_eq!(option.id, "ABC_CDS_CALL_200");

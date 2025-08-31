@@ -64,6 +64,10 @@ pub struct Swaption {
     pub disc_id: &'static str,
     /// Forward curve identifier
     pub forward_id: &'static str,
+    /// Volatility surface identifier
+    pub vol_id: &'static str,
+    /// Implied volatility (if known, overrides vol surface and SABR)
+    pub implied_vol: Option<F>,
     /// SABR parameters (if calibrated)
     pub sabr_params: Option<SABRParameters>,
     /// Additional attributes
@@ -82,6 +86,7 @@ impl Swaption {
         swap_end: Date,
         disc_id: &'static str,
         forward_id: &'static str,
+        vol_id: &'static str,
     ) -> Self {
         Self {
             id: id.into(),
@@ -98,6 +103,8 @@ impl Swaption {
             settlement: SwaptionSettlement::Physical,
             disc_id,
             forward_id,
+            vol_id,
+            implied_vol: None,
             sabr_params: None,
             attributes: Attributes::default(),
         }
@@ -114,6 +121,7 @@ impl Swaption {
         swap_end: Date,
         disc_id: &'static str,
         forward_id: &'static str,
+        vol_id: &'static str,
     ) -> Self {
         Self {
             id: id.into(),
@@ -130,6 +138,8 @@ impl Swaption {
             settlement: SwaptionSettlement::Physical,
             disc_id,
             forward_id,
+            vol_id,
+            implied_vol: None,
             sabr_params: None,
             attributes: Attributes::default(),
         }
@@ -201,7 +211,6 @@ impl Swaption {
 
         let forward_rate = self.forward_swap_rate(disc)?;
         let annuity = self.swap_annuity(disc)?;
-        let df_expiry = disc.df(time_to_expiry);
 
         // Black's formula
         let variance = volatility.powi(2) * time_to_expiry;
@@ -210,16 +219,12 @@ impl Swaption {
 
         let value = match self.option_type {
             OptionType::Call => {
-                // Payer swaption
-                annuity
-                    * df_expiry
-                    * (forward_rate * norm_cdf(d1) - self.strike_rate * norm_cdf(d2))
+                // Payer swaption - annuity already contains discounting
+                annuity * (forward_rate * norm_cdf(d1) - self.strike_rate * norm_cdf(d2))
             }
             OptionType::Put => {
-                // Receiver swaption
-                annuity
-                    * df_expiry
-                    * (self.strike_rate * norm_cdf(-d2) - forward_rate * norm_cdf(-d1))
+                // Receiver swaption - annuity already contains discounting
+                annuity * (self.strike_rate * norm_cdf(-d2) - forward_rate * norm_cdf(-d1))
             }
         };
 
@@ -311,6 +316,7 @@ mod tests {
             swap_end,
             "USD-OIS",
             "USD-LIBOR-3M",
+            "USD-SWAPTION-VOL",
         );
 
         assert_eq!(swaption.strike_rate, 0.03);
@@ -333,6 +339,7 @@ mod tests {
             swap_end,
             "USD-OIS",
             "USD-LIBOR-3M",
+            "USD-SWAPTION-VOL",
         );
 
         let curve = create_test_curve();
@@ -361,6 +368,7 @@ mod tests {
             swap_end,
             "USD-OIS",
             "USD-LIBOR-3M",
+            "USD-SWAPTION-VOL",
         )
         .with_sabr(sabr_params);
 

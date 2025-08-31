@@ -54,7 +54,9 @@ pub struct InterestRateOption {
     pub disc_id: &'static str,
     /// Forward curve identifier
     pub forward_id: &'static str,
-    /// Implied volatility (if known)
+    /// Volatility surface identifier
+    pub vol_id: &'static str,
+    /// Implied volatility (if known, overrides vol surface)
     pub implied_vol: Option<F>,
     /// For swaptions: underlying swap tenor in years
     pub swap_tenor: Option<F>,
@@ -76,6 +78,7 @@ impl InterestRateOption {
         day_count: DayCount,
         disc_id: &'static str,
         forward_id: &'static str,
+        vol_id: &'static str,
     ) -> Self {
         Self {
             id: id.into(),
@@ -90,6 +93,7 @@ impl InterestRateOption {
             settlement: SettlementType::Cash,
             disc_id,
             forward_id,
+            vol_id,
             implied_vol: None,
             swap_tenor: None,
             attributes: Attributes::new(),
@@ -108,6 +112,7 @@ impl InterestRateOption {
         day_count: DayCount,
         disc_id: &'static str,
         forward_id: &'static str,
+        vol_id: &'static str,
     ) -> Self {
         Self::new(
             id,
@@ -120,6 +125,7 @@ impl InterestRateOption {
             day_count,
             disc_id,
             forward_id,
+            vol_id,
         )
     }
 
@@ -135,6 +141,7 @@ impl InterestRateOption {
         day_count: DayCount,
         disc_id: &'static str,
         forward_id: &'static str,
+        vol_id: &'static str,
     ) -> Self {
         Self::new(
             id,
@@ -147,6 +154,7 @@ impl InterestRateOption {
             day_count,
             disc_id,
             forward_id,
+            vol_id,
         )
     }
 
@@ -163,6 +171,7 @@ impl InterestRateOption {
         day_count: DayCount,
         disc_id: &'static str,
         forward_id: &'static str,
+        vol_id: &'static str,
     ) -> Self {
         let swap_end = swap_start + time::Duration::days((swap_tenor_years * 365.25) as i64);
 
@@ -177,6 +186,7 @@ impl InterestRateOption {
             day_count,
             disc_id,
             forward_id,
+            vol_id,
         );
         swaption.swap_tenor = Some(swap_tenor_years);
         swaption
@@ -346,12 +356,106 @@ use crate::metrics::MetricId;
 impl_instrument!(
     InterestRateOption,
     "InterestRateOption",
-    pv = |s, curves, _as_of| {
-        let _disc = curves.discount(s.disc_id)?;
-        let _forward = curves.forecast(s.forward_id)?;
-        Err(finstack_core::Error::from(
-            finstack_core::error::InputError::NotFound,
-        ))
+    pv = |s, curves, as_of| {
+        use crate::cashflow::builder::schedule_utils::build_dates;
+        use finstack_core::dates::{BusinessDayConvention, StubKind};
+        
+        // Get market curves
+        let disc_curve = curves.discount(s.disc_id)?;
+        let fwd_curve = curves.forecast(s.forward_id)?;
+        let vol_surface = if s.implied_vol.is_none() {
+            Some(curves.vol_surface(s.vol_id)?)
+        } else {
+            None
+        };
+        
+        let mut total_pv = finstack_core::money::Money::new(0.0, s.notional.currency());
+        
+        // For single caplet/floorlet, price directly
+        if matches!(s.rate_option_type, RateOptionType::Caplet | RateOptionType::Floorlet) {
+            let time_to_fixing = s.day_count.year_fraction(as_of, s.start_date)?;
+            let time_to_payment = s.day_count.year_fraction(as_of, s.end_date)?;
+            let period_length = s.day_count.year_fraction(s.start_date, s.end_date)?;
+            
+            if time_to_fixing <= 0.0 {
+                // Option expired - intrinsic value only
+                let forward_rate = fwd_curve.rate(time_to_fixing.max(0.0));
+                let intrinsic = match s.rate_option_type {
+                    RateOptionType::Caplet => (forward_rate - s.strike_rate).max(0.0),
+                    RateOptionType::Floorlet => (s.strike_rate - forward_rate).max(0.0),
+                    _ => 0.0,
+                };
+                let df = disc_curve.df(time_to_payment);
+                return Ok(finstack_core::money::Money::new(
+                    intrinsic * period_length * s.notional.amount() * df,
+                    s.notional.currency(),
+                ));
+            }
+            
+            let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
+            let df = disc_curve.df(time_to_payment);
+            
+            let sigma = if let Some(impl_vol) = s.implied_vol {
+                impl_vol
+            } else if let Some(vol_surf) = &vol_surface {
+                vol_surf.value_checked(time_to_fixing, s.strike_rate)?
+            } else {
+                return Err(finstack_core::error::InputError::NotFound.into());
+            };
+            
+            return s.black_price_caplet_floorlet(forward_rate, df, sigma, time_to_fixing, period_length);
+        }
+        
+        // For cap/floor, price as portfolio of caplets/floorlets
+        let schedule = build_dates(
+            s.start_date,
+            s.end_date,
+            s.frequency,
+            StubKind::None,
+            BusinessDayConvention::Following,
+            None,
+        );
+        
+        if schedule.dates.len() < 2 {
+            return Ok(total_pv);
+        }
+        
+        // Price each caplet/floorlet
+        let mut prev_date = schedule.dates[0];
+        for &payment_date in &schedule.dates[1..] {
+            let fixing_date = prev_date; // Simplified: fixing at period start
+            let time_to_fixing = s.day_count.year_fraction(as_of, fixing_date)?;
+            let time_to_payment = s.day_count.year_fraction(as_of, payment_date)?;
+            let period_length = s.day_count.year_fraction(fixing_date, payment_date)?;
+            
+            if time_to_fixing > 0.0 {
+                // Only price future caplets/floorlets
+                let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
+                let df = disc_curve.df(time_to_payment);
+                
+                let sigma = if let Some(impl_vol) = s.implied_vol {
+                    impl_vol
+                } else if let Some(vol_surf) = &vol_surface {
+                    vol_surf.value_checked(time_to_fixing, s.strike_rate)?
+                } else {
+                    return Err(finstack_core::error::InputError::NotFound.into());
+                };
+                
+                let caplet_price = s.black_price_caplet_floorlet(
+                    forward_rate,
+                    df,
+                    sigma,
+                    time_to_fixing,
+                    period_length,
+                )?;
+                
+                total_pv = (total_pv + caplet_price)?;
+            }
+            
+            prev_date = payment_date;
+        }
+        
+        Ok(total_pv)
     },
     metrics = |_s| vec![
         MetricId::Delta,
@@ -386,6 +490,7 @@ mod tests {
             DayCount::Act360,
             "USD-OIS",
             "USD-LIBOR-3M",
+            "USD-CAP-VOL",
         );
 
         assert_eq!(cap.id, "USD_CAP_3%");
@@ -412,6 +517,7 @@ mod tests {
             settlement: SettlementType::Cash,
             disc_id: "USD-OIS",
             forward_id: "USD-LIBOR-3M",
+            vol_id: "USD-CAP-VOL",
             implied_vol: Some(0.20),
             swap_tenor: None,
             attributes: Attributes::new(),
@@ -456,6 +562,7 @@ mod tests {
             DayCount::ThirtyE360,
             "EUR-OIS",
             "EUR-EURIBOR-6M",
+            "EUR-SWAPTION-VOL",
         );
 
         assert_eq!(swaption.id, "EUR_5Y10Y_SWAPTION");

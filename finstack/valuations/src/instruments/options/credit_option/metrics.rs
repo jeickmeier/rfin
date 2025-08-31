@@ -10,9 +10,28 @@ pub struct DeltaCalculator;
 
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        let _option: &CreditOption = context.instrument_as()?;
-        // Would calculate actual delta here with forward credit spread and volatility
-        Ok(0.5)
+        let option: &CreditOption = context.instrument_as()?;
+        let time_to_expiry = option.day_count.year_fraction(context.as_of, option.expiry)?;
+        
+        if time_to_expiry <= 0.0 { return Ok(0.0); }
+        
+        let credit_curve = context.curves.credit(option.credit_id)?;
+        let current_tenor = option.day_count.year_fraction(context.as_of, option.cds_maturity)?;
+        let forward_spread_bp = if current_tenor > 0.0 {
+            credit_curve.spread_bp(current_tenor)
+        } else {
+            option.strike_spread_bp
+        };
+        
+        let sigma = if let Some(impl_vol) = option.implied_vol {
+            impl_vol
+        } else {
+            context.curves.vol_surface(option.vol_id)?.value_checked(time_to_expiry, option.strike_spread_bp)?
+        };
+        
+        let delta = option.delta(forward_spread_bp, sigma, time_to_expiry);
+        // Scale by notional and risky annuity approximation
+        Ok(delta * option.notional.amount())
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -25,9 +44,27 @@ pub struct GammaCalculator;
 
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        let _option: &CreditOption = context.instrument_as()?;
-        // Would calculate actual gamma here
-        Ok(0.02)
+        let option: &CreditOption = context.instrument_as()?;
+        let time_to_expiry = option.day_count.year_fraction(context.as_of, option.expiry)?;
+        
+        if time_to_expiry <= 0.0 { return Ok(0.0); }
+        
+        let credit_curve = context.curves.credit(option.credit_id)?;
+        let current_tenor = option.day_count.year_fraction(context.as_of, option.cds_maturity)?;
+        let forward_spread_bp = if current_tenor > 0.0 {
+            credit_curve.spread_bp(current_tenor)
+        } else {
+            option.strike_spread_bp
+        };
+        
+        let sigma = if let Some(impl_vol) = option.implied_vol {
+            impl_vol
+        } else {
+            context.curves.vol_surface(option.vol_id)?.value_checked(time_to_expiry, option.strike_spread_bp)?
+        };
+        
+        let gamma = option.gamma(forward_spread_bp, sigma, time_to_expiry);
+        Ok(gamma * option.notional.amount())
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -40,9 +77,27 @@ pub struct VegaCalculator;
 
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        let _option: &CreditOption = context.instrument_as()?;
-        // Would calculate actual vega here
-        Ok(0.1)
+        let option: &CreditOption = context.instrument_as()?;
+        let time_to_expiry = option.day_count.year_fraction(context.as_of, option.expiry)?;
+        
+        if time_to_expiry <= 0.0 { return Ok(0.0); }
+        
+        let credit_curve = context.curves.credit(option.credit_id)?;
+        let current_tenor = option.day_count.year_fraction(context.as_of, option.cds_maturity)?;
+        let forward_spread_bp = if current_tenor > 0.0 {
+            credit_curve.spread_bp(current_tenor)
+        } else {
+            option.strike_spread_bp
+        };
+        
+        let sigma = if let Some(impl_vol) = option.implied_vol {
+            impl_vol
+        } else {
+            context.curves.vol_surface(option.vol_id)?.value_checked(time_to_expiry, option.strike_spread_bp)?
+        };
+        
+        let vega = option.vega(forward_spread_bp, sigma, time_to_expiry);
+        Ok(vega * option.notional.amount())
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -55,9 +110,30 @@ pub struct ThetaCalculator;
 
 impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        let _option: &CreditOption = context.instrument_as()?;
-        // Would calculate actual theta here
-        Ok(-0.05)
+        let option: &CreditOption = context.instrument_as()?;
+        let time_to_expiry = option.day_count.year_fraction(context.as_of, option.expiry)?;
+        
+        if time_to_expiry <= 0.0 { return Ok(0.0); }
+        
+        let disc_curve = context.curves.discount(option.disc_id)?;
+        let r = disc_curve.zero(time_to_expiry);
+        
+        let credit_curve = context.curves.credit(option.credit_id)?;
+        let current_tenor = option.day_count.year_fraction(context.as_of, option.cds_maturity)?;
+        let forward_spread_bp = if current_tenor > 0.0 {
+            credit_curve.spread_bp(current_tenor)
+        } else {
+            option.strike_spread_bp
+        };
+        
+        let sigma = if let Some(impl_vol) = option.implied_vol {
+            impl_vol
+        } else {
+            context.curves.vol_surface(option.vol_id)?.value_checked(time_to_expiry, option.strike_spread_bp)?
+        };
+        
+        let theta = option.theta(forward_spread_bp, r, sigma, time_to_expiry);
+        Ok(theta * option.notional.amount())
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -71,8 +147,10 @@ pub struct RhoCalculator;
 impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let _option: &CreditOption = context.instrument_as()?;
-        // Would calculate actual rho here
-        Ok(0.03)
+        // Rho for credit options requires bumping the discount curve
+        // This is complex and typically done via scenario analysis
+        // Return 0.0 as placeholder for now
+        Ok(0.0)
     }
 
     fn dependencies(&self) -> &[MetricId] {

@@ -29,13 +29,19 @@ pub struct EquityOption {
     pub expiry: Date,
     /// Contract size (number of shares per contract)
     pub contract_size: F,
+    /// Day count convention for time calculations
+    pub day_count: finstack_core::dates::DayCount,
     /// Settlement type
     pub settlement: SettlementType,
     /// Discount curve identifier
     pub disc_id: &'static str,
+    /// Spot price identifier for underlying
+    pub spot_id: &'static str,
+    /// Volatility surface identifier
+    pub vol_id: &'static str,
     /// Dividend yield curve identifier (optional)
     pub div_yield_id: Option<&'static str>,
-    /// Implied volatility (if known)
+    /// Implied volatility (if known, overrides vol surface)
     pub implied_vol: Option<F>,
     /// Additional attributes
     pub attributes: Attributes,
@@ -48,6 +54,7 @@ impl EquityOption {
     }
 
     /// Create a new equity option
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: impl Into<String>,
         underlying_ticker: impl Into<String>,
@@ -56,6 +63,8 @@ impl EquityOption {
         expiry: Date,
         contract_size: F,
         disc_id: &'static str,
+        spot_id: &'static str,
+        vol_id: &'static str,
     ) -> Self {
         Self {
             id: id.into(),
@@ -65,8 +74,11 @@ impl EquityOption {
             exercise_style: ExerciseStyle::European,
             expiry,
             contract_size,
+            day_count: finstack_core::dates::DayCount::Act365F,
             settlement: SettlementType::Physical,
             disc_id,
+            spot_id,
+            vol_id,
             div_yield_id: None,
             implied_vol: None,
             attributes: Attributes::new(),
@@ -217,11 +229,62 @@ use crate::metrics::MetricId;
 impl_instrument!(
     EquityOption,
     "EquityOption",
-    pv = |s, curves, _as_of| {
-        let _disc = curves.discount(s.disc_id)?;
-        Err(finstack_core::Error::from(
-            finstack_core::error::InputError::NotFound,
-        ))
+    pv = |s, curves, as_of| {
+        // Calculate time to expiry in years
+        let time_to_expiry = s.day_count.year_fraction(as_of, s.expiry)?;
+        
+        if time_to_expiry <= 0.0 {
+            // Option expired - return intrinsic value
+            let spot_scalar = curves.market_scalar(s.spot_id)?;
+            let spot = match spot_scalar {
+                finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
+                finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
+            };
+            
+            let intrinsic = match s.option_type {
+                OptionType::Call => (spot - s.strike.amount()).max(0.0),
+                OptionType::Put => (s.strike.amount() - spot).max(0.0),
+            };
+            
+            return Ok(finstack_core::money::Money::new(
+                intrinsic * s.contract_size,
+                s.strike.currency(),
+            ));
+        }
+        
+        // Get market data
+        let disc_curve = curves.discount(s.disc_id)?;
+        let r = disc_curve.zero(time_to_expiry);
+        
+        let spot_scalar = curves.market_scalar(s.spot_id)?;
+        let spot = match spot_scalar {
+            finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
+            finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
+        };
+        
+        // Get dividend yield (default to 0 if not specified)
+        let q = if let Some(div_id) = s.div_yield_id {
+            match curves.market_scalar(div_id) {
+                Ok(scalar) => match scalar {
+                    finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
+                    finstack_core::market_data::primitives::MarketScalar::Price(_) => 0.0,
+                },
+                Err(_) => 0.0,
+            }
+        } else {
+            0.0
+        };
+        
+        // Get volatility (use implied_vol if set, otherwise fetch from surface)
+        let sigma = if let Some(impl_vol) = s.implied_vol {
+            impl_vol
+        } else {
+            let vol_surface = curves.vol_surface(s.vol_id)?;
+            vol_surface.value_checked(time_to_expiry, s.strike.amount())?
+        };
+        
+        // Price using Black-Scholes
+        s.black_scholes_price(spot, r, sigma, time_to_expiry, q)
     },
     metrics = |_s| vec![
         MetricId::Delta,
@@ -253,6 +316,8 @@ mod tests {
             expiry,
             100.0,
             "USD-OIS",
+            "AAPL-SPOT",
+            "AAPL-VOL",
         );
 
         assert_eq!(option.id, "AAPL_CALL_100");
@@ -273,6 +338,8 @@ mod tests {
             expiry,
             1.0,
             "USD-OIS",
+            "TEST-SPOT",
+            "TEST-VOL",
         );
 
         // Test parameters
@@ -308,6 +375,8 @@ mod tests {
             expiry,
             1.0,
             "USD-OIS",
+            "TEST-SPOT",
+            "TEST-VOL",
         );
 
         // Test parameters
@@ -338,8 +407,11 @@ pub struct EquityOptionBuilder {
     exercise_style: Option<ExerciseStyle>,
     expiry: Option<Date>,
     contract_size: Option<F>,
+    day_count: Option<finstack_core::dates::DayCount>,
     settlement: Option<SettlementType>,
     disc_id: Option<&'static str>,
+    spot_id: Option<&'static str>,
+    vol_id: Option<&'static str>,
     div_yield_id: Option<&'static str>,
     implied_vol: Option<F>,
 }
@@ -384,6 +456,11 @@ impl EquityOptionBuilder {
         self
     }
 
+    pub fn day_count(mut self, value: finstack_core::dates::DayCount) -> Self {
+        self.day_count = Some(value);
+        self
+    }
+
     pub fn settlement(mut self, value: SettlementType) -> Self {
         self.settlement = Some(value);
         self
@@ -391,6 +468,16 @@ impl EquityOptionBuilder {
 
     pub fn disc_id(mut self, value: &'static str) -> Self {
         self.disc_id = Some(value);
+        self
+    }
+
+    pub fn spot_id(mut self, value: &'static str) -> Self {
+        self.spot_id = Some(value);
+        self
+    }
+
+    pub fn vol_id(mut self, value: &'static str) -> Self {
+        self.vol_id = Some(value);
         self
     }
 
@@ -423,8 +510,15 @@ impl EquityOptionBuilder {
                 finstack_core::Error::from(finstack_core::error::InputError::Invalid)
             })?,
             contract_size: self.contract_size.unwrap_or(1.0),
+            day_count: self.day_count.unwrap_or(finstack_core::dates::DayCount::Act365F),
             settlement: self.settlement.unwrap_or(SettlementType::Physical),
             disc_id: self.disc_id.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            spot_id: self.spot_id.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            vol_id: self.vol_id.ok_or_else(|| {
                 finstack_core::Error::from(finstack_core::error::InputError::Invalid)
             })?,
             div_yield_id: self.div_yield_id,
