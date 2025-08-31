@@ -6,17 +6,25 @@
 
 pub mod bond;
 pub mod cds;
+pub mod cds_index;
+pub mod cds_tranche;
 pub mod deposit;
 pub mod fx_spot;
+pub mod fx_swap;
 pub mod ilb;
 pub mod irs;
 pub mod loan;
+pub mod discountable;
 
 // Re-export all fixed income instrument types
 pub use bond::Bond;
 pub use cds::CreditDefaultSwap;
+pub use cds_index::CDSIndex;
+pub use cds_tranche::CdsTranche;
 pub use deposit::Deposit;
 pub use fx_spot::FxSpot;
+pub use fx_swap::FxSwap;
 pub use ilb::InflationLinkedBond;
 pub use irs::InterestRateSwap;
 pub use loan::Loan;
+pub use discountable::Discountable;

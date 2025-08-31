@@ -9,7 +9,7 @@ use finstack_core::{
 };
 use finstack_valuations::{
     metrics::MetricId,
-    pricing::result::ValuationResult,
+    results::ValuationResult,
     traits::{CashflowProvider, DatedFlows, Priceable},
 };
 use hashbrown::HashMap;

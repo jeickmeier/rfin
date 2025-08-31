@@ -115,3 +115,45 @@ pub use fixed_income::{
 pub use fixed_income::fx_spot::FxSpot;
 pub use options::{CreditOption, EquityOption, FxOption, InterestRateOption, Swaption};
 // The canonical Instrument enum and helpers now live in `unified` and are re-exported above.
+
+/// Shared helper to build a ValuationResult with a set of metrics.
+///
+/// Centralizes the repeated pattern across instruments to compute base value,
+/// build metric context, compute metrics and stamp a result.
+pub fn build_with_metrics(
+    instrument: crate::instruments::Instrument,
+    curves: &finstack_core::market_data::multicurve::CurveSet,
+    as_of: finstack_core::dates::Date,
+    base_value: finstack_core::money::Money,
+    metrics: &[crate::metrics::MetricId],
+) -> finstack_core::Result<crate::results::ValuationResult> {
+    use crate::metrics::{standard_registry, MetricContext};
+    use indexmap::IndexMap;
+    use std::sync::Arc;
+
+    let mut context = MetricContext::new(
+        Arc::new(instrument),
+        Arc::new(curves.clone()),
+        as_of,
+        base_value,
+    );
+
+    let registry = standard_registry();
+    let metric_measures = registry.compute(metrics, &mut context)?;
+
+    // Deterministic insertion order: follow the requested metrics slice order
+    let mut measures: IndexMap<String, finstack_core::F> = IndexMap::new();
+    for metric_id in metrics {
+        if let Some(value) = metric_measures.get(metric_id) {
+            measures.insert(metric_id.as_str().to_string(), *value);
+        }
+    }
+
+    let mut result = crate::results::ValuationResult::stamped(
+        context.instrument.id().to_string(),
+        as_of,
+        base_value,
+    );
+    result.measures = measures;
+    Ok(result)
+}

@@ -10,7 +10,7 @@ use crate::instruments::fixed_income::loan::covenants::{
     Covenant, CovenantConsequence, CovenantType, ThresholdTest,
 };
 use crate::metrics::{MetricContext, MetricId};
-use crate::pricing::result::CovenantReport;
+use crate::results::CovenantReport;
 use finstack_core::prelude::*;
 use finstack_core::F;
 use indexmap::IndexMap;

@@ -46,7 +46,7 @@ impl Priceable for Deposit {
         curves: &finstack_core::market_data::multicurve::CurveSet,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::pricing::discountable::Discountable;
+        use crate::instruments::fixed_income::discountable::Discountable;
         let flows = self.build_schedule(curves, as_of)?;
         let disc = curves.discount(self.disc_id)?;
         flows.npv(&*disc, disc.base_date(), self.day_count)
@@ -57,18 +57,18 @@ impl Priceable for Deposit {
         curves: &finstack_core::market_data::multicurve::CurveSet,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
         let instrument: crate::instruments::Instrument =
             crate::instruments::Instrument::Deposit(self.clone());
-        crate::pricing::build_with_metrics(instrument, curves, as_of, base_value, metrics)
+        crate::instruments::build_with_metrics(instrument, curves, as_of, base_value, metrics)
     }
 
     fn price(
         &self,
         curves: &finstack_core::market_data::multicurve::CurveSet,
         as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
         let standard_metrics = vec![
             MetricId::Yf,
             MetricId::DfStart,

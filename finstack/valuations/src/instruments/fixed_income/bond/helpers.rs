@@ -24,16 +24,25 @@ pub enum YieldCompounding {
 }
 
 /// Map frequency to periods per year.
+///
+/// In fixed-income, coupon frequencies are represented using only `Months(m)`
+/// (e.g., 3 for quarterly, 6 for semi-annual) or `Days(d)` (e.g., 7 for weekly).
+/// Any other `Frequency` variants are unsupported here and will cause a panic.
+/// Zero values are invalid and will also cause a panic.
 #[inline]
 pub fn periods_per_year(freq: finstack_core::dates::Frequency) -> finstack_core::F {
     match freq {
         finstack_core::dates::Frequency::Months(m) => {
-            if m == 0 { 1.0 } else { 12.0 / (m as finstack_core::F) }
+            assert!(m > 0, "Frequency::Months(0) is invalid for bond helpers");
+            12.0 / (m as finstack_core::F)
         }
         finstack_core::dates::Frequency::Days(d) => {
-            if d == 0 { 1.0 } else { 365.0 / (d as finstack_core::F) }
+            assert!(d > 0, "Frequency::Days(0) is invalid for bond helpers");
+            365.0 / (d as finstack_core::F)
         }
-        _ => 1.0,
+        _ => panic!(
+            "Unsupported Frequency variant in bond helpers: only Months(_) or Days(_) are allowed"
+        ),
     }
 }
 

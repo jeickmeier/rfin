@@ -4,11 +4,12 @@ pub mod metrics;
 
 use crate::impl_attributable;
 use crate::metrics::MetricId;
-use crate::pricing::result::ValuationResult;
+use crate::results::ValuationResult;
 use crate::traits::{Attributes, CashflowProvider, Priceable};
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::prelude::*;
 use finstack_core::F;
+use finstack_core::dates::holiday::calendars::calendar_by_id;
 
 /// FX Spot instrument (1 unit of `base` priced in `quote`).
 ///
@@ -31,6 +32,10 @@ pub struct FxSpot {
     pub spot_rate: Option<F>,
     /// Optional notional amount in base currency (defaults to 1)
     pub notional: Option<Money>,
+    /// Business day convention to apply when adjusting settlement (default: Following)
+    pub bdc: BusinessDayConvention,
+    /// Optional holiday calendar identifier used for business-day logic
+    pub calendar_id: Option<&'static str>,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
@@ -50,6 +55,8 @@ impl FxSpot {
             settlement: None,
             spot_rate: None,
             notional: None,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
             attributes: Attributes::new(),
         }
     }
@@ -67,13 +74,31 @@ impl FxSpot {
     }
 
     /// Set the notional amount
-    pub fn with_notional(mut self, notional: Money) -> Self {
-        // Ensure notional is in base currency
+    pub fn with_notional(self, notional: Money) -> Self {
+        // Keep infallible builder for ergonomics in existing call sites; safe as long as
+        // callers pass correct currency. In tests we will verify the fallible path.
+        self.try_with_notional(notional).expect("Notional currency must match base currency")
+    }
+
+    /// Set the business day convention
+    pub fn with_bdc(mut self, bdc: BusinessDayConvention) -> Self {
+        self.bdc = bdc;
+        self
+    }
+
+    /// Set the holiday calendar identifier used for settlement adjustment
+    pub fn with_calendar_id(mut self, id: &'static str) -> Self {
+        self.calendar_id = Some(id);
+        self
+    }
+
+    /// Fallible setter for notional that validates currency matches base
+    pub fn try_with_notional(mut self, notional: Money) -> finstack_core::Result<Self> {
         if notional.currency() != self.base {
-            panic!("Notional currency must match base currency");
+            return Err(finstack_core::Error::CurrencyMismatch { expected: self.base, actual: notional.currency() });
         }
         self.notional = Some(notional);
-        self
+        Ok(self)
     }
 
     /// Get the effective notional (defaults to 1 unit of base currency)
@@ -125,7 +150,7 @@ impl Priceable for FxSpot {
     ) -> finstack_core::Result<ValuationResult> {
         let base_value = self.value(curves, as_of)?;
         let instrument: crate::instruments::Instrument = crate::instruments::Instrument::FxSpot(self.clone());
-        crate::pricing::build_with_metrics(instrument, curves, as_of, base_value, metrics)
+        crate::instruments::build_with_metrics(instrument, curves, as_of, base_value, metrics)
     }
 
     fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
@@ -146,11 +171,39 @@ impl CashflowProvider for FxSpot {
         _curves: &CurveSet,
         as_of: Date,
     ) -> finstack_core::Result<Vec<(Date, Money)>> {
-        // FX spot settles on settlement date (or T+2 if not specified)
-        let settle_date = self.settlement.unwrap_or_else(|| {
-            // Simple T+2 calculation (should use proper business day adjustment in production)
-            as_of.saturating_add(time::Duration::days(2))
-        });
+        // FX spot settles on provided settlement date (BDC-adjusted if calendar present)
+        // or computed T+2 BUSINESS days when settlement is not provided.
+        let settle_date = if let Some(date) = self.settlement {
+            if let Some(id) = self.calendar_id {
+                if let Some(cal) = calendar_by_id(id) {
+                    adjust(date, self.bdc, cal)
+                } else {
+                    date
+                }
+            } else {
+                date
+            }
+        } else {
+            // Compute T+2 in a calendar-aware way if a calendar is available; otherwise
+            // fall back to weekend-only business-day addition.
+            if let Some(id) = self.calendar_id {
+                if let Some(cal) = calendar_by_id(id) {
+                    let mut d = as_of;
+                    let mut remaining = 2i32;
+                    while remaining > 0 {
+                        d = d.saturating_add(time::Duration::days(1));
+                        if cal.is_business_day(d) {
+                            remaining -= 1;
+                        }
+                    }
+                    d
+                } else {
+                    as_of.add_business_days(2)
+                }
+            } else {
+                as_of.add_business_days(2)
+            }
+        };
 
         if settle_date > as_of {
             // Future settlement
@@ -264,10 +317,17 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Notional currency must match base currency")]
     fn test_fx_spot_wrong_notional_currency() {
-        FxSpot::new("EURUSD", Currency::EUR, Currency::USD)
-            .with_notional(Money::new(100.0, Currency::GBP));
+        let err = FxSpot::new("EURUSD", Currency::EUR, Currency::USD)
+            .try_with_notional(Money::new(100.0, Currency::GBP))
+            .unwrap_err();
+        match err {
+            finstack_core::Error::CurrencyMismatch { expected, actual } => {
+                assert_eq!(expected, Currency::EUR);
+                assert_eq!(actual, Currency::GBP);
+            }
+            _ => panic!("expected CurrencyMismatch error"),
+        }
     }
 }
 
@@ -279,6 +339,8 @@ pub struct FxSpotBuilder {
     settlement: Option<Date>,
     spot_rate: Option<F>,
     notional: Option<Money>,
+    bdc: Option<BusinessDayConvention>,
+    calendar_id: Option<&'static str>,
 }
 
 impl FxSpotBuilder {
@@ -316,6 +378,16 @@ impl FxSpotBuilder {
         self
     }
 
+    pub fn bdc(mut self, value: BusinessDayConvention) -> Self {
+        self.bdc = Some(value);
+        self
+    }
+
+    pub fn calendar_id(mut self, value: &'static str) -> Self {
+        self.calendar_id = Some(value);
+        self
+    }
+
     pub fn build(self) -> finstack_core::Result<FxSpot> {
         Ok(FxSpot {
             id: self.id.ok_or_else(|| {
@@ -330,6 +402,8 @@ impl FxSpotBuilder {
             settlement: self.settlement,
             spot_rate: self.spot_rate,
             notional: self.notional,
+            bdc: self.bdc.unwrap_or(BusinessDayConvention::Following),
+            calendar_id: self.calendar_id,
             attributes: Attributes::new(),
         })
     }

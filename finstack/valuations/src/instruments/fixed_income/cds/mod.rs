@@ -4,7 +4,7 @@
 //! risky PV01, CS01, and protection leg valuation.
 
 use crate::metrics::MetricId;
-use crate::pricing::result::ValuationResult;
+use crate::results::ValuationResult;
 use crate::traits::{Attributes, DatedFlows, Priceable};
 
 use crate::impl_attributable;
@@ -315,21 +315,11 @@ impl Priceable for CreditDefaultSwap {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<ValuationResult> {
         use crate::instruments::Instrument;
-        use crate::metrics::MetricContext;
-        use std::sync::Arc;
 
         // Compute base value
         let base_value = self.value(curves, as_of)?;
 
-        // Create metric context
-        let _context = MetricContext::new(
-            Arc::new(Instrument::CDS(self.clone())),
-            Arc::new(curves.clone()),
-            as_of,
-            base_value,
-        );
-
-        crate::pricing::build_with_metrics(
+        crate::instruments::build_with_metrics(
             Instrument::CDS(self.clone()),
             curves,
             as_of,

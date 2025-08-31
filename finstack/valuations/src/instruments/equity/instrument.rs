@@ -2,7 +2,7 @@
 
 use crate::impl_attributable;
 use crate::metrics::MetricId;
-use crate::pricing::result::ValuationResult;
+use crate::results::ValuationResult;
 use crate::traits::{Attributes, CashflowProvider, Priceable};
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::prelude::*;

@@ -3,7 +3,7 @@
 pub mod metrics;
 
 use crate::impl_attributable;
-use crate::pricing::result::ValuationResult;
+use crate::results::ValuationResult;
 use crate::traits::{Attributes, Priceable};
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::money::Money;
@@ -368,21 +368,11 @@ impl Priceable for InterestRateOption {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<ValuationResult> {
         use crate::instruments::Instrument;
-        use crate::metrics::MetricContext;
-        use std::sync::Arc;
 
         // Compute base value
         let base_value = self.value(curves, as_of)?;
 
-        // Create metric context
-        let _context = MetricContext::new(
-            Arc::new(Instrument::InterestRateOption(self.clone())),
-            Arc::new(curves.clone()),
-            as_of,
-            base_value,
-        );
-
-        crate::pricing::build_with_metrics(
+        crate::instruments::build_with_metrics(
             Instrument::InterestRateOption(self.clone()),
             curves,
             as_of,

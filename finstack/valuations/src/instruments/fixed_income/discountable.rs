@@ -1,6 +1,7 @@
 //! Interface for objects that can be present-valued against a `Discount` curve.
 
 use finstack_core::market_data::traits::Discount;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::prelude::*;
 
 /// Objects that can be present-valued against a `Discount` curve.
@@ -15,11 +16,39 @@ pub trait Discountable {
     fn npv(&self, disc: &dyn Discount, base: Date, dc: DayCount) -> Self::PVOutput;
 }
 
+/// Compute NPV of dated `Money` flows using a `Discount` curve and `DayCount`.
+///
+/// Discounts each cashflow to the base date using the provided curve.
+/// All flows must be in the same currency for the calculation to succeed.
+///
+/// # Errors
+/// Returns an error if the flows list is empty.
+///
+/// See unit tests and `examples/` for usage.
+fn npv(
+    disc: &dyn Discount,
+    base: Date,
+    dc: DayCount,
+    flows: &[(Date, Money)],
+) -> finstack_core::Result<Money> {
+    if flows.is_empty() {
+        return Err(finstack_core::error::InputError::TooFewPoints.into());
+    }
+    let ccy = flows[0].1.currency();
+    let mut total = Money::new(0.0, ccy);
+    for (d, amt) in flows {
+        let df = DiscountCurve::df_on(disc, base, *d, dc);
+        let disc_amt = *amt * df;
+        total = (total + disc_amt)?;
+    }
+    Ok(total)
+}
+
 impl Discountable for &[(Date, Money)] {
     type PVOutput = finstack_core::Result<Money>;
 
     fn npv(&self, disc: &dyn Discount, base: Date, dc: DayCount) -> finstack_core::Result<Money> {
-        super::npv::npv(disc, base, dc, self)
+        npv(disc, base, dc, self)
     }
 }
 
@@ -27,7 +56,7 @@ impl Discountable for Vec<(Date, Money)> {
     type PVOutput = finstack_core::Result<Money>;
 
     fn npv(&self, disc: &dyn Discount, base: Date, dc: DayCount) -> finstack_core::Result<Money> {
-        super::npv::npv(disc, base, dc, self)
+        npv(disc, base, dc, self)
     }
 }
 
@@ -42,7 +71,7 @@ impl Discountable for crate::cashflow::builder::CashFlowSchedule {
     /// See unit tests and `examples/` for usage.
     fn npv(&self, disc: &dyn Discount, base: Date, dc: DayCount) -> finstack_core::Result<Money> {
         let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
-        super::npv::npv(disc, base, dc, &flows)
+        npv(disc, base, dc, &flows)
     }
 }
 
@@ -83,5 +112,16 @@ mod tests {
         ];
         let pv = flows.npv(&curve, base, DayCount::Act365F).unwrap();
         assert!((pv.amount() - 15.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn npv_errors_on_empty_flows() {
+        let curve = FlatCurve {
+            id: CurveId::new("USD-OIS"),
+        };
+        let base = curve.base_date();
+        let flows: Vec<(Date, Money)> = vec![];
+        let err = super::npv(&curve, base, DayCount::Act365F, &flows).unwrap_err();
+        let _ = format!("{}", err);
     }
 }

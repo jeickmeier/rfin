@@ -165,7 +165,7 @@ impl Priceable for Bond {
         curves: &finstack_core::market_data::multicurve::CurveSet,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::pricing::discountable::Discountable;
+        use crate::instruments::fixed_income::discountable::Discountable;
         let flows = self.build_schedule(curves, as_of)?;
         let disc = curves.discount(self.disc_id)?;
         flows.npv(&*disc, disc.base_date(), self.dc)
@@ -176,18 +176,18 @@ impl Priceable for Bond {
         curves: &finstack_core::market_data::multicurve::CurveSet,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
         let instrument: crate::instruments::Instrument =
             crate::instruments::Instrument::Bond(self.clone());
-        crate::pricing::build_with_metrics(instrument, curves, as_of, base_value, metrics)
+        crate::instruments::build_with_metrics(instrument, curves, as_of, base_value, metrics)
     }
 
     fn price(
         &self,
         curves: &finstack_core::market_data::multicurve::CurveSet,
         as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
         // Use dynamic metrics based on bond configuration
         let standard_metrics = self.get_standard_metrics();
         self.price_with_metrics(curves, as_of, &standard_metrics)

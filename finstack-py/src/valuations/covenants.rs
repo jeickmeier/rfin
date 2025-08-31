@@ -8,7 +8,7 @@ use finstack_valuations::instruments::fixed_income::loan::covenants::{
     Covenant, CovenantConsequence, CovenantType, ThresholdTest,
 };
 use finstack_valuations::metrics::MetricId;
-use finstack_valuations::pricing::result::CovenantReport;
+use finstack_valuations::results::CovenantReport;
 use std::collections::HashMap;
 
 use crate::core::dates::PyDate;

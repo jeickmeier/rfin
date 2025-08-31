@@ -1,7 +1,7 @@
 //! Core traits for financial instruments.
 
 use crate::metrics::MetricId;
-use crate::pricing::discountable::Discountable;
+use crate::instruments::fixed_income::discountable::Discountable;
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::market_data::traits::Discount;
 use finstack_core::prelude::*;
@@ -57,7 +57,7 @@ pub trait Priceable: Send + Sync {
         &self,
         curves: &CurveSet,
         as_of: Date,
-    ) -> finstack_core::Result<super::pricing::result::ValuationResult>;
+    ) -> finstack_core::Result<crate::results::ValuationResult>;
 
     /// Compute only the base present value (fast, no metrics).
     ///
@@ -76,7 +76,7 @@ pub trait Priceable: Send + Sync {
         curves: &CurveSet,
         as_of: Date,
         metrics: &[MetricId],
-    ) -> finstack_core::Result<super::pricing::result::ValuationResult> {
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
         // Default implementation: just calls price() and filters metrics
         let result = self.price(curves, as_of)?;
         let mut filtered_result = result.clone();

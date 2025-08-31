@@ -4,7 +4,7 @@
 //! that work across all instrument types.
 
 use crate::metrics::MetricId;
-use crate::pricing::result::ValuationResult;
+use crate::results::ValuationResult;
 use crate::traits::{Attributable, CashflowProvider, Priceable, RiskMeasurable};
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::prelude::*;
@@ -14,6 +14,9 @@ use super::{
     Bond, CreditDefaultSwap, CreditOption, Deposit, Equity, EquityOption, FxOption, FxSpot,
     InflationLinkedBond, InterestRateOption, InterestRateSwap, Loan, Swaption,
 };
+use super::fixed_income::cds_tranche::CdsTranche;
+use super::fixed_income::fx_swap::FxSwap;
+use super::fixed_income::cds_index::CDSIndex;
 
 /// Unified instrument wrapper with common operations.
 ///
@@ -26,8 +29,11 @@ pub enum Instrument {
     Deposit(Deposit),
     Equity(Equity),
     FxSpot(FxSpot),
+    FxSwap(FxSwap),
     Loan(Loan),
     CDS(CreditDefaultSwap),
+    CDSIndex(CDSIndex),
+    CDSTranche(CdsTranche),
     ILB(InflationLinkedBond),
     EquityOption(EquityOption),
     FxOption(FxOption),
@@ -45,8 +51,11 @@ impl Instrument {
             Self::Deposit(_) => "Deposit",
             Self::Equity(_) => "Equity",
             Self::FxSpot(_) => "FxSpot",
+            Self::FxSwap(_) => "FxSwap",
             Self::Loan(_) => "Loan",
             Self::CDS(_) => "CreditDefaultSwap",
+            Self::CDSIndex(_) => "CDSIndex",
+            Self::CDSTranche(_) => "CDSTranche",
             Self::ILB(_) => "InflationLinkedBond",
             Self::EquityOption(_) => "EquityOption",
             Self::FxOption(_) => "FxOption",
@@ -64,8 +73,11 @@ impl Instrument {
             Self::Deposit(d) => &d.id,
             Self::Equity(e) => &e.id,
             Self::FxSpot(f) => &f.id,
+            Self::FxSwap(f) => &f.id,
             Self::Loan(l) => &l.id,
             Self::CDS(c) => &c.id,
+            Self::CDSIndex(i) => &i.id,
+            Self::CDSTranche(t) => &t.id,
             Self::ILB(i) => &i.id,
             Self::EquityOption(e) => &e.id,
             Self::FxOption(f) => &f.id,
@@ -83,8 +95,11 @@ impl Instrument {
             Self::Deposit(d) => Some(d.notional),
             Self::Equity(_) => None,
             Self::FxSpot(f) => f.notional,
+            Self::FxSwap(f) => Some(f.base_notional),
             Self::Loan(l) => Some(l.outstanding),
             Self::CDS(c) => Some(c.notional),
+            Self::CDSIndex(i) => Some(i.notional),
+            Self::CDSTranche(t) => Some(t.notional),
             Self::ILB(i) => Some(i.notional),
             Self::EquityOption(e) => Some(e.strike),
             Self::FxOption(f) => Some(f.notional),
@@ -102,8 +117,11 @@ impl Instrument {
             Self::Deposit(d) => Some(d.end),
             Self::Equity(_) => None,
             Self::FxSpot(f) => f.settlement,
+            Self::FxSwap(f) => Some(f.far_date),
             Self::Loan(l) => Some(l.maturity_date),
             Self::CDS(c) => Some(c.premium.end),
+            Self::CDSIndex(i) => Some(i.premium.end),
+            Self::CDSTranche(t) => Some(t.maturity),
             Self::ILB(i) => Some(i.maturity),
             Self::EquityOption(e) => Some(e.expiry),
             Self::FxOption(f) => Some(f.expiry),
@@ -119,11 +137,13 @@ impl Instrument {
             self,
             Self::IRS(_)
                 | Self::CDS(_)
+                | Self::CDSIndex(_)
                 | Self::EquityOption(_)
                 | Self::FxOption(_)
                 | Self::InterestRateOption(_)
                 | Self::CreditOption(_)
                 | Self::Swaption(_)
+                | Self::CDSTranche(_)
         )
     }
 
@@ -155,8 +175,11 @@ impl Instrument {
             Self::Deposit(d) => d.notional.currency(),
             Self::Equity(e) => e.currency,
             Self::FxSpot(f) => f.effective_notional().currency(),
+            Self::FxSwap(f) => f.base_notional.currency(),
             Self::Loan(l) => l.outstanding.currency(),
             Self::CDS(c) => c.notional.currency(),
+            Self::CDSIndex(i) => i.notional.currency(),
+            Self::CDSTranche(t) => t.notional.currency(),
             Self::ILB(i) => i.notional.currency(),
             Self::EquityOption(e) => e.strike.currency(),
             Self::FxOption(f) => f.notional.currency(),
@@ -200,6 +223,190 @@ impl Instrument {
             _ => Ok(None),
         }
     }
+
+    /// Returns a reference to the inner `Bond` if this instrument is a `Bond`.
+    pub fn as_bond(&self) -> Option<&Bond> {
+        match self {
+            Self::Bond(b) => Some(b),
+            _ => None,
+        }
+    }
+
+    /// Returns a mutable reference to the inner `Bond` if this instrument is a `Bond`.
+    pub fn as_bond_mut(&mut self) -> Option<&mut Bond> {
+        match self {
+            Self::Bond(b) => Some(b),
+            _ => None,
+        }
+    }
+
+    pub fn as_irs(&self) -> Option<&InterestRateSwap> {
+        match self {
+            Self::IRS(i) => Some(i),
+            _ => None,
+        }
+    }
+
+    pub fn as_irs_mut(&mut self) -> Option<&mut InterestRateSwap> {
+        match self {
+            Self::IRS(i) => Some(i),
+            _ => None,
+        }
+    }
+
+    pub fn as_deposit(&self) -> Option<&Deposit> {
+        match self {
+            Self::Deposit(d) => Some(d),
+            _ => None,
+        }
+    }
+
+    pub fn as_deposit_mut(&mut self) -> Option<&mut Deposit> {
+        match self {
+            Self::Deposit(d) => Some(d),
+            _ => None,
+        }
+    }
+
+    pub fn as_equity(&self) -> Option<&Equity> {
+        match self {
+            Self::Equity(e) => Some(e),
+            _ => None,
+        }
+    }
+
+    pub fn as_equity_mut(&mut self) -> Option<&mut Equity> {
+        match self {
+            Self::Equity(e) => Some(e),
+            _ => None,
+        }
+    }
+
+    pub fn as_fx_spot(&self) -> Option<&FxSpot> {
+        match self {
+            Self::FxSpot(f) => Some(f),
+            _ => None,
+        }
+    }
+
+    pub fn as_fx_spot_mut(&mut self) -> Option<&mut FxSpot> {
+        match self {
+            Self::FxSpot(f) => Some(f),
+            _ => None,
+        }
+    }
+
+    pub fn as_loan(&self) -> Option<&Loan> {
+        match self {
+            Self::Loan(l) => Some(l),
+            _ => None,
+        }
+    }
+
+    pub fn as_loan_mut(&mut self) -> Option<&mut Loan> {
+        match self {
+            Self::Loan(l) => Some(l),
+            _ => None,
+        }
+    }
+
+    pub fn as_cds(&self) -> Option<&CreditDefaultSwap> {
+        match self {
+            Self::CDS(c) => Some(c),
+            _ => None,
+        }
+    }
+
+    pub fn as_cds_mut(&mut self) -> Option<&mut CreditDefaultSwap> {
+        match self {
+            Self::CDS(c) => Some(c),
+            _ => None,
+        }
+    }
+
+    pub fn as_ilb(&self) -> Option<&InflationLinkedBond> {
+        match self {
+            Self::ILB(i) => Some(i),
+            _ => None,
+        }
+    }
+
+    pub fn as_ilb_mut(&mut self) -> Option<&mut InflationLinkedBond> {
+        match self {
+            Self::ILB(i) => Some(i),
+            _ => None,
+        }
+    }
+
+    pub fn as_equity_option(&self) -> Option<&EquityOption> {
+        match self {
+            Self::EquityOption(e) => Some(e),
+            _ => None,
+        }
+    }
+
+    pub fn as_equity_option_mut(&mut self) -> Option<&mut EquityOption> {
+        match self {
+            Self::EquityOption(e) => Some(e),
+            _ => None,
+        }
+    }
+
+    pub fn as_fx_option(&self) -> Option<&FxOption> {
+        match self {
+            Self::FxOption(f) => Some(f),
+            _ => None,
+        }
+    }
+
+    pub fn as_fx_option_mut(&mut self) -> Option<&mut FxOption> {
+        match self {
+            Self::FxOption(f) => Some(f),
+            _ => None,
+        }
+    }
+
+    pub fn as_interest_rate_option(&self) -> Option<&InterestRateOption> {
+        match self {
+            Self::InterestRateOption(i) => Some(i),
+            _ => None,
+        }
+    }
+
+    pub fn as_interest_rate_option_mut(&mut self) -> Option<&mut InterestRateOption> {
+        match self {
+            Self::InterestRateOption(i) => Some(i),
+            _ => None,
+        }
+    }
+
+    pub fn as_credit_option(&self) -> Option<&CreditOption> {
+        match self {
+            Self::CreditOption(c) => Some(c),
+            _ => None,
+        }
+    }
+
+    pub fn as_credit_option_mut(&mut self) -> Option<&mut CreditOption> {
+        match self {
+            Self::CreditOption(c) => Some(c),
+            _ => None,
+        }
+    }
+
+    pub fn as_swaption(&self) -> Option<&Swaption> {
+        match self {
+            Self::Swaption(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    pub fn as_swaption_mut(&mut self) -> Option<&mut Swaption> {
+        match self {
+            Self::Swaption(s) => Some(s),
+            _ => None,
+        }
+    }
 }
 
 // Implement Priceable for the enum by delegating to the underlying type
@@ -211,8 +418,11 @@ impl Priceable for Instrument {
             Self::Deposit(d) => d.value(curves, as_of),
             Self::Equity(e) => e.value(curves, as_of),
             Self::FxSpot(f) => f.value(curves, as_of),
+            Self::FxSwap(f) => f.value(curves, as_of),
             Self::Loan(l) => l.value(curves, as_of),
             Self::CDS(c) => c.value(curves, as_of),
+            Self::CDSIndex(i) => i.value(curves, as_of),
+            Self::CDSTranche(t) => t.value(curves, as_of),
             Self::ILB(i) => i.value(curves, as_of),
             Self::EquityOption(e) => e.value(curves, as_of),
             Self::FxOption(f) => f.value(curves, as_of),
@@ -234,8 +444,11 @@ impl Priceable for Instrument {
             Self::Deposit(d) => d.price_with_metrics(curves, as_of, metrics),
             Self::Equity(e) => e.price_with_metrics(curves, as_of, metrics),
             Self::FxSpot(f) => f.price_with_metrics(curves, as_of, metrics),
+            Self::FxSwap(f) => f.price_with_metrics(curves, as_of, metrics),
             Self::Loan(l) => l.price_with_metrics(curves, as_of, metrics),
             Self::CDS(c) => c.price_with_metrics(curves, as_of, metrics),
+            Self::CDSIndex(i) => i.price_with_metrics(curves, as_of, metrics),
+            Self::CDSTranche(t) => t.price_with_metrics(curves, as_of, metrics),
             Self::ILB(i) => i.price_with_metrics(curves, as_of, metrics),
             Self::EquityOption(e) => e.price_with_metrics(curves, as_of, metrics),
             Self::FxOption(f) => f.price_with_metrics(curves, as_of, metrics),
@@ -252,8 +465,11 @@ impl Priceable for Instrument {
             Self::Deposit(d) => d.price(curves, as_of),
             Self::Equity(e) => e.price(curves, as_of),
             Self::FxSpot(f) => f.price(curves, as_of),
+            Self::FxSwap(f) => f.price(curves, as_of),
             Self::Loan(l) => l.price(curves, as_of),
             Self::CDS(c) => c.price(curves, as_of),
+            Self::CDSIndex(i) => i.price(curves, as_of),
+            Self::CDSTranche(t) => t.price(curves, as_of),
             Self::ILB(i) => i.price(curves, as_of),
             Self::EquityOption(e) => e.price(curves, as_of),
             Self::FxOption(f) => f.price(curves, as_of),

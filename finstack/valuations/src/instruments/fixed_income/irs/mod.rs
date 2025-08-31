@@ -14,8 +14,8 @@ use crate::cashflow::builder::{
     cf, CouponType, FixedCouponSpec, FloatingCouponSpec as BuilderFloat,
 };
 use crate::metrics::MetricId;
-use crate::pricing::discountable::Discountable;
-use crate::pricing::result::ValuationResult;
+use crate::instruments::fixed_income::discountable::Discountable;
+use crate::results::ValuationResult;
 use crate::traits::{
     Attributes, CashflowProvider, DatedFlows, Priceable, RiskBucket, RiskMeasurable, RiskReport,
 };
@@ -193,22 +193,11 @@ impl Priceable for InterestRateSwap {
         as_of: Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<ValuationResult> {
-        use crate::instruments::Instrument;
-        use crate::metrics::MetricContext;
-        use std::sync::Arc;
 
         // Compute base value
         let base_value = self.value(curves, as_of)?;
 
-        // Create metric context
-        let _context = MetricContext::new(
-            Arc::new(Instrument::IRS(self.clone())),
-            Arc::new(curves.clone()),
-            as_of,
-            base_value,
-        );
-
-        crate::pricing::build_with_metrics(
+        crate::instruments::build_with_metrics(
             crate::instruments::Instrument::IRS(self.clone()),
             curves,
             as_of,

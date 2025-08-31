@@ -424,7 +424,7 @@ impl CashflowProvider for Loan {
 // Implement Priceable directly (replaces deprecated impl_priceable! usage)
 impl crate::traits::Priceable for Loan {
     fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
-        use crate::pricing::discountable::Discountable;
+        use crate::instruments::fixed_income::discountable::Discountable;
         let flows = <Self as crate::traits::CashflowProvider>::build_schedule(self, curves, as_of)?;
         let disc = curves.discount(self.disc_id)?;
         flows.npv(&*disc, disc.base_date(), self.day_count)
@@ -435,10 +435,10 @@ impl crate::traits::Priceable for Loan {
         curves: &CurveSet,
         as_of: Date,
         metrics: &[MetricId],
-    ) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
 
-        crate::pricing::build_with_metrics(
+        crate::instruments::build_with_metrics(
             crate::instruments::Instrument::Loan(self.clone()),
             curves,
             as_of,
@@ -451,7 +451,7 @@ impl crate::traits::Priceable for Loan {
         &self,
         curves: &CurveSet,
         as_of: Date,
-    ) -> finstack_core::Result<crate::pricing::result::ValuationResult> {
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
         let standard_metrics = vec![MetricId::Ytm];
         self.price_with_metrics(curves, as_of, &standard_metrics)
     }

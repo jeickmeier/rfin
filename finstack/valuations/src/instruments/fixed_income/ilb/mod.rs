@@ -3,7 +3,7 @@
 //! Provides comprehensive support for inflation-indexed bonds including
 //! TIPS, UK Index-Linked Gilts, and other inflation-protected securities.
 
-use crate::pricing::result::ValuationResult;
+use crate::results::ValuationResult;
 use crate::traits::{Attributes, DatedFlows, Priceable};
 use finstack_core::market_data::inflation_index::{InflationIndex, InflationLag};
 use finstack_core::market_data::multicurve::CurveSet;
@@ -304,11 +304,11 @@ impl InflationLinkedBond {
 impl Priceable for InflationLinkedBond {
     /// Compute the present value of the ILB
     fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
-        use crate::pricing::npv::npv;
+        use crate::instruments::fixed_income::discountable::Discountable;
 
         let disc = curves.discount(self.disc_id)?;
         let flows = self.build_schedule(curves, as_of)?;
-        npv(&*disc, disc.base_date(), self.dc, &flows)
+        flows.npv(&*disc, disc.base_date(), self.dc)
     }
 
     /// Compute value with specific metrics
@@ -318,26 +318,10 @@ impl Priceable for InflationLinkedBond {
         as_of: Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<ValuationResult> {
-        use crate::instruments::Instrument;
-        use crate::metrics::{standard_registry, MetricContext};
-        use std::sync::Arc;
-
         // Compute base value
         let base_value = self.value(curves, as_of)?;
 
-        // Create metric context
-        let mut context = MetricContext::new(
-            Arc::new(Instrument::ILB(self.clone())),
-            Arc::new(curves.clone()),
-            as_of,
-            base_value,
-        );
-
-        // Get registry and compute requested metrics
-        let registry = standard_registry();
-        let _metric_measures = registry.compute(metrics, &mut context)?;
-
-        crate::pricing::build_with_metrics(
+        crate::instruments::build_with_metrics(
             crate::instruments::Instrument::ILB(self.clone()),
             curves,
             as_of,

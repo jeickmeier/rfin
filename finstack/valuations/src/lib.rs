@@ -6,7 +6,7 @@
 //! # Quick Start
 //! ```rust
 //! use finstack_valuations::instruments::Bond;
-//! use finstack_valuations::pricing::result::ValuationResult;
+//! use finstack_valuations::results::ValuationResult;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //! use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention};
@@ -19,7 +19,7 @@
 //! ```
 
 pub mod cashflow;
-pub mod pricing;
+pub mod results;
 pub mod traits;
 
 // Export macros before instruments module

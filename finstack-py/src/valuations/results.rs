@@ -1,6 +1,6 @@
 //! Valuation results and metrics.
 
-use finstack_valuations::pricing::result::ValuationResult;
+use finstack_valuations::results::ValuationResult;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 

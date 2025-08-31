@@ -1,7 +1,7 @@
 #![cfg(feature = "serde")]
 
 use finstack_core::{Currency, Money};
-use finstack_valuations::pricing::result::ValuationResult;
+use finstack_valuations::results::ValuationResult;
 
 #[test]
 fn valuation_result_roundtrip_serde() {
