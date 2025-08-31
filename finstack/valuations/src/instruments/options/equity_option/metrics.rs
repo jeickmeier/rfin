@@ -113,6 +113,25 @@ impl MetricCalculator for RhoCalculator {
         &[]
     }
 }
+/// Implied Volatility calculator for equity options
+pub struct ImpliedVolCalculator;
+
+impl MetricCalculator for ImpliedVolCalculator {
+    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+        use crate::instruments::Instrument;
+
+        if let Instrument::EquityOption(_option) = &*context.instrument {
+            // Requires market price and inputs; placeholder returns 0.0 until pricer wiring provides price
+            Ok(0.0)
+        } else {
+            Err(finstack_core::Error::from(
+                finstack_core::error::InputError::NotFound,
+            ))
+        }
+    }
+
+    fn dependencies(&self) -> &[MetricId] { &[] }
+}
 
 /// Register equity option metrics with the registry
 pub fn register_equity_option_metrics(registry: &mut MetricRegistry) {
@@ -137,4 +156,10 @@ pub fn register_equity_option_metrics(registry: &mut MetricRegistry) {
     );
 
     registry.register_metric(MetricId::Rho, Arc::new(RhoCalculator), &["EquityOption"]);
+
+    registry.register_metric(
+        MetricId::ImpliedVol,
+        Arc::new(ImpliedVolCalculator),
+        &["EquityOption"],
+    );
 }

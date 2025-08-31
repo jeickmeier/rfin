@@ -15,268 +15,205 @@
 use std::fmt;
 use std::str::FromStr;
 
-/// Strongly-typed metric identifier.
-///
-/// Provides compile-time validation, autocomplete support, and safe refactoring
-/// when metric names change. Covers bond, IRS, deposit, and risk metrics.
-///
-/// See unit tests and `examples/` for usage.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum MetricId {
+macro_rules! define_metrics {
+    (
+        $(
+            $(#[$meta:meta])*
+            $variant:ident => $str:literal
+        ),+ $(,)?
+    ) => {
+        /// Strongly-typed metric identifier.
+        ///
+        /// Provides compile-time validation, autocomplete support, and safe refactoring
+        /// when metric names change. Covers bond, IRS, deposit, and risk metrics.
+        ///
+        /// See unit tests and `examples/` for usage.
+        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+        pub enum MetricId {
+            $(
+                $(#[$meta])*
+                $variant,
+            )+
+            /// Custom metric with a dynamic identifier
+            Custom(String),
+        }
+
+        impl MetricId {
+            /// Creates a custom metric ID.
+            ///
+            /// Use this for user-defined metrics that aren't part of the standard set.
+            /// Custom metrics are stored as strings and can have any identifier.
+            pub fn custom(id: impl Into<String>) -> Self {
+                MetricId::Custom(id.into())
+            }
+
+            /// Converts to string representation for compatibility.
+            ///
+            /// Returns a lowercase, snake_case string that can be used for
+            /// serialization, logging, or API interfaces.
+            pub fn as_str(&self) -> &str {
+                match self {
+                    $(
+                        MetricId::$variant => $str,
+                    )+
+                    MetricId::Custom(s) => s.as_str(),
+                }
+            }
+
+            /// All standard (non-custom) metric IDs.
+            pub const ALL_STANDARD: &'static [MetricId] = &[
+                $(
+                    MetricId::$variant,
+                )+
+            ];
+        }
+
+        impl fmt::Display for MetricId {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "{}", self.as_str())
+            }
+        }
+
+        impl FromStr for MetricId {
+            type Err = (); // Never fails since we have a catch-all Custom variant
+
+            /// Parses a string into a MetricId.
+            ///
+            /// This method never fails - any unrecognized string becomes a custom metric.
+            /// Standard metrics are matched case-insensitively in snake_case format.
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                let metric_id = match s.to_lowercase().as_str() {
+                    $(
+                        $str => MetricId::$variant,
+                    )+
+                    s => MetricId::Custom(s.to_string()),
+                };
+                Ok(metric_id)
+            }
+        }
+    };
+}
+
+define_metrics! {
+
+    // FX spot metrics
+    /// Spot rate
+    SpotRate => "spot_rate",
+    /// Base amount
+    BaseAmount => "base_amount",
+    /// Quote amount
+    QuoteAmount => "quote_amount",
+    /// Inverse rate
+    InverseRate => "inverse_rate",
+
     // Bond metrics
-    /// Accrued interest since last coupon payment
-    Accrued,
-    /// Yield to maturity
-    Ytm,
-    /// Macaulay duration
-    DurationMac,
-    /// Modified duration
-    DurationMod,
-    /// Convexity
-    Convexity,
-    /// Yield to worst
-    Ytw,
     /// Dirty price (includes accrued interest)
-    DirtyPrice,
+    DirtyPrice => "dirty_price",
     /// Clean price (excludes accrued interest)
-    CleanPrice,
-    /// Credit spread sensitivity (CS01)
-    Cs01,
+    CleanPrice => "clean_price",
+    /// Accrued interest since last coupon payment
+    Accrued => "accrued",
+    /// Yield to maturity
+    Ytm => "ytm",
+    /// Yield to worst
+    Ytw => "ytw",
+    /// Macaulay duration
+    DurationMac => "duration_mac",
+    /// Modified duration
+    DurationMod => "duration_mod",
+    /// Credit duration
+    CreditDuration => "credit_duration",
+    /// Convexity
+    Convexity => "convexity",
+
+    // Spread metrics
+    /// Z-spread - Zero-vol spread
+    ZSpread => "z_spread",    
+    /// OAS - Option-adjusted spread
+    Oas => "oas",
+    /// G-spread - Govvie spread
+    GSpread => "g_spread",
+    /// ASW-spread - Asset swap spread
+    ASWSpread => "asw_spread",
 
     // IRS metrics
     /// Annuity factor for fixed leg
-    Annuity,
+    Annuity => "annuity",
     /// Par swap rate
-    ParRate,
+    ParRate => "par_rate",
     /// Dollar value of 01 (DV01)
-    Dv01,
+    Dv01 => "dv01",
     /// Present value of fixed leg
-    PvFixed,
+    PvFixed => "pv_fixed",
     /// Present value of floating leg
-    PvFloat,
+    PvFloat => "pv_float",
 
     // Deposit metrics
     /// Year fraction
-    Yf,
+    Yf => "yf",
     /// Discount factor at start date
-    DfStart,
+    DfStart => "df_start",
     /// Discount factor at end date
-    DfEnd,
+    DfEnd => "df_end",
     /// Deposit par rate
-    DepositParRate,
+    DepositParRate => "deposit_par_rate",
     /// Discount factor at end date from quote
-    DfEndFromQuote,
+    DfEndFromQuote => "df_end_from_quote",
     /// Quote rate
-    QuoteRate,
-
-    // Risk metrics
-    /// Bucketed DV01 risk
-    BucketedDv01,
-    /// Time decay (theta)
-    Theta,
+    QuoteRate => "quote_rate",
 
     // CDS metrics
     /// Par spread for CDS
-    ParSpread,
+    ParSpread => "par_spread",
     /// Risky PV01 for CDS
-    RiskyPv01,
+    RiskyPv01 => "risky_pv01",
     /// Protection leg present value
-    ProtectionLegPv,
+    ProtectionLegPv => "protection_leg_pv",
     /// Premium leg present value
-    PremiumLegPv,
+    PremiumLegPv => "premium_leg_pv",
+    /// Jump-to-default amount
+    JumpToDefault => "jump_to_default",
+    /// Expected loss
+    ExpectedLoss => "expected_loss",
+    /// Default probability
+    DefaultProbability => "default_probability",
+    /// Expected recovery rate
+    Recovery01 => "recovery_01",
 
     // Option metrics
     /// Delta (price sensitivity to underlying)
-    Delta,
+    Delta => "delta",
     /// Gamma (delta sensitivity to underlying)
-    Gamma,
+    Gamma => "gamma",
     /// Vega (price sensitivity to volatility)
-    Vega,
+    Vega => "vega",
     /// Rho (price sensitivity to interest rates)
-    Rho,
+    Rho => "rho",
+    /// Vanna (delta sensitivity to volatility)
+    Vanna => "vanna",
+    /// Volga (vega sensitivity to volatility)
+    Volga => "volga",
+    /// Veta (theta sensitivity to volatility)
+    Veta => "veta",
+    /// Charm (rho sensitivity to volatility)
+    Charm => "charm",
+    /// Color (gamma sensitivity to time)
+    Color => "color",
+    /// Speed (gamma sensitivity to underlying)
+    Speed => "speed",
+    /// Implied volatility (from price)
+    ImpliedVol => "implied_vol",
+    
+    // Risk metrics
+    /// Credit spread sensitivity (CS01) - Parallel shift in credit spread
+    Cs01 => "cs01",
+    /// IR01 - Parallel shift in yield curve
+    Ir01 => "ir01",
+    /// Bucketed DV01 risk - Pointwise sensitivity to yield curve
+    BucketedDv01 => "bucketed_dv01",
+    /// Bucketed Credit Spread Risk - Pointwise sensitivity to credit spread
+    BucketedCs01 => "bucketed_cs01",
+    /// Time decay (theta) - 1D Day Time decay P&L
+    Theta => "theta",
 
-    // Custom metrics
-    /// Custom metric with a dynamic identifier
-    Custom(String),
-}
-
-impl MetricId {
-    /// Creates a custom metric ID.
-    ///
-    /// Use this for user-defined metrics that aren't part of the standard set.
-    /// Custom metrics are stored as strings and can have any identifier.
-    ///
-    /// # Arguments
-    /// * `id` - String identifier for the custom metric
-    ///
-    /// See unit tests and `examples/` for usage.
-    pub fn custom(id: impl Into<String>) -> Self {
-        MetricId::Custom(id.into())
-    }
-
-    /// Converts to string representation for compatibility.
-    ///
-    /// Returns a lowercase, snake_case string that can be used for
-    /// serialization, logging, or API interfaces.
-    ///
-    /// See unit tests and `examples/` for usage.
-    pub fn as_str(&self) -> &str {
-        match self {
-            // Bond metrics
-            MetricId::Accrued => "accrued",
-            MetricId::Ytm => "ytm",
-            MetricId::DurationMac => "duration_mac",
-            MetricId::DurationMod => "duration_mod",
-            MetricId::Convexity => "convexity",
-            MetricId::Ytw => "ytw",
-            MetricId::DirtyPrice => "dirty_price",
-            MetricId::CleanPrice => "clean_price",
-            MetricId::Cs01 => "cs01",
-
-            // IRS metrics
-            MetricId::Annuity => "annuity",
-            MetricId::ParRate => "par_rate",
-            MetricId::Dv01 => "dv01",
-            MetricId::PvFixed => "pv_fixed",
-            MetricId::PvFloat => "pv_float",
-
-            // Deposit metrics
-            MetricId::Yf => "yf",
-            MetricId::DfStart => "df_start",
-            MetricId::DfEnd => "df_end",
-            MetricId::DepositParRate => "deposit_par_rate",
-            MetricId::DfEndFromQuote => "df_end_from_quote",
-            MetricId::QuoteRate => "quote_rate",
-
-            // Risk metrics
-            MetricId::BucketedDv01 => "bucketed_dv01",
-            MetricId::Theta => "theta",
-
-            // CDS metrics
-            MetricId::ParSpread => "par_spread",
-            MetricId::RiskyPv01 => "risky_pv01",
-            MetricId::ProtectionLegPv => "protection_leg_pv",
-            MetricId::PremiumLegPv => "premium_leg_pv",
-
-            // Option metrics
-            MetricId::Delta => "delta",
-            MetricId::Gamma => "gamma",
-            MetricId::Vega => "vega",
-            MetricId::Rho => "rho",
-
-            // Custom metrics
-            MetricId::Custom(s) => s.as_str(),
-        }
-    }
-
-    /// All standard (non-custom) metric IDs.
-    ///
-    /// This constant provides access to all predefined metrics for
-    /// iteration, validation, or registry initialization.
-    ///
-    /// See unit tests and `examples/` for usage.
-    pub const ALL_STANDARD: &'static [MetricId] = &[
-        // Bond metrics
-        MetricId::Accrued,
-        MetricId::Ytm,
-        MetricId::DurationMac,
-        MetricId::DurationMod,
-        MetricId::Convexity,
-        MetricId::Ytw,
-        MetricId::DirtyPrice,
-        MetricId::CleanPrice,
-        MetricId::Cs01,
-        // IRS metrics
-        MetricId::Annuity,
-        MetricId::ParRate,
-        MetricId::Dv01,
-        MetricId::PvFixed,
-        MetricId::PvFloat,
-        // Deposit metrics
-        MetricId::Yf,
-        MetricId::DfStart,
-        MetricId::DfEnd,
-        MetricId::DepositParRate,
-        MetricId::DfEndFromQuote,
-        MetricId::QuoteRate,
-        // Risk metrics
-        MetricId::BucketedDv01,
-        MetricId::Theta,
-        // CDS metrics
-        MetricId::ParSpread,
-        MetricId::RiskyPv01,
-        MetricId::ProtectionLegPv,
-        MetricId::PremiumLegPv,
-        // Option metrics
-        MetricId::Delta,
-        MetricId::Gamma,
-        MetricId::Vega,
-        MetricId::Rho,
-    ];
-}
-
-impl fmt::Display for MetricId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
-    }
-}
-
-impl FromStr for MetricId {
-    type Err = (); // Never fails since we have a catch-all Custom variant
-
-    /// Parses a string into a MetricId.
-    ///
-    /// This method never fails - any unrecognized string becomes a custom metric.
-    /// Standard metrics are matched case-insensitively in snake_case format.
-    ///
-    /// See unit tests and `examples/` for usage.
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let metric_id = match s.to_lowercase().as_str() {
-            // Bond metrics
-            "accrued" => MetricId::Accrued,
-            "ytm" => MetricId::Ytm,
-            "duration_mac" => MetricId::DurationMac,
-            "duration_mod" => MetricId::DurationMod,
-            "convexity" => MetricId::Convexity,
-            "ytw" => MetricId::Ytw,
-            "dirty_price" => MetricId::DirtyPrice,
-            "clean_price" => MetricId::CleanPrice,
-            "cs01" => MetricId::Cs01,
-
-            // IRS metrics
-            "annuity" => MetricId::Annuity,
-            "par_rate" => MetricId::ParRate,
-            "dv01" => MetricId::Dv01,
-            "pv_fixed" => MetricId::PvFixed,
-            "pv_float" => MetricId::PvFloat,
-
-            // Deposit metrics
-            "yf" => MetricId::Yf,
-            "df_start" => MetricId::DfStart,
-            "df_end" => MetricId::DfEnd,
-            "deposit_par_rate" => MetricId::DepositParRate,
-            "df_end_from_quote" => MetricId::DfEndFromQuote,
-            "quote_rate" => MetricId::QuoteRate,
-
-            // Risk metrics
-            "bucketed_dv01" => MetricId::BucketedDv01,
-            "theta" => MetricId::Theta,
-
-            // CDS metrics
-            "par_spread" => MetricId::ParSpread,
-            "risky_pv01" => MetricId::RiskyPv01,
-            "protection_leg_pv" => MetricId::ProtectionLegPv,
-            "premium_leg_pv" => MetricId::PremiumLegPv,
-
-            // Option metrics
-            "delta" => MetricId::Delta,
-            "gamma" => MetricId::Gamma,
-            "vega" => MetricId::Vega,
-            "rho" => MetricId::Rho,
-
-            // Any other string becomes a custom metric
-            s => MetricId::Custom(s.to_string()),
-        };
-        Ok(metric_id)
-    }
 }

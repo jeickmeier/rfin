@@ -12,7 +12,7 @@ use finstack_core::F;
 
 use super::{
     Bond, CreditDefaultSwap, CreditOption, Deposit, Equity, EquityOption, FxOption, FxSpot,
-    InflationLinkedBond, InterestRateOption, InterestRateSwap, Loan,
+    InflationLinkedBond, InterestRateOption, InterestRateSwap, Loan, Swaption,
 };
 
 /// Unified instrument wrapper with common operations.
@@ -33,6 +33,7 @@ pub enum Instrument {
     FxOption(FxOption),
     InterestRateOption(InterestRateOption),
     CreditOption(CreditOption),
+    Swaption(Swaption),
 }
 
 impl Instrument {
@@ -51,6 +52,7 @@ impl Instrument {
             Self::FxOption(_) => "FxOption",
             Self::InterestRateOption(_) => "InterestRateOption",
             Self::CreditOption(_) => "CreditOption",
+            Self::Swaption(_) => "Swaption",
         }
     }
 
@@ -69,6 +71,7 @@ impl Instrument {
             Self::FxOption(f) => &f.id,
             Self::InterestRateOption(i) => &i.id,
             Self::CreditOption(c) => &c.id,
+            Self::Swaption(s) => &s.id,
         }
     }
 
@@ -87,6 +90,7 @@ impl Instrument {
             Self::FxOption(f) => Some(f.notional),
             Self::InterestRateOption(i) => Some(i.notional),
             Self::CreditOption(c) => Some(c.notional),
+            Self::Swaption(s) => Some(s.notional),
         }
     }
 
@@ -105,6 +109,7 @@ impl Instrument {
             Self::FxOption(f) => Some(f.expiry),
             Self::InterestRateOption(i) => Some(i.end_date),
             Self::CreditOption(c) => Some(c.expiry),
+            Self::Swaption(s) => Some(s.expiry),
         }
     }
 
@@ -118,6 +123,7 @@ impl Instrument {
                 | Self::FxOption(_)
                 | Self::InterestRateOption(_)
                 | Self::CreditOption(_)
+                | Self::Swaption(_)
         )
     }
 
@@ -137,6 +143,7 @@ impl Instrument {
                 | Self::FxOption(_)
                 | Self::InterestRateOption(_)
                 | Self::CreditOption(_)
+                | Self::Swaption(_)
         )
     }
 
@@ -155,6 +162,7 @@ impl Instrument {
             Self::FxOption(f) => f.notional.currency(),
             Self::InterestRateOption(i) => i.notional.currency(),
             Self::CreditOption(c) => c.notional.currency(),
+            Self::Swaption(s) => s.notional.currency(),
         }
     }
 
@@ -210,6 +218,7 @@ impl Priceable for Instrument {
             Self::FxOption(f) => f.value(curves, as_of),
             Self::InterestRateOption(i) => i.value(curves, as_of),
             Self::CreditOption(c) => c.value(curves, as_of),
+            Self::Swaption(s) => s.value(curves, as_of),
         }
     }
 
@@ -232,6 +241,7 @@ impl Priceable for Instrument {
             Self::FxOption(f) => f.price_with_metrics(curves, as_of, metrics),
             Self::InterestRateOption(i) => i.price_with_metrics(curves, as_of, metrics),
             Self::CreditOption(c) => c.price_with_metrics(curves, as_of, metrics),
+            Self::Swaption(s) => s.price_with_metrics(curves, as_of, metrics),
         }
     }
 
@@ -249,6 +259,7 @@ impl Priceable for Instrument {
             Self::FxOption(f) => f.price(curves, as_of),
             Self::InterestRateOption(i) => i.price(curves, as_of),
             Self::CreditOption(c) => c.price(curves, as_of),
+            Self::Swaption(s) => s.price(curves, as_of),
         }
     }
 }

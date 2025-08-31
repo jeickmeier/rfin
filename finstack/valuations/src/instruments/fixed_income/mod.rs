@@ -7,6 +7,7 @@
 pub mod bond;
 pub mod cds;
 pub mod deposit;
+pub mod fx_spot;
 pub mod ilb;
 pub mod irs;
 pub mod loan;
@@ -15,6 +16,7 @@ pub mod loan;
 pub use bond::Bond;
 pub use cds::CreditDefaultSwap;
 pub use deposit::Deposit;
+pub use fx_spot::FxSpot;
 pub use ilb::InflationLinkedBond;
 pub use irs::InterestRateSwap;
 pub use loan::Loan;

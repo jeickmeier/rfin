@@ -1,7 +1,10 @@
 //! Swaption (option on interest rate swap) implementation with SABR volatility.
 
+pub mod metrics;
+
 use super::OptionType;
-use crate::models::sabr::{SABRModel, SABRParameters};
+use super::models::norm_cdf;
+use super::models::{SABRModel, SABRParameters};
 use crate::pricing::result::ValuationResult;
 use crate::traits::{Attributable, Attributes, Priceable};
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
@@ -305,32 +308,26 @@ impl Attributable for Swaption {
     }
 }
 
-/// Helper function for normal CDF
-fn norm_cdf(x: F) -> F {
-    0.5 * (1.0 + erf(x / (2.0_f64).sqrt()))
+// CDF/PDF provided by options::models::black
+
+// Wire into unified Instrument for metrics/routing
+impl From<Swaption> for crate::instruments::Instrument {
+    fn from(value: Swaption) -> Self {
+        crate::instruments::Instrument::Swaption(value)
+    }
 }
 
-/// Error function approximation
-fn erf(x: F) -> F {
-    let a1 = 0.254829592;
-    let a2 = -0.284496736;
-    let a3 = 1.421413741;
-    let a4 = -1.453152027;
-    let a5 = 1.061405429;
-    let p = 0.3275911;
+impl std::convert::TryFrom<crate::instruments::Instrument> for Swaption {
+    type Error = finstack_core::Error;
 
-    let sign = if x < 0.0 { -1.0 } else { 1.0 };
-    let x = x.abs();
-
-    let t = 1.0 / (1.0 + p * x);
-    let t2 = t * t;
-    let t3 = t2 * t;
-    let t4 = t3 * t;
-    let t5 = t4 * t;
-
-    let y = 1.0 - ((((a5 * t5 + a4 * t4) + a3 * t3) + a2 * t2) + a1 * t) * (-x * x).exp();
-
-    sign * y
+    fn try_from(value: crate::instruments::Instrument) -> finstack_core::Result<Self> {
+        match value {
+            crate::instruments::Instrument::Swaption(v) => Ok(v),
+            _ => Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            )),
+        }
+    }
 }
 
 #[cfg(test)]

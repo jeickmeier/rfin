@@ -27,7 +27,6 @@ pub mod traits;
 pub mod instruments;
 pub mod covenants;
 pub mod metrics;
-pub mod models;
 pub mod performance;
 // policy module removed to keep valuations focused on pricing/risk surfaces
 // workout module removed to keep valuations focused on pricing/risk surfaces

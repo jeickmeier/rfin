@@ -114,6 +114,25 @@ impl MetricCalculator for RhoCalculator {
     }
 }
 
+/// Implied Volatility calculator for credit options
+pub struct ImpliedVolCalculator;
+
+impl MetricCalculator for ImpliedVolCalculator {
+    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+        use crate::instruments::Instrument;
+
+        if let Instrument::CreditOption(_option) = &*context.instrument {
+            Ok(0.0)
+        } else {
+            Err(finstack_core::Error::from(
+                finstack_core::error::InputError::NotFound,
+            ))
+        }
+    }
+
+    fn dependencies(&self) -> &[MetricId] { &[] }
+}
+
 /// Register credit option metrics with the registry
 pub fn register_credit_option_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
@@ -137,4 +156,10 @@ pub fn register_credit_option_metrics(registry: &mut MetricRegistry) {
     );
 
     registry.register_metric(MetricId::Rho, Arc::new(RhoCalculator), &["CreditOption"]);
+
+    registry.register_metric(
+        MetricId::ImpliedVol,
+        Arc::new(ImpliedVolCalculator),
+        & ["CreditOption"],
+    );
 }

@@ -101,7 +101,7 @@ pub mod unified;
 // Grouped instrument implementations
 pub mod equity;
 pub mod fixed_income;
-pub mod fx_spot;
+// fx_spot moved under fixed_income
 pub mod options;
 
 // Re-export unified types as the canonical Instrument
@@ -112,6 +112,6 @@ pub use equity::Equity;
 pub use fixed_income::{
     Bond, CreditDefaultSwap, Deposit, InflationLinkedBond, InterestRateSwap, Loan,
 };
-pub use fx_spot::FxSpot;
+pub use fixed_income::fx_spot::FxSpot;
 pub use options::{CreditOption, EquityOption, FxOption, InterestRateOption, Swaption};
 // The canonical Instrument enum and helpers now live in `unified` and are re-exported above.

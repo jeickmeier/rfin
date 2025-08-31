@@ -11,7 +11,8 @@ use finstack_core::F;
 
 use finstack_core::dates::Date;
 
-use super::{black_scholes_common, ExerciseStyle, OptionType, SettlementType};
+use super::{ExerciseStyle, OptionType, SettlementType};
+use super::models;
 
 /// Credit option instrument (option on CDS spread)
 #[derive(Clone, Debug)]
@@ -123,15 +124,15 @@ impl CreditOption {
                 // Call option on CDS spread (right to buy protection at strike spread)
                 df * risky_annuity
                     * self.notional.amount()
-                    * (forward * black_scholes_common::norm_cdf(d1)
-                        - strike * black_scholes_common::norm_cdf(d2))
+                    * (forward * models::norm_cdf(d1)
+                        - strike * models::norm_cdf(d2))
             }
             OptionType::Put => {
                 // Put option on CDS spread (right to sell protection at strike spread)
                 df * risky_annuity
                     * self.notional.amount()
-                    * (strike * black_scholes_common::norm_cdf(-d2)
-                        - forward * black_scholes_common::norm_cdf(-d1))
+                    * (strike * models::norm_cdf(-d2)
+                        - forward * models::norm_cdf(-d1))
             }
         };
 
@@ -169,8 +170,8 @@ impl CreditOption {
         let d1 = ((forward / strike).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
 
         match self.option_type {
-            OptionType::Call => black_scholes_common::norm_cdf(d1),
-            OptionType::Put => -black_scholes_common::norm_cdf(-d1),
+            OptionType::Call => models::norm_cdf(d1),
+            OptionType::Put => -models::norm_cdf(-d1),
         }
     }
 
@@ -189,7 +190,7 @@ impl CreditOption {
 
         let d1 = ((forward / strike).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
 
-        black_scholes_common::norm_pdf(d1) / (forward * 10000.0 * sigma * t.sqrt())
+        models::norm_pdf(d1) / (forward * 10000.0 * sigma * t.sqrt())
     }
 
     /// Calculate option vega (sensitivity to credit spread volatility)
@@ -211,7 +212,7 @@ impl CreditOption {
             0.0
         };
 
-        forward * 10000.0 * black_scholes_common::norm_pdf(d1) * t.sqrt() / 100.0
+        forward * 10000.0 * models::norm_pdf(d1) * t.sqrt() / 100.0
         // Per 1% vega
     }
 
@@ -234,13 +235,13 @@ impl CreditOption {
 
         match self.option_type {
             OptionType::Call => {
-                let term1 = -forward * black_scholes_common::norm_pdf(d1) * sigma / (2.0 * sqrt_t);
-                let term2 = -r * strike * (-r * t).exp() * black_scholes_common::norm_cdf(d2);
+                let term1 = -forward * models::norm_pdf(d1) * sigma / (2.0 * sqrt_t);
+                let term2 = -r * strike * (-r * t).exp() * models::norm_cdf(d2);
                 (term1 + term2) * 10000.0 / 365.0 // Daily theta in bp
             }
             OptionType::Put => {
-                let term1 = -forward * black_scholes_common::norm_pdf(d1) * sigma / (2.0 * sqrt_t);
-                let term2 = r * strike * (-r * t).exp() * black_scholes_common::norm_cdf(-d2);
+                let term1 = -forward * models::norm_pdf(d1) * sigma / (2.0 * sqrt_t);
+                let term2 = r * strike * (-r * t).exp() * models::norm_cdf(-d2);
                 (term1 + term2) * 10000.0 / 365.0 // Daily theta in bp
             }
         }

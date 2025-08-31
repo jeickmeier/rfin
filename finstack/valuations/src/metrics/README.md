@@ -86,6 +86,31 @@ registry.compute(&[MetricId::Accrued, MetricId::Ytm], &mut context)?;
 - Applicability enforced per instrument type via the registry
 - Clear error handling
 
+## Metric IDs: Single Source of Truth
+
+Metric IDs are defined with a macro in `metrics/ids.rs` to avoid duplication. Adding a metric in one place updates the enum, string mapping, parser, and standard list automatically.
+
+What the macro generates:
+- `enum MetricId` variants
+- `MetricId::as_str()` string names (snake_case)
+- `impl FromStr` parsing (case-insensitive, snake_case)
+- `MetricId::ALL_STANDARD` list
+
+Add a metric by appending a single line in the macro invocation:
+
+```rust
+// metrics/ids.rs
+define_metrics! {
+    // ...existing metrics...
+    NewMetric => "new_metric",
+}
+```
+
+Guidelines:
+- Use concise snake_case IDs in quotes (e.g., `"par_rate"`).
+- Provide a brief doc comment above each line for docs and IDE hovers.
+- For non-standard/user-defined metrics at runtime, use `MetricId::custom("...")`.
+
 ## Usage Examples
 
 ### Basic Usage
@@ -159,7 +184,11 @@ let metrics = registry.compute(&[MetricId::Ytm, MetricId::DurationMac], &mut con
 - `ytw` - Yield to worst
 - `dirty_price` - Clean price + accrued interest (requires quoted clean price)
 - `clean_price` - If quoted, returns that; otherwise `value()` (dirty) minus accrued
-- `cs01` - Credit spread sensitivity
+- Spreads:
+  - `z_spread` - Zero-vol spread
+  - `oas` - Option-adjusted spread
+  - `g_spread` - Govvie spread
+  - `asw_spread` - Asset swap spread
 
 Note on price precedence:
 - When `quoted_clean` is present on a `Bond`, `dirty_price` is computed as `quoted_clean + accrued` and `clean_price` simply echoes the quoted value.
@@ -181,8 +210,35 @@ Note on price precedence:
 - `quote_rate` - Quoted rate if present
 
 ### Risk Metrics
+- `cs01` - Parallel credit spread sensitivity
+- `ir01` - Parallel yield curve sensitivity
 - `bucketed_dv01` - DV01 total across standard tenor buckets
+- `bucketed_cs01` - Credit spread risk by bucket
 - `theta` - Time decay (placeholder)
+
+### CDS Metrics
+- `par_spread` - Par spread for CDS
+- `risky_pv01` - Risky PV01
+- `protection_leg_pv` - Protection leg PV
+- `premium_leg_pv` - Premium leg PV
+- `jump_to_default` - Jump-to-default amount
+- `expected_loss` - Expected loss
+- `default_probability` - Default probability
+- `recovery_01` - Recovery rate sensitivity
+
+### Option Metrics
+- `delta` - Price sensitivity to underlying
+- `gamma` - Delta sensitivity to underlying
+- `vega` - Price sensitivity to volatility
+- `rho` - Price sensitivity to interest rates
+- `implied_vol` - Implied volatility from price
+- Additional greeks:
+  - `vanna` - Delta sensitivity to volatility
+  - `volga` - Vega sensitivity to volatility
+  - `veta` - Theta sensitivity to volatility
+  - `charm` - Rho sensitivity to volatility
+  - `color` - Gamma sensitivity to time
+  - `speed` - Gamma sensitivity to underlying
 
 ## Architecture
 

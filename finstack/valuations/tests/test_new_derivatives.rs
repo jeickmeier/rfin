@@ -217,30 +217,3 @@ fn test_cds_isda_conventions() {
     assert_eq!(CDSConvention::IsdaNa.frequency(), Frequency::quarterly());
     assert_eq!(CDSConvention::IsdaEu.frequency(), Frequency::quarterly());
 }
-
-#[test]
-fn test_option_greeks_calculation() {
-    use finstack_valuations::instruments::options::greeks::GreeksCalculator;
-
-    let calc = GreeksCalculator::new();
-
-    // Simple test function for a call option
-    let price_fn = |spot: f64, r: f64, sigma: f64, t: f64, q: f64| -> f64 {
-        // Simplified Black-Scholes call price
-        let k = 100.0;
-        if t <= 0.0 {
-            return (spot - k).max(0.0);
-        }
-        // Simplified pricing for testing
-        spot * 0.5 + sigma * 10.0 + r * t - q * t
-    };
-
-    let greeks = calc.calculate_greeks(price_fn, 100.0, 0.05, 0.25, 1.0, 0.02);
-
-    // Check that all Greeks are calculated
-    assert!(greeks.delta.is_finite());
-    assert!(greeks.gamma.is_finite());
-    assert!(greeks.vega.is_finite());
-    assert!(greeks.theta.is_finite());
-    assert!(greeks.rho.is_finite());
-}

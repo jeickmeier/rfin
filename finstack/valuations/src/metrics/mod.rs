@@ -47,8 +47,15 @@ pub fn standard_registry() -> MetricRegistry {
     crate::instruments::fixed_income::irs::metrics::register_irs_metrics(&mut registry);
     crate::instruments::fixed_income::deposit::metrics::register_deposit_metrics(&mut registry);
     crate::instruments::fixed_income::cds::metrics::register_cds_metrics(&mut registry);
-    crate::instruments::options::metrics::register_option_metrics(&mut registry);
     crate::instruments::fixed_income::ilb::metrics::register_ilb_metrics(&mut registry);
+    // FX Spot metrics
+    crate::instruments::fixed_income::fx_spot::metrics::register_fx_spot_metrics(&mut registry);
+    // Options metrics
+    crate::instruments::options::equity_option::metrics::register_equity_option_metrics(&mut registry);
+    crate::instruments::options::fx_option::metrics::register_fx_option_metrics(&mut registry);
+    crate::instruments::options::cap_floor::metrics::register_interest_rate_option_metrics(&mut registry);
+    crate::instruments::options::credit_option::metrics::register_credit_option_metrics(&mut registry);
+    crate::instruments::options::swaption::metrics::register_swaption_metrics(&mut registry);
     risk::register_risk_metrics(&mut registry);
     registry
 }

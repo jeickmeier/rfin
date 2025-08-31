@@ -83,5 +83,3 @@ macro_rules! impl_builder {
         }
     };
 }
-
-// The legacy `instrument!` macro was unused; removed to reduce maintenance surface.

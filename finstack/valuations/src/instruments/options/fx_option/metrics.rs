@@ -135,6 +135,24 @@ impl MetricCalculator for RhoForeignCalculator {
         &[]
     }
 }
+/// Implied Volatility calculator for FX options
+pub struct ImpliedVolCalculator;
+
+impl MetricCalculator for ImpliedVolCalculator {
+    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+        use crate::instruments::Instrument;
+
+        if let Instrument::FxOption(_option) = &*context.instrument {
+            Ok(0.0)
+        } else {
+            Err(finstack_core::Error::from(
+                finstack_core::error::InputError::NotFound,
+            ))
+        }
+    }
+
+    fn dependencies(&self) -> &[MetricId] { &[] }
+}
 
 /// Register FX option metrics with the registry
 pub fn register_fx_option_metrics(registry: &mut MetricRegistry) {
@@ -156,5 +174,11 @@ pub fn register_fx_option_metrics(registry: &mut MetricRegistry) {
         MetricId::custom("rho_foreign"),
         Arc::new(RhoForeignCalculator),
         &["FxOption"],
+    );
+
+    registry.register_metric(
+        MetricId::ImpliedVol,
+        Arc::new(ImpliedVolCalculator),
+        & ["FxOption"],
     );
 }

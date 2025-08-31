@@ -1,5 +1,7 @@
 //! FX Spot instrument implementation.
 
+pub mod metrics;
+
 use crate::impl_attributable;
 use crate::metrics::MetricId;
 use crate::pricing::result::ValuationResult;
@@ -7,7 +9,6 @@ use crate::traits::{Attributes, CashflowProvider, Priceable};
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::prelude::*;
 use finstack_core::F;
-use indexmap::IndexMap;
 
 /// FX Spot instrument (1 unit of `base` priced in `quote`).
 ///
@@ -122,37 +123,9 @@ impl Priceable for FxSpot {
         as_of: Date,
         metrics: &[MetricId],
     ) -> finstack_core::Result<ValuationResult> {
-        let value = self.value(curves, as_of)?;
-
-        let mut measures = IndexMap::new();
-
-        for metric_id in metrics {
-            match metric_id {
-                MetricId::Custom(name) if name == "spot_rate" => {
-                    let base_amt = self.effective_notional().amount();
-                    let rate = if base_amt != 0.0 { value.amount() / base_amt } else { 0.0 };
-                    measures.insert(name.clone(), rate);
-                }
-                MetricId::Custom(name) if name == "base_amount" => {
-                    measures.insert(name.clone(), self.effective_notional().amount());
-                }
-                MetricId::Custom(name) if name == "quote_amount" => {
-                    measures.insert(name.clone(), value.amount());
-                }
-                MetricId::Custom(name) if name == "inverse_rate" => {
-                    let base_amt = self.effective_notional().amount();
-                    let rate = if base_amt != 0.0 { value.amount() / base_amt } else { 0.0 };
-                    if rate != 0.0 {
-                        measures.insert(name.clone(), 1.0 / rate);
-                    }
-                }
-                _ => {
-                    // Skip metrics not applicable to FX spot
-                }
-            }
-        }
-
-        Ok(ValuationResult::stamped(self.id.clone(), as_of, value).with_measures(measures))
+        let base_value = self.value(curves, as_of)?;
+        let instrument: crate::instruments::Instrument = crate::instruments::Instrument::FxSpot(self.clone());
+        crate::pricing::build_with_metrics(instrument, curves, as_of, base_value, metrics)
     }
 
     fn price(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<ValuationResult> {
