@@ -1,6 +1,6 @@
 //! New trait family replacing legacy `Curve` hierarchy
 
-use crate::{dates::Date, market_data::id::CurveId, F};
+use crate::{dates::Date, types::CurveId, F};
 extern crate alloc;
 #[cfg(feature = "parallel")]
 #[allow(unused_imports)]

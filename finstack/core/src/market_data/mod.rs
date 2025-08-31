@@ -7,12 +7,14 @@
 //! data inside `rustfin-core`.
 //!
 //! # Sub-modules
-//! * [`id`] – lightweight, zero-cost identifiers such as [`CurveId`].
+//! * [`crate::types::CurveId`] – type-safe identifiers for market data.
 //! * [`interp`] – a collection of curve interpolation schemes implementing the
 //!   polymorphic [`interp::InterpFn`] trait.
 //! * [`term_structures`] – one-dimensional term structures such as
-//!   [`term_structures::DiscountCurve`], [`term_structures::ForwardCurve`],
-//!   [`term_structures::HazardCurve`] and [`term_structures::InflationCurve`].
+//!   [`term_structures::discount_curve::DiscountCurve`],
+//!   [`term_structures::forward_curve::ForwardCurve`],
+//!   [`term_structures::hazard_curve::HazardCurve`] and
+//!   [`term_structures::inflation::InflationCurve`].
 //! * [`surfaces`] – two-dimensional objects like implied-volatility surfaces.
 //! * [`utils`] – helper functions shared across the implementation
 //!   (validation, segment location, etc.).
@@ -42,8 +44,7 @@
 
 /// Unified market-data context for valuations.
 pub mod context;
-/// Identifier utilities (see [`id::CurveId`]).
-pub mod id;
+// Identifiers are now defined in `crate::types` (see `types::CurveId`).
 /// Inflation index data (CPI/RPI) using Polars DataFrames.
 pub mod inflation_index;
 /// Interpolation framework and concrete algorithms.

@@ -26,7 +26,7 @@ extern crate alloc;
 use crate::market_data::interp::InterpStyle;
 use crate::{
     dates::Date,
-    market_data::id::CurveId,
+    types::CurveId,
     market_data::interp::InterpFn,
     market_data::traits::{Discount, TermStructure},
     F,

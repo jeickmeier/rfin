@@ -13,8 +13,8 @@ use hashbrown::HashMap;
 
 use crate::money::fx::FxMatrix;
 
+use crate::types::CurveId;
 use super::{
-    id::CurveId,
     inflation::InflationCurve,
     inflation_index::InflationIndex,
     primitives::{MarketScalar, ScalarTimeSeries},
@@ -88,7 +88,7 @@ impl MarketContext {
 
     /// Insert or replace a price/scalar by id.
     pub fn with_price(mut self, id: impl AsRef<str>, price: MarketScalar) -> Self {
-        self.prices.insert(CurveId::new(id), price);
+        self.prices.insert(CurveId::from(id.as_ref()), price);
         self
     }
 
@@ -151,7 +151,7 @@ impl MarketContext {
     /// Insert inflation index.
     pub fn with_inflation_index(self, id: impl AsRef<str>, index: InflationIndex) -> Self {
         let mut this = self;
-        let cid = CurveId::new(id);
+        let cid = CurveId::from(id.as_ref());
         this.inflation_indices.insert(cid, Arc::new(index));
         this
     }
@@ -202,7 +202,7 @@ impl MarketContext {
     /// Convenience getters that forward to underlying containers
     pub fn vol_surface(&self, id: impl AsRef<str>) -> crate::Result<Arc<VolSurface>> {
         self.surfaces
-            .get(&CurveId::new(id))
+            .get(&CurveId::from(id.as_ref()))
             .cloned()
             .ok_or(crate::error::InputError::NotFound.into())
     }
@@ -210,14 +210,14 @@ impl MarketContext {
     /// Return a reference to a market scalar (price/constant) by identifier.
     pub fn market_scalar(&self, id: impl AsRef<str>) -> crate::Result<&MarketScalar> {
         self.prices
-            .get(&CurveId::new(id))
+            .get(&CurveId::from(id.as_ref()))
             .ok_or(crate::error::InputError::NotFound.into())
     }
 
     /// Return a reference to a generic date-indexed scalar time series by identifier.
     pub fn scalar_time_series(&self, id: impl AsRef<str>) -> crate::Result<&ScalarTimeSeries> {
         self.series
-            .get(&CurveId::new(id))
+            .get(&CurveId::from(id.as_ref()))
             .ok_or(crate::error::InputError::NotFound.into())
     }
 
@@ -234,7 +234,7 @@ impl MarketContext {
     /// Get discount curve by id.
     pub fn discount(&self, id: impl AsRef<str>) -> crate::Result<Arc<dyn Discount + Send + Sync>> {
         self.disc
-            .get(&CurveId::new(id))
+            .get(&CurveId::from(id.as_ref()))
             .cloned()
             .ok_or(crate::error::InputError::NotFound.into())
     }
@@ -242,7 +242,7 @@ impl MarketContext {
     /// Get forecast curve by id.
     pub fn forecast(&self, id: impl AsRef<str>) -> crate::Result<Arc<dyn Forward + Send + Sync>> {
         self.fwd
-            .get(&CurveId::new(id))
+            .get(&CurveId::from(id.as_ref()))
             .cloned()
             .ok_or(crate::error::InputError::NotFound.into())
     }
@@ -253,7 +253,7 @@ impl MarketContext {
         id: impl AsRef<str>,
     ) -> crate::Result<Arc<crate::market_data::hazard_curve::HazardCurve>> {
         self.hazard
-            .get(&CurveId::new(id))
+            .get(&CurveId::from(id.as_ref()))
             .cloned()
             .ok_or(crate::error::InputError::NotFound.into())
     }
@@ -261,7 +261,7 @@ impl MarketContext {
     /// Get inflation curve.
     pub fn inflation(&self, id: impl AsRef<str>) -> crate::Result<Arc<InflationCurve>> {
         self.inflation
-            .get(&CurveId::new(id))
+            .get(&CurveId::from(id.as_ref()))
             .cloned()
             .ok_or(crate::error::InputError::NotFound.into())
     }
@@ -269,14 +269,16 @@ impl MarketContext {
     /// Get credit curve by id.
     pub fn credit(&self, id: impl AsRef<str>) -> crate::Result<Arc<CreditCurve>> {
         self.credit
-            .get(&CurveId::new(id))
+            .get(&CurveId::from(id.as_ref()))
             .cloned()
             .ok_or(crate::error::InputError::NotFound.into())
     }
 
     /// Get inflation index by id.
     pub fn inflation_index(&self, id: impl AsRef<str>) -> Option<Arc<InflationIndex>> {
-        self.inflation_indices.get(&CurveId::new(id)).cloned()
+        self.inflation_indices
+            .get(&CurveId::from(id.as_ref()))
+            .cloned()
     }
 
     /// Resolve collateral discount curve for CSA code.

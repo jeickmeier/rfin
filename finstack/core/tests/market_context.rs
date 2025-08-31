@@ -5,11 +5,11 @@ use finstack_core::{
     dates::Date,
     market_data::{
         context::MarketContext,
-        id::CurveId,
         multicurve::CurveSet,
         primitives::{MarketScalar, ScalarTimeSeries},
         surfaces::vol_surface::VolSurface,
     },
+    types::CurveId,
     money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate},
 };
 use std::sync::Arc;

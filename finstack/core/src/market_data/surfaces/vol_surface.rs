@@ -23,7 +23,7 @@
 
 use crate::{
     error::InputError,
-    market_data::id::CurveId,
+    types::CurveId,
     market_data::traits::{Surface, TermStructure},
     market_data::utils::locate_segment,
     Error, F,

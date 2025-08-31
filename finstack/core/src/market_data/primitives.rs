@@ -9,7 +9,7 @@
 //! Both are integrated into the [`crate::market_data::multicurve::CurveSet`]
 //! so downstream code can reference them by `CurveId` alongside other curves.
 
-use crate::market_data::id::CurveId;
+use crate::types::CurveId;
 use crate::{error::InputError, Currency, Date, Result};
 use polars::prelude::*;
 #[cfg(test)]
@@ -92,7 +92,7 @@ impl ScalarTimeSeries {
         }
 
         Ok(Self {
-            id: CurveId::new(id),
+            id: CurveId::from(id.as_ref()),
             currency,
             data: df,
             interpolation: SeriesInterpolation::default(),

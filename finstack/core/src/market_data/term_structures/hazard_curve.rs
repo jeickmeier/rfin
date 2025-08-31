@@ -20,7 +20,7 @@ use alloc::{boxed::Box, vec::Vec};
 use crate::{
     dates::Date,
     error::InputError,
-    market_data::id::CurveId,
+    types::CurveId,
     market_data::traits::{Survival, TermStructure},
     F,
 };

@@ -23,7 +23,7 @@ use alloc::{boxed::Box, vec::Vec};
 use crate::market_data::interp::InterpStyle;
 use crate::{
     error::InputError,
-    market_data::id::CurveId,
+    types::CurveId,
     market_data::interp::InterpFn,
     market_data::traits::{Inflation as InflationTrait, TermStructure},
     F,
@@ -88,7 +88,7 @@ impl InflationCurve {
 }
 
 impl TermStructure for InflationCurve {
-    fn id(&self) -> &crate::market_data::id::CurveId {
+    fn id(&self) -> &crate::types::CurveId {
         &self.id
     }
 }

@@ -151,24 +151,31 @@ impl<T: TypeTag> std::str::FromStr for Id<T> {
 // Common ID marker types for finstack domains
 
 /// Marker type for curve identifiers
+#[derive(Debug, Clone, Copy, Default)]
 pub struct CurveTag;
 
 /// Marker type for position identifiers  
+#[derive(Debug, Clone, Copy, Default)]
 pub struct PositionTag;
 
 /// Marker type for trade identifiers
+#[derive(Debug, Clone, Copy, Default)]
 pub struct TradeTag;
 
 /// Marker type for portfolio identifiers
+#[derive(Debug, Clone, Copy, Default)]
 pub struct PortfolioTag;
 
 /// Marker type for scenario identifiers
+#[derive(Debug, Clone, Copy, Default)]
 pub struct ScenarioTag;
 
 /// Marker type for instrument identifiers
+#[derive(Debug, Clone, Copy, Default)]
 pub struct InstrumentTag;
 
 /// Marker type for counterparty identifiers
+#[derive(Debug, Clone, Copy, Default)]
 pub struct CounterpartyTag;
 
 /// Type aliases for common ID types
