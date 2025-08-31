@@ -354,7 +354,7 @@ impl PyInterestRateSwap {
                 side: side.into(),
                 fixed: fixed_leg.inner.clone(),
                 float: float_leg.inner.clone(),
-                attributes: finstack_valuations::traits::Attributes::new(),
+                attributes: finstack_valuations::instruments::traits::Attributes::new(),
             }),
         })
     }
@@ -411,17 +411,17 @@ impl PyInterestRateSwap {
         market_context: &crate::core::market_data::context::PyMarketContext,
         as_of: &PyDate,
     ) -> PyResult<f64> {
-        use finstack_valuations::instruments::Instrument;
-        use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
+        use finstack_valuations::metrics::{standard_registry, MetricId};
+        use finstack_valuations::instruments::traits::Priceable;
 
         let curves = market_context.inner();
         let as_of_date = as_of.inner();
 
         // Create instrument wrapper
-        let instrument = Instrument::IRS((*self.inner).clone());
+        let instrument = finstack_valuations::instruments::Instrument::IRS((*self.inner).clone());
 
         // Calculate base value first
-        use finstack_valuations::traits::Priceable;
+        // use already imported Priceable
         let base_value = self.inner.value(&curves, as_of_date).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
                 "Failed to calculate swap value: {:?}",
@@ -431,7 +431,7 @@ impl PyInterestRateSwap {
 
         // Create metric context
         let mut context =
-            MetricContext::new(Arc::new(instrument), curves.clone(), as_of_date, base_value);
+            finstack_valuations::metrics::MetricContext::new(Arc::new(instrument), curves.clone(), as_of_date, base_value);
 
         // Get standard registry and compute par rate
         let registry = standard_registry();
@@ -452,7 +452,7 @@ impl PyInterestRateSwap {
     ///     Attributes: The swap's attributes object
     #[getter]
     fn attributes(&self) -> crate::valuations::attributes::PyAttributes {
-        use finstack_valuations::traits::Attributable;
+        use finstack_valuations::instruments::traits::Attributable;
         let attrs = self.inner.attributes().clone();
         crate::valuations::attributes::PyAttributes::from_inner(attrs)
     }
@@ -466,7 +466,7 @@ impl PyInterestRateSwap {
         &mut self,
         attributes: &crate::valuations::attributes::PyAttributes,
     ) -> PyResult<()> {
-        use finstack_valuations::traits::Attributable;
+        use finstack_valuations::instruments::traits::Attributable;
         use std::sync::Arc;
 
         let mut swap = (*self.inner).clone();
@@ -480,7 +480,7 @@ impl PyInterestRateSwap {
     /// Args:
     ///     tag: Tag to add
     fn add_tag(&mut self, tag: String) -> PyResult<()> {
-        use finstack_valuations::traits::Attributable;
+        use finstack_valuations::instruments::traits::Attributable;
         use std::sync::Arc;
 
         let mut swap = (*self.inner).clone();
@@ -497,7 +497,7 @@ impl PyInterestRateSwap {
     /// Returns:
     ///     True if the tag exists
     fn has_tag(&self, tag: &str) -> bool {
-        use finstack_valuations::traits::Attributable;
+        use finstack_valuations::instruments::traits::Attributable;
         self.inner.has_tag(tag)
     }
 
@@ -507,7 +507,7 @@ impl PyInterestRateSwap {
     ///     key: Metadata key
     ///     value: Metadata value
     fn set_meta(&mut self, key: String, value: String) -> PyResult<()> {
-        use finstack_valuations::traits::Attributable;
+        use finstack_valuations::instruments::traits::Attributable;
         use std::sync::Arc;
 
         let mut swap = (*self.inner).clone();
@@ -524,7 +524,7 @@ impl PyInterestRateSwap {
     /// Returns:
     ///     The value if present
     fn get_meta(&self, key: &str) -> Option<String> {
-        use finstack_valuations::traits::Attributable;
+        use finstack_valuations::instruments::traits::Attributable;
         self.inner.get_meta(key).map(|s| s.to_string())
     }
 
@@ -536,7 +536,7 @@ impl PyInterestRateSwap {
     /// Returns:
     ///     True if the swap matches the selector
     fn matches_selector(&self, selector: &str) -> bool {
-        use finstack_valuations::traits::Attributable;
+        use finstack_valuations::instruments::traits::Attributable;
         self.inner.matches_selector(selector)
     }
 
@@ -563,7 +563,7 @@ impl PyInterestRateSwap {
         as_of: &PyDate,
         bucket_spec: Option<Vec<crate::valuations::risk::PyRiskBucket>>,
     ) -> PyResult<crate::valuations::risk::PyRiskReport> {
-        use finstack_valuations::traits::RiskMeasurable;
+        use finstack_valuations::metrics::RiskMeasurable;
 
         let curves = market_context.inner();
         let as_of_date = as_of.inner();
@@ -572,7 +572,7 @@ impl PyInterestRateSwap {
         let rust_buckets = bucket_spec.map(|buckets| {
             buckets
                 .into_iter()
-                .map(|b| finstack_valuations::traits::RiskBucket {
+                .map(|b| finstack_valuations::metrics::RiskBucket {
                     id: b.inner.id,
                     tenor_years: b.inner.tenor_years,
                     classification: b.inner.classification,
@@ -615,7 +615,7 @@ impl PyInterestRateSwap {
         market_context: &crate::core::market_data::context::PyMarketContext,
         as_of: &PyDate,
     ) -> PyResult<crate::valuations::results::PyValuationResult> {
-        use finstack_valuations::traits::Priceable;
+        use finstack_valuations::instruments::traits::Priceable;
 
         let curves = market_context.inner();
         let as_of_date = as_of.inner();
@@ -646,7 +646,7 @@ impl PyInterestRateSwap {
         market_context: &crate::core::market_data::context::PyMarketContext,
         as_of: &PyDate,
     ) -> PyResult<PyMoney> {
-        use finstack_valuations::traits::Priceable;
+        use finstack_valuations::instruments::traits::Priceable;
 
         let curves = market_context.inner();
         let as_of_date = as_of.inner();

@@ -14,3 +14,6 @@ pub mod aggregation;
 
 /// Composable cashflow builder (phase 1: principal, amortization, fixed coupons).
 pub mod builder;
+
+/// Cashflow-related traits and aliases.
+pub mod traits;

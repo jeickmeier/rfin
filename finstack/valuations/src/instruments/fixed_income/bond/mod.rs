@@ -13,9 +13,9 @@ use crate::cashflow::builder::{cf, CashFlowSchedule, CouponType, FixedCouponSpec
 use crate::cashflow::primitives::CFKind;
 use crate::impl_attributable;
 use crate::metrics::MetricId;
-use crate::traits::{
-    Attributes, CashflowProvider, DatedFlows, Priceable, RiskBucket, RiskMeasurable, RiskReport,
-};
+use crate::cashflow::traits::{CashflowProvider, DatedFlows};
+use crate::instruments::traits::{Attributes, Priceable};
+use crate::metrics::{RiskBucket, RiskMeasurable, RiskReport};
 use finstack_core::dates::{BusinessDayConvention, StubKind};
 
 // Re-export for compatibility in tests and external users referencing bond::AmortizationSpec

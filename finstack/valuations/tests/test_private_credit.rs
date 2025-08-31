@@ -16,7 +16,8 @@ use finstack_valuations::instruments::fixed_income::loan::{
     PrepaymentPenalty, PrepaymentSchedule, PrepaymentType, RevolvingCreditFacility,
     UtilizationFeeSchedule,
 };
-use finstack_valuations::traits::{CashflowProvider, Priceable};
+use finstack_valuations::cashflow::traits::CashflowProvider;
+use finstack_valuations::instruments::traits::Priceable;
 use std::sync::Arc;
 use time::Month;
 

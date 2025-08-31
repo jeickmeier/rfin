@@ -99,7 +99,7 @@ fn test_covenant_evaluation() {
                 call_put: None,
                 amortization: None,
                 custom_cashflows: None,
-                attributes: finstack_valuations::traits::Attributes::new(),
+                attributes: finstack_valuations::instruments::traits::Attributes::new(),
             },
         )),
         curves,

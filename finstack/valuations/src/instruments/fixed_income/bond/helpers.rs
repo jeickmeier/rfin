@@ -5,7 +5,7 @@
 
 use super::Bond;
 use crate::metrics::MetricContext;
-use crate::traits::CashflowProvider;
+use crate::cashflow::traits::CashflowProvider;
 use finstack_core::prelude::*;
 
 /// Yield compounding convention for discounting cashflows from a flat yield.

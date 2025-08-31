@@ -8,7 +8,7 @@ use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::{
     cf, CouponType, FixedWindow, FloatCouponParams, FloatWindow, ScheduleParams,
 };
-use finstack_valuations::pricing::discountable::Discountable;
+use finstack_valuations::instruments::fixed_income::discountable::Discountable;
 use time::Month;
 
 #[test]

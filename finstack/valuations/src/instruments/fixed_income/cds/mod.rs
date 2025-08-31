@@ -5,7 +5,8 @@
 
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
-use crate::traits::{Attributes, DatedFlows, Priceable};
+use crate::cashflow::traits::DatedFlows;
+use crate::instruments::traits::{Attributes, Priceable};
 
 use crate::impl_attributable;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};

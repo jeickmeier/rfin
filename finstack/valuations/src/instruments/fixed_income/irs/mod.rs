@@ -16,9 +16,9 @@ use crate::cashflow::builder::{
 use crate::metrics::MetricId;
 use crate::instruments::fixed_income::discountable::Discountable;
 use crate::results::ValuationResult;
-use crate::traits::{
-    Attributes, CashflowProvider, DatedFlows, Priceable, RiskBucket, RiskMeasurable, RiskReport,
-};
+use crate::cashflow::traits::{CashflowProvider, DatedFlows};
+use crate::instruments::traits::{Attributes, Priceable};
+use crate::metrics::{RiskBucket, RiskMeasurable, RiskReport};
 
 /// Direction of the swap from the perspective of the fixed rate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

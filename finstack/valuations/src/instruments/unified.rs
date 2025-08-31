@@ -5,7 +5,9 @@
 
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
-use crate::traits::{Attributable, CashflowProvider, Priceable, RiskMeasurable};
+use crate::cashflow::traits::CashflowProvider;
+use crate::instruments::traits::{Attributable, Priceable};
+use crate::metrics::RiskMeasurable;
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -216,7 +218,7 @@ impl Instrument {
         &self,
         curves: &CurveSet,
         as_of: Date,
-    ) -> finstack_core::Result<Option<crate::traits::RiskReport>> {
+    ) -> finstack_core::Result<Option<crate::metrics::RiskReport>> {
         match self {
             Self::Bond(b) => Ok(Some(b.risk_report(curves, as_of, None)?)),
             Self::IRS(i) => Ok(Some(i.risk_report(curves, as_of, None)?)),
@@ -482,7 +484,7 @@ impl Priceable for Instrument {
 
 // Implement Attributable for the enum
 impl Attributable for Instrument {
-    fn attributes(&self) -> &crate::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::traits::Attributes {
         match self {
             Self::Bond(b) => b.attributes(),
             Self::IRS(i) => i.attributes(),
@@ -492,14 +494,14 @@ impl Attributable for Instrument {
                 // For instruments without attributes, return a static empty set
                 // In a real implementation, we'd add attributes field to all instruments
                 use once_cell::sync::Lazy;
-                static EMPTY: Lazy<crate::traits::Attributes> =
-                    Lazy::new(crate::traits::Attributes::new);
+                static EMPTY: Lazy<crate::instruments::traits::Attributes> =
+                    Lazy::new(crate::instruments::traits::Attributes::new);
                 &EMPTY
             }
         }
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes {
         match self {
             Self::Bond(b) => b.attributes_mut(),
             Self::IRS(i) => i.attributes_mut(),

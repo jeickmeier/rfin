@@ -10,7 +10,7 @@ use finstack_valuations as _; // ensure crate is linked
 use finstack_valuations::cashflow::aggregation::aggregate_by_period;
 use finstack_valuations::instruments::fixed_income::{bond, deposit, irs};
 use finstack_valuations::metrics::{standard_registry, MetricContext};
-use finstack_valuations::traits::Priceable;
+use finstack_valuations::instruments::traits::Priceable;
 use std::sync::Arc;
 use time::Month;
 
@@ -92,7 +92,7 @@ fn irs_par_rate_matches_forward_rate() {
             start: base,
             end: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
         },
-        attributes: finstack_valuations::traits::Attributes::new(),
+        attributes: finstack_valuations::instruments::traits::Attributes::new(),
     };
 
     let res = irs.price(&curves, base).unwrap();
@@ -120,7 +120,7 @@ fn bond_pv_with_unit_df_is_sum_of_cashflows() {
         call_put: None,
         amortization: None,
         custom_cashflows: None,
-        attributes: finstack_valuations::traits::Attributes::new(),
+        attributes: finstack_valuations::instruments::traits::Attributes::new(),
     };
 
     let res = bond.price(&curves, issue).unwrap();
@@ -164,7 +164,7 @@ fn irs_dv01_sign_and_magnitude() {
             start: base,
             end: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
         },
-        attributes: finstack_valuations::traits::Attributes::new(),
+        attributes: finstack_valuations::instruments::traits::Attributes::new(),
     };
     let res = irs_recv.price(&curves, base).unwrap();
     let dv01 = *res.measures.get("dv01").unwrap();
@@ -211,7 +211,7 @@ fn bond_ytm_ytw_and_amortization() {
         }),
         amortization: None,
         custom_cashflows: None,
-        attributes: finstack_valuations::traits::Attributes::new(),
+        attributes: finstack_valuations::instruments::traits::Attributes::new(),
     };
     let res_bullet = bullet.price(&curves, issue).unwrap();
     let ytm = *res_bullet.measures.get("ytm").unwrap();
@@ -226,7 +226,7 @@ fn bond_ytm_ytw_and_amortization() {
         }),
         quoted_clean: None,
         call_put: None,
-        attributes: finstack_valuations::traits::Attributes::new(),
+        attributes: finstack_valuations::instruments::traits::Attributes::new(),
         ..bullet
     };
     let res_amort = amort.price(&curves, issue).unwrap();
@@ -296,7 +296,7 @@ fn dv01_bucketed_bond_simple() {
         call_put: None,
         amortization: None,
         custom_cashflows: None,
-        attributes: finstack_valuations::traits::Attributes::new(),
+        attributes: finstack_valuations::instruments::traits::Attributes::new(),
     };
 
     // Use the metrics framework to compute bucketed DV01

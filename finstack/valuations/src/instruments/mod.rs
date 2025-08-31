@@ -34,7 +34,7 @@
 //!     call_put: None,
 //!     amortization: None,
 //!     custom_cashflows: None,
-//!     attributes: finstack_valuations::traits::Attributes::new(),
+//!     attributes: finstack_valuations::instruments::traits::Attributes::new(),
 //! };
 //!
 //! let irs = InterestRateSwap {
@@ -64,7 +64,7 @@
 //!         fwd_id: "USD-LIBOR-3M",
 //!         spread_bp: 0.0,
 //!     },
-//!     attributes: finstack_valuations::traits::Attributes::new(),
+//!     attributes: finstack_valuations::instruments::traits::Attributes::new(),
 //! };
 //!
 //! let deposit = Deposit {
@@ -75,7 +75,7 @@
 //!     day_count: DayCount::Act365F,
 //!     disc_id: "USD-OIS",
 //!     quote_rate: Some(0.05),
-//!     attributes: finstack_valuations::traits::Attributes::new(),
+//!     attributes: finstack_valuations::instruments::traits::Attributes::new(),
 //! };
 //!
 //! // Use unified interface
@@ -97,6 +97,9 @@ pub mod macros;
 
 // Unified instrument handling with common operations
 pub mod unified;
+
+// Instrument-level traits and metadata
+pub mod traits;
 
 // Grouped instrument implementations
 pub mod equity;

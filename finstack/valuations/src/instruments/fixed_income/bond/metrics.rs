@@ -7,7 +7,7 @@
 
 use crate::instruments::{Bond, Instrument};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use crate::traits::CashflowProvider;
+use crate::cashflow::traits::CashflowProvider;
 use finstack_core::prelude::*;
 use finstack_core::F;
 use crate::cashflow::primitives::CFKind;

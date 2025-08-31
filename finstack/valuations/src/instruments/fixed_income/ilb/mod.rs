@@ -4,7 +4,8 @@
 //! TIPS, UK Index-Linked Gilts, and other inflation-protected securities.
 
 use crate::results::ValuationResult;
-use crate::traits::{Attributes, DatedFlows, Priceable};
+use crate::cashflow::traits::DatedFlows;
+use crate::instruments::traits::{Attributes, Priceable};
 use finstack_core::market_data::inflation_index::{InflationIndex, InflationLag};
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::money::Money;

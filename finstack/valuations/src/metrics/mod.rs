@@ -26,11 +26,13 @@ pub mod ids;
 pub mod registry;
 pub mod risk;
 pub mod traits;
+pub mod traits_ext;
 
 pub use ids::MetricId;
 pub use registry::MetricRegistry;
 pub use risk::{BucketSpec, BucketedDv01Calculator, CashflowCaching};
 pub use traits::{MetricCalculator, MetricContext};
+pub use traits_ext::{RiskBucket, RiskMeasurable, RiskReport};
 
 /// Creates a standard metric registry with all built-in metrics.
 ///

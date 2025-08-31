@@ -6,7 +6,7 @@ use super::OptionType;
 use super::models::norm_cdf;
 use super::models::{SABRModel, SABRParameters};
 use crate::results::ValuationResult;
-use crate::traits::{Attributable, Attributes, Priceable};
+use crate::instruments::traits::{Attributable, Attributes, Priceable};
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::multicurve::CurveSet;
 use finstack_core::market_data::traits::Discount;

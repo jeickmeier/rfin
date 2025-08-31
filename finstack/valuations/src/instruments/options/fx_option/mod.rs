@@ -4,7 +4,7 @@ pub mod metrics;
 
 use crate::impl_attributable;
 use crate::results::ValuationResult;
-use crate::traits::{Attributes, Priceable};
+use crate::instruments::traits::{Attributes, Priceable};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::multicurve::CurveSet;

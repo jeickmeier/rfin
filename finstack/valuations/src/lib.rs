@@ -20,7 +20,6 @@
 
 pub mod cashflow;
 pub mod results;
-pub mod traits;
 
 // Export macros before instruments module
 #[macro_use]
@@ -28,7 +27,5 @@ pub mod instruments;
 pub mod covenants;
 pub mod metrics;
 pub mod performance;
-// policy module removed to keep valuations focused on pricing/risk surfaces
-// workout module removed to keep valuations focused on pricing/risk surfaces
 
 pub use finstack_core::prelude::*;

@@ -8,7 +8,8 @@ use finstack_core::F;
 
 // (no longer using cashflow builder for deposits)
 use crate::metrics::MetricId;
-use crate::traits::{Attributes, CashflowProvider, DatedFlows, Priceable};
+use crate::cashflow::traits::{CashflowProvider, DatedFlows};
+use crate::instruments::traits::{Attributes, Priceable};
 use crate::{impl_attributable, impl_builder};
 // (no scheduling knobs needed in the two-flow model)
 

@@ -180,7 +180,7 @@ impl BondBuilder {
             call_put: self.call_put,
             amortization: self.amortization,
             custom_cashflows: self.custom_cashflows,
-            attributes: crate::traits::Attributes::new(),
+            attributes: crate::instruments::traits::Attributes::new(),
         })
     }
 }

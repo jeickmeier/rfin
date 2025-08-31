@@ -12,12 +12,12 @@
 #[macro_export]
 macro_rules! impl_attributable {
     ($type:ident) => {
-        impl $crate::traits::Attributable for $type {
-            fn attributes(&self) -> &$crate::traits::Attributes {
+        impl $crate::instruments::traits::Attributable for $type {
+            fn attributes(&self) -> &$crate::instruments::traits::Attributes {
                 &self.attributes
             }
 
-            fn attributes_mut(&mut self) -> &mut $crate::traits::Attributes {
+            fn attributes_mut(&mut self) -> &mut $crate::instruments::traits::Attributes {
                 &mut self.attributes
             }
         }
@@ -71,7 +71,7 @@ macro_rules! impl_builder {
                     $(
                         $opt_field: self.$opt_field,
                     )*
-                    attributes: $crate::traits::Attributes::default(),
+                    attributes: $crate::instruments::traits::Attributes::default(),
                 })
             }
         }

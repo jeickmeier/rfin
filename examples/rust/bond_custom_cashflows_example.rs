@@ -12,7 +12,8 @@ use finstack_core::money::Money;
 use finstack_valuations::cashflow::primitives::AmortizationSpec;
 use finstack_valuations::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
 use finstack_valuations::instruments::fixed_income::bond::Bond;
-use finstack_valuations::traits::{CashflowProvider, Priceable};
+use finstack_valuations::cashflow::traits::CashflowProvider;
+use finstack_valuations::instruments::traits::Priceable;
 
 use time::Month;
 
@@ -239,7 +240,7 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
         call_put: None,
         amortization: None,
         custom_cashflows: None,
-        attributes: finstack_valuations::traits::Attributes::new(),
+        attributes: finstack_valuations::instruments::traits::Attributes::new(),
     };
 
     // Create custom bond with higher frequency

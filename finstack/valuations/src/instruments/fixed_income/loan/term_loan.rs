@@ -6,7 +6,8 @@ use crate::cashflow::primitives::AmortizationSpec;
 use crate::cashflow::builder::{cf, CouponType, FeeSpec, FixedCouponSpec, FloatingCouponSpec};
 use crate::impl_attributable;
 use crate::metrics::MetricId;
-use crate::traits::{Attributes, CashflowProvider};
+use crate::cashflow::traits::CashflowProvider;
+use crate::instruments::traits::Attributes;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::multicurve::CurveSet;
 
@@ -422,10 +423,10 @@ impl CashflowProvider for Loan {
 }
 
 // Implement Priceable directly (replaces deprecated impl_priceable! usage)
-impl crate::traits::Priceable for Loan {
+impl crate::instruments::traits::Priceable for Loan {
     fn value(&self, curves: &CurveSet, as_of: Date) -> finstack_core::Result<Money> {
         use crate::instruments::fixed_income::discountable::Discountable;
-        let flows = <Self as crate::traits::CashflowProvider>::build_schedule(self, curves, as_of)?;
+        let flows = <Self as crate::cashflow::traits::CashflowProvider>::build_schedule(self, curves, as_of)?;
         let disc = curves.discount(self.disc_id)?;
         flows.npv(&*disc, disc.base_date(), self.day_count)
     }

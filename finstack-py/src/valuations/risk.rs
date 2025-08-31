@@ -1,6 +1,6 @@
 //! Risk metrics and sensitivity calculations.
 
-use finstack_valuations::traits::{RiskBucket, RiskReport};
+use finstack_valuations::metrics::{RiskBucket, RiskReport};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
