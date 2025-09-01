@@ -73,12 +73,12 @@ impl BinomialTree {
         let sign = if z >= 0.0 { 1.0 } else { -1.0 };
         let z2 = z * z;
 
-        // Peizer–Pratt mapping (QuantLib/LR form):
+        // Peizer–Pratt mapping (LR PP2 form):
         // beta = z^2 * (m + 1/6) / (m + 1/3 + 0.1/(m+1))
-        // H^{-1}(z) = 0.5 + sign(z)*0.5 * sqrt(1 - exp(-beta))
+        // H^{-1}(z) = 0.5 + sign(z)*0.5 * sqrt(1 - exp(-2*beta))
         let denom = n_eff + 1.0 / 3.0 + 0.1 / (n_eff + 1.0);
         let beta = z2 * (n_eff + 1.0 / 6.0) / denom;
-        let p = 0.5 + sign * 0.5 * (1.0 - (-beta).exp()).sqrt();
+        let p = 0.5 + sign * 0.5 * (1.0 - (-2.0 * beta).exp()).sqrt();
 
         // Numerically enforce bounds
         p.clamp(0.0, 1.0)
@@ -645,7 +645,7 @@ mod tests {
         let bs_value = 10.4506; // Known Black-Scholes value
 
         println!(
-            "CRR(50)={}, LR(50)={}, BS={} diffs: CRR={}, LR={}",
+            "CRR(101)={}, LR(101)={}, BS={} diffs: CRR={}, LR={}",
             crr_price,
             lr_price,
             bs_value,
@@ -659,14 +659,14 @@ mod tests {
             "CRR price should be close to BS value"
         );
 
-        // LR should be closer and within a tight tolerance at moderate steps
+        // LR should be closer and within a tight tolerance at higher odd steps
         assert!(
             (lr_price - bs_value).abs() < (crr_price - bs_value).abs(),
             "LR should be closer to BS than CRR"
         );
         assert!(
             (lr_price - bs_value).abs() < 0.05,
-            "LR(50) should be within 5c of BS"
+            "LR(101) should be within 5c of BS"
         );
     }
 
