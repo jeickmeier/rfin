@@ -193,10 +193,6 @@ fn test_low_volatility_convertible() {
 
     let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(20)).unwrap();
 
-    // Should work with low volatility
-    assert!(price.is_ok());
-    let price = price.unwrap();
-
     // With low vol, should be close to max(bond_value, conversion_value)
     let conversion_value = 150.0 * 10.0; // $1,500
     assert!(price.amount() >= conversion_value * 0.95); // Allow for rounding
@@ -350,10 +346,9 @@ fn test_callable_convertible_bond() {
     let market_context = create_test_market_context();
     
     let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(50)).unwrap();
-    assert!(price.is_ok());
     
     // Price should be capped by call option
-    let price_val = price.unwrap();
+    let price_val = price;
     // Note: call option may not cap price perfectly due to tree discretization and time value
     assert!(price_val.amount() <= 1700.0); // Should be influenced by call option
 }
