@@ -118,20 +118,20 @@ impl BinomialTree {
                     / (sigma * t.sqrt());
                 let d2 = d1 - sigma * t.sqrt();
 
-                // Probability using PP inversion on d2
-                let mut p = self.peizer_pratt_inversion(d2, self.steps);
+                // Probabilities via PP inversion
                 let eps = 1e-12;
-                p = p.clamp(eps, 1.0 - eps);
+                let p = self.peizer_pratt_inversion(d2, self.steps).clamp(eps, 1.0 - eps);
+                let p_star = self
+                    .peizer_pratt_inversion(d1, self.steps)
+                    .clamp(eps, 1.0 - eps);
 
-                // Use CRR-like step sizes; LR improves probabilities via PP mapping
-                let u = (sigma * dt.sqrt()).exp();
-                let d = 1.0 / u;
+                // Compute u and d to match drift and approximate delta
+                let nu = ((r - q) * dt).exp();
+                let u = nu * (p_star / p);
+                let d = nu * ((1.0 - p_star) / (1.0 - p));
 
-                // Validate probability and bounds
-                if !(0.0..=1.0).contains(&p) {
-                    return Err(Error::Internal);
-                }
-                if !(u > 1.0 && d < 1.0) {
+                // Validate parameters
+                if !(u.is_finite() && d.is_finite() && u > 1.0 && d < 1.0 && u > d) {
                     return Err(Error::Internal);
                 }
 

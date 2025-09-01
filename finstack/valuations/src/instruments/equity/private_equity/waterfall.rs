@@ -505,15 +505,15 @@ impl<'a> EquityWaterfallEngine<'a> {
             if event.kind == FundEventKind::Distribution || event.kind == FundEventKind::Proceeds {
                 // Run waterfall allocation
                 let lp_distributed_so_far: F = ledger_rows.iter().map(|r| r.to_lp.amount()).sum();
-                let allocations = self.allocate_distribution(
-                    event.amount,
-                    lp_unreturned,
-                    gp_carry_cum,
-                    lp_distributed_so_far,
-                    events,
-                    event.date,
+                let allocations = self.allocate_distribution(AllocationParams {
+                    total_amount: event.amount,
+                    initial_lp_unreturned: lp_unreturned,
+                    initial_gp_carry: gp_carry_cum,
+                    lp_distributed_cum_before: lp_distributed_so_far,
+                    all_events: events,
+                    allocation_date: event.date,
                     currency,
-                )?;
+                })?;
 
                 for alloc in allocations {
                     lp_unreturned = alloc.lp_unreturned.amount();
@@ -572,15 +572,15 @@ impl<'a> EquityWaterfallEngine<'a> {
             // For each deal, allocate proceeds through the waterfall
             for event in deal_events {
                 let lp_distributed_so_far: F = ledger_rows.iter().map(|r| r.to_lp.amount()).sum();
-                let allocations = self.allocate_distribution(
-                    event.amount,
-                    total_lp_unreturned,
-                    total_gp_carry,
-                    lp_distributed_so_far,
-                    events, // Pass all events for IRR calculation context
-                    event.date,
+                let allocations = self.allocate_distribution(AllocationParams {
+                    total_amount: event.amount,
+                    initial_lp_unreturned: total_lp_unreturned,
+                    initial_gp_carry: total_gp_carry,
+                    lp_distributed_cum_before: lp_distributed_so_far,
+                    all_events: events,
+                    allocation_date: event.date,
                     currency,
-                )?;
+                })?;
 
                 for mut alloc in allocations {
                     alloc.deal_id = Some(deal_id.clone());
@@ -597,29 +597,22 @@ impl<'a> EquityWaterfallEngine<'a> {
     /// Allocate a single distribution through the waterfall.
     fn allocate_distribution(
         &self,
-        total_amount: Money,
-        initial_lp_unreturned: F,
-        initial_gp_carry: F,
-        lp_distributed_cum_before: F,
-        all_events: &[FundEvent], // For IRR calculation context
-        allocation_date: Date,
-        currency: Currency,
+        params: AllocationParams,
     ) -> finstack_core::Result<Vec<AllocationRow>> {
-        let mut remaining_amount = total_amount.amount();
-        let mut lp_unreturned = initial_lp_unreturned;
-        let mut gp_carry_cum = initial_gp_carry;
+        let mut remaining_amount = params.total_amount.amount();
+        let mut lp_unreturned = params.initial_lp_unreturned;
+        let mut gp_carry_cum = params.initial_gp_carry;
         let mut allocations = Vec::new();
 
         // Track LP allocated within this distribution call (prior tranches)
         let mut lp_allocated_in_call_so_far: F = 0.0;
 
         // Precompute holdback percent (0.0 if none or clawback disabled)
-        let holdback_pct: F = match &self.spec.clawback {
+        let holdback_pct: F = (match &self.spec.clawback {
             Some(c) if c.enable => c.holdback_pct.unwrap_or(0.0),
             _ => 0.0,
-        }
-        .max(0.0)
-        .min(1.0);
+        })
+        .clamp(0.0, 1.0);
 
         for (idx, tranche) in self.spec.tranches.iter().enumerate() {
             if remaining_amount <= 1e-6 {
@@ -644,8 +637,8 @@ impl<'a> EquityWaterfallEngine<'a> {
                     // Calculate required amount to achieve target IRR
                     let required = self.calculate_preferred_amount(
                         *irr,
-                        all_events,
-                        allocation_date,
+                        params.all_events,
+                        params.allocation_date,
                         lp_unreturned,
                     )?;
                     let allocation = remaining_amount.min(required);
@@ -670,15 +663,16 @@ impl<'a> EquityWaterfallEngine<'a> {
                     }
 
                     // Compute contributions up to current date
-                    let total_contributions_to_date: F = all_events
+                    let total_contributions_to_date: F = params
+                        .all_events
                         .iter()
-                        .filter(|e| e.kind == FundEventKind::Contribution && e.date <= allocation_date)
+                        .filter(|e| e.kind == FundEventKind::Contribution && e.date <= params.allocation_date)
                         .map(|e| e.amount.amount())
                         .sum();
 
                     // Profit to date before this catch-up tranche (gross basis)
                     let mut profit_excl =
-                        (lp_distributed_cum_before + lp_allocated_in_call_so_far + gp_carry_cum)
+                        (params.lp_distributed_cum_before + lp_allocated_in_call_so_far + gp_carry_cum)
                             - total_contributions_to_date;
                     if !profit_excl.is_finite() || profit_excl.is_sign_negative() {
                         profit_excl = 0.0;
@@ -733,23 +727,34 @@ impl<'a> EquityWaterfallEngine<'a> {
             };
 
             // Calculate current LP IRR if we have enough data
-            let lp_irr_to_date = self.calculate_lp_irr_to_date(all_events, allocation_date);
+            let lp_irr_to_date = self.calculate_lp_irr_to_date(params.all_events, params.allocation_date);
 
             allocations.push(AllocationRow {
-                date: allocation_date,
+                date: params.allocation_date,
                 period_key: None, // TODO: Add period support if needed
                 deal_id: None,    // Set by caller for American style
                 tranche: tranche_name,
                 to_lp: Money::new(to_lp, currency),
                 to_gp: Money::new(to_gp_paid, currency),
-                lp_unreturned: Money::new(lp_unreturned, currency),
-                gp_carry_cum: Money::new(gp_carry_cum_after, currency),
+                lp_unreturned: Money::new(lp_unreturned, params.currency),
+                gp_carry_cum: Money::new(gp_carry_cum_after, params.currency),
                 lp_irr_to_date,
                 note: None,
             });
         }
 
         Ok(allocations)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    struct AllocationParams<'e> {
+        total_amount: Money,
+        initial_lp_unreturned: F,
+        initial_gp_carry: F,
+        lp_distributed_cum_before: F,
+        all_events: &'e [FundEvent],
+        allocation_date: Date,
+        currency: Currency,
     }
 
     /// Calculate the amount needed for preferred return using robust root finding.
@@ -1097,5 +1102,90 @@ mod tests {
         };
 
         assert!(invalid_spec.validate().is_err());
+    }
+
+    #[test]
+    fn catchup_precise_reaches_target_split() {
+        let spec = WaterfallSpec::builder()
+            .style(WaterfallStyle::European)
+            .return_of_capital()
+            .preferred_irr(0.08)
+            .catchup(1.0)
+            .promote_tier(0.0, 0.8, 0.2)
+            .build()
+            .unwrap();
+
+        let events = vec![
+            FundEvent::contribution(
+                test_date(2020, 1, 1),
+                Money::new(100.0, test_currency()),
+            ),
+            FundEvent::distribution(
+                test_date(2024, 1, 1),
+                Money::new(200.0, test_currency()),
+            ),
+        ];
+
+        let engine = EquityWaterfallEngine::new(&spec);
+        let ledger = engine.run(&events).unwrap();
+
+        let total_gp: F = ledger.rows.iter().map(|r| r.to_gp.amount()).sum();
+        let total_lp: F = ledger.rows.iter().map(|r| r.to_lp.amount()).sum();
+        let profit = (total_lp + total_gp) - 100.0;
+
+        // Ensure profit positive and GP share ~20%
+        assert!(profit > 0.0);
+        let gp_share = if profit.abs() > 1e-9 { total_gp / profit } else { 0.0 };
+        assert!((gp_share - 0.20).abs() < 1e-6, "gp_share={}", gp_share);
+
+        // Catch-up row should exist with positive GP allocation (likely ~9)
+        let catchup_rows: Vec<_> = ledger
+            .rows
+            .iter()
+            .filter(|r| r.tranche.contains("Catch-Up") && r.to_gp.amount() > 0.0)
+            .collect();
+        assert!(!catchup_rows.is_empty());
+    }
+
+    #[test]
+    fn clawback_fund_end_overdistribution() {
+        let claw = ClawbackSpec {
+            enable: true,
+            holdback_pct: None,
+            settle_on: ClawbackSettle::FundEnd,
+        };
+
+        let spec = WaterfallSpec::builder()
+            .style(WaterfallStyle::European)
+            .return_of_capital()
+            .promote_tier(0.0, 0.8, 0.2)
+            .clawback(claw)
+            .build()
+            .unwrap();
+
+        let events = vec![
+            FundEvent::contribution(
+                test_date(2020, 1, 1),
+                Money::new(100.0, test_currency()),
+            ),
+            FundEvent::distribution(
+                test_date(2022, 1, 1),
+                Money::new(150.0, test_currency()),
+            ),
+            FundEvent::contribution(
+                test_date(2023, 1, 1),
+                Money::new(90.0, test_currency()),
+            ),
+        ];
+
+        let engine = EquityWaterfallEngine::new(&spec);
+        let ledger = engine.run(&events).unwrap();
+
+        // Last row should be clawback settlement with negative GP amount
+        let last = ledger.rows.last().expect("rows");
+        assert!(last.tranche.contains("Clawback Settlement"));
+        assert!(last.to_gp.amount() < 0.0);
+        // In this scenario, first promote paid GP 10; final profit is 0 so GP should return ~10
+        assert!((last.to_gp.amount() + 10.0).abs() < 1e-6);
     }
 }
