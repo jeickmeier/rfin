@@ -73,12 +73,12 @@ impl BinomialTree {
         let sign = if z >= 0.0 { 1.0 } else { -1.0 };
         let z2 = z * z;
 
-        // Peizer–Pratt mapping (LR form):
+        // Peizer–Pratt mapping (QuantLib/LR form):
         // beta = z^2 * (m + 1/6) / (m + 1/3 + 0.1/(m+1))
-        // H^{-1}(z) = 0.5 + sign(z)*0.5 * sqrt(1 - exp(-2*beta))
+        // H^{-1}(z) = 0.5 + sign(z)*0.5 * sqrt(1 - exp(-beta))
         let denom = n_eff + 1.0 / 3.0 + 0.1 / (n_eff + 1.0);
         let beta = z2 * (n_eff + 1.0 / 6.0) / denom;
-        let p = 0.5 + sign * 0.5 * (1.0 - (-2.0 * beta).exp()).sqrt();
+        let p = 0.5 + sign * 0.5 * (1.0 - (-beta).exp()).sqrt();
 
         // Numerically enforce bounds
         p.clamp(0.0, 1.0)
@@ -118,22 +118,17 @@ impl BinomialTree {
                     / (sigma * t.sqrt());
                 let d2 = d1 - sigma * t.sqrt();
 
-                // Risk-neutral probability via PP inversion of d2
+                // Probabilities via PP inversion
                 let eps = 1e-12;
                 let p = self.peizer_pratt_inversion(d2, self.steps).clamp(eps, 1.0 - eps);
+                let p_star = self
+                    .peizer_pratt_inversion(d1, self.steps)
+                    .clamp(eps, 1.0 - eps);
 
-                // QuantLib-style LR: match mean and variance per step
-                // Mean m1 = E[R] and variance var = Var(R) for gross returns R
-                let m1 = ((r - q) * dt).exp();
-                let var = m1 * m1 * ((sigma * sigma * dt).exp() - 1.0);
-                let one_minus_p = 1.0 - p;
-                let denom = p * one_minus_p;
-                if denom <= 0.0 {
-                    return Err(Error::Internal);
-                }
-                let delta = (var / denom).sqrt();
-                let d = m1 - p * delta;
-                let u = m1 + one_minus_p * delta;
+                // QuantLib-style LR u,d from drift and p*,p
+                let nu = ((r - q) * dt).exp();
+                let u = nu * (p_star / p);
+                let d = nu * ((1.0 - p_star) / (1.0 - p));
 
                 if !(u.is_finite() && d.is_finite() && u > 1.0 && d < 1.0 && u > d) {
                     return Err(Error::Internal);
@@ -636,8 +631,8 @@ mod tests {
         let t = 1.0;
         let q = 0.0;
 
-        let crr = BinomialTree::crr(50);
-        let lr = BinomialTree::leisen_reimer(50);
+        let crr = BinomialTree::crr(101);
+        let lr = BinomialTree::leisen_reimer(101);
 
         let crr_price = crr
             .price_european(spot, strike, r, sigma, t, q, OptionType::Call)
@@ -685,7 +680,7 @@ mod tests {
         let t = 1.0;
         let q = 0.0;
 
-        let lr = BinomialTree::leisen_reimer(50);
+        let lr = BinomialTree::leisen_reimer(101);
         let lr_put = lr
             .price_european(spot, strike, r, sigma, t, q, OptionType::Put)
             .unwrap();
