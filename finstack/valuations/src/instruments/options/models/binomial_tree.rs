@@ -68,8 +68,9 @@ impl BinomialTree {
             return 0.5;
         }
 
-        // LR recommend an odd number of steps for best accuracy; use nearest odd in mapping
-        let n_eff = if n % 2 == 0 { n + 1 } else { n } as f64;
+        // LR recommend an odd number of steps for best accuracy; use nearest lower odd in mapping
+        let n_eff = if n % 2 == 0 { n - 1 } else { n } as f64;
+        let n_eff = n_eff.max(1.0);
         let sign = if z >= 0.0 { 1.0 } else { -1.0 };
         let z2 = z * z;
 
@@ -134,6 +135,12 @@ impl BinomialTree {
                 if !(u.is_finite() && d.is_finite() && u > 1.0 && d < 1.0 && u > d) {
                     return Err(Error::Internal);
                 }
+
+                #[cfg(test)]
+                println!(
+                    "LR params: p={:.6}, p*={:.6}, u={:.6}, d={:.6}, nu={:.6}, dt={:.6}",
+                    p, p_star, u, d, nu, dt
+                );
 
                 (u, d, p)
             }
