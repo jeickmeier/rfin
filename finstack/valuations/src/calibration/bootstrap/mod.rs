@@ -4,8 +4,8 @@
 
 pub mod credit_curve;
 pub mod inflation_curve;
-pub mod yield_curve;
+pub mod yield_curve_single;
 
 pub use credit_curve::*;
 pub use inflation_curve::*;
-pub use yield_curve::*;
+pub use yield_curve_single::*;
