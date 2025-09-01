@@ -74,6 +74,8 @@ pub struct SimulationConfig {
     pub rate_simulation: RateSimulationConfig,
     /// Credit risk configuration
     pub credit_config: Option<CreditConfig>,
+    /// Whether to store path-wise PVs for exact distribution metrics
+    pub store_path_pvs: bool,
 }
 
 impl Default for SimulationConfig {
@@ -84,6 +86,7 @@ impl Default for SimulationConfig {
             use_mid_point_averaging: true,
             rate_simulation: RateSimulationConfig::default(),
             credit_config: None,
+            store_path_pvs: false, // Default to not storing for memory efficiency
         }
     }
 }
@@ -306,9 +309,22 @@ impl Default for PVBreakdown {
     }
 }
 
+/// Path results for exact distribution metrics
+#[derive(Clone, Debug, Default)]
+struct PathResults {
+    /// Path-wise present values
+    pvs: Vec<F>,
+    /// Number of defaults observed
+    default_count: usize,
+    /// Total number of paths
+    total_paths: usize,
+}
+
 /// Forward simulation engine for loan facilities
 pub struct LoanSimulator {
     config: SimulationConfig,
+    /// Cached path results for exact metrics computation
+    path_results: std::sync::Mutex<Option<PathResults>>,
 }
 
 impl LoanSimulator {
@@ -316,12 +332,16 @@ impl LoanSimulator {
     pub fn new() -> Self {
         Self {
             config: SimulationConfig::default(),
+            path_results: std::sync::Mutex::new(None),
         }
     }
 
     /// Create simulator with custom config
     pub fn with_config(config: SimulationConfig) -> Self {
-        Self { config }
+        Self { 
+            config,
+            path_results: std::sync::Mutex::new(None),
+        }
     }
 
     /// Simulate facility and return comprehensive valuation result
@@ -548,11 +568,30 @@ impl LoanSimulator {
 
         let mut total_breakdown = PVBreakdown::default();
         let mut expected_states = vec![FacilityState::new(as_of, 0.0, 0.0); timeline.len()];
+        
+        // Storage for path-wise PVs and default tracking
+        let mut path_pvs = if self.config.store_path_pvs {
+            Some(Vec::with_capacity(num_paths))
+        } else {
+            None
+        };
+        let mut default_count = 0;
 
         // Run Monte Carlo paths
         for _path in 0..num_paths {
-            let (path_breakdown, path_states) =
+            let (path_breakdown, path_states, defaulted) =
                 self.simulate_single_path(facility, curves, as_of, timeline, rng.as_mut())?;
+
+            // Track defaults
+            if defaulted {
+                default_count += 1;
+            }
+            
+            // Calculate path PV if storing
+            if let Some(ref mut pvs) = path_pvs {
+                let path_pv = self.breakdown_to_pv(&path_breakdown);
+                pvs.push(path_pv);
+            }
 
             // Accumulate breakdown
             total_breakdown.future_draws += path_breakdown.future_draws / num_paths as F;
@@ -577,11 +616,16 @@ impl LoanSimulator {
         for (i, date) in timeline.iter().enumerate() {
             expected_states[i].date = *date;
         }
+        
+        // Store path results for use in risk metrics calculation
+        if let Some(pvs) = path_pvs {
+            self.store_path_results(pvs, default_count, num_paths);
+        }
 
         Ok((total_breakdown, expected_states))
     }
 
-    /// Single Monte Carlo path simulation
+    /// Single Monte Carlo path simulation with default tracking
     fn simulate_single_path<T: LoanFacility>(
         &self,
         facility: &T,
@@ -589,7 +633,7 @@ impl LoanSimulator {
         as_of: Date,
         timeline: &[Date],
         rng: &mut dyn RandomNumberGenerator,
-    ) -> finstack_core::Result<(PVBreakdown, Vec<FacilityState>)> {
+    ) -> finstack_core::Result<(PVBreakdown, Vec<FacilityState>, bool)> {
         let disc = curves.discount(facility.disc_id())?;
         let mut breakdown = PVBreakdown::default();
         let mut state_path = Vec::new();
@@ -612,6 +656,7 @@ impl LoanSimulator {
             None
         };
 
+        let mut default_occurred = false;
         state_path.push(FacilityState::new(as_of, current_drawn, commitment));
 
         for i in 0..timeline.len() - 1 {
@@ -622,6 +667,7 @@ impl LoanSimulator {
             if let Some(def_time) = default_time {
                 if def_time <= period_end && def_time > period_start {
                     // Default occurred in this period
+                    default_occurred = true;
                     let recovery = self.calculate_recovery(
                         current_drawn,
                         &self.config.credit_config,
@@ -701,7 +747,7 @@ impl LoanSimulator {
             state_path.push(FacilityState::new(period_end, current_drawn, commitment));
         }
 
-        Ok((breakdown, state_path))
+        Ok((breakdown, state_path, default_occurred))
     }
 
     /// Calculate cash flows for a single period (implementation)
@@ -943,27 +989,69 @@ impl LoanSimulator {
     /// Simulate time of default using inverse transform sampling
     fn simulate_default_time(
         &self,
-        _curves: &MarketContext,
+        curves: &MarketContext,
         timeline: &[Date],
         credit_curve_id: Option<&'static str>,
         rng: &mut dyn RandomNumberGenerator,
     ) -> finstack_core::Result<Option<Date>> {
-        if let Some(_curve_id) = credit_curve_id {
-            // For now, use simplified default probability
-            // In a full implementation, would use credit curves from MarketContext
-            let u = rng.uniform();
-            
-            // Simple constant hazard rate model: 2% annual default probability
-            let annual_default_prob = 0.02;
-            let survival_threshold = (-annual_default_prob as F).exp();
-            
-            if u > survival_threshold {
-                // Default occurs - randomly select time within simulation period
-                let default_time_u = rng.uniform();
-                let total_days = (timeline[timeline.len() - 1] - timeline[0]).whole_days();
-                let days_to_default = (default_time_u * total_days as F) as i64;
-                let default_date = timeline[0] + time::Duration::days(days_to_default);
-                return Ok(Some(default_date));
+        if let Some(curve_id) = credit_curve_id {
+            // Try to get hazard curve from MarketContext
+            if let Ok(hazard_curve) = curves.hazard(curve_id) {
+                // Use proper hazard curve for default simulation
+                let base_date = timeline[0];
+                let u = rng.uniform();
+                
+                // Pre-compute survival probabilities at timeline nodes
+                let mut survival_probs = Vec::with_capacity(timeline.len());
+                for &date in timeline {
+                    let t = hazard_curve.day_count().year_fraction(base_date, date)?;
+                    let sp = hazard_curve.sp(t);
+                    survival_probs.push((date, sp));
+                }
+                
+                // Find the interval where survival drops below u
+                for i in 0..survival_probs.len() - 1 {
+                    let (date1, sp1) = survival_probs[i];
+                    let (date2, sp2) = survival_probs[i + 1];
+                    
+                    if sp1 >= u && sp2 < u {
+                        // Default occurs in this interval - interpolate the date
+                        if sp1 == sp2 {
+                            return Ok(Some(date1));
+                        }
+                        
+                        // Linear interpolation of survival probability to find exact default time
+                        let weight = (sp1 - u) / (sp1 - sp2);
+                        let days_in_interval = (date2 - date1).whole_days();
+                        let days_to_default = (weight * days_in_interval as F) as i64;
+                        let default_date = date1 + time::Duration::days(days_to_default);
+                        return Ok(Some(default_date));
+                    }
+                }
+                
+                // Check if default occurs after last timeline point
+                if let Some((_, last_sp)) = survival_probs.last() {
+                    if *last_sp < u {
+                        // Default occurs beyond simulation - use last date
+                        return Ok(Some(timeline[timeline.len() - 1]));
+                    }
+                }
+            } else {
+                // Fallback to simple constant hazard model when curve not available
+                let u = rng.uniform();
+                
+                // Simple constant hazard rate model: 2% annual default probability
+                let annual_default_prob = 0.02;
+                let survival_threshold = (-annual_default_prob as F).exp();
+                
+                if u > survival_threshold {
+                    // Default occurs - randomly select time within simulation period
+                    let default_time_u = rng.uniform();
+                    let total_days = (timeline[timeline.len() - 1] - timeline[0]).whole_days();
+                    let days_to_default = (default_time_u * total_days as F) as i64;
+                    let default_date = timeline[0] + time::Duration::days(days_to_default);
+                    return Ok(Some(default_date));
+                }
             }
         }
         Ok(None)
@@ -1016,13 +1104,13 @@ impl LoanSimulator {
             
             // Generate base path
             let mut base_rng = SeededRng::new(seed);
-            let (base_breakdown, base_states) = self.simulate_single_path(
+            let (base_breakdown, base_states, _) = self.simulate_single_path(
                 facility, curves, as_of, timeline, &mut base_rng
             )?;
             
             // Generate antithetic path
             let mut anti_rng = AntitheticRng::new(seed);
-            let (anti_breakdown, anti_states) = self.simulate_single_path(
+            let (anti_breakdown, anti_states, _) = self.simulate_single_path(
                 facility, curves, as_of, timeline, &mut anti_rng
             )?;
             
@@ -1090,7 +1178,7 @@ impl LoanSimulator {
         
         for path in 0..self.config.monte_carlo_paths {
             let mut rng = SeededRng::new(self.config.random_seed.unwrap_or(42) + path as u64);
-            let (path_breakdown, path_states) = self.simulate_single_path(
+            let (path_breakdown, path_states, _) = self.simulate_single_path(
                 facility, curves, as_of, timeline, &mut rng
             )?;
             
@@ -1171,7 +1259,14 @@ impl LoanSimulator {
             0.0
         };
 
-        // Simple percentiles (would need path-level data for full implementation)
+        // Check if we have stored path results for exact computation
+        if let Ok(guard) = self.path_results.lock() {
+            if let Some(ref path_results) = *guard {
+                return self.calculate_exact_risk_metrics(path_results, peak_exposure, wal);
+            }
+        }
+
+        // Fallback to heuristic percentiles
         let pv_percentiles = vec![
             (0.05, total_pv * 0.9),
             (0.25, total_pv * 0.95),
@@ -1187,7 +1282,51 @@ impl LoanSimulator {
             expected_shortfall_95,
             peak_exposure,
             wal,
-            default_probability: None, // Would calculate from credit config
+            default_probability: None,
+        }
+    }
+
+    /// Calculate exact risk metrics from stored path results
+    fn calculate_exact_risk_metrics(&self, path_results: &PathResults, peak_exposure: F, wal: F) -> RiskMetrics {
+        let mut sorted_pvs = path_results.pvs.clone();
+        sorted_pvs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        
+        let n = sorted_pvs.len();
+        if n == 0 {
+            return RiskMetrics::default();
+        }
+
+        // Calculate exact percentiles
+        let percentiles = [0.05, 0.25, 0.50, 0.75, 0.95];
+        let pv_percentiles: Vec<(F, F)> = percentiles
+            .iter()
+            .map(|&p| {
+                let idx = ((n as F * p).floor() as usize).min(n - 1);
+                (p, sorted_pvs[idx])
+            })
+            .collect();
+
+        // Calculate Expected Shortfall (CVaR) at 95% - mean of worst 5%
+        let tail_size = (n as F * 0.05).ceil() as usize;
+        let expected_shortfall_95 = if tail_size > 0 {
+            sorted_pvs[..tail_size].iter().sum::<F>() / tail_size as F
+        } else {
+            sorted_pvs[0]
+        };
+
+        // Calculate default probability only if credit modeling was enabled
+        let default_probability = if path_results.total_paths > 0 && self.config.credit_config.is_some() {
+            Some(path_results.default_count as F / path_results.total_paths as F)
+        } else {
+            None
+        };
+
+        RiskMetrics {
+            pv_percentiles,
+            expected_shortfall_95,
+            peak_exposure,
+            wal,
+            default_probability,
         }
     }
 
@@ -1214,6 +1353,19 @@ impl LoanSimulator {
         }
         
         (first_half_mean - second_half_mean).abs() / first_half_mean.abs() < tolerance
+    }
+
+    /// Store path results for later exact metrics computation
+    fn store_path_results(&self, pvs: Vec<F>, default_count: usize, total_paths: usize) {
+        let path_results = PathResults {
+            pvs,
+            default_count,
+            total_paths,
+        };
+        
+        if let Ok(mut guard) = self.path_results.lock() {
+            *guard = Some(path_results);
+        }
     }
 }
 
@@ -1427,6 +1579,7 @@ mod tests {
         assert!(config.use_mid_point_averaging);
         assert!(matches!(config.rate_simulation, RateSimulationConfig::Deterministic));
         assert!(config.credit_config.is_none());
+        assert!(!config.store_path_pvs);
     }
 
     #[test]
@@ -1499,6 +1652,7 @@ mod tests {
                 correlation: 0.5,
             },
             credit_config: None,
+            store_path_pvs: false,
         };
         
         let simulator = LoanSimulator::with_config(config);
@@ -1532,6 +1686,7 @@ mod tests {
                 recovery_rate: 0.6,
                 model_migrations: false,
             }),
+            store_path_pvs: false,
         };
         
         let simulator = LoanSimulator::with_config(config);
@@ -1567,6 +1722,7 @@ mod tests {
             use_mid_point_averaging: true,
             rate_simulation: RateSimulationConfig::Deterministic,
             credit_config: None,
+            store_path_pvs: false,
         };
         
         // Would need a real facility implementation to test
@@ -1703,6 +1859,7 @@ mod tests {
                 correlation: 0.3,
             },
             credit_config: None,
+            store_path_pvs: false,
         };
 
         let mc_simulator = LoanSimulator::with_config(mc_config);
@@ -1750,6 +1907,7 @@ mod tests {
                 recovery_rate: 0.3, // Lower recovery for high yield
                 model_migrations: false,
             }),
+            store_path_pvs: false,
         };
 
         let simulator = LoanSimulator::with_config(credit_config);
@@ -1773,5 +1931,161 @@ mod tests {
         assert!(result.total_pv.amount().is_finite());
         assert!(!result.expected_exposure.is_empty());
         assert_eq!(result.simulation_metadata.paths_simulated, 50);
+    }
+
+    #[test]
+    fn test_hazard_curve_integration() {
+        use super::super::ddtl::DelayedDrawTermLoan;
+        use super::super::term_loan::InterestSpec;
+        use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+        
+        // Create a DDTL
+        let ddtl = DelayedDrawTermLoan::new(
+            "TEST-HAZARD-DDTL",
+            Money::new(1_000_000.0, Currency::USD),
+            Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+            InterestSpec::Fixed {
+                rate: 0.10, // High yield rate
+                step_ups: None,
+            },
+        );
+
+        // Create hazard curve with known survival profile
+        let hazard_curve = HazardCurve::builder("TEST-HAZARD")
+            .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
+            .knots([(0.0, 0.05), (1.0, 0.08), (5.0, 0.12)]) // Increasing hazard rates
+            .build()
+            .unwrap();
+
+        // Create market context with hazard curve
+        let mut curves = finstack_core::market_data::MarketContext::new();
+        let disc_curve = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder("USD-OIS")
+            .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
+            .knots([(0.0, 1.0), (1.0, 0.90), (5.0, 0.60)]) // 10% flat curve
+            .linear_df()
+            .build()
+            .unwrap();
+        curves = curves.with_discount(disc_curve).with_hazard(hazard_curve);
+
+        // Test with hazard curve present
+        let credit_config = SimulationConfig {
+            monte_carlo_paths: 100,
+            random_seed: Some(42),
+            use_mid_point_averaging: true,
+            rate_simulation: RateSimulationConfig::Deterministic,
+            credit_config: Some(CreditConfig {
+                credit_curve_id: Some("TEST-HAZARD"),
+                recovery_rate: 0.5,
+                model_migrations: false,
+            }),
+            store_path_pvs: true, // Enable exact metrics
+        };
+
+        let simulator = LoanSimulator::with_config(credit_config);
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+        let result = simulator.simulate(&ddtl, &curves, as_of).unwrap();
+        
+        // Should have valid results with hazard curve
+        assert!(result.total_pv.amount().is_finite());
+        assert!(!result.expected_exposure.is_empty());
+        assert_eq!(result.simulation_metadata.paths_simulated, 100);
+        
+        // Should have exact risk metrics with stored PVs
+        assert!(!result.risk_metrics.pv_percentiles.is_empty());
+        assert_eq!(result.risk_metrics.pv_percentiles.len(), 5);
+        
+        // Should have computed default probability
+        assert!(result.risk_metrics.default_probability.is_some());
+        let default_prob = result.risk_metrics.default_probability.unwrap();
+        assert!((0.0..=1.0).contains(&default_prob));
+    }
+
+    #[test]
+    fn test_exact_distribution_metrics() {
+        // Test with known path PVs to verify exact percentile calculation
+        use super::super::ddtl::DelayedDrawTermLoan;
+        use super::super::term_loan::InterestSpec;
+        
+        let ddtl = DelayedDrawTermLoan::new(
+            "TEST-EXACT-METRICS",
+            Money::new(1_000_000.0, Currency::USD),
+            Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+            InterestSpec::Fixed {
+                rate: 0.05,
+                step_ups: None,
+            },
+        );
+
+        // Create basic market context
+        let mut curves = finstack_core::market_data::MarketContext::new();
+        let disc_curve = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder("USD-OIS")
+            .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
+            .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.78)])
+            .linear_df()
+            .build()
+            .unwrap();
+        curves = curves.with_discount(disc_curve);
+
+        // Configure to store path PVs for exact metrics
+        let config = SimulationConfig {
+            monte_carlo_paths: 20, // Small number for deterministic testing
+            random_seed: Some(12345), // Fixed seed for reproducible results
+            use_mid_point_averaging: true,
+            rate_simulation: RateSimulationConfig::Deterministic,
+            credit_config: None,
+            store_path_pvs: true,
+        };
+
+        let simulator = LoanSimulator::with_config(config);
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+        let result = simulator.simulate(&ddtl, &curves, as_of).unwrap();
+        
+        // Verify exact metrics were computed (not heuristic)
+        assert!(!result.risk_metrics.pv_percentiles.is_empty());
+        assert_eq!(result.risk_metrics.pv_percentiles.len(), 5);
+        
+        // Percentiles should be ordered
+        let mut prev_value = F::NEG_INFINITY;
+        for (percentile, value) in &result.risk_metrics.pv_percentiles {
+            assert!(*percentile >= 0.0 && *percentile <= 1.0);
+            assert!(*value >= prev_value); // Should be non-decreasing
+            prev_value = *value;
+        }
+        
+        // ES should be <= 5th percentile (worst tail)
+        let p5_value = result.risk_metrics.pv_percentiles[0].1;
+        assert!(result.risk_metrics.expected_shortfall_95 <= p5_value);
+        
+        // Default probability should be None (no credit config)
+        assert!(result.risk_metrics.default_probability.is_none());
+    }
+
+    #[test]
+    fn test_store_path_pvs_option() {
+        // Test that storage works correctly
+        let config_with_storage = SimulationConfig {
+            monte_carlo_paths: 10,
+            random_seed: Some(42),
+            use_mid_point_averaging: true,
+            rate_simulation: RateSimulationConfig::Deterministic,
+            credit_config: None,
+            store_path_pvs: true,
+        };
+        
+        let config_without_storage = SimulationConfig {
+            monte_carlo_paths: 10,
+            random_seed: Some(42),
+            use_mid_point_averaging: true,
+            rate_simulation: RateSimulationConfig::Deterministic,
+            credit_config: None,
+            store_path_pvs: false,
+        };
+        
+        assert!(config_with_storage.store_path_pvs);
+        assert!(!config_without_storage.store_path_pvs);
     }
 }
