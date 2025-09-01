@@ -100,21 +100,3 @@ macro_rules! impl_calendar_generated {
         }
     };
 }
-
-// Export a macro for calendars driven by build-time CSV ordinals.
-/// Implement [`HolidayCalendar`](crate::dates::calendar::HolidayCalendar) using
-/// build-time CSV ordinals for exact holiday days, with rule fallback.
-///
-/// Weekend handling: This macro does not modify weekend semantics. Whether
-/// Saturdays/Sundays are considered holidays depends on the source ordinals
-/// and/or the rule fallback used to populate a year with no ordinals. Regardless,
-/// business-day checks still treat weekends as non-business days.
-#[macro_export]
-#[allow(missing_docs)]
-macro_rules! impl_calendar_generated_from_ords {
-    ($ty:ident, $id:literal, $ords:path, $offs:path, $rules:path) => {
-        compile_error!(
-            "impl_calendar_generated_from_ords! is removed. Use impl_calendar_generated!(.., RULES) instead."
-        );
-    };
-}
