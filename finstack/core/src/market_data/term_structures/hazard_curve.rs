@@ -121,6 +121,77 @@ impl HazardCurve {
     /// Day count convention associated with this curve's time axis.
     pub fn day_count(&self) -> DayCount { self.day_count }
 
+    /// Access the knot points (time, lambda) for inspection or modification.
+    pub fn knot_points(&self) -> impl Iterator<Item = (F, F)> + '_ {
+        self.knots.iter().zip(self.lambdas.iter()).map(|(&t, &lambda)| (t, lambda))
+    }
+
+    /// Access the par spread points for inspection.
+    pub fn par_spread_points(&self) -> impl Iterator<Item = (F, F)> + '_ {
+        self.par_tenors.iter().zip(self.par_spreads_bp.iter()).map(|(&t, &spread)| (t, spread))
+    }
+
+    /// Create a builder with this curve's parameters, using a new ID.
+    /// Useful for creating modified versions of the curve.
+    pub fn to_builder_with_id(&self, new_id: &'static str) -> HazardCurveBuilder {
+        let mut builder = HazardCurve::builder(new_id)
+            .base_date(self.base)
+            .recovery_rate(self.recovery_rate)
+            .day_count(self.day_count);
+        
+        if let Some(ref issuer) = self.issuer {
+            builder = builder.issuer(issuer.clone());
+        }
+        if let Some(seniority) = self.seniority {
+            builder = builder.seniority(seniority);
+        }
+        if let Some(currency) = self.currency {
+            builder = builder.currency(currency);
+        }
+        
+        // Add existing knot points
+        builder = builder.knots(self.knot_points());
+        
+        // Add existing par spread points
+        builder = builder.par_spreads(self.par_spread_points());
+        
+        builder
+    }
+
+    /// Create a new curve with hazard rates shifted by a constant amount.
+    /// Uses the same ID with a "_BUMPED" suffix.
+    /// Negative shifts are clamped to zero to ensure non-negative hazard rates.
+    pub fn with_hazard_shift(&self, shift: F) -> crate::Result<HazardCurve> {
+        let shifted_points: Vec<(F, F)> = self.knot_points()
+            .map(|(t, lambda)| (t, (lambda + shift).max(0.0)))
+            .collect();
+        
+        // Create a temporary ID for the bumped curve
+        // In practice, the caller will manage IDs when building market contexts
+        let temp_id = "TEMP_BUMPED_HAZARD";
+        
+        let mut builder = HazardCurve::builder(temp_id)
+            .base_date(self.base)
+            .recovery_rate(self.recovery_rate)
+            .day_count(self.day_count)
+            .knots(shifted_points);
+        
+        if let Some(ref issuer) = self.issuer {
+            builder = builder.issuer(issuer.clone());
+        }
+        if let Some(seniority) = self.seniority {
+            builder = builder.seniority(seniority);
+        }
+        if let Some(currency) = self.currency {
+            builder = builder.currency(currency);
+        }
+        
+        // Add existing par spread points
+        builder = builder.par_spreads(self.par_spread_points());
+        
+        builder.build()
+    }
+
     /// Return an interpolated par spread in basis points for reporting.
     /// Linear interpolation in spread, with log-linear fallback when values are positive and requested.
     pub fn quoted_spread_bp(&self, t: F, method: ParInterp) -> F {

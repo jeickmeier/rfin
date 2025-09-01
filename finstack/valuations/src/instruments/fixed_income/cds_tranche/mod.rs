@@ -59,6 +59,8 @@ pub struct CdsTranche {
     pub credit_index_id: &'static str,
     /// Tranche side (buy/sell protection)
     pub side: TrancheSide,
+    /// Optional effective date for schedule anchoring (if None, uses as_of date)
+    pub effective_date: Option<Date>,
     /// Attributes for tagging and selection
     pub attributes: Attributes,
 }
@@ -99,6 +101,7 @@ impl CdsTranche {
             disc_id,
             credit_index_id,
             side,
+            effective_date: None,
             attributes: Attributes::new(),
         }
     }
@@ -167,6 +170,7 @@ pub struct CdsTrancheBuilder {
     disc_id: Option<&'static str>,
     credit_index_id: Option<&'static str>,
     side: Option<TrancheSide>,
+    effective_date: Option<Date>,
 }
 
 impl CdsTrancheBuilder {
@@ -234,6 +238,10 @@ impl CdsTrancheBuilder {
         self.side = Some(value);
         self
     }
+    pub fn effective_date(mut self, value: Date) -> Self {
+        self.effective_date = Some(value);
+        self
+    }
 
     pub fn build(self) -> finstack_core::Result<CdsTranche> {
         Ok(CdsTranche {
@@ -276,6 +284,7 @@ impl CdsTrancheBuilder {
             side: self.side.ok_or_else(|| {
                 finstack_core::Error::from(finstack_core::error::InputError::Invalid)
             })?,
+            effective_date: self.effective_date,
             attributes: Attributes::new(),
         })
     }

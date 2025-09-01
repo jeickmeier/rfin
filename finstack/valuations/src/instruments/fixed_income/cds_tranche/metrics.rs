@@ -97,7 +97,7 @@ impl MetricCalculator for JumpToDefault {
         // Check if credit index data is available
         if val_market_ctx.has_credit_index(tranche.credit_index_id) {
             let model = GaussianCopulaModel::new();
-            model.calculate_correlation_delta(tranche, &val_market_ctx, context.as_of)
+            model.calculate_jump_to_default(tranche, &val_market_ctx, context.as_of)
         } else {
             // Fallback when credit index data is not available
             Ok(0.0)
