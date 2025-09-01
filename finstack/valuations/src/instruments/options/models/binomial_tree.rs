@@ -124,23 +124,17 @@ impl BinomialTree {
                 let p = self.peizer_pratt_inversion(d2, self.steps).clamp(eps, 1.0 - eps);
 
                 // QuantLib-style LR: match mean and variance per step
-                // g = E[return per step], lambda = E[return^2 per step]
-                let g = ((r - q) * dt).exp();
-                let lambda = (sigma * sigma * dt).exp();
-
-                // Solve for d from p = (g - d) / (u - d) and u*d = lambda
+                // Mean m1 = E[R] and variance var = Var(R) for gross returns R
+                let m1 = ((r - q) * dt).exp();
+                let var = m1 * m1 * ((sigma * sigma * dt).exp() - 1.0);
                 let one_minus_p = 1.0 - p;
-                let disc = (g * g - 4.0 * lambda * p * one_minus_p).max(0.0);
-                let sqrt_disc = disc.sqrt();
-                let denom = 2.0 * one_minus_p;
+                let denom = p * one_minus_p;
                 if denom <= 0.0 {
                     return Err(Error::Internal);
                 }
-                let d = (g - sqrt_disc) / denom;
-                if d <= 0.0 {
-                    return Err(Error::Internal);
-                }
-                let u = lambda / d;
+                let delta = (var / denom).sqrt();
+                let d = m1 - p * delta;
+                let u = m1 + one_minus_p * delta;
 
                 if !(u.is_finite() && d.is_finite() && u > 1.0 && d < 1.0 && u > d) {
                     return Err(Error::Internal);
