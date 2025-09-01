@@ -345,9 +345,11 @@ mod tests {
 
         // Discount curve required by calibrator and instrument pricer
         let disc_curve = create_test_discount_curve();
-        let base_context = MarketContext::new().with_discount(disc_curve);
+        let base_context = MarketContext::new()
+            .with_discount(disc_curve)
+            .with_price("US-CPI-U-BASE_CPI", finstack_core::market_data::primitives::MarketScalar::Unitless(base_cpi));
 
-        // Calibrate inflation curve
+        // Calibrate inflation curve (base_cpi will be sourced from context in production)
         let calibrator = InflationCurveCalibrator::new("US-CPI-U", base_date, Currency::USD, base_cpi);
         let calib = calibrator.calibrate(&quotes, &[], &base_context);
         assert!(calib.is_ok(), "calibration failed: {:?}", calib.err());

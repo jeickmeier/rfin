@@ -67,6 +67,7 @@ def main():
         .with_discount(discount_curve)
         .with_inflation_index("US-CPI-U", inflation_index)
         .with_inflation(inflation_curve)
+        .with_price("US-CPI-U-BASE_CPI", fs.MarketScalar.Unitless(290.0))
     )
 
     print(f"✓ Market context created with valuation date: {as_of}")

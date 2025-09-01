@@ -186,11 +186,19 @@ pub struct RhoCalculator;
 
 impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        let _option: &CreditOption = context.instrument_as()?;
-        // Rho for credit options requires bumping the discount curve
-        // This is complex and typically done via scenario analysis
-        // Return 0.0 as placeholder for now
-        Ok(0.0)
+        let option: &CreditOption = context.instrument_as()?;
+        let time_to_expiry = option
+            .day_count
+            .year_fraction(context.as_of, option.expiry)?;
+
+        if time_to_expiry <= 0.0 {
+            return Ok(0.0);
+        }
+
+        // Black-76 property: dPrice/dr = -t * Price (holding forward/spread, vol constant)
+        // Report rho per 1% change in rates, matching equity option convention.
+        let base_price = context.base_value.amount();
+        Ok(-0.01 * time_to_expiry * base_price)
     }
 
     fn dependencies(&self) -> &[MetricId] {

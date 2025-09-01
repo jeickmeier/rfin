@@ -316,8 +316,8 @@ impl CalibrationOrchestrator {
                 continue;
             }
 
-            // Use current CPI as base level (would get from inflation index in practice)
-            let base_cpi = 290.0; // Placeholder
+            // Source base CPI from market context using prioritized fallbacks
+            let base_cpi = self.get_base_cpi_from_context(context, &index)?;
 
             let calibrator =
                 InflationCurveCalibrator::new(&index, self.base_date, self.base_currency, base_cpi);
@@ -410,8 +410,14 @@ impl CalibrationOrchestrator {
             let underlying_quote_vec: Vec<_> =
                 underlying_quotes.iter().map(|&q| q.clone()).collect();
 
-            // Create simple forward curve for calibration
-            let forward_fn = |t: finstack_core::F| 100.0 * (0.05 * t).exp(); // Placeholder
+            // Build asset-specific forward function from market context
+            let forward_fn = match self.build_forward_function_for_underlying(_context, &underlying) {
+                Ok(fwd_fn) => fwd_fn,
+                Err(_) => {
+                    // Skip this underlying if we can't build forward function
+                    continue;
+                }
+            };
 
             match calibrator.calibrate_surface(&underlying_quote_vec, &forward_fn) {
                 Ok((surface, report)) => {
@@ -524,6 +530,149 @@ impl CalibrationOrchestrator {
             all_residuals.insert(key.clone(), *value);
         }
         *total_iterations += report.iterations;
+    }
+
+    /// Get base CPI from market context using prioritized fallbacks.
+    ///
+    /// Priority order:
+    /// 1. InflationIndex with `index` key -> value_on(base_date)
+    /// 2. InflationCurve with `index` key -> cpi(0.0)
+    /// 3. MarketScalar with `"{index}-BASE_CPI"` key
+    /// 4. Error if none available
+    fn get_base_cpi_from_context(&self, context: &MarketContext, index: &str) -> Result<finstack_core::F> {
+        // Try 1: InflationIndex lookup
+        if let Some(inflation_index) = context.inflation_index(index) {
+            match inflation_index.value_on(self.base_date) {
+                Ok(cpi_value) => return Ok(cpi_value),
+                Err(_) => {
+                    // Index exists but value lookup failed, continue to next fallback
+                }
+            }
+        }
+
+        // Try 2: InflationCurve lookup  
+        if let Ok(inflation_curve) = context.inflation(index) {
+            return Ok(inflation_curve.cpi(0.0));
+        }
+
+        // Try 3: MarketScalar lookup with standard naming convention
+        let base_cpi_key = format!("{}-BASE_CPI", index);
+        if let Ok(market_scalar) = context.market_scalar(&base_cpi_key) {
+            return match market_scalar {
+                finstack_core::market_data::primitives::MarketScalar::Unitless(value) => Ok(*value),
+                finstack_core::market_data::primitives::MarketScalar::Price(money) => Ok(money.amount()),
+            };
+        }
+
+        // No valid source found
+        Err(finstack_core::Error::Input(
+            finstack_core::error::InputError::NotFound,
+        ))
+    }
+
+    /// Build asset-specific forward function for volatility surface calibration.
+    ///
+    /// Creates appropriate forward calculation based on underlying asset class:
+    /// - Equity: S0 * exp((r - q) * t)
+    /// - FX: S0 * exp((r_dom - r_for) * t)  
+    /// - Rates: forward_curve.rate(t)
+    fn build_forward_function_for_underlying(
+        &self,
+        context: &MarketContext,
+        underlying: &str,
+    ) -> Result<Box<dyn Fn(finstack_core::F) -> finstack_core::F + '_>> {
+        // Detect asset class from underlying identifier
+        if underlying.contains("-") && (underlying.contains("SOFR") || underlying.contains("EURIBOR") || underlying.contains("SONIA")) {
+            // Interest rate underlying (e.g., "USD-SOFR3M", "EUR-EURIBOR3M")
+            self.build_rate_forward_for_orchestrator(context, underlying)
+        } else if underlying.len() == 6 && underlying.chars().all(|c| c.is_ascii_alphabetic()) {
+            // FX pair (e.g., "EURUSD", "GBPJPY")
+            self.build_fx_forward_for_orchestrator(context, underlying)
+        } else {
+            // Equity underlying (e.g., "SPY", "AAPL")
+            self.build_equity_forward_for_orchestrator(context, underlying)
+        }
+    }
+
+    /// Build equity forward function: F(t) = S0 * exp((r - q) * t)
+    fn build_equity_forward_for_orchestrator(
+        &self,
+        context: &MarketContext,
+        underlying: &str,
+    ) -> Result<Box<dyn Fn(finstack_core::F) -> finstack_core::F + '_>> {
+        // Get spot price
+        let spot_scalar = context.market_scalar(underlying)?;
+        let spot = match spot_scalar {
+            finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
+            finstack_core::market_data::primitives::MarketScalar::Unitless(value) => *value,
+        };
+
+        // Get dividend yield (default to 0.0 if not available)
+        let div_yield_key = format!("{}-DIVYIELD", underlying);
+        let dividend_yield = context
+            .market_scalar(&div_yield_key)
+            .map(|scalar| match scalar {
+                finstack_core::market_data::primitives::MarketScalar::Unitless(yield_val) => *yield_val,
+                _ => 0.0,
+            })
+            .unwrap_or(0.0);
+
+        // Get risk-free rate from discount curve
+        let disc_curve_id = format!("{}-OIS", self.base_currency);
+        let discount_curve = context.discount(&disc_curve_id)?;
+
+        Ok(Box::new(move |t: finstack_core::F| -> finstack_core::F {
+            let risk_free_rate = discount_curve.zero(t);
+            spot * ((risk_free_rate - dividend_yield) * t).exp()
+        }))
+    }
+
+    /// Build FX forward function: F(t) = S0 * exp((r_dom - r_for) * t)
+    fn build_fx_forward_for_orchestrator(
+        &self,
+        context: &MarketContext,
+        underlying: &str,
+    ) -> Result<Box<dyn Fn(finstack_core::F) -> finstack_core::F + '_>> {
+        // Parse FX pair (assume 6-char format like "EURUSD")
+        if underlying.len() != 6 {
+            return Err(finstack_core::Error::Input(finstack_core::error::InputError::Invalid));
+        }
+        
+        let foreign_ccy = &underlying[0..3];
+        let domestic_ccy = &underlying[3..6];
+
+        // Get spot rate
+        let spot_scalar = context.market_scalar(underlying)?;
+        let spot = match spot_scalar {
+            finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
+            finstack_core::market_data::primitives::MarketScalar::Unitless(value) => *value,
+        };
+
+        // Get domestic and foreign discount curves
+        let dom_disc_id = format!("{}-OIS", domestic_ccy);
+        let for_disc_id = format!("{}-OIS", foreign_ccy);
+        let dom_curve = context.discount(&dom_disc_id)?;
+        let for_curve = context.discount(&for_disc_id)?;
+
+        Ok(Box::new(move |t: finstack_core::F| -> finstack_core::F {
+            let domestic_rate = dom_curve.zero(t);
+            let foreign_rate = for_curve.zero(t);
+            spot * ((domestic_rate - foreign_rate) * t).exp()
+        }))
+    }
+
+    /// Build rates forward function: F(t) = forward_curve.rate(t)
+    fn build_rate_forward_for_orchestrator(
+        &self,
+        context: &MarketContext,
+        underlying: &str,
+    ) -> Result<Box<dyn Fn(finstack_core::F) -> finstack_core::F + '_>> {
+        // Get forward curve for this index
+        let forward_curve = context.forecast(underlying)?;
+
+        Ok(Box::new(move |t: finstack_core::F| -> finstack_core::F {
+            forward_curve.rate(t)
+        }))
     }
 
     /// Validate complete market environment for no-arbitrage conditions.

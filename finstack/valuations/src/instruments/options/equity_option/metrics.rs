@@ -298,9 +298,127 @@ pub struct ImpliedVolCalculator;
 
 impl MetricCalculator for ImpliedVolCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        let _option: &EquityOption = context.instrument_as()?;
-        // Requires market price and inputs; placeholder returns 0.0 until pricer wiring provides price
-        Ok(0.0)
+        let option: &EquityOption = context.instrument_as()?;
+
+        let t = option
+            .day_count
+            .year_fraction(context.as_of, option.expiry)?;
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
+
+        // Gather market inputs
+        let disc_curve = context.curves.discount(option.disc_id)?;
+        let r = disc_curve.zero(t);
+
+        let spot_scalar = context.curves.market_scalar(option.spot_id)?;
+        let spot = match spot_scalar {
+            finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
+            finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
+        };
+
+        let q = if let Some(div_id) = option.div_yield_id {
+            match context.curves.market_scalar(div_id) {
+                Ok(scalar) => match scalar {
+                    finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
+                    finstack_core::market_data::primitives::MarketScalar::Price(_) => 0.0,
+                },
+                Err(_) => 0.0,
+            }
+        } else {
+            0.0
+        };
+
+        // Obtain market price from attributes or a market scalar id stored in attributes
+        let market_price: F = if let Some(p) = option.attributes.get_meta("market_price") {
+            p.parse().unwrap_or(0.0)
+        } else if let Some(price_id) = option.attributes.get_meta("market_price_id") {
+            match context.curves.market_scalar(price_id) {
+                Ok(ms) => match ms {
+                    finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
+                    finstack_core::market_data::primitives::MarketScalar::Price(m) => m.amount(),
+                },
+                Err(_) => 0.0,
+            }
+        } else {
+            0.0
+        };
+
+        // If no market price available, return 0.0 (caller should populate attributes/meta)
+        if market_price <= 0.0 {
+            return Ok(0.0);
+        }
+
+        // Bracketed solver (bisection with occasional Newton steps) for robustness and determinism
+        let mut lo = 1e-6;
+        let mut hi = 3.0;
+        let tol = 1e-8;
+        let max_iter = 100;
+
+        // Helper: BS price at sigma
+        let price_at = |sigma: F| -> F {
+            option
+                .black_scholes_price(spot, r, sigma, t, q)
+                .map(|m| m.amount())
+                .unwrap_or(0.0)
+        };
+
+        // Ensure bracket contains a root
+        let mut f_lo = price_at(lo) - market_price;
+        let mut f_hi = price_at(hi) - market_price;
+        if f_lo * f_hi > 0.0 {
+            // Expand hi if needed up to a cap
+            let mut k = 0;
+            while f_lo * f_hi > 0.0 && hi < 10.0 && k < 10 {
+                hi *= 1.5;
+                f_hi = price_at(hi) - market_price;
+                k += 1;
+            }
+            if f_lo * f_hi > 0.0 {
+                return Ok(0.0);
+            }
+        }
+
+        let mut mid = 0.5 * (lo + hi);
+        for _ in 0..max_iter {
+            mid = 0.5 * (lo + hi);
+            let f_mid = price_at(mid) - market_price;
+
+            if f_mid.abs() < tol || (hi - lo) < tol {
+                return Ok(mid);
+            }
+
+            // Try a guarded Newton step using closed-form vega if available
+            let vega_per_1pct = option.vega(spot, r, mid, t, q) * option.contract_size; // per 1% vol
+            let vega = vega_per_1pct * 100.0; // per absolute vol
+            if vega.abs() > 1e-12 {
+                let newton = mid - f_mid / vega;
+                if newton.is_finite() && newton > lo && newton < hi {
+                    mid = newton;
+                    // Narrow bracket around newton step
+                    let f_new = price_at(mid) - market_price;
+                    if f_lo * f_new <= 0.0 {
+                        hi = mid;
+                        let _ = f_new; // maintain readability; hi updated
+                    } else {
+                        lo = mid;
+                        f_lo = f_new;
+                    }
+                    continue;
+                }
+            }
+
+            // Bisection update
+            if f_lo * f_mid <= 0.0 {
+                hi = mid;
+                let _ = f_mid; // keep bracket, avoid unused assignment lint
+            } else {
+                lo = mid;
+                f_lo = f_mid;
+            }
+        }
+
+        Ok(mid)
     }
 
     fn dependencies(&self) -> &[MetricId] {

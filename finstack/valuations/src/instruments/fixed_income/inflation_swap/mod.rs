@@ -268,7 +268,8 @@ mod tests {
         let context = MarketContext::new()
             .with_discount(disc_curve)
             .with_inflation_index("US-CPI-U", inflation_index)
-            .with_inflation(inflation_curve);
+            .with_inflation(inflation_curve)
+            .with_price("US-CPI-U-BASE_CPI", finstack_core::market_data::primitives::MarketScalar::Unitless(290.0));
 
         Ok(context)
     }
