@@ -33,6 +33,14 @@ impl LogLinearDf {
 
 impl InterpFn for LogLinearDf {
     fn interp(&self, x: F) -> F {
+        // Clamp to bounds to avoid out-of-range evaluations due to
+        // small day-count or floating-point discrepancies.
+        if x <= self.knots[0] {
+            return (self.log_dfs[0]).exp();
+        }
+        if x >= *self.knots.last().unwrap() {
+            return (*self.log_dfs.last().unwrap()).exp();
+        }
         if let Ok(idx_exact) = self.knots.binary_search_by(|k| k.partial_cmp(&x).unwrap()) {
             return (self.log_dfs[idx_exact]).exp();
         }

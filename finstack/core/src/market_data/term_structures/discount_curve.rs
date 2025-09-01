@@ -89,6 +89,84 @@ impl DiscountCurve {
             style: InterpStyle::Linear,
         }
     }
+
+    /// Create a forward curve from this discount curve.
+    /// 
+    /// For single-curve bootstrapping, this creates a forward curve from the 
+    /// discount factors using the formula:
+    /// f(t) = -d/dt[ln(DF(t))] = -1/DF(t) * dDF/dt
+    /// 
+    /// For discrete points, we use: f(t) ≈ (DF(t) - DF(t+dt)) / (dt * DF(t+dt))
+    pub fn to_forward_curve(
+        &self,
+        forward_id: &'static str,
+        tenor_years: F,
+    ) -> crate::Result<super::forward_curve::ForwardCurve> {
+        use super::forward_curve::ForwardCurve;
+        
+        // Calculate forward rates at each knot point
+        let mut forward_rates = Vec::with_capacity(self.knots.len());
+        
+        // Ensure we have enough points
+        if self.knots.len() < 2 {
+            return Err(crate::error::InputError::TooFewPoints.into());
+        }
+        
+        for i in 0..self.knots.len() {
+            let t = self.knots[i];
+            let forward_rate = if i == 0 {
+                // First point: use next point for forward difference
+                let t_next = self.knots[1];
+                let df = self.dfs[0];
+                let df_next = self.dfs[1];
+                let dt = t_next - t;
+                
+                if dt > 0.0 && df_next > 0.0 && df > 0.0 {
+                    (df / df_next - 1.0) / dt
+                } else if t > 0.0 && df > 0.0 {
+                    // Use spot rate
+                    (-df.ln()) / t
+                } else {
+                    0.045 // Default rate
+                }
+            } else if i < self.knots.len() - 1 {
+                // Interior points: use central difference
+                let t_prev = self.knots[i - 1];
+                let t_next = self.knots[i + 1];
+                let df_prev = self.dfs[i - 1];
+                let df_next = self.dfs[i + 1];
+                
+                // Use instantaneous forward rate approximation
+                let dt = t_next - t_prev;
+                if dt > 0.0 && df_next > 0.0 && df_prev > 0.0 {
+                    (df_prev.ln() - df_next.ln()) / dt
+                } else {
+                    0.045 // Default rate
+                }
+            } else {
+                // Last point: use backward difference
+                let t_prev = self.knots[i - 1];
+                let df = self.dfs[i];
+                let df_prev = self.dfs[i - 1];
+                let dt = t - t_prev;
+                
+                if dt > 0.0 && df > 0.0 && df_prev > 0.0 {
+                    (df_prev / df - 1.0) / dt
+                } else {
+                    0.045 // Default rate
+                }
+            };
+            
+            forward_rates.push((t, forward_rate.clamp(0.0, 0.5))); // Clamp to reasonable range
+        }
+        
+        // Build forward curve with linear interpolation (more stable)
+        ForwardCurve::builder(forward_id, tenor_years)
+            .base_date(self.base)
+            .knots(forward_rates)
+            .linear_df()
+            .build()
+    }
 }
 
 /// Fluent builder for [`DiscountCurve`].

@@ -33,6 +33,14 @@ impl LinearDf {
 
 impl InterpFn for LinearDf {
     fn interp(&self, x: F) -> F {
+        // Clamp to bounds to avoid out-of-range evaluations due to
+        // small day-count or floating-point discrepancies.
+        if x <= self.knots[0] {
+            return self.dfs[0];
+        }
+        if x >= *self.knots.last().unwrap() {
+            return *self.dfs.last().unwrap();
+        }
         if let Ok(idx_exact) = self.knots.binary_search_by(|k| k.partial_cmp(&x).unwrap()) {
             return self.dfs[idx_exact];
         }

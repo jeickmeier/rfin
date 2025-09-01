@@ -159,7 +159,7 @@ impl CalibrationOrchestrator {
         }
 
         let calibrator = DiscountCurveCalibrator::new(
-            format!("{}-OIS", self.base_currency),
+            "USD-OIS",
             self.base_date,
             self.base_currency,
         )
