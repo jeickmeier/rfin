@@ -3,7 +3,7 @@
 use finstack_core::{
     currency::Currency,
     dates::{Date, DayCount},
-    market_data::{MarketContext, term_structures::discount_curve::DiscountCurve},
+    market_data::{term_structures::discount_curve::DiscountCurve, MarketContext},
     money::Money,
     F,
 };

@@ -71,8 +71,6 @@ pub use surfaces::vol_surface::VolSurface;
 // Re-export context types
 pub use context::MarketContext;
 
-
-
 /// Numeric precision alias re-exported from the surrounding crate so that
 /// downstream code can simply `use finstack_core::market_data::F`.
 pub use crate::F;

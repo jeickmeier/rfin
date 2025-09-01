@@ -5,8 +5,8 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
-use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 
 use finstack_valuations::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
@@ -281,10 +281,7 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
     let custom_pv = custom_bond.value(&curves, issue)?;
 
     println!("Regular bond (annual payments): {}", regular_pv);
-    println!(
-        "Custom bond (semi-annual payments): {}",
-        custom_pv
-    );
+    println!("Custom bond (semi-annual payments): {}", custom_pv);
 
     let regular_flows = regular_bond.build_schedule(&curves, issue)?;
     let custom_flows = custom_bond.build_schedule(&curves, issue)?;

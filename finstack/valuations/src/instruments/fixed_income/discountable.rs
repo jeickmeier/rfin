@@ -78,8 +78,8 @@ impl Discountable for crate::cashflow::builder::CashFlowSchedule {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use finstack_core::types::CurveId;
     use finstack_core::market_data::traits::TermStructure;
+    use finstack_core::types::CurveId;
     use finstack_core::F;
     use time::Month;
 

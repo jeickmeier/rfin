@@ -47,7 +47,6 @@ impl InflationCurveCalibrator {
         self.config = config;
         self
     }
-
 }
 
 impl InflationCurveCalibrator {
@@ -64,7 +63,9 @@ impl InflationCurveCalibrator {
     }
 }
 
-impl Calibrator<InstrumentQuote, CalibrationConstraint, InflationCurve> for InflationCurveCalibrator {
+impl Calibrator<InstrumentQuote, CalibrationConstraint, InflationCurve>
+    for InflationCurveCalibrator
+{
     fn calibrate(
         &self,
         _instruments: &[InstrumentQuote],
@@ -73,7 +74,7 @@ impl Calibrator<InstrumentQuote, CalibrationConstraint, InflationCurve> for Infl
     ) -> Result<(InflationCurve, CalibrationReport)> {
         // Simplified implementation to get basic framework working
         let cpi_knots = vec![(0.0, self.base_cpi), (5.0, self.base_cpi * 1.1)];
-        
+
         let curve = InflationCurve::builder("CALIB_INFLATION")
             .base_cpi(self.base_cpi)
             .knots(cpi_knots)
@@ -101,7 +102,7 @@ mod tests {
 
     fn create_test_inflation_quotes() -> Vec<InstrumentQuote> {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         vec![
             InstrumentQuote::InflationSwap {
                 maturity: base_date + time::Duration::days(365),
@@ -141,7 +142,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // Disabled until full bootstrap implementation  
+    #[ignore] // Disabled until full bootstrap implementation
     fn test_inflation_curve_calibration() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let calibrator = InflationCurveCalibrator::new(
@@ -156,8 +157,9 @@ mod tests {
         let inflation_index = create_test_inflation_index();
         let solver = crate::calibration::solver::HybridSolver::new();
 
-        let result = calibrator.bootstrap_curve(&quotes, &solver, &discount_curve, &inflation_index);
-        
+        let result =
+            calibrator.bootstrap_curve(&quotes, &solver, &discount_curve, &inflation_index);
+
         assert!(result.is_ok());
         let (curve, report) = result.unwrap();
         assert!(report.success);
@@ -172,17 +174,12 @@ mod tests {
     fn test_synthetic_swap_creation() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let maturity = base_date + time::Duration::days(365 * 2);
-        
-        let _calibrator = InflationCurveCalibrator::new(
-            "US-CPI-U",
-            base_date,
-            Currency::USD,
-            290.0,
-        );
+
+        let _calibrator =
+            InflationCurveCalibrator::new("US-CPI-U", base_date, Currency::USD, 290.0);
 
         // Synthetic swap creation not yet exposed; skip detailed assertions
         let _ = maturity;
         let _ = base_date;
     }
-
 }

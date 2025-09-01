@@ -143,7 +143,9 @@ def demonstrate_model_valued_bond():
         print(f"\n💰 Model Value: {pv}")
 
         # Full pricing with metrics (request standard set)
-        result = bond.price_with_metrics(market_context, as_of, ["ytm", "duration_mod", "convexity", "accrued"])
+        result = bond.price_with_metrics(
+            market_context, as_of, ["ytm", "duration_mod", "convexity", "accrued"]
+        )
         print(f"\n📊 Full Valuation Results:")
         print(f"   PV: {result.value}")
         print(f"   Metrics Available: {len(result.metric_names())}")

@@ -283,7 +283,6 @@ impl_instrument!(
             s.black_price(disc.as_ref(), vol)
         }
     },
-    
 );
 
 #[cfg(test)]

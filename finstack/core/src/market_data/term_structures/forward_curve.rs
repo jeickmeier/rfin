@@ -24,9 +24,9 @@ use crate::market_data::interp::InterpStyle;
 use crate::{
     dates::{Date, DayCount},
     error::InputError,
-    types::CurveId,
     market_data::interp::InterpFn,
     market_data::traits::{Forward, TermStructure},
+    types::CurveId,
     F,
 };
 

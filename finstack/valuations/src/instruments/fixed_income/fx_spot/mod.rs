@@ -308,12 +308,16 @@ mod tests {
 
         use crate::instruments::traits::Priceable;
         let result = fx
-            .price_with_metrics(&curves, as_of, &[
-                MetricId::custom("spot_rate"),
-                MetricId::custom("base_amount"),
-                MetricId::custom("quote_amount"),
-                MetricId::custom("inverse_rate"),
-            ])
+            .price_with_metrics(
+                &curves,
+                as_of,
+                &[
+                    MetricId::custom("spot_rate"),
+                    MetricId::custom("base_amount"),
+                    MetricId::custom("quote_amount"),
+                    MetricId::custom("inverse_rate"),
+                ],
+            )
             .unwrap();
         assert_eq!(result.value.amount(), 125.0);
         assert_eq!(result.measures.get("spot_rate"), Some(&1.25));

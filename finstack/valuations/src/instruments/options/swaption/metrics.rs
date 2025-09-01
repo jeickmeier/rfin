@@ -13,33 +13,38 @@ impl MetricCalculator for DeltaCalculator {
         let option: &Swaption = context.instrument_as()?;
         let disc = context.curves.discount(option.disc_id)?;
         let t = option.year_fraction(disc.base_date(), option.expiry, option.day_count)?;
-        
-        if t <= 0.0 { return Ok(0.0); }
-        
+
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
+
         let forward = option.forward_swap_rate(disc.as_ref())?;
         let annuity = option.swap_annuity(disc.as_ref())?;
-        
+
         let sigma = if let Some(sabr) = &option.sabr_params {
             let model = crate::instruments::options::models::SABRModel::new(sabr.clone());
             model.implied_volatility(forward, option.strike_rate, t)?
         } else if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            context.curves.vol_surface(option.vol_id)?.value_clamped(t, option.strike_rate)
+            context
+                .curves
+                .vol_surface(option.vol_id)?
+                .value_clamped(t, option.strike_rate)
         };
-        
+
         let variance = sigma * sigma * t;
         let d1 = if variance > 0.0 {
             ((forward / option.strike_rate).ln() + 0.5 * variance) / variance.sqrt()
         } else {
             0.0
         };
-        
+
         let delta = match option.option_type {
             super::OptionType::Call => crate::instruments::options::models::norm_cdf(d1),
             super::OptionType::Put => -crate::instruments::options::models::norm_cdf(-d1),
         };
-        
+
         // Scale by notional and annuity for cash delta
         Ok(delta * option.notional.amount() * annuity)
     }
@@ -57,27 +62,35 @@ impl MetricCalculator for GammaCalculator {
         let option: &Swaption = context.instrument_as()?;
         let disc = context.curves.discount(option.disc_id)?;
         let t = option.year_fraction(disc.base_date(), option.expiry, option.day_count)?;
-        
-        if t <= 0.0 { return Ok(0.0); }
-        
+
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
+
         let forward = option.forward_swap_rate(disc.as_ref())?;
         let annuity = option.swap_annuity(disc.as_ref())?;
-        
+
         let sigma = if let Some(sabr) = &option.sabr_params {
             let model = crate::instruments::options::models::SABRModel::new(sabr.clone());
             model.implied_volatility(forward, option.strike_rate, t)?
         } else if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            context.curves.vol_surface(option.vol_id)?.value_clamped(t, option.strike_rate)
+            context
+                .curves
+                .vol_surface(option.vol_id)?
+                .value_clamped(t, option.strike_rate)
         };
-        
-        if sigma <= 0.0 || forward <= 0.0 { return Ok(0.0); }
-        
+
+        if sigma <= 0.0 || forward <= 0.0 {
+            return Ok(0.0);
+        }
+
         let variance = sigma * sigma * t;
         let d1 = ((forward / option.strike_rate).ln() + 0.5 * variance) / variance.sqrt();
-        let gamma = crate::instruments::options::models::norm_pdf(d1) / (forward * sigma * t.sqrt());
-        
+        let gamma =
+            crate::instruments::options::models::norm_pdf(d1) / (forward * sigma * t.sqrt());
+
         // Scale by notional and annuity for cash gamma
         Ok(gamma * option.notional.amount() * annuity)
     }
@@ -95,28 +108,33 @@ impl MetricCalculator for VegaCalculator {
         let option: &Swaption = context.instrument_as()?;
         let disc = context.curves.discount(option.disc_id)?;
         let t = option.year_fraction(disc.base_date(), option.expiry, option.day_count)?;
-        
-        if t <= 0.0 { return Ok(0.0); }
-        
+
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
+
         let forward = option.forward_swap_rate(disc.as_ref())?;
         let annuity = option.swap_annuity(disc.as_ref())?;
-        
+
         let sigma = if let Some(sabr) = &option.sabr_params {
             let model = crate::instruments::options::models::SABRModel::new(sabr.clone());
             model.implied_volatility(forward, option.strike_rate, t)?
         } else if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            context.curves.vol_surface(option.vol_id)?.value_clamped(t, option.strike_rate)
+            context
+                .curves
+                .vol_surface(option.vol_id)?
+                .value_clamped(t, option.strike_rate)
         };
-        
+
         let variance = sigma * sigma * t;
         let d1 = if variance > 0.0 {
             ((forward / option.strike_rate).ln() + 0.5 * variance) / variance.sqrt()
         } else {
             0.0
         };
-        
+
         let vega = forward * crate::instruments::options::models::norm_pdf(d1) * t.sqrt() / 100.0;
         // Scale by notional and annuity for cash vega
         Ok(vega * option.notional.amount() * annuity)

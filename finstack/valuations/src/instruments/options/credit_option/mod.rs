@@ -256,27 +256,29 @@ impl_instrument!(
     pv = |s, curves, as_of| {
         // Calculate time to expiry in years
         let time_to_expiry = s.day_count.year_fraction(as_of, s.expiry)?;
-        
+
         // Get market curves
         let disc_curve = curves.discount(s.disc_id)?;
         let credit_curve = curves.credit(s.credit_id)?;
-        
+
         // Calculate risky annuity (RPV01) of the underlying CDS
         // This is a simplified calculation - in practice would need full CDS schedule
         let cds_tenor = s.day_count.year_fraction(s.expiry, s.cds_maturity)?;
         let mut risky_annuity = 0.0;
-        
+
         // Approximate quarterly payments for CDS premium leg
         let num_payments = (cds_tenor * 4.0).ceil() as usize;
         for i in 1..=num_payments {
             let t = cds_tenor * (i as f64) / (num_payments as f64);
             let df = disc_curve.df(time_to_expiry + t);
             let survival = credit_curve.survival_probability(
-                as_of.checked_add(time::Duration::days(((time_to_expiry + t) * 365.25) as i64)).unwrap_or(as_of)
+                as_of
+                    .checked_add(time::Duration::days(((time_to_expiry + t) * 365.25) as i64))
+                    .unwrap_or(as_of),
             );
             risky_annuity += 0.25 * df * survival; // 0.25 = quarterly accrual
         }
-        
+
         // Calculate forward CDS spread (simplified)
         let current_tenor = s.day_count.year_fraction(as_of, s.cds_maturity)?;
         let forward_spread_bp = if current_tenor > 0.0 {
@@ -284,10 +286,10 @@ impl_instrument!(
         } else {
             s.strike_spread_bp // Fallback if CDS has expired
         };
-        
+
         // Get discount factor to option expiry
         let df_expiry = disc_curve.df(time_to_expiry);
-        
+
         // Get volatility (use implied_vol if set, otherwise fetch from surface)
         let sigma = if let Some(impl_vol) = s.implied_vol {
             impl_vol
@@ -295,9 +297,15 @@ impl_instrument!(
             let vol_surface = curves.vol_surface(s.vol_id)?;
             vol_surface.value_clamped(time_to_expiry, s.strike_spread_bp)
         };
-        
+
         // Price using Black model on credit spreads
-        s.credit_option_price(forward_spread_bp, df_expiry, risky_annuity, sigma, time_to_expiry)
+        s.credit_option_price(
+            forward_spread_bp,
+            df_expiry,
+            risky_annuity,
+            sigma,
+            time_to_expiry,
+        )
     }
 );
 

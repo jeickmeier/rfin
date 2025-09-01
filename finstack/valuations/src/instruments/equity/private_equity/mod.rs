@@ -29,9 +29,9 @@
 //!     .build().unwrap();
 //!
 //! let events = vec![
-//!     FundEvent::contribution(Date::from_calendar_date(2020, Month::January, 1).unwrap(), 
+//!     FundEvent::contribution(Date::from_calendar_date(2020, Month::January, 1).unwrap(),
 //!                            Money::new(1000000.0, Currency::USD)),
-//!     FundEvent::distribution(Date::from_calendar_date(2025, Month::January, 1).unwrap(), 
+//!     FundEvent::distribution(Date::from_calendar_date(2025, Month::January, 1).unwrap(),
 //!                            Money::new(1500000.0, Currency::USD)),
 //! ];
 //!
@@ -41,14 +41,14 @@
 //! println!("Allocation ledger has {} rows with {} columns", rows.len(), columns.len());
 //! ```
 
-pub mod waterfall;
 pub mod metrics;
+pub mod waterfall;
 
-pub use waterfall::*;
 pub use metrics::*;
+pub use waterfall::*;
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::traits::{Attributes};
+use crate::instruments::traits::Attributes;
 use crate::metrics::MetricRegistry;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
@@ -80,7 +80,7 @@ impl PrivateEquityInvestment {
     /// Create a new private equity investment.
     pub fn new(
         id: impl Into<String>,
-        currency: Currency, 
+        currency: Currency,
         spec: WaterfallSpec,
         events: Vec<FundEvent>,
     ) -> Self {
@@ -130,11 +130,7 @@ crate::impl_attributable!(PrivateEquityInvestment);
 crate::impl_instrument_like!(PrivateEquityInvestment, "PrivateEquityInvestment");
 
 impl crate::instruments::traits::Priceable for PrivateEquityInvestment {
-    fn value(
-        &self,
-        curves: &MarketContext,
-        _as_of: Date,
-    ) -> finstack_core::Result<Money> {
+    fn value(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
         // If discount curve is specified, calculate NPV of LP flows
         if let Some(disc_id) = self.disc_id {
             use crate::instruments::fixed_income::discountable::Discountable;
@@ -144,7 +140,9 @@ impl crate::instruments::traits::Priceable for PrivateEquityInvestment {
         } else {
             // Return residual LP value from waterfall
             let ledger = self.run_waterfall()?;
-            let residual_value = ledger.rows.last()
+            let residual_value = ledger
+                .rows
+                .last()
                 .map(|r| r.lp_unreturned)
                 .unwrap_or_else(|| Money::new(0.0, self.currency));
             Ok(residual_value)
@@ -158,13 +156,7 @@ impl crate::instruments::traits::Priceable for PrivateEquityInvestment {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::build_with_metrics(
-            self.clone(),
-            curves,
-            as_of,
-            base_value,
-            metrics,
-        )
+        crate::instruments::build_with_metrics(self.clone(), curves, as_of, base_value, metrics)
     }
 }
 

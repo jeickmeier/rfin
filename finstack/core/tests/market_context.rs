@@ -8,8 +8,8 @@ use finstack_core::{
         primitives::{MarketScalar, ScalarTimeSeries},
         surfaces::vol_surface::VolSurface,
     },
-    types::CurveId,
     money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate},
+    types::CurveId,
 };
 use std::sync::Arc;
 
@@ -42,8 +42,6 @@ fn test_market_context_new() {
     assert!(ctx.prices.is_empty());
     assert!(ctx.series.is_empty());
 }
-
-
 
 #[test]
 fn test_market_context_with_fx() {

@@ -25,8 +25,8 @@
 
 #![allow(clippy::assign_op_pattern)]
 
-use time::{Date, Duration};
 use crate::dates::DateExt;
+use time::{Date, Duration};
 
 /// Trait representing a holiday calendar.
 ///

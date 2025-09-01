@@ -24,7 +24,7 @@ impl ExpectedExposureCalculator {
     pub fn one_year() -> Self {
         Self { horizon_years: 1.0 }
     }
-    
+
     /// Create calculator for custom horizon
     pub fn with_horizon(horizon_years: F) -> Self {
         Self { horizon_years }
@@ -40,7 +40,9 @@ impl MetricCalculator for ExpectedExposureCalculator {
             self.calculate_for_facility(revolver, context)
         } else {
             // Unknown loan type
-            Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid))
+            Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            ))
         }
     }
 
@@ -57,28 +59,29 @@ impl ExpectedExposureCalculator {
     ) -> Result<F> {
         let simulator = LoanSimulator::new();
         let result = simulator.simulate(facility, &context.curves, context.as_of)?;
-        
+
         // Find the expected exposure at the specified horizon
-        let target_date = context.as_of + time::Duration::days((self.horizon_years * 365.25) as i64);
-        
+        let target_date =
+            context.as_of + time::Duration::days((self.horizon_years * 365.25) as i64);
+
         // Linear interpolation if target date falls between simulation points
         for window in result.expected_exposure.windows(2) {
             let (date1, ee1) = window[0];
             let (date2, ee2) = window[1];
-            
+
             if target_date >= date1 && target_date <= date2 {
                 if date1 == date2 {
                     return Ok(ee1);
                 }
-                
+
                 let total_days = (date2 - date1).whole_days() as F;
                 let elapsed_days = (target_date - date1).whole_days() as F;
                 let weight = elapsed_days / total_days;
-                
+
                 return Ok(ee1 + weight * (ee2 - ee1));
             }
         }
-        
+
         // If target date is beyond the simulation, return the last value
         if let Some((_, ee)) = result.expected_exposure.last() {
             Ok(*ee)
@@ -96,11 +99,17 @@ impl MetricCalculator for UtilizationCalculator {
         if let Ok(ddtl) = context.instrument_as::<DelayedDrawTermLoan>() {
             let drawn = ddtl.drawn_amount.amount();
             let commitment = ddtl.commitment.amount();
-            Ok(if commitment > 0.0 { drawn / commitment } else { 0.0 })
+            Ok(if commitment > 0.0 {
+                drawn / commitment
+            } else {
+                0.0
+            })
         } else if let Ok(revolver) = context.instrument_as::<RevolvingCreditFacility>() {
             Ok(revolver.utilization())
         } else {
-            Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid))
+            Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            ))
         }
     }
 
@@ -119,7 +128,9 @@ impl MetricCalculator for UndrawnAmountCalculator {
         } else if let Ok(revolver) = context.instrument_as::<RevolvingCreditFacility>() {
             Ok(revolver.undrawn_amount().amount())
         } else {
-            Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid))
+            Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            ))
         }
     }
 
@@ -138,7 +149,9 @@ impl MetricCalculator for CommitmentFeePvCalculator {
         } else if let Ok(revolver) = context.instrument_as::<RevolvingCreditFacility>() {
             self.calculate_for_facility(revolver, context)
         } else {
-            Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid))
+            Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            ))
         }
     }
 
@@ -194,7 +207,10 @@ pub struct ExpectedExposureMCCalculator {
 impl ExpectedExposureMCCalculator {
     /// Create calculator with Monte Carlo enhancement
     pub fn new(horizon_years: F, mc_paths: usize) -> Self {
-        Self { horizon_years, mc_paths }
+        Self {
+            horizon_years,
+            mc_paths,
+        }
     }
 }
 
@@ -206,9 +222,9 @@ impl MetricCalculator for ExpectedExposureMCCalculator {
             random_seed: Some(42), // Deterministic for testing
             use_mid_point_averaging: true,
         };
-        
+
         let simulator = LoanSimulator::with_config(config);
-        
+
         if let Ok(ddtl) = context.instrument_as::<DelayedDrawTermLoan>() {
             let result = simulator.simulate(ddtl, &context.curves, context.as_of)?;
             self.extract_ee_at_horizon(&result.expected_exposure, context.as_of)
@@ -216,7 +232,9 @@ impl MetricCalculator for ExpectedExposureMCCalculator {
             let result = simulator.simulate(revolver, &context.curves, context.as_of)?;
             self.extract_ee_at_horizon(&result.expected_exposure, context.as_of)
         } else {
-            Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid))
+            Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            ))
         }
     }
 
@@ -232,25 +250,25 @@ impl ExpectedExposureMCCalculator {
         as_of: finstack_core::dates::Date,
     ) -> Result<F> {
         let target_date = as_of + time::Duration::days((self.horizon_years * 365.25) as i64);
-        
+
         // Find exposure at target date using linear interpolation
         for window in exposure_path.windows(2) {
             let (date1, ee1) = window[0];
             let (date2, ee2) = window[1];
-            
+
             if target_date >= date1 && target_date <= date2 {
                 if date1 == date2 {
                     return Ok(ee1);
                 }
-                
+
                 let total_days = (date2 - date1).whole_days() as F;
                 let elapsed_days = (target_date - date1).whole_days() as F;
                 let weight = elapsed_days / total_days;
-                
+
                 return Ok(ee1 + weight * (ee2 - ee1));
             }
         }
-        
+
         // Return last value if beyond simulation
         if let Some((_, ee)) = exposure_path.last() {
             Ok(*ee)
@@ -274,7 +292,9 @@ impl MetricCalculator for IncrementalInterestPvCalculator {
             let result = simulator.simulate(revolver, &context.curves, context.as_of)?;
             Ok(result.pv_breakdown.incremental_interest)
         } else {
-            Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid))
+            Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            ))
         }
     }
 
@@ -354,7 +374,7 @@ mod tests {
     fn test_expected_exposure_calculator_creation() {
         let calc = ExpectedExposureCalculator::one_year();
         assert_eq!(calc.horizon_years, 1.0);
-        
+
         let calc_custom = ExpectedExposureCalculator::with_horizon(0.5);
         assert_eq!(calc_custom.horizon_years, 0.5);
     }
@@ -369,10 +389,10 @@ mod tests {
             Date::from_calendar_date(2028, Month::January, 1).unwrap(),
             Date::from_calendar_date(2030, Month::January, 1).unwrap(),
         );
-        
+
         // Test direct utilization calculation
         assert_eq!(revolver.utilization(), 0.0); // No draws yet
-        
+
         // Test with draws
         let mut revolver_with_draw = revolver;
         revolver_with_draw.drawn_amount = Money::new(250_000.0, Currency::USD);

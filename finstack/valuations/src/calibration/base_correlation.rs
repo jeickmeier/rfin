@@ -3,7 +3,7 @@
 //! Implements market-standard base correlation bootstrapping using the
 //! one-factor Gaussian Copula model and equity tranche decomposition.
 
-use crate::calibration::primitives::{CalibrationConstraint, InstrumentQuote, HashableFloat};
+use crate::calibration::primitives::{CalibrationConstraint, HashableFloat, InstrumentQuote};
 use crate::calibration::solver::Solver;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
@@ -74,7 +74,7 @@ impl BaseCorrelationCalibrator {
     ) -> Result<(BaseCorrelationCurve, CalibrationReport)> {
         // Simplified implementation to avoid borrowing complexity for now
         let correlation_knots = vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)];
-        
+
         let curve = BaseCorrelationCurve::builder("TEMP_BASE_CORR")
             .points(correlation_knots)
             .build()?;
@@ -109,8 +109,8 @@ impl BaseCorrelationCalibrator {
             DayCount::Act360,
             BusinessDayConvention::Following,
             None,
-            "USD-OIS", // Discount curve
-            "CALIB_CREDIT", // Credit index curve
+            "USD-OIS",                   // Discount curve
+            "CALIB_CREDIT",              // Credit index curve
             TrancheSide::SellProtection, // Standard convention
         ))
     }
@@ -141,7 +141,9 @@ impl BaseCorrelationCalibrator {
     }
 }
 
-impl Calibrator<InstrumentQuote, CalibrationConstraint, BaseCorrelationCurve> for BaseCorrelationCalibrator {
+impl Calibrator<InstrumentQuote, CalibrationConstraint, BaseCorrelationCurve>
+    for BaseCorrelationCalibrator
+{
     fn calibrate(
         &self,
         _instruments: &[InstrumentQuote],
@@ -150,7 +152,7 @@ impl Calibrator<InstrumentQuote, CalibrationConstraint, BaseCorrelationCurve> fo
     ) -> Result<(BaseCorrelationCurve, CalibrationReport)> {
         // Simplified implementation to get basic framework working
         let correlation_knots = vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)];
-        
+
         let curve = BaseCorrelationCurve::builder("CALIB_BASE_CORR")
             .points(correlation_knots)
             .build()?;
@@ -206,19 +208,29 @@ impl BaseCorrelationSurfaceCalibrator {
         &self,
         quotes: &[InstrumentQuote],
         market_context: &ValuationMarketContext,
-    ) -> Result<(HashMap<HashableFloat, BaseCorrelationCurve>, CalibrationReport)> {
+    ) -> Result<(
+        HashMap<HashableFloat, BaseCorrelationCurve>,
+        CalibrationReport,
+    )> {
         // Group quotes by maturity
         let mut quotes_by_maturity: HashMap<HashableFloat, Vec<&InstrumentQuote>> = HashMap::new();
-        
+
         for quote in quotes {
             if let InstrumentQuote::CDSTranche { maturity, .. } = quote {
                 let maturity_years = finstack_core::dates::DayCount::Act365F
                     .year_fraction(self.base_date, *maturity)?;
-                
+
                 // Round to nearest target maturity
-                if let Some(&target_mat) = self.target_maturities.iter()
-                    .min_by(|&&a, &&b| (a - maturity_years).abs().partial_cmp(&(b - maturity_years).abs()).unwrap()) {
-                    quotes_by_maturity.entry(HashableFloat::new(target_mat)).or_default().push(quote);
+                if let Some(&target_mat) = self.target_maturities.iter().min_by(|&&a, &&b| {
+                    (a - maturity_years)
+                        .abs()
+                        .partial_cmp(&(b - maturity_years).abs())
+                        .unwrap()
+                }) {
+                    quotes_by_maturity
+                        .entry(HashableFloat::new(target_mat))
+                        .or_default()
+                        .push(quote);
                 }
             }
         }
@@ -229,7 +241,9 @@ impl BaseCorrelationSurfaceCalibrator {
 
         // Calibrate each maturity separately
         for &maturity_years in &self.target_maturities {
-            if let Some(maturity_quotes) = quotes_by_maturity.get(&HashableFloat::new(maturity_years)) {
+            if let Some(maturity_quotes) =
+                quotes_by_maturity.get(&HashableFloat::new(maturity_years))
+            {
                 let calibrator = BaseCorrelationCalibrator::new(
                     &self.index_id,
                     self.series,
@@ -237,11 +251,16 @@ impl BaseCorrelationSurfaceCalibrator {
                     self.base_date,
                 );
 
-                let maturity_quote_vec: Vec<_> = maturity_quotes.iter().map(|&q| q.clone()).collect();
-                match calibrator.bootstrap_curve(&maturity_quote_vec, &crate::calibration::solver::HybridSolver::new(), market_context) {
+                let maturity_quote_vec: Vec<_> =
+                    maturity_quotes.iter().map(|&q| q.clone()).collect();
+                match calibrator.bootstrap_curve(
+                    &maturity_quote_vec,
+                    &crate::calibration::solver::HybridSolver::new(),
+                    market_context,
+                ) {
                     Ok((curve, report)) => {
                         curves_by_maturity.insert(HashableFloat::new(maturity_years), curve);
-                        
+
                         // Merge residuals with maturity prefix
                         for (key, value) in report.residuals {
                             all_residuals.insert(format!("{}Y-{}", maturity_years, key), value);
@@ -261,7 +280,10 @@ impl BaseCorrelationSurfaceCalibrator {
             .with_residuals(all_residuals)
             .with_iterations(total_iterations)
             .with_convergence_reason("Base correlation surface calibration completed")
-            .with_metadata("calibrated_maturities".to_string(), format!("{}", curves_by_maturity.len()));
+            .with_metadata(
+                "calibrated_maturities".to_string(),
+                format!("{}", curves_by_maturity.len()),
+            );
 
         Ok((curves_by_maturity, report))
     }
@@ -285,7 +307,7 @@ mod tests {
     fn create_test_tranche_quotes() -> Vec<InstrumentQuote> {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let maturity = base_date + time::Duration::days(365 * 5);
-        
+
         vec![
             InstrumentQuote::CDSTranche {
                 index: "CDX.NA.IG.42".to_string(),
@@ -358,31 +380,26 @@ mod tests {
     #[test]
     fn test_base_correlation_calibrator_creation() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let calibrator = BaseCorrelationCalibrator::new(
-            "CDX.NA.IG.42",
-            42,
-            5.0,
-            base_date,
-        );
+        let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date);
 
         assert_eq!(calibrator.index_id, "CDX.NA.IG.42");
         assert_eq!(calibrator.series, 42);
         assert_eq!(calibrator.maturity_years, 5.0);
-        assert_eq!(calibrator.detachment_points, vec![3.0, 7.0, 10.0, 15.0, 30.0]);
+        assert_eq!(
+            calibrator.detachment_points,
+            vec![3.0, 7.0, 10.0, 15.0, 30.0]
+        );
     }
 
     #[test]
     fn test_synthetic_tranche_creation() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let calibrator = BaseCorrelationCalibrator::new(
-            "CDX.NA.IG.42",
-            42,
-            5.0,
-            base_date,
-        );
+        let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date);
 
-        let tranche = calibrator.create_synthetic_tranche(0.0, 3.0, 500.0).unwrap();
-        
+        let tranche = calibrator
+            .create_synthetic_tranche(0.0, 3.0, 500.0)
+            .unwrap();
+
         assert_eq!(tranche.attach_pct, 0.0);
         assert_eq!(tranche.detach_pct, 3.0);
         assert_eq!(tranche.running_coupon_bp, 500.0);
@@ -392,19 +409,16 @@ mod tests {
     #[test]
     fn test_temp_base_corr_curve_creation() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let calibrator = BaseCorrelationCalibrator::new(
-            "CDX.NA.IG.42",
-            42,
-            5.0,
-            base_date,
-        );
+        let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date);
 
         let correlation_knots = vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)];
-        let curve = calibrator.create_temp_base_corr_curve(&correlation_knots).unwrap();
-        
+        let curve = calibrator
+            .create_temp_base_corr_curve(&correlation_knots)
+            .unwrap();
+
         assert_eq!(curve.detachment_points().len(), 3);
         assert_eq!(curve.correlations().len(), 3);
-        
+
         // Test interpolation
         assert!((curve.correlation(5.0) - 0.35).abs() < 1e-9); // Midpoint between 3% and 7%
     }
@@ -420,6 +434,9 @@ mod tests {
         );
 
         assert_eq!(surface_calibrator.target_maturities, vec![3.0, 5.0, 7.0]);
-        assert_eq!(surface_calibrator.detachment_points, vec![3.0, 7.0, 10.0, 15.0, 30.0]);
+        assert_eq!(
+            surface_calibrator.detachment_points,
+            vec![3.0, 7.0, 10.0, 15.0, 30.0]
+        );
     }
 }

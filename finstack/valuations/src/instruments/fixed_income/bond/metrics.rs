@@ -615,12 +615,12 @@ impl MetricCalculator for OasCalculator {
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let bond: &Bond = context.instrument_as()?;
-        
+
         // Require quoted clean price
         let clean_price = bond.quoted_clean.ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound)
         })?;
-        
+
         // Get accrued interest from computed metrics
         let accrued = context
             .computed
@@ -629,14 +629,14 @@ impl MetricCalculator for OasCalculator {
             .ok_or_else(|| {
                 finstack_core::Error::from(finstack_core::error::InputError::NotFound)
             })?;
-            
+
         // Use MarketContext directly (no conversion needed)
         let market_context = context.curves.as_ref().clone();
-        
+
         // Use OAS calculator to solve for OAS
         let oas_calculator = OASCalculator::new();
         let dirty_price = clean_price + accrued;
-        
+
         oas_calculator.calculate_oas(bond, &market_context, context.as_of, dirty_price)
     }
 }

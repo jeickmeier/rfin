@@ -3,7 +3,7 @@
 //! Implements market-standard volatility surface construction by calibrating
 //! SABR parameters per expiry slice and building interpolated surfaces.
 
-use crate::calibration::primitives::{CalibrationConstraint, InstrumentQuote, HashableFloat};
+use crate::calibration::primitives::{CalibrationConstraint, HashableFloat, InstrumentQuote};
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::options::models::{SABRCalibrator, SABRModel, SABRParameters};
 use finstack_core::market_data::context::MarketContext;
@@ -57,7 +57,7 @@ impl VolSurfaceCalibrator {
     ) -> Result<(VolSurface, CalibrationReport)> {
         // Group quotes by expiry
         let mut quotes_by_expiry: HashMap<String, Vec<&InstrumentQuote>> = HashMap::new();
-        
+
         for quote in quotes {
             if let InstrumentQuote::OptionVol { expiry, .. } = quote {
                 let expiry_key = format!("{}", expiry);
@@ -84,8 +84,16 @@ impl VolSurfaceCalibrator {
             }
 
             // Extract time to expiry from first quote
-            let time_to_expiry = if let InstrumentQuote::OptionVol { expiry, .. } = expiry_quotes[0] {
-                let days = (*expiry - finstack_core::dates::Date::from_calendar_date(2025, time::Month::January, 1).unwrap()).whole_days();
+            let time_to_expiry = if let InstrumentQuote::OptionVol { expiry, .. } = expiry_quotes[0]
+            {
+                let days = (*expiry
+                    - finstack_core::dates::Date::from_calendar_date(
+                        2025,
+                        time::Month::January,
+                        1,
+                    )
+                    .unwrap())
+                .whole_days();
                 days as F / 365.25
             } else {
                 continue;
@@ -110,26 +118,23 @@ impl VolSurfaceCalibrator {
             }
 
             // Calibrate SABR parameters for this expiry
-                            match sabr_calibrator.calibrate(forward, &strikes, &vols, time_to_expiry, self.beta) {
+            match sabr_calibrator.calibrate(forward, &strikes, &vols, time_to_expiry, self.beta) {
                 Ok(params) => {
-                    sabr_params_by_expiry.insert(HashableFloat::new(time_to_expiry), params.clone());
-                    
+                    sabr_params_by_expiry
+                        .insert(HashableFloat::new(time_to_expiry), params.clone());
+
                     // Calculate residuals for this expiry
                     let model = SABRModel::new(params);
                     for (i, &strike) in strikes.iter().enumerate() {
                         match model.implied_volatility(forward, strike, time_to_expiry) {
                             Ok(model_vol) => {
                                 let residual = model_vol - vols[i];
-                                all_residuals.insert(
-                                    format!("VOL-{}-{}", expiry_key, strike),
-                                    residual,
-                                );
+                                all_residuals
+                                    .insert(format!("VOL-{}-{}", expiry_key, strike), residual);
                             }
                             Err(_) => {
-                                all_residuals.insert(
-                                    format!("VOL-{}-{}", expiry_key, strike),
-                                    F::INFINITY,
-                                );
+                                all_residuals
+                                    .insert(format!("VOL-{}-{}", expiry_key, strike), F::INFINITY);
                             }
                         }
                     }
@@ -161,7 +166,10 @@ impl VolSurfaceCalibrator {
             .with_residuals(all_residuals)
             .with_convergence_reason("Volatility surface calibration completed")
             .with_metadata("beta".to_string(), format!("{:.3}", self.beta))
-            .with_metadata("calibrated_expiries".to_string(), format!("{}", sabr_params_by_expiry.len()));
+            .with_metadata(
+                "calibrated_expiries".to_string(),
+                format!("{}", sabr_params_by_expiry.len()),
+            );
 
         Ok((surface, report))
     }
@@ -172,17 +180,19 @@ impl VolSurfaceCalibrator {
         sabr_params: &HashMap<HashableFloat, SABRParameters>,
         forward_curve: &dyn Fn(F) -> F,
     ) -> Result<Vec<F>> {
-        let mut vol_grid = Vec::with_capacity(self.target_expiries.len() * self.target_strikes.len());
+        let mut vol_grid =
+            Vec::with_capacity(self.target_expiries.len() * self.target_strikes.len());
 
         for &expiry in &self.target_expiries {
             let forward = forward_curve(expiry);
-            
+
             // Find SABR parameters for this expiry (interpolate if needed)
             let params = self.interpolate_sabr_params(sabr_params, expiry)?;
             let model = SABRModel::new(params);
 
             for &strike in &self.target_strikes {
-                let vol = model.implied_volatility(forward, strike, expiry)
+                let vol = model
+                    .implied_volatility(forward, strike, expiry)
                     .unwrap_or(0.20); // Fallback volatility
                 vol_grid.push(vol);
             }
@@ -222,17 +232,17 @@ impl VolSurfaceCalibrator {
         for i in 0..expiries.len() - 1 {
             let t1 = expiries[i];
             let t2 = expiries[i + 1];
-            
+
             if target_expiry > t1 && target_expiry < t2 {
                 let w = (target_expiry - t1) / (t2 - t1);
                 let params1 = &sabr_params[&HashableFloat::new(t1)];
                 let params2 = &sabr_params[&HashableFloat::new(t2)];
-                
+
                 // Linear interpolation of SABR parameters
                 let alpha = params1.alpha * (1.0 - w) + params2.alpha * w;
                 let nu = params1.nu * (1.0 - w) + params2.nu * w;
                 let rho = params1.rho * (1.0 - w) + params2.rho * w;
-                
+
                 return SABRParameters::new(alpha, self.beta, nu, rho);
             }
         }
@@ -271,7 +281,7 @@ mod tests {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let expiry_1m = base_date + time::Duration::days(30);
         let expiry_3m = base_date + time::Duration::days(90);
-        
+
         vec![
             // 1M expiry options
             InstrumentQuote::OptionVol {
@@ -324,8 +334,8 @@ mod tests {
     fn test_vol_surface_calibration() {
         let calibrator = VolSurfaceCalibrator::new(
             "TEST-VOL",
-            1.0, // Lognormal beta for equity
-            vec![1.0/12.0, 3.0/12.0], // 1M, 3M
+            1.0,                          // Lognormal beta for equity
+            vec![1.0 / 12.0, 3.0 / 12.0], // 1M, 3M
             vec![90.0, 100.0, 110.0],
         );
 
@@ -333,7 +343,7 @@ mod tests {
         let forward_fn = |t: F| 100.0 * (0.05 * t).exp(); // 5% drift
 
         let result = calibrator.calibrate_surface(&quotes, &forward_fn);
-        
+
         assert!(result.is_ok());
         let (surface, report) = result.unwrap();
         assert!(report.success);
@@ -344,32 +354,39 @@ mod tests {
 
     #[test]
     fn test_sabr_parameter_interpolation() {
-        let calibrator = VolSurfaceCalibrator::new(
-            "TEST",
-            0.5,
-            vec![1.0, 2.0, 3.0],
-            vec![100.0],
-        );
+        let calibrator = VolSurfaceCalibrator::new("TEST", 0.5, vec![1.0, 2.0, 3.0], vec![100.0]);
 
         // Create mock SABR parameters
         let mut params_map = HashMap::new();
-        params_map.insert(HashableFloat::new(1.0), SABRParameters::new(0.2, 0.5, 0.3, -0.1).unwrap());
-        params_map.insert(HashableFloat::new(3.0), SABRParameters::new(0.3, 0.5, 0.4, 0.1).unwrap());
+        params_map.insert(
+            HashableFloat::new(1.0),
+            SABRParameters::new(0.2, 0.5, 0.3, -0.1).unwrap(),
+        );
+        params_map.insert(
+            HashableFloat::new(3.0),
+            SABRParameters::new(0.3, 0.5, 0.4, 0.1).unwrap(),
+        );
 
         // Test interpolation at t=2.0 (midpoint)
-        let interp_params = calibrator.interpolate_sabr_params(&params_map, 2.0).unwrap();
-        
+        let interp_params = calibrator
+            .interpolate_sabr_params(&params_map, 2.0)
+            .unwrap();
+
         // Should be average of endpoints
         assert!((interp_params.alpha - 0.25).abs() < 1e-10);
         assert!((interp_params.nu - 0.35).abs() < 1e-10);
         assert!((interp_params.rho - 0.0).abs() < 1e-10);
 
         // Test extrapolation below range
-        let extrap_low = calibrator.interpolate_sabr_params(&params_map, 0.5).unwrap();
+        let extrap_low = calibrator
+            .interpolate_sabr_params(&params_map, 0.5)
+            .unwrap();
         assert!((extrap_low.alpha - 0.2).abs() < 1e-10);
 
         // Test extrapolation above range
-        let extrap_high = calibrator.interpolate_sabr_params(&params_map, 4.0).unwrap();
+        let extrap_high = calibrator
+            .interpolate_sabr_params(&params_map, 4.0)
+            .unwrap();
         assert!((extrap_high.alpha - 0.3).abs() < 1e-10);
     }
 
@@ -384,16 +401,22 @@ mod tests {
 
         // Create simple SABR parameters
         let mut params_map = HashMap::new();
-        params_map.insert(HashableFloat::new(0.25), SABRParameters::new(0.2, 1.0, 0.3, -0.2).unwrap());
-        params_map.insert(HashableFloat::new(0.5), SABRParameters::new(0.25, 1.0, 0.35, -0.1).unwrap());
+        params_map.insert(
+            HashableFloat::new(0.25),
+            SABRParameters::new(0.2, 1.0, 0.3, -0.2).unwrap(),
+        );
+        params_map.insert(
+            HashableFloat::new(0.5),
+            SABRParameters::new(0.25, 1.0, 0.35, -0.1).unwrap(),
+        );
 
         let forward_fn = |_t: F| 100.0; // Flat forward
 
         let vol_grid = calibrator.build_vol_grid(&params_map, &forward_fn).unwrap();
-        
+
         // Should have 2 expiries × 3 strikes = 6 values
         assert_eq!(vol_grid.len(), 6);
-        
+
         // All vols should be positive
         for vol in &vol_grid {
             assert!(*vol > 0.0);

@@ -1,9 +1,9 @@
 #![cfg(test)]
 
 use finstack_core::dates::Date;
-use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::F;
 use finstack_valuations as _; // ensure crate is linked
@@ -96,7 +96,11 @@ fn irs_par_rate_matches_forward_rate() {
     };
 
     let res = irs
-        .price_with_metrics(&curves, base, &[finstack_valuations::metrics::MetricId::ParRate])
+        .price_with_metrics(
+            &curves,
+            base,
+            &[finstack_valuations::metrics::MetricId::ParRate],
+        )
         .unwrap();
     let par = *res.measures.get("par_rate").unwrap();
     assert!((par - fwd_rate).abs() < 1e-12);
@@ -169,7 +173,14 @@ fn irs_dv01_sign_and_magnitude() {
         attributes: finstack_valuations::instruments::traits::Attributes::new(),
     };
     let res = irs_recv
-        .price_with_metrics(&curves, base, &[finstack_valuations::metrics::MetricId::Dv01, finstack_valuations::metrics::MetricId::Annuity])
+        .price_with_metrics(
+            &curves,
+            base,
+            &[
+                finstack_valuations::metrics::MetricId::Dv01,
+                finstack_valuations::metrics::MetricId::Annuity,
+            ],
+        )
         .unwrap();
     let dv01 = *res.measures.get("dv01").unwrap();
     let ann = *res.measures.get("annuity").unwrap();
@@ -182,7 +193,11 @@ fn irs_dv01_sign_and_magnitude() {
         ..irs_recv
     };
     let res2 = irs_pay
-        .price_with_metrics(&curves, base, &[finstack_valuations::metrics::MetricId::Dv01])
+        .price_with_metrics(
+            &curves,
+            base,
+            &[finstack_valuations::metrics::MetricId::Dv01],
+        )
         .unwrap();
     let dv01_pay = *res2.measures.get("dv01").unwrap();
     assert!(dv01 * dv01_pay < 0.0);
@@ -220,7 +235,14 @@ fn bond_ytm_ytw_and_amortization() {
         attributes: finstack_valuations::instruments::traits::Attributes::new(),
     };
     let res_bullet = bullet
-        .price_with_metrics(&curves, issue, &[finstack_valuations::metrics::MetricId::Ytm, finstack_valuations::metrics::MetricId::Ytw])
+        .price_with_metrics(
+            &curves,
+            issue,
+            &[
+                finstack_valuations::metrics::MetricId::Ytm,
+                finstack_valuations::metrics::MetricId::Ytw,
+            ],
+        )
         .unwrap();
     let ytm = *res_bullet.measures.get("ytm").unwrap();
     let ytw = *res_bullet.measures.get("ytw").unwrap();

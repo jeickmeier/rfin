@@ -328,7 +328,7 @@ impl PyFloatLeg {
 ///     ... )
 ///     >>>
 ///     >>> # Price the swap with metrics
-///     >>> result = swap.price_with_metrics(market_context, Date(2024, 1, 1), ["par_rate"]) 
+///     >>> result = swap.price_with_metrics(market_context, Date(2024, 1, 1), ["par_rate"])
 ///     >>> print(f"NPV: ${result.value.amount:,.2f}")
 ///     >>> print(f"Par Rate: {result.get_metric('ParRate', 0):.4%}")
 ///     >>> print(f"DV01: ${result.get_metric('Dv01', 0):,.2f}")
@@ -615,7 +615,12 @@ impl PyInterestRateSwap {
             .iter()
             .map(|name| finstack_valuations::metrics::MetricId::from_str(name))
             .collect::<Result<_, _>>()
-            .unwrap_or_else(|_| metrics.iter().map(finstack_valuations::metrics::MetricId::custom).collect());
+            .unwrap_or_else(|_| {
+                metrics
+                    .iter()
+                    .map(finstack_valuations::metrics::MetricId::custom)
+                    .collect()
+            });
 
         let result = self
             .inner

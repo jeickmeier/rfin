@@ -463,7 +463,11 @@ impl crate::covenants::engine::InstrumentMutator for Loan {
                     *step_ups = Some(vec![(self.issue_date, new_rate)]);
                 }
             }
-            InterestSpec::Floating { spread_bp, spread_step_ups, .. } => {
+            InterestSpec::Floating {
+                spread_bp,
+                spread_step_ups,
+                ..
+            } => {
                 let increase_bp = increase * 10000.0;
                 if let Some(ref mut steps) = spread_step_ups {
                     // Add spread step-up
@@ -479,7 +483,10 @@ impl crate::covenants::engine::InstrumentMutator for Loan {
             InterestSpec::PIK { rate } => {
                 *rate += increase;
             }
-            InterestSpec::CashPlusPIK { cash_rate, pik_rate } => {
+            InterestSpec::CashPlusPIK {
+                cash_rate,
+                pik_rate,
+            } => {
                 // Apply increase proportionally
                 let total = *cash_rate + *pik_rate;
                 if total > 0.0 {
@@ -492,7 +499,11 @@ impl crate::covenants::engine::InstrumentMutator for Loan {
                     *pik_rate += increase * 0.5;
                 }
             }
-            InterestSpec::PIKToggle { cash_rate, pik_rate, .. } => {
+            InterestSpec::PIKToggle {
+                cash_rate,
+                pik_rate,
+                ..
+            } => {
                 *cash_rate += increase;
                 *pik_rate += increase;
             }
@@ -800,7 +811,7 @@ mod tests {
     #[test]
     fn test_covenant_consequence_rate_increase() {
         use crate::covenants::engine::InstrumentMutator;
-        
+
         let mut loan = Loan::new(
             "LOAN-COVENANT-TEST",
             Money::new(1_000_000.0, Currency::USD),
@@ -830,7 +841,7 @@ mod tests {
     #[test]
     fn test_covenant_consequence_cash_sweep() {
         use crate::covenants::engine::InstrumentMutator;
-        
+
         let mut loan = Loan::new(
             "LOAN-SWEEP-TEST",
             Money::new(1_000_000.0, Currency::USD),
@@ -856,7 +867,7 @@ mod tests {
     #[test]
     fn test_covenant_consequence_default_status() {
         use crate::covenants::engine::InstrumentMutator;
-        
+
         let mut loan = Loan::new(
             "LOAN-DEFAULT-TEST",
             Money::new(1_000_000.0, Currency::USD),
@@ -870,7 +881,11 @@ mod tests {
 
         assert!(!loan.is_default);
 
-        loan.set_default_status(true, Date::from_calendar_date(2025, Month::June, 1).unwrap()).unwrap();
+        loan.set_default_status(
+            true,
+            Date::from_calendar_date(2025, Month::June, 1).unwrap(),
+        )
+        .unwrap();
         assert!(loan.is_default);
     }
 }

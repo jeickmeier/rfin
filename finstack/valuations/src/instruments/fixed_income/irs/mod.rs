@@ -5,8 +5,8 @@ pub mod metrics;
 // impl_attributable! replaced by unified macro where applicable
 use finstack_core::dates::holiday::calendars::calendar_by_id;
 use finstack_core::dates::{BusinessDayConvention, Frequency, StubKind};
-use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::traits::{Discount, Forward};
+use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::F;
 

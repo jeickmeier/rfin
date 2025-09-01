@@ -9,13 +9,14 @@ use super::Bond;
 use super::CallPut;
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::options::models::{
-    short_rate_keys, ShortRateTree, ShortRateTreeConfig, NodeState, StateVariables, TreeValuator, TreeModel,
+    short_rate_keys, NodeState, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
+    TreeValuator,
 };
+use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::root_finding::brent;
 use finstack_core::{Error, Result, F};
-use finstack_core::dates::Date;
 use std::collections::HashMap;
 
 #[cfg(test)]
@@ -69,12 +70,12 @@ impl BondValuator {
     ) -> Result<Self> {
         let dt = time_to_maturity / tree_steps as F;
         let time_steps: Vec<F> = (0..=tree_steps).map(|i| i as F * dt).collect();
-        
+
         // Build cashflow schedule
         let curves = market_context; // Use MarketContext directly
         let base_date = market_context.discount(bond.disc_id)?.base_date();
         let flows = bond.build_schedule(curves, base_date)?;
-        
+
         // Map cashflows to tree steps
         let mut coupon_map = HashMap::new();
         for (date, amount) in &flows {
@@ -86,11 +87,11 @@ impl BondValuator {
                 }
             }
         }
-        
+
         // Map call/put schedules to tree steps
         let mut call_map = HashMap::new();
         let mut put_map = HashMap::new();
-        
+
         if let Some(ref call_put) = bond.call_put {
             // Map call schedule
             for call in &call_put.calls {
@@ -103,7 +104,7 @@ impl BondValuator {
                     }
                 }
             }
-            
+
             // Map put schedule
             for put in &call_put.puts {
                 if put.date > base_date && put.date <= bond.maturity {
@@ -116,7 +117,7 @@ impl BondValuator {
                 }
             }
         }
-        
+
         Ok(Self {
             bond,
             coupon_map,
@@ -133,27 +134,27 @@ impl TreeValuator for BondValuator {
         let final_step = self.time_steps.len() - 1;
         let coupon = self.coupon_map.get(&final_step).copied().unwrap_or(0.0);
         let face_value = self.bond.notional.amount();
-        
+
         Ok(face_value + coupon)
     }
 
     fn value_at_node(&self, state: &NodeState, continuation_value: F) -> Result<F> {
         let step = state.step;
-        
+
         // Add any coupon payment at this step
         let coupon = self.coupon_map.get(&step).copied().unwrap_or(0.0);
         let mut value = continuation_value + coupon;
-        
+
         // Apply put option (holder can force redemption - max operation)
         if let Some(&put_price) = self.put_map.get(&step) {
             value = value.max(put_price);
         }
-        
+
         // Apply call option (issuer can force redemption - min operation)
         if let Some(&call_price) = self.call_map.get(&step) {
             value = value.min(call_price);
         }
-        
+
         Ok(value)
     }
 }
@@ -170,12 +171,12 @@ impl OASCalculator {
             config: OASPricerConfig::default(),
         }
     }
-    
+
     /// Create calculator with custom config
     pub fn with_config(config: OASPricerConfig) -> Self {
         Self { config }
     }
-    
+
     /// Calculate OAS for a bond given market price
     pub fn calculate_oas(
         &self,
@@ -187,29 +188,27 @@ impl OASCalculator {
         // Get accrued interest to calculate dirty price target
         let accrued = self.calculate_accrued_interest(bond, market_context, as_of)?;
         let dirty_price_pct = market_price + accrued;
-        
+
         // Convert percentage price to notional terms (model returns notional amounts)
         let dirty_target = dirty_price_pct * bond.notional.amount() / 100.0;
-        
 
-        
         // Calculate time to maturity
         let time_to_maturity = DiscountCurve::year_fraction(as_of, bond.maturity, bond.dc);
         if time_to_maturity <= 0.0 {
             return Ok(0.0); // Bond has matured
         }
-        
+
         // Create and calibrate short-rate tree
         let tree_config = ShortRateTreeConfig {
             steps: self.config.tree_steps,
             volatility: self.config.volatility,
             ..Default::default()
         };
-        
+
         let mut tree = ShortRateTree::new(tree_config);
         let discount_curve = market_context.discount(bond.disc_id)?;
         tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
-        
+
         // Create bond valuator
         let valuator = BondValuator::new(
             bond.clone(),
@@ -217,42 +216,41 @@ impl OASCalculator {
             time_to_maturity,
             self.config.tree_steps,
         )?;
-        
+
         // Define objective function for OAS solver
         let objective_fn = |oas: F| -> F {
             // Create state variables with OAS
             let mut vars = StateVariables::new();
             vars.insert(short_rate_keys::OAS, oas);
-            
+
             // Price bond with this OAS
-            match tree.price(
-                vars,
-                time_to_maturity,
-                market_context,
-                &valuator,
-            ) {
+            match tree.price(vars, time_to_maturity, market_context, &valuator) {
                 Ok(model_price) => model_price - dirty_target,
                 Err(_) => {
                     // If pricing fails, return a large number to guide solver away
-                    if oas > 0.0 { 1000000.0 } else { -1000000.0 }
+                    if oas > 0.0 {
+                        1000000.0
+                    } else {
+                        -1000000.0
+                    }
                 }
             }
         };
-        
+
         // Test objective function at endpoints before calling Brent
         let f_low = objective_fn(-500.0);
         let f_high = objective_fn(2000.0);
-        
+
         // Check if there's a sign change (required for Brent)
         if f_low * f_high > 0.0 {
             // Try wider range
             let f_very_low = objective_fn(-2000.0);
             let f_very_high = objective_fn(5000.0);
-            
+
             if f_very_low * f_very_high > 0.0 {
                 return Err(Error::Internal);
             }
-            
+
             // Use expanded range for Brent
             return brent(
                 objective_fn,
@@ -262,20 +260,20 @@ impl OASCalculator {
                 self.config.max_iterations,
             );
         }
-        
+
         // Solve for OAS using Brent's method
         // Typical OAS range is -500bp to +2000bp
         let oas_bp = brent(
             objective_fn,
             -500.0, // -5% in bps
-            2000.0, // +20% in bps  
+            2000.0, // +20% in bps
             self.config.tolerance,
             self.config.max_iterations,
         )?;
-        
+
         Ok(oas_bp)
     }
-    
+
     /// Calculate accrued interest for the bond
     fn calculate_accrued_interest(
         &self,
@@ -285,29 +283,33 @@ impl OASCalculator {
     ) -> Result<F> {
         // Use the existing accrued interest calculation logic
         // This is a simplified version - in practice would use the full metric calculator
-        
+
         if let Some(ref custom) = bond.custom_cashflows {
             // Use coupon flows from custom schedule
             let mut coupon_dates = Vec::new();
             for cf in &custom.flows {
-                if matches!(cf.kind, crate::cashflow::primitives::CFKind::Fixed | crate::cashflow::primitives::CFKind::Stub) {
+                if matches!(
+                    cf.kind,
+                    crate::cashflow::primitives::CFKind::Fixed
+                        | crate::cashflow::primitives::CFKind::Stub
+                ) {
                     coupon_dates.push((cf.date, cf.amount));
                 }
             }
-            
+
             if coupon_dates.len() < 2 {
                 return Ok(0.0);
             }
-            
+
             // Find accrual period
             for window in coupon_dates.windows(2) {
                 let (start_date, _) = window[0];
                 let (end_date, coupon_amount) = window[1];
-                
+
                 if start_date <= as_of && as_of < end_date {
                     let total_period = DiscountCurve::year_fraction(start_date, end_date, bond.dc);
                     let elapsed = DiscountCurve::year_fraction(start_date, as_of, bond.dc).max(0.0);
-                    
+
                     if total_period > 0.0 {
                         return Ok(coupon_amount.amount() * (elapsed / total_period));
                     }
@@ -323,23 +325,23 @@ impl OASCalculator {
                 finstack_core::dates::BusinessDayConvention::Following,
                 None,
             );
-            
+
             for window in sched.dates.windows(2) {
                 let start_date = window[0];
                 let end_date = window[1];
-                
+
                 if start_date <= as_of && as_of < end_date {
                     let yf = DiscountCurve::year_fraction(start_date, end_date, bond.dc);
                     let period_coupon = bond.notional.amount() * bond.coupon * yf;
                     let elapsed = DiscountCurve::year_fraction(start_date, as_of, bond.dc).max(0.0);
-                    
+
                     if yf > 0.0 {
                         return Ok(period_coupon * (elapsed / yf));
                     }
                 }
             }
         }
-        
+
         Ok(0.0)
     }
 }
@@ -371,7 +373,7 @@ mod tests {
     fn create_test_bond() -> Bond {
         let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
-        
+
         Bond {
             id: "TEST_BOND".to_string(),
             notional: Money::new(1000.0, finstack_core::currency::Currency::USD),
@@ -391,7 +393,7 @@ mod tests {
 
     fn create_callable_bond() -> Bond {
         let mut bond = create_test_bond();
-        
+
         // Add call schedule
         let call_date = Date::from_calendar_date(2027, Month::January, 1).unwrap();
         let mut call_put = CallPutSchedule::default();
@@ -399,21 +401,21 @@ mod tests {
             date: call_date,
             price_pct_of_par: 102.0, // Callable at 102% of par
         });
-        
+
         bond.call_put = Some(call_put);
         bond
     }
 
     fn create_test_market_context() -> MarketContext {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         let discount_curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.85), (10.0, 0.70)])
             .log_df()
             .build()
             .unwrap();
-        
+
         MarketContext::new().with_discount(discount_curve)
     }
 
@@ -421,18 +423,18 @@ mod tests {
     fn test_bond_valuator_creation() {
         let bond = create_test_bond();
         let market_context = create_test_market_context();
-        
+
         let valuator = BondValuator::new(
             bond,
             &market_context,
             5.0, // 5 years to maturity
             50,  // 50 steps
         );
-        
+
         assert!(valuator.is_ok());
         let valuator = valuator.unwrap();
         assert!(!valuator.coupon_map.is_empty());
-        
+
         // Verify market context was used properly
         assert!(market_context.discount("USD-OIS").is_ok());
     }
@@ -442,15 +444,15 @@ mod tests {
         let bond = create_test_bond();
         let market_context = create_test_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         let calculator = OASCalculator::new();
-        
+
         // For a plain bond (no options), OAS should be close to Z-spread
         let oas = calculator.calculate_oas(&bond, &market_context, as_of, 98.5);
-        
+
         assert!(oas.is_ok());
         let oas_bp = oas.unwrap();
-        
+
         // OAS should be reasonable (some positive spread for below-par bond)
         assert!(oas_bp > 0.0);
         assert!(oas_bp < 5000.0); // Less than 50% (very generous for below-par bond)
@@ -461,15 +463,15 @@ mod tests {
         let bond = create_callable_bond();
         let market_context = create_test_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         let calculator = OASCalculator::new();
-        
+
         // Callable bond should have higher OAS than equivalent non-callable
         let oas = calculator.calculate_oas(&bond, &market_context, as_of, 98.5);
-        
+
         assert!(oas.is_ok());
         let oas_bp = oas.unwrap();
-        
+
         // Callable bond OAS should be positive (call option has negative value for holder)
         assert!(oas_bp > 0.0);
     }
@@ -478,14 +480,9 @@ mod tests {
     fn test_bond_valuator_with_calls() {
         let bond = create_callable_bond();
         let market_context = create_test_market_context();
-        
-        let valuator = BondValuator::new(
-            bond,
-            &market_context,
-            5.0,
-            50,
-        ).unwrap();
-        
+
+        let valuator = BondValuator::new(bond, &market_context, 5.0, 50).unwrap();
+
         // Should have call options mapped
         assert!(!valuator.call_map.is_empty());
         assert!(valuator.put_map.is_empty()); // No puts in this bond
@@ -496,15 +493,19 @@ mod tests {
         let bond = create_test_bond();
         let market_context = create_test_market_context();
         let calculator = OASCalculator::new();
-        
+
         // Test accrued interest on a coupon date (should be 0)
         let coupon_date = Date::from_calendar_date(2025, Month::July, 1).unwrap();
-        let accrued = calculator.calculate_accrued_interest(&bond, &market_context, coupon_date).unwrap();
+        let accrued = calculator
+            .calculate_accrued_interest(&bond, &market_context, coupon_date)
+            .unwrap();
         assert!(accrued.abs() < 1e-6); // Should be very close to 0
-        
+
         // Test accrued interest halfway through period
         let mid_period = Date::from_calendar_date(2025, Month::April, 1).unwrap();
-        let accrued_mid = calculator.calculate_accrued_interest(&bond, &market_context, mid_period).unwrap();
+        let accrued_mid = calculator
+            .calculate_accrued_interest(&bond, &market_context, mid_period)
+            .unwrap();
         assert!(accrued_mid > 0.0); // Should have some accrued interest
     }
 }

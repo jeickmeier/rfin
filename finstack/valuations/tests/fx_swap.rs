@@ -138,9 +138,9 @@ fn test_fx_swap_metrics() {
     // and also decreases the value of the foreign leg. So, foreign IR01 should be negative.
     assert!(ir01_foreign < 0.0);
 
-        // Check FX01
+    // Check FX01
     let fx01 = *result.measures.get("fx01").unwrap();
-    
+
     // For an FX swap, when we bump the spot rate:
     // - The near leg domestic payment increases (we pay more domestic currency)
     // - The far leg domestic receipt increases (we receive more domestic currency)
@@ -148,8 +148,11 @@ fn test_fx_swap_metrics() {
     // The net effect depends on the specific terms and discount factors
     // For our test case with a 30-day swap, FX01 should be small but non-zero
     assert!(fx01.abs() > 1e-10, "FX01 should be non-zero");
-    
+
     // The sign of FX01 depends on the swap specifics. For this test case,
-    // it's negative (PV decreases when spot increases) 
-    assert!(fx01 < 0.0, "FX01 should be negative for this swap configuration");
+    // it's negative (PV decreases when spot increases)
+    assert!(
+        fx01 < 0.0,
+        "FX01 should be negative for this swap configuration"
+    );
 }

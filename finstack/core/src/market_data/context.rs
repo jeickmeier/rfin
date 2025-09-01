@@ -13,7 +13,6 @@ use hashbrown::HashMap;
 
 use crate::money::fx::FxMatrix;
 
-use crate::types::CurveId;
 use super::{
     inflation::InflationCurve,
     inflation_index::InflationIndex,
@@ -22,6 +21,7 @@ use super::{
     term_structures::credit_curve::CreditCurve,
     traits::{Discount, Forward, TermStructure},
 };
+use crate::types::CurveId;
 
 /// Unified market data context
 #[derive(Clone, Default)]
@@ -81,15 +81,11 @@ impl MarketContext {
         self
     }
 
-
-
     /// Insert or replace a price/scalar by id.
     pub fn with_price(mut self, id: impl AsRef<str>, price: MarketScalar) -> Self {
         self.prices.insert(CurveId::from(id.as_ref()), price);
         self
     }
-
-
 
     /// Insert or replace a generic series.
     pub fn with_series(mut self, series: ScalarTimeSeries) -> Self {
@@ -161,8 +157,6 @@ impl MarketContext {
 // because it conflicts with the standard library's `impl<T> From<T> for T`.
 
 impl MarketContext {
-
-
     /// Convenience getters that forward to underlying containers
     pub fn vol_surface(&self, id: impl AsRef<str>) -> crate::Result<Arc<VolSurface>> {
         self.surfaces
@@ -184,8 +178,6 @@ impl MarketContext {
             .get(&CurveId::from(id.as_ref()))
             .ok_or(crate::error::InputError::NotFound.into())
     }
-
-
 
     /// Backwards compatibility alias for fetching a scalar.
     pub fn scalar(&self, id: impl AsRef<str>) -> crate::Result<&MarketScalar> {
@@ -251,5 +243,3 @@ impl MarketContext {
         self.discount(id.as_str())
     }
 }
-
-

@@ -5,7 +5,7 @@ use finstack_core::{Currency, F};
 use std::hash::{Hash, Hasher};
 
 /// Hashable wrapper for floating point values used as HashMap keys.
-/// 
+///
 /// Provides a way to use f64 values as HashMap keys by implementing Hash and Eq.
 /// Uses a tolerance-based equality comparison for floating point values.
 #[derive(Clone, Copy, Debug)]
@@ -22,7 +22,7 @@ impl HashableFloat {
             precision: (value * 1_000_000.0).round() as i64,
         }
     }
-    
+
     /// Create with custom precision (number of decimal places).
     pub fn with_precision(value: F, decimal_places: u32) -> Self {
         let multiplier = 10_f64.powi(decimal_places as i32);
@@ -31,7 +31,7 @@ impl HashableFloat {
             precision: (value * multiplier).round() as i64,
         }
     }
-    
+
     /// Get the underlying value.
     pub fn value(&self) -> F {
         self.value
@@ -219,7 +219,10 @@ pub enum ConstraintType {
     /// Weighted least squares fit
     WeightedFit,
     /// Inequality constraint (e.g., no-arbitrage)
-    Inequality { bound: F, direction: InequalityDirection },
+    Inequality {
+        bound: F,
+        direction: InequalityDirection,
+    },
 }
 
 /// Direction for inequality constraints.

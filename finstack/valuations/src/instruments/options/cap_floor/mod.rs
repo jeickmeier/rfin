@@ -351,14 +351,13 @@ impl InterestRateOption {
     }
 }
 
-
 impl_instrument!(
     InterestRateOption,
     "InterestRateOption",
     pv = |s, curves, as_of| {
         use crate::cashflow::builder::schedule_utils::build_dates;
         use finstack_core::dates::{BusinessDayConvention, StubKind};
-        
+
         // Get market curves
         let disc_curve = curves.discount(s.disc_id)?;
         let fwd_curve = curves.forecast(s.forward_id)?;
@@ -367,15 +366,18 @@ impl_instrument!(
         } else {
             None
         };
-        
+
         let mut total_pv = finstack_core::money::Money::new(0.0, s.notional.currency());
-        
+
         // For single caplet/floorlet, price directly
-        if matches!(s.rate_option_type, RateOptionType::Caplet | RateOptionType::Floorlet) {
+        if matches!(
+            s.rate_option_type,
+            RateOptionType::Caplet | RateOptionType::Floorlet
+        ) {
             let time_to_fixing = s.day_count.year_fraction(as_of, s.start_date)?;
             let time_to_payment = s.day_count.year_fraction(as_of, s.end_date)?;
             let period_length = s.day_count.year_fraction(s.start_date, s.end_date)?;
-            
+
             if time_to_fixing <= 0.0 {
                 // Option expired - intrinsic value only
                 let forward_rate = fwd_curve.rate(time_to_fixing.max(0.0));
@@ -390,10 +392,10 @@ impl_instrument!(
                     s.notional.currency(),
                 ));
             }
-            
+
             let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
             let df = disc_curve.df(time_to_payment);
-            
+
             let sigma = if let Some(impl_vol) = s.implied_vol {
                 impl_vol
             } else if let Some(vol_surf) = &vol_surface {
@@ -401,10 +403,16 @@ impl_instrument!(
             } else {
                 return Err(finstack_core::error::InputError::NotFound.into());
             };
-            
-            return s.black_price_caplet_floorlet(forward_rate, df, sigma, time_to_fixing, period_length);
+
+            return s.black_price_caplet_floorlet(
+                forward_rate,
+                df,
+                sigma,
+                time_to_fixing,
+                period_length,
+            );
         }
-        
+
         // For cap/floor, price as portfolio of caplets/floorlets
         let schedule = build_dates(
             s.start_date,
@@ -414,11 +422,11 @@ impl_instrument!(
             BusinessDayConvention::Following,
             None,
         );
-        
+
         if schedule.dates.len() < 2 {
             return Ok(total_pv);
         }
-        
+
         // Price each caplet/floorlet
         let mut prev_date = schedule.dates[0];
         for &payment_date in &schedule.dates[1..] {
@@ -426,12 +434,12 @@ impl_instrument!(
             let time_to_fixing = s.day_count.year_fraction(as_of, fixing_date)?;
             let time_to_payment = s.day_count.year_fraction(as_of, payment_date)?;
             let period_length = s.day_count.year_fraction(fixing_date, payment_date)?;
-            
+
             if time_to_fixing > 0.0 {
                 // Only price future caplets/floorlets
                 let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
                 let df = disc_curve.df(time_to_payment);
-                
+
                 let sigma = if let Some(impl_vol) = s.implied_vol {
                     impl_vol
                 } else if let Some(vol_surf) = &vol_surface {
@@ -439,7 +447,7 @@ impl_instrument!(
                 } else {
                     return Err(finstack_core::error::InputError::NotFound.into());
                 };
-                
+
                 let caplet_price = s.black_price_caplet_floorlet(
                     forward_rate,
                     df,
@@ -447,13 +455,13 @@ impl_instrument!(
                     time_to_fixing,
                     period_length,
                 )?;
-                
+
                 total_pv = (total_pv + caplet_price)?;
             }
-            
+
             prev_date = payment_date;
         }
-        
+
         Ok(total_pv)
     }
 );

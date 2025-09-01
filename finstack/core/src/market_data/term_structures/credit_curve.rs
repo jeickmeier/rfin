@@ -1,9 +1,9 @@
 //! Credit curves for risky discounting and credit spread calculations.
 
 use crate::error::InputError;
-use crate::types::CurveId;
 use crate::market_data::traits::TermStructure;
 use crate::prelude::*;
+use crate::types::CurveId;
 use crate::F;
 
 /// Interpolation method for credit spreads.

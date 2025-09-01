@@ -2,9 +2,9 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency};
-use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::primitives::AmortizationSpec;
 use finstack_valuations::cashflow::traits::CashflowProvider;
@@ -329,10 +329,10 @@ fn test_revolver_with_utilization_fees() {
     // Compute value (basic test to ensure pricing works)
     let value = revolver.value(&curves, as_of).unwrap();
     assert_eq!(value.currency(), Currency::USD);
-    
+
     // Test initial utilization (before events)
     assert_eq!(revolver.utilization(), 0.0); // No initial drawn amount
-    
+
     // Test simulated drawn amount after events
     let simulated_drawn = revolver.simulate_drawn_to_date(as_of);
     assert_eq!(simulated_drawn.amount(), 20_000_000.0); // 10M + 15M - 5M = 20M

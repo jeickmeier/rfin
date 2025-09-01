@@ -12,7 +12,7 @@ use crate::core::{dates::PyDate, money::PyMoney};
 /// metrics such as duration, convexity, DV01, etc.
 ///
 /// Examples:
-///     >>> result = bond.price_with_metrics(market_context, Date(2024, 1, 1), ["ytm"]) 
+///     >>> result = bond.price_with_metrics(market_context, Date(2024, 1, 1), ["ytm"])
 ///     >>> print(f"PV: ${result.value.amount:,.2f}")
 ///     >>> print(f"YTM: {result.metrics.get('Ytm', 0):.2%}")
 ///     >>> print(f"Duration: {result.metrics.get('DurationMod', 0):.2f}")

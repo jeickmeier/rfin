@@ -582,7 +582,12 @@ impl PyBond {
             .iter()
             .map(|name| finstack_valuations::metrics::MetricId::from_str(name))
             .collect::<Result<_, _>>()
-            .unwrap_or_else(|_| metrics.iter().map(finstack_valuations::metrics::MetricId::custom).collect());
+            .unwrap_or_else(|_| {
+                metrics
+                    .iter()
+                    .map(finstack_valuations::metrics::MetricId::custom)
+                    .collect()
+            });
 
         // Call the Rust price_with_metrics implementation
         let result = self

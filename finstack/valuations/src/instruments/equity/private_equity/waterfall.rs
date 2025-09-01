@@ -151,7 +151,10 @@ impl WaterfallSpec {
 
         // Validate promote tier splits sum to 1.0
         for tranche in &self.tranches {
-            if let Tranche::PromoteTier { lp_share, gp_share, .. } = tranche {
+            if let Tranche::PromoteTier {
+                lp_share, gp_share, ..
+            } = tranche
+            {
                 let sum = lp_share + gp_share;
                 if (sum - 1.0).abs() > 1e-6 {
                     return Err(finstack_core::error::InputError::Invalid.into());
@@ -321,7 +324,9 @@ impl FundEvent {
     /// Contributions are negative (outflows), distributions/proceeds are positive (inflows).
     pub fn signed_amount(&self) -> Money {
         match self.kind {
-            FundEventKind::Contribution => Money::new(-self.amount.amount(), self.amount.currency()),
+            FundEventKind::Contribution => {
+                Money::new(-self.amount.amount(), self.amount.currency())
+            }
             FundEventKind::Distribution | FundEventKind::Proceeds => self.amount,
         }
     }
@@ -372,9 +377,11 @@ impl AllocationLedger {
         let mut lp_flows_by_date: IndexMap<Date, Money> = IndexMap::new();
 
         for row in &self.rows {
-            let existing = lp_flows_by_date.get(&row.date).copied()
+            let existing = lp_flows_by_date
+                .get(&row.date)
+                .copied()
                 .unwrap_or_else(|| Money::new(0.0, row.to_lp.currency()));
-            
+
             // Add LP allocation (may be positive or negative)
             if let Ok(new_amount) = existing + row.to_lp {
                 lp_flows_by_date.insert(row.date, new_amount);
@@ -382,7 +389,8 @@ impl AllocationLedger {
         }
 
         for (date, amount) in lp_flows_by_date {
-            if amount.amount().abs() > 1e-6 {  // Only include non-zero flows
+            if amount.amount().abs() > 1e-6 {
+                // Only include non-zero flows
                 flows.push((date, amount));
             }
         }
@@ -394,8 +402,16 @@ impl AllocationLedger {
     /// Returns column names and data vectors suitable for external DataFrame libraries.
     pub fn to_tabular_data(&self) -> (Vec<&'static str>, Vec<Vec<String>>) {
         let column_names = vec![
-            "date", "period_key", "deal_id", "tranche", "to_lp", "to_gp", 
-            "lp_unreturned", "gp_carry_cum", "lp_irr_to_date", "note"
+            "date",
+            "period_key",
+            "deal_id",
+            "tranche",
+            "to_lp",
+            "to_gp",
+            "lp_unreturned",
+            "gp_carry_cum",
+            "lp_irr_to_date",
+            "note",
         ];
 
         let mut rows = Vec::new();
@@ -409,7 +425,10 @@ impl AllocationLedger {
             row_data.push(row.to_gp.amount().to_string());
             row_data.push(row.lp_unreturned.amount().to_string());
             row_data.push(row.gp_carry_cum.amount().to_string());
-            row_data.push(row.lp_irr_to_date.map_or("".to_string(), |irr| format!("{:.6}", irr)));
+            row_data.push(
+                row.lp_irr_to_date
+                    .map_or("".to_string(), |irr| format!("{:.6}", irr)),
+            );
             row_data.push(row.note.as_deref().unwrap_or("").to_string());
             rows.push(row_data);
         }
@@ -419,8 +438,7 @@ impl AllocationLedger {
 
     /// Export as JSON string for external analysis.
     pub fn to_json(&self) -> finstack_core::Result<String> {
-        serde_json::to_string_pretty(self)
-            .map_err(|_| finstack_core::Error::Internal)
+        serde_json::to_string_pretty(self).map_err(|_| finstack_core::Error::Internal)
     }
 }
 
@@ -442,7 +460,7 @@ impl<'a> EquityWaterfallEngine<'a> {
         sorted_events.sort_by(|a, b| a.date.cmp(&b.date));
 
         let mut ledger_rows = Vec::new();
-        
+
         match self.spec.style {
             WaterfallStyle::European => {
                 self.run_european(&sorted_events, &mut ledger_rows)?;
@@ -477,9 +495,11 @@ impl<'a> EquityWaterfallEngine<'a> {
         // Aggregate all events at fund level
         let mut lp_unreturned = 0.0;
         let mut gp_carry_cum = 0.0;
-        let currency = events.first()
+        let currency = events
+            .first()
             .ok_or(finstack_core::error::InputError::TooFewPoints)?
-            .amount.currency();
+            .amount
+            .currency();
 
         for event in events {
             if event.kind == FundEventKind::Distribution || event.kind == FundEventKind::Proceeds {
@@ -533,15 +553,18 @@ impl<'a> EquityWaterfallEngine<'a> {
         }
 
         // Process each deal separately
-        let mut total_lp_unreturned = fund_contributions.iter()
+        let mut total_lp_unreturned = fund_contributions
+            .iter()
             .filter(|e| e.kind == FundEventKind::Contribution)
             .map(|e| e.amount.amount())
             .sum::<F>();
 
         let mut total_gp_carry = 0.0;
-        let currency = events.first()
+        let currency = events
+            .first()
             .ok_or(finstack_core::error::InputError::TooFewPoints)?
-            .amount.currency();
+            .amount
+            .currency();
 
         for (deal_id, deal_events) in deals {
             // For each deal, allocate proceeds through the waterfall
@@ -605,7 +628,11 @@ impl<'a> EquityWaterfallEngine<'a> {
                     )?;
                     let allocation = remaining_amount.min(required);
                     remaining_amount -= allocation;
-                    (allocation, 0.0, format!("Preferred Return {:.1}%", irr * 100.0))
+                    (
+                        allocation,
+                        0.0,
+                        format!("Preferred Return {:.1}%", irr * 100.0),
+                    )
                 }
 
                 Tranche::CatchUp { gp_share } => {
@@ -613,14 +640,14 @@ impl<'a> EquityWaterfallEngine<'a> {
                     // For now, implement simplified catch-up that takes remaining proceeds
                     // In a full implementation, this would calculate the precise catch-up amount
                     // based on total distributions to date and target GP share
-                    
+
                     let allocation = match self.spec.catchup_mode {
                         CatchUpMode::Full => {
                             // For simplified implementation, limit catch-up to reasonable amount
                             // In practice, this would be calculated based on prior distributions
                             let max_catchup = remaining_amount * 0.5; // Limit to 50% of remaining
                             max_catchup.min(remaining_amount)
-                        },
+                        }
                         CatchUpMode::Partial => remaining_amount * gp_share,
                     };
                     let to_gp = allocation.min(remaining_amount);
@@ -629,18 +656,24 @@ impl<'a> EquityWaterfallEngine<'a> {
                     (0.0, to_gp, "Catch-Up".to_string())
                 }
 
-                Tranche::PromoteTier { lp_share, gp_share, hurdle } => {
+                Tranche::PromoteTier {
+                    lp_share,
+                    gp_share,
+                    hurdle,
+                } => {
                     let to_lp = remaining_amount * lp_share;
                     let to_gp = remaining_amount * gp_share;
                     gp_carry_cum += to_gp;
-                    
+
                     let tranche_name = match hurdle {
-                        Hurdle::Irr { rate } => format!("Promote {:.1}%+ ({}%/{}%)", 
-                                                       rate * 100.0, 
-                                                       lp_share * 100.0, 
-                                                       gp_share * 100.0),
+                        Hurdle::Irr { rate } => format!(
+                            "Promote {:.1}%+ ({}%/{}%)",
+                            rate * 100.0,
+                            lp_share * 100.0,
+                            gp_share * 100.0
+                        ),
                     };
-                    
+
                     remaining_amount = 0.0; // Allocate all remaining
                     (to_lp, to_gp, tranche_name)
                 }
@@ -676,7 +709,7 @@ impl<'a> EquityWaterfallEngine<'a> {
     ) -> finstack_core::Result<F> {
         // Build LP cashflow history up to current date, including contributions and prior distributions
         let mut lp_flows = Vec::new();
-        
+
         for event in all_events {
             if event.date < current_date {
                 lp_flows.push((event.date, event.signed_amount()));
@@ -690,7 +723,7 @@ impl<'a> EquityWaterfallEngine<'a> {
         // Current IRR without additional preferred return
         let base_date = lp_flows[0].0;
         let current_irr = self.calculate_irr(&lp_flows, base_date).unwrap_or(0.0);
-        
+
         if current_irr >= target_irr {
             return Ok(0.0); // Already at or above target IRR
         }
@@ -700,10 +733,13 @@ impl<'a> EquityWaterfallEngine<'a> {
             if additional_amount < 0.0 {
                 return f64::INFINITY;
             }
-            
+
             let mut flows_with_additional = lp_flows.clone();
-            flows_with_additional.push((current_date, Money::new(additional_amount, lp_flows[0].1.currency())));
-            
+            flows_with_additional.push((
+                current_date,
+                Money::new(additional_amount, lp_flows[0].1.currency()),
+            ));
+
             match self.calculate_irr(&flows_with_additional, base_date) {
                 Ok(irr) => irr - target_irr,
                 Err(_) => f64::INFINITY, // Invalid IRR
@@ -711,11 +747,12 @@ impl<'a> EquityWaterfallEngine<'a> {
         };
 
         // Use broader bounds - sometimes large distributions needed for high IRR targets
-        let total_contributions: F = lp_flows.iter()
+        let total_contributions: F = lp_flows
+            .iter()
             .filter(|(_, amount)| amount.amount() < 0.0)
             .map(|(_, amount)| amount.amount().abs())
             .sum();
-        
+
         let max_reasonable = total_contributions * 10.0; // Up to 10x contributions as upper bound
 
         match brent(target_function, 0.0, max_reasonable, 1e-6, 100) {
@@ -726,7 +763,11 @@ impl<'a> EquityWaterfallEngine<'a> {
                 // then: target_amount = contribution * (1 + target_irr)^t
                 if lp_flows.len() == 1 {
                     let contrib_amount = lp_flows[0].1.amount().abs();
-                    let years = self.spec.irr_basis.year_fraction(base_date, current_date).unwrap_or(1.0);
+                    let years = self
+                        .spec
+                        .irr_basis
+                        .year_fraction(base_date, current_date)
+                        .unwrap_or(1.0);
                     let required_total = contrib_amount * (1.0 + target_irr).powf(years);
                     let already_received = total_contributions - contrib_amount; // Net distributions so far
                     Ok((required_total - already_received).max(0.0))
@@ -738,11 +779,7 @@ impl<'a> EquityWaterfallEngine<'a> {
     }
 
     /// Calculate IRR for LP cashflows using Brent's method.
-    fn calculate_irr(
-        &self,
-        flows: &[(Date, Money)],
-        base_date: Date,
-    ) -> finstack_core::Result<F> {
+    fn calculate_irr(&self, flows: &[(Date, Money)], base_date: Date) -> finstack_core::Result<F> {
         if flows.len() < 2 {
             return Err(finstack_core::error::InputError::TooFewPoints.into());
         }
@@ -750,7 +787,10 @@ impl<'a> EquityWaterfallEngine<'a> {
         let npv_function = |rate: f64| -> f64 {
             let mut npv = 0.0;
             for (date, amount) in flows {
-                let t = self.spec.irr_basis.year_fraction(base_date, *date)
+                let t = self
+                    .spec
+                    .irr_basis
+                    .year_fraction(base_date, *date)
                     .unwrap_or(0.0);
                 let df = if rate.abs() < 1e-10 {
                     1.0 // Avoid division by zero for 0% rate
@@ -768,12 +808,9 @@ impl<'a> EquityWaterfallEngine<'a> {
     }
 
     /// Calculate LP IRR to date.
-    fn calculate_lp_irr_to_date(
-        &self,
-        all_events: &[FundEvent],
-        as_of_date: Date,
-    ) -> Option<F> {
-        let lp_flows: Vec<(Date, Money)> = all_events.iter()
+    fn calculate_lp_irr_to_date(&self, all_events: &[FundEvent], as_of_date: Date) -> Option<F> {
+        let lp_flows: Vec<(Date, Money)> = all_events
+            .iter()
             .filter(|e| e.date <= as_of_date)
             .map(|e| (e.date, e.signed_amount()))
             .collect();
@@ -796,19 +833,20 @@ impl<'a> EquityWaterfallEngine<'a> {
         // TODO: Implement clawback logic
         // For now, this is a placeholder that could calculate whether GP
         // received excess carry and add a negative GP allocation row
-        
+
         // Find final GP carry amount
         if let Some(last_row) = ledger_rows.last() {
             let final_gp_carry = last_row.gp_carry_cum.amount();
-            
+
             // Placeholder: if GP carry exceeds some threshold, add clawback row
             // In a real implementation, this would calculate proper LP entitlement
             // and compare to actual GP distributions
-            
+
             if final_gp_carry > 0.0 {
                 // For now, just add a note that clawback was considered
                 if let Some(last_row_mut) = ledger_rows.last_mut() {
-                    last_row_mut.note = Some("Clawback evaluated - no adjustment required".to_string());
+                    last_row_mut.note =
+                        Some("Clawback evaluated - no adjustment required".to_string());
                 }
             }
         }
@@ -822,7 +860,9 @@ mod tests {
     use super::*;
     use time::Month;
 
-    fn test_currency() -> Currency { Currency::USD }
+    fn test_currency() -> Currency {
+        Currency::USD
+    }
 
     fn test_date(year: i32, month: u8, day: u8) -> Date {
         Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
@@ -850,7 +890,7 @@ mod tests {
             test_date(2020, 1, 1),
             Money::new(1000000.0, test_currency()),
         );
-        
+
         assert_eq!(contrib.kind, FundEventKind::Contribution);
         assert_eq!(contrib.signed_amount().amount(), -1000000.0);
 
@@ -858,7 +898,7 @@ mod tests {
             test_date(2025, 1, 1),
             Money::new(1500000.0, test_currency()),
         );
-        
+
         assert_eq!(distrib.kind, FundEventKind::Distribution);
         assert_eq!(distrib.signed_amount().amount(), 1500000.0);
     }
@@ -872,25 +912,31 @@ mod tests {
             .unwrap();
 
         let events = vec![
-            FundEvent::contribution(test_date(2020, 1, 1), Money::new(1000000.0, test_currency())),
-            FundEvent::distribution(test_date(2025, 1, 1), Money::new(1500000.0, test_currency())),
+            FundEvent::contribution(
+                test_date(2020, 1, 1),
+                Money::new(1000000.0, test_currency()),
+            ),
+            FundEvent::distribution(
+                test_date(2025, 1, 1),
+                Money::new(1500000.0, test_currency()),
+            ),
         ];
 
         let engine = EquityWaterfallEngine::new(&spec);
         let ledger = engine.run(&events).unwrap();
 
         assert!(!ledger.rows.is_empty());
-        
+
         // Should have return of capital and promote allocation
-        let roc_rows: Vec<_> = ledger.rows.iter()
+        let roc_rows: Vec<_> = ledger
+            .rows
+            .iter()
             .filter(|r| r.tranche.contains("Return of Capital"))
             .collect();
         assert!(!roc_rows.is_empty());
 
         // LP should get back their $1M capital first
-        let total_lp_roc: F = roc_rows.iter()
-            .map(|r| r.to_lp.amount())
-            .sum();
+        let total_lp_roc: F = roc_rows.iter().map(|r| r.to_lp.amount()).sum();
         assert!((total_lp_roc - 1000000.0).abs() < 1e-6);
     }
 
@@ -902,8 +948,14 @@ mod tests {
             .unwrap();
 
         let events = vec![
-            FundEvent::contribution(test_date(2020, 1, 1), Money::new(1000000.0, test_currency())),
-            FundEvent::distribution(test_date(2025, 1, 1), Money::new(1000000.0, test_currency())),
+            FundEvent::contribution(
+                test_date(2020, 1, 1),
+                Money::new(1000000.0, test_currency()),
+            ),
+            FundEvent::distribution(
+                test_date(2025, 1, 1),
+                Money::new(1000000.0, test_currency()),
+            ),
         ];
 
         let engine = EquityWaterfallEngine::new(&spec);

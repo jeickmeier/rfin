@@ -325,8 +325,8 @@ mod tests {
     use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
     use finstack_core::currency::Currency;
     use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
-    use finstack_core::market_data::MarketContext;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::MarketContext;
     use time::Month;
 
     #[test]

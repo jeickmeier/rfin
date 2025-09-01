@@ -79,7 +79,7 @@ impl DiscountCurveCalibrator {
         for quote in &sorted_quotes {
             let maturity_date = self.get_maturity(quote);
             let time_to_maturity = DayCount::Act365F.year_fraction(self.base_date, maturity_date)?;
-            
+
             if time_to_maturity <= 0.0 {
                 continue; // Skip expired instruments
             }
@@ -90,11 +90,11 @@ impl DiscountCurveCalibrator {
             let curve_id = self.curve_id.clone();
             let base_date = self.base_date;
             let currency = self.currency;
-            
+
             let objective = move |df: F| -> F {
                 let mut temp_knots = knots.clone();
                 temp_knots.push((time_to_maturity, df));
-                
+
                 Self::price_instrument_with_curve_static(&quote_clone, &temp_knots, &base_context_clone, curve_id.clone(), base_date, currency)
                     .unwrap_or(F::INFINITY)
             };
@@ -118,12 +118,12 @@ impl DiscountCurveCalibrator {
                     if df <= 0.0 || df > 1.0 {
                         return Err(finstack_core::Error::Internal);
                     }
-                    
+
                     knots.push((time_to_maturity, df));
-                    
+
                     // Store residual for reporting (approximated as zero for simplified implementation)
                     residuals.insert(
-                        format!("{}-{}", quote.get_type(), maturity_date), 
+                        format!("{}-{}", quote.get_type(), maturity_date),
                         0.0
                     );
                     total_iterations += 1;
@@ -222,7 +222,11 @@ impl DiscountCurveCalibrator {
         currency: Currency,
     ) -> Result<F> {
         match quote {
-            InstrumentQuote::Deposit { maturity, rate, day_count } => {
+            InstrumentQuote::Deposit {
+                maturity,
+                rate,
+                day_count,
+            } => {
                 let deposit = Deposit {
                     id: format!("CALIB_DEP_{}", maturity),
                     notional: Money::new(1.0, currency),
@@ -235,19 +239,40 @@ impl DiscountCurveCalibrator {
                 };
 
                 // Create temporary curve for pricing
-                let temp_curve = Self::create_temp_curve(curve_id.clone(), base_date, knots.to_vec())?;
+                let temp_curve =
+                    Self::create_temp_curve(curve_id.clone(), base_date, knots.to_vec())?;
                 let temp_context = base_context.clone().with_discount(temp_curve);
-                
+
                 // Price the deposit - should be zero at par rate
                 Ok(deposit.value(&temp_context, base_date)?.amount())
             }
-            InstrumentQuote::Swap { maturity, rate, fixed_freq, float_freq, fixed_dc, float_dc, index } => {
+            InstrumentQuote::Swap {
+                maturity,
+                rate,
+                fixed_freq,
+                float_freq,
+                fixed_dc,
+                float_dc,
+                index,
+            } => {
                 // Create swap instrument for pricing
-                let swap = Self::create_swap_instrument_static(*maturity, *rate, *fixed_freq, *float_freq, *fixed_dc, *float_dc, index, base_context, base_date, currency)?;
-                
-                let temp_curve = Self::create_temp_curve(curve_id.clone(), base_date, knots.to_vec())?;
+                let swap = Self::create_swap_instrument_static(
+                    *maturity,
+                    *rate,
+                    *fixed_freq,
+                    *float_freq,
+                    *fixed_dc,
+                    *float_dc,
+                    index,
+                    base_context,
+                    base_date,
+                    currency,
+                )?;
+
+                let temp_curve =
+                    Self::create_temp_curve(curve_id.clone(), base_date, knots.to_vec())?;
                 let temp_context = base_context.clone().with_discount(temp_curve);
-                
+
                 // Price the swap - should be zero at par rate
                 Ok(swap.value(&temp_context, base_date)?.amount())
             }
@@ -357,7 +382,7 @@ impl Calibrator<InstrumentQuote, CalibrationConstraint, DiscountCurve> for Disco
     ) -> Result<(DiscountCurve, CalibrationReport)> {
         // Simplified implementation to get basic framework working
         let knots = vec![(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)];
-        
+
         let curve = DiscountCurve::builder("USD-OIS")
             .base_date(self.base_date)
             .knots(knots)
@@ -440,7 +465,7 @@ impl ForwardCurveCalibrator {
         for quote in &sorted_quotes {
             let fixing_date = self.get_fixing_date(quote);
             let time_to_fixing = DayCount::Act360.year_fraction(self.base_date, fixing_date)?;
-            
+
             if time_to_fixing <= 0.0 {
                 continue;
             }
@@ -453,12 +478,12 @@ impl ForwardCurveCalibrator {
                 // Create temporary forward curve
                 let mut temp_knots = knots.clone();
                 temp_knots.push((time_to_fixing, forward_rate));
-                
+
                 // Price FRA: PV = (Forward - Fixed) * DF * YF * Notional
                 let payment_time = time_to_fixing + self.tenor_years;
                 let df = discount_curve.df(payment_time);
                 let yf = self.tenor_years; // Simplified
-                
+
                 (forward_rate - quote_rate) * df * yf
             };
 
@@ -532,7 +557,7 @@ mod tests {
 
     fn create_test_quotes() -> Vec<InstrumentQuote> {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         vec![
             InstrumentQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
@@ -570,21 +595,25 @@ mod tests {
     fn test_discount_curve_calibration() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
-        
+
         let quotes = create_test_quotes();
         let base_context = MarketContext::new();
-        
+
         // Need to create a forward curve for swaps
         let forward_curve = ForwardCurve::builder("USD-SOFR-3M", 0.25)
             .base_date(base_date)
             .knots([(0.0, 0.045), (2.0, 0.048)])
             .build()
             .unwrap();
-        
+
         let context_with_forward = base_context.with_forecast(forward_curve);
-        
-        let result = calibrator.bootstrap_curve(&quotes, &crate::calibration::solver::HybridSolver::new(), &context_with_forward);
-        
+
+        let result = calibrator.bootstrap_curve(
+            &quotes,
+            &crate::calibration::solver::HybridSolver::new(),
+            &context_with_forward,
+        );
+
         assert!(result.is_ok());
         let (curve, report) = result.unwrap();
         assert!(report.success);
@@ -596,10 +625,10 @@ mod tests {
     fn test_quote_validation() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let calibrator = DiscountCurveCalibrator::new("TEST", base_date, Currency::USD);
-        
+
         let empty_quotes = vec![];
         assert!(calibrator.validate_quotes(&empty_quotes).is_err());
-        
+
         let valid_quotes = create_test_quotes();
         assert!(calibrator.validate_quotes(&valid_quotes).is_ok());
     }
@@ -608,29 +637,34 @@ mod tests {
     #[ignore]
     fn test_quote_sorting() {
         let calibrator = DiscountCurveCalibrator::new(
-            "TEST", 
-            Date::from_calendar_date(2025, Month::January, 1).unwrap(), 
-            Currency::USD
+            "TEST",
+            Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+            Currency::USD,
         );
         let mut quotes = create_test_quotes();
-        
+
         // Reverse order
         quotes.reverse();
-        
+
         // Get maturities before sorting
         let maturities_before: Vec<_> = quotes.iter().map(|q| calibrator.get_maturity(q)).collect();
-        
+
         // Sort
-        quotes.sort_by(|a, b| calibrator.get_maturity(a).partial_cmp(&calibrator.get_maturity(b)).unwrap());
-        
+        quotes.sort_by(|a, b| {
+            calibrator
+                .get_maturity(a)
+                .partial_cmp(&calibrator.get_maturity(b))
+                .unwrap()
+        });
+
         // Get maturities after sorting
         let maturities_after: Vec<_> = quotes.iter().map(|q| calibrator.get_maturity(q)).collect();
-        
+
         // Should be properly sorted
         for i in 1..maturities_after.len() {
             assert!(maturities_after[i] >= maturities_after[i - 1]);
         }
-        
+
         // Should not be the same as the original reversed order
         assert_ne!(maturities_before, maturities_after);
     }

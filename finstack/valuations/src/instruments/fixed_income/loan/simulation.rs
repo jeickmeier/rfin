@@ -8,9 +8,9 @@ use super::revolver::UtilizationFeeSchedule;
 use super::term_loan::InterestSpec;
 use crate::instruments::fixed_income::discountable::Discountable;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
-use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::traits::Discount;
+use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::F;
 use std::collections::BTreeSet;
@@ -29,7 +29,7 @@ pub struct SimulationConfig {
 impl Default for SimulationConfig {
     fn default() -> Self {
         Self {
-            monte_carlo_paths: 0, // Default to deterministic
+            monte_carlo_paths: 0,  // Default to deterministic
             random_seed: Some(42), // Fixed seed for determinism
             use_mid_point_averaging: true,
         }
@@ -83,8 +83,12 @@ impl FacilityState {
     /// Create new facility state
     pub fn new(date: Date, drawn: F, commitment: F) -> Self {
         let undrawn = (commitment - drawn).max(0.0);
-        let utilization = if commitment > 0.0 { drawn / commitment } else { 0.0 };
-        
+        let utilization = if commitment > 0.0 {
+            drawn / commitment
+        } else {
+            0.0
+        };
+
         Self {
             date,
             expected_drawn: drawn,
@@ -170,32 +174,35 @@ impl LoanSimulator {
     ) -> finstack_core::Result<SimulationResult> {
         // Build event timeline
         let events = self.build_event_timeline(facility, as_of)?;
-        
+
         // Value existing balance using standard cash flow methods
         let existing_balance_pv = self.value_existing_balance(facility, curves, as_of)?;
-        
+
         // Run forward simulation
         let (pv_breakdown, state_path) = if self.config.monte_carlo_paths > 0 {
             self.simulate_monte_carlo(facility, curves, as_of, &events)?
         } else {
             self.simulate_deterministic(facility, curves, as_of, &events)?
         };
-        
+
         // Build expected exposure path
         let expected_exposure: Vec<(Date, F)> = state_path
             .iter()
             .map(|state| (state.date, state.expected_drawn))
             .collect();
-        
+
         // Calculate total PV
-        let total_pv_amount = existing_balance_pv.amount() + 
-            pv_breakdown.future_draws + pv_breakdown.future_repayments + 
-            pv_breakdown.incremental_interest + pv_breakdown.incremental_principal +
-            pv_breakdown.commitment_fees + pv_breakdown.utilization_fees + 
-            pv_breakdown.other_fees;
-        
+        let total_pv_amount = existing_balance_pv.amount()
+            + pv_breakdown.future_draws
+            + pv_breakdown.future_repayments
+            + pv_breakdown.incremental_interest
+            + pv_breakdown.incremental_principal
+            + pv_breakdown.commitment_fees
+            + pv_breakdown.utilization_fees
+            + pv_breakdown.other_fees;
+
         let total_pv = Money::new(total_pv_amount, facility.currency());
-        
+
         Ok(SimulationResult {
             total_pv,
             pv_breakdown: PVBreakdown {
@@ -214,21 +221,21 @@ impl LoanSimulator {
         as_of: Date,
     ) -> finstack_core::Result<Vec<Date>> {
         let mut dates = BTreeSet::new();
-        
+
         // Add valuation date
         dates.insert(as_of);
-        
+
         // Add commitment expiry and maturity
         dates.insert(facility.commitment_expiry());
         dates.insert(facility.maturity());
-        
+
         // Add expected draw/repayment dates
         for event in facility.expected_events() {
             if event.date > as_of && event.date <= facility.maturity() {
                 dates.insert(event.date);
             }
         }
-        
+
         // Add interest payment dates
         let interest_schedule = crate::cashflow::builder::build_dates(
             as_of,
@@ -243,10 +250,10 @@ impl LoanSimulator {
                 dates.insert(*date);
             }
         }
-        
+
         // Add commitment fee payment dates (typically same as interest)
         // For different fee frequencies, build separate schedule
-        
+
         Ok(dates.into_iter().collect())
     }
 
@@ -271,39 +278,41 @@ impl LoanSimulator {
         timeline: &[Date],
     ) -> finstack_core::Result<(PVBreakdown, Vec<FacilityState>)> {
         let disc = curves.discount(facility.disc_id())?;
-        
+
         let mut breakdown = PVBreakdown::default();
         let mut state_path = Vec::new();
-        
+
         // Initialize state
         let mut current_drawn = facility.drawn_amount().amount();
         let commitment = facility.commitment().amount();
-        
+
         state_path.push(FacilityState::new(as_of, current_drawn, commitment));
-        
+
         // Simulate over each period
         for i in 0..timeline.len() - 1 {
             let period_start = timeline[i];
             let period_end = timeline[i + 1];
-            
+
             // Apply draws/repayments at period start
             let events_at_start = facility.events_on_date(period_start);
             for event in events_at_start {
                 let net_change = event.balance_change * event.probability;
                 current_drawn = (current_drawn + net_change).max(0.0).min(commitment);
-                
+
                 // PV of draw/repayment itself
                 let df_start = disc.df(DiscountCurve::year_fraction(
-                    disc.base_date(), period_start, facility.day_count()
+                    disc.base_date(),
+                    period_start,
+                    facility.day_count(),
                 ));
-                
+
                 if net_change > 0.0 {
                     breakdown.future_draws -= net_change * df_start;
                 } else {
                     breakdown.future_repayments += net_change.abs() * df_start;
                 }
             }
-            
+
             // Calculate cash flows over [period_start, period_end]
             let period_pv = self.calculate_period_cash_flows(
                 facility,
@@ -314,28 +323,30 @@ impl LoanSimulator {
                 current_drawn,
                 commitment,
             )?;
-            
+
             breakdown.incremental_interest += period_pv.interest;
             breakdown.incremental_principal += period_pv.principal;
             breakdown.commitment_fees += period_pv.commitment_fees;
             breakdown.utilization_fees += period_pv.utilization_fees;
             breakdown.other_fees += period_pv.other_fees;
-            
+
             // Apply cash sweep (reduces outstanding)
             let df_end = disc.df(DiscountCurve::year_fraction(
-                disc.base_date(), period_end, facility.day_count()
+                disc.base_date(),
+                period_end,
+                facility.day_count(),
             ));
             current_drawn -= period_pv.cash_sweep / df_end; // Undiscount to get notional impact
             current_drawn = current_drawn.max(0.0); // Ensure non-negative
             breakdown.incremental_principal += period_pv.cash_sweep; // Add to principal PV
-            
+
             // Update state for PIK capitalization
             current_drawn += period_pv.pik_capitalization;
-            
+
             // Record end-of-period state
             state_path.push(FacilityState::new(period_end, current_drawn, commitment));
         }
-        
+
         Ok((breakdown, state_path))
     }
 
@@ -353,29 +364,26 @@ impl LoanSimulator {
         } else {
             Box::new(SystemRng::new()) as Box<dyn RandomNumberGenerator>
         };
-        
+
         let mut total_breakdown = PVBreakdown::default();
         let mut expected_states = vec![FacilityState::new(as_of, 0.0, 0.0); timeline.len()];
-        
+
         // Run Monte Carlo paths
         for _path in 0..num_paths {
-            let (path_breakdown, path_states) = self.simulate_single_path(
-                facility,
-                curves,
-                as_of,
-                timeline,
-                rng.as_mut(),
-            )?;
-            
+            let (path_breakdown, path_states) =
+                self.simulate_single_path(facility, curves, as_of, timeline, rng.as_mut())?;
+
             // Accumulate breakdown
             total_breakdown.future_draws += path_breakdown.future_draws / num_paths as F;
             total_breakdown.future_repayments += path_breakdown.future_repayments / num_paths as F;
-            total_breakdown.incremental_interest += path_breakdown.incremental_interest / num_paths as F;
-            total_breakdown.incremental_principal += path_breakdown.incremental_principal / num_paths as F;
+            total_breakdown.incremental_interest +=
+                path_breakdown.incremental_interest / num_paths as F;
+            total_breakdown.incremental_principal +=
+                path_breakdown.incremental_principal / num_paths as F;
             total_breakdown.commitment_fees += path_breakdown.commitment_fees / num_paths as F;
             total_breakdown.utilization_fees += path_breakdown.utilization_fees / num_paths as F;
             total_breakdown.other_fees += path_breakdown.other_fees / num_paths as F;
-            
+
             // Accumulate expected states
             for (i, state) in path_states.iter().enumerate() {
                 expected_states[i].expected_drawn += state.expected_drawn / num_paths as F;
@@ -383,12 +391,12 @@ impl LoanSimulator {
                 expected_states[i].utilization += state.utilization / num_paths as F;
             }
         }
-        
+
         // Set dates for expected states
         for (i, date) in timeline.iter().enumerate() {
             expected_states[i].date = *date;
         }
-        
+
         Ok((total_breakdown, expected_states))
     }
 
@@ -404,27 +412,31 @@ impl LoanSimulator {
         let disc = curves.discount(facility.disc_id())?;
         let mut breakdown = PVBreakdown::default();
         let mut state_path = Vec::new();
-        
+
         let mut current_drawn = facility.drawn_amount().amount();
         let commitment = facility.commitment().amount();
-        
+
         state_path.push(FacilityState::new(as_of, current_drawn, commitment));
-        
+
         for i in 0..timeline.len() - 1 {
             let period_start = timeline[i];
             let period_end = timeline[i + 1];
-            
+
             // Apply stochastic draws/repayments
             let events_at_start = facility.events_on_date(period_start);
             for event in events_at_start {
                 let occurs = rng.uniform() < event.probability;
                 if occurs {
-                    current_drawn = (current_drawn + event.balance_change).max(0.0).min(commitment);
-                    
+                    current_drawn = (current_drawn + event.balance_change)
+                        .max(0.0)
+                        .min(commitment);
+
                     let df_start = disc.df(DiscountCurve::year_fraction(
-                        disc.base_date(), period_start, facility.day_count()
+                        disc.base_date(),
+                        period_start,
+                        facility.day_count(),
                     ));
-                    
+
                     if event.balance_change > 0.0 {
                         breakdown.future_draws -= event.balance_change * df_start;
                     } else {
@@ -432,7 +444,7 @@ impl LoanSimulator {
                     }
                 }
             }
-            
+
             // Calculate period cash flows with actual utilization
             let period_pv = self.calculate_period_cash_flows(
                 facility,
@@ -443,31 +455,31 @@ impl LoanSimulator {
                 current_drawn,
                 commitment,
             )?;
-            
+
             breakdown.incremental_interest += period_pv.interest;
             breakdown.incremental_principal += period_pv.principal;
             breakdown.commitment_fees += period_pv.commitment_fees;
             breakdown.utilization_fees += period_pv.utilization_fees;
             breakdown.other_fees += period_pv.other_fees;
-            
-            // Apply cash sweep (reduces outstanding) 
+
+            // Apply cash sweep (reduces outstanding)
             let df_end = disc.df(DiscountCurve::year_fraction(
-                disc.base_date(), period_end, facility.day_count()
+                disc.base_date(),
+                period_end,
+                facility.day_count(),
             ));
             current_drawn -= period_pv.cash_sweep / df_end; // Undiscount to get notional impact
             current_drawn = current_drawn.max(0.0); // Ensure non-negative
             breakdown.incremental_principal += period_pv.cash_sweep; // Add to principal PV
-            
+
             // Apply PIK capitalization
             current_drawn += period_pv.pik_capitalization;
-            
+
             state_path.push(FacilityState::new(period_end, current_drawn, commitment));
         }
-        
+
         Ok((breakdown, state_path))
     }
-
-
 
     /// Calculate cash flows for a single period (implementation)
     #[allow(clippy::too_many_arguments)]
@@ -482,37 +494,55 @@ impl LoanSimulator {
         commitment: F,
     ) -> finstack_core::Result<PeriodCashFlows> {
         let mut result = PeriodCashFlows::default();
-        
+
         // Calculate year fraction for the period
-        let tau = facility.day_count().year_fraction(period_start, period_end)?;
+        let tau = facility
+            .day_count()
+            .year_fraction(period_start, period_end)?;
         let df_end = disc.df(DiscountCurve::year_fraction(
-            disc.base_date(), period_end, facility.day_count()
+            disc.base_date(),
+            period_end,
+            facility.day_count(),
         ));
-        
+
         // Interest calculation
         match facility.interest_spec() {
             InterestSpec::Fixed { rate, step_ups } => {
-                let effective_rate = self.get_effective_rate(*rate, step_ups.as_ref(), period_start);
+                let effective_rate =
+                    self.get_effective_rate(*rate, step_ups.as_ref(), period_start);
                 let interest_amount = drawn_start * effective_rate * tau;
                 result.interest = interest_amount * df_end;
             }
-            InterestSpec::Floating { 
-                index_id, 
-                spread_bp, 
-                spread_step_ups, 
-                gearing, 
-                reset_lag_days 
+            InterestSpec::Floating {
+                index_id,
+                spread_bp,
+                spread_step_ups,
+                gearing,
+                reset_lag_days,
             } => {
                 if let Ok(fwd_curve) = curves.forecast(index_id) {
                     // Calculate reset date
-                    let reset_date = self.apply_reset_lag(period_start, *reset_lag_days, facility)?;
-                    let t_fix = DiscountCurve::year_fraction(disc.base_date(), reset_date, facility.day_count());
-                    let t_pay = DiscountCurve::year_fraction(disc.base_date(), period_end, facility.day_count());
-                    
+                    let reset_date =
+                        self.apply_reset_lag(period_start, *reset_lag_days, facility)?;
+                    let t_fix = DiscountCurve::year_fraction(
+                        disc.base_date(),
+                        reset_date,
+                        facility.day_count(),
+                    );
+                    let t_pay = DiscountCurve::year_fraction(
+                        disc.base_date(),
+                        period_end,
+                        facility.day_count(),
+                    );
+
                     let forward_rate = fwd_curve.rate_period(t_fix, t_pay);
-                    let effective_spread = self.get_effective_spread(*spread_bp, spread_step_ups.as_ref(), period_start);
+                    let effective_spread = self.get_effective_spread(
+                        *spread_bp,
+                        spread_step_ups.as_ref(),
+                        period_start,
+                    );
                     let all_in_rate = (forward_rate + effective_spread / 10000.0) * gearing;
-                    
+
                     let interest_amount = drawn_start * all_in_rate * tau;
                     result.interest = interest_amount * df_end;
                 }
@@ -522,17 +552,24 @@ impl LoanSimulator {
                 result.pik_capitalization = pik_amount;
                 // No cash interest flow for pure PIK
             }
-            InterestSpec::CashPlusPIK { cash_rate, pik_rate } => {
+            InterestSpec::CashPlusPIK {
+                cash_rate,
+                pik_rate,
+            } => {
                 let cash_amount = drawn_start * cash_rate * tau;
                 let pik_amount = drawn_start * pik_rate * tau;
                 result.interest = cash_amount * df_end;
                 result.pik_capitalization = pik_amount;
             }
-            InterestSpec::PIKToggle { cash_rate, pik_rate, toggle_schedule } => {
+            InterestSpec::PIKToggle {
+                cash_rate,
+                pik_rate,
+                toggle_schedule,
+            } => {
                 let use_pik = self.get_pik_toggle_decision(toggle_schedule, period_start);
                 let rate = if use_pik { *pik_rate } else { *cash_rate };
                 let amount = drawn_start * rate * tau;
-                
+
                 if use_pik {
                     result.pik_capitalization = amount;
                 } else {
@@ -540,7 +577,7 @@ impl LoanSimulator {
                 }
             }
         }
-        
+
         // Commitment fees (only until commitment expiry)
         if period_end <= facility.commitment_expiry() {
             let undrawn_start = (commitment - drawn_start).max(0.0);
@@ -550,11 +587,11 @@ impl LoanSimulator {
             } else {
                 undrawn_start
             };
-            
+
             let fee_amount = undrawn_avg * facility.commitment_fee_rate() * tau;
             result.commitment_fees = fee_amount * df_end;
         }
-        
+
         // Utilization fees (for revolvers)
         if let Some(util_schedule) = facility.utilization_fee_schedule() {
             let utilization = drawn_start / commitment;
@@ -562,11 +599,11 @@ impl LoanSimulator {
             let fee_amount = drawn_start * (util_rate_bp / 10000.0) * tau;
             result.utilization_fees = fee_amount * df_end;
         }
-        
+
         // Principal flows (amortization)
-        // This is simplified - full implementation would need to track 
+        // This is simplified - full implementation would need to track
         // proportional amortization for each incremental draw
-        
+
         // Cash sweep calculation
         let sweep_pct = facility.cash_sweep_percentage();
         if sweep_pct > 0.0 && drawn_start > 0.0 {
@@ -575,10 +612,10 @@ impl LoanSimulator {
             let available_cash = result.interest * 0.5; // Assume 50% of interest as available cash
             let sweep_amount = available_cash * sweep_pct;
             let max_sweep = drawn_start; // Can't sweep more than outstanding
-            
+
             result.cash_sweep = sweep_amount.min(max_sweep) * df_end;
         }
-        
+
         Ok(result)
     }
 
@@ -595,7 +632,12 @@ impl LoanSimulator {
     }
 
     /// Get effective spread with step-ups
-    fn get_effective_spread(&self, base_spread: F, step_ups: Option<&Vec<(Date, F)>>, date: Date) -> F {
+    fn get_effective_spread(
+        &self,
+        base_spread: F,
+        step_ups: Option<&Vec<(Date, F)>>,
+        date: Date,
+    ) -> F {
         if let Some(steps) = step_ups {
             for (step_date, step_spread) in steps.iter().rev() {
                 if date >= *step_date {
@@ -614,14 +656,19 @@ impl LoanSimulator {
         facility: &T,
     ) -> finstack_core::Result<Date> {
         let reset_date = payment_date - time::Duration::days(reset_lag_days as i64);
-        
+
         // Apply business day adjustment if calendar is specified
         if let Some(calendar_id) = facility.calendar_id() {
-            if let Some(cal) = finstack_core::dates::holiday::calendars::calendar_by_id(calendar_id) {
-                return Ok(finstack_core::dates::adjust(reset_date, facility.bdc(), cal));
+            if let Some(cal) = finstack_core::dates::holiday::calendars::calendar_by_id(calendar_id)
+            {
+                return Ok(finstack_core::dates::adjust(
+                    reset_date,
+                    facility.bdc(),
+                    cal,
+                ));
             }
         }
-        
+
         Ok(reset_date)
     }
 
@@ -634,8 +681,6 @@ impl LoanSimulator {
         }
         false // Default to cash
     }
-
-
 }
 
 impl Default for LoanSimulator {
@@ -667,61 +712,65 @@ struct PeriodCashFlows {
 pub trait LoanFacility {
     /// Get facility currency
     fn currency(&self) -> finstack_core::currency::Currency;
-    
+
     /// Get total commitment amount
     fn commitment(&self) -> Money;
-    
+
     /// Get currently drawn amount
     fn drawn_amount(&self) -> Money;
-    
+
     /// Get commitment expiry date
     fn commitment_expiry(&self) -> Date;
-    
+
     /// Get final maturity date
     fn maturity(&self) -> Date;
-    
+
     /// Get interest specification
     fn interest_spec(&self) -> &InterestSpec;
-    
+
     /// Get commitment fee rate
     fn commitment_fee_rate(&self) -> F;
-    
+
     /// Get utilization fee schedule (for revolvers)
     fn utilization_fee_schedule(&self) -> Option<&UtilizationFeeSchedule> {
         None
     }
-    
+
     /// Get cash sweep percentage (0.0 = no sweep)
     fn cash_sweep_percentage(&self) -> F {
         0.0
     }
-    
+
     /// Get payment frequency
     fn frequency(&self) -> Frequency;
-    
+
     /// Get day count convention
     fn day_count(&self) -> DayCount;
-    
+
     /// Get business day convention
     fn bdc(&self) -> BusinessDayConvention;
-    
+
     /// Get calendar ID
     fn calendar_id(&self) -> Option<&'static str>;
-    
+
     /// Get stub convention
     fn stub(&self) -> StubKind;
-    
+
     /// Get discount curve ID
     fn disc_id(&self) -> &'static str;
-    
+
     /// Get expected future events
     fn expected_events(&self) -> Vec<SimulationEvent>;
-    
+
     /// Get events occurring on a specific date
     fn events_on_date(&self, date: Date) -> Vec<SimulationEvent>;
-    
+
     /// Build cash flows for existing drawn balance
-    fn build_existing_flows(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Vec<(Date, Money)>>;
+    fn build_existing_flows(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<Vec<(Date, Money)>>;
 }
 
 /// Random number generator trait for Monte Carlo
@@ -783,7 +832,7 @@ mod tests {
     fn test_facility_state_creation() {
         let date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let state = FacilityState::new(date, 300_000.0, 1_000_000.0);
-        
+
         assert_eq!(state.expected_drawn, 300_000.0);
         assert_eq!(state.expected_undrawn, 700_000.0);
         assert_eq!(state.utilization, 0.3);
@@ -793,7 +842,7 @@ mod tests {
     fn test_seeded_rng_deterministic() {
         let mut rng1 = SeededRng::new(42);
         let mut rng2 = SeededRng::new(42);
-        
+
         for _ in 0..10 {
             assert_eq!(rng1.uniform(), rng2.uniform());
         }

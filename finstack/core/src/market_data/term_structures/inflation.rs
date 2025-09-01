@@ -23,9 +23,9 @@ use alloc::{boxed::Box, vec::Vec};
 use crate::market_data::interp::InterpStyle;
 use crate::{
     error::InputError,
-    types::CurveId,
     market_data::interp::InterpFn,
     market_data::traits::{Inflation as InflationTrait, TermStructure},
+    types::CurveId,
     F,
 };
 

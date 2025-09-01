@@ -15,7 +15,7 @@ impl MetricCalculator for LpIrrCalculator {
         let pe: &PrivateEquityInvestment = context.instrument_as()?;
         let ledger = pe.run_waterfall()?;
         let lp_flows = ledger.lp_cashflows();
-        
+
         if lp_flows.len() < 2 {
             return Ok(0.0);
         }
@@ -31,16 +31,18 @@ impl MetricCalculator for GpIrrCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let pe: &PrivateEquityInvestment = context.instrument_as()?;
         let ledger = pe.run_waterfall()?;
-        
+
         // Extract GP cashflows (carry distributions)
         let mut gp_flows = Vec::new();
         let mut gp_flows_by_date: indexmap::IndexMap<Date, Money> = indexmap::IndexMap::new();
 
         for row in &ledger.rows {
             if row.to_gp.amount().abs() > 1e-6 {
-                let existing = gp_flows_by_date.get(&row.date).copied()
+                let existing = gp_flows_by_date
+                    .get(&row.date)
+                    .copied()
                     .unwrap_or_else(|| Money::new(0.0, row.to_gp.currency()));
-                
+
                 if let Ok(new_amount) = existing + row.to_gp {
                     gp_flows_by_date.insert(row.date, new_amount);
                 }
@@ -69,16 +71,26 @@ pub struct MoicLpCalculator;
 impl MetricCalculator for MoicLpCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let pe: &PrivateEquityInvestment = context.instrument_as()?;
-        
-        let total_contributions: F = pe.events.iter()
-            .filter(|e| e.kind == crate::instruments::equity::private_equity::FundEventKind::Contribution)
+
+        let total_contributions: F = pe
+            .events
+            .iter()
+            .filter(|e| {
+                e.kind == crate::instruments::equity::private_equity::FundEventKind::Contribution
+            })
             .map(|e| e.amount.amount())
             .sum();
 
-        let total_distributions: F = pe.events.iter()
-            .filter(|e| matches!(e.kind, 
-                crate::instruments::equity::private_equity::FundEventKind::Distribution | 
-                crate::instruments::equity::private_equity::FundEventKind::Proceeds))
+        let total_distributions: F = pe
+            .events
+            .iter()
+            .filter(|e| {
+                matches!(
+                    e.kind,
+                    crate::instruments::equity::private_equity::FundEventKind::Distribution
+                        | crate::instruments::equity::private_equity::FundEventKind::Proceeds
+                )
+            })
             .map(|e| e.amount.amount())
             .sum();
 
@@ -97,15 +109,17 @@ impl MetricCalculator for DpiLpCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let pe: &PrivateEquityInvestment = context.instrument_as()?;
         let ledger = pe.run_waterfall()?;
-        
-        let total_contributions: F = pe.events.iter()
-            .filter(|e| e.kind == crate::instruments::equity::private_equity::FundEventKind::Contribution)
+
+        let total_contributions: F = pe
+            .events
+            .iter()
+            .filter(|e| {
+                e.kind == crate::instruments::equity::private_equity::FundEventKind::Contribution
+            })
             .map(|e| e.amount.amount())
             .sum();
 
-        let total_lp_distributions: F = ledger.rows.iter()
-            .map(|r| r.to_lp.amount())
-            .sum();
+        let total_lp_distributions: F = ledger.rows.iter().map(|r| r.to_lp.amount()).sum();
 
         if total_contributions <= 1e-6 {
             return Ok(0.0);
@@ -122,19 +136,23 @@ impl MetricCalculator for TvpiLpCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let pe: &PrivateEquityInvestment = context.instrument_as()?;
         let ledger = pe.run_waterfall()?;
-        
-        let total_contributions: F = pe.events.iter()
-            .filter(|e| e.kind == crate::instruments::equity::private_equity::FundEventKind::Contribution)
+
+        let total_contributions: F = pe
+            .events
+            .iter()
+            .filter(|e| {
+                e.kind == crate::instruments::equity::private_equity::FundEventKind::Contribution
+            })
             .map(|e| e.amount.amount())
             .sum();
 
         // TVPI = (Distributions + Residual NAV) / Contributions
         // For simplicity, assume residual NAV = unreturned capital
-        let total_lp_distributions: F = ledger.rows.iter()
-            .map(|r| r.to_lp.amount())
-            .sum();
+        let total_lp_distributions: F = ledger.rows.iter().map(|r| r.to_lp.amount()).sum();
 
-        let residual_nav = ledger.rows.last()
+        let residual_nav = ledger
+            .rows
+            .last()
             .map(|r| r.lp_unreturned.amount())
             .unwrap_or(0.0);
 
@@ -153,9 +171,11 @@ impl MetricCalculator for CarryAccruedCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let pe: &PrivateEquityInvestment = context.instrument_as()?;
         let ledger = pe.run_waterfall()?;
-        
+
         // Return final GP carry cumulative amount
-        Ok(ledger.rows.last()
+        Ok(ledger
+            .rows
+            .last()
             .map(|r| r.gp_carry_cum.amount())
             .unwrap_or(0.0))
     }
@@ -168,12 +188,11 @@ pub fn calculate_irr(flows: &[(Date, Money)], day_count: DayCount) -> finstack_c
     }
 
     let base_date = flows[0].0;
-    
+
     let npv_function = |rate: f64| -> f64 {
         let mut npv = 0.0;
         for (date, amount) in flows {
-            let t = day_count.year_fraction(base_date, *date)
-                .unwrap_or(0.0);
+            let t = day_count.year_fraction(base_date, *date).unwrap_or(0.0);
             let df = if rate.abs() < 1e-10 {
                 1.0 - rate * t // Linear approximation for rates near zero
             } else {
@@ -236,7 +255,9 @@ mod tests {
     use crate::instruments::equity::private_equity::{FundEvent, WaterfallSpec};
     use time::Month;
 
-    fn test_currency() -> finstack_core::Currency { finstack_core::Currency::USD }
+    fn test_currency() -> finstack_core::Currency {
+        finstack_core::Currency::USD
+    }
 
     fn test_date(year: i32, month: u8, day: u8) -> Date {
         Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
@@ -246,14 +267,24 @@ mod tests {
     fn test_irr_calculation() {
         // Simple 2x return over 5 years should be ~15% IRR
         let flows = vec![
-            (test_date(2020, 1, 1), Money::new(-1000000.0, test_currency())), // Contribution
-            (test_date(2025, 1, 1), Money::new(2000000.0, test_currency())),  // Distribution
+            (
+                test_date(2020, 1, 1),
+                Money::new(-1000000.0, test_currency()),
+            ), // Contribution
+            (
+                test_date(2025, 1, 1),
+                Money::new(2000000.0, test_currency()),
+            ), // Distribution
         ];
 
         let irr = calculate_irr(&flows, DayCount::Act365F).unwrap();
-        
+
         // 2x over 5 years = (2.0)^(1/5) - 1 ≈ 0.1487 or ~14.87%
-        assert!((irr - 0.1487).abs() < 0.01, "Expected ~14.87% IRR, got {:.4}%", irr * 100.0);
+        assert!(
+            (irr - 0.1487).abs() < 0.01,
+            "Expected ~14.87% IRR, got {:.4}%",
+            irr * 100.0
+        );
     }
 
     #[test]
@@ -264,12 +295,18 @@ mod tests {
             .unwrap();
 
         let events = vec![
-            FundEvent::contribution(test_date(2020, 1, 1), Money::new(1000000.0, test_currency())),
-            FundEvent::distribution(test_date(2025, 1, 1), Money::new(2000000.0, test_currency())),
+            FundEvent::contribution(
+                test_date(2020, 1, 1),
+                Money::new(1000000.0, test_currency()),
+            ),
+            FundEvent::distribution(
+                test_date(2025, 1, 1),
+                Money::new(2000000.0, test_currency()),
+            ),
         ];
 
         let pe = PrivateEquityInvestment::new("TEST", test_currency(), spec, events);
-        
+
         let curves = finstack_core::market_data::MarketContext::new();
         let base_value = Money::new(2000000.0, test_currency());
         let mut context = MetricContext::new(

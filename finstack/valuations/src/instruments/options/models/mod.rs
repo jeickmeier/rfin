@@ -10,7 +10,7 @@ pub mod trinomial_tree;
 pub use binomial_tree::{BinomialTree, TreeType};
 pub use black::{d1, d2, norm_cdf, norm_pdf};
 pub use sabr::{SABRCalibrator, SABRModel, SABRParameters, SABRSmile};
-pub use short_rate_tree::{ShortRateModel, ShortRateTree, ShortRateTreeConfig, short_rate_keys};
+pub use short_rate_tree::{short_rate_keys, ShortRateModel, ShortRateTree, ShortRateTreeConfig};
 pub use tree_framework::{
     single_factor_equity_state, state_keys, two_factor_equity_rates_state, EvolutionParams,
     NodeState, StateVariables, TreeBranching, TreeGreeks, TreeModel, TreeParameters, TreeValuator,

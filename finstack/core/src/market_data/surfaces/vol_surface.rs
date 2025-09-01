@@ -23,9 +23,9 @@
 
 use crate::{
     error::InputError,
-    types::CurveId,
     market_data::traits::{Surface, TermStructure},
     market_data::utils::locate_segment,
+    types::CurveId,
     Error, F,
 };
 use ndarray::Array2;

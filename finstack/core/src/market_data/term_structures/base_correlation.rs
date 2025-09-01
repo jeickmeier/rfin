@@ -18,9 +18,9 @@
 //! ```
 
 use crate::error::InputError;
-use crate::types::CurveId;
 use crate::market_data::traits::TermStructure;
 use crate::prelude::*;
+use crate::types::CurveId;
 use crate::F;
 
 /// A curve representing the base correlation for a credit index.

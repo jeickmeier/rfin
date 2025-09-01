@@ -1,7 +1,7 @@
 //! Revolving Credit Facility implementation.
 
 use super::covenants::Covenant;
-use super::simulation::{LoanFacility, LoanSimulator, SimulationEvent, EventType};
+use super::simulation::{EventType, LoanFacility, LoanSimulator, SimulationEvent};
 use super::term_loan::InterestSpec;
 use crate::cashflow::builder::{cf, CouponType, FeeBase, FeeSpec, FloatingCouponSpec};
 use crate::cashflow::traits::CashflowProvider;
@@ -405,66 +405,66 @@ impl LoanFacility for RevolvingCreditFacility {
     fn currency(&self) -> finstack_core::currency::Currency {
         self.commitment.currency()
     }
-    
+
     fn commitment(&self) -> Money {
         self.commitment
     }
-    
+
     fn drawn_amount(&self) -> Money {
         self.drawn_amount
     }
-    
+
     fn commitment_expiry(&self) -> Date {
         self.availability_end
     }
-    
+
     fn maturity(&self) -> Date {
         self.maturity
     }
-    
+
     fn interest_spec(&self) -> &InterestSpec {
         &self.interest_spec
     }
-    
+
     fn commitment_fee_rate(&self) -> F {
         self.commitment_fee_rate
     }
-    
+
     fn utilization_fee_schedule(&self) -> Option<&UtilizationFeeSchedule> {
         self.utilization_fees.as_ref()
     }
-    
+
     fn cash_sweep_percentage(&self) -> F {
         self.cash_sweep_pct
     }
-    
+
     fn frequency(&self) -> Frequency {
         self.frequency
     }
-    
+
     fn day_count(&self) -> DayCount {
         self.day_count
     }
-    
+
     fn bdc(&self) -> BusinessDayConvention {
         self.bdc
     }
-    
+
     fn calendar_id(&self) -> Option<&'static str> {
         self.calendar_id
     }
-    
+
     fn stub(&self) -> StubKind {
         self.stub
     }
-    
+
     fn disc_id(&self) -> &'static str {
         self.disc_id
     }
-    
+
     fn expected_events(&self) -> Vec<SimulationEvent> {
         let mut events = Vec::new();
-        
+
         // Add scheduled draw/repay events
         for event in &self.draw_repay_schedule {
             let event_type = if event.amount.amount() > 0.0 {
@@ -472,7 +472,7 @@ impl LoanFacility for RevolvingCreditFacility {
             } else {
                 EventType::Repayment
             };
-            
+
             events.push(SimulationEvent {
                 date: event.date,
                 balance_change: event.amount.amount(),
@@ -480,22 +480,23 @@ impl LoanFacility for RevolvingCreditFacility {
                 event_type,
             });
         }
-        
+
         // Add expected events from funding curve
         if let Some(ref curve) = self.expected_funding_curve {
             for (i, event) in curve.expected_events.iter().enumerate() {
-                let prob = curve.event_probabilities
+                let prob = curve
+                    .event_probabilities
                     .as_ref()
                     .and_then(|probs| probs.get(i))
                     .copied()
                     .unwrap_or(1.0);
-                
+
                 let event_type = if event.amount.amount() > 0.0 {
                     EventType::Draw
                 } else {
                     EventType::Repayment
                 };
-                
+
                 events.push(SimulationEvent {
                     date: event.date,
                     balance_change: event.amount.amount(),
@@ -504,18 +505,22 @@ impl LoanFacility for RevolvingCreditFacility {
                 });
             }
         }
-        
+
         events
     }
-    
+
     fn events_on_date(&self, date: Date) -> Vec<SimulationEvent> {
         self.expected_events()
             .into_iter()
             .filter(|event| event.date == date)
             .collect()
     }
-    
-    fn build_existing_flows(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Vec<(Date, Money)>> {
+
+    fn build_existing_flows(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<Vec<(Date, Money)>> {
         self.build_schedule(curves, as_of)
     }
 }
@@ -550,7 +555,11 @@ impl crate::covenants::engine::InstrumentMutator for RevolvingCreditFacility {
                     *step_ups = Some(vec![(self.availability_start, *rate + increase)]);
                 }
             }
-            InterestSpec::Floating { spread_bp, spread_step_ups, .. } => {
+            InterestSpec::Floating {
+                spread_bp,
+                spread_step_ups,
+                ..
+            } => {
                 let increase_bp = increase * 10000.0;
                 if let Some(ref mut steps) = spread_step_ups {
                     if let Some((_, last_spread)) = steps.last_mut() {
@@ -559,7 +568,8 @@ impl crate::covenants::engine::InstrumentMutator for RevolvingCreditFacility {
                         steps.push((self.availability_start, *spread_bp + increase_bp));
                     }
                 } else {
-                    *spread_step_ups = Some(vec![(self.availability_start, *spread_bp + increase_bp)]);
+                    *spread_step_ups =
+                        Some(vec![(self.availability_start, *spread_bp + increase_bp)]);
                 }
             }
             _ => {
@@ -663,7 +673,7 @@ mod tests {
     #[test]
     fn test_revolver_covenant_consequences() {
         use crate::covenants::engine::InstrumentMutator;
-        
+
         let mut revolver = RevolvingCreditFacility::new(
             "RCF-COVENANT-TEST",
             Money::new(10_000_000.0, Currency::USD),
@@ -675,7 +685,9 @@ mod tests {
         // Test rate increase
         revolver.increase_rate(0.005).unwrap(); // 50bps increase
         match &revolver.interest_spec {
-            InterestSpec::Floating { spread_step_ups, .. } => {
+            InterestSpec::Floating {
+                spread_step_ups, ..
+            } => {
                 assert!(spread_step_ups.is_some());
                 let steps = spread_step_ups.as_ref().unwrap();
                 assert_eq!(steps.len(), 1);
@@ -689,7 +701,12 @@ mod tests {
         assert_eq!(revolver.cash_sweep_pct, 0.75);
 
         // Test default status
-        revolver.set_default_status(true, Date::from_calendar_date(2025, Month::June, 1).unwrap()).unwrap();
+        revolver
+            .set_default_status(
+                true,
+                Date::from_calendar_date(2025, Month::June, 1).unwrap(),
+            )
+            .unwrap();
         assert!(revolver.is_default);
     }
 }

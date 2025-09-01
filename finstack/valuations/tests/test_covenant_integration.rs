@@ -148,7 +148,9 @@ fn test_revolver_utilization_fee_with_covenant_rate_increase() {
 
     // Verify changes
     match &revolver.interest_spec {
-        InterestSpec::Floating { spread_step_ups, .. } => {
+        InterestSpec::Floating {
+            spread_step_ups, ..
+        } => {
             assert!(spread_step_ups.is_some());
             let steps = spread_step_ups.as_ref().unwrap();
             assert_eq!(steps[0].1, 325.0); // 250bps + 75bps = 325bps

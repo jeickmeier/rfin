@@ -1,7 +1,7 @@
 //! Delayed-Draw Term Loan (DDTL) implementation.
 
 use super::covenants::Covenant;
-use super::simulation::{LoanFacility, LoanSimulator, SimulationEvent, EventType};
+use super::simulation::{EventType, LoanFacility, LoanSimulator, SimulationEvent};
 use super::term_loan::InterestSpec;
 use crate::cashflow::builder::{cf, CouponType, FeeBase, FeeSpec, FixedCouponSpec};
 use crate::cashflow::primitives::AmortizationSpec;
@@ -209,7 +209,11 @@ impl DelayedDrawTermLoan {
     }
 
     /// Simulates draws up to a given date with optional covenant context for draw condition enforcement.
-    pub fn simulate_draws_to_date_with_context(&self, as_of: Date, covenant_context: Option<&crate::covenants::engine::CovenantEngine>) -> Money {
+    pub fn simulate_draws_to_date_with_context(
+        &self,
+        as_of: Date,
+        covenant_context: Option<&crate::covenants::engine::CovenantEngine>,
+    ) -> Money {
         let mut drawn = self.drawn_amount;
 
         for draw in &self.planned_draws {
@@ -228,7 +232,7 @@ impl DelayedDrawTermLoan {
                             draw.date,
                             Money::new(0.0, self.commitment.currency()),
                         );
-                        
+
                         // Evaluate draw conditions using provided engine (all must pass)
                         if let Ok(reports) = engine.evaluate(&mut metric_ctx, draw.date) {
                             !reports.values().any(|report| !report.passed)
@@ -394,7 +398,10 @@ impl DelayedDrawTermLoan {
                     };
                     builder.fixed_cf(spec);
                 }
-                InterestSpec::CashPlusPIK { cash_rate, pik_rate } => {
+                InterestSpec::CashPlusPIK {
+                    cash_rate,
+                    pik_rate,
+                } => {
                     let total_rate = cash_rate + pik_rate;
                     let cash_pct = cash_rate / total_rate;
                     let pik_pct = pik_rate / total_rate;
@@ -512,62 +519,62 @@ impl LoanFacility for DelayedDrawTermLoan {
     fn currency(&self) -> finstack_core::currency::Currency {
         self.commitment.currency()
     }
-    
+
     fn commitment(&self) -> Money {
         self.commitment
     }
-    
+
     fn drawn_amount(&self) -> Money {
         self.drawn_amount
     }
-    
+
     fn commitment_expiry(&self) -> Date {
         self.commitment_expiry
     }
-    
+
     fn maturity(&self) -> Date {
         self.maturity
     }
-    
+
     fn interest_spec(&self) -> &InterestSpec {
         &self.interest_spec
     }
-    
+
     fn commitment_fee_rate(&self) -> F {
         self.commitment_fee_rate
     }
-    
+
     fn cash_sweep_percentage(&self) -> F {
         self.cash_sweep_pct
     }
-    
+
     fn frequency(&self) -> Frequency {
         self.frequency
     }
-    
+
     fn day_count(&self) -> DayCount {
         self.day_count
     }
-    
+
     fn bdc(&self) -> BusinessDayConvention {
         self.bdc
     }
-    
+
     fn calendar_id(&self) -> Option<&'static str> {
         self.calendar_id
     }
-    
+
     fn stub(&self) -> StubKind {
         self.stub
     }
-    
+
     fn disc_id(&self) -> &'static str {
         self.disc_id
     }
-    
+
     fn expected_events(&self) -> Vec<SimulationEvent> {
         let mut events = Vec::new();
-        
+
         // Add planned draws
         for draw in &self.planned_draws {
             if !draw.conditional {
@@ -579,17 +586,18 @@ impl LoanFacility for DelayedDrawTermLoan {
                 });
             }
         }
-        
+
         // Add expected draws from funding curve
         if let Some(ref curve) = self.expected_funding_curve {
             for (i, draw) in curve.expected_draws.iter().enumerate() {
                 if !draw.conditional {
-                    let prob = curve.draw_probabilities
+                    let prob = curve
+                        .draw_probabilities
                         .as_ref()
                         .and_then(|probs| probs.get(i))
                         .copied()
                         .unwrap_or(1.0);
-                    
+
                     events.push(SimulationEvent {
                         date: draw.date,
                         balance_change: draw.amount.amount(),
@@ -599,18 +607,22 @@ impl LoanFacility for DelayedDrawTermLoan {
                 }
             }
         }
-        
+
         events
     }
-    
+
     fn events_on_date(&self, date: Date) -> Vec<SimulationEvent> {
         self.expected_events()
             .into_iter()
             .filter(|event| event.date == date)
             .collect()
     }
-    
-    fn build_existing_flows(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Vec<(Date, Money)>> {
+
+    fn build_existing_flows(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<Vec<(Date, Money)>> {
         self.build_schedule(curves, as_of)
     }
 }
@@ -645,7 +657,11 @@ impl crate::covenants::engine::InstrumentMutator for DelayedDrawTermLoan {
                     *step_ups = Some(vec![(self.commitment_expiry, *rate + increase)]);
                 }
             }
-            InterestSpec::Floating { spread_bp, spread_step_ups, .. } => {
+            InterestSpec::Floating {
+                spread_bp,
+                spread_step_ups,
+                ..
+            } => {
                 let increase_bp = increase * 10000.0;
                 if let Some(ref mut steps) = spread_step_ups {
                     if let Some((_, last_spread)) = steps.last_mut() {
@@ -654,7 +670,8 @@ impl crate::covenants::engine::InstrumentMutator for DelayedDrawTermLoan {
                         steps.push((self.commitment_expiry, *spread_bp + increase_bp));
                     }
                 } else {
-                    *spread_step_ups = Some(vec![(self.commitment_expiry, *spread_bp + increase_bp)]);
+                    *spread_step_ups =
+                        Some(vec![(self.commitment_expiry, *spread_bp + increase_bp)]);
                 }
             }
             _ => {
@@ -740,7 +757,7 @@ mod tests {
     #[test]
     fn test_ddtl_covenant_consequences() {
         use crate::covenants::engine::InstrumentMutator;
-        
+
         let mut ddtl = DelayedDrawTermLoan::new(
             "DDTL-COVENANT-TEST",
             Money::new(10_000_000.0, Currency::USD),
@@ -777,7 +794,7 @@ mod tests {
     #[test]
     fn test_ddtl_draw_condition_enforcement() {
         use crate::instruments::fixed_income::loan::covenants::{Covenant, CovenantType};
-        
+
         // Create DDTL with conditional draws
         let mut ddtl = DelayedDrawTermLoan::new(
             "DDTL-CONDITIONS-TEST",

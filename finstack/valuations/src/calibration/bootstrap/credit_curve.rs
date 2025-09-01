@@ -102,7 +102,7 @@ impl CreditCurveCalibrator {
                 // Create temporary credit curve
                 let mut temp_spreads = spread_knots.clone();
                 temp_spreads.push((tenor_years, spread_bp));
-                
+
                 let temp_curve = match CreditCurve::builder(&format!("TEMP_{}", cds_for_pricing.reference_entity))
                     .issuer(&cds_for_pricing.reference_entity)
                     .seniority(Seniority::Senior)
@@ -229,7 +229,7 @@ impl Calibrator<InstrumentQuote, CalibrationConstraint, CreditCurve> for CreditC
     ) -> Result<(CreditCurve, CalibrationReport)> {
         // Simplified implementation to get basic framework working
         let spread_knots = vec![(1.0, 50.0), (5.0, 100.0)];
-        
+
         let curve = CreditCurve::builder("CALIB_CREDIT")
             .issuer(&self.entity)
             .seniority(self.seniority)
@@ -248,7 +248,7 @@ impl Calibrator<InstrumentQuote, CalibrationConstraint, CreditCurve> for CreditC
 
 /*
 /// Hazard curve bootstrapper (alternative to credit curve).
-#[derive(Clone, Debug)]  
+#[derive(Clone, Debug)]
 pub struct HazardCurveCalibrator {
     /// Curve identifier
     pub curve_id: String,
@@ -323,11 +323,11 @@ impl HazardCurveCalibrator {
                 // Calculate implied spread using simplified CDS formula
                 // spread ≈ hazard_rate * (1 - recovery_rate) * 10000 (in bps)
                 let implied_spread_bp = hazard_rate * (1.0 - recovery_rate_local) * 10000.0;
-                
+
                 // Account for discounting effect (simplified)
                 let avg_df = 0.95; // Placeholder discount factor
                 let adjusted_spread = implied_spread_bp * survival_prob * avg_df;
-                
+
                 adjusted_spread - market_spread_bp_local
             };
 
@@ -341,7 +341,7 @@ impl HazardCurveCalibrator {
                         format!("CDS-{}", maturity),
                         objective(hazard_rate),
                     );
-                    
+
                     // Update cumulative default probability for next iteration
                     let period_length = if hazard_knots.len() > 1 {
                         tenor_years - hazard_knots[hazard_knots.len() - 2].0
@@ -382,7 +382,7 @@ mod tests {
 
     fn _create_test_cds_quotes() -> Vec<InstrumentQuote> {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         vec![
             InstrumentQuote::CDS {
                 entity: "AAPL".to_string(),
@@ -420,20 +420,15 @@ mod tests {
     #[ignore] // Disabled until full bootstrap implementation
     fn test_credit_curve_calibration() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let calibrator = CreditCurveCalibrator::new(
-            "AAPL",
-            Seniority::Senior,
-            0.4,
-            base_date,
-            Currency::USD,
-        );
+        let calibrator =
+            CreditCurveCalibrator::new("AAPL", Seniority::Senior, 0.4, base_date, Currency::USD);
 
         let quotes = _create_test_cds_quotes();
         let discount_curve = _create_test_discount_curve();
         let solver = crate::calibration::solver::HybridSolver::new();
 
         let result = calibrator.bootstrap_curve(&quotes, &solver, &discount_curve);
-        
+
         assert!(result.is_ok());
         let (curve, report) = result.unwrap();
         assert!(report.success);
@@ -449,14 +444,9 @@ mod tests {
     fn test_synthetic_cds_creation() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let maturity = base_date + time::Duration::days(365 * 5);
-        
-        let _calibrator = CreditCurveCalibrator::new(
-            "TEST",
-            Seniority::Senior,
-            0.4,
-            base_date,
-            Currency::USD,
-        );
+
+        let _calibrator =
+            CreditCurveCalibrator::new("TEST", Seniority::Senior, 0.4, base_date, Currency::USD);
 
         // Method not yet implemented; simulate expectations using builder directly
         let cds = crate::instruments::fixed_income::cds::CreditDefaultSwap::new_isda(
@@ -472,7 +462,7 @@ mod tests {
             0.4,
             "CALIB_DISC",
         );
-        
+
         assert_eq!(cds.reference_entity, "TEST");
         assert_eq!(cds.premium.spread_bp, 100.0);
         assert_eq!(cds.protection.recovery_rate, 0.4);

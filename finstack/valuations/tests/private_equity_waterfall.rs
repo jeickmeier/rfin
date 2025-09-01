@@ -1,11 +1,13 @@
 //! Comprehensive tests for private equity waterfall functionality.
 
-use finstack_valuations::instruments::equity::private_equity::*;
 use finstack_core::prelude::*;
 use finstack_core::F;
+use finstack_valuations::instruments::equity::private_equity::*;
 use time::Month;
 
-fn test_currency() -> Currency { Currency::USD }
+fn test_currency() -> Currency {
+    Currency::USD
+}
 
 fn test_date(year: i32, month: u8, day: u8) -> Date {
     Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
@@ -17,14 +19,20 @@ fn simple_2x_scenario() -> (WaterfallSpec, Vec<FundEvent>) {
         .style(WaterfallStyle::European)
         .return_of_capital()
         .preferred_irr(0.08) // 8% hurdle
-        .catchup(1.0)        // 100% to GP catch-up
+        .catchup(1.0) // 100% to GP catch-up
         .promote_tier(0.0, 0.8, 0.2) // 80/20 split after catch-up
         .build()
         .unwrap();
 
     let events = vec![
-        FundEvent::contribution(test_date(2020, 1, 1), Money::new(1000000.0, test_currency())),
-        FundEvent::distribution(test_date(2025, 1, 1), Money::new(2000000.0, test_currency())),
+        FundEvent::contribution(
+            test_date(2020, 1, 1),
+            Money::new(1000000.0, test_currency()),
+        ),
+        FundEvent::distribution(
+            test_date(2025, 1, 1),
+            Money::new(2000000.0, test_currency()),
+        ),
     ];
 
     (spec, events)
@@ -37,24 +45,32 @@ fn test_return_of_capital_first() {
     let ledger = engine.run(&events).unwrap();
 
     // Find return of capital allocation
-    let roc_rows: Vec<_> = ledger.rows.iter()
+    let roc_rows: Vec<_> = ledger
+        .rows
+        .iter()
         .filter(|r| r.tranche.contains("Return of Capital"))
         .collect();
 
-    assert!(!roc_rows.is_empty(), "Should have return of capital allocation");
+    assert!(
+        !roc_rows.is_empty(),
+        "Should have return of capital allocation"
+    );
 
     // LP should get back their $1M capital first
-    let total_lp_roc: F = roc_rows.iter()
-        .map(|r| r.to_lp.amount())
-        .sum();
-    
-    assert!((total_lp_roc - 1000000.0).abs() < 1e-6, 
-            "LP should get $1M return of capital, got ${:.2}", total_lp_roc);
+    let total_lp_roc: F = roc_rows.iter().map(|r| r.to_lp.amount()).sum();
+
+    assert!(
+        (total_lp_roc - 1000000.0).abs() < 1e-6,
+        "LP should get $1M return of capital, got ${:.2}",
+        total_lp_roc
+    );
 
     // After ROC, LP unreturned should be zero
     if let Some(last_roc) = roc_rows.last() {
-        assert!((last_roc.lp_unreturned.amount()).abs() < 1e-6,
-                "LP unreturned should be zero after ROC");
+        assert!(
+            (last_roc.lp_unreturned.amount()).abs() < 1e-6,
+            "LP unreturned should be zero after ROC"
+        );
     }
 }
 
@@ -65,23 +81,27 @@ fn test_preferred_return_calculation() {
     let ledger = engine.run(&events).unwrap();
 
     // Find preferred return allocation
-    let pref_rows: Vec<_> = ledger.rows.iter()
+    let pref_rows: Vec<_> = ledger
+        .rows
+        .iter()
         .filter(|r| r.tranche.contains("Preferred Return"))
         .collect();
 
     if !pref_rows.is_empty() {
         // With 8% hurdle over 5 years, LP should get additional return to meet IRR target
-        let total_pref: F = pref_rows.iter()
-            .map(|r| r.to_lp.amount())
-            .sum();
-        
-        assert!(total_pref > 0.0, "Should have some preferred return allocation");
-        
+        let total_pref: F = pref_rows.iter().map(|r| r.to_lp.amount()).sum();
+
+        assert!(
+            total_pref > 0.0,
+            "Should have some preferred return allocation"
+        );
+
         // All preferred return should go to LP
-        let total_gp_pref: F = pref_rows.iter()
-            .map(|r| r.to_gp.amount())
-            .sum();
-        assert!((total_gp_pref).abs() < 1e-6, "GP should get no preferred return");
+        let total_gp_pref: F = pref_rows.iter().map(|r| r.to_gp.amount()).sum();
+        assert!(
+            (total_gp_pref).abs() < 1e-6,
+            "GP should get no preferred return"
+        );
     }
 }
 
@@ -92,7 +112,9 @@ fn test_promote_split() {
     let ledger = engine.run(&events).unwrap();
 
     // Find promote allocation
-    let promote_rows: Vec<_> = ledger.rows.iter()
+    let promote_rows: Vec<_> = ledger
+        .rows
+        .iter()
         .filter(|r| r.tranche.contains("Promote"))
         .collect();
 
@@ -102,7 +124,7 @@ fn test_promote_split() {
             if total_alloc > 1e-6 {
                 let lp_pct = row.to_lp.amount() / total_alloc;
                 let gp_pct = row.to_gp.amount() / total_alloc;
-                
+
                 // Should approximate 80/20 split
                 assert!((lp_pct - 0.8).abs() < 0.1, "LP should get ~80% in promote");
                 assert!((gp_pct - 0.2).abs() < 0.1, "GP should get ~20% in promote");
@@ -125,7 +147,7 @@ fn test_currency_mismatch_error() {
 
     let pe = PrivateEquityInvestment::new("TEST", Currency::USD, spec, mixed_currency_events);
     let result = pe.run_waterfall();
-    
+
     assert!(result.is_err(), "Should error on currency mismatch");
     if let Err(finstack_core::Error::CurrencyMismatch { expected, actual }) = result {
         assert_eq!(expected, Currency::USD);
@@ -139,9 +161,20 @@ fn test_currency_mismatch_error() {
 fn test_american_vs_european_style() {
     // Create identical events for both styles
     let events = vec![
-        FundEvent::contribution(test_date(2020, 1, 1), Money::new(1000000.0, test_currency())),
-        FundEvent::proceeds(test_date(2023, 1, 1), Money::new(800000.0, test_currency()), "Deal_A"),
-        FundEvent::proceeds(test_date(2025, 1, 1), Money::new(1200000.0, test_currency()), "Deal_B"),
+        FundEvent::contribution(
+            test_date(2020, 1, 1),
+            Money::new(1000000.0, test_currency()),
+        ),
+        FundEvent::proceeds(
+            test_date(2023, 1, 1),
+            Money::new(800000.0, test_currency()),
+            "Deal_A",
+        ),
+        FundEvent::proceeds(
+            test_date(2025, 1, 1),
+            Money::new(1200000.0, test_currency()),
+            "Deal_B",
+        ),
     ];
 
     // European style - aggregate at fund level
@@ -167,14 +200,25 @@ fn test_american_vs_european_style() {
     let american_ledger = american_engine.run(&events).unwrap();
 
     // Both should have some allocation rows
-    assert!(!euro_ledger.rows.is_empty(), "European ledger should have allocations");
-    assert!(!american_ledger.rows.is_empty(), "American ledger should have allocations");
+    assert!(
+        !euro_ledger.rows.is_empty(),
+        "European ledger should have allocations"
+    );
+    assert!(
+        !american_ledger.rows.is_empty(),
+        "American ledger should have allocations"
+    );
 
     // American style should have deal_id populated
-    let american_with_deals = american_ledger.rows.iter()
+    let american_with_deals = american_ledger
+        .rows
+        .iter()
         .filter(|r| r.deal_id.is_some())
         .count();
-    assert!(american_with_deals > 0, "American style should have deal_id entries");
+    assert!(
+        american_with_deals > 0,
+        "American style should have deal_id entries"
+    );
 }
 
 #[test]
@@ -220,7 +264,7 @@ fn test_waterfall_spec_validation() {
 fn test_deterministic_allocation() {
     let (spec, events) = simple_2x_scenario();
     let engine = EquityWaterfallEngine::new(&spec);
-    
+
     // Run multiple times and ensure identical results
     let ledger1 = engine.run(&events).unwrap();
     let ledger2 = engine.run(&events).unwrap();
@@ -288,11 +332,17 @@ fn test_lp_cashflows_via_ledger() {
 
     let ledger = pe.run_waterfall().unwrap();
     let lp_flows = ledger.lp_cashflows();
-    assert!(!lp_flows.is_empty(), "Should extract LP cashflows from ledger");
+    assert!(
+        !lp_flows.is_empty(),
+        "Should extract LP cashflows from ledger"
+    );
 
     // Verify we have meaningful flows
     let total_flow: F = lp_flows.iter().map(|(_, amount)| amount.amount()).sum();
-    assert!(total_flow.abs() > 1e-6, "Should have meaningful cashflow amounts");
+    assert!(
+        total_flow.abs() > 1e-6,
+        "Should have meaningful cashflow amounts"
+    );
 }
 
 /// Property test: LP unreturned capital should never go negative.
@@ -303,9 +353,12 @@ fn property_lp_unreturned_non_negative() {
     let ledger = engine.run(&events).unwrap();
 
     for row in &ledger.rows {
-        assert!(row.lp_unreturned.amount() >= -1e-6, 
-                "LP unreturned should never be negative, got {} on {}",
-                row.lp_unreturned.amount(), row.date);
+        assert!(
+            row.lp_unreturned.amount() >= -1e-6,
+            "LP unreturned should never be negative, got {} on {}",
+            row.lp_unreturned.amount(),
+            row.date
+        );
     }
 }
 
@@ -318,9 +371,13 @@ fn property_gp_carry_monotonic() {
 
     let mut prev_carry = 0.0;
     for row in &ledger.rows {
-        assert!(row.gp_carry_cum.amount() >= prev_carry - 1e-6,
-                "GP carry should be non-decreasing, got {} after {} on {}",
-                row.gp_carry_cum.amount(), prev_carry, row.date);
+        assert!(
+            row.gp_carry_cum.amount() >= prev_carry - 1e-6,
+            "GP carry should be non-decreasing, got {} after {} on {}",
+            row.gp_carry_cum.amount(),
+            prev_carry,
+            row.date
+        );
         prev_carry = row.gp_carry_cum.amount();
     }
 }
@@ -331,16 +388,22 @@ fn test_multi_tier_waterfall() {
     let spec = WaterfallSpec::builder()
         .style(WaterfallStyle::European)
         .return_of_capital()
-        .preferred_irr(0.08)  // 8% hurdle
-        .catchup(1.0)         // 100% catch-up
-        .promote_tier(0.12, 0.8, 0.2)  // 80/20 up to 12% IRR
-        .promote_tier(0.15, 0.7, 0.3)  // 70/30 above 15% IRR
+        .preferred_irr(0.08) // 8% hurdle
+        .catchup(1.0) // 100% catch-up
+        .promote_tier(0.12, 0.8, 0.2) // 80/20 up to 12% IRR
+        .promote_tier(0.15, 0.7, 0.3) // 70/30 above 15% IRR
         .build()
         .unwrap();
 
     let events = vec![
-        FundEvent::contribution(test_date(2020, 1, 1), Money::new(1000000.0, test_currency())),
-        FundEvent::distribution(test_date(2025, 1, 1), Money::new(3000000.0, test_currency())), // 3x return
+        FundEvent::contribution(
+            test_date(2020, 1, 1),
+            Money::new(1000000.0, test_currency()),
+        ),
+        FundEvent::distribution(
+            test_date(2025, 1, 1),
+            Money::new(3000000.0, test_currency()),
+        ), // 3x return
     ];
 
     let engine = EquityWaterfallEngine::new(&spec);
@@ -349,10 +412,12 @@ fn test_multi_tier_waterfall() {
     assert!(!ledger.rows.is_empty(), "Should have allocation rows");
 
     // Should have multiple promote tiers
-    let promote_rows: Vec<_> = ledger.rows.iter()
+    let promote_rows: Vec<_> = ledger
+        .rows
+        .iter()
         .filter(|r| r.tranche.contains("Promote"))
         .collect();
-    
+
     // With a 3x return, should hit multiple promote tiers
     assert!(!promote_rows.is_empty(), "Should have promote allocations");
 }
@@ -362,18 +427,28 @@ fn test_multi_tier_waterfall() {
 fn test_irr_calculation_accuracy() {
     // Known IRR scenario: $1M in, $2M out after 5 years = ~14.87% IRR
     let flows = vec![
-        (test_date(2020, 1, 1), Money::new(-1000000.0, test_currency())), // Contribution
-        (test_date(2025, 1, 1), Money::new(2000000.0, test_currency())),  // Distribution
+        (
+            test_date(2020, 1, 1),
+            Money::new(-1000000.0, test_currency()),
+        ), // Contribution
+        (
+            test_date(2025, 1, 1),
+            Money::new(2000000.0, test_currency()),
+        ), // Distribution
     ];
 
     let irr = finstack_valuations::instruments::equity::private_equity::metrics::calculate_irr(
-        &flows, 
-        DayCount::Act365F
-    ).unwrap();
+        &flows,
+        DayCount::Act365F,
+    )
+    .unwrap();
 
     // Expected IRR: (2.0)^(1/5) - 1 ≈ 0.1487 or ~14.87%
-    assert!((irr - 0.1487).abs() < 0.01, 
-            "Expected ~14.87% IRR, got {:.4}%", irr * 100.0);
+    assert!(
+        (irr - 0.1487).abs() < 0.01,
+        "Expected ~14.87% IRR, got {:.4}%",
+        irr * 100.0
+    );
 }
 
 /// Golden test: serialize and deserialize waterfall spec.
@@ -395,13 +470,13 @@ fn test_waterfall_spec_serde_stability() {
 
     // Serialize to JSON
     let json = serde_json::to_string(&spec).unwrap();
-    
+
     // Deserialize back
     let deserialized: WaterfallSpec = serde_json::from_str(&json).unwrap();
-    
+
     // Should be identical
     assert_eq!(spec, deserialized);
-    
+
     // Verify key fields are preserved
     assert_eq!(deserialized.style, WaterfallStyle::European);
     assert_eq!(deserialized.tranches.len(), 4);
@@ -418,18 +493,18 @@ fn test_allocation_ledger_serde_stability() {
 
     // Serialize to JSON
     let json = serde_json::to_string(&ledger).unwrap();
-    
+
     // Deserialize back
     let deserialized: AllocationLedger = serde_json::from_str(&json).unwrap();
-    
+
     // Should have same number of rows
     assert_eq!(ledger.rows.len(), deserialized.rows.len());
-    
+
     // Check first row details match
     if !ledger.rows.is_empty() {
         let orig = &ledger.rows[0];
         let deser = &deserialized.rows[0];
-        
+
         assert_eq!(orig.date, deser.date);
         assert_eq!(orig.tranche, deser.tranche);
         assert!((orig.to_lp.amount() - deser.to_lp.amount()).abs() < 1e-12);

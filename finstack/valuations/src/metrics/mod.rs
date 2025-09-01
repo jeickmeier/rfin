@@ -50,6 +50,8 @@ pub fn standard_registry() -> MetricRegistry {
     crate::instruments::fixed_income::bond::metrics::register_bond_metrics(&mut registry);
     crate::instruments::fixed_income::irs::metrics::register_irs_metrics(&mut registry);
     crate::instruments::fixed_income::deposit::metrics::register_deposit_metrics(&mut registry);
+    crate::instruments::fixed_income::fra::metrics::register_fra_metrics(&mut registry);
+    crate::instruments::fixed_income::ir_future::metrics::register_ir_future_metrics(&mut registry);
     crate::instruments::fixed_income::cds::metrics::register_cds_metrics(&mut registry);
     crate::instruments::fixed_income::cds_index::metrics::register_cds_index_metrics(&mut registry);
     crate::instruments::fixed_income::convertible::metrics::register_convertible_metrics(

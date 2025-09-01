@@ -2,7 +2,7 @@
 //!
 //! Provides market-standard calibration methodologies for:
 //! - Interest rate curves (discount/forward)
-//! - Credit curves (survival/hazard) 
+//! - Credit curves (survival/hazard)
 //! - Inflation curves
 //! - Volatility surfaces
 //! - Base correlation curves
@@ -31,7 +31,7 @@ pub trait Calibrator<Input, Quote, Output> {
     /// * `instruments` - Market instruments providing calibration constraints
     /// * `quotes` - Market quotes for the instruments  
     /// * `base_context` - Base market data (e.g., discount curves for credit calibration)
-    /// 
+    ///
     /// # Returns
     /// Calibrated output structure and diagnostic report
     fn calibrate(
@@ -197,10 +197,7 @@ impl Default for CalibrationConfig {
 #[derive(Debug)]
 pub enum CalibrationError {
     /// Convergence failure
-    ConvergenceFailure {
-        iterations: usize,
-        final_error: F,
-    },
+    ConvergenceFailure { iterations: usize, final_error: F },
     /// Insufficient market data
     InsufficientData { message: String },
     /// Invalid market quotes
@@ -214,8 +211,15 @@ pub enum CalibrationError {
 impl std::fmt::Display for CalibrationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            CalibrationError::ConvergenceFailure { iterations, final_error } => {
-                write!(f, "Failed to converge after {} iterations, final error: {}", iterations, final_error)
+            CalibrationError::ConvergenceFailure {
+                iterations,
+                final_error,
+            } => {
+                write!(
+                    f,
+                    "Failed to converge after {} iterations, final error: {}",
+                    iterations, final_error
+                )
             }
             CalibrationError::InsufficientData { message } => {
                 write!(f, "Insufficient market data: {}", message)

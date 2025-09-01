@@ -8,9 +8,9 @@ use crate::cashflow::traits::DatedFlows;
 use crate::instruments::traits::Attributes;
 
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
-use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::credit_curve::CreditCurve;
 use finstack_core::market_data::traits::Discount;
+use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::F;
 

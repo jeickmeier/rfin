@@ -276,11 +276,11 @@ impl MetricCalculator for FX01 {
             None => bumped_spot * df_for_far / df_dom_far,
         };
 
-                // Calculate PV with bumped rates
+        // Calculate PV with bumped rates
         let base_amt = fx_swap.base_notional.amount();
         let pv_for_leg = base_amt * df_for_near - base_amt * df_for_far;
         let pv_dom_leg = -base_amt * near_rate * df_dom_near + base_amt * far_rate * df_dom_far;
-        
+
         // Convert foreign leg to domestic using bumped spot
         let bumped_pv = pv_for_leg * bumped_spot + pv_dom_leg;
 

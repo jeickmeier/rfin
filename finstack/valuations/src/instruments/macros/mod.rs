@@ -109,10 +109,13 @@ macro_rules! impl_instrument_schedule_pv {
         dc_field: $dc:ident
     ) => {
         $crate::impl_instrument!(
-            $type, $type_name,
+            $type,
+            $type_name,
             pv = |s, curves, as_of| {
                 use $crate::instruments::fixed_income::discountable::Discountable;
-                let flows = <$type as $crate::cashflow::traits::CashflowProvider>::build_schedule(s, curves, as_of)?;
+                let flows = <$type as $crate::cashflow::traits::CashflowProvider>::build_schedule(
+                    s, curves, as_of,
+                )?;
                 let disc = curves.discount(s.$disc)?;
                 flows.npv(&*disc, disc.base_date(), s.$dc)
             }

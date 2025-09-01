@@ -307,54 +307,8 @@ pub(super) fn compute_coupon_schedules(
     //! ```
     use std::collections::BTreeSet;
 
-    // Build coupon pieces: if coupon program empty but legacy specs exist, derive full-span pieces
-    let mut coupon_pieces: Vec<CouponProgramPiece> = builder.coupon_program.clone();
-    if coupon_pieces.is_empty() {
-        let add_payment_defaults = builder.payment_program.is_empty();
-        for s in &builder.fixed {
-            coupon_pieces.push(CouponProgramPiece {
-                window: DateWindow {
-                    start: issue,
-                    end: maturity,
-                },
-                schedule: ScheduleParams {
-                    freq: s.freq,
-                    dc: s.dc,
-                    bdc: s.bdc,
-                    calendar_id: s.calendar_id,
-                    stub: s.stub,
-                },
-                coupon: CouponSpec::Fixed { rate: s.rate },
-            });
-            if add_payment_defaults {
-                // defaults appended later
-            }
-        }
-        for s in &builder.floating {
-            coupon_pieces.push(CouponProgramPiece {
-                window: DateWindow {
-                    start: issue,
-                    end: maturity,
-                },
-                schedule: ScheduleParams {
-                    freq: s.freq,
-                    dc: s.dc,
-                    bdc: s.bdc,
-                    calendar_id: s.calendar_id,
-                    stub: s.stub,
-                },
-                coupon: CouponSpec::Float {
-                    index_id: s.index_id,
-                    margin_bp: s.margin_bp,
-                    gearing: s.gearing,
-                    reset_lag_days: s.reset_lag_days,
-                },
-            });
-            if add_payment_defaults {
-                // defaults appended later
-            }
-        }
-    }
+    // Coupon pieces are now the single source of truth (legacy path removed)
+    let coupon_pieces: Vec<CouponProgramPiece> = builder.coupon_program.clone();
 
     // If there are no coupon pieces at all and no payment windows, return empty schedules
     if coupon_pieces.is_empty() && builder.payment_program.is_empty() {
@@ -367,29 +321,7 @@ pub(super) fn compute_coupon_schedules(
     }
 
     // Payment pieces (PIK toggles) — may be sparse; missing windows default to Cash
-    // If we synthesized coupon pieces from legacy specs AND no payment program was provided,
-    // create default payment windows mirroring the legacy coupon_type for behavior parity.
-    let mut payment_pieces: Vec<PaymentProgramPiece> = builder.payment_program.clone();
-    if builder.coupon_program.is_empty() && builder.payment_program.is_empty() {
-        for s in &builder.fixed {
-            payment_pieces.push(PaymentProgramPiece {
-                window: DateWindow {
-                    start: issue,
-                    end: maturity,
-                },
-                split: s.coupon_type,
-            });
-        }
-        for s in &builder.floating {
-            payment_pieces.push(PaymentProgramPiece {
-                window: DateWindow {
-                    start: issue,
-                    end: maturity,
-                },
-                split: s.coupon_type,
-            });
-        }
-    }
+    let payment_pieces: Vec<PaymentProgramPiece> = builder.payment_program.clone();
 
     // Validate windows are within [issue, maturity] and build boundary grid
     let within =

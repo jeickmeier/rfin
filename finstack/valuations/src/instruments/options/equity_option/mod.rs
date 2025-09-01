@@ -224,43 +224,44 @@ impl EquityOption {
     }
 }
 
-
 impl_instrument!(
     EquityOption,
     "EquityOption",
     pv = |s, curves, as_of| {
         // Calculate time to expiry in years
         let time_to_expiry = s.day_count.year_fraction(as_of, s.expiry)?;
-        
+
         if time_to_expiry <= 0.0 {
             // Option expired - return intrinsic value
             let spot_scalar = curves.market_scalar(s.spot_id)?;
             let spot = match spot_scalar {
                 finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
-                finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
+                finstack_core::market_data::primitives::MarketScalar::Price(money) => {
+                    money.amount()
+                }
             };
-            
+
             let intrinsic = match s.option_type {
                 OptionType::Call => (spot - s.strike.amount()).max(0.0),
                 OptionType::Put => (s.strike.amount() - spot).max(0.0),
             };
-            
+
             return Ok(finstack_core::money::Money::new(
                 intrinsic * s.contract_size,
                 s.strike.currency(),
             ));
         }
-        
+
         // Get market data
         let disc_curve = curves.discount(s.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
-        
+
         let spot_scalar = curves.market_scalar(s.spot_id)?;
         let spot = match spot_scalar {
             finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
             finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
         };
-        
+
         // Get dividend yield (default to 0 if not specified)
         let q = if let Some(div_id) = s.div_yield_id {
             match curves.market_scalar(div_id) {
@@ -273,7 +274,7 @@ impl_instrument!(
         } else {
             0.0
         };
-        
+
         // Get volatility (use implied_vol if set, otherwise fetch from surface)
         let sigma = if let Some(impl_vol) = s.implied_vol {
             impl_vol
@@ -281,7 +282,7 @@ impl_instrument!(
             let vol_surface = curves.vol_surface(s.vol_id)?;
             vol_surface.value_clamped(time_to_expiry, s.strike.amount())
         };
-        
+
         // Price using Black-Scholes
         s.black_scholes_price(spot, r, sigma, time_to_expiry, q)
     }
@@ -502,7 +503,9 @@ impl EquityOptionBuilder {
                 finstack_core::Error::from(finstack_core::error::InputError::Invalid)
             })?,
             contract_size: self.contract_size.unwrap_or(1.0),
-            day_count: self.day_count.unwrap_or(finstack_core::dates::DayCount::Act365F),
+            day_count: self
+                .day_count
+                .unwrap_or(finstack_core::dates::DayCount::Act365F),
             settlement: self.settlement.unwrap_or(SettlementType::Physical),
             disc_id: self.disc_id.ok_or_else(|| {
                 finstack_core::Error::from(finstack_core::error::InputError::Invalid)
