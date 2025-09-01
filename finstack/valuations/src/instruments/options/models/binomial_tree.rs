@@ -58,22 +58,27 @@ impl BinomialTree {
         Self::new(steps, TreeType::CRR)
     }
 
-    /// Peizer-Pratt inversion function for Leisen-Reimer model
-    /// This provides better convergence to Black-Scholes
+    /// Peizer–Pratt inversion used by Leisen–Reimer to map normal quantiles to
+    /// binomial cumulative probabilities. Uses the common closed form used in LR (1996).
     fn peizer_pratt_inversion(&self, z: F, n: usize) -> F {
-        if z.abs() < 1e-10 {
+        if n == 0 {
+            return 0.5;
+        }
+        if z.abs() < 1e-14 {
             return 0.5;
         }
 
-        let n_f = n as f64;
-        let sign = if z > 0.0 { 1.0 } else { -1.0 };
-        let z_abs = z.abs();
+        // LR recommend an odd number of steps for best accuracy; use nearest odd in mapping
+        let n_eff = if n % 2 == 0 { n + 1 } else { n } as f64;
+        let sign = if z >= 0.0 { 1.0 } else { -1.0 };
+        let z2 = z * z;
 
-        // Peizer-Pratt approximation
-        let a = z_abs / (n_f + 1.0 / 3.0 + 0.1 / (n_f + 1.0)).sqrt();
-        let b = 1.0 + a * a * (1.0 / 4.0 + a * a * (3.0 / 28.0 + a * a * 23.0 / 240.0));
+        let denom = (n_eff + 1.0 / 3.0 + 0.1 / (n_eff + 1.0));
+        let x = (z2 * (n_eff + 1.0 / 6.0)) / denom;
+        let p = 0.5 + sign * 0.5 * (1.0 - (-x).exp()).sqrt();
 
-        0.5 + sign * 0.5 * (1.0 - (-a * a * b).exp()).sqrt()
+        // Numerically enforce bounds
+        p.max(0.0).min(1.0)
     }
 
     /// Calculate tree parameters based on model type
@@ -94,24 +99,45 @@ impl BinomialTree {
 
         let (u, d, p) = match self.tree_type {
             TreeType::LeisenReimer => {
-                // Leisen-Reimer parameters for better convergence
-                let d1 =
-                    ((spot / strike).ln() + (r - q + 0.5 * sigma * sigma) * t) / (sigma * t.sqrt());
+                // Fallback to CRR if strike/spot are not usable (e.g., generic tree)
+                if !(spot > 0.0) || !(strike > 0.0) {
+                    let u = (sigma * dt.sqrt()).exp();
+                    let d = 1.0 / u;
+                    let p = (((r - q) * dt).exp() - d) / (u - d);
+                    if !(0.0..=1.0).contains(&p) {
+                        return Err(Error::Internal);
+                    }
+                    return Ok((u, d, p));
+                }
+
+                // Leisen–Reimer: use Peizer–Pratt inversion to determine probabilities
+                let d1 = ((spot / strike).ln() + (r - q + 0.5 * sigma * sigma) * t)
+                    / (sigma * t.sqrt());
                 let d2 = d1 - sigma * t.sqrt();
 
-                // Use Peizer-Pratt inversion for probabilities
-                let _p = self.peizer_pratt_inversion(d2, self.steps);
-                let _p_star = self.peizer_pratt_inversion(d1, self.steps);
+                // Risk-neutral probability and its delta-adjusted counterpart
+                let mut p = self.peizer_pratt_inversion(d2, self.steps);
+                let mut p_star = self.peizer_pratt_inversion(d1, self.steps);
 
-                // Calculate up and down factors
-                let df = ((-r + q) * dt).exp(); // Fixed discount factor formula
-                let u = ((r - q) * dt + sigma * dt.sqrt()).exp();
-                let d = ((r - q) * dt - sigma * dt.sqrt()).exp();
+                // Guard against degeneracy at extremes
+                let eps = 1e-12;
+                p = p.clamp(eps, 1.0 - eps);
+                p_star = p_star.clamp(eps, 1.0 - eps);
 
-                // Adjust probability to maintain no-arbitrage
-                let p_adj = (df - d) / (u - d);
+                // Ensure no-arbitrage and moment matching
+                let r_q_dt = ((r - q) * dt).exp();
+                let u = r_q_dt * (p_star / p);
+                let d = r_q_dt * ((1.0 - p_star) / (1.0 - p));
 
-                (u, d, p_adj)
+                // Sanity checks
+                if !(u.is_finite() && d.is_finite()) {
+                    return Err(Error::Internal);
+                }
+                if !(u > 1.0 && d < 1.0 && u > d) {
+                    return Err(Error::Internal);
+                }
+
+                (u, d, p)
             }
             TreeType::CRR => {
                 // Cox-Ross-Rubinstein parameters
@@ -614,7 +640,7 @@ mod tests {
         let crr_price = crr
             .price_european(spot, strike, r, sigma, t, q, OptionType::Call)
             .unwrap();
-        let _lr_price = lr
+        let lr_price = lr
             .price_european(spot, strike, r, sigma, t, q, OptionType::Call)
             .unwrap();
 
@@ -627,9 +653,60 @@ mod tests {
             "CRR price should be close to BS value"
         );
 
-        // Skip LR test for now - implementation needs mathematical validation
-        // TODO: Fix Leisen-Reimer implementation
-        // assert!((lr_price - bs_value).abs() < 1.0, "LR price should be close to BS value");
+        // LR should be closer and within a tight tolerance at moderate steps
+        assert!(
+            (lr_price - bs_value).abs() < (crr_price - bs_value).abs(),
+            "LR should be closer to BS than CRR"
+        );
+        assert!(
+            (lr_price - bs_value).abs() < 0.05,
+            "LR(50) should be within 5c of BS"
+        );
+    }
+
+    #[test]
+    fn test_leisen_reimer_converges_put() {
+        // Validate LR convergence for put via put-call parity
+        let spot = 100.0;
+        let strike = 100.0;
+        let r = 0.05;
+        let sigma = 0.20;
+        let t = 1.0;
+        let q = 0.0;
+
+        let lr = BinomialTree::leisen_reimer(50);
+        let lr_put = lr
+            .price_european(spot, strike, r, sigma, t, q, OptionType::Put)
+            .unwrap();
+
+        // BS call value known; derive put via parity: P = C - S e^{-qT} + K e^{-rT}
+        let bs_call = 10.4506;
+        let bs_put = bs_call - spot * (-q * t).exp() + strike * (-r * t).exp();
+
+        assert!(
+            (lr_put - bs_put).abs() < 0.05,
+            "LR(50) put should be within 5c of BS put"
+        );
+    }
+
+    #[test]
+    fn test_leisen_reimer_parameter_sanity_edges() {
+        // Check probability and u/d bounds for short maturities and edge vols
+        let spot = 100.0;
+        let strike = 100.0;
+        let r = 0.02;
+        let q = 0.01;
+        let t_small = 1e-3;
+
+        for &sigma in &[0.01, 0.10, 0.50] {
+            let tree = BinomialTree::leisen_reimer(51); // prefer odd steps
+            let (u, d, p) = tree
+                .calculate_parameters(spot, strike, r, sigma, t_small, q)
+                .expect("LR params should compute");
+
+            assert!(p >= 0.0 && p <= 1.0, "p must be in [0,1], got {}", p);
+            assert!(u > 1.0 && d < 1.0 && u > d, "u>1>d must hold: u={}, d={}", u, d);
+        }
     }
 
     #[test]
