@@ -8,10 +8,10 @@
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::{Error, Result, F};
+use std::collections::HashMap;
 
 use crate::cashflow::builder::{cf, CashFlowSchedule};
 use crate::cashflow::primitives::CFKind;
-use crate::instruments::fixed_income::bond::CallPutSchedule;
 use crate::instruments::options::models::{
     single_factor_equity_state, BinomialTree, NodeState, TreeGreeks, TreeModel, TreeValuator,
     TrinomialTree,
@@ -41,13 +41,11 @@ pub struct ConvertibleBondValuator {
     /// Face value of the bond
     face_value: F,
     /// Coupon cashflows mapped to tree steps
-    cashflows_at_step: Vec<F>,
-    /// Call schedule (if any)
-    #[allow(dead_code)]
-    call_schedule: Option<CallPutSchedule>,
-    /// Put schedule (if any)
-    #[allow(dead_code)]
-    put_schedule: Option<CallPutSchedule>,
+    coupon_map: HashMap<usize, F>,
+    /// Call prices mapped to tree steps
+    call_map: HashMap<usize, F>,
+    /// Put prices mapped to tree steps
+    put_map: HashMap<usize, F>,
     /// Conversion policy
     conversion_policy: ConversionPolicy,
     /// Time steps for the tree (in years)
@@ -55,6 +53,8 @@ pub struct ConvertibleBondValuator {
     /// Currency for consistency checks
     #[allow(dead_code)]
     currency: Currency,
+    /// Base date for time calculations
+    base_date: Date,
 }
 
 impl ConvertibleBondValuator {
@@ -64,6 +64,7 @@ impl ConvertibleBondValuator {
         cashflow_schedule: &CashFlowSchedule,
         time_to_maturity: F,
         steps: usize,
+        base_date: Date,
     ) -> Result<Self> {
         // Calculate conversion ratio from conversion spec
         let conversion_ratio = if let Some(ratio) = bond.conversion.ratio {
@@ -76,21 +77,57 @@ impl ConvertibleBondValuator {
 
         // Map cashflows to tree steps
         let dt = time_to_maturity / steps as F;
-        let mut cashflows_at_step = vec![0.0; steps + 1];
         let mut time_steps = Vec::with_capacity(steps + 1);
 
         for i in 0..=steps {
             time_steps.push(i as F * dt);
         }
 
-        // Process coupon and principal cashflows
+        // Process coupon and principal cashflows using proper time mapping
+        let mut coupon_map = HashMap::new();
         for cf in &cashflow_schedule.flows {
             if matches!(cf.kind, CFKind::Fixed | CFKind::Stub | CFKind::FloatReset) {
-                // Map cashflow date to tree step
-                let cf_time = 0.0; // TODO: Calculate actual time from issue to cf.date
+                // Calculate actual time from base date to cashflow date
+                let cf_time = finstack_core::dates::DayCount::Act365F
+                    .year_fraction(base_date, cf.date)
+                    .unwrap_or(0.0);
+                
+                // Map to tree step with bounds checking
                 let step_index = ((cf_time / time_to_maturity) * steps as F).round() as usize;
-                if step_index < cashflows_at_step.len() {
-                    cashflows_at_step[step_index] += cf.amount.amount();
+                let bounded_step = step_index.min(steps); // Bound within [0, steps]
+                
+                *coupon_map.entry(bounded_step).or_insert(0.0) += cf.amount.amount();
+            }
+        }
+
+        // Map call/put schedules to tree steps
+        let mut call_map = HashMap::new();
+        let mut put_map = HashMap::new();
+
+        if let Some(ref call_put) = bond.call_put {
+            // Map call schedule
+            for call in &call_put.calls {
+                if call.date > base_date && call.date <= bond.maturity {
+                    let time_frac = finstack_core::dates::DayCount::Act365F
+                        .year_fraction(base_date, call.date)
+                        .unwrap_or(0.0);
+                    let step = ((time_frac / time_to_maturity) * steps as F).round() as usize;
+                    let bounded_step = step.min(steps);
+                    let call_price = bond.notional.amount() * (call.price_pct_of_par / 100.0);
+                    call_map.insert(bounded_step, call_price);
+                }
+            }
+
+            // Map put schedule
+            for put in &call_put.puts {
+                if put.date > base_date && put.date <= bond.maturity {
+                    let time_frac = finstack_core::dates::DayCount::Act365F
+                        .year_fraction(base_date, put.date)
+                        .unwrap_or(0.0);
+                    let step = ((time_frac / time_to_maturity) * steps as F).round() as usize;
+                    let bounded_step = step.min(steps);
+                    let put_price = bond.notional.amount() * (put.price_pct_of_par / 100.0);
+                    put_map.insert(bounded_step, put_price);
                 }
             }
         }
@@ -98,48 +135,56 @@ impl ConvertibleBondValuator {
         Ok(Self {
             conversion_ratio,
             face_value: bond.notional.amount(),
-            cashflows_at_step,
-            call_schedule: bond.call_put.clone(),
-            put_schedule: None, // TODO: Separate call and put schedules
+            coupon_map,
+            call_map,
+            put_map,
             conversion_policy: bond.conversion.policy.clone(),
             time_steps,
             currency: bond.notional.currency(),
+            base_date,
         })
     }
 
     /// Check if conversion is allowed at a given time step
     fn conversion_allowed(&self, step: usize) -> bool {
-        let _time = self.time_steps.get(step).copied().unwrap_or(0.0);
+        let time = self.time_steps.get(step).copied().unwrap_or(0.0);
 
         match &self.conversion_policy {
             ConversionPolicy::Voluntary => true,
-            ConversionPolicy::MandatoryOn(_date) => {
-                // TODO: Check if time matches the mandatory conversion date
-                step == self.time_steps.len() - 1 // For now, only at maturity
+            ConversionPolicy::MandatoryOn(date) => {
+                // Allow conversion only when time matches the mandatory conversion date
+                let target_time = finstack_core::dates::DayCount::Act365F
+                    .year_fraction(self.base_date, *date)
+                    .unwrap_or(0.0);
+                let tolerance = 1e-6; // Small tolerance for floating point comparison
+                (time - target_time).abs() < tolerance
             }
-            ConversionPolicy::Window { start: _, end: _ } => {
-                // TODO: Check if time falls within the conversion window
-                true // For now, allow conversion always
+            ConversionPolicy::Window { start, end } => {
+                // Allow conversion when time falls within the window
+                let start_time = finstack_core::dates::DayCount::Act365F
+                    .year_fraction(self.base_date, *start)
+                    .unwrap_or(0.0);
+                let end_time = finstack_core::dates::DayCount::Act365F
+                    .year_fraction(self.base_date, *end)
+                    .unwrap_or(0.0);
+                time >= start_time && time <= end_time
             }
             ConversionPolicy::UponEvent(_event) => {
-                // TODO: Check event conditions
-                false // For now, disable event-triggered conversion
+                // For event-triggered conversion, would need metadata in NodeState
+                // For now, conservatively disable unless explicitly handled
+                false
             }
         }
     }
 
     /// Get call price at a given step (if callable)
-    fn call_price_at_step(&self, _step: usize) -> Option<F> {
-        // TODO: Implement call schedule lookup
-        // For now, return None (no call provisions)
-        None
+    fn call_price_at_step(&self, step: usize) -> Option<F> {
+        self.call_map.get(&step).copied()
     }
 
     /// Get put price at a given step (if puttable)
-    fn put_price_at_step(&self, _step: usize) -> Option<F> {
-        // TODO: Implement put schedule lookup
-        // For now, return None (no put provisions)
-        None
+    fn put_price_at_step(&self, step: usize) -> Option<F> {
+        self.put_map.get(&step).copied()
     }
 }
 
@@ -152,11 +197,7 @@ impl TreeValuator for ConvertibleBondValuator {
         let redemption_value = self.face_value;
 
         // Add any final coupon payment
-        let final_coupon = self
-            .cashflows_at_step
-            .get(state.step)
-            .copied()
-            .unwrap_or(0.0);
+        let final_coupon = self.coupon_map.get(&state.step).copied().unwrap_or(0.0);
 
         Ok(conversion_value.max(redemption_value) + final_coupon)
     }
@@ -165,11 +206,7 @@ impl TreeValuator for ConvertibleBondValuator {
         let spot = state.spot().ok_or(Error::Internal)?;
 
         // Start with continuation value plus any coupon at this step
-        let coupon = self
-            .cashflows_at_step
-            .get(state.step)
-            .copied()
-            .unwrap_or(0.0);
+        let coupon = self.coupon_map.get(&state.step).copied().unwrap_or(0.0);
         let hold_value = continuation_value + coupon;
 
         // Check conversion option
@@ -191,6 +228,59 @@ impl TreeValuator for ConvertibleBondValuator {
 
         Ok(optimal_value)
     }
+}
+
+/// Extract equity market state from market context
+fn extract_equity_state(
+    ctx: &MarketContext,
+    underlying_id: &str,
+    disc_id: &'static str,
+    maturity: Date,
+) -> Result<(F, F, F, F, F)> {
+    // Get spot price
+    let spot_price = ctx.market_scalar(underlying_id)?;
+    let spot = match spot_price {
+        finstack_core::market_data::primitives::MarketScalar::Price(money) => {
+            // For currency safety, we extract the amount but currency checks should be done by caller
+            money.amount()
+        }
+        finstack_core::market_data::primitives::MarketScalar::Unitless(value) => *value,
+    };
+
+    // Get volatility (must be unitless)
+    let vol_id = format!("{}-VOL", underlying_id);
+    let volatility = match ctx.market_scalar(&vol_id)? {
+        finstack_core::market_data::primitives::MarketScalar::Unitless(vol) => *vol,
+        _ => return Err(Error::Internal),
+    };
+
+    // Get dividend yield (default to 0 if not available, must be unitless)
+    let div_yield_id = format!("{}-DIVYIELD", underlying_id);
+    let dividend_yield = ctx
+        .market_scalar(&div_yield_id)
+        .map(|scalar| match scalar {
+            finstack_core::market_data::primitives::MarketScalar::Unitless(yield_val) => *yield_val,
+            _ => 0.0,
+        })
+        .unwrap_or(0.0);
+
+    // Get risk-free rate from discount curve
+    let discount_curve = ctx.discount(disc_id)?;
+    let base_date = discount_curve.base_date();
+
+    // Calculate time to maturity
+    let time_to_maturity = finstack_core::dates::DayCount::Act365F
+        .year_fraction(base_date, maturity)
+        .unwrap_or(0.0);
+
+    // Extract risk-free rate (approximate from maturity point)
+    let risk_free_rate = if time_to_maturity > 0.0 {
+        -discount_curve.df(time_to_maturity).ln() / time_to_maturity
+    } else {
+        0.05 // Fallback rate
+    };
+
+    Ok((spot, volatility, dividend_yield, risk_free_rate, time_to_maturity))
 }
 
 /// Main pricing function for convertible bonds
@@ -215,57 +305,22 @@ pub fn price_convertible_bond(
 
     let cashflow_schedule = builder.build()?;
 
-    // Step 2: Extract market data
+    // Step 2: Extract market data using helper
     let underlying_id = bond.underlying_equity_id.as_ref().ok_or(Error::Internal)?;
+    let (spot, volatility, dividend_yield, risk_free_rate, time_to_maturity) =
+        extract_equity_state(market_context, underlying_id, bond.disc_id, bond.maturity)?;
 
-    let spot_price = market_context.market_scalar(underlying_id)?.clone();
-
-    let spot = match spot_price {
-        finstack_core::market_data::primitives::MarketScalar::Price(money) => {
-            if money.currency() != bond.notional.currency() {
-                return Err(Error::Internal); // Currency mismatch
-            }
-            money.amount()
+    // Currency safety check
+    if let finstack_core::market_data::primitives::MarketScalar::Price(money) = 
+        market_context.market_scalar(underlying_id)? {
+        if money.currency() != bond.notional.currency() {
+            return Err(Error::Internal); // Currency mismatch
         }
-        finstack_core::market_data::primitives::MarketScalar::Unitless(value) => value,
-    };
-
-    // Get volatility (assume it's stored as unitless scalar)
-    let vol_id = format!("{}-VOL", underlying_id);
-    let volatility = match market_context.market_scalar(&vol_id)? {
-        finstack_core::market_data::primitives::MarketScalar::Unitless(vol) => *vol,
-        _ => return Err(Error::Internal),
-    };
-
-    // Get dividend yield (default to 0 if not available)
-    let div_yield_id = format!("{}-DIVYIELD", underlying_id);
-    let dividend_yield = market_context
-        .market_scalar(&div_yield_id)
-        .map(|scalar| match scalar {
-            finstack_core::market_data::primitives::MarketScalar::Unitless(yield_val) => *yield_val,
-            _ => 0.0,
-        })
-        .unwrap_or(0.0);
-
-    // Get risk-free rate from discount curve
-    let discount_curve = market_context.discount(bond.disc_id)?;
-    let base_date = discount_curve.base_date();
-
-    // Calculate time to maturity
-    let time_to_maturity = finstack_core::dates::DayCount::Act365F
-        .year_fraction(base_date, bond.maturity)
-        .unwrap_or(0.0);
+    }
 
     if time_to_maturity <= 0.0 {
         return Ok(Money::new(0.0, bond.notional.currency()));
     }
-
-    // Extract risk-free rate (approximate from 1-year point)
-    let risk_free_rate = if time_to_maturity > 0.0 {
-        -discount_curve.df(time_to_maturity).ln() / time_to_maturity
-    } else {
-        0.05 // Fallback rate
-    };
 
     // Step 3: Create valuator
     let steps = match tree_type {
@@ -273,7 +328,8 @@ pub fn price_convertible_bond(
         ConvertibleTreeType::Trinomial(n) => n,
     };
 
-    let valuator = ConvertibleBondValuator::new(bond, &cashflow_schedule, time_to_maturity, steps)?;
+    let base_date = market_context.discount(bond.disc_id)?.base_date();
+    let valuator = ConvertibleBondValuator::new(bond, &cashflow_schedule, time_to_maturity, steps, base_date)?;
 
     // Step 4: Create initial state variables
     let initial_vars = single_factor_equity_state(spot, risk_free_rate, dividend_yield, volatility);
@@ -314,41 +370,18 @@ pub fn calculate_convertible_greeks(
 
     let cashflow_schedule = builder.build()?;
 
-    // Extract market data (same logic as price_convertible_bond)
+    // Extract market data using helper
     let underlying_id = bond.underlying_equity_id.as_ref().ok_or(Error::Internal)?;
+    let (spot, volatility, dividend_yield, risk_free_rate, time_to_maturity) =
+        extract_equity_state(market_context, underlying_id, bond.disc_id, bond.maturity)?;
 
-    let spot_price = market_context.market_scalar(underlying_id)?;
-    let spot = match spot_price {
-        finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
-        finstack_core::market_data::primitives::MarketScalar::Unitless(value) => *value,
-    };
-
-    let vol_id = format!("{}-VOL", underlying_id);
-    let volatility = match market_context.market_scalar(&vol_id)? {
-        finstack_core::market_data::primitives::MarketScalar::Unitless(vol) => *vol,
-        _ => return Err(Error::Internal),
-    };
-
-    let div_yield_id = format!("{}-DIVYIELD", underlying_id);
-    let dividend_yield = market_context
-        .market_scalar(&div_yield_id)
-        .map(|scalar| match scalar {
-            finstack_core::market_data::primitives::MarketScalar::Unitless(yield_val) => *yield_val,
-            _ => 0.0,
-        })
-        .unwrap_or(0.0);
-
-    let discount_curve = market_context.discount(bond.disc_id)?;
-    let base_date = discount_curve.base_date();
-    let time_to_maturity = finstack_core::dates::DayCount::Act365F
-        .year_fraction(base_date, bond.maturity)
-        .unwrap_or(0.0);
-
-    let risk_free_rate = if time_to_maturity > 0.0 {
-        -discount_curve.df(time_to_maturity).ln() / time_to_maturity
-    } else {
-        0.05
-    };
+    // Currency safety check
+    if let finstack_core::market_data::primitives::MarketScalar::Price(money) = 
+        market_context.market_scalar(underlying_id)? {
+        if money.currency() != bond.notional.currency() {
+            return Err(Error::Internal); // Currency mismatch
+        }
+    }
 
     // Create valuator and initial state
     let steps = match tree_type {
@@ -356,7 +389,8 @@ pub fn calculate_convertible_greeks(
         ConvertibleTreeType::Trinomial(n) => n,
     };
 
-    let valuator = ConvertibleBondValuator::new(bond, &cashflow_schedule, time_to_maturity, steps)?;
+    let base_date = market_context.discount(bond.disc_id)?.base_date();
+    let valuator = ConvertibleBondValuator::new(bond, &cashflow_schedule, time_to_maturity, steps, base_date)?;
 
     let initial_vars = single_factor_equity_state(spot, risk_free_rate, dividend_yield, volatility);
 
