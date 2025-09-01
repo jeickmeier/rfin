@@ -182,6 +182,62 @@ impl BinomialTree {
         Ok((u, d, p))
     }
 
+    /// Internal unified pricer supporting European, American, and Bermudan styles
+    /// via an optional list of exercise steps.
+    #[allow(clippy::too_many_arguments)]
+    fn price_with_exercise(
+        &self,
+        spot: F,
+        strike: F,
+        r: F,
+        sigma: F,
+        t: F,
+        q: F,
+        option_type: OptionType,
+        exercise_steps: Option<&[usize]>,
+    ) -> Result<F> {
+        let (u, d, p) = self.calculate_parameters(spot, strike, r, sigma, t, q)?;
+        let dt = t / self.steps as f64;
+        let df = (-r * dt).exp();
+
+        // Terminal payoffs
+        let mut values = Vec::with_capacity(self.steps + 1);
+        for i in 0..=self.steps {
+            let spot_t = spot * u.powi(i as i32) * d.powi((self.steps - i) as i32);
+            let payoff = match option_type {
+                OptionType::Call => (spot_t - strike).max(0.0),
+                OptionType::Put => (strike - spot_t).max(0.0),
+            };
+            values.push(payoff);
+        }
+
+        // Backward induction with optional early exercise
+        for step in (0..self.steps).rev() {
+            let allow_exercise = match exercise_steps {
+                None => false,
+                Some(steps) => steps.contains(&step),
+            };
+
+            for i in 0..=step {
+                let continuation = df * (p * values[i + 1] + (1.0 - p) * values[i]);
+
+                if allow_exercise {
+                    let spot_t = spot * u.powi(i as i32) * d.powi((step - i) as i32);
+                    let exercise = match option_type {
+                        OptionType::Call => (spot_t - strike).max(0.0),
+                        OptionType::Put => (strike - spot_t).max(0.0),
+                    };
+                    values[i] = continuation.max(exercise);
+                } else {
+                    values[i] = continuation;
+                }
+            }
+            values.pop();
+        }
+
+        Ok(values[0])
+    }
+
     /// Price American option using binomial tree
     #[allow(clippy::too_many_arguments)]
     pub fn price_american(
@@ -194,45 +250,8 @@ impl BinomialTree {
         q: F,
         option_type: OptionType,
     ) -> Result<F> {
-        // Get tree parameters
-        let (u, d, p) = self.calculate_parameters(spot, strike, r, sigma, t, q)?;
-        let dt = t / self.steps as f64;
-        let df = (-r * dt).exp();
-
-        // Allocate space for option values at each node
-        let mut values = Vec::with_capacity(self.steps + 1);
-
-        // Calculate terminal payoffs
-        for i in 0..=self.steps {
-            let spot_t = spot * u.powi(i as i32) * d.powi((self.steps - i) as i32);
-            let payoff = match option_type {
-                OptionType::Call => (spot_t - strike).max(0.0),
-                OptionType::Put => (strike - spot_t).max(0.0),
-            };
-            values.push(payoff);
-        }
-
-        // Backward induction with early exercise
-        for step in (0..self.steps).rev() {
-            for i in 0..=step {
-                // Continuation value (discounted expected value)
-                let continuation = df * (p * values[i + 1] + (1.0 - p) * values[i]);
-
-                // Early exercise value
-                let spot_t = spot * u.powi(i as i32) * d.powi((step - i) as i32);
-                let exercise = match option_type {
-                    OptionType::Call => (spot_t - strike).max(0.0),
-                    OptionType::Put => (strike - spot_t).max(0.0),
-                };
-
-                // American option: maximum of continuation and exercise
-                values[i] = continuation.max(exercise);
-            }
-            // Remove last element as tree shrinks
-            values.pop();
-        }
-
-        Ok(values[0])
+        let all_steps: Vec<usize> = (0..self.steps).collect();
+        self.price_with_exercise(spot, strike, r, sigma, t, q, option_type, Some(&all_steps))
     }
 
     /// Price European option using binomial tree (for validation)
@@ -247,31 +266,7 @@ impl BinomialTree {
         q: F,
         option_type: OptionType,
     ) -> Result<F> {
-        // Get tree parameters
-        let (u, d, p) = self.calculate_parameters(spot, strike, r, sigma, t, q)?;
-        let dt = t / self.steps as f64;
-        let df = (-r * dt).exp();
-
-        // Calculate terminal payoffs
-        let mut values = Vec::with_capacity(self.steps + 1);
-        for i in 0..=self.steps {
-            let spot_t = spot * u.powi(i as i32) * d.powi((self.steps - i) as i32);
-            let payoff = match option_type {
-                OptionType::Call => (spot_t - strike).max(0.0),
-                OptionType::Put => (strike - spot_t).max(0.0),
-            };
-            values.push(payoff);
-        }
-
-        // Backward induction without early exercise
-        for _step in (0..self.steps).rev() {
-            for i in 0..values.len() - 1 {
-                values[i] = df * (p * values[i + 1] + (1.0 - p) * values[i]);
-            }
-            values.pop();
-        }
-
-        Ok(values[0])
+        self.price_with_exercise(spot, strike, r, sigma, t, q, option_type, None)
     }
 
     /// Price Bermudan option with specified exercise dates
@@ -287,55 +282,10 @@ impl BinomialTree {
         option_type: OptionType,
         exercise_dates: &[F], // Times when exercise is allowed
     ) -> Result<F> {
-        // Get tree parameters
-        let (u, d, p) = self.calculate_parameters(spot, strike, r, sigma, t, q)?;
-        let dt = t / self.steps as f64;
-        let df = (-r * dt).exp();
-
-        // Convert exercise dates to tree steps
-        let mut exercise_steps = Vec::new();
-        for &ex_time in exercise_dates {
-            let step = ((ex_time / t) * self.steps as f64).round() as usize;
-            if step <= self.steps {
-                exercise_steps.push(step);
-            }
-        }
-        exercise_steps.sort();
-        exercise_steps.dedup();
-
-        // Calculate terminal payoffs
-        let mut values = Vec::with_capacity(self.steps + 1);
-        for i in 0..=self.steps {
-            let spot_t = spot * u.powi(i as i32) * d.powi((self.steps - i) as i32);
-            let payoff = match option_type {
-                OptionType::Call => (spot_t - strike).max(0.0),
-                OptionType::Put => (strike - spot_t).max(0.0),
-            };
-            values.push(payoff);
-        }
-
-        // Backward induction with early exercise only at specified dates
-        for step in (0..self.steps).rev() {
-            for i in 0..=step {
-                // Continuation value
-                let continuation = df * (p * values[i + 1] + (1.0 - p) * values[i]);
-
-                // Check if early exercise is allowed at this step
-                if exercise_steps.contains(&step) {
-                    let spot_t = spot * u.powi(i as i32) * d.powi((step - i) as i32);
-                    let exercise = match option_type {
-                        OptionType::Call => (spot_t - strike).max(0.0),
-                        OptionType::Put => (strike - spot_t).max(0.0),
-                    };
-                    values[i] = continuation.max(exercise);
-                } else {
-                    values[i] = continuation;
-                }
-            }
-            values.pop();
-        }
-
-        Ok(values[0])
+        let mut steps = map_exercise_dates_to_steps(exercise_dates, t, self.steps);
+        steps.sort();
+        steps.dedup();
+        self.price_with_exercise(spot, strike, r, sigma, t, q, option_type, Some(&steps))
     }
 
     /// Calculate Greeks using binomial tree
@@ -477,6 +427,22 @@ impl BinomialTree {
 
         Ok(values[0])
     }
+}
+
+/// Map Bermudan exercise dates (as year fractions relative to maturity) to tree step indices
+fn map_exercise_dates_to_steps(exercise_dates: &[F], total_time: F, steps: usize) -> Vec<usize> {
+    let mut out = Vec::new();
+    if total_time <= 0.0 || steps == 0 {
+        return out;
+    }
+    for &ex_time in exercise_dates {
+        let ratio = if total_time != 0.0 { ex_time / total_time } else { 0.0 };
+        let step = (ratio * steps as F).round() as usize;
+        if step <= steps {
+            out.push(step);
+        }
+    }
+    out
 }
 
 /// Greeks calculated from binomial tree
@@ -787,5 +753,18 @@ mod tests {
         // Bermudan should be between European and American
         assert!(bermudan >= european);
         assert!(bermudan <= american);
+    }
+
+    #[test]
+    fn test_exercise_schedule_mapping() {
+        // Map quarterly exercise dates over 1Y with 4 steps
+        let dates = vec![0.0, 0.25, 0.5, 0.75, 1.0];
+        let steps = super::map_exercise_dates_to_steps(&dates, 1.0, 4);
+        assert_eq!(steps, vec![0, 1, 2, 3, 4]);
+
+        // Irregular dates should round to nearest step
+        let dates2 = vec![0.12, 0.37, 0.62, 0.88];
+        let steps2 = super::map_exercise_dates_to_steps(&dates2, 1.0, 4);
+        assert_eq!(steps2, vec![0, 1, 2, 4]);
     }
 }

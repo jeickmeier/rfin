@@ -236,11 +236,16 @@ fn extract_equity_state(
     underlying_id: &str,
     disc_id: &'static str,
     maturity: Date,
+    expected_currency: Currency,
 ) -> Result<(F, F, F, F, F)> {
     // Get spot price
     let spot_price = ctx.market_scalar(underlying_id)?;
     let spot = match spot_price {
         finstack_core::market_data::primitives::MarketScalar::Price(money) => {
+            // Enforce currency safety
+            if money.currency() != expected_currency {
+                return Err(Error::Internal);
+            }
             // For currency safety, we extract the amount but currency checks should be done by caller
             money.amount()
         }
@@ -308,15 +313,13 @@ pub fn price_convertible_bond(
     // Step 2: Extract market data using helper
     let underlying_id = bond.underlying_equity_id.as_ref().ok_or(Error::Internal)?;
     let (spot, volatility, dividend_yield, risk_free_rate, time_to_maturity) =
-        extract_equity_state(market_context, underlying_id, bond.disc_id, bond.maturity)?;
-
-    // Currency safety check
-    if let finstack_core::market_data::primitives::MarketScalar::Price(money) = 
-        market_context.market_scalar(underlying_id)? {
-        if money.currency() != bond.notional.currency() {
-            return Err(Error::Internal); // Currency mismatch
-        }
-    }
+        extract_equity_state(
+            market_context,
+            underlying_id,
+            bond.disc_id,
+            bond.maturity,
+            bond.notional.currency(),
+        )?;
 
     if time_to_maturity <= 0.0 {
         return Ok(Money::new(0.0, bond.notional.currency()));
@@ -373,15 +376,13 @@ pub fn calculate_convertible_greeks(
     // Extract market data using helper
     let underlying_id = bond.underlying_equity_id.as_ref().ok_or(Error::Internal)?;
     let (spot, volatility, dividend_yield, risk_free_rate, time_to_maturity) =
-        extract_equity_state(market_context, underlying_id, bond.disc_id, bond.maturity)?;
-
-    // Currency safety check
-    if let finstack_core::market_data::primitives::MarketScalar::Price(money) = 
-        market_context.market_scalar(underlying_id)? {
-        if money.currency() != bond.notional.currency() {
-            return Err(Error::Internal); // Currency mismatch
-        }
-    }
+        extract_equity_state(
+            market_context,
+            underlying_id,
+            bond.disc_id,
+            bond.maturity,
+            bond.notional.currency(),
+        )?;
 
     // Create valuator and initial state
     let steps = match tree_type {
