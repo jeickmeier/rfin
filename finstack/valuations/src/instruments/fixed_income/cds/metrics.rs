@@ -12,8 +12,8 @@ impl MetricCalculator for ParSpreadCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let cds: &CreditDefaultSwap = context.instrument_as()?;
         let disc = context.curves.discount(cds.premium.disc_id)?;
-        let credit = context.curves.credit(cds.protection.credit_id)?;
-        cds.par_spread(&*disc, &credit)
+        let surv = context.curves.hazard(cds.protection.credit_id)?;
+        cds.par_spread(&*disc, surv.as_ref())
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -28,8 +28,8 @@ impl MetricCalculator for RiskyPv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let cds: &CreditDefaultSwap = context.instrument_as()?;
         let disc = context.curves.discount(cds.premium.disc_id)?;
-        let credit = context.curves.credit(cds.protection.credit_id)?;
-        cds.risky_pv01(&*disc, &credit)
+        let surv = context.curves.hazard(cds.protection.credit_id)?;
+        cds.risky_pv01(&*disc, surv.as_ref())
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -58,8 +58,8 @@ impl MetricCalculator for ProtectionLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let cds: &CreditDefaultSwap = context.instrument_as()?;
         let disc = context.curves.discount(cds.premium.disc_id)?;
-        let credit = context.curves.credit(cds.protection.credit_id)?;
-        let pv = cds.pv_protection_leg(&*disc, &credit)?;
+        let surv = context.curves.hazard(cds.protection.credit_id)?;
+        let pv = cds.pv_protection_leg(&*disc, surv.as_ref())?;
         Ok(pv.amount())
     }
 
@@ -75,8 +75,8 @@ impl MetricCalculator for PremiumLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let cds: &CreditDefaultSwap = context.instrument_as()?;
         let disc = context.curves.discount(cds.premium.disc_id)?;
-        let credit = context.curves.credit(cds.protection.credit_id)?;
-        let pv = cds.pv_premium_leg(&*disc, &credit)?;
+        let surv = context.curves.hazard(cds.protection.credit_id)?;
+        let pv = cds.pv_premium_leg(&*disc, surv.as_ref())?;
         Ok(pv.amount())
     }
 

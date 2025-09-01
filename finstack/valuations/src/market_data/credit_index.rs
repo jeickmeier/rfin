@@ -4,7 +4,7 @@
 //! on a specific credit index (e.g., CDX.NA.IG.42, iTraxx Europe).
 
 use finstack_core::market_data::term_structures::{
-    credit_curve::CreditCurve, BaseCorrelationCurve,
+    hazard_curve::HazardCurve, BaseCorrelationCurve,
 };
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -21,13 +21,13 @@ pub struct CreditIndexData {
     pub num_constituents: u16,
     /// Default recovery rate for the index (typically 40% for senior unsecured)
     pub recovery_rate: F,
-    /// Credit curve for the index as a whole
-    pub index_credit_curve: Arc<CreditCurve>,
+    /// Hazard curve for the index as a whole
+    pub index_credit_curve: Arc<HazardCurve>,
     /// Base correlation curve mapping detachment points to correlations
     pub base_correlation_curve: Arc<BaseCorrelationCurve>,
-    /// Optional individual credit curves for each constituent issuer
+    /// Optional individual hazard curves for each constituent issuer
     /// Key is the issuer identifier (e.g., ticker or CUSIP)
-    pub issuer_credit_curves: Option<HashMap<String, Arc<CreditCurve>>>,
+    pub issuer_credit_curves: Option<HashMap<String, Arc<HazardCurve>>>,
 }
 
 impl CreditIndexData {
@@ -40,7 +40,7 @@ impl CreditIndexData {
     ///
     /// Returns the issuer-specific curve if available, otherwise falls back
     /// to the index curve (homogeneous portfolio assumption).
-    pub fn get_issuer_curve(&self, issuer_id: &str) -> &CreditCurve {
+    pub fn get_issuer_curve(&self, issuer_id: &str) -> &HazardCurve {
         match &self.issuer_credit_curves {
             Some(curves) => curves
                 .get(issuer_id)
@@ -75,9 +75,9 @@ impl CreditIndexData {
 pub struct CreditIndexDataBuilder {
     num_constituents: Option<u16>,
     recovery_rate: Option<F>,
-    index_credit_curve: Option<Arc<CreditCurve>>,
+    index_credit_curve: Option<Arc<HazardCurve>>,
     base_correlation_curve: Option<Arc<BaseCorrelationCurve>>,
-    issuer_credit_curves: Option<HashMap<String, Arc<CreditCurve>>>,
+    issuer_credit_curves: Option<HashMap<String, Arc<HazardCurve>>>,
 }
 
 impl CreditIndexDataBuilder {
@@ -99,7 +99,7 @@ impl CreditIndexDataBuilder {
     }
 
     /// Set the index-level credit curve.
-    pub fn index_credit_curve(mut self, curve: Arc<CreditCurve>) -> Self {
+    pub fn index_credit_curve(mut self, curve: Arc<HazardCurve>) -> Self {
         self.index_credit_curve = Some(curve);
         self
     }
@@ -111,13 +111,13 @@ impl CreditIndexDataBuilder {
     }
 
     /// Add issuer-specific credit curves for heterogeneous portfolio modeling.
-    pub fn with_issuer_curves(mut self, curves: HashMap<String, Arc<CreditCurve>>) -> Self {
+    pub fn with_issuer_curves(mut self, curves: HashMap<String, Arc<HazardCurve>>) -> Self {
         self.issuer_credit_curves = Some(curves);
         self
     }
 
     /// Add a single issuer credit curve.
-    pub fn add_issuer_curve(mut self, issuer_id: String, curve: Arc<CreditCurve>) -> Self {
+    pub fn add_issuer_curve(mut self, issuer_id: String, curve: Arc<HazardCurve>) -> Self {
         match &mut self.issuer_credit_curves {
             Some(curves) => {
                 curves.insert(issuer_id, curve);
@@ -175,28 +175,19 @@ impl CreditIndexDataBuilder {
 mod tests {
     use super::*;
     use finstack_core::dates::Date;
-    use finstack_core::market_data::term_structures::credit_curve::Seniority;
-    use finstack_core::market_data::term_structures::{
-        credit_curve::CreditCurve, BaseCorrelationCurve,
-    };
+    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+    use finstack_core::market_data::term_structures::BaseCorrelationCurve;
     use time::Month;
 
     fn sample_index_data() -> CreditIndexData {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
         // Create sample index credit curve
-        let index_curve = CreditCurve::builder("CDX.NA.IG.42")
-            .issuer("CDX.NA.IG.42")
-            .seniority(Seniority::Senior)
-            .recovery_rate(0.40)
+        let index_curve = HazardCurve::builder("CDX.NA.IG.42")
             .base_date(base_date)
-            .spreads(vec![
-                (1.0, 60.0),
-                (3.0, 80.0),
-                (5.0, 100.0),
-                (7.0, 120.0),
-                (10.0, 140.0),
-            ])
+            .recovery_rate(0.40)
+            .knots(vec![(1.0, 0.01), (5.0, 0.02), (10.0, 0.03)])
+            .par_spreads(vec![(1.0, 60.0), (5.0, 100.0), (10.0, 140.0)])
             .build()
             .unwrap();
 
@@ -242,18 +233,17 @@ mod tests {
     fn test_with_issuer_curves() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
-        let index_curve = CreditCurve::builder("CDX.NA.IG.42")
-            .issuer("CDX.NA.IG.42")
+        let index_curve = HazardCurve::builder("CDX.NA.IG.42")
             .base_date(base_date)
-            .spreads(vec![(1.0, 80.0), (5.0, 100.0)])
+            .knots(vec![(1.0, 0.012), (5.0, 0.02)])
+            .par_spreads(vec![(1.0, 80.0), (5.0, 100.0)])
             .build()
             .unwrap();
 
-        let aapl_curve = CreditCurve::builder("AAPL_SENIOR")
-            .issuer("Apple Inc.")
-            .seniority(Seniority::Senior)
+        let aapl_curve = HazardCurve::builder("AAPL_SENIOR")
             .base_date(base_date)
-            .spreads(vec![(1.0, 50.0), (5.0, 70.0)])
+            .knots(vec![(1.0, 0.01), (5.0, 0.015)])
+            .par_spreads(vec![(1.0, 50.0), (5.0, 70.0)])
             .build()
             .unwrap();
 
@@ -274,7 +264,8 @@ mod tests {
         assert_eq!(data.issuer_ids(), vec!["AAPL"]);
 
         let aapl_curve = data.get_issuer_curve("AAPL");
-        assert_eq!(aapl_curve.issuer, "Apple Inc.");
+        // issuer field is private; verify by id instead
+        assert_eq!(aapl_curve.id().as_str(), "AAPL_SENIOR");
 
         // Non-existent issuer should fall back to index curve
         let unknown_curve = data.get_issuer_curve("UNKNOWN");
@@ -289,9 +280,10 @@ mod tests {
 
         // Test invalid recovery rate
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let curve = CreditCurve::builder("TEST")
+        let curve = HazardCurve::builder("TEST")
             .base_date(base_date)
-            .spreads(vec![(1.0, 100.0)])
+            .knots(vec![(1.0, 0.02)])
+            .par_spreads(vec![(1.0, 100.0)])
             .build()
             .unwrap();
         let base_corr = BaseCorrelationCurve::builder("TEST")

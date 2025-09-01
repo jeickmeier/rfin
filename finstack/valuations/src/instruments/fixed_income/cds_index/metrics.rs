@@ -16,8 +16,8 @@ impl MetricCalculator for ParSpreadCalculator {
         let idx: &CDSIndex = context.instrument_as()?;
         let cds = idx.to_synthetic_cds();
         let disc = context.curves.discount(cds.premium.disc_id)?;
-        let credit = context.curves.credit(cds.protection.credit_id)?;
-        cds.par_spread(&*disc, &credit)
+        let surv = context.curves.hazard(cds.protection.credit_id)?;
+        cds.par_spread(&*disc, surv.as_ref())
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -33,8 +33,8 @@ impl MetricCalculator for RiskyPv01Calculator {
         let idx: &CDSIndex = context.instrument_as()?;
         let cds = idx.to_synthetic_cds();
         let disc = context.curves.discount(cds.premium.disc_id)?;
-        let credit = context.curves.credit(cds.protection.credit_id)?;
-        cds.risky_pv01(&*disc, &credit)
+        let surv = context.curves.hazard(cds.protection.credit_id)?;
+        cds.risky_pv01(&*disc, surv.as_ref())
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -66,8 +66,8 @@ impl MetricCalculator for ProtectionLegPvCalculator {
         let idx: &CDSIndex = context.instrument_as()?;
         let cds = idx.to_synthetic_cds();
         let disc = context.curves.discount(cds.premium.disc_id)?;
-        let credit = context.curves.credit(cds.protection.credit_id)?;
-        let pv = cds.pv_protection_leg(&*disc, &credit)?;
+        let surv = context.curves.hazard(cds.protection.credit_id)?;
+        let pv = cds.pv_protection_leg(&*disc, surv.as_ref())?;
         Ok(pv.amount())
     }
 
@@ -84,8 +84,8 @@ impl MetricCalculator for PremiumLegPvCalculator {
         let idx: &CDSIndex = context.instrument_as()?;
         let cds = idx.to_synthetic_cds();
         let disc = context.curves.discount(cds.premium.disc_id)?;
-        let credit = context.curves.credit(cds.protection.credit_id)?;
-        let pv = cds.pv_premium_leg(&*disc, &credit)?;
+        let surv = context.curves.hazard(cds.protection.credit_id)?;
+        let pv = cds.pv_premium_leg(&*disc, surv.as_ref())?;
         Ok(pv.amount())
     }
 

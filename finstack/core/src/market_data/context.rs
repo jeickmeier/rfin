@@ -18,7 +18,6 @@ use super::{
     inflation_index::InflationIndex,
     primitives::{MarketScalar, ScalarTimeSeries},
     surfaces::vol_surface::VolSurface,
-    term_structures::credit_curve::CreditCurve,
     traits::{Discount, Forward, TermStructure},
 };
 use crate::types::CurveId;
@@ -34,8 +33,6 @@ pub struct MarketContext {
     hazard: HashMap<CurveId, Arc<crate::market_data::hazard_curve::HazardCurve>>,
     /// Inflation curves keyed by identifier
     inflation: HashMap<CurveId, Arc<InflationCurve>>,
-    /// Credit curves keyed by identifier
-    credit: HashMap<CurveId, Arc<CreditCurve>>,
     /// Inflation indices keyed by identifier
     inflation_indices: HashMap<CurveId, Arc<InflationIndex>>,
     /// Foreign-exchange matrix used for explicit FX conversions
@@ -58,7 +55,6 @@ impl MarketContext {
             fwd: HashMap::new(),
             hazard: HashMap::new(),
             inflation: HashMap::new(),
-            credit: HashMap::new(),
             inflation_indices: HashMap::new(),
             fx: None,
             surfaces: HashMap::new(),
@@ -125,18 +121,7 @@ impl MarketContext {
         self
     }
 
-    /// Insert credit curve.
-    pub fn with_credit(mut self, curve: CreditCurve) -> Self {
-        let cid = curve.id.clone();
-        self.credit.insert(cid, Arc::new(curve));
-        self
-    }
-
-    /// Add a credit curve (mutable variant for tests)
-    pub fn add_credit(&mut self, curve: CreditCurve) {
-        let cid = curve.id.clone();
-        self.credit.insert(cid, Arc::new(curve));
-    }
+    // Credit curve storage removed (deprecated). Use hazard curves instead.
 
     /// Insert inflation index.
     pub fn with_inflation_index(self, id: impl AsRef<str>, index: InflationIndex) -> Self {
@@ -219,13 +204,7 @@ impl MarketContext {
             .ok_or(crate::error::InputError::NotFound.into())
     }
 
-    /// Get credit curve by id.
-    pub fn credit(&self, id: impl AsRef<str>) -> crate::Result<Arc<CreditCurve>> {
-        self.credit
-            .get(&CurveId::from(id.as_ref()))
-            .cloned()
-            .ok_or(crate::error::InputError::NotFound.into())
-    }
+    // Deprecated credit() getter removed. Use hazard().
 
     /// Get inflation index by id.
     pub fn inflation_index(&self, id: impl AsRef<str>) -> Option<Arc<InflationIndex>> {

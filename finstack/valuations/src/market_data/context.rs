@@ -89,13 +89,7 @@ impl ValuationMarketContext {
         self.core.forecast(id)
     }
 
-    /// Get credit curve by id (delegates to core).
-    pub fn credit(
-        &self,
-        id: impl AsRef<str>,
-    ) -> Result<Arc<finstack_core::market_data::term_structures::credit_curve::CreditCurve>> {
-        self.core.credit(id)
-    }
+    // Deprecated: credit() accessor. Use hazard().
 
     /// Get hazard curve by id (delegates to core).
     pub fn hazard(
@@ -142,14 +136,7 @@ impl ValuationMarketContext {
         self
     }
 
-    /// Add a credit curve (delegates to core).
-    pub fn with_credit(
-        mut self,
-        curve: finstack_core::market_data::term_structures::credit_curve::CreditCurve,
-    ) -> Self {
-        self.core = self.core.with_credit(curve);
-        self
-    }
+    // Deprecated: with_credit(). Use with_hazard().
 
     /// Add a hazard curve (delegates to core).
     pub fn with_hazard(
@@ -195,21 +182,18 @@ mod tests {
     use super::*;
     use crate::market_data::credit_index::CreditIndexData;
     use finstack_core::dates::Date;
-    use finstack_core::market_data::term_structures::credit_curve::Seniority;
-    use finstack_core::market_data::term_structures::{
-        credit_curve::CreditCurve, BaseCorrelationCurve,
-    };
+    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+    use finstack_core::market_data::term_structures::BaseCorrelationCurve;
     use time::Month;
 
     fn sample_credit_index_data() -> CreditIndexData {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
-        let index_curve = CreditCurve::builder("CDX.NA.IG.42")
-            .issuer("CDX.NA.IG.42")
-            .seniority(Seniority::Senior)
-            .recovery_rate(0.40)
+        let index_curve = HazardCurve::builder("CDX.NA.IG.42")
             .base_date(base_date)
-            .spreads(vec![(1.0, 60.0), (5.0, 100.0)])
+            .recovery_rate(0.40)
+            .knots(vec![(1.0, 0.01), (5.0, 0.02)])
+            .par_spreads(vec![(1.0, 60.0), (5.0, 100.0)])
             .build()
             .unwrap();
 

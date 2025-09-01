@@ -295,8 +295,8 @@ mod tests {
     use crate::market_data::credit_index::CreditIndexData;
     #[allow(unused_imports)]
     use finstack_core::currency::Currency;
+    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
     use finstack_core::market_data::term_structures::{
-        credit_curve::{CreditCurve, Seniority},
         discount_curve::DiscountCurve,
         BaseCorrelationCurve,
     };
@@ -347,13 +347,12 @@ mod tests {
             .build()
             .unwrap();
 
-        // Create index credit curve
-        let index_curve = CreditCurve::builder("CDX.NA.IG.42")
-            .issuer("CDX.NA.IG.42")
-            .seniority(Seniority::Senior)
-            .recovery_rate(0.40)
+        // Create index hazard curve
+        let index_curve = HazardCurve::builder("CDX.NA.IG.42")
             .base_date(base_date)
-            .spreads(vec![(1.0, 60.0), (3.0, 80.0), (5.0, 100.0), (10.0, 140.0)])
+            .recovery_rate(0.40)
+            .knots(vec![(1.0, 0.01), (3.0, 0.015), (5.0, 0.02), (10.0, 0.025)])
+            .par_spreads(vec![(1.0, 60.0), (3.0, 80.0), (5.0, 100.0), (10.0, 140.0)])
             .build()
             .unwrap();
 

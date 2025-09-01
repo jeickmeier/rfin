@@ -19,12 +19,13 @@ impl MetricCalculator for DeltaCalculator {
             return Ok(0.0);
         }
 
-        let credit_curve = context.curves.credit(option.credit_id)?;
+        let hazard_curve = context.curves.hazard(option.credit_id)?;
         let current_tenor = option
             .day_count
             .year_fraction(context.as_of, option.cds_maturity)?;
         let forward_spread_bp = if current_tenor > 0.0 {
-            credit_curve.spread_bp(current_tenor)
+            use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
+            hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
         } else {
             option.strike_spread_bp
         };
@@ -39,7 +40,7 @@ impl MetricCalculator for DeltaCalculator {
         };
 
         let delta = option.delta(forward_spread_bp, sigma, time_to_expiry);
-        // Scale by notional and risky annuity approximation
+        // Scale by notional (risk per unit spread basis)
         Ok(delta * option.notional.amount())
     }
 
@@ -62,12 +63,13 @@ impl MetricCalculator for GammaCalculator {
             return Ok(0.0);
         }
 
-        let credit_curve = context.curves.credit(option.credit_id)?;
+        let hazard_curve = context.curves.hazard(option.credit_id)?;
         let current_tenor = option
             .day_count
             .year_fraction(context.as_of, option.cds_maturity)?;
         let forward_spread_bp = if current_tenor > 0.0 {
-            credit_curve.spread_bp(current_tenor)
+            use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
+            hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
         } else {
             option.strike_spread_bp
         };
@@ -104,12 +106,13 @@ impl MetricCalculator for VegaCalculator {
             return Ok(0.0);
         }
 
-        let credit_curve = context.curves.credit(option.credit_id)?;
+        let hazard_curve = context.curves.hazard(option.credit_id)?;
         let current_tenor = option
             .day_count
             .year_fraction(context.as_of, option.cds_maturity)?;
         let forward_spread_bp = if current_tenor > 0.0 {
-            credit_curve.spread_bp(current_tenor)
+            use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
+            hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
         } else {
             option.strike_spread_bp
         };
@@ -149,12 +152,13 @@ impl MetricCalculator for ThetaCalculator {
         let disc_curve = context.curves.discount(option.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
-        let credit_curve = context.curves.credit(option.credit_id)?;
+        let hazard_curve = context.curves.hazard(option.credit_id)?;
         let current_tenor = option
             .day_count
             .year_fraction(context.as_of, option.cds_maturity)?;
         let forward_spread_bp = if current_tenor > 0.0 {
-            credit_curve.spread_bp(current_tenor)
+            use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
+            hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
         } else {
             option.strike_spread_bp
         };

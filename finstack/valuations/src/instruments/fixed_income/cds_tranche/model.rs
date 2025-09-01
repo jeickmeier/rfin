@@ -8,7 +8,7 @@ use crate::instruments::fixed_income::cds_tranche::numerical::{
 };
 use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
 use crate::market_data::{CreditIndexData, ValuationMarketContext};
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::Date;
 use finstack_core::market_data::traits::Discount;
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -358,18 +358,14 @@ impl GaussianCopulaModel {
         index_data: &CreditIndexData,
         maturity_years: F,
     ) -> Result<F> {
-        let survival_prob = index_data.index_credit_curve.survival_probability(
-            index_data.index_credit_curve.base_date
-                + time::Duration::days((maturity_years * 365.25) as i64),
-        );
+        let survival_prob = index_data.index_credit_curve.sp(maturity_years);
         Ok(1.0 - survival_prob)
     }
 
     /// Calculate years from the credit curve base date.
     fn years_from_base(&self, index_data: &CreditIndexData, date: Date) -> F {
-        let base_date = index_data.index_credit_curve.base_date;
-        DayCount::Act365F
-            .year_fraction(base_date, date)
+        let dc = index_data.index_credit_curve.day_count();
+        dc.year_fraction(index_data.index_credit_curve.base_date(), date)
             .unwrap_or(0.0)
     }
 
@@ -531,10 +527,9 @@ mod tests {
     use super::*;
     use crate::market_data::credit_index::CreditIndexData;
     use finstack_core::currency::Currency;
-    use finstack_core::market_data::term_structures::credit_curve::Seniority;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::{
-        credit_curve::CreditCurve, BaseCorrelationCurve,
+        hazard_curve::HazardCurve, BaseCorrelationCurve,
     };
     use finstack_core::money::Money;
     use std::sync::Arc;
@@ -551,13 +546,12 @@ mod tests {
             .build()
             .unwrap();
 
-        // Create index credit curve
-        let index_curve = CreditCurve::builder("CDX.NA.IG.42")
-            .issuer("CDX.NA.IG.42")
-            .seniority(Seniority::Senior)
-            .recovery_rate(0.40)
+        // Create index hazard curve
+        let index_curve = HazardCurve::builder("CDX.NA.IG.42")
             .base_date(base_date)
-            .spreads(vec![(1.0, 60.0), (3.0, 80.0), (5.0, 100.0), (10.0, 140.0)])
+            .recovery_rate(0.40)
+            .knots(vec![(1.0, 0.01), (3.0, 0.015), (5.0, 0.02), (10.0, 0.025)])
+            .par_spreads(vec![(1.0, 60.0), (3.0, 80.0), (5.0, 100.0), (10.0, 140.0)])
             .build()
             .unwrap();
 

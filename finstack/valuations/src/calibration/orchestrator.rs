@@ -5,7 +5,7 @@
 
 use crate::calibration::base_correlation::BaseCorrelationCalibrator;
 use crate::calibration::bootstrap::{
-    CreditCurveCalibrator, DiscountCurveCalibrator, InflationCurveCalibrator,
+    HazardCurveCalibrator, DiscountCurveCalibrator, InflationCurveCalibrator,
 };
 use crate::calibration::primitives::{HashableFloat, InstrumentQuote};
 use crate::calibration::surface::VolSurfaceCalibrator;
@@ -13,7 +13,7 @@ use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 
 use crate::market_data::ValuationMarketContext;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::credit_curve::Seniority;
+use finstack_core::market_data::term_structures::hazard_curve::Seniority;
 
 use finstack_core::{Currency, Result};
 use std::collections::HashMap;
@@ -81,12 +81,12 @@ impl CalibrationOrchestrator {
         //     calibration_stages.push(format!("Forward curve: {}", curve_id));
         // }
 
-        // Stage 3: Calibrate credit curves
-        let credit_curves = self.calibrate_credit_curves(quotes, &context)?;
-        for (entity, (curve, report)) in credit_curves {
-            context = context.with_credit(curve);
+        // Stage 3: Calibrate hazard curves
+        let hazard_curves = self.calibrate_hazard_curves(quotes, &context)?;
+        for (entity, (curve, report)) in hazard_curves {
+            context = context.with_hazard(curve);
             self.merge_report_data(&mut all_residuals, &mut total_iterations, &report);
-            calibration_stages.push(format!("Credit curve: {}", entity));
+            calibration_stages.push(format!("Hazard curve: {}", entity));
         }
 
         // Stage 4: Calibrate inflation curves
@@ -229,8 +229,8 @@ impl CalibrationOrchestrator {
     }
     */
 
-    /// Calibrate credit curves for different entities.
-    fn calibrate_credit_curves(
+    /// Calibrate hazard curves for different entities.
+    fn calibrate_hazard_curves(
         &self,
         quotes: &[InstrumentQuote],
         context: &MarketContext,
@@ -238,7 +238,7 @@ impl CalibrationOrchestrator {
         HashMap<
             String,
             (
-                finstack_core::market_data::term_structures::credit_curve::CreditCurve,
+                finstack_core::market_data::term_structures::hazard_curve::HazardCurve,
                 CalibrationReport,
             ),
         >,
@@ -261,7 +261,7 @@ impl CalibrationOrchestrator {
                 continue; // Need multiple tenors for bootstrapping
             }
 
-            let calibrator = CreditCurveCalibrator::new(
+            let calibrator = HazardCurveCalibrator::new(
                 &entity,
                 Seniority::Senior, // Default to senior debt
                 0.4,               // Standard 40% recovery

@@ -8,7 +8,7 @@ use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::primitives::MarketScalar;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
-use finstack_core::market_data::term_structures::credit_curve::{CreditCurve, Seniority};
+use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::money::{
@@ -72,19 +72,12 @@ fn create_test_market_context() -> MarketContext {
         .build()
         .unwrap();
 
-    // Create credit curve with extended maturity
-    let abc_credit = CreditCurve::builder("ABC-SENIOR")
-        .issuer("ABC Corp")
-        .seniority(Seniority::Senior)
-        .recovery_rate(0.4)
+    // Create hazard curve with extended maturity
+    let abc_credit = HazardCurve::builder("ABC-SENIOR")
         .base_date(base_date)
-        .spreads(vec![
-            (0.5, 150.0),
-            (1.0, 180.0),
-            (2.0, 200.0),
-            (5.0, 250.0),
-            (10.0, 280.0),
-        ])
+        .recovery_rate(0.4)
+        .knots(vec![(0.5, 0.03), (1.0, 0.035), (2.0, 0.04), (5.0, 0.05), (10.0, 0.055)])
+        .par_spreads(vec![(0.5, 150.0), (1.0, 180.0), (2.0, 200.0), (5.0, 250.0), (10.0, 280.0)])
         .build()
         .unwrap();
 
@@ -178,7 +171,7 @@ fn create_test_market_context() -> MarketContext {
         .with_discount(usd_ois)
         .with_discount(eur_ois)
         .with_forecast(usd_sofr3m)
-        .with_credit(abc_credit)
+        .with_hazard(abc_credit)
         .with_surface(aapl_vol)
         .with_surface(eurusd_vol)
         .with_surface(cap_vol)

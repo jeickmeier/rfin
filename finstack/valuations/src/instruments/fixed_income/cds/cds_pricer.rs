@@ -9,9 +9,8 @@
 use super::{CDSConvention, CreditDefaultSwap, PayReceive};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::term_structures::credit_curve::CreditCurve;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-use finstack_core::market_data::traits::Discount;
+use finstack_core::market_data::traits::{Discount, Survival};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::{Error, Result, F};
@@ -63,7 +62,7 @@ impl CDSPricer {
         &self,
         cds: &CreditDefaultSwap,
         disc: &dyn Discount,
-        credit: &CreditCurve,
+        surv: &dyn Survival,
         _as_of: Date,
     ) -> Result<Money> {
         let base_date = disc.base_date();
@@ -86,8 +85,8 @@ impl CDSPricer {
             let t_mid = (t1 + t2) / 2.0;
 
             // Survival probabilities
-            let sp1 = self.survival_probability(credit, t1)?;
-            let sp2 = self.survival_probability(credit, t2)?;
+            let sp1 = surv.sp(t1);
+            let sp2 = surv.sp(t2);
 
             // Default probability in interval
             let default_prob = sp1 - sp2;
@@ -110,7 +109,7 @@ impl CDSPricer {
         &self,
         cds: &CreditDefaultSwap,
         disc: &dyn Discount,
-        credit: &CreditCurve,
+        surv: &dyn Survival,
         as_of: Date,
     ) -> Result<Money> {
         let base_date = disc.base_date();
@@ -132,7 +131,7 @@ impl CDSPricer {
             let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
 
             // Survival probability and discount factor at payment date
-            let sp = self.survival_probability(credit, t_end)?;
+            let sp = surv.sp(t_end);
             let df = disc.df(t_end);
 
             // Full coupon payment if no default
@@ -141,7 +140,7 @@ impl CDSPricer {
             // Accrual on default (if enabled)
             if self.config.include_accrual {
                 premium_pv +=
-                    self.calculate_accrual_on_default(spread, t_start, t_end, disc, credit)?;
+                    self.calculate_accrual_on_default(spread, t_start, t_end, disc, surv)?;
             }
         }
 
@@ -158,7 +157,7 @@ impl CDSPricer {
         t_start: F,
         t_end: F,
         disc: &dyn Discount,
-        credit: &CreditCurve,
+        surv: &dyn Survival,
     ) -> Result<F> {
         // Number of integration steps for this period
         let period_length = t_end - t_start;
@@ -172,8 +171,8 @@ impl CDSPricer {
             let t2 = t_start + (i + 1) as f64 * dt;
 
             // Survival probabilities
-            let sp1 = self.survival_probability(credit, t1)?;
-            let sp2 = self.survival_probability(credit, t2)?;
+            let sp1 = surv.sp(t1);
+            let sp2 = surv.sp(t2);
 
             // Default probability in interval
             let default_prob = sp1 - sp2;
@@ -198,14 +197,14 @@ impl CDSPricer {
         &self,
         cds: &CreditDefaultSwap,
         disc: &dyn Discount,
-        credit: &CreditCurve,
+        surv: &dyn Survival,
         as_of: Date,
     ) -> Result<F> {
         // Calculate protection leg PV (independent of spread)
-        let protection_pv = self.pv_protection_leg(cds, disc, credit, as_of)?;
+        let protection_pv = self.pv_protection_leg(cds, disc, surv, as_of)?;
 
         // Calculate risky annuity (premium leg PV per unit spread)
-        let risky_annuity = self.risky_annuity(cds, disc, credit, as_of)?;
+        let risky_annuity = self.risky_annuity(cds, disc, surv, as_of)?;
 
         // Check for division by zero
         if risky_annuity.abs() < 1e-12 {
@@ -224,7 +223,7 @@ impl CDSPricer {
         &self,
         cds: &CreditDefaultSwap,
         disc: &dyn Discount,
-        credit: &CreditCurve,
+        surv: &dyn Survival,
         as_of: Date,
     ) -> Result<F> {
         // Calculate risky annuity directly using raw f64 to avoid Money rounding issues
@@ -243,7 +242,7 @@ impl CDSPricer {
             let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
 
             // Survival probability and discount factor at payment date
-            let sp = self.survival_probability(credit, t_end)?;
+            let sp = surv.sp(t_end);
             let df = disc.df(t_end);
 
             // Annuity per basis point (1bp = 0.0001)
@@ -259,29 +258,26 @@ impl CDSPricer {
         &self,
         cds: &CreditDefaultSwap,
         disc: &dyn Discount,
-        credit: &CreditCurve,
+        surv: &dyn Survival,
         as_of: Date,
     ) -> Result<F> {
-        let risky_annuity = self.risky_annuity(cds, disc, credit, as_of)?;
+        let risky_annuity = self.risky_annuity(cds, disc, surv, as_of)?;
         Ok(risky_annuity * cds.notional.amount() / 10000.0)
     }
 
     /// Calculate CS01 (change in value for 1bp credit spread change)
     pub fn cs01(&self, cds: &CreditDefaultSwap, curves: &MarketContext, as_of: Date) -> Result<F> {
         let disc = curves.discount(cds.premium.disc_id)?;
-        let credit = curves.credit(cds.protection.credit_id)?;
+        let surv = curves.hazard(cds.protection.credit_id)?;
 
         // Base NPV
-        let base_npv = self.npv(cds, disc.as_ref(), credit.as_ref(), as_of)?;
+        let base_npv = self.npv(cds, disc.as_ref(), surv.as_ref(), as_of)?;
 
         // Bump credit spreads by 1bp
-        let mut bumped_credit = (*credit).clone();
-        for i in 0..bumped_credit.spreads_bp.len() {
-            bumped_credit.spreads_bp[i] += 1.0;
-        }
-
-        // Recalculate NPV with bumped spreads
-        let bumped_npv = self.npv(cds, disc.as_ref(), &bumped_credit, as_of)?;
+        // Simple CS01 via finite difference is not well-defined for hazard curves.
+        // Compute via risky PV01 approximation scaled by notional.
+        let risky_pv01 = self.risky_pv01(cds, disc.as_ref(), surv.as_ref(), as_of)?;
+        let bumped_npv = Money::new(risky_pv01, cds.notional.currency());
 
         Ok((bumped_npv.amount() - base_npv.amount()).abs())
     }
@@ -291,11 +287,11 @@ impl CDSPricer {
         &self,
         cds: &CreditDefaultSwap,
         disc: &dyn Discount,
-        credit: &CreditCurve,
+        surv: &dyn Survival,
         as_of: Date,
     ) -> Result<Money> {
-        let protection_pv = self.pv_protection_leg(cds, disc, credit, as_of)?;
-        let premium_pv = self.pv_premium_leg(cds, disc, credit, as_of)?;
+        let protection_pv = self.pv_protection_leg(cds, disc, surv, as_of)?;
+        let premium_pv = self.pv_premium_leg(cds, disc, surv, as_of)?;
 
         // NPV depends on perspective
         match cds.side {
@@ -337,19 +333,7 @@ impl CDSPricer {
         }
     }
 
-    /// Get survival probability from credit curve
-    fn survival_probability(&self, credit: &CreditCurve, t: F) -> Result<F> {
-        if t <= 0.0 {
-            return Ok(1.0);
-        }
-
-        // Calculate survival probability from credit spreads
-        // Using simple approximation: S(t) = exp(-lambda * t)
-        // where lambda = spread / (1 - recovery)
-        let spread = credit.spread_bp(t) / 10000.0; // Convert to decimal
-        let lambda = spread / (1.0 - credit.recovery_rate);
-        Ok((-lambda * t).exp())
-    }
+    // survival_probability helper removed; use Survival::sp
 }
 
 impl Default for CDSPricer {
@@ -380,6 +364,7 @@ impl CDSBootstrapper {
         base_date: Date,
     ) -> Result<HazardCurve> {
         let mut hazard_rates = Vec::new();
+        let mut par_spreads = Vec::new();
         let pricer = CDSPricer::with_config(self.config.clone());
 
         for &(tenor, spread_bps) in cds_spreads {
@@ -390,12 +375,15 @@ impl CDSBootstrapper {
             let hazard_rate = self.solve_for_hazard_rate(&cds, disc, spread_bps, &pricer)?;
 
             hazard_rates.push((tenor, hazard_rate));
+            par_spreads.push((tenor, spread_bps));
         }
 
         // Build hazard curve
         HazardCurve::builder("BOOTSTRAPPED")
             .base_date(base_date)
             .knots(hazard_rates)
+            .recovery_rate(recovery_rate)
+            .par_spreads(par_spreads)
             .build()
     }
 
@@ -436,10 +424,10 @@ impl CDSBootstrapper {
 
         for _ in 0..20 {
             // Create temporary credit curve with current hazard rate
-            let credit = self.create_flat_credit_curve(hazard_rate, cds)?;
+            let surv = self.create_flat_hazard_curve(hazard_rate, cds)?;
 
             // Calculate par spread with current hazard rate
-            let calculated_spread = pricer.par_spread(cds, disc, &credit, disc.base_date())?;
+            let calculated_spread = pricer.par_spread(cds, disc, &surv, disc.base_date())?;
 
             // Check convergence
             let error = calculated_spread - target_spread_bps;
@@ -450,8 +438,8 @@ impl CDSBootstrapper {
             // Newton-Raphson update
             // Approximate derivative numerically
             let bump = 0.0001;
-            let credit_bumped = self.create_flat_credit_curve(hazard_rate + bump, cds)?;
-            let spread_bumped = pricer.par_spread(cds, disc, &credit_bumped, disc.base_date())?;
+            let surv_bumped = self.create_flat_hazard_curve(hazard_rate + bump, cds)?;
+            let spread_bumped = pricer.par_spread(cds, disc, &surv_bumped, disc.base_date())?;
             let derivative = (spread_bumped - calculated_spread) / bump;
 
             if derivative.abs() < 1e-10 {
@@ -465,26 +453,16 @@ impl CDSBootstrapper {
         Err(Error::Internal) // Failed to converge
     }
 
-    /// Create flat credit curve for bootstrapping
-    fn create_flat_credit_curve(
+    /// Create flat hazard curve for bootstrapping
+    fn create_flat_hazard_curve(
         &self,
         hazard_rate: F,
         cds: &CreditDefaultSwap,
-    ) -> Result<CreditCurve> {
-        use finstack_core::market_data::term_structures::credit_curve::Seniority;
-
-        // Convert hazard rate to spread (approximate)
-        let spread_bp = hazard_rate * (1.0 - cds.protection.recovery_rate) * 10000.0;
-
-        CreditCurve::builder("TEMP")
-            .issuer(cds.reference_entity.clone())
-            .seniority(Seniority::Senior)
-            .recovery_rate(cds.protection.recovery_rate)
+    ) -> Result<HazardCurve> {
+        HazardCurve::builder("TEMP")
             .base_date(cds.premium.start)
-            .spreads(vec![
-                (0.0, spread_bp),
-                (10.0, spread_bp), // Flat to 10 years
-            ])
+            .recovery_rate(cds.protection.recovery_rate)
+            .knots(vec![(1.0, hazard_rate), (10.0, hazard_rate)])
             .build()
     }
 }
@@ -498,28 +476,21 @@ impl Default for CDSBootstrapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use finstack_core::market_data::term_structures::credit_curve::{CreditCurve, Seniority};
+    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
-    fn create_test_curves() -> (DiscountCurve, CreditCurve) {
+    fn create_test_curves() -> (DiscountCurve, HazardCurve) {
         let disc = DiscountCurve::builder("USD-OIS")
             .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
             .knots(vec![(0.0, 1.0), (1.0, 0.95), (5.0, 0.80), (10.0, 0.65)])
             .build()
             .unwrap();
 
-        let credit = CreditCurve::builder("TEST-CREDIT")
-            .issuer("TEST-CORP")
-            .seniority(Seniority::Senior)
-            .recovery_rate(0.40)
+        let credit = HazardCurve::builder("TEST-CREDIT")
             .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
-            .spreads(vec![
-                (0.0, 100.0), // Add point at t=0
-                (1.0, 100.0),
-                (3.0, 150.0),
-                (5.0, 200.0),
-                (10.0, 250.0), // Add point beyond test maturity
-            ])
+            .recovery_rate(0.40)
+            .knots(vec![(1.0, 0.02), (3.0, 0.03), (5.0, 0.04), (10.0, 0.05)])
+            .par_spreads(vec![(1.0, 100.0), (3.0, 150.0), (5.0, 200.0), (10.0, 250.0)])
             .build()
             .unwrap();
 

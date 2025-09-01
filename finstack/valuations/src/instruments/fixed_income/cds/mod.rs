@@ -8,8 +8,7 @@ use crate::cashflow::traits::DatedFlows;
 use crate::instruments::traits::Attributes;
 
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
-use finstack_core::market_data::term_structures::credit_curve::CreditCurve;
-use finstack_core::market_data::traits::Discount;
+use finstack_core::market_data::traits::{Discount, Survival};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::F;
@@ -225,7 +224,7 @@ impl CreditDefaultSwap {
     pub fn pv_premium_leg(
         &self,
         disc: &dyn Discount,
-        surv: &CreditCurve,
+        surv: &dyn Survival,
     ) -> finstack_core::Result<Money> {
         let pricer = cds_pricer::CDSPricer::new();
         let as_of = disc.base_date();
@@ -236,44 +235,44 @@ impl CreditDefaultSwap {
     pub fn pv_protection_leg(
         &self,
         disc: &dyn Discount,
-        credit: &CreditCurve,
+        surv: &dyn Survival,
     ) -> finstack_core::Result<Money> {
         let pricer = cds_pricer::CDSPricer::new();
         let as_of = disc.base_date();
-        pricer.pv_protection_leg(self, disc, credit, as_of)
+        pricer.pv_protection_leg(self, disc, surv, as_of)
     }
 
     /// Calculate par spread (spread that makes PV = 0) via enhanced pricer
     pub fn par_spread(
         &self,
         disc: &dyn Discount,
-        credit: &CreditCurve,
+        surv: &dyn Survival,
     ) -> finstack_core::Result<F> {
         let pricer = cds_pricer::CDSPricer::new();
         let as_of = disc.base_date();
-        pricer.par_spread(self, disc, credit, as_of)
+        pricer.par_spread(self, disc, surv, as_of)
     }
 
     /// Calculate risky annuity (premium leg PV per bp) via enhanced pricer
     pub fn risky_annuity(
         &self,
         disc: &dyn Discount,
-        credit: &CreditCurve,
+        surv: &dyn Survival,
     ) -> finstack_core::Result<F> {
         let pricer = cds_pricer::CDSPricer::new();
         let as_of = disc.base_date();
-        pricer.risky_annuity(self, disc, credit, as_of)
+        pricer.risky_annuity(self, disc, surv, as_of)
     }
 
     /// Calculate risky PV01 (change in PV for 1bp spread change)
     pub fn risky_pv01(
         &self,
         disc: &dyn Discount,
-        credit: &CreditCurve,
+        surv: &dyn Survival,
     ) -> finstack_core::Result<F> {
         let pricer = cds_pricer::CDSPricer::new();
         let as_of = disc.base_date();
-        pricer.risky_pv01(self, disc, credit, as_of)
+        pricer.risky_pv01(self, disc, surv, as_of)
     }
 
     /// Calculate CS01 (change in PV for 1bp credit spread change) via enhanced pricer
@@ -293,9 +292,9 @@ impl_instrument!(
     "CreditDefaultSwap",
     pv = |s, curves, _as_of| {
         let disc = curves.discount(s.premium.disc_id)?;
-        let credit = curves.credit(s.protection.credit_id)?;
-        let pv_premium = s.pv_premium_leg(&*disc, &credit)?;
-        let pv_protection = s.pv_protection_leg(&*disc, &credit)?;
+        let surv = curves.hazard(s.protection.credit_id)?;
+        let pv_premium = s.pv_premium_leg(&*disc, surv.as_ref())?;
+        let pv_protection = s.pv_protection_leg(&*disc, surv.as_ref())?;
         let pv = match s.side {
             PayReceive::PayProtection => (pv_protection - pv_premium)?,
             PayReceive::ReceiveProtection => (pv_premium - pv_protection)?,

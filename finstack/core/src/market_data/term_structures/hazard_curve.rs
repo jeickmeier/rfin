@@ -18,7 +18,8 @@ extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
-    dates::Date,
+    currency::Currency,
+    dates::{Date, DayCount},
     error::InputError,
     market_data::traits::{Survival, TermStructure},
     types::CurveId,
@@ -35,8 +36,26 @@ use crate::{
 pub struct HazardCurve {
     id: CurveId,
     base: Date,
-    knots: Box<[F]>,   // times in years, strictly increasing (first may be 0.0)
-    lambdas: Box<[F]>, // hazard rates λ ≥ 0 with same length as knots
+    /// Time grid in years from base date; strictly increasing (first may be 0.0)
+    knots: Box<[F]>,
+    /// Piecewise-constant hazard rates λ ≥ 0; same length as `knots`.
+    lambdas: Box<[F]>,
+    /// Recovery rate used during calibration/reporting (metadata)
+    recovery_rate: F,
+    /// Optional issuer metadata
+    #[allow(dead_code)]
+    issuer: Option<String>,
+    /// Debt seniority
+    pub seniority: Option<Seniority>,
+    /// Currency of protection leg (metadata)
+    #[allow(dead_code)]
+    currency: Option<Currency>,
+    /// Day count convention for converting dates→times (metadata)
+    day_count: DayCount,
+    /// Stored market par spreads used to bootstrap this curve (for reporting)
+    par_tenors: Box<[F]>,
+    /// Par spreads in basis points at `par_tenors`
+    par_spreads_bp: Box<[F]>,
 }
 
 impl HazardCurve {
@@ -46,6 +65,12 @@ impl HazardCurve {
             id,
             base: Date::from_calendar_date(1970, time::Month::January, 1).unwrap(),
             points: Vec::new(),
+            recovery_rate: 0.4,
+            issuer: None,
+            seniority: None,
+            currency: None,
+            day_count: DayCount::Act365F,
+            par_points: Vec::new(),
         }
     }
 
@@ -89,6 +114,45 @@ impl HazardCurve {
     pub fn base_date(&self) -> Date {
         self.base
     }
+
+    /// Recovery rate metadata used when mapping spreads↔hazards during bootstrap.
+    pub fn recovery_rate(&self) -> F { self.recovery_rate }
+
+    /// Day count convention associated with this curve's time axis.
+    pub fn day_count(&self) -> DayCount { self.day_count }
+
+    /// Return an interpolated par spread in basis points for reporting.
+    /// Linear interpolation in spread, with log-linear fallback when values are positive and requested.
+    pub fn quoted_spread_bp(&self, t: F, method: ParInterp) -> F {
+        let n = self.par_tenors.len();
+        if n == 0 {
+            return 0.0;
+        }
+        if t <= self.par_tenors[0] {
+            return self.par_spreads_bp[0];
+        }
+        if t >= self.par_tenors[n - 1] {
+            return self.par_spreads_bp[n - 1];
+        }
+        // Find bracket
+        let mut i = 1;
+        while i < n && t > self.par_tenors[i] { i += 1; }
+        let i1 = i - 1;
+        let (x1, x2) = (self.par_tenors[i1], self.par_tenors[i]);
+        let (y1, y2) = (self.par_spreads_bp[i1], self.par_spreads_bp[i]);
+        let w = (t - x1) / (x2 - x1);
+        match method {
+            ParInterp::Linear => y1 + w * (y2 - y1),
+            ParInterp::LogLinear => {
+                if y1 > 0.0 && y2 > 0.0 {
+                    let a = y1.ln(); let b = y2.ln();
+                    (a + w * (b - a)).exp()
+                } else {
+                    y1 + w * (y2 - y1)
+                }
+            }
+        }
+    }
 }
 
 impl TermStructure for HazardCurve {
@@ -112,6 +176,12 @@ pub struct HazardCurveBuilder {
     id: &'static str,
     base: Date,
     points: Vec<(F, F)>, // (t, lambda)
+    recovery_rate: F,
+    issuer: Option<String>,
+    seniority: Option<Seniority>,
+    currency: Option<Currency>,
+    day_count: DayCount,
+    par_points: Vec<(F, F)>, // (t, spread_bp)
 }
 
 impl HazardCurveBuilder {
@@ -120,12 +190,30 @@ impl HazardCurveBuilder {
         self.base = d;
         self
     }
+    /// Set issuer metadata.
+    pub fn issuer(mut self, name: impl Into<String>) -> Self { self.issuer = Some(name.into()); self }
+    /// Set seniority metadata.
+    pub fn seniority(mut self, s: Seniority) -> Self { self.seniority = Some(s); self }
+    /// Set currency metadata.
+    pub fn currency(mut self, ccy: Currency) -> Self { self.currency = Some(ccy); self }
+    /// Set day-count convention for the curve time axis.
+    pub fn day_count(mut self, dc: DayCount) -> Self { self.day_count = dc; self }
+    /// Set recovery rate metadata.
+    pub fn recovery_rate(mut self, r: F) -> Self { self.recovery_rate = r; self }
     /// Supply knot points `(t, λ)` where λ is the hazard rate.
     pub fn knots<I>(mut self, pts: I) -> Self
     where
         I: IntoIterator<Item = (F, F)>,
     {
         self.points.extend(pts);
+        self
+    }
+    /// Store the market par spreads used for bootstrap for reporting.
+    pub fn par_spreads<I>(mut self, pts: I) -> Self
+    where
+        I: IntoIterator<Item = (F, F)>,
+    {
+        self.par_points.extend(pts);
         self
     }
 
@@ -138,15 +226,27 @@ impl HazardCurveBuilder {
         if self.points.iter().any(|&(_, l)| l < 0.0) {
             return Err(InputError::NegativeValue.into());
         }
-        let (kvec, lvec): (Vec<F>, Vec<F>) = self.points.into_iter().unzip();
+        let mut points = self.points;
+        points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        let (kvec, lvec): (Vec<F>, Vec<F>) = points.into_iter().unzip();
         if kvec.len() > 1 {
             crate::market_data::utils::validate_knots(&kvec)?;
         }
+        let mut par_pts = self.par_points;
+        par_pts.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        let (p_ten, p_spd): (Vec<F>, Vec<F>) = par_pts.into_iter().unzip();
         Ok(HazardCurve {
             id: CurveId::new(self.id),
             base: self.base,
             knots: kvec.into_boxed_slice(),
             lambdas: lvec.into_boxed_slice(),
+            recovery_rate: self.recovery_rate,
+            issuer: self.issuer,
+            seniority: self.seniority,
+            currency: self.currency,
+            day_count: self.day_count,
+            par_tenors: p_ten.into_boxed_slice(),
+            par_spreads_bp: p_spd.into_boxed_slice(),
         })
     }
 }
@@ -176,4 +276,53 @@ mod tests {
         let dp = hc.default_prob(2.0, 4.0);
         assert!(dp >= 0.0);
     }
+
+    #[test]
+    fn quoted_spread_interpolation_linear() {
+        let hc = HazardCurve::builder("TEST")
+            .knots([(1.0, 0.02)])
+            .par_spreads([(1.0, 100.0), (3.0, 200.0)])
+            .build()
+            .unwrap();
+        assert!((hc.quoted_spread_bp(2.0, ParInterp::Linear) - 150.0).abs() < 1e-9);
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Types
+// -----------------------------------------------------------------------------
+
+/// Seniority level for credit exposures.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+pub enum Seniority {
+    /// Senior secured debt
+    SeniorSecured,
+    /// Senior unsecured debt
+    Senior,
+    /// Subordinated debt
+    Subordinated,
+    /// Junior/mezzanine debt
+    Junior,
+}
+
+impl core::fmt::Display for Seniority {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Seniority::SeniorSecured => write!(f, "SeniorSecured"),
+            Seniority::Senior => write!(f, "Senior"),
+            Seniority::Subordinated => write!(f, "Subordinated"),
+            Seniority::Junior => write!(f, "Junior"),
+        }
+    }
+}
+
+/// Interpolation method for reporting par spreads stored on the curve.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ParInterp {
+    /// Linear interpolation in spread space
+    Linear,
+    /// Log-linear interpolation when spreads are strictly positive
+    LogLinear,
 }

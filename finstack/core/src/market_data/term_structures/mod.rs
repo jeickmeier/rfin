@@ -54,8 +54,6 @@
 
 /// Base correlation curves for CDS tranche pricing.
 pub mod base_correlation;
-/// Credit curves for risky discounting.
-pub mod credit_curve;
 /// Discount factor curves.
 pub mod discount_curve;
 /// Forward‐rate curves.
