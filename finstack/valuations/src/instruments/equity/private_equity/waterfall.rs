@@ -442,6 +442,17 @@ impl AllocationLedger {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
+struct AllocationParams<'e> {
+    total_amount: Money,
+    initial_lp_unreturned: F,
+    initial_gp_carry: F,
+    lp_distributed_cum_before: F,
+    all_events: &'e [FundEvent],
+    allocation_date: Date,
+    currency: Currency,
+}
+
 /// Equity waterfall calculation engine.
 pub struct EquityWaterfallEngine<'a> {
     spec: &'a WaterfallSpec,
@@ -734,8 +745,8 @@ impl<'a> EquityWaterfallEngine<'a> {
                 period_key: None, // TODO: Add period support if needed
                 deal_id: None,    // Set by caller for American style
                 tranche: tranche_name,
-                to_lp: Money::new(to_lp, currency),
-                to_gp: Money::new(to_gp_paid, currency),
+                to_lp: Money::new(to_lp, params.currency),
+                to_gp: Money::new(to_gp_paid, params.currency),
                 lp_unreturned: Money::new(lp_unreturned, params.currency),
                 gp_carry_cum: Money::new(gp_carry_cum_after, params.currency),
                 lp_irr_to_date,
@@ -746,16 +757,6 @@ impl<'a> EquityWaterfallEngine<'a> {
         Ok(allocations)
     }
 
-    #[allow(clippy::too_many_arguments)]
-    struct AllocationParams<'e> {
-        total_amount: Money,
-        initial_lp_unreturned: F,
-        initial_gp_carry: F,
-        lp_distributed_cum_before: F,
-        all_events: &'e [FundEvent],
-        allocation_date: Date,
-        currency: Currency,
-    }
 
     /// Calculate the amount needed for preferred return using robust root finding.
     fn calculate_preferred_amount(
@@ -1122,7 +1123,7 @@ mod tests {
             ),
             FundEvent::distribution(
                 test_date(2024, 1, 1),
-                Money::new(200.0, test_currency()),
+                Money::new(280.0, test_currency()),
             ),
         ];
 
