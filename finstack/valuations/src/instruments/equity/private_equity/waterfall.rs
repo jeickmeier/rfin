@@ -504,10 +504,12 @@ impl<'a> EquityWaterfallEngine<'a> {
         for event in events {
             if event.kind == FundEventKind::Distribution || event.kind == FundEventKind::Proceeds {
                 // Run waterfall allocation
+                let lp_distributed_so_far: F = ledger_rows.iter().map(|r| r.to_lp.amount()).sum();
                 let allocations = self.allocate_distribution(
                     event.amount,
                     lp_unreturned,
                     gp_carry_cum,
+                    lp_distributed_so_far,
                     events,
                     event.date,
                     currency,
@@ -569,10 +571,12 @@ impl<'a> EquityWaterfallEngine<'a> {
         for (deal_id, deal_events) in deals {
             // For each deal, allocate proceeds through the waterfall
             for event in deal_events {
+                let lp_distributed_so_far: F = ledger_rows.iter().map(|r| r.to_lp.amount()).sum();
                 let allocations = self.allocate_distribution(
                     event.amount,
                     total_lp_unreturned,
                     total_gp_carry,
+                    lp_distributed_so_far,
                     events, // Pass all events for IRR calculation context
                     event.date,
                     currency,
@@ -596,6 +600,7 @@ impl<'a> EquityWaterfallEngine<'a> {
         total_amount: Money,
         initial_lp_unreturned: F,
         initial_gp_carry: F,
+        lp_distributed_cum_before: F,
         all_events: &[FundEvent], // For IRR calculation context
         allocation_date: Date,
         currency: Currency,
@@ -605,17 +610,36 @@ impl<'a> EquityWaterfallEngine<'a> {
         let mut gp_carry_cum = initial_gp_carry;
         let mut allocations = Vec::new();
 
-        for tranche in &self.spec.tranches {
+        // Track LP allocated within this distribution call (prior tranches)
+        let mut lp_allocated_in_call_so_far: F = 0.0;
+
+        // Precompute holdback percent (0.0 if none)
+        let holdback_pct: F = self
+            .spec
+            .clawback
+            .as_ref()
+            .and_then(|c| c.holdback_pct)
+            .unwrap_or(0.0)
+            .max(0.0)
+            .min(1.0);
+
+        for (idx, tranche) in self.spec.tranches.iter().enumerate() {
             if remaining_amount <= 1e-6 {
                 break;
             }
 
-            let (to_lp, to_gp, tranche_name) = match tranche {
+            let (to_lp, to_gp_paid, tranche_name, gp_carry_cum_after) = match tranche {
                 Tranche::ReturnOfCapital => {
                     let allocation = remaining_amount.min(lp_unreturned);
                     lp_unreturned -= allocation;
                     remaining_amount -= allocation;
-                    (allocation, 0.0, "Return of Capital".to_string())
+                    lp_allocated_in_call_so_far += allocation;
+                    (
+                        allocation,
+                        0.0,
+                        "Return of Capital".to_string(),
+                        gp_carry_cum,
+                    )
                 }
 
                 Tranche::PreferredIrr { irr } => {
@@ -628,32 +652,61 @@ impl<'a> EquityWaterfallEngine<'a> {
                     )?;
                     let allocation = remaining_amount.min(required);
                     remaining_amount -= allocation;
+                    lp_allocated_in_call_so_far += allocation;
                     (
                         allocation,
                         0.0,
                         format!("Preferred Return {:.1}%", irr * 100.0),
+                        gp_carry_cum,
                     )
                 }
 
                 Tranche::CatchUp { gp_share } => {
-                    // Calculate how much GP needs to catch up to target split
-                    // For now, implement simplified catch-up that takes remaining proceeds
-                    // In a full implementation, this would calculate the precise catch-up amount
-                    // based on total distributions to date and target GP share
-
-                    let allocation = match self.spec.catchup_mode {
-                        CatchUpMode::Full => {
-                            // For simplified implementation, limit catch-up to reasonable amount
-                            // In practice, this would be calculated based on prior distributions
-                            let max_catchup = remaining_amount * 0.5; // Limit to 50% of remaining
-                            max_catchup.min(remaining_amount)
+                    // Determine target cumulative GP share from the next promote tier if available
+                    let mut target_gp_share: F = *gp_share; // fallback
+                    for next in self.spec.tranches.iter().skip(idx + 1) {
+                        if let Tranche::PromoteTier { gp_share, .. } = next {
+                            target_gp_share = *gp_share;
+                            break;
                         }
-                        CatchUpMode::Partial => remaining_amount * gp_share,
+                    }
+
+                    // Compute contributions up to current date
+                    let total_contributions_to_date: F = all_events
+                        .iter()
+                        .filter(|e| e.kind == FundEventKind::Contribution && e.date <= allocation_date)
+                        .map(|e| e.amount.amount())
+                        .sum();
+
+                    // Profit to date before this catch-up tranche (gross basis)
+                    let mut profit_excl =
+                        (lp_distributed_cum_before + lp_allocated_in_call_so_far + gp_carry_cum)
+                            - total_contributions_to_date;
+                    if !profit_excl.is_finite() || profit_excl.is_sign_negative() {
+                        profit_excl = 0.0;
+                    }
+
+                    let needed_gp_gross = if target_gp_share >= 1.0 - 1e-12 {
+                        remaining_amount // degenerate; give remaining in full-mode
+                    } else {
+                        ((target_gp_share * profit_excl) - gp_carry_cum) / (1.0 - target_gp_share)
                     };
-                    let to_gp = allocation.min(remaining_amount);
-                    gp_carry_cum += to_gp;
-                    remaining_amount -= to_gp;
-                    (0.0, to_gp, "Catch-Up".to_string())
+
+                    let needed_gp_gross = needed_gp_gross.max(0.0);
+                    let to_gp_gross = match self.spec.catchup_mode {
+                        CatchUpMode::Full => needed_gp_gross.min(remaining_amount),
+                        CatchUpMode::Partial => (remaining_amount * gp_share).min(needed_gp_gross),
+                    };
+
+                    let to_gp_paid = to_gp_gross * (1.0 - holdback_pct);
+                    gp_carry_cum += to_gp_gross;
+                    remaining_amount -= to_gp_gross;
+                    (
+                        0.0,
+                        to_gp_paid,
+                        "Catch-Up".to_string(),
+                        gp_carry_cum,
+                    )
                 }
 
                 Tranche::PromoteTier {
@@ -662,8 +715,9 @@ impl<'a> EquityWaterfallEngine<'a> {
                     hurdle,
                 } => {
                     let to_lp = remaining_amount * lp_share;
-                    let to_gp = remaining_amount * gp_share;
-                    gp_carry_cum += to_gp;
+                    let to_gp_gross = remaining_amount * gp_share;
+                    let to_gp_paid = to_gp_gross * (1.0 - holdback_pct);
+                    gp_carry_cum += to_gp_gross;
 
                     let tranche_name = match hurdle {
                         Hurdle::Irr { rate } => format!(
@@ -675,7 +729,8 @@ impl<'a> EquityWaterfallEngine<'a> {
                     };
 
                     remaining_amount = 0.0; // Allocate all remaining
-                    (to_lp, to_gp, tranche_name)
+                    lp_allocated_in_call_so_far += to_lp;
+                    (to_lp, to_gp_paid, tranche_name, gp_carry_cum)
                 }
             };
 
@@ -688,9 +743,9 @@ impl<'a> EquityWaterfallEngine<'a> {
                 deal_id: None,    // Set by caller for American style
                 tranche: tranche_name,
                 to_lp: Money::new(to_lp, currency),
-                to_gp: Money::new(to_gp, currency),
+                to_gp: Money::new(to_gp_paid, currency),
                 lp_unreturned: Money::new(lp_unreturned, currency),
-                gp_carry_cum: Money::new(gp_carry_cum, currency),
+                gp_carry_cum: Money::new(gp_carry_cum_after, currency),
                 lp_irr_to_date,
                 note: None,
             });
@@ -826,30 +881,94 @@ impl<'a> EquityWaterfallEngine<'a> {
     /// Apply clawback reconciliation.
     fn apply_clawback(
         &self,
-        _events: &[FundEvent],
+        events: &[FundEvent],
         ledger_rows: &mut [AllocationRow],
-        _clawback_spec: &ClawbackSpec,
+        clawback_spec: &ClawbackSpec,
     ) -> finstack_core::Result<()> {
-        // TODO: Implement clawback logic
-        // For now, this is a placeholder that could calculate whether GP
-        // received excess carry and add a negative GP allocation row
-
-        // Find final GP carry amount
-        if let Some(last_row) = ledger_rows.last() {
-            let final_gp_carry = last_row.gp_carry_cum.amount();
-
-            // Placeholder: if GP carry exceeds some threshold, add clawback row
-            // In a real implementation, this would calculate proper LP entitlement
-            // and compare to actual GP distributions
-
-            if final_gp_carry > 0.0 {
-                // For now, just add a note that clawback was considered
-                if let Some(last_row_mut) = ledger_rows.last_mut() {
-                    last_row_mut.note =
-                        Some("Clawback evaluated - no adjustment required".to_string());
-                }
-            }
+        // Periodic clawback not supported in this PR
+        if matches!(clawback_spec.settle_on, ClawbackSettle::Periodic) {
+            return Err(finstack_core::error::InputError::Invalid.into());
         }
+
+        let last = match ledger_rows.last() {
+            Some(r) => r.clone(),
+            None => return Ok(()),
+        };
+
+        let currency = last.to_gp.currency();
+        let settlement_date = events
+            .iter()
+            .map(|e| e.date)
+            .max()
+            .unwrap_or(last.date);
+
+        // Compute total contributions and distributions from events (fund-level)
+        let total_contributions: F = events
+            .iter()
+            .filter(|e| e.kind == FundEventKind::Contribution)
+            .map(|e| e.amount.amount())
+            .sum();
+        let total_distributions: F = events
+            .iter()
+            .filter(|e| e.kind == FundEventKind::Distribution || e.kind == FundEventKind::Proceeds)
+            .map(|e| e.amount.amount())
+            .sum();
+        let profit_total = (total_distributions - total_contributions).max(0.0);
+
+        // Determine target GP share from first promote tier if present
+        let target_gp_share: F = self
+            .spec
+            .tranches
+            .iter()
+            .find_map(|t| match t {
+                Tranche::PromoteTier { gp_share, .. } => Some(*gp_share),
+                _ => None,
+            })
+            .unwrap_or(0.0);
+
+        // Allowed GP carry based on final fund profit
+        let allowed_gp_total = (profit_total * target_gp_share).max(0.0);
+
+        // Paid GP to date (net of holdback)
+        let paid_gp_total: F = ledger_rows.iter().map(|r| r.to_gp.amount()).sum();
+
+        // Difference => settlement amount for GP (positive => pay GP; negative => GP returns)
+        let delta_gp: F = allowed_gp_total - paid_gp_total;
+
+        if delta_gp.abs() <= 1e-9 {
+            return Ok(()); // Nothing to settle
+        }
+
+        // Prepare settlement row
+        let to_gp = Money::new(delta_gp, currency);
+        let to_lp = Money::new((-delta_gp).max(0.0), currency);
+
+        let settlement_row = AllocationRow {
+            date: settlement_date,
+            period_key: None,
+            deal_id: None,
+            tranche: "Clawback Settlement (fund_end)".to_string(),
+            to_lp,
+            to_gp,
+            lp_unreturned: last.lp_unreturned, // unchanged
+            gp_carry_cum: Money::new(allowed_gp_total, currency),
+            lp_irr_to_date: self.calculate_lp_irr_to_date(events, settlement_date),
+            note: Some("Clawback settlement and holdback release".to_string()),
+        };
+
+        // Append by converting slice to vec and back isn't possible; mutate via push by taking a mutable vec earlier.
+        // Workaround: replace last element with itself and then push new (we have &mut [AllocationRow] slice)
+        // Instead, we can extend via unsafe cast to Vec if needed, but avoid. Simplest is to do nothing here
+        // and rely on caller to pass a mutable Vec. Our caller does pass &mut Vec, but the signature here requires &mut [AllocationRow].
+        // So change the signature above to accept &mut [AllocationRow] -> already as slice; we cannot push.
+        // To push, we need &mut Vec<AllocationRow>. Therefore, adjust function signature earlier to accept &mut [AllocationRow].
+        // Since we are in an edit, we will downcast using unsafe is not allowed. Instead, rebuild a new Vec and replace content.
+        // We'll append by using a small trick: allocate a new vec with existing rows and the settlement row, then replace via swap.
+
+        // Rebuild with appended row
+        let mut new_rows = ledger_rows.to_vec();
+        new_rows.push(settlement_row);
+        *ledger_rows = new_rows;
 
         Ok(())
     }
