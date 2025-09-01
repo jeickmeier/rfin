@@ -73,10 +73,12 @@ impl BinomialTree {
         let sign = if z >= 0.0 { 1.0 } else { -1.0 };
         let z2 = z * z;
 
-        // Peizer–Pratt mapping (PP1): x = 2 z^2 / (n + 1/3)
-        let denom = n_eff + 1.0 / 3.0;
-        let x = 2.0 * z2 / denom;
-        let p = 0.5 + sign * 0.5 * (1.0 - (-x).exp()).sqrt();
+        // Peizer–Pratt mapping (PP2 variant):
+        // beta = z^2 * (m + 1/6) / (m + 1/3 + 0.1/(m+1))
+        // H^{-1}(z) = 0.5 + sign(z)*0.5 * sqrt(1 - exp(-2*beta))
+        let denom = n_eff + 1.0 / 3.0 + 0.1 / (n_eff + 1.0);
+        let beta = z2 * (n_eff + 1.0 / 6.0) / denom;
+        let p = 0.5 + sign * 0.5 * (1.0 - (-2.0 * beta).exp()).sqrt();
 
         // Numerically enforce bounds
         p.clamp(0.0, 1.0)
