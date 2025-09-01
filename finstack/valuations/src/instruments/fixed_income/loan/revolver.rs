@@ -478,6 +478,7 @@ impl LoanFacility for RevolvingCreditFacility {
                 balance_change: event.amount.amount(),
                 probability: 1.0,
                 event_type,
+                amount_distribution: None,
             });
         }
 
@@ -502,6 +503,7 @@ impl LoanFacility for RevolvingCreditFacility {
                     balance_change: event.amount.amount(),
                     probability: prob,
                     event_type,
+                    amount_distribution: None,
                 });
             }
         }

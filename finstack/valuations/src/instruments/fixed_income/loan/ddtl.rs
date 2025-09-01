@@ -583,6 +583,7 @@ impl LoanFacility for DelayedDrawTermLoan {
                     balance_change: draw.amount.amount(),
                     probability: 1.0,
                     event_type: EventType::Draw,
+                    amount_distribution: None,
                 });
             }
         }
@@ -603,6 +604,7 @@ impl LoanFacility for DelayedDrawTermLoan {
                         balance_change: draw.amount.amount(),
                         probability: prob,
                         event_type: EventType::Draw,
+                        amount_distribution: None,
                     });
                 }
             }

@@ -221,6 +221,8 @@ impl MetricCalculator for ExpectedExposureMCCalculator {
             monte_carlo_paths: self.mc_paths,
             random_seed: Some(42), // Deterministic for testing
             use_mid_point_averaging: true,
+            rate_simulation: super::simulation::RateSimulationConfig::Deterministic,
+            credit_config: None,
         };
 
         let simulator = LoanSimulator::with_config(config);
