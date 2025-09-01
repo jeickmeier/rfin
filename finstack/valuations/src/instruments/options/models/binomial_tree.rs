@@ -118,25 +118,20 @@ impl BinomialTree {
                     / (sigma * t.sqrt());
                 let d2 = d1 - sigma * t.sqrt();
 
-                // Risk-neutral probability and its delta-adjusted counterpart
+                // Probability using PP inversion on d2
                 let mut p = self.peizer_pratt_inversion(d2, self.steps);
-                let mut p_star = self.peizer_pratt_inversion(d1, self.steps);
-
-                // Guard against degeneracy at extremes
                 let eps = 1e-12;
                 p = p.clamp(eps, 1.0 - eps);
-                p_star = p_star.clamp(eps, 1.0 - eps);
 
-                // Ensure no-arbitrage and moment matching
-                let r_q_dt = ((r - q) * dt).exp();
-                let u = r_q_dt * (p_star / p);
-                let d = r_q_dt * ((1.0 - p_star) / (1.0 - p));
+                // Use CRR-like step sizes; LR improves probabilities via PP mapping
+                let u = (sigma * dt.sqrt()).exp();
+                let d = 1.0 / u;
 
-                // Sanity checks
-                if !(u.is_finite() && d.is_finite()) {
+                // Validate probability and bounds
+                if !(0.0..=1.0).contains(&p) {
                     return Err(Error::Internal);
                 }
-                if !(u > 1.0 && d < 1.0 && u > d) {
+                if !(u > 1.0 && d < 1.0) {
                     return Err(Error::Internal);
                 }
 
@@ -649,6 +644,15 @@ mod tests {
 
         // Both should be close to Black-Scholes value
         let bs_value = 10.4506; // Known Black-Scholes value
+
+        println!(
+            "CRR(50)={}, LR(50)={}, BS={} diffs: CRR={}, LR={}",
+            crr_price,
+            lr_price,
+            bs_value,
+            (crr_price - bs_value).abs(),
+            (lr_price - bs_value).abs()
+        );
 
         // CRR should be reasonably close to Black-Scholes
         assert!(

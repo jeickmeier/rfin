@@ -613,15 +613,13 @@ impl<'a> EquityWaterfallEngine<'a> {
         // Track LP allocated within this distribution call (prior tranches)
         let mut lp_allocated_in_call_so_far: F = 0.0;
 
-        // Precompute holdback percent (0.0 if none)
-        let holdback_pct: F = self
-            .spec
-            .clawback
-            .as_ref()
-            .and_then(|c| c.holdback_pct)
-            .unwrap_or(0.0)
-            .max(0.0)
-            .min(1.0);
+        // Precompute holdback percent (0.0 if none or clawback disabled)
+        let holdback_pct: F = match &self.spec.clawback {
+            Some(c) if c.enable => c.holdback_pct.unwrap_or(0.0),
+            _ => 0.0,
+        }
+        .max(0.0)
+        .min(1.0);
 
         for (idx, tranche) in self.spec.tranches.iter().enumerate() {
             if remaining_amount <= 1e-6 {
@@ -882,7 +880,7 @@ impl<'a> EquityWaterfallEngine<'a> {
     fn apply_clawback(
         &self,
         events: &[FundEvent],
-        ledger_rows: &mut [AllocationRow],
+        ledger_rows: &mut Vec<AllocationRow>,
         clawback_spec: &ClawbackSpec,
     ) -> finstack_core::Result<()> {
         // Periodic clawback not supported in this PR
@@ -956,19 +954,7 @@ impl<'a> EquityWaterfallEngine<'a> {
             note: Some("Clawback settlement and holdback release".to_string()),
         };
 
-        // Append by converting slice to vec and back isn't possible; mutate via push by taking a mutable vec earlier.
-        // Workaround: replace last element with itself and then push new (we have &mut [AllocationRow] slice)
-        // Instead, we can extend via unsafe cast to Vec if needed, but avoid. Simplest is to do nothing here
-        // and rely on caller to pass a mutable Vec. Our caller does pass &mut Vec, but the signature here requires &mut [AllocationRow].
-        // So change the signature above to accept &mut [AllocationRow] -> already as slice; we cannot push.
-        // To push, we need &mut Vec<AllocationRow>. Therefore, adjust function signature earlier to accept &mut [AllocationRow].
-        // Since we are in an edit, we will downcast using unsafe is not allowed. Instead, rebuild a new Vec and replace content.
-        // We'll append by using a small trick: allocate a new vec with existing rows and the settlement row, then replace via swap.
-
-        // Rebuild with appended row
-        let mut new_rows = ledger_rows.to_vec();
-        new_rows.push(settlement_row);
-        *ledger_rows = new_rows;
+        ledger_rows.push(settlement_row);
 
         Ok(())
     }
