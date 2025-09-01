@@ -73,9 +73,9 @@ impl BinomialTree {
         let sign = if z >= 0.0 { 1.0 } else { -1.0 };
         let z2 = z * z;
 
-        // Standard Peizer–Pratt mapping used by LR (Macroption form)
-        let denom = n_eff + 1.0 / 3.0;
-        let x = (z2 * (n_eff + 1.0 / 6.0)) / (denom * denom);
+        // Peizer–Pratt mapping used by LR: x = z^2 * (n + 1/6) / (n + 1/3 + 0.1/(n+1))
+        let denom = n_eff + 1.0 / 3.0 + 0.1 / (n_eff + 1.0);
+        let x = z2 * (n_eff + 1.0 / 6.0) / denom;
         let p = 0.5 + sign * 0.5 * (1.0 - (-x).exp()).sqrt();
 
         // Numerically enforce bounds
