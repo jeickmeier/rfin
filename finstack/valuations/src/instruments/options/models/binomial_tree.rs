@@ -704,7 +704,7 @@ mod tests {
                 .calculate_parameters(spot, strike, r, sigma, t_small, q)
                 .expect("LR params should compute");
 
-            assert!(p >= 0.0 && p <= 1.0, "p must be in [0,1], got {}", p);
+            assert!((0.0..=1.0).contains(&p), "p must be in [0,1], got {}", p);
             assert!(u > 1.0 && d < 1.0 && u > d, "u>1>d must hold: u={}, d={}", u, d);
         }
     }

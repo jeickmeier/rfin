@@ -191,7 +191,7 @@ fn test_low_volatility_convertible() {
     // Set low volatility (but not too low to avoid numerical issues)
     market_context = market_context.with_price("AAPL-VOL", MarketScalar::Unitless(0.05));
 
-    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(20));
+    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(20)).unwrap();
 
     // Should work with low volatility
     assert!(price.is_ok());
@@ -270,8 +270,8 @@ fn test_mandatory_conversion_policy() {
 
     let market_context = create_test_market_context();
     
-    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(30)).unwrap();
-    let greeks = calculate_convertible_greeks(&bond, &market_context, ConvertibleTreeType::Binomial(30), Some(0.01)).unwrap();
+    let _price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(30)).unwrap();
+    let _greeks = calculate_convertible_greeks(&bond, &market_context, ConvertibleTreeType::Binomial(30), Some(0.01)).unwrap();
 }
 
 #[test]
@@ -305,11 +305,10 @@ fn test_window_conversion_policy() {
 
     let market_context = create_test_market_context();
     
-    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Trinomial(40));
-    assert!(price.is_ok());
+    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Trinomial(40)).unwrap();
     
     // Price should reflect the delayed conversion option
-    let price_val = price.unwrap();
+    let price_val = price;
     assert!(price_val.amount() > 1000.0); // Should have some option value
 }
 
@@ -350,12 +349,13 @@ fn test_callable_convertible_bond() {
 
     let market_context = create_test_market_context();
     
-    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(50));
+    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(50)).unwrap();
     assert!(price.is_ok());
     
     // Price should be capped by call option
     let price_val = price.unwrap();
-    // Note: call option may not cap price perfectly due to tree discretization and time value\n    assert!(price_val.amount() <= 1700.0); // Should be influenced by call option
+    // Note: call option may not cap price perfectly due to tree discretization and time value
+    assert!(price_val.amount() <= 1700.0); // Should be influenced by call option
 }
 
 #[test]
@@ -395,11 +395,10 @@ fn test_puttable_convertible_bond() {
 
     let market_context = create_test_market_context();
     
-    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(50));
-    assert!(price.is_ok());
+    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(50)).unwrap();
     
     // Price should have put option floor
-    let price_val = price.unwrap();
+    let price_val = price;
     assert!(price_val.amount() >= 980.0); // Should not fall below put price
 }
 
@@ -538,10 +537,9 @@ fn test_time_mapping_edge_cases() {
     let market_context = create_test_market_context();
     
     // Test with fewer steps to ensure edge dates are handled
-    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(10));
-    assert!(price.is_ok(), "Should handle edge date mapping correctly");
+    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(10)).unwrap();
     
-    let price_val = price.unwrap();
+    let price_val = price;
     assert!(price_val.amount() > 500.0, "Should have reasonable value even with few steps");
 }
 
@@ -578,11 +576,10 @@ fn test_event_triggered_conversion() {
     let market_context = create_test_market_context();
     
     // Should still price successfully even though event conversion is conservatively disabled
-    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(30));
-    assert!(price.is_ok(), "Should handle event-triggered conversion policy");
+    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(30)).unwrap();
     
     // Should behave more like a straight bond since conversion is disabled
-    let price_val = price.unwrap();
+    let price_val = price;
     assert!(price_val.amount() < 2500.0, "Should have lower value without conversion option");
 }
 
@@ -628,10 +625,9 @@ fn test_combined_call_put_convertible() {
 
     let market_context = create_test_market_context();
     
-    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(60));
-    assert!(price.is_ok());
+    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(60)).unwrap();
     
-    let price_val = price.unwrap();
+    let price_val = price;
     // Should be bounded by put floor and call ceiling
     assert!(price_val.amount() >= 970.0, "Should respect put floor");
     assert!(price_val.amount() <= 1600.0, "Should respect call constraints");
