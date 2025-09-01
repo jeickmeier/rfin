@@ -46,6 +46,13 @@ pub trait MetricCalculator: Send + Sync {
     }
 }
 
+/// Resolver function type for dynamic bucket metric keys.
+///
+/// Allows callers to customize how per-bucket metrics are keyed.
+/// Given a base metric ID (e.g., `MetricId::BucketedDv01`), a bucket label
+/// (e.g., "1y"), and the instrument, return the final `MetricId` to store.
+pub type BucketKeyResolverFn = dyn Fn(&MetricId, &str, &dyn InstrumentLike) -> MetricId + Send + Sync;
+
 /// Context containing all data needed for metric calculations.
 ///
 /// Provides access to the instrument, market data, base valuation,
@@ -83,6 +90,12 @@ pub struct MetricContext {
 
     /// Cached day count convention.
     pub day_count: Option<DayCount>,
+
+    /// Optional resolver to customize per-bucket metric keys.
+    ///
+    /// When set, bucketed metrics (e.g., DV01 by tenor) will use this resolver
+    /// to produce `MetricId`s instead of default static keys.
+    pub bucket_key_resolver: Option<Arc<BucketKeyResolverFn>>,
 }
 
 impl MetricContext {
@@ -110,7 +123,19 @@ impl MetricContext {
             cashflows: None,
             discount_curve_id: None,
             day_count: None,
+            bucket_key_resolver: None,
         }
+    }
+
+    /// Set a custom bucket key resolver.
+    pub fn set_bucket_key_resolver(&mut self, resolver: Arc<BucketKeyResolverFn>) {
+        self.bucket_key_resolver = Some(resolver);
+    }
+
+    /// Builder-style setter for a custom bucket key resolver.
+    pub fn with_bucket_key_resolver(mut self, resolver: Arc<BucketKeyResolverFn>) -> Self {
+        self.bucket_key_resolver = Some(resolver);
+        self
     }
 
     /// Downcast the instrument to a specific concrete type.
