@@ -8,10 +8,8 @@
 
 pub mod metrics;
 pub mod model;
-pub mod numerical;
 
 use crate::metrics::MetricId;
-// use crate::results::ValuationResult; // not needed with macro-based impl
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
 use finstack_core::prelude::*;

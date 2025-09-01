@@ -12,6 +12,7 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::traits::Discount;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
+use finstack_core::math::{RandomNumberGenerator, sample_beta};
 use finstack_core::F;
 use std::collections::BTreeSet;
 use rand::{Rng, SeedableRng};
@@ -148,22 +149,7 @@ impl SimulationEvent {
     }
 }
 
-/// Helper function for beta sampling using rejection method
-fn sample_beta(rng: &mut dyn RandomNumberGenerator, alpha: F, beta: F) -> F {
-    // Use inverse transform for simple cases or rejection sampling
-    if alpha == 1.0 && beta == 1.0 {
-        return rng.uniform();
-    }
-    
-    // Simplified beta sampling for common cases
-    let u1 = rng.uniform();
-    let u2 = rng.uniform();
-    
-    // Use transformation method for beta(alpha, beta)
-    let x = u1.powf(1.0 / alpha);
-    let y = u2.powf(1.0 / beta);
-    x / (x + y)
-}
+
 
 /// Type of simulation event
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1459,15 +1445,7 @@ pub trait LoanFacility {
     ) -> finstack_core::Result<Vec<(Date, Money)>>;
 }
 
-/// Random number generator trait for Monte Carlo
-pub trait RandomNumberGenerator: Send + Sync {
-    /// Generate uniform random number in [0, 1)
-    fn uniform(&mut self) -> F;
-    /// Generate normal random number with mean and standard deviation
-    fn normal(&mut self, mean: F, std_dev: F) -> F;
-    /// Generate Bernoulli random boolean with probability p
-    fn bernoulli(&mut self, p: F) -> bool;
-}
+
 
 /// Seeded RNG for deterministic Monte Carlo
 struct SeededRng {

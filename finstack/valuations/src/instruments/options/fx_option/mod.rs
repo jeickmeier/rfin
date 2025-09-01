@@ -11,7 +11,8 @@ use finstack_core::money::Money;
 use finstack_core::F;
 use num_traits::ToPrimitive;
 
-use super::models;
+use super::models::{d1, d2};
+use finstack_core::math::{norm_cdf, norm_pdf};
 use super::{ExerciseStyle, OptionType, SettlementType};
 
 /// FX option instrument (Garman-Kohlhagen model)
@@ -112,17 +113,17 @@ impl FxOption {
         }
 
         // Garman-Kohlhagen is Black-Scholes with foreign rate as dividend yield
-        let d1 = models::d1(spot, self.strike, r_d, sigma, t, r_f);
-        let d2 = models::d2(spot, self.strike, r_d, sigma, t, r_f);
+        let d1 = d1(spot, self.strike, r_d, sigma, t, r_f);
+        let d2 = d2(spot, self.strike, r_d, sigma, t, r_f);
 
         let price = match self.option_type {
             OptionType::Call => {
-                spot * (-r_f * t).exp() * models::norm_cdf(d1)
-                    - self.strike * (-r_d * t).exp() * models::norm_cdf(d2)
+                spot * (-r_f * t).exp() * norm_cdf(d1)
+                    - self.strike * (-r_d * t).exp() * norm_cdf(d2)
             }
             OptionType::Put => {
-                self.strike * (-r_d * t).exp() * models::norm_cdf(-d2)
-                    - spot * (-r_f * t).exp() * models::norm_cdf(-d1)
+                self.strike * (-r_d * t).exp() * norm_cdf(-d2)
+                    - spot * (-r_f * t).exp() * norm_cdf(-d1)
             }
         };
 
@@ -153,12 +154,12 @@ impl FxOption {
             };
         }
 
-        let d1 = models::d1(spot, self.strike, r_d, sigma, t, r_f);
+        let d1 = d1(spot, self.strike, r_d, sigma, t, r_f);
         let exp_rf_t = (-r_f * t).exp();
 
         match self.option_type {
-            OptionType::Call => exp_rf_t * models::norm_cdf(d1),
-            OptionType::Put => -exp_rf_t * models::norm_cdf(-d1),
+            OptionType::Call => exp_rf_t * norm_cdf(d1),
+            OptionType::Put => -exp_rf_t * norm_cdf(-d1),
         }
     }
 
@@ -168,10 +169,10 @@ impl FxOption {
             return 0.0;
         }
 
-        let d1 = models::d1(spot, self.strike, r_d, sigma, t, r_f);
+        let d1 = d1(spot, self.strike, r_d, sigma, t, r_f);
         let exp_rf_t = (-r_f * t).exp();
 
-        exp_rf_t * models::norm_pdf(d1) / (spot * sigma * t.sqrt())
+        exp_rf_t * norm_pdf(d1) / (spot * sigma * t.sqrt())
     }
 
     /// Calculate option vega
@@ -180,10 +181,10 @@ impl FxOption {
             return 0.0;
         }
 
-        let d1 = models::d1(spot, self.strike, r_d, sigma, t, r_f);
+        let d1 = d1(spot, self.strike, r_d, sigma, t, r_f);
         let exp_rf_t = (-r_f * t).exp();
 
-        spot * exp_rf_t * models::norm_pdf(d1) * t.sqrt() / 100.0 // Divide by 100 for 1% vega
+        spot * exp_rf_t * norm_pdf(d1) * t.sqrt() / 100.0 // Divide by 100 for 1% vega
     }
 
     /// Calculate option theta
@@ -192,23 +193,23 @@ impl FxOption {
             return 0.0;
         }
 
-        let d1 = models::d1(spot, self.strike, r_d, sigma, t, r_f);
-        let d2 = models::d2(spot, self.strike, r_d, sigma, t, r_f);
+        let d1 = d1(spot, self.strike, r_d, sigma, t, r_f);
+        let d2 = d2(spot, self.strike, r_d, sigma, t, r_f);
         let sqrt_t = t.sqrt();
 
         match self.option_type {
             OptionType::Call => {
                 let term1 =
-                    -spot * models::norm_pdf(d1) * sigma * (-r_f * t).exp() / (2.0 * sqrt_t);
-                let term2 = r_f * spot * models::norm_cdf(d1) * (-r_f * t).exp();
-                let term3 = -r_d * self.strike * (-r_d * t).exp() * models::norm_cdf(d2);
+                    -spot * norm_pdf(d1) * sigma * (-r_f * t).exp() / (2.0 * sqrt_t);
+                let term2 = r_f * spot * norm_cdf(d1) * (-r_f * t).exp();
+                let term3 = -r_d * self.strike * (-r_d * t).exp() * norm_cdf(d2);
                 (term1 + term2 + term3) / 365.0 // Daily theta
             }
             OptionType::Put => {
                 let term1 =
-                    -spot * models::norm_pdf(d1) * sigma * (-r_f * t).exp() / (2.0 * sqrt_t);
-                let term2 = -r_f * spot * models::norm_cdf(-d1) * (-r_f * t).exp();
-                let term3 = r_d * self.strike * (-r_d * t).exp() * models::norm_cdf(-d2);
+                    -spot * norm_pdf(d1) * sigma * (-r_f * t).exp() / (2.0 * sqrt_t);
+                let term2 = -r_f * spot * norm_cdf(-d1) * (-r_f * t).exp();
+                let term3 = r_d * self.strike * (-r_d * t).exp() * norm_cdf(-d2);
                 (term1 + term2 + term3) / 365.0 // Daily theta
             }
         }
@@ -220,11 +221,11 @@ impl FxOption {
             return 0.0;
         }
 
-        let d2 = models::d2(spot, self.strike, r_d, sigma, t, r_f);
+        let d2 = d2(spot, self.strike, r_d, sigma, t, r_f);
 
         match self.option_type {
-            OptionType::Call => self.strike * t * (-r_d * t).exp() * models::norm_cdf(d2) / 100.0,
-            OptionType::Put => -self.strike * t * (-r_d * t).exp() * models::norm_cdf(-d2) / 100.0,
+            OptionType::Call => self.strike * t * (-r_d * t).exp() * norm_cdf(d2) / 100.0,
+            OptionType::Put => -self.strike * t * (-r_d * t).exp() * norm_cdf(-d2) / 100.0,
         }
     }
 
@@ -234,11 +235,11 @@ impl FxOption {
             return 0.0;
         }
 
-        let d1 = models::d1(spot, self.strike, r_d, sigma, t, r_f);
+        let d1 = d1(spot, self.strike, r_d, sigma, t, r_f);
 
         match self.option_type {
-            OptionType::Call => -spot * t * (-r_f * t).exp() * models::norm_cdf(d1) / 100.0,
-            OptionType::Put => spot * t * (-r_f * t).exp() * models::norm_cdf(-d1) / 100.0,
+            OptionType::Call => -spot * t * (-r_f * t).exp() * norm_cdf(d1) / 100.0,
+            OptionType::Put => spot * t * (-r_f * t).exp() * norm_cdf(-d1) / 100.0,
         }
     }
 }

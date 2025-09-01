@@ -8,7 +8,8 @@ pub mod tree_framework;
 pub mod trinomial_tree;
 
 pub use binomial_tree::{BinomialTree, TreeType};
-pub use black::{d1, d2, norm_cdf, norm_pdf};
+pub use black::{d1, d2};
+pub use finstack_core::math::{norm_cdf, norm_pdf};
 pub use sabr::{SABRCalibrator, SABRModel, SABRParameters, SABRSmile};
 pub use short_rate_tree::{short_rate_keys, ShortRateModel, ShortRateTree, ShortRateTreeConfig};
 pub use tree_framework::{

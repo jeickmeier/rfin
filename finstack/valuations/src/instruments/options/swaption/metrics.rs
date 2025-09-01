@@ -41,8 +41,8 @@ impl MetricCalculator for DeltaCalculator {
         };
 
         let delta = match option.option_type {
-            super::OptionType::Call => crate::instruments::options::models::norm_cdf(d1),
-            super::OptionType::Put => -crate::instruments::options::models::norm_cdf(-d1),
+            super::OptionType::Call => finstack_core::math::norm_cdf(d1),
+            super::OptionType::Put => -finstack_core::math::norm_cdf(-d1),
         };
 
         // Scale by notional and annuity for cash delta
@@ -89,7 +89,7 @@ impl MetricCalculator for GammaCalculator {
         let variance = sigma * sigma * t;
         let d1 = ((forward / option.strike_rate).ln() + 0.5 * variance) / variance.sqrt();
         let gamma =
-            crate::instruments::options::models::norm_pdf(d1) / (forward * sigma * t.sqrt());
+            finstack_core::math::norm_pdf(d1) / (forward * sigma * t.sqrt());
 
         // Scale by notional and annuity for cash gamma
         Ok(gamma * option.notional.amount() * annuity)
@@ -135,7 +135,7 @@ impl MetricCalculator for VegaCalculator {
             0.0
         };
 
-        let vega = forward * crate::instruments::options::models::norm_pdf(d1) * t.sqrt() / 100.0;
+        let vega = forward * finstack_core::math::norm_pdf(d1) * t.sqrt() / 100.0;
         // Scale by notional and annuity for cash vega
         Ok(vega * option.notional.amount() * annuity)
     }
@@ -168,16 +168,16 @@ impl MetricCalculator for ThetaCalculator {
         let d2 = d1 - variance.sqrt();
         let sqrt_t = t.sqrt();
         let term1 =
-            -forward * crate::instruments::options::models::norm_pdf(d1) * sigma / (2.0 * sqrt_t);
+            -forward * finstack_core::math::norm_pdf(d1) * sigma / (2.0 * sqrt_t);
         let theta = match option.option_type {
             super::OptionType::Call => {
                 // Payer
-                let term3 = -0.0 * crate::instruments::options::models::norm_cdf(d2);
+                let term3 = -0.0 * finstack_core::math::norm_cdf(d2);
                 (term1 + term3) * 10000.0 / 365.0 // scaled similar to IR options
             }
             super::OptionType::Put => {
                 // Receiver
-                let term3 = 0.0 * crate::instruments::options::models::norm_cdf(-d2);
+                let term3 = 0.0 * finstack_core::math::norm_cdf(-d2);
                 (term1 + term3) * 10000.0 / 365.0
             }
         };

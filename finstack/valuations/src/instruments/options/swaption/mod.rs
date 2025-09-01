@@ -2,7 +2,7 @@
 
 pub mod metrics;
 
-use super::models::norm_cdf;
+use finstack_core::math::norm_cdf;
 use super::models::{SABRModel, SABRParameters};
 use super::OptionType;
 // use crate::results::ValuationResult;

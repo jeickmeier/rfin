@@ -9,7 +9,8 @@ use finstack_core::F;
 
 use finstack_core::dates::Date;
 
-use super::models;
+use super::models::{d1, d2};
+use finstack_core::math::{norm_cdf, norm_pdf};
 use super::{ExerciseStyle, OptionType, SettlementType};
 
 /// Equity option instrument
@@ -107,17 +108,17 @@ impl EquityOption {
         }
 
         let k = self.strike.amount();
-        let d1 = models::d1(spot, k, r, sigma, t, q);
-        let d2 = models::d2(spot, k, r, sigma, t, q);
+        let d1 = d1(spot, k, r, sigma, t, q);
+        let d2 = d2(spot, k, r, sigma, t, q);
 
         let price = match self.option_type {
             OptionType::Call => {
-                spot * (-q * t).exp() * models::norm_cdf(d1)
-                    - k * (-r * t).exp() * models::norm_cdf(d2)
+                spot * (-q * t).exp() * norm_cdf(d1)
+                    - k * (-r * t).exp() * norm_cdf(d2)
             }
             OptionType::Put => {
-                k * (-r * t).exp() * models::norm_cdf(-d2)
-                    - spot * (-q * t).exp() * models::norm_cdf(-d1)
+                k * (-r * t).exp() * norm_cdf(-d2)
+                    - spot * (-q * t).exp() * norm_cdf(-d1)
             }
         };
 
@@ -148,12 +149,12 @@ impl EquityOption {
             };
         }
 
-        let d1 = models::d1(spot, self.strike.amount(), r, sigma, t, q);
+        let d1 = d1(spot, self.strike.amount(), r, sigma, t, q);
         let exp_q_t = (-q * t).exp();
 
         match self.option_type {
-            OptionType::Call => exp_q_t * models::norm_cdf(d1),
-            OptionType::Put => -exp_q_t * models::norm_cdf(-d1),
+            OptionType::Call => exp_q_t * norm_cdf(d1),
+            OptionType::Put => -exp_q_t * norm_cdf(-d1),
         }
     }
 
@@ -163,10 +164,10 @@ impl EquityOption {
             return 0.0;
         }
 
-        let d1 = models::d1(spot, self.strike.amount(), r, sigma, t, q);
+        let d1 = d1(spot, self.strike.amount(), r, sigma, t, q);
         let exp_q_t = (-q * t).exp();
 
-        exp_q_t * models::norm_pdf(d1) / (spot * sigma * t.sqrt())
+        exp_q_t * norm_pdf(d1) / (spot * sigma * t.sqrt())
     }
 
     /// Calculate option vega
@@ -175,10 +176,10 @@ impl EquityOption {
             return 0.0;
         }
 
-        let d1 = models::d1(spot, self.strike.amount(), r, sigma, t, q);
+        let d1 = d1(spot, self.strike.amount(), r, sigma, t, q);
         let exp_q_t = (-q * t).exp();
 
-        spot * exp_q_t * models::norm_pdf(d1) * t.sqrt() / 100.0 // Divide by 100 for 1% vega
+        spot * exp_q_t * norm_pdf(d1) * t.sqrt() / 100.0 // Divide by 100 for 1% vega
     }
 
     /// Calculate option theta
@@ -188,21 +189,21 @@ impl EquityOption {
         }
 
         let k = self.strike.amount();
-        let d1 = models::d1(spot, k, r, sigma, t, q);
-        let d2 = models::d2(spot, k, r, sigma, t, q);
+        let d1 = d1(spot, k, r, sigma, t, q);
+        let d2 = d2(spot, k, r, sigma, t, q);
         let sqrt_t = t.sqrt();
 
         match self.option_type {
             OptionType::Call => {
-                let term1 = -spot * models::norm_pdf(d1) * sigma * (-q * t).exp() / (2.0 * sqrt_t);
-                let term2 = q * spot * models::norm_cdf(d1) * (-q * t).exp();
-                let term3 = -r * k * (-r * t).exp() * models::norm_cdf(d2);
+                let term1 = -spot * norm_pdf(d1) * sigma * (-q * t).exp() / (2.0 * sqrt_t);
+                let term2 = q * spot * norm_cdf(d1) * (-q * t).exp();
+                let term3 = -r * k * (-r * t).exp() * norm_cdf(d2);
                 (term1 + term2 + term3) / 365.0 // Daily theta
             }
             OptionType::Put => {
-                let term1 = -spot * models::norm_pdf(d1) * sigma * (-q * t).exp() / (2.0 * sqrt_t);
-                let term2 = -q * spot * models::norm_cdf(-d1) * (-q * t).exp();
-                let term3 = r * k * (-r * t).exp() * models::norm_cdf(-d2);
+                let term1 = -spot * norm_pdf(d1) * sigma * (-q * t).exp() / (2.0 * sqrt_t);
+                let term2 = -q * spot * norm_cdf(-d1) * (-q * t).exp();
+                let term3 = r * k * (-r * t).exp() * norm_cdf(-d2);
                 (term1 + term2 + term3) / 365.0 // Daily theta
             }
         }
@@ -215,11 +216,11 @@ impl EquityOption {
         }
 
         let k = self.strike.amount();
-        let d2 = models::d2(spot, k, r, sigma, t, q);
+        let d2 = d2(spot, k, r, sigma, t, q);
 
         match self.option_type {
-            OptionType::Call => k * t * (-r * t).exp() * models::norm_cdf(d2) / 100.0, // Per 1% rate change
-            OptionType::Put => -k * t * (-r * t).exp() * models::norm_cdf(-d2) / 100.0,
+            OptionType::Call => k * t * (-r * t).exp() * norm_cdf(d2) / 100.0, // Per 1% rate change
+            OptionType::Put => -k * t * (-r * t).exp() * norm_cdf(-d2) / 100.0,
         }
     }
 }

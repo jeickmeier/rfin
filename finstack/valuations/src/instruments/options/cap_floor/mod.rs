@@ -9,7 +9,7 @@ use finstack_core::F;
 
 use finstack_core::dates::{Date, DayCount, Frequency};
 
-use super::models;
+use finstack_core::math::{norm_cdf, norm_pdf};
 use super::{ExerciseStyle, SettlementType};
 
 /// Type of interest rate option
@@ -237,14 +237,14 @@ impl InterestRateOption {
             RateOptionType::Caplet | RateOptionType::Cap => {
                 df * tau
                     * self.notional.amount()
-                    * (forward_rate * models::norm_cdf(d1)
-                        - self.strike_rate * models::norm_cdf(d2))
+                    * (forward_rate * norm_cdf(d1)
+                        - self.strike_rate * norm_cdf(d2))
             }
             RateOptionType::Floorlet | RateOptionType::Floor => {
                 df * tau
                     * self.notional.amount()
-                    * (self.strike_rate * models::norm_cdf(-d2)
-                        - forward_rate * models::norm_cdf(-d1))
+                    * (self.strike_rate * norm_cdf(-d2)
+                        - forward_rate * norm_cdf(-d1))
             }
             _ => 0.0,
         };
@@ -286,7 +286,7 @@ impl InterestRateOption {
         // Payer swaption (right to pay fixed)
         let price = annuity
             * self.notional.amount()
-            * (swap_rate * models::norm_cdf(d1) - self.strike_rate * models::norm_cdf(d2));
+            * (swap_rate * norm_cdf(d1) - self.strike_rate * norm_cdf(d2));
 
         Ok(Money::new(price, self.notional.currency()))
     }
@@ -317,9 +317,9 @@ impl InterestRateOption {
             ((forward_rate / self.strike_rate).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
 
         match self.rate_option_type {
-            RateOptionType::Caplet | RateOptionType::Cap => models::norm_cdf(d1),
-            RateOptionType::Floorlet | RateOptionType::Floor => -models::norm_cdf(-d1),
-            RateOptionType::Swaption => models::norm_cdf(d1),
+            RateOptionType::Caplet | RateOptionType::Cap => norm_cdf(d1),
+            RateOptionType::Floorlet | RateOptionType::Floor => -norm_cdf(-d1),
+            RateOptionType::Swaption => norm_cdf(d1),
         }
     }
 
@@ -332,7 +332,7 @@ impl InterestRateOption {
         let d1 =
             ((forward_rate / self.strike_rate).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
 
-        models::norm_pdf(d1) / (forward_rate * sigma * t.sqrt())
+        norm_pdf(d1) / (forward_rate * sigma * t.sqrt())
     }
 
     /// Calculate option vega
@@ -347,7 +347,7 @@ impl InterestRateOption {
             0.0
         };
 
-        forward_rate * models::norm_pdf(d1) * t.sqrt() / 100.0 // Per 1% vega
+        forward_rate * norm_pdf(d1) * t.sqrt() / 100.0 // Per 1% vega
     }
 }
 

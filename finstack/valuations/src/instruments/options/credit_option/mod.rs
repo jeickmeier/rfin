@@ -8,7 +8,7 @@ use finstack_core::F;
 
 use finstack_core::dates::{Date, DayCount};
 
-use super::models;
+use finstack_core::math::{norm_cdf, norm_pdf};
 use super::{ExerciseStyle, OptionType, SettlementType};
 
 /// Credit option instrument (option on CDS spread)
@@ -128,13 +128,13 @@ impl CreditOption {
                 // Call option on CDS spread (right to buy protection at strike spread)
                 df * risky_annuity
                     * self.notional.amount()
-                    * (forward * models::norm_cdf(d1) - strike * models::norm_cdf(d2))
+                    * (forward * norm_cdf(d1) - strike * norm_cdf(d2))
             }
             OptionType::Put => {
                 // Put option on CDS spread (right to sell protection at strike spread)
                 df * risky_annuity
                     * self.notional.amount()
-                    * (strike * models::norm_cdf(-d2) - forward * models::norm_cdf(-d1))
+                    * (strike * norm_cdf(-d2) - forward * norm_cdf(-d1))
             }
         };
 
@@ -172,8 +172,8 @@ impl CreditOption {
         let d1 = ((forward / strike).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
 
         match self.option_type {
-            OptionType::Call => models::norm_cdf(d1),
-            OptionType::Put => -models::norm_cdf(-d1),
+            OptionType::Call => norm_cdf(d1),
+            OptionType::Put => -norm_cdf(-d1),
         }
     }
 
@@ -192,7 +192,7 @@ impl CreditOption {
 
         let d1 = ((forward / strike).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
 
-        models::norm_pdf(d1) / (forward * 10000.0 * sigma * t.sqrt())
+        norm_pdf(d1) / (forward * 10000.0 * sigma * t.sqrt())
     }
 
     /// Calculate option vega (sensitivity to credit spread volatility)
@@ -214,7 +214,7 @@ impl CreditOption {
             0.0
         };
 
-        forward * 10000.0 * models::norm_pdf(d1) * t.sqrt() / 100.0
+        forward * 10000.0 * norm_pdf(d1) * t.sqrt() / 100.0
         // Per 1% vega
     }
 
@@ -237,13 +237,13 @@ impl CreditOption {
 
         match self.option_type {
             OptionType::Call => {
-                let term1 = -forward * models::norm_pdf(d1) * sigma / (2.0 * sqrt_t);
-                let term2 = -r * strike * (-r * t).exp() * models::norm_cdf(d2);
+                let term1 = -forward * norm_pdf(d1) * sigma / (2.0 * sqrt_t);
+                let term2 = -r * strike * (-r * t).exp() * norm_cdf(d2);
                 (term1 + term2) * 10000.0 / 365.0 // Daily theta in bp
             }
             OptionType::Put => {
-                let term1 = -forward * models::norm_pdf(d1) * sigma / (2.0 * sqrt_t);
-                let term2 = r * strike * (-r * t).exp() * models::norm_cdf(-d2);
+                let term1 = -forward * norm_pdf(d1) * sigma / (2.0 * sqrt_t);
+                let term2 = r * strike * (-r * t).exp() * norm_cdf(-d2);
                 (term1 + term2) * 10000.0 / 365.0 // Daily theta in bp
             }
         }

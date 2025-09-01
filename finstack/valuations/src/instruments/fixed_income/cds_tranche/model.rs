@@ -36,8 +36,10 @@
 //! * Uses constant recovery rate across all entities
 //! * Base correlation model can have small arbitrage inconsistencies at curve knots
 
-use crate::instruments::fixed_income::cds_tranche::numerical::{
-    standard_normal_cdf, standard_normal_inv_cdf, GaussHermiteQuadrature,
+use finstack_core::math::{
+    norm_cdf as standard_normal_cdf, 
+    standard_normal_inv_cdf, 
+    GaussHermiteQuadrature,
 };
 use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
 use crate::market_data::{CreditIndexData, ValuationMarketContext};
@@ -45,6 +47,10 @@ use crate::cashflow::builder::schedule_utils::build_dates;
 use finstack_core::dates::{Date, StubKind};
 use finstack_core::market_data::traits::Discount;
 use finstack_core::prelude::*;
+use finstack_core::math::binomial_probability;
+
+#[cfg(test)]
+use finstack_core::math::log_factorial;
 use finstack_core::F;
 
 /// Parameters for the Gaussian Copula pricing model.
@@ -721,52 +727,7 @@ impl GaussianCopulaModel {
     }
 }
 
-/// Calculate binomial probability: P(X = k) where X ~ Binomial(n, p)
-fn binomial_probability(n: usize, k: usize, p: F) -> F {
-    if k > n {
-        return 0.0;
-    }
-    if p <= 0.0 {
-        return if k == 0 { 1.0 } else { 0.0 };
-    }
-    if p >= 1.0 {
-        return if k == n { 1.0 } else { 0.0 };
-    }
 
-    // Use log-space calculation to avoid overflow for large n
-    let log_prob =
-        log_binomial_coefficient(n, k) + (k as F) * p.ln() + ((n - k) as F) * (1.0 - p).ln();
-    log_prob.exp()
-}
-
-/// Calculate log of binomial coefficient: ln(n choose k)
-fn log_binomial_coefficient(n: usize, k: usize) -> F {
-    if k > n {
-        return F::NEG_INFINITY;
-    }
-    if k == 0 || k == n {
-        return 0.0;
-    }
-
-    // Use the more efficient calculation: ln(n!) - ln(k!) - ln((n-k)!)
-    // Using Stirling's approximation for large values
-    log_factorial(n) - log_factorial(k) - log_factorial(n - k)
-}
-
-/// Calculate log factorial using Stirling's approximation for large n.
-fn log_factorial(n: usize) -> F {
-    if n == 0 || n == 1 {
-        return 0.0;
-    }
-    if n < 20 {
-        // Exact calculation for small n: ln(n!) = ln(1) + ln(2) + ... + ln(n)
-        (2..=n).map(|i| (i as F).ln()).sum()
-    } else {
-        // Stirling's approximation: ln(n!) ≈ n*ln(n) - n + 0.5*ln(2πn)
-        let n_f = n as F;
-        n_f * n_f.ln() - n_f + 0.5 * (2.0 * std::f64::consts::PI * n_f).ln()
-    }
-}
 
 
 
