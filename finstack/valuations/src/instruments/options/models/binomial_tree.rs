@@ -119,28 +119,32 @@ impl BinomialTree {
                     / (sigma * t.sqrt());
                 let d2 = d1 - sigma * t.sqrt();
 
-                // Probabilities via PP inversion
+                // Risk-neutral probability via PP inversion of d2
                 let eps = 1e-12;
                 let p = self.peizer_pratt_inversion(d2, self.steps).clamp(eps, 1.0 - eps);
-                let p_star = self
-                    .peizer_pratt_inversion(d1, self.steps)
-                    .clamp(eps, 1.0 - eps);
 
-                // Compute u and d to match drift and approximate delta
-                let nu = ((r - q) * dt).exp();
-                let u = nu * (p_star / p);
-                let d = nu * ((1.0 - p_star) / (1.0 - p));
+                // QuantLib-style LR: match mean and variance per step
+                // g = E[return per step], lambda = E[return^2 per step]
+                let g = ((r - q) * dt).exp();
+                let lambda = (sigma * sigma * dt).exp();
 
-                // Validate parameters
+                // Solve for d from p = (g - d) / (u - d) and u*d = lambda
+                let one_minus_p = 1.0 - p;
+                let disc = (g * g - 4.0 * lambda * p * one_minus_p).max(0.0);
+                let sqrt_disc = disc.sqrt();
+                let denom = 2.0 * one_minus_p;
+                if denom <= 0.0 {
+                    return Err(Error::Internal);
+                }
+                let d = (g - sqrt_disc) / denom;
+                if d <= 0.0 {
+                    return Err(Error::Internal);
+                }
+                let u = lambda / d;
+
                 if !(u.is_finite() && d.is_finite() && u > 1.0 && d < 1.0 && u > d) {
                     return Err(Error::Internal);
                 }
-
-                #[cfg(test)]
-                println!(
-                    "LR params: p={:.6}, p*={:.6}, u={:.6}, d={:.6}, nu={:.6}, dt={:.6}",
-                    p, p_star, u, d, nu, dt
-                );
 
                 (u, d, p)
             }
