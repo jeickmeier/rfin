@@ -73,12 +73,12 @@ impl BinomialTree {
         let sign = if z >= 0.0 { 1.0 } else { -1.0 };
         let z2 = z * z;
 
-        let denom = (n_eff + 1.0 / 3.0 + 0.1 / (n_eff + 1.0));
+        let denom = n_eff + 1.0 / 3.0 + 0.1 / (n_eff + 1.0);
         let x = (z2 * (n_eff + 1.0 / 6.0)) / denom;
         let p = 0.5 + sign * 0.5 * (1.0 - (-x).exp()).sqrt();
 
         // Numerically enforce bounds
-        p.max(0.0).min(1.0)
+        p.clamp(0.0, 1.0)
     }
 
     /// Calculate tree parameters based on model type
@@ -100,7 +100,7 @@ impl BinomialTree {
         let (u, d, p) = match self.tree_type {
             TreeType::LeisenReimer => {
                 // Fallback to CRR if strike/spot are not usable (e.g., generic tree)
-                if !(spot > 0.0) || !(strike > 0.0) {
+                if spot <= 0.0 || strike <= 0.0 {
                     let u = (sigma * dt.sqrt()).exp();
                     let d = 1.0 / u;
                     let p = (((r - q) * dt).exp() - d) / (u - d);

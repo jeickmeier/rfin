@@ -93,10 +93,7 @@ fn test_convertible_bond_pricing_binomial() {
     let bond = create_test_convertible_bond();
     let market_context = create_test_market_context();
 
-    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(50));
-
-    assert!(price.is_ok());
-    let price = price.unwrap();
+    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(50)).unwrap();
 
     // Should be worth at least the conversion value
     let conversion_value = 150.0 * 10.0; // $1,500
@@ -112,10 +109,7 @@ fn test_convertible_bond_pricing_trinomial() {
     let bond = create_test_convertible_bond();
     let market_context = create_test_market_context();
 
-    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Trinomial(50));
-
-    assert!(price.is_ok());
-    let price = price.unwrap();
+    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Trinomial(50)).unwrap();
 
     // Should be worth at least the conversion value
     let conversion_value = 150.0 * 10.0; // $1,500
@@ -276,11 +270,8 @@ fn test_mandatory_conversion_policy() {
 
     let market_context = create_test_market_context();
     
-    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(30));
-    assert!(price.is_ok());
-    
-    let greeks = calculate_convertible_greeks(&bond, &market_context, ConvertibleTreeType::Binomial(30), Some(0.01));
-    assert!(greeks.is_ok());
+    let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(30)).unwrap();
+    let greeks = calculate_convertible_greeks(&bond, &market_context, ConvertibleTreeType::Binomial(30), Some(0.01)).unwrap();
 }
 
 #[test]
