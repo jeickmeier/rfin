@@ -68,18 +68,17 @@ impl BinomialTree {
             return 0.5;
         }
 
-        // LR recommend an odd number of steps for best accuracy; use nearest lower odd in mapping
-        let n_eff = if n % 2 == 0 { n - 1 } else { n } as f64;
-        let n_eff = n_eff.max(1.0);
+        // LR recommend an odd number of steps for best accuracy; use nearest upper odd in mapping
+        let n_eff = if n % 2 == 0 { n + 1 } else { n } as f64;
         let sign = if z >= 0.0 { 1.0 } else { -1.0 };
         let z2 = z * z;
 
-        // Peizer–Pratt mapping (standard LR form):
+        // Peizer–Pratt mapping (LR form):
         // beta = z^2 * (m + 1/6) / (m + 1/3 + 0.1/(m+1))
-        // H^{-1}(z) = 0.5 + sign(z)*0.5 * sqrt(1 - exp(-beta))
+        // H^{-1}(z) = 0.5 + sign(z)*0.5 * sqrt(1 - exp(-2*beta))
         let denom = n_eff + 1.0 / 3.0 + 0.1 / (n_eff + 1.0);
         let beta = z2 * (n_eff + 1.0 / 6.0) / denom;
-        let p = 0.5 + sign * 0.5 * (1.0 - (-beta).exp()).sqrt();
+        let p = 0.5 + sign * 0.5 * (1.0 - (-2.0 * beta).exp()).sqrt();
 
         // Numerically enforce bounds
         p.clamp(0.0, 1.0)
