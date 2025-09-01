@@ -276,11 +276,28 @@ impl MetricCalculator for BucketedDv01Calculator {
         // Compute all bucketed DV01s
         let bucketed = self.compute_bucketed(flows, &*disc, dc, base);
 
-        // Store individual bucket results in context
-        // TODO: Handle dynamic bucket keys with MetricId
-        // for (key, value) in bucketed.iter() {
-        //     context.computed.insert(key.clone(), *value);
-        // }
+        // Store individual bucket results in context when a resolver is provided.
+        // This enables dynamic bucket keys keyed by MetricId without changing
+        // default behavior unless explicitly opted in.
+        if let Some(resolver) = &context.bucket_key_resolver {
+            for (key, value) in bucketed.iter() {
+                if key == "bucketed_dv01_total" {
+                    continue;
+                }
+
+                // Expect keys like "bucketed_dv01_5y" → extract label "5y"
+                let label = key
+                    .strip_prefix("bucketed_dv01_")
+                    .unwrap_or(key.as_str());
+
+                let metric_id = resolver(&MetricId::BucketedDv01, label, &*context.instrument);
+                if let Some(existing) = context.computed.get_mut(&metric_id) {
+                    *existing += *value;
+                } else {
+                    context.computed.insert(metric_id, *value);
+                }
+            }
+        }
 
         // Return total as primary result
         Ok(bucketed.get("bucketed_dv01_total").copied().unwrap_or(0.0))
@@ -367,6 +384,8 @@ impl MetricCalculator for ThetaCalculator {
     }
 }
 
+// tests moved to end of file to satisfy clippy::items-after-test-module
+
 /// Helper trait for instruments to cache their cashflows for risk calculations.
 ///
 /// This trait provides convenience methods for instruments to cache
@@ -434,4 +453,147 @@ pub fn register_risk_metrics(registry: &mut super::MetricRegistry) {
             &["Bond", "IRS", "Deposit"],
         )
         .register_metric(MetricId::Theta, Arc::new(ThetaCalculator), &[]);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+
+    fn simple_usd_ois() -> DiscountCurve {
+        DiscountCurve::builder("USD-OIS")
+            .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
+            .knots([(0.0, 1.0), (1.0, 0.99), (5.0, 0.95), (10.0, 0.90)])
+            .linear_df()
+            .build()
+            .unwrap()
+    }
+
+    #[test]
+    fn static_bucket_labels_are_stable() {
+        let calc = BucketedDv01Calculator::default();
+        assert_eq!(calc.bucket_label(0.25), "3M");
+        assert_eq!(calc.bucket_label(0.5), "6M");
+        assert_eq!(calc.bucket_label(1.0), "1Y");
+        assert_eq!(calc.bucket_label(5.0), "5Y");
+    }
+
+    #[test]
+    fn compute_bucketed_static_and_total_present() {
+        let calc = BucketedDv01Calculator::default();
+        let disc = simple_usd_ois();
+        let base = disc.base_date();
+        let dc = DayCount::Act365F;
+
+        let flows = vec![
+            (base + time::Duration::days(365), Money::new(100.0, Currency::USD)),
+            (base + time::Duration::days(365 * 5), Money::new(200.0, Currency::USD)),
+        ];
+
+        let out = calc.compute_bucketed(&flows, &disc, dc, base);
+        assert!(out.contains_key("bucketed_dv01_1y"));
+        assert!(out.contains_key("bucketed_dv01_5y"));
+        assert!(out.contains_key("bucketed_dv01_total"));
+
+        let total = out.get("bucketed_dv01_total").copied().unwrap_or(0.0);
+        let sum_sub: F = out
+            .iter()
+            .filter(|(k, _)| k.as_str() != "bucketed_dv01_total")
+            .map(|(_, v)| *v)
+            .sum();
+        assert!((total - sum_sub).abs() < 1e-8);
+    }
+
+    #[test]
+    fn dynamic_bucket_keys_are_inserted_when_resolver_set() {
+        use crate::metrics::traits::BucketKeyResolverFn;
+
+        let calc = BucketedDv01Calculator::default();
+        let disc = simple_usd_ois();
+        let base = disc.base_date();
+        let dc = DayCount::Act365F;
+
+        let flows = vec![
+            (base + time::Duration::days(365), Money::new(100.0, Currency::USD)),
+            (base + time::Duration::days(365 * 5), Money::new(200.0, Currency::USD)),
+        ];
+
+        struct DummyInstr {
+            attrs: crate::instruments::traits::Attributes,
+        }
+        impl crate::instruments::traits::Priceable for DummyInstr {
+            fn value(
+                &self,
+                _curves: &finstack_core::market_data::MarketContext,
+                _as_of: Date,
+            ) -> finstack_core::Result<Money> {
+                Ok(Money::new(0.0, Currency::USD))
+            }
+            fn price_with_metrics(
+                &self,
+                _curves: &finstack_core::market_data::MarketContext,
+                _as_of: Date,
+                _metrics: &[MetricId],
+            ) -> finstack_core::Result<crate::results::ValuationResult> {
+                Err(finstack_core::error::InputError::Invalid.into())
+            }
+        }
+        impl crate::instruments::traits::Attributable for DummyInstr {
+            fn attributes(&self) -> &crate::instruments::traits::Attributes { &self.attrs }
+            fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes { &mut self.attrs }
+        }
+        impl crate::instruments::traits::InstrumentLike for DummyInstr {
+            fn id(&self) -> &str { "DUMMY" }
+            fn instrument_type(&self) -> &'static str { "Dummy" }
+            fn as_any(&self) -> &dyn std::any::Any { self }
+        }
+
+        // Build curves and also keep a separate handle to a discount curve for later checks
+        let disc_for_ctx = simple_usd_ois();
+        let curves = Arc::new(
+            finstack_core::market_data::MarketContext::new().with_discount(disc_for_ctx),
+        );
+        let instrument: Arc<dyn crate::instruments::traits::InstrumentLike> = Arc::new(DummyInstr { attrs: crate::instruments::traits::Attributes::new() });
+        let mut ctx = crate::metrics::traits::MetricContext::new(
+            instrument,
+            curves,
+            base,
+            Money::new(0.0, Currency::USD),
+        );
+        ctx.cashflows = Some(flows.clone());
+        ctx.discount_curve_id = Some("USD-OIS");
+        ctx.day_count = Some(dc);
+
+        let resolver: Arc<BucketKeyResolverFn> = Arc::new(|base_id, label, _instr| {
+            MetricId::custom(format!("{}:{}", base_id.as_str(), label))
+        });
+        ctx.set_bucket_key_resolver(resolver);
+
+        let value_total = calc.calculate(&mut ctx).unwrap();
+
+        assert!(ctx
+            .computed
+            .contains_key(&MetricId::custom("bucketed_dv01:1y")));
+        assert!(ctx
+            .computed
+            .contains_key(&MetricId::custom("bucketed_dv01:5y")));
+
+        // And values match expected compute_bucketed components
+        let disc_for_check = simple_usd_ois();
+        let standalone = calc.compute_bucketed(&flows, &disc_for_check, dc, base);
+        let v1 = ctx
+            .computed
+            .get(&MetricId::custom("bucketed_dv01:1y"))
+            .copied()
+            .unwrap_or(0.0);
+        let v5 = ctx
+            .computed
+            .get(&MetricId::custom("bucketed_dv01:5y"))
+            .copied()
+            .unwrap_or(0.0);
+        assert!((v1 - standalone["bucketed_dv01_1y"]).abs() < 1e-10);
+        assert!((v5 - standalone["bucketed_dv01_5y"]).abs() < 1e-10);
+        let total = standalone["bucketed_dv01_total"];
+        assert!((value_total - total).abs() < 1e-10);
+    }
 }
