@@ -21,9 +21,9 @@ pub struct MonotoneConvex {
     knots: Box<[F]>,
     /// Original discount factors _P(tᵢ)_.  Same length as `knots`.
     dfs: Box<[F]>,
-    /// Per-segment cubic coefficients (a,b,c,d) in ln-DF space.  Will be
-    /// populated by T-2 once slope selection is available.  Currently filled
-    /// with zeros and **unused**.
+    /// Per-segment cubic coefficients (a,b,c,d) in ln-DF space.
+    /// Computed using the Hagan-West monotone-convex algorithm for cubic
+    /// interpolation with guaranteed positivity, monotonicity and convexity.
     coeffs: Box<[(F, F, F, F)]>,
 }
 
