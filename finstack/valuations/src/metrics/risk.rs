@@ -8,14 +8,14 @@ use super::ids::MetricId;
 use super::traits::{MetricCalculator, MetricContext};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::traits::{Discount, Forward, TermStructure};
-use finstack_core::types::CurveId;
 use finstack_core::prelude::*;
+use finstack_core::types::CurveId;
 use finstack_core::F;
 use hashbrown::HashMap;
 use std::sync::Arc;
 
 /// Wrapper for a discount curve aged by a time shift (typically 1 day).
-/// 
+///
 /// This shifts the effective time axis: df_aged(u) = df_original(u + dt) / df_original(dt)
 /// where dt is the time shift in year fractions.
 struct AgedDiscountCurve {
@@ -25,7 +25,11 @@ struct AgedDiscountCurve {
 }
 
 impl AgedDiscountCurve {
-    fn new(original: Arc<dyn Discount + Send + Sync>, shift_date: Date, day_count: DayCount) -> finstack_core::Result<Self> {
+    fn new(
+        original: Arc<dyn Discount + Send + Sync>,
+        shift_date: Date,
+        day_count: DayCount,
+    ) -> finstack_core::Result<Self> {
         let base_date = original.base_date();
         let dt = day_count.year_fraction(base_date, shift_date)?;
         Ok(Self {
@@ -82,8 +86,6 @@ impl Forward for AgedForwardCurve {
         self.original.rate(t + self.dt)
     }
 }
-
-
 
 /// Specification for DV01 tenor buckets.
 ///
@@ -286,9 +288,7 @@ impl MetricCalculator for BucketedDv01Calculator {
                 }
 
                 // Expect keys like "bucketed_dv01_5y" → extract label "5y"
-                let label = key
-                    .strip_prefix("bucketed_dv01_")
-                    .unwrap_or(key.as_str());
+                let label = key.strip_prefix("bucketed_dv01_").unwrap_or(key.as_str());
 
                 let metric_id = resolver(&MetricId::BucketedDv01, label, &*context.instrument);
                 if let Some(existing) = context.computed.get_mut(&metric_id) {
@@ -316,7 +316,7 @@ impl MetricCalculator for BucketedDv01Calculator {
 /// by 1 calendar day and reprices the instrument to measure time decay.
 ///
 /// The calculation is: Theta = PV(t+1day) - PV(t)
-/// 
+///
 /// This approach works generically for any instrument and captures the combined
 /// effect of time decay across discount rates, forward rates, and credit spreads.
 pub struct ThetaCalculator;
@@ -325,11 +325,11 @@ impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let base_price = context.base_value.amount();
         let as_of = context.as_of;
-        
+
         // Shift valuation date by 1 calendar day
         let shifted_date = as_of + time::Duration::days(1);
         let day_count = context.day_count.unwrap_or(DayCount::Act365F);
-        
+
         // Create aged market context - for simplicity, we'll try to age the specific
         // curves that the instrument uses. For a fully generic approach, we would
         // need to discover all curve IDs from the market context, but for now we'll
@@ -337,7 +337,7 @@ impl MetricCalculator for ThetaCalculator {
         // aging override this calculator.
         let original_curves = &context.curves;
         let mut aged_context = finstack_core::market_data::MarketContext::new();
-        
+
         // Try to age the discount curve used by the instrument
         if let Some(disc_id) = context.discount_curve_id {
             if let Ok(original_disc) = original_curves.discount(disc_id) {
@@ -345,18 +345,18 @@ impl MetricCalculator for ThetaCalculator {
                 aged_context = aged_context.with_discount(aged_disc);
             }
         }
-        
+
         // For options and swaps, try common curve IDs
         let common_disc_ids = ["USD-OIS", "EUR-OIS", "GBP-OIS", "JPY-OIS"];
         let common_fwd_ids = ["USD-LIBOR-3M", "USD-SOFR", "EUR-EURIBOR-3M", "GBP-SONIA"];
-        
+
         for &curve_id in &common_disc_ids {
             if let Ok(original_disc) = original_curves.discount(curve_id) {
                 let aged_disc = AgedDiscountCurve::new(original_disc, shifted_date, day_count)?;
                 aged_context = aged_context.with_discount(aged_disc);
             }
         }
-        
+
         for &curve_id in &common_fwd_ids {
             if let Ok(original_fwd) = original_curves.forecast(curve_id) {
                 let dt = day_count.year_fraction(as_of, shifted_date)?;
@@ -364,17 +364,20 @@ impl MetricCalculator for ThetaCalculator {
                 aged_context = aged_context.with_forecast(aged_fwd);
             }
         }
-        
+
         // Copy over vol surfaces and FX data (assumed constant over 1 day)
         aged_context.surfaces = original_curves.surfaces.clone();
         aged_context.prices = original_curves.prices.clone();
         aged_context.series = original_curves.series.clone();
         // FX matrix is assumed constant over 1 day, so keep same Arc reference
         aged_context.fx = original_curves.fx.clone();
-        
+
         // Reprice instrument with aged market context
-        let aged_price = context.instrument.value(&aged_context, shifted_date)?.amount();
-        
+        let aged_price = context
+            .instrument
+            .value(&aged_context, shifted_date)?
+            .amount();
+
         // Theta per calendar day
         Ok(aged_price - base_price)
     }
@@ -486,8 +489,14 @@ mod tests {
         let dc = DayCount::Act365F;
 
         let flows = vec![
-            (base + time::Duration::days(365), Money::new(100.0, Currency::USD)),
-            (base + time::Duration::days(365 * 5), Money::new(200.0, Currency::USD)),
+            (
+                base + time::Duration::days(365),
+                Money::new(100.0, Currency::USD),
+            ),
+            (
+                base + time::Duration::days(365 * 5),
+                Money::new(200.0, Currency::USD),
+            ),
         ];
 
         let out = calc.compute_bucketed(&flows, &disc, dc, base);
@@ -514,8 +523,14 @@ mod tests {
         let dc = DayCount::Act365F;
 
         let flows = vec![
-            (base + time::Duration::days(365), Money::new(100.0, Currency::USD)),
-            (base + time::Duration::days(365 * 5), Money::new(200.0, Currency::USD)),
+            (
+                base + time::Duration::days(365),
+                Money::new(100.0, Currency::USD),
+            ),
+            (
+                base + time::Duration::days(365 * 5),
+                Money::new(200.0, Currency::USD),
+            ),
         ];
 
         struct DummyInstr {
@@ -539,21 +554,33 @@ mod tests {
             }
         }
         impl crate::instruments::traits::Attributable for DummyInstr {
-            fn attributes(&self) -> &crate::instruments::traits::Attributes { &self.attrs }
-            fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes { &mut self.attrs }
+            fn attributes(&self) -> &crate::instruments::traits::Attributes {
+                &self.attrs
+            }
+            fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes {
+                &mut self.attrs
+            }
         }
         impl crate::instruments::traits::InstrumentLike for DummyInstr {
-            fn id(&self) -> &str { "DUMMY" }
-            fn instrument_type(&self) -> &'static str { "Dummy" }
-            fn as_any(&self) -> &dyn std::any::Any { self }
+            fn id(&self) -> &str {
+                "DUMMY"
+            }
+            fn instrument_type(&self) -> &'static str {
+                "Dummy"
+            }
+            fn as_any(&self) -> &dyn std::any::Any {
+                self
+            }
         }
 
         // Build curves and also keep a separate handle to a discount curve for later checks
         let disc_for_ctx = simple_usd_ois();
-        let curves = Arc::new(
-            finstack_core::market_data::MarketContext::new().with_discount(disc_for_ctx),
-        );
-        let instrument: Arc<dyn crate::instruments::traits::InstrumentLike> = Arc::new(DummyInstr { attrs: crate::instruments::traits::Attributes::new() });
+        let curves =
+            Arc::new(finstack_core::market_data::MarketContext::new().with_discount(disc_for_ctx));
+        let instrument: Arc<dyn crate::instruments::traits::InstrumentLike> =
+            Arc::new(DummyInstr {
+                attrs: crate::instruments::traits::Attributes::new(),
+            });
         let mut ctx = crate::metrics::traits::MetricContext::new(
             instrument,
             curves,

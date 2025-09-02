@@ -7,14 +7,14 @@
 //!
 //! ```
 //! use finstack_core::math::distributions::{binomial_probability, sample_beta};
-//! 
+//!
 //! // Calculate binomial probability P(X = 5) where X ~ Binomial(10, 0.5)
 //! let prob = binomial_probability(10, 5, 0.5);
 //! assert!((prob - 0.24609375).abs() < 1e-6);
 //! ```
 
-use crate::F;
 use super::random::RandomNumberGenerator;
+use crate::F;
 
 /// Calculate binomial probability: P(X = k) where X ~ Binomial(n, p)
 ///
@@ -100,24 +100,21 @@ pub fn log_factorial(n: usize) -> F {
 ///
 /// # Returns
 /// Random sample from Beta(alpha, beta) distribution
-pub fn sample_beta(rng: &mut dyn RandomNumberGenerator, alpha: F, beta: F) -> F
-{
+pub fn sample_beta(rng: &mut dyn RandomNumberGenerator, alpha: F, beta: F) -> F {
     // Use inverse transform for simple cases
     if alpha == 1.0 && beta == 1.0 {
         return rng.uniform();
     }
-    
+
     // Simplified beta sampling for common cases using transformation method
     let u1 = rng.uniform();
     let u2 = rng.uniform();
-    
+
     // Use transformation method for beta(alpha, beta)
     let x = u1.powf(1.0 / alpha);
     let y = u2.powf(1.0 / beta);
     x / (x + y)
 }
-
-
 
 #[cfg(test)]
 mod tests {
@@ -155,8 +152,13 @@ mod tests {
         // C(10, 5) = 252, ln(252) ≈ 5.53039
         let actual = log_binomial_coefficient(10, 5);
         let expected = 252.0_f64.ln(); // More precise expected value
-        assert!((actual - expected).abs() < 1e-4, "Expected {}, got {}", expected, actual);
-        
+        assert!(
+            (actual - expected).abs() < 1e-4,
+            "Expected {}, got {}",
+            expected,
+            actual
+        );
+
         // Test edge cases
         assert_eq!(log_binomial_coefficient(5, 0), 0.0);
         assert_eq!(log_binomial_coefficient(5, 5), 0.0);
@@ -166,15 +168,17 @@ mod tests {
     #[test]
     fn test_sample_beta() {
         use super::super::random::SimpleRng;
-        
+
         let mut rng = SimpleRng::new(42);
-        
+
         // Test uniform case (alpha=1, beta=1)
         let uniform_sample = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 1.0, 1.0);
         assert!((0.0..=1.0).contains(&uniform_sample));
-        
+
         // Test that samples are in [0, 1]
-        let samples: Vec<F> = (0..100).map(|_| sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 2.0, 2.0)).collect();
+        let samples: Vec<F> = (0..100)
+            .map(|_| sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 2.0, 2.0))
+            .collect();
         for sample in samples {
             assert!((0.0..=1.0).contains(&sample));
         }

@@ -8,7 +8,7 @@ use finstack_core::{dates::Date, Result, F};
 use std::sync::Arc;
 
 /// Wrapper for a discount curve with a parallel rate bump applied.
-/// 
+///
 /// This applies the formula: df_bumped(t) = df_original(t) * exp(-bump * t)
 /// where bump is in rate units (e.g., 0.0001 for 1bp).
 struct BumpedDiscountCurve {
@@ -41,8 +41,6 @@ impl Discount for BumpedDiscountCurve {
         original_df * (-self.bump_rate * t).exp()
     }
 }
-
-
 
 /// Delta calculator for swaptions
 pub struct DeltaCalculator;
@@ -127,8 +125,7 @@ impl MetricCalculator for GammaCalculator {
 
         let variance = sigma * sigma * t;
         let d1 = ((forward / option.strike_rate).ln() + 0.5 * variance) / variance.sqrt();
-        let gamma =
-            finstack_core::math::norm_pdf(d1) / (forward * sigma * t.sqrt());
+        let gamma = finstack_core::math::norm_pdf(d1) / (forward * sigma * t.sqrt());
 
         // Scale by notional and annuity for cash gamma
         Ok(gamma * option.notional.amount() * annuity)
@@ -206,8 +203,7 @@ impl MetricCalculator for ThetaCalculator {
         };
         let d2 = d1 - variance.sqrt();
         let sqrt_t = t.sqrt();
-        let term1 =
-            -forward * finstack_core::math::norm_pdf(d1) * sigma / (2.0 * sqrt_t);
+        let term1 = -forward * finstack_core::math::norm_pdf(d1) * sigma / (2.0 * sqrt_t);
         let theta = match option.option_type {
             super::OptionType::Call => {
                 // Payer
@@ -235,29 +231,30 @@ impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &Swaption = context.instrument_as()?;
         let disc = context.curves.discount(option.disc_id)?;
-        
+
         // Base price from context
         let base_price = context.base_value.amount();
-        
+
         // Get volatility from surface using original curves (vol held constant)
-        let time_to_expiry = option.year_fraction(disc.base_date(), option.expiry, option.day_count)?;
+        let time_to_expiry =
+            option.year_fraction(disc.base_date(), option.expiry, option.day_count)?;
         let vol = if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
             let vol_surface = context.curves.vol_surface(option.vol_id)?;
             vol_surface.value_clamped(time_to_expiry, option.strike_rate)
         };
-        
+
         // Create bumped discount curve (+1bp)
         let bumped_disc = BumpedDiscountCurve::new(disc, 1.0);
-        
+
         // Reprice with bumped curve
         let bumped_price = if option.sabr_params.is_some() {
             option.sabr_price(&bumped_disc)?.amount()
         } else {
             option.black_price(&bumped_disc, vol)?.amount()
         };
-        
+
         // Rho per 1% = (PV_bumped_1bp - PV_base) * 100
         // This gives sensitivity to a 100bp (1%) parallel shift
         let rho_1bp = bumped_price - base_price;

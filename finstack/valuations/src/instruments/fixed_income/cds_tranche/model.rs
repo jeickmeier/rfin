@@ -5,7 +5,7 @@
 //!
 //! ## Key Features
 //!
-//! * **Time-dependent Expected Loss**: Calculates expected loss at each payment date 
+//! * **Time-dependent Expected Loss**: Calculates expected loss at each payment date
 //!   rather than using linear approximation from maturity values.
 //! * **Accrual-on-Default (AoD)**: Premium leg includes proper AoD adjustment using
 //!   half of incremental loss within each period.
@@ -36,18 +36,16 @@
 //! * Uses constant recovery rate across all entities
 //! * Base correlation model can have small arbitrage inconsistencies at curve knots
 
-use finstack_core::math::{
-    norm_cdf as standard_normal_cdf, 
-    standard_normal_inv_cdf, 
-    GaussHermiteQuadrature,
-};
+use crate::cashflow::builder::schedule_utils::build_dates;
 use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
 use crate::market_data::{CreditIndexData, ValuationMarketContext};
-use crate::cashflow::builder::schedule_utils::build_dates;
 use finstack_core::dates::{Date, StubKind};
 use finstack_core::market_data::traits::Discount;
-use finstack_core::prelude::*;
 use finstack_core::math::binomial_probability;
+use finstack_core::math::{
+    norm_cdf as standard_normal_cdf, standard_normal_inv_cdf, GaussHermiteQuadrature,
+};
+use finstack_core::prelude::*;
 
 #[cfg(test)]
 use finstack_core::math::log_factorial;
@@ -75,12 +73,12 @@ pub struct GaussianCopulaParams {
 impl Default for GaussianCopulaParams {
     fn default() -> Self {
         Self {
-            quadrature_order: 7,        // Good balance of accuracy and performance
-            use_issuer_curves: true,    // Use heterogeneous modeling when available
-            min_correlation: 0.01,      // Numerical stability floor
-            max_correlation: 0.99,      // Numerical stability ceiling
-            cs01_hazard_bump: 1e-4,     // 1 basis point in hazard rate space
-            corr_bump_abs: 0.01,        // 1% absolute correlation bump
+            quadrature_order: 7,          // Good balance of accuracy and performance
+            use_issuer_curves: true,      // Use heterogeneous modeling when available
+            min_correlation: 0.01,        // Numerical stability floor
+            max_correlation: 0.99,        // Numerical stability ceiling
+            cs01_hazard_bump: 1e-4,       // 1 basis point in hazard rate space
+            corr_bump_abs: 0.01,          // 1% absolute correlation bump
             mid_period_protection: false, // End-of-period discounting by default
         }
     }
@@ -133,19 +131,11 @@ impl GaussianCopulaModel {
 
         // Calculate present values of premium and protection legs
         // These now calculate the EL curve internally with proper time dependency
-        let pv_premium = self.calculate_premium_leg_pv(
-            tranche,
-            index_data,
-            discount_curve.as_ref(),
-            as_of,
-        )?;
+        let pv_premium =
+            self.calculate_premium_leg_pv(tranche, index_data, discount_curve.as_ref(), as_of)?;
 
-        let pv_protection = self.calculate_protection_leg_pv(
-            tranche,
-            index_data,
-            discount_curve.as_ref(),
-            as_of,
-        )?;
+        let pv_protection =
+            self.calculate_protection_leg_pv(tranche, index_data, discount_curve.as_ref(), as_of)?;
 
         // Net present value depends on the side
         let net_pv = match tranche.side {
@@ -217,9 +207,9 @@ impl GaussianCopulaModel {
     ) -> Result<F> {
         let attach_pct = tranche.attach_pct;
         let detach_pct = tranche.detach_pct;
-        
+
         let _years = self.years_from_base(index_data, date);
-        
+
         // Get correlations for attachment and detachment points
         let corr_attach = index_data.base_correlation_curve.correlation(attach_pct);
         let corr_detach = index_data.base_correlation_curve.correlation(detach_pct);
@@ -236,8 +226,6 @@ impl GaussianCopulaModel {
 
         let el_to_detach =
             self.calculate_equity_tranche_loss(detach_pct, corr_detach, index_data, date)?;
-
-
 
         // The [A, D] tranche loss as a fraction of total portfolio
         let portfolio_loss_fraction = el_to_detach - el_to_attach;
@@ -268,12 +256,12 @@ impl GaussianCopulaModel {
         dates: &[Date],
     ) -> Result<Vec<(Date, F)>> {
         let mut el_curve = Vec::with_capacity(dates.len());
-        
+
         for &date in dates {
             let el_fraction = self.expected_tranche_loss_fraction_at(tranche, index_data, date)?;
             el_curve.push((date, el_fraction));
         }
-        
+
         Ok(el_curve)
     }
 
@@ -427,8 +415,9 @@ impl GaussianCopulaModel {
             } else {
                 payment_dates[i - 1]
             };
-            
-            let accrual_period = tranche.day_count
+
+            let accrual_period = tranche
+                .day_count
                 .year_fraction(period_start, payment_date)
                 .unwrap_or(0.0);
 
@@ -516,15 +505,18 @@ impl GaussianCopulaModel {
         &self,
         original_curve: &finstack_core::market_data::term_structures::BaseCorrelationCurve,
         bump_abs: F,
-    ) -> finstack_core::Result<finstack_core::market_data::term_structures::BaseCorrelationCurve> {
+    ) -> finstack_core::Result<finstack_core::market_data::term_structures::BaseCorrelationCurve>
+    {
         use finstack_core::market_data::term_structures::BaseCorrelationCurve;
-        
+
         // Extract original points and apply bump
-        let bumped_points: Vec<(F, F)> = original_curve.detachment_points()
+        let bumped_points: Vec<(F, F)> = original_curve
+            .detachment_points()
             .iter()
             .zip(original_curve.correlations().iter())
             .map(|(&detach, &corr)| {
-                let bumped_corr = (corr + bump_abs).clamp(self.params.min_correlation, self.params.max_correlation);
+                let bumped_corr = (corr + bump_abs)
+                    .clamp(self.params.min_correlation, self.params.max_correlation);
                 (detach, bumped_corr)
             })
             .collect();
@@ -544,8 +536,10 @@ impl GaussianCopulaModel {
         delta_lambda: F,
     ) -> Result<CreditIndexData> {
         // Create bumped hazard curve
-        let bumped_hazard_curve = original_index.index_credit_curve.with_hazard_shift(delta_lambda)?;
-        
+        let bumped_hazard_curve = original_index
+            .index_credit_curve
+            .with_hazard_shift(delta_lambda)?;
+
         // Create new credit index data with bumped hazard curve
         CreditIndexData::builder()
             .num_constituents(original_index.num_constituents)
@@ -561,7 +555,7 @@ impl GaussianCopulaModel {
     /// conventions and calendar support.
     fn generate_payment_schedule(&self, tranche: &CdsTranche, as_of: Date) -> Result<Vec<Date>> {
         let start_date = tranche.effective_date.unwrap_or(as_of);
-        
+
         let schedule = build_dates(
             start_date,
             tranche.maturity,
@@ -570,13 +564,14 @@ impl GaussianCopulaModel {
             tranche.business_day_convention,
             tranche.calendar_id,
         );
-        
+
         // Filter out dates before as_of (in case effective_date < as_of)
-        let payment_dates: Vec<Date> = schedule.dates
+        let payment_dates: Vec<Date> = schedule
+            .dates
             .into_iter()
             .filter(|&date| date > as_of)
             .collect();
-        
+
         Ok(payment_dates)
     }
 
@@ -637,13 +632,15 @@ impl GaussianCopulaModel {
         let delta_lambda = self.params.cs01_hazard_bump;
         let original_index = market_ctx.get_credit_index(tranche.credit_index_id)?;
         let bumped_index = self.bump_index_hazard(original_index, delta_lambda)?;
-        
+
         // Create new market context with bumped credit index
         let bumped_market_ctx = ValuationMarketContext::from_core(market_ctx.core.clone())
             .with_credit_index(tranche.credit_index_id, bumped_index);
 
         // Calculate bumped price
-        let bumped_pv = self.price_tranche(tranche, &bumped_market_ctx, as_of)?.amount();
+        let bumped_pv = self
+            .price_tranche(tranche, &bumped_market_ctx, as_of)?
+            .amount();
 
         // Return sensitivity per basis point
         Ok(bumped_pv - base_pv)
@@ -662,8 +659,9 @@ impl GaussianCopulaModel {
         // Create bumped market context with base correlation shifted by configured amount
         let bump_abs = self.params.corr_bump_abs;
         let original_index = market_ctx.get_credit_index(tranche.credit_index_id)?;
-        let bumped_corr_curve = self.bump_base_correlation(&original_index.base_correlation_curve, bump_abs)?;
-        
+        let bumped_corr_curve =
+            self.bump_base_correlation(&original_index.base_correlation_curve, bump_abs)?;
+
         // Create new credit index data with bumped correlation curve
         let bumped_index = CreditIndexData::builder()
             .num_constituents(original_index.num_constituents)
@@ -677,7 +675,9 @@ impl GaussianCopulaModel {
             .with_credit_index(tranche.credit_index_id, bumped_index);
 
         // Calculate bumped price
-        let bumped_pv = self.price_tranche(tranche, &bumped_market_ctx, as_of)?.amount();
+        let bumped_pv = self
+            .price_tranche(tranche, &bumped_market_ctx, as_of)?
+            .amount();
 
         // Return sensitivity per unit correlation change
         Ok((bumped_pv - base_pv) / bump_abs)
@@ -694,22 +694,22 @@ impl GaussianCopulaModel {
         _as_of: Date,
     ) -> Result<F> {
         let index_data = market_ctx.get_credit_index(tranche.credit_index_id)?;
-        
+
         // For homogeneous pool, one name default impact
         let individual_weight = 1.0 / (index_data.num_constituents as F); // Portfolio weight per name
         let loss_given_default = 1.0 - index_data.recovery_rate;
         let individual_loss = individual_weight * loss_given_default; // As fraction of portfolio
-        
+
         // Check if this loss hits the tranche layer
         let attach_frac = tranche.attach_pct / 100.0;
         let detach_frac = tranche.detach_pct / 100.0;
         let tranche_width = detach_frac - attach_frac;
-        
+
         if individual_loss <= attach_frac {
             // Loss doesn't reach the tranche
             return Ok(0.0);
         }
-        
+
         // Calculate how much of the individual loss hits the tranche
         let tranche_hit = if individual_loss >= detach_frac {
             // Loss fully exhausts the tranche
@@ -718,18 +718,14 @@ impl GaussianCopulaModel {
             // Loss partially hits the tranche
             individual_loss - attach_frac
         };
-        
+
         // Convert to tranche notional impact
         let impact_on_tranche_fraction = tranche_hit / tranche_width;
         let impact_amount = impact_on_tranche_fraction * tranche.notional.amount();
-        
+
         Ok(impact_amount)
     }
 }
-
-
-
-
 
 #[cfg(test)]
 mod tests {
@@ -907,15 +903,15 @@ mod tests {
         let model = GaussianCopulaModel::new();
         let tranche = sample_tranche();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         let schedule = model.generate_payment_schedule(&tranche, as_of);
         assert!(schedule.is_ok());
-        
+
         let dates = schedule.unwrap();
         assert!(!dates.is_empty());
         assert!(dates[0] > as_of); // First payment should be after as_of
         assert!(*dates.last().unwrap() <= tranche.maturity); // Last payment should not exceed maturity
-        
+
         // Check dates are in ascending order
         for window in dates.windows(2) {
             assert!(window[0] < window[1]);
@@ -928,28 +924,38 @@ mod tests {
         let tranche = sample_tranche();
         let market_ctx = sample_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         let schedule = model.generate_payment_schedule(&tranche, as_of).unwrap();
-        let index_data = market_ctx.get_credit_index(tranche.credit_index_id).unwrap();
+        let index_data = market_ctx
+            .get_credit_index(tranche.credit_index_id)
+            .unwrap();
         let el_curve = model.build_el_curve(&tranche, index_data, &schedule);
-        
+
         assert!(el_curve.is_ok());
         let curve = el_curve.unwrap();
-        
+
         // EL should be non-decreasing and bounded [0,1]
         // Allow for small numerical deviations due to base correlation model limitations
         // The base correlation model can have inconsistencies at knot points
         const NUMERICAL_TOLERANCE: F = 0.01; // Allow up to 1% EL fraction decrease
-        
+
         for (i, &(_, el_fraction)) in curve.iter().enumerate() {
-            assert!((0.0..=1.0).contains(&el_fraction), 
-                "EL fraction {} at index {} out of bounds", el_fraction, i);
-            
+            assert!(
+                (0.0..=1.0).contains(&el_fraction),
+                "EL fraction {} at index {} out of bounds",
+                el_fraction,
+                i
+            );
+
             if i > 0 {
-                let decrease = curve[i-1].1 - el_fraction;
-                assert!(decrease <= NUMERICAL_TOLERANCE, 
-                    "EL fraction decreased significantly from {} to {} (decrease: {})", 
-                    curve[i-1].1, el_fraction, decrease);
+                let decrease = curve[i - 1].1 - el_fraction;
+                assert!(
+                    decrease <= NUMERICAL_TOLERANCE,
+                    "EL fraction decreased significantly from {} to {} (decrease: {})",
+                    curve[i - 1].1,
+                    el_fraction,
+                    decrease
+                );
             }
         }
     }
@@ -961,10 +967,10 @@ mod tests {
         tranche.side = TrancheSide::SellProtection; // Sell protection for positive CS01
         let market_ctx = sample_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         let cs01 = model.calculate_cs01(&tranche, &market_ctx, as_of);
         assert!(cs01.is_ok());
-        
+
         let sensitivity = cs01.unwrap();
         assert!(sensitivity.is_finite());
         // For protection seller, CS01 should typically be positive
@@ -977,10 +983,10 @@ mod tests {
         let tranche = sample_tranche();
         let market_ctx = sample_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         let corr_delta = model.calculate_correlation_delta(&tranche, &market_ctx, as_of);
         assert!(corr_delta.is_ok());
-        
+
         let sensitivity = corr_delta.unwrap();
         assert!(sensitivity.is_finite());
         // Correlation sensitivity should be finite and reasonable in magnitude
@@ -992,10 +998,10 @@ mod tests {
         let tranche = sample_tranche();
         let market_ctx = sample_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         let jtd = model.calculate_jump_to_default(&tranche, &market_ctx, as_of);
         assert!(jtd.is_ok());
-        
+
         let impact = jtd.unwrap();
         assert!(impact >= 0.0); // Impact should be non-negative
         assert!(impact.is_finite());
@@ -1007,19 +1013,23 @@ mod tests {
         let tranche = sample_tranche();
         let market_ctx = sample_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let index_data = market_ctx.get_credit_index(tranche.credit_index_id).unwrap();
+        let index_data = market_ctx
+            .get_credit_index(tranche.credit_index_id)
+            .unwrap();
         let discount_curve = market_ctx.discount(tranche.disc_id).unwrap();
-        
+
         // Calculate individual leg PVs
-        let pv_premium = model.calculate_premium_leg_pv(&tranche, index_data, discount_curve.as_ref(), as_of);
-        let pv_protection = model.calculate_protection_leg_pv(&tranche, index_data, discount_curve.as_ref(), as_of);
-        
+        let pv_premium =
+            model.calculate_premium_leg_pv(&tranche, index_data, discount_curve.as_ref(), as_of);
+        let pv_protection =
+            model.calculate_protection_leg_pv(&tranche, index_data, discount_curve.as_ref(), as_of);
+
         assert!(pv_premium.is_ok());
         assert!(pv_protection.is_ok());
-        
+
         let premium = pv_premium.unwrap();
         let protection = pv_protection.unwrap();
-        
+
         assert!(premium.is_finite());
         assert!(protection.is_finite());
         assert!(premium >= 0.0); // Premium leg should be positive for ongoing coupon

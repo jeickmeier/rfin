@@ -114,13 +114,15 @@ impl BinomialTree {
                 }
 
                 // Leisen–Reimer: use Peizer–Pratt inversion to determine probabilities
-                let d1 = ((spot / strike).ln() + (r - q + 0.5 * sigma * sigma) * t)
-                    / (sigma * t.sqrt());
+                let d1 =
+                    ((spot / strike).ln() + (r - q + 0.5 * sigma * sigma) * t) / (sigma * t.sqrt());
                 let d2 = d1 - sigma * t.sqrt();
 
                 // Probabilities via PP inversion
                 let eps = 1e-12;
-                let p = self.peizer_pratt_inversion(d2, self.steps).clamp(eps, 1.0 - eps);
+                let p = self
+                    .peizer_pratt_inversion(d2, self.steps)
+                    .clamp(eps, 1.0 - eps);
 
                 // Mean/variance-matched u,d with PP probability (stable LR variant)
                 let m1 = ((r - q) * dt).exp();
@@ -436,7 +438,11 @@ fn map_exercise_dates_to_steps(exercise_dates: &[F], total_time: F, steps: usize
         return out;
     }
     for &ex_time in exercise_dates {
-        let ratio = if total_time != 0.0 { ex_time / total_time } else { 0.0 };
+        let ratio = if total_time != 0.0 {
+            ex_time / total_time
+        } else {
+            0.0
+        };
         let step = (ratio * steps as F).round() as usize;
         if step <= steps {
             out.push(step);
@@ -677,7 +683,12 @@ mod tests {
                 .expect("LR params should compute");
 
             assert!((0.0..=1.0).contains(&p), "p must be in [0,1], got {}", p);
-            assert!(u > 1.0 && d < 1.0 && u > d, "u>1>d must hold: u={}, d={}", u, d);
+            assert!(
+                u > 1.0 && d < 1.0 && u > d,
+                "u>1>d must hold: u={}, d={}",
+                u,
+                d
+            );
         }
     }
 

@@ -8,7 +8,7 @@
 //!
 //! ```
 //! use finstack_core::math::integration::GaussHermiteQuadrature;
-//! 
+//!
 //! // Integrate x² over standard normal (should give 1.0)
 //! let quad = GaussHermiteQuadrature::order_7();
 //! let integral = quad.integrate(|x| x * x);
@@ -166,23 +166,38 @@ mod tests {
     fn test_different_quadrature_orders() {
         // Test that higher order gives better accuracy for polynomial
         let f = |x: F| x * x * x * x; // x^4 function
-        
+
         let quad5 = GaussHermiteQuadrature::order_5();
         let quad7 = GaussHermiteQuadrature::order_7();
         let quad10 = GaussHermiteQuadrature::order_10();
-        
+
         let integral5 = quad5.integrate(f);
         let integral7 = quad7.integrate(f);
         let integral10 = quad10.integrate(f);
-        
+
         // Higher order should be more accurate for polynomials
         // For x^4 over standard normal, the integral should be 3
         let expected = 3.0;
-        
+
         // Just check that all integrals are reasonable (close to expected)
         // The convergence ordering may not always hold for this specific test
-        assert!((integral5 - expected).abs() < 1.0, "5-point: {} vs expected {}", integral5, expected);
-        assert!((integral7 - expected).abs() < 0.5, "7-point: {} vs expected {}", integral7, expected);
-        assert!((integral10 - expected).abs() < 0.2, "10-point: {} vs expected {}", integral10, expected);
+        assert!(
+            (integral5 - expected).abs() < 1.0,
+            "5-point: {} vs expected {}",
+            integral5,
+            expected
+        );
+        assert!(
+            (integral7 - expected).abs() < 0.5,
+            "7-point: {} vs expected {}",
+            integral7,
+            expected
+        );
+        assert!(
+            (integral10 - expected).abs() < 0.2,
+            "10-point: {} vs expected {}",
+            integral10,
+            expected
+        );
     }
 }

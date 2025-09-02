@@ -255,14 +255,14 @@ impl ShortRateTree {
             let objective = |alpha: F| -> F {
                 // Calculate model ZCB price with this alpha
                 let mut model_price = 0.0;
-                
+
                 for (j, &state_price) in current_state_prices.iter().enumerate().take(num_nodes) {
                     let rate = alpha * u.powf(num_nodes as F - 1.0 - 2.0 * j as F);
                     let rate_clamped = rate.max(1e-6); // Ensure positive
                     let discount_factor = (-rate_clamped * dt).exp();
                     model_price += state_price * discount_factor;
                 }
-                
+
                 model_price - target_df
             };
 
@@ -271,7 +271,8 @@ impl ShortRateTree {
                 r0
             } else {
                 // Use geometric mean of previous step rates as initial guess
-                let mean_rate = current_rates.iter().map(|&r| r.ln()).sum::<F>() / current_rates.len() as F;
+                let mean_rate =
+                    current_rates.iter().map(|&r| r.ln()).sum::<F>() / current_rates.len() as F;
                 mean_rate.exp()
             };
 

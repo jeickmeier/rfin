@@ -243,11 +243,7 @@ impl CreditDefaultSwap {
     }
 
     /// Calculate par spread (spread that makes PV = 0) via enhanced pricer
-    pub fn par_spread(
-        &self,
-        disc: &dyn Discount,
-        surv: &dyn Survival,
-    ) -> finstack_core::Result<F> {
+    pub fn par_spread(&self, disc: &dyn Discount, surv: &dyn Survival) -> finstack_core::Result<F> {
         let pricer = cds_pricer::CDSPricer::new();
         let as_of = disc.base_date();
         pricer.par_spread(self, disc, surv, as_of)
@@ -265,11 +261,7 @@ impl CreditDefaultSwap {
     }
 
     /// Calculate risky PV01 (change in PV for 1bp spread change)
-    pub fn risky_pv01(
-        &self,
-        disc: &dyn Discount,
-        surv: &dyn Survival,
-    ) -> finstack_core::Result<F> {
+    pub fn risky_pv01(&self, disc: &dyn Discount, surv: &dyn Survival) -> finstack_core::Result<F> {
         let pricer = cds_pricer::CDSPricer::new();
         let as_of = disc.base_date();
         pricer.risky_pv01(self, disc, surv, as_of)

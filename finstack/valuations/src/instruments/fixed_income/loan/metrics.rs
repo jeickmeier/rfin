@@ -224,6 +224,7 @@ impl MetricCalculator for ExpectedExposureMCCalculator {
             rate_simulation: super::simulation::RateSimulationConfig::Deterministic,
             credit_config: None,
             store_path_pvs: false, // Default to not storing for performance
+            variance_reduction: super::simulation::VarianceReduction::None,
         };
 
         let simulator = LoanSimulator::with_config(config);

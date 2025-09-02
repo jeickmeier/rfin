@@ -261,7 +261,11 @@ impl VolSurfaceCalibrator {
         underlying: &str,
     ) -> Result<Box<dyn Fn(F) -> F + '_>> {
         // Detect asset class from underlying identifier
-        if underlying.contains("-") && (underlying.contains("SOFR") || underlying.contains("EURIBOR") || underlying.contains("SONIA")) {
+        if underlying.contains("-")
+            && (underlying.contains("SOFR")
+                || underlying.contains("EURIBOR")
+                || underlying.contains("SONIA"))
+        {
             // Interest rate underlying (e.g., "USD-SOFR3M", "EUR-EURIBOR3M")
             self.build_rate_forward(context, underlying)
         } else if underlying.len() == 6 && underlying.chars().all(|c| c.is_ascii_alphabetic()) {
@@ -291,7 +295,9 @@ impl VolSurfaceCalibrator {
         let dividend_yield = context
             .market_scalar(&div_yield_key)
             .map(|scalar| match scalar {
-                finstack_core::market_data::primitives::MarketScalar::Unitless(yield_val) => *yield_val,
+                finstack_core::market_data::primitives::MarketScalar::Unitless(yield_val) => {
+                    *yield_val
+                }
                 _ => 0.0,
             })
             .unwrap_or(0.0);
@@ -314,9 +320,11 @@ impl VolSurfaceCalibrator {
     ) -> Result<Box<dyn Fn(F) -> F + '_>> {
         // Parse FX pair (assume 6-char format like "EURUSD")
         if underlying.len() != 6 {
-            return Err(finstack_core::Error::Input(finstack_core::error::InputError::Invalid));
+            return Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::Invalid,
+            ));
         }
-        
+
         let foreign_ccy = &underlying[0..3];
         let domestic_ccy = &underlying[3..6];
 
@@ -349,9 +357,7 @@ impl VolSurfaceCalibrator {
         // Get forward curve for this index
         let forward_curve = context.forecast(underlying)?;
 
-        Ok(Box::new(move |t: F| -> F {
-            forward_curve.rate(t)
-        }))
+        Ok(Box::new(move |t: F| -> F { forward_curve.rate(t) }))
     }
 
     /// Get base currency code for discount curve lookup
@@ -376,7 +382,9 @@ impl Calibrator<InstrumentQuote, CalibrationConstraint, VolSurface> for VolSurfa
                 InstrumentQuote::OptionVol { underlying, .. } => Some(underlying.clone()),
                 _ => None,
             })
-            .ok_or(finstack_core::Error::Input(finstack_core::error::InputError::Invalid))?;
+            .ok_or(finstack_core::Error::Input(
+                finstack_core::error::InputError::Invalid,
+            ))?;
 
         // Build asset-specific forward function from market context
         let forward_fn = self.build_forward_function(base_context, &underlying)?;
@@ -454,7 +462,7 @@ mod tests {
         );
 
         let quotes = create_test_vol_quotes();
-        
+
         // Create market context with required data for SPY equity forward
         let context = MarketContext::new()
             .with_price("SPY", finstack_core::market_data::primitives::MarketScalar::Unitless(100.0))

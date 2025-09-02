@@ -456,12 +456,41 @@ struct AllocationParams<'e> {
 /// Equity waterfall calculation engine.
 pub struct EquityWaterfallEngine<'a> {
     spec: &'a WaterfallSpec,
+    periods: Option<Vec<finstack_core::dates::Period>>,
 }
 
 impl<'a> EquityWaterfallEngine<'a> {
     /// Create a new waterfall engine.
     pub fn new(spec: &'a WaterfallSpec) -> Self {
-        Self { spec }
+        Self { spec, periods: None }
+    }
+
+    /// Add period support for tagging allocation rows with period keys.
+    pub fn with_periods(mut self, periods: Vec<finstack_core::dates::Period>) -> Self {
+        self.periods = Some(periods);
+        self
+    }
+
+    /// Add period support using a range expression like "2024Q4..2025Q2".
+    pub fn with_period_range(
+        mut self,
+        range: &str,
+        actuals_until: Option<&str>,
+    ) -> finstack_core::Result<Self> {
+        let plan = finstack_core::dates::build_periods(range, actuals_until)?;
+        self.periods = Some(plan.periods);
+        Ok(self)
+    }
+
+    /// Map a date to its period key if periods are configured.
+    fn period_key_for(&self, date: Date) -> Option<String> {
+        let periods = self.periods.as_ref()?;
+        for period in periods {
+            if date >= period.start && date < period.end {
+                return Some(period.id.to_string());
+            }
+        }
+        None
     }
 
     /// Run the waterfall allocation on the given events.
@@ -677,14 +706,18 @@ impl<'a> EquityWaterfallEngine<'a> {
                     let total_contributions_to_date: F = params
                         .all_events
                         .iter()
-                        .filter(|e| e.kind == FundEventKind::Contribution && e.date <= params.allocation_date)
+                        .filter(|e| {
+                            e.kind == FundEventKind::Contribution
+                                && e.date <= params.allocation_date
+                        })
                         .map(|e| e.amount.amount())
                         .sum();
 
                     // Profit to date before this catch-up tranche (gross basis)
-                    let mut profit_excl =
-                        (params.lp_distributed_cum_before + lp_allocated_in_call_so_far + gp_carry_cum)
-                            - total_contributions_to_date;
+                    let mut profit_excl = (params.lp_distributed_cum_before
+                        + lp_allocated_in_call_so_far
+                        + gp_carry_cum)
+                        - total_contributions_to_date;
                     if !profit_excl.is_finite() || profit_excl.is_sign_negative() {
                         profit_excl = 0.0;
                     }
@@ -704,12 +737,7 @@ impl<'a> EquityWaterfallEngine<'a> {
                     let to_gp_paid = to_gp_gross * (1.0 - holdback_pct);
                     gp_carry_cum += to_gp_gross;
                     remaining_amount -= to_gp_gross;
-                    (
-                        0.0,
-                        to_gp_paid,
-                        "Catch-Up".to_string(),
-                        gp_carry_cum,
-                    )
+                    (0.0, to_gp_paid, "Catch-Up".to_string(), gp_carry_cum)
                 }
 
                 Tranche::PromoteTier {
@@ -738,11 +766,12 @@ impl<'a> EquityWaterfallEngine<'a> {
             };
 
             // Calculate current LP IRR if we have enough data
-            let lp_irr_to_date = self.calculate_lp_irr_to_date(params.all_events, params.allocation_date);
+            let lp_irr_to_date =
+                self.calculate_lp_irr_to_date(params.all_events, params.allocation_date);
 
             allocations.push(AllocationRow {
                 date: params.allocation_date,
-                period_key: None, // TODO: Add period support if needed
+                period_key: self.period_key_for(params.allocation_date),
                 deal_id: None,    // Set by caller for American style
                 tranche: tranche_name,
                 to_lp: Money::new(to_lp, params.currency),
@@ -756,7 +785,6 @@ impl<'a> EquityWaterfallEngine<'a> {
 
         Ok(allocations)
     }
-
 
     /// Calculate the amount needed for preferred return using robust root finding.
     fn calculate_preferred_amount(
@@ -900,11 +928,7 @@ impl<'a> EquityWaterfallEngine<'a> {
         };
 
         let currency = last.to_gp.currency();
-        let settlement_date = events
-            .iter()
-            .map(|e| e.date)
-            .max()
-            .unwrap_or(last.date);
+        let settlement_date = events.iter().map(|e| e.date).max().unwrap_or(last.date);
 
         // Compute total contributions and distributions from events (fund-level)
         let total_contributions: F = events
@@ -949,7 +973,7 @@ impl<'a> EquityWaterfallEngine<'a> {
 
         let settlement_row = AllocationRow {
             date: settlement_date,
-            period_key: None,
+            period_key: self.period_key_for(settlement_date),
             deal_id: None,
             tranche: "Clawback Settlement (fund_end)".to_string(),
             to_lp,
@@ -1117,14 +1141,8 @@ mod tests {
             .unwrap();
 
         let events = vec![
-            FundEvent::contribution(
-                test_date(2020, 1, 1),
-                Money::new(100.0, test_currency()),
-            ),
-            FundEvent::distribution(
-                test_date(2024, 1, 1),
-                Money::new(280.0, test_currency()),
-            ),
+            FundEvent::contribution(test_date(2020, 1, 1), Money::new(100.0, test_currency())),
+            FundEvent::distribution(test_date(2024, 1, 1), Money::new(280.0, test_currency())),
         ];
 
         let engine = EquityWaterfallEngine::new(&spec);
@@ -1136,7 +1154,11 @@ mod tests {
 
         // Ensure profit positive and GP share ~20%
         assert!(profit > 0.0);
-        let gp_share = if profit.abs() > 1e-9 { total_gp / profit } else { 0.0 };
+        let gp_share = if profit.abs() > 1e-9 {
+            total_gp / profit
+        } else {
+            0.0
+        };
         assert!((gp_share - 0.20).abs() < 1e-6, "gp_share={}", gp_share);
 
         // Catch-up row should exist with positive GP allocation (likely ~9)
@@ -1165,18 +1187,9 @@ mod tests {
             .unwrap();
 
         let events = vec![
-            FundEvent::contribution(
-                test_date(2020, 1, 1),
-                Money::new(100.0, test_currency()),
-            ),
-            FundEvent::distribution(
-                test_date(2022, 1, 1),
-                Money::new(150.0, test_currency()),
-            ),
-            FundEvent::contribution(
-                test_date(2023, 1, 1),
-                Money::new(90.0, test_currency()),
-            ),
+            FundEvent::contribution(test_date(2020, 1, 1), Money::new(100.0, test_currency())),
+            FundEvent::distribution(test_date(2022, 1, 1), Money::new(150.0, test_currency())),
+            FundEvent::contribution(test_date(2023, 1, 1), Money::new(90.0, test_currency())),
         ];
 
         let engine = EquityWaterfallEngine::new(&spec);
@@ -1188,5 +1201,144 @@ mod tests {
         assert!(last.to_gp.amount() < 0.0);
         // In this scenario, first promote paid GP 10; final profit is 0 so GP should return ~10
         assert!((last.to_gp.amount() + 10.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn period_support_quarterly() {
+        let spec = WaterfallSpec::builder()
+            .return_of_capital()
+            .promote_tier(0.0, 0.8, 0.2)
+            .build()
+            .unwrap();
+
+        let events = vec![
+            FundEvent::contribution(
+                test_date(2024, 11, 1), // 2024Q4
+                Money::new(1000000.0, test_currency()),
+            ),
+            FundEvent::distribution(
+                test_date(2025, 2, 15), // 2025Q1
+                Money::new(1200000.0, test_currency()),
+            ),
+        ];
+
+        let engine = EquityWaterfallEngine::new(&spec)
+            .with_period_range("2024Q4..2025Q2", None)
+            .unwrap();
+
+        let ledger = engine.run(&events).unwrap();
+
+        // All distribution allocation rows should have 2025Q1 period key
+        let distribution_rows: Vec<_> = ledger
+            .rows
+            .iter()
+            .filter(|r| r.date == test_date(2025, 2, 15))
+            .collect();
+
+        assert!(!distribution_rows.is_empty());
+        for row in distribution_rows {
+            assert_eq!(row.period_key, Some("2025Q1".to_string()));
+        }
+    }
+
+    #[test]
+    fn period_support_outside_range() {
+        let spec = WaterfallSpec::builder()
+            .return_of_capital()
+            .build()
+            .unwrap();
+
+        let events = vec![
+            FundEvent::contribution(
+                test_date(2024, 1, 1), // Outside period range
+                Money::new(1000000.0, test_currency()),
+            ),
+            FundEvent::distribution(
+                test_date(2026, 1, 1), // Outside period range
+                Money::new(1000000.0, test_currency()),
+            ),
+        ];
+
+        let engine = EquityWaterfallEngine::new(&spec)
+            .with_period_range("2025Q1..Q4", None)
+            .unwrap();
+
+        let ledger = engine.run(&events).unwrap();
+
+        // All rows should have None period_key since dates are outside range
+        for row in &ledger.rows {
+            assert_eq!(row.period_key, None);
+        }
+    }
+
+    #[test]
+    fn period_support_clawback_settlement() {
+        let claw = ClawbackSpec {
+            enable: true,
+            holdback_pct: Some(0.1),
+            settle_on: ClawbackSettle::FundEnd,
+        };
+
+        let spec = WaterfallSpec::builder()
+            .return_of_capital()
+            .promote_tier(0.0, 0.8, 0.2)
+            .clawback(claw)
+            .build()
+            .unwrap();
+
+        let events = vec![
+            FundEvent::contribution(
+                test_date(2025, 1, 1),
+                Money::new(100.0, test_currency()),
+            ),
+            FundEvent::distribution(
+                test_date(2025, 6, 15), // 2025Q2
+                Money::new(150.0, test_currency()),
+            ),
+        ];
+
+        let engine = EquityWaterfallEngine::new(&spec)
+            .with_period_range("2025Q1..Q4", None)
+            .unwrap();
+
+        let ledger = engine.run(&events).unwrap();
+
+        // Find clawback settlement row
+        let clawback_row = ledger
+            .rows
+            .iter()
+            .find(|r| r.tranche.contains("Clawback Settlement"))
+            .expect("Should have clawback settlement");
+
+        // Settlement date is the last event date (2025-06-15), which is in Q2
+        assert_eq!(clawback_row.period_key, Some("2025Q2".to_string()));
+    }
+
+    #[test]
+    fn period_support_no_periods_configured() {
+        let spec = WaterfallSpec::builder()
+            .return_of_capital()
+            .build()
+            .unwrap();
+
+        let events = vec![
+            FundEvent::contribution(
+                test_date(2025, 1, 1),
+                Money::new(1000000.0, test_currency()),
+            ),
+            FundEvent::distribution(
+                test_date(2025, 6, 15),
+                Money::new(1000000.0, test_currency()),
+            ),
+        ];
+
+        // Engine without periods
+        let engine = EquityWaterfallEngine::new(&spec);
+        let ledger = engine.run(&events).unwrap();
+
+        // All rows should have None period_key (legacy behavior preserved)
+        for row in &ledger.rows {
+            assert_eq!(row.period_key, None);
+        }
     }
 }

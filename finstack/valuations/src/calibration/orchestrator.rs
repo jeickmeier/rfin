@@ -5,7 +5,7 @@
 
 use crate::calibration::base_correlation::BaseCorrelationCalibrator;
 use crate::calibration::bootstrap::{
-    HazardCurveCalibrator, DiscountCurveCalibrator, InflationCurveCalibrator,
+    DiscountCurveCalibrator, HazardCurveCalibrator, InflationCurveCalibrator,
 };
 use crate::calibration::primitives::{HashableFloat, InstrumentQuote};
 use crate::calibration::surface::VolSurfaceCalibrator;
@@ -158,12 +158,9 @@ impl CalibrationOrchestrator {
             return Ok(None);
         }
 
-        let calibrator = DiscountCurveCalibrator::new(
-            "USD-OIS",
-            self.base_date,
-            self.base_currency,
-        )
-        .with_config(self.config.clone());
+        let calibrator =
+            DiscountCurveCalibrator::new("USD-OIS", self.base_date, self.base_currency)
+                .with_config(self.config.clone());
 
         let base_context = MarketContext::new();
         let (curve, report) = calibrator.calibrate(&relevant_quotes, &[], &base_context)?;
@@ -411,7 +408,8 @@ impl CalibrationOrchestrator {
                 underlying_quotes.iter().map(|&q| q.clone()).collect();
 
             // Build asset-specific forward function from market context
-            let forward_fn = match self.build_forward_function_for_underlying(_context, &underlying) {
+            let forward_fn = match self.build_forward_function_for_underlying(_context, &underlying)
+            {
                 Ok(fwd_fn) => fwd_fn,
                 Err(_) => {
                     // Skip this underlying if we can't build forward function
@@ -539,7 +537,11 @@ impl CalibrationOrchestrator {
     /// 2. InflationCurve with `index` key -> cpi(0.0)
     /// 3. MarketScalar with `"{index}-BASE_CPI"` key
     /// 4. Error if none available
-    fn get_base_cpi_from_context(&self, context: &MarketContext, index: &str) -> Result<finstack_core::F> {
+    fn get_base_cpi_from_context(
+        &self,
+        context: &MarketContext,
+        index: &str,
+    ) -> Result<finstack_core::F> {
         // Try 1: InflationIndex lookup
         if let Some(inflation_index) = context.inflation_index(index) {
             match inflation_index.value_on(self.base_date) {
@@ -550,7 +552,7 @@ impl CalibrationOrchestrator {
             }
         }
 
-        // Try 2: InflationCurve lookup  
+        // Try 2: InflationCurve lookup
         if let Ok(inflation_curve) = context.inflation(index) {
             return Ok(inflation_curve.cpi(0.0));
         }
@@ -560,7 +562,9 @@ impl CalibrationOrchestrator {
         if let Ok(market_scalar) = context.market_scalar(&base_cpi_key) {
             return match market_scalar {
                 finstack_core::market_data::primitives::MarketScalar::Unitless(value) => Ok(*value),
-                finstack_core::market_data::primitives::MarketScalar::Price(money) => Ok(money.amount()),
+                finstack_core::market_data::primitives::MarketScalar::Price(money) => {
+                    Ok(money.amount())
+                }
             };
         }
 
@@ -582,7 +586,11 @@ impl CalibrationOrchestrator {
         underlying: &str,
     ) -> Result<Box<dyn Fn(finstack_core::F) -> finstack_core::F + '_>> {
         // Detect asset class from underlying identifier
-        if underlying.contains("-") && (underlying.contains("SOFR") || underlying.contains("EURIBOR") || underlying.contains("SONIA")) {
+        if underlying.contains("-")
+            && (underlying.contains("SOFR")
+                || underlying.contains("EURIBOR")
+                || underlying.contains("SONIA"))
+        {
             // Interest rate underlying (e.g., "USD-SOFR3M", "EUR-EURIBOR3M")
             self.build_rate_forward_for_orchestrator(context, underlying)
         } else if underlying.len() == 6 && underlying.chars().all(|c| c.is_ascii_alphabetic()) {
@@ -612,7 +620,9 @@ impl CalibrationOrchestrator {
         let dividend_yield = context
             .market_scalar(&div_yield_key)
             .map(|scalar| match scalar {
-                finstack_core::market_data::primitives::MarketScalar::Unitless(yield_val) => *yield_val,
+                finstack_core::market_data::primitives::MarketScalar::Unitless(yield_val) => {
+                    *yield_val
+                }
                 _ => 0.0,
             })
             .unwrap_or(0.0);
@@ -635,9 +645,11 @@ impl CalibrationOrchestrator {
     ) -> Result<Box<dyn Fn(finstack_core::F) -> finstack_core::F + '_>> {
         // Parse FX pair (assume 6-char format like "EURUSD")
         if underlying.len() != 6 {
-            return Err(finstack_core::Error::Input(finstack_core::error::InputError::Invalid));
+            return Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::Invalid,
+            ));
         }
-        
+
         let foreign_ccy = &underlying[0..3];
         let domestic_ccy = &underlying[3..6];
 

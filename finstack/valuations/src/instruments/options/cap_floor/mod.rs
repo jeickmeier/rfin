@@ -9,8 +9,8 @@ use finstack_core::F;
 
 use finstack_core::dates::{Date, DayCount, Frequency};
 
-use finstack_core::math::{norm_cdf, norm_pdf};
 use super::{ExerciseStyle, SettlementType};
+use finstack_core::math::{norm_cdf, norm_pdf};
 
 /// Type of interest rate option
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -237,14 +237,12 @@ impl InterestRateOption {
             RateOptionType::Caplet | RateOptionType::Cap => {
                 df * tau
                     * self.notional.amount()
-                    * (forward_rate * norm_cdf(d1)
-                        - self.strike_rate * norm_cdf(d2))
+                    * (forward_rate * norm_cdf(d1) - self.strike_rate * norm_cdf(d2))
             }
             RateOptionType::Floorlet | RateOptionType::Floor => {
                 df * tau
                     * self.notional.amount()
-                    * (self.strike_rate * norm_cdf(-d2)
-                        - forward_rate * norm_cdf(-d1))
+                    * (self.strike_rate * norm_cdf(-d2) - forward_rate * norm_cdf(-d1))
             }
             _ => 0.0,
         };

@@ -18,7 +18,6 @@ use std::collections::HashMap;
 
 /// Base correlation curve calibrator.
 #[derive(Clone, Debug)]
-#[allow(dead_code)] // Allow dead code for helper methods
 pub struct BaseCorrelationCalibrator {
     /// Index identifier (e.g., "CDX.NA.IG.42")
     pub index_id: String,
@@ -65,8 +64,6 @@ impl BaseCorrelationCalibrator {
         self
     }
 
-
-
     /// Bootstrap base correlation curve from tranche quotes using sequential calibration.
     ///
     /// Implements market-standard bootstrapping methodology:
@@ -81,7 +78,7 @@ impl BaseCorrelationCalibrator {
         market_context: &ValuationMarketContext,
     ) -> Result<(BaseCorrelationCurve, CalibrationReport)> {
         use crate::instruments::fixed_income::cds_tranche::model::GaussianCopulaModel;
-        
+
         // Filter and extract CDS tranche quotes
         let mut tranche_quotes: Vec<_> = quotes
             .iter()
@@ -95,7 +92,14 @@ impl BaseCorrelationCalibrator {
                     running_spread_bp,
                 } = q
                 {
-                    Some((attachment, detachment, maturity, upfront_pct, running_spread_bp, index))
+                    Some((
+                        attachment,
+                        detachment,
+                        maturity,
+                        upfront_pct,
+                        running_spread_bp,
+                        index,
+                    ))
                 } else {
                     None
                 }
@@ -132,18 +136,17 @@ impl BaseCorrelationCalibrator {
         let num_tranche_quotes = tranche_quotes.len(); // Store length before moving
 
         // Sequential bootstrap from equity to senior tranches
-        for (attach_pct, detach_pct, _maturity, upfront_pct, running_spread_bp, index) in tranche_quotes {
+        for (attach_pct, detach_pct, _maturity, upfront_pct, running_spread_bp, index) in
+            tranche_quotes
+        {
             // Skip if we don't have the right index
             if index != &self.index_id {
                 continue;
             }
-            
+
             // Create synthetic tranche for this quote
-            let synthetic_tranche = self.create_synthetic_tranche(
-                *attach_pct,
-                *detach_pct,
-                *running_spread_bp,
-            )?;
+            let synthetic_tranche =
+                self.create_synthetic_tranche(*attach_pct, *detach_pct, *running_spread_bp)?;
 
             // Target upfront value from market quote
             let target_upfront = upfront_pct / 100.0 * synthetic_tranche.notional.amount();
@@ -157,7 +160,7 @@ impl BaseCorrelationCalibrator {
                 let last_correlation = last_pair.1;
                 (last_correlation + 0.05).min(0.9)
             };
-            
+
             // Create objective function for this tranche
             let objective = |trial_correlation: F| -> F {
                 // Build temporary base correlation curve with solved points + trial point
@@ -180,10 +183,11 @@ impl BaseCorrelationCalibrator {
                 };
 
                 // Update credit index with temporary correlation curve
-                let original_index = match market_context.get_credit_index(synthetic_tranche.credit_index_id) {
-                    Ok(idx) => idx,
-                    Err(_) => return F::INFINITY,
-                };
+                let original_index =
+                    match market_context.get_credit_index(synthetic_tranche.credit_index_id) {
+                        Ok(idx) => idx,
+                        Err(_) => return F::INFINITY,
+                    };
 
                 let temp_index = match crate::market_data::credit_index::CreditIndexData::builder()
                     .num_constituents(original_index.num_constituents)
@@ -198,11 +202,16 @@ impl BaseCorrelationCalibrator {
 
                 // Create temporary market context
                 let temp_market_ctx = crate::market_data::ValuationMarketContext::from_core(
-                    market_context.core.clone()
-                ).with_credit_index(synthetic_tranche.credit_index_id, temp_index);
+                    market_context.core.clone(),
+                )
+                .with_credit_index(synthetic_tranche.credit_index_id, temp_index);
 
                 // Price the tranche and return upfront error
-                match pricing_model.price_tranche(&synthetic_tranche, &temp_market_ctx, self.base_date) {
+                match pricing_model.price_tranche(
+                    &synthetic_tranche,
+                    &temp_market_ctx,
+                    self.base_date,
+                ) {
                     Ok(pv) => pv.amount() - target_upfront,
                     Err(_) => F::INFINITY,
                 }
@@ -210,18 +219,15 @@ impl BaseCorrelationCalibrator {
 
             // Solve for correlation
             let solved_corr = solver.solve(objective, initial_guess)?;
-            
+
             // Clamp to reasonable bounds
             let clamped_corr = solved_corr.clamp(0.01, 0.99);
-            
+
             // Calculate final residual
             let final_residual = objective(clamped_corr);
-            
+
             solved_correlations.push((*detach_pct, clamped_corr));
-            residuals.insert(
-                format!("{}%-{}%", attach_pct, detach_pct),
-                final_residual,
-            );
+            residuals.insert(format!("{}%-{}%", attach_pct, detach_pct), final_residual);
             total_iterations += 1;
         }
 
@@ -241,13 +247,15 @@ impl BaseCorrelationCalibrator {
             .with_residuals(residuals)
             .with_iterations(total_iterations)
             .with_convergence_reason("Base correlation bootstrap completed successfully")
-            .with_metadata("calibrated_tranches".to_string(), format!("{}", num_tranche_quotes));
+            .with_metadata(
+                "calibrated_tranches".to_string(),
+                format!("{}", num_tranche_quotes),
+            );
 
         Ok((final_curve, report))
     }
 
     /// Create synthetic CDS tranche for pricing.
-    #[allow(dead_code)]
     fn create_synthetic_tranche(
         &self,
         attach_pct: F,
@@ -272,31 +280,6 @@ impl BaseCorrelationCalibrator {
             .disc_id("USD-OIS")
             .credit_index_id("CDX.NA.IG.42") // Use static string that matches test context
             .side(TrancheSide::SellProtection)
-            .build()
-    }
-
-    /// Create temporary base correlation curve for pricing.
-    #[allow(dead_code)]
-    fn create_temp_base_corr_curve(
-        &self,
-        correlation_knots: &[(F, F)],
-    ) -> Result<BaseCorrelationCurve> {
-        if correlation_knots.is_empty() {
-            return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::TooFewPoints,
-            ));
-        }
-
-        // Ensure we have at least two points for interpolation
-        let mut extended_knots = correlation_knots.to_vec();
-        if extended_knots.len() == 1 {
-            let (detach, corr) = extended_knots[0];
-            // Add a second point for interpolation
-            extended_knots.push((detach + 10.0, corr));
-        }
-
-        BaseCorrelationCurve::builder("TEMP_BASE_CORR")
-            .points(extended_knots)
             .build()
     }
 }
@@ -453,46 +436,13 @@ mod tests {
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
     use finstack_core::market_data::term_structures::{
-        discount_curve::DiscountCurve,
-        BaseCorrelationCurve,
+        discount_curve::DiscountCurve, BaseCorrelationCurve,
     };
     use std::sync::Arc;
     use time::Month;
 
-    #[allow(dead_code)]
-    fn create_test_tranche_quotes() -> Vec<InstrumentQuote> {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let maturity = base_date + time::Duration::days(365 * 5);
 
-        vec![
-            InstrumentQuote::CDSTranche {
-                index: "CDX.NA.IG.42".to_string(),
-                attachment: 0.0,
-                detachment: 3.0,
-                maturity,
-                upfront_pct: 25.0, // 25% upfront for equity tranche
-                running_spread_bp: 500.0,
-            },
-            InstrumentQuote::CDSTranche {
-                index: "CDX.NA.IG.42".to_string(),
-                attachment: 0.0,
-                detachment: 7.0,
-                maturity,
-                upfront_pct: 15.0,
-                running_spread_bp: 500.0,
-            },
-            InstrumentQuote::CDSTranche {
-                index: "CDX.NA.IG.42".to_string(),
-                attachment: 0.0,
-                detachment: 10.0,
-                maturity,
-                upfront_pct: 10.0,
-                running_spread_bp: 500.0,
-            },
-        ]
-    }
 
-    #[allow(dead_code)]
     fn create_test_market_context() -> ValuationMarketContext {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
@@ -562,13 +512,12 @@ mod tests {
     }
 
     #[test]
-    fn test_temp_base_corr_curve_creation() {
-        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date);
-
+    fn test_base_correlation_curve_building() {
+        // Test direct BaseCorrelationCurve building functionality 
         let correlation_knots = vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)];
-        let curve = calibrator
-            .create_temp_base_corr_curve(&correlation_knots)
+        let curve = BaseCorrelationCurve::builder("TEST_CORR")
+            .points(correlation_knots)
+            .build()
             .unwrap();
 
         assert_eq!(curve.detachment_points().len(), 3);
@@ -599,20 +548,20 @@ mod tests {
     fn test_base_correlation_calibration_round_trip() {
         use crate::calibration::solver::HybridSolver;
         use crate::instruments::fixed_income::cds_tranche::model::GaussianCopulaModel;
-        
+
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
-        
+
         // Create test market context
         let market_ctx = create_test_market_context();
-        
+
         // Create known base correlation curve for validation
         let known_correlations = vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)];
         let known_curve = BaseCorrelationCurve::builder("KNOWN_CORR")
             .points(known_correlations.clone())
             .build()
             .unwrap();
-        
+
         // Create market context with known correlation curve
         let original_index = market_ctx.get_credit_index("CDX.NA.IG.42").unwrap();
         let test_index = CreditIndexData::builder()
@@ -622,21 +571,21 @@ mod tests {
             .base_correlation_curve(std::sync::Arc::new(known_curve))
             .build()
             .unwrap();
-        
+
         let test_market_ctx = ValuationMarketContext::from_core(market_ctx.core.clone())
             .with_credit_index("CDX.NA.IG.42", test_index);
-        
+
         // Generate synthetic market quotes using known correlations
         let pricing_model = GaussianCopulaModel::new();
         let mut synthetic_quotes = Vec::new();
-        
+
         for (detach_pct, _corr) in &known_correlations {
             // Create synthetic equity tranche [0, detach_pct]
             let tranche = CdsTranche::new(
                 format!("EQUITY_0_{}", detach_pct),
                 "CDX.NA.IG.42",
                 42,
-                0.0,  // attachment
+                0.0,         // attachment
                 *detach_pct, // detachment
                 Money::new(10_000_000.0, Currency::USD),
                 maturity,
@@ -649,11 +598,13 @@ mod tests {
                 "CDX.NA.IG.42",
                 TrancheSide::SellProtection,
             );
-            
+
             // Price with known correlation to get "market" upfront
-            let market_pv = pricing_model.price_tranche(&tranche, &test_market_ctx, base_date).unwrap();
+            let market_pv = pricing_model
+                .price_tranche(&tranche, &test_market_ctx, base_date)
+                .unwrap();
             let market_upfront_pct = market_pv.amount() / tranche.notional.amount() * 100.0;
-            
+
             synthetic_quotes.push(InstrumentQuote::CDSTranche {
                 index: "CDX.NA.IG.42".to_string(),
                 attachment: 0.0,
@@ -663,22 +614,20 @@ mod tests {
                 running_spread_bp: 500.0,
             });
         }
-        
+
         // Now calibrate using these synthetic quotes
         let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date);
         let solver = HybridSolver::new();
-        
 
-        
         // Create clean market context for calibration (with dummy base correlation curve)
         let original_index = market_ctx.get_credit_index("CDX.NA.IG.42").unwrap();
-        
+
         // Create a dummy base correlation curve for initial calibration
         let dummy_base_corr_curve = BaseCorrelationCurve::builder("DUMMY_CALIB_CORR")
             .points(vec![(1.0, 0.01), (100.0, 0.01)]) // Minimal curve for building requirements
             .build()
             .unwrap();
-        
+
         let clean_index = CreditIndexData::builder()
             .num_constituents(original_index.num_constituents)
             .recovery_rate(original_index.recovery_rate)
@@ -686,33 +635,35 @@ mod tests {
             .base_correlation_curve(std::sync::Arc::new(dummy_base_corr_curve))
             .build()
             .unwrap();
-        
+
         let clean_market_ctx = ValuationMarketContext::from_core(market_ctx.core.clone())
             .with_credit_index("CDX.NA.IG.42", clean_index);
-        
-        let calibration_result = calibrator.bootstrap_curve(
-            &synthetic_quotes,
-            &solver,
-            &clean_market_ctx,
-        );
-        
+
+        let calibration_result =
+            calibrator.bootstrap_curve(&synthetic_quotes, &solver, &clean_market_ctx);
+
         assert!(calibration_result.is_ok());
         let (calibrated_curve, report) = calibration_result.unwrap();
-        
+
         // Verify calibration was successful
         assert!(report.success);
-        assert_eq!(calibrated_curve.detachment_points().len(), known_correlations.len());
-        
+        assert_eq!(
+            calibrated_curve.detachment_points().len(),
+            known_correlations.len()
+        );
+
         // Verify that calibrated correlations are close to known values
         for (expected_detach, expected_corr) in &known_correlations {
             let calibrated_corr = calibrated_curve.correlation(*expected_detach);
             assert!(
                 (calibrated_corr - expected_corr).abs() < 0.05, // 5% tolerance for numerical precision
-                "Correlation mismatch at {}%: expected {}, got {}", 
-                expected_detach, expected_corr, calibrated_corr
+                "Correlation mismatch at {}%: expected {}, got {}",
+                expected_detach,
+                expected_corr,
+                calibrated_corr
             );
         }
-        
+
         // Verify calibration quality
         assert!(report.max_residual < 1e-6); // Very tight tolerance for round-trip test
     }

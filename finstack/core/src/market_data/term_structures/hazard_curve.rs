@@ -116,19 +116,29 @@ impl HazardCurve {
     }
 
     /// Recovery rate metadata used when mapping spreads↔hazards during bootstrap.
-    pub fn recovery_rate(&self) -> F { self.recovery_rate }
+    pub fn recovery_rate(&self) -> F {
+        self.recovery_rate
+    }
 
     /// Day count convention associated with this curve's time axis.
-    pub fn day_count(&self) -> DayCount { self.day_count }
+    pub fn day_count(&self) -> DayCount {
+        self.day_count
+    }
 
     /// Access the knot points (time, lambda) for inspection or modification.
     pub fn knot_points(&self) -> impl Iterator<Item = (F, F)> + '_ {
-        self.knots.iter().zip(self.lambdas.iter()).map(|(&t, &lambda)| (t, lambda))
+        self.knots
+            .iter()
+            .zip(self.lambdas.iter())
+            .map(|(&t, &lambda)| (t, lambda))
     }
 
     /// Access the par spread points for inspection.
     pub fn par_spread_points(&self) -> impl Iterator<Item = (F, F)> + '_ {
-        self.par_tenors.iter().zip(self.par_spreads_bp.iter()).map(|(&t, &spread)| (t, spread))
+        self.par_tenors
+            .iter()
+            .zip(self.par_spreads_bp.iter())
+            .map(|(&t, &spread)| (t, spread))
     }
 
     /// Create a builder with this curve's parameters, using a new ID.
@@ -138,7 +148,7 @@ impl HazardCurve {
             .base_date(self.base)
             .recovery_rate(self.recovery_rate)
             .day_count(self.day_count);
-        
+
         if let Some(ref issuer) = self.issuer {
             builder = builder.issuer(issuer.clone());
         }
@@ -148,13 +158,13 @@ impl HazardCurve {
         if let Some(currency) = self.currency {
             builder = builder.currency(currency);
         }
-        
+
         // Add existing knot points
         builder = builder.knots(self.knot_points());
-        
+
         // Add existing par spread points
         builder = builder.par_spreads(self.par_spread_points());
-        
+
         builder
     }
 
@@ -162,20 +172,21 @@ impl HazardCurve {
     /// Uses the same ID with a "_BUMPED" suffix.
     /// Negative shifts are clamped to zero to ensure non-negative hazard rates.
     pub fn with_hazard_shift(&self, shift: F) -> crate::Result<HazardCurve> {
-        let shifted_points: Vec<(F, F)> = self.knot_points()
+        let shifted_points: Vec<(F, F)> = self
+            .knot_points()
             .map(|(t, lambda)| (t, (lambda + shift).max(0.0)))
             .collect();
-        
+
         // Create a temporary ID for the bumped curve
         // In practice, the caller will manage IDs when building market contexts
         let temp_id = "TEMP_BUMPED_HAZARD";
-        
+
         let mut builder = HazardCurve::builder(temp_id)
             .base_date(self.base)
             .recovery_rate(self.recovery_rate)
             .day_count(self.day_count)
             .knots(shifted_points);
-        
+
         if let Some(ref issuer) = self.issuer {
             builder = builder.issuer(issuer.clone());
         }
@@ -185,10 +196,10 @@ impl HazardCurve {
         if let Some(currency) = self.currency {
             builder = builder.currency(currency);
         }
-        
+
         // Add existing par spread points
         builder = builder.par_spreads(self.par_spread_points());
-        
+
         builder.build()
     }
 
@@ -207,7 +218,9 @@ impl HazardCurve {
         }
         // Find bracket
         let mut i = 1;
-        while i < n && t > self.par_tenors[i] { i += 1; }
+        while i < n && t > self.par_tenors[i] {
+            i += 1;
+        }
         let i1 = i - 1;
         let (x1, x2) = (self.par_tenors[i1], self.par_tenors[i]);
         let (y1, y2) = (self.par_spreads_bp[i1], self.par_spreads_bp[i]);
@@ -216,7 +229,8 @@ impl HazardCurve {
             ParInterp::Linear => y1 + w * (y2 - y1),
             ParInterp::LogLinear => {
                 if y1 > 0.0 && y2 > 0.0 {
-                    let a = y1.ln(); let b = y2.ln();
+                    let a = y1.ln();
+                    let b = y2.ln();
                     (a + w * (b - a)).exp()
                 } else {
                     y1 + w * (y2 - y1)
@@ -262,15 +276,30 @@ impl HazardCurveBuilder {
         self
     }
     /// Set issuer metadata.
-    pub fn issuer(mut self, name: impl Into<String>) -> Self { self.issuer = Some(name.into()); self }
+    pub fn issuer(mut self, name: impl Into<String>) -> Self {
+        self.issuer = Some(name.into());
+        self
+    }
     /// Set seniority metadata.
-    pub fn seniority(mut self, s: Seniority) -> Self { self.seniority = Some(s); self }
+    pub fn seniority(mut self, s: Seniority) -> Self {
+        self.seniority = Some(s);
+        self
+    }
     /// Set currency metadata.
-    pub fn currency(mut self, ccy: Currency) -> Self { self.currency = Some(ccy); self }
+    pub fn currency(mut self, ccy: Currency) -> Self {
+        self.currency = Some(ccy);
+        self
+    }
     /// Set day-count convention for the curve time axis.
-    pub fn day_count(mut self, dc: DayCount) -> Self { self.day_count = dc; self }
+    pub fn day_count(mut self, dc: DayCount) -> Self {
+        self.day_count = dc;
+        self
+    }
     /// Set recovery rate metadata.
-    pub fn recovery_rate(mut self, r: F) -> Self { self.recovery_rate = r; self }
+    pub fn recovery_rate(mut self, r: F) -> Self {
+        self.recovery_rate = r;
+        self
+    }
     /// Supply knot points `(t, λ)` where λ is the hazard rate.
     pub fn knots<I>(mut self, pts: I) -> Self
     where

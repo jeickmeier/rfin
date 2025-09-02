@@ -6,7 +6,6 @@
 use crate::instruments::fixed_income::ir_future::InterestRateFuture;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::prelude::*;
 use finstack_core::F;
 use std::sync::Arc;
 
@@ -42,8 +41,14 @@ impl MetricCalculator for IrFutureDv01Calculator {
 /// maintain a consistent registration surface across instruments.
 pub fn register_ir_future_metrics(registry: &mut MetricRegistry) {
     registry
-        .register_metric(MetricId::custom("pv"), Arc::new(IrFuturePvCalculator), &["InterestRateFuture"]) 
-        .register_metric(MetricId::Dv01, Arc::new(IrFutureDv01Calculator), &["InterestRateFuture"]);
+        .register_metric(
+            MetricId::custom("ir_future_pv"),
+            Arc::new(IrFuturePvCalculator),
+            &["InterestRateFuture"],
+        )
+        .register_metric(
+            MetricId::custom("ir_future_dv01"),
+            Arc::new(IrFutureDv01Calculator),
+            &["InterestRateFuture"],
+        );
 }
-
-

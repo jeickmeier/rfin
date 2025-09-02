@@ -8,8 +8,8 @@ use finstack_core::F;
 
 use finstack_core::dates::{Date, DayCount};
 
-use finstack_core::math::{norm_cdf, norm_pdf};
 use super::{ExerciseStyle, OptionType, SettlementType};
+use finstack_core::math::{norm_cdf, norm_pdf};
 
 /// Credit option instrument (option on CDS spread)
 #[derive(Clone, Debug)]

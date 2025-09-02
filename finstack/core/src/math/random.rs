@@ -15,10 +15,10 @@ use crate::F;
 pub trait RandomNumberGenerator {
     /// Generate uniform random number in [0, 1)
     fn uniform(&mut self) -> F;
-    
+
     /// Generate normal random number with specified mean and standard deviation
     fn normal(&mut self, mean: F, std_dev: F) -> F;
-    
+
     /// Generate Bernoulli random boolean with probability p
     fn bernoulli(&mut self, p: F) -> bool;
 }
@@ -35,8 +35,8 @@ pub struct SimpleRng {
 impl SimpleRng {
     /// Create a new RNG with the given seed
     pub fn new(seed: u64) -> Self {
-        Self { 
-            state: seed.wrapping_add(1) // Avoid zero state
+        Self {
+            state: seed.wrapping_add(1), // Avoid zero state
         }
     }
 
@@ -94,7 +94,7 @@ mod tests {
     #[test]
     fn test_simple_rng_uniform() {
         let mut rng = SimpleRng::new(42);
-        
+
         // Test that values are in [0, 1)
         for _ in 0..100 {
             let val = rng.uniform();
@@ -106,7 +106,7 @@ mod tests {
     fn test_simple_rng_deterministic() {
         let mut rng1 = SimpleRng::new(42);
         let mut rng2 = SimpleRng::new(42);
-        
+
         // Same seed should produce same sequence
         for _ in 0..10 {
             assert_eq!(rng1.uniform(), rng2.uniform());
@@ -116,11 +116,11 @@ mod tests {
     #[test]
     fn test_simple_rng_normal() {
         let mut rng = SimpleRng::new(42);
-        
+
         // Test basic properties
         let sample = rng.normal(0.0, 1.0);
         assert!(sample.is_finite());
-        
+
         // Test mean and std_dev parameters
         let sample_shifted = rng.normal(5.0, 2.0);
         assert!(sample_shifted.is_finite());
@@ -129,11 +129,11 @@ mod tests {
     #[test]
     fn test_simple_rng_bernoulli() {
         let mut rng = SimpleRng::new(42);
-        
+
         // Test extreme probabilities
         assert!(!rng.bernoulli(0.0));
         assert!(rng.bernoulli(1.0));
-        
+
         // Test intermediate probability
         let mut successes = 0;
         for _ in 0..1000 {
@@ -141,7 +141,7 @@ mod tests {
                 successes += 1;
             }
         }
-        
+
         // Should be roughly 30% successes (allow wide tolerance for small sample)
         assert!(successes > 200 && successes < 400);
     }

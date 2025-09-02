@@ -6,7 +6,9 @@
 
 use crate::calibration::primitives::{CalibrationConstraint, InstrumentQuote};
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
-use crate::instruments::fixed_income::cds::{cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap, PayReceive};
+use crate::instruments::fixed_income::cds::{
+    cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap, PayReceive,
+};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::{HazardCurve, Seniority};
 use finstack_core::market_data::traits::Discount;
@@ -66,9 +68,12 @@ impl HazardCurveCalibrator {
         let mut cds_quotes: Vec<(finstack_core::dates::Date, F)> = quotes
             .iter()
             .filter_map(|q| match q {
-                InstrumentQuote::CDS { entity, maturity, spread_bp, .. } if entity == &self.entity => {
-                    Some((*maturity, *spread_bp))
-                }
+                InstrumentQuote::CDS {
+                    entity,
+                    maturity,
+                    spread_bp,
+                    ..
+                } if entity == &self.entity => Some((*maturity, *spread_bp)),
                 _ => None,
             })
             .collect();
@@ -94,7 +99,9 @@ impl HazardCurveCalibrator {
                 *maturity,
                 CDSConvention::IsdaNa.day_count(),
             );
-            if tenor_years <= 0.0 { continue; }
+            if tenor_years <= 0.0 {
+                continue;
+            }
 
             // Synthetic CDS at market spread
             let cds = CreditDefaultSwap::new_isda(
@@ -126,8 +133,14 @@ impl HazardCurveCalibrator {
                     .knots(temp_knots)
                     .build();
 
-                let temp_curve = match temp_curve { Ok(c) => c, Err(_) => return F::INFINITY };
-                let disc = match discount_curve_opt { Some(d) => d, None => return F::INFINITY };
+                let temp_curve = match temp_curve {
+                    Ok(c) => c,
+                    Err(_) => return F::INFINITY,
+                };
+                let disc = match discount_curve_opt {
+                    Some(d) => d,
+                    None => return F::INFINITY,
+                };
 
                 // Objective: PV per $ notional ≈ 0 using quoted spread
                 match pricer.npv(&cds, disc, &temp_curve, self.base_date) {
@@ -172,7 +185,10 @@ impl HazardCurveCalibrator {
             .with_iterations(total_iterations)
             .with_convergence_reason("Hazard curve bootstrap completed")
             .with_metadata("entity".to_string(), self.entity.clone())
-            .with_metadata("recovery_rate".to_string(), format!("{:.3}", self.recovery_rate));
+            .with_metadata(
+                "recovery_rate".to_string(),
+                format!("{:.3}", self.recovery_rate),
+            );
 
         Ok((curve, report))
     }
@@ -203,19 +219,24 @@ impl Calibrator<InstrumentQuote, CalibrationConstraint, HazardCurve> for HazardC
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use finstack_core::dates::Date;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
-    use finstack_core::dates::Date;
     use time::Month;
 
     fn test_discount_curve() -> DiscountCurve {
         DiscountCurve::builder("USD-OIS")
             .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
-            .knots([(0.0, 1.0), (1.0, 0.95), (3.0, 0.90), (5.0, 0.85), (10.0, 0.75)])
+            .knots([
+                (0.0, 1.0),
+                (1.0, 0.95),
+                (3.0, 0.90),
+                (5.0, 0.85),
+                (10.0, 0.75),
+            ])
             .build()
             .unwrap()
     }
@@ -253,7 +274,8 @@ mod tests {
         let quotes = test_cds_quotes();
         let disc = test_discount_curve();
 
-        let calibrator = HazardCurveCalibrator::new("AAPL", Seniority::Senior, 0.40, base_date, Currency::USD);
+        let calibrator =
+            HazardCurveCalibrator::new("AAPL", Seniority::Senior, 0.40, base_date, Currency::USD);
         let solver = crate::calibration::solver::HybridSolver::new();
         let (hazard, report) = calibrator
             .bootstrap_curve(&quotes, &solver, &disc)
@@ -263,7 +285,12 @@ mod tests {
         // Reprice each quoted CDS and assert PV per $1MM is within $1
         let pricer = CDSPricer::new();
         for q in quotes {
-            if let InstrumentQuote::CDS { maturity, spread_bp, .. } = q {
+            if let InstrumentQuote::CDS {
+                maturity,
+                spread_bp,
+                ..
+            } = q
+            {
                 let cds = CreditDefaultSwap::new_isda(
                     format!("CDS-{}", maturity),
                     Money::new(1_000_000.0, Currency::USD),
@@ -281,7 +308,11 @@ mod tests {
                 let pv = pricer
                     .npv(&cds, &disc, &hazard, base_date)
                     .expect("cds npv failed");
-                assert!(pv.amount().abs() <= 1.0, "repricing error too large: {}", pv.amount());
+                assert!(
+                    pv.amount().abs() <= 1.0,
+                    "repricing error too large: {}",
+                    pv.amount()
+                );
             }
         }
     }
@@ -292,7 +323,8 @@ mod tests {
         let quotes = test_cds_quotes();
         let disc = test_discount_curve();
 
-        let calibrator = HazardCurveCalibrator::new("AAPL", Seniority::Senior, 0.40, base_date, Currency::USD);
+        let calibrator =
+            HazardCurveCalibrator::new("AAPL", Seniority::Senior, 0.40, base_date, Currency::USD);
         let solver = crate::calibration::solver::HybridSolver::new();
         let (hazard, report) = calibrator
             .bootstrap_curve(&quotes, &solver, &disc)
@@ -316,9 +348,15 @@ mod tests {
 
         // Par spread retrieval at pillar times (use same day-count mapping as bootstrap)
         let dc = hazard.day_count();
-        let t1 = dc.year_fraction(base_date, base_date + time::Duration::days(365)).unwrap();
-        let t3 = dc.year_fraction(base_date, base_date + time::Duration::days(365 * 3)).unwrap();
-        let t5 = dc.year_fraction(base_date, base_date + time::Duration::days(365 * 5)).unwrap();
+        let t1 = dc
+            .year_fraction(base_date, base_date + time::Duration::days(365))
+            .unwrap();
+        let t3 = dc
+            .year_fraction(base_date, base_date + time::Duration::days(365 * 3))
+            .unwrap();
+        let t5 = dc
+            .year_fraction(base_date, base_date + time::Duration::days(365 * 5))
+            .unwrap();
         assert!((hazard.quoted_spread_bp(t1, ParInterp::Linear) - 50.0).abs() < 1e-6);
         assert!((hazard.quoted_spread_bp(t3, ParInterp::Linear) - 75.0).abs() < 1e-6);
         assert!((hazard.quoted_spread_bp(t5, ParInterp::Linear) - 100.0).abs() < 1e-6);
@@ -336,11 +374,11 @@ mod tests {
     fn hazard_calibration_errors_on_empty_quotes() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let disc = test_discount_curve();
-        let calibrator = HazardCurveCalibrator::new("AAPL", Seniority::Senior, 0.40, base_date, Currency::USD);
+        let calibrator =
+            HazardCurveCalibrator::new("AAPL", Seniority::Senior, 0.40, base_date, Currency::USD);
         let solver = crate::calibration::solver::HybridSolver::new();
         let empty: Vec<InstrumentQuote> = vec![];
         let res = calibrator.bootstrap_curve(&empty, &solver, &disc);
         assert!(res.is_err());
     }
 }
-

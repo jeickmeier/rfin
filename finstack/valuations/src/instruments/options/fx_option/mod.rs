@@ -12,8 +12,8 @@ use finstack_core::F;
 use num_traits::ToPrimitive;
 
 use super::models::{d1, d2};
-use finstack_core::math::{norm_cdf, norm_pdf};
 use super::{ExerciseStyle, OptionType, SettlementType};
+use finstack_core::math::{norm_cdf, norm_pdf};
 
 /// FX option instrument (Garman-Kohlhagen model)
 #[derive(Clone, Debug)]
@@ -199,15 +199,13 @@ impl FxOption {
 
         match self.option_type {
             OptionType::Call => {
-                let term1 =
-                    -spot * norm_pdf(d1) * sigma * (-r_f * t).exp() / (2.0 * sqrt_t);
+                let term1 = -spot * norm_pdf(d1) * sigma * (-r_f * t).exp() / (2.0 * sqrt_t);
                 let term2 = r_f * spot * norm_cdf(d1) * (-r_f * t).exp();
                 let term3 = -r_d * self.strike * (-r_d * t).exp() * norm_cdf(d2);
                 (term1 + term2 + term3) / 365.0 // Daily theta
             }
             OptionType::Put => {
-                let term1 =
-                    -spot * norm_pdf(d1) * sigma * (-r_f * t).exp() / (2.0 * sqrt_t);
+                let term1 = -spot * norm_pdf(d1) * sigma * (-r_f * t).exp() / (2.0 * sqrt_t);
                 let term2 = -r_f * spot * norm_cdf(-d1) * (-r_f * t).exp();
                 let term3 = r_d * self.strike * (-r_d * t).exp() * norm_cdf(-d2);
                 (term1 + term2 + term3) / 365.0 // Daily theta

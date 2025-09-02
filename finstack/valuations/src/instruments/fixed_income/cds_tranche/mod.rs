@@ -9,8 +9,8 @@
 pub mod metrics;
 pub mod model;
 
-use crate::metrics::MetricId;
 use crate::instruments::traits::Attributes;
+use crate::metrics::MetricId;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency};
 use finstack_core::prelude::*;
 use finstack_core::F;

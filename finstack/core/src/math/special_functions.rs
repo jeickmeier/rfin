@@ -8,10 +8,10 @@
 //!
 //! ```
 //! use finstack_core::math::special_functions::{norm_cdf, norm_pdf, standard_normal_inv_cdf};
-//! 
+//!
 //! // Standard normal CDF at zero should be 0.5
 //! assert!((norm_cdf(0.0) - 0.5).abs() < 1e-6);
-//! 
+//!
 //! // Round-trip test for inverse CDF
 //! let x = standard_normal_inv_cdf(0.84);
 //! let p_back = norm_cdf(x);
@@ -127,9 +127,21 @@ mod tests {
     #[test]
     fn test_erf() {
         // Test known values with reasonable tolerance for approximation
-        assert!((erf(0.0) - 0.0).abs() < 1e-6, "erf(0) should be 0, got {}", erf(0.0));
-        assert!((erf(1.0) - 0.8427007929).abs() < 1e-4, "erf(1) should be ~0.8427, got {}", erf(1.0));
-        assert!((erf(-1.0) - (-0.8427007929)).abs() < 1e-4, "erf(-1) should be ~-0.8427, got {}", erf(-1.0));
+        assert!(
+            (erf(0.0) - 0.0).abs() < 1e-6,
+            "erf(0) should be 0, got {}",
+            erf(0.0)
+        );
+        assert!(
+            (erf(1.0) - 0.8427007929).abs() < 1e-4,
+            "erf(1) should be ~0.8427, got {}",
+            erf(1.0)
+        );
+        assert!(
+            (erf(-1.0) - (-0.8427007929)).abs() < 1e-4,
+            "erf(-1) should be ~-0.8427, got {}",
+            erf(-1.0)
+        );
     }
 
     #[test]
@@ -148,10 +160,10 @@ mod tests {
     fn test_norm_pdf() {
         // Test known values
         assert!((norm_pdf(0.0) - (1.0 / (2.0 * PI).sqrt())).abs() < 1e-12);
-        
+
         // Test symmetry
         assert!((norm_pdf(1.0) - norm_pdf(-1.0)).abs() < 1e-12);
-        
+
         // Test non-negativity
         assert!(norm_pdf(5.0) >= 0.0);
     }

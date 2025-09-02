@@ -30,7 +30,7 @@ impl MetricCalculator for FraDv01Calculator {
         let base = disc.base_date();
 
         // Settlement at start of period
-        let t_start = DiscountCurve::year_fraction(base, fra.start_date, fra.day_count);
+        let _t_start = DiscountCurve::year_fraction(base, fra.start_date, fra.day_count);
         let tau = DiscountCurve::year_fraction(fra.start_date, fra.end_date, fra.day_count);
 
         if tau <= 0.0 {
@@ -51,6 +51,6 @@ impl MetricCalculator for FraDv01Calculator {
 /// maintain a consistent registration surface across instruments.
 pub fn register_fra_metrics(registry: &mut MetricRegistry) {
     registry
-        .register_metric(MetricId::custom("pv"), Arc::new(FraPvCalculator), &["FRA"])
-        .register_metric(MetricId::Dv01, Arc::new(FraDv01Calculator), &["FRA"]);
+        .register_metric(MetricId::custom("fra_pv"), Arc::new(FraPvCalculator), &["FRA"]) 
+        .register_metric(MetricId::custom("fra_dv01"), Arc::new(FraDv01Calculator), &["FRA"]);
 }

@@ -159,7 +159,6 @@ impl CashflowProvider for ForwardRateAgreement {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -250,5 +249,4 @@ mod tests {
         assert_ne!(pv.amount(), 0.0);
         assert_eq!(pv.currency(), Currency::USD);
     }
-
 }

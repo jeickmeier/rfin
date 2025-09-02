@@ -7,16 +7,16 @@
 //! pricing formulas, following market-standard bootstrap methodology.
 
 use crate::calibration::primitives::{CalibrationConstraint, InstrumentQuote};
-use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::calibration::solver::Solver;
-use crate::instruments::fixed_income::InterestRateSwap;
+use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::fra::ForwardRateAgreement;
 use crate::instruments::fixed_income::ir_future::InterestRateFuture;
+use crate::instruments::fixed_income::InterestRateSwap;
 use crate::instruments::traits::Priceable;
+use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::interp::InterpStyle;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::dates::{Date, DayCount};
 use finstack_core::{money::Money, Currency, Result, F};
 use std::collections::HashMap;
 
@@ -38,11 +38,7 @@ pub struct DiscountCurveCalibrator {
 
 impl DiscountCurveCalibrator {
     /// Create a new discount curve calibrator.
-    pub fn new(
-        curve_id: &'static str,
-        base_date: Date,
-        currency: Currency,
-    ) -> Self {
+    pub fn new(curve_id: &'static str, base_date: Date, currency: Currency) -> Self {
         Self {
             curve_id,
             base_date,
@@ -76,7 +72,11 @@ impl DiscountCurveCalibrator {
     ) -> Result<(DiscountCurve, CalibrationReport)> {
         // Sort quotes by maturity
         let mut sorted_quotes = quotes.to_vec();
-        sorted_quotes.sort_by(|a, b| self.get_maturity(a).partial_cmp(&self.get_maturity(b)).unwrap());
+        sorted_quotes.sort_by(|a, b| {
+            self.get_maturity(a)
+                .partial_cmp(&self.get_maturity(b))
+                .unwrap()
+        });
 
         // Validate quotes
         self.validate_quotes(&sorted_quotes)?;
@@ -90,9 +90,11 @@ impl DiscountCurveCalibrator {
             let maturity_date = self.get_maturity(quote);
             // Use instrument-specific day count for curve time at this knot
             let time_to_maturity = match quote {
-                InstrumentQuote::Deposit { maturity, day_count, .. } => {
-                    DiscountCurve::year_fraction(self.base_date, *maturity, *day_count)
-                }
+                InstrumentQuote::Deposit {
+                    maturity,
+                    day_count,
+                    ..
+                } => DiscountCurve::year_fraction(self.base_date, *maturity, *day_count),
                 InstrumentQuote::FRA { end, day_count, .. } => {
                     DiscountCurve::year_fraction(self.base_date, *end, *day_count)
                 }
@@ -100,9 +102,9 @@ impl DiscountCurveCalibrator {
                     let end = *expiry + time::Duration::days(specs.delivery_months as i64 * 30);
                     DiscountCurve::year_fraction(self.base_date, end, specs.day_count)
                 }
-                InstrumentQuote::Swap { maturity, fixed_dc, .. } => {
-                    DiscountCurve::year_fraction(self.base_date, *maturity, *fixed_dc)
-                }
+                InstrumentQuote::Swap {
+                    maturity, fixed_dc, ..
+                } => DiscountCurve::year_fraction(self.base_date, *maturity, *fixed_dc),
                 _ => DiscountCurve::year_fraction(self.base_date, maturity_date, DayCount::Act365F),
             };
 
@@ -110,8 +112,13 @@ impl DiscountCurveCalibrator {
                 continue; // Skip expired instruments
             }
 
-            println!("Processing instrument {} of {}: maturity_date = {}, time_to_maturity = {}", 
-                idx + 1, sorted_quotes.len(), maturity_date, time_to_maturity);
+            println!(
+                "Processing instrument {} of {}: maturity_date = {}, time_to_maturity = {}",
+                idx + 1,
+                sorted_quotes.len(),
+                maturity_date,
+                time_to_maturity
+            );
 
             // Create objective function that uses instrument pricing directly
             let knots_clone = knots.clone();
@@ -127,26 +134,28 @@ impl DiscountCurveCalibrator {
                 let temp_curve = match DiscountCurve::builder("CALIB_CURVE")
                     .base_date(self_clone.base_date)
                     .knots(temp_knots.clone())
-                    .linear_df()  // Use linear interpolation for stability
+                    .linear_df() // Use linear interpolation for stability
                     .build()
                 {
                     Ok(curve) => curve,
                     Err(_) => return F::INFINITY,
                 };
-                
+
                 // Create forward curve from discount curve for single-curve bootstrapping
                 let forward_curve = match temp_curve.to_forward_curve("CALIB_FWD", 0.25) {
                     Ok(curve) => curve,
                     Err(_) => return F::INFINITY,
                 };
-                
+
                 // Update context with temporary curves
-                let temp_context = base_context_clone.clone()
+                let temp_context = base_context_clone
+                    .clone()
                     .with_discount(temp_curve)
                     .with_forecast(forward_curve);
-                
+
                 // Price the instrument and return error (target is zero)
-                self_clone.price_instrument(&quote_clone, &temp_context)
+                self_clone
+                    .price_instrument(&quote_clone, &temp_context)
                     .unwrap_or(F::INFINITY)
             };
 
@@ -164,42 +173,43 @@ impl DiscountCurveCalibrator {
             };
 
             let solved_df = solver.solve(objective, initial_df)?;
-            
-                    // Validate the solution makes sense
-            if solved_df <= 0.0 || solved_df > 1.0 {
-                        return Err(finstack_core::Error::Internal);
-                    }
 
-            // Compute residual for reporting  
+            // Validate the solution makes sense
+            if solved_df <= 0.0 || solved_df > 1.0 {
+                return Err(finstack_core::Error::Internal);
+            }
+
+            // Compute residual for reporting
             let final_residual = {
                 let mut final_knots = knots.clone();
                 final_knots.push((time_to_maturity, solved_df));
-                
+
                 let final_curve = DiscountCurve::builder("CALIB_CURVE")
                     .base_date(self.base_date)
                     .knots(final_knots)
-                    .linear_df()  // Use linear interpolation for stability
+                    .linear_df() // Use linear interpolation for stability
                     .build()
                     .map_err(|_| finstack_core::Error::Internal)?;
-                
+
                 let final_forward = final_curve.to_forward_curve("CALIB_FWD", 0.25)?;
-                let final_context = base_context.clone()
+                let final_context = base_context
+                    .clone()
                     .with_discount(final_curve)
                     .with_forecast(final_forward);
-                
+
                 self.price_instrument(quote, &final_context)
                     .unwrap_or(0.0)
                     .abs()
             };
 
             knots.push((time_to_maturity, solved_df));
-            
+
             // Store residual for reporting
-                    residuals.insert(
-                        format!("{}-{}", quote.get_type(), maturity_date),
-                final_residual
-                    );
-                    total_iterations += 1;
+            residuals.insert(
+                format!("{}-{}", quote.get_type(), maturity_date),
+                final_residual,
+            );
+            total_iterations += 1;
         }
 
         // Build final discount curve
@@ -216,7 +226,10 @@ impl DiscountCurveCalibrator {
             .with_residuals(residuals)
             .with_iterations(total_iterations)
             .with_convergence_reason("Bootstrap completed")
-            .with_metadata("interpolation".to_string(), format!("{:?}", self.interpolation))
+            .with_metadata(
+                "interpolation".to_string(),
+                format!("{:?}", self.interpolation),
+            )
             .with_metadata("currency".to_string(), format!("{}", self.currency));
 
         Ok((curve, report))
@@ -226,11 +239,7 @@ impl DiscountCurveCalibrator {
     ///
     /// Returns the pricing error (PV for par instruments) that should be zero
     /// when the curve is correctly calibrated.
-    fn price_instrument(
-        &self,
-        quote: &InstrumentQuote,
-        context: &MarketContext,
-    ) -> Result<F> {
+    fn price_instrument(&self, quote: &InstrumentQuote, context: &MarketContext) -> Result<F> {
         match quote {
             InstrumentQuote::Deposit {
                 maturity,
@@ -282,7 +291,7 @@ impl DiscountCurveCalibrator {
                 // Create future instrument
                 let period_start = *expiry;
                 let period_end = *expiry + time::Duration::days(specs.delivery_months as i64 * 30);
-                
+
                 let mut future = InterestRateFuture::new(
                     format!("CALIB_FUT_{}", expiry),
                     Money::new(1_000_000.0, self.currency),
@@ -295,15 +304,17 @@ impl DiscountCurveCalibrator {
                     "CALIB_CURVE",
                     "CALIB_FWD",
                 );
-                
+
                 // Set contract specs from the quote
-                future = future.with_contract_specs(crate::instruments::fixed_income::ir_future::FutureContractSpecs {
-                    face_value: specs.face_value,
-                    tick_size: 0.0025,
-                    tick_value: 25.0,
-                    delivery_months: specs.delivery_months,
-                    convexity_adjustment: specs.convexity_adjustment,
-                });
+                future = future.with_contract_specs(
+                    crate::instruments::fixed_income::ir_future::FutureContractSpecs {
+                        face_value: specs.face_value,
+                        tick_size: 0.0025,
+                        tick_value: 25.0,
+                        delivery_months: specs.delivery_months,
+                        convexity_adjustment: specs.convexity_adjustment,
+                    },
+                );
 
                 // Price the future - should be zero at quoted price
                 let pv = future.value(context, self.base_date)?;
@@ -319,7 +330,9 @@ impl DiscountCurveCalibrator {
                 index: _,
             } => {
                 // Create swap instrument
-                use crate::instruments::fixed_income::irs::{FixedLegSpec, FloatLegSpec, PayReceive};
+                use crate::instruments::fixed_income::irs::{
+                    FixedLegSpec, FloatLegSpec, PayReceive,
+                };
                 use finstack_core::dates::{BusinessDayConvention, StubKind};
 
                 let fixed_spec = FixedLegSpec {
@@ -425,8 +438,6 @@ impl DiscountCurveCalibrator {
             _ => 0.0,
         }
     }
-
-
 }
 
 impl DiscountCurveCalibrator {
@@ -474,10 +485,10 @@ impl InstrumentQuote {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instruments::fixed_income::deposit::Deposit;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{Date, DayCount, Frequency};
     use finstack_core::prelude::TermStructure;
-    use crate::instruments::fixed_income::deposit::Deposit;
     use time::Month;
 
     fn create_test_quotes() -> Vec<InstrumentQuote> {
@@ -588,7 +599,10 @@ mod tests {
 
         let base_context = MarketContext::new();
 
-        println!("Starting calibration with {} deposits", deposit_quotes.len());
+        println!(
+            "Starting calibration with {} deposits",
+            deposit_quotes.len()
+        );
         for (i, quote) in deposit_quotes.iter().enumerate() {
             if let InstrumentQuote::Deposit { maturity, rate, .. } = quote {
                 println!("  Deposit {}: maturity = {}, rate = {}", i, maturity, rate);
@@ -609,7 +623,12 @@ mod tests {
         // Verify repricing via instrument PVs (|PV| ≤ $1 per $1MM)
         let ctx = base_context.with_discount(curve);
         for quote in &deposit_quotes {
-            if let InstrumentQuote::Deposit { maturity, rate, day_count } = quote {
+            if let InstrumentQuote::Deposit {
+                maturity,
+                rate,
+                day_count,
+            } = quote
+            {
                 let dep = Deposit {
                     id: format!("DEP-{}", maturity),
                     notional: Money::new(1_000_000.0, Currency::USD),
@@ -621,7 +640,11 @@ mod tests {
                     attributes: Default::default(),
                 };
                 let pv = dep.value(&ctx, base_date).unwrap();
-                assert!(pv.amount().abs() <= 1.0, "Deposit PV too large: {}", pv.amount());
+                assert!(
+                    pv.amount().abs() <= 1.0,
+                    "Deposit PV too large: {}",
+                    pv.amount()
+                );
             }
         }
     }
@@ -656,7 +679,11 @@ mod tests {
 
         let base_context = MarketContext::new();
         let (curve, _report) = calibrator
-            .bootstrap_curve(&quotes, &crate::calibration::solver::HybridSolver::new(), &base_context)
+            .bootstrap_curve(
+                &quotes,
+                &crate::calibration::solver::HybridSolver::new(),
+                &base_context,
+            )
             .unwrap();
 
         // Single-curve: derive forward curve from discount
@@ -677,12 +704,18 @@ mod tests {
         );
 
         let pv = fra.value(&ctx, base_date).unwrap();
-        assert!(pv.amount().abs() <= 1.0, "FRA PV too large: {}", pv.amount());
+        assert!(
+            pv.amount().abs() <= 1.0,
+            "FRA PV too large: {}",
+            pv.amount()
+        );
     }
 
     #[test]
     fn test_future_repricing_under_bootstrap() {
-        use crate::instruments::fixed_income::ir_future::{FutureContractSpecs, InterestRateFuture};
+        use crate::instruments::fixed_income::ir_future::{
+            FutureContractSpecs, InterestRateFuture,
+        };
 
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
@@ -709,7 +742,11 @@ mod tests {
 
         let base_context = MarketContext::new();
         let (curve, _report) = calibrator
-            .bootstrap_curve(&quotes, &crate::calibration::solver::HybridSolver::new(), &base_context)
+            .bootstrap_curve(
+                &quotes,
+                &crate::calibration::solver::HybridSolver::new(),
+                &base_context,
+            )
             .unwrap();
 
         let fwd = curve.to_forward_curve("USD-SOFR", 0.25).unwrap();
@@ -739,10 +776,16 @@ mod tests {
             "USD-OIS",
             "USD-SOFR",
         );
-        fut = fut.with_contract_specs(FutureContractSpecs { ..Default::default() });
+        fut = fut.with_contract_specs(FutureContractSpecs {
+            ..Default::default()
+        });
 
         let pv = fut.value(&ctx, base_date).unwrap();
-        assert!(pv.amount().abs() <= 1.0, "Future PV too large: {}", pv.amount());
+        assert!(
+            pv.amount().abs() <= 1.0,
+            "Future PV too large: {}",
+            pv.amount()
+        );
     }
 
     #[test]
@@ -777,7 +820,11 @@ mod tests {
 
         let base_context = MarketContext::new();
         let (curve, _report) = calibrator
-            .bootstrap_curve(&quotes, &crate::calibration::solver::HybridSolver::new(), &base_context)
+            .bootstrap_curve(
+                &quotes,
+                &crate::calibration::solver::HybridSolver::new(),
+                &base_context,
+            )
             .unwrap();
 
         let fwd = curve.to_forward_curve("USD-SOFR", 0.25).unwrap();
@@ -791,12 +838,27 @@ mod tests {
             .notional(Money::new(1_000_000.0, Currency::USD))
             .side(PayReceive::ReceiveFixed)
             .dates(start, end)
-            .standard_fixed_leg("USD-OIS", 0.0470, Frequency::semi_annual(), DayCount::Thirty360)
-            .standard_float_leg("USD-OIS", "USD-SOFR", 0.0, Frequency::quarterly(), DayCount::Act360)
+            .standard_fixed_leg(
+                "USD-OIS",
+                0.0470,
+                Frequency::semi_annual(),
+                DayCount::Thirty360,
+            )
+            .standard_float_leg(
+                "USD-OIS",
+                "USD-SOFR",
+                0.0,
+                Frequency::quarterly(),
+                DayCount::Act360,
+            )
             .build()
             .unwrap();
 
         let pv = irs.value(&ctx, base_date).unwrap();
-        assert!(pv.amount().abs() <= 1.0, "Swap PV too large: {}", pv.amount());
+        assert!(
+            pv.amount().abs() <= 1.0,
+            "Swap PV too large: {}",
+            pv.amount()
+        );
     }
 }

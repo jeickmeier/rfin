@@ -4,18 +4,18 @@
 //! inflation swaps to build forward CPI level curves.
 
 use crate::calibration::primitives::{CalibrationConstraint, InstrumentQuote};
-use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
-use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::inflation::InflationCurve;
-use finstack_core::{Currency, Result, F};
-use std::collections::HashMap;
-use crate::instruments::fixed_income::inflation_swap::{InflationSwap, PayReceiveInflation};
-use crate::instruments::traits::Priceable;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::money::Money;
-use finstack_core::dates::DayCount;
 use crate::calibration::solver::HybridSolver;
 use crate::calibration::solver::Solver;
+use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
+use crate::instruments::fixed_income::inflation_swap::{InflationSwap, PayReceiveInflation};
+use crate::instruments::traits::Priceable;
+use finstack_core::dates::DayCount;
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::term_structures::inflation::InflationCurve;
+use finstack_core::money::Money;
+use finstack_core::{Currency, Result, F};
+use std::collections::HashMap;
 
 /// Inflation curve bootstrapper using ZC inflation swaps.
 #[derive(Clone, Debug)]
@@ -84,9 +84,11 @@ impl Calibrator<InstrumentQuote, CalibrationConstraint, InflationCurve>
         let mut quotes: Vec<(finstack_core::dates::Date, F, String)> = instruments
             .iter()
             .filter_map(|q| match q {
-                InstrumentQuote::InflationSwap { maturity, rate, index } => {
-                    Some((*maturity, *rate, index.clone()))
-                }
+                InstrumentQuote::InflationSwap {
+                    maturity,
+                    rate,
+                    index,
+                } => Some((*maturity, *rate, index.clone())),
                 _ => None,
             })
             .filter(|(_, _, index)| index == &self.curve_id)
@@ -139,7 +141,9 @@ impl Calibrator<InstrumentQuote, CalibrationConstraint, InflationCurve>
             // Initial guess: compound last CPI by par rate over accrual time
             let tau = DayCount::ActAct
                 .year_fraction(self.base_date, maturity)
-                .unwrap_or_else(|_| DiscountCurve::year_fraction(self.base_date, maturity, DayCount::Act365F));
+                .unwrap_or_else(|_| {
+                    DiscountCurve::year_fraction(self.base_date, maturity, DayCount::Act365F)
+                });
             // Use analytical breakeven CPI for initial guess to ensure f(x0)=0
             let initial_guess = self.base_cpi * (1.0 + par_rate).powf(tau);
             println!(
@@ -191,9 +195,7 @@ impl Calibrator<InstrumentQuote, CalibrationConstraint, InflationCurve>
                 };
 
                 // Update market context with temp index and curve
-                let temp_ctx = base_ctx_clone
-                    .clone()
-                    .with_inflation(temp_curve);
+                let temp_ctx = base_ctx_clone.clone().with_inflation(temp_curve);
 
                 match swap.value(&temp_ctx, base_date) {
                     Ok(pv) => pv.amount() / notional.amount(),
@@ -211,7 +213,10 @@ impl Calibrator<InstrumentQuote, CalibrationConstraint, InflationCurve>
 
             // Record residual and commit the knot
             let res = objective(solved_cpi).abs();
-            println!("[InflCalib] solved_cpi={:.6} residual={:.12}", solved_cpi, res);
+            println!(
+                "[InflCalib] solved_cpi={:.6} residual={:.12}",
+                solved_cpi, res
+            );
             residuals.insert(format!("ZCIS-{}", maturity), res);
             knots.push((t, solved_cpi));
         }
@@ -332,8 +337,6 @@ mod tests {
         assert!(!curve.cpi_levels().is_empty());
     }
 
-
-
     #[test]
     fn test_inflation_swap_repricing_under_bootstrap() {
         // Base setup
@@ -345,12 +348,14 @@ mod tests {
 
         // Discount curve required by calibrator and instrument pricer
         let disc_curve = create_test_discount_curve();
-        let base_context = MarketContext::new()
-            .with_discount(disc_curve)
-            .with_price("US-CPI-U-BASE_CPI", finstack_core::market_data::primitives::MarketScalar::Unitless(base_cpi));
+        let base_context = MarketContext::new().with_discount(disc_curve).with_price(
+            "US-CPI-U-BASE_CPI",
+            finstack_core::market_data::primitives::MarketScalar::Unitless(base_cpi),
+        );
 
         // Calibrate inflation curve (base_cpi will be sourced from context in production)
-        let calibrator = InflationCurveCalibrator::new("US-CPI-U", base_date, Currency::USD, base_cpi);
+        let calibrator =
+            InflationCurveCalibrator::new("US-CPI-U", base_date, Currency::USD, base_cpi);
         let calib = calibrator.calibrate(&quotes, &[], &base_context);
         assert!(calib.is_ok(), "calibration failed: {:?}", calib.err());
         let (infl_curve, _report) = calib.unwrap();
@@ -364,7 +369,11 @@ mod tests {
             ],
             Currency::USD,
         );
-        assert!(infl_index_res.is_ok(), "inflation index build failed: {:?}", infl_index_res.err());
+        assert!(
+            infl_index_res.is_ok(),
+            "inflation index build failed: {:?}",
+            infl_index_res.err()
+        );
         let infl_index = infl_index_res.unwrap();
 
         // Market context with calibrated inflation curve and index
@@ -375,7 +384,10 @@ mod tests {
         // Sanity checks: inflation pieces are in context
         let ic = ctx.inflation("US-CPI-U").expect("inflation curve missing");
         assert!(ic.cpi(0.0) > 0.0);
-        assert!(ctx.inflation_index("US-CPI-U").is_some(), "inflation index missing");
+        assert!(
+            ctx.inflation_index("US-CPI-U").is_some(),
+            "inflation index missing"
+        );
 
         // Reprice each quoted inflation swap; PV per $1MM should be <= $1
         for q in quotes {

@@ -91,11 +91,11 @@ impl ConvertibleBondValuator {
                 let cf_time = finstack_core::dates::DayCount::Act365F
                     .year_fraction(base_date, cf.date)
                     .unwrap_or(0.0);
-                
+
                 // Map to tree step with bounds checking
                 let step_index = ((cf_time / time_to_maturity) * steps as F).round() as usize;
                 let bounded_step = step_index.min(steps); // Bound within [0, steps]
-                
+
                 *coupon_map.entry(bounded_step).or_insert(0.0) += cf.amount.amount();
             }
         }
@@ -285,7 +285,13 @@ fn extract_equity_state(
         0.05 // Fallback rate
     };
 
-    Ok((spot, volatility, dividend_yield, risk_free_rate, time_to_maturity))
+    Ok((
+        spot,
+        volatility,
+        dividend_yield,
+        risk_free_rate,
+        time_to_maturity,
+    ))
 }
 
 /// Main pricing function for convertible bonds
@@ -332,7 +338,8 @@ pub fn price_convertible_bond(
     };
 
     let base_date = market_context.discount(bond.disc_id)?.base_date();
-    let valuator = ConvertibleBondValuator::new(bond, &cashflow_schedule, time_to_maturity, steps, base_date)?;
+    let valuator =
+        ConvertibleBondValuator::new(bond, &cashflow_schedule, time_to_maturity, steps, base_date)?;
 
     // Step 4: Create initial state variables
     let initial_vars = single_factor_equity_state(spot, risk_free_rate, dividend_yield, volatility);
@@ -391,7 +398,8 @@ pub fn calculate_convertible_greeks(
     };
 
     let base_date = market_context.discount(bond.disc_id)?.base_date();
-    let valuator = ConvertibleBondValuator::new(bond, &cashflow_schedule, time_to_maturity, steps, base_date)?;
+    let valuator =
+        ConvertibleBondValuator::new(bond, &cashflow_schedule, time_to_maturity, steps, base_date)?;
 
     let initial_vars = single_factor_equity_state(spot, risk_free_rate, dividend_yield, volatility);
 

@@ -476,8 +476,8 @@ impl Default for CDSBootstrapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 
     fn create_test_curves() -> (DiscountCurve, HazardCurve) {
         let disc = DiscountCurve::builder("USD-OIS")
@@ -490,7 +490,12 @@ mod tests {
             .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
             .recovery_rate(0.40)
             .knots(vec![(1.0, 0.02), (3.0, 0.03), (5.0, 0.04), (10.0, 0.05)])
-            .par_spreads(vec![(1.0, 100.0), (3.0, 150.0), (5.0, 200.0), (10.0, 250.0)])
+            .par_spreads(vec![
+                (1.0, 100.0),
+                (3.0, 150.0),
+                (5.0, 200.0),
+                (10.0, 250.0),
+            ])
             .build()
             .unwrap();
 

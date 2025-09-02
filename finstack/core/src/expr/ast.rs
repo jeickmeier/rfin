@@ -1,7 +1,43 @@
 //! AST nodes and function registry for the expression engine.
 
-use super::time_windows::DurationSpec;
 use core::hash::{Hash, Hasher};
+use time::Duration;
+
+/// Typed duration specification to avoid repeated string parsing and
+/// ambiguous cache keys. Keep strings only at IO boundaries.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum DurationSpec {
+    /// Duration in seconds.
+    Seconds(i64),
+    /// Duration in minutes.
+    Minutes(i64),
+    /// Duration in hours.
+    Hours(i64),
+    /// Duration in days.
+    Days(i64),
+    /// Duration in weeks.
+    Weeks(i64),
+    /// Calendar-approx months (30 days per month).
+    Months(i64),
+    /// Calendar-approx years (365 days per year).
+    Years(i64),
+}
+
+impl DurationSpec {
+    /// Convert to `time::Duration`, using the same month/year approximations
+    /// as legacy string parsing.
+    pub fn to_duration(&self) -> Duration {
+        match *self {
+            DurationSpec::Seconds(n) => Duration::seconds(n),
+            DurationSpec::Minutes(n) => Duration::minutes(n),
+            DurationSpec::Hours(n) => Duration::hours(n),
+            DurationSpec::Days(n) => Duration::days(n),
+            DurationSpec::Weeks(n) => Duration::weeks(n),
+            DurationSpec::Months(n) => Duration::days(n * 30),
+            DurationSpec::Years(n) => Duration::days(n * 365),
+        }
+    }
+}
 
 /// Expression AST with optional unique ID for DAG planning and caching.
 #[derive(Clone, Debug)]

@@ -10,8 +10,8 @@ use finstack_core::F;
 use finstack_core::dates::Date;
 
 use super::models::{d1, d2};
-use finstack_core::math::{norm_cdf, norm_pdf};
 use super::{ExerciseStyle, OptionType, SettlementType};
+use finstack_core::math::{norm_cdf, norm_pdf};
 
 /// Equity option instrument
 #[derive(Clone, Debug)]
@@ -113,12 +113,10 @@ impl EquityOption {
 
         let price = match self.option_type {
             OptionType::Call => {
-                spot * (-q * t).exp() * norm_cdf(d1)
-                    - k * (-r * t).exp() * norm_cdf(d2)
+                spot * (-q * t).exp() * norm_cdf(d1) - k * (-r * t).exp() * norm_cdf(d2)
             }
             OptionType::Put => {
-                k * (-r * t).exp() * norm_cdf(-d2)
-                    - spot * (-q * t).exp() * norm_cdf(-d1)
+                k * (-r * t).exp() * norm_cdf(-d2) - spot * (-q * t).exp() * norm_cdf(-d1)
             }
         };
 

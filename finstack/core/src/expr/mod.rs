@@ -21,16 +21,14 @@ mod cache;
 mod context;
 mod dag;
 mod eval;
-mod time_windows;
 
 pub use ast::{
-    EvaluationResult, ExecMeta, Expr, ExprNode, Function, ResultMetadata, TimeWindow, WindowSpec,
+    DurationSpec, EvaluationResult, ExecMeta, Expr, ExprNode, Function, ResultMetadata, TimeWindow, WindowSpec,
 };
 pub use cache::{CacheManager, CachedResult};
 pub use context::{ExpressionContext, SimpleContext};
 pub use dag::{DagBuilder, ExecutionPlan, PushdownAnalyzer, PushdownBoundaries};
 pub use eval::CompiledExpr;
-pub use time_windows::{parse_duration, parse_duration_spec, DurationSpec};
 
 // Re-export Polars Series type since it's part of CachedResult's public API
 pub use polars::prelude::Series;

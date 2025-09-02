@@ -1,12 +1,12 @@
 //! Prepayment schedules and penalty structures for loans.
 
+use crate::instruments::fixed_income::discountable::Discountable;
+use crate::market_data::context::ValuationMarketContext;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::traits::{Discount, TermStructure};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::F;
-use crate::instruments::fixed_income::discountable::Discountable;
-use crate::market_data::context::ValuationMarketContext;
 
 /// Type of prepayment allowed on the loan.
 #[derive(Clone, Debug, PartialEq, Default)]
@@ -47,12 +47,12 @@ pub enum PenaltyType {
     /// Percentage of prepaid amount
     Percentage(F),
     /// Make-whole premium based on benchmark curve.
-    /// 
+    ///
     /// Standard corporate bond/loan convention: calculates the present value
     /// of all remaining contractual payments (coupons + principal) discounted
     /// at the benchmark curve plus a specified spread. The penalty is the
     /// excess of this PV over the outstanding principal being prepaid.
-    /// 
+    ///
     /// Formula: max(PV_remaining_flows_at_(benchmark+spread) - prepaid_amount, 0)
     MakeWhole {
         /// Benchmark curve ID (typically "USD-TREASURY" or similar)
@@ -61,12 +61,12 @@ pub enum PenaltyType {
         spread_bp: F,
     },
     /// Yield maintenance penalty.
-    /// 
+    ///
     /// Commercial loan convention: ensures the lender maintains their original
     /// yield by calculating the present value of remaining payments discounted
     /// at a reference rate (typically current Treasury rate). This implementation
     /// includes all remaining flows for conservative treatment.
-    /// 
+    ///
     /// Formula: max(PV_remaining_flows_at_reference_rate - prepaid_amount, 0)
     YieldMaintenance {
         /// Reference rate for calculation (typically Treasury rate)
@@ -129,7 +129,11 @@ struct FlatRateCurve {
 impl FlatRateCurve {
     fn new(rate: F, base_date: Date, id_suffix: &str) -> Self {
         let id = CurveId::from(format!("FLAT-{}-{:.4}", id_suffix, rate));
-        Self { id, base_date, rate }
+        Self {
+            id,
+            base_date,
+            rate,
+        }
     }
 }
 
@@ -185,7 +189,7 @@ impl PrepaymentSchedule {
     }
 
     /// Calculates the prepayment penalty for a given date and amount.
-    /// 
+    ///
     /// This is a simplified version that only handles Fixed and Percentage penalties.
     /// For MakeWhole and YieldMaintenance, use `calculate_penalty_with_market`.
     pub fn calculate_penalty(&self, date: Date, amount: Money) -> finstack_core::Result<Money> {
@@ -216,10 +220,10 @@ impl PrepaymentSchedule {
     }
 
     /// Calculates the prepayment penalty with market context and remaining cashflows.
-    /// 
+    ///
     /// This method handles all penalty types including MakeWhole and YieldMaintenance
     /// which require market data for proper present value calculations.
-    /// 
+    ///
     /// # Arguments
     /// * `date` - The prepayment date
     /// * `amount` - The amount being prepaid
@@ -227,7 +231,7 @@ impl PrepaymentSchedule {
     /// * `remaining_flows` - All cashflows scheduled after the prepayment date
     /// * `market` - Market context containing discount curves
     /// * `day_count` - Day count convention for time calculations
-    /// 
+    ///
     /// # Returns
     /// The prepayment penalty amount in the same currency as the prepaid amount
     pub fn calculate_penalty_with_market(
@@ -253,28 +257,28 @@ impl PrepaymentSchedule {
                     PenaltyType::Percentage(pct) => {
                         Ok(Money::new(amount.amount() * pct, amount.currency()))
                     }
-                    PenaltyType::MakeWhole { benchmark_curve, spread_bp } => {
-                        self.calculate_make_whole_penalty(
-                            date,
-                            amount,
-                            outstanding_principal,
-                            remaining_flows,
-                            market,
-                            day_count,
-                            benchmark_curve,
-                            *spread_bp,
-                        )
-                    }
-                    PenaltyType::YieldMaintenance { reference_rate } => {
-                        self.calculate_yield_maintenance_penalty(
+                    PenaltyType::MakeWhole {
+                        benchmark_curve,
+                        spread_bp,
+                    } => self.calculate_make_whole_penalty(
+                        date,
+                        amount,
+                        outstanding_principal,
+                        remaining_flows,
+                        market,
+                        day_count,
+                        benchmark_curve,
+                        *spread_bp,
+                    ),
+                    PenaltyType::YieldMaintenance { reference_rate } => self
+                        .calculate_yield_maintenance_penalty(
                             date,
                             amount,
                             outstanding_principal,
                             remaining_flows,
                             day_count,
                             *reference_rate,
-                        )
-                    }
+                        ),
                 };
             }
         }
@@ -302,7 +306,10 @@ impl PrepaymentSchedule {
             .iter()
             .filter(|(flow_date, _)| *flow_date > prepay_date)
             .map(|(flow_date, flow_amount)| {
-                (*flow_date, Money::new(flow_amount.amount() * prepay_ratio, flow_amount.currency()))
+                (
+                    *flow_date,
+                    Money::new(flow_amount.amount() * prepay_ratio, flow_amount.currency()),
+                )
             })
             .collect();
 
@@ -312,13 +319,13 @@ impl PrepaymentSchedule {
 
         // Get the benchmark discount curve
         let base_curve = market.discount(benchmark_curve)?;
-        
+
         // Create z-spread curve (benchmark + spread)
         let discount_curve = ZSpreadCurve::new(base_curve.as_ref(), spread_bp);
-        
+
         // Calculate present value of remaining flows
         let pv = scaled_flows.npv(&discount_curve, prepay_date, day_count)?;
-        
+
         // Penalty is max(PV - prepaid amount, 0)
         let penalty_amount = (pv.amount() - prepay_amount.amount()).max(0.0);
         Ok(Money::new(penalty_amount, prepay_amount.currency()))
@@ -336,14 +343,17 @@ impl PrepaymentSchedule {
     ) -> finstack_core::Result<Money> {
         // Create flat rate discount curve
         let discount_curve = FlatRateCurve::new(reference_rate, prepay_date, "YM");
-        
+
         // Filter remaining flows after prepayment date and scale by prepayment ratio
         let prepay_ratio = prepay_amount.amount() / outstanding_principal.amount();
         let scaled_flows: Vec<(Date, Money)> = remaining_flows
             .iter()
             .filter(|(flow_date, _)| *flow_date > prepay_date)
             .map(|(flow_date, flow_amount)| {
-                (*flow_date, Money::new(flow_amount.amount() * prepay_ratio, flow_amount.currency()))
+                (
+                    *flow_date,
+                    Money::new(flow_amount.amount() * prepay_ratio, flow_amount.currency()),
+                )
             })
             .collect();
 
@@ -353,8 +363,8 @@ impl PrepaymentSchedule {
 
         // Calculate present value of remaining flows
         let pv = scaled_flows.npv(&discount_curve, prepay_date, day_count)?;
-        
-        // Penalty is max(PV - prepaid amount, 0) 
+
+        // Penalty is max(PV - prepaid amount, 0)
         // Note: For yield maintenance, some conventions only consider coupon flows,
         // but this implementation includes all remaining flows for conservative treatment
         let penalty_amount = (pv.amount() - prepay_amount.amount()).max(0.0);
@@ -365,10 +375,10 @@ impl PrepaymentSchedule {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::market_data::context::ValuationMarketContext;
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCount;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use crate::market_data::context::ValuationMarketContext;
     use time::Month;
 
     #[test]
@@ -408,7 +418,7 @@ mod tests {
     fn test_make_whole_penalty_calculation() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let prepay_date = Date::from_calendar_date(2025, Month::June, 15).unwrap();
-        
+
         // Create a low-rate discount curve to ensure PV > prepaid amount
         let discount_curve = DiscountCurve::builder("USD-TREASURY")
             .base_date(base_date)
@@ -418,12 +428,11 @@ mod tests {
             .unwrap();
 
         // Create market context
-        let market = ValuationMarketContext::new()
-            .with_discount(discount_curve);
+        let market = ValuationMarketContext::new().with_discount(discount_curve);
 
         // Create prepayment schedule with make-whole penalty
-        let schedule = PrepaymentSchedule::new(PrepaymentType::MakeWhole)
-            .with_penalty(PrepaymentPenalty {
+        let schedule =
+            PrepaymentSchedule::new(PrepaymentType::MakeWhole).with_penalty(PrepaymentPenalty {
                 start: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
                 end: Some(Date::from_calendar_date(2030, Month::January, 1).unwrap()),
                 penalty: PenaltyType::MakeWhole {
@@ -436,24 +445,35 @@ mod tests {
         let outstanding = Money::new(1_000_000.0, Currency::USD);
         let prepay_amount = Money::new(500_000.0, Currency::USD); // Partial prepayment
         let remaining_flows = vec![
-            (Date::from_calendar_date(2025, Month::September, 15).unwrap(), Money::new(25_000.0, Currency::USD)), // Interest
-            (Date::from_calendar_date(2025, Month::December, 15).unwrap(), Money::new(25_000.0, Currency::USD)), // Interest  
-            (Date::from_calendar_date(2026, Month::January, 1).unwrap(), Money::new(1_000_000.0, Currency::USD)), // Principal
+            (
+                Date::from_calendar_date(2025, Month::September, 15).unwrap(),
+                Money::new(25_000.0, Currency::USD),
+            ), // Interest
+            (
+                Date::from_calendar_date(2025, Month::December, 15).unwrap(),
+                Money::new(25_000.0, Currency::USD),
+            ), // Interest
+            (
+                Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+                Money::new(1_000_000.0, Currency::USD),
+            ), // Principal
         ];
 
-        let penalty = schedule.calculate_penalty_with_market(
-            prepay_date,
-            prepay_amount,
-            outstanding,
-            &remaining_flows,
-            &market,
-            DayCount::Act360,
-        ).unwrap();
+        let penalty = schedule
+            .calculate_penalty_with_market(
+                prepay_date,
+                prepay_amount,
+                outstanding,
+                &remaining_flows,
+                &market,
+                DayCount::Act360,
+            )
+            .unwrap();
 
         // Penalty should be positive (PV of remaining flows > prepaid amount due to spread)
         assert!(penalty.amount() >= 0.0); // Change to >= 0 for more robust test
         assert_eq!(penalty.currency(), Currency::USD);
-        
+
         // The penalty should be meaningful (not just 0) due to the spread
         // With 300bp spread and substantial remaining flows, we expect some penalty
         println!("Make-whole penalty: {}", penalty.amount());
@@ -464,8 +484,8 @@ mod tests {
         let prepay_date = Date::from_calendar_date(2025, Month::June, 15).unwrap();
 
         // Create prepayment schedule with yield maintenance penalty
-        let schedule = PrepaymentSchedule::new(PrepaymentType::MakeWhole)
-            .with_penalty(PrepaymentPenalty {
+        let schedule =
+            PrepaymentSchedule::new(PrepaymentType::MakeWhole).with_penalty(PrepaymentPenalty {
                 start: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
                 end: Some(Date::from_calendar_date(2030, Month::January, 1).unwrap()),
                 penalty: PenaltyType::YieldMaintenance {
@@ -477,19 +497,30 @@ mod tests {
         let outstanding = Money::new(1_000_000.0, Currency::USD);
         let prepay_amount = Money::new(1_000_000.0, Currency::USD); // Full prepayment
         let remaining_flows = vec![
-            (Date::from_calendar_date(2025, Month::September, 15).unwrap(), Money::new(25_000.0, Currency::USD)), // Interest
-            (Date::from_calendar_date(2025, Month::December, 15).unwrap(), Money::new(25_000.0, Currency::USD)), // Interest
-            (Date::from_calendar_date(2026, Month::January, 1).unwrap(), Money::new(1_000_000.0, Currency::USD)), // Principal
+            (
+                Date::from_calendar_date(2025, Month::September, 15).unwrap(),
+                Money::new(25_000.0, Currency::USD),
+            ), // Interest
+            (
+                Date::from_calendar_date(2025, Month::December, 15).unwrap(),
+                Money::new(25_000.0, Currency::USD),
+            ), // Interest
+            (
+                Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+                Money::new(1_000_000.0, Currency::USD),
+            ), // Principal
         ];
 
-        let penalty = schedule.calculate_penalty_with_market(
-            prepay_date,
-            prepay_amount,
-            outstanding,
-            &remaining_flows,
-            &ValuationMarketContext::new(), // Empty market context (not needed for flat rate)
-            DayCount::Act360,
-        ).unwrap();
+        let penalty = schedule
+            .calculate_penalty_with_market(
+                prepay_date,
+                prepay_amount,
+                outstanding,
+                &remaining_flows,
+                &ValuationMarketContext::new(), // Empty market context (not needed for flat rate)
+                DayCount::Act360,
+            )
+            .unwrap();
 
         // Penalty should be positive
         assert!(penalty.amount() > 0.0);
@@ -500,8 +531,8 @@ mod tests {
     fn test_no_penalty_when_no_remaining_flows() {
         let prepay_date = Date::from_calendar_date(2025, Month::December, 31).unwrap();
 
-        let schedule = PrepaymentSchedule::new(PrepaymentType::MakeWhole)
-            .with_penalty(PrepaymentPenalty {
+        let schedule =
+            PrepaymentSchedule::new(PrepaymentType::MakeWhole).with_penalty(PrepaymentPenalty {
                 start: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
                 end: Some(Date::from_calendar_date(2030, Month::January, 1).unwrap()),
                 penalty: PenaltyType::MakeWhole {
@@ -514,14 +545,16 @@ mod tests {
         let prepay_amount = Money::new(1_000_000.0, Currency::USD);
         let remaining_flows = vec![]; // No remaining flows
 
-        let penalty = schedule.calculate_penalty_with_market(
-            prepay_date,
-            prepay_amount,
-            outstanding,
-            &remaining_flows,
-            &ValuationMarketContext::new(),
-            DayCount::Act360,
-        ).unwrap();
+        let penalty = schedule
+            .calculate_penalty_with_market(
+                prepay_date,
+                prepay_amount,
+                outstanding,
+                &remaining_flows,
+                &ValuationMarketContext::new(),
+                DayCount::Act360,
+            )
+            .unwrap();
 
         assert_eq!(penalty.amount(), 0.0);
     }
@@ -530,7 +563,7 @@ mod tests {
     fn test_partial_prepayment_scaling() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let prepay_date = Date::from_calendar_date(2025, Month::June, 15).unwrap();
-        
+
         // Create a simple discount curve
         let discount_curve = DiscountCurve::builder("USD-TREASURY")
             .base_date(base_date)
@@ -539,11 +572,10 @@ mod tests {
             .build()
             .unwrap();
 
-        let market = ValuationMarketContext::new()
-            .with_discount(discount_curve);
+        let market = ValuationMarketContext::new().with_discount(discount_curve);
 
-        let schedule = PrepaymentSchedule::new(PrepaymentType::MakeWhole)
-            .with_penalty(PrepaymentPenalty {
+        let schedule =
+            PrepaymentSchedule::new(PrepaymentType::MakeWhole).with_penalty(PrepaymentPenalty {
                 start: base_date,
                 end: Some(Date::from_calendar_date(2030, Month::January, 1).unwrap()),
                 penalty: PenaltyType::MakeWhole {
@@ -553,32 +585,37 @@ mod tests {
             });
 
         let outstanding = Money::new(1_000_000.0, Currency::USD);
-        
+
         // Test 50% prepayment
         let prepay_amount_50 = Money::new(500_000.0, Currency::USD);
-        let remaining_flows = vec![
-            (Date::from_calendar_date(2026, Month::January, 1).unwrap(), Money::new(1_000_000.0, Currency::USD)),
-        ];
+        let remaining_flows = vec![(
+            Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+            Money::new(1_000_000.0, Currency::USD),
+        )];
 
-        let penalty_50 = schedule.calculate_penalty_with_market(
-            prepay_date,
-            prepay_amount_50,
-            outstanding,
-            &remaining_flows,
-            &market,
-            DayCount::Act360,
-        ).unwrap();
+        let penalty_50 = schedule
+            .calculate_penalty_with_market(
+                prepay_date,
+                prepay_amount_50,
+                outstanding,
+                &remaining_flows,
+                &market,
+                DayCount::Act360,
+            )
+            .unwrap();
 
         // Test 100% prepayment
         let prepay_amount_100 = Money::new(1_000_000.0, Currency::USD);
-        let penalty_100 = schedule.calculate_penalty_with_market(
-            prepay_date,
-            prepay_amount_100,
-            outstanding,
-            &remaining_flows,
-            &market,
-            DayCount::Act360,
-        ).unwrap();
+        let penalty_100 = schedule
+            .calculate_penalty_with_market(
+                prepay_date,
+                prepay_amount_100,
+                outstanding,
+                &remaining_flows,
+                &market,
+                DayCount::Act360,
+            )
+            .unwrap();
 
         // 100% prepayment penalty should be exactly 2x the 50% penalty
         assert!((penalty_100.amount() - 2.0 * penalty_50.amount()).abs() < 1e-6);
@@ -588,7 +625,7 @@ mod tests {
     fn test_make_whole_vs_yield_maintenance_different_results() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let prepay_date = Date::from_calendar_date(2025, Month::June, 15).unwrap();
-        
+
         // Create discount curve
         let discount_curve = DiscountCurve::builder("USD-TREASURY")
             .base_date(base_date)
@@ -597,12 +634,11 @@ mod tests {
             .build()
             .unwrap();
 
-        let market = ValuationMarketContext::new()
-            .with_discount(discount_curve);
+        let market = ValuationMarketContext::new().with_discount(discount_curve);
 
         // Make-whole schedule
-        let mw_schedule = PrepaymentSchedule::new(PrepaymentType::MakeWhole)
-            .with_penalty(PrepaymentPenalty {
+        let mw_schedule =
+            PrepaymentSchedule::new(PrepaymentType::MakeWhole).with_penalty(PrepaymentPenalty {
                 start: base_date,
                 end: Some(Date::from_calendar_date(2030, Month::January, 1).unwrap()),
                 penalty: PenaltyType::MakeWhole {
@@ -612,8 +648,8 @@ mod tests {
             });
 
         // Yield maintenance schedule
-        let ym_schedule = PrepaymentSchedule::new(PrepaymentType::MakeWhole)
-            .with_penalty(PrepaymentPenalty {
+        let ym_schedule =
+            PrepaymentSchedule::new(PrepaymentType::MakeWhole).with_penalty(PrepaymentPenalty {
                 start: base_date,
                 end: Some(Date::from_calendar_date(2030, Month::January, 1).unwrap()),
                 penalty: PenaltyType::YieldMaintenance {
@@ -624,27 +660,37 @@ mod tests {
         let outstanding = Money::new(1_000_000.0, Currency::USD);
         let prepay_amount = Money::new(1_000_000.0, Currency::USD);
         let remaining_flows = vec![
-            (Date::from_calendar_date(2025, Month::December, 15).unwrap(), Money::new(30_000.0, Currency::USD)),
-            (Date::from_calendar_date(2026, Month::January, 1).unwrap(), Money::new(1_000_000.0, Currency::USD)),
+            (
+                Date::from_calendar_date(2025, Month::December, 15).unwrap(),
+                Money::new(30_000.0, Currency::USD),
+            ),
+            (
+                Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+                Money::new(1_000_000.0, Currency::USD),
+            ),
         ];
 
-        let mw_penalty = mw_schedule.calculate_penalty_with_market(
-            prepay_date,
-            prepay_amount,
-            outstanding,
-            &remaining_flows,
-            &market,
-            DayCount::Act360,
-        ).unwrap();
+        let mw_penalty = mw_schedule
+            .calculate_penalty_with_market(
+                prepay_date,
+                prepay_amount,
+                outstanding,
+                &remaining_flows,
+                &market,
+                DayCount::Act360,
+            )
+            .unwrap();
 
-        let ym_penalty = ym_schedule.calculate_penalty_with_market(
-            prepay_date,
-            prepay_amount,
-            outstanding,
-            &remaining_flows,
-            &ValuationMarketContext::new(), // YM doesn't need market curves
-            DayCount::Act360,
-        ).unwrap();
+        let ym_penalty = ym_schedule
+            .calculate_penalty_with_market(
+                prepay_date,
+                prepay_amount,
+                outstanding,
+                &remaining_flows,
+                &ValuationMarketContext::new(), // YM doesn't need market curves
+                DayCount::Act360,
+            )
+            .unwrap();
 
         // Results should be different due to different discount rates
         assert_ne!(mw_penalty.amount(), ym_penalty.amount());
@@ -652,10 +698,10 @@ mod tests {
         assert!(ym_penalty.amount() > 0.0);
     }
 
-    #[test] 
+    #[test]
     fn test_penalty_calculation_errors_for_advanced_types() {
-        let schedule = PrepaymentSchedule::new(PrepaymentType::MakeWhole)
-            .with_penalty(PrepaymentPenalty {
+        let schedule =
+            PrepaymentSchedule::new(PrepaymentType::MakeWhole).with_penalty(PrepaymentPenalty {
                 start: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
                 end: Some(Date::from_calendar_date(2025, Month::December, 31).unwrap()),
                 penalty: PenaltyType::MakeWhole {
@@ -688,7 +734,7 @@ mod tests {
         let t = 1.0;
         assert!(z_curve.df(t) < base_curve.df(t));
         assert!(z_curve.df(t) > 0.0);
-        
+
         // Check that the spread is applied correctly
         let expected_df = base_curve.df(t) * (-0.01 * t).exp(); // 100bp = 0.01
         assert!((z_curve.df(t) - expected_df).abs() < 1e-12);
@@ -704,7 +750,7 @@ mod tests {
         assert!((flat_curve.df(0.0) - 1.0).abs() < 1e-12);
         assert!((flat_curve.df(1.0) - (-rate).exp()).abs() < 1e-12);
         assert!((flat_curve.df(2.0) - (-rate * 2.0).exp()).abs() < 1e-12);
-        
+
         // Ensure discount factors are decreasing
         assert!(flat_curve.df(1.0) < flat_curve.df(0.5));
         assert!(flat_curve.df(2.0) < flat_curve.df(1.0));
@@ -714,7 +760,7 @@ mod tests {
     fn test_penalty_zero_when_pv_less_than_prepaid() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let prepay_date = Date::from_calendar_date(2025, Month::November, 1).unwrap();
-        
+
         // Create a high-rate discount curve to make PV very low
         let discount_curve = DiscountCurve::builder("USD-TREASURY")
             .base_date(base_date)
@@ -723,11 +769,10 @@ mod tests {
             .build()
             .unwrap();
 
-        let market = ValuationMarketContext::new()
-            .with_discount(discount_curve);
+        let market = ValuationMarketContext::new().with_discount(discount_curve);
 
-        let schedule = PrepaymentSchedule::new(PrepaymentType::MakeWhole)
-            .with_penalty(PrepaymentPenalty {
+        let schedule =
+            PrepaymentSchedule::new(PrepaymentType::MakeWhole).with_penalty(PrepaymentPenalty {
                 start: base_date,
                 end: Some(Date::from_calendar_date(2030, Month::January, 1).unwrap()),
                 penalty: PenaltyType::MakeWhole {
@@ -738,20 +783,23 @@ mod tests {
 
         let outstanding = Money::new(1_000_000.0, Currency::USD);
         let prepay_amount = Money::new(1_000_000.0, Currency::USD);
-        
-        // Small remaining flow that will have low PV
-        let remaining_flows = vec![
-            (Date::from_calendar_date(2026, Month::January, 1).unwrap(), Money::new(10_000.0, Currency::USD)),
-        ];
 
-        let penalty = schedule.calculate_penalty_with_market(
-            prepay_date,
-            prepay_amount,
-            outstanding,
-            &remaining_flows,
-            &market,
-            DayCount::Act360,
-        ).unwrap();
+        // Small remaining flow that will have low PV
+        let remaining_flows = vec![(
+            Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+            Money::new(10_000.0, Currency::USD),
+        )];
+
+        let penalty = schedule
+            .calculate_penalty_with_market(
+                prepay_date,
+                prepay_amount,
+                outstanding,
+                &remaining_flows,
+                &market,
+                DayCount::Act360,
+            )
+            .unwrap();
 
         // Penalty should be zero since PV < prepaid amount
         assert_eq!(penalty.amount(), 0.0);
