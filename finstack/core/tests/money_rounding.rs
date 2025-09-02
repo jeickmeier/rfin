@@ -4,7 +4,6 @@ use finstack_core::{Currency, Money};
 #[test]
 fn money_display_respects_output_scale() {
     let cfg = FinstackConfig {
-        rounding_mode: RoundingMode::AwayFromZero,
         rounding: RoundingPolicy {
             mode: RoundingMode::AwayFromZero,
             // Keep ingest high so display rounding is the observable effect

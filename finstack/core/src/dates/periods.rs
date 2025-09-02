@@ -390,7 +390,7 @@ fn fiscal_year_start(fiscal_year: i32, config: FiscalConfig) -> Date {
 }
 
 /// Get the number of days in a month
-fn days_in_month(year: i32, month: u8) -> u8 {
+pub fn days_in_month(year: i32, month: u8) -> u8 {
     match month {
         1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
         4 | 6 | 9 | 11 => 30,

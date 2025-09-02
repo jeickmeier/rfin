@@ -1,3 +1,10 @@
+//! Utility for exporting rule-based calendars to CSV for validation or interoperability.
+//!
+//! This binary generates CSV files containing holiday dates by evaluating rule-based
+//! calendar implementations over a specified date range. The generated CSVs are used
+//! for validation purposes and external interoperability, but are not used by the
+//! runtime engine itself.
+
 use std::fs::{create_dir_all, File};
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;

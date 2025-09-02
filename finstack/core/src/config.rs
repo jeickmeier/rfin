@@ -30,8 +30,6 @@ pub enum RoundingMode {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FinstackConfig {
-    /// Default rounding mode for textual/IO boundaries (e.g., Display).
-    pub rounding_mode: RoundingMode,
     /// Detailed rounding policy (ingest/output scales by currency).
     pub rounding: RoundingPolicy,
 }
@@ -39,7 +37,6 @@ pub struct FinstackConfig {
 impl Default for FinstackConfig {
     fn default() -> Self {
         Self {
-            rounding_mode: RoundingMode::Bankers,
             rounding: RoundingPolicy::default(),
         }
     }

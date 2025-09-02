@@ -7,6 +7,7 @@
 #![allow(clippy::wrong_self_convention, clippy::assign_op_pattern)]
 
 use time::{Date, Duration, OffsetDateTime, Weekday};
+use crate::dates::periods::{FiscalConfig, days_in_month};
 
 /// Convenience extensions for [`time::Date`].
 pub trait DateExt {
@@ -16,19 +17,20 @@ pub trait DateExt {
     /// Calendar quarter of the date (1‥=4).
     fn quarter(self) -> u8;
 
-    /// Fiscal year corresponding to the date.
+    /// Fiscal year corresponding to the date based on the provided fiscal configuration.
     ///
-    /// Currently this is identical to the calendar year.  A configurable start
-    /// month will be added in a future iteration once more requirements are
-    /// clear.
-    fn fiscal_year(self) -> i32;
+    /// Uses the fiscal year start month and day from `FiscalConfig` to determine
+    /// which fiscal year this date belongs to.
+    fn fiscal_year(self, config: FiscalConfig) -> i32;
 
-    /// Add / subtract a number of **business days** (`n`) to the date.
+    /// Add / subtract a number of **weekdays** (`n`) to the date.
     ///
-    /// The naive weekend-only algorithm skips Saturdays & Sundays.  Positive
-    /// `n` moves forward, negative `n` moves backward.  Zero returns the input
-    /// unchanged.
-    fn add_business_days(self, n: i32) -> Self;
+    /// This naive algorithm only skips Saturdays & Sundays, and does NOT
+    /// account for holidays. For true business day adjustments that respect
+    /// holidays, use a `HolidayCalendar` with appropriate methods.
+    /// Positive `n` moves forward, negative `n` moves backward. Zero returns
+    /// the input unchanged.
+    fn add_weekdays(self, n: i32) -> Self;
 
     /// Returns `true` if the date is a business day according to the provided
     /// `calendar` (see [`crate::dates::calendar::HolidayCalendar`]).
@@ -56,11 +58,42 @@ impl DateExt for Date {
         ((self.month() as u8 - 1) / 3) + 1
     }
 
-    fn fiscal_year(self) -> i32 {
-        self.year()
+    fn fiscal_year(self, config: FiscalConfig) -> i32 {
+        // If fiscal year starts in January, it's just the calendar year
+        if config.start_month == 1 && config.start_day == 1 {
+            return self.year();
+        }
+
+        // Otherwise, we need to check if the date is before or after the fiscal year start
+        let calendar_year = self.year();
+        let fiscal_start_this_year = Date::from_calendar_date(
+            calendar_year,
+            time::Month::try_from(config.start_month).unwrap(),
+            config.start_day,
+        )
+        .unwrap_or_else(|_| {
+            // If the day doesn't exist (e.g., Feb 30), use the last day of the month
+            let last_day = days_in_month(calendar_year, config.start_month);
+            Date::from_calendar_date(
+                calendar_year,
+                time::Month::try_from(config.start_month).unwrap(),
+                last_day,
+            )
+            .unwrap()
+        });
+
+        if self >= fiscal_start_this_year {
+            // Date is on or after fiscal year start, so it belongs to the fiscal year
+            // that started in this calendar year
+            calendar_year + 1
+        } else {
+            // Date is before fiscal year start, so it belongs to the fiscal year
+            // that started in the previous calendar year
+            calendar_year
+        }
     }
 
-    fn add_business_days(self, mut n: i32) -> Self {
+    fn add_weekdays(self, mut n: i32) -> Self {
         if n == 0 {
             return self;
         }
@@ -95,10 +128,10 @@ pub trait OffsetDateTimeExt {
     fn quarter(self) -> u8;
 
     /// See [`DateExt::fiscal_year`].
-    fn fiscal_year(self) -> i32;
+    fn fiscal_year(self, config: FiscalConfig) -> i32;
 
-    /// See [`DateExt::add_business_days`].
-    fn add_business_days(self, n: i32) -> Self;
+    /// See [`DateExt::add_weekdays`].
+    fn add_weekdays(self, n: i32) -> Self;
 
     /// See [`DateExt::is_business_day`].
     fn is_business_day<C: crate::dates::calendar::HolidayCalendar>(self, cal: &C) -> bool;
@@ -116,12 +149,12 @@ impl OffsetDateTimeExt for OffsetDateTime {
         self.date().quarter()
     }
 
-    fn fiscal_year(self) -> i32 {
-        self.date().fiscal_year()
+    fn fiscal_year(self, config: FiscalConfig) -> i32 {
+        self.date().fiscal_year(config)
     }
 
-    fn add_business_days(self, n: i32) -> Self {
-        let new_date = self.date().add_business_days(n);
+    fn add_weekdays(self, n: i32) -> Self {
+        let new_date = self.date().add_weekdays(n);
         self.replace_date(new_date)
     }
 
@@ -166,16 +199,55 @@ mod tests {
     }
 
     #[test]
-    fn test_add_business_days_forward() {
+    fn test_add_weekdays_forward() {
         let start = make_date(2025, 6, 27); // Friday
-        let result = start.add_business_days(3);
-        assert_eq!(result, make_date(2025, 7, 2)); // Fri +3bd = Wed (skip weekend)
+        let result = start.add_weekdays(3);
+        assert_eq!(result, make_date(2025, 7, 2)); // Fri +3 weekdays = Wed (skip weekend)
     }
 
     #[test]
-    fn test_add_business_days_backward() {
+    fn test_add_weekdays_backward() {
         let start = make_date(2025, 6, 29); // Sunday
-        let result = start.add_business_days(-2);
-        assert_eq!(result, make_date(2025, 6, 26)); // Sun -2bd = Thu (skip weekend)
+        let result = start.add_weekdays(-2);
+        assert_eq!(result, make_date(2025, 6, 26)); // Sun -2 weekdays = Thu (skip weekend)
+    }
+
+    #[test]
+    fn test_fiscal_year_calendar_year() {
+        let date = make_date(2025, 6, 15);
+        let config = FiscalConfig::calendar_year();
+        assert_eq!(date.fiscal_year(config), 2025);
+    }
+
+    #[test]
+    fn test_fiscal_year_us_federal() {
+        let config = FiscalConfig::us_federal(); // October 1 start
+        
+        // Date before fiscal year start (e.g., September) belongs to previous FY
+        let sept_date = make_date(2024, 9, 15);
+        assert_eq!(sept_date.fiscal_year(config), 2024);
+        
+        // Date on or after fiscal year start belongs to current FY
+        let oct_date = make_date(2024, 10, 1);
+        assert_eq!(oct_date.fiscal_year(config), 2025);
+        
+        let dec_date = make_date(2024, 12, 15);
+        assert_eq!(dec_date.fiscal_year(config), 2025);
+    }
+
+    #[test]
+    fn test_fiscal_year_uk() {
+        let config = FiscalConfig::uk(); // April 6 start
+        
+        // Date before fiscal year start belongs to previous FY
+        let march_date = make_date(2025, 3, 15);
+        assert_eq!(march_date.fiscal_year(config), 2025);
+        
+        // Date on or after fiscal year start belongs to current FY
+        let april_date = make_date(2025, 4, 6);
+        assert_eq!(april_date.fiscal_year(config), 2026);
+        
+        let may_date = make_date(2025, 5, 15);
+        assert_eq!(may_date.fiscal_year(config), 2026);
     }
 }
