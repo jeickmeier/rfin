@@ -4,6 +4,7 @@ mod common;
 
 use common::{make_date, TestCal};
 use finstack_core::dates::{adjust, available_calendars, BusinessDayConvention, HolidayCalendar};
+use time::Date;
 
 #[test]
 fn test_holiday_calendar_trait() {
@@ -119,4 +120,53 @@ fn test_available_calendars() {
     // Should contain some expected calendars
     assert!(calendars.contains(&"gblo"));
     assert!(calendars.contains(&"target2"));
+}
+
+/// Test calendar that marks ALL days as holidays to trigger infinite loop scenarios.
+struct AllHolidaysCal;
+
+impl HolidayCalendar for AllHolidaysCal {
+    fn is_holiday(&self, _date: Date) -> bool {
+        true // Every day is a holiday
+    }
+}
+
+#[test]
+#[should_panic(expected = "No business day found within 100 days after")]
+fn test_adjust_following_infinite_loop_guard() {
+    let cal = AllHolidaysCal;
+    let date = make_date(2025, 1, 1);
+    
+    // This should panic after 100 days instead of looping forever
+    adjust(date, BusinessDayConvention::Following, &cal);
+}
+
+#[test]
+#[should_panic(expected = "No business day found within 100 days before")]
+fn test_adjust_preceding_infinite_loop_guard() {
+    let cal = AllHolidaysCal;
+    let date = make_date(2025, 1, 1);
+    
+    // This should panic after 100 days instead of looping forever
+    adjust(date, BusinessDayConvention::Preceding, &cal);
+}
+
+#[test]
+#[should_panic(expected = "No business day found within 100 days after")]
+fn test_adjust_modified_following_infinite_loop_guard() {
+    let cal = AllHolidaysCal;
+    let date = make_date(2025, 1, 1);
+    
+    // This should panic when trying to find a following business day
+    adjust(date, BusinessDayConvention::ModifiedFollowing, &cal);
+}
+
+#[test]
+#[should_panic(expected = "No business day found within 100 days before")]
+fn test_adjust_modified_preceding_infinite_loop_guard() {
+    let cal = AllHolidaysCal;
+    let date = make_date(2025, 1, 1);
+    
+    // This should panic when trying to find a preceding business day
+    adjust(date, BusinessDayConvention::ModifiedPreceding, &cal);
 }

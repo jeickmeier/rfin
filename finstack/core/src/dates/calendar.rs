@@ -73,11 +73,19 @@ pub enum BusinessDayConvention {
 }
 
 /// Adjust `date` according to `conv` utilising `cal` for holiday lookup.
+/// 
+/// # Panics
+/// 
+/// Panics if no business day is found within 100 days of the input date.
+/// This prevents infinite loops when using composite calendars that mark
+/// all days as holidays in a range.
 pub fn adjust<C: HolidayCalendar + ?Sized>(
     date: Date,
     conv: BusinessDayConvention,
     cal: &C,
 ) -> Date {
+    const MAX_SEARCH_DAYS: i32 = 100;
+    
     match conv {
         BusinessDayConvention::Unadjusted => date,
         BusinessDayConvention::Following => {
@@ -85,8 +93,16 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
                 return date;
             }
             let mut d = date;
+            let mut days_searched = 0;
             while !cal.is_business_day(d) {
                 d = d + Duration::days(1);
+                days_searched += 1;
+                if days_searched > MAX_SEARCH_DAYS {
+                    panic!(
+                        "No business day found within {} days after {} using Following convention",
+                        MAX_SEARCH_DAYS, date
+                    );
+                }
             }
             d
         }
@@ -98,8 +114,16 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
 
             // Compute following candidate
             let mut forward = date;
+            let mut days_searched = 0;
             while !cal.is_business_day(forward) {
                 forward = forward + Duration::days(1);
+                days_searched += 1;
+                if days_searched > MAX_SEARCH_DAYS {
+                    panic!(
+                        "No business day found within {} days after {} using ModifiedFollowing convention",
+                        MAX_SEARCH_DAYS, date
+                    );
+                }
             }
             if forward.month() == original_month {
                 return forward;
@@ -107,8 +131,16 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
 
             // Fallback to preceding if following crosses month
             let mut back = date;
+            days_searched = 0;
             while !cal.is_business_day(back) {
                 back = back - Duration::days(1);
+                days_searched += 1;
+                if days_searched > MAX_SEARCH_DAYS {
+                    panic!(
+                        "No business day found within {} days before {} using ModifiedFollowing convention (fallback to preceding)",
+                        MAX_SEARCH_DAYS, date
+                    );
+                }
             }
             back
         }
@@ -117,8 +149,16 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
                 return date;
             }
             let mut d = date;
+            let mut days_searched = 0;
             while !cal.is_business_day(d) {
                 d = d - Duration::days(1);
+                days_searched += 1;
+                if days_searched > MAX_SEARCH_DAYS {
+                    panic!(
+                        "No business day found within {} days before {} using Preceding convention",
+                        MAX_SEARCH_DAYS, date
+                    );
+                }
             }
             d
         }
@@ -130,8 +170,16 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
 
             // Compute preceding candidate
             let mut back = date;
+            let mut days_searched = 0;
             while !cal.is_business_day(back) {
                 back = back - Duration::days(1);
+                days_searched += 1;
+                if days_searched > MAX_SEARCH_DAYS {
+                    panic!(
+                        "No business day found within {} days before {} using ModifiedPreceding convention",
+                        MAX_SEARCH_DAYS, date
+                    );
+                }
             }
             if back.month() == original_month {
                 return back;
@@ -139,8 +187,16 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
 
             // Fallback to following if preceding crosses month
             let mut forward = date;
+            days_searched = 0;
             while !cal.is_business_day(forward) {
                 forward = forward + Duration::days(1);
+                days_searched += 1;
+                if days_searched > MAX_SEARCH_DAYS {
+                    panic!(
+                        "No business day found within {} days after {} using ModifiedPreceding convention (fallback to following)",
+                        MAX_SEARCH_DAYS, date
+                    );
+                }
             }
             forward
         }
