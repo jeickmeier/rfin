@@ -117,8 +117,8 @@ impl VolSurfaceCalibrator {
                 }
             }
 
-            // Calibrate SABR parameters for this expiry
-            match sabr_calibrator.calibrate(forward, &strikes, &vols, time_to_expiry, self.beta) {
+            // Calibrate SABR parameters for this expiry with enhanced negative rate support
+            match sabr_calibrator.calibrate_auto_shift(forward, &strikes, &vols, time_to_expiry, self.beta) {
                 Ok(params) => {
                     sabr_params_by_expiry
                         .insert(HashableFloat::new(time_to_expiry), params.clone());

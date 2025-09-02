@@ -52,4 +52,39 @@ impl InterpFn for LogLinearDf {
         let w = (x - x0) / (x1 - x0);
         (y0 + w * (y1 - y0)).exp()
     }
+
+    fn interp_prime(&self, x: F) -> F {
+        // For log-linear interpolation: f(x) = exp(y0 + w*(y1-y0)) where w = (x-x0)/(x1-x0)
+        // The derivative is: df/dx = f(x) * (y1-y0)/(x1-x0)
+        
+        // At boundaries, use the slope of the adjacent segment
+        if x <= self.knots[0] {
+            let x0 = self.knots[0];
+            let x1 = self.knots[1];
+            let y0 = self.log_dfs[0];
+            let y1 = self.log_dfs[1];
+            let f_val = (self.log_dfs[0]).exp();
+            return f_val * (y1 - y0) / (x1 - x0);
+        }
+        if x >= *self.knots.last().unwrap() {
+            let n = self.knots.len();
+            let x0 = self.knots[n - 2];
+            let x1 = self.knots[n - 1];
+            let y0 = self.log_dfs[n - 2];
+            let y1 = self.log_dfs[n - 1];
+            let f_val = (*self.log_dfs.last().unwrap()).exp();
+            return f_val * (y1 - y0) / (x1 - x0);
+        }
+        
+        // Get the interpolated value and log-linear slope
+        let f_val = self.interp(x);
+        let idx = crate::market_data::utils::locate_segment(&self.knots, x).unwrap();
+        let x0 = self.knots[idx];
+        let x1 = self.knots[idx + 1];
+        let y0 = self.log_dfs[idx];
+        let y1 = self.log_dfs[idx + 1];
+        
+        // Derivative: f(x) * (slope in log space)
+        f_val * (y1 - y0) / (x1 - x0)
+    }
 }

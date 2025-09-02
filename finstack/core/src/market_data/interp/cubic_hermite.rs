@@ -74,6 +74,39 @@ impl InterpFn for CubicHermite {
         // Cubic Hermite formula.
         h00 * f0 + h10 * h * m0 + h01 * f1 + h11 * h * m1
     }
+
+    fn interp_prime(&self, x: F) -> F {
+        // For exact knot values, return the precomputed slope
+        if let Ok(idx) = self.knots.binary_search_by(|k| k.partial_cmp(&x).unwrap()) {
+            return self.ms[idx];
+        }
+
+        let i = crate::market_data::utils::locate_segment(&self.knots, x).unwrap();
+        let x0 = self.knots[i];
+        let x1 = self.knots[i + 1];
+        let h = x1 - x0;
+        // Normalised coordinate t ∈ (0,1).
+        let t = (x - x0) / h;
+        let t2 = t * t;
+
+        // Derivative of basis functions w.r.t. t.
+        let h00_prime = 6.0 * t2 - 6.0 * t;
+        let h10_prime = 3.0 * t2 - 4.0 * t + 1.0;
+        let h01_prime = -6.0 * t2 + 6.0 * t;
+        let h11_prime = 3.0 * t2 - 2.0 * t;
+
+        // Values and slopes.
+        let f0 = self.dfs[i];
+        let f1 = self.dfs[i + 1];
+        let m0 = self.ms[i];
+        let m1 = self.ms[i + 1];
+
+        // Derivative w.r.t. t.
+        let df_dt = h00_prime * f0 + h10_prime * h * m0 + h01_prime * f1 + h11_prime * h * m1;
+        
+        // Convert to derivative w.r.t. x using chain rule: df/dx = (df/dt) * (dt/dx) = (df/dt) / h
+        df_dt / h
+    }
 }
 
 // -----------------------------------------------------------------------------

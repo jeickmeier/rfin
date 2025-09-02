@@ -16,10 +16,13 @@ pub mod summation;
 pub use distributions::{
     binomial_probability, log_binomial_coefficient, log_factorial, sample_beta,
 };
-pub use integration::GaussHermiteQuadrature;
+pub use integration::{
+    adaptive_quadrature, simpson_rule, trapezoidal_rule, GaussHermiteQuadrature,
+};
 pub use random::{RandomNumberGenerator, SimpleRng};
 pub use root_finding::{
-    brent, brent_with_bracketing, find_bracketing_interval, newton_bracketed, newton_raphson,
+    brent, brent_with_bracketing, find_bracketing_interval, hybrid_root_find, newton_bracketed, 
+    newton_raphson,
 };
 pub use special_functions::{
     erf, norm_cdf, norm_pdf, standard_normal_cdf, standard_normal_inv_cdf,

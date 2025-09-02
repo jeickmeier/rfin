@@ -11,6 +11,7 @@
 
 pub mod base_correlation;
 pub mod bootstrap;
+pub mod dependency_dag;
 pub mod orchestrator;
 pub mod primitives;
 pub mod solver;
@@ -136,7 +137,11 @@ impl CalibrationReport {
     pub fn with_residuals(mut self, residuals: HashMap<String, F>) -> Self {
         self.max_residual = residuals.values().map(|r| r.abs()).fold(0.0, f64::max);
         let sum_sq: F = residuals.values().map(|r| r * r).sum();
-        self.rmse = (sum_sq / residuals.len() as F).sqrt();
+        self.rmse = if residuals.is_empty() {
+            0.0
+        } else {
+            (sum_sq / residuals.len() as F).sqrt()
+        };
         self.residuals = residuals;
         self
     }
@@ -179,6 +184,8 @@ pub struct CalibrationConfig {
     pub random_seed: Option<u64>,
     /// Enable verbose logging
     pub verbose: bool,
+    /// Entity-specific seniority mappings for credit calibration
+    pub entity_seniority: HashMap<String, finstack_core::market_data::term_structures::hazard_curve::Seniority>,
 }
 
 impl Default for CalibrationConfig {
@@ -189,6 +196,7 @@ impl Default for CalibrationConfig {
             use_parallel: false, // Deterministic by default
             random_seed: Some(42),
             verbose: false,
+            entity_seniority: HashMap::new(),
         }
     }
 }
@@ -240,7 +248,24 @@ impl std::fmt::Display for CalibrationError {
 impl std::error::Error for CalibrationError {}
 
 impl From<CalibrationError> for finstack_core::Error {
-    fn from(_err: CalibrationError) -> Self {
-        finstack_core::Error::Internal // Simplify for now
+    fn from(err: CalibrationError) -> Self {
+        let (message, category) = match &err {
+            CalibrationError::ConvergenceFailure { iterations, final_error } => {
+                (format!("Failed to converge after {} iterations, final error: {}", iterations, final_error), "convergence".to_string())
+            }
+            CalibrationError::InsufficientData { message } => {
+                (format!("Insufficient market data: {}", message), "data".to_string())
+            }
+            CalibrationError::InvalidQuotes { message } => {
+                (format!("Invalid market quotes: {}", message), "quotes".to_string())
+            }
+            CalibrationError::NumericalInstability { message } => {
+                (format!("Numerical instability: {}", message), "numerical".to_string())
+            }
+            CalibrationError::ArbitrageViolation { message } => {
+                (format!("No-arbitrage violation detected: {}", message), "arbitrage".to_string())
+            }
+        };
+        finstack_core::Error::Calibration { message, category }
     }
 }

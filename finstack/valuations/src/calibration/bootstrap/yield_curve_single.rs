@@ -13,7 +13,7 @@ use crate::instruments::fixed_income::fra::ForwardRateAgreement;
 use crate::instruments::fixed_income::ir_future::InterestRateFuture;
 use crate::instruments::fixed_income::InterestRateSwap;
 use crate::instruments::traits::Priceable;
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::{Date, DayCount, add_months};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::interp::InterpStyle;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -60,6 +60,17 @@ impl DiscountCurveCalibrator {
         self
     }
 
+    /// Apply the configured interpolation style to the discount curve builder.
+    fn apply_interpolation(&self, builder: finstack_core::market_data::term_structures::discount_curve::DiscountCurveBuilder) -> finstack_core::market_data::term_structures::discount_curve::DiscountCurveBuilder {
+        match self.interpolation {
+            InterpStyle::Linear => builder.linear_df(),
+            InterpStyle::LogLinear => builder.log_df(),
+            InterpStyle::MonotoneConvex => builder.monotone_convex(),
+            InterpStyle::CubicHermite => builder.cubic_hermite(),
+            InterpStyle::FlatFwd => builder.flat_fwd(),
+        }
+    }
+
     /// Bootstrap discount curve from instrument quotes using solver.
     ///
     /// This method builds the curve incrementally, solving for each discount factor
@@ -99,12 +110,15 @@ impl DiscountCurveCalibrator {
                     DiscountCurve::year_fraction(self.base_date, *end, *day_count)
                 }
                 InstrumentQuote::Future { expiry, specs, .. } => {
-                    let end = *expiry + time::Duration::days(specs.delivery_months as i64 * 30);
+                    let end = add_months(*expiry, specs.delivery_months as i32);
                     DiscountCurve::year_fraction(self.base_date, end, specs.day_count)
                 }
                 InstrumentQuote::Swap {
                     maturity, fixed_dc, ..
                 } => DiscountCurve::year_fraction(self.base_date, *maturity, *fixed_dc),
+                InstrumentQuote::BasisSwap {
+                    maturity, primary_dc, ..
+                } => DiscountCurve::year_fraction(self.base_date, *maturity, *primary_dc),
                 _ => DiscountCurve::year_fraction(self.base_date, maturity_date, DayCount::Act365F),
             };
 
@@ -212,11 +226,13 @@ impl DiscountCurveCalibrator {
             total_iterations += 1;
         }
 
-        // Build final discount curve
-        let curve = DiscountCurve::builder(self.curve_id)
-            .base_date(self.base_date)
-            .knots(knots)
-            .linear_df() // Use linear interpolation for now (can be configurable)
+        // Build final discount curve with configured interpolation
+        let curve = self
+            .apply_interpolation(
+                DiscountCurve::builder(self.curve_id)
+                    .base_date(self.base_date)
+                    .knots(knots),
+            )
             .build()
             .map_err(|_| finstack_core::Error::Internal)?;
 
@@ -290,7 +306,7 @@ impl DiscountCurveCalibrator {
             } => {
                 // Create future instrument
                 let period_start = *expiry;
-                let period_end = *expiry + time::Duration::days(specs.delivery_months as i64 * 30);
+                let period_end = add_months(*expiry, specs.delivery_months as i32);
 
                 let mut future = InterestRateFuture::new(
                     format!("CALIB_FUT_{}", expiry),
@@ -373,6 +389,12 @@ impl DiscountCurveCalibrator {
                 let pv = swap.value(context, self.base_date)?;
                 Ok(pv.amount() / swap.notional.amount())
             }
+            InstrumentQuote::BasisSwap { spread_bp, .. } => {
+                // Basis swaps require dual-curve pricing with different forward tenors
+                // For curve calibration purposes, return the quoted spread as a placeholder
+                // TODO: Implement proper basis swap pricing with dual floating legs
+                Ok(*spread_bp / 10_000.0)
+            }
             _ => Err(finstack_core::Error::Input(
                 finstack_core::error::InputError::Invalid,
             )),
@@ -387,9 +409,10 @@ impl DiscountCurveCalibrator {
             InstrumentQuote::FRA { end, .. } => *end,
             InstrumentQuote::Future { expiry, specs, .. } => {
                 // Future maturity is expiry plus delivery period
-                *expiry + time::Duration::days(specs.delivery_months as i64 * 30)
+                add_months(*expiry, specs.delivery_months as i32)
             }
             InstrumentQuote::Swap { maturity, .. } => *maturity,
+            InstrumentQuote::BasisSwap { maturity, .. } => *maturity,
             _ => self.base_date, // Not applicable
         }
     }
@@ -435,6 +458,7 @@ impl DiscountCurveCalibrator {
             InstrumentQuote::FRA { rate, .. } => *rate,
             InstrumentQuote::Future { price, .. } => (100.0 - price) / 100.0, // Convert price to rate
             InstrumentQuote::Swap { rate, .. } => *rate,
+            InstrumentQuote::BasisSwap { spread_bp, .. } => *spread_bp / 10_000.0, // Convert bp to decimal
             _ => 0.0,
         }
     }
@@ -478,6 +502,8 @@ impl InstrumentQuote {
             InstrumentQuote::OptionVol { .. } => "OptionVol",
             InstrumentQuote::InflationSwap { .. } => "InflationSwap",
             InstrumentQuote::CDSTranche { .. } => "CDSTranche",
+            InstrumentQuote::BasisSwap { .. } => "BasisSwap",
+            InstrumentQuote::CDSUpfront { .. } => "CDSUpfront",
         }
     }
 }
@@ -860,5 +886,42 @@ mod tests {
             "Swap PV too large: {}",
             pv.amount()
         );
+    }
+
+    #[test]
+    fn test_configured_interpolation_used() {
+        use finstack_core::dates::add_months;
+        
+        let base_date = Date::from_calendar_date(2025, Month::January, 31).unwrap();
+        
+        // Test 1: Verify configured interpolation is used
+        let linear_calibrator = DiscountCurveCalibrator::new("TEST", base_date, Currency::USD)
+            .with_interpolation(InterpStyle::Linear);
+        let monotone_calibrator = DiscountCurveCalibrator::new("TEST", base_date, Currency::USD)
+            .with_interpolation(InterpStyle::MonotoneConvex);
+        
+        assert!(matches!(linear_calibrator.interpolation, InterpStyle::Linear));
+        assert!(matches!(monotone_calibrator.interpolation, InterpStyle::MonotoneConvex));
+        
+        // Test 2: Verify proper month arithmetic vs crude approximation
+        let delivery_months = 3i32;
+        
+        // Crude way (should be wrong for end-of-month)
+        let crude_result = base_date + time::Duration::days((delivery_months as i64) * 30);
+        
+        // Proper way
+        let proper_result = add_months(base_date, delivery_months);
+        
+        println!("Base date: {}", base_date);
+        println!("Crude (+{} * 30 days): {}", delivery_months, crude_result);
+        println!("Proper (+{} months): {}", delivery_months, proper_result);
+        
+        // Should be different for Jan 31 + 3 months
+        assert_ne!(crude_result, proper_result, "Month arithmetic should give different results");
+        
+        // The proper result should handle month-end correctly
+        // Jan 31 + 3 months = Apr 30 (no Apr 31)
+        let expected = Date::from_calendar_date(2025, Month::April, 30).unwrap();
+        assert_eq!(proper_result, expected, "Expected proper month-end handling");
     }
 }

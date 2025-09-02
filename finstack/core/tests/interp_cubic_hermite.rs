@@ -111,3 +111,56 @@ fn test_cubic_hermite_edge_cases() {
     assert!(near_start > 0.0);
     assert!(near_end > 0.0);
 }
+
+#[test]
+fn test_cubic_hermite_derivative() {
+    let knots = vec![0.0, 1.0, 2.0, 3.0].into_boxed_slice();
+    let dfs = vec![1.0, 0.95, 0.9, 0.85].into_boxed_slice();
+
+    let interp = CubicHermite::new(knots, dfs).unwrap();
+
+    // Test derivative at knot points returns precomputed slopes
+    let derivative_at_knots = vec![
+        interp.interp_prime(0.0),
+        interp.interp_prime(1.0),
+        interp.interp_prime(2.0),
+        interp.interp_prime(3.0),
+    ];
+
+    // All derivatives should be finite and negative (decreasing discount factors)
+    for &deriv in &derivative_at_knots {
+        assert!(deriv.is_finite());
+        assert!(deriv < 0.0); // Discount factors are decreasing
+    }
+
+    // Test numerical consistency: approximate derivative using finite differences
+    let h = 1e-8;
+    let x = 1.5;
+    let f_plus = interp.interp(x + h);
+    let f_minus = interp.interp(x - h);
+    let numerical_deriv = (f_plus - f_minus) / (2.0 * h);
+    let analytical_deriv = interp.interp_prime(x);
+
+    // Should be close (within reasonable tolerance for numerical differentiation)
+    let relative_error = (analytical_deriv - numerical_deriv).abs() / numerical_deriv.abs();
+    assert!(relative_error < 1e-6, "Relative error {} too large", relative_error);
+}
+
+#[test]
+fn test_cubic_hermite_derivative_monotonicity() {
+    // Test that derivative preserves expected behavior for monotone decreasing data
+    let knots = vec![0.0, 1.0, 2.0, 3.0, 4.0].into_boxed_slice();
+    let dfs = vec![1.0, 0.9, 0.8, 0.7, 0.6].into_boxed_slice();
+
+    let interp = CubicHermite::new(knots, dfs).unwrap();
+
+    // Test derivatives at various points
+    let test_points = [0.5, 1.5, 2.5, 3.5];
+    for &x in &test_points {
+        let deriv = interp.interp_prime(x);
+        
+        // For decreasing discount factors, derivative should be negative
+        assert!(deriv < 0.0, "Derivative at x={} should be negative, got {}", x, deriv);
+        assert!(deriv.is_finite(), "Derivative at x={} should be finite", x);
+    }
+}

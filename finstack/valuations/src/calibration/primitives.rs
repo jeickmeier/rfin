@@ -132,6 +132,21 @@ pub enum InstrumentQuote {
         /// Currency
         currency: Currency,
     },
+    /// CDS upfront quote (for distressed credits or non-standard contracts)
+    CDSUpfront {
+        /// Reference entity
+        entity: String,
+        /// CDS maturity
+        maturity: Date,
+        /// Upfront payment (% of notional, positive = protection buyer pays)
+        upfront_pct: F,
+        /// Running spread in basis points
+        running_spread_bp: F,
+        /// Recovery rate assumption
+        recovery_rate: F,
+        /// Currency
+        currency: Currency,
+    },
     /// Option implied volatility quote
     OptionVol {
         /// Underlying identifier
@@ -168,6 +183,27 @@ pub enum InstrumentQuote {
         upfront_pct: F,
         /// Running spread (bps)
         running_spread_bp: F,
+    },
+    /// Basis Swap quote for multi-curve construction
+    BasisSwap {
+        /// Swap maturity
+        maturity: Date,
+        /// Primary leg index (e.g., "3M-LIBOR", "3M-SOFR")
+        primary_index: String,
+        /// Reference leg index (e.g., "6M-LIBOR", "1M-SOFR")
+        reference_index: String,
+        /// Basis spread in basis points (primary pays reference + spread)
+        spread_bp: F,
+        /// Primary leg frequency
+        primary_freq: finstack_core::dates::Frequency,
+        /// Reference leg frequency  
+        reference_freq: finstack_core::dates::Frequency,
+        /// Primary leg day count
+        primary_dc: finstack_core::dates::DayCount,
+        /// Reference leg day count
+        reference_dc: finstack_core::dates::DayCount,
+        /// Currency for both legs
+        currency: Currency,
     },
 }
 

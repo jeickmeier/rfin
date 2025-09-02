@@ -104,6 +104,10 @@ pub struct FxCacheConfig {
     pub closure_tolerance: f64,
     /// Whether closure violations should produce warnings or errors
     pub strict_closure: bool,
+    /// Pivot currency for triangulation (typically USD)
+    pub pivot_currency: Currency,
+    /// Whether to enable automatic triangulation for missing rates
+    pub enable_triangulation: bool,
 }
 
 impl Default for FxCacheConfig {
@@ -113,6 +117,8 @@ impl Default for FxCacheConfig {
             default_ttl: Duration::from_secs(300), // 5 minutes
             closure_tolerance: 0.0001,             // 1 basis point
             strict_closure: false,
+            pivot_currency: Currency::USD,         // USD as default pivot
+            enable_triangulation: true,            // Enable triangulation by default
         }
     }
 }
@@ -131,6 +137,17 @@ pub enum ClosureCheckResult {
         /// The absolute difference between direct and calculated rates
         difference: FxRate,
     },
+}
+
+/// Result of an FX rate lookup with triangulation metadata
+#[derive(Clone, Debug, PartialEq)]
+pub struct FxRateResult {
+    /// The final FX rate
+    pub rate: FxRate,
+    /// Whether this rate was obtained via triangulation
+    pub triangulated: bool,
+    /// The pivot currency used for triangulation (if applicable)
+    pub pivot_currency: Option<Currency>,
 }
 
 /// Trait for obtaining FX rates.
@@ -211,13 +228,99 @@ impl FxMatrix {
             return Ok(rate);
         }
 
-        // Cache miss or expired - fetch from provider
-        let rate = self.provider.rate(from, to, on, policy)?;
+        // Cache miss or expired - try direct rate first
+        match self.provider.rate(from, to, on, policy) {
+            Ok(rate) => {
+                // Update cache with direct rate
+                self.update_cache(cache_key, rate);
+                Ok(rate)
+            }
+            Err(_) if self.config.enable_triangulation => {
+                // Direct rate failed, try triangulation
+                self.triangulate_rate(from, to, on, policy)
+            }
+            Err(e) => Err(e),
+        }
+    }
 
-        // Update cache
-        self.update_cache(cache_key, rate);
+    /// Get rate with triangulation metadata
+    pub fn rate_with_metadata(
+        &self,
+        from: Currency,
+        to: Currency,
+        on: Date,
+        policy: FxConversionPolicy,
+    ) -> crate::Result<FxRateResult> {
+        // Handle identity case
+        if from == to {
+            #[cfg(feature = "decimal128")]
+            let rate = rust_decimal::Decimal::ONE;
+            #[cfg(not(feature = "decimal128"))]
+            let rate = 1.0;
+            
+            return Ok(FxRateResult {
+                rate,
+                triangulated: false,
+                pivot_currency: None,
+            });
+        }
 
-        Ok(rate)
+        let cache_key = FxCacheKey {
+            from,
+            to,
+            date: on,
+            policy,
+        };
+
+        // Try to get from cache first
+        let mut hit_rate: Option<FxRate> = None;
+        {
+            let cache = self.cache.read().unwrap();
+            if let Some(entry) = cache.get(&cache_key) {
+                if !entry.is_expired() {
+                    hit_rate = Some(entry.rate);
+                }
+            }
+        }
+        if let Some(rate) = hit_rate {
+            // Update recency under write lock
+            if let Ok(mut cache) = self.cache.write() {
+                if let Some(entry) = cache.get_mut(&cache_key) {
+                    entry.last_access_at = Instant::now();
+                }
+            }
+            // Note: cached rate doesn't preserve triangulation metadata
+            return Ok(FxRateResult {
+                rate,
+                triangulated: false, // We don't track this in cache currently
+                pivot_currency: None,
+            });
+        }
+
+        // Cache miss or expired - try direct rate first
+        match self.provider.rate(from, to, on, policy) {
+            Ok(rate) => {
+                // Update cache with direct rate
+                self.update_cache(cache_key, rate);
+                Ok(FxRateResult {
+                    rate,
+                    triangulated: false,
+                    pivot_currency: None,
+                })
+            }
+            Err(_) if self.config.enable_triangulation => {
+                // Direct rate failed, try triangulation
+                match self.triangulate_rate(from, to, on, policy) {
+                    Ok(rate) => Ok(FxRateResult {
+                        rate,
+                        triangulated: true,
+                        pivot_currency: Some(self.config.pivot_currency),
+                    }),
+                    Err(e) => Err(e),
+                }
+            }
+            Err(e) => Err(e),
+        }
     }
 
     /// Get rate with closure check: from→mid × mid→to ≈ from→to
@@ -266,6 +369,42 @@ impl FxMatrix {
     }
 
     // Private helper methods
+
+    /// Attempt to triangulate FX rate via pivot currency
+    fn triangulate_rate(
+        &self,
+        from: Currency,
+        to: Currency,
+        on: Date,
+        policy: FxConversionPolicy,
+    ) -> crate::Result<FxRate> {
+        let pivot = self.config.pivot_currency;
+        
+        // Don't triangulate if we already involve the pivot currency directly
+        if from == pivot || to == pivot {
+            return Err(crate::Error::Input(crate::error::InputError::Invalid));
+        }
+
+        // Try triangulation: from → pivot → to
+        let from_to_pivot = self.provider.rate(from, pivot, on, policy)?;
+        let pivot_to_to = self.provider.rate(pivot, to, on, policy)?;
+
+        #[cfg(feature = "decimal128")]
+        let triangulated_rate = from_to_pivot * pivot_to_to;
+        #[cfg(not(feature = "decimal128"))]
+        let triangulated_rate = from_to_pivot * pivot_to_to;
+
+        // Cache the triangulated rate for future use
+        let cache_key = FxCacheKey {
+            from,
+            to,
+            date: on,
+            policy,
+        };
+        self.update_cache(cache_key, triangulated_rate);
+
+        Ok(triangulated_rate)
+    }
 
     fn update_cache(&self, key: FxCacheKey, rate: FxRate) {
         let mut cache = self.cache.write().unwrap();
@@ -343,14 +482,31 @@ mod tests {
         fn new() -> Self {
             let mut rates = HashMap::new();
 
-            // Add some mock rates
+            // Add some mock rates with USD as pivot
             rates.insert((Currency::USD, Currency::EUR), 0.85);
             rates.insert((Currency::EUR, Currency::USD), 1.18);
             rates.insert((Currency::USD, Currency::GBP), 0.75);
             rates.insert((Currency::GBP, Currency::USD), 1.33);
-            rates.insert((Currency::EUR, Currency::GBP), 0.88);
-            rates.insert((Currency::GBP, Currency::EUR), 1.14);
+            rates.insert((Currency::USD, Currency::JPY), 110.0);
+            rates.insert((Currency::JPY, Currency::USD), 0.0091);
+            rates.insert((Currency::USD, Currency::CAD), 1.25);
+            rates.insert((Currency::CAD, Currency::USD), 0.80);
+            
+            // Intentionally omit direct cross-rates to test triangulation
+            // EUR/GBP, EUR/JPY, GBP/JPY will be triangulated via USD
 
+            Self { rates }
+        }
+
+        fn new_incomplete() -> Self {
+            let mut rates = HashMap::new();
+            
+            // Only USD pivot rates - no cross-rates available
+            rates.insert((Currency::USD, Currency::EUR), 0.85);
+            rates.insert((Currency::EUR, Currency::USD), 1.18);
+            rates.insert((Currency::USD, Currency::GBP), 0.75);
+            rates.insert((Currency::GBP, Currency::USD), 1.33);
+            
             Self { rates }
         }
     }
@@ -579,5 +735,229 @@ mod tests {
         assert_eq!(default_policy.strategy, FxConversionPolicy::CashflowDate);
         assert_eq!(default_policy.target_ccy, None);
         assert_eq!(default_policy.notes, String::new());
+    }
+
+    #[test]
+    fn fx_triangulation_success() {
+        let provider = MockFxProvider::new_incomplete(); // Only has USD pivot rates
+        let config = FxCacheConfig {
+            pivot_currency: Currency::USD,
+            enable_triangulation: true,
+            closure_tolerance: 0.01, // Allow for some rounding differences
+            ..Default::default()
+        };
+        let matrix = FxMatrix::with_config(Arc::new(provider), config);
+
+        // Test EUR→GBP triangulation via USD: EUR→USD × USD→GBP
+        let rate = matrix
+            .rate(
+                Currency::EUR,
+                Currency::GBP,
+                test_date(),
+                FxConversionPolicy::CashflowDate,
+            )
+            .unwrap();
+
+        // Expected: 1.18 * 0.75 = 0.885
+        #[cfg(feature = "decimal128")]
+        let expected = rust_decimal::Decimal::try_from(1.18 * 0.75).unwrap();
+        #[cfg(not(feature = "decimal128"))]
+        let expected = 1.18 * 0.75;
+
+        #[cfg(feature = "decimal128")]
+        assert!((rate - expected).abs() < rust_decimal::Decimal::try_from(0.001).unwrap());
+        #[cfg(not(feature = "decimal128"))]
+        assert!((rate - expected).abs() < 0.001);
+    }
+
+    #[test]
+    fn fx_triangulation_disabled() {
+        let provider = MockFxProvider::new_incomplete(); // Only has USD pivot rates
+        let config = FxCacheConfig {
+            pivot_currency: Currency::USD,
+            enable_triangulation: false, // Disabled
+            ..Default::default()
+        };
+        let matrix = FxMatrix::with_config(Arc::new(provider), config);
+
+        // Should fail when triangulation is disabled
+        let result = matrix.rate(
+            Currency::EUR,
+            Currency::GBP,
+            test_date(),
+            FxConversionPolicy::CashflowDate,
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn fx_triangulation_caching() {
+        let provider = MockFxProvider::new_incomplete();
+        let config = FxCacheConfig {
+            pivot_currency: Currency::USD,
+            enable_triangulation: true,
+            max_entries: 10,
+            ..Default::default()
+        };
+        let matrix = FxMatrix::with_config(Arc::new(provider), config);
+
+        // First call should triangulate and cache
+        let rate1 = matrix
+            .rate(
+                Currency::EUR,
+                Currency::GBP,
+                test_date(),
+                FxConversionPolicy::CashflowDate,
+            )
+            .unwrap();
+
+        // Second call should hit cache
+        let rate2 = matrix
+            .rate(
+                Currency::EUR,
+                Currency::GBP,
+                test_date(),
+                FxConversionPolicy::CashflowDate,
+            )
+            .unwrap();
+
+        assert_eq!(rate1, rate2);
+
+        // Cache should contain the triangulated rate plus intermediate rates
+        let (total, _) = matrix.cache_stats();
+        assert!(total >= 1); // At least the final triangulated rate should be cached
+    }
+
+    #[test]
+    fn fx_triangulation_pivot_identity() {
+        let provider = MockFxProvider::new();
+        let config = FxCacheConfig {
+            pivot_currency: Currency::USD,
+            enable_triangulation: true,
+            ..Default::default()
+        };
+        let matrix = FxMatrix::with_config(Arc::new(provider), config);
+
+        // USD→EUR should use direct rate, not triangulation
+        let rate = matrix
+            .rate(
+                Currency::USD,
+                Currency::EUR,
+                test_date(),
+                FxConversionPolicy::CashflowDate,
+            )
+            .unwrap();
+
+        // Should get the direct rate
+        #[cfg(feature = "decimal128")]
+        let expected = rust_decimal::Decimal::try_from(0.85).unwrap();
+        #[cfg(not(feature = "decimal128"))]
+        let expected = 0.85;
+
+        assert_eq!(rate, expected);
+    }
+
+    #[test]
+    fn fx_triangulation_missing_pivot_rates() {
+        // Create provider with no USD rates at all
+        let provider = MockFxProvider {
+            rates: {
+                let mut rates = HashMap::new();
+                rates.insert((Currency::EUR, Currency::GBP), 0.88);
+                rates.insert((Currency::GBP, Currency::EUR), 1.14);
+                rates
+            },
+        };
+        
+        let config = FxCacheConfig {
+            pivot_currency: Currency::USD,
+            enable_triangulation: true,
+            ..Default::default()
+        };
+        let matrix = FxMatrix::with_config(Arc::new(provider), config);
+
+        // Should fail when pivot rates are missing
+        let result = matrix.rate(
+            Currency::JPY,
+            Currency::CAD,
+            test_date(),
+            FxConversionPolicy::CashflowDate,
+        );
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn fx_rate_with_metadata() {
+        let provider = MockFxProvider::new_incomplete();
+        let config = FxCacheConfig {
+            pivot_currency: Currency::USD,
+            enable_triangulation: true,
+            ..Default::default()
+        };
+        let matrix = FxMatrix::with_config(Arc::new(provider), config);
+
+        // Test direct rate
+        let result = matrix
+            .rate_with_metadata(
+                Currency::USD,
+                Currency::EUR,
+                test_date(),
+                FxConversionPolicy::CashflowDate,
+            )
+            .unwrap();
+
+        assert!(!result.triangulated);
+        assert_eq!(result.pivot_currency, None);
+        
+        #[cfg(feature = "decimal128")]
+        let expected = rust_decimal::Decimal::try_from(0.85).unwrap();
+        #[cfg(not(feature = "decimal128"))]
+        let expected = 0.85;
+        
+        assert_eq!(result.rate, expected);
+
+        // Test triangulated rate
+        let result = matrix
+            .rate_with_metadata(
+                Currency::EUR,
+                Currency::GBP,
+                test_date(),
+                FxConversionPolicy::CashflowDate,
+            )
+            .unwrap();
+
+        assert!(result.triangulated);
+        assert_eq!(result.pivot_currency, Some(Currency::USD));
+        
+        // Expected: 1.18 * 0.75 = 0.885
+        #[cfg(feature = "decimal128")]
+        let expected = rust_decimal::Decimal::try_from(1.18 * 0.75).unwrap();
+        #[cfg(not(feature = "decimal128"))]
+        let expected = 1.18 * 0.75;
+
+        #[cfg(feature = "decimal128")]
+        assert!((result.rate - expected).abs() < rust_decimal::Decimal::try_from(0.001).unwrap());
+        #[cfg(not(feature = "decimal128"))]
+        assert!((result.rate - expected).abs() < 0.001);
+
+        // Test identity rate
+        let result = matrix
+            .rate_with_metadata(
+                Currency::USD,
+                Currency::USD,
+                test_date(),
+                FxConversionPolicy::CashflowDate,
+            )
+            .unwrap();
+
+        assert!(!result.triangulated);
+        assert_eq!(result.pivot_currency, None);
+        
+        #[cfg(feature = "decimal128")]
+        assert_eq!(result.rate, rust_decimal::Decimal::ONE);
+        #[cfg(not(feature = "decimal128"))]
+        assert_eq!(result.rate, 1.0);
     }
 }

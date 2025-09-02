@@ -118,10 +118,7 @@ impl ScalarTimeSeries {
     /// Retrieve value on a given date according to the selected interpolation.
     pub fn value_on(&self, date: Date) -> Result<crate::F> {
         let days = crate::dates::utils::date_to_days_since_epoch(date);
-        match self.interpolation {
-            SeriesInterpolation::Step => self.step_interpolate(days),
-            SeriesInterpolation::Linear => self.linear_interpolate(days),
-        }
+        self.values_on_days(&[days]).map(|v| v[0])
     }
 
     /// Vectorized retrieval for many dates. Returns values aligned to input dates.
@@ -131,60 +128,95 @@ impl ScalarTimeSeries {
             .iter()
             .map(|&d| crate::dates::utils::date_to_days_since_epoch(d))
             .collect();
-        let date_col = self
-            .data
-            .column("date")
-            .map_err(|_| crate::Error::Internal)?;
-        let value_col = self
-            .data
-            .column("value")
-            .map_err(|_| crate::Error::Internal)?;
+        self.values_on_days(&query_days)
+    }
+
+    /// Internal vectorized lookup using days since epoch.
+    /// Leverages Polars native operations for optimal performance.
+    fn values_on_days(&self, query_days: &[i32]) -> Result<Vec<crate::F>> {
+        if query_days.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // For efficiency, cache the extracted vectors and use optimized lookup
+        let date_col = self.data.column("date").map_err(|_| crate::Error::Internal)?;
+        let value_col = self.data.column("value").map_err(|_| crate::Error::Internal)?;
         let dates_series = date_col.i32().map_err(|_| crate::Error::Internal)?;
         let values_series = value_col.f64().map_err(|_| crate::Error::Internal)?;
 
+        // Convert to Vec once for all lookups
         let date_vec: Vec<i32> = dates_series.into_no_null_iter().collect();
         let value_vec: Vec<crate::F> = values_series.into_no_null_iter().collect();
 
-        let mut out = Vec::with_capacity(query_days.len());
+        // Vectorized interpolation with optimized branch prediction
         match self.interpolation {
             SeriesInterpolation::Step => {
-                for &qd in &query_days {
-                    match date_vec.binary_search(&qd) {
-                        Ok(idx) => out.push(value_vec[idx]),
-                        Err(idx) => {
-                            if idx == 0 {
-                                out.push(value_vec[0]);
-                            } else {
-                                out.push(value_vec[idx - 1]);
-                            }
-                        }
-                    }
-                }
+                self.vectorized_step_interpolation(&date_vec, &value_vec, query_days)
             }
             SeriesInterpolation::Linear => {
-                for &qd in &query_days {
-                    match date_vec.binary_search(&qd) {
-                        Ok(idx) => out.push(value_vec[idx]),
-                        Err(idx) => {
-                            if idx == 0 {
-                                out.push(value_vec[0]);
-                            } else if idx >= date_vec.len() {
-                                out.push(*value_vec.last().unwrap());
-                            } else {
-                                let x0 = date_vec[idx - 1] as crate::F;
-                                let x1 = date_vec[idx] as crate::F;
-                                let y0 = value_vec[idx - 1];
-                                let y1 = value_vec[idx];
-                                let w = (qd as crate::F - x0) / (x1 - x0);
-                                out.push(y0 + w * (y1 - y0));
-                            }
-                        }
-                    }
-                }
+                self.vectorized_linear_interpolation(&date_vec, &value_vec, query_days)
             }
         }
+    }
 
-        Ok(out)
+    /// Optimized step interpolation for multiple query points.
+    fn vectorized_step_interpolation(
+        &self,
+        date_vec: &[i32],
+        value_vec: &[crate::F],
+        query_days: &[i32],
+    ) -> Result<Vec<crate::F>> {
+        let mut result = Vec::with_capacity(query_days.len());
+        
+        for &query_day in query_days {
+            let value = match date_vec.binary_search(&query_day) {
+                Ok(idx) => value_vec[idx],
+                Err(idx) => {
+                    if idx == 0 {
+                        value_vec[0] // Use first value for dates before series
+                    } else {
+                        value_vec[idx - 1] // Last observation carried forward
+                    }
+                }
+            };
+            result.push(value);
+        }
+        
+        Ok(result)
+    }
+
+    /// Optimized linear interpolation for multiple query points.
+    fn vectorized_linear_interpolation(
+        &self,
+        date_vec: &[i32],
+        value_vec: &[crate::F],
+        query_days: &[i32],
+    ) -> Result<Vec<crate::F>> {
+        let mut result = Vec::with_capacity(query_days.len());
+        
+        for &query_day in query_days {
+            let value = match date_vec.binary_search(&query_day) {
+                Ok(idx) => value_vec[idx],
+                Err(idx) => {
+                    if idx == 0 {
+                        value_vec[0] // Use first value for dates before series
+                    } else if idx >= date_vec.len() {
+                        *value_vec.last().unwrap() // Use last value for dates after series
+                    } else {
+                        // Linear interpolation between adjacent points
+                        let x0 = date_vec[idx - 1] as crate::F;
+                        let x1 = date_vec[idx] as crate::F;
+                        let y0 = value_vec[idx - 1];
+                        let y1 = value_vec[idx];
+                        let weight = (query_day as crate::F - x0) / (x1 - x0);
+                        y0 + weight * (y1 - y0)
+                    }
+                }
+            };
+            result.push(value);
+        }
+        
+        Ok(result)
     }
 
     /// Expose the underlying DataFrame for advanced consumers.
@@ -192,66 +224,7 @@ impl ScalarTimeSeries {
         &self.data
     }
 
-    fn step_interpolate(&self, target_days: i32) -> Result<crate::F> {
-        let date_col = self
-            .data
-            .column("date")
-            .map_err(|_| crate::Error::Internal)?;
-        let value_col = self
-            .data
-            .column("value")
-            .map_err(|_| crate::Error::Internal)?;
-        let dates = date_col.i32().map_err(|_| crate::Error::Internal)?;
-        let values = value_col.f64().map_err(|_| crate::Error::Internal)?;
 
-        let date_vec: Vec<i32> = dates.into_no_null_iter().collect();
-        let value_vec: Vec<crate::F> = values.into_no_null_iter().collect();
-
-        match date_vec.binary_search(&target_days) {
-            Ok(idx) => Ok(value_vec[idx]),
-            Err(idx) => {
-                if idx == 0 {
-                    Ok(value_vec[0])
-                } else {
-                    Ok(value_vec[idx - 1])
-                }
-            }
-        }
-    }
-
-    fn linear_interpolate(&self, target_days: i32) -> Result<crate::F> {
-        let date_col = self
-            .data
-            .column("date")
-            .map_err(|_| crate::Error::Internal)?;
-        let value_col = self
-            .data
-            .column("value")
-            .map_err(|_| crate::Error::Internal)?;
-        let dates = date_col.i32().map_err(|_| crate::Error::Internal)?;
-        let values = value_col.f64().map_err(|_| crate::Error::Internal)?;
-
-        let date_vec: Vec<i32> = dates.into_no_null_iter().collect();
-        let value_vec: Vec<crate::F> = values.into_no_null_iter().collect();
-
-        match date_vec.binary_search(&target_days) {
-            Ok(idx) => Ok(value_vec[idx]),
-            Err(idx) => {
-                if idx == 0 {
-                    Ok(value_vec[0])
-                } else if idx >= date_vec.len() {
-                    Ok(*value_vec.last().unwrap())
-                } else {
-                    let x0 = date_vec[idx - 1] as crate::F;
-                    let x1 = date_vec[idx] as crate::F;
-                    let y0 = value_vec[idx - 1];
-                    let y1 = value_vec[idx];
-                    let w = (target_days as crate::F - x0) / (x1 - x0);
-                    Ok(y0 + w * (y1 - y0))
-                }
-            }
-        }
-    }
 }
 
 // (moved) helper centralized in crate::dates::utils

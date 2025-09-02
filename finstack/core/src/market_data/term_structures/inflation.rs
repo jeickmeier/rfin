@@ -43,9 +43,9 @@ pub struct InflationCurve {
 
 impl InflationCurve {
     /// Start building an inflation curve with identifier `id`.
-    pub fn builder(id: &'static str) -> InflationCurveBuilder {
+    pub fn builder(id: impl Into<String>) -> InflationCurveBuilder {
         InflationCurveBuilder {
-            id,
+            id: id.into(),
             base_cpi: 100.0,
             points: Vec::new(),
             style: InterpStyle::LogLinear,
@@ -85,6 +85,12 @@ impl InflationCurve {
     pub fn cpi_levels(&self) -> &[F] {
         &self.cpi_levels
     }
+
+    /// Base CPI level at t = 0.
+    #[inline]
+    pub fn base_cpi(&self) -> F {
+        self.base_cpi
+    }
 }
 
 impl TermStructure for InflationCurve {
@@ -105,7 +111,7 @@ impl InflationTrait for InflationCurve {
 
 /// Fluent builder for [`InflationCurve`].
 pub struct InflationCurveBuilder {
-    id: &'static str,
+    id: String,
     base_cpi: F,
     points: Vec<(F, F)>, // (t, cpi)
     style: InterpStyle,
@@ -168,7 +174,7 @@ impl InflationCurveBuilder {
         let cpi_levels = cvec.into_boxed_slice();
         let interp = self.style.make_interp(knots.clone(), cpi_levels.clone())?;
         Ok(InflationCurve {
-            id: CurveId::new(self.id),
+            id: CurveId::new(&self.id),
             base_cpi: self.base_cpi,
             knots,
             cpi_levels,

@@ -150,7 +150,7 @@ impl GaussianCopulaModel {
     ///
     /// Decomposes the tranche [A, D] as the difference between two equity
     /// tranches: EL(0, D) - EL(0, A), using correlations interpolated from
-    /// the base correlation curve.
+    /// the base correlation curve with enhanced numerical stability.
     fn calculate_expected_tranche_loss(
         &self,
         tranche: &CdsTranche,
@@ -164,11 +164,9 @@ impl GaussianCopulaModel {
         let corr_attach = index_data.base_correlation_curve.correlation(attach_pct);
         let corr_detach = index_data.base_correlation_curve.correlation(detach_pct);
 
-        // Clamp correlations for numerical stability
-        let corr_attach =
-            corr_attach.clamp(self.params.min_correlation, self.params.max_correlation);
-        let corr_detach =
-            corr_detach.clamp(self.params.min_correlation, self.params.max_correlation);
+        // Apply enhanced correlation boundary handling for numerical stability
+        let corr_attach = self.smooth_correlation_boundary(corr_attach);
+        let corr_detach = self.smooth_correlation_boundary(corr_detach);
 
         // Calculate expected losses for equity tranches [0, A] and [0, D]
         let el_to_attach =
@@ -214,11 +212,9 @@ impl GaussianCopulaModel {
         let corr_attach = index_data.base_correlation_curve.correlation(attach_pct);
         let corr_detach = index_data.base_correlation_curve.correlation(detach_pct);
 
-        // Clamp correlations for numerical stability
-        let corr_attach =
-            corr_attach.clamp(self.params.min_correlation, self.params.max_correlation);
-        let corr_detach =
-            corr_detach.clamp(self.params.min_correlation, self.params.max_correlation);
+        // Apply enhanced correlation boundary handling for numerical stability
+        let corr_attach = self.smooth_correlation_boundary(corr_attach);
+        let corr_detach = self.smooth_correlation_boundary(corr_detach);
 
         // Calculate expected losses for equity tranches [0, A] and [0, D]
         let el_to_attach =
@@ -267,6 +263,10 @@ impl GaussianCopulaModel {
 
     /// Calculate expected loss for an equity tranche [0, K] using Gaussian Copula.
     ///
+    /// Enhanced with adaptive integration for superior numerical stability,
+    /// particularly critical near correlation boundaries (0 and 1) where
+    /// the conditional default probability function exhibits sharp transitions.
+    ///
     /// # Arguments
     /// * `detachment_pct` - Detachment point K in percent
     /// * `correlation` - Asset correlation parameter ρ
@@ -300,11 +300,11 @@ impl GaussianCopulaModel {
         let default_prob = self.get_default_probability(index_data, maturity_years)?;
         let default_threshold = standard_normal_inv_cdf(default_prob);
 
-        // Integrate expected loss over all states of the market factor Z
-        let expected_loss = quad.integrate(|z| {
+        // Define the integrand with numerical stability enhancements
+        let integrand = |z: F| {
             // Conditional default probability given market factor Z
             let conditional_default_prob =
-                self.conditional_default_probability(default_threshold, correlation, z);
+                self.conditional_default_probability_enhanced(default_threshold, correlation, z);
 
             // Expected loss of equity tranche conditional on Z
             self.conditional_equity_tranche_loss(
@@ -313,14 +313,28 @@ impl GaussianCopulaModel {
                 conditional_default_prob,
                 recovery_rate,
             )
-        });
+        };
+
+        // Use adaptive integration for correlations near boundaries
+        let expected_loss = if !(0.05..=0.95).contains(&correlation) {
+            // Near boundaries: use adaptive integration for higher precision
+            quad.integrate_adaptive(integrand, 1e-10)
+        } else {
+            // Normal range: standard integration is sufficient
+            quad.integrate(integrand)
+        };
 
         Ok(expected_loss)
     }
 
     /// Calculate conditional default probability given market factor Z.
     ///
+    /// Standard implementation kept for compatibility and testing.
+    /// The enhanced version `conditional_default_probability_enhanced` is used 
+    /// in production calculations for superior numerical stability.
+    ///
     /// P(default | Z) = Φ((Φ⁻¹(PD) - √ρ * Z) / √(1-ρ))
+    #[allow(dead_code)]
     fn conditional_default_probability(
         &self,
         default_threshold: F,
@@ -333,6 +347,77 @@ impl GaussianCopulaModel {
         let conditional_threshold =
             (default_threshold - sqrt_rho * market_factor) / sqrt_one_minus_rho;
         standard_normal_cdf(conditional_threshold)
+    }
+
+    /// Enhanced conditional default probability with improved numerical stability.
+    ///
+    /// Provides superior handling of boundary cases and extreme correlation values
+    /// through sophisticated boundary transition functions and overflow protection.
+    ///
+    /// P(default | Z) = Φ((Φ⁻¹(PD) - √ρ * Z) / √(1-ρ))
+    fn conditional_default_probability_enhanced(
+        &self,
+        default_threshold: F,
+        correlation: F,
+        market_factor: F,
+    ) -> F {
+        // Apply smooth correlation boundaries to avoid numerical discontinuities
+        let correlation = self.smooth_correlation_boundary(correlation);
+        
+        // Handle extreme correlation cases with special care
+        if correlation < 1e-10 {
+            // Near-zero correlation: independent case
+            return standard_normal_cdf(default_threshold);
+        }
+        if correlation > 1.0 - 1e-10 {
+            // Near-perfect correlation: deterministic case
+            let threshold_adj = default_threshold - market_factor;
+            return standard_normal_cdf(threshold_adj);
+        }
+
+        // Enhanced calculation with overflow protection
+        let sqrt_rho = correlation.sqrt();
+        let one_minus_rho = 1.0 - correlation;
+        
+        // Protect against numerical issues when correlation approaches 1
+        let sqrt_one_minus_rho = if one_minus_rho < 1e-15 {
+            1e-7 // Minimum practical value to avoid division by zero
+        } else {
+            one_minus_rho.sqrt()
+        };
+
+        // Calculate conditional threshold with overflow protection
+        let numerator = default_threshold - sqrt_rho * market_factor;
+        let conditional_threshold = numerator / sqrt_one_minus_rho;
+        
+        // Clamp to reasonable range to prevent CDF overflow
+        let conditional_threshold = conditional_threshold.clamp(-10.0, 10.0);
+        
+        standard_normal_cdf(conditional_threshold)
+    }
+
+    /// Apply smooth correlation boundary handling to avoid numerical discontinuities.
+    ///
+    /// Uses a smooth transition function near the boundaries to maintain numerical
+    /// stability while preserving the underlying mathematical relationships.
+    fn smooth_correlation_boundary(&self, correlation: F) -> F {
+        const BOUNDARY_WIDTH: F = 0.005; // 0.5% transition zone
+        
+        let min_corr = self.params.min_correlation;
+        let max_corr = self.params.max_correlation;
+        
+        if correlation <= min_corr + BOUNDARY_WIDTH {
+            // Lower boundary: smooth transition using tanh
+            let x = (correlation - min_corr) / BOUNDARY_WIDTH;
+            min_corr + BOUNDARY_WIDTH * (1.0 + x.tanh()) / 2.0
+        } else if correlation >= max_corr - BOUNDARY_WIDTH {
+            // Upper boundary: smooth transition using tanh  
+            let x = (correlation - (max_corr - BOUNDARY_WIDTH)) / BOUNDARY_WIDTH;
+            max_corr - BOUNDARY_WIDTH * (1.0 - x.tanh()) / 2.0
+        } else {
+            // Normal range: no adjustment needed
+            correlation.clamp(min_corr, max_corr)
+        }
     }
 
     /// Calculate expected loss of equity tranche conditional on market factor.
@@ -1034,5 +1119,139 @@ mod tests {
         assert!(protection.is_finite());
         assert!(premium >= 0.0); // Premium leg should be positive for ongoing coupon
         assert!(protection >= 0.0); // Protection leg should be non-negative
+    }
+
+    #[test]
+    fn test_extreme_correlation_numerical_stability() {
+        let model = GaussianCopulaModel::new();
+        let market_ctx = sample_market_context();
+        let _as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let index_data = market_ctx.get_credit_index("CDX.NA.IG.42").unwrap();
+
+        // Test extreme correlation values that are challenging for numerical stability
+        let extreme_correlations = [1e-10, 1e-6, 0.001, 0.999, 1.0 - 1e-6, 1.0 - 1e-10];
+
+        for &test_correlation in &extreme_correlations {
+            // Create a correlation curve with extreme values
+            let extreme_corr_curve = finstack_core::market_data::term_structures::BaseCorrelationCurve::builder("TEST_EXTREME")
+                .points(vec![
+                    (3.0, test_correlation),
+                    (7.0, test_correlation),
+                    (10.0, test_correlation),
+                    (15.0, test_correlation),
+                    (30.0, test_correlation),
+                ])
+                .build()
+                .unwrap();
+
+            // Create index data with extreme correlation
+            let extreme_index_data = CreditIndexData::builder()
+                .num_constituents(125)
+                .recovery_rate(0.40)
+                .index_credit_curve(index_data.index_credit_curve.clone())
+                .base_correlation_curve(std::sync::Arc::new(extreme_corr_curve))
+                .build()
+                .unwrap();
+
+            // Test equity tranche loss calculation
+            let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
+            let result = model.calculate_equity_tranche_loss(
+                7.0, // 7% detachment
+                test_correlation,
+                &extreme_index_data,
+                maturity,
+            );
+
+            assert!(
+                result.is_ok(),
+                "Equity tranche loss calculation failed for correlation={}",
+                test_correlation
+            );
+
+            let expected_loss = result.unwrap();
+            assert!(
+                expected_loss.is_finite(),
+                "Expected loss should be finite for correlation={}, got {}",
+                test_correlation,
+                expected_loss
+            );
+            assert!(
+                (0.0..=1.0).contains(&expected_loss),
+                "Expected loss should be in [0,1] for correlation={}, got {}",
+                test_correlation,
+                expected_loss
+            );
+        }
+    }
+
+    #[test]
+    fn test_smooth_correlation_boundary_transitions() {
+        let model = GaussianCopulaModel::new();
+        
+        // Test that smooth boundary transitions work correctly
+        let test_values = [
+            0.005, 0.009, 0.011, 0.015, // Near min boundary (0.01)
+            0.985, 0.989, 0.991, 0.995, // Near max boundary (0.99)
+        ];
+        
+        for &test_corr in &test_values {
+            let smoothed = model.smooth_correlation_boundary(test_corr);
+            
+            // Should be finite and within expanded bounds
+            assert!(smoothed.is_finite(), "Smoothed correlation should be finite for input={}", test_corr);
+            assert!((0.005..=0.995).contains(&smoothed), 
+                "Smoothed correlation {} should be in reasonable bounds for input={}", 
+                smoothed, test_corr);
+            
+            // Should be continuous (no big jumps)
+            let nearby = test_corr + 0.001;
+            let smoothed_nearby = model.smooth_correlation_boundary(nearby);
+            let transition_smoothness = (smoothed_nearby - smoothed).abs();
+            
+            assert!(transition_smoothness < 0.01, 
+                "Boundary transition should be smooth: jump of {} between {} and {}", 
+                transition_smoothness, test_corr, nearby);
+        }
+    }
+
+    #[test]
+    fn test_conditional_default_probability_enhanced() {
+        let model = GaussianCopulaModel::new();
+        let default_threshold = standard_normal_inv_cdf(0.05); // 5% unconditional default prob
+        
+        // Test enhanced function across various correlation and market factor combinations
+        let correlations = [1e-8, 0.01, 0.3, 0.7, 0.99, 1.0 - 1e-8];
+        let market_factors = [-4.0, -2.0, -1.0, 0.0, 1.0, 2.0, 4.0];
+        
+        for &correlation in &correlations {
+            for &market_factor in &market_factors {
+                let enhanced_prob = model.conditional_default_probability_enhanced(
+                    default_threshold,
+                    correlation,
+                    market_factor,
+                );
+                let standard_prob = model.conditional_default_probability(
+                    default_threshold,
+                    correlation.clamp(0.01, 0.99), // Clamp for standard function
+                    market_factor,
+                );
+                
+                // Enhanced function should always give finite, bounded results
+                assert!(enhanced_prob.is_finite(),
+                    "Enhanced conditional prob should be finite for ρ={}, Z={}", 
+                    correlation, market_factor);
+                assert!((0.0..=1.0).contains(&enhanced_prob),
+                    "Enhanced conditional prob should be in [0,1]: got {} for ρ={}, Z={}",
+                    enhanced_prob, correlation, market_factor);
+                
+                // For normal correlation ranges, should be close to standard implementation
+                if (0.05..=0.95).contains(&correlation) {
+                    let diff = (enhanced_prob - standard_prob).abs();
+                    assert!(diff < 0.01,
+                        "Enhanced and standard methods should agree in normal range: diff={} for ρ={}, Z={}",
+                        diff, correlation, market_factor);
+                }
+            }
+        }
     }
 }

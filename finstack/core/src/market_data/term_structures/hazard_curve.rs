@@ -60,9 +60,9 @@ pub struct HazardCurve {
 
 impl HazardCurve {
     /// Start building a hazard curve with identifier `id`.
-    pub fn builder(id: &'static str) -> HazardCurveBuilder {
+    pub fn builder(id: impl Into<String>) -> HazardCurveBuilder {
         HazardCurveBuilder {
-            id,
+            id: id.into(),
             base: Date::from_calendar_date(1970, time::Month::January, 1).unwrap(),
             points: Vec::new(),
             recovery_rate: 0.4,
@@ -143,7 +143,7 @@ impl HazardCurve {
 
     /// Create a builder with this curve's parameters, using a new ID.
     /// Useful for creating modified versions of the curve.
-    pub fn to_builder_with_id(&self, new_id: &'static str) -> HazardCurveBuilder {
+    pub fn to_builder_with_id(&self, new_id: impl Into<String>) -> HazardCurveBuilder {
         let mut builder = HazardCurve::builder(new_id)
             .base_date(self.base)
             .recovery_rate(self.recovery_rate)
@@ -258,7 +258,7 @@ impl Survival for HazardCurve {
 
 /// Fluent builder for [`HazardCurve`].
 pub struct HazardCurveBuilder {
-    id: &'static str,
+    id: String,
     base: Date,
     points: Vec<(F, F)>, // (t, lambda)
     recovery_rate: F,
@@ -336,7 +336,7 @@ impl HazardCurveBuilder {
         par_pts.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
         let (p_ten, p_spd): (Vec<F>, Vec<F>) = par_pts.into_iter().unzip();
         Ok(HazardCurve {
-            id: CurveId::new(self.id),
+            id: CurveId::new(&self.id),
             base: self.base,
             knots: kvec.into_boxed_slice(),
             lambdas: lvec.into_boxed_slice(),

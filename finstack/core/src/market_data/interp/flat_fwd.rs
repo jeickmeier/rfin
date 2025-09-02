@@ -29,4 +29,8 @@ impl InterpFn for FlatFwd {
     fn interp(&self, x: F) -> F {
         self.inner.interp(x)
     }
+
+    fn interp_prime(&self, x: F) -> F {
+        self.inner.interp_prime(x)
+    }
 }

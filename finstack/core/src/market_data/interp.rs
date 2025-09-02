@@ -35,6 +35,10 @@
 pub trait InterpFn: Send + Sync + core::fmt::Debug {
     /// Interpolate at coordinate `x`.
     fn interp(&self, x: crate::F) -> crate::F;
+    
+    /// Compute the first derivative at coordinate `x`.
+    /// Essential for calculating hedge sensitivities (Delta, Rho, etc.).
+    fn interp_prime(&self, x: crate::F) -> crate::F;
 }
 
 // -----------------------------------------------------------------------------

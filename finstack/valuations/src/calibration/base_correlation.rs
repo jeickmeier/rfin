@@ -10,11 +10,13 @@ use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
 
 use crate::market_data::ValuationMarketContext;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
+use finstack_core::dates::utils::add_months;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::money::Money;
 use finstack_core::{Currency, Result, F};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Base correlation curve calibrator.
 #[derive(Clone, Debug)]
@@ -135,6 +137,10 @@ impl BaseCorrelationCalibrator {
         let pricing_model = GaussianCopulaModel::new();
         let num_tranche_quotes = tranche_quotes.len(); // Store length before moving
 
+        // Pre-fetch the original credit index data once to avoid repeated lookups
+        let original_index = market_context.get_credit_index("CDX.NA.IG.42")?;
+        let base_core_context = &market_context.core;
+
         // Sequential bootstrap from equity to senior tranches
         for (attach_pct, detach_pct, _maturity, upfront_pct, running_spread_bp, index) in
             tranche_quotes
@@ -161,19 +167,27 @@ impl BaseCorrelationCalibrator {
                 (last_correlation + 0.05).min(0.9)
             };
 
-            // Create objective function for this tranche
+            // Pre-build shared index data outside the objective function
+            let shared_num_constituents = original_index.num_constituents;
+            let shared_recovery_rate = original_index.recovery_rate;
+            let shared_credit_curve = Arc::clone(&original_index.index_credit_curve);
+            let solved_correlations_ref = &solved_correlations;
+            let detach_pct_val = *detach_pct;
+
+            // Create objective function for this tranche - now much more efficient
             let objective = |trial_correlation: F| -> F {
                 // Build temporary base correlation curve with solved points + trial point
-                let mut temp_corr_points = solved_correlations.clone();
-                temp_corr_points.push((*detach_pct, trial_correlation));
+                let mut temp_corr_points = Vec::with_capacity(solved_correlations_ref.len() + 1);
+                temp_corr_points.extend_from_slice(solved_correlations_ref);
+                temp_corr_points.push((detach_pct_val, trial_correlation));
 
                 // Ensure minimum curve requirements (need at least 2 points)
                 if temp_corr_points.len() < 2 {
                     // For first (equity) tranche, add a second point for curve building
-                    temp_corr_points.push((*detach_pct + 10.0, trial_correlation));
+                    temp_corr_points.push((detach_pct_val + 10.0, trial_correlation));
                 }
 
-                // Create temporary base correlation curve
+                // Create temporary base correlation curve - this is now the only rebuild per iteration
                 let temp_base_corr_curve = match BaseCorrelationCurve::builder("TEMP_CALIB_CORR")
                     .points(temp_corr_points)
                     .build()
@@ -182,27 +196,21 @@ impl BaseCorrelationCalibrator {
                     Err(_) => return F::INFINITY,
                 };
 
-                // Update credit index with temporary correlation curve
-                let original_index =
-                    match market_context.get_credit_index(synthetic_tranche.credit_index_id) {
-                        Ok(idx) => idx,
-                        Err(_) => return F::INFINITY,
-                    };
-
+                // Efficiently create index with new correlation curve - reusing shared data
                 let temp_index = match crate::market_data::credit_index::CreditIndexData::builder()
-                    .num_constituents(original_index.num_constituents)
-                    .recovery_rate(original_index.recovery_rate)
-                    .index_credit_curve(original_index.index_credit_curve.clone())
-                    .base_correlation_curve(std::sync::Arc::new(temp_base_corr_curve))
+                    .num_constituents(shared_num_constituents)
+                    .recovery_rate(shared_recovery_rate)
+                    .index_credit_curve(Arc::clone(&shared_credit_curve))
+                    .base_correlation_curve(Arc::new(temp_base_corr_curve))
                     .build()
                 {
                     Ok(idx) => idx,
                     Err(_) => return F::INFINITY,
                 };
 
-                // Create temporary market context
+                // Create temporary market context - reusing core context
                 let temp_market_ctx = crate::market_data::ValuationMarketContext::from_core(
-                    market_context.core.clone(),
+                    base_core_context.clone(),
                 )
                 .with_credit_index(synthetic_tranche.credit_index_id, temp_index);
 
@@ -262,7 +270,9 @@ impl BaseCorrelationCalibrator {
         detach_pct: F,
         running_spread_bp: F,
     ) -> Result<CdsTranche> {
-        let maturity = self.base_date + time::Duration::days((self.maturity_years * 365.25) as i64);
+        // Use proper calendar arithmetic instead of 365.25 approximation
+        let months_to_add = (self.maturity_years * 12.0).round() as i32;
+        let maturity = add_months(self.base_date, months_to_add);
 
         // Use builder to avoid lifetime issues with &str parameters
         CdsTranche::builder()

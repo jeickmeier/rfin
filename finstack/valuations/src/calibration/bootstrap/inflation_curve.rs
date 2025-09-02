@@ -14,6 +14,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::inflation::InflationCurve;
 use finstack_core::money::Money;
+
 use finstack_core::{Currency, Result, F};
 use std::collections::HashMap;
 
@@ -29,6 +30,8 @@ pub struct InflationCurveCalibrator {
     pub currency: Currency,
     /// Base CPI level at calibration date
     pub base_cpi: F,
+    /// Discount curve ID for valuation
+    pub discount_id: String,
     /// Calibration configuration
     pub config: CalibrationConfig,
 }
@@ -40,12 +43,14 @@ impl InflationCurveCalibrator {
         base_date: finstack_core::dates::Date,
         currency: Currency,
         base_cpi: F,
+        discount_id: impl Into<String>,
     ) -> Self {
         Self {
             curve_id: curve_id.into(),
             base_date,
             currency,
             base_cpi,
+            discount_id: discount_id.into(),
             config: CalibrationConfig::default(),
         }
     }
@@ -96,8 +101,7 @@ impl Calibrator<InstrumentQuote, CalibrationConstraint, InflationCurve>
 
         if quotes.is_empty() {
             // Build a trivial flat CPI curve when no quotes are provided
-            let curve_id_static: &'static str = Box::leak(self.curve_id.clone().into_boxed_str());
-            let curve = InflationCurve::builder(curve_id_static)
+            let curve = InflationCurve::builder(&self.curve_id)
                 .base_cpi(self.base_cpi)
                 .knots([(0.0, self.base_cpi), (0.25, self.base_cpi)])
                 .log_df()
@@ -124,10 +128,9 @@ impl Calibrator<InstrumentQuote, CalibrationConstraint, InflationCurve>
 
         // Internal IDs used only for solving. Final curve will use self.curve_id
         const CALIB_INDEX_ID: &str = "CALIB_INFLATION";
-        const DISC_ID: &str = "USD-OIS"; // Assumed discount curve id present in context
 
         // Ensure discount curve exists in base context (best-effort; pricing will use context provided by caller)
-        let _ = base_context.discount(DISC_ID);
+        let _ = base_context.discount(&self.discount_id)?;
 
         // Note: We don't require an inflation index during calibration; the index is provided by caller when repricing.
 
@@ -155,6 +158,10 @@ impl Calibrator<InstrumentQuote, CalibrationConstraint, InflationCurve>
             let knots_clone = knots.clone();
             let base_ctx_clone = base_context.clone();
             let notional = Money::new(1_000_000.0, self.currency);
+            
+            // Create static string from discount_id for this calibration iteration
+            // Note: This creates a controlled leak but only during calibration
+            let disc_id_static: &'static str = Box::leak(self.discount_id.clone().into_boxed_str());
 
             let base_date = self.base_date;
             let objective = move |cpi_guess: F| -> F {
@@ -185,7 +192,7 @@ impl Calibrator<InstrumentQuote, CalibrationConstraint, InflationCurve>
                     .maturity(maturity)
                     .fixed_rate(par_rate)
                     .inflation_id(CALIB_INDEX_ID)
-                    .disc_id(DISC_ID)
+                    .disc_id(disc_id_static)
                     .dc(DayCount::ActAct)
                     .side(PayReceiveInflation::PayFixed)
                     .build()
@@ -194,7 +201,7 @@ impl Calibrator<InstrumentQuote, CalibrationConstraint, InflationCurve>
                     Err(_) => return F::INFINITY,
                 };
 
-                // Update market context with temp index and curve
+                // Update market context with temp inflation curve  
                 let temp_ctx = base_ctx_clone.clone().with_inflation(temp_curve);
 
                 match swap.value(&temp_ctx, base_date) {
@@ -221,8 +228,7 @@ impl Calibrator<InstrumentQuote, CalibrationConstraint, InflationCurve>
             knots.push((t, solved_cpi));
         }
 
-        // Build final curve with requested identifier (convert to &'static str)
-        let curve_id_static: &'static str = Box::leak(self.curve_id.clone().into_boxed_str());
+        // Build final curve with requested identifier
         let mut final_knots = knots;
         // Guard against degenerate single-point case
         if final_knots.len() == 1 {
@@ -231,7 +237,7 @@ impl Calibrator<InstrumentQuote, CalibrationConstraint, InflationCurve>
         final_knots.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
         println!("[InflCalib] final knots={}", final_knots.len());
-        let curve = match InflationCurve::builder(curve_id_static)
+        let curve = match InflationCurve::builder(&self.curve_id)
             .base_cpi(self.base_cpi)
             .knots(final_knots.clone())
             .log_df()
@@ -240,7 +246,7 @@ impl Calibrator<InstrumentQuote, CalibrationConstraint, InflationCurve>
             Ok(c) => c,
             Err(_) => {
                 // Fallback: minimal two-point curve to avoid calibration hard failure in tests
-                InflationCurve::builder(curve_id_static)
+                InflationCurve::builder(&self.curve_id)
                     .base_cpi(self.base_cpi)
                     .knots([(0.0, self.base_cpi), (0.25, self.base_cpi)])
                     .log_df()
@@ -318,15 +324,18 @@ mod tests {
             base_date,
             Currency::USD,
             290.0, // Base CPI
+            "USD-OIS", // Discount curve ID
         );
 
         let quotes = create_test_inflation_quotes();
         let discount_curve = create_test_discount_curve();
-        let inflation_index = create_test_inflation_index();
-        let solver = crate::calibration::solver::HybridSolver::new();
-
-        let result =
-            calibrator.bootstrap_curve(&quotes, &solver, &discount_curve, &inflation_index);
+        let _inflation_index = create_test_inflation_index();
+        
+        // Create market context with the discount curve
+        let market_context = MarketContext::new().with_discount(discount_curve);
+        
+        // Use the calibrate method directly with proper market context
+        let result = calibrator.calibrate(&quotes, &[], &market_context);
 
         assert!(result.is_ok());
         let (curve, report) = result.unwrap();
@@ -354,8 +363,13 @@ mod tests {
         );
 
         // Calibrate inflation curve (base_cpi will be sourced from context in production)
-        let calibrator =
-            InflationCurveCalibrator::new("US-CPI-U", base_date, Currency::USD, base_cpi);
+        let calibrator = InflationCurveCalibrator::new(
+            "US-CPI-U",
+            base_date,
+            Currency::USD,
+            base_cpi,
+            "USD-OIS", // Discount curve ID
+        );
         let calib = calibrator.calibrate(&quotes, &[], &base_context);
         assert!(calib.is_ok(), "calibration failed: {:?}", calib.err());
         let (infl_curve, _report) = calib.unwrap();

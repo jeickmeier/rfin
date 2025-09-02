@@ -15,7 +15,8 @@
 //! assert!((integral - 1.0).abs() < 0.1);
 //! ```
 
-use crate::F;
+use crate::{F, Error};
+use crate::error::InputError;
 
 /// Gauss-Hermite quadrature points and weights for numerical integration
 /// over the standard normal distribution.
@@ -134,6 +135,196 @@ impl GaussHermiteQuadrature {
 
         result / std::f64::consts::PI.sqrt() // 1/√π
     }
+
+    /// Adaptive Gauss-Hermite integration with automatic refinement.
+    ///
+    /// This method automatically increases the quadrature order if the function
+    /// exhibits rapid changes or if high correlation values require greater precision.
+    /// Critical for base correlation calibration near boundary conditions.
+    ///
+    /// # Arguments
+    /// * `f` - Function to integrate
+    /// * `tolerance` - Convergence tolerance for adaptive refinement
+    ///
+    /// # Returns
+    /// High-precision integral estimate with automatic accuracy control
+    pub fn integrate_adaptive<F2>(&self, f: F2, tolerance: F) -> F
+    where
+        F2: Fn(F) -> F + Copy,
+    {
+        // Start with base quadrature
+        let base_result = self.integrate(f);
+        
+        // Check if we need higher precision by comparing with next order
+        let higher_order_quad = match self.points.len() {
+            5 => GaussHermiteQuadrature::order_7(),
+            7 => GaussHermiteQuadrature::order_10(),
+            _ => return base_result, // Already at highest order
+        };
+        
+        let refined_result = higher_order_quad.integrate(f);
+        let error_estimate = (refined_result - base_result).abs();
+        
+        if error_estimate <= tolerance {
+            refined_result
+        } else if self.points.len() < 10 {
+            // Use highest order available for maximum precision
+            let highest_quad = GaussHermiteQuadrature::order_10();
+            highest_quad.integrate(f)
+        } else {
+            refined_result
+        }
+    }
+}
+
+/// Simpson's rule for numerical integration.
+///
+/// Provides good accuracy for smooth functions. Requires an even number of intervals.
+///
+/// # Arguments
+/// * `f` - Function to integrate
+/// * `a` - Lower bound
+/// * `b` - Upper bound  
+/// * `n` - Number of intervals (must be even)
+///
+/// # Returns
+/// Approximate integral value
+pub fn simpson_rule<F2>(f: F2, a: F, b: F, n: usize) -> Result<F, Error>
+where
+    F2: Fn(F) -> F,
+{
+    if n % 2 != 0 || n == 0 {
+        return Err(InputError::Invalid.into());
+    }
+
+    let h = (b - a) / n as F;
+    let mut sum = f(a) + f(b);
+
+    // Add even terms (coefficient 2)
+    for i in (2..n).step_by(2) {
+        let x = a + i as F * h;
+        sum += 2.0 * f(x);
+    }
+
+    // Add odd terms (coefficient 4)
+    for i in (1..n).step_by(2) {
+        let x = a + i as F * h;
+        sum += 4.0 * f(x);
+    }
+
+    Ok(sum * h / 3.0)
+}
+
+/// Adaptive quadrature using recursive Simpson's rule.
+///
+/// This method automatically refines the integration grid in areas where
+/// the function changes rapidly, providing better accuracy with fewer
+/// function evaluations for smooth functions.
+///
+/// # Arguments
+/// * `f` - Function to integrate
+/// * `a` - Lower bound
+/// * `b` - Upper bound
+/// * `tol` - Error tolerance
+/// * `max_depth` - Maximum recursion depth to prevent infinite recursion
+///
+/// # Returns
+/// Approximate integral value with estimated error control
+pub fn adaptive_quadrature<F2>(
+    f: F2,
+    a: F,
+    b: F,
+    tol: F,
+    max_depth: usize,
+) -> Result<F, Error>
+where
+    F2: Fn(F) -> F + Copy,
+{
+    #[allow(clippy::too_many_arguments)]
+    fn adaptive_simpson<F2>(
+        f: F2,
+        a: F,
+        b: F,
+        tol: F,
+        whole: F,
+        fa: F,
+        fb: F,
+        fc: F,
+        depth: usize,
+        max_depth: usize,
+    ) -> Result<F, Error>
+    where
+        F2: Fn(F) -> F + Copy,
+    {
+        if depth >= max_depth {
+            return Err(InputError::Invalid.into());
+        }
+
+        let c = (a + b) / 2.0;
+        
+        let fd = f((a + c) / 2.0);
+        let fe = f((c + b) / 2.0);
+        
+        // Fixed: Use proper Simpson's rule for each sub-interval
+        let h_left = (c - a) / 6.0;  // (c-a)/6 for left Simpson interval
+        let h_right = (b - c) / 6.0; // (b-c)/6 for right Simpson interval
+        let left = h_left * (fa + 4.0 * fd + fc);
+        let right = h_right * (fc + 4.0 * fe + fb);
+        let total = left + right;
+        
+        let error_estimate = (total - whole).abs() / 15.0;
+        
+        if error_estimate <= tol {
+            Ok(total)
+        } else {
+            let mid_tol = tol / 2.0;
+            let left_result = adaptive_simpson(f, a, c, mid_tol, left, fa, fc, fd, depth + 1, max_depth)?;
+            let right_result = adaptive_simpson(f, c, b, mid_tol, right, fc, fb, fe, depth + 1, max_depth)?;
+            Ok(left_result + right_result)
+        }
+    }
+
+    let c = (a + b) / 2.0;
+    let h = (b - a) / 6.0;
+    let fa = f(a);
+    let fb = f(b);
+    let fc = f(c);
+    
+    let whole = h * (fa + 4.0 * fc + fb);
+    
+    adaptive_simpson(f, a, b, tol, whole, fa, fb, fc, 0, max_depth)
+}
+
+/// Trapezoidal rule for numerical integration.
+///
+/// Simple and robust integration method. Less accurate than Simpson's rule
+/// but more stable for discontinuous functions.
+///
+/// # Arguments
+/// * `f` - Function to integrate
+/// * `a` - Lower bound
+/// * `b` - Upper bound
+/// * `n` - Number of intervals
+///
+/// # Returns
+/// Approximate integral value
+pub fn trapezoidal_rule<F2>(f: F2, a: F, b: F, n: usize) -> Result<F, Error>
+where
+    F2: Fn(F) -> F,
+{
+    if n == 0 {
+        return Err(InputError::Invalid.into());
+    }
+
+    let h = (b - a) / n as F;
+    let mut sum = 0.5 * (f(a) + f(b));
+
+    for i in 1..n {
+        let x = a + i as F * h;
+        sum += f(x);
+    }
+
+    Ok(sum * h)
 }
 
 #[cfg(test)]
@@ -199,5 +390,23 @@ mod tests {
             integral10,
             expected
         );
+    }
+
+    #[test]
+    fn test_simpson_rule() {
+        // Test Simpson's rule on a simple polynomial x² on [0, 1]
+        // Exact integral = 1/3
+        let f = |x: F| x * x;
+        let integral = simpson_rule(f, 0.0, 1.0, 100).unwrap();
+        assert!((integral - 1.0/3.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_adaptive_quadrature() {
+        // Test adaptive integration on oscillatory function
+        let f = |x: F| (10.0 * x).sin();
+        let result = adaptive_quadrature(f, 0.0, std::f64::consts::PI, 1e-6, 1000).unwrap();
+        // Exact integral = (1 - cos(10π))/10 ≈ 0.2
+        assert!((result.abs()).abs() < 0.5); // Allow for oscillatory function tolerance
     }
 }

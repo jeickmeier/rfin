@@ -64,6 +64,14 @@ pub enum Error {
         /// The actual (right-hand) currency encountered.
         actual: Currency,
     },
+    /// Calibration process failure.
+    #[error("Calibration error: {message}")]
+    Calibration {
+        /// Human-readable error description.
+        message: String,
+        /// Error category for programmatic handling.
+        category: String,
+    },
     /// Catch-all for unexpected internal failures.
     #[error("Internal system error")]
     Internal,

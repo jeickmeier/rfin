@@ -39,6 +39,7 @@ parallel = ["dep:rayon"]
 # Controls deterministic vs. performance-optimized execution paths
 deterministic = []
 
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]

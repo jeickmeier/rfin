@@ -347,6 +347,83 @@ where
     Err(InputError::Invalid.into())
 }
 
+/// Hybrid root finder: Newton-Raphson with Brent fallback.
+///
+/// This is the most robust root finder for financial applications. It tries
+/// Newton-Raphson first for fast convergence, but falls back to Brent's method
+/// if Newton diverges or encounters issues.
+///
+/// This is particularly effective for:
+/// - Yield-to-maturity calculations
+/// - Implied volatility calculations
+/// - Internal rate of return (IRR) calculations
+/// - Option pricing model inversions
+///
+/// # Arguments
+/// * `f` - The function to find the root of
+/// * `f_prime` - The derivative of `f` (optional for pure Brent fallback)
+/// * `x0` - Initial guess for Newton-Raphson
+/// * `bracket` - Optional bracketing interval (lo, hi). If None, will attempt to find one.
+/// * `tol` - Tolerance for convergence
+/// * `max_iter` - Maximum iterations per method
+///
+/// # Returns
+/// The root if found, with metadata about which method succeeded.
+pub fn hybrid_root_find<F, G>(
+    f: F,
+    f_prime: G,
+    x0: f64,
+    bracket: Option<(f64, f64)>,
+    tol: f64,
+    max_iter: usize,
+) -> Result<f64, crate::Error>
+where
+    F: Fn(f64) -> f64,
+    G: Fn(f64) -> f64,
+{
+    // First attempt: Newton-Raphson for fast convergence
+    match newton_raphson(&f, &f_prime, x0, tol, max_iter) {
+        Ok(root) => return Ok(root),
+        Err(_) => {
+            // Newton failed, try with bracketing if we have an interval
+            if let Some((lo, hi)) = bracket {
+                match newton_bracketed(&f, &f_prime, lo, hi, tol, max_iter) {
+                    Ok(root) => return Ok(root),
+                    Err(_) => {
+                        // Both Newton methods failed, fall back to Brent
+                        return brent(&f, lo, hi, tol, max_iter);
+                    }
+                }
+            }
+        }
+    }
+
+    // If no bracket provided, try to find one around x0
+    let search_radius = 1.0_f64.max(x0.abs());
+    let lo = x0 - search_radius;
+    let hi = x0 + search_radius;
+    
+    match find_bracketing_interval(&f, lo, hi) {
+        Ok((bracket_lo, bracket_hi)) => {
+            // Try bracketed Newton first
+            match newton_bracketed(&f, &f_prime, bracket_lo, bracket_hi, tol, max_iter) {
+                Ok(root) => Ok(root),
+                Err(_) => {
+                    // Final fallback to Brent
+                    brent(&f, bracket_lo, bracket_hi, tol, max_iter)
+                }
+            }
+        }
+        Err(_) => {
+            // Can't find bracket, try wider search
+            match brent_with_bracketing(&f, lo, hi, tol, max_iter) {
+                Ok(root) => Ok(root),
+                Err(e) => Err(e),
+            }
+        }
+    }
+}
+
 /// Try to find a bracketing interval for the root.
 ///
 /// Given an initial interval [a, b], attempts to find values where
