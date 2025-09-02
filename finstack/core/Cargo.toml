@@ -10,8 +10,8 @@ repository.workspace = true
 [dependencies]
 serde = { version = "1.0", default-features = false, features = ["rc"], optional = true }
 rust_decimal = { version = "1.36", default-features = false, optional = true }
-strum = "0.25"
-strum_macros = "0.25"
+strum = { workspace = true }
+strum_macros = { workspace = true }
 thiserror = { version = "1.0", default-features = false }
 num_enum = { version = "0.7", default-features = false }
 num-traits = { version = "0.2", default-features = false, features = ["libm"] }
@@ -36,9 +36,8 @@ std = ["serde?/std"]
 decimal128 = ["dep:rust_decimal"]
 serde = ["dep:serde", "serde/derive", "time/serde", "hashbrown/serde", "rust_decimal?/serde"]
 parallel = ["dep:rayon"]
-index = []
+# Controls deterministic vs. performance-optimized execution paths
 deterministic = []
-asof_join = []
 
 [package.metadata.docs.rs]
 all-features = true
