@@ -18,9 +18,10 @@
 #![allow(clippy::many_single_char_names)]
 
 use core::cmp::Ordering;
-use time::{Date, Month};
+use time::{Date, Duration, Month};
 
 use crate::error::InputError;
+use crate::dates::calendar::HolidayCalendar;
 
 /// Supported day-count conventions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,44 +33,125 @@ pub enum DayCount {
     Act360,
     /// Actual / 365F — year fraction = actual days ÷ 365 (fixed).
     Act365F,
+    /// Actual / 365L (Actual/365 Leap or AFB) — denominator varies based on leap year logic.
+    Act365L,
     /// 30U/360 (US Bond Basis).
     Thirty360,
     /// 30E/360 (European).
     ThirtyE360,
     /// Actual / Actual (ISDA variant).
     ActAct,
+    /// Bus/252 — business days ÷ 252 (requires holiday calendar).
+    Bus252,
 }
 
 impl DayCount {
     /// Return the day count between `start` (inclusive) and `end` (exclusive).
     ///
     /// The output follows the specific convention rules and is **always ≥ 0**.
+    /// 
+    /// # Note
+    /// For `Bus/252`, use [`DayCount::business_days`] with a holiday calendar instead.
     #[doc(hidden)]
     pub fn days(self, start: Date, end: Date) -> crate::Result<i32> {
         match start.cmp(&end) {
             Ordering::Greater => Err(InputError::InvalidDateRange.into()),
             Ordering::Equal => Ok(0),
             Ordering::Less => match self {
-                DayCount::Act360 | DayCount::Act365F | DayCount::ActAct => {
+                DayCount::Act360 | DayCount::Act365F | DayCount::Act365L | DayCount::ActAct => {
                     let total_days = (end - start).whole_days();
                     Ok(total_days as i32)
                 }
                 DayCount::Thirty360 => Ok(days_30_360(start, end, Thirty360Convention::Us)),
                 DayCount::ThirtyE360 => Ok(days_30_360(start, end, Thirty360Convention::European)),
+                DayCount::Bus252 => Err(InputError::Invalid.into()),
             },
         }
     }
 
     /// Compute the year fraction between `start` and `end` per this convention.
+    /// 
+    /// # Note
+    /// For `Bus/252`, use [`DayCount::year_fraction_with_calendar`] with a holiday calendar instead.
     pub fn year_fraction(self, start: Date, end: Date) -> crate::Result<f64> {
-        let days = self.days(start, end)? as f64;
-        let yf = match self {
-            DayCount::Act360 => days / 360.0,
-            DayCount::Act365F => days / 365.0,
-            DayCount::Thirty360 | DayCount::ThirtyE360 => days / 360.0,
-            DayCount::ActAct => year_fraction_act_act_isda(start, end),
-        };
-        Ok(yf)
+        match start.cmp(&end) {
+            Ordering::Greater => Err(InputError::InvalidDateRange.into()),
+            Ordering::Equal => Ok(0.0),
+            Ordering::Less => {
+                let yf = match self {
+                    DayCount::Act360 => {
+                        let days = (end - start).whole_days() as f64;
+                        days / 360.0
+                    }
+                    DayCount::Act365F => {
+                        let days = (end - start).whole_days() as f64;
+                        days / 365.0
+                    }
+                    DayCount::Act365L => year_fraction_act_365l(start, end),
+                    DayCount::Thirty360 => {
+                        let days = days_30_360(start, end, Thirty360Convention::Us) as f64;
+                        days / 360.0
+                    }
+                    DayCount::ThirtyE360 => {
+                        let days = days_30_360(start, end, Thirty360Convention::European) as f64;
+                        days / 360.0
+                    }
+                    DayCount::ActAct => year_fraction_act_act_isda(start, end),
+                    DayCount::Bus252 => return Err(InputError::Invalid.into()),
+                };
+                Ok(yf)
+            }
+        }
+    }
+
+    /// Count business days between `start` (inclusive) and `end` (exclusive) using the given calendar.
+    /// 
+    /// This is primarily used for `Bus/252` day count convention but can be used with any calendar.
+    pub fn business_days<C: HolidayCalendar + ?Sized>(
+        self,
+        start: Date,
+        end: Date,
+        calendar: &C,
+    ) -> crate::Result<i32> {
+        match start.cmp(&end) {
+            Ordering::Greater => Err(InputError::InvalidDateRange.into()),
+            Ordering::Equal => Ok(0),
+            Ordering::Less => match self {
+                DayCount::Bus252 => Ok(count_business_days(start, end, calendar)),
+                _ => {
+                    // For other conventions, business_days should just return regular days
+                    self.days(start, end)
+                }
+            },
+        }
+    }
+
+    /// Compute the year fraction between `start` and `end` using the given calendar.
+    /// 
+    /// This method is required for `Bus/252` and can be used with other conventions.
+    pub fn year_fraction_with_calendar<C: HolidayCalendar + ?Sized>(
+        self,
+        start: Date,
+        end: Date,
+        calendar: &C,
+    ) -> crate::Result<f64> {
+        match start.cmp(&end) {
+            Ordering::Greater => Err(InputError::InvalidDateRange.into()),
+            Ordering::Equal => Ok(0.0),
+            Ordering::Less => {
+                let yf = match self {
+                    DayCount::Bus252 => {
+                        let biz_days = count_business_days(start, end, calendar) as f64;
+                        biz_days / 252.0
+                    }
+                    _ => {
+                        // For other conventions, delegate to regular year_fraction
+                        return self.year_fraction(start, end);
+                    }
+                };
+                Ok(yf)
+            }
+        }
     }
 }
 
@@ -149,6 +231,72 @@ fn year_fraction_act_act_isda(start: Date, end: Date) -> f64 {
     frac
 }
 
+// -------------------------------------------------------------------------------------------------
+// ACT/365L helper
+// -------------------------------------------------------------------------------------------------
+/// Calculate year fraction for Act/365L convention.
+/// 
+/// Act/365L uses 366 as denominator if February 29 falls between start (exclusive) and end (inclusive),
+/// otherwise uses 365.
+fn year_fraction_act_365l(start: Date, end: Date) -> f64 {
+    if start == end {
+        return 0.0;
+    }
+
+    let actual_days = (end - start).whole_days() as f64;
+    
+    // Check if Feb 29 falls between start (exclusive) and end (inclusive)
+    let denominator = if contains_feb_29(start, end) {
+        366.0
+    } else {
+        365.0
+    };
+    
+    actual_days / denominator
+}
+
+/// Check if February 29 falls between start (exclusive) and end (inclusive).
+fn contains_feb_29(start: Date, end: Date) -> bool {
+    let start_year = start.year();
+    let end_year = end.year();
+    
+    // Check each year in the range for Feb 29
+    for year in start_year..=end_year {
+        if crate::dates::utils::is_leap_year(year) {
+            // Try to create Feb 29 for this year
+            if let Ok(feb_29) = Date::from_calendar_date(year, Month::February, 29) {
+                // Check if Feb 29 is in the interval (start, end]
+                if feb_29 > start && feb_29 <= end {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+// -------------------------------------------------------------------------------------------------
+// Bus/252 helper
+// -------------------------------------------------------------------------------------------------
+/// Count business days between start (inclusive) and end (exclusive) using the given calendar.
+fn count_business_days<C: HolidayCalendar + ?Sized>(
+    start: Date,
+    end: Date,
+    calendar: &C,
+) -> i32 {
+    let mut count = 0;
+    let mut current = start;
+    
+    while current < end {
+        if calendar.is_business_day(current) {
+            count += 1;
+        }
+        current += Duration::days(1);
+    }
+    
+    count
+}
+
 #[inline]
 const fn days_in_year(year: i32) -> i32 {
     if crate::dates::utils::is_leap_year(year) {
@@ -157,6 +305,8 @@ const fn days_in_year(year: i32) -> i32 {
         365
     }
 }
+
+
 
 // -------------------------------------------------------------------------------------------------
 // Tests
@@ -214,5 +364,115 @@ mod tests {
         let start = make_date(2025, 1, 1);
         let end = make_date(2024, 1, 1);
         assert!(DayCount::Act360.year_fraction(start, end).is_err());
+    }
+
+    #[test]
+    fn act365l_without_leap_day() {
+        // Period that doesn't contain Feb 29
+        let start = make_date(2025, 3, 1); // 2025 is not a leap year
+        let end = make_date(2025, 9, 1);
+        let yf = DayCount::Act365L.year_fraction(start, end).unwrap();
+        let actual_days = (end - start).whole_days() as f64;
+        let expected = actual_days / 365.0; // Should use 365 denominator
+        assert!((yf - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn act365l_with_leap_day() {
+        // Period that contains Feb 29, 2024 (leap year)
+        let start = make_date(2024, 2, 28); // Feb 28, 2024
+        let end = make_date(2024, 3, 2);    // Mar 2, 2024 (contains Feb 29)
+        let yf = DayCount::Act365L.year_fraction(start, end).unwrap();
+        let actual_days = (end - start).whole_days() as f64; // 3 days
+        let expected = actual_days / 366.0; // Should use 366 denominator due to Feb 29
+        assert!((yf - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn act365l_leap_year_boundary() {
+        // Start in leap year, end after leap year
+        let start = make_date(2024, 2, 20); // Before Feb 29
+        let end = make_date(2025, 1, 15);   // After leap year
+        let yf = DayCount::Act365L.year_fraction(start, end).unwrap();
+        let actual_days = (end - start).whole_days() as f64;
+        let expected = actual_days / 366.0; // Should use 366 due to Feb 29 in period
+        assert!((yf - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn act365l_leap_year_before_period() {
+        // Feb 29 exists in year but falls before start date
+        let start = make_date(2024, 3, 1);  // After Feb 29, 2024
+        let end = make_date(2024, 6, 1);    // Later in same leap year
+        let yf = DayCount::Act365L.year_fraction(start, end).unwrap();
+        let actual_days = (end - start).whole_days() as f64;
+        let expected = actual_days / 365.0; // Should use 365 since Feb 29 not in (start, end]
+        assert!((yf - expected).abs() < 1e-9);
+    }
+
+    // Simple test-only calendar that treats only weekends as holidays
+    #[derive(Debug, Clone, Copy)]
+    struct WeekendsOnly;
+    
+    impl crate::dates::calendar::HolidayCalendar for WeekendsOnly {
+        fn is_holiday(&self, _date: Date) -> bool {
+            // Return false for all dates; business day logic will still exclude weekends
+            false
+        }
+    }
+
+    #[test]
+    fn bus252_with_calendar() {
+        // Simple test with weekends-only calendar (Monday to Friday)
+        let calendar = WeekendsOnly;
+        let start = make_date(2025, 1, 6);  // Monday
+        let end = make_date(2025, 1, 13);   // Next Monday (7 calendar days, 5 business days)
+        
+        let biz_days = DayCount::Bus252.business_days(start, end, &calendar).unwrap();
+        assert_eq!(biz_days, 5); // Mon, Tue, Wed, Thu, Fri
+        
+        let yf = DayCount::Bus252.year_fraction_with_calendar(start, end, &calendar).unwrap();
+        let expected = 5.0 / 252.0;
+        assert!((yf - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn bus252_with_nyse_calendar() {
+        use crate::dates::holiday::calendars::Nyse;
+        
+        // Test with a real calendar that has holidays
+        let calendar = Nyse;
+        let start = make_date(2025, 1, 2);  // Thu (after New Year holiday)
+        let end = make_date(2025, 1, 6);    // Mon (4 calendar days)
+        
+        let biz_days = DayCount::Bus252.business_days(start, end, &calendar).unwrap();
+        // Should count Thu, Fri (Sat, Sun are weekends)
+        assert_eq!(biz_days, 2);
+        
+        let yf = DayCount::Bus252.year_fraction_with_calendar(start, end, &calendar).unwrap();
+        let expected = 2.0 / 252.0;
+        assert!((yf - expected).abs() < 1e-9);
+    }
+
+    #[test]
+    fn bus252_error_without_calendar() {
+        // Bus/252 should error when using regular methods without calendar
+        let start = make_date(2025, 1, 1);
+        let end = make_date(2025, 1, 8);
+        
+        assert!(DayCount::Bus252.days(start, end).is_err());
+        assert!(DayCount::Bus252.year_fraction(start, end).is_err());
+    }
+
+    #[test]
+    fn bus252_equal_dates() {
+        let calendar = WeekendsOnly;
+        let date = make_date(2025, 1, 1);
+        
+        let biz_days = DayCount::Bus252.business_days(date, date, &calendar).unwrap();
+        assert_eq!(biz_days, 0);
+        
+        let yf = DayCount::Bus252.year_fraction_with_calendar(date, date, &calendar).unwrap();
+        assert_eq!(yf, 0.0);
     }
 }

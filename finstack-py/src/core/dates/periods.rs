@@ -177,7 +177,7 @@ impl PyPeriod {
 #[pyclass(name = "FiscalConfig")]
 #[derive(Clone, Debug)]
 pub struct PyFiscalConfig {
-    inner: FiscalConfig,
+    pub(crate) inner: FiscalConfig,
 }
 
 #[pymethods]

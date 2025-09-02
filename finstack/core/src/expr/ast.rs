@@ -5,6 +5,11 @@ use time::Duration;
 
 /// Typed duration specification to avoid repeated string parsing and
 /// ambiguous cache keys. Keep strings only at IO boundaries.
+///
+/// **Important**: The `Months` and `Years` variants use fixed-day approximations
+/// and do NOT perform precise calendar arithmetic. Use dedicated calendar
+/// functions for exact date calculations involving variable month lengths,
+/// leap years, or timezone transitions.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum DurationSpec {
     /// Duration in seconds.
@@ -17,9 +22,11 @@ pub enum DurationSpec {
     Days(i64),
     /// Duration in weeks.
     Weeks(i64),
-    /// Calendar-approx months (30 days per month).
+    /// **Approximation**: Fixed 30-day months (not precise calendar arithmetic).
+    /// Does not account for variable month lengths (28-31 days).
     Months(i64),
-    /// Calendar-approx years (365 days per year).
+    /// **Approximation**: Fixed 365-day years (not precise calendar arithmetic).
+    /// Does not account for leap years or exact calendar calculations.
     Years(i64),
 }
 

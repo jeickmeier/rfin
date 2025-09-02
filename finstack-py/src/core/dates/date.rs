@@ -375,59 +375,66 @@ impl PyDate {
         self.inner.quarter()
     }
 
-    /// Get the fiscal year of the date.
+    /// Returns the fiscal year for this date based on the provided fiscal configuration.
     ///
-    /// Currently returns the same as the calendar year.
-    /// Future versions may support different fiscal year conventions.
+    /// Uses the fiscal year start month and day from FiscalConfig to determine
+    /// which fiscal year this date belongs to.
+    ///
+    /// Args:
+    ///     config (FiscalConfig): The fiscal year configuration.
     ///
     /// Returns:
     ///     int: The fiscal year.
     ///
     /// Examples:
-    ///     >>> from rfin.dates import Date
-    ///     >>> Date(2023, 12, 25).fiscal_year()
+    ///     >>> from rfin.dates import Date, FiscalConfig
+    ///     >>> Date(2023, 12, 25).fiscal_year(FiscalConfig.calendar_year())
     ///     2023
-    #[pyo3(text_signature = "(self)")]
-    pub fn fiscal_year(&self) -> i32 {
+    ///     >>> Date(2024, 9, 15).fiscal_year(FiscalConfig.us_federal())
+    ///     2024
+    ///     >>> Date(2024, 10, 1).fiscal_year(FiscalConfig.us_federal())
+    ///     2025
+    #[pyo3(text_signature = "(self, config)")]
+    pub fn fiscal_year(&self, config: &crate::core::dates::periods::PyFiscalConfig) -> i32 {
         use finstack_core::dates::DateExt;
-        self.inner.fiscal_year()
+        self.inner.fiscal_year(config.inner)
     }
 
-    /// Add or subtract business days from the date.
+    /// Add or subtract weekdays from the date.
     ///
-    /// Business days exclude weekends (Saturday and Sunday).
-    /// This method does not account for holidays - use Calendar.adjust() for that.
+    /// Weekdays exclude weekends (Saturday and Sunday) but do NOT account for holidays.
+    /// For true business day adjustments that respect holidays, use Calendar.adjust().
     ///
     /// Args:
-    ///     n (int): Number of business days to add (positive) or subtract (negative).
+    ///     n (int): Number of weekdays to add (positive) or subtract (negative).
     ///
     /// Returns:
-    ///     Date: A new Date instance adjusted by the specified number of business days.
+    ///     Date: A new Date instance adjusted by the specified number of weekdays.
     ///
     /// Examples:
     ///     >>> from rfin.dates import Date
     ///     >>> friday = Date(2023, 12, 22)  # Friday
     ///     
-    ///     # Add 1 business day: Friday -> Monday
-    ///     >>> friday.add_business_days(1)
+    ///     # Add 1 weekday: Friday -> Monday
+    ///     >>> friday.add_weekdays(1)
     ///     Date('2023-12-25')
     ///     
-    ///     # Add 5 business days: Friday -> Friday of next week
-    ///     >>> friday.add_business_days(5)
+    ///     # Add 5 weekdays: Friday -> Friday of next week
+    ///     >>> friday.add_weekdays(5)
     ///     Date('2023-12-29')
     ///     
-    ///     # Subtract 1 business day: Friday -> Thursday
-    ///     >>> friday.add_business_days(-1)
+    ///     # Subtract 1 weekday: Friday -> Thursday
+    ///     >>> friday.add_weekdays(-1)
     ///     Date('2023-12-21')
     ///     
-    ///     # From Monday, subtract 1 business day: Monday -> Friday
+    ///     # From Monday, subtract 1 weekday: Monday -> Friday
     ///     >>> monday = Date(2023, 12, 25)
-    ///     >>> monday.add_business_days(-1)
+    ///     >>> monday.add_weekdays(-1)
     ///     Date('2023-12-22')
     #[pyo3(text_signature = "(self, n)")]
-    pub fn add_business_days(&self, n: i32) -> Self {
+    pub fn add_weekdays(&self, n: i32) -> Self {
         use finstack_core::dates::DateExt;
-        let new_date = self.inner.add_business_days(n);
+        let new_date = self.inner.add_weekdays(n);
         PyDate { inner: new_date }
     }
 }

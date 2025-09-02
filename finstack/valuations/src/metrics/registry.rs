@@ -204,7 +204,7 @@ impl MetricRegistry {
 
             // Get calculator
             let calc = self.calculators.get(&metric_id).ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "metric_calculator".to_string() })
             })?;
 
             // Check if applicable to this instrument

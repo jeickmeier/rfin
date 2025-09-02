@@ -135,7 +135,7 @@ impl_instrument!(
             return Ok(Money::new(quote_amount, s.quote));
         }
         let matrix = curves.fx.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })
         })?;
         struct MatrixProvider<'a> {
             m: &'a finstack_core::money::fx::FxMatrix,
@@ -191,17 +191,17 @@ impl CashflowProvider for FxSpot {
                     }
                     d
                 } else {
-                    as_of.add_business_days(2)
+                    as_of.add_weekdays(2)
                 }
             } else {
-                as_of.add_business_days(2)
+                as_of.add_weekdays(2)
             }
         };
 
         if settle_date > as_of {
             // Future settlement - require spot rate to be available
             let rate = self.spot_rate.ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })
             })?;
             let value = Money::new(self.effective_notional().amount() * rate, self.quote);
             Ok(vec![(settle_date, value)])

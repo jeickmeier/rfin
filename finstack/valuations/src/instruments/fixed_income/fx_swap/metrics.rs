@@ -27,7 +27,7 @@ impl MetricCalculator for ForwardPoints {
         let df_for_far = foreign_disc.df(t_far);
 
         let fx_matrix = curves.fx.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })
         })?;
         let near_rate = match fx_swap.near_rate {
             Some(rate) => rate,
@@ -86,7 +86,7 @@ impl MetricCalculator for DomesticIR01 {
         let df_for_far = foreign_disc.df(t_far);
 
         let fx_matrix = curves.fx.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })
         })?;
         let near_rate = match fx_swap.near_rate {
             Some(rate) => rate,
@@ -165,7 +165,7 @@ impl MetricCalculator for ForeignIR01 {
         let bumped_df_for_far = foreign_disc.df(t_far) * (-bump * t_far).exp();
 
         let fx_matrix = curves.fx.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })
         })?;
         let near_rate = match fx_swap.near_rate {
             Some(rate) => rate,
@@ -243,7 +243,7 @@ impl MetricCalculator for FX01 {
         let df_for_far = foreign_disc.df(t_far);
 
         let fx_matrix = curves.fx.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })
         })?;
 
         // Get original spot rate

@@ -29,8 +29,11 @@ pub enum InputError {
     #[error("Input dimensions do not match")]
     DimensionMismatch,
     /// Requested item (curve, surface, etc.) not found in a collection.
-    #[error("Requested item not found")]
-    NotFound,
+    #[error("Requested item not found: {id}")]
+    NotFound { 
+        /// The identifier of the requested item that was not found
+        id: String 
+    },
     /// Unknown or unsupported currency code supplied by the caller.
     #[error("Unknown currency code")]
     UnknownCurrency,
@@ -74,5 +77,8 @@ mod tests {
     fn test_display() {
         let err: Error = InputError::Invalid.into();
         assert_eq!(format!("{}", err), "Invalid input data");
+        
+        let not_found_err: Error = InputError::NotFound { id: "test_curve".to_string() }.into();
+        assert_eq!(format!("{}", not_found_err), "Requested item not found: test_curve");
     }
 }

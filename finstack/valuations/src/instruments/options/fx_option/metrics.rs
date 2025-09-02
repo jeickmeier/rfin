@@ -23,7 +23,7 @@ impl MetricCalculator for DeltaCalculator {
                 .curves
                 .fx
                 .as_ref()
-                .ok_or(finstack_core::error::InputError::NotFound)?;
+                .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
             let spot = fx_matrix.rate(
                 option.base_currency,
                 option.quote_currency,
@@ -60,7 +60,7 @@ impl MetricCalculator for DeltaCalculator {
             .curves
             .fx
             .as_ref()
-            .ok_or(finstack_core::error::InputError::NotFound)?;
+            .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
         let spot = fx_matrix
             .rate(
                 option.base_currency,
@@ -108,7 +108,7 @@ impl MetricCalculator for GammaCalculator {
             .curves
             .fx
             .as_ref()
-            .ok_or(finstack_core::error::InputError::NotFound)?;
+            .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
         let spot = fx_matrix
             .rate(
                 option.base_currency,
@@ -156,7 +156,7 @@ impl MetricCalculator for VegaCalculator {
             .curves
             .fx
             .as_ref()
-            .ok_or(finstack_core::error::InputError::NotFound)?;
+            .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
         let spot = fx_matrix
             .rate(
                 option.base_currency,
@@ -204,7 +204,7 @@ impl MetricCalculator for ThetaCalculator {
             .curves
             .fx
             .as_ref()
-            .ok_or(finstack_core::error::InputError::NotFound)?;
+            .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
         let spot = fx_matrix
             .rate(
                 option.base_currency,
@@ -252,7 +252,7 @@ impl MetricCalculator for RhoDomesticCalculator {
             .curves
             .fx
             .as_ref()
-            .ok_or(finstack_core::error::InputError::NotFound)?;
+            .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
         let spot = fx_matrix
             .rate(
                 option.base_currency,
@@ -300,7 +300,7 @@ impl MetricCalculator for RhoForeignCalculator {
             .curves
             .fx
             .as_ref()
-            .ok_or(finstack_core::error::InputError::NotFound)?;
+            .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
         let spot = fx_matrix
             .rate(
                 option.base_currency,

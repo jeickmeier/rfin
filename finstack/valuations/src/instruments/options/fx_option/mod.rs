@@ -254,7 +254,7 @@ impl_instrument!(
             let fx_matrix = curves
                 .fx
                 .as_ref()
-                .ok_or(finstack_core::error::InputError::NotFound)?;
+                .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
             let spot = fx_matrix.rate(
                 s.base_currency,
                 s.quote_currency,
@@ -282,7 +282,7 @@ impl_instrument!(
         let fx_matrix = curves
             .fx
             .as_ref()
-            .ok_or(finstack_core::error::InputError::NotFound)?;
+            .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
         let spot = fx_matrix.rate(
             s.base_currency,
             s.quote_currency,
@@ -331,9 +331,9 @@ mod tests {
             OptionType::Call,
             expiry,
             notional,
-            "USD-OIS",
-            "EUR-OIS",
-            "EURUSD-VOL",
+            "USD-OIS ",
+            "EUR-OIS ",
+            "EURUSD-VOL ",
         );
 
         assert_eq!(option.id, "EURUSD_CALL_1.20");
@@ -355,9 +355,9 @@ mod tests {
             OptionType::Call,
             expiry,
             notional,
-            "USD-OIS",
-            "EUR-OIS",
-            "EURUSD-VOL",
+            "USD-OIS ",
+            "EUR-OIS ",
+            "EURUSD-VOL ",
         );
 
         // Test parameters
@@ -396,9 +396,9 @@ mod tests {
             OptionType::Put,
             expiry,
             notional,
-            "USD-OIS",
-            "EUR-OIS",
-            "EURUSD-VOL",
+            "USD-OIS ",
+            "EUR-OIS ",
+            "EURUSD-VOL ",
         );
 
         // Test parameters

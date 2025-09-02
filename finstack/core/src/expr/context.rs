@@ -1,23 +1,29 @@
 //! Expression evaluation context.
 
+use std::collections::HashMap;
+
 /// A simple context that resolves column names to series indices.
 /// Simple name→index context for column resolution.
 #[derive(Clone, Debug)]
 pub struct SimpleContext {
-    /// Column names in order; used to resolve indices.
-    pub columns: std::vec::Vec<String>,
+    /// Column name to index mapping for O(1) resolution.
+    column_indices: HashMap<String, usize>,
 }
 
 impl SimpleContext {
     /// Construct from an iterator of column names.
     pub fn new(columns: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        Self {
-            columns: columns.into_iter().map(Into::into).collect(),
-        }
+        let column_indices = columns
+            .into_iter()
+            .enumerate()
+            .map(|(idx, name)| (name.into(), idx))
+            .collect();
+        
+        Self { column_indices }
     }
     /// Find the index of a column by name.
     pub fn index_of(&self, name: &str) -> Option<usize> {
-        self.columns.iter().position(|c| c == name)
+        self.column_indices.get(name).copied()
     }
 }
 

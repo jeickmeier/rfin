@@ -29,7 +29,7 @@ impl MetricCalculator for BreakevenCalculator {
             .curves
             .inflation_index(s.inflation_id)
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "inflation_index".to_string() })
             })?;
 
         // Get inflation curve for forward projection
@@ -149,7 +149,7 @@ impl MetricCalculator for Inflation01Calculator {
             .curves
             .inflation_index(s.inflation_id)
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "inflation_index".to_string() })
             })?;
 
         let inflation_curve = context.curves.inflation(s.inflation_id)?;

@@ -45,7 +45,9 @@ print(f"Is settle after trade? {is_after}")
 # Weekend check
 print(f"Is trade date a weekend? {trade_date.is_weekend()}")
 print(f"Quarter of trade date: Q{trade_date.quarter()}")
-print(f"Fiscal year: {trade_date.fiscal_year()}")
+# Note: fiscal_year now requires a FiscalConfig parameter
+# print(f"Fiscal year: {trade_date.fiscal_year(FiscalConfig.calendar_year())}")
+print("Fiscal year: [requires FiscalConfig - see fiscal_periods_example.py]")
 
 # IMM / Quarterly helpers ----------------------------------------------------
 
@@ -63,11 +65,11 @@ print(f"Next IMM after {trade_date}: {next_imm_date}")
 next_cds = next_cds_date(trade_date)
 print(f"Next CDS roll date after {trade_date}: {next_cds}")
 
-# Business-day addition
-plus_3bd = trade_date.add_business_days(3)
-minus_2bd = trade_date.add_business_days(-2)
-print(f"Trade +3 business days = {plus_3bd}")
-print(f"Trade -2 business days = {minus_2bd}")
+# Weekday addition (excludes weekends only, not holidays)
+plus_3wd = trade_date.add_weekdays(3)
+minus_2wd = trade_date.add_weekdays(-2)
+print(f"Trade +3 weekdays = {plus_3wd}")
+print(f"Trade -2 weekdays = {minus_2wd}")
 
 # Day-count year fraction examples
 convention = DayCount.act360()

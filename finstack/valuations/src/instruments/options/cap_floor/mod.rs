@@ -399,7 +399,7 @@ impl_instrument!(
             } else if let Some(vol_surf) = &vol_surface {
                 vol_surf.value_clamped(time_to_fixing, s.strike_rate)
             } else {
-                return Err(finstack_core::error::InputError::NotFound.into());
+                return Err(finstack_core::error::InputError::NotFound { id: "cap_floor_rate_index".to_string() }.into());
             };
 
             return s.black_price_caplet_floorlet(
@@ -443,7 +443,7 @@ impl_instrument!(
                 } else if let Some(vol_surf) = &vol_surface {
                     vol_surf.value_clamped(time_to_fixing, s.strike_rate)
                 } else {
-                    return Err(finstack_core::error::InputError::NotFound.into());
+                    return Err(finstack_core::error::InputError::NotFound { id: "cap_floor_rate_index".to_string() }.into());
                 };
 
                 let caplet_price = s.black_price_caplet_floorlet(

@@ -168,7 +168,7 @@ impl MetricCalculator for YtmCalculator {
 
             (
                 bond.quoted_clean.ok_or_else(|| {
-                    finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+                    finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "bond.quoted_clean".to_string() })
                 })?,
                 bond.notional.currency(),
                 bond.dc,
@@ -186,7 +186,7 @@ impl MetricCalculator for YtmCalculator {
             .get(&MetricId::Accrued)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "metric:Accrued".to_string() })
             })?;
 
         // Compute dirty price
@@ -243,7 +243,7 @@ impl MetricCalculator for MacaulayDurationCalculator {
             .get(&MetricId::Ytm)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "metric:Ytm".to_string() })
             })?;
 
         // Build or reuse flows without cloning the instrument
@@ -306,7 +306,7 @@ impl MetricCalculator for ModifiedDurationCalculator {
             .get(&MetricId::Ytm)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "metric:Ytm".to_string() })
             })?;
 
         let d_mac = context
@@ -314,7 +314,7 @@ impl MetricCalculator for ModifiedDurationCalculator {
             .get(&MetricId::DurationMac)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "metric:DurationMac".to_string() })
             })?;
 
         // Modified duration depends on compounding; default to Street (periodic with bond freq)
@@ -337,7 +337,7 @@ impl MetricCalculator for ConvexityCalculator {
             .get(&MetricId::Ytm)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "metric:Ytm".to_string() })
             })?;
 
         // Build or reuse flows
@@ -499,7 +499,7 @@ impl MetricCalculator for DirtyPriceCalculator {
 
         // Dirty price only makes sense if we have a quoted clean price
         let clean_px = bond.quoted_clean.ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "bond.quoted_clean".to_string() })
         })?;
 
         // Get accrued from computed metrics
@@ -508,7 +508,7 @@ impl MetricCalculator for DirtyPriceCalculator {
             .get(&MetricId::Accrued)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "metric:Accrued".to_string() })
             })?;
 
         // Dirty price = clean price + accrued interest
@@ -539,7 +539,7 @@ impl MetricCalculator for CleanPriceCalculator {
             .get(&MetricId::Accrued)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "metric:Accrued".to_string() })
             })?;
 
         // Clean price = dirty price - accrued interest
@@ -618,7 +618,7 @@ impl MetricCalculator for OasCalculator {
 
         // Require quoted clean price
         let clean_price = bond.quoted_clean.ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "bond.quoted_clean".to_string() })
         })?;
 
         // Get accrued interest from computed metrics
@@ -627,7 +627,7 @@ impl MetricCalculator for OasCalculator {
             .get(&MetricId::Accrued)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "metric:Accrued".to_string() })
             })?;
 
         // Use MarketContext directly (no conversion needed)

@@ -570,7 +570,7 @@ impl CalibrationOrchestrator {
 
         // No valid source found
         Err(finstack_core::Error::Input(
-            finstack_core::error::InputError::NotFound,
+            finstack_core::error::InputError::NotFound { id: "calibration_data".to_string() },
         ))
     }
 

@@ -262,7 +262,7 @@ impl MetricCalculator for BucketedDv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         // Get or compute cashflows
         let flows = context.cashflows.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "vol_surface".to_string() })
         })?;
 
         // Get discount curve - try to infer from instrument or use default

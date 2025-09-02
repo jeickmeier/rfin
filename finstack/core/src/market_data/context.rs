@@ -144,24 +144,27 @@ impl MarketContext {
 impl MarketContext {
     /// Convenience getters that forward to underlying containers
     pub fn vol_surface(&self, id: impl AsRef<str>) -> crate::Result<Arc<VolSurface>> {
+        let id_str = id.as_ref();
         self.surfaces
-            .get(&CurveId::from(id.as_ref()))
+            .get(&CurveId::from(id_str))
             .cloned()
-            .ok_or(crate::error::InputError::NotFound.into())
+            .ok_or(crate::error::InputError::NotFound { id: id_str.to_string() }.into())
     }
 
     /// Return a reference to a market scalar (price/constant) by identifier.
     pub fn market_scalar(&self, id: impl AsRef<str>) -> crate::Result<&MarketScalar> {
+        let id_str = id.as_ref();
         self.prices
-            .get(&CurveId::from(id.as_ref()))
-            .ok_or(crate::error::InputError::NotFound.into())
+            .get(&CurveId::from(id_str))
+            .ok_or(crate::error::InputError::NotFound { id: id_str.to_string() }.into())
     }
 
     /// Return a reference to a generic date-indexed scalar time series by identifier.
     pub fn scalar_time_series(&self, id: impl AsRef<str>) -> crate::Result<&ScalarTimeSeries> {
+        let id_str = id.as_ref();
         self.series
-            .get(&CurveId::from(id.as_ref()))
-            .ok_or(crate::error::InputError::NotFound.into())
+            .get(&CurveId::from(id_str))
+            .ok_or(crate::error::InputError::NotFound { id: id_str.to_string() }.into())
     }
 
     /// Backwards compatibility alias for fetching a scalar.
@@ -171,18 +174,20 @@ impl MarketContext {
 
     /// Get discount curve by id.
     pub fn discount(&self, id: impl AsRef<str>) -> crate::Result<Arc<dyn Discount + Send + Sync>> {
+        let id_str = id.as_ref();
         self.disc
-            .get(&CurveId::from(id.as_ref()))
+            .get(&CurveId::from(id_str))
             .cloned()
-            .ok_or(crate::error::InputError::NotFound.into())
+            .ok_or(crate::error::InputError::NotFound { id: id_str.to_string() }.into())
     }
 
     /// Get forecast curve by id.
     pub fn forecast(&self, id: impl AsRef<str>) -> crate::Result<Arc<dyn Forward + Send + Sync>> {
+        let id_str = id.as_ref();
         self.fwd
-            .get(&CurveId::from(id.as_ref()))
+            .get(&CurveId::from(id_str))
             .cloned()
-            .ok_or(crate::error::InputError::NotFound.into())
+            .ok_or(crate::error::InputError::NotFound { id: id_str.to_string() }.into())
     }
 
     /// Get hazard curve.
@@ -190,18 +195,20 @@ impl MarketContext {
         &self,
         id: impl AsRef<str>,
     ) -> crate::Result<Arc<crate::market_data::hazard_curve::HazardCurve>> {
+        let id_str = id.as_ref();
         self.hazard
-            .get(&CurveId::from(id.as_ref()))
+            .get(&CurveId::from(id_str))
             .cloned()
-            .ok_or(crate::error::InputError::NotFound.into())
+            .ok_or(crate::error::InputError::NotFound { id: id_str.to_string() }.into())
     }
 
     /// Get inflation curve.
     pub fn inflation(&self, id: impl AsRef<str>) -> crate::Result<Arc<InflationCurve>> {
+        let id_str = id.as_ref();
         self.inflation
-            .get(&CurveId::from(id.as_ref()))
+            .get(&CurveId::from(id_str))
             .cloned()
-            .ok_or(crate::error::InputError::NotFound.into())
+            .ok_or(crate::error::InputError::NotFound { id: id_str.to_string() }.into())
     }
 
     // Deprecated credit() getter removed. Use hazard().
@@ -217,7 +224,7 @@ impl MarketContext {
     pub fn collateral(&self, csa_code: &str) -> crate::Result<Arc<dyn Discount + Send + Sync>> {
         let id = match self.collat.get(csa_code) {
             Some(cid) => cid,
-            None => return Err(crate::error::InputError::NotFound.into()),
+            None => return Err(crate::error::InputError::NotFound { id: format!("collateral:{}", csa_code) }.into()),
         };
         self.discount(id.as_str())
     }

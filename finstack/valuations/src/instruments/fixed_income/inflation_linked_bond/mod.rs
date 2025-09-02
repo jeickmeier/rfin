@@ -225,7 +225,7 @@ impl InflationLinkedBond {
     ) -> finstack_core::Result<DatedFlows> {
         // Get inflation index
         let inflation_index = curves.inflation_index(self.inflation_id).ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "inflation_linked_bond_quote".to_string() })
         })?;
 
         // Use centralized schedule builder for coupon dates

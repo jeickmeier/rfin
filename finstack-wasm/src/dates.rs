@@ -77,16 +77,24 @@ impl Date {
         self.inner.quarter()
     }
 
-    /// Fiscal year corresponding to the date (currently same as calendar year).
+    /// Fiscal year corresponding to the date.
+    ///
+    /// Currently uses calendar year configuration (fiscal year = calendar year).
+    /// TODO: Add FiscalConfig support to WASM bindings for custom fiscal years.
     #[wasm_bindgen(js_name = "fiscalYear")]
     pub fn fiscal_year(&self) -> i32 {
-        self.inner.fiscal_year()
+        use finstack_core::dates::{DateExt, FiscalConfig};
+        self.inner.fiscal_year(FiscalConfig::calendar_year())
     }
 
-    /// Add or subtract a number of business days and return a **new** `Date`.
-    #[wasm_bindgen(js_name = "addBusinessDays")]
-    pub fn add_business_days(&self, n: i32) -> Date {
-        let new_inner = self.inner.add_business_days(n);
+    /// Add or subtract a number of weekdays and return a **new** `Date`.
+    ///
+    /// Weekdays exclude weekends (Saturday and Sunday) but do NOT account for holidays.
+    /// For true business day adjustments that respect holidays, use a proper holiday calendar.
+    #[wasm_bindgen(js_name = "addWeekdays")]
+    pub fn add_weekdays(&self, n: i32) -> Date {
+        use finstack_core::dates::DateExt;
+        let new_inner = self.inner.add_weekdays(n);
         Date { inner: new_inner }
     }
 }

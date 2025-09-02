@@ -27,20 +27,14 @@ pub enum RoundingMode {
 }
 
 /// Configuration container. Extend as needed.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FinstackConfig {
     /// Detailed rounding policy (ingest/output scales by currency).
     pub rounding: RoundingPolicy,
 }
 
-impl Default for FinstackConfig {
-    fn default() -> Self {
-        Self {
-            rounding: RoundingPolicy::default(),
-        }
-    }
-}
+
 
 /// Policy mapping to determine decimal places for each currency at ingest/output.
 #[derive(Clone, Debug)]

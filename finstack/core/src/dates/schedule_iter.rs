@@ -88,6 +88,8 @@ pub enum StubKind {
     None,
     ShortFront,
     ShortBack,
+    LongFront,
+    LongBack,
 }
 
 /// Internal step abstraction allowing frequency-agnostic date arithmetic.
@@ -107,6 +109,32 @@ impl Step {
             Step::Days(d) => date + Duration::days(d as i64),
         }
     }
+}
+
+/// Apply End-of-Month (EOM) convention to a date.
+/// Returns the last day of the month for the given date.
+fn apply_eom(date: Date) -> Date {
+    use time::Month;
+    
+    let year = date.year();
+    let month = date.month();
+    
+    // Get the last day of this month
+    let last_day = match month {
+        Month::February => {
+            // Check if it's a leap year
+            if is_leap_year(year) { 29 } else { 28 }
+        }
+        Month::April | Month::June | Month::September | Month::November => 30,
+        _ => 31,
+    };
+    
+    Date::from_calendar_date(year, month, last_day).unwrap_or(date)
+}
+
+/// Check if a year is a leap year.
+fn is_leap_year(year: i32) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
 }
 
 /// Lazy schedule iterator. Internally uses either a streaming lazy generator
@@ -194,6 +222,7 @@ pub struct LazyIter {
     end: Date,
     step: Step,
     finished: bool,
+    eom: bool,
 }
 
 impl Iterator for LazyIter {
@@ -204,14 +233,14 @@ impl Iterator for LazyIter {
         }
 
         // Current date in the schedule sequence
-        let current = self.next_date;
+        let current = if self.eom { apply_eom(self.next_date) } else { self.next_date };
 
-        if current == self.end {
+        if self.next_date == self.end {
             // We've reached the end date - this is the last item
             self.finished = true;
         } else {
             // Calculate next date in sequence
-            let mut next = self.step.add(current);
+            let mut next = self.step.add(self.next_date);
 
             // For StubKind::None or ShortBack: if next step would overshoot
             // the end date, clamp to end date (creating a short stub at back)
@@ -269,7 +298,7 @@ pub fn try_schedule(start: Date, end: Date, freq: Frequency) -> crate::Result<Sc
 }
 
 /// Public builder for configuring schedule generation with
-/// fluent API (frequency, stub rule, business-day adjustment).
+/// fluent API (frequency, stub rule, business-day adjustment, EOM convention).
 ///
 /// See unit tests and `examples/` for usage patterns (stubs, adjustments, frequencies).
 #[derive(Clone, Copy)]
@@ -280,11 +309,12 @@ pub struct ScheduleBuilder<'a> {
     stub: StubKind,
     conv: Option<BusinessDayConvention>,
     cal: Option<&'a dyn HolidayCalendar>,
+    eom: bool,
 }
 
 impl<'a> ScheduleBuilder<'a> {
     /// Create a new builder with mandatory `start` and `end` dates.
-    /// Defaults: frequency = Monthly, stub = None, no adjustment.
+    /// Defaults: frequency = Monthly, stub = None, no adjustment, no EOM.
     ///
     /// # Panics
     /// Panics if `start` > `end` when building the schedule.
@@ -299,6 +329,7 @@ impl<'a> ScheduleBuilder<'a> {
             stub: StubKind::None,
             conv: None,
             cal: None,
+            eom: false,
         }
     }
 
@@ -337,6 +368,14 @@ impl<'a> ScheduleBuilder<'a> {
         self
     }
 
+    /// Enable End-of-Month (EOM) convention.
+    /// When enabled, dates will be adjusted to the last day of each month.
+    #[must_use]
+    pub fn end_of_month(mut self, eom: bool) -> Self {
+        self.eom = eom;
+        self
+    }
+
     /// Generate the schedule iterator.
     pub fn build(self) -> impl Iterator<Item = Date> + 'a {
         let builder = BuilderInternal {
@@ -344,6 +383,7 @@ impl<'a> ScheduleBuilder<'a> {
             end: self.end,
             freq: self.freq,
             stub: self.stub,
+            eom: self.eom,
         };
 
         let base_iter = builder.generate();
@@ -368,6 +408,7 @@ impl<'a> ScheduleBuilder<'a> {
             end: self.end,
             freq: self.freq,
             stub: self.stub,
+            eom: self.eom,
         };
 
         let base_iter = builder.generate();
@@ -391,6 +432,7 @@ impl<'a> ScheduleBuilder<'a> {
             end: self.end,
             freq: self.freq,
             stub: self.stub,
+            eom: self.eom,
         };
 
         builder.generate()
@@ -407,6 +449,7 @@ impl<'a> ScheduleBuilder<'a> {
             end: self.end,
             freq: self.freq,
             stub: self.stub,
+            eom: self.eom,
         };
 
         Ok(builder.generate())
@@ -419,6 +462,7 @@ struct BuilderInternal {
     end: Date,
     freq: Frequency,
     stub: StubKind,
+    eom: bool,
 }
 
 impl BuilderInternal {
@@ -432,44 +476,151 @@ impl BuilderInternal {
 
         let step = self.freq.to_step();
 
-        if self.stub == StubKind::ShortFront {
-            // ShortFront: Build schedule backwards from end date, then reverse.
-            // This ensures any partial period (stub) appears at the start.
-            let mut buf: Buffer = Buffer::new();
-            let mut dt = self.end;
-
-            loop {
-                buf.push(dt);
-
-                if dt == self.start {
-                    break;
-                }
-
-                // Step backwards by frequency amount
-                let prev = match step {
-                    Step::Months(m) => add_months(dt, -m),
-                    Step::Days(d) => dt - Duration::days(d as i64),
+        match self.stub {
+            StubKind::ShortFront => {
+                // ShortFront: Build schedule backwards from end date, then reverse.
+                // This ensures any partial period (stub) appears at the start.
+                self.generate_buffered_schedule(step, true)
+            }
+            StubKind::LongFront => {
+                // LongFront: Generate a longer first period by starting from an earlier anchor
+                self.generate_long_front_schedule(step)
+            }
+            StubKind::LongBack => {
+                // LongBack: Generate a longer last period by extending beyond normal intervals
+                self.generate_long_back_schedule(step)
+            }
+            StubKind::None | StubKind::ShortBack => {
+                // StubKind::None and ShortBack: Stream dates lazily from start to end.
+                // Any partial period (stub) naturally appears at the end.
+                let (start, end) = if self.eom {
+                    (apply_eom(self.start), apply_eom(self.end))
+                } else {
+                    (self.start, self.end)
                 };
 
-                // Clamp to start date if we would undershoot
-                let prev = if prev < self.start { self.start } else { prev };
-                dt = prev;
+                let lazy = LazyIter {
+                    next_date: start,
+                    end,
+                    step,
+                    finished: false,
+                    eom: self.eom,
+                };
+
+                ScheduleIter::Lazy(lazy)
+            }
+        }
+    }
+
+    fn generate_buffered_schedule(self, step: Step, reverse: bool) -> ScheduleIter {
+        let mut buf: Buffer = Buffer::new();
+        let mut dt = if reverse { self.end } else { self.start };
+        let target = if reverse { self.start } else { self.end };
+
+        loop {
+            let date_to_add = if self.eom { apply_eom(dt) } else { dt };
+            buf.push(date_to_add);
+
+            if dt == target {
+                break;
             }
 
-            // Reverse to get chronological order
-            buf.as_mut_slice().reverse();
-            return ScheduleIter::Buf { buf, idx: 0 };
+            // Step by frequency amount
+            let next = if reverse {
+                match step {
+                    Step::Months(m) => add_months(dt, -m),
+                    Step::Days(d) => dt - Duration::days(d as i64),
+                }
+            } else {
+                step.add(dt)
+            };
+
+            // Clamp to target date if we would overshoot/undershoot
+            #[allow(clippy::collapsible_else_if)]
+            let next = if reverse {
+                if next < target { target } else { next }
+            } else {
+                if next > target { target } else { next }
+            };
+            dt = next;
         }
 
-        // StubKind::None and ShortBack: Stream dates lazily from start to end.
-        // Any partial period (stub) naturally appears at the end.
-        let lazy = LazyIter {
-            next_date: self.start,
-            end: self.end,
-            step,
-            finished: false,
-        };
+        if reverse {
+            buf.as_mut_slice().reverse();
+        }
+        ScheduleIter::Buf { buf, idx: 0 }
+    }
 
-        ScheduleIter::Lazy(lazy)
+    fn generate_long_front_schedule(self, step: Step) -> ScheduleIter {
+        // For LongFront, we find the anchor point that would create regular intervals
+        // to the end date, then create a longer first period from start to that anchor
+        let mut buf: Buffer = Buffer::new();
+        
+        // Start with end date and work backwards to find anchor points
+        let mut anchors = Vec::new();
+        let mut dt = self.end;
+        anchors.push(dt);
+
+        while dt > self.start {
+            let prev = match step {
+                Step::Months(m) => add_months(dt, -m),
+                Step::Days(d) => dt - Duration::days(d as i64),
+            };
+            
+            if prev >= self.start {
+                dt = prev;
+                anchors.push(dt);
+            } else {
+                // Found the anchor point - this creates a long front period
+                break;
+            }
+        }
+
+        // Add start date and reverse to get chronological order
+        buf.push(if self.eom { apply_eom(self.start) } else { self.start });
+        
+        // Add anchor points in reverse order (chronological)
+        for &anchor_date in anchors.iter().rev() {
+            let date_to_add = if self.eom { apply_eom(anchor_date) } else { anchor_date };
+            if date_to_add != buf[buf.len() - 1] {  // Avoid duplicates
+                buf.push(date_to_add);
+            }
+        }
+
+        ScheduleIter::Buf { buf, idx: 0 }
+    }
+
+    fn generate_long_back_schedule(self, step: Step) -> ScheduleIter {
+        // For LongBack, we create regular intervals from start until we get close to end,
+        // then create a longer final period
+        let mut buf: Buffer = Buffer::new();
+        let mut dt = self.start;
+
+        // Add start date
+        buf.push(if self.eom { apply_eom(dt) } else { dt });
+
+        while dt < self.end {
+            let next = step.add(dt);
+            
+            // If the next step would be close to the end, create a long back period
+            let next_after = step.add(next);
+            if next_after >= self.end {
+                // Create long back period directly to end
+                let end_date = if self.eom { apply_eom(self.end) } else { self.end };
+                if end_date != buf[buf.len() - 1] {  // Avoid duplicates
+                    buf.push(end_date);
+                }
+                break;
+            } else {
+                // Regular period
+                let date_to_add = if self.eom { apply_eom(next) } else { next };
+                if date_to_add != buf[buf.len() - 1] {  // Avoid duplicates
+                    buf.push(date_to_add);
+                }
+                dt = next;
+            }
+        }
+
+        ScheduleIter::Buf { buf, idx: 0 }
     }
 }

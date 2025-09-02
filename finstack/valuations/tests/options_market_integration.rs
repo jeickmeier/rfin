@@ -172,7 +172,7 @@ fn create_test_market_context() -> MarketContext {
                 #[cfg(not(feature = "decimal128"))]
                 return Ok(0.80);
             }
-            Err(finstack_core::error::InputError::NotFound.into())
+            Err(finstack_core::error::InputError::NotFound { id: "test_vol_surface".to_string() }.into())
         }
     }
 

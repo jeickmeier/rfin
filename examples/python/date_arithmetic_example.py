@@ -71,12 +71,12 @@ def main():
     friday = Date(2023, 12, 22)
     print(f"Friday: {friday}")
 
-    # Add business days
-    next_business_day = friday.add_business_days(1)
-    print(f"Next business day after Friday: {next_business_day} (Monday)")
+    # Add weekdays (excludes weekends only, not holidays)
+    next_weekday = friday.add_weekdays(1)
+    print(f"Next weekday after Friday: {next_weekday} (Monday)")
 
-    five_biz_days = friday.add_business_days(5)
-    print(f"5 business days after Friday: {five_biz_days}")
+    five_weekdays = friday.add_weekdays(5)
+    print(f"5 weekdays after Friday: {five_weekdays}")
 
     # Date comparisons
     print("\n=== Date Comparisons ===")

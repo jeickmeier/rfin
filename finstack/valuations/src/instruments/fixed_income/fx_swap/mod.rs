@@ -97,7 +97,7 @@ impl_instrument!(
 
         // 4. Resolve near_rate (spot)
         let fx_matrix = curves.fx.as_ref().ok_or(finstack_core::Error::from(
-            finstack_core::error::InputError::NotFound,
+            finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() },
         ))?;
         let near_rate = match s.near_rate {
             Some(rate) => rate,

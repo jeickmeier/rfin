@@ -58,7 +58,7 @@ impl ValuationMarketContext {
         self.credit_indices
             .get(index_id)
             .map(|arc| arc.as_ref())
-            .ok_or_else(|| finstack_core::error::InputError::NotFound.into())
+            .ok_or_else(|| finstack_core::error::InputError::NotFound { id: format!("credit_index:{}", index_id) }.into())
     }
 
     /// Check if credit index data is available for a given index.

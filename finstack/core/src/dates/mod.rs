@@ -53,7 +53,10 @@ pub use composite::CompositeCalendar;
 
 mod imm;
 
-pub use imm::{next_cds_date, next_imm, third_wednesday};
+pub use imm::{
+    imm_option_expiry, next_cds_date, next_equity_option_expiry, next_imm, 
+    next_imm_option_expiry, third_friday, third_wednesday,
+};
 
 pub mod holiday;
 // Keep holiday DSL under `dates::holiday`; avoid redundant aliases at root.

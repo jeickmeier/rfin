@@ -99,21 +99,21 @@ impl MetricCalculator for DepositParRateCalculator {
             .get(&MetricId::DfStart)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "deposit_quote_rate".to_string() })
             })?;
         let df_e = context
             .computed
             .get(&MetricId::DfEnd)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "deposit_quote_rate".to_string() })
             })?;
         let yf = context
             .computed
             .get(&MetricId::Yf)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "deposit_quote_rate".to_string() })
             })?;
 
         if yf == 0.0 {
@@ -144,7 +144,7 @@ impl MetricCalculator for DfEndFromQuoteCalculator {
         let deposit: &Deposit = context.instrument_as()?;
 
         let r = deposit.quote_rate.ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "deposit_quote_rate".to_string() })
         })?;
 
         let df_s = context
@@ -152,14 +152,14 @@ impl MetricCalculator for DfEndFromQuoteCalculator {
             .get(&MetricId::DfStart)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "deposit_quote_rate".to_string() })
             })?;
         let yf = context
             .computed
             .get(&MetricId::Yf)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "deposit_quote_rate".to_string() })
             })?;
 
         Ok(df_s / (1.0 + r * yf))
@@ -180,7 +180,7 @@ impl MetricCalculator for QuoteRateCalculator {
 
         deposit
             .quote_rate
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound))
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "deposit_quote_rate".to_string() }))
     }
 }
 

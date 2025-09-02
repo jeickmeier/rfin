@@ -86,7 +86,7 @@ impl InflationSwap {
 
         // Get inflation index for historical reference value
         let inflation_index = curves.inflation_index(self.inflation_id).ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound)
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "inflation_index".to_string() })
         })?;
 
         // Get inflation curve for forward projection

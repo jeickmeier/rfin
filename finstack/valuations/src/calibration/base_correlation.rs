@@ -108,7 +108,7 @@ impl BaseCorrelationCalibrator {
 
         if tranche_quotes.is_empty() {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::NotFound,
+                finstack_core::error::InputError::NotFound { id: "base_correlation_data".to_string() },
             ));
         }
 
@@ -233,7 +233,7 @@ impl BaseCorrelationCalibrator {
 
         if solved_correlations.is_empty() {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::NotFound,
+                finstack_core::error::InputError::NotFound { id: "base_correlation_data".to_string() },
             ));
         }
 
