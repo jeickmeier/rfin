@@ -19,7 +19,7 @@
 
 use crate::error::InputError;
 use crate::market_data::traits::TermStructure;
-use crate::prelude::*;
+use crate::Result;
 use crate::types::CurveId;
 use crate::F;
 

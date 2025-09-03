@@ -144,8 +144,42 @@ impl From<DayCount> for CoreDayCount {
 #[wasm_bindgen(js_name = "dayCountDays")]
 pub fn day_count_days(convention: DayCount, start: &Date, end: &Date) -> Result<i32, JsValue> {
     let core = CoreDayCount::from(convention);
-    core.days(start.inner(), end.inner())
-        .map_err(|e| JsValue::from_str(&e.to_string()))
+    let s = start.inner();
+    let e = end.inner();
+    let days = match core {
+        CoreDayCount::Act360
+        | CoreDayCount::Act365F
+        | CoreDayCount::ActAct
+        | CoreDayCount::ActActIsma => (e - s).whole_days() as i32,
+        CoreDayCount::Act365L => (e - s).whole_days() as i32,
+        CoreDayCount::Thirty360 => days_30_360_us(s, e),
+        CoreDayCount::ThirtyE360 => days_30_360_eu(s, e),
+        // Bus/252 requires a calendar – mirror core behaviour and return error
+        _ => return Err(JsValue::from_str("Bus/252 requires a holiday calendar")),
+    };
+    Ok(days)
+}
+
+#[inline]
+fn days_30_360_us(start: CoreDate, end: CoreDate) -> i32 {
+    let (y1, m1, d1) = (start.year(), start.month() as i32, start.day() as i32);
+    let (y2, m2, d2) = (end.year(), end.month() as i32, end.day() as i32);
+
+    let d1_adj = if d1 == 31 { 30 } else { d1 };
+    let d2_adj = if d2 == 31 && d1_adj == 30 { 30 } else { d2 };
+
+    (y2 - y1) * 360 + (m2 - m1) * 30 + (d2_adj - d1_adj)
+}
+
+#[inline]
+fn days_30_360_eu(start: CoreDate, end: CoreDate) -> i32 {
+    let (y1, m1, d1) = (start.year(), start.month() as i32, start.day() as i32);
+    let (y2, m2, d2) = (end.year(), end.month() as i32, end.day() as i32);
+
+    let d1_adj = if d1 == 31 { 30 } else { d1 };
+    let d2_adj = if d2 == 31 { 30 } else { d2 };
+
+    (y2 - y1) * 360 + (m2 - m1) * 30 + (d2_adj - d1_adj)
 }
 
 /// Return the year fraction between two dates according to the given convention.

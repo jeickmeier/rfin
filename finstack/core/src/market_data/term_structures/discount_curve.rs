@@ -11,6 +11,7 @@
 //! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 //! use finstack_core::dates::Date;
 //! use time::Month;
+//! # use finstack_core::InterpConfigurableBuilder;
 //!
 //! let curve = DiscountCurve::builder("USD-OIS")
 //!     .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
@@ -23,7 +24,7 @@
 
 extern crate alloc;
 
-use crate::market_data::interp::{InterpStyle, ExtrapolationPolicy};
+use crate::market_data::interp::{InterpStyle, ExtrapolationPolicy, InterpConfigurableBuilder};
 use crate::{
     dates::Date,
     market_data::interp::InterpFn,
@@ -196,32 +197,7 @@ impl DiscountCurveBuilder {
         self.points.extend(pts);
         self
     }
-    // Builder helpers to choose interpolation style
-    /// Use **linear** DF interpolation.
-    pub fn linear_df(mut self) -> Self {
-        self.style = InterpStyle::Linear;
-        self
-    }
-    /// Use **log‐linear** DF interpolation (constant zero rate).
-    pub fn log_df(mut self) -> Self {
-        self.style = InterpStyle::LogLinear;
-        self
-    }
-    /// Use **monotone‐convex** interpolation.
-    pub fn monotone_convex(mut self) -> Self {
-        self.style = InterpStyle::MonotoneConvex;
-        self
-    }
-    /// Use **cubic‐Hermite** (PCHIP) interpolation.
-    pub fn cubic_hermite(mut self) -> Self {
-        self.style = InterpStyle::CubicHermite;
-        self
-    }
-    /// Use **flat‐forward** interpolation.
-    pub fn flat_fwd(mut self) -> Self {
-        self.style = InterpStyle::FlatFwd;
-        self
-    }
+    // Interpolation helpers are provided via the shared trait `InterpConfigurableBuilder`.
 
     /// Set the extrapolation policy for out-of-bounds evaluation.
     pub fn extrapolation(mut self, policy: ExtrapolationPolicy) -> Self {
@@ -283,6 +259,14 @@ impl DiscountCurveBuilder {
             dfs,
             interp,
         })
+    }
+}
+
+// Implement shared interpolation-config trait for the builder
+impl InterpConfigurableBuilder for DiscountCurveBuilder {
+    fn set_interp(mut self, style: InterpStyle) -> Self {
+        self.style = style;
+        self
     }
 }
 

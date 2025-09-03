@@ -101,7 +101,7 @@ impl DayCount {
     /// # Note
     /// For `Bus/252`, use [`DayCount::business_days`] with a holiday calendar instead.
     #[doc(hidden)]
-    pub fn days(self, start: Date, end: Date) -> crate::Result<i32> {
+    pub(crate) fn days(self, start: Date, end: Date) -> crate::Result<i32> {
         match start.cmp(&end) {
             Ordering::Greater => Err(InputError::InvalidDateRange.into()),
             Ordering::Equal => Ok(0),

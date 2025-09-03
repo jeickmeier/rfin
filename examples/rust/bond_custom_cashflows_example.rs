@@ -6,6 +6,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::prelude::InterpConfigurableBuilder;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 

@@ -12,6 +12,7 @@ use alloc::sync::Arc;
 use hashbrown::HashMap;
 
 use crate::money::fx::FxMatrix;
+use crate::market_data::interp::InterpConfigurableBuilder;
 
 use super::{
     inflation::InflationCurve,

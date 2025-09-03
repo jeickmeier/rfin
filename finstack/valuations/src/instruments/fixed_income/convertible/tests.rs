@@ -13,6 +13,7 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, Stu
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::primitives::MarketScalar;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::prelude::InterpConfigurableBuilder;
 use finstack_core::money::Money;
 
 use crate::cashflow::builder::types::{CouponType, FixedCouponSpec};

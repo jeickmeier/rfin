@@ -379,6 +379,7 @@ mod tests {
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCount;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::prelude::InterpConfigurableBuilder;
     use time::Month;
 
     #[test]

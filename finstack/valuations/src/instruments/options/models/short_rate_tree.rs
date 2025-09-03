@@ -506,6 +506,7 @@ pub mod short_rate_keys {
 mod tests {
     use super::*;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::prelude::InterpConfigurableBuilder;
     use time::Month;
 
     fn create_test_curve() -> DiscountCurve {

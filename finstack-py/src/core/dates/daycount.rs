@@ -226,9 +226,25 @@ impl PyDayCount {
     ///     30
     #[pyo3(text_signature = "(self, start, end)")]
     pub fn days(&self, start: &PyDate, end: &PyDate) -> PyResult<i32> {
-        self.inner
-            .days(start.inner(), end.inner())
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
+        // Mirror core logic without relying on the now crate-private `days`.
+        let s = start.inner();
+        let e = end.inner();
+        let days = match self.inner {
+            DayCount::Act360
+            | DayCount::Act365F
+            | DayCount::Act365L
+            | DayCount::ActAct
+            | DayCount::ActActIsma => (e - s).whole_days() as i32,
+            DayCount::Thirty360 => days_30_360_us(s, e),
+            DayCount::ThirtyE360 => days_30_360_eu(s, e),
+            DayCount::Bus252 => {
+                return Err(PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(
+                    "Bus/252 requires a holiday calendar".to_string(),
+                ))
+            }
+            _ => (e - s).whole_days() as i32,
+        };
+        Ok(days)
     }
 
     /// Calculate the year fraction between two dates.
@@ -379,6 +395,28 @@ impl PyDayCount {
     fn __eq__(&self, other: &PyDayCount) -> bool {
         self.inner == other.inner
     }
+}
+
+#[inline]
+fn days_30_360_us(start: finstack_core::Date, end: finstack_core::Date) -> i32 {
+    let (y1, m1, d1) = (start.year(), start.month() as i32, start.day() as i32);
+    let (y2, m2, d2) = (end.year(), end.month() as i32, end.day() as i32);
+
+    let d1_adj = if d1 == 31 { 30 } else { d1 };
+    let d2_adj = if d2 == 31 && d1_adj == 30 { 30 } else { d2 };
+
+    (y2 - y1) * 360 + (m2 - m1) * 30 + (d2_adj - d1_adj)
+}
+
+#[inline]
+fn days_30_360_eu(start: finstack_core::Date, end: finstack_core::Date) -> i32 {
+    let (y1, m1, d1) = (start.year(), start.month() as i32, start.day() as i32);
+    let (y2, m2, d2) = (end.year(), end.month() as i32, end.day() as i32);
+
+    let d1_adj = if d1 == 31 { 30 } else { d1 };
+    let d2_adj = if d2 == 31 { 30 } else { d2 };
+
+    (y2 - y1) * 360 + (m2 - m1) * 30 + (d2_adj - d1_adj)
 }
 
 impl PyDayCount {

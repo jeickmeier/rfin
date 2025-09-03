@@ -46,6 +46,26 @@
 
 use time::{Date, Duration, Month, Weekday};
 
+/// Generic helper to find the next date strictly after `date` by scanning
+/// specific `months` within a (possibly incrementing) `year`, where candidates
+/// are produced by `candidate_fn`.
+#[inline]
+fn next_date_from_months<F>(date: Date, months: &[Month], candidate_fn: F) -> Date
+where
+    F: Fn(Month, i32) -> Date,
+{
+    let mut year = date.year();
+    loop {
+        for &m in months {
+            let candidate = candidate_fn(m, year);
+            if candidate > date {
+                return candidate;
+            }
+        }
+        year += 1;
+    }
+}
+
 /// Return the **third Wednesday** of `month` in `year`.
 ///
 /// The algorithm is a simple deterministic scan starting at the 15th of the
@@ -69,17 +89,7 @@ pub fn third_wednesday(month: Month, year: i32) -> Date {
 #[must_use]
 pub fn next_imm(date: Date) -> Date {
     const IMM_MONTHS: [Month; 4] = [Month::March, Month::June, Month::September, Month::December];
-
-    let mut year = date.year();
-    loop {
-        for &m in &IMM_MONTHS {
-            let candidate = third_wednesday(m, year);
-            if candidate > date {
-                return candidate;
-            }
-        }
-        year += 1; // no candidate in this year ⇒ roll to next year
-    }
+    next_date_from_months(date, &IMM_MONTHS, third_wednesday)
 }
 
 /// Return the **next CDS roll date** (20-Mar/20-Jun/20-Sep/20-Dec) **strictly
@@ -87,18 +97,10 @@ pub fn next_imm(date: Date) -> Date {
 #[must_use]
 pub fn next_cds_date(date: Date) -> Date {
     const CDS_MONTHS: [Month; 4] = [Month::March, Month::June, Month::September, Month::December];
-
-    let mut year = date.year();
-    loop {
-        for &m in &CDS_MONTHS {
-            // Safe unwrap: 20th exists in every month.
-            let candidate = Date::from_calendar_date(year, m, 20).unwrap();
-            if candidate > date {
-                return candidate;
-            }
-        }
-        year += 1;
-    }
+    next_date_from_months(date, &CDS_MONTHS, |m, year| {
+        // Safe unwrap: 20th exists in every month.
+        Date::from_calendar_date(year, m, 20).unwrap()
+    })
 }
 
 /// Return the **IMM option expiry date** (Friday before the third Wednesday) for
@@ -140,17 +142,7 @@ pub fn third_friday(month: Month, year: i32) -> Date {
 #[must_use]
 pub fn next_imm_option_expiry(date: Date) -> Date {
     const IMM_MONTHS: [Month; 4] = [Month::March, Month::June, Month::September, Month::December];
-
-    let mut year = date.year();
-    loop {
-        for &m in &IMM_MONTHS {
-            let candidate = imm_option_expiry(m, year);
-            if candidate > date {
-                return candidate;
-            }
-        }
-        year += 1; // no candidate in this year ⇒ roll to next year
-    }
+    next_date_from_months(date, &IMM_MONTHS, imm_option_expiry)
 }
 
 /// Return the **next equity option expiry date** (third Friday of any month)

@@ -396,6 +396,7 @@ impl Calibrator<InstrumentQuote, VolSurface> for VolSurfaceCalibrator {
 mod tests {
     use super::*;
     use finstack_core::dates::Date;
+    use finstack_core::prelude::InterpConfigurableBuilder;
     use time::Month;
 
     fn create_test_vol_quotes() -> Vec<InstrumentQuote> {

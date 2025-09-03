@@ -368,6 +368,7 @@ mod tests {
     use super::*;
     use crate::instruments::fixed_income::bond::CallPutSchedule;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::prelude::InterpConfigurableBuilder;
     use time::Month;
 
     fn create_test_bond() -> Bond {

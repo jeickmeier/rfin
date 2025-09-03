@@ -103,6 +103,35 @@ pub enum InterpStyle {
     FlatFwd,
 }
 
+/// Shared trait implemented by builder types that can configure an
+/// interpolation style. Provides zero-cost default helpers to select
+/// styles while centralising the API surface.
+pub trait InterpConfigurableBuilder: Sized {
+    /// Set the interpolation style to use when building.
+    fn set_interp(self, style: InterpStyle) -> Self;
+
+    /// Use linear DF interpolation.
+    fn linear_df(self) -> Self {
+        self.set_interp(InterpStyle::Linear)
+    }
+    /// Use log-linear DF interpolation (constant zero rate between knots).
+    fn log_df(self) -> Self {
+        self.set_interp(InterpStyle::LogLinear)
+    }
+    /// Use Hagan–West monotone-convex interpolation.
+    fn monotone_convex(self) -> Self {
+        self.set_interp(InterpStyle::MonotoneConvex)
+    }
+    /// Use monotone cubic-Hermite interpolation (PCHIP).
+    fn cubic_hermite(self) -> Self {
+        self.set_interp(InterpStyle::CubicHermite)
+    }
+    /// Use piecewise flat-forward interpolation.
+    fn flat_fwd(self) -> Self {
+        self.set_interp(InterpStyle::FlatFwd)
+    }
+}
+
 impl InterpStyle {
     /// Build a boxed interpolator implementing [`InterpFn`] for the given
     /// `knots` and `values`.

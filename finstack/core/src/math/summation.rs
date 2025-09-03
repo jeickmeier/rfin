@@ -50,6 +50,8 @@ pub fn stable_sum(xs: &[f64]) -> f64 {
     }
     #[cfg(not(feature = "deterministic"))]
     {
-        xs.iter().copied().sum()
+        // Use Kahan summation in non-deterministic mode for better numerical stability
+        // while preserving iteration order.
+        kahan_sum(xs.iter().copied())
     }
 }

@@ -84,5 +84,8 @@ pub use crate::dates::DayCount;
 pub use crate::dates::{Date, OffsetDateTime, PrimitiveDateTime};
 pub use crate::dates::{DateExt, OffsetDateTimeExt};
 
+// Bring interpolation trait into scope for doctests/examples that call .linear_df(), .log_df(), etc.
+pub use crate::market_data::interp::InterpConfigurableBuilder;
+
 // Schedule frequency re-export
 pub use crate::dates::Frequency;

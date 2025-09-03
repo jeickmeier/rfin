@@ -15,7 +15,7 @@ use crate::instruments::fixed_income::InterestRateSwap;
 use crate::instruments::traits::Priceable;
 use finstack_core::dates::{Date, DayCount, add_months};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::interp::InterpStyle;
+use finstack_core::market_data::interp::{InterpStyle, InterpConfigurableBuilder};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::{money::Money, Currency, Result, F};
 use std::collections::HashMap;
@@ -63,11 +63,11 @@ impl DiscountCurveCalibrator {
     /// Apply the configured interpolation style to the discount curve builder.
     fn apply_interpolation(&self, builder: finstack_core::market_data::term_structures::discount_curve::DiscountCurveBuilder) -> finstack_core::market_data::term_structures::discount_curve::DiscountCurveBuilder {
         match self.interpolation {
-            InterpStyle::Linear => builder.linear_df(),
-            InterpStyle::LogLinear => builder.log_df(),
-            InterpStyle::MonotoneConvex => builder.monotone_convex(),
-            InterpStyle::CubicHermite => builder.cubic_hermite(),
-            InterpStyle::FlatFwd => builder.flat_fwd(),
+            InterpStyle::Linear => InterpConfigurableBuilder::linear_df(builder),
+            InterpStyle::LogLinear => InterpConfigurableBuilder::log_df(builder),
+            InterpStyle::MonotoneConvex => InterpConfigurableBuilder::monotone_convex(builder),
+            InterpStyle::CubicHermite => InterpConfigurableBuilder::cubic_hermite(builder),
+            InterpStyle::FlatFwd => InterpConfigurableBuilder::flat_fwd(builder),
         }
     }
 

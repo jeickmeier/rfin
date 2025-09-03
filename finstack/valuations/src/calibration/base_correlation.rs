@@ -447,6 +447,7 @@ mod tests {
     use finstack_core::market_data::term_structures::{
         discount_curve::DiscountCurve, BaseCorrelationCurve,
     };
+    use finstack_core::market_data::interp::InterpConfigurableBuilder;
     use std::sync::Arc;
     use time::Month;
 

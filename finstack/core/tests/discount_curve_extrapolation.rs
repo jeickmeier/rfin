@@ -3,7 +3,7 @@
 use finstack_core::{
     dates::Date,
     market_data::{
-        interp::ExtrapolationPolicy,
+        interp::{ExtrapolationPolicy, InterpConfigurableBuilder},
         term_structures::DiscountCurve,
     },
     F,

@@ -15,6 +15,7 @@ use finstack_core::{
     },
     F,
 };
+use finstack_core::prelude::InterpConfigurableBuilder;
 
 use super::interpolation::{PyInterpStyle, PyExtrapolationPolicy};
 use crate::core::dates::PyDate;

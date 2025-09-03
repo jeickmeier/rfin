@@ -9,6 +9,7 @@
 //! ```rust
 //! use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 //! // 3-month tenor expressed in years
+//! # use finstack_core::InterpConfigurableBuilder;
 //! let fc = ForwardCurve::builder("USD-SOFR3M", 0.25)
 //!     .knots([(0.0, 0.03), (5.0, 0.04)])
 //!     .linear_df()
@@ -20,7 +21,7 @@
 extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 
-use crate::market_data::interp::InterpStyle;
+use crate::market_data::interp::{InterpStyle, InterpConfigurableBuilder};
 use crate::{
     dates::{Date, DayCount},
     error::InputError,
@@ -144,32 +145,7 @@ impl ForwardCurveBuilder {
         self.points.extend(pts);
         self
     }
-    // Interpolation style helpers
-    /// Linear interpolation on forward rates.
-    pub fn linear_df(mut self) -> Self {
-        self.style = InterpStyle::Linear;
-        self
-    }
-    /// Log‐linear interpolation.
-    pub fn log_df(mut self) -> Self {
-        self.style = InterpStyle::LogLinear;
-        self
-    }
-    /// Monotone‐convex interpolation.
-    pub fn monotone_convex(mut self) -> Self {
-        self.style = InterpStyle::MonotoneConvex;
-        self
-    }
-    /// Cubic‐Hermite interpolation.
-    pub fn cubic_hermite(mut self) -> Self {
-        self.style = InterpStyle::CubicHermite;
-        self
-    }
-    /// Flat‐forward interpolation.
-    pub fn flat_fwd(mut self) -> Self {
-        self.style = InterpStyle::FlatFwd;
-        self
-    }
+    // Interpolation helpers are provided via the shared trait `InterpConfigurableBuilder`.
 
     /// Validate input and build the [`ForwardCurve`].
     pub fn build(self) -> crate::Result<ForwardCurve> {
@@ -191,6 +167,14 @@ impl ForwardCurveBuilder {
             fwds,
             interp,
         })
+    }
+}
+
+// Implement shared interpolation-config trait for the builder
+impl InterpConfigurableBuilder for ForwardCurveBuilder {
+    fn set_interp(mut self, style: InterpStyle) -> Self {
+        self.style = style;
+        self
     }
 }
 

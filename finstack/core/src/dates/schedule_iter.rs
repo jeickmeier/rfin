@@ -55,7 +55,7 @@
 //! ```
 //! use finstack_core::dates::{ScheduleBuilder, Frequency, BusinessDayConvention, StubKind};
 //! use finstack_core::dates::calendars::Target2;
-//! use time::macros::date;
+//! # use time::macros::date;
 //!
 //! let schedule = ScheduleBuilder::new(date!(2024-01-15), date!(2026-01-15))
 //!     .frequency(Frequency::Months(3))  // Quarterly

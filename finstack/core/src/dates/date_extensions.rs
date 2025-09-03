@@ -1,8 +1,6 @@
 //! Extension traits providing convenience methods on `time::Date` and `time::OffsetDateTime`.
 //!
-//! These helpers are intentionally lightweight and do not allocate. More advanced
-//! calendar-aware variants will be added in later pull-requests once the holiday
-//! calendar machinery is available.
+//! These helpers are intentionally lightweight and do not allocate. 
 
 #![allow(clippy::wrong_self_convention, clippy::assign_op_pattern)]
 

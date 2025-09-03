@@ -7,6 +7,7 @@ use finstack_core::{
     money::Money,
     F,
 };
+use finstack_core::market_data::interp::InterpConfigurableBuilder;
 use finstack_valuations::{
     cashflow::traits::{CashflowProvider, DatedFlows},
     instruments::traits::Priceable,
