@@ -173,7 +173,7 @@ fn emit_float_coupons_on(
             let mut reset_date = dd - Duration::days(spec.reset_lag_days as i64);
             if let Some(id) = spec.calendar_id {
                 if let Some(cal) = calendar_by_id(id) {
-                    reset_date = adjust(reset_date, spec.bdc, cal);
+                    reset_date = adjust(reset_date, spec.bdc, cal)?;
                 }
             }
             Ok((yf, coupon_total, Some(reset_date)))

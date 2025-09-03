@@ -33,10 +33,7 @@ pub use crate::market_data::{
     MarketContext,
 };
 pub use crate::money::{
-    fx::{
-        ClosureCheckResult, FxCacheConfig, FxConversionPolicy, FxMatrix, FxPolicyMeta, FxProvider,
-        FxRate,
-    },
+    fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate},
     Money,
 };
 pub use crate::Result;

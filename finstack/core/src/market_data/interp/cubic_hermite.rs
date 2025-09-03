@@ -1,7 +1,7 @@
 use std::boxed::Box;
 
 use crate::{
-    market_data::{interp::InterpFn, utils::validate_knots},
+    market_data::{interp::{InterpFn, ExtrapolationPolicy}, utils::validate_knots},
     F,
 };
 
@@ -18,6 +18,7 @@ pub struct CubicHermite {
     knots: Box<[F]>, // strictly increasing times
     dfs: Box<[F]>,   // discount factors (positive)
     ms: Box<[F]>,    // first-derivative values at each knot
+    extrapolation_policy: ExtrapolationPolicy,
 }
 
 impl CubicHermite {
@@ -37,7 +38,59 @@ impl CubicHermite {
         // Pre-compute monotone slopes (PCHIP / Fritsch-Carlson).
         let ms = compute_monotone_slopes(&knots, &dfs);
 
-        Ok(Self { knots, dfs, ms })
+        Ok(Self { 
+            knots, 
+            dfs, 
+            ms, 
+            extrapolation_policy: ExtrapolationPolicy::default() 
+        })
+    }
+
+    /// Extrapolate to the left of the first knot based on the extrapolation policy.
+    fn extrapolate_left(&self, x: F) -> F {
+        match self.extrapolation_policy {
+            ExtrapolationPolicy::FlatZero => self.dfs[0],
+            ExtrapolationPolicy::FlatForward => {
+                // Flat-forward: extend using the slope from the first knot
+                let x0 = self.knots[0];
+                let slope = self.ms[0];
+                let dx = x - x0;
+                // Linear extrapolation: f(x) = f(x0) + m0 * (x - x0)
+                self.dfs[0] + slope * dx
+            }
+        }
+    }
+
+    /// Extrapolate to the right of the last knot based on the extrapolation policy.
+    fn extrapolate_right(&self, x: F) -> F {
+        match self.extrapolation_policy {
+            ExtrapolationPolicy::FlatZero => *self.dfs.last().unwrap(),
+            ExtrapolationPolicy::FlatForward => {
+                // Flat-forward: extend using the slope from the last knot
+                let n = self.knots.len();
+                let x_last = self.knots[n - 1];
+                let slope = self.ms[n - 1];
+                let dx = x - x_last;
+                // Linear extrapolation: f(x) = f(x_last) + m_last * (x - x_last)
+                self.dfs[n - 1] + slope * dx
+            }
+        }
+    }
+
+    /// Compute the derivative for left extrapolation.
+    fn extrapolate_left_prime(&self, _x: F) -> F {
+        match self.extrapolation_policy {
+            ExtrapolationPolicy::FlatZero => 0.0, // Flat extrapolation has zero derivative
+            ExtrapolationPolicy::FlatForward => self.ms[0], // Constant slope from first knot
+        }
+    }
+
+    /// Compute the derivative for right extrapolation.
+    fn extrapolate_right_prime(&self, _x: F) -> F {
+        match self.extrapolation_policy {
+            ExtrapolationPolicy::FlatZero => 0.0, // Flat extrapolation has zero derivative
+            ExtrapolationPolicy::FlatForward => self.ms[self.ms.len() - 1], // Constant slope from last knot
+        }
     }
 
     // Shared `locate_segment` from utils is used.
@@ -45,11 +98,20 @@ impl CubicHermite {
 
 impl InterpFn for CubicHermite {
     fn interp(&self, x: F) -> F {
+        // Handle extrapolation based on policy
+        if x <= self.knots[0] {
+            return self.extrapolate_left(x);
+        }
+        if x >= *self.knots.last().unwrap() {
+            return self.extrapolate_right(x);
+        }
+        
         // Fast-path: exact knot value → short-circuit.
         if let Ok(idx) = self.knots.binary_search_by(|k| k.partial_cmp(&x).unwrap()) {
             return self.dfs[idx];
         }
 
+        // Interior interpolation using cubic Hermite
         let i = crate::market_data::utils::locate_segment(&self.knots, x).unwrap();
         let x0 = self.knots[i];
         let x1 = self.knots[i + 1];
@@ -76,6 +138,14 @@ impl InterpFn for CubicHermite {
     }
 
     fn interp_prime(&self, x: F) -> F {
+        // Handle extrapolation based on policy
+        if x <= self.knots[0] {
+            return self.extrapolate_left_prime(x);
+        }
+        if x >= *self.knots.last().unwrap() {
+            return self.extrapolate_right_prime(x);
+        }
+        
         // For exact knot values, return the precomputed slope
         if let Ok(idx) = self.knots.binary_search_by(|k| k.partial_cmp(&x).unwrap()) {
             return self.ms[idx];
@@ -106,6 +176,14 @@ impl InterpFn for CubicHermite {
         
         // Convert to derivative w.r.t. x using chain rule: df/dx = (df/dt) * (dt/dx) = (df/dt) / h
         df_dt / h
+    }
+
+    fn set_extrapolation_policy(&mut self, policy: ExtrapolationPolicy) {
+        self.extrapolation_policy = policy;
+    }
+
+    fn extrapolation_policy(&self) -> ExtrapolationPolicy {
+        self.extrapolation_policy
     }
 }
 

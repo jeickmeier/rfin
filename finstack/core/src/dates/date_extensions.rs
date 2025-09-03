@@ -27,10 +27,23 @@ pub trait DateExt {
     ///
     /// This naive algorithm only skips Saturdays & Sundays, and does NOT
     /// account for holidays. For true business day adjustments that respect
-    /// holidays, use a `HolidayCalendar` with appropriate methods.
+    /// holidays, use [`DateExt::add_business_days`] with a `HolidayCalendar`.
     /// Positive `n` moves forward, negative `n` moves backward. Zero returns
     /// the input unchanged.
     fn add_weekdays(self, n: i32) -> Self;
+
+    /// Add / subtract a number of **business days** (`n`) to the date using
+    /// the provided `calendar` for holiday lookup.
+    ///
+    /// This algorithm skips weekends AND holidays according to the calendar.
+    /// Positive `n` moves forward, negative `n` moves backward. Zero returns
+    /// the input unchanged.
+    ///
+    /// # Panics
+    /// Panics if no business day is found within 100 days of the target.
+    /// This prevents infinite loops when using composite calendars that mark
+    /// all days as holidays in a range.
+    fn add_business_days<C: crate::dates::calendar::HolidayCalendar>(self, n: i32, cal: &C) -> Self;
 
     /// Returns `true` if the date is a business day according to the provided
     /// `calendar` (see [`crate::dates::calendar::HolidayCalendar`]).
@@ -110,6 +123,33 @@ impl DateExt for Date {
         date
     }
 
+    fn add_business_days<C: crate::dates::calendar::HolidayCalendar>(self, mut n: i32, cal: &C) -> Self {
+        if n == 0 {
+            return self;
+        }
+
+        let step = if n > 0 { 1 } else { -1 };
+        let mut date = self;
+        let mut days_searched = 0;
+        
+        while n != 0 {
+            date = date + Duration::days(step as i64);
+            days_searched += 1;
+            
+            if days_searched > crate::dates::calendar::MAX_BUSINESS_DAY_SEARCH_DAYS {
+                panic!(
+                    "No business day found within {} days from {} when adding {} business days",
+                    crate::dates::calendar::MAX_BUSINESS_DAY_SEARCH_DAYS, self, n
+                );
+            }
+            
+            if cal.is_business_day(date) {
+                n -= step;
+            }
+        }
+        date
+    }
+
     fn is_business_day<C: crate::dates::calendar::HolidayCalendar>(self, cal: &C) -> bool {
         cal.is_business_day(self)
     }
@@ -133,6 +173,9 @@ pub trait OffsetDateTimeExt {
     /// See [`DateExt::add_weekdays`].
     fn add_weekdays(self, n: i32) -> Self;
 
+    /// See [`DateExt::add_business_days`].
+    fn add_business_days<C: crate::dates::calendar::HolidayCalendar>(self, n: i32, cal: &C) -> Self;
+
     /// See [`DateExt::is_business_day`].
     fn is_business_day<C: crate::dates::calendar::HolidayCalendar>(self, cal: &C) -> bool;
 
@@ -155,6 +198,11 @@ impl OffsetDateTimeExt for OffsetDateTime {
 
     fn add_weekdays(self, n: i32) -> Self {
         let new_date = self.date().add_weekdays(n);
+        self.replace_date(new_date)
+    }
+
+    fn add_business_days<C: crate::dates::calendar::HolidayCalendar>(self, n: i32, cal: &C) -> Self {
+        let new_date = self.date().add_business_days(n, cal);
         self.replace_date(new_date)
     }
 
@@ -249,5 +297,71 @@ mod tests {
         
         let may_date = make_date(2025, 5, 15);
         assert_eq!(may_date.fiscal_year(config), 2026);
+    }
+
+    #[test]
+    fn test_add_business_days_forward() {
+        use crate::dates::holiday::calendars::Target2;
+        
+        let cal = Target2;
+        
+        // Start on Friday, add 3 business days should land on Wednesday (skip weekend)
+        let friday = make_date(2025, 6, 27);
+        let result = friday.add_business_days(3, &cal);
+        assert_eq!(result, make_date(2025, 7, 2)); // Wednesday
+    }
+
+    #[test]
+    fn test_add_business_days_backward() {
+        use crate::dates::holiday::calendars::Target2;
+        
+        let cal = Target2;
+        
+        // Start on Monday, subtract 3 business days should land on Wednesday previous week
+        let monday = make_date(2025, 6, 30);
+        let result = monday.add_business_days(-3, &cal);
+        assert_eq!(result, make_date(2025, 6, 25)); // Wednesday
+    }
+
+    #[test]
+    fn test_add_business_days_zero() {
+        use crate::dates::holiday::calendars::Target2;
+        
+        let cal = Target2;
+        let date = make_date(2025, 6, 27);
+        let result = date.add_business_days(0, &cal);
+        assert_eq!(result, date);
+    }
+
+    #[test]
+    fn test_add_business_days_with_holidays() {
+        use crate::dates::holiday::calendars::Target2;
+        use crate::dates::calendar::HolidayCalendar;
+        
+        let cal = Target2;
+        
+        // Test around a known holiday period (Christmas/New Year)
+        // December 24, 2024 is Tuesday
+        let christmas_eve = make_date(2024, 12, 24);
+        let result = christmas_eve.add_business_days(1, &cal);
+        
+        // Should skip Christmas Day (Dec 25), Boxing Day (Dec 26), and weekends
+        // Landing on the next available business day
+        assert!(result > christmas_eve);
+        assert!(cal.is_business_day(result));
+    }
+
+    #[test]
+    fn test_add_business_days_offset_datetime() {
+        use crate::dates::holiday::calendars::Target2;
+        
+        let cal = Target2;
+        
+        // Create OffsetDateTime
+        let dt = make_date(2025, 6, 27).with_hms(10, 30, 0).unwrap().assume_utc();
+        
+        let result = dt.add_business_days(3, &cal);
+        assert_eq!(result.date(), make_date(2025, 7, 2));
+        assert_eq!(result.time(), dt.time()); // Time should be preserved
     }
 }

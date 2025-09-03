@@ -2,6 +2,16 @@ use crate::dates::holiday::rule::Rule;
 use time::Month;
 
 /// Swiss SIX exchange calendar (code: CHZH).
+///
+/// **Source**: Swiss SIX (Swiss Exchange) official holiday schedule.
+///
+/// **Observance Policy**:
+/// - Fixed holidays: New Year (2 days), Labour Day, Swiss National Day, Christmas (2 days)
+/// - Easter holidays: Good Friday, Easter Monday, Ascension Thursday, Pentecost Monday
+/// - No weekend substitution: Holidays are observed on their actual dates regardless of day of week
+/// - Multi-day blocks: New Year and Christmas periods include consecutive days
+///
+/// **Coverage**: Full year range supported (1970-2150).
 const CHZH_RULES: &[Rule] = &[
     Rule::fixed(Month::January, 1),
     Rule::fixed(Month::January, 2),

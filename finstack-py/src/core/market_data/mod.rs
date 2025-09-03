@@ -31,7 +31,7 @@ pub use fx::{PyFxConversionPolicy, PyFxMatrix, PySimpleFxProvider};
 pub use inflation_index::{
     PyInflationIndex, PyInflationIndexBuilder, PyInflationInterpolation, PyInflationLag,
 };
-pub use interpolation::PyInterpStyle;
+pub use interpolation::{PyInterpStyle, PyExtrapolationPolicy};
 pub use primitives::{PyMarketScalar, PyScalarTimeSeries, PySeriesInterpolation};
 pub use surfaces::PyVolSurface;
 
@@ -41,6 +41,7 @@ pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Register enums and classes
     m.add_class::<PyInterpStyle>()?;
+    m.add_class::<PyExtrapolationPolicy>()?;
     m.add_class::<PyDiscountCurve>()?;
     m.add_class::<PyForwardCurve>()?;
     m.add_class::<PyHazardCurve>()?;

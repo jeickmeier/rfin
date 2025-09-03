@@ -6,11 +6,14 @@ mod currency_build;
 mod generate_calendars;
 #[path = "build/generate_holidays.rs"]
 mod generate_holidays;
+#[path = "build/generate_cny.rs"]
+mod generate_cny;
 
 use std::io;
 
 fn main() -> io::Result<()> {
     currency_build::generate()?;
     generate_calendars::generate()?;
-    generate_holidays::generate()
+    generate_holidays::generate()?;
+    generate_cny::generate()
 }

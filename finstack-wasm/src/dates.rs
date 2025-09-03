@@ -124,6 +124,7 @@ pub enum DayCount {
     Thirty360,
     ThirtyE360,
     ActAct,
+    ActActIsma,
 }
 
 impl From<DayCount> for CoreDayCount {
@@ -134,6 +135,7 @@ impl From<DayCount> for CoreDayCount {
             DayCount::Thirty360 => CoreDayCount::Thirty360,
             DayCount::ThirtyE360 => CoreDayCount::ThirtyE360,
             DayCount::ActAct => CoreDayCount::ActAct,
+            DayCount::ActActIsma => CoreDayCount::ActActIsma,
         }
     }
 }

@@ -2,6 +2,18 @@ use crate::dates::holiday::rule::Rule;
 use time::{Month, Weekday};
 
 /// SIFMA recommended U.S. bond-market holiday calendar (code: SIFMA).
+///
+/// **Source**: SIFMA (Securities Industry and Financial Markets Association) 
+/// recommended holidays for U.S. bond market operations.
+///
+/// **Observance Policy**: 
+/// - Fixed holidays (New Year, Juneteenth, Independence Day, Christmas) use weekend substitution
+/// - Veterans Day (November 11) is observed only when it falls on a weekday
+/// - Columbus Day (second Monday in October) is always observed
+/// - All other holidays follow standard weekend substitution rules
+///
+/// **Coverage**: Full year range supported (1970-2150).
+///
 /// Based on NYSE holidays plus Columbus Day and Veterans Day when weekday.
 const SIFMA_RULES: &[Rule] = &[
     // --- NYSE base list ---

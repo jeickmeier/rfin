@@ -14,7 +14,11 @@ pub mod schedule;
 
 // Re-export commonly used items
 pub use calendar::{py_available_calendars, PyBusDayConv, PyCalendar};
-pub use date::{py_next_cds_date, py_next_imm, py_third_wednesday, PyDate};
+pub use date::{
+    py_next_cds_date, py_next_imm, py_third_wednesday, 
+    py_third_friday, py_next_equity_option_expiry, py_imm_option_expiry,
+    PyDate
+};
 pub use daycount::PyDayCount;
 pub use periods::{
     py_build_fiscal_periods, py_build_periods, PyFiscalConfig, PyPeriod, PyPeriodId,

@@ -2,6 +2,17 @@ use crate::dates::holiday::rule::{Direction, Rule};
 use time::{Month, Weekday};
 
 /// Australian Securities Exchange holiday calendar (code: ASX).
+///
+/// **Source**: Australian Securities Exchange (ASX) official holiday schedule.
+///
+/// **Observance Policy**:
+/// - Fixed holidays use Monday substitution: New Year, Christmas, Boxing Day
+/// - Australia Day: Observed on the Monday on or after January 26th
+/// - Anzac Day: Observed on April 25th with no substitution (even if weekend)
+/// - Easter holidays: Good Friday and Easter Monday (no substitution needed)
+/// - Weekend substitution: Holidays falling on weekends are moved to the following Monday
+///
+/// **Coverage**: Full year range supported (1970-2150).
 const ASX_RULES: &[Rule] = &[
     // New Year's Day (Mon substitution)
     Rule::fixed_next_monday(Month::January, 1),

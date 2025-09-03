@@ -2,6 +2,16 @@ use crate::dates::holiday::rule::{Direction, Rule};
 use time::{Month, Weekday};
 
 /// Canadian banking CAD funds calendar (code: CATO).
+///
+/// **Source**: Canadian banking system holiday schedule for CAD funds settlement.
+///
+/// **Observance Policy**:
+/// - Fixed holidays use Monday substitution: New Year, Canada Day, Truth & Reconciliation Day, Remembrance Day, Christmas, Boxing Day
+/// - Floating holidays: Family Day (3rd Monday February), Victoria Day (Monday on or before May 25th), Civic Holiday (1st Monday August), Labour Day (1st Monday September), Thanksgiving (2nd Monday October)
+/// - Easter holidays: Good Friday (no substitution needed)
+/// - Weekend substitution: Holidays falling on weekends are moved to the following Monday
+///
+/// **Coverage**: Full year range supported (1970-2150).
 const CATO_RULES: &[Rule] = &[
     // Fixed-date holidays with Monday substitution
     Rule::fixed_next_monday(Month::January, 1), // New Year

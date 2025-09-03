@@ -73,7 +73,7 @@ pub enum Rule {
     /// calendar days (including the start day).
     Span { start: &'static Rule, len: u8 },
 
-    /// Chinese New Year (Spring Festival) – uses pre-computed lookup table.
+    /// Chinese New Year (Spring Festival) – uses generated lookup table (1970-2150).
     ChineseNewYear,
 
     /// Qing Ming festival (Tomb-Sweeping Day) – Chinese solar term around 4-Apr.
@@ -155,135 +155,19 @@ fn easter_monday(year: i32) -> Date {
     easter_sunday + Duration::days(1) // Easter Monday = Sunday +1
 }
 
-// Pre-computed Chinese New Year (Spring Festival) Gregorian dates 1990-2100.
-// TODO: move into external CSV + PHF in build.rs (future step).
-const CNY_DATES: &[(i32, u8, u8)] = &[
-    (1990, 1, 27),
-    (1991, 2, 15),
-    (1992, 2, 4),
-    (1993, 1, 23),
-    (1994, 2, 10),
-    (1995, 1, 31),
-    (1996, 2, 19),
-    (1997, 2, 7),
-    (1998, 1, 28),
-    (1999, 2, 16),
-    (2000, 2, 5),
-    (2001, 1, 24),
-    (2002, 2, 12),
-    (2003, 2, 1),
-    (2004, 1, 22),
-    (2005, 2, 9),
-    (2006, 1, 29),
-    (2007, 2, 18),
-    (2008, 2, 7),
-    (2009, 1, 26),
-    (2010, 2, 14),
-    (2011, 2, 3),
-    (2012, 1, 23),
-    (2013, 2, 10),
-    (2014, 1, 31),
-    (2015, 2, 19),
-    (2016, 2, 8),
-    (2017, 1, 28),
-    (2018, 2, 16),
-    (2019, 2, 5),
-    (2020, 1, 25),
-    (2021, 2, 12),
-    (2022, 2, 1),
-    (2023, 1, 22),
-    (2024, 2, 10),
-    (2025, 1, 29),
-    (2026, 2, 17),
-    (2027, 2, 6),
-    (2028, 1, 26),
-    (2029, 2, 13),
-    (2030, 2, 3),
-    (2031, 1, 23),
-    (2032, 2, 11),
-    (2033, 1, 31),
-    (2034, 2, 19),
-    (2035, 2, 8),
-    (2036, 1, 28),
-    (2037, 2, 15),
-    (2038, 2, 4),
-    (2039, 1, 24),
-    (2040, 2, 12),
-    (2041, 2, 1),
-    (2042, 1, 22),
-    (2043, 2, 10),
-    (2044, 1, 30),
-    (2045, 2, 17),
-    (2046, 2, 6),
-    (2047, 1, 26),
-    (2048, 2, 14),
-    (2049, 2, 2),
-    (2050, 1, 23),
-    (2051, 2, 11),
-    (2052, 1, 31),
-    (2053, 2, 19),
-    (2054, 2, 8),
-    (2055, 1, 28),
-    (2056, 2, 15),
-    (2057, 2, 5),
-    (2058, 1, 24),
-    (2059, 2, 12),
-    (2060, 2, 2),
-    (2061, 1, 21),
-    (2062, 2, 9),
-    (2063, 1, 29),
-    (2064, 2, 17),
-    (2065, 2, 5),
-    (2066, 1, 26),
-    (2067, 2, 14),
-    (2068, 2, 3),
-    (2069, 1, 23),
-    (2070, 2, 11),
-    (2071, 1, 31),
-    (2072, 2, 19),
-    (2073, 2, 7),
-    (2074, 1, 27),
-    (2075, 2, 15),
-    (2076, 2, 5),
-    (2077, 1, 24),
-    (2078, 2, 12),
-    (2079, 2, 2),
-    (2080, 1, 22),
-    (2081, 2, 9),
-    (2082, 1, 29),
-    (2083, 2, 17),
-    (2084, 2, 6),
-    (2085, 1, 26),
-    (2086, 2, 14),
-    (2087, 2, 3),
-    (2088, 1, 24),
-    (2089, 2, 10),
-    (2090, 1, 30),
-    (2091, 2, 18),
-    (2092, 2, 7),
-    (2093, 1, 27),
-    (2094, 2, 15),
-    (2095, 2, 5),
-    (2096, 1, 25),
-    (2097, 2, 12),
-    (2098, 2, 1),
-    (2099, 1, 22),
-    (2100, 2, 9),
-];
+// Chinese New Year (Spring Festival) Gregorian dates – now generated from CSV.
+// Coverage: 1970-2150 (matches holiday bitset range).
+include!(concat!(env!("OUT_DIR"), "/cny_generated.rs"));
 
 #[inline]
 fn is_cny(date: Date) -> bool {
-    CNY_DATES
-        .iter()
-        .any(|&(y, m, d)| y == date.year() && m == date.month() as u8 && d == date.day())
+    is_cny_date(date.year(), date.month() as u8, date.day())
 }
 
 #[inline]
 fn cny_date(year: i32) -> Option<Date> {
-    CNY_DATES
-        .iter()
-        .find(|&&(y, _, _)| y == year)
-        .and_then(|&(_, m, d)| Date::from_calendar_date(year, Month::try_from(m).ok()?, d).ok())
+    cny_date_for_year(year)
+        .and_then(|(m, d)| Date::from_calendar_date(year, Month::try_from(m).ok()?, d).ok())
 }
 
 // Add helper to compute Qing Ming day
@@ -294,11 +178,7 @@ fn qing_ming_day(year: i32) -> u8 {
 
 // Helper for Buddha's Birthday approximation (CNY +95 days)
 fn buddhas_birthday_date(year: i32) -> Option<Date> {
-    CNY_DATES
-        .iter()
-        .find(|&&(y, _, _)| y == year)
-        .and_then(|&(_, m, d)| Date::from_calendar_date(year, Month::try_from(m).ok()?, d).ok())
-        .map(|cny| cny + Duration::days(95))
+    cny_date(year).map(|cny| cny + Duration::days(95))
 }
 
 fn vernal_equinox_jp(year: i32) -> Date {
@@ -479,6 +359,10 @@ impl Rule {
             Rule::Span { start, len } => {
                 let mut tmp = smallvec::SmallVec::<[Date; 64]>::new();
                 start.materialize_year(year, &mut tmp);
+                // Also materialize previous year starts for spans that may cross year boundaries
+                if *len > 1 {
+                    start.materialize_year(year - 1, &mut tmp);
+                }
                 for sd in tmp {
                     for k in 0..*len as i64 {
                         out.push(sd + Duration::days(k));

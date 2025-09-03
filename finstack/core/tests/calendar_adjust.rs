@@ -4,6 +4,7 @@ mod common;
 
 use common::{make_date, TestCal};
 use finstack_core::dates::{adjust, available_calendars, BusinessDayConvention, HolidayCalendar};
+use finstack_core::error::InputError;
 use time::Date;
 
 #[test]
@@ -33,7 +34,7 @@ fn test_adjust_unadjusted() {
     let saturday = make_date(2025, 1, 4); // Saturday
 
     // Unadjusted should return the same date even if it's a weekend
-    let result = adjust(saturday, BusinessDayConvention::Unadjusted, &cal);
+    let result = adjust(saturday, BusinessDayConvention::Unadjusted, &cal).unwrap();
     assert_eq!(result, saturday);
 }
 
@@ -43,17 +44,17 @@ fn test_adjust_following() {
 
     // Saturday should move to Monday
     let saturday = make_date(2025, 1, 4);
-    let result = adjust(saturday, BusinessDayConvention::Following, &cal);
+    let result = adjust(saturday, BusinessDayConvention::Following, &cal).unwrap();
     assert_eq!(result, make_date(2025, 1, 6)); // Monday
 
     // Holiday Thursday should move to Friday
     let thursday = make_date(2025, 1, 2);
-    let result = adjust(thursday, BusinessDayConvention::Following, &cal);
+    let result = adjust(thursday, BusinessDayConvention::Following, &cal).unwrap();
     assert_eq!(result, make_date(2025, 1, 3)); // Friday
 
     // Business day should remain unchanged
     let friday = make_date(2025, 1, 3);
-    let result = adjust(friday, BusinessDayConvention::Following, &cal);
+    let result = adjust(friday, BusinessDayConvention::Following, &cal).unwrap();
     assert_eq!(result, friday);
 }
 
@@ -63,12 +64,12 @@ fn test_adjust_preceding() {
 
     // Sunday should move to Friday (but Friday is holiday, so Thursday)
     let sunday = make_date(2025, 1, 5);
-    let result = adjust(sunday, BusinessDayConvention::Preceding, &cal);
+    let result = adjust(sunday, BusinessDayConvention::Preceding, &cal).unwrap();
     assert_eq!(result, make_date(2025, 1, 2)); // Thursday
 
     // Holiday Friday should move to Thursday
     let friday = make_date(2025, 1, 3);
-    let result = adjust(friday, BusinessDayConvention::Preceding, &cal);
+    let result = adjust(friday, BusinessDayConvention::Preceding, &cal).unwrap();
     assert_eq!(result, make_date(2025, 1, 2)); // Thursday
 }
 
@@ -80,7 +81,7 @@ fn test_adjust_modified_following() {
     let jan25_sat = make_date(2025, 1, 25); // Saturday
 
     // This should go following (Monday) since it stays in same month
-    let result = adjust(jan25_sat, BusinessDayConvention::ModifiedFollowing, &cal);
+    let result = adjust(jan25_sat, BusinessDayConvention::ModifiedFollowing, &cal).unwrap();
     assert_eq!(result, make_date(2025, 1, 27)); // Monday
 
     // Test a case where following would cross month boundary
@@ -94,7 +95,7 @@ fn test_adjust_modified_following() {
         jan30,
         BusinessDayConvention::ModifiedFollowing,
         &cal_with_holiday,
-    );
+    ).unwrap();
     // Following would go to Feb 3 (Monday), but that crosses month, so go preceding to Jan 29
     assert_eq!(result, make_date(2025, 1, 29)); // Wednesday
 }
@@ -105,7 +106,7 @@ fn test_adjust_modified_preceding() {
 
     // February 1, 2025 is a Saturday
     let feb1_sat = make_date(2025, 2, 1);
-    let result = adjust(feb1_sat, BusinessDayConvention::ModifiedPreceding, &cal);
+    let result = adjust(feb1_sat, BusinessDayConvention::ModifiedPreceding, &cal).unwrap();
     // Preceding would go to Jan 31, but that crosses month, so go following to Feb 4
     assert_eq!(result, make_date(2025, 2, 4)); // Tuesday (since Feb 3 is holiday)
 }
@@ -132,41 +133,77 @@ impl HolidayCalendar for AllHolidaysCal {
 }
 
 #[test]
-#[should_panic(expected = "No business day found within 100 days after")]
 fn test_adjust_following_infinite_loop_guard() {
     let cal = AllHolidaysCal;
     let date = make_date(2025, 1, 1);
     
-    // This should panic after 100 days instead of looping forever
-    adjust(date, BusinessDayConvention::Following, &cal);
+    // This should return an error after 100 days instead of looping forever
+    let result = adjust(date, BusinessDayConvention::Following, &cal);
+    assert!(result.is_err());
+    
+    // Verify the error type and message
+    match result.unwrap_err() {
+        finstack_core::Error::Input(InputError::AdjustmentFailed { date: _, convention, max_days }) => {
+            assert_eq!(convention, "Following");
+            assert_eq!(max_days, 100);
+        }
+        other => panic!("Expected AdjustmentFailed error, got {:?}", other),
+    }
 }
 
 #[test]
-#[should_panic(expected = "No business day found within 100 days before")]
 fn test_adjust_preceding_infinite_loop_guard() {
     let cal = AllHolidaysCal;
     let date = make_date(2025, 1, 1);
     
-    // This should panic after 100 days instead of looping forever
-    adjust(date, BusinessDayConvention::Preceding, &cal);
+    // This should return an error after 100 days instead of looping forever
+    let result = adjust(date, BusinessDayConvention::Preceding, &cal);
+    assert!(result.is_err());
+    
+    // Verify the error type and message
+    match result.unwrap_err() {
+        finstack_core::Error::Input(InputError::AdjustmentFailed { date: _, convention, max_days }) => {
+            assert_eq!(convention, "Preceding");
+            assert_eq!(max_days, 100);
+        }
+        other => panic!("Expected AdjustmentFailed error, got {:?}", other),
+    }
 }
 
 #[test]
-#[should_panic(expected = "No business day found within 100 days after")]
 fn test_adjust_modified_following_infinite_loop_guard() {
     let cal = AllHolidaysCal;
     let date = make_date(2025, 1, 1);
     
-    // This should panic when trying to find a following business day
-    adjust(date, BusinessDayConvention::ModifiedFollowing, &cal);
+    // This should return an error when trying to find a following business day
+    let result = adjust(date, BusinessDayConvention::ModifiedFollowing, &cal);
+    assert!(result.is_err());
+    
+    // Verify the error type and message
+    match result.unwrap_err() {
+        finstack_core::Error::Input(InputError::AdjustmentFailed { date: _, convention, max_days }) => {
+            assert_eq!(convention, "ModifiedFollowing");
+            assert_eq!(max_days, 100);
+        }
+        other => panic!("Expected AdjustmentFailed error, got {:?}", other),
+    }
 }
 
 #[test]
-#[should_panic(expected = "No business day found within 100 days before")]
 fn test_adjust_modified_preceding_infinite_loop_guard() {
     let cal = AllHolidaysCal;
     let date = make_date(2025, 1, 1);
     
-    // This should panic when trying to find a preceding business day
-    adjust(date, BusinessDayConvention::ModifiedPreceding, &cal);
+    // This should return an error when trying to find a preceding business day
+    let result = adjust(date, BusinessDayConvention::ModifiedPreceding, &cal);
+    assert!(result.is_err());
+    
+    // Verify the error type and message
+    match result.unwrap_err() {
+        finstack_core::Error::Input(InputError::AdjustmentFailed { date: _, convention, max_days }) => {
+            assert_eq!(convention, "ModifiedPreceding");
+            assert_eq!(max_days, 100);
+        }
+        other => panic!("Expected AdjustmentFailed error, got {:?}", other),
+    }
 }

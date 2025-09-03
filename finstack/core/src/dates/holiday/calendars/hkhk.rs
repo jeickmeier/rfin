@@ -1,11 +1,24 @@
-use crate::dates::calendar::HolidayCalendar;
 use crate::dates::holiday::rule::Rule;
-use std::collections::HashSet;
-use time::{Date, Duration, Month};
+use time::Month;
 
 const CNY: Rule = Rule::ChineseNewYear;
 
 /// Hong Kong banking calendar (code: HKHK).
+///
+/// **Source**: Hong Kong banking and financial market holiday schedule.
+///
+/// **Observance Policy**:
+/// - Fixed holidays: New Year, Labour Day, HKSAR Establishment Day, National Day, Christmas, Boxing Day
+/// - Chinese New Year: 3-day block starting from lunar new year date
+/// - Qing Ming (Tomb Sweeping Day): Single day observance based on solar term calculation
+/// - Buddha's Birthday: Single day observance based on lunar calendar
+/// - Weekend substitution: Holidays falling on weekends are not substituted (no make-up days)
+///
+/// **Lunar Calendar Coverage**:
+/// - Chinese New Year: Full 1970-2150 range supported using embedded lunar tables
+/// - Qing Ming: Full 1970-2150 range supported using solar term calculations
+/// - Buddha's Birthday: Full 1970-2150 range supported using lunar calendar calculations
+/// - See `finstack/core/data/chinese_new_year.csv` for lunar date mappings
 const HKHK_RULES: &[Rule] = &[
     // Fixed-date Gregorian holidays
     Rule::fixed(Month::January, 1),
@@ -22,20 +35,6 @@ const HKHK_RULES: &[Rule] = &[
     Rule::QingMing,
     Rule::BuddhasBirthday,
 ];
-
-#[allow(dead_code)]
-fn build_year(year: i32) -> HashSet<Date> {
-    let mut set: HashSet<Date> = HashSet::new();
-    // Generate from rules
-    let mut date = Date::from_calendar_date(year, Month::January, 1).unwrap();
-    while date.year() == year {
-        if HKHK_RULES.is_holiday(date) {
-            set.insert(date);
-        }
-        date += Duration::days(1);
-    }
-    set
-}
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Hkhk;

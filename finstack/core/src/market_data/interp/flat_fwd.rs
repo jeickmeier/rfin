@@ -33,4 +33,12 @@ impl InterpFn for FlatFwd {
     fn interp_prime(&self, x: F) -> F {
         self.inner.interp_prime(x)
     }
+
+    fn set_extrapolation_policy(&mut self, policy: crate::market_data::interp::ExtrapolationPolicy) {
+        self.inner.set_extrapolation_policy(policy);
+    }
+
+    fn extrapolation_policy(&self) -> crate::market_data::interp::ExtrapolationPolicy {
+        self.inner.extrapolation_policy()
+    }
 }

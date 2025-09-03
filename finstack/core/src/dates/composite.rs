@@ -15,7 +15,8 @@
 //!
 //! # Examples
 //! ```
-//! use finstack_core::dates::{CompositeCalendar, Target2, Gblo, HolidayCalendar};
+//! use finstack_core::dates::{CompositeCalendar, HolidayCalendar};
+//! use finstack_core::dates::calendars::{Target2, Gblo};
 //! use time::Date;
 //!
 //! let t2 = Target2;
@@ -23,7 +24,7 @@
 //! let calendars = [&t2 as &dyn HolidayCalendar, &gb as &dyn HolidayCalendar];
 //!
 //! // Union (default) – treat the day as a holiday if *either* market is closed.
-//! let cal_union = CompositeCalendar::merge(&calendars);
+//! let cal_union = CompositeCalendar::new(&calendars);
 //! let jan1_2025 = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 //! assert!(cal_union.is_holiday(jan1_2025));
 //!
@@ -63,11 +64,7 @@ impl<'a> CompositeCalendar<'a> {
         }
     }
 
-    /// Convenience wrapper constructing a *union* composite (strict by default).
-    #[must_use]
-    pub const fn merge(calendars: &'a [&'a dyn HolidayCalendar]) -> Self {
-        Self::new(calendars)
-    }
+    // Single canonical constructor is `new`; former `merge` alias removed for simplicity.
 
     /// Construct a composite calendar with an explicit intersection flag.
     /// When `intersection` is `true`, a date is a holiday only if all sub-calendars
@@ -113,7 +110,7 @@ mod tests {
         let gb = Gblo;
         let calendars = [&t2 as &dyn HolidayCalendar, &gb as &dyn HolidayCalendar];
 
-        let cal_union = CompositeCalendar::merge(&calendars);
+        let cal_union = CompositeCalendar::new(&calendars);
         let cal_inter = CompositeCalendar::merge_with_intersection(&calendars, true);
 
         // Date that is holiday in both calendars (New Year's Day)

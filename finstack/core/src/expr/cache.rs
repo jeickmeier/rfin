@@ -10,8 +10,8 @@ use std::sync::{Arc, RwLock};
 /// Cached result for an expression evaluation.
 #[derive(Debug, Clone)]
 pub enum CachedResult {
-    /// Scalar result (Vec<f64>).
-    Scalar(Vec<f64>),
+    /// Scalar result backed by Arc slice to avoid clones on conversion.
+    Scalar(Arc<[f64]>),
     /// Polars series result.
     Polars(polars::prelude::Series),
 }
@@ -20,7 +20,7 @@ impl CachedResult {
     /// Get as scalar vector, converting from Polars if necessary.
     pub fn as_scalar(&self) -> crate::Result<Vec<f64>> {
         match self {
-            CachedResult::Scalar(vec) => Ok(vec.clone()),
+            CachedResult::Scalar(shared) => Ok(shared.as_ref().to_vec()),
             CachedResult::Polars(series) => {
                 let chunked = series
                     .f64()
@@ -33,7 +33,7 @@ impl CachedResult {
     /// Get as Polars series, converting from scalar if necessary.
     pub fn as_polars(&self) -> polars::prelude::Series {
         match self {
-            CachedResult::Scalar(vec) => polars::prelude::Series::from_iter(vec.iter().copied()),
+            CachedResult::Scalar(shared) => polars::prelude::Series::from_iter(shared.iter().copied()),
             CachedResult::Polars(series) => series.clone(),
         }
     }
@@ -41,7 +41,7 @@ impl CachedResult {
     /// Estimate memory usage in bytes.
     pub fn memory_size(&self) -> usize {
         match self {
-            CachedResult::Scalar(vec) => vec.len() * std::mem::size_of::<f64>(),
+            CachedResult::Scalar(shared) => shared.len() * std::mem::size_of::<f64>(),
             CachedResult::Polars(series) => {
                 series.len() * std::mem::size_of::<f64>() // Approximation
             }
@@ -300,7 +300,7 @@ mod tests {
         let mut cache = ExpressionCache::with_budget(10); // 10MB budget
 
         let data = vec![1.0, 2.0, 3.0];
-        let result = CachedResult::Scalar(data.clone());
+        let result = CachedResult::Scalar(Arc::from(data.clone().into_boxed_slice()));
 
         // Store and retrieve
         assert!(cache.put(1, result));
@@ -334,8 +334,8 @@ mod tests {
 
         // This should force eviction
         let large_data: Vec<f64> = (0..10000).map(|i| i as f64).collect();
-        let result1 = CachedResult::Scalar(large_data.clone());
-        let result2 = CachedResult::Scalar(large_data.clone());
+        let result1 = CachedResult::Scalar(Arc::from(large_data.clone().into_boxed_slice()));
+        let result2 = CachedResult::Scalar(Arc::from(large_data.clone().into_boxed_slice()));
 
         assert!(cache.put(1, result1));
         assert!(cache.put(2, result2)); // Should evict entry 1

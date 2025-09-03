@@ -26,7 +26,11 @@
 #![allow(clippy::assign_op_pattern)]
 
 use crate::dates::DateExt;
+use crate::error::{Error, InputError};
 use time::{Date, Duration};
+
+/// Shared upper bound used across business-day search helpers to avoid runaway loops.
+pub(crate) const MAX_BUSINESS_DAY_SEARCH_DAYS: i32 = 100;
 
 /// Trait representing a holiday calendar.
 ///
@@ -74,131 +78,87 @@ pub enum BusinessDayConvention {
 
 /// Adjust `date` according to `conv` utilising `cal` for holiday lookup.
 /// 
-/// # Panics
-/// 
-/// Panics if no business day is found within 100 days of the input date.
+/// Returns an error if no business day is found within 100 days of the input date.
 /// This prevents infinite loops when using composite calendars that mark
 /// all days as holidays in a range.
 pub fn adjust<C: HolidayCalendar + ?Sized>(
     date: Date,
     conv: BusinessDayConvention,
     cal: &C,
-) -> Date {
-    const MAX_SEARCH_DAYS: i32 = 100;
-    
+) -> Result<Date, Error> {
+
+    #[inline]
+    fn seek<C: HolidayCalendar + ?Sized>(
+        mut d: Date,
+        cal: &C,
+        step_days: i32,
+        max_days: i32,
+        label: &str,
+    ) -> Result<Date, Error> {
+        let mut searched = 0;
+        while !cal.is_business_day(d) {
+            d = d + Duration::days(step_days as i64);
+            searched += 1;
+            if searched > max_days {
+                return Err(Error::Input(InputError::AdjustmentFailed {
+                    date: d.to_string(),
+                    convention: label.to_string(),
+                    max_days,
+                }));
+            }
+        }
+        Ok(d)
+    }
+
     match conv {
-        BusinessDayConvention::Unadjusted => date,
+        BusinessDayConvention::Unadjusted => Ok(date),
         BusinessDayConvention::Following => {
             if cal.is_business_day(date) {
-                return date;
+                return Ok(date);
             }
-            let mut d = date;
-            let mut days_searched = 0;
-            while !cal.is_business_day(d) {
-                d = d + Duration::days(1);
-                days_searched += 1;
-                if days_searched > MAX_SEARCH_DAYS {
-                    panic!(
-                        "No business day found within {} days after {} using Following convention",
-                        MAX_SEARCH_DAYS, date
-                    );
-                }
-            }
-            d
+            seek(date, cal, 1, MAX_BUSINESS_DAY_SEARCH_DAYS, "Following")
         }
         BusinessDayConvention::ModifiedFollowing => {
             if cal.is_business_day(date) {
-                return date;
+                return Ok(date);
             }
             let original_month = date.month();
-
-            // Compute following candidate
-            let mut forward = date;
-            let mut days_searched = 0;
-            while !cal.is_business_day(forward) {
-                forward = forward + Duration::days(1);
-                days_searched += 1;
-                if days_searched > MAX_SEARCH_DAYS {
-                    panic!(
-                        "No business day found within {} days after {} using ModifiedFollowing convention",
-                        MAX_SEARCH_DAYS, date
-                    );
-                }
-            }
+            let forward = seek(date, cal, 1, MAX_BUSINESS_DAY_SEARCH_DAYS, "ModifiedFollowing")?;
             if forward.month() == original_month {
-                return forward;
+                Ok(forward)
+            } else {
+                seek(
+                    date,
+                    cal,
+                    -1,
+                    MAX_BUSINESS_DAY_SEARCH_DAYS,
+                    "ModifiedFollowing (fallback to preceding)",
+                )
             }
-
-            // Fallback to preceding if following crosses month
-            let mut back = date;
-            days_searched = 0;
-            while !cal.is_business_day(back) {
-                back = back - Duration::days(1);
-                days_searched += 1;
-                if days_searched > MAX_SEARCH_DAYS {
-                    panic!(
-                        "No business day found within {} days before {} using ModifiedFollowing convention (fallback to preceding)",
-                        MAX_SEARCH_DAYS, date
-                    );
-                }
-            }
-            back
         }
         BusinessDayConvention::Preceding => {
             if cal.is_business_day(date) {
-                return date;
+                return Ok(date);
             }
-            let mut d = date;
-            let mut days_searched = 0;
-            while !cal.is_business_day(d) {
-                d = d - Duration::days(1);
-                days_searched += 1;
-                if days_searched > MAX_SEARCH_DAYS {
-                    panic!(
-                        "No business day found within {} days before {} using Preceding convention",
-                        MAX_SEARCH_DAYS, date
-                    );
-                }
-            }
-            d
+            seek(date, cal, -1, MAX_BUSINESS_DAY_SEARCH_DAYS, "Preceding")
         }
         BusinessDayConvention::ModifiedPreceding => {
             if cal.is_business_day(date) {
-                return date;
+                return Ok(date);
             }
             let original_month = date.month();
-
-            // Compute preceding candidate
-            let mut back = date;
-            let mut days_searched = 0;
-            while !cal.is_business_day(back) {
-                back = back - Duration::days(1);
-                days_searched += 1;
-                if days_searched > MAX_SEARCH_DAYS {
-                    panic!(
-                        "No business day found within {} days before {} using ModifiedPreceding convention",
-                        MAX_SEARCH_DAYS, date
-                    );
-                }
-            }
+            let back = seek(date, cal, -1, MAX_BUSINESS_DAY_SEARCH_DAYS, "ModifiedPreceding")?;
             if back.month() == original_month {
-                return back;
+                Ok(back)
+            } else {
+                seek(
+                    date,
+                    cal,
+                    1,
+                    MAX_BUSINESS_DAY_SEARCH_DAYS,
+                    "ModifiedPreceding (fallback to following)",
+                )
             }
-
-            // Fallback to following if preceding crosses month
-            let mut forward = date;
-            days_searched = 0;
-            while !cal.is_business_day(forward) {
-                forward = forward + Duration::days(1);
-                days_searched += 1;
-                if days_searched > MAX_SEARCH_DAYS {
-                    panic!(
-                        "No business day found within {} days after {} using ModifiedPreceding convention (fallback to following)",
-                        MAX_SEARCH_DAYS, date
-                    );
-                }
-            }
-            forward
         }
     }
 }

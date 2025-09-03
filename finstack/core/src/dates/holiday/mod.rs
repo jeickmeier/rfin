@@ -1,6 +1,16 @@
 //! Holiday calendar DSL – unified design and semantics.
 //!
-//! Semantics:
+//! ## Supported Date Range
+//!
+//! Holiday calendars are optimized for years **1970-2150** using generated bitsets.
+//! Years outside this range fall back to runtime rule evaluation.
+//!
+//! **Chinese New Year (CNY) Coverage**: All CNY-dependent calendars (CNBE, HKHK, SGSI)
+//! now support the full 1970-2150 range through externally-sourced data.
+//! Previously, CNY was limited to 1990-2100, causing silent degradation outside that range.
+//!
+//! ## Semantics
+//!
 //! - "Holiday" refers to non-working dates as defined by a specific market
 //!   calendar. Many calendars also label weekends as holidays for convenience,
 //!   while some intentionally ignore weekends in `is_holiday`.
@@ -29,6 +39,22 @@ pub use crate::dates::calendar::HolidayCalendar as Calendar;
 
 // Re-export most used calendars at holiday root level
 pub use calendars::*;
+
+/// Macro to define thin delegate calendars that mirror another calendar's rules.
+#[macro_export]
+macro_rules! impl_calendar_delegate {
+    ($ty:ident, $id:expr, $delegate:ident) => {
+        #[derive(Debug, Clone, Copy, Default)]
+        pub struct $ty;
+        impl $ty {
+            #[inline]
+            pub const fn id(self) -> &'static str { $id }
+        }
+        impl $crate::dates::calendar::HolidayCalendar for $ty {
+            fn is_holiday(&self, date: $crate::dates::Date) -> bool { $delegate.is_holiday(date) }
+        }
+    };
+}
 
 // Export a macro so calendar modules can use it without path gymnastics.
 /// Implement [`HolidayCalendar`](crate::dates::calendar::HolidayCalendar) using

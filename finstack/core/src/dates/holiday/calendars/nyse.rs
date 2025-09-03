@@ -1,7 +1,18 @@
 use crate::dates::holiday::rule::Rule;
 use time::{Month, Weekday};
 
-/// New York Stock Exchange full-day holiday calendar (code: NYSE).
+/// New York Stock Exchange holiday calendar (code: NYSE).
+///
+/// **Source**: New York Stock Exchange (NYSE) official holiday schedule.
+///
+/// **Observance Policy**:
+/// - Fixed holidays with weekend substitution: New Year, Juneteenth, Independence Day, Christmas
+/// - Floating holidays: MLK Day (3rd Monday January), Presidents Day (3rd Monday February), Memorial Day (last Monday May), Labor Day (1st Monday September), Thanksgiving (4th Thursday November)
+/// - Easter holidays: Good Friday
+/// - Weekend substitution: Holidays falling on weekends are moved to the following Monday
+/// - Full-day closures: All listed holidays result in complete market closure
+///
+/// **Coverage**: Full year range supported (1970-2150).
 const NYSE_RULES: &[Rule] = &[
     // Fixed-date holidays with Fri/Sat-Mon observation
     Rule::fixed_weekend(Month::January, 1),   // New Year

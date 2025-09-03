@@ -86,13 +86,13 @@ fn closure_check_matrix() {
     }
     let m = FxMatrix::new(Arc::new(Prov));
     let d = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-    let (_rate, _closure_result) = m
-        .rate_with_closure(
+    // Closure diagnostics gated behind test-only methods; verify triangulation via rate call.
+    let _ = m
+        .rate(
             Currency::USD,
             Currency::EUR,
             d,
             FxConversionPolicy::CashflowDate,
-            Currency::GBP,
         )
         .unwrap();
 }

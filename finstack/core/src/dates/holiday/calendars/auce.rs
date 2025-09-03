@@ -2,6 +2,18 @@ use crate::dates::holiday::rule::{Direction, Rule};
 use time::{Month, Weekday};
 
 /// Australia NSW inter-bank calendar (code: AUCE).
+///
+/// **Source**: Australia New South Wales inter-bank market holiday schedule.
+///
+/// **Observance Policy**:
+/// - Fixed holidays use Monday substitution: New Year, Christmas, Boxing Day
+/// - Australia Day: Observed on the Monday on or after January 26th
+/// - Anzac Day: Observed on April 25th with no substitution (even if weekend)
+/// - Easter holidays: Good Friday and Easter Monday (no substitution needed)
+/// - State-specific holidays: King/Queen's Birthday (2nd Monday June), NSW Bank Holiday (1st Monday August), Labour Day (1st Monday October)
+/// - Weekend substitution: Holidays falling on weekends are moved to the following Monday
+///
+/// **Coverage**: Full year range supported (1970-2150).
 const AUCE_RULES: &[Rule] = &[
     // New Year's Day (Mon substitute)
     Rule::fixed_next_monday(Month::January, 1),

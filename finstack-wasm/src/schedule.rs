@@ -75,7 +75,7 @@ pub fn generate_schedule(
 
     let arr = Array::new();
     if let Some(conv) = convention {
-        let cal = finstack_core::dates::Target2;
+        let cal = finstack_core::dates::calendars::Target2;
         for d in builder.adjust_with(conv.into(), &cal).build() {
             arr.push(&Date::from_core(d).into());
         }

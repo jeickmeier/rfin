@@ -67,12 +67,6 @@ impl ForwardCurve {
         self.interp.interp(t)
     }
 
-    /// Compounded simple rate over period `[t1,t2]` using average of endpoints.
-    pub fn rate_period(&self, t1: F, t2: F) -> F {
-        debug_assert!(t2 > t1);
-        (self.rate(t1) + self.rate(t2)) * 0.5
-    }
-
     /// Reset lag in calendar days from fixing to spot.
     #[inline]
     pub fn reset_lag(&self) -> i32 {
@@ -215,10 +209,6 @@ impl TermStructure for ForwardCurve {
 impl Forward for ForwardCurve {
     fn rate(&self, t: F) -> F {
         ForwardCurve::rate(self, t)
-    }
-
-    fn rate_period(&self, t1: F, t2: F) -> F {
-        ForwardCurve::rate_period(self, t1, t2)
     }
 }
 

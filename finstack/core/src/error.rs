@@ -8,6 +8,7 @@ use thiserror::Error;
 
 /// Detailed user input validation failures.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub enum InputError {
     /// Input must contain at least two distinct points (e.g. knots on a curve).
@@ -25,6 +26,16 @@ pub enum InputError {
     /// The provided date range is inverted – the start date is after the end date.
     #[error("Invalid date range: start must be before end")]
     InvalidDateRange,
+    /// No business day found within maximum allowed adjustment period.
+    #[error("Business day adjustment failed: no business day found within {max_days} days from {date} using {convention:?} convention")]
+    AdjustmentFailed {
+        /// The original date that couldn't be adjusted.
+        date: String,
+        /// The business day convention that was attempted.
+        convention: String,
+        /// Maximum number of days searched.
+        max_days: i32,
+    },
     /// Shape/dimension mismatch in matrix-like input (e.g. vol surface grid).
     #[error("Input dimensions do not match")]
     DimensionMismatch,

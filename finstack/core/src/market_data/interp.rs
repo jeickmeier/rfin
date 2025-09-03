@@ -39,6 +39,13 @@ pub trait InterpFn: Send + Sync + core::fmt::Debug {
     /// Compute the first derivative at coordinate `x`.
     /// Essential for calculating hedge sensitivities (Delta, Rho, etc.).
     fn interp_prime(&self, x: crate::F) -> crate::F;
+    
+    /// Set the extrapolation policy for out-of-bounds evaluation.
+    /// Default implementations should handle this appropriately.
+    fn set_extrapolation_policy(&mut self, policy: ExtrapolationPolicy);
+    
+    /// Get the current extrapolation policy.
+    fn extrapolation_policy(&self) -> ExtrapolationPolicy;
 }
 
 // -----------------------------------------------------------------------------
@@ -63,6 +70,20 @@ pub use monotone_convex::MonotoneConvex;
 
 extern crate alloc;
 use alloc::boxed::Box;
+
+/// Extrapolation policy for interpolators when evaluation points fall outside the knot range.
+#[derive(Copy, Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+pub enum ExtrapolationPolicy {
+    /// Use constant value extrapolation (flat-zero): extend the endpoint values.
+    /// This is the traditional approach for discount curves.
+    #[default]
+    FlatZero,
+    /// Use flat-forward extrapolation: extend the forward rate from the last/first segment.
+    /// This maintains constant instantaneous forward rates beyond the curve endpoints.
+    FlatForward,
+}
 
 /// Enum of supported interpolation styles. The default is `Linear`.
 #[derive(Copy, Clone, Debug, Default)]
@@ -90,16 +111,28 @@ impl InterpStyle {
         knots: Box<[crate::F]>,
         values: Box<[crate::F]>,
     ) -> crate::Result<Box<dyn InterpFn>> {
-        match self {
-            InterpStyle::Linear => Ok(Box::new(super::interp::LinearDf::new(knots, values)?)),
-            InterpStyle::LogLinear => Ok(Box::new(super::interp::LogLinearDf::new(knots, values)?)),
+        self.make_interp_with_extrapolation(knots, values, ExtrapolationPolicy::default())
+    }
+
+    /// Build a boxed interpolator with specified extrapolation policy.
+    pub fn make_interp_with_extrapolation(
+        self,
+        knots: Box<[crate::F]>,
+        values: Box<[crate::F]>,
+        extrapolation: ExtrapolationPolicy,
+    ) -> crate::Result<Box<dyn InterpFn>> {
+        let mut interp: Box<dyn InterpFn> = match self {
+            InterpStyle::Linear => Box::new(super::interp::LinearDf::new(knots, values)?),
+            InterpStyle::LogLinear => Box::new(super::interp::LogLinearDf::new(knots, values)?),
             InterpStyle::MonotoneConvex => {
-                Ok(Box::new(super::interp::MonotoneConvex::new(knots, values)?))
+                Box::new(super::interp::MonotoneConvex::new(knots, values)?)
             }
             InterpStyle::CubicHermite => {
-                Ok(Box::new(super::interp::CubicHermite::new(knots, values)?))
+                Box::new(super::interp::CubicHermite::new(knots, values)?)
             }
-            InterpStyle::FlatFwd => Ok(Box::new(super::interp::FlatFwd::new(knots, values)?)),
-        }
+            InterpStyle::FlatFwd => Box::new(super::interp::FlatFwd::new(knots, values)?),
+        };
+        interp.set_extrapolation_policy(extrapolation);
+        Ok(interp)
     }
 }

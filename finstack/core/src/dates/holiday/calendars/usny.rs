@@ -2,6 +2,16 @@ use crate::dates::holiday::rule::Rule;
 use time::{Month, Weekday};
 
 /// U.S. Fedwire / Government Securities settlement calendar (code: USNY).
+///
+/// **Source**: U.S. Federal Reserve Fedwire and Government Securities settlement holiday schedule.
+///
+/// **Observance Policy**:
+/// - Fixed holidays with weekend substitution: New Year, Juneteenth, Independence Day, Veterans Day, Christmas
+/// - Floating holidays: MLK Day (3rd Monday January), Presidents Day (3rd Monday February), Memorial Day (last Monday May), Labor Day (1st Monday September), Columbus Day (2nd Monday October), Thanksgiving (4th Thursday November)
+/// - Weekend substitution: Holidays falling on weekends are moved to the following Monday
+/// - Government operations: Affects Fedwire payments and government securities settlement
+///
+/// **Coverage**: Full year range supported (1970-2150).
 const USNY_RULES: &[Rule] = &[
     // Fixed-date holidays with weekend observation
     Rule::fixed_weekend(Month::January, 1),   // New Year

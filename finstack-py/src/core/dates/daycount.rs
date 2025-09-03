@@ -160,6 +160,31 @@ impl PyDayCount {
         }
     }
 
+    /// Create an ACT/ACT (ISMA) day count convention.
+    ///
+    /// Uses actual days in both numerator and denominator with coupon-period 
+    /// awareness. Unlike ACT/ACT (ISDA), this variant ensures equal valuation
+    /// of days within each coupon period, making it ideal for bonds and credit
+    /// instruments with regular coupon payments.
+    ///
+    /// Note: This convention requires the use of year_fraction_with_frequency()
+    /// to provide the instrument's coupon frequency.
+    ///
+    /// Returns:
+    ///     DayCount: An ACT/ACT (ISMA) day count convention instance.
+    ///
+    /// Examples:
+    ///     >>> from rfin.dates import DayCount, Frequency
+    ///     >>> dc = DayCount.actact_isma()
+    ///     >>> str(dc)
+    ///     'ACT/ACT (ISMA)'
+    #[classmethod]
+    fn actact_isma(_cls: &Bound<'_, PyType>) -> Self {
+        Self {
+            inner: DayCount::ActActIsma,
+        }
+    }
+
     // ---------------------------------------------------------------------
     // Methods
     // ---------------------------------------------------------------------
@@ -252,6 +277,42 @@ impl PyDayCount {
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
     }
 
+    /// Calculate the year fraction with coupon frequency for ISMA day count.
+    ///
+    /// This method is required for ACT/ACT (ISMA) convention and provides
+    /// coupon-period aware calculations that ensure equal valuation of days
+    /// within each coupon period.
+    ///
+    /// Args:
+    ///     start (Date): The start date (inclusive).
+    ///     end (Date): The end date (exclusive).
+    ///     frequency (Frequency): The coupon payment frequency.
+    ///
+    /// Returns:
+    ///     float: The year fraction according to the convention and frequency.
+    ///
+    /// Raises:
+    ///     RuntimeError: If the calculation fails or dates are invalid.
+    ///
+    /// Examples:
+    ///     >>> from rfin.dates import Date, DayCount, Frequency
+    ///     >>> start = Date(2025, 1, 1)
+    ///     >>> end = Date(2025, 7, 1)
+    ///     >>> dc = DayCount.actact_isma()
+    ///     >>> yf = dc.year_fraction_with_frequency(start, end, Frequency.SemiAnnual)
+    ///     >>> print(f"Semi-annual ISMA year fraction: {yf:.6f}")
+    pub fn year_fraction_with_frequency(
+        &self, 
+        start: &PyDate, 
+        end: &PyDate, 
+        frequency: &super::schedule::PyFrequency
+    ) -> PyResult<f64> {
+        let freq = (*frequency).into();
+        self.inner
+            .year_fraction_with_frequency(start.inner(), end.inner(), freq)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
+    }
+
     // ---------------------------------------------------------------------
     // Dunder / repr helpers
     // ---------------------------------------------------------------------
@@ -287,9 +348,12 @@ impl PyDayCount {
         let s = match self.inner {
             DayCount::Act360 => "ACT/360",
             DayCount::Act365F => "ACT/365F",
+            DayCount::Act365L => "ACT/365L",
             DayCount::Thirty360 => "30/360",
             DayCount::ThirtyE360 => "30E/360",
             DayCount::ActAct => "ACT/ACT",
+            DayCount::ActActIsma => "ACT/ACT (ISMA)",
+            DayCount::Bus252 => "Bus/252",
             _ => "<unknown>",
         };
         s.to_string()

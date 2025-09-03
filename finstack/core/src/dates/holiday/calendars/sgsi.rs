@@ -4,6 +4,18 @@ use time::Month;
 const CNY: Rule = Rule::ChineseNewYear;
 
 /// Singapore inter-bank calendar (code: SGSI).
+///
+/// **Source**: Singapore inter-bank market holiday schedule for bond and money market operations.
+///
+/// **Observance Policy**:
+/// - Fixed holidays use Monday substitution: New Year, Labour Day, National Day, Christmas
+/// - Chinese New Year: 2-day block starting from lunar new year date
+/// - Good Friday: Single day observance based on Easter calculation
+/// - Weekend substitution: Holidays falling on weekends are moved to the following Monday
+///
+/// **Lunar Calendar Coverage**:
+/// - Chinese New Year: Full 1970-2150 range supported using embedded lunar tables
+/// - See `finstack/core/data/chinese_new_year.csv` for lunar date mappings
 const SGSI_RULES: &[Rule] = &[
     // Fixed Gregorian holidays with Monday substitution
     Rule::fixed_next_monday(Month::January, 1), // New Year

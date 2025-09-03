@@ -2,7 +2,16 @@ use crate::dates::holiday::rule::Rule;
 use time::Month;
 
 /// Brazil B3 exchange holiday calendar (code: BRBD).
-/// Market ignores weekends for holiday purposes (i.e. if holiday falls on Sat/Sun, market open).
+///
+/// **Source**: Brazil B3 (Brasil, Bolsa, Balcão) exchange official holiday schedule.
+///
+/// **Observance Policy**:
+/// - Fixed holidays: New Year, Tiradentes Day, Labour Day, Independence Day, Our Lady of Aparecida, All Souls' Day, Republic Day, Black Consciousness Day, Christmas
+/// - Moveable holidays: Good Friday, Carnival Monday/Tuesday, Corpus Christi
+/// - **Special Rule**: Market ignores weekends for holiday purposes (if holiday falls on Sat/Sun, market remains open)
+/// - No weekend substitution: Holidays are observed on their actual dates regardless of day of week
+///
+/// **Coverage**: Full year range supported (1970-2150).
 const BRBD_RULES: &[Rule] = &[
     // Fixed-date holidays (no substitution)
     Rule::fixed(Month::January, 1),

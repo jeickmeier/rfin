@@ -3,7 +3,8 @@
 mod common;
 
 use common::TestExprCtx;
-use finstack_core::expr::{CompiledExpr, ExecMeta, Expr, Function};
+use finstack_core::expr::{CompiledExpr, Expr, Function};
+use finstack_core::config::{ResultsMeta, NumericMode, RoundingMode};
 
 fn create_test_data() -> (TestExprCtx, Vec<Vec<f64>>) {
     let ctx = TestExprCtx::new().with_column("x", 0).with_column("y", 1);
@@ -203,13 +204,20 @@ fn test_compiled_expr_with_metadata() {
     let cols: Vec<&[f64]> = data.iter().map(|v| v.as_slice()).collect();
 
     let expr = CompiledExpr::new(Expr::column("x"));
-    let meta = ExecMeta {
+    let meta = ResultsMeta {
+        numeric_mode: NumericMode::Decimal128,
+        rounding: finstack_core::config::RoundingContext {
+            mode: RoundingMode::Bankers,
+            ingest_scale_by_ccy: Default::default(),
+            output_scale_by_ccy: Default::default(),
+            version: 1,
+        },
         deterministic: true,
         parallel: false,
-        numeric_mode: finstack_core::config::NumericMode::Decimal128,
-        version: 1,
-        rounding_mode: finstack_core::config::RoundingMode::Bankers,
-        fx_policy: None,
+        schema_version: 1,
+        fx_policy_applied: None,
+        execution_time_ns: None,
+        cache_hit_ratio: None,
     };
 
     let result = expr.eval_with_metadata(&ctx, &cols, meta);
@@ -217,8 +225,8 @@ fn test_compiled_expr_with_metadata() {
     // Check that metadata is properly set
     assert_eq!(result.values, vec![1.0, 2.0, 3.0, 4.0, 5.0]);
     assert!(result.metadata.deterministic);
-    assert!(!result.metadata.parallel_execution);
-    assert!(result.metadata.execution_time_ns > 0);
+    assert!(!result.metadata.parallel);
+    assert!(result.metadata.execution_time_ns.unwrap_or(0) > 0);
 }
 
 #[test]
@@ -231,13 +239,20 @@ fn test_compiled_expr_with_planning() {
         Function::RollingMean,
         vec![Expr::column("x"), Expr::literal(2.0)],
     );
-    let meta = ExecMeta {
+    let meta = ResultsMeta {
+        numeric_mode: NumericMode::Decimal128,
+        rounding: finstack_core::config::RoundingContext {
+            mode: RoundingMode::Bankers,
+            ingest_scale_by_ccy: Default::default(),
+            output_scale_by_ccy: Default::default(),
+            version: 1,
+        },
         deterministic: true,
         parallel: false,
-        numeric_mode: finstack_core::config::NumericMode::Decimal128,
-        version: 1,
-        rounding_mode: finstack_core::config::RoundingMode::Bankers,
-        fx_policy: None,
+        schema_version: 1,
+        fx_policy_applied: None,
+        execution_time_ns: None,
+        cache_hit_ratio: None,
     };
     let compiled = CompiledExpr::with_planning(expr, meta);
 

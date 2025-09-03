@@ -325,7 +325,7 @@ pub enum Currency {
 }
 
 /// Number of decimal places (minor units) for each ISO 4217 currency, keyed by numeric code.
-static MINOR_UNITS: phf::Map<u16, u8> = phf::phf_map! {
+pub static MINOR_UNITS: phf::Map<u16, u8> = phf::phf_map! {
     784u16 => 2,
     971u16 => 2,
     8u16 => 2,
@@ -485,9 +485,10 @@ static MINOR_UNITS: phf::Map<u16, u8> = phf::phf_map! {
     932u16 => 2,
 };
 impl Currency {
-    /// ISO-4217 decimal precision for this currency (e.g. USD → 2)
+    /// ISO-4217 decimal precision for this currency (e.g. USD → 2).
+    /// Falls back to 2 decimal places for unknown currency codes.
     #[inline] pub fn decimals(self) -> u8 {
-        *MINOR_UNITS.get(&self.numeric()).expect("Unknown currency code")
+        MINOR_UNITS.get(&self.numeric()).copied().unwrap_or(2)
     }
     /// ISO 4217 numeric code as `u16`.
     #[inline] pub const fn numeric(self) -> u16 { self as u16 }

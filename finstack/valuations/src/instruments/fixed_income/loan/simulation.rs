@@ -954,11 +954,11 @@ impl LoanSimulator {
         if let Some(calendar_id) = facility.calendar_id() {
             if let Some(cal) = finstack_core::dates::holiday::calendars::calendar_by_id(calendar_id)
             {
-                return Ok(finstack_core::dates::adjust(
+                return finstack_core::dates::adjust(
                     reset_date,
                     facility.bdc(),
                     cal,
-                ));
+                );
             }
         }
 

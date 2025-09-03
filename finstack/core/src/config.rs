@@ -27,11 +27,22 @@ pub enum RoundingMode {
 }
 
 /// Configuration container. Extend as needed.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FinstackConfig {
     /// Detailed rounding policy (ingest/output scales by currency).
     pub rounding: RoundingPolicy,
+    /// Default decimal places for unknown currencies (defaults to 2).
+    pub default_currency_decimals: u8,
+}
+
+impl Default for FinstackConfig {
+    fn default() -> Self {
+        Self {
+            rounding: RoundingPolicy::default(),
+            default_currency_decimals: 2,
+        }
+    }
 }
 
 
@@ -109,7 +120,24 @@ pub struct ResultsMeta {
     pub numeric_mode: NumericMode,
     /// Rounding context snapshot applied to IO boundaries.
     pub rounding: RoundingContext,
-    // Reserved for future: parallel flag, seeds, etc.
+    /// Whether execution path was forced deterministic.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub deterministic: bool,
+    /// Whether parallel execution was enabled (may be disabled by planner).
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub parallel: bool,
+    /// Optional schema or envelope version.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub schema_version: u32,
+    /// FX policy applied by the computing layer, if any.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub fx_policy_applied: Option<String>,
+    /// Execution timing in nanoseconds if measured.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub execution_time_ns: Option<u64>,
+    /// Cache hit ratio if a cache was used.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub cache_hit_ratio: Option<f64>,
 }
 
 /// Compute the effective output scale for a currency.
@@ -155,6 +183,12 @@ pub fn results_meta(cfg: &FinstackConfig) -> ResultsMeta {
     ResultsMeta {
         numeric_mode: numeric_mode(),
         rounding: rounding_context_from(cfg),
+        deterministic: false,
+        parallel: false,
+        schema_version: 1,
+        fx_policy_applied: None,
+        execution_time_ns: None,
+        cache_hit_ratio: None,
     }
 }
 

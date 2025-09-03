@@ -1,6 +1,6 @@
 //! Python bindings for interpolation styles.
 
-use finstack_core::market_data::interp::InterpStyle;
+use finstack_core::market_data::interp::{InterpStyle, ExtrapolationPolicy};
 use pyo3::prelude::*;
 
 /// Interpolation method for curve construction.
@@ -114,6 +114,100 @@ impl PyInterpStyle {
             InterpStyle::MonotoneConvex => PyInterpStyle::MonotoneConvex,
             InterpStyle::CubicHermite => PyInterpStyle::CubicHermite,
             InterpStyle::FlatFwd => PyInterpStyle::FlatForward,
+        }
+    }
+}
+
+/// Extrapolation policy for curve evaluation beyond the defined knot range.
+///
+/// Controls how curves behave when queried for values outside the range
+/// of input data points. Different policies provide different trade-offs
+/// between conservatism and market consistency.
+///
+/// Attributes:
+///     FlatZero: Extend endpoint values (traditional, conservative)
+///     FlatForward: Extend forward rates (maintains rate continuity)
+///
+/// Examples:
+///     >>> from rfin.market_data import DiscountCurve, InterpStyle, ExtrapolationPolicy
+///     >>> from rfin import Date
+///     
+///     # Create a curve with flat-zero extrapolation (default)
+///     >>> curve_flat_zero = DiscountCurve(
+///     ...     id="USD-OIS",
+///     ...     base_date=Date(2025, 1, 1),
+///     ...     times=[0.0, 1.0, 2.0],
+///     ...     discount_factors=[1.0, 0.98, 0.95],
+///     ...     extrapolation=ExtrapolationPolicy.FlatZero
+///     ... )
+///     
+///     # Create a curve with flat-forward extrapolation
+///     >>> curve_flat_fwd = DiscountCurve(
+///     ...     id="USD-OIS",
+///     ...     base_date=Date(2025, 1, 1),
+///     ...     times=[0.0, 1.0, 2.0],
+///     ...     discount_factors=[1.0, 0.98, 0.95],
+///     ...     extrapolation=ExtrapolationPolicy.FlatForward
+///     ... )
+#[pyclass(name = "ExtrapolationPolicy", module = "finstack.market_data", eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum PyExtrapolationPolicy {
+    /// Extend endpoint values (flat-zero extrapolation)
+    FlatZero,
+    /// Extend forward rates (flat-forward extrapolation)
+    FlatForward,
+}
+
+#[pymethods]
+impl PyExtrapolationPolicy {
+    /// Create an ExtrapolationPolicy from a string representation.
+    ///
+    /// Args:
+    ///     value (str): One of "flat_zero" or "flat_forward"
+    ///
+    /// Returns:
+    ///     ExtrapolationPolicy: The corresponding extrapolation policy
+    ///
+    /// Raises:
+    ///     ValueError: If the string is not recognized
+    #[staticmethod]
+    fn from_str(value: &str) -> PyResult<Self> {
+        match value.to_lowercase().as_str() {
+            "flat_zero" | "flatzero" => Ok(PyExtrapolationPolicy::FlatZero),
+            "flat_forward" | "flatforward" => Ok(PyExtrapolationPolicy::FlatForward),
+            _ => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Unknown extrapolation policy: {}",
+                value
+            ))),
+        }
+    }
+
+    fn __str__(&self) -> &'static str {
+        match self {
+            PyExtrapolationPolicy::FlatZero => "FlatZero",
+            PyExtrapolationPolicy::FlatForward => "FlatForward",
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!("ExtrapolationPolicy.{}", self.__str__())
+    }
+}
+
+impl PyExtrapolationPolicy {
+    /// Convert to the core ExtrapolationPolicy enum
+    pub fn to_core(self) -> ExtrapolationPolicy {
+        match self {
+            PyExtrapolationPolicy::FlatZero => ExtrapolationPolicy::FlatZero,
+            PyExtrapolationPolicy::FlatForward => ExtrapolationPolicy::FlatForward,
+        }
+    }
+
+    /// Create from core ExtrapolationPolicy
+    pub fn from_core(policy: ExtrapolationPolicy) -> Self {
+        match policy {
+            ExtrapolationPolicy::FlatZero => PyExtrapolationPolicy::FlatZero,
+            ExtrapolationPolicy::FlatForward => PyExtrapolationPolicy::FlatForward,
         }
     }
 }

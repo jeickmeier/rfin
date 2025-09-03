@@ -1,5 +1,5 @@
 use crate::{
-    market_data::{interp::InterpFn, utils::validate_knots},
+    market_data::{interp::{InterpFn, ExtrapolationPolicy}, utils::validate_knots},
     F,
 };
 use std::boxed::Box;
@@ -21,7 +21,7 @@ use std::vec::Vec;
 /// ## Numerical Stability
 /// - Uses epsilon protection (100 × machine epsilon) for near-zero slopes
 /// - Harmonic mean calculation protected against division by very small values
-/// - Boundary clamping prevents extrapolation beyond input domain
+/// - Supports configurable extrapolation policy beyond input domain
 /// 
 /// The constructor computes and stores per-segment cubic coefficients guaranteeing 
 /// positivity, monotonicity and convexity when the input curve is arbitrage-free
@@ -45,6 +45,8 @@ pub struct MonotoneConvex {
     /// - d = d[i] + d[i+1] - 2*m[i] (ensures slope constraints)
     ///   where m[i] is the secant slope and d[i] are the monotone derivatives.
     coeffs: Box<[(F, F, F, F)]>,
+    /// Extrapolation policy for out-of-bounds evaluation.
+    extrapolation: ExtrapolationPolicy,
 }
 
 impl MonotoneConvex {
@@ -73,7 +75,12 @@ impl MonotoneConvex {
         // the struct to avoid partial move/borrow checker conflicts.
         let coeffs = Self::build_coeffs(&knots, &dfs);
 
-        Ok(Self { knots, dfs, coeffs })
+        Ok(Self { 
+            knots, 
+            dfs, 
+            coeffs,
+            extrapolation: ExtrapolationPolicy::default(),
+        })
     }
 
     /// Compute cubic coefficients for each segment according to the
@@ -148,22 +155,93 @@ impl MonotoneConvex {
         coeffs.into_boxed_slice()
     }
 
+    /// Extrapolate to the left of the first knot based on the extrapolation policy.
+    fn extrapolate_left(&self, x: F) -> F {
+        match self.extrapolation {
+            ExtrapolationPolicy::FlatZero => self.dfs[0],
+            ExtrapolationPolicy::FlatForward => {
+                // Flat-forward: extend using the cubic polynomial from the first segment
+                let (a, b, _c, _d) = self.coeffs[0];
+                let h = self.knots[1] - self.knots[0];
+                let s = (x - self.knots[0]) / h; // Can be negative for left extrapolation
+                // Use linear approximation for extrapolation (dy/ds = b)
+                let y = a + b * s;
+                (-y).exp()
+            }
+        }
+    }
+
+    /// Extrapolate to the right of the last knot based on the extrapolation policy.
+    fn extrapolate_right(&self, x: F) -> F {
+        match self.extrapolation {
+            ExtrapolationPolicy::FlatZero => *self.dfs.last().unwrap(),
+            ExtrapolationPolicy::FlatForward => {
+                // Flat-forward: extend using the cubic polynomial from the last segment
+                let n = self.coeffs.len();
+                let (a, b, c, d) = self.coeffs[n - 1];
+                let h = self.knots[n] - self.knots[n - 1];
+                // Evaluate at s=1 first to get the end slope
+                let dy_ds_at_end = b + 2.0 * c + 3.0 * d;
+                let s_extra = 1.0 + (x - self.knots[n]) / h; // s > 1 for right extrapolation
+                // Use linear extrapolation based on the slope at the end
+                let y_end = a + b + c + d; // y(1)
+                let y = y_end + dy_ds_at_end * (s_extra - 1.0);
+                (-y).exp()
+            }
+        }
+    }
+
+    /// Compute the derivative for left extrapolation.
+    fn extrapolate_left_prime(&self, x: F) -> F {
+        match self.extrapolation {
+            ExtrapolationPolicy::FlatZero => 0.0, // Flat extrapolation has zero derivative
+            ExtrapolationPolicy::FlatForward => {
+                // Flat-forward: constant slope from first segment
+                let (_a, b, _c, _d) = self.coeffs[0];
+                let h = self.knots[1] - self.knots[0];
+                let f_val = self.extrapolate_left(x);
+                // Linear extrapolation: dy/dx = b/h, df/dx = -f * dy/dx
+                -f_val * b / h
+            }
+        }
+    }
+
+    /// Compute the derivative for right extrapolation.
+    fn extrapolate_right_prime(&self, x: F) -> F {
+        match self.extrapolation {
+            ExtrapolationPolicy::FlatZero => 0.0, // Flat extrapolation has zero derivative
+            ExtrapolationPolicy::FlatForward => {
+                // Flat-forward: constant slope from last segment end
+                let n = self.coeffs.len();
+                let (_a, b, c, d) = self.coeffs[n - 1];
+                let h = self.knots[n] - self.knots[n - 1];
+                let dy_ds_at_end = b + 2.0 * c + 3.0 * d;
+                let f_val = self.extrapolate_right(x);
+                // Linear extrapolation: df/dx = -f * dy/dx
+                -f_val * dy_ds_at_end / h
+            }
+        }
+    }
+
     // Shared `locate_segment` from utils is used.
 }
 
 impl InterpFn for MonotoneConvex {
     fn interp(&self, x: F) -> F {
-        // Clamp to bounds to avoid out-of-range evaluations due to
-        // small day-count or floating-point discrepancies.
+        // Handle extrapolation based on policy
         if x <= self.knots[0] {
-            return self.dfs[0];
+            return self.extrapolate_left(x);
         }
         if x >= *self.knots.last().unwrap() {
-            return *self.dfs.last().unwrap();
+            return self.extrapolate_right(x);
         }
+        
+        // Exact knot match
         if let Ok(idx_exact) = self.knots.binary_search_by(|k| k.partial_cmp(&x).unwrap()) {
             return self.dfs[idx_exact];
         }
+        
+        // Interior interpolation using monotone-convex cubic
         let idx = crate::market_data::utils::locate_segment(&self.knots, x).unwrap();
         let (a, b, c, d) = self.coeffs[idx];
         let h = self.knots[idx + 1] - self.knots[idx];
@@ -173,21 +251,12 @@ impl InterpFn for MonotoneConvex {
     }
 
     fn interp_prime(&self, x: F) -> F {
-        // Clamp to bounds similar to interp()
+        // Handle extrapolation based on policy
         if x <= self.knots[0] {
-            let (_a, b, _c, _d) = self.coeffs[0];
-            let h = self.knots[1] - self.knots[0];
-            let f_val = self.dfs[0];
-            return -f_val * b / h; // b is already scaled by h, so dy/ds at s=0 is b
+            return self.extrapolate_left_prime(x);
         }
         if x >= *self.knots.last().unwrap() {
-            let n = self.coeffs.len();
-            let (_a, b, c, d) = self.coeffs[n - 1];
-            let h = self.knots[n] - self.knots[n - 1];
-            let s = 1.0; // At end of last segment
-            let dy_ds = b + 2.0 * c * s + 3.0 * d * s * s;
-            let f_val = *self.dfs.last().unwrap();
-            return -f_val * dy_ds / h;
+            return self.extrapolate_right_prime(x);
         }
         
         // Find segment and compute derivative
@@ -211,6 +280,14 @@ impl InterpFn for MonotoneConvex {
         
         // Chain rule: df/dx = df/dy * dy/ds * ds/dx = -f * dy/ds / h
         -f_val * dy_ds / h
+    }
+
+    fn set_extrapolation_policy(&mut self, policy: ExtrapolationPolicy) {
+        self.extrapolation = policy;
+    }
+
+    fn extrapolation_policy(&self) -> ExtrapolationPolicy {
+        self.extrapolation
     }
 }
 

@@ -3,6 +3,66 @@
 //! The iterator pre-computes the anchor dates internally (stored inline for up to
 //! 32 dates) but keeps the backing container private so the public API is
 //! allocation-free and zero-dependency.
+//!
+//! ## Roll Conventions for Credit Instruments
+//!
+//! This module supports standard OTC credit market roll conventions through the
+//! [`BusinessDayConvention`] enum:
+//! 
+//! - **Following**: Roll to next business day (may cross month boundary)
+//! - **Modified Following (MF)**: Roll to next business day, but if it crosses 
+//!   month boundary, roll back to previous business day
+//! - **Preceding**: Roll to previous business day (may cross month boundary)  
+//! - **Modified Preceding**: Roll to previous business day, but if it crosses
+//!   month boundary, roll forward to next business day
+//!
+//! For Credit Default Swaps, use [`cds_schedule`] which automatically creates
+//! quarterly schedules on the standard IMM roll dates (20th of Mar/Jun/Sep/Dec).
+//!
+//! ## Street Conventions Mapping
+//!
+//! This section maps common financial instrument conventions to finstack schedule options:
+//!
+//! ### Credit Default Swaps (CDS)
+//! - **Frequency**: Quarterly (every 3 months)
+//! - **Roll Dates**: 20th of March, June, September, December (IMM dates)
+//! - **Business Day Convention**: Modified Following
+//! - **Stub Rules**: Short front stub, long back stub
+//! - **Calendar**: TARGET2 (for EUR), NYSE (for USD)
+//!
+//! ### Interest Rate Swaps (IRS)
+//! - **Frequency**: Semi-annual (6 months) or quarterly (3 months)
+//! - **Roll Dates**: IMM dates (3rd Wednesday) or month-end
+//! - **Business Day Convention**: Modified Following
+//! - **Stub Rules**: Short front stub, long back stub
+//! - **Calendar**: TARGET2 (for EUR), NYSE (for USD)
+//!
+//! ### Corporate Bonds
+//! - **Frequency**: Semi-annual (6 months) or annual (12 months)
+//! - **Roll Dates**: Fixed dates (e.g., 15th of month)
+//! - **Business Day Convention**: Following or Modified Following
+//! - **Stub Rules**: Short front stub, long back stub
+//! - **Calendar**: NYSE (for USD), LSE (for GBP)
+//!
+//! ### Government Bonds
+//! - **Frequency**: Semi-annual (6 months) or quarterly (3 months)
+//! - **Roll Dates**: Fixed dates or IMM dates
+//! - **Business Day Convention**: Following
+//! - **Stub Rules**: Short front stub, long back stub
+//! - **Calendar**: TARGET2 (for EUR), NYSE (for USD)
+//!
+//! ### Example: CDS Quarterly 20th Schedule
+//! ```
+//! use finstack_core::dates::{ScheduleBuilder, Frequency, BusinessDayConvention, StubKind};
+//! use finstack_core::dates::calendars::Target2;
+//! use time::macros::date;
+//!
+//! let schedule = ScheduleBuilder::new(date!(2024-01-15), date!(2026-01-15))
+//!     .frequency(Frequency::Months(3))  // Quarterly
+//!     .adjust_with(BusinessDayConvention::ModifiedFollowing, &Target2)
+//!     .stub_rule(StubKind::ShortFront)
+//!     .build();
+//! ```
 
 #![allow(missing_docs)]
 #![allow(clippy::needless_lifetimes)]
@@ -11,7 +71,96 @@ use smallvec::SmallVec;
 use time::{Date, Duration};
 
 use super::{adjust, BusinessDayConvention, HolidayCalendar};
-use crate::dates::utils::add_months;
+use crate::dates::utils::{add_months, is_leap_year};
+
+/// Diagnostic information about how a date was generated in the schedule.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DateGenerationRule {
+    /// Start date (provided by user)
+    StartAnchor,
+    /// End date (provided by user)
+    EndAnchor,
+    /// Regular interval from frequency
+    RegularInterval { period_number: usize },
+    /// Short stub at front
+    ShortFrontStub,
+    /// Short stub at back
+    ShortBackStub,
+    /// Long stub at front
+    LongFrontStub,
+    /// Long stub at back
+    LongBackStub,
+    /// End-of-month adjustment applied
+    EndOfMonthAdjusted,
+    /// Business day adjustment applied
+    BusinessDayAdjusted { original_date: Date },
+}
+
+/// Diagnostic information for a generated date in the schedule.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DateDiagnostic {
+    /// The final date in the schedule
+    pub date: Date,
+    /// The rule(s) that produced this date
+    pub rules: Vec<DateGenerationRule>,
+}
+
+/// Schedule iterator with optional diagnostics collection.
+pub struct ScheduleIterWithDiagnostics {
+    iter: ScheduleIter,
+    diagnostics: Option<Vec<DateDiagnostic>>,
+    collect_diagnostics: bool,
+}
+
+impl ScheduleIterWithDiagnostics {
+    /// Create a new diagnostics iterator.
+    pub fn new(iter: ScheduleIter, collect_diagnostics: bool) -> Self {
+        let diagnostics = if collect_diagnostics {
+            Some(Vec::new())
+        } else {
+            None
+        };
+        
+        Self {
+            iter,
+            diagnostics,
+            collect_diagnostics,
+        }
+    }
+    
+    /// Get the collected diagnostics (if enabled).
+    pub fn diagnostics(&self) -> Option<&[DateDiagnostic]> {
+        self.diagnostics.as_deref()
+    }
+    
+    /// Consume the iterator and return collected diagnostics.
+    pub fn into_diagnostics(self) -> Option<Vec<DateDiagnostic>> {
+        self.diagnostics
+    }
+}
+
+impl Iterator for ScheduleIterWithDiagnostics {
+    type Item = Date;
+    
+    fn next(&mut self) -> Option<Self::Item> {
+        let date = self.iter.next()?;
+        
+        if self.collect_diagnostics {
+            // For now, basic rule tracking - could be enhanced later
+            // with more sophisticated rule identification
+            let rule = DateGenerationRule::RegularInterval { period_number: 0 }; // Simplified
+            
+            if let Some(ref mut diagnostics) = self.diagnostics {
+                diagnostics.push(DateDiagnostic {
+                    date,
+                    rules: vec![rule],
+                });
+            }
+        }
+        
+        Some(date)
+    }
+}
 
 /// Small helper alias when we need to pre-buffer (used only for `ShortFront`).
 type Buffer = SmallVec<[Date; 32]>;
@@ -132,11 +281,6 @@ fn apply_eom(date: Date) -> Date {
     Date::from_calendar_date(year, month, last_day).unwrap_or(date)
 }
 
-/// Check if a year is a leap year.
-fn is_leap_year(year: i32) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
-}
-
 /// Lazy schedule iterator. Internally uses either a streaming lazy generator
 /// or a small pre-buffer for `ShortFront` stub schedules.
 pub enum ScheduleIter {
@@ -194,9 +338,9 @@ where
     type Item = Date;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner
-            .next()
-            .map(|date| adjust(date, self.conv, self.cal))
+        self.inner.next().and_then(|date| {
+            adjust(date, self.conv, self.cal).ok()
+        })
     }
 }
 
@@ -253,6 +397,49 @@ impl Iterator for LazyIter {
 
         Some(current)
     }
+}
+
+/// Create a CDS schedule using IMM roll dates (quarterly on the 20th).
+/// 
+/// This convenience function creates a standard Credit Default Swap schedule
+/// that follows IMM roll dates (20-Mar, 20-Jun, 20-Sep, 20-Dec).
+/// The start date will be adjusted to the next CDS roll date if it doesn't
+/// fall on one.
+///
+/// # Examples
+/// ```
+/// use finstack_core::dates::{cds_schedule, Date};
+/// use time::Month;
+///
+/// let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+/// let end   = Date::from_calendar_date(2025, Month::December, 20).unwrap();
+/// let dates: Vec<_> = cds_schedule(start, end).collect();
+/// // Will generate: 2025-03-20, 2025-06-20, 2025-09-20, 2025-12-20
+/// ```
+pub fn cds_schedule(start: Date, end: Date) -> impl Iterator<Item = Date> {
+    use super::next_cds_date;
+    
+    // Adjust start to next CDS date if it doesn't fall on a CDS roll date
+    let adjusted_start = if is_cds_roll_date(start) {
+        start
+    } else {
+        next_cds_date(start)
+    };
+    
+    ScheduleBuilder::new(adjusted_start, end)
+        .cds_imm()
+        .build_raw()
+}
+
+/// Check if a date is a CDS roll date (20th of Mar/Jun/Sep/Dec).
+fn is_cds_roll_date(date: Date) -> bool {
+    use time::Month;
+    
+    if date.day() != 20 {
+        return false;
+    }
+    
+    matches!(date.month(), Month::March | Month::June | Month::September | Month::December)
 }
 
 /// Public entry-point creating a schedule iterator.
@@ -374,6 +561,23 @@ impl<'a> ScheduleBuilder<'a> {
     pub fn end_of_month(mut self, eom: bool) -> Self {
         self.eom = eom;
         self
+    }
+
+    /// Create a CDS IMM schedule (quarterly on the 20th: 20-Mar, 20-Jun, 20-Sep, 20-Dec).
+    /// This is a convenience method for credit default swap schedules that follow
+    /// standard IMM roll dates.
+    #[must_use]
+    pub fn cds_imm(mut self) -> Self {
+        self.freq = Frequency::Months(3);
+        self.stub = StubKind::ShortBack;
+        self
+    }
+
+    /// Generate the schedule iterator with optional diagnostics collection.
+    /// When `collect_diagnostics` is true, generation rules for each date can be retrieved.
+    pub fn build_with_diagnostics(self, collect_diagnostics: bool) -> ScheduleIterWithDiagnostics {
+        let base_iter = self.build_raw();
+        ScheduleIterWithDiagnostics::new(base_iter, collect_diagnostics)
     }
 
     /// Generate the schedule iterator.

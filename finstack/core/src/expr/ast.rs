@@ -243,22 +243,7 @@ pub enum WindowSpec {
     Time(TimeWindow),
 }
 
-/// Execution plan metadata for determinism and caching.
-#[derive(Clone, Debug)]
-pub struct ExecMeta {
-    /// Whether to use deterministic execution paths.
-    pub deterministic: bool,
-    /// Whether parallel execution is enabled.
-    pub parallel: bool,
-    /// Numeric mode being used.
-    pub numeric_mode: crate::config::NumericMode,
-    /// Schema version for forward compatibility.
-    pub version: u32,
-    /// Rounding mode for decimal calculations.
-    pub rounding_mode: crate::config::RoundingMode,
-    /// FX policy identifier for currency conversions.
-    pub fx_policy: Option<String>,
-}
+// ExecMeta removed in favor of unified config::ResultsMeta
 
 /// Result envelope that includes execution metadata.
 #[derive(Clone, Debug)]
@@ -266,24 +251,7 @@ pub struct EvaluationResult {
     /// The computed values.
     pub values: Vec<crate::F>,
     /// Execution metadata stamped into result.
-    pub metadata: ResultMetadata,
+    pub metadata: crate::config::ResultsMeta,
 }
 
-/// Metadata stamped into evaluation results.
-#[derive(Clone, Debug)]
-pub struct ResultMetadata {
-    /// Whether result was computed deterministically.
-    pub deterministic: bool,
-    /// Whether parallel execution was used.
-    pub parallel_execution: bool,
-    /// Numeric mode used for computation.
-    pub numeric_mode: crate::config::NumericMode,
-    /// Rounding context active during computation.
-    pub rounding_context: crate::config::RoundingMode,
-    /// FX policy applied (if any).
-    pub fx_policy_applied: Option<String>,
-    /// Execution time in nanoseconds.
-    pub execution_time_ns: u64,
-    /// Cache hit ratio during evaluation.
-    pub cache_hit_ratio: Option<f64>,
-}
+// ResultMetadata removed in favor of unified config::ResultsMeta

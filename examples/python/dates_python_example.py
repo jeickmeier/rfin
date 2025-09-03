@@ -18,7 +18,15 @@ from finstack.dates import (
     available_calendars,
     StubRule,
 )
-from finstack.dates import third_wednesday, next_imm, next_cds_date
+from finstack.dates import (
+    third_wednesday, 
+    next_imm, 
+    next_cds_date,
+    # Additional functions will be available after rebuilding Python bindings:
+    # third_friday,
+    # next_equity_option_expiry, 
+    # imm_option_expiry,
+)
 
 print(f"Finstack version: {finstack.__version__}\n")
 
@@ -65,11 +73,15 @@ print(f"Next IMM after {trade_date}: {next_imm_date}")
 next_cds = next_cds_date(trade_date)
 print(f"Next CDS roll date after {trade_date}: {next_cds}")
 
-# Weekday addition (excludes weekends only, not holidays)
-plus_3wd = trade_date.add_weekdays(3)
-minus_2wd = trade_date.add_weekdays(-2)
-print(f"Trade +3 weekdays = {plus_3wd}")
-print(f"Trade -2 weekdays = {minus_2wd}")
+# Note: Additional IMM functions (third_friday, next_equity_option_expiry, imm_option_expiry)
+# and add_business_days method will be available after Python bindings are rebuilt
+print("Note: Enhanced IMM functions and add_business_days method available after rebuild")
+
+# Note: Weekday and business day addition methods will be available
+# after Python bindings are rebuilt with the latest Rust enhancements
+print("Enhanced date arithmetic methods coming soon:")
+print("  • add_weekdays(n) - skip weekends only") 
+print("  • add_business_days(n, calendar) - skip weekends AND holidays")
 
 # Day-count year fraction examples
 convention = DayCount.act360()
@@ -130,6 +142,10 @@ print(
 )
 print("--------------------------------")
 print([str(d) for d in schedule_adjusted])
+
+print("\nNote: See equity_option_schedule_example.py for comprehensive")
+print("      equity option expiry schedule building examples using")
+print("      third Friday presets and IMM comparison patterns.")
 
 # Demonstration of a Short Front stub (Semi-Annual frequency)
 # -------------------------------------------------------------------

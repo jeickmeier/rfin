@@ -1,8 +1,40 @@
-//! Type-safe money amounts – **simplified**.
+//! Type-safe money amounts with configurable rounding and precision.
 //!
-//! This version collapses the previous generic `Money<F>` hierarchy into a
-//! single concrete type using `f64` for the numeric representation.
-//! The struct guarantees that all arithmetic keeps the same [`Currency`].
+//! This module provides the `Money` type for representing monetary amounts with
+//! currency information and configurable rounding behavior. It supports both
+//! `f64` and `rust_decimal::Decimal` backends via feature flags.
+//!
+//! # Rounding Modes
+//!
+//! The library supports five rounding modes via the `RoundingMode` enum:
+//!
+//! - **Bankers**: Round half to even (IEEE 754 default, unbiased)
+//! - **AwayFromZero**: Round half away from zero (traditional rounding)
+//! - **TowardZero**: Truncate toward zero (floor for positive, ceil for negative)
+//! - **Floor**: Round toward negative infinity
+//! - **Ceil**: Round toward positive infinity
+//!
+//! # Display vs Internal Rounding Behavior
+//!
+//! ## f64 Backend (default)
+//! - **Internal**: Full IEEE 754 double precision (53-bit mantissa)
+//! - **Display**: Rounded to currency-specific decimal places (e.g., 2 for USD, 0 for JPY)
+//! - **Arithmetic**: Performed at full precision, rounded only at display/export
+//! - **Example**: USD 1.23456789 → internal: 1.23456789, display: 1.23
+//!
+//! ## Decimal Backend (feature = "decimal128")
+//! - **Internal**: Full 28-digit precision with configurable scale
+//! - **Display**: Rounded to currency-specific decimal places
+//! - **Arithmetic**: Performed at full precision, rounded only at display/export
+//! - **Example**: USD 1.234567890123456789 → internal: 1.234567890123456789, display: 1.23
+//!
+//! # Currency-Specific Precision
+//!
+//! Each currency has a default number of decimal places:
+//! - **USD, EUR, GBP**: 2 decimal places
+//! - **JPY, KRW**: 0 decimal places (whole units only)
+//! - **KWD, BHD, TND**: 3 decimal places
+//! - **Custom**: Override via `CurrencyScalePolicy`
 //!
 //! See unit tests and `examples/` for usage and behaviour.
 

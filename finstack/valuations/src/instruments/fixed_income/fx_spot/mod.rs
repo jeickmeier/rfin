@@ -169,7 +169,7 @@ impl CashflowProvider for FxSpot {
         let settle_date = if let Some(date) = self.settlement {
             if let Some(id) = self.calendar_id {
                 if let Some(cal) = calendar_by_id(id) {
-                    adjust(date, self.bdc, cal)
+                    adjust(date, self.bdc, cal)?
                 } else {
                     date
                 }

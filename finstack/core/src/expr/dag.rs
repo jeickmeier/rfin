@@ -33,7 +33,7 @@ pub struct ExecutionPlan {
     /// Root node IDs (final outputs).
     pub roots: Vec<u64>,
     /// Execution metadata.
-    pub meta: ExecMeta,
+    pub meta: crate::config::ResultsMeta,
     /// Cache strategy recommendations.
     pub cache_strategy: CacheStrategy,
 }
@@ -67,7 +67,7 @@ impl DagBuilder {
     }
 
     /// Build an execution plan from a list of root expressions.
-    pub fn build_plan(&mut self, exprs: Vec<Expr>, meta: ExecMeta) -> ExecutionPlan {
+    pub fn build_plan(&mut self, exprs: Vec<Expr>, meta: crate::config::ResultsMeta) -> ExecutionPlan {
         // Clear state
         self.expr_cache.clear();
         self.nodes.clear();

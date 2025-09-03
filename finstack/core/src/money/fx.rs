@@ -125,6 +125,7 @@ impl Default for FxCacheConfig {
 
 /// Result of a closure check
 #[derive(Clone, Debug, PartialEq)]
+#[cfg(test)]
 pub enum ClosureCheckResult {
     /// Closure check passed within tolerance
     Pass,
@@ -141,6 +142,7 @@ pub enum ClosureCheckResult {
 
 /// Result of an FX rate lookup with triangulation metadata
 #[derive(Clone, Debug, PartialEq)]
+#[cfg(test)]
 pub struct FxRateResult {
     /// The final FX rate
     pub rate: FxRate,
@@ -244,6 +246,7 @@ impl FxMatrix {
     }
 
     /// Get rate with triangulation metadata
+    #[cfg(test)]
     pub fn rate_with_metadata(
         &self,
         from: Currency,
@@ -324,6 +327,7 @@ impl FxMatrix {
     }
 
     /// Get rate with closure check: from→mid × mid→to ≈ from→to
+    #[cfg(test)]
     pub fn rate_with_closure(
         &self,
         from: Currency,
@@ -426,6 +430,7 @@ impl FxMatrix {
         cache.insert(key, entry);
     }
 
+    #[cfg(test)]
     fn check_closure(
         &self,
         direct_rate: FxRate,

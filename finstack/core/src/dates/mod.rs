@@ -45,7 +45,11 @@ pub use calendar::available_calendars;
 
 mod schedule_iter;
 
-pub use schedule_iter::{schedule, try_schedule, Frequency, ScheduleBuilder, StubKind};
+pub use schedule_iter::{
+    cds_schedule, schedule, try_schedule, 
+    DateDiagnostic, DateGenerationRule, Frequency, 
+    ScheduleBuilder, ScheduleIterWithDiagnostics, StubKind
+};
 
 mod composite;
 
@@ -59,9 +63,7 @@ pub use imm::{
 };
 
 pub mod holiday;
-// Keep holiday DSL under `dates::holiday`; avoid redundant aliases at root.
-// Re-export calendars directly for `finstack_core::dates::Target2` etc.
-pub use holiday::calendars::*;
+// Keep holiday DSL under `dates::holiday`. Prefer `dates::calendars::*` (nested alias below).
 
 mod periods;
 pub use periods::{build_fiscal_periods, build_periods, FiscalConfig, Period, PeriodId, PeriodKey};

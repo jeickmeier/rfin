@@ -16,7 +16,7 @@ use finstack_core::{
     F,
 };
 
-use super::interpolation::PyInterpStyle;
+use super::interpolation::{PyInterpStyle, PyExtrapolationPolicy};
 use crate::core::dates::PyDate;
 use crate::core::dates::PyDayCount;
 
@@ -74,6 +74,8 @@ impl PyDiscountCurve {
     ///     times (List[float] | numpy.ndarray): Time points in years from base_date
     ///     discount_factors (List[float] | numpy.ndarray): Discount factors at each time point
     ///     interpolation (InterpStyle): Interpolation method (default: Linear)
+    ///     extrapolation (ExtrapolationPolicy): Extrapolation policy (default: FlatZero)
+    ///     require_monotonic (bool): Require strictly decreasing DFs for credit curves (default: False)
     ///
     /// Returns:
     ///     DiscountCurve: A new discount curve instance
@@ -81,13 +83,15 @@ impl PyDiscountCurve {
     /// Raises:
     ///     ValueError: If inputs are invalid (e.g., non-monotonic times, non-positive DFs)
     #[new]
-    #[pyo3(signature = (id, base_date, times, discount_factors, interpolation=PyInterpStyle::Linear))]
+    #[pyo3(signature = (id, base_date, times, discount_factors, interpolation=PyInterpStyle::Linear, extrapolation=PyExtrapolationPolicy::FlatZero, require_monotonic=false))]
     fn new(
         id: String,
         base_date: &PyDate,
         times: &Bound<'_, PyAny>,
         discount_factors: &Bound<'_, PyAny>,
         interpolation: PyInterpStyle,
+        extrapolation: PyExtrapolationPolicy,
+        require_monotonic: bool,
     ) -> PyResult<Self> {
         // Convert times and discount_factors to Vec<F>
         let times_vec = extract_f64_array(times)?;
@@ -117,6 +121,14 @@ impl PyDiscountCurve {
             PyInterpStyle::FlatForward => builder.flat_fwd(),
         };
 
+        // Set extrapolation policy
+        builder = builder.extrapolation(extrapolation.to_core());
+
+        // Set monotonic validation if required
+        if require_monotonic {
+            builder = builder.require_monotonic();
+        }
+
         let curve = builder.build().map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
                 "Failed to build curve: {:?}",
@@ -137,17 +149,21 @@ impl PyDiscountCurve {
     ///     times (List[float] | numpy.ndarray): Time points in years
     ///     zero_rates (List[float] | numpy.ndarray): Continuously compounded zero rates
     ///     interpolation (InterpStyle): Interpolation method (default: Linear)
+    ///     extrapolation (ExtrapolationPolicy): Extrapolation policy (default: FlatZero)
+    ///     require_monotonic (bool): Require strictly decreasing DFs for credit curves (default: False)
     ///
     /// Returns:
     ///     DiscountCurve: A new discount curve instance
     #[staticmethod]
-    #[pyo3(signature = (id, base_date, times, zero_rates, interpolation=PyInterpStyle::Linear))]
+    #[pyo3(signature = (id, base_date, times, zero_rates, interpolation=PyInterpStyle::Linear, extrapolation=PyExtrapolationPolicy::FlatZero, require_monotonic=false))]
     fn from_zero_rates(
         id: String,
         base_date: &PyDate,
         times: &Bound<'_, PyAny>,
         zero_rates: &Bound<'_, PyAny>,
         interpolation: PyInterpStyle,
+        extrapolation: PyExtrapolationPolicy,
+        require_monotonic: bool,
     ) -> PyResult<Self> {
         let times_vec = extract_f64_array(times)?;
         let zeros_vec = extract_f64_array(zero_rates)?;
@@ -168,7 +184,7 @@ impl PyDiscountCurve {
         // Use the regular constructor
         let py = times.py();
         let dfs_list = PyList::new(py, dfs_vec)?;
-        PyDiscountCurve::new(id, base_date, times, dfs_list.as_any(), interpolation)
+        PyDiscountCurve::new(id, base_date, times, dfs_list.as_any(), interpolation, extrapolation, require_monotonic)
     }
 
     /// Unique identifier of the curve.
@@ -412,7 +428,7 @@ impl PyForwardCurve {
                 "t2 must be greater than t1",
             ));
         }
-        Ok(self.inner.rate_period(t1, t2))
+        Ok(finstack_core::market_data::traits::Forward::rate_period(&*self.inner, t1, t2))
     }
 
     fn __repr__(&self) -> String {

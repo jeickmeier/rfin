@@ -23,7 +23,7 @@
 
 extern crate alloc;
 
-use crate::market_data::interp::InterpStyle;
+use crate::market_data::interp::{InterpStyle, ExtrapolationPolicy};
 use crate::{
     dates::Date,
     market_data::interp::InterpFn,
@@ -87,6 +87,8 @@ impl DiscountCurve {
             base: Date::from_calendar_date(1970, time::Month::January, 1).unwrap(),
             points: Vec::new(),
             style: InterpStyle::Linear,
+            extrapolation: ExtrapolationPolicy::default(),
+            require_monotonic: false,
         }
     }
 
@@ -175,6 +177,8 @@ pub struct DiscountCurveBuilder {
     base: Date,
     points: Vec<(F, F)>, // (t, df)
     style: InterpStyle,
+    extrapolation: ExtrapolationPolicy,
+    require_monotonic: bool, // Critical for credit curves
 }
 
 impl DiscountCurveBuilder {
@@ -219,6 +223,31 @@ impl DiscountCurveBuilder {
         self
     }
 
+    /// Set the extrapolation policy for out-of-bounds evaluation.
+    pub fn extrapolation(mut self, policy: ExtrapolationPolicy) -> Self {
+        self.extrapolation = policy;
+        self
+    }
+
+    /// Use **flat-zero** extrapolation (extend endpoint values).
+    pub fn flat_zero_extrapolation(mut self) -> Self {
+        self.extrapolation = ExtrapolationPolicy::FlatZero;
+        self
+    }
+
+    /// Use **flat-forward** extrapolation (extend forward rates).
+    pub fn flat_forward_extrapolation(mut self) -> Self {
+        self.extrapolation = ExtrapolationPolicy::FlatForward;
+        self
+    }
+
+    /// Require monotonic (strictly decreasing) discount factors.
+    /// This is critical for credit curves to ensure arbitrage-free pricing.
+    pub fn require_monotonic(mut self) -> Self {
+        self.require_monotonic = true;
+        self
+    }
+
     /// Validate input and create the [`DiscountCurve`].
     #[allow(unused_mut)]
     pub fn build(mut self) -> core::result::Result<DiscountCurve, super::CurveError> {
@@ -232,12 +261,19 @@ impl DiscountCurveBuilder {
         let (knots_vec, dfs_vec): (Vec<F>, Vec<F>) = self.points.into_iter().unzip();
         crate::market_data::utils::validate_knots(&knots_vec)
             .map_err(|_| super::CurveError::NonMonotonicKnots)?;
+        
+        // Validate monotonic discount factors if required (critical for credit curves)
+        if self.require_monotonic {
+            crate::market_data::utils::validate_dfs(&dfs_vec, true)
+                .map_err(|_| super::CurveError::Invalid)?;
+        }
+        
         let knots = knots_vec.into_boxed_slice();
         let dfs = dfs_vec.into_boxed_slice();
 
         let interp = self
             .style
-            .make_interp(knots.clone(), dfs.clone())
+            .make_interp_with_extrapolation(knots.clone(), dfs.clone(), self.extrapolation)
             .map_err(|_| super::CurveError::NonPositiveValue)?;
 
         Ok(DiscountCurve {

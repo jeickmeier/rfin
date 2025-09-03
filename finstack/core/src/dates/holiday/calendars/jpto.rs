@@ -1,7 +1,18 @@
 use crate::dates::holiday::rule::Rule;
 use time::{Month, Weekday};
 
-/// Japanese banking calendar (code: JPTO) – simplified modern-era rules.
+/// Japanese banking calendar (code: JPTO).
+///
+/// **Source**: Japanese banking system holiday schedule for inter-bank operations.
+///
+/// **Observance Policy**:
+/// - Year-end holidays: New Year period (January 1-3) with Monday substitution for January 1st
+/// - Happy Monday holidays: Coming of Age Day (2nd Monday January), Marine Day (3rd Monday July), Respect for the Aged Day (3rd Monday September), Sports Day (2nd Monday October)
+/// - Fixed holidays with weekend substitution: National Foundation Day, Emperor's Birthday, Showa Day, Constitution Day, Greenery Day, Children's Day, Mountain Day, Culture Day, Labor Thanksgiving Day
+/// - Equinox holidays: Vernal Equinox Day, Autumnal Equinox Day (calculated annually)
+/// - Weekend substitution: Holidays falling on weekends are moved to the following Monday
+///
+/// **Coverage**: Full year range supported (1970-2150).
 const JPTO_RULES: &[Rule] = &[
     // Year-end bank holidays
     Rule::fixed(Month::January, 1),

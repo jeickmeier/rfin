@@ -127,10 +127,11 @@ fn test_cubic_hermite_derivative() {
         interp.interp_prime(3.0),
     ];
 
-    // All derivatives should be finite and negative (decreasing discount factors)
+    // All derivatives should be finite and non-positive (monotone-preserving)
+    // PCHIP can produce zero slopes at boundaries or inflection points
     for &deriv in &derivative_at_knots {
         assert!(deriv.is_finite());
-        assert!(deriv < 0.0); // Discount factors are decreasing
+        assert!(deriv <= 0.0); // Non-positive for decreasing sequence
     }
 
     // Test numerical consistency: approximate derivative using finite differences

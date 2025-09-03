@@ -2,6 +2,16 @@ use crate::dates::holiday::rule::Rule;
 use time::Month;
 
 /// German XETRA stock-exchange calendar (code: DEFR).
+///
+/// **Source**: German XETRA electronic trading system holiday schedule.
+///
+/// **Observance Policy**:
+/// - Fixed holidays: New Year, Labour Day, Christmas (2 days)
+/// - Easter holidays: Good Friday, Easter Monday
+/// - No weekend substitution: Holidays are observed on their actual dates regardless of day of week
+/// - Minimal holiday set: Only major national holidays observed
+///
+/// **Coverage**: Full year range supported (1970-2150).
 const DEFR_RULES: &[Rule] = &[
     Rule::fixed(Month::January, 1),   // New Year
     Rule::EasterOffset(-3),           // Good Friday

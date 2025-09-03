@@ -366,10 +366,7 @@ impl MarketContext {
             .ok_or(crate::error::InputError::NotFound { id: id_str.to_string() }.into())
     }
 
-    /// Backwards compatibility alias for fetching a scalar.
-    pub fn scalar(&self, id: impl AsRef<str>) -> crate::Result<&MarketScalar> {
-        self.market_scalar(id)
-    }
+    
 
     /// Get discount curve by id.
     pub fn discount(&self, id: impl AsRef<str>) -> crate::Result<Arc<dyn Discount + Send + Sync>> {

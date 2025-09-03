@@ -34,7 +34,7 @@ impl CompiledExpr {
     }
 
     /// Construct with DAG planning enabled.
-    pub fn with_planning(ast: Expr, meta: ExecMeta) -> Self {
+    pub fn with_planning(ast: Expr, meta: crate::config::ResultsMeta) -> Self {
         let mut builder = DagBuilder::new();
         let plan = builder.build_plan(vec![ast.clone()], meta);
         let cache = CacheManager::for_plan(&plan, 100); // 100MB default
@@ -101,7 +101,8 @@ impl CompiledExpr {
             // Cache result if strategy recommends it
             if let Some(ref cache) = self.cache {
                 if plan.cache_strategy.cache_nodes.contains(&node.id) {
-                    cache.put(node.id, CachedResult::Scalar(result.clone()));
+                    let arc: std::sync::Arc<[crate::F]> = std::sync::Arc::from(result.clone().into_boxed_slice());
+                    cache.put(node.id, CachedResult::Scalar(arc));
                 }
             }
 
@@ -121,12 +122,12 @@ impl CompiledExpr {
         &self,
         ctx: &C,
         cols: &[&[crate::F]],
-        exec_meta: ExecMeta,
+        mut meta: crate::config::ResultsMeta,
     ) -> EvaluationResult {
         let start_time = std::time::Instant::now();
 
         // Use the appropriate evaluation path based on determinism setting
-        let values = if exec_meta.deterministic && self.plan.is_some() {
+        let values = if meta.deterministic && self.plan.is_some() {
             // Force sequential execution for determinism
             let mut sequential_self = self.clone();
             sequential_self.cache = None; // Disable cache for full determinism
@@ -138,19 +139,12 @@ impl CompiledExpr {
         let execution_time_ns = start_time.elapsed().as_nanos() as u64;
 
         // Calculate cache hit ratio if cache is available
-        let cache_hit_ratio = self.cache.as_ref().map(|cache| cache.hit_ratio());
+        meta.cache_hit_ratio = self.cache.as_ref().map(|cache| cache.hit_ratio());
+        meta.execution_time_ns = Some(execution_time_ns);
+        // Parallel flag reflects plan presence and meta.parallel desire
+        meta.parallel = meta.parallel && self.plan.is_some();
 
-        let metadata = ResultMetadata {
-            deterministic: exec_meta.deterministic,
-            parallel_execution: exec_meta.parallel && self.plan.is_some(),
-            numeric_mode: exec_meta.numeric_mode,
-            rounding_context: exec_meta.rounding_mode,
-            fx_policy_applied: exec_meta.fx_policy,
-            execution_time_ns,
-            cache_hit_ratio,
-        };
-
-        EvaluationResult { values, metadata }
+        EvaluationResult { values, metadata: meta }
     }
 
     /// Evaluate a single DAG node.
@@ -280,6 +274,24 @@ impl CompiledExpr {
     }
 
     // --- Helper evaluators (scalar path) ---
+
+    #[inline]
+    fn rolling_apply(
+        base: &[crate::F],
+        win: usize,
+        mut op: impl FnMut(&[crate::F]) -> crate::F,
+    ) -> Vec<crate::F> {
+        let len = base.len();
+        let mut out = Vec::with_capacity(len);
+        for i in 0..len {
+            if i + 1 < win {
+                out.push(f64::NAN as crate::F);
+            } else {
+                out.push(op(&base[i + 1 - win..=i]));
+            }
+        }
+        out
+    }
 
     fn eval_lag(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
@@ -415,44 +427,22 @@ impl CompiledExpr {
 
     fn eval_rolling_mean(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
-        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-            let base = &arg_results[0];
-            let win = arg_results[1][0] as usize;
-            for i in 0..len {
-                if i + 1 < win {
-                    out.push(f64::NAN as crate::F);
-                } else {
-                    let s: crate::F = base[i + 1 - win..=i]
-                        .iter()
-                        .copied()
-                        .fold(0.0 as crate::F, |acc, v| acc + v);
-                    out.push(s / (win as crate::F));
-                }
-            }
+        if arg_results.len() < 2 || arg_results[1].is_empty() || len == 0 {
+            return Vec::with_capacity(len);
         }
-        out
+        let base = &arg_results[0];
+        let win = arg_results[1][0] as usize;
+        Self::rolling_apply(base, win, |w| w.iter().copied().sum::<crate::F>() / (win as crate::F))
     }
 
     fn eval_rolling_sum(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
-        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-            let base = &arg_results[0];
-            let win = arg_results[1][0] as usize;
-            for i in 0..len {
-                if i + 1 < win {
-                    out.push(f64::NAN as crate::F);
-                } else {
-                    let s: crate::F = base[i + 1 - win..=i]
-                        .iter()
-                        .copied()
-                        .fold(0.0 as crate::F, |acc, v| acc + v);
-                    out.push(s);
-                }
-            }
+        if arg_results.len() < 2 || arg_results[1].is_empty() || len == 0 {
+            return Vec::with_capacity(len);
         }
-        out
+        let base = &arg_results[0];
+        let win = arg_results[1][0] as usize;
+        Self::rolling_apply(base, win, |w| w.iter().copied().sum::<crate::F>())
     }
 
     fn eval_ewm_mean(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
@@ -557,81 +547,51 @@ impl CompiledExpr {
 
     fn eval_rolling_std(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
-        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-            let base = &arg_results[0];
-            let win = arg_results[1][0] as usize;
-            for i in 0..len {
-                if i + 1 < win {
-                    out.push(f64::NAN as crate::F);
-                } else {
-                    let slice = &base[i + 1 - win..=i];
-                    let m = slice.iter().copied().sum::<f64>() / win as f64;
-                    let var = slice
-                        .iter()
-                        .map(|v| {
-                            let dv = *v - m;
-                            dv * dv
-                        })
-                        .sum::<f64>()
-                        / win as f64;
-                    out.push(var.sqrt() as crate::F);
-                }
-            }
+        if arg_results.len() < 2 || arg_results[1].is_empty() || len == 0 {
+            return Vec::with_capacity(len);
         }
-        out
+        let base = &arg_results[0];
+        let win = arg_results[1][0] as usize;
+        Self::rolling_apply(base, win, |w| {
+            let m = w.iter().copied().sum::<f64>() / (win as f64);
+            let var = w.iter().map(|v| {
+                let dv = *v - m;
+                dv * dv
+            }).sum::<f64>() / (win as f64);
+            var.sqrt() as crate::F
+        })
     }
 
     fn eval_rolling_var(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
-        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-            let base = &arg_results[0];
-            let win = arg_results[1][0] as usize;
-            for i in 0..len {
-                if i + 1 < win {
-                    out.push(f64::NAN as crate::F);
-                } else {
-                    let slice = &base[i + 1 - win..=i];
-                    let m = slice.iter().copied().sum::<f64>() / win as f64;
-                    let var = slice
-                        .iter()
-                        .map(|v| {
-                            let dv = *v - m;
-                            dv * dv
-                        })
-                        .sum::<f64>()
-                        / win as f64;
-                    out.push(var as crate::F);
-                }
-            }
+        if arg_results.len() < 2 || arg_results[1].is_empty() || len == 0 {
+            return Vec::with_capacity(len);
         }
-        out
+        let base = &arg_results[0];
+        let win = arg_results[1][0] as usize;
+        Self::rolling_apply(base, win, |w| {
+            let m = w.iter().copied().sum::<f64>() / (win as f64);
+            let var = w.iter().map(|v| {
+                let dv = *v - m;
+                dv * dv
+            }).sum::<f64>() / (win as f64);
+            var as crate::F
+        })
     }
 
     fn eval_rolling_median(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
-        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-            let base = &arg_results[0];
-            let win = arg_results[1][0] as usize;
-            for i in 0..len {
-                if i + 1 < win {
-                    out.push(f64::NAN as crate::F);
-                } else {
-                    let mut v = base[i + 1 - win..=i].to_vec();
-                    v.sort_by(|a, b| a.partial_cmp(b).unwrap());
-                    let k = v.len();
-                    let med = if k % 2 == 1 {
-                        v[k / 2]
-                    } else {
-                        (v[k / 2 - 1] + v[k / 2]) * (0.5 as crate::F)
-                    };
-                    out.push(med);
-                }
-            }
+        if arg_results.len() < 2 || arg_results[1].is_empty() || len == 0 {
+            return Vec::with_capacity(len);
         }
-        out
+        let base = &arg_results[0];
+        let win = arg_results[1][0] as usize;
+        Self::rolling_apply(base, win, |w| {
+            let mut v = w.to_vec();
+            v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let k = v.len();
+            if k % 2 == 1 { v[k / 2] } else { (v[k / 2 - 1] + v[k / 2]) * (0.5 as crate::F) }
+        })
     }
 
     // Time-based rolling (Dynamic windows) are handled via Polars only.
@@ -712,74 +672,36 @@ impl CompiledExpr {
 
     fn eval_rolling_min(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
-        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-            let base = &arg_results[0];
-            let win = arg_results[1][0] as usize;
-            for i in 0..len {
-                if i + 1 < win {
-                    out.push(f64::NAN as crate::F);
-                } else {
-                    let window_data = &base[i + 1 - win..=i];
-                    let min_val = window_data
-                        .iter()
-                        .copied()
-                        .filter(|&x| !x.is_nan())
-                        .min_by(|a, b| a.partial_cmp(b).unwrap())
-                        .unwrap_or(f64::NAN);
-                    out.push(min_val);
-                }
-            }
+        if arg_results.len() < 2 || arg_results[1].is_empty() || len == 0 {
+            return Vec::with_capacity(len);
         }
-        out
+        let base = &arg_results[0];
+        let win = arg_results[1][0] as usize;
+        Self::rolling_apply(base, win, |w| {
+            w.iter().copied().filter(|x| !x.is_nan()).min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap_or(f64::NAN)
+        })
     }
 
     fn eval_rolling_max(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
-        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-            let base = &arg_results[0];
-            let win = arg_results[1][0] as usize;
-            for i in 0..len {
-                if i + 1 < win {
-                    out.push(f64::NAN as crate::F);
-                } else {
-                    let window_data = &base[i + 1 - win..=i];
-                    let max_val = window_data
-                        .iter()
-                        .copied()
-                        .filter(|&x| !x.is_nan())
-                        .max_by(|a, b| a.partial_cmp(b).unwrap())
-                        .unwrap_or(f64::NAN);
-                    out.push(max_val);
-                }
-            }
+        if arg_results.len() < 2 || arg_results[1].is_empty() || len == 0 {
+            return Vec::with_capacity(len);
         }
-        out
+        let base = &arg_results[0];
+        let win = arg_results[1][0] as usize;
+        Self::rolling_apply(base, win, |w| {
+            w.iter().copied().filter(|x| !x.is_nan()).max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap_or(f64::NAN)
+        })
     }
 
     fn eval_rolling_count(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
-        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-            let base = &arg_results[0];
-            let win = arg_results[1][0] as usize;
-            for i in 0..len {
-                if i + 1 < win {
-                    let count =
-                        base[0..=i].iter().copied().filter(|&x| !x.is_nan()).count() as crate::F;
-                    out.push(count);
-                } else {
-                    let count = base[i + 1 - win..=i]
-                        .iter()
-                        .copied()
-                        .filter(|&x| !x.is_nan())
-                        .count() as crate::F;
-                    out.push(count);
-                }
-            }
+        if arg_results.len() < 2 || arg_results[1].is_empty() || len == 0 {
+            return Vec::with_capacity(len);
         }
-        out
+        let base = &arg_results[0];
+        let win = arg_results[1][0] as usize;
+        Self::rolling_apply(base, win, |w| w.iter().copied().filter(|x| !x.is_nan()).count() as crate::F)
     }
 
     fn eval_ewm_std(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
@@ -924,19 +846,19 @@ impl CompiledExpr {
                 }
             }
             ExprNode::Call(fun, args) => match fun {
-                Function::Lag => Some(Self::lower_binary(&args[0], &args[1], |x, n| {
+                Function::Lag => Self::lower_binary(&args[0], &args[1], |x, n| {
                     x.shift(lit(arg_as_i64(n)))
-                })),
-                Function::Lead => Some(Self::lower_binary(&args[0], &args[1], |x, n| {
+                }),
+                Function::Lead => Self::lower_binary(&args[0], &args[1], |x, n| {
                     x.shift(lit(-(arg_as_i64(n))))
-                })),
-                Function::Diff => Some(Self::lower_unary_int(&args[0], args.get(1), |x, n| {
+                }),
+                Function::Diff => Self::lower_unary_int(&args[0], args.get(1), |x, n| {
                     x.clone() - x.shift(lit(n as i64))
-                })),
+                }),
                 Function::PctChange => {
-                    Some(Self::lower_unary_int(&args[0], args.get(1), |x, n| {
+                    Self::lower_unary_int(&args[0], args.get(1), |x, n| {
                         (x.clone() / x.shift(lit(n as i64))) - lit(1.0)
-                    }))
+                    })
                 }
                 Function::RollingMean => Some({
                     let n = arg_as_usize(&args[1]);
@@ -1049,7 +971,7 @@ impl CompiledExpr {
         }
     }
 
-    fn lower_unary_int<FN>(e: &Expr, n: Option<&Expr>, f: FN) -> polars::prelude::Expr
+    fn lower_unary_int<FN>(e: &Expr, n: Option<&Expr>, f: FN) -> Option<polars::prelude::Expr>
     where
         FN: FnOnce(polars::prelude::Expr, usize) -> polars::prelude::Expr,
     {
@@ -1058,18 +980,17 @@ impl CompiledExpr {
             plan: None,
             cache: None,
         }
-        .to_polars_expr()
-        .unwrap();
+        .to_polars_expr()?;
         let n = n
             .map(|n_expr| match &n_expr.node {
                 ExprNode::Literal(val) => (*val as i64).max(0) as usize,
                 _ => 1,
             })
             .unwrap_or(1);
-        f(x, n)
+        Some(f(x, n))
     }
 
-    fn lower_binary<FN>(lhs: &Expr, rhs: &Expr, f: FN) -> polars::prelude::Expr
+    fn lower_binary<FN>(lhs: &Expr, rhs: &Expr, f: FN) -> Option<polars::prelude::Expr>
     where
         FN: FnOnce(polars::prelude::Expr, &Expr) -> polars::prelude::Expr,
     {
@@ -1078,9 +999,8 @@ impl CompiledExpr {
             plan: None,
             cache: None,
         }
-        .to_polars_expr()
-        .unwrap();
-        f(x, rhs)
+        .to_polars_expr()?;
+        Some(f(x, rhs))
     }
 }
 
