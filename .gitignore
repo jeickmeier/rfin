@@ -67,3 +67,6 @@ htmlcov/
 .dmypy.json
 dmypy.json
 EOF < /dev/null
+
+# Temp files
+concatenated_code.txt
