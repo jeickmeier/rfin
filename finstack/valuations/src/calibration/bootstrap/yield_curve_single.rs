@@ -6,7 +6,7 @@
 //! Uses instrument pricing methods directly rather than reimplementing
 //! pricing formulas, following market-standard bootstrap methodology.
 
-use crate::calibration::primitives::{CalibrationConstraint, InstrumentQuote};
+use crate::calibration::primitives::InstrumentQuote;
 use crate::calibration::solver::Solver;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::fra::ForwardRateAgreement;
@@ -477,11 +477,10 @@ impl DiscountCurveCalibrator {
     }
 }
 
-impl Calibrator<InstrumentQuote, CalibrationConstraint, DiscountCurve> for DiscountCurveCalibrator {
+impl Calibrator<InstrumentQuote, DiscountCurve> for DiscountCurveCalibrator {
     fn calibrate(
         &self,
         instruments: &[InstrumentQuote],
-        _constraints: &[CalibrationConstraint],
         base_context: &MarketContext,
     ) -> Result<(DiscountCurve, CalibrationReport)> {
         // Use the Newton solver for calibration

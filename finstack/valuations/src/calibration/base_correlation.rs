@@ -3,7 +3,7 @@
 //! Implements market-standard base correlation bootstrapping using the
 //! one-factor Gaussian Copula model and equity tranche decomposition.
 
-use crate::calibration::primitives::{CalibrationConstraint, HashableFloat, InstrumentQuote};
+use crate::calibration::primitives::{HashableFloat, InstrumentQuote};
 use crate::calibration::solver::Solver;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
@@ -294,13 +294,12 @@ impl BaseCorrelationCalibrator {
     }
 }
 
-impl Calibrator<InstrumentQuote, CalibrationConstraint, BaseCorrelationCurve>
+impl Calibrator<InstrumentQuote, BaseCorrelationCurve>
     for BaseCorrelationCalibrator
 {
     fn calibrate(
         &self,
         instruments: &[InstrumentQuote],
-        _constraints: &[CalibrationConstraint],
         base_context: &MarketContext,
     ) -> Result<(BaseCorrelationCurve, CalibrationReport)> {
         // Convert core market context to valuation context

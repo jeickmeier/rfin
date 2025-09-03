@@ -3,7 +3,7 @@
 //! Implements market-standard inflation curve calibration using zero-coupon
 //! inflation swaps to build forward CPI level curves.
 
-use crate::calibration::primitives::{CalibrationConstraint, InstrumentQuote};
+use crate::calibration::primitives::InstrumentQuote;
 use crate::calibration::solver::HybridSolver;
 use crate::calibration::solver::Solver;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
@@ -72,17 +72,16 @@ impl InflationCurveCalibrator {
         _inflation_index: &finstack_core::market_data::inflation_index::InflationIndex,
     ) -> Result<(InflationCurve, CalibrationReport)> {
         // Delegate to simplified calibrate implementation for now
-        self.calibrate(quotes, &[], &MarketContext::new())
+        self.calibrate(quotes, &MarketContext::new())
     }
 }
 
-impl Calibrator<InstrumentQuote, CalibrationConstraint, InflationCurve>
+impl Calibrator<InstrumentQuote, InflationCurve>
     for InflationCurveCalibrator
 {
     fn calibrate(
         &self,
         instruments: &[InstrumentQuote],
-        _constraints: &[CalibrationConstraint],
         base_context: &MarketContext,
     ) -> Result<(InflationCurve, CalibrationReport)> {
         // Extract relevant inflation swap quotes for this index and sort by maturity
@@ -335,7 +334,7 @@ mod tests {
         let market_context = MarketContext::new().with_discount(discount_curve);
         
         // Use the calibrate method directly with proper market context
-        let result = calibrator.calibrate(&quotes, &[], &market_context);
+        let result = calibrator.calibrate(&quotes, &market_context);
 
         assert!(result.is_ok());
         let (curve, report) = result.unwrap();
@@ -370,7 +369,7 @@ mod tests {
             base_cpi,
             "USD-OIS", // Discount curve ID
         );
-        let calib = calibrator.calibrate(&quotes, &[], &base_context);
+        let calib = calibrator.calibrate(&quotes, &base_context);
         assert!(calib.is_ok(), "calibration failed: {:?}", calib.err());
         let (infl_curve, _report) = calib.unwrap();
 

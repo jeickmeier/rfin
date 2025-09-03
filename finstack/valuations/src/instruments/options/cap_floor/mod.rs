@@ -19,8 +19,6 @@ pub enum RateOptionType {
     Cap,
     /// Floor (series of floorlets)
     Floor,
-    /// Swaption (option on swap)
-    Swaption,
     /// Caplet (single period cap)
     Caplet,
     /// Floorlet (single period floor)
@@ -58,8 +56,6 @@ pub struct InterestRateOption {
     pub vol_id: &'static str,
     /// Implied volatility (if known, overrides vol surface)
     pub implied_vol: Option<F>,
-    /// For swaptions: underlying swap tenor in years
-    pub swap_tenor: Option<F>,
     /// Additional attributes
     pub attributes: Attributes,
 }
@@ -95,7 +91,6 @@ impl InterestRateOption {
             forward_id,
             vol_id,
             implied_vol: None,
-            swap_tenor: None,
             attributes: Attributes::new(),
         }
     }
@@ -158,40 +153,6 @@ impl InterestRateOption {
         )
     }
 
-    /// Create a swaption instrument
-    #[allow(clippy::too_many_arguments)]
-    pub fn new_swaption(
-        id: impl Into<String>,
-        notional: Money,
-        strike_rate: F,
-        option_expiry: Date,
-        swap_start: Date,
-        swap_tenor_years: F,
-        frequency: Frequency,
-        day_count: DayCount,
-        disc_id: &'static str,
-        forward_id: &'static str,
-        vol_id: &'static str,
-    ) -> Self {
-        let swap_end = swap_start + time::Duration::days((swap_tenor_years * 365.25) as i64);
-
-        let mut swaption = Self::new(
-            id,
-            RateOptionType::Swaption,
-            notional,
-            strike_rate,
-            option_expiry,
-            swap_end,
-            frequency,
-            day_count,
-            disc_id,
-            forward_id,
-            vol_id,
-        );
-        swaption.swap_tenor = Some(swap_tenor_years);
-        swaption
-    }
-
     /// Calculate caplet/floorlet price using Black's model
     ///
     /// # Arguments
@@ -217,7 +178,6 @@ impl InterestRateOption {
                 RateOptionType::Floorlet | RateOptionType::Floor => {
                     (self.strike_rate - forward_rate).max(0.0)
                 }
-                _ => 0.0,
             };
             return Ok(Money::new(
                 payoff * tau * self.notional.amount() * df,
@@ -244,47 +204,7 @@ impl InterestRateOption {
                     * self.notional.amount()
                     * (self.strike_rate * norm_cdf(-d2) - forward_rate * norm_cdf(-d1))
             }
-            _ => 0.0,
         };
-
-        Ok(Money::new(price, self.notional.currency()))
-    }
-
-    /// Calculate swaption price using Black's model
-    ///
-    /// # Arguments
-    /// * `swap_rate` - Forward swap rate
-    /// * `annuity` - Annuity factor for the underlying swap
-    /// * `sigma` - Black implied volatility
-    /// * `t` - Time to swaption expiry in years
-    pub fn black_price_swaption(
-        &self,
-        swap_rate: F,
-        annuity: F,
-        sigma: F,
-        t: F,
-    ) -> finstack_core::Result<Money> {
-        if t <= 0.0 {
-            // Option expired
-            let intrinsic = (swap_rate - self.strike_rate).max(0.0);
-            return Ok(Money::new(
-                intrinsic * annuity * self.notional.amount(),
-                self.notional.currency(),
-            ));
-        }
-
-        // Black's formula for swaption
-        let d1 = if sigma > 0.0 && t > 0.0 {
-            ((swap_rate / self.strike_rate).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt())
-        } else {
-            0.0
-        };
-        let d2 = d1 - sigma * t.sqrt();
-
-        // Payer swaption (right to pay fixed)
-        let price = annuity
-            * self.notional.amount()
-            * (swap_rate * norm_cdf(d1) - self.strike_rate * norm_cdf(d2));
 
         Ok(Money::new(price, self.notional.currency()))
     }
@@ -294,20 +214,11 @@ impl InterestRateOption {
         if t <= 0.0 || sigma <= 0.0 {
             return match self.rate_option_type {
                 RateOptionType::Caplet | RateOptionType::Cap => {
-                    if forward_rate > self.strike_rate {
-                        1.0
-                    } else {
-                        0.0
-                    }
+                    if forward_rate > self.strike_rate { 1.0 } else { 0.0 }
                 }
                 RateOptionType::Floorlet | RateOptionType::Floor => {
-                    if forward_rate < self.strike_rate {
-                        -1.0
-                    } else {
-                        0.0
-                    }
+                    if forward_rate < self.strike_rate { -1.0 } else { 0.0 }
                 }
-                _ => 0.0,
             };
         }
 
@@ -317,7 +228,6 @@ impl InterestRateOption {
         match self.rate_option_type {
             RateOptionType::Caplet | RateOptionType::Cap => norm_cdf(d1),
             RateOptionType::Floorlet | RateOptionType::Floor => -norm_cdf(-d1),
-            RateOptionType::Swaption => norm_cdf(d1),
         }
     }
 
@@ -517,7 +427,6 @@ mod tests {
             forward_id: "USD-LIBOR-3M",
             vol_id: "USD-CAP-VOL",
             implied_vol: Some(0.20),
-            swap_tenor: None,
             attributes: Attributes::new(),
         };
 
@@ -544,27 +453,8 @@ mod tests {
     }
 
     #[test]
-    fn test_swaption_creation() {
-        let notional = Money::new(50_000_000.0, Currency::EUR);
-        let option_expiry = Date::from_calendar_date(2025, Month::June, 30).unwrap();
-        let swap_start = Date::from_calendar_date(2025, Month::July, 1).unwrap();
-
-        let swaption = InterestRateOption::new_swaption(
-            "EUR_5Y10Y_SWAPTION",
-            notional,
-            0.02, // 2% strike
-            option_expiry,
-            swap_start,
-            10.0, // 10-year swap
-            Frequency::annual(),
-            DayCount::ThirtyE360,
-            "EUR-OIS",
-            "EUR-EURIBOR-6M",
-            "EUR-SWAPTION-VOL",
-        );
-
-        assert_eq!(swaption.id, "EUR_5Y10Y_SWAPTION");
-        assert_eq!(swaption.rate_option_type, RateOptionType::Swaption);
-        assert_eq!(swaption.swap_tenor, Some(10.0));
+    fn placeholder_no_swaptions_here() {
+        // This test serves as a placeholder to document that swaption functionality
+        // has been moved to the dedicated swaption module
     }
 }

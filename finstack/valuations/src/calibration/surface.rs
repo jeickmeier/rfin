@@ -3,7 +3,7 @@
 //! Implements market-standard volatility surface construction by calibrating
 //! SABR parameters per expiry slice and building interpolated surfaces.
 
-use crate::calibration::primitives::{CalibrationConstraint, HashableFloat, InstrumentQuote};
+use crate::calibration::primitives::{HashableFloat, InstrumentQuote};
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::options::models::{SABRCalibrator, SABRModel, SABRParameters};
 use finstack_core::market_data::context::MarketContext;
@@ -368,11 +368,10 @@ impl VolSurfaceCalibrator {
     }
 }
 
-impl Calibrator<InstrumentQuote, CalibrationConstraint, VolSurface> for VolSurfaceCalibrator {
+impl Calibrator<InstrumentQuote, VolSurface> for VolSurfaceCalibrator {
     fn calibrate(
         &self,
         instruments: &[InstrumentQuote],
-        _constraints: &[CalibrationConstraint],
         base_context: &MarketContext,
     ) -> Result<(VolSurface, CalibrationReport)> {
         // Detect underlying from first quote to build appropriate forward function
@@ -476,7 +475,7 @@ mod tests {
                     .unwrap()
             );
 
-        let result = calibrator.calibrate(&quotes, &[], &context);
+        let result = calibrator.calibrate(&quotes, &context);
 
         assert!(result.is_ok());
         let (surface, report) = result.unwrap();

@@ -25,7 +25,7 @@ use std::collections::HashMap;
 ///
 /// This trait provides a unified interface for all calibration processes,
 /// whether they involve sequential bootstrapping or global optimization.
-pub trait Calibrator<Input, Quote, Output> {
+pub trait Calibrator<Input, Output> {
     /// Calibrate the target structure to match market quotes.
     ///
     /// # Arguments
@@ -37,8 +37,7 @@ pub trait Calibrator<Input, Quote, Output> {
     /// Calibrated output structure and diagnostic report
     fn calibrate(
         &self,
-        instruments: &[Input],
-        quotes: &[Quote],
+        quotes: &[Input],
         base_context: &MarketContext,
     ) -> Result<(Output, CalibrationReport)>;
 }

@@ -4,7 +4,7 @@
 //! sequentially across maturities using an objective that drives the CDS NPV
 //! to ~0 at the quoted spread.
 
-use crate::calibration::primitives::{CalibrationConstraint, InstrumentQuote};
+use crate::calibration::primitives::InstrumentQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::cds::{
     cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap, PayReceive,
@@ -269,11 +269,10 @@ impl HazardCurveCalibrator {
     }
 }
 
-impl Calibrator<InstrumentQuote, CalibrationConstraint, HazardCurve> for HazardCurveCalibrator {
+impl Calibrator<InstrumentQuote, HazardCurve> for HazardCurveCalibrator {
     fn calibrate(
         &self,
         instruments: &[InstrumentQuote],
-        _constraints: &[CalibrationConstraint],
         base_context: &MarketContext,
     ) -> Result<(HazardCurve, CalibrationReport)> {
         let disc = base_context.discount(&self.discount_curve_id)?;

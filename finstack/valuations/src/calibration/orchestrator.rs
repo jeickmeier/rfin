@@ -138,8 +138,25 @@ impl CalibrationOrchestrator {
             CalibrationTarget::DiscountCurve { currency } => {
                 let calibrator = DiscountCurveCalibrator::new("USD-OIS", self.base_date, *currency)
                     .with_config(self.config.clone());
-                
-                let (curve, report) = calibrator.calibrate(quotes, &[], context)?;
+
+                // Filter only rates quotes relevant for yield curve bootstrapping
+                let rates_quotes: Vec<InstrumentQuote> = quotes
+                    .iter()
+                    .filter(|q| matches!(q,
+                        InstrumentQuote::Deposit { .. }
+                        | InstrumentQuote::FRA { .. }
+                        | InstrumentQuote::Future { .. }
+                        | InstrumentQuote::Swap { .. }
+                    ))
+                    .cloned()
+                    .collect();
+
+                if rates_quotes.is_empty() {
+                    // Nothing to calibrate for discount curve in this batch
+                    return Ok((context.clone(), CalibrationReport::new().success().with_convergence_reason("No rates quotes for discount curve")));
+                }
+
+                let (curve, report) = calibrator.calibrate(&rates_quotes, context)?;
                 let updated_context = context.clone().with_discount(curve);
                 Ok((updated_context, report))
             }
@@ -161,7 +178,7 @@ impl CalibrationOrchestrator {
                     HazardCurveCalibrator::default_discount_curve_id(currency),
                 );
 
-                let (curve, report) = calibrator.calibrate(quotes, &[], context)?;
+                let (curve, report) = calibrator.calibrate(quotes, context)?;
                 let updated_context = context.clone().with_hazard(curve);
                 Ok((updated_context, report))
             }
@@ -175,7 +192,7 @@ impl CalibrationOrchestrator {
                     HazardCurveCalibrator::default_discount_curve_id(self.base_currency),
                 );
 
-                let (curve, report) = calibrator.calibrate(quotes, &[], context)?;
+                let (curve, report) = calibrator.calibrate(quotes, context)?;
                 let updated_context = context.clone().with_inflation(curve);
                 Ok((updated_context, report))
             }
@@ -190,7 +207,7 @@ impl CalibrationOrchestrator {
                     strike_grid,
                 );
 
-                let (surface, report) = calibrator.calibrate(quotes, &[], context)?;
+                let (surface, report) = calibrator.calibrate(quotes, context)?;
                 let updated_context = context.clone().with_surface(surface);
                 Ok((updated_context, report))
             }
@@ -272,190 +289,14 @@ impl CalibrationOrchestrator {
         Ok((expiry_grid, strike_grid, beta))
     }
 
-    /// Legacy method: Perform complete market data calibration using fixed sequential stages.
-    ///
-    /// This method is kept for backward compatibility but the DAG-based approach
-    /// in `calibrate_market()` is recommended for new code.
-    ///
-    /// Calibrates curves in the proper sequence:
-    /// 1. Discount curves (OIS)
-    /// 2. Forward curves (IBOR/RFR)
-    /// 3. Credit curves
-    /// 4. Inflation curves
-    /// 5. Volatility surfaces
-    /// 6. Base correlation curves
-    pub fn calibrate_market_sequential(
-        &self,
-        quotes: &[InstrumentQuote],
-    ) -> Result<(MarketContext, CalibrationReport)> {
-        let mut context = MarketContext::new();
-        let mut all_residuals = HashMap::new();
-        let mut total_iterations = 0;
-        let mut calibration_stages = Vec::new();
+    // Removed legacy sequential calibration in favor of DAG-based `calibrate_market`.
 
-        // Stage 1: Calibrate primary discount curve (OIS)
-        if let Some((discount_curve, report)) = self.calibrate_discount_curve(quotes, &context)? {
-            context = context.with_discount(discount_curve);
-            self.merge_report_data(&mut all_residuals, &mut total_iterations, &report);
-            calibration_stages.push("Discount curve".to_string());
-        }
+    // (legacy discount curve stage removed)
 
-        // Stage 2: Calibrate forward curves (commented out for now)
-        // let forward_curves = self.calibrate_forward_curves(quotes, &context)?;
-        // for (curve_id, (curve, report)) in forward_curves {
-        //     context = context.with_forecast(curve);
-        //     self.merge_report_data(&mut all_residuals, &mut total_iterations, &report);
-        //     calibration_stages.push(format!("Forward curve: {}", curve_id));
-        // }
-
-        // Stage 3: Calibrate hazard curves
-        let hazard_curves = self.calibrate_hazard_curves(quotes, &context)?;
-        for (entity, (curve, report)) in hazard_curves {
-            context = context.with_hazard(curve);
-            self.merge_report_data(&mut all_residuals, &mut total_iterations, &report);
-            calibration_stages.push(format!("Hazard curve: {}", entity));
-        }
-
-        // Stage 4: Calibrate inflation curves
-        let inflation_curves = self.calibrate_inflation_curves(quotes, &context)?;
-        for (index, (curve, report)) in inflation_curves {
-            context = context.with_inflation(curve);
-            self.merge_report_data(&mut all_residuals, &mut total_iterations, &report);
-            calibration_stages.push(format!("Inflation curve: {}", index));
-        }
-
-        // Stage 5: Calibrate volatility surfaces
-        let vol_surfaces = self.calibrate_vol_surfaces(quotes, &context)?;
-        for (surface_id, (surface, report)) in vol_surfaces {
-            context = context.with_surface(surface);
-            self.merge_report_data(&mut all_residuals, &mut total_iterations, &report);
-            calibration_stages.push(format!("Vol surface: {}", surface_id));
-        }
-
-        // Stage 6: Calibrate base correlation curves (requires all previous stages)
-        let base_corr_curves = self.calibrate_base_correlation_curves(quotes, &context)?;
-        for (index, curves_by_maturity) in base_corr_curves {
-            for (maturity, (curve, report)) in curves_by_maturity {
-                // Store base correlation curve in context
-                context = context.with_base_correlation(curve);
-                
-                self.merge_report_data(&mut all_residuals, &mut total_iterations, &report);
-                calibration_stages.push(format!("Base correlation: {} {}Y", index, maturity));
-            }
-        }
-
-        // Create final calibration report
-        let final_report = CalibrationReport::new()
-            .success()
-            .with_residuals(all_residuals)
-            .with_iterations(total_iterations)
-            .with_convergence_reason("Complete market calibration finished")
-            .with_metadata("stages".to_string(), calibration_stages.join(", "))
-            .with_metadata(
-                "base_currency".to_string(),
-                format!("{}", self.base_currency),
-            );
-
-        Ok((context, final_report))
-    }
-
-    /// Calibrate primary discount curve from OIS quotes.
-    fn calibrate_discount_curve(
-        &self,
-        quotes: &[InstrumentQuote],
-        _context: &MarketContext,
-    ) -> Result<
-        Option<(
-            finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
-            CalibrationReport,
-        )>,
-    > {
-        // Filter relevant quotes (deposits and OIS swaps)
-        let relevant_quotes: Vec<_> = quotes
-            .iter()
-            .filter(|q| match q {
-                InstrumentQuote::Deposit { .. } => true,
-                InstrumentQuote::Swap { index, .. } => {
-                    index.contains("OIS") || index.contains("SOFR")
-                }
-                _ => false,
-            })
-            .cloned()
-            .collect();
-
-        if relevant_quotes.is_empty() {
-            return Ok(None);
-        }
-
-        let calibrator =
-            DiscountCurveCalibrator::new("USD-OIS", self.base_date, self.base_currency)
-                .with_config(self.config.clone());
-
-        let base_context = MarketContext::new();
-        let (curve, report) = calibrator.calibrate(&relevant_quotes, &[], &base_context)?;
-
-        Ok(Some((curve, report)))
-    }
-
-    /*
-    /// Calibrate forward curves for different tenors.
-    fn calibrate_forward_curves(
-        &self,
-        quotes: &[InstrumentQuote],
-        context: &MarketContext,
-    ) -> Result<HashMap<String, (finstack_core::market_data::term_structures::forward_curve::ForwardCurve, CalibrationReport)>> {
-        let mut results = HashMap::new();
-
-        // Standard tenors to calibrate
-        let tenors = vec![
-            ("1M", 1.0/12.0),
-            ("3M", 3.0/12.0),
-            ("6M", 6.0/12.0),
-            ("12M", 1.0),
-        ];
-
-        for (tenor_name, tenor_years) in tenors {
-            // Filter quotes relevant to this tenor
-            let relevant_quotes: Vec<_> = quotes
-                .iter()
-                .filter(|q| match q {
-                    InstrumentQuote::FRA { .. } => true,
-                    InstrumentQuote::Future { .. } => true,
-                    InstrumentQuote::Swap { index, .. } => index.contains(tenor_name),
-                    _ => false,
-                })
-                .cloned()
-                .collect();
-
-            if !relevant_quotes.is_empty() {
-                let curve_id = format!("{}-{}", self.base_currency, tenor_name);
-                let calibrator = ForwardCurveCalibrator::new(
-                    &curve_id,
-                    self.base_date,
-                    tenor_years,
-                    self.base_currency,
-                );
-
-                // Get discount curve for pricing
-                if let Ok(discount_curve) = context.discount(&format!("{}-OIS", self.base_currency)) {
-                    match calibrator.bootstrap_curve(&relevant_quotes, &crate::calibration::solver::HybridSolver::new(), discount_curve.as_ref()) {
-                        Ok((curve, report)) => {
-                            results.insert(curve_id, (curve, report));
-                        }
-                        Err(_) => {
-                            // Failed to calibrate this tenor - continue with others
-                            continue;
-                        }
-                    }
-                }
-            }
-        }
-
-        Ok(results)
-    }
-    */
+ 
 
     /// Calibrate hazard curves for different entities.
+    #[allow(dead_code)]
     fn calibrate_hazard_curves(
         &self,
         quotes: &[InstrumentQuote],
@@ -519,7 +360,7 @@ impl CalibrationOrchestrator {
             );
 
             let entity_quote_vec: Vec<_> = entity_quotes.iter().map(|&q| q.clone()).collect();
-            match calibrator.calibrate(&entity_quote_vec, &[], context) {
+            match calibrator.calibrate(&entity_quote_vec, context) {
                 Ok((curve, report)) => {
                     results.insert(entity, (curve, report));
                 }
@@ -534,6 +375,7 @@ impl CalibrationOrchestrator {
     }
 
     /// Calibrate inflation curves.
+    #[allow(dead_code)]
     fn calibrate_inflation_curves(
         &self,
         quotes: &[InstrumentQuote],
@@ -577,7 +419,7 @@ impl CalibrationOrchestrator {
             );
 
             let index_quote_vec: Vec<_> = index_quotes.iter().map(|&q| q.clone()).collect();
-            match calibrator.calibrate(&index_quote_vec, &[], context) {
+            match calibrator.calibrate(&index_quote_vec, context) {
                 Ok((curve, report)) => {
                     results.insert(index, (curve, report));
                 }
@@ -591,6 +433,7 @@ impl CalibrationOrchestrator {
     }
 
     /// Calibrate volatility surfaces.
+    #[allow(dead_code)]
     fn calibrate_vol_surfaces(
         &self,
         quotes: &[InstrumentQuote],
@@ -689,6 +532,7 @@ impl CalibrationOrchestrator {
 
     /// Calibrate base correlation curves.
     #[allow(clippy::type_complexity)]
+    #[allow(dead_code)]
     fn calibrate_base_correlation_curves(
         &self,
         quotes: &[InstrumentQuote],
@@ -988,7 +832,7 @@ impl CalibrationOrchestrator {
 mod tests {
     use super::*;
     use finstack_core::dates::{Date, DayCount, Frequency};
-    use finstack_core::prelude::TermStructure;
+    
     use time::Month;
 
     fn create_test_market_quotes() -> Vec<InstrumentQuote> {
@@ -1062,18 +906,12 @@ mod tests {
         let orchestrator = CalibrationOrchestrator::new(base_date, Currency::USD);
 
         let quotes = create_test_market_quotes();
-        let context = MarketContext::new();
+        let (context, report) = orchestrator.calibrate_market(&quotes).unwrap();
+        assert!(report.success);
 
-        let result = orchestrator.calibrate_discount_curve(&quotes, &context);
-        assert!(result.is_ok());
-
-        // Should find relevant quotes and calibrate
-        let curve_opt = result.unwrap();
-        if curve_opt.is_some() {
-            let (curve, report) = curve_opt.unwrap();
-            assert!(report.success);
-            assert_eq!(curve.id().as_str(), "USD-OIS");
-        }
+        // Should produce a USD OIS discount curve in the context
+        let disc = context.discount("USD-OIS");
+        assert!(disc.is_ok());
     }
 
     #[test]

@@ -310,67 +310,70 @@ impl LevenbergMarquardtSolver {
         jacobian
     }
 
-    /// Solve linear system Ax = b using Gaussian elimination with partial pivoting.
-    /// For production use, consider using a more robust solver like LU decomposition.
+    /// Solve linear system Ax = b using ndarray-linalg when the `linear-algebra` feature is enabled.
+    /// Falls back to a simple Gaussian elimination otherwise.
     fn solve_linear_system(&self, a: &Array2<F>, b: &Array1<F>) -> Result<Array1<F>> {
         let n = a.nrows();
         if a.ncols() != n || b.len() != n {
             return Err(finstack_core::Error::Internal);
         }
 
-        // Create augmented matrix [A|b]
-        let mut aug = Array2::zeros((n, n + 1));
-        for i in 0..n {
-            for j in 0..n {
-                aug[(i, j)] = a[(i, j)];
-            }
-            aug[(i, n)] = b[i];
+        #[cfg(feature = "linear-algebra")]
+        {
+            use ndarray_linalg::Solve;
+            let x = a
+                .to_owned()
+                .solve_into(b.to_owned())
+                .map_err(|_| finstack_core::Error::Internal)?;
+            return Ok(x);
         }
 
-        // Forward elimination with partial pivoting
-        for k in 0..n {
-            // Find pivot
-            let mut max_row = k;
-            for i in (k + 1)..n {
-                if aug[(i, k)].abs() > aug[(max_row, k)].abs() {
-                    max_row = i;
+        #[allow(unreachable_code)]
+        {
+            // Fallback: basic Gaussian elimination with partial pivoting
+            let mut aug = Array2::zeros((n, n + 1));
+            for i in 0..n {
+                for j in 0..n {
+                    aug[(i, j)] = a[(i, j)];
+                }
+                aug[(i, n)] = b[i];
+            }
+
+            for k in 0..n {
+                let mut max_row = k;
+                for i in (k + 1)..n {
+                    if aug[(i, k)].abs() > aug[(max_row, k)].abs() {
+                        max_row = i;
+                    }
+                }
+                if max_row != k {
+                    for j in 0..=n {
+                        let temp = aug[(k, j)];
+                        aug[(k, j)] = aug[(max_row, j)];
+                        aug[(max_row, j)] = temp;
+                    }
+                }
+                if aug[(k, k)].abs() < 1e-14 {
+                    return Err(finstack_core::Error::Internal);
+                }
+                for i in (k + 1)..n {
+                    let factor = aug[(i, k)] / aug[(k, k)];
+                    for j in k..=n {
+                        aug[(i, j)] -= factor * aug[(k, j)];
+                    }
                 }
             }
 
-            // Swap rows if needed
-            if max_row != k {
-                for j in 0..=n {
-                    let temp = aug[(k, j)];
-                    aug[(k, j)] = aug[(max_row, j)];
-                    aug[(max_row, j)] = temp;
+            let mut x = Array1::zeros(n);
+            for i in (0..n).rev() {
+                let mut sum = aug[(i, n)];
+                for j in (i + 1)..n {
+                    sum -= aug[(i, j)] * x[j];
                 }
+                x[i] = sum / aug[(i, i)];
             }
-
-            // Check for singular matrix
-            if aug[(k, k)].abs() < 1e-14 {
-                return Err(finstack_core::Error::Internal);
-            }
-
-            // Eliminate
-            for i in (k + 1)..n {
-                let factor = aug[(i, k)] / aug[(k, k)];
-                for j in k..=n {
-                    aug[(i, j)] -= factor * aug[(k, j)];
-                }
-            }
+            Ok(x)
         }
-
-        // Back substitution
-        let mut x = Array1::zeros(n);
-        for i in (0..n).rev() {
-            let mut sum = aug[(i, n)];
-            for j in (i + 1)..n {
-                sum -= aug[(i, j)] * x[j];
-            }
-            x[i] = sum / aug[(i, i)];
-        }
-
-        Ok(x)
     }
 }
 

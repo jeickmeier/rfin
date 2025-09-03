@@ -74,7 +74,7 @@ use finstack_valuations::calibration::bootstrap::DiscountCurveCalibrator;
 let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
     .with_interpolation(InterpStyle::MonotoneConvex);
 
-let (discount_curve, report) = calibrator.calibrate(&quotes, &[], &base_context)?;
+let (discount_curve, report) = calibrator.calibrate(&quotes, &base_context)?;
 ```
 
 ### Volatility Surface Calibration
