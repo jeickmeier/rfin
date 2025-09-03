@@ -38,10 +38,7 @@ pub use crate::money::{
 };
 pub use crate::Result;
 
-// Validation framework (temporarily simplified)
-pub use crate::validation::{
-    ValidationResult, ValidationStatus, ValidationWarning,
-};
+
 
 // Math utilities
 pub use crate::math::{

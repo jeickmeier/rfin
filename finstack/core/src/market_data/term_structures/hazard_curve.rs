@@ -43,12 +43,10 @@ pub struct HazardCurve {
     /// Recovery rate used during calibration/reporting (metadata)
     recovery_rate: F,
     /// Optional issuer metadata
-    #[allow(dead_code)]
     issuer: Option<String>,
     /// Debt seniority
     pub seniority: Option<Seniority>,
     /// Currency of protection leg (metadata)
-    #[allow(dead_code)]
     currency: Option<Currency>,
     /// Day count convention for converting dates→times (metadata)
     day_count: DayCount,

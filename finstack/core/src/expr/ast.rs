@@ -206,16 +206,7 @@ pub enum Function {
     RollingVar,
     /// Rolling median over a fixed row window size.
     RollingMedian,
-    /// Time-based rolling functions - row count in args, duration in TimeWindow
-    RollingMeanTime,
-    /// Rolling sum over time-based window.
-    RollingSumTime,
-    /// Rolling standard deviation over time-based window.
-    RollingStdTime,
-    /// Rolling variance over time-based window.
-    RollingVarTime,
-    /// Rolling median over time-based window.
-    RollingMedianTime,
+
     /// Shift values by N positions (positive = shift down, negative = shift up).
     Shift,
     /// Rank values (dense ranking).

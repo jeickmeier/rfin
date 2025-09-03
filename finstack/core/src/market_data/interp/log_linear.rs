@@ -30,87 +30,44 @@ impl LogLinearDf {
         })
     }
 
-    /// Extrapolate to the left of the first knot based on the extrapolation policy.
-    fn extrapolate_left(&self, x: F) -> F {
-        match self.extrapolation {
-            ExtrapolationPolicy::FlatZero => (self.log_dfs[0]).exp(),
-            ExtrapolationPolicy::FlatForward => {
-                // Flat-forward: extend the zero rate from the first segment
-                let x0 = self.knots[0];
-                let x1 = self.knots[1];
-                let y0 = self.log_dfs[0];
-                let y1 = self.log_dfs[1];
-                let slope = (y1 - y0) / (x1 - x0);
-                let extrapolated_log_df = y0 + slope * (x - x0);
-                extrapolated_log_df.exp()
-            }
-        }
-    }
 
-    /// Extrapolate to the right of the last knot based on the extrapolation policy.
-    fn extrapolate_right(&self, x: F) -> F {
-        match self.extrapolation {
-            ExtrapolationPolicy::FlatZero => (*self.log_dfs.last().unwrap()).exp(),
-            ExtrapolationPolicy::FlatForward => {
-                // Flat-forward: extend the zero rate from the last segment
-                let n = self.knots.len();
-                let x0 = self.knots[n - 2];
-                let x1 = self.knots[n - 1];
-                let y0 = self.log_dfs[n - 2];
-                let y1 = self.log_dfs[n - 1];
-                let slope = (y1 - y0) / (x1 - x0);
-                let extrapolated_log_df = y1 + slope * (x - x1);
-                extrapolated_log_df.exp()
-            }
-        }
-    }
-
-    /// Compute the derivative for left extrapolation.
-    fn extrapolate_left_prime(&self, x: F) -> F {
-        match self.extrapolation {
-            ExtrapolationPolicy::FlatZero => 0.0, // Flat extrapolation has zero derivative
-            ExtrapolationPolicy::FlatForward => {
-                // Flat-forward: constant slope from first segment
-                let x0 = self.knots[0];
-                let x1 = self.knots[1];
-                let y0 = self.log_dfs[0];
-                let y1 = self.log_dfs[1];
-                let slope = (y1 - y0) / (x1 - x0);
-                let f_val = self.extrapolate_left(x);
-                f_val * slope
-            }
-        }
-    }
-
-    /// Compute the derivative for right extrapolation.
-    fn extrapolate_right_prime(&self, x: F) -> F {
-        match self.extrapolation {
-            ExtrapolationPolicy::FlatZero => 0.0, // Flat extrapolation has zero derivative
-            ExtrapolationPolicy::FlatForward => {
-                // Flat-forward: constant slope from last segment
-                let n = self.knots.len();
-                let x0 = self.knots[n - 2];
-                let x1 = self.knots[n - 1];
-                let y0 = self.log_dfs[n - 2];
-                let y1 = self.log_dfs[n - 1];
-                let slope = (y1 - y0) / (x1 - x0);
-                let f_val = self.extrapolate_right(x);
-                f_val * slope
-            }
-        }
+    #[inline]
+    fn segment_slope(&self, left_index: usize, right_index: usize) -> F {
+        let x0 = self.knots[left_index];
+        let x1 = self.knots[right_index];
+        let y0 = self.log_dfs[left_index];
+        let y1 = self.log_dfs[right_index];
+        (y1 - y0) / (x1 - x0)
     }
 
     // Shared `locate_segment` from utils is used.
 }
 
+
+
 impl InterpFn for LogLinearDf {
     fn interp(&self, x: F) -> F {
         // Handle extrapolation based on policy
         if x <= self.knots[0] {
-            return self.extrapolate_left(x);
+            return match self.extrapolation {
+                ExtrapolationPolicy::FlatZero => (self.log_dfs[0]).exp(),
+                ExtrapolationPolicy::FlatForward => {
+                    let slope = self.segment_slope(0, 1);
+                    let extrapolated_log_df = self.log_dfs[0] + slope * (x - self.knots[0]);
+                    extrapolated_log_df.exp()
+                }
+            };
         }
         if x >= *self.knots.last().unwrap() {
-            return self.extrapolate_right(x);
+            let n = self.knots.len();
+            return match self.extrapolation {
+                ExtrapolationPolicy::FlatZero => (*self.log_dfs.last().unwrap()).exp(),
+                ExtrapolationPolicy::FlatForward => {
+                    let slope = self.segment_slope(n - 2, n - 1);
+                    let extrapolated_log_df = self.log_dfs[n - 1] + slope * (x - self.knots[n - 1]);
+                    extrapolated_log_df.exp()
+                }
+            };
         }
         
         // Exact knot match
@@ -134,10 +91,25 @@ impl InterpFn for LogLinearDf {
         
         // At boundaries, handle based on extrapolation policy
         if x <= self.knots[0] {
-            return self.extrapolate_left_prime(x);
+            return match self.extrapolation {
+                ExtrapolationPolicy::FlatZero => 0.0,
+                ExtrapolationPolicy::FlatForward => {
+                    let slope = self.segment_slope(0, 1);
+                    let f_val = self.interp(x);
+                    f_val * slope
+                }
+            };
         }
         if x >= *self.knots.last().unwrap() {
-            return self.extrapolate_right_prime(x);
+            let n = self.knots.len();
+            return match self.extrapolation {
+                ExtrapolationPolicy::FlatZero => 0.0,
+                ExtrapolationPolicy::FlatForward => {
+                    let slope = self.segment_slope(n - 2, n - 1);
+                    let f_val = self.interp(x);
+                    f_val * slope
+                }
+            };
         }
         
         // Get the interpolated value and log-linear slope

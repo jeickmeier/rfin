@@ -813,11 +813,7 @@ impl CompiledExpr {
             Function::RollingStd => self.eval_rolling_std(arg_results),
             Function::RollingVar => self.eval_rolling_var(arg_results),
             Function::RollingMedian => self.eval_rolling_median(arg_results),
-            Function::RollingMeanTime
-            | Function::RollingSumTime
-            | Function::RollingStdTime
-            | Function::RollingVarTime
-            | Function::RollingMedianTime => Vec::new(),
+
             Function::Shift => self.eval_shift(arg_results),
             Function::Rank => self.eval_rank(arg_results),
             Function::Quantile => self.eval_quantile(arg_results),
@@ -965,8 +961,7 @@ impl CompiledExpr {
                 | Function::EwmStd
                 | Function::EwmVar => None,
 
-                // Time-based rolling and other functions: scalar fallback for now
-                _ => None,
+
             },
         }
     }

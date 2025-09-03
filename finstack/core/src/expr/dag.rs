@@ -205,8 +205,7 @@ impl DagBuilder {
         match func {
             Function::Lag | Function::Lead | Function::Diff | Function::PctChange => true,
             Function::RollingMean | Function::RollingSum => true,
-            // Time-based rolling requires DataFrame context; keep scalar path removed for now
-            Function::RollingMeanTime | Function::RollingSumTime => false,
+
             // Cumulative functions use scalar implementation for determinism
             Function::CumSum | Function::CumProd | Function::CumMin | Function::CumMax => false,
             // Statistical functions now support Polars lowering
@@ -215,9 +214,7 @@ impl DagBuilder {
             Function::RollingStd | Function::RollingVar | Function::RollingMedian => false,
             // Complex EWM functions still use scalar fallback
             Function::EwmMean => false,
-            Function::RollingStdTime | Function::RollingVarTime | Function::RollingMedianTime => {
-                false
-            }
+
             // New functions
             Function::Shift => true,
             // Keep rolling min/max/count as scalar/unsupported until mapped
@@ -247,10 +244,7 @@ impl DagBuilder {
                     Function::EwmMean => 25,
                     Function::Std | Function::Var => 40,
                     Function::Median => 60,
-                    Function::RollingMeanTime | Function::RollingSumTime => 40,
-                    Function::RollingStdTime
-                    | Function::RollingVarTime
-                    | Function::RollingMedianTime => 70,
+
                     // New functions
                     Function::Shift => 5,
                     Function::Rank => 80,

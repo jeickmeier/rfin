@@ -2,8 +2,7 @@
 
 use crate::{dates::Date, types::CurveId, F};
 extern crate alloc;
-#[cfg(feature = "parallel")]
-#[allow(unused_imports)]
+#[cfg(all(feature = "parallel", not(feature = "deterministic")))]
 use rayon::prelude::*;
 
 // -----------------------------------------------------------------------------

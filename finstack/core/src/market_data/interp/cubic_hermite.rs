@@ -46,64 +46,40 @@ impl CubicHermite {
         })
     }
 
-    /// Extrapolate to the left of the first knot based on the extrapolation policy.
-    fn extrapolate_left(&self, x: F) -> F {
-        match self.extrapolation_policy {
-            ExtrapolationPolicy::FlatZero => self.dfs[0],
-            ExtrapolationPolicy::FlatForward => {
-                // Flat-forward: extend using the slope from the first knot
-                let x0 = self.knots[0];
-                let slope = self.ms[0];
-                let dx = x - x0;
-                // Linear extrapolation: f(x) = f(x0) + m0 * (x - x0)
-                self.dfs[0] + slope * dx
-            }
-        }
-    }
 
-    /// Extrapolate to the right of the last knot based on the extrapolation policy.
-    fn extrapolate_right(&self, x: F) -> F {
-        match self.extrapolation_policy {
-            ExtrapolationPolicy::FlatZero => *self.dfs.last().unwrap(),
-            ExtrapolationPolicy::FlatForward => {
-                // Flat-forward: extend using the slope from the last knot
-                let n = self.knots.len();
-                let x_last = self.knots[n - 1];
-                let slope = self.ms[n - 1];
-                let dx = x - x_last;
-                // Linear extrapolation: f(x) = f(x_last) + m_last * (x - x_last)
-                self.dfs[n - 1] + slope * dx
-            }
-        }
-    }
-
-    /// Compute the derivative for left extrapolation.
-    fn extrapolate_left_prime(&self, _x: F) -> F {
-        match self.extrapolation_policy {
-            ExtrapolationPolicy::FlatZero => 0.0, // Flat extrapolation has zero derivative
-            ExtrapolationPolicy::FlatForward => self.ms[0], // Constant slope from first knot
-        }
-    }
-
-    /// Compute the derivative for right extrapolation.
-    fn extrapolate_right_prime(&self, _x: F) -> F {
-        match self.extrapolation_policy {
-            ExtrapolationPolicy::FlatZero => 0.0, // Flat extrapolation has zero derivative
-            ExtrapolationPolicy::FlatForward => self.ms[self.ms.len() - 1], // Constant slope from last knot
-        }
-    }
 
     // Shared `locate_segment` from utils is used.
 }
+
+
 
 impl InterpFn for CubicHermite {
     fn interp(&self, x: F) -> F {
         // Handle extrapolation based on policy
         if x <= self.knots[0] {
-            return self.extrapolate_left(x);
+            return match self.extrapolation_policy {
+                ExtrapolationPolicy::FlatZero => self.dfs[0],
+                ExtrapolationPolicy::FlatForward => {
+                    // Flat-forward: extend using the slope from the first knot
+                    let x0 = self.knots[0];
+                    let slope = self.ms[0];
+                    let dx = x - x0;
+                    self.dfs[0] + slope * dx
+                }
+            };
         }
         if x >= *self.knots.last().unwrap() {
-            return self.extrapolate_right(x);
+            return match self.extrapolation_policy {
+                ExtrapolationPolicy::FlatZero => *self.dfs.last().unwrap(),
+                ExtrapolationPolicy::FlatForward => {
+                    // Flat-forward: extend using the slope from the last knot
+                    let n = self.knots.len();
+                    let x_last = self.knots[n - 1];
+                    let slope = self.ms[n - 1];
+                    let dx = x - x_last;
+                    self.dfs[n - 1] + slope * dx
+                }
+            };
         }
         
         // Fast-path: exact knot value → short-circuit.
@@ -140,10 +116,16 @@ impl InterpFn for CubicHermite {
     fn interp_prime(&self, x: F) -> F {
         // Handle extrapolation based on policy
         if x <= self.knots[0] {
-            return self.extrapolate_left_prime(x);
+            return match self.extrapolation_policy {
+                ExtrapolationPolicy::FlatZero => 0.0,
+                ExtrapolationPolicy::FlatForward => self.ms[0],
+            };
         }
         if x >= *self.knots.last().unwrap() {
-            return self.extrapolate_right_prime(x);
+            return match self.extrapolation_policy {
+                ExtrapolationPolicy::FlatZero => 0.0,
+                ExtrapolationPolicy::FlatForward => self.ms[self.ms.len() - 1],
+            };
         }
         
         // For exact knot values, return the precomputed slope

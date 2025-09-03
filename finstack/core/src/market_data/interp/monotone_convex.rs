@@ -155,85 +155,44 @@ impl MonotoneConvex {
         coeffs.into_boxed_slice()
     }
 
-    /// Extrapolate to the left of the first knot based on the extrapolation policy.
-    fn extrapolate_left(&self, x: F) -> F {
-        match self.extrapolation {
-            ExtrapolationPolicy::FlatZero => self.dfs[0],
-            ExtrapolationPolicy::FlatForward => {
-                // Flat-forward: extend using the cubic polynomial from the first segment
-                let (a, b, _c, _d) = self.coeffs[0];
-                let h = self.knots[1] - self.knots[0];
-                let s = (x - self.knots[0]) / h; // Can be negative for left extrapolation
-                // Use linear approximation for extrapolation (dy/ds = b)
-                let y = a + b * s;
-                (-y).exp()
-            }
-        }
-    }
 
-    /// Extrapolate to the right of the last knot based on the extrapolation policy.
-    fn extrapolate_right(&self, x: F) -> F {
-        match self.extrapolation {
-            ExtrapolationPolicy::FlatZero => *self.dfs.last().unwrap(),
-            ExtrapolationPolicy::FlatForward => {
-                // Flat-forward: extend using the cubic polynomial from the last segment
-                let n = self.coeffs.len();
-                let (a, b, c, d) = self.coeffs[n - 1];
-                let h = self.knots[n] - self.knots[n - 1];
-                // Evaluate at s=1 first to get the end slope
-                let dy_ds_at_end = b + 2.0 * c + 3.0 * d;
-                let s_extra = 1.0 + (x - self.knots[n]) / h; // s > 1 for right extrapolation
-                // Use linear extrapolation based on the slope at the end
-                let y_end = a + b + c + d; // y(1)
-                let y = y_end + dy_ds_at_end * (s_extra - 1.0);
-                (-y).exp()
-            }
-        }
-    }
-
-    /// Compute the derivative for left extrapolation.
-    fn extrapolate_left_prime(&self, x: F) -> F {
-        match self.extrapolation {
-            ExtrapolationPolicy::FlatZero => 0.0, // Flat extrapolation has zero derivative
-            ExtrapolationPolicy::FlatForward => {
-                // Flat-forward: constant slope from first segment
-                let (_a, b, _c, _d) = self.coeffs[0];
-                let h = self.knots[1] - self.knots[0];
-                let f_val = self.extrapolate_left(x);
-                // Linear extrapolation: dy/dx = b/h, df/dx = -f * dy/dx
-                -f_val * b / h
-            }
-        }
-    }
-
-    /// Compute the derivative for right extrapolation.
-    fn extrapolate_right_prime(&self, x: F) -> F {
-        match self.extrapolation {
-            ExtrapolationPolicy::FlatZero => 0.0, // Flat extrapolation has zero derivative
-            ExtrapolationPolicy::FlatForward => {
-                // Flat-forward: constant slope from last segment end
-                let n = self.coeffs.len();
-                let (_a, b, c, d) = self.coeffs[n - 1];
-                let h = self.knots[n] - self.knots[n - 1];
-                let dy_ds_at_end = b + 2.0 * c + 3.0 * d;
-                let f_val = self.extrapolate_right(x);
-                // Linear extrapolation: df/dx = -f * dy/dx
-                -f_val * dy_ds_at_end / h
-            }
-        }
-    }
 
     // Shared `locate_segment` from utils is used.
 }
+
+
 
 impl InterpFn for MonotoneConvex {
     fn interp(&self, x: F) -> F {
         // Handle extrapolation based on policy
         if x <= self.knots[0] {
-            return self.extrapolate_left(x);
+            return match self.extrapolation {
+                ExtrapolationPolicy::FlatZero => self.dfs[0],
+                ExtrapolationPolicy::FlatForward => {
+                    // For MonotoneConvex, use linear extrapolation based on cubic slope at boundary
+                    let (a, b, _c, _d) = self.coeffs[0];
+                    let h = self.knots[1] - self.knots[0];
+                    let s = (x - self.knots[0]) / h;
+                    let y = a + b * s;
+                    (-y).exp()
+                }
+            };
         }
         if x >= *self.knots.last().unwrap() {
-            return self.extrapolate_right(x);
+            return match self.extrapolation {
+                ExtrapolationPolicy::FlatZero => *self.dfs.last().unwrap(),
+                ExtrapolationPolicy::FlatForward => {
+                    // For MonotoneConvex, use linear extrapolation based on cubic slope at boundary
+                    let n = self.coeffs.len();
+                    let (a, b, c, d) = self.coeffs[n - 1];
+                    let h = self.knots[n] - self.knots[n - 1];
+                    let dy_ds_at_end = b + 2.0 * c + 3.0 * d;
+                    let s_extra = 1.0 + (x - self.knots[n]) / h;
+                    let y_end = a + b + c + d;
+                    let y = y_end + dy_ds_at_end * (s_extra - 1.0);
+                    (-y).exp()
+                }
+            };
         }
         
         // Exact knot match
@@ -253,10 +212,28 @@ impl InterpFn for MonotoneConvex {
     fn interp_prime(&self, x: F) -> F {
         // Handle extrapolation based on policy
         if x <= self.knots[0] {
-            return self.extrapolate_left_prime(x);
+            return match self.extrapolation {
+                ExtrapolationPolicy::FlatZero => 0.0,
+                ExtrapolationPolicy::FlatForward => {
+                    let (_a, b, _c, _d) = self.coeffs[0];
+                    let h = self.knots[1] - self.knots[0];
+                    let f_val = self.interp(x);
+                    -f_val * b / h
+                }
+            };
         }
         if x >= *self.knots.last().unwrap() {
-            return self.extrapolate_right_prime(x);
+            return match self.extrapolation {
+                ExtrapolationPolicy::FlatZero => 0.0,
+                ExtrapolationPolicy::FlatForward => {
+                    let n = self.coeffs.len();
+                    let (_a, b, c, d) = self.coeffs[n - 1];
+                    let h = self.knots[n] - self.knots[n - 1];
+                    let dy_ds_at_end = b + 2.0 * c + 3.0 * d;
+                    let f_val = self.interp(x);
+                    -f_val * dy_ds_at_end / h
+                }
+            };
         }
         
         // Find segment and compute derivative
