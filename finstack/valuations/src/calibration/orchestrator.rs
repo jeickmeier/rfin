@@ -7,6 +7,7 @@ use crate::calibration::base_correlation::BaseCorrelationCalibrator;
 use crate::calibration::bootstrap::{
     DiscountCurveCalibrator, HazardCurveCalibrator, InflationCurveCalibrator,
 };
+use crate::calibration::common::{forward_fn_auto, time_to_expiry_vol, time_to_maturity_auto};
 use crate::calibration::dependency_dag::{CalibrationDAG, CalibrationTarget};
 use crate::calibration::primitives::{HashableFloat, InstrumentQuote};
 use crate::calibration::surface::VolSurfaceCalibrator;
@@ -71,7 +72,7 @@ impl CalibrationOrchestrator {
         quotes: &[InstrumentQuote],
     ) -> Result<(MarketContext, CalibrationReport)> {
         // Build dependency DAG from quotes
-        let dag = CalibrationDAG::from_quotes(quotes, self.base_currency)?;
+        let dag = CalibrationDAG::from_quotes(quotes, self.base_currency, self.base_date)?;
         
         // Get calibration order using topological sort
         let calibration_batches = dag.topological_sort()?;
@@ -205,7 +206,8 @@ impl CalibrationOrchestrator {
                     beta,
                     expiry_grid,
                     strike_grid,
-                );
+                )
+                .with_base_date(self.base_date);
 
                 let (surface, report) = calibrator.calibrate(quotes, context)?;
                 let updated_context = context.clone().with_surface(surface);
@@ -221,9 +223,10 @@ impl CalibrationOrchestrator {
 
                 // Convert to ValuationMarketContext for base correlation calibration
                 let val_context = ValuationMarketContext::from_core(context.clone());
+                let solver = calibrator.config.make_solver();
                 let (curve, report) = calibrator.bootstrap_curve(
                     quotes, 
-                    &crate::calibration::solver::HybridSolver::new(), 
+                    &solver, 
                     &val_context
                 )?;
 
@@ -260,8 +263,7 @@ impl CalibrationOrchestrator {
 
         for quote in quotes {
             if let InstrumentQuote::OptionVol { expiry, strike, .. } = quote {
-                let days = (*expiry - self.base_date).whole_days();
-                let years = days as F / 365.25;
+                let years = time_to_expiry_vol(self.base_date, *expiry);
                 expiries.insert((years * 1000.0).round() as i32);
                 strikes.insert((*strike * 100.0).round() as i32);
             }
@@ -471,8 +473,7 @@ impl CalibrationOrchestrator {
 
             for quote in &underlying_quotes {
                 if let InstrumentQuote::OptionVol { expiry, strike, .. } = quote {
-                    let days = (*expiry - self.base_date).whole_days();
-                    let years = days as finstack_core::F / 365.25;
+                    let years = time_to_expiry_vol(self.base_date, *expiry);
                     expiries.insert((years * 1000.0).round() as i32); // Round to avoid floating point issues
                     strikes.insert((*strike * 100.0).round() as i32);
                 }
@@ -502,13 +503,14 @@ impl CalibrationOrchestrator {
                 beta,
                 expiry_grid,
                 strike_grid,
-            );
+            )
+            .with_base_date(self.base_date);
 
             let underlying_quote_vec: Vec<_> =
                 underlying_quotes.iter().map(|&q| q.clone()).collect();
 
             // Build asset-specific forward function from market context
-            let forward_fn = match self.build_forward_function_for_underlying(_context, &underlying)
+            let forward_fn = match forward_fn_auto(_context, &underlying, self.base_currency)
             {
                 Ok(fwd_fn) => fwd_fn,
                 Err(_) => {
@@ -560,9 +562,7 @@ impl CalibrationOrchestrator {
                 index, maturity, ..
             } = quote
             {
-                let maturity_years = finstack_core::dates::DayCount::Act365F
-                    .year_fraction(self.base_date, *maturity)
-                    .unwrap_or(0.0);
+                let maturity_years = time_to_maturity_auto(self.base_date, *maturity);
 
                 quotes_by_index
                     .entry(index.clone())
@@ -595,9 +595,10 @@ impl CalibrationOrchestrator {
                 // Convert context to ValuationMarketContext for tranche pricing
                 let val_context = ValuationMarketContext::from_core(context.clone());
 
+                let solver = calibrator.config.make_solver();
                 match calibrator.bootstrap_curve(
                     &maturity_quote_vec,
-                    &crate::calibration::solver::HybridSolver::new(),
+                    &solver,
                     &val_context,
                 ) {
                     Ok((curve, report)) => {
@@ -677,118 +678,6 @@ impl CalibrationOrchestrator {
         ))
     }
 
-    /// Build asset-specific forward function for volatility surface calibration.
-    ///
-    /// Creates appropriate forward calculation based on underlying asset class:
-    /// - Equity: S0 * exp((r - q) * t)
-    /// - FX: S0 * exp((r_dom - r_for) * t)  
-    /// - Rates: forward_curve.rate(t)
-    fn build_forward_function_for_underlying(
-        &self,
-        context: &MarketContext,
-        underlying: &str,
-    ) -> Result<Box<dyn Fn(finstack_core::F) -> finstack_core::F + '_>> {
-        // Detect asset class from underlying identifier
-        if underlying.contains("-")
-            && (underlying.contains("SOFR")
-                || underlying.contains("EURIBOR")
-                || underlying.contains("SONIA"))
-        {
-            // Interest rate underlying (e.g., "USD-SOFR3M", "EUR-EURIBOR3M")
-            self.build_rate_forward_for_orchestrator(context, underlying)
-        } else if underlying.len() == 6 && underlying.chars().all(|c| c.is_ascii_alphabetic()) {
-            // FX pair (e.g., "EURUSD", "GBPJPY")
-            self.build_fx_forward_for_orchestrator(context, underlying)
-        } else {
-            // Equity underlying (e.g., "SPY", "AAPL")
-            self.build_equity_forward_for_orchestrator(context, underlying)
-        }
-    }
-
-    /// Build equity forward function: F(t) = S0 * exp((r - q) * t)
-    fn build_equity_forward_for_orchestrator(
-        &self,
-        context: &MarketContext,
-        underlying: &str,
-    ) -> Result<Box<dyn Fn(finstack_core::F) -> finstack_core::F + '_>> {
-        // Get spot price
-        let spot_scalar = context.market_scalar(underlying)?;
-        let spot = match spot_scalar {
-            finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
-            finstack_core::market_data::primitives::MarketScalar::Unitless(value) => *value,
-        };
-
-        // Get dividend yield (default to 0.0 if not available)
-        let div_yield_key = format!("{}-DIVYIELD", underlying);
-        let dividend_yield = context
-            .market_scalar(&div_yield_key)
-            .map(|scalar| match scalar {
-                finstack_core::market_data::primitives::MarketScalar::Unitless(yield_val) => {
-                    *yield_val
-                }
-                _ => 0.0,
-            })
-            .unwrap_or(0.0);
-
-        // Get risk-free rate from discount curve
-        let disc_curve_id = format!("{}-OIS", self.base_currency);
-        let discount_curve = context.discount(&disc_curve_id)?;
-
-        Ok(Box::new(move |t: finstack_core::F| -> finstack_core::F {
-            let risk_free_rate = discount_curve.zero(t);
-            spot * ((risk_free_rate - dividend_yield) * t).exp()
-        }))
-    }
-
-    /// Build FX forward function: F(t) = S0 * exp((r_dom - r_for) * t)
-    fn build_fx_forward_for_orchestrator(
-        &self,
-        context: &MarketContext,
-        underlying: &str,
-    ) -> Result<Box<dyn Fn(finstack_core::F) -> finstack_core::F + '_>> {
-        // Parse FX pair (assume 6-char format like "EURUSD")
-        if underlying.len() != 6 {
-            return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::Invalid,
-            ));
-        }
-
-        let foreign_ccy = &underlying[0..3];
-        let domestic_ccy = &underlying[3..6];
-
-        // Get spot rate
-        let spot_scalar = context.market_scalar(underlying)?;
-        let spot = match spot_scalar {
-            finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
-            finstack_core::market_data::primitives::MarketScalar::Unitless(value) => *value,
-        };
-
-        // Get domestic and foreign discount curves
-        let dom_disc_id = format!("{}-OIS", domestic_ccy);
-        let for_disc_id = format!("{}-OIS", foreign_ccy);
-        let dom_curve = context.discount(&dom_disc_id)?;
-        let for_curve = context.discount(&for_disc_id)?;
-
-        Ok(Box::new(move |t: finstack_core::F| -> finstack_core::F {
-            let domestic_rate = dom_curve.zero(t);
-            let foreign_rate = for_curve.zero(t);
-            spot * ((domestic_rate - foreign_rate) * t).exp()
-        }))
-    }
-
-    /// Build rates forward function: F(t) = forward_curve.rate(t)
-    fn build_rate_forward_for_orchestrator(
-        &self,
-        context: &MarketContext,
-        underlying: &str,
-    ) -> Result<Box<dyn Fn(finstack_core::F) -> finstack_core::F + '_>> {
-        // Get forward curve for this index
-        let forward_curve = context.forecast(underlying)?;
-
-        Ok(Box::new(move |t: finstack_core::F| -> finstack_core::F {
-            forward_curve.rate(t)
-        }))
-    }
 
     /// Validate complete market environment for no-arbitrage conditions.
     pub fn validate_market_environment(

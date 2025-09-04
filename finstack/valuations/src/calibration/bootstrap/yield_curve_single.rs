@@ -128,13 +128,15 @@ impl DiscountCurveCalibrator {
                 continue; // Skip expired instruments
             }
 
-            println!(
-                "Processing instrument {} of {}: maturity_date = {}, time_to_maturity = {}",
-                idx + 1,
-                sorted_quotes.len(),
-                maturity_date,
-                time_to_maturity
-            );
+            if self.config.verbose {
+                tracing::debug!(
+                    instrument = idx + 1,
+                    total = sorted_quotes.len(),
+                    maturity_date = %maturity_date,
+                    time_to_maturity = time_to_maturity,
+                    "Processing instrument for bootstrap"
+                );
+            }
 
             // Create objective function that uses instrument pricing directly
             let knots_clone = knots.clone();
@@ -239,16 +241,13 @@ impl DiscountCurveCalibrator {
             .map_err(|_| finstack_core::Error::Internal)?;
 
         // Create calibration report
-        let report = CalibrationReport::new()
-            .success()
-            .with_residuals(residuals)
-            .with_iterations(total_iterations)
-            .with_convergence_reason("Bootstrap completed")
-            .with_metadata(
-                "interpolation".to_string(),
-                format!("{:?}", self.interpolation),
-            )
-            .with_metadata("currency".to_string(), format!("{}", self.currency));
+        let report = CalibrationReport::success_with(
+            residuals,
+            total_iterations,
+            "Bootstrap completed",
+        )
+        .with_metadata("interpolation", format!("{:?}", self.interpolation))
+        .with_metadata("currency", format!("{}", self.currency));
 
         Ok((curve, report))
     }
@@ -485,8 +484,8 @@ impl Calibrator<InstrumentQuote, DiscountCurve> for DiscountCurveCalibrator {
         instruments: &[InstrumentQuote],
         base_context: &MarketContext,
     ) -> Result<(DiscountCurve, CalibrationReport)> {
-        // Use the Newton solver for calibration
-        let solver = crate::calibration::solver::NewtonSolver::new();
+        // Use the configured solver for calibration
+        let solver = self.config.make_solver();
         self.bootstrap_curve_with_solver(instruments, &solver, base_context)
     }
 }
@@ -626,13 +625,20 @@ mod tests {
 
         let base_context = MarketContext::new();
 
-        println!(
-            "Starting calibration with {} deposits",
-            deposit_quotes.len()
-        );
-        for (i, quote) in deposit_quotes.iter().enumerate() {
-            if let InstrumentQuote::Deposit { maturity, rate, .. } = quote {
-                println!("  Deposit {}: maturity = {}, rate = {}", i, maturity, rate);
+        if calibrator.config.verbose {
+            tracing::debug!(
+                deposits = deposit_quotes.len(),
+                "Starting calibration with deposits"
+            );
+            for (i, quote) in deposit_quotes.iter().enumerate() {
+                if let InstrumentQuote::Deposit { maturity, rate, .. } = quote {
+                    tracing::trace!(
+                        deposit = i,
+                        maturity = %maturity,
+                        rate = rate,
+                        "Processing deposit quote"
+                    );
+                }
             }
         }
 
@@ -913,9 +919,15 @@ mod tests {
         // Proper way
         let proper_result = add_months(base_date, delivery_months);
         
-        println!("Base date: {}", base_date);
-        println!("Crude (+{} * 30 days): {}", delivery_months, crude_result);
-        println!("Proper (+{} months): {}", delivery_months, proper_result);
+        if cfg!(test) {
+            tracing::debug!(
+                base_date = %base_date,
+                delivery_months = delivery_months,
+                crude_result = %crude_result,
+                proper_result = %proper_result,
+                "Comparing month arithmetic methods"
+            );
+        }
         
         // Should be different for Jan 31 + 3 months
         assert_ne!(crude_result, proper_result, "Month arithmetic should give different results");

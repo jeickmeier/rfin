@@ -11,6 +11,7 @@
 
 pub mod base_correlation;
 pub mod bootstrap;
+pub mod common;
 pub mod dependency_dag;
 pub mod orchestrator;
 pub mod primitives;
@@ -162,11 +163,54 @@ impl CalibrationReport {
         self.metadata.insert(key.into(), value.into());
         self
     }
+
+    /// Create a successful calibration report with common fields set.
+    pub fn success_with(
+        residuals: HashMap<String, F>,
+        iterations: usize,
+        reason: impl Into<String>,
+    ) -> Self {
+        Self::new()
+            .success()
+            .with_residuals(residuals)
+            .with_iterations(iterations)
+            .with_convergence_reason(reason)
+    }
+
+    /// Add a single residual to the report.
+    pub fn push_residual(&mut self, key: impl Into<String>, value: F) {
+        self.residuals.insert(key.into(), value);
+        // Update derived metrics
+        self.max_residual = self.residuals.values().map(|r| r.abs()).fold(0.0, f64::max);
+        let sum_sq: F = self.residuals.values().map(|r| r * r).sum();
+        self.rmse = if self.residuals.is_empty() {
+            0.0
+        } else {
+            (sum_sq / self.residuals.len() as F).sqrt()
+        };
+    }
 }
 
 impl Default for CalibrationReport {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Solver type selection for calibration.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SolverKind {
+    /// Newton-Raphson solver with automatic derivative estimation
+    Newton,
+    /// Brent's method solver (robust, bracketing required)
+    Brent,
+    /// Hybrid solver that tries Newton first, falls back to Brent
+    Hybrid,
+}
+
+impl Default for SolverKind {
+    fn default() -> Self {
+        Self::Hybrid
     }
 }
 
@@ -183,6 +227,8 @@ pub struct CalibrationConfig {
     pub random_seed: Option<u64>,
     /// Enable verbose logging
     pub verbose: bool,
+    /// Solver type selection
+    pub solver_kind: SolverKind,
     /// Entity-specific seniority mappings for credit calibration
     pub entity_seniority: HashMap<String, finstack_core::market_data::term_structures::hazard_curve::Seniority>,
 }
@@ -195,7 +241,49 @@ impl Default for CalibrationConfig {
             use_parallel: false, // Deterministic by default
             random_seed: Some(42),
             verbose: false,
+            solver_kind: SolverKind::default(),
             entity_seniority: HashMap::new(),
+        }
+    }
+}
+
+/// Enum wrapper for different solver types to avoid trait object issues.
+#[derive(Debug)]
+pub enum SolverInstance {
+    Newton(solver::NewtonSolver),
+    Brent(solver::BrentSolver),
+    Hybrid(solver::HybridSolver),
+}
+
+impl solver::Solver for SolverInstance {
+    fn solve<Func>(&self, f: Func, initial_guess: F) -> Result<F>
+    where
+        Func: Fn(F) -> F,
+    {
+        match self {
+            SolverInstance::Newton(s) => s.solve(f, initial_guess),
+            SolverInstance::Brent(s) => s.solve(f, initial_guess),
+            SolverInstance::Hybrid(s) => s.solve(f, initial_guess),
+        }
+    }
+}
+
+impl CalibrationConfig {
+    /// Create a solver instance based on the configured solver kind.
+    pub fn make_solver(&self) -> SolverInstance {
+        match self.solver_kind {
+            SolverKind::Newton => {
+                SolverInstance::Newton(solver::NewtonSolver::new()
+                    .with_tolerance(self.tolerance)
+                    .with_max_iterations(self.max_iterations))
+            }
+            SolverKind::Brent => {
+                SolverInstance::Brent(solver::BrentSolver::new()
+                    .with_tolerance(self.tolerance))
+            }
+            SolverKind::Hybrid => {
+                SolverInstance::Hybrid(solver::HybridSolver::new())
+            }
         }
     }
 }
@@ -266,5 +354,88 @@ impl From<CalibrationError> for finstack_core::Error {
             }
         };
         finstack_core::Error::Calibration { message, category }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::calibration::solver::Solver;
+
+    #[test]
+    fn test_solver_selection() {
+        // Test that different solver kinds can be created and work
+        let mut config = CalibrationConfig::default();
+        
+        // Test default (Hybrid)
+        let solver = config.make_solver();
+        assert!(matches!(solver, SolverInstance::Hybrid(_)));
+        
+        // Test Newton
+        config.solver_kind = SolverKind::Newton;
+        let solver = config.make_solver();
+        assert!(matches!(solver, SolverInstance::Newton(_)));
+        
+        // Test Brent
+        config.solver_kind = SolverKind::Brent;
+        let solver = config.make_solver();
+        assert!(matches!(solver, SolverInstance::Brent(_)));
+        
+        // Test that solver can actually solve a simple equation
+        let f = |x: F| x * x - 4.0; // Root at x = 2
+        let root = solver.solve(f, 1.5).unwrap();
+        assert!((root - 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_calibration_config_defaults() {
+        let config = CalibrationConfig::default();
+        assert_eq!(config.tolerance, 1e-10);
+        assert_eq!(config.max_iterations, 100);
+        assert!(!config.use_parallel);
+        assert_eq!(config.random_seed, Some(42));
+        assert!(!config.verbose);
+        assert_eq!(config.solver_kind, SolverKind::Hybrid);
+        assert!(config.entity_seniority.is_empty());
+    }
+
+    #[test]
+    fn test_solver_kind_default() {
+        assert_eq!(SolverKind::default(), SolverKind::Hybrid);
+    }
+
+    #[test]
+    fn test_calibration_report_success_with() {
+        let mut residuals = HashMap::new();
+        residuals.insert("test_instrument".to_string(), 1e-6);
+        residuals.insert("another_instrument".to_string(), 2e-6);
+
+        let report = CalibrationReport::success_with(
+            residuals,
+            10,
+            "Test calibration completed",
+        );
+
+        assert!(report.success);
+        assert_eq!(report.iterations, 10);
+        assert_eq!(report.convergence_reason, "Test calibration completed");
+        assert_eq!(report.residuals.len(), 2);
+        assert!(report.max_residual > 0.0);
+        assert!(report.rmse > 0.0);
+    }
+
+    #[test]
+    fn test_calibration_report_push_residual() {
+        let mut report = CalibrationReport::new().success();
+        
+        report.push_residual("instrument1", 1e-6);
+        report.push_residual("instrument2", 2e-6);
+        
+        assert_eq!(report.residuals.len(), 2);
+        assert!((report.max_residual - 2e-6).abs() < 1e-12);
+        
+        // Test that metrics are updated correctly
+        let expected_rmse = ((1e-12_f64 + 4e-12_f64) / 2.0_f64).sqrt();
+        assert!((report.rmse - expected_rmse).abs() < 1e-15);
     }
 }

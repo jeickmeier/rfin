@@ -6,10 +6,11 @@
 //! - Flexible handling of complex cross-dependencies
 //! - Optimal execution order based on actual dependencies
 
+use crate::calibration::common::time::time_to_maturity_auto;
 use crate::calibration::primitives::{HashableFloat, InstrumentQuote};
+use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::hazard_curve::Seniority;
 use finstack_core::prelude::*;
-use finstack_core::F;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Types of market data structures that can be calibrated.
@@ -87,15 +88,18 @@ pub struct CalibrationDAG {
     dependencies: Vec<CalibrationDependency>,
     /// Quotes grouped by target
     quotes_by_target: HashMap<CalibrationTarget, Vec<InstrumentQuote>>,
+    /// Base date for time conversions
+    base_date: Date,
 }
 
 impl CalibrationDAG {
     /// Create a new calibration DAG from instrument quotes.
-    pub fn from_quotes(quotes: &[InstrumentQuote], base_currency: Currency) -> crate::Result<Self> {
+    pub fn from_quotes(quotes: &[InstrumentQuote], base_currency: Currency, base_date: Date) -> crate::Result<Self> {
         let mut dag = Self {
             targets: HashSet::new(),
             dependencies: Vec::new(),
             quotes_by_target: HashMap::new(),
+            base_date,
         };
 
         // Analyze quotes to determine targets and dependencies
@@ -162,9 +166,8 @@ impl CalibrationDAG {
                 targets.push(CalibrationTarget::VolatilitySurface { underlying: underlying.clone() });
             }
             InstrumentQuote::CDSTranche { index, maturity, .. } => {
-                // Calculate maturity in years for base correlation
-                let maturity_years_f = (*maturity - finstack_core::dates::Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
-                    .whole_days() as F / 365.25;
+                // Calculate maturity in years for base correlation using proper day count
+                let maturity_years_f = time_to_maturity_auto(self.base_date, *maturity);
                 let maturity_years = HashableFloat::new(maturity_years_f);
                 targets.push(CalibrationTarget::DiscountCurve { currency: base_currency });
                 targets.push(CalibrationTarget::HazardCurve { 
@@ -521,8 +524,9 @@ mod tests {
 
     #[test]
     fn test_dag_creation_from_quotes() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let quotes = create_test_quotes();
-        let dag = CalibrationDAG::from_quotes(&quotes, Currency::USD).unwrap();
+        let dag = CalibrationDAG::from_quotes(&quotes, Currency::USD, base_date).unwrap();
 
         assert!(!dag.targets.is_empty());
         assert!(!dag.dependencies.is_empty());
@@ -536,8 +540,9 @@ mod tests {
 
     #[test]
     fn test_topological_sort() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let quotes = create_test_quotes();
-        let dag = CalibrationDAG::from_quotes(&quotes, Currency::USD).unwrap();
+        let dag = CalibrationDAG::from_quotes(&quotes, Currency::USD, base_date).unwrap();
 
         let batches = dag.topological_sort().unwrap();
         assert!(!batches.is_empty());
@@ -552,8 +557,9 @@ mod tests {
 
     #[test]
     fn test_dependency_detection() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let quotes = create_test_quotes();
-        let dag = CalibrationDAG::from_quotes(&quotes, Currency::USD).unwrap();
+        let dag = CalibrationDAG::from_quotes(&quotes, Currency::USD, base_date).unwrap();
 
         let discount_target = CalibrationTarget::DiscountCurve { currency: Currency::USD };
         let hazard_target = CalibrationTarget::HazardCurve { 
@@ -570,8 +576,9 @@ mod tests {
 
     #[test]
     fn test_dag_statistics() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let quotes = create_test_quotes();
-        let dag = CalibrationDAG::from_quotes(&quotes, Currency::USD).unwrap();
+        let dag = CalibrationDAG::from_quotes(&quotes, Currency::USD, base_date).unwrap();
 
         let stats = dag.statistics();
         assert!(stats.total_targets > 0);

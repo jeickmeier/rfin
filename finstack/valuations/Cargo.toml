@@ -23,6 +23,7 @@ rand_pcg = { version = "0.3", optional = true }
 rand_distr = { version = "0.4", optional = true }
 ndarray = { version = "0.15", default-features = false }
 ndarray-linalg = { version = "0.16", optional = true }
+tracing = { version = "0.1", default-features = false }
 
 [dev-dependencies]
 time = { version = "0.3", features = ["macros"] }

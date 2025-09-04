@@ -251,15 +251,12 @@ impl BaseCorrelationCalibrator {
             .points(solved_correlations)
             .build()?;
 
-        let report = CalibrationReport::new()
-            .success()
-            .with_residuals(residuals)
-            .with_iterations(total_iterations)
-            .with_convergence_reason("Base correlation bootstrap completed successfully")
-            .with_metadata(
-                "calibrated_tranches".to_string(),
-                format!("{}", num_tranche_quotes),
-            );
+        let report = CalibrationReport::success_with(
+            residuals,
+            total_iterations,
+            "Base correlation bootstrap completed successfully",
+        )
+        .with_metadata("calibrated_tranches", format!("{}", num_tranche_quotes));
 
         Ok((final_curve, report))
     }
@@ -306,8 +303,8 @@ impl Calibrator<InstrumentQuote, BaseCorrelationCurve>
         // Convert core market context to valuation context
         let val_ctx = ValuationMarketContext::from_core(base_context.clone());
 
-        // Use the hybrid solver for robust root-finding
-        let solver = crate::calibration::solver::HybridSolver::new();
+        // Use the configured solver for robust root-finding
+        let solver = self.config.make_solver();
 
         // Delegate to the implemented bootstrap
         self.bootstrap_curve(instruments, &solver, &val_ctx)
@@ -402,9 +399,10 @@ impl BaseCorrelationSurfaceCalibrator {
 
                 let maturity_quote_vec: Vec<_> =
                     maturity_quotes.iter().map(|&q| q.clone()).collect();
+                let solver = calibrator.config.make_solver();
                 match calibrator.bootstrap_curve(
                     &maturity_quote_vec,
-                    &crate::calibration::solver::HybridSolver::new(),
+                    &solver,
                     market_context,
                 ) {
                     Ok((curve, report)) => {
@@ -557,7 +555,6 @@ mod tests {
 
     #[test]
     fn test_base_correlation_calibration_round_trip() {
-        use crate::calibration::solver::HybridSolver;
         use crate::instruments::fixed_income::cds_tranche::model::GaussianCopulaModel;
 
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -628,7 +625,7 @@ mod tests {
 
         // Now calibrate using these synthetic quotes
         let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date);
-        let solver = HybridSolver::new();
+        let solver = calibrator.config.make_solver();
 
         // Create clean market context for calibration (with dummy base correlation curve)
         let original_index = market_ctx.get_credit_index("CDX.NA.IG.42").unwrap();

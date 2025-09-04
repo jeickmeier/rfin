@@ -627,7 +627,7 @@ mod tests {
         // Should converge reasonably close to (1,1)
         // Rosenbrock function is notoriously difficult to optimize, relax requirements
         if !result.converged {
-            println!("LM solver did not converge for Rosenbrock function - this is expected for difficult optimization problems");
+            tracing::debug!("LM solver did not converge for Rosenbrock function - this is expected for difficult optimization problems");
         }
         // Just verify we get a reasonable result even if not fully converged
         assert!(result.solution[0].is_finite() && result.solution[1].is_finite());

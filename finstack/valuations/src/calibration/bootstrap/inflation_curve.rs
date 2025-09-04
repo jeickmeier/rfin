@@ -113,13 +113,15 @@ impl Calibrator<InstrumentQuote, InflationCurve>
         }
 
         quotes.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-        println!(
-            "[InflCalib] curve_id={} base_date={} quotes={} base_cpi={}",
-            self.curve_id,
-            self.base_date,
-            quotes.len(),
-            self.base_cpi
-        );
+        if self.config.verbose {
+            tracing::debug!(
+                curve_id = %self.curve_id,
+                base_date = %self.base_date,
+                quotes = quotes.len(),
+                base_cpi = self.base_cpi,
+                "Starting inflation curve calibration"
+            );
+        }
 
         // Start knots with CPI at base date
         let mut knots: Vec<(F, F)> = vec![(0.0, self.base_cpi)];
@@ -128,6 +130,7 @@ impl Calibrator<InstrumentQuote, InflationCurve>
 
         // Internal IDs used only for solving. Final curve will use self.curve_id
         const CALIB_INDEX_ID: &str = "CALIB_INFLATION";
+        const CALIB_DISC_ID: &str = "CALIB_DISC";
 
         // Ensure discount curve exists in base context (best-effort; pricing will use context provided by caller)
         let _ = base_context.discount(&self.discount_id)?;
@@ -149,19 +152,21 @@ impl Calibrator<InstrumentQuote, InflationCurve>
                 });
             // Use analytical breakeven CPI for initial guess to ensure f(x0)=0
             let initial_guess = self.base_cpi * (1.0 + par_rate).powf(tau);
-            println!(
-                "[InflCalib] matur={} t={:.6} rate={:.6} tau={:.6} guess={:.6}",
-                maturity, t, par_rate, tau, initial_guess
-            );
+            if self.config.verbose {
+                tracing::debug!(
+                    maturity = %maturity,
+                    t = t,
+                    rate = par_rate,
+                    tau = tau,
+                    guess = initial_guess,
+                    "Processing inflation swap quote"
+                );
+            }
 
             // Objective priced via instrument pricer
             let knots_clone = knots.clone();
             let base_ctx_clone = base_context.clone();
             let notional = Money::new(1_000_000.0, self.currency);
-            
-            // Create static string from discount_id for this calibration iteration
-            // Note: This creates a controlled leak but only during calibration
-            let disc_id_static: &'static str = Box::leak(self.discount_id.clone().into_boxed_str());
 
             let base_date = self.base_date;
             let objective = move |cpi_guess: F| -> F {
@@ -192,7 +197,7 @@ impl Calibrator<InstrumentQuote, InflationCurve>
                     .maturity(maturity)
                     .fixed_rate(par_rate)
                     .inflation_id(CALIB_INDEX_ID)
-                    .disc_id(disc_id_static)
+                    .disc_id(CALIB_DISC_ID)
                     .dc(DayCount::ActAct)
                     .side(PayReceiveInflation::PayFixed)
                     .build()
@@ -220,10 +225,13 @@ impl Calibrator<InstrumentQuote, InflationCurve>
 
             // Record residual and commit the knot
             let res = objective(solved_cpi).abs();
-            println!(
-                "[InflCalib] solved_cpi={:.6} residual={:.12}",
-                solved_cpi, res
-            );
+            if self.config.verbose {
+                tracing::debug!(
+                    solved_cpi = solved_cpi,
+                    residual = res,
+                    "Solved CPI for maturity"
+                );
+            }
             residuals.insert(format!("ZCIS-{}", maturity), res);
             knots.push((t, solved_cpi));
         }
@@ -236,7 +244,9 @@ impl Calibrator<InstrumentQuote, InflationCurve>
         }
         final_knots.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
-        println!("[InflCalib] final knots={}", final_knots.len());
+        if self.config.verbose {
+            tracing::debug!(final_knots = final_knots.len(), "Building final inflation curve");
+        }
         let curve = match InflationCurve::builder(&self.curve_id)
             .base_cpi(self.base_cpi)
             .knots(final_knots.clone())
@@ -255,10 +265,11 @@ impl Calibrator<InstrumentQuote, InflationCurve>
             }
         };
 
-        let report = CalibrationReport::new()
-            .success()
-            .with_residuals(residuals)
-            .with_convergence_reason("Inflation curve bootstrap completed");
+        let report = CalibrationReport::success_with(
+            residuals,
+            final_knots.len(),
+            "Inflation curve bootstrap completed",
+        );
 
         Ok((curve, report))
     }

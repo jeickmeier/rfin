@@ -3,11 +3,14 @@
 //! Implements market-standard volatility surface construction by calibrating
 //! SABR parameters per expiry slice and building interpolated surfaces.
 
+use crate::calibration::common::{forward_fn_auto, time_to_expiry_vol};
 use crate::calibration::primitives::{HashableFloat, InstrumentQuote};
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::options::models::{SABRCalibrator, SABRModel, SABRParameters};
+use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+use finstack_core::prelude::Currency;
 use finstack_core::{Result, F};
 use std::collections::HashMap;
 
@@ -24,6 +27,8 @@ pub struct VolSurfaceCalibrator {
     pub target_expiries: Vec<F>,
     /// Target strike grid  
     pub target_strikes: Vec<F>,
+    /// Base date for time-to-expiry calculations
+    pub base_date: Date,
 }
 
 impl VolSurfaceCalibrator {
@@ -40,7 +45,14 @@ impl VolSurfaceCalibrator {
             config: CalibrationConfig::default(),
             target_expiries,
             target_strikes,
+            base_date: Date::from_calendar_date(1970, time::Month::January, 1).unwrap(),
         }
+    }
+
+    /// Set the base date for time-to-expiry calculations.
+    pub fn with_base_date(mut self, base_date: Date) -> Self {
+        self.base_date = base_date;
+        self
     }
 
     /// Set calibration configuration.
@@ -83,18 +95,10 @@ impl VolSurfaceCalibrator {
                 continue; // Need at least 3 points for SABR (alpha, nu, rho)
             }
 
-            // Extract time to expiry from first quote
+            // Extract time to expiry using proper day count convention
             let time_to_expiry = if let InstrumentQuote::OptionVol { expiry, .. } = expiry_quotes[0]
             {
-                let days = (*expiry
-                    - finstack_core::dates::Date::from_calendar_date(
-                        2025,
-                        time::Month::January,
-                        1,
-                    )
-                    .unwrap())
-                .whole_days();
-                days as F / 365.25
+                time_to_expiry_vol(self.base_date, *expiry)
             } else {
                 continue;
             };
@@ -161,15 +165,13 @@ impl VolSurfaceCalibrator {
             &vol_grid,
         )?;
 
-        let report = CalibrationReport::new()
-            .success()
-            .with_residuals(all_residuals)
-            .with_convergence_reason("Volatility surface calibration completed")
-            .with_metadata("beta".to_string(), format!("{:.3}", self.beta))
-            .with_metadata(
-                "calibrated_expiries".to_string(),
-                format!("{}", sabr_params_by_expiry.len()),
-            );
+        let report = CalibrationReport::success_with(
+            all_residuals,
+            sabr_params_by_expiry.len(), // Use number of calibrated expiries as iteration count
+            "Volatility surface calibration completed",
+        )
+        .with_metadata("beta", format!("{:.3}", self.beta))
+        .with_metadata("calibrated_expiries", format!("{}", sabr_params_by_expiry.len()));
 
         Ok((surface, report))
     }
@@ -251,121 +253,6 @@ impl VolSurfaceCalibrator {
         Ok(sabr_params[&HashableFloat::new(expiries[0])].clone())
     }
 
-    /// Build asset-specific forward function from market context.
-    ///
-    /// Determines asset class from underlying identifier and constructs
-    /// appropriate forward calculation using market data.
-    fn build_forward_function(
-        &self,
-        context: &MarketContext,
-        underlying: &str,
-    ) -> Result<Box<dyn Fn(F) -> F + '_>> {
-        // Detect asset class from underlying identifier
-        if underlying.contains("-")
-            && (underlying.contains("SOFR")
-                || underlying.contains("EURIBOR")
-                || underlying.contains("SONIA"))
-        {
-            // Interest rate underlying (e.g., "USD-SOFR3M", "EUR-EURIBOR3M")
-            self.build_rate_forward(context, underlying)
-        } else if underlying.len() == 6 && underlying.chars().all(|c| c.is_ascii_alphabetic()) {
-            // FX pair (e.g., "EURUSD", "GBPJPY")
-            self.build_fx_forward(context, underlying)
-        } else {
-            // Equity underlying (e.g., "SPY", "AAPL")
-            self.build_equity_forward(context, underlying)
-        }
-    }
-
-    /// Build forward function for equity underlyings: F(t) = S0 * exp((r - q) * t)
-    fn build_equity_forward(
-        &self,
-        context: &MarketContext,
-        underlying: &str,
-    ) -> Result<Box<dyn Fn(F) -> F + '_>> {
-        // Get spot price
-        let spot_scalar = context.market_scalar(underlying)?;
-        let spot = match spot_scalar {
-            finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
-            finstack_core::market_data::primitives::MarketScalar::Unitless(value) => *value,
-        };
-
-        // Get dividend yield (default to 0.0 if not available)
-        let div_yield_key = format!("{}-DIVYIELD", underlying);
-        let dividend_yield = context
-            .market_scalar(&div_yield_key)
-            .map(|scalar| match scalar {
-                finstack_core::market_data::primitives::MarketScalar::Unitless(yield_val) => {
-                    *yield_val
-                }
-                _ => 0.0,
-            })
-            .unwrap_or(0.0);
-
-        // Get risk-free rate from discount curve
-        let disc_curve_id = format!("{}-OIS", self.base_currency_code());
-        let discount_curve = context.discount(&disc_curve_id)?;
-
-        Ok(Box::new(move |t: F| -> F {
-            let risk_free_rate = discount_curve.zero(t);
-            spot * ((risk_free_rate - dividend_yield) * t).exp()
-        }))
-    }
-
-    /// Build forward function for FX underlyings: F(t) = S0 * exp((r_dom - r_for) * t)
-    fn build_fx_forward(
-        &self,
-        context: &MarketContext,
-        underlying: &str,
-    ) -> Result<Box<dyn Fn(F) -> F + '_>> {
-        // Parse FX pair (assume 6-char format like "EURUSD")
-        if underlying.len() != 6 {
-            return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::Invalid,
-            ));
-        }
-
-        let foreign_ccy = &underlying[0..3];
-        let domestic_ccy = &underlying[3..6];
-
-        // Get spot rate
-        let spot_scalar = context.market_scalar(underlying)?;
-        let spot = match spot_scalar {
-            finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
-            finstack_core::market_data::primitives::MarketScalar::Unitless(value) => *value,
-        };
-
-        // Get domestic and foreign discount curves
-        let dom_disc_id = format!("{}-OIS", domestic_ccy);
-        let for_disc_id = format!("{}-OIS", foreign_ccy);
-        let dom_curve = context.discount(&dom_disc_id)?;
-        let for_curve = context.discount(&for_disc_id)?;
-
-        Ok(Box::new(move |t: F| -> F {
-            let domestic_rate = dom_curve.zero(t);
-            let foreign_rate = for_curve.zero(t);
-            spot * ((domestic_rate - foreign_rate) * t).exp()
-        }))
-    }
-
-    /// Build forward function for interest rate underlyings: F(t) = forward_curve.rate(t)
-    fn build_rate_forward(
-        &self,
-        context: &MarketContext,
-        underlying: &str,
-    ) -> Result<Box<dyn Fn(F) -> F + '_>> {
-        // Get forward curve for this index
-        let forward_curve = context.forecast(underlying)?;
-
-        Ok(Box::new(move |t: F| -> F { forward_curve.rate(t) }))
-    }
-
-    /// Get base currency code for discount curve lookup
-    fn base_currency_code(&self) -> &'static str {
-        // In a real implementation, this would come from the orchestrator context
-        // For now, assume USD as default
-        "USD"
-    }
 }
 
 impl Calibrator<InstrumentQuote, VolSurface> for VolSurfaceCalibrator {
@@ -386,7 +273,7 @@ impl Calibrator<InstrumentQuote, VolSurface> for VolSurfaceCalibrator {
             ))?;
 
         // Build asset-specific forward function from market context
-        let forward_fn = self.build_forward_function(base_context, &underlying)?;
+        let forward_fn = forward_fn_auto(base_context, &underlying, Currency::USD)?; // TODO: Make base currency configurable
 
         self.calibrate_surface(instruments, &forward_fn)
     }
@@ -454,12 +341,14 @@ mod tests {
 
     #[test]
     fn test_vol_surface_calibration() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let calibrator = VolSurfaceCalibrator::new(
             "TEST-VOL",
             1.0,                          // Lognormal beta for equity
             vec![1.0 / 12.0, 3.0 / 12.0], // 1M, 3M
             vec![90.0, 100.0, 110.0],
-        );
+        )
+        .with_base_date(base_date);
 
         let quotes = create_test_vol_quotes();
 
@@ -469,7 +358,7 @@ mod tests {
             .with_price("SPY-DIVYIELD", finstack_core::market_data::primitives::MarketScalar::Unitless(0.02))
             .with_discount(
                 finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder("USD-OIS")
-                    .base_date(finstack_core::dates::Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
+                    .base_date(base_date)
                     .knots([(0.0, 1.0), (5.0, 0.78)])
                     .linear_df()
                     .build()
@@ -488,7 +377,9 @@ mod tests {
 
     #[test]
     fn test_sabr_parameter_interpolation() {
-        let calibrator = VolSurfaceCalibrator::new("TEST", 0.5, vec![1.0, 2.0, 3.0], vec![100.0]);
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let calibrator = VolSurfaceCalibrator::new("TEST", 0.5, vec![1.0, 2.0, 3.0], vec![100.0])
+            .with_base_date(base_date);
 
         // Create mock SABR parameters
         let mut params_map = HashMap::new();
@@ -526,12 +417,14 @@ mod tests {
 
     #[test]
     fn test_vol_grid_construction() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let calibrator = VolSurfaceCalibrator::new(
             "TEST",
             1.0,
             vec![0.25, 0.5], // 3M, 6M
             vec![95.0, 100.0, 105.0],
-        );
+        )
+        .with_base_date(base_date);
 
         // Create simple SABR parameters
         let mut params_map = HashMap::new();

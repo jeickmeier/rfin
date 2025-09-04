@@ -243,16 +243,13 @@ impl HazardCurveCalibrator {
             .par_spreads(par_knots)
             .build()?;
 
-        let report = CalibrationReport::new()
-            .success()
-            .with_residuals(residuals)
-            .with_iterations(total_iterations)
-            .with_convergence_reason("Hazard curve bootstrap completed")
-            .with_metadata("entity".to_string(), self.entity.clone())
-            .with_metadata(
-                "recovery_rate".to_string(),
-                format!("{:.3}", self.recovery_rate),
-            );
+        let report = CalibrationReport::success_with(
+            residuals,
+            total_iterations,
+            "Hazard curve bootstrap completed",
+        )
+        .with_metadata("entity", self.entity.clone())
+        .with_metadata("recovery_rate", format!("{:.3}", self.recovery_rate));
 
         Ok((curve, report))
     }
@@ -277,7 +274,7 @@ impl Calibrator<InstrumentQuote, HazardCurve> for HazardCurveCalibrator {
         base_context: &MarketContext,
     ) -> Result<(HazardCurve, CalibrationReport)> {
         let disc = base_context.discount(&self.discount_curve_id)?;
-        let solver = crate::calibration::solver::HybridSolver::new();
+        let solver = self.config.make_solver();
         self.bootstrap_internal(instruments, &solver, Some(disc.as_ref()))
     }
 }
