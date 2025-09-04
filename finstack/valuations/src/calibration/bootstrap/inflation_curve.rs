@@ -4,8 +4,7 @@
 //! inflation swaps to build forward CPI level curves.
 
 use crate::calibration::primitives::InstrumentQuote;
-use crate::calibration::solver::HybridSolver;
-use crate::calibration::solver::Solver;
+use finstack_core::math::{HybridSolver, Solver};
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::inflation_swap::{InflationSwap, PayReceiveInflation};
 use crate::instruments::traits::Priceable;
@@ -65,7 +64,7 @@ impl InflationCurveCalibrator {
 
 impl InflationCurveCalibrator {
     /// Backwards-compatible bootstrap API used in tests and examples.
-    pub fn bootstrap_curve<S: crate::calibration::solver::Solver>(
+    pub fn bootstrap_curve<S: finstack_core::math::Solver>(
         &self,
         quotes: &[InstrumentQuote],
         _solver: &S,

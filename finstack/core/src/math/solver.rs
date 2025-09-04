@@ -1,10 +1,27 @@
-//! Generic solver interface and implementations for calibration.
+//! Generic solver interfaces and optimization algorithms.
 //!
-//! Provides a unified interface for 1D root finding and multi-dimensional
-//! optimization used throughout the calibration framework.
+//! This module provides unified interfaces for 1D root finding and multi-dimensional
+//! optimization algorithms used throughout financial computations.
+//!
+//! The module includes:
+//! - High-level solver trait interfaces for configurable, reusable solvers
+//! - Object-oriented wrappers around core root finding algorithms
+//! - Multi-dimensional optimization algorithms (Levenberg-Marquardt)
+//! - Robust solver implementations with automatic fallback mechanisms
+//!
+//! # Examples
+//!
+//! ```
+//! use finstack_core::math::solver::{NewtonSolver, Solver};
+//!
+//! let solver = NewtonSolver::new().with_tolerance(1e-10);
+//! let f = |x: f64| x * x - 2.0;
+//! let root = solver.solve(f, 1.0).unwrap();
+//! assert!((root - 2.0_f64.sqrt()).abs() < 1e-10);
+//! ```
 
-use finstack_core::math::root_finding::{brent, newton_raphson};
-use finstack_core::{Result, F};
+use super::root_finding::{brent, newton_raphson};
+use crate::{Result, F};
 use ndarray::{Array1, Array2};
 
 /// Generic solver trait for 1D root finding.
@@ -153,7 +170,7 @@ impl BrentSolver {
             b += width * self.bracket_expansion;
         }
 
-        Err(finstack_core::Error::Internal) // Could not find bracket
+        Err(crate::Error::Internal) // Could not find bracket
     }
 }
 
@@ -315,7 +332,7 @@ impl LevenbergMarquardtSolver {
     fn solve_linear_system(&self, a: &Array2<F>, b: &Array1<F>) -> Result<Array1<F>> {
         let n = a.nrows();
         if a.ncols() != n || b.len() != n {
-            return Err(finstack_core::Error::Internal);
+            return Err(crate::Error::Internal);
         }
 
         #[cfg(feature = "linear-algebra")]
@@ -324,7 +341,7 @@ impl LevenbergMarquardtSolver {
             let x = a
                 .to_owned()
                 .solve_into(b.to_owned())
-                .map_err(|_| finstack_core::Error::Internal)?;
+                .map_err(|_| crate::Error::Internal)?;
             return Ok(x);
         }
 
@@ -354,7 +371,7 @@ impl LevenbergMarquardtSolver {
                     }
                 }
                 if aug[(k, k)].abs() < 1e-14 {
-                    return Err(finstack_core::Error::Internal);
+                    return Err(crate::Error::Internal);
                 }
                 for i in (k + 1)..n {
                     let factor = aug[(i, k)] / aug[(k, k)];
@@ -627,7 +644,7 @@ mod tests {
         // Should converge reasonably close to (1,1)
         // Rosenbrock function is notoriously difficult to optimize, relax requirements
         if !result.converged {
-            tracing::debug!("LM solver did not converge for Rosenbrock function - this is expected for difficult optimization problems");
+            // LM solver did not converge for Rosenbrock function - this is expected for difficult optimization problems
         }
         // Just verify we get a reasonable result even if not fully converged
         assert!(result.solution[0].is_finite() && result.solution[1].is_finite());

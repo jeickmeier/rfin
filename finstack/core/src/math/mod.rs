@@ -8,6 +8,7 @@ pub mod distributions;
 pub mod integration;
 pub mod random;
 pub mod root_finding;
+pub mod solver;
 pub mod special_functions;
 pub mod stats;
 pub mod summation;
@@ -23,6 +24,10 @@ pub use random::{RandomNumberGenerator, SimpleRng};
 pub use root_finding::{
     brent, brent_with_bracketing, find_bracketing_interval, hybrid_root_find, newton_bracketed, 
     newton_raphson,
+};
+pub use solver::{
+    BrentSolver, HybridSolver, LeastSquaresSolver, LevenbergMarquardtSolver, MultiDimSolver,
+    NewtonSolver, OptimizationResult, Solver,
 };
 pub use special_functions::{
     erf, norm_cdf, norm_pdf, standard_normal_cdf, standard_normal_inv_cdf,

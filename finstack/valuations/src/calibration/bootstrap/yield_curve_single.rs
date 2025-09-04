@@ -7,7 +7,7 @@
 //! pricing formulas, following market-standard bootstrap methodology.
 
 use crate::calibration::primitives::InstrumentQuote;
-use crate::calibration::solver::Solver;
+use finstack_core::math::Solver;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::fra::ForwardRateAgreement;
 use crate::instruments::fixed_income::ir_future::InterestRateFuture;
@@ -467,7 +467,7 @@ impl DiscountCurveCalibrator {
 
 impl DiscountCurveCalibrator {
     /// Backwards-compatible bootstrap API used in tests and examples.
-    pub fn bootstrap_curve<S: crate::calibration::solver::Solver>(
+    pub fn bootstrap_curve<S: finstack_core::math::Solver>(
         &self,
         quotes: &[InstrumentQuote],
         solver: &S,
@@ -644,7 +644,7 @@ mod tests {
 
         let result = calibrator.bootstrap_curve(
             &deposit_quotes,
-            &crate::calibration::solver::NewtonSolver::new(),
+            &finstack_core::math::NewtonSolver::new(),
             &base_context,
         );
 
@@ -714,7 +714,7 @@ mod tests {
         let (curve, _report) = calibrator
             .bootstrap_curve(
                 &quotes,
-                &crate::calibration::solver::HybridSolver::new(),
+                &finstack_core::math::HybridSolver::new(),
                 &base_context,
             )
             .unwrap();
@@ -777,7 +777,7 @@ mod tests {
         let (curve, _report) = calibrator
             .bootstrap_curve(
                 &quotes,
-                &crate::calibration::solver::HybridSolver::new(),
+                &finstack_core::math::HybridSolver::new(),
                 &base_context,
             )
             .unwrap();
@@ -855,7 +855,7 @@ mod tests {
         let (curve, _report) = calibrator
             .bootstrap_curve(
                 &quotes,
-                &crate::calibration::solver::HybridSolver::new(),
+                &finstack_core::math::HybridSolver::new(),
                 &base_context,
             )
             .unwrap();

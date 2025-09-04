@@ -15,10 +15,10 @@ pub mod common;
 pub mod dependency_dag;
 pub mod orchestrator;
 pub mod primitives;
-pub mod solver;
 pub mod surface;
 
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::math::{HybridSolver, NewtonSolver, BrentSolver, Solver};
 use finstack_core::{Result, F};
 use std::collections::HashMap;
 
@@ -250,12 +250,12 @@ impl Default for CalibrationConfig {
 /// Enum wrapper for different solver types to avoid trait object issues.
 #[derive(Debug)]
 pub enum SolverInstance {
-    Newton(solver::NewtonSolver),
-    Brent(solver::BrentSolver),
-    Hybrid(solver::HybridSolver),
+    Newton(NewtonSolver),
+    Brent(BrentSolver),
+    Hybrid(HybridSolver),
 }
 
-impl solver::Solver for SolverInstance {
+impl Solver for SolverInstance {
     fn solve<Func>(&self, f: Func, initial_guess: F) -> Result<F>
     where
         Func: Fn(F) -> F,
@@ -273,16 +273,16 @@ impl CalibrationConfig {
     pub fn make_solver(&self) -> SolverInstance {
         match self.solver_kind {
             SolverKind::Newton => {
-                SolverInstance::Newton(solver::NewtonSolver::new()
+                SolverInstance::Newton(NewtonSolver::new()
                     .with_tolerance(self.tolerance)
                     .with_max_iterations(self.max_iterations))
             }
             SolverKind::Brent => {
-                SolverInstance::Brent(solver::BrentSolver::new()
+                SolverInstance::Brent(BrentSolver::new()
                     .with_tolerance(self.tolerance))
             }
             SolverKind::Hybrid => {
-                SolverInstance::Hybrid(solver::HybridSolver::new())
+                SolverInstance::Hybrid(HybridSolver::new())
             }
         }
     }
@@ -360,7 +360,7 @@ impl From<CalibrationError> for finstack_core::Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::calibration::solver::Solver;
+    use finstack_core::math::Solver;
 
     #[test]
     fn test_solver_selection() {

@@ -23,6 +23,7 @@ hashbrown = "0.14"
 indexmap = { version = "2.0" }
 rayon = { version = "1.10", optional = true }
 ndarray = { version = "0.15", default-features = false }
+ndarray-linalg = { version = "0.16", optional = true }
 polars = { workspace = true }
 
 
@@ -41,6 +42,7 @@ std = ["serde?/std"]
 decimal128 = ["dep:rust_decimal"]
 serde = ["dep:serde", "serde/derive", "time/serde", "hashbrown/serde", "indexmap/serde", "rust_decimal?/serde"]
 parallel = ["dep:rayon"]
+linear-algebra = ["dep:ndarray-linalg"]
 # Controls deterministic vs. performance-optimized execution paths
 deterministic = []
 

@@ -94,7 +94,7 @@ impl HazardCurveCalibrator {
         self
     }
 
-    fn bootstrap_internal<S: crate::calibration::solver::Solver>(
+    fn bootstrap_internal<S: finstack_core::math::Solver>(
         &self,
         quotes: &[InstrumentQuote],
         solver: &S,
@@ -257,7 +257,7 @@ impl HazardCurveCalibrator {
 
 impl HazardCurveCalibrator {
     /// Bootstrap API used in tests and examples (explicit solver + discount curve).
-    pub fn bootstrap_curve<S: crate::calibration::solver::Solver>(
+    pub fn bootstrap_curve<S: finstack_core::math::Solver>(
         &self,
         quotes: &[InstrumentQuote],
         solver: &S,
@@ -336,7 +336,7 @@ mod tests {
 
         let calibrator =
             HazardCurveCalibrator::new("AAPL", Seniority::Senior, 0.40, base_date, Currency::USD, "USD-OIS");
-        let solver = crate::calibration::solver::HybridSolver::new();
+        let solver = finstack_core::math::HybridSolver::new();
         let (hazard, report) = calibrator
             .bootstrap_curve(&quotes, &solver, &disc)
             .expect("hazard curve calibration failed");
@@ -385,7 +385,7 @@ mod tests {
 
         let calibrator =
             HazardCurveCalibrator::new("AAPL", Seniority::Senior, 0.40, base_date, Currency::USD, "USD-OIS");
-        let solver = crate::calibration::solver::HybridSolver::new();
+        let solver = finstack_core::math::HybridSolver::new();
         let (hazard, report) = calibrator
             .bootstrap_curve(&quotes, &solver, &disc)
             .expect("hazard curve calibration failed");
@@ -436,7 +436,7 @@ mod tests {
         let disc = test_discount_curve();
         let calibrator =
             HazardCurveCalibrator::new("AAPL", Seniority::Senior, 0.40, base_date, Currency::USD, "USD-OIS");
-        let solver = crate::calibration::solver::HybridSolver::new();
+        let solver = finstack_core::math::HybridSolver::new();
         let empty: Vec<InstrumentQuote> = vec![];
         let res = calibrator.bootstrap_curve(&empty, &solver, &disc);
         assert!(res.is_err());
@@ -467,7 +467,7 @@ mod tests {
             Currency::USD, 
             "USD-OIS"
         );
-        let solver = crate::calibration::solver::HybridSolver::new();
+        let solver = finstack_core::math::HybridSolver::new();
         let result = calibrator.bootstrap_curve(&upfront_quote, &solver, &disc);
         
         // Should succeed and handle upfront quote properly

@@ -4,7 +4,7 @@
 //! one-factor Gaussian Copula model and equity tranche decomposition.
 
 use crate::calibration::primitives::{HashableFloat, InstrumentQuote};
-use crate::calibration::solver::Solver;
+use finstack_core::math::Solver;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
 
