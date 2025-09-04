@@ -255,8 +255,8 @@ mod tests {
     use crate::instruments::equity::private_equity::{FundEvent, WaterfallSpec};
     use time::Month;
 
-    fn test_currency() -> finstack_core::Currency {
-        finstack_core::Currency::USD
+    fn test_currency() -> finstack_core::currency::Currency {
+        finstack_core::currency::Currency::USD
     }
 
     fn test_date(year: i32, month: u8, day: u8) -> Date {

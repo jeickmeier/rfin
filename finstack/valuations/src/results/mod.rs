@@ -5,6 +5,7 @@ use finstack_core::F;
 use hashbrown::HashMap;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
+pub use finstack_core::money::fx::FxPolicyMeta;
 
 /// Covenant check result.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -67,52 +68,13 @@ impl CovenantReport {
     }
 }
 
-/// FX policy metadata.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct FxPolicyMeta {
-    /// Policy name/identifier
-    pub policy_name: String,
-
-    /// Source of FX rates (e.g., "market", "fixed", "historical")
-    pub source: String,
-
-    /// Effective date for FX rates
-    pub effective_date: Date,
-
-    /// Applied conversion pairs and rates
-    pub conversions: HashMap<(Currency, Currency), F>,
-}
-
-impl FxPolicyMeta {
-    /// Create new FX policy metadata.
-    pub fn new(
-        policy_name: impl Into<String>,
-        source: impl Into<String>,
-        effective_date: Date,
-    ) -> Self {
-        Self {
-            policy_name: policy_name.into(),
-            source: source.into(),
-            effective_date,
-            conversions: HashMap::new(),
-        }
-    }
-
-    /// Add a conversion rate.
-    pub fn with_conversion(mut self, from: Currency, to: Currency, rate: F) -> Self {
-        self.conversions.insert((from, to), rate);
-        self
-    }
-}
+// FxPolicyMeta is now unified with the core definition via the re-export above.
 
 /// Extended metadata for valuation results.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExtendedResultsMeta {
     /// Core metadata from finstack_core
     pub core: ResultsMeta,
-
-    /// FX policies applied during valuation
-    pub fx_policies: IndexMap<String, FxPolicyMeta>,
 
     /// Additional custom metadata
     pub custom: HashMap<String, String>,
@@ -123,14 +85,13 @@ impl ExtendedResultsMeta {
     pub fn from_core(core: ResultsMeta) -> Self {
         Self {
             core,
-            fx_policies: IndexMap::new(),
             custom: HashMap::new(),
         }
     }
 
     /// Add an FX policy.
     pub fn with_fx_policy(mut self, key: impl Into<String>, policy: FxPolicyMeta) -> Self {
-        self.fx_policies.insert(key.into(), policy);
+        self.core.fx_policies.insert(key.into(), policy);
         self
     }
 
@@ -205,7 +166,7 @@ impl ValuationResult {
 
     /// Add an FX policy to the metadata.
     pub fn with_fx_policy(mut self, key: impl Into<String>, policy: FxPolicyMeta) -> Self {
-        self.meta.fx_policies.insert(key.into(), policy);
+        self.meta.core.fx_policies.insert(key.into(), policy);
         self
     }
 

@@ -1,6 +1,8 @@
-//! New trait family replacing legacy `Curve` hierarchy
+//! Term-structure traits for market data (curves, surfaces, lattices)
 
-use crate::{dates::Date, types::CurveId, F};
+use crate::dates::Date;
+use crate::types::CurveId;
+use crate::F;
 extern crate alloc;
 #[cfg(all(feature = "parallel", not(feature = "deterministic")))]
 use rayon::prelude::*;
@@ -11,11 +13,8 @@ use rayon::prelude::*;
 /// Common super-trait for all term-structure types (curves, surfaces, lattices).
 ///
 /// The trait purposefully only exposes the [`id`] accessor which every market
-/// object shares.  Specialised behaviour lives in more focused traits such as
-/// [`DiscountCurve`], [`ForwardCurve`], [`SurvivalCurve`], [`PriceIndexCurve`]
-/// and [`Surface`].  For the time being the legacy [`Curve`] implementation is
-/// kept as a convenience wrapper that extends `TermStructure` so downstream
-/// code continues to compile while the refactor is rolled out incrementally.
+/// object shares. Specialised behaviour lives in focused traits such as
+/// [`Discount`], [`Forward`], [`Survival`], [`Inflation`] and [`Surface`].
 pub trait TermStructure {
     /// Unique identifier of the term structure (e.g. "USD-OIS").
     fn id(&self) -> &CurveId;

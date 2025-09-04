@@ -15,7 +15,7 @@
 //!
 //! # Quick start
 //! ```
-//! use finstack_core::{Currency, Money};
+//! use finstack_core::prelude::*;
 //!
 //! // Parse ISO-4217 codes (case-insensitive)
 //! let eur = "eur".parse::<Currency>().unwrap();
@@ -41,8 +41,6 @@
 //! ---
 //! _Released under the MIT license.  Contributions welcome!_
 
-#[cfg(feature = "std")]
-extern crate std;
 
 // Core modules
 pub mod config;
@@ -62,8 +60,6 @@ pub mod math;
 /// Expression engine (AST, evaluator, Polars lowering)
 pub mod expr;
 
-
-
 /// Core type definitions (phantom-typed IDs, rates, etc.)
 pub mod types;
 
@@ -72,20 +68,5 @@ pub use error::Error;
 /// Convenient alias carrying the crate's unified [`Error`].
 pub type Result<T> = core::result::Result<T, Error>;
 
-// Top-level re-exports of commonly used primitives for easier discovery
-pub use crate::currency::Currency;
-pub use crate::money::fx::{FxConversionPolicy, FxProvider};
-pub use crate::money::Money;
 /// Numeric precision alias – f64 by default. Future work will allow swapping via features.
 pub type F = f64;
-
-// Top-level re-exports for ergonomic access – keeps `use` sites terse.
-pub use crate::dates::DayCount;
-pub use crate::dates::{Date, OffsetDateTime, PrimitiveDateTime};
-pub use crate::dates::{DateExt, OffsetDateTimeExt};
-
-// Bring interpolation trait into scope for doctests/examples that call .linear_df(), .log_df(), etc.
-pub use crate::market_data::interp::InterpConfigurableBuilder;
-
-// Schedule frequency re-export
-pub use crate::dates::Frequency;

@@ -1,5 +1,6 @@
 use finstack_core::config::{CurrencyScalePolicy, FinstackConfig, RoundingMode, RoundingPolicy};
-use finstack_core::{Currency, Money};
+use finstack_core::money::Money;
+use finstack_core::prelude::Currency;
 
 #[test]
 fn money_display_respects_output_scale() {

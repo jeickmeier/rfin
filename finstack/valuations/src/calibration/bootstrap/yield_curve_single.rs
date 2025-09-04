@@ -17,7 +17,9 @@ use finstack_core::dates::{Date, DayCount, add_months};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::interp::{InterpStyle, InterpConfigurableBuilder};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::{money::Money, Currency, Result, F};
+use finstack_core::money::Money;
+use finstack_core::prelude::*;
+use finstack_core::F;
 use std::collections::HashMap;
 
 /// Discount curve bootstrapper.

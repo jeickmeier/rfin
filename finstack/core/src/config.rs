@@ -9,6 +9,7 @@
 use serde::{Deserialize, Serialize};
 
 use hashbrown::HashMap;
+use indexmap::IndexMap;
 
 /// Rounding modes supported by the library.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -129,6 +130,9 @@ pub struct ResultsMeta {
     /// Optional schema or envelope version.
     #[cfg_attr(feature = "serde", serde(default))]
     pub schema_version: u32,
+    /// FX policies applied, keyed by computing layer (e.g. "valuations").
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub fx_policies: IndexMap<String, crate::money::fx::FxPolicyMeta>,
     /// FX policy applied by the computing layer, if any.
     #[cfg_attr(feature = "serde", serde(default))]
     pub fx_policy_applied: Option<String>,
@@ -186,6 +190,7 @@ pub fn results_meta(cfg: &FinstackConfig) -> ResultsMeta {
         deterministic: false,
         parallel: false,
         schema_version: 1,
+        fx_policies: IndexMap::new(),
         fx_policy_applied: None,
         execution_time_ns: None,
         cache_hit_ratio: None,

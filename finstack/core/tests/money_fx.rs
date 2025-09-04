@@ -1,6 +1,7 @@
 use finstack_core::dates::Date;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate};
-use finstack_core::{Currency, Money};
+use finstack_core::money::Money;
+use finstack_core::prelude::Currency;
 use std::sync::Arc;
 
 struct StaticFx {

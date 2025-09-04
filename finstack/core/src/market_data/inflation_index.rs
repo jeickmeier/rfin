@@ -4,7 +4,9 @@
 //! lag handling and optional monthly seasonality, avoiding duplicate interpolation code.
 
 use crate::market_data::primitives::{ScalarTimeSeries, SeriesInterpolation};
-use crate::{Currency, Date, Error, Result};
+use crate::currency::Currency;
+use crate::dates::Date;
+use crate::{Error, Result};
 use polars::prelude::*;
 
 #[cfg(feature = "serde")]

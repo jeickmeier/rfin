@@ -26,7 +26,7 @@
 //! use finstack_core::market_data::MarketContext;
 //! use finstack_core::dates::Date;
 //! use time::Month;
-//! # use finstack_core::InterpConfigurableBuilder;
+//! # use finstack_core::prelude::InterpConfigurableBuilder;
 //!
 //! let disc = DiscountCurve::builder("USD-OIS")
 //!     .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())

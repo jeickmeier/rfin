@@ -14,7 +14,8 @@ use finstack_core::dates::utils::add_months;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::money::Money;
-use finstack_core::{Currency, Result, F};
+use finstack_core::prelude::*;
+use finstack_core::F;
 use std::collections::HashMap;
 use std::sync::Arc;
 

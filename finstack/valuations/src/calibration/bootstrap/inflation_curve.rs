@@ -15,8 +15,8 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::inflation::InflationCurve;
 use finstack_core::market_data::interp::InterpConfigurableBuilder;
 use finstack_core::money::Money;
-
-use finstack_core::{Currency, Result, F};
+use finstack_core::prelude::*;
+use finstack_core::F;
 use std::collections::HashMap;
 
 /// Inflation curve bootstrapper using ZC inflation swaps.

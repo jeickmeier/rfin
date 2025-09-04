@@ -38,7 +38,6 @@
 //!
 //! See unit tests and `examples/` for usage and behaviour.
 
-#![allow(clippy::items_after_test_module)]
 
 use crate::config::{FinstackConfig, RoundingMode};
 use crate::currency::Currency;
@@ -354,7 +353,7 @@ from_numeric_tuple!(f64, i64, u64);
 #[macro_export]
 macro_rules! money {
     ($amount:expr, $code:ident) => {
-        $crate::Money::new($amount as f64, $crate::Currency::$code)
+        $crate::money::Money::new($amount as f64, $crate::currency::Currency::$code)
     };
 }
 

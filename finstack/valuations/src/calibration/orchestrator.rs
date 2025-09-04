@@ -15,8 +15,8 @@ use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::market_data::ValuationMarketContext;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::Seniority;
-
-use finstack_core::{Currency, Result, F};
+use finstack_core::prelude::*;
+use finstack_core::F;
 use std::collections::HashMap;
 
 /// Comprehensive market data calibration orchestrator.

@@ -33,25 +33,16 @@ fn test_expr_structural_eq_hash_ignore_id() {
         "Hash must ignore id so structural duplicates do not insert twice"
     );
 
-    // time_window participates in identity
-    let base = Expr::call(
+    // time_window removed from identity; structural identity depends only on node
+    let base_a = Expr::call(
         Function::RollingMean,
         vec![Expr::column("x"), Expr::literal(3.0)],
     );
-    let with_tw_a = base
-        .clone()
-        .with_time_window(finstack_core::expr::TimeWindow::Rows(5));
-    let with_tw_b = base
-        .clone()
-        .with_time_window(finstack_core::expr::TimeWindow::Rows(6));
-    assert_ne!(
-        with_tw_a, with_tw_b,
-        "Different time_window must alter structural identity"
+    let base_b = Expr::call(
+        Function::RollingMean,
+        vec![Expr::column("x"), Expr::literal(3.0)],
     );
-
-    let mut set2 = HashSet::new();
-    set2.insert(with_tw_a.clone());
-    assert!(!set2.contains(&with_tw_b));
+    assert_eq!(base_a, base_b, "Structural identity must match for identical nodes");
 }
 
 #[test]
@@ -70,6 +61,7 @@ fn test_dag_dedup_ignores_expr_id() {
         deterministic: true,
         parallel: false,
         schema_version: 1,
+        fx_policies: indexmap::IndexMap::new(),
         fx_policy_applied: None,
         execution_time_ns: None,
         cache_hit_ratio: None,
@@ -101,7 +93,7 @@ fn test_dag_builder_simple_expressions() {
     let lit_3 = Expr::literal(3.0);
     let rolling_mean = Expr::call(Function::RollingMean, vec![col_x.clone(), lit_3.clone()]);
 
-    let meta = ResultsMeta { numeric_mode: NumericMode::Decimal128, rounding: RoundingContext { mode: RoundingMode::Bankers, ingest_scale_by_ccy: Default::default(), output_scale_by_ccy: Default::default(), version: 1 }, deterministic: true, parallel: false, schema_version: 1, fx_policy_applied: None, execution_time_ns: None, cache_hit_ratio: None };
+    let meta = ResultsMeta { numeric_mode: NumericMode::Decimal128, rounding: RoundingContext { mode: RoundingMode::Bankers, ingest_scale_by_ccy: Default::default(), output_scale_by_ccy: Default::default(), version: 1 }, deterministic: true, parallel: false, schema_version: 1, fx_policies: indexmap::IndexMap::new(), fx_policy_applied: None, execution_time_ns: None, cache_hit_ratio: None };
     let plan = builder.build_plan(vec![rolling_mean], meta);
 
     // Should have nodes for: Column("x"), Literal(3.0), RollingMean
@@ -123,7 +115,7 @@ fn test_dag_builder_shared_subexpressions() {
     let rolling_mean = Expr::call(Function::RollingMean, vec![col_x.clone(), lit_3.clone()]);
     let rolling_sum = Expr::call(Function::RollingSum, vec![col_x.clone(), lit_3.clone()]);
 
-    let meta = ResultsMeta { numeric_mode: NumericMode::Decimal128, rounding: RoundingContext { mode: RoundingMode::Bankers, ingest_scale_by_ccy: Default::default(), output_scale_by_ccy: Default::default(), version: 1 }, deterministic: true, parallel: false, schema_version: 1, fx_policy_applied: None, execution_time_ns: None, cache_hit_ratio: None };
+    let meta = ResultsMeta { numeric_mode: NumericMode::Decimal128, rounding: RoundingContext { mode: RoundingMode::Bankers, ingest_scale_by_ccy: Default::default(), output_scale_by_ccy: Default::default(), version: 1 }, deterministic: true, parallel: false, schema_version: 1, fx_policies: indexmap::IndexMap::new(), fx_policy_applied: None, execution_time_ns: None, cache_hit_ratio: None };
     let plan = builder.build_plan(vec![rolling_mean, rolling_sum], meta);
 
     // Should deduplicate shared subexpressions
@@ -160,7 +152,7 @@ fn test_dag_polars_eligibility() {
     // CumSum is not Polars-eligible (uses scalar for determinism)
     let cum_sum = Expr::call(Function::CumSum, vec![col_x.clone()]);
 
-    let meta = ResultsMeta { numeric_mode: NumericMode::Decimal128, rounding: RoundingContext { mode: RoundingMode::Bankers, ingest_scale_by_ccy: Default::default(), output_scale_by_ccy: Default::default(), version: 1 }, deterministic: true, parallel: false, schema_version: 1, fx_policy_applied: None, execution_time_ns: None, cache_hit_ratio: None };
+    let meta = ResultsMeta { numeric_mode: NumericMode::Decimal128, rounding: RoundingContext { mode: RoundingMode::Bankers, ingest_scale_by_ccy: Default::default(), output_scale_by_ccy: Default::default(), version: 1 }, deterministic: true, parallel: false, schema_version: 1, fx_policies: indexmap::IndexMap::new(), fx_policy_applied: None, execution_time_ns: None, cache_hit_ratio: None };
     let plan = builder.build_plan(vec![rolling_mean, cum_sum], meta);
 
     // Verify that the expected nodes exist in the plan
@@ -186,7 +178,7 @@ fn test_dag_cost_estimation() {
     let lag = Expr::call(Function::Lag, vec![col_x.clone(), lit_5.clone()]);
     let rolling_std = Expr::call(Function::RollingStd, vec![col_x.clone(), lit_5.clone()]);
 
-    let meta = ResultsMeta { numeric_mode: NumericMode::Decimal128, rounding: RoundingContext { mode: RoundingMode::Bankers, ingest_scale_by_ccy: Default::default(), output_scale_by_ccy: Default::default(), version: 1 }, deterministic: true, parallel: false, schema_version: 1, fx_policy_applied: None, execution_time_ns: None, cache_hit_ratio: None };
+    let meta = ResultsMeta { numeric_mode: NumericMode::Decimal128, rounding: RoundingContext { mode: RoundingMode::Bankers, ingest_scale_by_ccy: Default::default(), output_scale_by_ccy: Default::default(), version: 1 }, deterministic: true, parallel: false, schema_version: 1, fx_policies: indexmap::IndexMap::new(), fx_policy_applied: None, execution_time_ns: None, cache_hit_ratio: None };
     let plan = builder.build_plan(vec![lag, rolling_std], meta);
 
     // Find nodes and check costs
@@ -214,7 +206,7 @@ fn test_pushdown_boundary_analysis() {
     let cum_sum = Expr::call(Function::CumSum, vec![col_x.clone()]); // Scalar-only
     let rolling_mean = Expr::call(Function::RollingMean, vec![cum_sum, Expr::literal(3.0)]); // Polars-eligible
 
-    let meta = ResultsMeta { numeric_mode: NumericMode::Decimal128, rounding: RoundingContext { mode: RoundingMode::Bankers, ingest_scale_by_ccy: Default::default(), output_scale_by_ccy: Default::default(), version: 1 }, deterministic: true, parallel: false, schema_version: 1, fx_policy_applied: None, execution_time_ns: None, cache_hit_ratio: None };
+    let meta = ResultsMeta { numeric_mode: NumericMode::Decimal128, rounding: RoundingContext { mode: RoundingMode::Bankers, ingest_scale_by_ccy: Default::default(), output_scale_by_ccy: Default::default(), version: 1 }, deterministic: true, parallel: false, schema_version: 1, fx_policies: indexmap::IndexMap::new(), fx_policy_applied: None, execution_time_ns: None, cache_hit_ratio: None };
     let plan = builder.build_plan(vec![rolling_mean], meta);
 
     // Analyze pushdown boundaries
@@ -249,7 +241,7 @@ fn test_dag_cache_strategy() {
         vec![rolling_std.clone(), Expr::literal(3.0)],
     );
 
-    let meta = ResultsMeta { numeric_mode: NumericMode::Decimal128, rounding: RoundingContext { mode: RoundingMode::Bankers, ingest_scale_by_ccy: Default::default(), output_scale_by_ccy: Default::default(), version: 1 }, deterministic: true, parallel: false, schema_version: 1, fx_policy_applied: None, execution_time_ns: None, cache_hit_ratio: None };
+    let meta = ResultsMeta { numeric_mode: NumericMode::Decimal128, rounding: RoundingContext { mode: RoundingMode::Bankers, ingest_scale_by_ccy: Default::default(), output_scale_by_ccy: Default::default(), version: 1 }, deterministic: true, parallel: false, schema_version: 1, fx_policies: indexmap::IndexMap::new(), fx_policy_applied: None, execution_time_ns: None, cache_hit_ratio: None };
     let plan = builder.build_plan(vec![expr1, expr2], meta);
 
     // Cache strategy should recommend caching the expensive shared operation
@@ -277,7 +269,7 @@ fn test_dag_topological_ordering() {
     let lag_x = Expr::call(Function::Lag, vec![col_x.clone(), Expr::literal(1.0)]);
     let diff_lag = Expr::call(Function::Diff, vec![lag_x.clone(), Expr::literal(1.0)]);
 
-    let meta = ResultsMeta { numeric_mode: NumericMode::Decimal128, rounding: RoundingContext { mode: RoundingMode::Bankers, ingest_scale_by_ccy: Default::default(), output_scale_by_ccy: Default::default(), version: 1 }, deterministic: true, parallel: false, schema_version: 1, fx_policy_applied: None, execution_time_ns: None, cache_hit_ratio: None };
+    let meta = ResultsMeta { numeric_mode: NumericMode::Decimal128, rounding: RoundingContext { mode: RoundingMode::Bankers, ingest_scale_by_ccy: Default::default(), output_scale_by_ccy: Default::default(), version: 1 }, deterministic: true, parallel: false, schema_version: 1, fx_policies: indexmap::IndexMap::new(), fx_policy_applied: None, execution_time_ns: None, cache_hit_ratio: None };
     let plan = builder.build_plan(vec![diff_lag], meta);
 
     // Verify topological order: Column should come first, then Lag, then Diff
@@ -305,7 +297,7 @@ fn test_dag_topological_ordering() {
 #[test]
 fn test_dag_empty_plan() {
     let mut builder = DagBuilder::new();
-    let meta = ResultsMeta { numeric_mode: NumericMode::Decimal128, rounding: RoundingContext { mode: RoundingMode::Bankers, ingest_scale_by_ccy: Default::default(), output_scale_by_ccy: Default::default(), version: 1 }, deterministic: true, parallel: false, schema_version: 1, fx_policy_applied: None, execution_time_ns: None, cache_hit_ratio: None };
+    let meta = ResultsMeta { numeric_mode: NumericMode::Decimal128, rounding: RoundingContext { mode: RoundingMode::Bankers, ingest_scale_by_ccy: Default::default(), output_scale_by_ccy: Default::default(), version: 1 }, deterministic: true, parallel: false, schema_version: 1, fx_policies: indexmap::IndexMap::new(), fx_policy_applied: None, execution_time_ns: None, cache_hit_ratio: None };
     let plan = builder.build_plan(vec![], meta);
 
     assert!(plan.nodes.is_empty());

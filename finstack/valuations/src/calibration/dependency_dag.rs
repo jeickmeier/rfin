@@ -8,7 +8,8 @@
 
 use crate::calibration::primitives::{HashableFloat, InstrumentQuote};
 use finstack_core::market_data::term_structures::hazard_curve::Seniority;
-use finstack_core::{Currency, F};
+use finstack_core::prelude::*;
+use finstack_core::F;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Types of market data structures that can be calibrated.

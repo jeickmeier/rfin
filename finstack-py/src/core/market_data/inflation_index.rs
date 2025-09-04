@@ -381,8 +381,8 @@ impl PyInflationIndex {
 #[pyclass(name = "InflationIndexBuilder")]
 pub struct PyInflationIndexBuilder {
     id: String,
-    currency: finstack_core::Currency,
-    observations: Vec<(finstack_core::Date, f64)>,
+    currency: finstack_core::currency::Currency,
+    observations: Vec<(finstack_core::dates::Date, f64)>,
     interpolation: CoreInterpolation,
     lag: CoreLag,
     seasonality: Option<[f64; 12]>,

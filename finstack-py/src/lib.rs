@@ -191,7 +191,7 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     // Currency constants
     use core::currency::PyCurrency as PC;
-    use finstack_core::Currency as CoreCurrency;
+    use finstack_core::currency::Currency as CoreCurrency;
 
     m.add("USD", PC::from_inner(CoreCurrency::USD))?;
     m.add("EUR", PC::from_inner(CoreCurrency::EUR))?;

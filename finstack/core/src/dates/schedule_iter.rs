@@ -73,94 +73,6 @@ use time::{Date, Duration};
 use super::{adjust, BusinessDayConvention, HolidayCalendar};
 use crate::dates::utils::{add_months, is_leap_year};
 
-/// Diagnostic information about how a date was generated in the schedule.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DateGenerationRule {
-    /// Start date (provided by user)
-    StartAnchor,
-    /// End date (provided by user)
-    EndAnchor,
-    /// Regular interval from frequency
-    RegularInterval { period_number: usize },
-    /// Short stub at front
-    ShortFrontStub,
-    /// Short stub at back
-    ShortBackStub,
-    /// Long stub at front
-    LongFrontStub,
-    /// Long stub at back
-    LongBackStub,
-    /// End-of-month adjustment applied
-    EndOfMonthAdjusted,
-    /// Business day adjustment applied
-    BusinessDayAdjusted { original_date: Date },
-}
-
-/// Diagnostic information for a generated date in the schedule.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DateDiagnostic {
-    /// The final date in the schedule
-    pub date: Date,
-    /// The rule(s) that produced this date
-    pub rules: Vec<DateGenerationRule>,
-}
-
-/// Schedule iterator with optional diagnostics collection.
-pub struct ScheduleIterWithDiagnostics {
-    iter: ScheduleIter,
-    diagnostics: Option<Vec<DateDiagnostic>>,
-    collect_diagnostics: bool,
-}
-
-impl ScheduleIterWithDiagnostics {
-    /// Create a new diagnostics iterator.
-    pub fn new(iter: ScheduleIter, collect_diagnostics: bool) -> Self {
-        let diagnostics = if collect_diagnostics {
-            Some(Vec::new())
-        } else {
-            None
-        };
-        
-        Self {
-            iter,
-            diagnostics,
-            collect_diagnostics,
-        }
-    }
-    
-    /// Get the collected diagnostics (if enabled).
-    pub fn diagnostics(&self) -> Option<&[DateDiagnostic]> {
-        self.diagnostics.as_deref()
-    }
-    
-    /// Consume the iterator and return collected diagnostics.
-    pub fn into_diagnostics(self) -> Option<Vec<DateDiagnostic>> {
-        self.diagnostics
-    }
-}
-
-impl Iterator for ScheduleIterWithDiagnostics {
-    type Item = Date;
-    
-    fn next(&mut self) -> Option<Self::Item> {
-        let date = self.iter.next()?;
-        
-        if self.collect_diagnostics {
-            // For now, basic rule tracking - could be enhanced later
-            // with more sophisticated rule identification
-            let rule = DateGenerationRule::RegularInterval { period_number: 0 }; // Simplified
-            
-            if let Some(ref mut diagnostics) = self.diagnostics {
-                diagnostics.push(DateDiagnostic {
-                    date,
-                    rules: vec![rule],
-                });
-            }
-        }
-        
-        Some(date)
-    }
-}
 
 /// Small helper alias when we need to pre-buffer (used only for `ShortFront`).
 type Buffer = SmallVec<[Date; 32]>;
@@ -571,13 +483,6 @@ impl<'a> ScheduleBuilder<'a> {
         self.freq = Frequency::Months(3);
         self.stub = StubKind::ShortBack;
         self
-    }
-
-    /// Generate the schedule iterator with optional diagnostics collection.
-    /// When `collect_diagnostics` is true, generation rules for each date can be retrieved.
-    pub fn build_with_diagnostics(self, collect_diagnostics: bool) -> ScheduleIterWithDiagnostics {
-        let base_iter = self.build_raw();
-        ScheduleIterWithDiagnostics::new(base_iter, collect_diagnostics)
     }
 
     /// Generate the schedule iterator.

@@ -28,11 +28,7 @@ impl ExpressionContext for TestContext {
 
 /// Create an expression node with ID.
 fn expr(node: ExprNode) -> Expr {
-    Expr {
-        id: None,
-        node,
-        time_window: None,
-    }
+    Expr { id: None, node }
 }
 
 /// Create column reference expression.

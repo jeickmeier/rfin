@@ -1,7 +1,8 @@
 //! Core primitives for calibration framework.
 
 use finstack_core::dates::Date;
-use finstack_core::{Currency, F};
+use finstack_core::prelude::*;
+use finstack_core::F;
 use std::hash::{Hash, Hasher};
 
 /// Hashable wrapper for floating point values used as HashMap keys.

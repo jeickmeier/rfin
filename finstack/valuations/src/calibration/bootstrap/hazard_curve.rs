@@ -13,7 +13,8 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::{HazardCurve, Seniority};
 use finstack_core::market_data::traits::Discount;
 use finstack_core::money::Money;
-use finstack_core::{Currency, Result, F};
+use finstack_core::prelude::*;
+use finstack_core::F;
 use std::collections::HashMap;
 
 /// Hazard curve bootstrapper using CDS par spreads.

@@ -10,7 +10,9 @@
 //! so downstream code can reference them by `CurveId` alongside other curves.
 
 use crate::types::CurveId;
-use crate::{error::InputError, Currency, Date, Result};
+use crate::{error::InputError, Result};
+use crate::currency::Currency;
+use crate::dates::Date;
 use polars::prelude::*;
 #[cfg(test)]
 use time::Duration as TimeDuration;

@@ -12,29 +12,13 @@ use std::sync::{Arc, RwLock};
 pub enum CachedResult {
     /// Scalar result backed by Arc slice to avoid clones on conversion.
     Scalar(Arc<[f64]>),
-    /// Polars series result.
-    Polars(polars::prelude::Series),
 }
 
 impl CachedResult {
-    /// Get as scalar vector, converting from Polars if necessary.
+    /// Get as scalar vector.
     pub fn as_scalar(&self) -> crate::Result<Vec<f64>> {
         match self {
             CachedResult::Scalar(shared) => Ok(shared.as_ref().to_vec()),
-            CachedResult::Polars(series) => {
-                let chunked = series
-                    .f64()
-                    .map_err(|_| crate::error::InputError::Invalid)?;
-                Ok(chunked.into_no_null_iter().collect())
-            }
-        }
-    }
-
-    /// Get as Polars series, converting from scalar if necessary.
-    pub fn as_polars(&self) -> polars::prelude::Series {
-        match self {
-            CachedResult::Scalar(shared) => polars::prelude::Series::from_iter(shared.iter().copied()),
-            CachedResult::Polars(series) => series.clone(),
         }
     }
 
@@ -42,9 +26,6 @@ impl CachedResult {
     pub fn memory_size(&self) -> usize {
         match self {
             CachedResult::Scalar(shared) => shared.len() * std::mem::size_of::<f64>(),
-            CachedResult::Polars(series) => {
-                series.len() * std::mem::size_of::<f64>() // Approximation
-            }
         }
     }
 }
@@ -93,15 +74,6 @@ pub struct CacheStats {
 }
 
 impl CacheStats {
-    /// Calculate cache hit rate.
-    pub fn hit_rate(&self) -> f64 {
-        let total = self.hits + self.misses;
-        if total > 0 {
-            self.hits as f64 / total as f64
-        } else {
-            0.0
-        }
-    }
 }
 
 impl ExpressionCache {

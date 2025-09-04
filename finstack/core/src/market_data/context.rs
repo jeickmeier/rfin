@@ -23,7 +23,8 @@ use super::{
     traits::{Discount, Forward, TermStructure},
 };
 use crate::types::CurveId;
-use crate::{dates::Date, F};
+use crate::dates::Date;
+use crate::F;
 
 // -----------------------------------------------------------------------------
 // Bump Specification Types

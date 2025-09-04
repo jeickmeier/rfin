@@ -1,6 +1,6 @@
 //! WASM bindings for Date type.
 //!
-//! Minimal wrapper around `time::Date` (re-exported via `finstack_core::Date`).
+//! Minimal wrapper around `time::Date` (re-exported via `finstack_core::dates::Date`).
 //! Provides simple constructor and accessors so that JS/TS consumers can
 //! create and inspect calendar dates.
 
@@ -8,8 +8,8 @@ use finstack_core::dates::DayCount as CoreDayCount;
 use finstack_core::dates::{
     next_cds_date as core_next_cds, next_imm as core_next_imm, third_wednesday as core_third_wed,
 };
-use finstack_core::Date as CoreDate;
-use finstack_core::DateExt;
+use finstack_core::dates::Date as CoreDate;
+use finstack_core::dates::DateExt;
 use time::Month;
 use wasm_bindgen::prelude::*;
 

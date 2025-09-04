@@ -73,7 +73,7 @@ let value = series.value_on(target_date)?;
 ### New API (InflationIndex)
 ```rust
 use finstack_core::dates::{InflationIndex, InflationInterpolation};
-use finstack_core::Currency;
+use finstack_core::currency::Currency;
 
 let observations = vec![
     (date1, 100.0),

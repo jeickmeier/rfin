@@ -1,6 +1,7 @@
 //! Tests for amortization and notional functionality.
-
-use finstack_core::{currency::Currency, dates::Date, money::Money};
+use finstack_core::currency::Currency;
+use finstack_core::dates::Date;
+use finstack_core::money::Money;
 use finstack_valuations::cashflow::primitives::{AmortizationSpec, Notional};
 
 #[test]

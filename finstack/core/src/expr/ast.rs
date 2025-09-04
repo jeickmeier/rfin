@@ -1,50 +1,8 @@
 //! AST nodes and function registry for the expression engine.
 
 use core::hash::{Hash, Hasher};
-use time::Duration;
 
-/// Typed duration specification to avoid repeated string parsing and
-/// ambiguous cache keys. Keep strings only at IO boundaries.
-///
-/// **Important**: The `Months` and `Years` variants use fixed-day approximations
-/// and do NOT perform precise calendar arithmetic. Use dedicated calendar
-/// functions for exact date calculations involving variable month lengths,
-/// leap years, or timezone transitions.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum DurationSpec {
-    /// Duration in seconds.
-    Seconds(i64),
-    /// Duration in minutes.
-    Minutes(i64),
-    /// Duration in hours.
-    Hours(i64),
-    /// Duration in days.
-    Days(i64),
-    /// Duration in weeks.
-    Weeks(i64),
-    /// **Approximation**: Fixed 30-day months (not precise calendar arithmetic).
-    /// Does not account for variable month lengths (28-31 days).
-    Months(i64),
-    /// **Approximation**: Fixed 365-day years (not precise calendar arithmetic).
-    /// Does not account for leap years or exact calendar calculations.
-    Years(i64),
-}
-
-impl DurationSpec {
-    /// Convert to `time::Duration`, using the same month/year approximations
-    /// as legacy string parsing.
-    pub fn to_duration(&self) -> Duration {
-        match *self {
-            DurationSpec::Seconds(n) => Duration::seconds(n),
-            DurationSpec::Minutes(n) => Duration::minutes(n),
-            DurationSpec::Hours(n) => Duration::hours(n),
-            DurationSpec::Days(n) => Duration::days(n),
-            DurationSpec::Weeks(n) => Duration::weeks(n),
-            DurationSpec::Months(n) => Duration::days(n * 30),
-            DurationSpec::Years(n) => Duration::days(n * 365),
-        }
-    }
-}
+// DurationSpec removed: time-window API was unused in evaluation
 
 /// Expression AST with optional unique ID for DAG planning and caching.
 #[derive(Clone, Debug)]
@@ -53,8 +11,6 @@ pub struct Expr {
     pub id: Option<u64>,
     /// The actual expression node.
     pub node: ExprNode,
-    /// Optional time window specification for time-based operations.
-    pub time_window: Option<TimeWindow>,
 }
 
 /// The core expression node types.
@@ -74,7 +30,6 @@ impl Expr {
         Self {
             id: None,
             node: ExprNode::Column(name.into()),
-            time_window: None,
         }
     }
 
@@ -83,7 +38,6 @@ impl Expr {
         Self {
             id: None,
             node: ExprNode::Literal(value),
-            time_window: None,
         }
     }
 
@@ -92,7 +46,6 @@ impl Expr {
         Self {
             id: None,
             node: ExprNode::Call(func, args),
-            time_window: None,
         }
     }
 
@@ -102,19 +55,14 @@ impl Expr {
         self
     }
 
-    /// Set the time window for time-based operations.
-    pub fn with_time_window(mut self, time_window: TimeWindow) -> Self {
-        self.time_window = Some(time_window);
-        self
-    }
 }
 
 /// Hash implementation for Expr to support deduplication in DAG planning.
 ///
 /// Note: Structural identity only. The opaque `id` field is intentionally
 /// excluded from both `Hash` and `Eq` so that DAG deduplication and caches
-/// consider two expressions identical if their `node` and `time_window`
-/// match, regardless of their runtime-assigned ids.
+/// consider two expressions identical if their `node` matches, regardless of
+/// their runtime-assigned ids.
 impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match &self.node {
@@ -133,14 +81,12 @@ impl Hash for Expr {
                 args.hash(state);
             }
         }
-        // Include time window in hash
-        self.time_window.hash(state);
     }
 }
 
 impl PartialEq for Expr {
     fn eq(&self, other: &Self) -> bool {
-        let nodes_eq = match (&self.node, &other.node) {
+        match (&self.node, &other.node) {
             (ExprNode::Column(a), ExprNode::Column(b)) => a == b,
             (ExprNode::Literal(a), ExprNode::Literal(b)) => {
                 // f64 equality via raw bits for deterministic NaN handling
@@ -148,26 +94,11 @@ impl PartialEq for Expr {
             }
             (ExprNode::Call(f1, a1), ExprNode::Call(f2, a2)) => f1 == f2 && a1 == a2,
             _ => false,
-        };
-        nodes_eq && self.time_window == other.time_window
+        }
     }
 }
 
 impl Eq for Expr {}
-
-/// Time-based window specification for functions that support it.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum TimeWindow {
-    /// Row-based window (traditional).
-    Rows(usize),
-    /// Time-based window with duration string (e.g., "30d", "1h").
-    Duration {
-        /// Parsed duration specification. String is kept only at IO boundaries.
-        period: DurationSpec,
-        /// Name of the time column to use for windowing.
-        time_column: String,
-    },
-}
 
 /// Built-in function identifiers.
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
@@ -225,14 +156,7 @@ pub enum Function {
     EwmVar,
 }
 
-/// Window specification for rolling operations.
-#[derive(Clone, Debug, PartialEq)]
-pub enum WindowSpec {
-    /// Simple row count.
-    Rows(usize),
-    /// Time-based window.
-    Time(TimeWindow),
-}
+// WindowSpec removed with time-window API cleanup
 
 // ExecMeta removed in favor of unified config::ResultsMeta
 

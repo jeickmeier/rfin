@@ -107,40 +107,33 @@ impl PyValuationResult {
     /// Get FX policy metadata if available.
     ///
     /// Returns:
-    ///     dict or None: Dictionary mapping policy names to their metadata
+    ///     dict or None: Dictionary mapping policy keys to their metadata
     ///
     /// Each FX policy contains:
-    /// - 'policy_name': Name of the policy
-    /// - 'source': Source of FX rates (e.g., "market", "fixed")
-    /// - 'effective_date': Date the rates are effective
-    /// - 'conversions': Dictionary of (from, to) currency pairs to rates
+    /// - 'strategy': Strategy name (e.g., 'CashflowDate', 'PeriodEnd')
+    /// - 'target_ccy': Target currency code if declared, else None
+    /// - 'notes': Optional notes for provenance/audit
     ///
     /// Examples:
     ///     >>> fx_policies = result.fx_policies
     ///     >>> if fx_policies:
-    ///     ...     for name, policy in fx_policies.items():
-    ///     ...         print(f"Policy: {name}, Source: {policy['source']}")
+    ///     ...     for key, policy in fx_policies.items():
+    ///     ...         print(f"Key: {key}, Strategy: {policy['strategy']}")
     #[getter]
     fn fx_policies(&self, py: Python) -> PyResult<Option<Py<PyDict>>> {
-        if self.inner.meta.fx_policies.is_empty() {
+        if self.inner.meta.core.fx_policies.is_empty() {
             return Ok(None);
         }
 
         let dict = PyDict::new(py);
-        for (key, policy) in &self.inner.meta.fx_policies {
+        for (key, policy) in &self.inner.meta.core.fx_policies {
             let policy_dict = PyDict::new(py);
-            policy_dict.set_item("policy_name", &policy.policy_name)?;
-            policy_dict.set_item("source", &policy.source)?;
-            policy_dict.set_item("effective_date", format!("{}", policy.effective_date))?;
-
-            // Convert currency pair conversions
-            let conversions_dict = PyDict::new(py);
-            for ((from, to), rate) in &policy.conversions {
-                let pair_key = format!("{}-{}", from, to);
-                conversions_dict.set_item(pair_key, rate)?;
+            policy_dict.set_item("strategy", format!("{:?}", policy.strategy))?;
+            match policy.target_ccy {
+                Some(ccy) => policy_dict.set_item("target_ccy", format!("{}", ccy))?,
+                None => policy_dict.set_item("target_ccy", py.None())?,
             }
-            policy_dict.set_item("conversions", conversions_dict)?;
-
+            policy_dict.set_item("notes", &policy.notes)?;
             dict.set_item(key, policy_dict)?;
         }
         Ok(Some(dict.into()))

@@ -398,7 +398,7 @@ impl PyDayCount {
 }
 
 #[inline]
-fn days_30_360_us(start: finstack_core::Date, end: finstack_core::Date) -> i32 {
+fn days_30_360_us(start: finstack_core::dates::Date, end: finstack_core::dates::Date) -> i32 {
     let (y1, m1, d1) = (start.year(), start.month() as i32, start.day() as i32);
     let (y2, m2, d2) = (end.year(), end.month() as i32, end.day() as i32);
 
@@ -409,7 +409,7 @@ fn days_30_360_us(start: finstack_core::Date, end: finstack_core::Date) -> i32 {
 }
 
 #[inline]
-fn days_30_360_eu(start: finstack_core::Date, end: finstack_core::Date) -> i32 {
+fn days_30_360_eu(start: finstack_core::dates::Date, end: finstack_core::dates::Date) -> i32 {
     let (y1, m1, d1) = (start.year(), start.month() as i32, start.day() as i32);
     let (y2, m2, d2) = (end.year(), end.month() as i32, end.day() as i32);
 

@@ -1,6 +1,6 @@
 #![cfg(feature = "serde")]
-
-use finstack_core::{Currency, Money};
+use finstack_core::money::Money;
+use finstack_core::prelude::Currency;
 use finstack_valuations::results::ValuationResult;
 
 #[test]

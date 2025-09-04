@@ -179,7 +179,7 @@ impl CompiledExpr {
                     .map(|&dep_id| results.get(&dep_id).cloned().unwrap_or_else(Vec::new))
                     .collect();
 
-                self.eval_function(*func, &arg_results, &node.expr.time_window, ctx, cols)
+                self.eval_function(*func, &arg_results, ctx, cols)
             }
         }
     }
@@ -207,7 +207,7 @@ impl CompiledExpr {
                     .iter()
                     .map(|arg| self.eval_simple(ctx, cols, arg))
                     .collect();
-                return self.eval_function(*fun, &arg_results, &expr.time_window, ctx, cols);
+                return self.eval_function(*fun, &arg_results, ctx, cols);
             }
         }
         out
@@ -791,7 +791,6 @@ impl CompiledExpr {
         &self,
         fun: Function,
         arg_results: &[Vec<crate::F>],
-        _time_window: &Option<TimeWindow>,
         _ctx: &C,
         _cols: &[&[crate::F]],
     ) -> Vec<crate::F> {
@@ -826,21 +825,14 @@ impl CompiledExpr {
     }
 
     /// Lower to a Polars expression when possible.
-    #[allow(unused_variables)]
     pub fn to_polars_expr(&self) -> Option<polars::lazy::dsl::Expr> {
         use polars::lazy::dsl::{col, lit};
         match &self.ast.node {
             ExprNode::Column(name) => Some(col(name)),
-            ExprNode::Literal(v) => {
-                #[cfg(not(feature = "decimal128"))]
-                {
-                    Some(lit(*v))
-                }
-                #[cfg(feature = "decimal128")]
-                {
-                    None
-                }
-            }
+            #[cfg(not(feature = "decimal128"))]
+            ExprNode::Literal(v) => Some(lit(*v)),
+            #[cfg(feature = "decimal128")]
+            ExprNode::Literal(_) => None,
             ExprNode::Call(fun, args) => match fun {
                 Function::Lag => Self::lower_binary(&args[0], &args[1], |x, n| {
                     x.shift(lit(arg_as_i64(n)))

@@ -18,7 +18,7 @@
 //! ## Creating and using currencies
 //!
 //! ```
-//! use finstack_core::Currency;
+//! use finstack_core::prelude::Currency;
 //!
 //! // Create currencies directly
 //! let usd = Currency::USD;
@@ -37,7 +37,7 @@
 //! ## Parsing from strings
 //!
 //! ```
-//! use finstack_core::Currency;
+//! use finstack_core::prelude::Currency;
 //! use std::str::FromStr;
 //!
 //! // Parse from uppercase
@@ -55,7 +55,7 @@
 //! ## Converting between representations
 //!
 //! ```
-//! use finstack_core::Currency;
+//! use finstack_core::prelude::Currency;
 //!
 //! // From numeric code
 //! let currency = Currency::try_from(840u16).unwrap();
@@ -72,7 +72,7 @@
 //! ## Iterating over all currencies
 //!
 //! ```
-//! use finstack_core::Currency;
+//! use finstack_core::prelude::Currency;
 //! use strum::IntoEnumIterator;
 //!
 //! // Count total currencies

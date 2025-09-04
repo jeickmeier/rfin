@@ -1,7 +1,7 @@
 //! Python bindings for Date type using `time` crate.
 //!
 //! This is **boilerplate** for now – it exposes a thin wrapper around
-//! `time::Date` (re-exported via `finstack_core::Date`) so that higher-level
+//! `time::Date` (re-exported via `finstack_core::dates::Date`) so that higher-level
 //! calendar helpers can be added incrementally without breaking the API.
 
 #![allow(clippy::useless_conversion)]
@@ -14,7 +14,7 @@ use finstack_core::dates::{
     next_equity_option_expiry as core_next_equity_option,
     imm_option_expiry as core_imm_option_expiry,
 };
-use finstack_core::Date as CoreDate;
+use finstack_core::dates::Date as CoreDate;
 use pyo3::prelude::*;
 use time::{Duration, Month};
 

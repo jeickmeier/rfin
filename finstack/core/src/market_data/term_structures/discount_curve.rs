@@ -11,7 +11,7 @@
 //! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 //! use finstack_core::dates::Date;
 //! use time::Month;
-//! # use finstack_core::InterpConfigurableBuilder;
+//! # use finstack_core::prelude::InterpConfigurableBuilder;
 //!
 //! let curve = DiscountCurve::builder("USD-OIS")
 //!     .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
@@ -225,8 +225,7 @@ impl DiscountCurveBuilder {
     }
 
     /// Validate input and create the [`DiscountCurve`].
-    #[allow(unused_mut)]
-    pub fn build(mut self) -> core::result::Result<DiscountCurve, super::CurveError> {
+    pub fn build(self) -> core::result::Result<DiscountCurve, super::CurveError> {
         if self.points.len() < 2 {
             return Err(super::CurveError::TooFewPoints);
         }
