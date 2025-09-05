@@ -228,7 +228,7 @@ impl_instrument!(
     "EquityOption",
     pv = |s, curves, as_of| {
         // Calculate time to expiry in years
-        let time_to_expiry = s.day_count.year_fraction(as_of, s.expiry)?;
+        let time_to_expiry = s.day_count.year_fraction(as_of, s.expiry, finstack_core::dates::DayCountCtx::default())?;
 
         if time_to_expiry <= 0.0 {
             // Option expired - return intrinsic value

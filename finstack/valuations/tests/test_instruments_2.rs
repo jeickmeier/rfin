@@ -3,7 +3,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
-use finstack_core::prelude::InterpConfigurableBuilder;
+use finstack_core::market_data::interp::InterpStyle;
 use finstack_core::market_data::traits::Discount as _;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::{
@@ -50,7 +50,7 @@ fn fixed_stepup_aligned_and_misaligned_boundaries() {
     let curve = CoreDiscCurve::builder("USD-OIS")
         .base_date(issue)
         .knots([(0.0, 1.0), (5.0, 1.0)])
-        .linear_df()
+        .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let pv = s.npv(&curve, curve.base_date(), s.day_count).unwrap();

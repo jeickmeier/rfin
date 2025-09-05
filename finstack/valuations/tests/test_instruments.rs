@@ -20,7 +20,7 @@ fn flat_df_curve(id: &'static str, base: Date, df: F) -> DiscountCurve {
     DiscountCurve::builder(id)
         .base_date(base)
         .knots([(0.0, 1.0), (10.0, 1.0)])
-        .linear_df()
+        .set_interp(finstack_core::market_data::interp::InterpStyle::Linear)
         .build()
         .unwrap()
 }
@@ -29,7 +29,7 @@ fn flat_fwd_curve(id: &'static str, base: Date, rate: F) -> ForwardCurve {
     ForwardCurve::builder(id, 0.25)
         .base_date(base)
         .knots([(0.0, rate), (10.0, rate)])
-        .linear_df()
+        .set_interp(finstack_core::market_data::interp::InterpStyle::Linear)
         .build()
         .unwrap()
 }

@@ -289,7 +289,7 @@ impl PyDayCount {
     #[pyo3(text_signature = "(self, start, end)")]
     pub fn year_fraction(&self, start: &PyDate, end: &PyDate) -> PyResult<f64> {
         self.inner
-            .year_fraction(start.inner(), end.inner())
+            .year_fraction(start.inner(), end.inner(), finstack_core::dates::DayCountCtx::default())
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
     }
 
@@ -325,7 +325,7 @@ impl PyDayCount {
     ) -> PyResult<f64> {
         let freq = (*frequency).into();
         self.inner
-            .year_fraction_with_frequency(start.inner(), end.inner(), freq)
+            .year_fraction(start.inner(), end.inner(), finstack_core::dates::DayCountCtx { calendar: None, frequency: Some(freq) })
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
     }
 

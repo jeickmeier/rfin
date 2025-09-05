@@ -29,14 +29,14 @@ fn main() -> finstack_core::Result<()> {
     let usd_ois = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.97), (3.0, 0.91), (5.0, 0.84)])
-        .monotone_convex()
+        .set_interp(finstack_core::market_data::interp::InterpStyle::MonotoneConvex)
         .build()?;
     
     // Create forward curve for floating rate loans
     let usd_sofr_3m = ForwardCurve::builder("USD-SOFR-3M", 0.25)
         .base_date(base_date)
         .knots([(0.0, 0.045), (1.0, 0.048), (3.0, 0.050), (5.0, 0.052)])
-        .flat_fwd()
+        .set_interp(finstack_core::market_data::interp::InterpStyle::FlatFwd)
         .build()?;
     
     let curves = MarketContext::new()

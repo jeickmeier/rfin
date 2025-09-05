@@ -33,7 +33,7 @@ pub use date_extensions::{DateExt, OffsetDateTimeExt};
 
 mod daycount;
 
-pub use daycount::{DayCount, Thirty360Convention};
+pub use daycount::{DayCount, DayCountCtx, Thirty360Convention};
 
 mod calendar;
 
@@ -46,7 +46,6 @@ pub use calendar::available_calendars;
 mod schedule_iter;
 
 pub use schedule_iter::{
-    cds_schedule, schedule, try_schedule,
     Frequency,
     ScheduleBuilder, StubKind
 };

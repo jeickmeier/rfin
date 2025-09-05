@@ -31,7 +31,7 @@ impl AgedDiscountCurve {
         day_count: DayCount,
     ) -> finstack_core::Result<Self> {
         let base_date = original.base_date();
-        let dt = day_count.year_fraction(base_date, shift_date)?;
+        let dt = day_count.year_fraction(base_date, shift_date, finstack_core::dates::DayCountCtx::default())?;
         Ok(Self {
             original,
             shift_date,
@@ -359,7 +359,7 @@ impl MetricCalculator for ThetaCalculator {
 
         for &curve_id in &common_fwd_ids {
             if let Ok(original_fwd) = original_curves.forecast(curve_id) {
-                let dt = day_count.year_fraction(as_of, shifted_date)?;
+                let dt = day_count.year_fraction(as_of, shifted_date, finstack_core::dates::DayCountCtx::default())?;
                 let aged_fwd = AgedForwardCurve::new(original_fwd, dt);
                 aged_context = aged_context.with_forecast(aged_fwd);
             }
@@ -467,7 +467,7 @@ mod tests {
         DiscountCurve::builder("USD-OIS")
             .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.99), (5.0, 0.95), (10.0, 0.90)])
-            .linear_df()
+            .set_interp(finstack_core::market_data::interp::InterpStyle::Linear)
             .build()
             .unwrap()
     }

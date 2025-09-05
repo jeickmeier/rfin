@@ -379,7 +379,7 @@ mod tests {
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCount;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::prelude::InterpConfigurableBuilder;
+    use finstack_core::market_data::interp::InterpStyle;
     use time::Month;
 
     #[test]
@@ -424,7 +424,7 @@ mod tests {
         let discount_curve = DiscountCurve::builder("USD-TREASURY")
             .base_date(base_date)
             .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.92)]) // Low rates for high PV
-            .linear_df()
+            .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
 
@@ -569,7 +569,7 @@ mod tests {
         let discount_curve = DiscountCurve::builder("USD-TREASURY")
             .base_date(base_date)
             .knots([(0.0, 1.0), (1.0, 0.95)])
-            .linear_df()
+            .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
 
@@ -631,7 +631,7 @@ mod tests {
         let discount_curve = DiscountCurve::builder("USD-TREASURY")
             .base_date(base_date)
             .knots([(0.0, 1.0), (1.0, 0.97)])
-            .linear_df()
+            .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
 
@@ -725,7 +725,7 @@ mod tests {
         let base_curve = DiscountCurve::builder("USD-TREASURY")
             .base_date(base_date)
             .knots([(0.0, 1.0), (1.0, 0.95)])
-            .linear_df()
+            .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
 
@@ -766,7 +766,7 @@ mod tests {
         let discount_curve = DiscountCurve::builder("USD-TREASURY")
             .base_date(base_date)
             .knots([(0.0, 1.0), (1.0, 0.80)]) // High rates
-            .linear_df()
+            .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
 

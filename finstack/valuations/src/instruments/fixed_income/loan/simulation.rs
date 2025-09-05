@@ -787,7 +787,7 @@ impl LoanSimulator {
         // Calculate year fraction for the period
         let tau = facility
             .day_count()
-            .year_fraction(period_start, period_end)?;
+            .year_fraction(period_start, period_end, finstack_core::dates::DayCountCtx::default())?;
         let df_end = disc.df(DiscountCurve::year_fraction(
             disc.base_date(),
             period_end,
@@ -1029,7 +1029,9 @@ impl LoanSimulator {
                 // Pre-compute survival probabilities at timeline nodes
                 let mut survival_probs = Vec::with_capacity(timeline.len());
                 for &date in timeline {
-                    let t = hazard_curve.day_count().year_fraction(base_date, date)?;
+                    let t = hazard_curve
+                        .day_count()
+                        .year_fraction(base_date, date, finstack_core::dates::DayCountCtx::default())?;
                     let sp = hazard_curve.sp(t);
                     survival_probs.push((date, sp));
                 }
@@ -1641,7 +1643,7 @@ impl RandomNumberGenerator for AntitheticRng {
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;
-    use finstack_core::prelude::InterpConfigurableBuilder;
+    use finstack_core::market_data::interp::InterpStyle;
     use time::Month;
 
     #[test]
@@ -1924,7 +1926,7 @@ mod tests {
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.78)]) // 5% flat curve approximation
-            .linear_df()
+            .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
         curves = curves.with_discount(disc_curve);
@@ -2014,7 +2016,7 @@ mod tests {
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.92), (5.0, 0.67)]) // 8% flat curve approximation
-            .linear_df()
+            .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
         curves = curves.with_discount(disc_curve);
@@ -2062,7 +2064,7 @@ mod tests {
             )
             .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.90), (5.0, 0.60)]) // 10% flat curve
-            .linear_df()
+            .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
         curves = curves.with_discount(disc_curve).with_hazard(hazard_curve);
@@ -2135,7 +2137,7 @@ mod tests {
             )
             .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.78)])
-            .linear_df()
+            .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
         curves = curves.with_discount(disc_curve);

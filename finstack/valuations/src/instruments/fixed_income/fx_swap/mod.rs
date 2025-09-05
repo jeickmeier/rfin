@@ -102,12 +102,16 @@ impl_instrument!(
         let near_rate = match s.near_rate {
             Some(rate) => rate,
             None => {
-                let rate = (**fx_matrix).rate(
-                    s.base_currency,
-                    s.quote_currency,
-                    as_of,
-                    FxConversionPolicy::CashflowDate,
-                )?;
+                let rate = (**fx_matrix)
+                    .rate(finstack_core::money::fx::FxQuery {
+                        from: s.base_currency,
+                        to: s.quote_currency,
+                        on: as_of,
+                        policy: FxConversionPolicy::CashflowDate,
+                        closure_check: None,
+                        want_meta: false,
+                    })?
+                    .rate;
                 #[cfg(feature = "decimal128")]
                 {
                     rate.to_f64().ok_or_else(|| {
@@ -145,12 +149,16 @@ impl_instrument!(
         let pv_dom_leg = -base_amt * near_rate * df_dom_near + base_amt * far_rate * df_dom_far;
 
         // 7. Convert foreign leg PV to domestic currency and sum
-        let spot_rate_val = (**fx_matrix).rate(
-            s.base_currency,
-            s.quote_currency,
-            as_of,
-            FxConversionPolicy::CashflowDate,
-        )?;
+        let spot_rate_val = (**fx_matrix)
+            .rate(finstack_core::money::fx::FxQuery {
+                from: s.base_currency,
+                to: s.quote_currency,
+                on: as_of,
+                policy: FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })?
+            .rate;
         #[cfg(feature = "decimal128")]
         let spot_rate = spot_rate_val
             .to_f64()

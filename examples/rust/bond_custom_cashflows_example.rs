@@ -6,7 +6,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::prelude::InterpConfigurableBuilder;
+use finstack_core::market_data::interp::InterpStyle;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 
@@ -57,7 +57,7 @@ fn example_stepup_bond() -> finstack_core::Result<()> {
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(issue)
         .knots([(0.0, 1.0), (1.0, 0.97), (2.0, 0.94), (3.0, 0.91)])
-        .linear_df()
+        .set_interp(InterpStyle::Linear)
         .build()?;
 
     let curves = MarketContext::new().with_discount(disc_curve);
@@ -138,7 +138,7 @@ fn example_pik_toggle_bond() -> finstack_core::Result<()> {
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(issue)
         .knots([(0.0, 1.0), (1.0, 0.96), (2.0, 0.92)])
-        .linear_df()
+        .set_interp(InterpStyle::Linear)
         .build()?;
 
     let curves = MarketContext::new().with_discount(disc_curve);
@@ -198,7 +198,7 @@ fn example_amortizing_bond_with_fees() -> finstack_core::Result<()> {
             (5.0, 0.87),
             (6.0, 0.84),
         ])
-        .linear_df()
+        .set_interp(InterpStyle::Linear)
         .build()?;
 
     let curves = MarketContext::new().with_discount(disc_curve);
@@ -272,7 +272,7 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(issue)
         .knots([(0.0, 1.0), (1.0, 0.98)])
-        .linear_df()
+        .set_interp(InterpStyle::Linear)
         .build()?;
 
     let curves = MarketContext::new().with_discount(disc_curve);

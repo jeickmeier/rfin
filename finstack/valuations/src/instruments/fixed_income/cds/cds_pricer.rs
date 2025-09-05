@@ -537,7 +537,7 @@ impl CDSPricer {
     /// Calculate year fraction with exact day count
     fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<F> {
         if self.config.exact_daycount {
-            dc.year_fraction(start, end)
+            dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
         } else {
             // Simple approximation
             let days = (end - start).whole_days() as f64;

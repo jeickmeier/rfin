@@ -45,12 +45,12 @@ pub fn build_dates(
 
     let dates: Vec<Date> = if let Some(id) = calendar_id {
         if let Some(cal) = calendar_by_id(id) {
-            builder.adjust_with(bdc, cal).build().collect()
+            builder.adjust_with(bdc, cal).build().unwrap().into_iter().collect()
         } else {
-            builder.build_raw().collect()
+            builder.build().unwrap().into_iter().collect()
         }
     } else {
-        builder.build_raw().collect()
+        builder.build().unwrap().into_iter().collect()
     };
 
     let mut prev = hashbrown::HashMap::with_capacity(dates.len());

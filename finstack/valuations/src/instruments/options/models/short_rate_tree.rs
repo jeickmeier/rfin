@@ -506,7 +506,7 @@ pub mod short_rate_keys {
 mod tests {
     use super::*;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::prelude::InterpConfigurableBuilder;
+    use finstack_core::market_data::interp::InterpStyle;
     use time::Month;
 
     fn create_test_curve() -> DiscountCurve {
@@ -515,7 +515,7 @@ mod tests {
                 finstack_core::dates::Date::from_calendar_date(2025, Month::January, 1).unwrap(),
             )
             .knots([(0.0, 1.0), (1.0, 0.97), (2.0, 0.94), (5.0, 0.85)])
-            .log_df()
+            .set_interp(InterpStyle::LogLinear)
             .build()
             .unwrap()
     }

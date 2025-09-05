@@ -74,13 +74,14 @@ pub fn generate_schedule(
     }
 
     let arr = Array::new();
-    if let Some(conv) = convention {
+    let sched = if let Some(conv) = convention {
         let cal = finstack_core::dates::calendars::Target2;
-        for d in builder.adjust_with(conv.into(), &cal).build() {
-            arr.push(&Date::from_core(d).into());
-        }
+        builder.adjust_with(conv.into(), &cal).build()
     } else {
-        for d in builder.build_raw() {
+        builder.build()
+    };
+    if let Ok(s) = sched {
+        for d in s.into_iter() {
             arr.push(&Date::from_core(d).into());
         }
     }

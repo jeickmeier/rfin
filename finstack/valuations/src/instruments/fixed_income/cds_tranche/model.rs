@@ -503,7 +503,7 @@ impl GaussianCopulaModel {
 
             let accrual_period = tranche
                 .day_count
-                .year_fraction(period_start, payment_date)
+                .year_fraction(period_start, payment_date, finstack_core::dates::DayCountCtx::default())
                 .unwrap_or(0.0);
 
             // Accrual-on-default: reduce accrual by half of incremental loss
@@ -578,7 +578,7 @@ impl GaussianCopulaModel {
     /// Calculate years from the credit curve base date.
     fn years_from_base(&self, index_data: &CreditIndexData, date: Date) -> F {
         let dc = index_data.index_credit_curve.day_count();
-        dc.year_fraction(index_data.index_credit_curve.base_date(), date)
+        dc.year_fraction(index_data.index_credit_curve.base_date(), date, finstack_core::dates::DayCountCtx::default())
             .unwrap_or(0.0)
     }
 
@@ -832,7 +832,7 @@ mod tests {
         let discount_curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80), (10.0, 0.60)])
-            .log_df()
+            .set_interp(finstack_core::market_data::interp::InterpStyle::LogLinear)
             .build()
             .unwrap();
 

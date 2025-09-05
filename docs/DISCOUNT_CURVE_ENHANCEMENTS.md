@@ -27,8 +27,8 @@ pub enum ExtrapolationPolicy {
 let curve = DiscountCurve::builder("USD-OIS")
     .base_date(base_date)
     .knots([(0.0, 1.0), (5.0, 0.88)])
-    .monotone_convex()
-    .flat_forward_extrapolation()  // or .extrapolation(ExtrapolationPolicy::FlatForward)
+    .set_interp(InterpStyle::MonotoneConvex)
+    .extrapolation(ExtrapolationPolicy::FlatForward)
     .build()?;
 ```
 
@@ -44,8 +44,8 @@ let curve = DiscountCurve::builder("USD-OIS")
 let credit_curve = DiscountCurve::builder("CREDIT-5Y")
     .base_date(base_date)
     .knots(survival_probability_knots)
-    .monotone_convex()
-    .flat_forward_extrapolation()
+    .set_interp(InterpStyle::MonotoneConvex)
+    .extrapolation(ExtrapolationPolicy::FlatForward)
     .require_monotonic()  // Critical for credit curves
     .build()?;
 ```
@@ -145,8 +145,8 @@ Enhanced error reporting:
 ```rust
 let ois_curve = DiscountCurve::builder("USD-OIS")
     .knots(market_quotes)
-    .monotone_convex()
-    .flat_zero_extrapolation()  // Conservative
+    .set_interp(InterpStyle::MonotoneConvex)
+    .extrapolation(ExtrapolationPolicy::FlatZero)  // Conservative
     .build()?;
 ```
 
@@ -154,8 +154,8 @@ let ois_curve = DiscountCurve::builder("USD-OIS")
 ```rust
 let credit_curve = DiscountCurve::builder("CREDIT-5Y")
     .knots(survival_probabilities)
-    .monotone_convex()
-    .flat_forward_extrapolation()  // Market-consistent
+    .set_interp(InterpStyle::MonotoneConvex)
+    .extrapolation(ExtrapolationPolicy::FlatForward)  // Market-consistent
     .require_monotonic()           // Prevent arbitrage
     .build()?;
 ```
@@ -164,8 +164,8 @@ let credit_curve = DiscountCurve::builder("CREDIT-5Y")
 ```rust
 let bootstrap_curve = DiscountCurve::builder("BOOTSTRAP")
     .knots(preliminary_points)
-    .log_df()                     // Stable for iteration
-    .flat_forward_extrapolation() // Smooth continuation
+    .set_interp(InterpStyle::LogLinear)                     // Stable for iteration
+    .extrapolation(ExtrapolationPolicy::FlatForward) // Smooth continuation
     .build()?;
 ```
 

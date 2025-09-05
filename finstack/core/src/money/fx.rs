@@ -37,6 +37,25 @@ pub enum FxConversionPolicy {
     Custom,
 }
 
+/// FX rate lookup query
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+pub struct FxQuery {
+    /// Source currency
+    pub from: Currency,
+    /// Target currency
+    pub to: Currency,
+    /// Applicable date for the rate
+    pub on: Date,
+    /// Conversion policy hint
+    pub policy: FxConversionPolicy,
+    /// Optional closure check via this intermediate currency
+    pub closure_check: Option<Currency>,
+    /// Whether the caller wants metadata (triangulation/closure)
+    pub want_meta: bool,
+}
+
 /// Metadata describing the policy applied by the provider.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -125,7 +144,6 @@ impl Default for FxCacheConfig {
 
 /// Result of a closure check
 #[derive(Clone, Debug, PartialEq)]
-#[cfg(test)]
 pub enum ClosureCheckResult {
     /// Closure check passed within tolerance
     Pass,
@@ -142,7 +160,6 @@ pub enum ClosureCheckResult {
 
 /// Result of an FX rate lookup with triangulation metadata
 #[derive(Clone, Debug, PartialEq)]
-#[cfg(test)]
 pub struct FxRateResult {
     /// The final FX rate
     pub rate: FxRate,
@@ -150,6 +167,8 @@ pub struct FxRateResult {
     pub triangulated: bool,
     /// The pivot currency used for triangulation (if applicable)
     pub pivot_currency: Option<Currency>,
+    /// Optional closure check result
+    pub closure: Option<ClosureCheckResult>,
 }
 
 /// Trait for obtaining FX rates.
@@ -186,94 +205,39 @@ impl FxMatrix {
         }
     }
 
-    /// Get rate with caching
-    pub fn rate(
-        &self,
-        from: Currency,
-        to: Currency,
-        on: Date,
-        policy: FxConversionPolicy,
-    ) -> crate::Result<FxRate> {
-        // Handle identity case
-        if from == to {
-            #[cfg(feature = "decimal128")]
-            return Ok(rust_decimal::Decimal::ONE);
-            #[cfg(not(feature = "decimal128"))]
-            return Ok(1.0);
-        }
+    /// Get rate (query-based) with caching, optional triangulation, and optional closure diagnostics
+    pub fn rate(&self, q: FxQuery) -> crate::Result<FxRateResult> {
+        let from = q.from;
+        let to = q.to;
+        let on = q.on;
+        let policy = q.policy;
 
-        let cache_key = FxCacheKey {
-            from,
-            to,
-            date: on,
-            policy,
-        };
-
-        // Try to get from cache first
-        // Fast path: read lock for cache hit
-        let mut hit_rate: Option<FxRate> = None;
-        {
-            let cache = self.cache.read().unwrap();
-            if let Some(entry) = cache.get(&cache_key) {
-                if !entry.is_expired() {
-                    hit_rate = Some(entry.rate);
-                }
-            }
-        }
-        if let Some(rate) = hit_rate {
-            // Update recency under write lock
-            if let Ok(mut cache) = self.cache.write() {
-                if let Some(entry) = cache.get_mut(&cache_key) {
-                    entry.last_access_at = Instant::now();
-                }
-            }
-            return Ok(rate);
-        }
-
-        // Cache miss or expired - try direct rate first
-        match self.provider.rate(from, to, on, policy) {
-            Ok(rate) => {
-                // Update cache with direct rate
-                self.update_cache(cache_key, rate);
-                Ok(rate)
-            }
-            Err(_) if self.config.enable_triangulation => {
-                // Direct rate failed, try triangulation
-                self.triangulate_rate(from, to, on, policy)
-            }
-            Err(e) => Err(e),
-        }
-    }
-
-    /// Get rate with triangulation metadata
-    #[cfg(test)]
-    pub fn rate_with_metadata(
-        &self,
-        from: Currency,
-        to: Currency,
-        on: Date,
-        policy: FxConversionPolicy,
-    ) -> crate::Result<FxRateResult> {
         // Handle identity case
         if from == to {
             #[cfg(feature = "decimal128")]
             let rate = rust_decimal::Decimal::ONE;
             #[cfg(not(feature = "decimal128"))]
             let rate = 1.0;
-            
-            return Ok(FxRateResult {
+
+            let mut result = FxRateResult {
                 rate,
                 triangulated: false,
                 pivot_currency: None,
-            });
+                closure: None,
+            };
+
+            // Identity closure check is trivial if requested
+            if let Some(mid) = q.closure_check {
+                if q.want_meta {
+                    let via_a = self.rate(FxQuery { from, to: mid, on, policy, closure_check: None, want_meta: false })?.rate;
+                    let via_b = self.rate(FxQuery { from: mid, to, on, policy, closure_check: None, want_meta: false })?.rate;
+                    result.closure = Some(self.check_closure(rate, via_a, via_b)?);
+                }
+            }
+            return Ok(result);
         }
 
-        let cache_key = FxCacheKey {
-            from,
-            to,
-            date: on,
-            policy,
-        };
+        let cache_key = FxCacheKey { from, to, date: on, policy };
 
         // Try to get from cache first
         let mut hit_rate: Option<FxRate> = None;
@@ -292,64 +256,51 @@ impl FxMatrix {
                     entry.last_access_at = Instant::now();
                 }
             }
-            // Note: cached rate doesn't preserve triangulation metadata
-            return Ok(FxRateResult {
-                rate,
-                triangulated: false, // We don't track this in cache currently
-                pivot_currency: None,
-            });
+            let mut result = FxRateResult { rate, triangulated: false, pivot_currency: None, closure: None };
+            if q.want_meta {
+                if let Some(mid) = q.closure_check {
+                    let via_a = self.rate(FxQuery { from, to: mid, on, policy, closure_check: None, want_meta: false })?.rate;
+                    let via_b = self.rate(FxQuery { from: mid, to, on, policy, closure_check: None, want_meta: false })?.rate;
+                    result.closure = Some(self.check_closure(rate, via_a, via_b)?);
+                }
+            }
+            return Ok(result);
         }
 
         // Cache miss or expired - try direct rate first
-        match self.provider.rate(from, to, on, policy) {
+        let mut triangulated = false;
+        let mut pivot_currency: Option<Currency> = None;
+        let rate = match self.provider.rate(from, to, on, policy) {
             Ok(rate) => {
-                // Update cache with direct rate
                 self.update_cache(cache_key, rate);
-                Ok(FxRateResult {
-                    rate,
-                    triangulated: false,
-                    pivot_currency: None,
-                })
+                rate
             }
             Err(_) if self.config.enable_triangulation => {
                 // Direct rate failed, try triangulation
-                match self.triangulate_rate(from, to, on, policy) {
-                    Ok(rate) => Ok(FxRateResult {
-                        rate,
-                        triangulated: true,
-                        pivot_currency: Some(self.config.pivot_currency),
-                    }),
-                    Err(e) => Err(e),
+                let rate = self.triangulate_rate(from, to, on, policy)?;
+                triangulated = true;
+                pivot_currency = Some(self.config.pivot_currency);
+                rate
+            }
+            Err(e) => return Err(e),
+        };
+
+        let mut result = FxRateResult { rate, triangulated, pivot_currency, closure: None };
+        if q.want_meta {
+            if let Some(mid) = q.closure_check {
+                let via_a = self.rate(FxQuery { from, to: mid, on, policy, closure_check: None, want_meta: false })?.rate;
+                let via_b = self.rate(FxQuery { from: mid, to, on, policy, closure_check: None, want_meta: false })?.rate;
+                let closure_result = self.check_closure(result.rate, via_a, via_b)?;
+                if self.config.strict_closure {
+                    if let ClosureCheckResult::Fail { .. } = closure_result {
+                        return Err(crate::Error::Input(crate::error::InputError::Invalid));
+                    }
                 }
+                result.closure = Some(closure_result);
             }
-            Err(e) => Err(e),
-        }
-    }
-
-    /// Get rate with closure check: from→mid × mid→to ≈ from→to
-    #[cfg(test)]
-    pub fn rate_with_closure(
-        &self,
-        from: Currency,
-        to: Currency,
-        on: Date,
-        policy: FxConversionPolicy,
-        mid: Currency,
-    ) -> crate::Result<(FxRate, ClosureCheckResult)> {
-        let direct_rate = self.rate(from, to, on, policy)?;
-        let via_mid_rate_a = self.rate(from, mid, on, policy)?;
-        let via_mid_rate_b = self.rate(mid, to, on, policy)?;
-
-        let closure_result = self.check_closure(direct_rate, via_mid_rate_a, via_mid_rate_b)?;
-
-        match closure_result {
-            ClosureCheckResult::Fail { .. } if self.config.strict_closure => {
-                return Err(crate::Error::Input(crate::error::InputError::Invalid));
-            }
-            _ => {}
         }
 
-        Ok((direct_rate, closure_result))
+        Ok(result)
     }
 
     /// Clear expired entries from the cache
@@ -430,7 +381,6 @@ impl FxMatrix {
         cache.insert(key, entry);
     }
 
-    #[cfg(test)]
     fn check_closure(
         &self,
         direct_rate: FxRate,
@@ -546,13 +496,16 @@ mod tests {
 
         // Test basic rate retrieval
         let rate = matrix
-            .rate(
-                Currency::USD,
-                Currency::EUR,
-                test_date(),
-                FxConversionPolicy::CashflowDate,
-            )
-            .unwrap();
+            .rate(FxQuery {
+                from: Currency::USD,
+                to: Currency::EUR,
+                on: test_date(),
+                policy: FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })
+            .unwrap()
+            .rate;
 
         #[cfg(feature = "decimal128")]
         let expected = rust_decimal::Decimal::try_from(0.85).unwrap();
@@ -572,13 +525,16 @@ mod tests {
         let matrix = FxMatrix::new(Arc::new(provider));
 
         let rate = matrix
-            .rate(
-                Currency::USD,
-                Currency::USD,
-                test_date(),
-                FxConversionPolicy::CashflowDate,
-            )
-            .unwrap();
+            .rate(FxQuery {
+                from: Currency::USD,
+                to: Currency::USD,
+                on: test_date(),
+                policy: FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })
+            .unwrap()
+            .rate;
 
         #[cfg(feature = "decimal128")]
         let expected = rust_decimal::Decimal::ONE;
@@ -597,24 +553,25 @@ mod tests {
         };
         let matrix = FxMatrix::with_config(Arc::new(provider), config);
 
-        let (rate, closure_result) = matrix
-            .rate_with_closure(
-                Currency::USD,
-                Currency::EUR,
-                test_date(),
-                FxConversionPolicy::CashflowDate,
-                Currency::GBP,
-            )
+        let result = matrix
+            .rate(FxQuery {
+                from: Currency::USD,
+                to: Currency::EUR,
+                on: test_date(),
+                policy: FxConversionPolicy::CashflowDate,
+                closure_check: Some(Currency::GBP),
+                want_meta: true,
+            })
             .unwrap();
 
         // Should get a rate regardless of closure result
         #[cfg(feature = "decimal128")]
-        assert!(rate > rust_decimal::Decimal::ZERO);
+        assert!(result.rate > rust_decimal::Decimal::ZERO);
         #[cfg(not(feature = "decimal128"))]
-        assert!(rate > 0.0);
+        assert!(result.rate > 0.0);
 
         // With our mock data, the closure might not be perfect but should be reasonable
-        match closure_result {
+        match result.closure.expect("closure requested") {
             ClosureCheckResult::Pass => {}
             ClosureCheckResult::Fail { difference, .. } => {
                 // For this test, we'll accept larger differences since our mock data
@@ -635,12 +592,14 @@ mod tests {
 
         // Get rate to populate cache
         let _rate1 = matrix
-            .rate(
-                Currency::USD,
-                Currency::EUR,
-                test_date(),
-                FxConversionPolicy::CashflowDate,
-            )
+            .rate(FxQuery {
+                from: Currency::USD,
+                to: Currency::EUR,
+                on: test_date(),
+                policy: FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })
             .unwrap();
 
         // Wait a moment for TTL to expire
@@ -665,20 +624,24 @@ mod tests {
 
         // Fill cache to capacity
         let _rate1 = matrix
-            .rate(
-                Currency::USD,
-                Currency::EUR,
-                test_date(),
-                FxConversionPolicy::CashflowDate,
-            )
+            .rate(FxQuery {
+                from: Currency::USD,
+                to: Currency::EUR,
+                on: test_date(),
+                policy: FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })
             .unwrap();
         let _rate2 = matrix
-            .rate(
-                Currency::EUR,
-                Currency::USD,
-                test_date(),
-                FxConversionPolicy::CashflowDate,
-            )
+            .rate(FxQuery {
+                from: Currency::EUR,
+                to: Currency::USD,
+                on: test_date(),
+                policy: FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })
             .unwrap();
 
         let (total, _) = matrix.cache_stats();
@@ -686,12 +649,14 @@ mod tests {
 
         // Add one more - should evict the oldest
         let _rate3 = matrix
-            .rate(
-                Currency::USD,
-                Currency::GBP,
-                test_date(),
-                FxConversionPolicy::CashflowDate,
-            )
+            .rate(FxQuery {
+                from: Currency::USD,
+                to: Currency::GBP,
+                on: test_date(),
+                policy: FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })
             .unwrap();
 
         let (total, _) = matrix.cache_stats();
@@ -705,12 +670,14 @@ mod tests {
 
         // Populate cache
         let _rate = matrix
-            .rate(
-                Currency::USD,
-                Currency::EUR,
-                test_date(),
-                FxConversionPolicy::CashflowDate,
-            )
+            .rate(FxQuery {
+                from: Currency::USD,
+                to: Currency::EUR,
+                on: test_date(),
+                policy: FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })
             .unwrap();
 
         let (total, _) = matrix.cache_stats();
@@ -755,13 +722,16 @@ mod tests {
 
         // Test EUR→GBP triangulation via USD: EUR→USD × USD→GBP
         let rate = matrix
-            .rate(
-                Currency::EUR,
-                Currency::GBP,
-                test_date(),
-                FxConversionPolicy::CashflowDate,
-            )
-            .unwrap();
+            .rate(FxQuery {
+                from: Currency::EUR,
+                to: Currency::GBP,
+                on: test_date(),
+                policy: FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })
+            .unwrap()
+            .rate;
 
         // Expected: 1.18 * 0.75 = 0.885
         #[cfg(feature = "decimal128")]
@@ -786,12 +756,14 @@ mod tests {
         let matrix = FxMatrix::with_config(Arc::new(provider), config);
 
         // Should fail when triangulation is disabled
-        let result = matrix.rate(
-            Currency::EUR,
-            Currency::GBP,
-            test_date(),
-            FxConversionPolicy::CashflowDate,
-        );
+        let result = matrix.rate(FxQuery {
+            from: Currency::EUR,
+            to: Currency::GBP,
+            on: test_date(),
+            policy: FxConversionPolicy::CashflowDate,
+            closure_check: None,
+            want_meta: false,
+        });
 
         assert!(result.is_err());
     }
@@ -809,23 +781,29 @@ mod tests {
 
         // First call should triangulate and cache
         let rate1 = matrix
-            .rate(
-                Currency::EUR,
-                Currency::GBP,
-                test_date(),
-                FxConversionPolicy::CashflowDate,
-            )
-            .unwrap();
+            .rate(FxQuery {
+                from: Currency::EUR,
+                to: Currency::GBP,
+                on: test_date(),
+                policy: FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })
+            .unwrap()
+            .rate;
 
         // Second call should hit cache
         let rate2 = matrix
-            .rate(
-                Currency::EUR,
-                Currency::GBP,
-                test_date(),
-                FxConversionPolicy::CashflowDate,
-            )
-            .unwrap();
+            .rate(FxQuery {
+                from: Currency::EUR,
+                to: Currency::GBP,
+                on: test_date(),
+                policy: FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })
+            .unwrap()
+            .rate;
 
         assert_eq!(rate1, rate2);
 
@@ -846,13 +824,16 @@ mod tests {
 
         // USD→EUR should use direct rate, not triangulation
         let rate = matrix
-            .rate(
-                Currency::USD,
-                Currency::EUR,
-                test_date(),
-                FxConversionPolicy::CashflowDate,
-            )
-            .unwrap();
+            .rate(FxQuery {
+                from: Currency::USD,
+                to: Currency::EUR,
+                on: test_date(),
+                policy: FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })
+            .unwrap()
+            .rate;
 
         // Should get the direct rate
         #[cfg(feature = "decimal128")]
@@ -883,12 +864,14 @@ mod tests {
         let matrix = FxMatrix::with_config(Arc::new(provider), config);
 
         // Should fail when pivot rates are missing
-        let result = matrix.rate(
-            Currency::JPY,
-            Currency::CAD,
-            test_date(),
-            FxConversionPolicy::CashflowDate,
-        );
+        let result = matrix.rate(FxQuery {
+            from: Currency::JPY,
+            to: Currency::CAD,
+            on: test_date(),
+            policy: FxConversionPolicy::CashflowDate,
+            closure_check: None,
+            want_meta: false,
+        });
 
         assert!(result.is_err());
     }
@@ -905,12 +888,14 @@ mod tests {
 
         // Test direct rate
         let result = matrix
-            .rate_with_metadata(
-                Currency::USD,
-                Currency::EUR,
-                test_date(),
-                FxConversionPolicy::CashflowDate,
-            )
+            .rate(FxQuery {
+                from: Currency::USD,
+                to: Currency::EUR,
+                on: test_date(),
+                policy: FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: true,
+            })
             .unwrap();
 
         assert!(!result.triangulated);
@@ -925,12 +910,14 @@ mod tests {
 
         // Test triangulated rate
         let result = matrix
-            .rate_with_metadata(
-                Currency::EUR,
-                Currency::GBP,
-                test_date(),
-                FxConversionPolicy::CashflowDate,
-            )
+            .rate(FxQuery {
+                from: Currency::EUR,
+                to: Currency::GBP,
+                on: test_date(),
+                policy: FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: true,
+            })
             .unwrap();
 
         assert!(result.triangulated);
@@ -949,12 +936,14 @@ mod tests {
 
         // Test identity rate
         let result = matrix
-            .rate_with_metadata(
-                Currency::USD,
-                Currency::USD,
-                test_date(),
-                FxConversionPolicy::CashflowDate,
-            )
+            .rate(FxQuery {
+                from: Currency::USD,
+                to: Currency::USD,
+                on: test_date(),
+                policy: FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: true,
+            })
             .unwrap();
 
         assert!(!result.triangulated);

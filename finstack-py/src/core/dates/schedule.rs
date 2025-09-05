@@ -213,9 +213,6 @@ pub fn py_generate_schedule(
     // Ignore convention/calendar for now to preserve existing API behavior
     let _ = (convention, calendar);
 
-    let result = builder
-        .build_raw()
-        .map(PyDate::from_core)
-        .collect::<Vec<_>>();
-    Ok(result)
+    let schedule = builder.build().map_err(|e| PyValueError::new_err(format!("{}", e)))?;
+    Ok(schedule.into_iter().map(PyDate::from_core).collect::<Vec<_>>())
 }

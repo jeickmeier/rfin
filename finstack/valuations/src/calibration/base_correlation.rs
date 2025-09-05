@@ -364,7 +364,7 @@ impl BaseCorrelationSurfaceCalibrator {
         for quote in quotes {
             if let InstrumentQuote::CDSTranche { maturity, .. } = quote {
                 let maturity_years = finstack_core::dates::DayCount::Act365F
-                    .year_fraction(self.base_date, *maturity)?;
+                    .year_fraction(self.base_date, *maturity, finstack_core::dates::DayCountCtx::default())?;
 
                 // Round to nearest target maturity
                 if let Some(&target_mat) = self.target_maturities.iter().min_by(|&&a, &&b| {
@@ -446,7 +446,7 @@ mod tests {
     use finstack_core::market_data::term_structures::{
         discount_curve::DiscountCurve, BaseCorrelationCurve,
     };
-    use finstack_core::market_data::interp::InterpConfigurableBuilder;
+    // use finstack_core::market_data::interp::InterpStyle; // not used in this test module
     use std::sync::Arc;
     use time::Month;
 
@@ -458,7 +458,7 @@ mod tests {
         let discount_curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80), (10.0, 0.60)])
-            .log_df()
+            .set_interp(finstack_core::market_data::interp::InterpStyle::LogLinear)
             .build()
             .unwrap();
 

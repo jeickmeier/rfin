@@ -15,7 +15,7 @@ impl MetricCalculator for DeltaCalculator {
         // Calculate time to expiry
         let time_to_expiry = option
             .day_count
-            .year_fraction(context.as_of, option.expiry)?;
+            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
 
         if time_to_expiry <= 0.0 {
             // Option expired - delta is 0 or 1/-1 based on moneyness
@@ -92,7 +92,7 @@ impl MetricCalculator for GammaCalculator {
 
         let time_to_expiry = option
             .day_count
-            .year_fraction(context.as_of, option.expiry)?;
+            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
 
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
@@ -144,7 +144,7 @@ impl MetricCalculator for VegaCalculator {
 
         let time_to_expiry = option
             .day_count
-            .year_fraction(context.as_of, option.expiry)?;
+            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
 
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
@@ -197,7 +197,7 @@ impl MetricCalculator for ThetaCalculator {
 
         let time_to_expiry = option
             .day_count
-            .year_fraction(context.as_of, option.expiry)?;
+            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
 
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
@@ -250,7 +250,7 @@ impl MetricCalculator for RhoCalculator {
 
         let time_to_expiry = option
             .day_count
-            .year_fraction(context.as_of, option.expiry)?;
+            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
 
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
@@ -302,7 +302,7 @@ impl MetricCalculator for ImpliedVolCalculator {
 
         let t = option
             .day_count
-            .year_fraction(context.as_of, option.expiry)?;
+            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
         if t <= 0.0 {
             return Ok(0.0);
         }

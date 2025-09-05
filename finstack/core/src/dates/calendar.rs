@@ -32,6 +32,32 @@ use time::{Date, Duration};
 /// Shared upper bound used across business-day search helpers to avoid runaway loops.
 pub(crate) const MAX_BUSINESS_DAY_SEARCH_DAYS: i32 = 100;
 
+/// Seek the nearest business day from `date` moving in steps of `step_days` (±1),
+/// searching up to `max_days` steps using the provided `cal`.
+///
+/// Returns an error if no business day is found within the bounded search window.
+#[inline]
+pub(crate) fn seek_business_day<C: HolidayCalendar + ?Sized>(
+    mut date: Date,
+    step_days: i32,
+    max_days: i32,
+    cal: &C,
+) -> Result<Date, Error> {
+    let mut searched = 0;
+    while !cal.is_business_day(date) {
+        date = date + Duration::days(step_days as i64);
+        searched += 1;
+        if searched > max_days {
+            return Err(Error::Input(InputError::AdjustmentFailed {
+                date: date.to_string(),
+                convention: "seek".to_string(),
+                max_days,
+            }));
+        }
+    }
+    Ok(date)
+}
+
 /// Trait representing a holiday calendar.
 ///
 /// Implementors must provide [`HolidayCalendar::is_holiday`]. A blanket
@@ -81,83 +107,110 @@ pub enum BusinessDayConvention {
 /// Returns an error if no business day is found within 100 days of the input date.
 /// This prevents infinite loops when using composite calendars that mark
 /// all days as holidays in a range.
+///
+/// Example:
+/// ```
+/// use finstack_core::dates::{Date, BusinessDayConvention, adjust};
+/// use finstack_core::dates::holiday::calendars::Target2;
+/// use time::Month;
+/// let cal = Target2;
+/// let sat = Date::from_calendar_date(2025, Month::January, 4).unwrap();
+/// let adj = adjust(sat, BusinessDayConvention::Following, &cal).unwrap();
+/// assert_eq!(adj, Date::from_calendar_date(2025, Month::January, 6).unwrap());
+/// ```
 pub fn adjust<C: HolidayCalendar + ?Sized>(
     date: Date,
     conv: BusinessDayConvention,
     cal: &C,
 ) -> Result<Date, Error> {
-
-    #[inline]
-    fn seek<C: HolidayCalendar + ?Sized>(
-        mut d: Date,
-        cal: &C,
-        step_days: i32,
-        max_days: i32,
-        label: &str,
-    ) -> Result<Date, Error> {
-        let mut searched = 0;
-        while !cal.is_business_day(d) {
-            d = d + Duration::days(step_days as i64);
-            searched += 1;
-            if searched > max_days {
-                return Err(Error::Input(InputError::AdjustmentFailed {
-                    date: d.to_string(),
-                    convention: label.to_string(),
-                    max_days,
-                }));
-            }
-        }
-        Ok(d)
-    }
-
     match conv {
         BusinessDayConvention::Unadjusted => Ok(date),
         BusinessDayConvention::Following => {
             if cal.is_business_day(date) {
                 return Ok(date);
             }
-            seek(date, cal, 1, MAX_BUSINESS_DAY_SEARCH_DAYS, "Following")
+            match seek_business_day(date, 1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal) {
+                Ok(d) => Ok(d),
+                Err(Error::Input(InputError::AdjustmentFailed { date, max_days, .. })) => Err(Error::Input(InputError::AdjustmentFailed {
+                    date,
+                    convention: "Following".to_string(),
+                    max_days,
+                })),
+                Err(e) => Err(e),
+            }
         }
         BusinessDayConvention::ModifiedFollowing => {
             if cal.is_business_day(date) {
                 return Ok(date);
             }
             let original_month = date.month();
-            let forward = seek(date, cal, 1, MAX_BUSINESS_DAY_SEARCH_DAYS, "ModifiedFollowing")?;
+            let forward = match seek_business_day(date, 1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal) {
+                Ok(d) => d,
+                Err(Error::Input(InputError::AdjustmentFailed { date, max_days, .. })) => {
+                    return Err(Error::Input(InputError::AdjustmentFailed {
+                        date,
+                        convention: "ModifiedFollowing".to_string(),
+                        max_days,
+                    }))
+                }
+                Err(e) => return Err(e),
+            };
             if forward.month() == original_month {
                 Ok(forward)
             } else {
-                seek(
-                    date,
-                    cal,
-                    -1,
-                    MAX_BUSINESS_DAY_SEARCH_DAYS,
-                    "ModifiedFollowing (fallback to preceding)",
-                )
+                match seek_business_day(date, -1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal) {
+                    Ok(d) => Ok(d),
+                    Err(Error::Input(InputError::AdjustmentFailed { date, max_days, .. })) => Err(Error::Input(InputError::AdjustmentFailed {
+                        date,
+                        convention: "ModifiedFollowing (fallback to preceding)".to_string(),
+                        max_days,
+                    })),
+                    Err(e) => Err(e),
+                }
             }
         }
         BusinessDayConvention::Preceding => {
             if cal.is_business_day(date) {
                 return Ok(date);
             }
-            seek(date, cal, -1, MAX_BUSINESS_DAY_SEARCH_DAYS, "Preceding")
+            match seek_business_day(date, -1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal) {
+                Ok(d) => Ok(d),
+                Err(Error::Input(InputError::AdjustmentFailed { date, max_days, .. })) => Err(Error::Input(InputError::AdjustmentFailed {
+                    date,
+                    convention: "Preceding".to_string(),
+                    max_days,
+                })),
+                Err(e) => Err(e),
+            }
         }
         BusinessDayConvention::ModifiedPreceding => {
             if cal.is_business_day(date) {
                 return Ok(date);
             }
             let original_month = date.month();
-            let back = seek(date, cal, -1, MAX_BUSINESS_DAY_SEARCH_DAYS, "ModifiedPreceding")?;
+            let back = match seek_business_day(date, -1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal) {
+                Ok(d) => d,
+                Err(Error::Input(InputError::AdjustmentFailed { date, max_days, .. })) => {
+                    return Err(Error::Input(InputError::AdjustmentFailed {
+                        date,
+                        convention: "ModifiedPreceding".to_string(),
+                        max_days,
+                    }))
+                }
+                Err(e) => return Err(e),
+            };
             if back.month() == original_month {
                 Ok(back)
             } else {
-                seek(
-                    date,
-                    cal,
-                    1,
-                    MAX_BUSINESS_DAY_SEARCH_DAYS,
-                    "ModifiedPreceding (fallback to following)",
-                )
+                match seek_business_day(date, 1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal) {
+                    Ok(d) => Ok(d),
+                    Err(Error::Input(InputError::AdjustmentFailed { date, max_days, .. })) => Err(Error::Input(InputError::AdjustmentFailed {
+                        date,
+                        convention: "ModifiedPreceding (fallback to following)".to_string(),
+                        max_days,
+                    })),
+                    Err(e) => Err(e),
+                }
             }
         }
     }

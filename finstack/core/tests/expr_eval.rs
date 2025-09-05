@@ -3,8 +3,7 @@
 mod common;
 
 use common::TestExprCtx;
-use finstack_core::expr::{CompiledExpr, Expr, Function};
-use finstack_core::config::{ResultsMeta, NumericMode, RoundingMode};
+use finstack_core::expr::{CompiledExpr, EvalOpts, Expr, Function};
 
 fn create_test_data() -> (TestExprCtx, Vec<Vec<f64>>) {
     let ctx = TestExprCtx::new().with_column("x", 0).with_column("y", 1);
@@ -24,12 +23,12 @@ fn test_compiled_expr_column_and_literal() {
 
     // Test column access
     let col_expr = CompiledExpr::new(Expr::column("x"));
-    let result = col_expr.eval_scalar(&ctx, &cols);
+    let result = col_expr.eval(&ctx, &cols, EvalOpts::default()).values;
     assert_eq!(result, vec![1.0, 2.0, 3.0, 4.0, 5.0]);
 
     // Test literal
     let lit_expr = CompiledExpr::new(Expr::literal(42.0));
-    let result = lit_expr.eval_scalar(&ctx, &cols);
+    let result = lit_expr.eval(&ctx, &cols, EvalOpts::default()).values;
     assert_eq!(result, vec![42.0, 42.0, 42.0, 42.0, 42.0]);
 }
 
@@ -43,7 +42,7 @@ fn test_compiled_expr_lag_and_lead() {
         Function::Lag,
         vec![Expr::column("x"), Expr::literal(1.0)],
     ));
-    let result = lag_expr.eval_scalar(&ctx, &cols);
+    let result = lag_expr.eval(&ctx, &cols, EvalOpts::default()).values;
     assert!(result[0].is_nan()); // First value should be NaN
     assert_eq!(result[1], 1.0); // Second value should be first input
     assert_eq!(result[2], 2.0); // Third value should be second input
@@ -53,7 +52,7 @@ fn test_compiled_expr_lag_and_lead() {
         Function::Lead,
         vec![Expr::column("x"), Expr::literal(1.0)],
     ));
-    let result = lead_expr.eval_scalar(&ctx, &cols);
+    let result = lead_expr.eval(&ctx, &cols, EvalOpts::default()).values;
     assert_eq!(result[0], 2.0); // First value should be second input
     assert_eq!(result[1], 3.0); // Second value should be third input
     assert!(result[4].is_nan()); // Last value should be NaN
@@ -69,7 +68,7 @@ fn test_compiled_expr_diff_and_pct_change() {
         Function::Diff,
         vec![Expr::column("x"), Expr::literal(1.0)],
     ));
-    let result = diff_expr.eval_scalar(&ctx, &cols);
+    let result = diff_expr.eval(&ctx, &cols, EvalOpts::default()).values;
     assert!(result[0].is_nan()); // First value should be NaN
     assert_eq!(result[1], 1.0); // 2 - 1 = 1
     assert_eq!(result[2], 1.0); // 3 - 2 = 1
@@ -79,7 +78,7 @@ fn test_compiled_expr_diff_and_pct_change() {
         Function::PctChange,
         vec![Expr::column("x"), Expr::literal(1.0)],
     ));
-    let result = pct_expr.eval_scalar(&ctx, &cols);
+    let result = pct_expr.eval(&ctx, &cols, EvalOpts::default()).values;
     assert!(result[0].is_nan()); // First value should be NaN
     assert_eq!(result[1], 1.0); // (2/1) - 1 = 1
     assert_eq!(result[2], 0.5); // (3/2) - 1 = 0.5
@@ -92,22 +91,22 @@ fn test_compiled_expr_cumulative_functions() {
 
     // Test CumSum
     let cumsum_expr = CompiledExpr::new(Expr::call(Function::CumSum, vec![Expr::column("x")]));
-    let result = cumsum_expr.eval_scalar(&ctx, &cols);
+    let result = cumsum_expr.eval(&ctx, &cols, EvalOpts::default()).values;
     assert_eq!(result, vec![1.0, 3.0, 6.0, 10.0, 15.0]); // 1, 1+2, 1+2+3, etc.
 
     // Test CumProd
     let cumprod_expr = CompiledExpr::new(Expr::call(Function::CumProd, vec![Expr::column("x")]));
-    let result = cumprod_expr.eval_scalar(&ctx, &cols);
+    let result = cumprod_expr.eval(&ctx, &cols, EvalOpts::default()).values;
     assert_eq!(result, vec![1.0, 2.0, 6.0, 24.0, 120.0]); // 1, 1*2, 1*2*3, etc.
 
     // Test CumMin
     let cummin_expr = CompiledExpr::new(Expr::call(Function::CumMin, vec![Expr::column("x")]));
-    let result = cummin_expr.eval_scalar(&ctx, &cols);
+    let result = cummin_expr.eval(&ctx, &cols, EvalOpts::default()).values;
     assert_eq!(result, vec![1.0, 1.0, 1.0, 1.0, 1.0]); // Min so far
 
     // Test CumMax
     let cummax_expr = CompiledExpr::new(Expr::call(Function::CumMax, vec![Expr::column("x")]));
-    let result = cummax_expr.eval_scalar(&ctx, &cols);
+    let result = cummax_expr.eval(&ctx, &cols, EvalOpts::default()).values;
     assert_eq!(result, vec![1.0, 2.0, 3.0, 4.0, 5.0]); // Max so far
 }
 
@@ -121,7 +120,7 @@ fn test_compiled_expr_rolling_functions() {
         Function::RollingMean,
         vec![Expr::column("x"), Expr::literal(3.0)],
     ));
-    let result = rolling_mean_expr.eval_scalar(&ctx, &cols);
+    let result = rolling_mean_expr.eval(&ctx, &cols, EvalOpts::default()).values;
     assert!(result[0].is_nan()); // Not enough data
     assert!(result[1].is_nan()); // Not enough data
     assert_eq!(result[2], 2.0); // (1+2+3)/3 = 2
@@ -132,7 +131,7 @@ fn test_compiled_expr_rolling_functions() {
         Function::RollingSum,
         vec![Expr::column("x"), Expr::literal(2.0)],
     ));
-    let result = rolling_sum_expr.eval_scalar(&ctx, &cols);
+    let result = rolling_sum_expr.eval(&ctx, &cols, EvalOpts::default()).values;
     assert!(result[0].is_nan()); // Not enough data
     assert_eq!(result[1], 3.0); // 1+2 = 3
     assert_eq!(result[2], 5.0); // 2+3 = 5
@@ -149,7 +148,7 @@ fn test_compiled_expr_ewm_mean() {
         Function::EwmMean,
         vec![Expr::column("x"), Expr::literal(0.5)],
     ));
-    let result = ewm_expr.eval_scalar(&ctx, &cols);
+    let result = ewm_expr.eval(&ctx, &cols, EvalOpts::default()).values;
 
     // First value should be the input value
     assert_eq!(result[0], 1.0);
@@ -169,7 +168,7 @@ fn test_compiled_expr_statistical_functions() {
 
     // Test Std
     let std_expr = CompiledExpr::new(Expr::call(Function::Std, vec![Expr::column("x")]));
-    let result = std_expr.eval_scalar(&ctx, &cols);
+    let result = std_expr.eval(&ctx, &cols, EvalOpts::default()).values;
 
     // All values should be the same (standard deviation of the entire series)
     let expected_std = result[0];
@@ -180,7 +179,7 @@ fn test_compiled_expr_statistical_functions() {
 
     // Test Var
     let var_expr = CompiledExpr::new(Expr::call(Function::Var, vec![Expr::column("x")]));
-    let result = var_expr.eval_scalar(&ctx, &cols);
+    let result = var_expr.eval(&ctx, &cols, EvalOpts::default()).values;
 
     // Variance should be std^2
     let expected_var = expected_std * expected_std;
@@ -190,7 +189,7 @@ fn test_compiled_expr_statistical_functions() {
 
     // Test Median
     let median_expr = CompiledExpr::new(Expr::call(Function::Median, vec![Expr::column("x")]));
-    let result = median_expr.eval_scalar(&ctx, &cols);
+    let result = median_expr.eval(&ctx, &cols, EvalOpts::default()).values;
 
     // Median of [1,2,3,4,5] should be 3
     for val in &result {
@@ -204,30 +203,12 @@ fn test_compiled_expr_with_metadata() {
     let cols: Vec<&[f64]> = data.iter().map(|v| v.as_slice()).collect();
 
     let expr = CompiledExpr::new(Expr::column("x"));
-    let meta = ResultsMeta {
-        numeric_mode: NumericMode::Decimal128,
-        rounding: finstack_core::config::RoundingContext {
-            mode: RoundingMode::Bankers,
-            ingest_scale_by_ccy: Default::default(),
-            output_scale_by_ccy: Default::default(),
-            version: 1,
-        },
-        deterministic: true,
-        parallel: false,
-        schema_version: 1,
-        fx_policies: indexmap::IndexMap::new(),
-        fx_policy_applied: None,
-        execution_time_ns: None,
-        cache_hit_ratio: None,
-    };
+    let result = expr.eval(&ctx, &cols, EvalOpts::default());
 
-    let result = expr.eval_with_metadata(&ctx, &cols, meta);
-
-    // Check that metadata is properly set
+    // Check that metadata is present and sensible
     assert_eq!(result.values, vec![1.0, 2.0, 3.0, 4.0, 5.0]);
-    assert!(result.metadata.deterministic);
-    assert!(!result.metadata.parallel);
     assert!(result.metadata.execution_time_ns.unwrap_or(0) > 0);
+    assert!(!result.metadata.parallel);
 }
 
 #[test]
@@ -240,25 +221,10 @@ fn test_compiled_expr_with_planning() {
         Function::RollingMean,
         vec![Expr::column("x"), Expr::literal(2.0)],
     );
-    let meta = ResultsMeta {
-        numeric_mode: NumericMode::Decimal128,
-        rounding: finstack_core::config::RoundingContext {
-            mode: RoundingMode::Bankers,
-            ingest_scale_by_ccy: Default::default(),
-            output_scale_by_ccy: Default::default(),
-            version: 1,
-        },
-        deterministic: true,
-        parallel: false,
-        schema_version: 1,
-        fx_policies: indexmap::IndexMap::new(),
-        fx_policy_applied: None,
-        execution_time_ns: None,
-        cache_hit_ratio: None,
-    };
+    let meta = finstack_core::config::results_meta(&finstack_core::config::FinstackConfig::default());
     let compiled = CompiledExpr::with_planning(expr, meta);
 
-    let result = compiled.eval_scalar(&ctx, &cols);
+    let result = compiled.eval(&ctx, &cols, EvalOpts::default()).values;
 
     // Should produce same result as without planning
     assert!(result[0].is_nan());
@@ -274,11 +240,11 @@ fn test_compiled_expr_edge_cases() {
 
     // Test with empty data
     let expr = CompiledExpr::new(Expr::column("empty"));
-    let result = expr.eval_scalar(&ctx, &cols);
+    let result = expr.eval(&ctx, &cols, EvalOpts::default()).values;
     assert!(result.is_empty());
 
     // Test with literal on empty data
     let lit_expr = CompiledExpr::new(Expr::literal(5.0));
-    let result = lit_expr.eval_scalar(&ctx, &cols);
+    let result = lit_expr.eval(&ctx, &cols, EvalOpts::default()).values;
     assert!(result.is_empty());
 }

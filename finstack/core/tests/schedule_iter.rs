@@ -3,7 +3,7 @@
 mod common;
 
 use common::{make_date, TestCal};
-use finstack_core::dates::{schedule, BusinessDayConvention, Frequency, ScheduleBuilder, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Frequency, ScheduleBuilder, StubKind};
 
 #[test]
 fn test_frequency_constructors() {
@@ -31,7 +31,12 @@ fn test_basic_schedule() {
     let start = make_date(2025, 1, 15);
     let end = make_date(2025, 4, 15);
 
-    let dates: Vec<_> = schedule(start, end, Frequency::monthly()).collect();
+    let dates: Vec<_> = ScheduleBuilder::new(start, end)
+        .frequency(Frequency::monthly())
+        .build()
+        .unwrap()
+        .into_iter()
+        .collect();
 
     assert_eq!(dates.len(), 4);
     assert_eq!(dates[0], make_date(2025, 1, 15));
@@ -49,7 +54,9 @@ fn test_quarterly_schedule_with_short_back_stub() {
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
         .frequency(Frequency::quarterly())
         .stub_rule(StubKind::None) // Default behavior creates short back stub
-        .build_raw()
+        .build()
+        .unwrap()
+        .into_iter()
         .collect();
 
     // Should get: Jan, Apr, Jul, Oct, Nov (short stub at end)
@@ -69,7 +76,9 @@ fn test_short_front_stub() {
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
         .frequency(Frequency::quarterly())
         .stub_rule(StubKind::ShortFront)
-        .build_raw()
+        .build()
+        .unwrap()
+        .into_iter()
         .collect();
 
     // Should get: Jan, Feb, May, Aug, Nov (short stub at front)
@@ -88,7 +97,9 @@ fn test_day_based_frequency() {
 
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
         .frequency(Frequency::weekly()) // 7 days
-        .build_raw()
+        .build()
+        .unwrap()
+        .into_iter()
         .collect();
 
     assert_eq!(dates.len(), 3);
@@ -103,7 +114,9 @@ fn test_single_date_schedule() {
 
     let dates: Vec<_> = ScheduleBuilder::new(date, date)
         .frequency(Frequency::monthly())
-        .build_raw()
+        .build()
+        .unwrap()
+        .into_iter()
         .collect();
 
     assert_eq!(dates.len(), 1);
@@ -122,6 +135,8 @@ fn test_schedule_with_business_day_adjustment() {
         .frequency(Frequency::weekly())
         .adjust_with(BusinessDayConvention::Following, &cal)
         .build()
+        .unwrap()
+        .into_iter()
         .collect();
 
     // First date should be adjusted from Jan 1 (holiday) to Jan 2
@@ -141,6 +156,8 @@ fn test_schedule_builder_with_adjustment() {
         .frequency(Frequency::monthly())
         .adjust_with(BusinessDayConvention::Following, &cal)
         .build()
+        .unwrap()
+        .into_iter()
         .collect();
 
     // First date should be adjusted from Jan 1 (holiday) to Jan 2
@@ -157,7 +174,9 @@ fn test_uneven_period_clamping() {
 
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
         .frequency(Frequency::monthly())
-        .build_raw()
+        .build()
+        .unwrap()
+        .into_iter()
         .collect();
 
     assert_eq!(dates.len(), 2);
@@ -174,7 +193,9 @@ fn test_long_front_stub() {
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
         .frequency(Frequency::quarterly())
         .stub_rule(StubKind::LongFront)
-        .build_raw()
+        .build()
+        .unwrap()
+        .into_iter()
         .collect();
 
 
@@ -198,7 +219,9 @@ fn test_long_back_stub() {
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
         .frequency(Frequency::quarterly())
         .stub_rule(StubKind::LongBack)
-        .build_raw()
+        .build()
+        .unwrap()
+        .into_iter()
         .collect();
 
     // Should create regular quarters from start: Jan, Apr, Jul
@@ -219,7 +242,9 @@ fn test_end_of_month_convention() {
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
         .frequency(Frequency::monthly())
         .end_of_month(true)
-        .build_raw()
+        .build()
+        .unwrap()
+        .into_iter()
         .collect();
 
     // Remove any duplicates for this test since we have an implementation issue
@@ -242,7 +267,9 @@ fn test_end_of_month_with_leap_year() {
     let dates: Vec<_> = ScheduleBuilder::new(start, end)
         .frequency(Frequency::monthly())
         .end_of_month(true)
-        .build_raw()
+        .build()
+        .unwrap()
+        .into_iter()
         .collect();
 
     // Remove any duplicates for this test since we have an implementation issue
@@ -265,7 +292,9 @@ fn test_eom_with_stub_conventions() {
         .frequency(Frequency::quarterly())
         .stub_rule(StubKind::ShortBack)
         .end_of_month(true)
-        .build_raw()
+        .build()
+        .unwrap()
+        .into_iter()
         .collect();
 
     assert_eq!(dates.len(), 3);

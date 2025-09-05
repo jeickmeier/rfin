@@ -142,12 +142,17 @@ impl InterestRateSwap {
 
         let sched_dates: Vec<Date> = if let Some(id) = self.float.calendar_id {
             if let Some(cal) = calendar_by_id(id) {
-                builder.adjust_with(self.float.bdc, cal).build().collect()
+                builder
+                    .adjust_with(self.float.bdc, cal)
+                    .build()
+                    .unwrap()
+                    .into_iter()
+                    .collect()
             } else {
-                builder.build_raw().collect()
+                builder.build().unwrap().into_iter().collect()
             }
         } else {
-            builder.build_raw().collect()
+            builder.build().unwrap().into_iter().collect()
         };
 
         if sched_dates.len() < 2 {

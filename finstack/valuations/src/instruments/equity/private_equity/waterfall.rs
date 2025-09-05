@@ -853,7 +853,7 @@ impl<'a> EquityWaterfallEngine<'a> {
                     let years = self
                         .spec
                         .irr_basis
-                        .year_fraction(base_date, current_date)
+                        .year_fraction(base_date, current_date, finstack_core::dates::DayCountCtx::default())
                         .unwrap_or(1.0);
                     let required_total = contrib_amount * (1.0 + target_irr).powf(years);
                     let already_received = total_contributions - contrib_amount; // Net distributions so far
@@ -877,7 +877,7 @@ impl<'a> EquityWaterfallEngine<'a> {
                 let t = self
                     .spec
                     .irr_basis
-                    .year_fraction(base_date, *date)
+                    .year_fraction(base_date, *date, finstack_core::dates::DayCountCtx::default())
                     .unwrap_or(0.0);
                 let df = if rate.abs() < 1e-10 {
                     1.0 // Avoid division by zero for 0% rate

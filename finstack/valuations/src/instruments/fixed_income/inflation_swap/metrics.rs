@@ -43,7 +43,7 @@ impl MetricCalculator for BreakevenCalculator {
         let i_maturity_projected = inflation_curve.cpi(t_maturity);
 
         // Year fraction for the full term of the swap
-        let tau_accrual = s.dc.year_fraction(s.start, s.maturity)?;
+        let tau_accrual = s.dc.year_fraction(s.start, s.maturity, finstack_core::dates::DayCountCtx::default())?;
 
         // Breakeven rate: K_BE = (I_mat/I_start)^(1/tau) - 1
         if i_start <= 0.0 || tau_accrual <= 0.0 {

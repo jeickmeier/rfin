@@ -4,7 +4,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-use finstack_core::prelude::InterpConfigurableBuilder;
+use finstack_core::market_data::interp::InterpStyle;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::primitives::AmortizationSpec;
@@ -32,7 +32,7 @@ fn setup_curves(base: Date) -> Arc<MarketContext> {
             (5.0, 0.85),
             (10.0, 0.70),
         ])
-        .linear_df()
+        .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -45,7 +45,7 @@ fn setup_curves(base: Date) -> Arc<MarketContext> {
             (5.0, 0.065),
             (10.0, 0.07),
         ])
-        .linear_df()
+        .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

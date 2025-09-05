@@ -47,23 +47,28 @@ fn bench_fx_cache_hits(c: &mut Criterion) {
     let d = Date::from_calendar_date(2024, Month::January, 1).unwrap();
     // Warm cache
     let _ = matrix
-        .rate(
-            Currency::USD,
-            Currency::EUR,
-            d,
-            FxConversionPolicy::CashflowDate,
-        )
+        .rate(finstack_core::money::fx::FxQuery {
+            from: Currency::USD,
+            to: Currency::EUR,
+            on: d,
+            policy: FxConversionPolicy::CashflowDate,
+            closure_check: None,
+            want_meta: false,
+        })
         .unwrap();
     c.bench_function("fx_cache_hit_usd_eur", |b| {
         b.iter(|| {
             let r = matrix
-                .rate(
-                    Currency::USD,
-                    Currency::EUR,
-                    d,
-                    FxConversionPolicy::CashflowDate,
-                )
-                .unwrap();
+                .rate(finstack_core::money::fx::FxQuery {
+                    from: Currency::USD,
+                    to: Currency::EUR,
+                    on: d,
+                    policy: FxConversionPolicy::CashflowDate,
+                    closure_check: None,
+                    want_meta: false,
+                })
+                .unwrap()
+                .rate;
             black_box(r)
         })
     });

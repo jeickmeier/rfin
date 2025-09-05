@@ -4,7 +4,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::prelude::InterpConfigurableBuilder;
+use finstack_core::market_data::interp::InterpStyle;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::fx_swap::FxSwap;
@@ -40,14 +40,14 @@ fn setup_market_data(as_of: Date) -> MarketContext {
     let usd_curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (10.0, 0.9)]) // ~1% flat rate
-        .linear_df()
+        .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
     let eur_curve = DiscountCurve::builder("EUR-OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (10.0, 0.95)]) // ~0.5% flat rate
-        .linear_df()
+        .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

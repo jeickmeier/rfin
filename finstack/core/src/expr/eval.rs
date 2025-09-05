@@ -11,6 +11,31 @@ use polars::prelude::{IntoColumn, IntoLazy, NamedFrom};
 use std::collections::HashSet;
 use std::vec::Vec;
 
+/// Options controlling evaluation strategy and caching.
+///
+/// Examples:
+/// - Evaluate with a cache budget:
+/// ```no_run
+/// use finstack_core::expr::{CompiledExpr, Expr, SimpleContext, EvalOpts};
+/// let ctx = SimpleContext::new(["x"]);
+/// let x = vec![1.0, 2.0, 3.0];
+/// let cols: [&[f64]; 1] = [&x];
+/// let expr = CompiledExpr::new(Expr::column("x"));
+/// let out = expr.eval(&ctx, &cols, EvalOpts { plan: None, cache_budget_mb: Some(16) });
+/// assert_eq!(out.values, vec![1.0, 2.0, 3.0]);
+/// ```
+#[derive(Clone, Debug, Default)]
+pub struct EvalOpts {
+    /// Optional pre-built execution plan to follow. If not provided, the
+    /// evaluator will either use the internal plan (if present) or fallback to
+    /// a minimal evaluation path for the expression.
+    pub plan: Option<ExecutionPlan>,
+    /// Optional cache budget in megabytes. When provided, a cache will be
+    /// instantiated (and sized for the plan when available) and cache stats
+    /// will be embedded in the returned metadata.
+    pub cache_budget_mb: Option<usize>,
+}
+
 /// A compiled expression can evaluate scalars and optionally lower to Polars.
 /// Compiled expression wrapper with DAG planning and caching support.
 #[derive(Clone, Debug)]
@@ -56,93 +81,87 @@ impl CompiledExpr {
         self
     }
 
-    /// Evaluate using DAG plan if available, otherwise fall back to simple evaluation.
-    pub fn eval_scalar<C: ExpressionContext>(
+    /// Unified evaluation entrypoint returning values with execution metadata.
+    ///
+    /// This replaces legacy variants and will use either a provided plan,
+    /// an internal plan, or a minimal scalar/Polars path.
+    pub fn eval<C: ExpressionContext>(
         &self,
         ctx: &C,
         cols: &[&[crate::F]],
-    ) -> Vec<crate::F> {
-        if let Some(ref plan) = self.plan {
-            self.eval_with_plan(ctx, cols, plan)
-        } else {
-            // Try Polars lowering for the whole expression first
-            if let Some(v) = self.eval_via_polars(ctx, cols, &self.ast) {
-                return v;
-            }
-            self.eval_simple(ctx, cols, &self.ast)
-        }
-    }
-
-    /// Evaluate using execution plan with caching.
-    fn eval_with_plan<C: ExpressionContext>(
-        &self,
-        ctx: &C,
-        cols: &[&[crate::F]],
-        plan: &ExecutionPlan,
-    ) -> Vec<crate::F> {
-        let mut results: std::collections::HashMap<u64, Vec<crate::F>> =
-            std::collections::HashMap::new();
-
-        // Execute nodes in topological order
-        for node in &plan.nodes {
-            // Check cache first
-            if let Some(ref cache) = self.cache {
-                if let Some(cached) = cache.get(node.id) {
-                    if let Ok(scalar_result) = cached.as_scalar() {
-                        results.insert(node.id, scalar_result);
-                        continue;
-                    }
-                }
-            }
-
-            // Evaluate node
-            let result = self.eval_node(ctx, cols, node, &results);
-
-            // Cache result if strategy recommends it
-            if let Some(ref cache) = self.cache {
-                if plan.cache_strategy.cache_nodes.contains(&node.id) {
-                    let arc: std::sync::Arc<[crate::F]> = std::sync::Arc::from(result.clone().into_boxed_slice());
-                    cache.put(node.id, CachedResult::Scalar(arc));
-                }
-            }
-
-            results.insert(node.id, result);
-        }
-
-        // Return result of the root node (should be the last one)
-        if let Some(&root_id) = plan.roots.first() {
-            results.remove(&root_id).unwrap_or_default()
-        } else {
-            Vec::new()
-        }
-    }
-
-    /// Evaluate with metadata stamping for determinism tracking.
-    pub fn eval_with_metadata<C: ExpressionContext>(
-        &self,
-        ctx: &C,
-        cols: &[&[crate::F]],
-        mut meta: crate::config::ResultsMeta,
+        opts: EvalOpts,
     ) -> EvaluationResult {
         let start_time = std::time::Instant::now();
 
-        // Use the appropriate evaluation path based on determinism setting
-        let values = if meta.deterministic && self.plan.is_some() {
-            // Force sequential execution for determinism
-            let mut sequential_self = self.clone();
-            sequential_self.cache = None; // Disable cache for full determinism
-            sequential_self.eval_scalar(ctx, cols)
+        // Decide on execution plan preference: opts > self > none
+        let plan_to_use: Option<ExecutionPlan> = if let Some(p) = opts.plan {
+            Some(p)
         } else {
-            self.eval_scalar(ctx, cols)
+            self.plan.clone()
         };
 
-        let execution_time_ns = start_time.elapsed().as_nanos() as u64;
+        // Decide on cache to use for this evaluation
+        let eval_cache: Option<CacheManager> = if let Some(budget) = opts.cache_budget_mb {
+            if let Some(ref p) = plan_to_use {
+                Some(CacheManager::for_plan(p, budget))
+            } else {
+                Some(CacheManager::new(budget))
+            }
+        } else {
+            self.cache.clone()
+        };
 
-        // Calculate cache hit ratio if cache is available
-        meta.cache_hit_ratio = self.cache.as_ref().map(|cache| cache.hit_ratio());
-        meta.execution_time_ns = Some(execution_time_ns);
-        // Parallel flag reflects plan presence and meta.parallel desire
-        meta.parallel = meta.parallel && self.plan.is_some();
+        // Compute values using the chosen strategy
+        let values: Vec<crate::F> = if let Some(ref plan) = plan_to_use {
+            // Execute nodes in topological order, honoring cache strategy
+            let mut results: std::collections::HashMap<u64, Vec<crate::F>> =
+                std::collections::HashMap::new();
+
+            for node in &plan.nodes {
+                // Cache lookup
+                if let Some(ref cache) = eval_cache {
+                    if let Some(cached) = cache.get(node.id) {
+                        if let Ok(scalar_result) = cached.as_scalar() {
+                            results.insert(node.id, scalar_result);
+                            continue;
+                        }
+                    }
+                }
+
+                // Evaluate node
+                let result = self.eval_node(ctx, cols, node, &results);
+
+                // Cache store
+                if let Some(ref cache) = eval_cache {
+                    if plan.cache_strategy.cache_nodes.contains(&node.id) {
+                        let arc: std::sync::Arc<[crate::F]> = std::sync::Arc::from(result.clone().into_boxed_slice());
+                        cache.put(node.id, CachedResult::Scalar(arc));
+                    }
+                }
+
+                results.insert(node.id, result);
+            }
+
+            // Root result
+            if let Some(&root_id) = plan.roots.first() {
+                results.remove(&root_id).unwrap_or_default()
+            } else {
+                Vec::new()
+            }
+        } else {
+            // No plan: try Polars lowering for the whole expression first
+            if let Some(v) = self.eval_via_polars(ctx, cols, &self.ast) {
+                v
+            } else {
+                self.eval_simple(ctx, cols, &self.ast)
+            }
+        };
+
+        // Stamp metadata
+        let mut meta = crate::config::results_meta(&crate::config::FinstackConfig::default());
+        meta.execution_time_ns = Some(start_time.elapsed().as_nanos() as u64);
+        meta.cache_hit_ratio = eval_cache.as_ref().map(|c| c.hit_ratio());
+        meta.parallel = plan_to_use.is_some();
 
         EvaluationResult { values, metadata: meta }
     }

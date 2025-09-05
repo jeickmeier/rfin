@@ -409,13 +409,13 @@ mod tests {
         // Par spread retrieval at pillar times (use same day-count mapping as bootstrap)
         let dc = hazard.day_count();
         let t1 = dc
-            .year_fraction(base_date, base_date + time::Duration::days(365))
+            .year_fraction(base_date, base_date + time::Duration::days(365), finstack_core::dates::DayCountCtx::default())
             .unwrap();
         let t3 = dc
-            .year_fraction(base_date, base_date + time::Duration::days(365 * 3))
+            .year_fraction(base_date, base_date + time::Duration::days(365 * 3), finstack_core::dates::DayCountCtx::default())
             .unwrap();
         let t5 = dc
-            .year_fraction(base_date, base_date + time::Duration::days(365 * 5))
+            .year_fraction(base_date, base_date + time::Duration::days(365 * 5), finstack_core::dates::DayCountCtx::default())
             .unwrap();
         assert!((hazard.quoted_spread_bp(t1, ParInterp::Linear) - 50.0).abs() < 1e-6);
         assert!((hazard.quoted_spread_bp(t3, ParInterp::Linear) - 75.0).abs() < 1e-6);

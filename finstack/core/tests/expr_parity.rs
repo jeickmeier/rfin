@@ -5,6 +5,7 @@
 //! results and proper handling of edge cases.
 
 use finstack_core::expr::*;
+use finstack_core::expr::EvalOpts;
 use std::f64;
 
 /// Simple context for testing.
@@ -68,12 +69,12 @@ fn test_basic_expressions() {
 
     // Test column reference
     let col_expr = CompiledExpr::new(col("values"));
-    let result = col_expr.eval_scalar(&ctx, &slices);
+    let result = col_expr.eval(&ctx, &slices, EvalOpts::default()).values;
     assert_eq!(result, data[0]);
 
     // Test literal
     let lit_expr = CompiledExpr::new(lit(42.0));
-    let result = lit_expr.eval_scalar(&ctx, &slices);
+    let result = lit_expr.eval(&ctx, &slices, EvalOpts::default()).values;
     assert_eq!(result, vec![42.0; 10]);
 }
 
@@ -84,7 +85,7 @@ fn test_lag_lead() {
 
     // Test lag
     let lag_expr = CompiledExpr::new(call(Function::Lag, vec![col("values"), lit(2.0)]));
-    let result = lag_expr.eval_scalar(&ctx, &slices);
+    let result = lag_expr.eval(&ctx, &slices, EvalOpts::default()).values;
     let expected = [f64::NAN, f64::NAN, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
 
     for (a, b) in result.iter().zip(expected.iter()) {
@@ -96,7 +97,7 @@ fn test_lag_lead() {
 
     // Test lead
     let lead_expr = CompiledExpr::new(call(Function::Lead, vec![col("values"), lit(2.0)]));
-    let result = lead_expr.eval_scalar(&ctx, &slices);
+    let result = lead_expr.eval(&ctx, &slices, EvalOpts::default()).values;
     let expected = [3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, f64::NAN, f64::NAN];
 
     for (a, b) in result.iter().zip(expected.iter()) {
@@ -114,7 +115,7 @@ fn test_diff_pct_change() {
 
     // Test diff
     let diff_expr = CompiledExpr::new(call(Function::Diff, vec![col("values")]));
-    let result = diff_expr.eval_scalar(&ctx, &slices);
+    let result = diff_expr.eval(&ctx, &slices, EvalOpts::default()).values;
     let expected = [f64::NAN, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
 
     for (a, b) in result.iter().zip(expected.iter()) {
@@ -126,7 +127,7 @@ fn test_diff_pct_change() {
 
     // Test pct_change
     let pct_expr = CompiledExpr::new(call(Function::PctChange, vec![col("values")]));
-    let result = pct_expr.eval_scalar(&ctx, &slices);
+    let result = pct_expr.eval(&ctx, &slices, EvalOpts::default()).values;
     let expected = [
         f64::NAN,
         1.0,
@@ -155,7 +156,7 @@ fn test_cumulative_functions() {
 
     // Test cumsum
     let cumsum_expr = CompiledExpr::new(call(Function::CumSum, vec![col("values")]));
-    let result = cumsum_expr.eval_scalar(&ctx, &slices);
+    let result = cumsum_expr.eval(&ctx, &slices, EvalOpts::default()).values;
     let expected = [1.0, 3.0, 6.0, 10.0, 15.0, 21.0, 28.0, 36.0, 45.0, 55.0];
 
     for (a, b) in result.iter().zip(expected.iter()) {
@@ -164,7 +165,7 @@ fn test_cumulative_functions() {
 
     // Test cumprod
     let cumprod_expr = CompiledExpr::new(call(Function::CumProd, vec![col("values")]));
-    let result = cumprod_expr.eval_scalar(&ctx, &slices);
+    let result = cumprod_expr.eval(&ctx, &slices, EvalOpts::default()).values;
     let expected = [
         1.0, 2.0, 6.0, 24.0, 120.0, 720.0, 5040.0, 40320.0, 362880.0, 3628800.0,
     ];
@@ -175,7 +176,7 @@ fn test_cumulative_functions() {
 
     // Test cummin
     let cummin_expr = CompiledExpr::new(call(Function::CumMin, vec![col("values")]));
-    let result = cummin_expr.eval_scalar(&ctx, &slices);
+    let result = cummin_expr.eval(&ctx, &slices, EvalOpts::default()).values;
     let expected = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0];
 
     for (a, b) in result.iter().zip(expected.iter()) {
@@ -184,7 +185,7 @@ fn test_cumulative_functions() {
 
     // Test cummax
     let cummax_expr = CompiledExpr::new(call(Function::CumMax, vec![col("values")]));
-    let result = cummax_expr.eval_scalar(&ctx, &slices);
+    let result = cummax_expr.eval(&ctx, &slices, EvalOpts::default()).values;
     let expected = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
 
     for (a, b) in result.iter().zip(expected.iter()) {
@@ -200,7 +201,7 @@ fn test_rolling_functions() {
     // Test rolling mean (window=3)
     let rolling_mean_expr =
         CompiledExpr::new(call(Function::RollingMean, vec![col("values"), lit(3.0)]));
-    let result = rolling_mean_expr.eval_scalar(&ctx, &slices);
+    let result = rolling_mean_expr.eval(&ctx, &slices, EvalOpts::default()).values;
 
     // Expected: [NaN, NaN, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
     let expected = [f64::NAN, f64::NAN, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0];
@@ -215,7 +216,7 @@ fn test_rolling_functions() {
     // Test rolling sum (window=3)
     let rolling_sum_expr =
         CompiledExpr::new(call(Function::RollingSum, vec![col("values"), lit(3.0)]));
-    let result = rolling_sum_expr.eval_scalar(&ctx, &slices);
+    let result = rolling_sum_expr.eval(&ctx, &slices, EvalOpts::default()).values;
     let expected = [
         f64::NAN,
         f64::NAN,
@@ -244,7 +245,7 @@ fn test_statistical_functions() {
 
     // Test std (standard deviation)
     let std_expr = CompiledExpr::new(call(Function::Std, vec![col("values")]));
-    let result = std_expr.eval_scalar(&ctx, &slices);
+    let result = std_expr.eval(&ctx, &slices, EvalOpts::default()).values;
 
     // Expected: sample standard deviation of [1,2,3,4,5,6,7,8,9,10] = sqrt(82.5/9) ≈ 3.0277
     let expected_std = (82.5_f64 / 9.0).sqrt();
@@ -259,7 +260,7 @@ fn test_statistical_functions() {
 
     // Test var (variance)
     let var_expr = CompiledExpr::new(call(Function::Var, vec![col("values")]));
-    let result = var_expr.eval_scalar(&ctx, &slices);
+    let result = var_expr.eval(&ctx, &slices, EvalOpts::default()).values;
 
     // Expected: sample variance of [1,2,3,4,5,6,7,8,9,10] = 82.5/9 ≈ 9.1667
     let expected_var = 82.5_f64 / 9.0;
@@ -274,7 +275,7 @@ fn test_statistical_functions() {
 
     // Test median
     let median_expr = CompiledExpr::new(call(Function::Median, vec![col("values")]));
-    let result = median_expr.eval_scalar(&ctx, &slices);
+    let result = median_expr.eval(&ctx, &slices, EvalOpts::default()).values;
 
     // Expected: median of [1,2,3,4,5,6,7,8,9,10] = 5.5
     let expected_median = 5.5;
@@ -298,7 +299,7 @@ fn test_ewm_mean() {
         Function::EwmMean,
         vec![col("values"), lit(0.5), lit(0.0)],
     )); // adjust=false
-    let result = ewm_expr.eval_scalar(&ctx, &slices);
+    let result = ewm_expr.eval(&ctx, &slices, EvalOpts::default()).values;
 
     // Calculate expected EWM manually (adjust=false)
     let alpha = 0.5;
@@ -326,9 +327,9 @@ fn test_determinism() {
     // Test that results are deterministic across multiple runs
     let expr = CompiledExpr::new(call(Function::RollingMean, vec![col("values"), lit(3.0)]));
 
-    let result1 = expr.eval_scalar(&ctx, &slices);
-    let result2 = expr.eval_scalar(&ctx, &slices);
-    let result3 = expr.eval_scalar(&ctx, &slices);
+    let result1 = expr.eval(&ctx, &slices, EvalOpts::default()).values;
+    let result2 = expr.eval(&ctx, &slices, EvalOpts::default()).values;
+    let result3 = expr.eval(&ctx, &slices, EvalOpts::default()).values;
 
     assert_eq!(result1.len(), result2.len());
     assert_eq!(result2.len(), result3.len());
@@ -355,19 +356,19 @@ fn test_edge_cases() {
     // Test with empty data - need to provide slices for all columns in context
     let empty_slices = vec![&data[0][..], &data[1][..], &data[2][..]]; // All columns
     let expr = CompiledExpr::new(call(Function::RollingMean, vec![col("empty"), lit(2.0)]));
-    let result = expr.eval_scalar(&ctx, &empty_slices);
+    let result = expr.eval(&ctx, &empty_slices, EvalOpts::default()).values;
     assert_eq!(result.len(), 0);
 
     // Test with single value
     let single_slices = vec![&data[0][..], &data[1][..], &data[2][..]]; // All columns
     let expr = CompiledExpr::new(call(Function::CumSum, vec![col("single")]));
-    let result = expr.eval_scalar(&ctx, &single_slices);
+    let result = expr.eval(&ctx, &single_slices, EvalOpts::default()).values;
     assert_eq!(result, vec![42.0]);
 
     // Test with NaN values
     let nan_slices = vec![&data[0][..], &data[1][..], &data[2][..]]; // All columns
     let expr = CompiledExpr::new(call(Function::CumSum, vec![col("nan_data")]));
-    let result = expr.eval_scalar(&ctx, &nan_slices);
+    let result = expr.eval(&ctx, &nan_slices, EvalOpts::default()).values;
 
     // Should handle NaN properly in cumsum
     assert_eq!(result.len(), 5);
@@ -394,7 +395,7 @@ fn test_polars_parity() {
         let expr = CompiledExpr::new(call(func, args));
 
         // Get scalar result
-        let scalar_result = expr.eval_scalar(&ctx, &slices);
+        let scalar_result = expr.eval(&ctx, &slices, EvalOpts::default()).values;
 
         // Check that Polars lowering is available for these functions
         if let Some(_polars_expr) = expr.to_polars_expr() {

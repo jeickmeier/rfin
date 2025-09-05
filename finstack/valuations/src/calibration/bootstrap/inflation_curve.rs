@@ -12,7 +12,7 @@ use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::inflation::InflationCurve;
-use finstack_core::market_data::interp::InterpConfigurableBuilder;
+use finstack_core::market_data::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -103,7 +103,7 @@ impl Calibrator<InstrumentQuote, InflationCurve>
             let curve = InflationCurve::builder(&self.curve_id)
                 .base_cpi(self.base_cpi)
                 .knots([(0.0, self.base_cpi), (0.25, self.base_cpi)])
-                .log_df()
+                .set_interp(InterpStyle::LogLinear)
                 .build()?;
             let report = CalibrationReport::new()
                 .success()
@@ -145,7 +145,7 @@ impl Calibrator<InstrumentQuote, InflationCurve>
 
             // Initial guess: compound last CPI by par rate over accrual time
             let tau = DayCount::ActAct
-                .year_fraction(self.base_date, maturity)
+                .year_fraction(self.base_date, maturity, finstack_core::dates::DayCountCtx::default())
                 .unwrap_or_else(|_| {
                     DiscountCurve::year_fraction(self.base_date, maturity, DayCount::Act365F)
                 });
@@ -181,7 +181,7 @@ impl Calibrator<InstrumentQuote, InflationCurve>
                 let temp_curve = match InflationCurve::builder(CALIB_INDEX_ID)
                     .base_cpi(temp_knots.first().map(|&(_, v)| v).unwrap_or(0.0))
                     .knots(temp_knots)
-                    .log_df()
+                    .set_interp(InterpStyle::LogLinear)
                     .build()
                 {
                     Ok(c) => c,
@@ -249,7 +249,7 @@ impl Calibrator<InstrumentQuote, InflationCurve>
         let curve = match InflationCurve::builder(&self.curve_id)
             .base_cpi(self.base_cpi)
             .knots(final_knots.clone())
-            .log_df()
+            .set_interp(InterpStyle::LogLinear)
             .build()
         {
             Ok(c) => c,
@@ -258,7 +258,7 @@ impl Calibrator<InstrumentQuote, InflationCurve>
                 InflationCurve::builder(&self.curve_id)
                     .base_cpi(self.base_cpi)
                     .knots([(0.0, self.base_cpi), (0.25, self.base_cpi)])
-                    .log_df()
+                    .set_interp(InterpStyle::LogLinear)
                     .build()
                     .map_err(|_| finstack_core::Error::Internal)?
             }

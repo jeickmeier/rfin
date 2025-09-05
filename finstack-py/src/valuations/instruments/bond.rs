@@ -275,7 +275,7 @@ impl PyBond {
             let years = self
                 .inner
                 .dc
-                .year_fraction(self.inner.issue, self.inner.maturity)
+                .year_fraction(self.inner.issue, self.inner.maturity, finstack_core::dates::DayCountCtx::default())
                 .map_err(|e| {
                     PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
                         "Failed to calculate year fraction: {:?}",
@@ -301,7 +301,7 @@ impl PyBond {
             let years_remaining = self
                 .inner
                 .dc
-                .year_fraction(as_of_inner, self.inner.maturity)
+                .year_fraction(as_of_inner, self.inner.maturity, finstack_core::dates::DayCountCtx::default())
                 .map_err(|e| {
                     PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
                         "Failed to calculate year fraction: {:?}",
@@ -346,7 +346,7 @@ impl PyBond {
         let years = self
             .inner
             .dc
-            .year_fraction(as_of_inner, self.inner.maturity)
+            .year_fraction(as_of_inner, self.inner.maturity, finstack_core::dates::DayCountCtx::default())
             .map_err(|e| {
                 PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
                     "Failed to calculate years to maturity: {:?}",

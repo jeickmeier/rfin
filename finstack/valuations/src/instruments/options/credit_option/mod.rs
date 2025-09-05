@@ -255,14 +255,14 @@ impl_instrument!(
     "CreditOption",
     pv = |s, curves, as_of| {
         // Calculate time to expiry in years
-        let time_to_expiry = s.day_count.year_fraction(as_of, s.expiry)?;
+        let time_to_expiry = s.day_count.year_fraction(as_of, s.expiry, finstack_core::dates::DayCountCtx::default())?;
 
         // Get market curves
         let disc_curve = curves.discount(s.disc_id)?;
         let hazard_curve = curves.hazard(s.credit_id)?;
 
         // Calculate risky annuity (RPV01) of the underlying CDS (simplified quarterly)
-        let cds_tenor = s.day_count.year_fraction(s.expiry, s.cds_maturity)?;
+        let cds_tenor = s.day_count.year_fraction(s.expiry, s.cds_maturity, finstack_core::dates::DayCountCtx::default())?;
         let mut risky_annuity = 0.0;
         let num_payments = (cds_tenor * 4.0).ceil() as usize;
         for i in 1..=num_payments {
@@ -273,7 +273,7 @@ impl_instrument!(
         }
 
         // Forward CDS spread for reporting: interpolate stored par spreads on hazard curve
-        let current_tenor = s.day_count.year_fraction(as_of, s.cds_maturity)?;
+        let current_tenor = s.day_count.year_fraction(as_of, s.cds_maturity, finstack_core::dates::DayCountCtx::default())?;
         let forward_spread_bp = if current_tenor > 0.0 {
             use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
             hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)

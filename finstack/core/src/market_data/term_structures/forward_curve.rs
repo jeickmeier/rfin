@@ -9,10 +9,10 @@
 //! ```rust
 //! use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 //! // 3-month tenor expressed in years
-//! # use finstack_core::prelude::InterpConfigurableBuilder;
+//! # use finstack_core::market_data::interp::InterpStyle;
 //! let fc = ForwardCurve::builder("USD-SOFR3M", 0.25)
 //!     .knots([(0.0, 0.03), (5.0, 0.04)])
-//!     .linear_df()
+//!     .set_interp(InterpStyle::Linear)
 //!     .build()
 //!     .unwrap();
 //! assert!(fc.rate(1.0) > 0.0);
@@ -21,7 +21,7 @@
 extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 
-use crate::market_data::interp::{InterpStyle, InterpConfigurableBuilder};
+use crate::market_data::interp::InterpStyle;
 use crate::{
     dates::{Date, DayCount},
     error::InputError,
@@ -145,7 +145,11 @@ impl ForwardCurveBuilder {
         self.points.extend(pts);
         self
     }
-    // Interpolation helpers are provided via the shared trait `InterpConfigurableBuilder`.
+    /// Select interpolation style for this forward curve.
+    pub fn set_interp(mut self, style: InterpStyle) -> Self {
+        self.style = style;
+        self
+    }
 
     /// Validate input and build the [`ForwardCurve`].
     pub fn build(self) -> crate::Result<ForwardCurve> {
@@ -167,14 +171,6 @@ impl ForwardCurveBuilder {
             fwds,
             interp,
         })
-    }
-}
-
-// Implement shared interpolation-config trait for the builder
-impl InterpConfigurableBuilder for ForwardCurveBuilder {
-    fn set_interp(mut self, style: InterpStyle) -> Self {
-        self.style = style;
-        self
     }
 }
 

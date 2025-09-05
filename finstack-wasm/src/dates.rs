@@ -190,7 +190,7 @@ pub fn day_count_year_fraction(
     end: &Date,
 ) -> Result<f64, JsValue> {
     let core = CoreDayCount::from(convention);
-    core.year_fraction(start.inner(), end.inner())
+    core.year_fraction(start.inner(), end.inner(), finstack_core::dates::DayCountCtx::default())
         .map_err(|e| JsValue::from_str(&e.to_string()))
 }
 

@@ -247,7 +247,7 @@ impl_instrument!(
     "FxOption",
     pv = |s, curves, as_of| {
         // Calculate time to expiry in years
-        let time_to_expiry = s.day_count.year_fraction(as_of, s.expiry)?;
+        let time_to_expiry = s.day_count.year_fraction(as_of, s.expiry, finstack_core::dates::DayCountCtx::default())?;
 
         if time_to_expiry <= 0.0 {
             // Option expired - return intrinsic value
@@ -255,16 +255,19 @@ impl_instrument!(
                 .fx
                 .as_ref()
                 .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
-            let spot = fx_matrix.rate(
-                s.base_currency,
-                s.quote_currency,
-                as_of,
-                finstack_core::money::fx::FxConversionPolicy::CashflowDate,
-            )?;
+            let spot = fx_matrix
+                .rate(finstack_core::money::fx::FxQuery {
+                    from: s.base_currency,
+                    to: s.quote_currency,
+                    on: as_of,
+                    policy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
+                    closure_check: None,
+                    want_meta: false,
+                })?;
 
             let intrinsic = match s.option_type {
-                OptionType::Call => (spot.to_f64().unwrap_or(0.0) - s.strike).max(0.0),
-                OptionType::Put => (s.strike - spot.to_f64().unwrap_or(0.0)).max(0.0),
+                OptionType::Call => (spot.rate.to_f64().unwrap_or(0.0) - s.strike).max(0.0),
+                OptionType::Put => (s.strike - spot.rate.to_f64().unwrap_or(0.0)).max(0.0),
             };
 
             return Ok(finstack_core::money::Money::new(
@@ -283,12 +286,14 @@ impl_instrument!(
             .fx
             .as_ref()
             .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
-        let spot = fx_matrix.rate(
-            s.base_currency,
-            s.quote_currency,
-            as_of,
-            finstack_core::money::fx::FxConversionPolicy::CashflowDate,
-        )?;
+        let spot = fx_matrix.rate(finstack_core::money::fx::FxQuery {
+            from: s.base_currency,
+            to: s.quote_currency,
+            on: as_of,
+            policy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
+            closure_check: None,
+            want_meta: false,
+        })?;
 
         // Get volatility (use implied_vol if set, otherwise fetch from surface)
         let sigma = if let Some(impl_vol) = s.implied_vol {
@@ -300,7 +305,7 @@ impl_instrument!(
 
         // Price using Garman-Kohlhagen
         s.garman_kohlhagen_price(
-            spot.to_f64().unwrap_or(0.0),
+            spot.rate.to_f64().unwrap_or(0.0),
             r_d,
             r_f,
             sigma,

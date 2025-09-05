@@ -8,11 +8,11 @@
 //! ## Example
 //! ```rust
 //! use finstack_core::market_data::term_structures::inflation::InflationCurve;
-//! # use finstack_core::prelude::InterpConfigurableBuilder;
+//! # use finstack_core::market_data::interp::InterpStyle;
 //! let ic = InflationCurve::builder("US-CPI")
 //!     .base_cpi(300.0)
 //!     .knots([(0.0, 300.0), (5.0, 327.0)])
-//!     .log_df()
+//!     .set_interp(InterpStyle::LogLinear)
 //!     .build()
 //!     .unwrap();
 //! assert!(ic.inflation_rate(0.0, 5.0) > 0.0);
@@ -21,7 +21,7 @@
 extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 
-use crate::market_data::interp::{InterpStyle, InterpConfigurableBuilder};
+use crate::market_data::interp::InterpStyle;
 use crate::{
     error::InputError,
     market_data::interp::InterpFn,
@@ -132,7 +132,11 @@ impl InflationCurveBuilder {
         self.points.extend(pts);
         self
     }
-    // Interpolation helpers are provided via the shared trait `InterpConfigurableBuilder`.
+    /// Select interpolation style for this curve.
+    pub fn set_interp(mut self, style: InterpStyle) -> Self {
+        self.style = style;
+        self
+    }
 
     /// Validate input and build the [`InflationCurve`].
     pub fn build(self) -> crate::Result<InflationCurve> {
@@ -157,14 +161,6 @@ impl InflationCurveBuilder {
             cpi_levels,
             interp,
         })
-    }
-}
-
-// Implement shared interpolation-config trait for the builder
-impl InterpConfigurableBuilder for InflationCurveBuilder {
-    fn set_interp(mut self, style: InterpStyle) -> Self {
-        self.style = style;
-        self
     }
 }
 

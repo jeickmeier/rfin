@@ -13,7 +13,7 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, Stu
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::primitives::MarketScalar;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::prelude::InterpConfigurableBuilder;
+use finstack_core::market_data::interp::InterpStyle;
 use finstack_core::money::Money;
 
 use crate::cashflow::builder::types::{CouponType, FixedCouponSpec};
@@ -68,7 +68,7 @@ fn create_test_market_context() -> MarketContext {
     let discount_curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (10.0, 0.741)]) // ~3% rate: e^(-0.03*10) = 0.741
-        .linear_df()
+        .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -690,7 +690,7 @@ fn test_currency_safety() {
     let discount_curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (10.0, 0.741)])
-        .linear_df()
+        .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

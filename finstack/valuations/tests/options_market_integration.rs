@@ -6,7 +6,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::interp::InterpConfigurableBuilder;
+use finstack_core::market_data::interp::InterpStyle;
 use finstack_core::market_data::primitives::MarketScalar;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -40,7 +40,7 @@ fn create_test_market_context() -> MarketContext {
             (5.0, 0.75),
             (10.0, 0.60),
         ])
-        .monotone_convex()
+        .set_interp(InterpStyle::MonotoneConvex)
         .build()
         .unwrap();
 
@@ -55,7 +55,7 @@ fn create_test_market_context() -> MarketContext {
             (5.0, 0.80),
             (10.0, 0.65),
         ])
-        .monotone_convex()
+        .set_interp(InterpStyle::MonotoneConvex)
         .build()
         .unwrap();
 
@@ -69,7 +69,7 @@ fn create_test_market_context() -> MarketContext {
             (5.0, 0.03),
             (10.0, 0.028),
         ])
-        .linear_df()
+        .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

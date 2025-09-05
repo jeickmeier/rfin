@@ -246,7 +246,7 @@ impl InflationLinkedBond {
         let mut prev = dates[0];
         for &d in &dates[1..] {
             // Accrual over the period using standard DayCount
-            let year_frac = self.dc.year_fraction(prev, d)?;
+            let year_frac = self.dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
             let base_amount = self.notional * self.real_coupon * year_frac;
 
             // Apply inflation adjustment at payment date

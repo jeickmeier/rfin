@@ -38,9 +38,9 @@ impl MetricCalculator for DeltaCalculator {
             let mut prev_date = schedule.dates[0];
 
             for &payment_date in &schedule.dates[1..] {
-                let time_to_fixing = option.day_count.year_fraction(base_date, prev_date)?;
-                let time_to_payment = option.day_count.year_fraction(base_date, payment_date)?;
-                let period_length = option.day_count.year_fraction(prev_date, payment_date)?;
+                let time_to_fixing = option.day_count.year_fraction(base_date, prev_date, finstack_core::dates::DayCountCtx::default())?;
+                let time_to_payment = option.day_count.year_fraction(base_date, payment_date, finstack_core::dates::DayCountCtx::default())?;
+                let period_length = option.day_count.year_fraction(prev_date, payment_date, finstack_core::dates::DayCountCtx::default())?;
 
                 if time_to_fixing > 0.0 {
                     let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
@@ -66,11 +66,11 @@ impl MetricCalculator for DeltaCalculator {
             // Single caplet/floorlet
             let time_to_fixing = option
                 .day_count
-                .year_fraction(base_date, option.start_date)?;
-            let time_to_payment = option.day_count.year_fraction(base_date, option.end_date)?;
+                .year_fraction(base_date, option.start_date, finstack_core::dates::DayCountCtx::default())?;
+            let time_to_payment = option.day_count.year_fraction(base_date, option.end_date, finstack_core::dates::DayCountCtx::default())?;
             let period_length = option
                 .day_count
-                .year_fraction(option.start_date, option.end_date)?;
+                .year_fraction(option.start_date, option.end_date, finstack_core::dates::DayCountCtx::default())?;
 
             if time_to_fixing <= 0.0 {
                 return Ok(0.0);
@@ -130,9 +130,15 @@ impl MetricCalculator for GammaCalculator {
             let mut prev_date = schedule.dates[0];
 
             for &payment_date in &schedule.dates[1..] {
-                let time_to_fixing = option.day_count.year_fraction(base_date, prev_date)?;
-                let time_to_payment = option.day_count.year_fraction(base_date, payment_date)?;
-                let period_length = option.day_count.year_fraction(prev_date, payment_date)?;
+                let time_to_fixing = option
+                    .day_count
+                    .year_fraction(base_date, prev_date, finstack_core::dates::DayCountCtx::default())?;
+                let time_to_payment = option
+                    .day_count
+                    .year_fraction(base_date, payment_date, finstack_core::dates::DayCountCtx::default())?;
+                let period_length = option
+                    .day_count
+                    .year_fraction(prev_date, payment_date, finstack_core::dates::DayCountCtx::default())?;
 
                 if time_to_fixing > 0.0 {
                     let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
@@ -157,11 +163,13 @@ impl MetricCalculator for GammaCalculator {
         } else {
             let time_to_fixing = option
                 .day_count
-                .year_fraction(base_date, option.start_date)?;
-            let time_to_payment = option.day_count.year_fraction(base_date, option.end_date)?;
+                .year_fraction(base_date, option.start_date, finstack_core::dates::DayCountCtx::default())?;
+            let time_to_payment = option
+                .day_count
+                .year_fraction(base_date, option.end_date, finstack_core::dates::DayCountCtx::default())?;
             let period_length = option
                 .day_count
-                .year_fraction(option.start_date, option.end_date)?;
+                .year_fraction(option.start_date, option.end_date, finstack_core::dates::DayCountCtx::default())?;
 
             if time_to_fixing <= 0.0 {
                 return Ok(0.0);
@@ -219,9 +227,15 @@ impl MetricCalculator for VegaCalculator {
             let mut prev_date = schedule.dates[0];
 
             for &payment_date in &schedule.dates[1..] {
-                let time_to_fixing = option.day_count.year_fraction(base_date, prev_date)?;
-                let time_to_payment = option.day_count.year_fraction(base_date, payment_date)?;
-                let period_length = option.day_count.year_fraction(prev_date, payment_date)?;
+                let time_to_fixing = option
+                    .day_count
+                    .year_fraction(base_date, prev_date, finstack_core::dates::DayCountCtx::default())?;
+                let time_to_payment = option
+                    .day_count
+                    .year_fraction(base_date, payment_date, finstack_core::dates::DayCountCtx::default())?;
+                let period_length = option
+                    .day_count
+                    .year_fraction(prev_date, payment_date, finstack_core::dates::DayCountCtx::default())?;
 
                 if time_to_fixing > 0.0 {
                     let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
@@ -245,11 +259,13 @@ impl MetricCalculator for VegaCalculator {
         } else {
             let time_to_fixing = option
                 .day_count
-                .year_fraction(base_date, option.start_date)?;
-            let time_to_payment = option.day_count.year_fraction(base_date, option.end_date)?;
+                .year_fraction(base_date, option.start_date, finstack_core::dates::DayCountCtx::default())?;
+            let time_to_payment = option
+                .day_count
+                .year_fraction(base_date, option.end_date, finstack_core::dates::DayCountCtx::default())?;
             let period_length = option
                 .day_count
-                .year_fraction(option.start_date, option.end_date)?;
+                .year_fraction(option.start_date, option.end_date, finstack_core::dates::DayCountCtx::default())?;
 
             if time_to_fixing <= 0.0 {
                 return Ok(0.0);

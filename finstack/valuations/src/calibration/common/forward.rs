@@ -130,7 +130,7 @@ mod tests {
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)])
-            .linear_df()
+            .set_interp(finstack_core::market_data::interp::InterpStyle::Linear)
             .build()
             .unwrap();
 
@@ -138,7 +138,7 @@ mod tests {
         let fwd_curve = ForwardCurve::builder("USD-SOFR3M", 0.25)
             .base_date(base_date)
             .knots([(0.0, 0.03), (1.0, 0.035), (5.0, 0.04)])
-            .linear_df()
+            .set_interp(finstack_core::market_data::interp::InterpStyle::Linear)
             .build()
             .unwrap();
 
@@ -200,7 +200,7 @@ mod tests {
         let eur_disc = DiscountCurve::builder("EUR-OIS")
             .base_date(base_date)
             .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.82)])
-            .linear_df()
+            .set_interp(finstack_core::market_data::interp::InterpStyle::Linear)
             .build()
             .unwrap();
 

@@ -7,7 +7,7 @@ use finstack_core::{
     money::Money,
     F,
 };
-use finstack_core::market_data::interp::InterpConfigurableBuilder;
+use finstack_core::market_data::interp::InterpStyle;
 use finstack_valuations::{
     cashflow::traits::{CashflowProvider, DatedFlows},
     instruments::traits::Priceable,
@@ -116,7 +116,7 @@ fn test_cashflow_provider_npv_with() {
     let discount = DiscountCurve::builder("TEST_DISC")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 1.0), (2.0, 1.0)]) // Flat discount factors
-        .linear_df()
+        .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let daycount = DayCount::Act365F;

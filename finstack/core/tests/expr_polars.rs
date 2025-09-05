@@ -1,4 +1,4 @@
-use finstack_core::expr::{CompiledExpr, Expr, Function};
+use finstack_core::expr::{CompiledExpr, EvalOpts, Expr, Function};
 use polars::prelude::*;
 
 #[test]
@@ -41,8 +41,8 @@ fn polars_lowering_lag_lead_parity() {
         .collect::<Vec<_>>();
     let cols: [&[f64]; 1] = [&x];
     let ctx = finstack_core::expr::SimpleContext::new(["x"]);
-    let lag_s = lag_e.eval_scalar(&ctx, &cols);
-    let lead_s = lead_e.eval_scalar(&ctx, &cols);
+    let lag_s = lag_e.eval(&ctx, &cols, EvalOpts::default()).values;
+    let lead_s = lead_e.eval(&ctx, &cols, EvalOpts::default()).values;
 
     let lag_pv: Vec<f64> = out
         .column("lag")
@@ -79,6 +79,6 @@ fn polars_lowering_lag_lead_parity() {
         .map(|o| o.unwrap_or(f64::NAN))
         .collect();
     let cols: [&[f64]; 1] = [&x];
-    let roll_s = roll_e.eval_scalar(&ctx, &cols);
+    let roll_s = roll_e.eval(&ctx, &cols, EvalOpts::default()).values;
     assert!((roll_s[2] - roll_pv[2]).abs() < 1e-12);
 }

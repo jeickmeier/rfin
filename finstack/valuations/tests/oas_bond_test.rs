@@ -17,7 +17,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::prelude::InterpConfigurableBuilder;
+use finstack_core::market_data::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::F;
 
@@ -33,14 +33,12 @@ fn create_test_curve() -> DiscountCurve {
         .knots([
             (0.0, 1.0),
             (0.5, 0.975),
-            (1.0, 0.95),
-            (2.0, 0.91),
-            (3.0, 0.87),
-            (5.0, 0.78),
-            (7.0, 0.70),
+            (1.0, 0.950),
+            (2.0, 0.905),
+            (5.0, 0.80),
             (10.0, 0.60),
         ])
-        .log_df()
+        .set_interp(InterpStyle::LogLinear)
         .build()
         .unwrap()
 }

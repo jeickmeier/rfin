@@ -16,9 +16,9 @@
 //! | [`inflation::InflationCurve`]       | CPI     | [`traits::Inflation`](crate::market_data::traits::Inflation) |
 //!
 //! ## Choosing an interpolation style
-//! All curves are bootstrapped from knot points and expose interpolation helpers via
-//! the shared builder trait to pick an [`crate::market_data::interp::InterpStyle`]. The same
-//! interpolation engine therefore underpins *all* term structures.
+//! All curves are bootstrapped from knot points and allow selecting an
+//! [`crate::market_data::interp::InterpStyle`] via a single `set_interp(...)`
+//! method on their builders.
 //!
 //! ## Example – building three curves and bundling them in a `MarketContext`
 //! ```no_run
@@ -26,18 +26,18 @@
 //! use finstack_core::market_data::MarketContext;
 //! use finstack_core::dates::Date;
 //! use time::Month;
-//! # use finstack_core::prelude::InterpConfigurableBuilder;
+//! # use finstack_core::market_data::interp::InterpStyle;
 //!
 //! let disc = DiscountCurve::builder("USD-OIS")
 //!     .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
 //!     .knots([(0.0, 1.0), (5.0, 0.88)])
-//!     .monotone_convex()
+//!     .set_interp(InterpStyle::MonotoneConvex)
 //!     .build()
 //!     .unwrap();
 //!
 //! let fwd3m = ForwardCurve::builder("USD-SOFR3M", 0.25)
 //!     .knots([(0.0, 0.03), (5.0, 0.04)])
-//!     .linear_df()
+//!     .set_interp(InterpStyle::Linear)
 //!     .build()
 //!     .unwrap();
 //!
@@ -77,5 +77,4 @@ pub use hazard_curve::*;
 pub use inflation::*;
 // Re-export the relocated volatility surface
 pub use crate::market_data::surfaces::vol_surface::*;
-// Make interpolation helpers available in doctests in this module
-pub use crate::market_data::interp::InterpConfigurableBuilder;
+// Interpolation helpers removed; use `set_interp(InterpStyle::...)` on builders.

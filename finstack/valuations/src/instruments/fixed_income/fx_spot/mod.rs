@@ -137,9 +137,7 @@ impl_instrument!(
         let matrix = curves.fx.as_ref().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })
         })?;
-        struct MatrixProvider<'a> {
-            m: &'a finstack_core::money::fx::FxMatrix,
-        }
+        struct MatrixProvider<'a> { m: &'a finstack_core::money::fx::FxMatrix }
         impl finstack_core::money::fx::FxProvider for MatrixProvider<'_> {
             fn rate(
                 &self,
@@ -148,13 +146,20 @@ impl_instrument!(
                 on: Date,
                 policy: finstack_core::money::fx::FxConversionPolicy,
             ) -> finstack_core::Result<finstack_core::money::fx::FxRate> {
-                self.m.rate(from, to, on, policy)
+                let result = self.m.rate(finstack_core::money::fx::FxQuery {
+                    from,
+                    to,
+                    on,
+                    policy,
+                    closure_check: None,
+                    want_meta: false,
+                })?;
+                Ok(result.rate)
             }
         }
         let provider = MatrixProvider { m: matrix };
         let policy = finstack_core::money::fx::FxConversionPolicy::CashflowDate;
-        s.effective_notional()
-            .convert(s.quote, as_of, &provider, policy)
+        s.effective_notional().convert(s.quote, as_of, &provider, policy)
     }
 );
 

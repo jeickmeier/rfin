@@ -11,12 +11,12 @@
 //! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 //! use finstack_core::dates::Date;
 //! use time::Month;
-//! # use finstack_core::prelude::InterpConfigurableBuilder;
+//! # use finstack_core::market_data::interp::InterpStyle;
 //!
 //! let curve = DiscountCurve::builder("USD-OIS")
 //!     .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
 //!     .knots([(0.0, 1.0), (5.0, 0.9)])
-//!     .monotone_convex()
+//!     .set_interp(InterpStyle::MonotoneConvex)
 //!     .build()
 //!     .unwrap();
 //! assert!(curve.df(3.0) < 1.0);
@@ -24,7 +24,7 @@
 
 extern crate alloc;
 
-use crate::market_data::interp::{InterpStyle, ExtrapolationPolicy, InterpConfigurableBuilder};
+use crate::market_data::interp::{InterpStyle, ExtrapolationPolicy};
 use crate::{
     dates::Date,
     market_data::interp::InterpFn,
@@ -54,7 +54,8 @@ impl DiscountCurve {
         if date == base {
             return 0.0;
         }
-        dc.year_fraction(base, date).unwrap_or(0.0)
+        dc.year_fraction(base, date, crate::dates::DayCountCtx::default())
+            .unwrap_or(0.0)
     }
     /// Convenience: discount factor on a specific date `date` given a curve and
     /// the curve base `base` and `day_count`.
@@ -167,7 +168,7 @@ impl DiscountCurve {
         ForwardCurve::builder(forward_id, tenor_years)
             .base_date(self.base)
             .knots(forward_rates)
-            .linear_df()
+            .set_interp(InterpStyle::Linear)
             .build()
     }
 }
@@ -197,23 +198,15 @@ impl DiscountCurveBuilder {
         self.points.extend(pts);
         self
     }
-    // Interpolation helpers are provided via the shared trait `InterpConfigurableBuilder`.
+    /// Select interpolation style for this curve.
+    pub fn set_interp(mut self, style: InterpStyle) -> Self {
+        self.style = style;
+        self
+    }
 
     /// Set the extrapolation policy for out-of-bounds evaluation.
     pub fn extrapolation(mut self, policy: ExtrapolationPolicy) -> Self {
         self.extrapolation = policy;
-        self
-    }
-
-    /// Use **flat-zero** extrapolation (extend endpoint values).
-    pub fn flat_zero_extrapolation(mut self) -> Self {
-        self.extrapolation = ExtrapolationPolicy::FlatZero;
-        self
-    }
-
-    /// Use **flat-forward** extrapolation (extend forward rates).
-    pub fn flat_forward_extrapolation(mut self) -> Self {
-        self.extrapolation = ExtrapolationPolicy::FlatForward;
         self
     }
 
@@ -261,14 +254,6 @@ impl DiscountCurveBuilder {
     }
 }
 
-// Implement shared interpolation-config trait for the builder
-impl InterpConfigurableBuilder for DiscountCurveBuilder {
-    fn set_interp(mut self, style: InterpStyle) -> Self {
-        self.style = style;
-        self
-    }
-}
-
 // Interpolator helpers now centralised in InterpStyle – local factory fns removed.
 
 // -----------------------------------------------------------------------------
@@ -303,7 +288,7 @@ mod tests {
         DiscountCurve::builder("USD-OIS")
             .base_date(Date::from_calendar_date(2025, time::Month::June, 30).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95)])
-            .linear_df()
+            .set_interp(InterpStyle::Linear)
             .build()
             .unwrap()
     }
@@ -312,7 +297,7 @@ mod tests {
         DiscountCurve::builder("USD-OIS")
             .base_date(Date::from_calendar_date(2025, time::Month::June, 30).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95)])
-            .log_df()
+            .set_interp(InterpStyle::LogLinear)
             .build()
             .unwrap()
     }

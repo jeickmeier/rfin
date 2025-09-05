@@ -27,13 +27,13 @@ pub use crate::market_data::{
     inflation_index::{
         InflationIndex, InflationIndexBuilder, InflationInterpolation, InflationLag,
     },
-    interp::{InterpFn, InterpStyle, InterpConfigurableBuilder},
+    interp::{InterpFn, InterpStyle},
     primitives::{MarketScalar, ScalarTimeSeries, SeriesInterpolation},
     traits::{Discount, Forward, Inflation as InflationTs, Surface, Survival, TermStructure},
     MarketContext,
 };
 pub use crate::money::{
-    fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate},
+    fx::{FxConversionPolicy, FxMatrix, FxProvider, FxQuery, FxRate, FxRateResult},
     Money,
 };
 pub use crate::Result;

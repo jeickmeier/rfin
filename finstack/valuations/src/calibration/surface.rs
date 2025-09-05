@@ -283,7 +283,7 @@ impl Calibrator<InstrumentQuote, VolSurface> for VolSurfaceCalibrator {
 mod tests {
     use super::*;
     use finstack_core::dates::Date;
-    use finstack_core::prelude::InterpConfigurableBuilder;
+    use finstack_core::market_data::interp::InterpStyle;
     use time::Month;
 
     fn create_test_vol_quotes() -> Vec<InstrumentQuote> {
@@ -360,7 +360,7 @@ mod tests {
                 finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder("USD-OIS")
                     .base_date(base_date)
                     .knots([(0.0, 1.0), (5.0, 0.78)])
-                    .linear_df()
+                    .set_interp(InterpStyle::Linear)
                     .build()
                     .unwrap()
             );

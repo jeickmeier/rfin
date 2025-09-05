@@ -15,7 +15,7 @@ use crate::instruments::fixed_income::InterestRateSwap;
 use crate::instruments::traits::Priceable;
 use finstack_core::dates::{Date, DayCount, add_months};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::interp::{InterpStyle, InterpConfigurableBuilder};
+use finstack_core::market_data::interp::InterpStyle;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
@@ -64,13 +64,7 @@ impl DiscountCurveCalibrator {
 
     /// Apply the configured interpolation style to the discount curve builder.
     fn apply_interpolation(&self, builder: finstack_core::market_data::term_structures::discount_curve::DiscountCurveBuilder) -> finstack_core::market_data::term_structures::discount_curve::DiscountCurveBuilder {
-        match self.interpolation {
-            InterpStyle::Linear => InterpConfigurableBuilder::linear_df(builder),
-            InterpStyle::LogLinear => InterpConfigurableBuilder::log_df(builder),
-            InterpStyle::MonotoneConvex => InterpConfigurableBuilder::monotone_convex(builder),
-            InterpStyle::CubicHermite => InterpConfigurableBuilder::cubic_hermite(builder),
-            InterpStyle::FlatFwd => InterpConfigurableBuilder::flat_fwd(builder),
-        }
+        builder.set_interp(self.interpolation)
     }
 
     /// Bootstrap discount curve from instrument quotes using solver.
@@ -152,7 +146,7 @@ impl DiscountCurveCalibrator {
                 let temp_curve = match DiscountCurve::builder("CALIB_CURVE")
                     .base_date(self_clone.base_date)
                     .knots(temp_knots.clone())
-                    .linear_df() // Use linear interpolation for stability
+                    .set_interp(InterpStyle::Linear) // Use linear interpolation for stability
                     .build()
                 {
                     Ok(curve) => curve,
@@ -205,7 +199,7 @@ impl DiscountCurveCalibrator {
                 let final_curve = DiscountCurve::builder("CALIB_CURVE")
                     .base_date(self.base_date)
                     .knots(final_knots)
-                    .linear_df() // Use linear interpolation for stability
+                    .set_interp(InterpStyle::Linear) // Use linear interpolation for stability
                     .build()
                     .map_err(|_| finstack_core::Error::Internal)?;
 

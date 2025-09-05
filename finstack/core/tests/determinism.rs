@@ -3,14 +3,13 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::traits::Discount;
 use finstack_core::math::{kahan_sum, pairwise_sum};
 use time::Month;
-use finstack_core::prelude::InterpConfigurableBuilder;
 
 #[test]
 fn df_batch_matches_serial() {
     let yc = DiscountCurve::builder("USD-OIS")
         .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
         .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95)])
-        .log_df()
+        .set_interp(finstack_core::market_data::interp::InterpStyle::LogLinear)
         .build()
         .unwrap();
 

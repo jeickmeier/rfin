@@ -260,7 +260,7 @@ impl Swaption {
 
     /// Calculate year fraction
     fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<F> {
-        dc.year_fraction(start, end)
+        dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
     }
 }
 

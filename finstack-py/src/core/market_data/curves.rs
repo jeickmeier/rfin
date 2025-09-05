@@ -15,8 +15,8 @@ use finstack_core::{
     },
     F,
 };
-use finstack_core::prelude::InterpConfigurableBuilder;
 
+use finstack_core::market_data::interp::InterpStyle;
 use super::interpolation::{PyInterpStyle, PyExtrapolationPolicy};
 use crate::core::dates::PyDate;
 use crate::core::dates::PyDayCount;
@@ -115,11 +115,11 @@ impl PyDiscountCurve {
 
         // Set interpolation
         builder = match interpolation {
-            PyInterpStyle::Linear => builder.linear_df(),
-            PyInterpStyle::LogLinear => builder.log_df(),
-            PyInterpStyle::MonotoneConvex => builder.monotone_convex(),
-            PyInterpStyle::CubicHermite => builder.cubic_hermite(),
-            PyInterpStyle::FlatForward => builder.flat_fwd(),
+            PyInterpStyle::Linear => builder.set_interp(InterpStyle::Linear),
+            PyInterpStyle::LogLinear => builder.set_interp(InterpStyle::LogLinear),
+            PyInterpStyle::MonotoneConvex => builder.set_interp(InterpStyle::MonotoneConvex),
+            PyInterpStyle::CubicHermite => builder.set_interp(InterpStyle::CubicHermite),
+            PyInterpStyle::FlatForward => builder.set_interp(InterpStyle::FlatFwd),
         };
 
         // Set extrapolation policy
@@ -368,11 +368,11 @@ impl PyForwardCurve {
 
         // Set interpolation
         builder = match interpolation {
-            PyInterpStyle::Linear => builder.linear_df(),
-            PyInterpStyle::LogLinear => builder.log_df(),
-            PyInterpStyle::MonotoneConvex => builder.monotone_convex(),
-            PyInterpStyle::CubicHermite => builder.cubic_hermite(),
-            PyInterpStyle::FlatForward => builder.flat_fwd(),
+            PyInterpStyle::Linear => builder.set_interp(InterpStyle::Linear),
+            PyInterpStyle::LogLinear => builder.set_interp(InterpStyle::LogLinear),
+            PyInterpStyle::MonotoneConvex => builder.set_interp(InterpStyle::MonotoneConvex),
+            PyInterpStyle::CubicHermite => builder.set_interp(InterpStyle::CubicHermite),
+            PyInterpStyle::FlatForward => builder.set_interp(InterpStyle::FlatFwd),
         };
 
         let curve = builder.build().map_err(|e| {
@@ -631,11 +631,11 @@ impl PyInflationCurve {
 
         // Set interpolation
         builder = match interpolation {
-            PyInterpStyle::Linear => builder.linear_df(),
-            PyInterpStyle::LogLinear => builder.log_df(),
-            PyInterpStyle::MonotoneConvex => builder.monotone_convex(),
-            PyInterpStyle::CubicHermite => builder.cubic_hermite(),
-            PyInterpStyle::FlatForward => builder.flat_fwd(),
+            PyInterpStyle::Linear => builder.set_interp(InterpStyle::Linear),
+            PyInterpStyle::LogLinear => builder.set_interp(InterpStyle::LogLinear),
+            PyInterpStyle::MonotoneConvex => builder.set_interp(InterpStyle::MonotoneConvex),
+            PyInterpStyle::CubicHermite => builder.set_interp(InterpStyle::CubicHermite),
+            PyInterpStyle::FlatForward => builder.set_interp(InterpStyle::FlatFwd),
         };
 
         let curve = builder.build().map_err(|e| {

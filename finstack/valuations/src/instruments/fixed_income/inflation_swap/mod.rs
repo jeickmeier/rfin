@@ -63,7 +63,7 @@ impl InflationSwap {
         let base = disc.base_date();
 
         // Year fraction for the full term of the swap
-        let tau_accrual = self.dc.year_fraction(self.start, self.maturity)?;
+        let tau_accrual = self.dc.year_fraction(self.start, self.maturity, finstack_core::dates::DayCountCtx::default())?;
 
         // Fixed payment at maturity: N * ((1 + K)^tau - 1)
         let fixed_payment = self.notional * ((1.0 + self.fixed_rate).powf(tau_accrual) - 1.0);
@@ -235,7 +235,7 @@ mod tests {
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .knots([(0.0, 1.0), (5.0, 0.90), (10.0, 0.80)])
-            .monotone_convex()
+            .set_interp(finstack_core::market_data::interp::InterpStyle::MonotoneConvex)
             .build()
             .unwrap();
 
@@ -262,7 +262,7 @@ mod tests {
         let inflation_curve = InflationCurve::builder("US-CPI-U")
             .base_cpi(290.0)
             .knots([(0.0, 290.0), (5.0, 320.0), (10.0, 355.0)])
-            .log_df()
+            .set_interp(finstack_core::market_data::interp::InterpStyle::LogLinear)
             .build()?;
 
         let context = MarketContext::new()

@@ -66,6 +66,6 @@ pub use ast::{EvaluationResult, Expr, ExprNode, Function};
 pub use cache::{CacheManager, CachedResult};
 pub use context::{ExpressionContext, SimpleContext};
 pub use dag::{DagBuilder, ExecutionPlan, PushdownAnalyzer, PushdownBoundaries};
-pub use eval::CompiledExpr;
+pub use eval::{CompiledExpr, EvalOpts};
 
 // Polars Series no longer part of public API surface here

@@ -282,9 +282,9 @@ impl_instrument!(
             s.rate_option_type,
             RateOptionType::Caplet | RateOptionType::Floorlet
         ) {
-            let time_to_fixing = s.day_count.year_fraction(as_of, s.start_date)?;
-            let time_to_payment = s.day_count.year_fraction(as_of, s.end_date)?;
-            let period_length = s.day_count.year_fraction(s.start_date, s.end_date)?;
+            let time_to_fixing = s.day_count.year_fraction(as_of, s.start_date, finstack_core::dates::DayCountCtx::default())?;
+            let time_to_payment = s.day_count.year_fraction(as_of, s.end_date, finstack_core::dates::DayCountCtx::default())?;
+            let period_length = s.day_count.year_fraction(s.start_date, s.end_date, finstack_core::dates::DayCountCtx::default())?;
 
             if time_to_fixing <= 0.0 {
                 // Option expired - intrinsic value only
@@ -339,9 +339,9 @@ impl_instrument!(
         let mut prev_date = schedule.dates[0];
         for &payment_date in &schedule.dates[1..] {
             let fixing_date = prev_date; // Simplified: fixing at period start
-            let time_to_fixing = s.day_count.year_fraction(as_of, fixing_date)?;
-            let time_to_payment = s.day_count.year_fraction(as_of, payment_date)?;
-            let period_length = s.day_count.year_fraction(fixing_date, payment_date)?;
+            let time_to_fixing = s.day_count.year_fraction(as_of, fixing_date, finstack_core::dates::DayCountCtx::default())?;
+            let time_to_payment = s.day_count.year_fraction(as_of, payment_date, finstack_core::dates::DayCountCtx::default())?;
+            let period_length = s.day_count.year_fraction(fixing_date, payment_date, finstack_core::dates::DayCountCtx::default())?;
 
             if time_to_fixing > 0.0 {
                 // Only price future caplets/floorlets

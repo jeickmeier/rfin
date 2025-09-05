@@ -368,7 +368,7 @@ mod tests {
     use super::*;
     use crate::instruments::fixed_income::bond::CallPutSchedule;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::prelude::InterpConfigurableBuilder;
+    use finstack_core::market_data::interp::InterpStyle;
     use time::Month;
 
     fn create_test_bond() -> Bond {
@@ -413,7 +413,7 @@ mod tests {
         let discount_curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.85), (10.0, 0.70)])
-            .log_df()
+            .set_interp(InterpStyle::LogLinear)
             .build()
             .unwrap();
 

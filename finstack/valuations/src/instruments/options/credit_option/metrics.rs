@@ -13,7 +13,7 @@ impl MetricCalculator for DeltaCalculator {
         let option: &CreditOption = context.instrument_as()?;
         let time_to_expiry = option
             .day_count
-            .year_fraction(context.as_of, option.expiry)?;
+            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
 
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
@@ -22,7 +22,7 @@ impl MetricCalculator for DeltaCalculator {
         let hazard_curve = context.curves.hazard(option.credit_id)?;
         let current_tenor = option
             .day_count
-            .year_fraction(context.as_of, option.cds_maturity)?;
+            .year_fraction(context.as_of, option.cds_maturity, finstack_core::dates::DayCountCtx::default())?;
         let forward_spread_bp = if current_tenor > 0.0 {
             use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
             hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
@@ -57,7 +57,7 @@ impl MetricCalculator for GammaCalculator {
         let option: &CreditOption = context.instrument_as()?;
         let time_to_expiry = option
             .day_count
-            .year_fraction(context.as_of, option.expiry)?;
+            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
 
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
@@ -66,7 +66,7 @@ impl MetricCalculator for GammaCalculator {
         let hazard_curve = context.curves.hazard(option.credit_id)?;
         let current_tenor = option
             .day_count
-            .year_fraction(context.as_of, option.cds_maturity)?;
+            .year_fraction(context.as_of, option.cds_maturity, finstack_core::dates::DayCountCtx::default())?;
         let forward_spread_bp = if current_tenor > 0.0 {
             use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
             hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
@@ -100,7 +100,7 @@ impl MetricCalculator for VegaCalculator {
         let option: &CreditOption = context.instrument_as()?;
         let time_to_expiry = option
             .day_count
-            .year_fraction(context.as_of, option.expiry)?;
+            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
 
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
@@ -109,7 +109,7 @@ impl MetricCalculator for VegaCalculator {
         let hazard_curve = context.curves.hazard(option.credit_id)?;
         let current_tenor = option
             .day_count
-            .year_fraction(context.as_of, option.cds_maturity)?;
+            .year_fraction(context.as_of, option.cds_maturity, finstack_core::dates::DayCountCtx::default())?;
         let forward_spread_bp = if current_tenor > 0.0 {
             use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
             hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
@@ -143,7 +143,7 @@ impl MetricCalculator for ThetaCalculator {
         let option: &CreditOption = context.instrument_as()?;
         let time_to_expiry = option
             .day_count
-            .year_fraction(context.as_of, option.expiry)?;
+            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
 
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
@@ -155,7 +155,7 @@ impl MetricCalculator for ThetaCalculator {
         let hazard_curve = context.curves.hazard(option.credit_id)?;
         let current_tenor = option
             .day_count
-            .year_fraction(context.as_of, option.cds_maturity)?;
+            .year_fraction(context.as_of, option.cds_maturity, finstack_core::dates::DayCountCtx::default())?;
         let forward_spread_bp = if current_tenor > 0.0 {
             use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
             hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
@@ -189,7 +189,7 @@ impl MetricCalculator for RhoCalculator {
         let option: &CreditOption = context.instrument_as()?;
         let time_to_expiry = option
             .day_count
-            .year_fraction(context.as_of, option.expiry)?;
+            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
 
         if time_to_expiry <= 0.0 {
             return Ok(0.0);

@@ -15,7 +15,7 @@ impl MetricCalculator for DeltaCalculator {
 
         let time_to_expiry = option
             .day_count
-            .year_fraction(context.as_of, option.expiry)?;
+            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
 
         if time_to_expiry <= 0.0 {
             // Option expired - delta is 0 or 1/-1 based on moneyness
@@ -24,12 +24,16 @@ impl MetricCalculator for DeltaCalculator {
                 .fx
                 .as_ref()
                 .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
-            let spot = fx_matrix.rate(
-                option.base_currency,
-                option.quote_currency,
-                context.as_of,
-                finstack_core::money::fx::FxConversionPolicy::CashflowDate,
-            )?;
+            let spot = fx_matrix
+                .rate(finstack_core::money::fx::FxQuery {
+                    from: option.base_currency,
+                    to: option.quote_currency,
+                    on: context.as_of,
+                    policy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
+                    closure_check: None,
+                    want_meta: false,
+                })?
+                .rate;
 
             let spot_f64 = spot.to_f64().unwrap_or(0.0);
             return Ok(match option.option_type {
@@ -62,12 +66,15 @@ impl MetricCalculator for DeltaCalculator {
             .as_ref()
             .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
         let spot = fx_matrix
-            .rate(
-                option.base_currency,
-                option.quote_currency,
-                context.as_of,
-                finstack_core::money::fx::FxConversionPolicy::CashflowDate,
-            )?
+            .rate(finstack_core::money::fx::FxQuery {
+                from: option.base_currency,
+                to: option.quote_currency,
+                on: context.as_of,
+                policy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })?
+            .rate
             .to_f64()
             .unwrap_or(0.0);
 
@@ -95,7 +102,7 @@ impl MetricCalculator for GammaCalculator {
         let option: &FxOption = context.instrument_as()?;
         let time_to_expiry = option
             .day_count
-            .year_fraction(context.as_of, option.expiry)?;
+            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
         }
@@ -110,12 +117,15 @@ impl MetricCalculator for GammaCalculator {
             .as_ref()
             .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
         let spot = fx_matrix
-            .rate(
-                option.base_currency,
-                option.quote_currency,
-                context.as_of,
-                finstack_core::money::fx::FxConversionPolicy::CashflowDate,
-            )?
+            .rate(finstack_core::money::fx::FxQuery {
+                from: option.base_currency,
+                to: option.quote_currency,
+                on: context.as_of,
+                policy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })?
+            .rate
             .to_f64()
             .unwrap_or(0.0);
         let sigma = if let Some(impl_vol) = option.implied_vol {
@@ -143,7 +153,7 @@ impl MetricCalculator for VegaCalculator {
         let option: &FxOption = context.instrument_as()?;
         let time_to_expiry = option
             .day_count
-            .year_fraction(context.as_of, option.expiry)?;
+            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
         }
@@ -158,12 +168,15 @@ impl MetricCalculator for VegaCalculator {
             .as_ref()
             .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
         let spot = fx_matrix
-            .rate(
-                option.base_currency,
-                option.quote_currency,
-                context.as_of,
-                finstack_core::money::fx::FxConversionPolicy::CashflowDate,
-            )?
+            .rate(finstack_core::money::fx::FxQuery {
+                from: option.base_currency,
+                to: option.quote_currency,
+                on: context.as_of,
+                policy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })?
+            .rate
             .to_f64()
             .unwrap_or(0.0);
         let sigma = if let Some(impl_vol) = option.implied_vol {
@@ -191,7 +204,7 @@ impl MetricCalculator for ThetaCalculator {
         let option: &FxOption = context.instrument_as()?;
         let time_to_expiry = option
             .day_count
-            .year_fraction(context.as_of, option.expiry)?;
+            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
         }
@@ -206,12 +219,15 @@ impl MetricCalculator for ThetaCalculator {
             .as_ref()
             .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
         let spot = fx_matrix
-            .rate(
-                option.base_currency,
-                option.quote_currency,
-                context.as_of,
-                finstack_core::money::fx::FxConversionPolicy::CashflowDate,
-            )?
+            .rate(finstack_core::money::fx::FxQuery {
+                from: option.base_currency,
+                to: option.quote_currency,
+                on: context.as_of,
+                policy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })?
+            .rate
             .to_f64()
             .unwrap_or(0.0);
         let sigma = if let Some(impl_vol) = option.implied_vol {
@@ -239,7 +255,7 @@ impl MetricCalculator for RhoDomesticCalculator {
         let option: &FxOption = context.instrument_as()?;
         let time_to_expiry = option
             .day_count
-            .year_fraction(context.as_of, option.expiry)?;
+            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
         }
@@ -254,12 +270,15 @@ impl MetricCalculator for RhoDomesticCalculator {
             .as_ref()
             .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
         let spot = fx_matrix
-            .rate(
-                option.base_currency,
-                option.quote_currency,
-                context.as_of,
-                finstack_core::money::fx::FxConversionPolicy::CashflowDate,
-            )?
+            .rate(finstack_core::money::fx::FxQuery {
+                from: option.base_currency,
+                to: option.quote_currency,
+                on: context.as_of,
+                policy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })?
+            .rate
             .to_f64()
             .unwrap_or(0.0);
         let sigma = if let Some(impl_vol) = option.implied_vol {
@@ -287,7 +306,7 @@ impl MetricCalculator for RhoForeignCalculator {
         let option: &FxOption = context.instrument_as()?;
         let time_to_expiry = option
             .day_count
-            .year_fraction(context.as_of, option.expiry)?;
+            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
         }
@@ -302,12 +321,15 @@ impl MetricCalculator for RhoForeignCalculator {
             .as_ref()
             .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
         let spot = fx_matrix
-            .rate(
-                option.base_currency,
-                option.quote_currency,
-                context.as_of,
-                finstack_core::money::fx::FxConversionPolicy::CashflowDate,
-            )?
+            .rate(finstack_core::money::fx::FxQuery {
+                from: option.base_currency,
+                to: option.quote_currency,
+                on: context.as_of,
+                policy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })?
+            .rate
             .to_f64()
             .unwrap_or(0.0);
         let sigma = if let Some(impl_vol) = option.implied_vol {
