@@ -616,24 +616,45 @@ finstack-pricing/
 
 The pricing layer uses a simplified structure where:
 - **Models** contain pure mathematical formulas (Black-Scholes, SABR, trees, etc.)
-- **Pricers** are instrument-specific and directly use the appropriate models
-- Each pricer internally decides which model/method to use based on instrument characteristics
+- **Pricers** are instrument-specific and support multiple pricing methods
+- Users can specify which method to use, or let the pricer choose intelligently
 
-This avoids the complexity of having both "engines" and "pricers" for the same instruments.
+This avoids the complexity of having both "engines" and "pricers" while maintaining flexibility.
 
 ```rust
+// Pricing method selection
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum PricingMethod {
+    Auto,                    // Let the pricer choose the best method
+    Analytical,              // Use closed-form formulas
+    MonteCarlo { paths: usize, seed: Option<u64> },
+    BinomialTree { steps: usize },
+    TrinomialTree { steps: usize },
+    FiniteDifference { grid_points: usize },
+}
+
 // results.rs
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PricingResult {
     pub value: Money,
     pub as_of: Date,
+    pub method_used: PricingMethod,  // Records which method was actually used
     pub calculation_time: Duration,
     pub warnings: Vec<String>,
 }
 
 // traits.rs
 pub trait Priceable {
-    fn value(&self, context: &MarketContext, as_of: Date) -> Result<PricingResult>;
+    fn value(&self, context: &MarketContext, as_of: Date) -> Result<PricingResult> {
+        self.value_with_method(context, as_of, PricingMethod::Auto)
+    }
+    
+    fn value_with_method(
+        &self, 
+        context: &MarketContext, 
+        as_of: Date,
+        method: PricingMethod
+    ) -> Result<PricingResult>;
     
     fn calculate_metrics(
         &self, 
@@ -643,29 +664,78 @@ pub trait Priceable {
     ) -> Result<MetricResults>;
 }
 
-// Example: Bond pricer that can use different methods
-// fixed_income/bond.rs
-pub struct BondPricer;
+// Example: Equity option pricer supporting multiple methods
+// options/equity_option.rs
+pub struct EquityOptionPricer;
 
-impl BondPricer {
-    pub fn price(&self, bond: &Bond, context: &MarketContext, as_of: Date) -> Result<PricingResult> {
-        if bond.has_embedded_options() {
-            // Use tree model for callable/putable bonds
-            self.price_with_tree(bond, context, as_of)
-        } else {
-            // Use analytical discounting for vanilla bonds
-            self.price_analytical(bond, context, as_of)
+impl EquityOptionPricer {
+    pub fn price(
+        &self, 
+        option: &EquityOption, 
+        context: &MarketContext, 
+        as_of: Date,
+        method: PricingMethod
+    ) -> Result<PricingResult> {
+        match method {
+            PricingMethod::Auto => {
+                // Intelligent selection based on option characteristics
+                if option.exercise_style == ExerciseStyle::European && !option.has_barriers() {
+                    self.price_black_scholes(option, context, as_of)
+                } else if option.exercise_style == ExerciseStyle::American {
+                    self.price_binomial(option, context, as_of, 100)
+                } else {
+                    self.price_monte_carlo(option, context, as_of, 10000, None)
+                }
+            },
+            PricingMethod::Analytical => {
+                if option.exercise_style != ExerciseStyle::European {
+                    return Err(PricingError::MethodNotSupported(
+                        "Analytical pricing only available for European options"
+                    ));
+                }
+                self.price_black_scholes(option, context, as_of)
+            },
+            PricingMethod::MonteCarlo { paths, seed } => {
+                self.price_monte_carlo(option, context, as_of, paths, seed)
+            },
+            PricingMethod::BinomialTree { steps } => {
+                self.price_binomial(option, context, as_of, steps)
+            },
+            _ => Err(PricingError::MethodNotSupported("Method not implemented for equity options"))
         }
     }
     
-    fn price_analytical(&self, bond: &Bond, context: &MarketContext, as_of: Date) -> Result<PricingResult> {
-        // Direct cashflow discounting
+    fn price_black_scholes(&self, option: &EquityOption, context: &MarketContext, as_of: Date) -> Result<PricingResult> {
+        // Use Black-Scholes model from models/black_scholes.rs
+        let bs_model = BlackScholes::new(/* params */);
+        let value = bs_model.price(/* ... */)?;
+        Ok(PricingResult {
+            value,
+            method_used: PricingMethod::Analytical,
+            // ...
+        })
     }
     
-    fn price_with_tree(&self, bond: &Bond, context: &MarketContext, as_of: Date) -> Result<PricingResult> {
-        // Use short-rate tree from models
-        let tree = ShortRateTree::calibrate(context)?;
-        // ... price on tree
+    fn price_monte_carlo(&self, option: &EquityOption, context: &MarketContext, as_of: Date, paths: usize, seed: Option<u64>) -> Result<PricingResult> {
+        // Use Monte Carlo path generator from models/monte_carlo/
+        let path_gen = PathGenerator::new(/* params */);
+        let value = path_gen.simulate(/* ... */)?;
+        Ok(PricingResult {
+            value,
+            method_used: PricingMethod::MonteCarlo { paths, seed },
+            // ...
+        })
+    }
+    
+    fn price_binomial(&self, option: &EquityOption, context: &MarketContext, as_of: Date, steps: usize) -> Result<PricingResult> {
+        // Use binomial tree from models/trees/
+        let tree = BinomialTree::new(steps);
+        let value = tree.price(/* ... */)?;
+        Ok(PricingResult {
+            value,
+            method_used: PricingMethod::BinomialTree { steps },
+            // ...
+        })
     }
 }
 
@@ -697,8 +767,9 @@ impl PricingRegistry {
 ### Implementation Strategy
 1. Extract all pricing logic from current valuations crate
 2. Create pure mathematical models in `/models` directory
-3. Implement instrument-specific pricers that use models directly
-4. Each pricer internally selects appropriate method based on instrument features
+3. Implement instrument-specific pricers that support multiple methods
+4. Add `PricingMethod` enum for method selection (Auto, Analytical, MonteCarlo, Tree, etc.)
+5. Each pricer implements all applicable methods and intelligent auto-selection
 
 ## Layer 4: finstack-calibration
 
@@ -939,14 +1010,16 @@ Forward curve extraction traits (`ForwardPricer`, `EquityForward`, `FxForward`, 
 - Reduces coupling - other layers don't need to depend on calibration for basic utilities
 - Maintains better cohesion with other market data extraction functions
 
-### 6. Simplified Pricing Architecture
+### 6. Flexible yet Simple Pricing Architecture
 The pricing layer uses a streamlined structure without redundant "engines":
 - Pure mathematical models in `finstack-pricing/src/models/` contain only formulas and algorithms
-- Instrument-specific pricers in organized directories directly use these models
-- Each pricer internally decides which model/method to use (analytical, tree, MC) based on instrument characteristics
+- Instrument-specific pricers support multiple pricing methods via a `PricingMethod` enum
+- Users can explicitly choose a method (Black-Scholes, Monte Carlo, Tree) or use `Auto` for intelligent selection
+- Each pricer internally routes to the appropriate model based on the selected method
+- The `PricingResult` includes which method was actually used for transparency
 - Eliminates confusion between "engines" and "pricers" for the same instruments
 - Cleaner testing of mathematical correctness vs. integration testing
-- Aligns with preference for dedicated model code location
+- Aligns with preference for dedicated model code location while maintaining flexibility
 
 ### 7. Position Management in Analytics
 Position management is placed in `finstack-analytics/src/portfolio/` including:
@@ -1140,7 +1213,36 @@ let swap = InterestRateSwap::builder()
     .fixed_rate(0.03)
     .build()?;
 
+// Price with default method (Auto)
 let pv = pricing.price(&swap, &market_context, base_date)?;
+
+// Create an equity option
+let option = EquityOption::builder()
+    .underlying("AAPL")
+    .strike(Money::new(150.0, Currency::USD))
+    .maturity(Date::from_ymd(2025, 6, 30))
+    .option_type(OptionType::Call)
+    .exercise_style(ExerciseStyle::American)
+    .build()?;
+
+// Price with different methods
+let pv_auto = pricing.price(&option, &market_context, base_date)?;  // Auto-selects binomial
+let pv_mc = pricing.price_with_method(
+    &option, 
+    &market_context, 
+    base_date,
+    PricingMethod::MonteCarlo { paths: 100_000, seed: Some(42) }
+)?;
+let pv_tree = pricing.price_with_method(
+    &option,
+    &market_context,
+    base_date, 
+    PricingMethod::BinomialTree { steps: 200 }
+)?;
+
+println!("Auto pricing ({}): {}", pv_auto.method_used, pv_auto.value);
+println!("Monte Carlo pricing: {}", pv_mc.value);
+println!("Binomial tree pricing: {}", pv_tree.value);
 
 // Portfolio analytics
 let mut portfolio = Portfolio::new("Trading Book");
