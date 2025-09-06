@@ -8,7 +8,7 @@
 
 use super::{CDSConvention, CreditDefaultSwap, PayReceive};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, next_cds_date};
+use finstack_core::dates::{next_cds_date, Date, DayCount};
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::traits::{Discount, Survival};
 use finstack_core::market_data::MarketContext;
@@ -97,7 +97,8 @@ impl CDSPricer {
             }
             IntegrationMethod::GaussianQuadrature => {
                 // Try Gaussian quadrature, fall back to midpoint if it fails
-                match self.protection_leg_gaussian_quadrature(t_start, t_end, recovery, disc, surv) {
+                match self.protection_leg_gaussian_quadrature(t_start, t_end, recovery, disc, surv)
+                {
                     Ok(pv) => pv,
                     Err(_) => self.protection_leg_midpoint(t_start, t_end, recovery, disc, surv)?,
                 }
@@ -175,18 +176,32 @@ impl CDSPricer {
         // ISDA Standard Model: Accrual on default calculation
         // AoD = ∫[t_start to t_end] spread * (t - t_start) * λ(t) * S(t) * D(t) dt
         // where λ(t) is the hazard rate, S(t) is survival probability, D(t) is discount factor
-        
+
         let period_length = t_end - t_start;
-        
+
         match self.config.integration_method {
             IntegrationMethod::Midpoint => {
                 self.accrual_on_default_midpoint(spread, t_start, t_end, period_length, disc, surv)
             }
             IntegrationMethod::GaussianQuadrature | IntegrationMethod::AdaptiveSimpson => {
                 // Try adaptive method, fall back to midpoint if it fails
-                match self.accrual_on_default_adaptive(spread, t_start, t_end, period_length, disc, surv) {
+                match self.accrual_on_default_adaptive(
+                    spread,
+                    t_start,
+                    t_end,
+                    period_length,
+                    disc,
+                    surv,
+                ) {
                     Ok(aod) => Ok(aod),
-                    Err(_) => self.accrual_on_default_midpoint(spread, t_start, t_end, period_length, disc, surv),
+                    Err(_) => self.accrual_on_default_midpoint(
+                        spread,
+                        t_start,
+                        t_end,
+                        period_length,
+                        disc,
+                        surv,
+                    ),
                 }
             }
         }
@@ -248,7 +263,7 @@ impl CDSPricer {
         if t_start >= t_end || spread < 0.0 {
             return Err(Error::Internal);
         }
-        
+
         // Use a more stable approach similar to midpoint but with finer discretization
         let num_steps = ((period_length * 100.0).ceil() as usize).max(20); // At least 20 steps
         let dt = period_length / num_steps as f64;
@@ -484,7 +499,7 @@ impl CDSPricer {
         if t_start >= t_end || !(0.0..=1.0).contains(&recovery) {
             return Err(Error::Internal);
         }
-        
+
         // Use simpler approach: just use the default probability difference approach
         // This is more stable than trying to compute hazard rates numerically
         let period_length = t_end - t_start;
@@ -528,7 +543,7 @@ impl CDSPricer {
         if t_start >= t_end || !(0.0..=1.0).contains(&recovery) {
             return Err(Error::Internal);
         }
-        
+
         // For now, use the same stable approach as Gaussian quadrature
         // In a production implementation, you'd use proper adaptive Simpson's rule
         self.protection_leg_gaussian_quadrature(t_start, t_end, recovery, disc, surv)
@@ -872,7 +887,7 @@ mod tests {
     #[test]
     fn test_isda_standard_coupon_dates() {
         use time::Month;
-        
+
         let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
         let maturity = Date::from_calendar_date(2025, Month::December, 20).unwrap();
 
@@ -921,7 +936,10 @@ mod tests {
         println!("Standard schedule: {:?}", schedule_standard);
 
         // ISDA schedule may have different dates than standard frequency-based schedule
-        assert!(schedule_isda.len() >= 2, "ISDA schedule should have at least start and end dates");
+        assert!(
+            schedule_isda.len() >= 2,
+            "ISDA schedule should have at least start and end dates"
+        );
     }
 
     #[test]
@@ -980,8 +998,12 @@ mod tests {
         assert!(pv_adaptive.amount() > 0.0);
 
         // Advanced methods should be similar to each other
-        let diff_gauss_adaptive = (pv_gaussian.amount() - pv_adaptive.amount()).abs() / pv_gaussian.amount();
-        assert!(diff_gauss_adaptive < 0.02, "Gaussian and adaptive methods should be similar");
+        let diff_gauss_adaptive =
+            (pv_gaussian.amount() - pv_adaptive.amount()).abs() / pv_gaussian.amount();
+        assert!(
+            diff_gauss_adaptive < 0.02,
+            "Gaussian and adaptive methods should be similar"
+        );
     }
 
     #[test]
@@ -997,7 +1019,7 @@ mod tests {
             CDSConvention::IsdaNa,
             as_of,
             as_of + time::Duration::days(365), // 1 year
-            500.0, // Higher spread to make accrual more visible
+            500.0,                             // Higher spread to make accrual more visible
             "TEST-CREDIT",
             0.40,
             "USD-OIS",
@@ -1033,6 +1055,9 @@ mod tests {
 
         // Enhanced calculation should be different (presumably more accurate)
         let diff = (pv_enhanced.amount() - pv_simple.amount()).abs() / pv_enhanced.amount();
-        assert!(diff < 0.10, "Enhanced and simple AoD should be reasonably close"); // Allow up to 10% difference
+        assert!(
+            diff < 0.10,
+            "Enhanced and simple AoD should be reasonably close"
+        ); // Allow up to 10% difference
     }
 }

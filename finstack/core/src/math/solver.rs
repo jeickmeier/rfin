@@ -310,7 +310,7 @@ impl LevenbergMarquardtSolver {
         let r_baseline = residuals(x);
         let m = r_baseline.len(); // Number of residuals
         let n = x.len(); // Number of parameters
-        
+
         let mut jacobian = Array2::zeros((m, n));
         let h = 1e-8;
 
@@ -408,14 +408,14 @@ impl LeastSquaresSolver for LevenbergMarquardtSolver {
     {
         let mut x = Array1::from_vec(initial_guess.to_vec());
         let mut lambda = self.initial_lambda;
-        
+
         let r = residuals(x.as_slice().unwrap());
         let mut obj_val: F = r.iter().map(|ri| ri * ri).sum::<F>() / 2.0;
 
         for iteration in 0..self.max_iterations {
             let r_vec = residuals(x.as_slice().unwrap());
             let r_array = Array1::from_vec(r_vec.clone());
-            
+
             // Calculate Jacobian matrix
             let jacobian_matrix = if let Some(ref jac_fn) = jacobian {
                 jac_fn(x.as_slice().unwrap())
@@ -428,7 +428,7 @@ impl LeastSquaresSolver for LevenbergMarquardtSolver {
             // For least squares: ∇f = J^T r
             let gradient = jacobian_matrix.t().dot(&r_array);
             let grad_norm = gradient.dot(&gradient).sqrt();
-            
+
             if grad_norm < self.tolerance {
                 return Ok(OptimizationResult {
                     solution: x.to_vec(),
@@ -442,12 +442,12 @@ impl LeastSquaresSolver for LevenbergMarquardtSolver {
             // Solve the damped normal equations: (J^T J + λI)δ = J^T r
             let jtj = jacobian_matrix.t().dot(&jacobian_matrix);
             let mut damped_jtj = jtj.clone();
-            
+
             // Add damping: J^T J + λI
             for i in 0..damped_jtj.nrows() {
                 damped_jtj[(i, i)] += lambda;
             }
-            
+
             // Solve for step: δ = (J^T J + λI)^(-1) * J^T * r
             let step = match self.solve_linear_system(&damped_jtj, &gradient) {
                 Ok(step) => step,
@@ -536,10 +536,12 @@ impl MultiDimSolver for LevenbergMarquardtSolver {
             // Approximate Hessian as gradient outer product (BFGS-like)
             // For true LM, this should be J^T J, but we don't have residuals here
             let grad_array = Array1::from_vec(grad.clone());
-            let approx_hessian = grad_array.view().into_shape((grad.len(), 1))
+            let approx_hessian = grad_array
+                .view()
+                .into_shape((grad.len(), 1))
                 .unwrap()
                 .dot(&grad_array.view().into_shape((1, grad.len())).unwrap());
-            
+
             let mut damped_hessian = approx_hessian;
             for i in 0..damped_hessian.nrows() {
                 damped_hessian[(i, i)] += lambda;
@@ -657,8 +659,14 @@ mod tests {
         // Fit circle to points: (x-a)² + (y-b)² = r²
         // Residuals: r_i = sqrt((x_i-a)² + (y_i-b)²) - r
         let points = [
-            (1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0), // Unit circle points
-            (0.707, 0.707), (-0.707, 0.707), (-0.707, -0.707), (0.707, -0.707),
+            (1.0, 0.0),
+            (0.0, 1.0),
+            (-1.0, 0.0),
+            (0.0, -1.0), // Unit circle points
+            (0.707, 0.707),
+            (-0.707, 0.707),
+            (-0.707, -0.707),
+            (0.707, -0.707),
         ];
 
         let residuals = |params: &[F]| -> Vec<F> {
@@ -673,7 +681,7 @@ mod tests {
             .solve_least_squares(
                 residuals,
                 None::<fn(&[F]) -> Array2<F>>, // Use finite differences
-                &[0.1, 0.1, 0.8],             // Initial guess: center (0.1, 0.1), radius 0.8
+                &[0.1, 0.1, 0.8],              // Initial guess: center (0.1, 0.1), radius 0.8
                 None,
             )
             .unwrap();

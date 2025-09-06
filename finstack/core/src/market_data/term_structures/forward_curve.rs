@@ -21,7 +21,7 @@
 extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 
-use crate::market_data::interp::{InterpStyle, ExtrapolationPolicy};
+use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     dates::{Date, DayCount},
     error::InputError,
@@ -160,7 +160,9 @@ impl ForwardCurveBuilder {
         crate::market_data::utils::validate_knots(&kvec)?;
         let knots = kvec.into_boxed_slice();
         let fwds = fvec.into_boxed_slice();
-        let interp = self.style.build(knots.clone(), fwds.clone(), ExtrapolationPolicy::default())?;
+        let interp =
+            self.style
+                .build(knots.clone(), fwds.clone(), ExtrapolationPolicy::default())?;
         Ok(ForwardCurve {
             id: CurveId::new(self.id),
             base: self.base,

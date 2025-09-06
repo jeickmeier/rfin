@@ -193,7 +193,11 @@ pub fn calculate_irr(flows: &[(Date, Money)], day_count: DayCount) -> finstack_c
         let mut npv = 0.0;
         for (date, amount) in flows {
             let t = day_count
-                .year_fraction(base_date, *date, finstack_core::dates::DayCountCtx::default())
+                .year_fraction(
+                    base_date,
+                    *date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
                 .unwrap_or(0.0);
             let df = if rate.abs() < 1e-10 {
                 1.0 - rate * t // Linear approximation for rates near zero

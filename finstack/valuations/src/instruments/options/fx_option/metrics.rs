@@ -13,17 +13,22 @@ impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &FxOption = context.instrument_as()?;
 
-        let time_to_expiry = option
-            .day_count
-            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let time_to_expiry = option.day_count.year_fraction(
+            context.as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
 
         if time_to_expiry <= 0.0 {
             // Option expired - delta is 0 or 1/-1 based on moneyness
-            let fx_matrix = context
-                .curves
-                .fx
-                .as_ref()
-                .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
+            let fx_matrix =
+                context
+                    .curves
+                    .fx
+                    .as_ref()
+                    .ok_or(finstack_core::error::InputError::NotFound {
+                        id: "fx_matrix".to_string(),
+                    })?;
             let spot = fx_matrix
                 .rate(finstack_core::money::fx::FxQuery {
                     from: option.base_currency,
@@ -60,11 +65,14 @@ impl MetricCalculator for DeltaCalculator {
         let r_d = domestic_disc.zero(time_to_expiry);
         let r_f = foreign_disc.zero(time_to_expiry);
 
-        let fx_matrix = context
-            .curves
-            .fx
-            .as_ref()
-            .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
+        let fx_matrix =
+            context
+                .curves
+                .fx
+                .as_ref()
+                .ok_or(finstack_core::error::InputError::NotFound {
+                    id: "fx_matrix".to_string(),
+                })?;
         let spot = fx_matrix
             .rate(finstack_core::money::fx::FxQuery {
                 from: option.base_currency,
@@ -100,9 +108,11 @@ pub struct GammaCalculator;
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &FxOption = context.instrument_as()?;
-        let time_to_expiry = option
-            .day_count
-            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let time_to_expiry = option.day_count.year_fraction(
+            context.as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
         }
@@ -111,11 +121,14 @@ impl MetricCalculator for GammaCalculator {
         let foreign_disc = context.curves.disc(option.foreign_disc_id)?;
         let r_d = domestic_disc.zero(time_to_expiry);
         let r_f = foreign_disc.zero(time_to_expiry);
-        let fx_matrix = context
-            .curves
-            .fx
-            .as_ref()
-            .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
+        let fx_matrix =
+            context
+                .curves
+                .fx
+                .as_ref()
+                .ok_or(finstack_core::error::InputError::NotFound {
+                    id: "fx_matrix".to_string(),
+                })?;
         let spot = fx_matrix
             .rate(finstack_core::money::fx::FxQuery {
                 from: option.base_currency,
@@ -151,9 +164,11 @@ pub struct VegaCalculator;
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &FxOption = context.instrument_as()?;
-        let time_to_expiry = option
-            .day_count
-            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let time_to_expiry = option.day_count.year_fraction(
+            context.as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
         }
@@ -162,11 +177,14 @@ impl MetricCalculator for VegaCalculator {
         let foreign_disc = context.curves.disc(option.foreign_disc_id)?;
         let r_d = domestic_disc.zero(time_to_expiry);
         let r_f = foreign_disc.zero(time_to_expiry);
-        let fx_matrix = context
-            .curves
-            .fx
-            .as_ref()
-            .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
+        let fx_matrix =
+            context
+                .curves
+                .fx
+                .as_ref()
+                .ok_or(finstack_core::error::InputError::NotFound {
+                    id: "fx_matrix".to_string(),
+                })?;
         let spot = fx_matrix
             .rate(finstack_core::money::fx::FxQuery {
                 from: option.base_currency,
@@ -202,9 +220,11 @@ pub struct ThetaCalculator;
 impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &FxOption = context.instrument_as()?;
-        let time_to_expiry = option
-            .day_count
-            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let time_to_expiry = option.day_count.year_fraction(
+            context.as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
         }
@@ -213,11 +233,14 @@ impl MetricCalculator for ThetaCalculator {
         let foreign_disc = context.curves.disc(option.foreign_disc_id)?;
         let r_d = domestic_disc.zero(time_to_expiry);
         let r_f = foreign_disc.zero(time_to_expiry);
-        let fx_matrix = context
-            .curves
-            .fx
-            .as_ref()
-            .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
+        let fx_matrix =
+            context
+                .curves
+                .fx
+                .as_ref()
+                .ok_or(finstack_core::error::InputError::NotFound {
+                    id: "fx_matrix".to_string(),
+                })?;
         let spot = fx_matrix
             .rate(finstack_core::money::fx::FxQuery {
                 from: option.base_currency,
@@ -253,9 +276,11 @@ pub struct RhoDomesticCalculator;
 impl MetricCalculator for RhoDomesticCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &FxOption = context.instrument_as()?;
-        let time_to_expiry = option
-            .day_count
-            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let time_to_expiry = option.day_count.year_fraction(
+            context.as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
         }
@@ -264,11 +289,14 @@ impl MetricCalculator for RhoDomesticCalculator {
         let foreign_disc = context.curves.disc(option.foreign_disc_id)?;
         let r_d = domestic_disc.zero(time_to_expiry);
         let r_f = foreign_disc.zero(time_to_expiry);
-        let fx_matrix = context
-            .curves
-            .fx
-            .as_ref()
-            .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
+        let fx_matrix =
+            context
+                .curves
+                .fx
+                .as_ref()
+                .ok_or(finstack_core::error::InputError::NotFound {
+                    id: "fx_matrix".to_string(),
+                })?;
         let spot = fx_matrix
             .rate(finstack_core::money::fx::FxQuery {
                 from: option.base_currency,
@@ -304,9 +332,11 @@ pub struct RhoForeignCalculator;
 impl MetricCalculator for RhoForeignCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &FxOption = context.instrument_as()?;
-        let time_to_expiry = option
-            .day_count
-            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let time_to_expiry = option.day_count.year_fraction(
+            context.as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
         }
@@ -315,11 +345,14 @@ impl MetricCalculator for RhoForeignCalculator {
         let foreign_disc = context.curves.disc(option.foreign_disc_id)?;
         let r_d = domestic_disc.zero(time_to_expiry);
         let r_f = foreign_disc.zero(time_to_expiry);
-        let fx_matrix = context
-            .curves
-            .fx
-            .as_ref()
-            .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
+        let fx_matrix =
+            context
+                .curves
+                .fx
+                .as_ref()
+                .ok_or(finstack_core::error::InputError::NotFound {
+                    id: "fx_matrix".to_string(),
+                })?;
         let spot = fx_matrix
             .rate(finstack_core::money::fx::FxQuery {
                 from: option.base_currency,

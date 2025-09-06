@@ -89,7 +89,11 @@ impl ConvertibleBondValuator {
             if matches!(cf.kind, CFKind::Fixed | CFKind::Stub | CFKind::FloatReset) {
                 // Calculate actual time from base date to cashflow date
                 let cf_time = finstack_core::dates::DayCount::Act365F
-                    .year_fraction(base_date, cf.date, finstack_core::dates::DayCountCtx::default())
+                    .year_fraction(
+                        base_date,
+                        cf.date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
                     .unwrap_or(0.0);
 
                 // Map to tree step with bounds checking
@@ -109,7 +113,11 @@ impl ConvertibleBondValuator {
             for call in &call_put.calls {
                 if call.date > base_date && call.date <= bond.maturity {
                     let time_frac = finstack_core::dates::DayCount::Act365F
-                        .year_fraction(base_date, call.date, finstack_core::dates::DayCountCtx::default())
+                        .year_fraction(
+                            base_date,
+                            call.date,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
                         .unwrap_or(0.0);
                     let step = ((time_frac / time_to_maturity) * steps as F).round() as usize;
                     let bounded_step = step.min(steps);
@@ -122,7 +130,11 @@ impl ConvertibleBondValuator {
             for put in &call_put.puts {
                 if put.date > base_date && put.date <= bond.maturity {
                     let time_frac = finstack_core::dates::DayCount::Act365F
-                        .year_fraction(base_date, put.date, finstack_core::dates::DayCountCtx::default())
+                        .year_fraction(
+                            base_date,
+                            put.date,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
                         .unwrap_or(0.0);
                     let step = ((time_frac / time_to_maturity) * steps as F).round() as usize;
                     let bounded_step = step.min(steps);
@@ -154,7 +166,11 @@ impl ConvertibleBondValuator {
             ConversionPolicy::MandatoryOn(date) => {
                 // Allow conversion only when time matches the mandatory conversion date
                 let target_time = finstack_core::dates::DayCount::Act365F
-                    .year_fraction(self.base_date, *date, finstack_core::dates::DayCountCtx::default())
+                    .year_fraction(
+                        self.base_date,
+                        *date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
                     .unwrap_or(0.0);
                 let tolerance = 1e-6; // Small tolerance for floating point comparison
                 (time - target_time).abs() < tolerance
@@ -162,10 +178,18 @@ impl ConvertibleBondValuator {
             ConversionPolicy::Window { start, end } => {
                 // Allow conversion when time falls within the window
                 let start_time = finstack_core::dates::DayCount::Act365F
-                    .year_fraction(self.base_date, *start, finstack_core::dates::DayCountCtx::default())
+                    .year_fraction(
+                        self.base_date,
+                        *start,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
                     .unwrap_or(0.0);
                 let end_time = finstack_core::dates::DayCount::Act365F
-                    .year_fraction(self.base_date, *end, finstack_core::dates::DayCountCtx::default())
+                    .year_fraction(
+                        self.base_date,
+                        *end,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
                     .unwrap_or(0.0);
                 time >= start_time && time <= end_time
             }
@@ -275,7 +299,11 @@ fn extract_equity_state(
 
     // Calculate time to maturity
     let time_to_maturity = finstack_core::dates::DayCount::Act365F
-        .year_fraction(base_date, maturity, finstack_core::dates::DayCountCtx::default())
+        .year_fraction(
+            base_date,
+            maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )
         .unwrap_or(0.0);
 
     // Extract risk-free rate (approximate from maturity point)

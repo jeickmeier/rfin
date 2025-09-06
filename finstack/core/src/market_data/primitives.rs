@@ -9,10 +9,10 @@
 //! Both are integrated into the [`crate::market_data::MarketContext`]
 //! so downstream code can reference them by `CurveId` alongside other curves.
 
-use crate::types::CurveId;
-use crate::{error::InputError, Result};
 use crate::currency::Currency;
 use crate::dates::Date;
+use crate::types::CurveId;
+use crate::{error::InputError, Result};
 use polars::prelude::*;
 #[cfg(test)]
 use time::Duration as TimeDuration;
@@ -141,8 +141,14 @@ impl ScalarTimeSeries {
         }
 
         // For efficiency, cache the extracted vectors and use optimized lookup
-        let date_col = self.data.column("date").map_err(|_| crate::Error::Internal)?;
-        let value_col = self.data.column("value").map_err(|_| crate::Error::Internal)?;
+        let date_col = self
+            .data
+            .column("date")
+            .map_err(|_| crate::Error::Internal)?;
+        let value_col = self
+            .data
+            .column("value")
+            .map_err(|_| crate::Error::Internal)?;
         let dates_series = date_col.i32().map_err(|_| crate::Error::Internal)?;
         let values_series = value_col.f64().map_err(|_| crate::Error::Internal)?;
 
@@ -169,7 +175,7 @@ impl ScalarTimeSeries {
         query_days: &[i32],
     ) -> Result<Vec<crate::F>> {
         let mut result = Vec::with_capacity(query_days.len());
-        
+
         for &query_day in query_days {
             let value = match date_vec.binary_search(&query_day) {
                 Ok(idx) => value_vec[idx],
@@ -183,7 +189,7 @@ impl ScalarTimeSeries {
             };
             result.push(value);
         }
-        
+
         Ok(result)
     }
 
@@ -195,7 +201,7 @@ impl ScalarTimeSeries {
         query_days: &[i32],
     ) -> Result<Vec<crate::F>> {
         let mut result = Vec::with_capacity(query_days.len());
-        
+
         for &query_day in query_days {
             let value = match date_vec.binary_search(&query_day) {
                 Ok(idx) => value_vec[idx],
@@ -217,7 +223,7 @@ impl ScalarTimeSeries {
             };
             result.push(value);
         }
-        
+
         Ok(result)
     }
 
@@ -225,8 +231,6 @@ impl ScalarTimeSeries {
     pub fn as_dataframe(&self) -> &DataFrame {
         &self.data
     }
-
-
 }
 
 // (moved) helper centralized in crate::dates::utils

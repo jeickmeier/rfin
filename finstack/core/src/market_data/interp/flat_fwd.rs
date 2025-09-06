@@ -18,7 +18,11 @@ impl FlatFwd {
     /// Internally this is equivalent to [`LogLinearDf`] which provides the
     /// same mathematical behaviour.
     #[allow(clippy::boxed_local)]
-    pub fn new(knots: Box<[F]>, dfs: Box<[F]>, extrapolation: crate::market_data::interp::ExtrapolationPolicy) -> crate::Result<Self> {
+    pub fn new(
+        knots: Box<[F]>,
+        dfs: Box<[F]>,
+        extrapolation: crate::market_data::interp::ExtrapolationPolicy,
+    ) -> crate::Result<Self> {
         Ok(Self {
             inner: LogLinearDf::new(knots, dfs, extrapolation)?,
         })
@@ -33,5 +37,4 @@ impl InterpFn for FlatFwd {
     fn interp_prime(&self, x: F) -> F {
         self.inner.interp_prime(x)
     }
-
 }

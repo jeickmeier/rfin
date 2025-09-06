@@ -187,9 +187,14 @@ impl RiskMeasurable for Bond {
         }
 
         // Add maturity bucket
-        let years_to_maturity = self.dc.year_fraction(
-            as_of, self.maturity, finstack_core::dates::DayCountCtx::default()
-        ).unwrap_or(0.0);
+        let years_to_maturity = self
+            .dc
+            .year_fraction(
+                as_of,
+                self.maturity,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
 
         let bucket = if years_to_maturity <= 1.0 {
             RiskBucket {

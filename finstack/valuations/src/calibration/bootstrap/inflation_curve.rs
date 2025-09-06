@@ -4,14 +4,14 @@
 //! inflation swaps to build forward CPI level curves.
 
 use crate::calibration::primitives::InstrumentQuote;
-use finstack_core::math::{HybridSolver, Solver};
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::inflation_swap::{InflationSwap, PayReceiveInflation};
 use crate::instruments::traits::Priceable;
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::inflation::InflationCurve;
 use finstack_core::market_data::interp::InterpStyle;
+use finstack_core::market_data::term_structures::inflation::InflationCurve;
+use finstack_core::math::{HybridSolver, Solver};
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -75,9 +75,7 @@ impl InflationCurveCalibrator {
     }
 }
 
-impl Calibrator<InstrumentQuote, InflationCurve>
-    for InflationCurveCalibrator
-{
+impl Calibrator<InstrumentQuote, InflationCurve> for InflationCurveCalibrator {
     fn calibrate(
         &self,
         instruments: &[InstrumentQuote],
@@ -137,16 +135,32 @@ impl Calibrator<InstrumentQuote, InflationCurve>
 
         for (maturity, par_rate, _idx) in quotes {
             // Time for the CPI knot (Act365F)
-            let t = DayCount::Act365F.year_fraction(self.base_date, maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+            let t = DayCount::Act365F
+                .year_fraction(
+                    self.base_date,
+                    maturity,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap_or(0.0);
             if t <= 0.0 {
                 continue;
             }
 
             // Initial guess: compound last CPI by par rate over accrual time
             let tau = DayCount::ActAct
-                .year_fraction(self.base_date, maturity, finstack_core::dates::DayCountCtx::default())
+                .year_fraction(
+                    self.base_date,
+                    maturity,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
                 .unwrap_or_else(|_| {
-                    DayCount::Act365F.year_fraction(self.base_date, maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0)
+                    DayCount::Act365F
+                        .year_fraction(
+                            self.base_date,
+                            maturity,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
+                        .unwrap_or(0.0)
                 });
             // Use analytical breakeven CPI for initial guess to ensure f(x0)=0
             let initial_guess = self.base_cpi * (1.0 + par_rate).powf(tau);
@@ -204,7 +218,7 @@ impl Calibrator<InstrumentQuote, InflationCurve>
                     Err(_) => return F::INFINITY,
                 };
 
-                // Update market context with temp inflation curve  
+                // Update market context with temp inflation curve
                 let temp_ctx = base_ctx_clone.clone().insert_inflation(temp_curve);
 
                 match swap.value(&temp_ctx, base_date) {
@@ -243,7 +257,10 @@ impl Calibrator<InstrumentQuote, InflationCurve>
         final_knots.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
         if self.config.verbose {
-            tracing::debug!(final_knots = final_knots.len(), "Building final inflation curve");
+            tracing::debug!(
+                final_knots = final_knots.len(),
+                "Building final inflation curve"
+            );
         }
         let curve = match InflationCurve::builder(&self.curve_id)
             .base_cpi(self.base_cpi)
@@ -316,12 +333,15 @@ mod tests {
         InflationIndex::new("US-CPI-U", observations, Currency::USD).unwrap()
     }
 
-    fn create_test_discount_curve() -> finstack_core::market_data::term_structures::discount_curve::DiscountCurve {
-        finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder("USD-OIS")
-            .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
-            .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80), (10.0, 0.65)])
-            .build()
-            .unwrap()
+    fn create_test_discount_curve(
+    ) -> finstack_core::market_data::term_structures::discount_curve::DiscountCurve {
+        finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+            "USD-OIS",
+        )
+        .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
+        .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80), (10.0, 0.65)])
+        .build()
+        .unwrap()
     }
 
     #[test]
@@ -331,17 +351,17 @@ mod tests {
             "US-CPI-U",
             base_date,
             Currency::USD,
-            290.0, // Base CPI
+            290.0,     // Base CPI
             "USD-OIS", // Discount curve ID
         );
 
         let quotes = create_test_inflation_quotes();
         let discount_curve = create_test_discount_curve();
         let _inflation_index = create_test_inflation_index();
-        
+
         // Create market context with the discount curve
         let market_context = MarketContext::new().insert_discount(discount_curve);
-        
+
         // Use the calibrate method directly with proper market context
         let result = calibrator.calibrate(&quotes, &market_context);
 
@@ -365,10 +385,12 @@ mod tests {
 
         // Discount curve required by calibrator and instrument pricer
         let disc_curve = create_test_discount_curve();
-        let base_context = MarketContext::new().insert_discount(disc_curve).insert_price(
-            "US-CPI-U-BASE_CPI",
-            finstack_core::market_data::primitives::MarketScalar::Unitless(base_cpi),
-        );
+        let base_context = MarketContext::new()
+            .insert_discount(disc_curve)
+            .insert_price(
+                "US-CPI-U-BASE_CPI",
+                finstack_core::market_data::primitives::MarketScalar::Unitless(base_cpi),
+            );
 
         // Calibrate inflation curve (base_cpi will be sourced from context in production)
         let calibrator = InflationCurveCalibrator::new(

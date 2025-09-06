@@ -11,9 +11,9 @@ use super::{
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::interp::InterpStyle;
 use finstack_core::market_data::primitives::MarketScalar;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::interp::InterpStyle;
 use finstack_core::money::Money;
 
 use crate::cashflow::builder::types::{CouponType, FixedCouponSpec};

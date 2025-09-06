@@ -28,7 +28,9 @@ impl MetricCalculator for BreakevenCalculator {
             .curves
             .inflation_index(s.inflation_id)
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "inflation_index".to_string() })
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: "inflation_index".to_string(),
+                })
             })?;
 
         // Get inflation curve for forward projection
@@ -38,11 +40,21 @@ impl MetricCalculator for BreakevenCalculator {
         let i_start = inflation_index.value_on(s.start)?;
 
         // Project inflation index value at maturity
-        let t_maturity = DayCount::Act365F.year_fraction(context.as_of, s.maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_maturity = DayCount::Act365F
+            .year_fraction(
+                context.as_of,
+                s.maturity,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
         let i_maturity_projected = inflation_curve.cpi(t_maturity);
 
         // Year fraction for the full term of the swap
-        let tau_accrual = s.dc.year_fraction(s.start, s.maturity, finstack_core::dates::DayCountCtx::default())?;
+        let tau_accrual = s.dc.year_fraction(
+            s.start,
+            s.maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
 
         // Breakeven rate: K_BE = (I_mat/I_start)^(1/tau) - 1
         if i_start <= 0.0 || tau_accrual <= 0.0 {
@@ -106,7 +118,13 @@ impl MetricCalculator for Ir01Calculator {
         let base = disc.base_date();
 
         // Calculate the time to maturity for duration calculation
-        let t_maturity = DayCount::Act365F.year_fraction(base, s.maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_maturity = DayCount::Act365F
+            .year_fraction(
+                base,
+                s.maturity,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
 
         // Get current PV
         let pv_fixed = s.pv_fixed_leg(&context.curves, context.as_of)?;
@@ -148,18 +166,32 @@ impl MetricCalculator for Inflation01Calculator {
             .curves
             .inflation_index(s.inflation_id)
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "inflation_index".to_string() })
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: "inflation_index".to_string(),
+                })
             })?;
 
         let inflation_curve = context.curves.infl(s.inflation_id)?;
 
         // Get current inflation values
         let i_start = inflation_index.value_on(s.start)?;
-        let t_maturity = DayCount::Act365F.year_fraction(context.as_of, s.maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_maturity = DayCount::Act365F
+            .year_fraction(
+                context.as_of,
+                s.maturity,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
         let i_maturity_projected = inflation_curve.cpi(t_maturity);
 
         // Calculate discount factor to maturity
-        let t_discount = DayCount::Act365F.year_fraction(base, s.maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_discount = DayCount::Act365F
+            .year_fraction(
+                base,
+                s.maturity,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
         let df = disc.df(t_discount);
 
         // Analytical sensitivity: ∂PV/∂inflation ≈ N × (I_mat/I_start) × DF × (∂ln(I_mat)/∂inflation)

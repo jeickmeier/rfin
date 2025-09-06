@@ -39,7 +39,6 @@ use time::{Date, Duration};
 use super::{adjust, next_cds_date, BusinessDayConvention, HolidayCalendar};
 use crate::dates::utils::{add_months, is_leap_year};
 
-
 /// Small helper alias when we need to pre-buffer (used only for `ShortFront`).
 type Buffer = SmallVec<[Date; 32]>;
 
@@ -142,20 +141,24 @@ impl Step {
 /// Returns the last day of the month for the given date.
 fn apply_eom(date: Date) -> Date {
     use time::Month;
-    
+
     let year = date.year();
     let month = date.month();
-    
+
     // Get the last day of this month
     let last_day = match month {
         Month::February => {
             // Check if it's a leap year
-            if is_leap_year(year) { 29 } else { 28 }
+            if is_leap_year(year) {
+                29
+            } else {
+                28
+            }
         }
         Month::April | Month::June | Month::September | Month::November => 30,
         _ => 31,
     };
-    
+
     Date::from_calendar_date(year, month, last_day).unwrap_or(date)
 }
 
@@ -176,12 +179,15 @@ impl IntoIterator for Schedule {
 /// Check if a date is a CDS roll date (20th of Mar/Jun/Sep/Dec).
 fn is_cds_roll_date(date: Date) -> bool {
     use time::Month;
-    
+
     if date.day() != 20 {
         return false;
     }
-    
-    matches!(date.month(), Month::March | Month::June | Month::September | Month::December)
+
+    matches!(
+        date.month(),
+        Month::March | Month::June | Month::September | Month::December
+    )
 }
 
 /// Public builder for configuring schedule generation with
@@ -283,7 +289,11 @@ impl<'a> ScheduleBuilder<'a> {
 
         // Apply CDS IMM start adjustment if requested
         let (start, end) = if self.cds_imm_mode {
-            let adj_start = if is_cds_roll_date(self.start) { self.start } else { next_cds_date(self.start) };
+            let adj_start = if is_cds_roll_date(self.start) {
+                self.start
+            } else {
+                next_cds_date(self.start)
+            };
             (adj_start, self.end)
         } else {
             (self.start, self.end)
@@ -334,13 +344,21 @@ impl BuilderInternal {
 
     fn gen_regular(self, step: Step) -> Vec<Date> {
         let mut buf: Buffer = Buffer::new();
-        let (mut dt, end) = if self.eom { (apply_eom(self.start), apply_eom(self.end)) } else { (self.start, self.end) };
+        let (mut dt, end) = if self.eom {
+            (apply_eom(self.start), apply_eom(self.end))
+        } else {
+            (self.start, self.end)
+        };
         buf.push(dt);
         while dt < end {
             let mut next = step.add(dt);
-            if next > end { next = end; }
+            if next > end {
+                next = end;
+            }
             dt = if self.eom { apply_eom(next) } else { next };
-            if dt != *buf.last().unwrap() { buf.push(dt); }
+            if dt != *buf.last().unwrap() {
+                buf.push(dt);
+            }
         }
         buf.into_vec()
     }
@@ -353,7 +371,9 @@ impl BuilderInternal {
         loop {
             let date_to_add = if self.eom { apply_eom(dt) } else { dt };
             buf.push(date_to_add);
-            if dt == target { break; }
+            if dt == target {
+                break;
+            }
             let prev = match step {
                 Step::Months(m) => add_months(dt, -m),
                 Step::Days(d) => dt - Duration::days(d as i64),
@@ -370,13 +390,27 @@ impl BuilderInternal {
         let mut dt = self.end;
         anchors.push(dt);
         while dt > self.start {
-            let prev = match step { Step::Months(m) => add_months(dt, -m), Step::Days(d) => dt - Duration::days(d as i64) };
-            if prev >= self.start { dt = prev; anchors.push(dt); } else { break; }
+            let prev = match step {
+                Step::Months(m) => add_months(dt, -m),
+                Step::Days(d) => dt - Duration::days(d as i64),
+            };
+            if prev >= self.start {
+                dt = prev;
+                anchors.push(dt);
+            } else {
+                break;
+            }
         }
-        buf.push(if self.eom { apply_eom(self.start) } else { self.start });
+        buf.push(if self.eom {
+            apply_eom(self.start)
+        } else {
+            self.start
+        });
         for &a in anchors.iter().rev() {
             let d = if self.eom { apply_eom(a) } else { a };
-            if d != *buf.last().unwrap() { buf.push(d); }
+            if d != *buf.last().unwrap() {
+                buf.push(d);
+            }
         }
         buf.into_vec()
     }
@@ -389,12 +423,20 @@ impl BuilderInternal {
             let next = step.add(dt);
             let next_after = step.add(next);
             if next_after >= self.end {
-                let end_date = if self.eom { apply_eom(self.end) } else { self.end };
-                if end_date != *buf.last().unwrap() { buf.push(end_date); }
+                let end_date = if self.eom {
+                    apply_eom(self.end)
+                } else {
+                    self.end
+                };
+                if end_date != *buf.last().unwrap() {
+                    buf.push(end_date);
+                }
                 break;
             } else {
                 let d = if self.eom { apply_eom(next) } else { next };
-                if d != *buf.last().unwrap() { buf.push(d); }
+                if d != *buf.last().unwrap() {
+                    buf.push(d);
+                }
                 dt = next;
             }
         }

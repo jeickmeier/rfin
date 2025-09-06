@@ -13,9 +13,11 @@ impl MetricCalculator for DeltaCalculator {
         let option: &EquityOption = context.instrument_as()?;
 
         // Calculate time to expiry
-        let time_to_expiry = option
-            .day_count
-            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let time_to_expiry = option.day_count.year_fraction(
+            context.as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
 
         if time_to_expiry <= 0.0 {
             // Option expired - delta is 0 or 1/-1 based on moneyness
@@ -90,9 +92,11 @@ impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &EquityOption = context.instrument_as()?;
 
-        let time_to_expiry = option
-            .day_count
-            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let time_to_expiry = option.day_count.year_fraction(
+            context.as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
 
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
@@ -142,9 +146,11 @@ impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &EquityOption = context.instrument_as()?;
 
-        let time_to_expiry = option
-            .day_count
-            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let time_to_expiry = option.day_count.year_fraction(
+            context.as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
 
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
@@ -195,9 +201,11 @@ impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &EquityOption = context.instrument_as()?;
 
-        let time_to_expiry = option
-            .day_count
-            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let time_to_expiry = option.day_count.year_fraction(
+            context.as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
 
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
@@ -248,9 +256,11 @@ impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &EquityOption = context.instrument_as()?;
 
-        let time_to_expiry = option
-            .day_count
-            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let time_to_expiry = option.day_count.year_fraction(
+            context.as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
 
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
@@ -300,9 +310,11 @@ impl MetricCalculator for ImpliedVolCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &EquityOption = context.instrument_as()?;
 
-        let t = option
-            .day_count
-            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let t = option.day_count.year_fraction(
+            context.as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if t <= 0.0 {
             return Ok(0.0);
         }

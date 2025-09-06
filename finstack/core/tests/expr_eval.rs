@@ -120,7 +120,9 @@ fn test_compiled_expr_rolling_functions() {
         Function::RollingMean,
         vec![Expr::column("x"), Expr::literal(3.0)],
     ));
-    let result = rolling_mean_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+    let result = rolling_mean_expr
+        .eval(&ctx, &cols, EvalOpts::default())
+        .values;
     assert!(result[0].is_nan()); // Not enough data
     assert!(result[1].is_nan()); // Not enough data
     assert_eq!(result[2], 2.0); // (1+2+3)/3 = 2
@@ -131,7 +133,9 @@ fn test_compiled_expr_rolling_functions() {
         Function::RollingSum,
         vec![Expr::column("x"), Expr::literal(2.0)],
     ));
-    let result = rolling_sum_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+    let result = rolling_sum_expr
+        .eval(&ctx, &cols, EvalOpts::default())
+        .values;
     assert!(result[0].is_nan()); // Not enough data
     assert_eq!(result[1], 3.0); // 1+2 = 3
     assert_eq!(result[2], 5.0); // 2+3 = 5
@@ -221,7 +225,8 @@ fn test_compiled_expr_with_planning() {
         Function::RollingMean,
         vec![Expr::column("x"), Expr::literal(2.0)],
     );
-    let meta = finstack_core::config::results_meta(&finstack_core::config::FinstackConfig::default());
+    let meta =
+        finstack_core::config::results_meta(&finstack_core::config::FinstackConfig::default());
     let compiled = CompiledExpr::with_planning(expr, meta);
 
     let result = compiled.eval(&ctx, &cols, EvalOpts::default()).values;

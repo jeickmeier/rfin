@@ -253,7 +253,9 @@ impl CovenantEngine {
                 .find(|s| {
                     self.get_covenant_description(&s.covenant.covenant_type) == breach.covenant_type
                 })
-                .ok_or(finstack_core::error::InputError::NotFound { id: format!("covenant_spec:{}", breach.covenant_type) })?;
+                .ok_or(finstack_core::error::InputError::NotFound {
+                    id: format!("covenant_spec:{}", breach.covenant_type),
+                })?;
 
             // Apply each consequence
             for consequence in &spec.covenant.consequences {
@@ -411,7 +413,10 @@ impl CovenantEngine {
             }
         }
 
-        Err(finstack_core::error::InputError::NotFound { id: "covenant_description".to_string() }.into())
+        Err(finstack_core::error::InputError::NotFound {
+            id: "covenant_description".to_string(),
+        }
+        .into())
     }
 
     fn find_active_breach(&self, covenant_type: &str, as_of: Date) -> Option<&CovenantBreach> {

@@ -1,11 +1,11 @@
 //! Result type for pricing.
 //!
+pub use finstack_core::money::fx::FxPolicyMeta;
 use finstack_core::prelude::*;
 use finstack_core::F;
 use hashbrown::HashMap;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-pub use finstack_core::money::fx::FxPolicyMeta;
 
 /// Covenant check result.
 #[derive(Clone, Debug, Serialize, Deserialize)]

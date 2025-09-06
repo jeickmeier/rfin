@@ -383,13 +383,25 @@ impl CashflowProvider for Loan {
                 let end = periods[i];
 
                 // Get forward rate for the period - convert dates to year fractions from as_of date
-                let t1 = self.day_count.year_fraction(as_of, start, finstack_core::dates::DayCountCtx::default())?;
-                let t2 = self.day_count.year_fraction(as_of, end, finstack_core::dates::DayCountCtx::default())?;
+                let t1 = self.day_count.year_fraction(
+                    as_of,
+                    start,
+                    finstack_core::dates::DayCountCtx::default(),
+                )?;
+                let t2 = self.day_count.year_fraction(
+                    as_of,
+                    end,
+                    finstack_core::dates::DayCountCtx::default(),
+                )?;
                 let fwd_rate = fwd_curve.rate_period(t1, t2);
                 let total_rate = fwd_rate + spread_bp / 10000.0;
 
                 // Calculate accrual
-                let yf = self.day_count.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())?;
+                let yf = self.day_count.year_fraction(
+                    start,
+                    end,
+                    finstack_core::dates::DayCountCtx::default(),
+                )?;
                 let interest = remaining_notional * total_rate * yf;
 
                 flows.push((end, Money::new(interest, self.outstanding.currency())));

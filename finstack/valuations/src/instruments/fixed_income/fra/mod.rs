@@ -97,12 +97,40 @@ impl ForwardRateAgreement {
     ) -> finstack_core::Result<Money> {
         // Calculate time fractions
         let base_date = discount_curve.base_date();
-        let t_fixing = self.day_count.year_fraction(base_date, self.fixing_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
-        let t_start = self.day_count.year_fraction(base_date, self.start_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
-        let t_end = self.day_count.year_fraction(base_date, self.end_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_fixing = self
+            .day_count
+            .year_fraction(
+                base_date,
+                self.fixing_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+        let t_start = self
+            .day_count
+            .year_fraction(
+                base_date,
+                self.start_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+        let t_end = self
+            .day_count
+            .year_fraction(
+                base_date,
+                self.end_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
 
         // Interest period length
-        let tau = self.day_count.year_fraction(self.start_date, self.end_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let tau = self
+            .day_count
+            .year_fraction(
+                self.start_date,
+                self.end_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
 
         if tau <= 0.0 || t_fixing < 0.0 {
             return Ok(Money::new(0.0, self.notional.currency()));

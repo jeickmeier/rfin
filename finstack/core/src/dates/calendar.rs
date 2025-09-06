@@ -103,7 +103,7 @@ pub enum BusinessDayConvention {
 }
 
 /// Adjust `date` according to `conv` utilising `cal` for holiday lookup.
-/// 
+///
 /// Returns an error if no business day is found within 100 days of the input date.
 /// This prevents infinite loops when using composite calendars that mark
 /// all days as holidays in a range.
@@ -131,11 +131,13 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
             }
             match seek_business_day(date, 1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal) {
                 Ok(d) => Ok(d),
-                Err(Error::Input(InputError::AdjustmentFailed { date, max_days, .. })) => Err(Error::Input(InputError::AdjustmentFailed {
-                    date,
-                    convention: "Following".to_string(),
-                    max_days,
-                })),
+                Err(Error::Input(InputError::AdjustmentFailed { date, max_days, .. })) => {
+                    Err(Error::Input(InputError::AdjustmentFailed {
+                        date,
+                        convention: "Following".to_string(),
+                        max_days,
+                    }))
+                }
                 Err(e) => Err(e),
             }
         }
@@ -160,11 +162,13 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
             } else {
                 match seek_business_day(date, -1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal) {
                     Ok(d) => Ok(d),
-                    Err(Error::Input(InputError::AdjustmentFailed { date, max_days, .. })) => Err(Error::Input(InputError::AdjustmentFailed {
-                        date,
-                        convention: "ModifiedFollowing (fallback to preceding)".to_string(),
-                        max_days,
-                    })),
+                    Err(Error::Input(InputError::AdjustmentFailed { date, max_days, .. })) => {
+                        Err(Error::Input(InputError::AdjustmentFailed {
+                            date,
+                            convention: "ModifiedFollowing (fallback to preceding)".to_string(),
+                            max_days,
+                        }))
+                    }
                     Err(e) => Err(e),
                 }
             }
@@ -175,11 +179,13 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
             }
             match seek_business_day(date, -1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal) {
                 Ok(d) => Ok(d),
-                Err(Error::Input(InputError::AdjustmentFailed { date, max_days, .. })) => Err(Error::Input(InputError::AdjustmentFailed {
-                    date,
-                    convention: "Preceding".to_string(),
-                    max_days,
-                })),
+                Err(Error::Input(InputError::AdjustmentFailed { date, max_days, .. })) => {
+                    Err(Error::Input(InputError::AdjustmentFailed {
+                        date,
+                        convention: "Preceding".to_string(),
+                        max_days,
+                    }))
+                }
                 Err(e) => Err(e),
             }
         }
@@ -204,11 +210,13 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
             } else {
                 match seek_business_day(date, 1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal) {
                     Ok(d) => Ok(d),
-                    Err(Error::Input(InputError::AdjustmentFailed { date, max_days, .. })) => Err(Error::Input(InputError::AdjustmentFailed {
-                        date,
-                        convention: "ModifiedPreceding (fallback to following)".to_string(),
-                        max_days,
-                    })),
+                    Err(Error::Input(InputError::AdjustmentFailed { date, max_days, .. })) => {
+                        Err(Error::Input(InputError::AdjustmentFailed {
+                            date,
+                            convention: "ModifiedPreceding (fallback to following)".to_string(),
+                            max_days,
+                        }))
+                    }
                     Err(e) => Err(e),
                 }
             }

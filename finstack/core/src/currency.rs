@@ -99,7 +99,6 @@ mod currency_generated;
 
 pub use currency_generated::*;
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -251,8 +250,6 @@ mod tests {
         assert!(enum_count > 100); // at least 100 currencies expected
     }
 
-    
-
     #[test]
     fn test_decimals_fallback_behavior() {
         // Test that the current decimals() method no longer panics and falls back to 2
@@ -260,7 +257,11 @@ mod tests {
         use strum::IntoEnumIterator;
         for currency in Currency::iter() {
             let decimals = currency.decimals();
-            assert!(decimals <= 3, "Decimal places should be reasonable for {:?}", currency);
+            assert!(
+                decimals <= 3,
+                "Decimal places should be reasonable for {:?}",
+                currency
+            );
         }
     }
 }

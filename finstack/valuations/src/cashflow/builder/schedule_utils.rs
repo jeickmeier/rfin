@@ -45,7 +45,12 @@ pub fn build_dates(
 
     let dates: Vec<Date> = if let Some(id) = calendar_id {
         if let Some(cal) = calendar_by_id(id) {
-            builder.adjust_with(bdc, cal).build().unwrap().into_iter().collect()
+            builder
+                .adjust_with(bdc, cal)
+                .build()
+                .unwrap()
+                .into_iter()
+                .collect()
         } else {
             builder.build().unwrap().into_iter().collect()
         }

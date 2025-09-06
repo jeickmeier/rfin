@@ -24,7 +24,7 @@
 
 extern crate alloc;
 
-use crate::market_data::interp::{InterpStyle, ExtrapolationPolicy};
+use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     dates::Date,
     market_data::interp::InterpFn,
@@ -55,7 +55,8 @@ impl DiscountCurve {
         let t = if date == base {
             0.0
         } else {
-            dc.year_fraction(base, date, crate::dates::DayCountCtx::default()).unwrap_or(0.0)
+            dc.year_fraction(base, date, crate::dates::DayCountCtx::default())
+                .unwrap_or(0.0)
         };
         disc.df(t)
     }
@@ -223,13 +224,13 @@ impl DiscountCurveBuilder {
         let (knots_vec, dfs_vec): (Vec<F>, Vec<F>) = self.points.into_iter().unzip();
         crate::market_data::utils::validate_knots(&knots_vec)
             .map_err(|_| super::CurveError::NonMonotonicKnots)?;
-        
+
         // Validate monotonic discount factors if required (critical for credit curves)
         if self.require_monotonic {
             crate::market_data::utils::validate_dfs(&dfs_vec, true)
                 .map_err(|_| super::CurveError::Invalid)?;
         }
-        
+
         let knots = knots_vec.into_boxed_slice();
         let dfs = dfs_vec.into_boxed_slice();
 

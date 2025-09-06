@@ -402,7 +402,7 @@ where
     let search_radius = 1.0_f64.max(x0.abs());
     let lo = x0 - search_radius;
     let hi = x0 + search_radius;
-    
+
     match find_bracketing_interval(&f, lo, hi) {
         Ok((bracket_lo, bracket_hi)) => {
             // Try bracketed Newton first

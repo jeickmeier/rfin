@@ -4,8 +4,8 @@
 //! across both scalar and Polars execution paths, with deterministic
 //! results and proper handling of edge cases.
 
-use finstack_core::expr::*;
 use finstack_core::expr::EvalOpts;
+use finstack_core::expr::*;
 use std::f64;
 
 /// Simple context for testing.
@@ -201,7 +201,9 @@ fn test_rolling_functions() {
     // Test rolling mean (window=3)
     let rolling_mean_expr =
         CompiledExpr::new(call(Function::RollingMean, vec![col("values"), lit(3.0)]));
-    let result = rolling_mean_expr.eval(&ctx, &slices, EvalOpts::default()).values;
+    let result = rolling_mean_expr
+        .eval(&ctx, &slices, EvalOpts::default())
+        .values;
 
     // Expected: [NaN, NaN, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
     let expected = [f64::NAN, f64::NAN, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0];
@@ -216,7 +218,9 @@ fn test_rolling_functions() {
     // Test rolling sum (window=3)
     let rolling_sum_expr =
         CompiledExpr::new(call(Function::RollingSum, vec![col("values"), lit(3.0)]));
-    let result = rolling_sum_expr.eval(&ctx, &slices, EvalOpts::default()).values;
+    let result = rolling_sum_expr
+        .eval(&ctx, &slices, EvalOpts::default())
+        .values;
     let expected = [
         f64::NAN,
         f64::NAN,

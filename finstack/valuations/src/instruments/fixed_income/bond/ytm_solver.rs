@@ -191,7 +191,9 @@ impl YtmSolver {
                 continue;
             }
 
-            let t = day_count.year_fraction(as_of, date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+            let t = day_count
+                .year_fraction(as_of, date, finstack_core::dates::DayCountCtx::default())
+                .unwrap_or(0.0);
             if t > 0.0 {
                 let df = df_from_yield(yield_rate, t, comp, freq).unwrap_or(0.0);
                 price += amount.amount() * df;
@@ -218,7 +220,9 @@ impl YtmSolver {
                 continue;
             }
 
-            let t = day_count.year_fraction(as_of, date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+            let t = day_count
+                .year_fraction(as_of, date, finstack_core::dates::DayCountCtx::default())
+                .unwrap_or(0.0);
             if t > 0.0 {
                 let (_df, ddf_dy) =
                     df_and_derivative_from_yield(yield_rate, t, comp, freq).unwrap_or((0.0, 0.0));
@@ -248,7 +252,13 @@ impl YtmSolver {
             .map(|(date, _)| *date)
             .ok_or(finstack_core::error::InputError::TooFewPoints)?;
 
-        let years_to_maturity = day_count.year_fraction(as_of, maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let years_to_maturity = day_count
+            .year_fraction(
+                as_of,
+                maturity,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
 
         if years_to_maturity <= 0.0 {
             return Ok(current_yield);

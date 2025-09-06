@@ -3,9 +3,9 @@
 //! This module wraps [`ScalarTimeSeries`] to provide an inflation index surface with
 //! lag handling and optional monthly seasonality, avoiding duplicate interpolation code.
 
-use crate::market_data::primitives::{ScalarTimeSeries, SeriesInterpolation};
 use crate::currency::Currency;
 use crate::dates::Date;
+use crate::market_data::primitives::{ScalarTimeSeries, SeriesInterpolation};
 use crate::{Error, Result};
 use polars::prelude::*;
 

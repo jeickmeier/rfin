@@ -33,7 +33,7 @@
 //! | `var(expr)` | ✅ `col.var(ddof=1)` | ✅ | Sample var |
 //! | `median(expr)` | ✅ `col.median()` | ✅ | |
 //! | `shift(expr, n)` | ✅ `col.shift(n)` | ✅ | Positive=down |
-//! 
+//!
 //!
 //! Note: Functions like `mean`, `sum`, `min`, `max`, `count`, and time-based
 //! dynamic windows are not part of this engine's function set; any aggregation

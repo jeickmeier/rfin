@@ -4,10 +4,10 @@
 mod currency_build;
 #[path = "build/generate_calendars.rs"]
 mod generate_calendars;
-#[path = "build/generate_holidays.rs"]
-mod generate_holidays;
 #[path = "build/generate_cny.rs"]
 mod generate_cny;
+#[path = "build/generate_holidays.rs"]
+mod generate_holidays;
 
 use std::io;
 

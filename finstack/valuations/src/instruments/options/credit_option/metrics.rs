@@ -11,18 +11,22 @@ pub struct DeltaCalculator;
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &CreditOption = context.instrument_as()?;
-        let time_to_expiry = option
-            .day_count
-            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let time_to_expiry = option.day_count.year_fraction(
+            context.as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
 
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
         }
 
         let hazard_curve = context.curves.hazard(option.credit_id)?;
-        let current_tenor = option
-            .day_count
-            .year_fraction(context.as_of, option.cds_maturity, finstack_core::dates::DayCountCtx::default())?;
+        let current_tenor = option.day_count.year_fraction(
+            context.as_of,
+            option.cds_maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         let forward_spread_bp = if current_tenor > 0.0 {
             use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
             hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
@@ -55,18 +59,22 @@ pub struct GammaCalculator;
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &CreditOption = context.instrument_as()?;
-        let time_to_expiry = option
-            .day_count
-            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let time_to_expiry = option.day_count.year_fraction(
+            context.as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
 
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
         }
 
         let hazard_curve = context.curves.hazard(option.credit_id)?;
-        let current_tenor = option
-            .day_count
-            .year_fraction(context.as_of, option.cds_maturity, finstack_core::dates::DayCountCtx::default())?;
+        let current_tenor = option.day_count.year_fraction(
+            context.as_of,
+            option.cds_maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         let forward_spread_bp = if current_tenor > 0.0 {
             use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
             hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
@@ -98,18 +106,22 @@ pub struct VegaCalculator;
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &CreditOption = context.instrument_as()?;
-        let time_to_expiry = option
-            .day_count
-            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let time_to_expiry = option.day_count.year_fraction(
+            context.as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
 
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
         }
 
         let hazard_curve = context.curves.hazard(option.credit_id)?;
-        let current_tenor = option
-            .day_count
-            .year_fraction(context.as_of, option.cds_maturity, finstack_core::dates::DayCountCtx::default())?;
+        let current_tenor = option.day_count.year_fraction(
+            context.as_of,
+            option.cds_maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         let forward_spread_bp = if current_tenor > 0.0 {
             use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
             hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
@@ -141,9 +153,11 @@ pub struct ThetaCalculator;
 impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &CreditOption = context.instrument_as()?;
-        let time_to_expiry = option
-            .day_count
-            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let time_to_expiry = option.day_count.year_fraction(
+            context.as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
 
         if time_to_expiry <= 0.0 {
             return Ok(0.0);
@@ -153,9 +167,11 @@ impl MetricCalculator for ThetaCalculator {
         let r = disc_curve.zero(time_to_expiry);
 
         let hazard_curve = context.curves.hazard(option.credit_id)?;
-        let current_tenor = option
-            .day_count
-            .year_fraction(context.as_of, option.cds_maturity, finstack_core::dates::DayCountCtx::default())?;
+        let current_tenor = option.day_count.year_fraction(
+            context.as_of,
+            option.cds_maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         let forward_spread_bp = if current_tenor > 0.0 {
             use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
             hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
@@ -187,9 +203,11 @@ pub struct RhoCalculator;
 impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &CreditOption = context.instrument_as()?;
-        let time_to_expiry = option
-            .day_count
-            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let time_to_expiry = option.day_count.year_fraction(
+            context.as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
 
         if time_to_expiry <= 0.0 {
             return Ok(0.0);

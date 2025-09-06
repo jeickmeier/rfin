@@ -8,9 +8,11 @@ struct PricePerShareCalculator;
 impl MetricCalculator for PricePerShareCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let equity: &Equity = context.instrument_as()?;
-        equity
-            .price_quote
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "equity_price_quote".to_string() }))
+        equity.price_quote.ok_or_else(|| {
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "equity_price_quote".to_string(),
+            })
+        })
     }
 }
 
@@ -27,7 +29,9 @@ impl MetricCalculator for MarketValueCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let equity: &Equity = context.instrument_as()?;
         let price = equity.price_quote.ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "equity_price_quote".to_string() })
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "equity_price_quote".to_string(),
+            })
         })?;
         Ok(price * equity.effective_shares())
     }

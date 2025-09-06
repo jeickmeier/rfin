@@ -41,7 +41,6 @@
 //! ---
 //! _Released under the MIT license.  Contributions welcome!_
 
-
 // Core modules
 pub mod config;
 pub mod currency;

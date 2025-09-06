@@ -86,8 +86,20 @@ impl_instrument!(
 
         // 2. Get year fractions
         let dc = finstack_core::dates::DayCount::Act365F;
-        let t_near = dc.year_fraction(as_of, s.near_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
-        let t_far = dc.year_fraction(as_of, s.far_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_near = dc
+            .year_fraction(
+                as_of,
+                s.near_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+        let t_far = dc
+            .year_fraction(
+                as_of,
+                s.far_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
 
         // 3. Get discount factors
         let df_dom_near = domestic_disc.df(t_near);
@@ -97,7 +109,9 @@ impl_instrument!(
 
         // 4. Resolve near_rate (spot)
         let fx_matrix = curves.fx.as_ref().ok_or(finstack_core::Error::from(
-            finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() },
+            finstack_core::error::InputError::NotFound {
+                id: "fx_matrix".to_string(),
+            },
         ))?;
         let near_rate = match s.near_rate {
             Some(rate) => rate,

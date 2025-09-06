@@ -12,7 +12,9 @@ impl MetricCalculator for RealYieldCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let ilb: &InflationLinkedBond = context.instrument_as()?;
         let clean_price = ilb.quoted_clean.ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "inflation_linked_bond_quote".to_string() })
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "inflation_linked_bond_quote".to_string(),
+            })
         })?;
         ilb.real_yield(clean_price, &context.curves, context.as_of)
     }
@@ -33,7 +35,9 @@ impl MetricCalculator for IndexRatioCalculator {
             .curves
             .inflation_index(ilb.inflation_id)
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "inflation_linked_bond_quote".to_string() })
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: "inflation_linked_bond_quote".to_string(),
+                })
             })?;
 
         ilb.index_ratio(context.as_of, &inflation_index)
@@ -68,7 +72,9 @@ impl MetricCalculator for BreakevenInflationCalculator {
         // in the current market context. This metric should be computed externally
         // with the appropriate nominal yield input.
         Err(finstack_core::Error::from(
-            finstack_core::error::InputError::NotFound { id: "inflation_linked_bond_quote".to_string() },
+            finstack_core::error::InputError::NotFound {
+                id: "inflation_linked_bond_quote".to_string(),
+            },
         ))
     }
 

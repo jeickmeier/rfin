@@ -3,7 +3,9 @@
 mod common;
 
 use common::approx_eq;
-use finstack_core::market_data::interp::{cubic_hermite::CubicHermite, InterpFn, ExtrapolationPolicy};
+use finstack_core::market_data::interp::{
+    cubic_hermite::CubicHermite, ExtrapolationPolicy, InterpFn,
+};
 
 #[test]
 fn test_cubic_hermite_construction() {
@@ -144,7 +146,11 @@ fn test_cubic_hermite_derivative() {
 
     // Should be close (within reasonable tolerance for numerical differentiation)
     let relative_error = (analytical_deriv - numerical_deriv).abs() / numerical_deriv.abs();
-    assert!(relative_error < 1e-6, "Relative error {} too large", relative_error);
+    assert!(
+        relative_error < 1e-6,
+        "Relative error {} too large",
+        relative_error
+    );
 }
 
 #[test]
@@ -159,9 +165,14 @@ fn test_cubic_hermite_derivative_monotonicity() {
     let test_points = [0.5, 1.5, 2.5, 3.5];
     for &x in &test_points {
         let deriv = interp.interp_prime(x);
-        
+
         // For decreasing discount factors, derivative should be negative
-        assert!(deriv < 0.0, "Derivative at x={} should be negative, got {}", x, deriv);
+        assert!(
+            deriv < 0.0,
+            "Derivative at x={} should be negative, got {}",
+            x,
+            deriv
+        );
         assert!(deriv.is_finite(), "Derivative at x={} should be finite", x);
     }
 }

@@ -21,7 +21,10 @@ pub fn by_expiry_option_vol(
     for quote in quotes {
         if let InstrumentQuote::OptionVol { expiry, .. } = quote {
             let expiry_key = format!("{}", expiry);
-            grouped.entry(expiry_key).or_insert_with(Vec::new).push(quote);
+            grouped
+                .entry(expiry_key)
+                .or_insert_with(Vec::new)
+                .push(quote);
         }
     }
 
@@ -35,10 +38,16 @@ pub fn by_entity_cds(quotes: &[InstrumentQuote]) -> HashMap<String, Vec<&Instrum
     for quote in quotes {
         match quote {
             InstrumentQuote::CDS { entity, .. } => {
-                grouped.entry(entity.clone()).or_insert_with(Vec::new).push(quote);
+                grouped
+                    .entry(entity.clone())
+                    .or_insert_with(Vec::new)
+                    .push(quote);
             }
             InstrumentQuote::CDSUpfront { entity, .. } => {
-                grouped.entry(entity.clone()).or_insert_with(Vec::new).push(quote);
+                grouped
+                    .entry(entity.clone())
+                    .or_insert_with(Vec::new)
+                    .push(quote);
             }
             _ => {}
         }
@@ -57,7 +66,10 @@ pub fn by_index_tranche(
     let mut grouped = HashMap::new();
 
     for quote in quotes {
-        if let InstrumentQuote::CDSTranche { index, maturity, .. } = quote {
+        if let InstrumentQuote::CDSTranche {
+            index, maturity, ..
+        } = quote
+        {
             let maturity_key = format!("{}", maturity);
             grouped
                 .entry(index.clone())
@@ -77,7 +89,10 @@ pub fn by_index_inflation(quotes: &[InstrumentQuote]) -> HashMap<String, Vec<&In
 
     for quote in quotes {
         if let InstrumentQuote::InflationSwap { index, .. } = quote {
-            grouped.entry(index.clone()).or_insert_with(Vec::new).push(quote);
+            grouped
+                .entry(index.clone())
+                .or_insert_with(Vec::new)
+                .push(quote);
         }
     }
 
@@ -98,10 +113,16 @@ pub fn nearest_maturities<'a>(
     for quote in quotes {
         let maturity_years = match quote {
             InstrumentQuote::OptionVol { expiry, .. } => time_to_expiry_vol(base_date, *expiry),
-            InstrumentQuote::CDSTranche { maturity, .. } => time_to_maturity_auto(base_date, *maturity),
+            InstrumentQuote::CDSTranche { maturity, .. } => {
+                time_to_maturity_auto(base_date, *maturity)
+            }
             InstrumentQuote::CDS { maturity, .. } => time_to_maturity_auto(base_date, *maturity),
-            InstrumentQuote::CDSUpfront { maturity, .. } => time_to_maturity_auto(base_date, *maturity),
-            InstrumentQuote::InflationSwap { maturity, .. } => time_to_maturity_auto(base_date, *maturity),
+            InstrumentQuote::CDSUpfront { maturity, .. } => {
+                time_to_maturity_auto(base_date, *maturity)
+            }
+            InstrumentQuote::InflationSwap { maturity, .. } => {
+                time_to_maturity_auto(base_date, *maturity)
+            }
             _ => continue,
         };
 
@@ -114,10 +135,7 @@ pub fn nearest_maturities<'a>(
         }) {
             if (target_mat - maturity_years).abs() <= tolerance {
                 let key = format!("{:.2}Y", target_mat);
-                grouped
-                    .entry(key)
-                    .or_insert_with(Vec::new)
-                    .push(quote);
+                grouped.entry(key).or_insert_with(Vec::new).push(quote);
             }
         }
     }
@@ -183,12 +201,12 @@ mod tests {
     fn test_group_by_expiry_option_vol() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let quotes = create_test_quotes();
-        
+
         let grouped = by_expiry_option_vol(&quotes, base_date);
-        
+
         // Should have 2 expiry groups (1M and 3M)
         assert_eq!(grouped.len(), 2);
-        
+
         // Each group should have 1 quote
         for (_, group_quotes) in grouped {
             assert_eq!(group_quotes.len(), 1);
@@ -198,14 +216,14 @@ mod tests {
     #[test]
     fn test_group_by_entity_cds() {
         let quotes = create_test_quotes();
-        
+
         let grouped = by_entity_cds(&quotes);
-        
+
         // Should have 2 entities (AAPL and MSFT)
         assert_eq!(grouped.len(), 2);
         assert!(grouped.contains_key("AAPL"));
         assert!(grouped.contains_key("MSFT"));
-        
+
         // Each entity should have 1 quote
         assert_eq!(grouped["AAPL"].len(), 1);
         assert_eq!(grouped["MSFT"].len(), 1);
@@ -215,13 +233,13 @@ mod tests {
     fn test_group_by_index_tranche() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let quotes = create_test_quotes();
-        
+
         let grouped = by_index_tranche(&quotes, base_date);
-        
+
         // Should have 1 index (CDX.NA.IG.42)
         assert_eq!(grouped.len(), 1);
         assert!(grouped.contains_key("CDX.NA.IG.42"));
-        
+
         // Should have 1 maturity
         let index_quotes = &grouped["CDX.NA.IG.42"];
         assert_eq!(index_quotes.len(), 1);
@@ -230,9 +248,9 @@ mod tests {
     #[test]
     fn test_group_by_index_inflation() {
         let quotes = create_test_quotes();
-        
+
         let grouped = by_index_inflation(&quotes);
-        
+
         // Should have 1 index (US-CPI-U)
         assert_eq!(grouped.len(), 1);
         assert!(grouped.contains_key("US-CPI-U"));
@@ -243,10 +261,10 @@ mod tests {
     fn test_nearest_maturities() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let quotes = create_test_quotes();
-        
+
         let target_maturities = [1.0, 5.0]; // 1Y and 5Y
         let grouped = nearest_maturities(&quotes, base_date, &target_maturities, 0.5);
-        
+
         // Should find quotes near 1Y and 5Y
         assert!(!grouped.is_empty());
     }
@@ -255,10 +273,10 @@ mod tests {
     fn test_empty_quotes() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let empty_quotes = [];
-        
+
         let grouped = by_expiry_option_vol(&empty_quotes, base_date);
         assert!(grouped.is_empty());
-        
+
         let grouped = by_entity_cds(&empty_quotes);
         assert!(grouped.is_empty());
     }

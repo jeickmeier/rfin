@@ -247,23 +247,29 @@ impl_instrument!(
     "FxOption",
     pv = |s, curves, as_of| {
         // Calculate time to expiry in years
-        let time_to_expiry = s.day_count.year_fraction(as_of, s.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let time_to_expiry = s.day_count.year_fraction(
+            as_of,
+            s.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
 
         if time_to_expiry <= 0.0 {
             // Option expired - return intrinsic value
-            let fx_matrix = curves
-                .fx
-                .as_ref()
-                .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
-            let spot = fx_matrix
-                .rate(finstack_core::money::fx::FxQuery {
-                    from: s.base_currency,
-                    to: s.quote_currency,
-                    on: as_of,
-                    policy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
-                    closure_check: None,
-                    want_meta: false,
-                })?;
+            let fx_matrix =
+                curves
+                    .fx
+                    .as_ref()
+                    .ok_or(finstack_core::error::InputError::NotFound {
+                        id: "fx_matrix".to_string(),
+                    })?;
+            let spot = fx_matrix.rate(finstack_core::money::fx::FxQuery {
+                from: s.base_currency,
+                to: s.quote_currency,
+                on: as_of,
+                policy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })?;
 
             let intrinsic = match s.option_type {
                 OptionType::Call => (spot.rate.to_f64().unwrap_or(0.0) - s.strike).max(0.0),
@@ -285,7 +291,9 @@ impl_instrument!(
         let fx_matrix = curves
             .fx
             .as_ref()
-            .ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
+            .ok_or(finstack_core::error::InputError::NotFound {
+                id: "fx_matrix".to_string(),
+            })?;
         let spot = fx_matrix.rate(finstack_core::money::fx::FxQuery {
             from: s.base_currency,
             to: s.quote_currency,

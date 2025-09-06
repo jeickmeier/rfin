@@ -38,8 +38,6 @@ pub use crate::money::{
 };
 pub use crate::Result;
 
-
-
 // Math utilities
 pub use crate::math::{
     root_finding::{brent, newton_bracketed},

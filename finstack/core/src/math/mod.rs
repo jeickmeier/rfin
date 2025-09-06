@@ -22,7 +22,7 @@ pub use integration::{
 };
 pub use random::{RandomNumberGenerator, SimpleRng};
 pub use root_finding::{
-    brent, brent_with_bracketing, find_bracketing_interval, hybrid_root_find, newton_bracketed, 
+    brent, brent_with_bracketing, find_bracketing_interval, hybrid_root_find, newton_bracketed,
     newton_raphson,
 };
 pub use solver::{

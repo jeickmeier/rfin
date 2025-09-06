@@ -198,16 +198,14 @@ fn test_long_front_stub() {
         .into_iter()
         .collect();
 
-
-
     // Should create regular quarters from end date backwards: Nov, Aug, May, Feb
     // This creates a long front period from Jan 1 to Feb 1
     assert_eq!(dates.len(), 5);
-    assert_eq!(dates[0], make_date(2025, 1, 1));   // Start date
-    assert_eq!(dates[1], make_date(2025, 2, 1));   // First regular anchor
-    assert_eq!(dates[2], make_date(2025, 5, 1));   // Regular quarter
-    assert_eq!(dates[3], make_date(2025, 8, 1));   // Regular quarter
-    assert_eq!(dates[4], make_date(2025, 11, 1));  // End date
+    assert_eq!(dates[0], make_date(2025, 1, 1)); // Start date
+    assert_eq!(dates[1], make_date(2025, 2, 1)); // First regular anchor
+    assert_eq!(dates[2], make_date(2025, 5, 1)); // Regular quarter
+    assert_eq!(dates[3], make_date(2025, 8, 1)); // Regular quarter
+    assert_eq!(dates[4], make_date(2025, 11, 1)); // End date
 }
 
 #[test]
@@ -227,10 +225,10 @@ fn test_long_back_stub() {
     // Should create regular quarters from start: Jan, Apr, Jul
     // Then create a long back period from Jul to Nov (4 months)
     assert_eq!(dates.len(), 4);
-    assert_eq!(dates[0], make_date(2025, 1, 1));   // Start date
-    assert_eq!(dates[1], make_date(2025, 4, 1));   // Regular quarter
-    assert_eq!(dates[2], make_date(2025, 7, 1));   // Regular quarter
-    assert_eq!(dates[3], make_date(2025, 11, 1));  // End date (long back period)
+    assert_eq!(dates[0], make_date(2025, 1, 1)); // Start date
+    assert_eq!(dates[1], make_date(2025, 4, 1)); // Regular quarter
+    assert_eq!(dates[2], make_date(2025, 7, 1)); // Regular quarter
+    assert_eq!(dates[3], make_date(2025, 11, 1)); // End date (long back period)
 }
 
 #[test]
@@ -250,12 +248,12 @@ fn test_end_of_month_convention() {
     // Remove any duplicates for this test since we have an implementation issue
     let mut unique_dates = dates.clone();
     unique_dates.dedup();
-    
+
     assert_eq!(unique_dates.len(), 4);
-    assert_eq!(unique_dates[0], make_date(2025, 1, 31));  // Jan 15 -> Jan 31
-    assert_eq!(unique_dates[1], make_date(2025, 2, 28));  // Feb 15 -> Feb 28
-    assert_eq!(unique_dates[2], make_date(2025, 3, 31));  // Mar 15 -> Mar 31
-    assert_eq!(unique_dates[3], make_date(2025, 4, 30));  // Apr 15 -> Apr 30
+    assert_eq!(unique_dates[0], make_date(2025, 1, 31)); // Jan 15 -> Jan 31
+    assert_eq!(unique_dates[1], make_date(2025, 2, 28)); // Feb 15 -> Feb 28
+    assert_eq!(unique_dates[2], make_date(2025, 3, 31)); // Mar 15 -> Mar 31
+    assert_eq!(unique_dates[3], make_date(2025, 4, 30)); // Apr 15 -> Apr 30
 }
 
 #[test]
@@ -277,9 +275,9 @@ fn test_end_of_month_with_leap_year() {
     unique_dates.dedup();
 
     assert_eq!(unique_dates.len(), 3);
-    assert_eq!(unique_dates[0], make_date(2024, 1, 31));  // Jan 31
-    assert_eq!(unique_dates[1], make_date(2024, 2, 29));  // Feb 29 (leap year)
-    assert_eq!(unique_dates[2], make_date(2024, 3, 31));  // Mar 31
+    assert_eq!(unique_dates[0], make_date(2024, 1, 31)); // Jan 31
+    assert_eq!(unique_dates[1], make_date(2024, 2, 29)); // Feb 29 (leap year)
+    assert_eq!(unique_dates[2], make_date(2024, 3, 31)); // Mar 31
 }
 
 #[test]
@@ -298,7 +296,7 @@ fn test_eom_with_stub_conventions() {
         .collect();
 
     assert_eq!(dates.len(), 3);
-    assert_eq!(dates[0], make_date(2025, 1, 31));  // Start -> Jan 31
-    assert_eq!(dates[1], make_date(2025, 4, 30));  // Regular quarter -> Apr 30
-    assert_eq!(dates[2], make_date(2025, 5, 31));  // End -> May 31
+    assert_eq!(dates[0], make_date(2025, 1, 31)); // Start -> Jan 31
+    assert_eq!(dates[1], make_date(2025, 4, 30)); // Regular quarter -> Apr 30
+    assert_eq!(dates[2], make_date(2025, 5, 31)); // End -> May 31
 }

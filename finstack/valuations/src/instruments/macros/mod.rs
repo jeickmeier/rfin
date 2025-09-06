@@ -84,13 +84,9 @@ macro_rules! impl_instrument {
                 metrics: &[$crate::metrics::MetricId],
             ) -> finstack_core::Result<$crate::results::ValuationResult> {
                 let base_value = self.value(curves, as_of)?;
-                  $crate::instruments::build_with_metrics_dyn(
-                      self,
-                      curves,
-                      as_of,
-                      base_value,
-                      metrics,
-                  )
+                $crate::instruments::build_with_metrics_dyn(
+                    self, curves, as_of, base_value, metrics,
+                )
             }
         }
     };
@@ -112,8 +108,8 @@ macro_rules! impl_instrument_schedule_pv {
             $type,
             $type_name,
             pv = |s, curves, as_of| {
-                use $crate::instruments::fixed_income::discountable::Discountable;
                 use $crate::cashflow::traits::CashflowProvider;
+                use $crate::instruments::fixed_income::discountable::Discountable;
                 // Use trait object to avoid monomorphization
                 let flows = CashflowProvider::build_schedule(s, curves, as_of)?;
                 let disc = curves.disc(s.$disc)?;

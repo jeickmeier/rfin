@@ -30,8 +30,22 @@ impl MetricCalculator for FraDv01Calculator {
         let base = disc.base_date();
 
         // Settlement at start of period
-        let _t_start = fra.day_count.year_fraction(base, fra.start_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
-        let tau = fra.day_count.year_fraction(fra.start_date, fra.end_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let _t_start = fra
+            .day_count
+            .year_fraction(
+                base,
+                fra.start_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+        let tau = fra
+            .day_count
+            .year_fraction(
+                fra.start_date,
+                fra.end_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
 
         if tau <= 0.0 {
             return Ok(0.0);
@@ -51,6 +65,14 @@ impl MetricCalculator for FraDv01Calculator {
 /// maintain a consistent registration surface across instruments.
 pub fn register_fra_metrics(registry: &mut MetricRegistry) {
     registry
-        .register_metric(MetricId::custom("fra_pv"), Arc::new(FraPvCalculator), &["FRA"]) 
-        .register_metric(MetricId::custom("fra_dv01"), Arc::new(FraDv01Calculator), &["FRA"]);
+        .register_metric(
+            MetricId::custom("fra_pv"),
+            Arc::new(FraPvCalculator),
+            &["FRA"],
+        )
+        .register_metric(
+            MetricId::custom("fra_dv01"),
+            Arc::new(FraDv01Calculator),
+            &["FRA"],
+        );
 }

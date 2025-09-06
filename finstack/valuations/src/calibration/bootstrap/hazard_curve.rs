@@ -42,7 +42,7 @@ impl HazardCurveCalibrator {
     pub fn default_discount_curve_id(currency: Currency) -> String {
         match currency {
             Currency::USD => "USD-OIS".to_string(),
-            Currency::EUR => "EUR-OIS".to_string(), 
+            Currency::EUR => "EUR-OIS".to_string(),
             Currency::GBP => "GBP-OIS".to_string(),
             Currency::JPY => "JPY-OIS".to_string(),
             Currency::CHF => "CHF-OIS".to_string(),
@@ -85,7 +85,14 @@ impl HazardCurveCalibrator {
         currency: Currency,
     ) -> Self {
         let discount_curve_id = Self::default_discount_curve_id(currency);
-        Self::new(entity, seniority, recovery_rate, base_date, currency, discount_curve_id)
+        Self::new(
+            entity,
+            seniority,
+            recovery_rate,
+            base_date,
+            currency,
+            discount_curve_id,
+        )
     }
 
     /// Set calibration configuration.
@@ -116,7 +123,9 @@ impl HazardCurveCalibrator {
                     upfront_pct,
                     running_spread_bp,
                     ..
-                } if entity == &self.entity => Some((*maturity, *running_spread_bp, Some(*upfront_pct))),
+                } if entity == &self.entity => {
+                    Some((*maturity, *running_spread_bp, Some(*upfront_pct)))
+                }
                 _ => None,
             })
             .collect();
@@ -137,11 +146,14 @@ impl HazardCurveCalibrator {
 
         for (maturity, market_spread_bp, upfront_pct_opt) in &cds_quotes {
             // ISDA time axis
-            let tenor_years = CDSConvention::IsdaNa.day_count().year_fraction(
-                self.base_date,
-                *maturity,
-                finstack_core::dates::DayCountCtx::default(),
-            ).unwrap_or(0.0);
+            let tenor_years = CDSConvention::IsdaNa
+                .day_count()
+                .year_fraction(
+                    self.base_date,
+                    *maturity,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap_or(0.0);
             if tenor_years <= 0.0 {
                 continue;
             }
@@ -150,7 +162,7 @@ impl HazardCurveCalibrator {
             // Create CDS constants for static lifetime requirements
             const CALIB_HAZARD_ID: &str = "CALIB_HAZARD";
             const CALIB_DISC_ID: &str = "CALIB_DISC";
-            
+
             let cds = CreditDefaultSwap::new_isda(
                 format!("CALIB_CDS_{}", maturity),
                 Money::new(10_000_000.0, self.currency),
@@ -334,8 +346,14 @@ mod tests {
         let quotes = test_cds_quotes();
         let disc = test_discount_curve();
 
-        let calibrator =
-            HazardCurveCalibrator::new("AAPL", Seniority::Senior, 0.40, base_date, Currency::USD, "USD-OIS");
+        let calibrator = HazardCurveCalibrator::new(
+            "AAPL",
+            Seniority::Senior,
+            0.40,
+            base_date,
+            Currency::USD,
+            "USD-OIS",
+        );
         let solver = finstack_core::math::HybridSolver::new();
         let (hazard, report) = calibrator
             .bootstrap_curve(&quotes, &solver, &disc)
@@ -383,8 +401,14 @@ mod tests {
         let quotes = test_cds_quotes();
         let disc = test_discount_curve();
 
-        let calibrator =
-            HazardCurveCalibrator::new("AAPL", Seniority::Senior, 0.40, base_date, Currency::USD, "USD-OIS");
+        let calibrator = HazardCurveCalibrator::new(
+            "AAPL",
+            Seniority::Senior,
+            0.40,
+            base_date,
+            Currency::USD,
+            "USD-OIS",
+        );
         let solver = finstack_core::math::HybridSolver::new();
         let (hazard, report) = calibrator
             .bootstrap_curve(&quotes, &solver, &disc)
@@ -409,13 +433,25 @@ mod tests {
         // Par spread retrieval at pillar times (use same day-count mapping as bootstrap)
         let dc = hazard.day_count();
         let t1 = dc
-            .year_fraction(base_date, base_date + time::Duration::days(365), finstack_core::dates::DayCountCtx::default())
+            .year_fraction(
+                base_date,
+                base_date + time::Duration::days(365),
+                finstack_core::dates::DayCountCtx::default(),
+            )
             .unwrap();
         let t3 = dc
-            .year_fraction(base_date, base_date + time::Duration::days(365 * 3), finstack_core::dates::DayCountCtx::default())
+            .year_fraction(
+                base_date,
+                base_date + time::Duration::days(365 * 3),
+                finstack_core::dates::DayCountCtx::default(),
+            )
             .unwrap();
         let t5 = dc
-            .year_fraction(base_date, base_date + time::Duration::days(365 * 5), finstack_core::dates::DayCountCtx::default())
+            .year_fraction(
+                base_date,
+                base_date + time::Duration::days(365 * 5),
+                finstack_core::dates::DayCountCtx::default(),
+            )
             .unwrap();
         assert!((hazard.quoted_spread_bp(t1, ParInterp::Linear) - 50.0).abs() < 1e-6);
         assert!((hazard.quoted_spread_bp(t3, ParInterp::Linear) - 75.0).abs() < 1e-6);
@@ -434,8 +470,14 @@ mod tests {
     fn hazard_calibration_errors_on_empty_quotes() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let disc = test_discount_curve();
-        let calibrator =
-            HazardCurveCalibrator::new("AAPL", Seniority::Senior, 0.40, base_date, Currency::USD, "USD-OIS");
+        let calibrator = HazardCurveCalibrator::new(
+            "AAPL",
+            Seniority::Senior,
+            0.40,
+            base_date,
+            Currency::USD,
+            "USD-OIS",
+        );
         let solver = finstack_core::math::HybridSolver::new();
         let empty: Vec<InstrumentQuote> = vec![];
         let res = calibrator.bootstrap_curve(&empty, &solver, &disc);
@@ -448,33 +490,31 @@ mod tests {
         let disc = test_discount_curve();
 
         // Test with upfront quote
-        let upfront_quote = vec![
-            InstrumentQuote::CDSUpfront {
-                entity: "DISTRESSED".to_string(),
-                maturity: base_date + time::Duration::days(365),
-                upfront_pct: 5.0, // 5% upfront
-                running_spread_bp: 300.0, // 300bp running
-                recovery_rate: 0.25, // Lower recovery for distressed
-                currency: Currency::USD,
-            }
-        ];
+        let upfront_quote = vec![InstrumentQuote::CDSUpfront {
+            entity: "DISTRESSED".to_string(),
+            maturity: base_date + time::Duration::days(365),
+            upfront_pct: 5.0,         // 5% upfront
+            running_spread_bp: 300.0, // 300bp running
+            recovery_rate: 0.25,      // Lower recovery for distressed
+            currency: Currency::USD,
+        }];
 
         let calibrator = HazardCurveCalibrator::new(
-            "DISTRESSED", 
-            Seniority::Senior, 
-            0.25, 
-            base_date, 
-            Currency::USD, 
-            "USD-OIS"
+            "DISTRESSED",
+            Seniority::Senior,
+            0.25,
+            base_date,
+            Currency::USD,
+            "USD-OIS",
         );
         let solver = finstack_core::math::HybridSolver::new();
         let result = calibrator.bootstrap_curve(&upfront_quote, &solver, &disc);
-        
+
         // Should succeed and handle upfront quote properly
         assert!(result.is_ok());
         let (_curve, report) = result.unwrap();
         assert!(report.success);
-        
+
         // Check that residual key indicates upfront quote
         let upfront_residual_key = format!("CDS-UPFRONT-{}", base_date + time::Duration::days(365));
         assert!(report.residuals.contains_key(&upfront_residual_key));
@@ -483,17 +523,26 @@ mod tests {
     #[test]
     fn test_default_discount_curve_id_helpers() {
         // Test currency-based discount curve ID generation
-        assert_eq!(HazardCurveCalibrator::default_discount_curve_id(Currency::USD), "USD-OIS");
-        assert_eq!(HazardCurveCalibrator::default_discount_curve_id(Currency::EUR), "EUR-OIS");
-        assert_eq!(HazardCurveCalibrator::default_discount_curve_id(Currency::GBP), "GBP-OIS");
-        
+        assert_eq!(
+            HazardCurveCalibrator::default_discount_curve_id(Currency::USD),
+            "USD-OIS"
+        );
+        assert_eq!(
+            HazardCurveCalibrator::default_discount_curve_id(Currency::EUR),
+            "EUR-OIS"
+        );
+        assert_eq!(
+            HazardCurveCalibrator::default_discount_curve_id(Currency::GBP),
+            "GBP-OIS"
+        );
+
         // Test convenience constructor
         let calibrator = HazardCurveCalibrator::new_with_default_discount(
-            "TEST", 
-            Seniority::Senior, 
-            0.40, 
-            Date::from_calendar_date(2025, Month::January, 1).unwrap(), 
-            Currency::JPY
+            "TEST",
+            Seniority::Senior,
+            0.40,
+            Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+            Currency::JPY,
         );
         assert_eq!(calibrator.discount_curve_id, "JPY-OIS");
     }

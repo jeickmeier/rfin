@@ -164,7 +164,8 @@ impl SABRModel {
         } else if beta == 0.0 {
             (nu / alpha) * (effective_forward - effective_strike)
         } else {
-            (nu / alpha) * (effective_forward.powf(1.0 - beta) - effective_strike.powf(1.0 - beta)) / (1.0 - beta)
+            (nu / alpha) * (effective_forward.powf(1.0 - beta) - effective_strike.powf(1.0 - beta))
+                / (1.0 - beta)
         };
 
         // Enhanced ATM detection based on z
@@ -207,11 +208,11 @@ impl SABRModel {
                 + 0.25 * rho * beta * nu * alpha / f_mid_beta
                 + (2.0 - 3.0 * rho.powi(2)) / 24.0 * nu.powi(2)
         };
-        
+
         let factor3 = 1.0 + time_to_expiry * time_correction;
 
         let volatility = factor1 * factor2 * factor3;
-        
+
         // Validate result
         if volatility <= 0.0 || !volatility.is_finite() {
             return Err(Error::Internal); // Invalid volatility result
@@ -241,7 +242,7 @@ impl SABRModel {
             let alpha_term = alpha.powi(2) / (24.0 * forward.powi(2));
             let rho_term = 0.25 * rho * nu * alpha / forward;
             let nu_term = (2.0 - 3.0 * rho.powi(2)) / 24.0 * nu.powi(2);
-            
+
             alpha / forward * (1.0 + time_to_expiry * (alpha_term + rho_term + nu_term))
         } else {
             // General beta case with numerical protection
@@ -262,7 +263,7 @@ impl SABRModel {
             let nu_term = (2.0 - 3.0 * rho.powi(2)) / 24.0 * nu.powi(2);
 
             let time_correction = alpha_term + rho_term + nu_term;
-            
+
             alpha / f_beta * (1.0 + time_to_expiry * time_correction)
         };
 
@@ -309,11 +310,11 @@ impl SABRModel {
             // Standard case with numerical protection
             let numerator = sqrt_disc + z - rho;
             let denominator = 1.0 - rho;
-            
+
             if numerator <= 0.0 {
                 return Err(Error::Internal); // Would result in log of non-positive number
             }
-            
+
             Ok((numerator / denominator).ln())
         }
     }
@@ -432,11 +433,16 @@ impl SABRModel {
     /// Calculate implied volatility using Free-boundary SABR for negative rates
     ///
     /// This implementation handles negative forward rates by using |F_t|^β dynamics
-    pub fn implied_volatility_free_boundary(&self, forward: F, strike: F, time_to_expiry: F) -> Result<F> {
+    pub fn implied_volatility_free_boundary(
+        &self,
+        forward: F,
+        strike: F,
+        time_to_expiry: F,
+    ) -> Result<F> {
         // Free-boundary SABR uses absolute values in the dynamics
         let abs_forward = forward.abs();
         let abs_strike = strike.abs();
-        
+
         // For zero or very small absolute values, return ATM vol based on absolute forward
         if abs_forward < 1e-14 || abs_strike < 1e-14 {
             return self.atm_volatility(abs_forward.max(1e-14), time_to_expiry);
@@ -444,11 +450,12 @@ impl SABRModel {
 
         // Use standard SABR formula with absolute values
         let vol = self.implied_volatility_standard(abs_forward, abs_strike, time_to_expiry)?;
-        
+
         // Apply sign correction if forward and strike have different signs
         if forward.signum() != strike.signum() {
             // Cross-zero case: apply additional correction
-            let cross_correction = 1.0 + 0.1 * (forward - strike).abs() / (abs_forward + abs_strike);
+            let cross_correction =
+                1.0 + 0.1 * (forward - strike).abs() / (abs_forward + abs_strike);
             Ok(vol * cross_correction)
         } else {
             Ok(vol)
@@ -470,11 +477,7 @@ impl SABRModel {
 
         // Calculate intermediate values
         let f_mid = (forward * strike).sqrt();
-        let f_mid_beta = if beta == 0.0 {
-            1.0
-        } else {
-            f_mid.powf(beta)
-        };
+        let f_mid_beta = if beta == 0.0 { 1.0 } else { f_mid.powf(beta) };
 
         // Enhanced z calculation
         let z = if beta == 1.0 {
@@ -494,11 +497,12 @@ impl SABRModel {
 
         // Calculate correction factors
         let log_moneyness = (forward / strike).ln();
-        
+
         let factor1 = if beta == 0.0 {
             alpha // Normal model
         } else {
-            let correction = 1.0 + (1.0 - beta).powi(2) / 24.0 * log_moneyness.powi(2)
+            let correction = 1.0
+                + (1.0 - beta).powi(2) / 24.0 * log_moneyness.powi(2)
                 + (1.0 - beta).powi(4) / 1920.0 * log_moneyness.powi(4);
             alpha / (f_mid_beta * correction)
         };
@@ -521,10 +525,11 @@ impl SABRModel {
             // Normal SABR
             (2.0 - 3.0 * rho.powi(2)) / 24.0 * nu.powi(2)
         } else {
-            let alpha_term = (1.0 - beta).powi(2) / 24.0 * alpha.powi(2) / forward.powf(2.0 * (1.0 - beta));
+            let alpha_term =
+                (1.0 - beta).powi(2) / 24.0 * alpha.powi(2) / forward.powf(2.0 * (1.0 - beta));
             let rho_term = 0.25 * rho * beta * nu * alpha / f_mid_beta;
             let nu_term = (2.0 - 3.0 * rho.powi(2)) / 24.0 * nu.powi(2);
-            
+
             alpha_term + rho_term + nu_term
         }
     }
@@ -573,8 +578,13 @@ impl SABRCalibrator {
         beta: F,
     ) -> Result<SABRParameters> {
         // Check if we need shift for negative rates
-        let min_rate = forward.min(*strikes.iter().min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap());
-        
+        let min_rate = forward.min(
+            *strikes
+                .iter()
+                .min_by(|a, b| a.partial_cmp(b).unwrap())
+                .unwrap(),
+        );
+
         if min_rate < 0.0 {
             // Use shifted SABR
             let shift = (-min_rate + 0.001).max(0.001); // At least 10bps shift
@@ -609,10 +619,22 @@ impl SABRCalibrator {
         }
 
         // Calibrate using shifted rates
-        let base_params = self.calibrate(shifted_forward, &shifted_strikes, market_vols, time_to_expiry, beta)?;
-        
+        let base_params = self.calibrate(
+            shifted_forward,
+            &shifted_strikes,
+            market_vols,
+            time_to_expiry,
+            beta,
+        )?;
+
         // Return parameters with shift
-        SABRParameters::new_with_shift(base_params.alpha, beta, base_params.nu, base_params.rho, shift)
+        SABRParameters::new_with_shift(
+            base_params.alpha,
+            beta,
+            base_params.nu,
+            base_params.rho,
+            shift,
+        )
     }
 
     /// Calibrate SABR parameters to market implied volatilities
@@ -787,9 +809,14 @@ impl SABRSmile {
 
         for &strike in strikes {
             let vol = if self.use_free_boundary {
-                self.model.implied_volatility_free_boundary(self.forward, strike, self.time_to_expiry)?
+                self.model.implied_volatility_free_boundary(
+                    self.forward,
+                    strike,
+                    self.time_to_expiry,
+                )?
             } else {
-                self.model.implied_volatility(self.forward, strike, self.time_to_expiry)?
+                self.model
+                    .implied_volatility(self.forward, strike, self.time_to_expiry)?
             };
             vols.push(vol);
         }
@@ -1073,17 +1100,27 @@ mod tests {
         let forward = -0.005; // -50bps
         let strikes = vec![-0.01, -0.005, 0.0, 0.005, 0.01];
         let shift = 0.02; // 200bps shift
-        
+
         let params = SABRParameters::new_with_shift(0.2, 0.5, 0.3, -0.2, shift).unwrap(); // Higher alpha for more reasonable vols
         let model = SABRModel::new(params);
-        
+
         // Should handle negative rates correctly
         for &strike in &strikes {
             let vol = model.implied_volatility(forward, strike, 1.0);
             assert!(vol.is_ok(), "Failed for strike {}: {:?}", strike, vol);
             let vol_val = vol.unwrap();
-            assert!(vol_val > 0.0, "Non-positive volatility {} for strike {}", vol_val, strike);
-            assert!(vol_val < 10.0, "Unreasonably high volatility {} for strike {}", vol_val, strike);
+            assert!(
+                vol_val > 0.0,
+                "Non-positive volatility {} for strike {}",
+                vol_val,
+                strike
+            );
+            assert!(
+                vol_val < 10.0,
+                "Unreasonably high volatility {} for strike {}",
+                vol_val,
+                strike
+            );
         }
     }
 
@@ -1092,10 +1129,10 @@ mod tests {
         // Test free-boundary SABR with negative rates
         let params = SABRParameters::new(0.01, 0.5, 0.3, -0.2).unwrap();
         let model = SABRModel::new(params);
-        
+
         let forward = -0.002; // -20bps
         let strike = 0.002; // +20bps (cross-zero case)
-        
+
         let vol = model.implied_volatility_free_boundary(forward, strike, 1.0);
         assert!(vol.is_ok());
         assert!(vol.unwrap() > 0.0);
@@ -1106,7 +1143,7 @@ mod tests {
         // Test enhanced ATM stability with very close strikes
         let params = SABRParameters::new(0.2, 0.5, 0.3, -0.1).unwrap();
         let model = SABRModel::new(params);
-        
+
         let forward = 0.025;
         let strikes = vec![
             forward - 1e-10,
@@ -1115,17 +1152,23 @@ mod tests {
             forward + 1e-12,
             forward + 1e-10,
         ];
-        
+
         // All should give very similar results (ATM case)
         let mut vols = Vec::new();
         for &strike in &strikes {
             let vol = model.implied_volatility(forward, strike, 1.0).unwrap();
             vols.push(vol);
         }
-        
+
         // Check all ATM-like volatilities are similar with practical tolerance
-        let vol_range = vols.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap()
-            - vols.iter().min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
+        let vol_range = vols
+            .iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap()
+            - vols
+                .iter()
+                .min_by(|a, b| a.partial_cmp(b).unwrap())
+                .unwrap();
         assert!(vol_range < 1e-2); // Practical tolerance for numerical precision in ATM case
     }
 
@@ -1137,23 +1180,28 @@ mod tests {
         let market_vols = vec![0.015, 0.012, 0.010, 0.011, 0.013]; // More reasonable vols for rates
         let time_to_expiry = 0.5;
         let beta = 0.0; // Normal model for rates
-        
+
         let calibrator = SABRCalibrator::new().with_tolerance(1e-4); // Relaxed tolerance for difficult calibration
         let params = calibrator
             .calibrate_auto_shift(forward, &strikes, &market_vols, time_to_expiry, beta)
             .unwrap();
-        
+
         // Should have detected need for shift
         assert!(params.is_shifted());
         assert!(params.shift().unwrap() > 0.0);
-        
+
         // Check model works with negative rates
         let model = SABRModel::new(params);
         for &strike in &strikes {
             let vol = model.implied_volatility(forward, strike, time_to_expiry);
             assert!(vol.is_ok(), "Failed for strike {}: {:?}", strike, vol);
             let vol_val = vol.unwrap();
-            assert!(vol_val > 0.0, "Non-positive volatility {} for strike {}", vol_val, strike);
+            assert!(
+                vol_val > 0.0,
+                "Non-positive volatility {} for strike {}",
+                vol_val,
+                strike
+            );
         }
     }
 
@@ -1162,10 +1210,10 @@ mod tests {
         // Test with extreme but valid parameters
         let params = SABRParameters::new(0.01, 0.1, 0.1, 0.9).unwrap();
         let model = SABRModel::new(params);
-        
+
         let forward = 0.001; // Very low rate
         let strikes = vec![0.0005, 0.001, 0.002];
-        
+
         for &strike in &strikes {
             let vol = model.implied_volatility(forward, strike, 5.0); // Long maturity
             assert!(vol.is_ok());
@@ -1180,7 +1228,7 @@ mod tests {
         // Test chi function with various extreme cases
         let params = SABRParameters::new(0.2, 0.5, 0.3, 0.95).unwrap(); // High rho
         let model = SABRModel::new(params);
-        
+
         // Test small z values
         let small_z_values = vec![1e-8, 1e-6, 1e-4];
         for z in small_z_values {
@@ -1188,13 +1236,13 @@ mod tests {
             assert!(chi.is_ok());
             assert!(chi.unwrap().is_finite());
         }
-        
+
         // Test rho ≈ 1 case
         let params_rho_one = SABRParameters::new(0.2, 0.5, 0.3, 0.999).unwrap();
         let model_rho_one = SABRModel::new(params_rho_one);
         let chi_rho_one = model_rho_one.calculate_chi_robust(0.1);
         assert!(chi_rho_one.is_ok());
-        
+
         // Test rho ≈ -1 case
         let params_rho_minus_one = SABRParameters::new(0.2, 0.5, 0.3, -0.999).unwrap();
         let model_rho_minus_one = SABRModel::new(params_rho_minus_one);
@@ -1208,18 +1256,18 @@ mod tests {
         let params = SABRParameters::new(0.01, 0.5, 0.3, -0.2).unwrap();
         let model = SABRModel::new(params);
         let forward = -0.001; // Negative forward
-        
+
         let smile = SABRSmile::new_free_boundary(model, forward, 1.0);
         let strikes = vec![-0.005, -0.001, 0.0, 0.003, 0.006];
-        
+
         let vols = smile.generate_smile(&strikes).unwrap();
-        
+
         // All volatilities should be positive and finite
         for vol in &vols {
             assert!(*vol > 0.0);
             assert!(vol.is_finite());
         }
-        
+
         // Cross-zero strikes should have higher volatilities due to correction
         let negative_vol = vols[0]; // Strike -0.005
         let positive_vol = vols[4]; // Strike 0.006

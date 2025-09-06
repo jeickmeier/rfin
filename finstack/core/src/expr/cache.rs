@@ -73,8 +73,7 @@ pub struct CacheStats {
     pub memory_usage: usize,
 }
 
-impl CacheStats {
-}
+impl CacheStats {}
 
 impl ExpressionCache {
     /// Create a new expression cache with the given memory budget.

@@ -49,8 +49,8 @@ mod valuations;
 
 /// Import IMM helper functions for registration
 use core::dates::{
-    py_next_cds_date, py_next_imm, py_third_wednesday,
-    py_third_friday, py_next_equity_option_expiry, py_imm_option_expiry,
+    py_imm_option_expiry, py_next_cds_date, py_next_equity_option_expiry, py_next_imm,
+    py_third_friday, py_third_wednesday,
 };
 
 /// Main Python module initialization
@@ -104,7 +104,10 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     dates_module.add_function(pyo3::wrap_pyfunction!(py_next_imm, &dates_module)?)?;
     dates_module.add_function(pyo3::wrap_pyfunction!(py_next_cds_date, &dates_module)?)?;
     dates_module.add_function(pyo3::wrap_pyfunction!(py_third_friday, &dates_module)?)?;
-    dates_module.add_function(pyo3::wrap_pyfunction!(py_next_equity_option_expiry, &dates_module)?)?;
+    dates_module.add_function(pyo3::wrap_pyfunction!(
+        py_next_equity_option_expiry,
+        &dates_module
+    )?)?;
     dates_module.add_function(pyo3::wrap_pyfunction!(py_imm_option_expiry, &dates_module)?)?;
     dates_module.add_function(pyo3::wrap_pyfunction!(
         core::dates::py_build_periods,

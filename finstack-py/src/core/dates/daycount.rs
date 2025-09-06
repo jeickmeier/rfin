@@ -162,7 +162,7 @@ impl PyDayCount {
 
     /// Create an ACT/ACT (ISMA) day count convention.
     ///
-    /// Uses actual days in both numerator and denominator with coupon-period 
+    /// Uses actual days in both numerator and denominator with coupon-period
     /// awareness. Unlike ACT/ACT (ISDA), this variant ensures equal valuation
     /// of days within each coupon period, making it ideal for bonds and credit
     /// instruments with regular coupon payments.
@@ -289,7 +289,11 @@ impl PyDayCount {
     #[pyo3(text_signature = "(self, start, end)")]
     pub fn year_fraction(&self, start: &PyDate, end: &PyDate) -> PyResult<f64> {
         self.inner
-            .year_fraction(start.inner(), end.inner(), finstack_core::dates::DayCountCtx::default())
+            .year_fraction(
+                start.inner(),
+                end.inner(),
+                finstack_core::dates::DayCountCtx::default(),
+            )
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
     }
 
@@ -318,14 +322,21 @@ impl PyDayCount {
     ///     >>> yf = dc.year_fraction_with_frequency(start, end, Frequency.SemiAnnual)
     ///     >>> print(f"Semi-annual ISMA year fraction: {yf:.6f}")
     pub fn year_fraction_with_frequency(
-        &self, 
-        start: &PyDate, 
-        end: &PyDate, 
-        frequency: &super::schedule::PyFrequency
+        &self,
+        start: &PyDate,
+        end: &PyDate,
+        frequency: &super::schedule::PyFrequency,
     ) -> PyResult<f64> {
         let freq = (*frequency).into();
         self.inner
-            .year_fraction(start.inner(), end.inner(), finstack_core::dates::DayCountCtx { calendar: None, frequency: Some(freq) })
+            .year_fraction(
+                start.inner(),
+                end.inner(),
+                finstack_core::dates::DayCountCtx {
+                    calendar: None,
+                    frequency: Some(freq),
+                },
+            )
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
     }
 

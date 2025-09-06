@@ -18,7 +18,7 @@ impl SimpleContext {
             .enumerate()
             .map(|(idx, name)| (name.into(), idx))
             .collect();
-        
+
         Self { column_indices }
     }
     /// Find the index of a column by name.

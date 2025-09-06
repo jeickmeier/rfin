@@ -54,7 +54,6 @@ impl Expr {
         self.id = Some(id);
         self
     }
-
 }
 
 /// Hash implementation for Expr to support deduplication in DAG planning.

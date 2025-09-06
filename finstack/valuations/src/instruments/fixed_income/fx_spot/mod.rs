@@ -135,9 +135,13 @@ impl_instrument!(
             return Ok(Money::new(quote_amount, s.quote));
         }
         let matrix = curves.fx.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "fx_matrix".to_string(),
+            })
         })?;
-        struct MatrixProvider<'a> { m: &'a finstack_core::money::fx::FxMatrix }
+        struct MatrixProvider<'a> {
+            m: &'a finstack_core::money::fx::FxMatrix,
+        }
         impl finstack_core::money::fx::FxProvider for MatrixProvider<'_> {
             fn rate(
                 &self,
@@ -159,7 +163,8 @@ impl_instrument!(
         }
         let provider = MatrixProvider { m: matrix };
         let policy = finstack_core::money::fx::FxConversionPolicy::CashflowDate;
-        s.effective_notional().convert(s.quote, as_of, &provider, policy)
+        s.effective_notional()
+            .convert(s.quote, as_of, &provider, policy)
     }
 );
 
@@ -206,7 +211,9 @@ impl CashflowProvider for FxSpot {
         if settle_date > as_of {
             // Future settlement - require spot rate to be available
             let rate = self.spot_rate.ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: "fx_matrix".to_string(),
+                })
             })?;
             let value = Money::new(self.effective_notional().amount() * rate, self.quote);
             Ok(vec![(settle_date, value)])

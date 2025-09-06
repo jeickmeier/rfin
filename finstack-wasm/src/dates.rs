@@ -4,12 +4,12 @@
 //! Provides simple constructor and accessors so that JS/TS consumers can
 //! create and inspect calendar dates.
 
+use finstack_core::dates::Date as CoreDate;
+use finstack_core::dates::DateExt;
 use finstack_core::dates::DayCount as CoreDayCount;
 use finstack_core::dates::{
     next_cds_date as core_next_cds, next_imm as core_next_imm, third_wednesday as core_third_wed,
 };
-use finstack_core::dates::Date as CoreDate;
-use finstack_core::dates::DateExt;
 use time::Month;
 use wasm_bindgen::prelude::*;
 
@@ -190,8 +190,12 @@ pub fn day_count_year_fraction(
     end: &Date,
 ) -> Result<f64, JsValue> {
     let core = CoreDayCount::from(convention);
-    core.year_fraction(start.inner(), end.inner(), finstack_core::dates::DayCountCtx::default())
-        .map_err(|e| JsValue::from_str(&e.to_string()))
+    core.year_fraction(
+        start.inner(),
+        end.inner(),
+        finstack_core::dates::DayCountCtx::default(),
+    )
+    .map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
 /// Return the third Wednesday of the given `month` (1-12) and `year`.

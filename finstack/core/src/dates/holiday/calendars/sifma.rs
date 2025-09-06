@@ -3,10 +3,10 @@ use time::{Month, Weekday};
 
 /// SIFMA recommended U.S. bond-market holiday calendar (code: SIFMA).
 ///
-/// **Source**: SIFMA (Securities Industry and Financial Markets Association) 
+/// **Source**: SIFMA (Securities Industry and Financial Markets Association)
 /// recommended holidays for U.S. bond market operations.
 ///
-/// **Observance Policy**: 
+/// **Observance Policy**:
 /// - Fixed holidays (New Year, Juneteenth, Independence Day, Christmas) use weekend substitution
 /// - Veterans Day (November 11) is observed only when it falls on a weekday
 /// - Columbus Day (second Monday in October) is always observed

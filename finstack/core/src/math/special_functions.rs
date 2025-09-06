@@ -117,7 +117,7 @@ pub fn standard_normal_inv_cdf(p: F) -> F {
     // Handle boundary cases with smooth transitions to avoid discontinuities
     const EPSILON: F = 1e-15;
     const EXTREME_TAIL_THRESHOLD: F = 1e-12;
-    
+
     if p <= EPSILON {
         return -10.0; // Increased range for better tail coverage
     }
@@ -134,8 +134,8 @@ pub fn standard_normal_inv_cdf(p: F) -> F {
         let s = (-2.0 * p.ln()).sqrt();
         let s2 = s * s;
         let s3 = s2 * s;
-        return -(s - (2.30753 + 0.27061 * s) / (1.0 + (0.99229 + 0.04481 * s) * s) 
-                 - (2.0 / s3) + (2.0 / (s3 * s2)));
+        return -(s - (2.30753 + 0.27061 * s) / (1.0 + (0.99229 + 0.04481 * s) * s) - (2.0 / s3)
+            + (2.0 / (s3 * s2)));
     }
     if p > 1.0 - EXTREME_TAIL_THRESHOLD {
         return -standard_normal_inv_cdf(1.0 - p);
@@ -252,45 +252,74 @@ mod tests {
     fn test_extreme_tail_behavior() {
         // Test enhanced tail behavior for extreme values critical to copula models
         let extreme_values = [1e-12, 1e-10, 1e-8, 1e-6];
-        
+
         for &p in &extreme_values {
             let x_low = standard_normal_inv_cdf(p);
             let x_high = standard_normal_inv_cdf(1.0 - p);
-            
+
             // Inverse CDF should be finite and reasonable
-            assert!(x_low.is_finite(), "Inverse CDF should be finite for p={}", p);
-            assert!(x_high.is_finite(), "Inverse CDF should be finite for p={}", 1.0 - p);
-            
+            assert!(
+                x_low.is_finite(),
+                "Inverse CDF should be finite for p={}",
+                p
+            );
+            assert!(
+                x_high.is_finite(),
+                "Inverse CDF should be finite for p={}",
+                1.0 - p
+            );
+
             // Should maintain approximate symmetry (allow for numerical precision limits)
             let symmetry_error = (x_low + x_high).abs();
             assert!(
                 symmetry_error < 0.01, // Relaxed tolerance for extreme tail behavior
                 "Symmetry violated: x_low={}, x_high={} for p={}, error={}",
-                x_low, x_high, p, symmetry_error
+                x_low,
+                x_high,
+                p,
+                symmetry_error
             );
-            
+
             // CDF should be stable in extreme tails
             let p_back_low = norm_cdf(x_low);
             let p_back_high = norm_cdf(x_high);
-            
-            assert!(p_back_low.is_finite(), "CDF should be finite for x={}", x_low);
-            assert!(p_back_high.is_finite(), "CDF should be finite for x={}", x_high);
-            
+
+            assert!(
+                p_back_low.is_finite(),
+                "CDF should be finite for x={}",
+                x_low
+            );
+            assert!(
+                p_back_high.is_finite(),
+                "CDF should be finite for x={}",
+                x_high
+            );
+
             // Should be bounded properly
             assert!((0.0..=1.0).contains(&p_back_low));
             assert!((0.0..=1.0).contains(&p_back_high));
-            
+
             // Test roundtrip accuracy in tail regions (more forgiving tolerance)
             if p >= 1e-10 {
                 let roundtrip_error_low = (p - p_back_low).abs() / p; // Relative error
                 let roundtrip_error_high = ((1.0 - p) - p_back_high).abs() / (1.0 - p);
-                
-                assert!(roundtrip_error_low < 0.1, // 10% relative error tolerance in extreme tails
+
+                assert!(
+                    roundtrip_error_low < 0.1, // 10% relative error tolerance in extreme tails
                     "Poor roundtrip accuracy in tail: p={}, x={}, p_back={}, rel_error={}",
-                    p, x_low, p_back_low, roundtrip_error_low);
-                assert!(roundtrip_error_high < 0.1,
+                    p,
+                    x_low,
+                    p_back_low,
+                    roundtrip_error_low
+                );
+                assert!(
+                    roundtrip_error_high < 0.1,
                     "Poor roundtrip accuracy in tail: p={}, x={}, p_back={}, rel_error={}",
-                    1.0 - p, x_high, p_back_high, roundtrip_error_high);
+                    1.0 - p,
+                    x_high,
+                    p_back_high,
+                    roundtrip_error_high
+                );
             }
         }
     }
@@ -298,27 +327,53 @@ mod tests {
     #[test]
     fn test_numerical_stability_correlations() {
         // Test numerical stability for extreme correlation values used in copula models
-        let extreme_correlations = [1e-10, 1e-8, 1e-6, 0.001, 0.999, 1.0 - 1e-6, 1.0 - 1e-8, 1.0 - 1e-10];
-        
+        let extreme_correlations = [
+            1e-10,
+            1e-8,
+            1e-6,
+            0.001,
+            0.999,
+            1.0 - 1e-6,
+            1.0 - 1e-8,
+            1.0 - 1e-10,
+        ];
+
         for &rho in &extreme_correlations {
             let sqrt_rho = (rho as F).sqrt();
             let sqrt_one_minus_rho = ((1.0 - rho) as F).sqrt();
-            
+
             // These should be finite and reasonable
-            assert!(sqrt_rho.is_finite(), "sqrt(ρ) should be finite for ρ={}", rho);
-            assert!(sqrt_one_minus_rho.is_finite(), "sqrt(1-ρ) should be finite for ρ={}", rho);
-            
+            assert!(
+                sqrt_rho.is_finite(),
+                "sqrt(ρ) should be finite for ρ={}",
+                rho
+            );
+            assert!(
+                sqrt_one_minus_rho.is_finite(),
+                "sqrt(1-ρ) should be finite for ρ={}",
+                rho
+            );
+
             // Test conditional probability calculation stability
             let default_threshold = standard_normal_inv_cdf(0.05); // 5% default prob
             for market_factor in [-3.0, -1.0, 0.0, 1.0, 3.0] {
-                let conditional_threshold = (default_threshold - sqrt_rho * market_factor) / sqrt_one_minus_rho;
+                let conditional_threshold =
+                    (default_threshold - sqrt_rho * market_factor) / sqrt_one_minus_rho;
                 let cond_prob = norm_cdf(conditional_threshold);
-                
-                assert!(cond_prob.is_finite(), 
-                    "Conditional probability should be finite for ρ={}, Z={}", rho, market_factor);
-                assert!((0.0..=1.0).contains(&cond_prob),
-                    "Conditional probability should be in [0,1]: got {} for ρ={}, Z={}", 
-                    cond_prob, rho, market_factor);
+
+                assert!(
+                    cond_prob.is_finite(),
+                    "Conditional probability should be finite for ρ={}, Z={}",
+                    rho,
+                    market_factor
+                );
+                assert!(
+                    (0.0..=1.0).contains(&cond_prob),
+                    "Conditional probability should be in [0,1]: got {} for ρ={}, Z={}",
+                    cond_prob,
+                    rho,
+                    market_factor
+                );
             }
         }
     }

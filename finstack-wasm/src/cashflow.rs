@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use finstack_core::dates::DayCount as CoreDayCount;
 use finstack_core::dates::{BusinessDayConvention, StubKind};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
 use finstack_core::market_data::interp::InterpStyle;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
 use finstack_core::market_data::traits::Discount as _;
 use finstack_valuations::cashflow::builder::{cf, CashFlowSchedule, CouponType, FixedCouponSpec};
 use finstack_valuations::instruments::fixed_income::discountable::Discountable;
@@ -129,7 +129,11 @@ impl FixedRateLeg {
         let elapsed_yf = self
             .inner
             .day_count
-            .year_fraction(prev_date, val_date_inner, finstack_core::dates::DayCountCtx::default())
+            .year_fraction(
+                prev_date,
+                val_date_inner,
+                finstack_core::dates::DayCountCtx::default(),
+            )
             .unwrap_or(0.0);
 
         (self.inner.notional.initial * (coupon_rate * elapsed_yf)).amount()

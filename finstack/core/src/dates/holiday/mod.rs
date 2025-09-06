@@ -48,10 +48,14 @@ macro_rules! impl_calendar_delegate {
         pub struct $ty;
         impl $ty {
             #[inline]
-            pub const fn id(self) -> &'static str { $id }
+            pub const fn id(self) -> &'static str {
+                $id
+            }
         }
         impl $crate::dates::calendar::HolidayCalendar for $ty {
-            fn is_holiday(&self, date: $crate::dates::Date) -> bool { $delegate.is_holiday(date) }
+            fn is_holiday(&self, date: $crate::dates::Date) -> bool {
+                $delegate.is_holiday(date)
+            }
         }
     };
 }

@@ -63,7 +63,9 @@ fn irs_par_rate_matches_forward_rate() {
     let disc = flat_df_curve("USD-OIS", base, 1.0);
     let fwd_rate = 0.05;
     let fwd = flat_fwd_curve("USD-SOFR3M", base, fwd_rate);
-    let curves = MarketContext::new().insert_discount(disc).insert_forward(fwd);
+    let curves = MarketContext::new()
+        .insert_discount(disc)
+        .insert_forward(fwd);
 
     let irs = irs::InterestRateSwap {
         id: "IRS-TEST".into(),
@@ -140,7 +142,9 @@ fn irs_dv01_sign_and_magnitude() {
     let disc = flat_df_curve("USD-OIS", base, 1.0);
     let fwd_rate = 0.04;
     let fwd = flat_fwd_curve("USD-SOFR3M", base, fwd_rate);
-    let curves = MarketContext::new().insert_discount(disc).insert_forward(fwd);
+    let curves = MarketContext::new()
+        .insert_discount(disc)
+        .insert_forward(fwd);
 
     // Receive-fixed swap
     let irs_recv = irs::InterestRateSwap {

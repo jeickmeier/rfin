@@ -51,8 +51,14 @@ impl CalibrationOrchestrator {
     }
 
     /// Add entity-specific seniority mapping.
-    pub fn with_entity_seniority(mut self, entity: impl Into<String>, seniority: Seniority) -> Self {
-        self.config.entity_seniority.insert(entity.into(), seniority);
+    pub fn with_entity_seniority(
+        mut self,
+        entity: impl Into<String>,
+        seniority: Seniority,
+    ) -> Self {
+        self.config
+            .entity_seniority
+            .insert(entity.into(), seniority);
         self
     }
 
@@ -73,10 +79,10 @@ impl CalibrationOrchestrator {
     ) -> Result<(MarketContext, CalibrationReport)> {
         // Build dependency DAG from quotes
         let dag = CalibrationDAG::from_quotes(quotes, self.base_currency, self.base_date)?;
-        
+
         // Get calibration order using topological sort
         let calibration_batches = dag.topological_sort()?;
-        
+
         let mut context = MarketContext::new();
         let mut all_residuals = HashMap::new();
         let mut total_iterations = 0;
@@ -85,7 +91,7 @@ impl CalibrationOrchestrator {
         // Execute calibration batches in order
         for (batch_idx, batch) in calibration_batches.iter().enumerate() {
             let mut batch_reports = Vec::new();
-            
+
             // In the future, this could be parallelized since targets in the same batch are independent
             for target in batch {
                 let target_quotes = dag.quotes_for_target(target);
@@ -120,10 +126,22 @@ impl CalibrationOrchestrator {
             .with_iterations(total_iterations)
             .with_convergence_reason("DAG-based market calibration completed")
             .with_metadata("stages".to_string(), calibration_stages.join(", "))
-            .with_metadata("base_currency".to_string(), format!("{}", self.base_currency))
-            .with_metadata("calibration_batches".to_string(), format!("{}", dag_stats.calibration_batches))
-            .with_metadata("max_parallelism".to_string(), format!("{}", dag_stats.max_parallelism))
-            .with_metadata("estimated_speedup".to_string(), format!("{:.2}x", dag_stats.estimated_speedup));
+            .with_metadata(
+                "base_currency".to_string(),
+                format!("{}", self.base_currency),
+            )
+            .with_metadata(
+                "calibration_batches".to_string(),
+                format!("{}", dag_stats.calibration_batches),
+            )
+            .with_metadata(
+                "max_parallelism".to_string(),
+                format!("{}", dag_stats.max_parallelism),
+            )
+            .with_metadata(
+                "estimated_speedup".to_string(),
+                format!("{:.2}x", dag_stats.estimated_speedup),
+            );
 
         Ok((context, final_report))
     }
@@ -143,33 +161,49 @@ impl CalibrationOrchestrator {
                 // Filter only rates quotes relevant for yield curve bootstrapping
                 let rates_quotes: Vec<InstrumentQuote> = quotes
                     .iter()
-                    .filter(|q| matches!(q,
-                        InstrumentQuote::Deposit { .. }
-                        | InstrumentQuote::FRA { .. }
-                        | InstrumentQuote::Future { .. }
-                        | InstrumentQuote::Swap { .. }
-                    ))
+                    .filter(|q| {
+                        matches!(
+                            q,
+                            InstrumentQuote::Deposit { .. }
+                                | InstrumentQuote::FRA { .. }
+                                | InstrumentQuote::Future { .. }
+                                | InstrumentQuote::Swap { .. }
+                        )
+                    })
                     .cloned()
                     .collect();
 
                 if rates_quotes.is_empty() {
                     // Nothing to calibrate for discount curve in this batch
-                    return Ok((context.clone(), CalibrationReport::new().success().with_convergence_reason("No rates quotes for discount curve")));
+                    return Ok((
+                        context.clone(),
+                        CalibrationReport::new()
+                            .success()
+                            .with_convergence_reason("No rates quotes for discount curve"),
+                    ));
                 }
 
                 let (curve, report) = calibrator.calibrate(&rates_quotes, context)?;
                 let updated_context = context.clone().insert_discount(curve);
                 Ok((updated_context, report))
             }
-            CalibrationTarget::ForwardCurve { currency: _, tenor: _ } => {
+            CalibrationTarget::ForwardCurve {
+                currency: _,
+                tenor: _,
+            } => {
                 // Forward curve calibration not yet implemented in DAG system
                 // Would use ForwardCurveCalibrator when available
-                Ok((context.clone(), CalibrationReport::new().success().with_convergence_reason("Forward curve calibration skipped (not implemented)")))
+                Ok((
+                    context.clone(),
+                    CalibrationReport::new().success().with_convergence_reason(
+                        "Forward curve calibration skipped (not implemented)",
+                    ),
+                ))
             }
             CalibrationTarget::HazardCurve { entity, seniority } => {
                 // Extract recovery rate and currency from quotes
                 let (recovery_rate, currency) = self.extract_hazard_params_from_quotes(quotes)?;
-                
+
                 let calibrator = HazardCurveCalibrator::new(
                     entity,
                     *seniority,
@@ -199,8 +233,9 @@ impl CalibrationOrchestrator {
             }
             CalibrationTarget::VolatilitySurface { underlying } => {
                 // Determine appropriate grid and SABR beta from underlying
-                let (expiry_grid, strike_grid, beta) = self.determine_vol_surface_params(underlying, quotes)?;
-                
+                let (expiry_grid, strike_grid, beta) =
+                    self.determine_vol_surface_params(underlying, quotes)?;
+
                 let calibrator = VolSurfaceCalibrator::new(
                     format!("{}-VOL", underlying),
                     beta,
@@ -213,7 +248,10 @@ impl CalibrationOrchestrator {
                 let updated_context = context.clone().insert_surface(surface);
                 Ok((updated_context, report))
             }
-            CalibrationTarget::BaseCorrelationCurve { index, maturity_years } => {
+            CalibrationTarget::BaseCorrelationCurve {
+                index,
+                maturity_years,
+            } => {
                 let calibrator = BaseCorrelationCalibrator::new(
                     index,
                     42, // Default series number, should be configurable
@@ -224,15 +262,11 @@ impl CalibrationOrchestrator {
                 // Convert to ValuationMarketContext for base correlation calibration
                 let val_context = ValuationMarketContext::from_core(context.clone());
                 let solver = calibrator.config.make_solver();
-                let (curve, report) = calibrator.bootstrap_curve(
-                    quotes, 
-                    &solver, 
-                    &val_context
-                )?;
+                let (curve, report) = calibrator.bootstrap_curve(quotes, &solver, &val_context)?;
 
                 // Use the original curve directly since it already has the right data
                 let curve_with_id = curve;
-                
+
                 let updated_context = context.clone().insert_base_correlation(curve_with_id);
                 Ok((updated_context, report))
             }
@@ -240,13 +274,24 @@ impl CalibrationOrchestrator {
     }
 
     /// Extract hazard curve parameters from CDS quotes.
-    fn extract_hazard_params_from_quotes(&self, quotes: &[InstrumentQuote]) -> Result<(F, Currency)> {
+    fn extract_hazard_params_from_quotes(
+        &self,
+        quotes: &[InstrumentQuote],
+    ) -> Result<(F, Currency)> {
         for quote in quotes {
             match quote {
-                InstrumentQuote::CDS { recovery_rate, currency, .. } => {
+                InstrumentQuote::CDS {
+                    recovery_rate,
+                    currency,
+                    ..
+                } => {
                     return Ok((*recovery_rate, *currency));
                 }
-                InstrumentQuote::CDSUpfront { recovery_rate, currency, .. } => {
+                InstrumentQuote::CDSUpfront {
+                    recovery_rate,
+                    currency,
+                    ..
+                } => {
                     return Ok((*recovery_rate, *currency));
                 }
                 _ => {}
@@ -257,7 +302,11 @@ impl CalibrationOrchestrator {
     }
 
     /// Determine volatility surface parameters from option quotes.
-    fn determine_vol_surface_params(&self, underlying: &str, quotes: &[InstrumentQuote]) -> Result<(Vec<F>, Vec<F>, F)> {
+    fn determine_vol_surface_params(
+        &self,
+        underlying: &str,
+        quotes: &[InstrumentQuote],
+    ) -> Result<(Vec<F>, Vec<F>, F)> {
         let mut expiries = std::collections::HashSet::new();
         let mut strikes = std::collections::HashSet::new();
 
@@ -269,16 +318,10 @@ impl CalibrationOrchestrator {
             }
         }
 
-        let mut expiry_grid: Vec<F> = expiries
-            .into_iter()
-            .map(|e| e as F / 1000.0)
-            .collect();
+        let mut expiry_grid: Vec<F> = expiries.into_iter().map(|e| e as F / 1000.0).collect();
         expiry_grid.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
-        let mut strike_grid: Vec<F> = strikes
-            .into_iter()
-            .map(|s| s as F / 100.0)
-            .collect();
+        let mut strike_grid: Vec<F> = strikes.into_iter().map(|s| s as F / 100.0).collect();
         strike_grid.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
         // Determine SABR beta based on asset class
@@ -294,8 +337,6 @@ impl CalibrationOrchestrator {
     // Removed legacy sequential calibration in favor of DAG-based `calibrate_market`.
 
     // (legacy discount curve stage removed)
-
- 
 
     /// Calibrate hazard curves for different entities.
     #[allow(dead_code)]
@@ -341,13 +382,23 @@ impl CalibrationOrchestrator {
 
             // Extract recovery rate and currency from first quote
             let (recovery_rate, currency) = match entity_quotes[0] {
-                InstrumentQuote::CDS { recovery_rate, currency, .. } => (*recovery_rate, *currency),
-                InstrumentQuote::CDSUpfront { recovery_rate, currency, .. } => (*recovery_rate, *currency),
+                InstrumentQuote::CDS {
+                    recovery_rate,
+                    currency,
+                    ..
+                } => (*recovery_rate, *currency),
+                InstrumentQuote::CDSUpfront {
+                    recovery_rate,
+                    currency,
+                    ..
+                } => (*recovery_rate, *currency),
                 _ => (0.4, self.base_currency), // Fallback to defaults
             };
 
             // Use entity-specific seniority from config, defaulting to Senior
-            let seniority = self.config.entity_seniority
+            let seniority = self
+                .config
+                .entity_seniority
                 .get(&entity)
                 .copied()
                 .unwrap_or(Seniority::Senior);
@@ -413,9 +464,9 @@ impl CalibrationOrchestrator {
             let base_cpi = self.get_base_cpi_from_context(context, &index)?;
 
             let calibrator = InflationCurveCalibrator::new(
-                &index, 
-                self.base_date, 
-                self.base_currency, 
+                &index,
+                self.base_date,
+                self.base_currency,
                 base_cpi,
                 HazardCurveCalibrator::default_discount_curve_id(self.base_currency),
             );
@@ -510,8 +561,7 @@ impl CalibrationOrchestrator {
                 underlying_quotes.iter().map(|&q| q.clone()).collect();
 
             // Build asset-specific forward function from market context
-            let forward_fn = match forward_fn_auto(_context, &underlying, self.base_currency)
-            {
+            let forward_fn = match forward_fn_auto(_context, &underlying, self.base_currency) {
                 Ok(fwd_fn) => fwd_fn,
                 Err(_) => {
                     // Skip this underlying if we can't build forward function
@@ -596,11 +646,7 @@ impl CalibrationOrchestrator {
                 let val_context = ValuationMarketContext::from_core(context.clone());
 
                 let solver = calibrator.config.make_solver();
-                match calibrator.bootstrap_curve(
-                    &maturity_quote_vec,
-                    &solver,
-                    &val_context,
-                ) {
+                match calibrator.bootstrap_curve(&maturity_quote_vec, &solver, &val_context) {
                     Ok((curve, report)) => {
                         curves_by_maturity
                             .insert(HashableFloat::new(maturity_years), (curve, report));
@@ -618,8 +664,6 @@ impl CalibrationOrchestrator {
 
         Ok(results)
     }
-
-
 
     /// Merge report data from individual calibrations.
     fn merge_report_data(
@@ -674,10 +718,11 @@ impl CalibrationOrchestrator {
 
         // No valid source found
         Err(finstack_core::Error::Input(
-            finstack_core::error::InputError::NotFound { id: "calibration_data".to_string() },
+            finstack_core::error::InputError::NotFound {
+                id: "calibration_data".to_string(),
+            },
         ))
     }
-
 
     /// Validate complete market environment for no-arbitrage conditions.
     pub fn validate_market_environment(
@@ -721,7 +766,7 @@ impl CalibrationOrchestrator {
 mod tests {
     use super::*;
     use finstack_core::dates::{Date, DayCount, Frequency};
-    
+
     use time::Month;
 
     fn create_test_market_quotes() -> Vec<InstrumentQuote> {

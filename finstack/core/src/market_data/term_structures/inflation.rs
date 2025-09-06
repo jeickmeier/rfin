@@ -21,7 +21,7 @@
 extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 
-use crate::market_data::interp::{InterpStyle, ExtrapolationPolicy};
+use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     error::InputError,
     market_data::interp::InterpFn,
@@ -153,7 +153,11 @@ impl InflationCurveBuilder {
         crate::market_data::utils::validate_knots(&kvec)?;
         let knots = kvec.into_boxed_slice();
         let cpi_levels = cvec.into_boxed_slice();
-        let interp = self.style.build(knots.clone(), cpi_levels.clone(), ExtrapolationPolicy::default())?;
+        let interp = self.style.build(
+            knots.clone(),
+            cpi_levels.clone(),
+            ExtrapolationPolicy::default(),
+        )?;
         Ok(InflationCurve {
             id: CurveId::new(&self.id),
             base_cpi: self.base_cpi,

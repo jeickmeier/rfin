@@ -2,10 +2,7 @@
 
 use finstack_core::{
     dates::Date,
-    market_data::{
-        interp::ExtrapolationPolicy,
-        term_structures::DiscountCurve,
-    },
+    market_data::{interp::ExtrapolationPolicy, term_structures::DiscountCurve},
     F,
 };
 use time::Month;
@@ -99,7 +96,7 @@ fn test_non_monotonic_without_validation() {
     let result = DiscountCurve::builder("NON-MONOTONIC")
         .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
         .knots([(0.0, 1.0), (1.0, 0.95), (2.0, 0.96), (5.0, 0.78)])
-        .set_interp(finstack_core::market_data::interp::InterpStyle::Linear)  // Use linear instead of monotone_convex for non-monotonic data
+        .set_interp(finstack_core::market_data::interp::InterpStyle::Linear) // Use linear instead of monotone_convex for non-monotonic data
         // Note: not calling require_monotonic()
         .build();
 
@@ -112,7 +109,10 @@ fn test_interpolation_styles_with_extrapolation() {
     let knots = [(0.0, 1.0), (1.0, 0.95), (2.0, 0.90)];
 
     // Test each interpolation style with both extrapolation policies
-    for extrapolation in [ExtrapolationPolicy::FlatZero, ExtrapolationPolicy::FlatForward] {
+    for extrapolation in [
+        ExtrapolationPolicy::FlatZero,
+        ExtrapolationPolicy::FlatForward,
+    ] {
         // Linear
         let linear_curve = DiscountCurve::builder("LINEAR-TEST")
             .base_date(base_date)
@@ -180,14 +180,15 @@ fn test_interpolation_styles_with_extrapolation() {
 fn test_credit_curve_construction() {
     // Test typical credit curve construction with monotonic validation
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    
+
     // CDS spreads to survival probabilities (approximately)
     let times = [0.0, 0.5, 1.0, 3.0, 5.0, 10.0];
     let cds_spreads = [0.0, 50e-4, 75e-4, 120e-4, 150e-4, 200e-4]; // bps
-    
-    // Convert spreads to approximate survival probabilities 
+
+    // Convert spreads to approximate survival probabilities
     // SP(t) ≈ exp(-spread * t) for small spreads
-    let survival_probs: Vec<F> = times.iter()
+    let survival_probs: Vec<F> = times
+        .iter()
         .zip(cds_spreads.iter())
         .map(|(t, s)| {
             let product = (*s as F) * (*t as F);
@@ -195,7 +196,8 @@ fn test_credit_curve_construction() {
         })
         .collect();
 
-    let knots: Vec<(F, F)> = times.iter()
+    let knots: Vec<(F, F)> = times
+        .iter()
         .zip(survival_probs.iter())
         .map(|(t, sp)| (*t, *sp))
         .collect();
@@ -218,7 +220,7 @@ fn test_credit_curve_construction() {
     assert!(sp_1y > sp_5y);
     assert!(sp_5y > sp_10y);
     assert!(sp_10y > sp_15y);
-    
+
     // Survival probabilities should be positive and <= 1
     assert!(sp_15y > 0.0 && sp_15y <= 1.0);
 }
@@ -253,11 +255,36 @@ fn test_interpolation_consistency() {
     let knots = [(0.0, 1.0), (1.0, 0.98), (2.0, 0.95), (5.0, 0.88)];
 
     let curves = [
-        DiscountCurve::builder("LINEAR").base_date(base_date).knots(knots).set_interp(finstack_core::market_data::interp::InterpStyle::Linear).build().unwrap(),
-        DiscountCurve::builder("LOG").base_date(base_date).knots(knots).set_interp(finstack_core::market_data::interp::InterpStyle::LogLinear).build().unwrap(),
-        DiscountCurve::builder("MC").base_date(base_date).knots(knots).set_interp(finstack_core::market_data::interp::InterpStyle::MonotoneConvex).build().unwrap(),
-        DiscountCurve::builder("CH").base_date(base_date).knots(knots).set_interp(finstack_core::market_data::interp::InterpStyle::CubicHermite).build().unwrap(),
-        DiscountCurve::builder("FF").base_date(base_date).knots(knots).set_interp(finstack_core::market_data::interp::InterpStyle::FlatFwd).build().unwrap(),
+        DiscountCurve::builder("LINEAR")
+            .base_date(base_date)
+            .knots(knots)
+            .set_interp(finstack_core::market_data::interp::InterpStyle::Linear)
+            .build()
+            .unwrap(),
+        DiscountCurve::builder("LOG")
+            .base_date(base_date)
+            .knots(knots)
+            .set_interp(finstack_core::market_data::interp::InterpStyle::LogLinear)
+            .build()
+            .unwrap(),
+        DiscountCurve::builder("MC")
+            .base_date(base_date)
+            .knots(knots)
+            .set_interp(finstack_core::market_data::interp::InterpStyle::MonotoneConvex)
+            .build()
+            .unwrap(),
+        DiscountCurve::builder("CH")
+            .base_date(base_date)
+            .knots(knots)
+            .set_interp(finstack_core::market_data::interp::InterpStyle::CubicHermite)
+            .build()
+            .unwrap(),
+        DiscountCurve::builder("FF")
+            .base_date(base_date)
+            .knots(knots)
+            .set_interp(finstack_core::market_data::interp::InterpStyle::FlatFwd)
+            .build()
+            .unwrap(),
     ];
 
     // All methods should agree exactly at knot points

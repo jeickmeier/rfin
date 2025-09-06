@@ -21,13 +21,19 @@ pub enum CalibrationTarget {
     /// Forward curve (IBOR/RFR)
     ForwardCurve { currency: Currency, tenor: String },
     /// Credit hazard curve
-    HazardCurve { entity: String, seniority: Seniority },
+    HazardCurve {
+        entity: String,
+        seniority: Seniority,
+    },
     /// Inflation curve
     InflationCurve { index: String },
     /// Volatility surface
     VolatilitySurface { underlying: String },
     /// Base correlation curve
-    BaseCorrelationCurve { index: String, maturity_years: HashableFloat },
+    BaseCorrelationCurve {
+        index: String,
+        maturity_years: HashableFloat,
+    },
 }
 
 impl CalibrationTarget {
@@ -35,11 +41,18 @@ impl CalibrationTarget {
     pub fn id(&self) -> String {
         match self {
             CalibrationTarget::DiscountCurve { currency } => format!("{}-OIS", currency),
-            CalibrationTarget::ForwardCurve { currency, tenor } => format!("{}-{}", currency, tenor),
-            CalibrationTarget::HazardCurve { entity, seniority } => format!("{}-{}", entity, seniority),
+            CalibrationTarget::ForwardCurve { currency, tenor } => {
+                format!("{}-{}", currency, tenor)
+            }
+            CalibrationTarget::HazardCurve { entity, seniority } => {
+                format!("{}-{}", entity, seniority)
+            }
             CalibrationTarget::InflationCurve { index } => index.clone(),
             CalibrationTarget::VolatilitySurface { underlying } => format!("{}-VOL", underlying),
-            CalibrationTarget::BaseCorrelationCurve { index, maturity_years } => {
+            CalibrationTarget::BaseCorrelationCurve {
+                index,
+                maturity_years,
+            } => {
                 format!("{}-CORR-{}Y", index, maturity_years.value())
             }
         }
@@ -49,11 +62,11 @@ impl CalibrationTarget {
     /// Used as a tie-breaker when dependencies don't determine order.
     pub fn priority(&self) -> u8 {
         match self {
-            CalibrationTarget::DiscountCurve { .. } => 0,        // Always first
-            CalibrationTarget::ForwardCurve { .. } => 1,         // After discount
-            CalibrationTarget::HazardCurve { .. } => 2,          // After rates
-            CalibrationTarget::InflationCurve { .. } => 2,       // After rates (parallel with credit)
-            CalibrationTarget::VolatilitySurface { .. } => 3,    // After underlying curves
+            CalibrationTarget::DiscountCurve { .. } => 0, // Always first
+            CalibrationTarget::ForwardCurve { .. } => 1,  // After discount
+            CalibrationTarget::HazardCurve { .. } => 2,   // After rates
+            CalibrationTarget::InflationCurve { .. } => 2, // After rates (parallel with credit)
+            CalibrationTarget::VolatilitySurface { .. } => 3, // After underlying curves
             CalibrationTarget::BaseCorrelationCurve { .. } => 4, // After hazard curves
         }
     }
@@ -94,7 +107,11 @@ pub struct CalibrationDAG {
 
 impl CalibrationDAG {
     /// Create a new calibration DAG from instrument quotes.
-    pub fn from_quotes(quotes: &[InstrumentQuote], base_currency: Currency, base_date: Date) -> crate::Result<Self> {
+    pub fn from_quotes(
+        quotes: &[InstrumentQuote],
+        base_currency: Currency,
+        base_date: Date,
+    ) -> crate::Result<Self> {
         let mut dag = Self {
             targets: HashSet::new(),
             dependencies: Vec::new(),
@@ -110,7 +127,11 @@ impl CalibrationDAG {
     }
 
     /// Analyze quotes to determine calibration targets.
-    fn analyze_quotes(&mut self, quotes: &[InstrumentQuote], base_currency: Currency) -> crate::Result<()> {
+    fn analyze_quotes(
+        &mut self,
+        quotes: &[InstrumentQuote],
+        base_currency: Currency,
+    ) -> crate::Result<()> {
         for quote in quotes {
             let targets = self.extract_targets_from_quote(quote, base_currency);
             for target in targets {
@@ -125,71 +146,102 @@ impl CalibrationDAG {
     }
 
     /// Extract calibration targets from a single quote.
-    fn extract_targets_from_quote(&self, quote: &InstrumentQuote, base_currency: Currency) -> Vec<CalibrationTarget> {
+    fn extract_targets_from_quote(
+        &self,
+        quote: &InstrumentQuote,
+        base_currency: Currency,
+    ) -> Vec<CalibrationTarget> {
         let mut targets = Vec::new();
 
         match quote {
             InstrumentQuote::Deposit { .. } => {
-                targets.push(CalibrationTarget::DiscountCurve { currency: base_currency });
+                targets.push(CalibrationTarget::DiscountCurve {
+                    currency: base_currency,
+                });
             }
             InstrumentQuote::Swap { index, .. } => {
-                targets.push(CalibrationTarget::DiscountCurve { currency: base_currency });
+                targets.push(CalibrationTarget::DiscountCurve {
+                    currency: base_currency,
+                });
                 if !index.contains("OIS") {
                     // Extract tenor from index name
                     let tenor = self.extract_tenor_from_index(index);
-                    targets.push(CalibrationTarget::ForwardCurve { 
-                        currency: base_currency, 
-                        tenor 
+                    targets.push(CalibrationTarget::ForwardCurve {
+                        currency: base_currency,
+                        tenor,
                     });
                 }
             }
             InstrumentQuote::FRA { .. } | InstrumentQuote::Future { .. } => {
-                targets.push(CalibrationTarget::DiscountCurve { currency: base_currency });
-                targets.push(CalibrationTarget::ForwardCurve { 
-                    currency: base_currency, 
-                    tenor: "3M".to_string() // Default tenor for FRA/Futures
+                targets.push(CalibrationTarget::DiscountCurve {
+                    currency: base_currency,
+                });
+                targets.push(CalibrationTarget::ForwardCurve {
+                    currency: base_currency,
+                    tenor: "3M".to_string(), // Default tenor for FRA/Futures
                 });
             }
             InstrumentQuote::CDS { entity, .. } | InstrumentQuote::CDSUpfront { entity, .. } => {
-                targets.push(CalibrationTarget::DiscountCurve { currency: base_currency });
-                targets.push(CalibrationTarget::HazardCurve { 
-                    entity: entity.clone(), 
-                    seniority: Seniority::Senior // Will be configurable
+                targets.push(CalibrationTarget::DiscountCurve {
+                    currency: base_currency,
+                });
+                targets.push(CalibrationTarget::HazardCurve {
+                    entity: entity.clone(),
+                    seniority: Seniority::Senior, // Will be configurable
                 });
             }
             InstrumentQuote::InflationSwap { index, .. } => {
-                targets.push(CalibrationTarget::DiscountCurve { currency: base_currency });
-                targets.push(CalibrationTarget::InflationCurve { index: index.clone() });
+                targets.push(CalibrationTarget::DiscountCurve {
+                    currency: base_currency,
+                });
+                targets.push(CalibrationTarget::InflationCurve {
+                    index: index.clone(),
+                });
             }
             InstrumentQuote::OptionVol { underlying, .. } => {
-                targets.push(CalibrationTarget::DiscountCurve { currency: base_currency });
-                targets.push(CalibrationTarget::VolatilitySurface { underlying: underlying.clone() });
+                targets.push(CalibrationTarget::DiscountCurve {
+                    currency: base_currency,
+                });
+                targets.push(CalibrationTarget::VolatilitySurface {
+                    underlying: underlying.clone(),
+                });
             }
-            InstrumentQuote::CDSTranche { index, maturity, .. } => {
+            InstrumentQuote::CDSTranche {
+                index, maturity, ..
+            } => {
                 // Calculate maturity in years for base correlation using proper day count
                 let maturity_years_f = time_to_maturity_auto(self.base_date, *maturity);
                 let maturity_years = HashableFloat::new(maturity_years_f);
-                targets.push(CalibrationTarget::DiscountCurve { currency: base_currency });
-                targets.push(CalibrationTarget::HazardCurve { 
-                    entity: index.clone(), 
-                    seniority: Seniority::Senior 
+                targets.push(CalibrationTarget::DiscountCurve {
+                    currency: base_currency,
                 });
-                targets.push(CalibrationTarget::BaseCorrelationCurve { 
-                    index: index.clone(), 
-                    maturity_years 
+                targets.push(CalibrationTarget::HazardCurve {
+                    entity: index.clone(),
+                    seniority: Seniority::Senior,
+                });
+                targets.push(CalibrationTarget::BaseCorrelationCurve {
+                    index: index.clone(),
+                    maturity_years,
                 });
             }
-            InstrumentQuote::BasisSwap { primary_index, reference_index, currency, .. } => {
-                targets.push(CalibrationTarget::DiscountCurve { currency: *currency });
+            InstrumentQuote::BasisSwap {
+                primary_index,
+                reference_index,
+                currency,
+                ..
+            } => {
+                targets.push(CalibrationTarget::DiscountCurve {
+                    currency: *currency,
+                });
                 let primary_tenor = self.extract_tenor_from_index(primary_index);
                 let reference_tenor = self.extract_tenor_from_index(reference_index);
-                targets.push(CalibrationTarget::ForwardCurve { 
-                    currency: *currency, 
-                    tenor: primary_tenor 
+                targets.push(CalibrationTarget::ForwardCurve {
+                    currency: *currency,
+                    tenor: primary_tenor,
                 });
-                targets.push(CalibrationTarget::ForwardCurve { 
-                    currency: *currency, 
-                    tenor: reference_tenor 
+                targets.push(CalibrationTarget::ForwardCurve {
+                    currency: *currency,
+                    tenor: reference_tenor,
                 });
             }
         }
@@ -226,7 +278,9 @@ impl CalibrationDAG {
                     // Forward curves depend on discount curves
                     self.dependencies.push(CalibrationDependency {
                         target: target.clone(),
-                        prerequisite: CalibrationTarget::DiscountCurve { currency: *currency },
+                        prerequisite: CalibrationTarget::DiscountCurve {
+                            currency: *currency,
+                        },
                         dependency_type: DependencyType::Required,
                     });
                 }
@@ -277,9 +331,9 @@ impl CalibrationDAG {
                     });
                     self.dependencies.push(CalibrationDependency {
                         target: target.clone(),
-                        prerequisite: CalibrationTarget::HazardCurve { 
-                            entity: index.clone(), 
-                            seniority: Seniority::Senior 
+                        prerequisite: CalibrationTarget::HazardCurve {
+                            entity: index.clone(),
+                            seniority: Seniority::Senior,
                         },
                         dependency_type: DependencyType::Required,
                     });
@@ -302,7 +356,10 @@ impl CalibrationDAG {
 
     /// Check if an underlying represents rates (vs equity/FX).
     fn is_rates_underlying(&self, underlying: &str) -> bool {
-        underlying.contains("SOFR") || underlying.contains("EURIBOR") || underlying.contains("SONIA") || underlying.contains("OIS")
+        underlying.contains("SOFR")
+            || underlying.contains("EURIBOR")
+            || underlying.contains("SONIA")
+            || underlying.contains("OIS")
     }
 
     /// Extract tenor from underlying name.
@@ -351,7 +408,7 @@ impl CalibrationDAG {
             // Current batch - all targets with no remaining dependencies
             let mut current_batch = Vec::new();
             let batch_size = queue.len();
-            
+
             for _ in 0..batch_size {
                 if let Some(target) = queue.pop_front() {
                     current_batch.push(target.clone());
@@ -443,7 +500,8 @@ impl CalibrationDAG {
         let batches = self.topological_sort().unwrap_or_default();
         let max_parallelism = batches.iter().map(|b| b.len()).max().unwrap_or(0);
         let total_dependencies = self.dependencies.len();
-        let required_dependencies = self.dependencies
+        let required_dependencies = self
+            .dependencies
             .iter()
             .filter(|d| d.dependency_type == DependencyType::Required)
             .count();
@@ -455,10 +513,10 @@ impl CalibrationDAG {
             optional_dependencies: total_dependencies - required_dependencies,
             calibration_batches: batches.len(),
             max_parallelism,
-            estimated_speedup: if max_parallelism > 1 { 
+            estimated_speedup: if max_parallelism > 1 {
                 (self.targets.len() as f64 / batches.len() as f64).min(max_parallelism as f64)
-            } else { 
-                1.0 
+            } else {
+                1.0
             },
         }
     }
@@ -532,10 +590,15 @@ mod tests {
         assert!(!dag.dependencies.is_empty());
 
         // Should have discount curve target
-        assert!(dag.targets.contains(&CalibrationTarget::DiscountCurve { currency: Currency::USD }));
-        
+        assert!(dag.targets.contains(&CalibrationTarget::DiscountCurve {
+            currency: Currency::USD
+        }));
+
         // Should have hazard curve target
-        assert!(dag.targets.iter().any(|t| matches!(t, CalibrationTarget::HazardCurve { .. })));
+        assert!(dag
+            .targets
+            .iter()
+            .any(|t| matches!(t, CalibrationTarget::HazardCurve { .. })));
     }
 
     #[test]
@@ -548,11 +611,15 @@ mod tests {
         assert!(!batches.is_empty());
 
         // First batch should contain only discount curves (no dependencies)
-        assert!(batches[0].iter().all(|t| matches!(t, CalibrationTarget::DiscountCurve { .. })));
+        assert!(batches[0]
+            .iter()
+            .all(|t| matches!(t, CalibrationTarget::DiscountCurve { .. })));
 
         // Later batches should contain dependent targets
         let all_later_targets: Vec<_> = batches.iter().skip(1).flatten().collect();
-        assert!(all_later_targets.iter().any(|t| matches!(t, CalibrationTarget::HazardCurve { .. })));
+        assert!(all_later_targets
+            .iter()
+            .any(|t| matches!(t, CalibrationTarget::HazardCurve { .. })));
     }
 
     #[test]
@@ -561,15 +628,17 @@ mod tests {
         let quotes = create_test_quotes();
         let dag = CalibrationDAG::from_quotes(&quotes, Currency::USD, base_date).unwrap();
 
-        let discount_target = CalibrationTarget::DiscountCurve { currency: Currency::USD };
-        let hazard_target = CalibrationTarget::HazardCurve { 
-            entity: "AAPL".to_string(), 
-            seniority: Seniority::Senior 
+        let discount_target = CalibrationTarget::DiscountCurve {
+            currency: Currency::USD,
+        };
+        let hazard_target = CalibrationTarget::HazardCurve {
+            entity: "AAPL".to_string(),
+            seniority: Seniority::Senior,
         };
 
         // Hazard curve should depend on discount curve
         assert!(dag.depends_on(&hazard_target, &discount_target));
-        
+
         // Discount curve should not depend on hazard curve
         assert!(!dag.depends_on(&discount_target, &hazard_target));
     }

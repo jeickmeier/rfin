@@ -38,7 +38,6 @@
 //!
 //! See unit tests and `examples/` for usage and behaviour.
 
-
 use crate::config::{FinstackConfig, RoundingMode};
 use crate::currency::Currency;
 use crate::dates::Date;

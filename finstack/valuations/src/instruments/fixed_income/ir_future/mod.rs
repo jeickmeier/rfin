@@ -122,9 +122,30 @@ impl InterestRateFuture {
         let base_date = discount_curve.base_date();
 
         // Time to fixing and rate period
-        let t_fixing = self.day_count.year_fraction(base_date, self.fixing_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
-        let t_start = self.day_count.year_fraction(base_date, self.period_start, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
-        let t_end = self.day_count.year_fraction(base_date, self.period_end, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_fixing = self
+            .day_count
+            .year_fraction(
+                base_date,
+                self.fixing_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+        let t_start = self
+            .day_count
+            .year_fraction(
+                base_date,
+                self.period_start,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+        let t_end = self
+            .day_count
+            .year_fraction(
+                base_date,
+                self.period_end,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
 
         // Get forward rate for the underlying period
         let forward_rate = forward_curve.rate_period(t_start, t_end);
@@ -143,7 +164,14 @@ impl InterestRateFuture {
 
         // Future value = (Model Rate - Implied Rate) × Face Value × Period Length
         let implied_rate = self.implied_rate();
-        let tau = self.day_count.year_fraction(self.period_start, self.period_end, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let tau = self
+            .day_count
+            .year_fraction(
+                self.period_start,
+                self.period_end,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
         let rate_diff = adjusted_rate - implied_rate;
 
         let pv = rate_diff * self.contract_specs.face_value * tau;

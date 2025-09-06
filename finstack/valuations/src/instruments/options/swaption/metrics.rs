@@ -2,10 +2,10 @@
 
 use crate::instruments::options::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
-use finstack_core::market_data::traits::{Discount, TermStructure};
-use finstack_core::types::CurveId;
 use finstack_core::dates::Date;
+use finstack_core::market_data::traits::{Discount, TermStructure};
 use finstack_core::prelude::Result;
+use finstack_core::types::CurveId;
 use finstack_core::F;
 use std::sync::Arc;
 

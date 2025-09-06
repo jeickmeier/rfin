@@ -7,16 +7,16 @@
 //! pricing formulas, following market-standard bootstrap methodology.
 
 use crate::calibration::primitives::InstrumentQuote;
-use finstack_core::math::Solver;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::fra::ForwardRateAgreement;
 use crate::instruments::fixed_income::ir_future::InterestRateFuture;
 use crate::instruments::fixed_income::InterestRateSwap;
 use crate::instruments::traits::Priceable;
-use finstack_core::dates::{Date, add_months};
+use finstack_core::dates::{add_months, Date};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::interp::InterpStyle;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::math::Solver;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -63,7 +63,10 @@ impl DiscountCurveCalibrator {
     }
 
     /// Apply the configured interpolation style to the discount curve builder.
-    fn apply_interpolation(&self, builder: finstack_core::market_data::term_structures::discount_curve::DiscountCurveBuilder) -> finstack_core::market_data::term_structures::discount_curve::DiscountCurveBuilder {
+    fn apply_interpolation(
+        &self,
+        builder: finstack_core::market_data::term_structures::discount_curve::DiscountCurveBuilder,
+    ) -> finstack_core::market_data::term_structures::discount_curve::DiscountCurveBuilder {
         builder.set_interp(self.interpolation)
     }
 
@@ -101,21 +104,58 @@ impl DiscountCurveCalibrator {
                     maturity,
                     day_count,
                     ..
-                } => day_count.year_fraction(self.base_date, *maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0),
-                InstrumentQuote::FRA { end, day_count, .. } => {
-                    day_count.year_fraction(self.base_date, *end, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0)
-                }
+                } => day_count
+                    .year_fraction(
+                        self.base_date,
+                        *maturity,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0),
+                InstrumentQuote::FRA { end, day_count, .. } => day_count
+                    .year_fraction(
+                        self.base_date,
+                        *end,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0),
                 InstrumentQuote::Future { expiry, specs, .. } => {
                     let end = add_months(*expiry, specs.delivery_months as i32);
-                    specs.day_count.year_fraction(self.base_date, end, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0)
+                    specs
+                        .day_count
+                        .year_fraction(
+                            self.base_date,
+                            end,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
+                        .unwrap_or(0.0)
                 }
                 InstrumentQuote::Swap {
                     maturity, fixed_dc, ..
-                } => fixed_dc.year_fraction(self.base_date, *maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0),
+                } => fixed_dc
+                    .year_fraction(
+                        self.base_date,
+                        *maturity,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0),
                 InstrumentQuote::BasisSwap {
-                    maturity, primary_dc, ..
-                } => primary_dc.year_fraction(self.base_date, *maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0),
-                _ => finstack_core::dates::DayCount::Act365F.year_fraction(self.base_date, maturity_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0),
+                    maturity,
+                    primary_dc,
+                    ..
+                } => primary_dc
+                    .year_fraction(
+                        self.base_date,
+                        *maturity,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0),
+                _ => finstack_core::dates::DayCount::Act365F
+                    .year_fraction(
+                        self.base_date,
+                        maturity_date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0),
             };
 
             if time_to_maturity <= 0.0 {
@@ -235,13 +275,10 @@ impl DiscountCurveCalibrator {
             .map_err(|_| finstack_core::Error::Internal)?;
 
         // Create calibration report
-        let report = CalibrationReport::success_with(
-            residuals,
-            total_iterations,
-            "Bootstrap completed",
-        )
-        .with_metadata("interpolation", format!("{:?}", self.interpolation))
-        .with_metadata("currency", format!("{}", self.currency));
+        let report =
+            CalibrationReport::success_with(residuals, total_iterations, "Bootstrap completed")
+                .with_metadata("interpolation", format!("{:?}", self.interpolation))
+                .with_metadata("currency", format!("{}", self.currency));
 
         Ok((curve, report))
     }
@@ -262,11 +299,23 @@ impl DiscountCurveCalibrator {
                 let disc = context.disc("CALIB_CURVE")?;
                 let base = disc.base_date();
 
-                let t_disc = day_count.year_fraction(base, *maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+                let t_disc = day_count
+                    .year_fraction(
+                        base,
+                        *maturity,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0);
                 if t_disc <= 0.0 {
                     return Ok(0.0);
                 }
-                let yf = day_count.year_fraction(base, *maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+                let yf = day_count
+                    .year_fraction(
+                        base,
+                        *maturity,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0);
                 let df = disc.df(t_disc);
                 let error = df * (1.0 + rate * yf) - 1.0;
                 Ok(error)
@@ -783,12 +832,20 @@ mod tests {
         let expiry = base_date + time::Duration::days(90);
         let period_start = expiry;
         let period_end = expiry + time::Duration::days(90);
-        let t1 = finstack_core::dates::DayCount::Act360.year_fraction(
-            base_date, period_start, finstack_core::dates::DayCountCtx::default(),
-        ).unwrap_or(0.0);
-        let t2 = finstack_core::dates::DayCount::Act360.year_fraction(
-            base_date, period_end, finstack_core::dates::DayCountCtx::default(),
-        ).unwrap_or(0.0);
+        let t1 = finstack_core::dates::DayCount::Act360
+            .year_fraction(
+                base_date,
+                period_start,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+        let t2 = finstack_core::dates::DayCount::Act360
+            .year_fraction(
+                base_date,
+                period_end,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
         let implied_rate = ctx.fwd("USD-SOFR").unwrap().rate_period(t1, t2);
         let quoted_price = 100.0 * (1.0 - implied_rate);
         let mut fut = InterestRateFuture::new(
@@ -892,27 +949,33 @@ mod tests {
     #[test]
     fn test_configured_interpolation_used() {
         use finstack_core::dates::add_months;
-        
+
         let base_date = Date::from_calendar_date(2025, Month::January, 31).unwrap();
-        
+
         // Test 1: Verify configured interpolation is used
         let linear_calibrator = DiscountCurveCalibrator::new("TEST", base_date, Currency::USD)
             .with_interpolation(InterpStyle::Linear);
         let monotone_calibrator = DiscountCurveCalibrator::new("TEST", base_date, Currency::USD)
             .with_interpolation(InterpStyle::MonotoneConvex);
-        
-        assert!(matches!(linear_calibrator.interpolation, InterpStyle::Linear));
-        assert!(matches!(monotone_calibrator.interpolation, InterpStyle::MonotoneConvex));
-        
+
+        assert!(matches!(
+            linear_calibrator.interpolation,
+            InterpStyle::Linear
+        ));
+        assert!(matches!(
+            monotone_calibrator.interpolation,
+            InterpStyle::MonotoneConvex
+        ));
+
         // Test 2: Verify proper month arithmetic vs crude approximation
         let delivery_months = 3i32;
-        
+
         // Crude way (should be wrong for end-of-month)
         let crude_result = base_date + time::Duration::days((delivery_months as i64) * 30);
-        
+
         // Proper way
         let proper_result = add_months(base_date, delivery_months);
-        
+
         if cfg!(test) {
             tracing::debug!(
                 base_date = %base_date,
@@ -922,13 +985,19 @@ mod tests {
                 "Comparing month arithmetic methods"
             );
         }
-        
+
         // Should be different for Jan 31 + 3 months
-        assert_ne!(crude_result, proper_result, "Month arithmetic should give different results");
-        
+        assert_ne!(
+            crude_result, proper_result,
+            "Month arithmetic should give different results"
+        );
+
         // The proper result should handle month-end correctly
         // Jan 31 + 3 months = Apr 30 (no Apr 31)
         let expected = Date::from_calendar_date(2025, Month::April, 30).unwrap();
-        assert_eq!(proper_result, expected, "Expected proper month-end handling");
+        assert_eq!(
+            proper_result, expected,
+            "Expected proper month-end handling"
+        );
     }
 }

@@ -161,10 +161,12 @@ impl CoreProvider for PySimpleFxProvider {
         }
 
         let key = (from, to);
-        self.rates
-            .get(&key)
-            .copied()
-            .ok_or_else(|| finstack_core::error::InputError::NotFound { id: "fx_rate".to_string() }.into())
+        self.rates.get(&key).copied().ok_or_else(|| {
+            finstack_core::error::InputError::NotFound {
+                id: "fx_rate".to_string(),
+            }
+            .into()
+        })
     }
 }
 

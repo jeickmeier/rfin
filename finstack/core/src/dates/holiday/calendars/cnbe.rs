@@ -16,7 +16,7 @@ const CNY: Rule = Rule::ChineseNewYear;
 /// - Qing Ming (Tomb Sweeping Day): Single day observance based on solar term calculation
 /// - Weekend substitution: Holidays falling on weekends are included in the multi-day blocks
 ///
-/// **Lunar Calendar Coverage**: 
+/// **Lunar Calendar Coverage**:
 /// - Chinese New Year: Full 1970-2150 range supported using embedded lunar tables
 /// - Qing Ming: Full 1970-2150 range supported using solar term calculations
 /// - See `finstack/core/data/chinese_new_year.csv` for lunar date mappings

@@ -4,13 +4,13 @@
 //! one-factor Gaussian Copula model and equity tranche decomposition.
 
 use crate::calibration::primitives::{HashableFloat, InstrumentQuote};
-use finstack_core::math::Solver;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
+use finstack_core::math::Solver;
 
 use crate::market_data::ValuationMarketContext;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
 use finstack_core::dates::utils::add_months;
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::money::Money;
@@ -111,7 +111,9 @@ impl BaseCorrelationCalibrator {
 
         if tranche_quotes.is_empty() {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::NotFound { id: "base_correlation_data".to_string() },
+                finstack_core::error::InputError::NotFound {
+                    id: "base_correlation_data".to_string(),
+                },
             ));
         }
 
@@ -242,7 +244,9 @@ impl BaseCorrelationCalibrator {
 
         if solved_correlations.is_empty() {
             return Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::NotFound { id: "base_correlation_data".to_string() },
+                finstack_core::error::InputError::NotFound {
+                    id: "base_correlation_data".to_string(),
+                },
             ));
         }
 
@@ -292,9 +296,7 @@ impl BaseCorrelationCalibrator {
     }
 }
 
-impl Calibrator<InstrumentQuote, BaseCorrelationCurve>
-    for BaseCorrelationCalibrator
-{
+impl Calibrator<InstrumentQuote, BaseCorrelationCurve> for BaseCorrelationCalibrator {
     fn calibrate(
         &self,
         instruments: &[InstrumentQuote],
@@ -363,8 +365,11 @@ impl BaseCorrelationSurfaceCalibrator {
 
         for quote in quotes {
             if let InstrumentQuote::CDSTranche { maturity, .. } = quote {
-                let maturity_years = finstack_core::dates::DayCount::Act365F
-                    .year_fraction(self.base_date, *maturity, finstack_core::dates::DayCountCtx::default())?;
+                let maturity_years = finstack_core::dates::DayCount::Act365F.year_fraction(
+                    self.base_date,
+                    *maturity,
+                    finstack_core::dates::DayCountCtx::default(),
+                )?;
 
                 // Round to nearest target maturity
                 if let Some(&target_mat) = self.target_maturities.iter().min_by(|&&a, &&b| {
@@ -400,11 +405,7 @@ impl BaseCorrelationSurfaceCalibrator {
                 let maturity_quote_vec: Vec<_> =
                     maturity_quotes.iter().map(|&q| q.clone()).collect();
                 let solver = calibrator.config.make_solver();
-                match calibrator.bootstrap_curve(
-                    &maturity_quote_vec,
-                    &solver,
-                    market_context,
-                ) {
+                match calibrator.bootstrap_curve(&maturity_quote_vec, &solver, market_context) {
                     Ok((curve, report)) => {
                         curves_by_maturity.insert(HashableFloat::new(maturity_years), curve);
 
@@ -449,8 +450,6 @@ mod tests {
     // use finstack_core::market_data::interp::InterpStyle; // not used in this test module
     use std::sync::Arc;
     use time::Month;
-
-
 
     fn create_test_market_context() -> ValuationMarketContext {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -522,7 +521,7 @@ mod tests {
 
     #[test]
     fn test_base_correlation_curve_building() {
-        // Test direct BaseCorrelationCurve building functionality 
+        // Test direct BaseCorrelationCurve building functionality
         let correlation_knots = vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)];
         let curve = BaseCorrelationCurve::builder("TEST_CORR")
             .points(correlation_knots)

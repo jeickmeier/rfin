@@ -21,11 +21,14 @@ impl MetricCalculator for YearFractionCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let deposit: &Deposit = context.instrument_as()?;
 
-        Ok(deposit.day_count.year_fraction(
-            deposit.start,
-            deposit.end,
-            finstack_core::dates::DayCountCtx::default(),
-        ).unwrap_or(0.0))
+        Ok(deposit
+            .day_count
+            .year_fraction(
+                deposit.start,
+                deposit.end,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0))
     }
 }
 
@@ -99,21 +102,27 @@ impl MetricCalculator for DepositParRateCalculator {
             .get(&MetricId::DfStart)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "deposit_quote_rate".to_string() })
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: "deposit_quote_rate".to_string(),
+                })
             })?;
         let df_e = context
             .computed
             .get(&MetricId::DfEnd)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "deposit_quote_rate".to_string() })
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: "deposit_quote_rate".to_string(),
+                })
             })?;
         let yf = context
             .computed
             .get(&MetricId::Yf)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "deposit_quote_rate".to_string() })
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: "deposit_quote_rate".to_string(),
+                })
             })?;
 
         if yf == 0.0 {
@@ -144,7 +153,9 @@ impl MetricCalculator for DfEndFromQuoteCalculator {
         let deposit: &Deposit = context.instrument_as()?;
 
         let r = deposit.quote_rate.ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "deposit_quote_rate".to_string() })
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "deposit_quote_rate".to_string(),
+            })
         })?;
 
         let df_s = context
@@ -152,14 +163,18 @@ impl MetricCalculator for DfEndFromQuoteCalculator {
             .get(&MetricId::DfStart)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "deposit_quote_rate".to_string() })
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: "deposit_quote_rate".to_string(),
+                })
             })?;
         let yf = context
             .computed
             .get(&MetricId::Yf)
             .copied()
             .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "deposit_quote_rate".to_string() })
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: "deposit_quote_rate".to_string(),
+                })
             })?;
 
         Ok(df_s / (1.0 + r * yf))
@@ -178,9 +193,11 @@ impl MetricCalculator for QuoteRateCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let deposit: &Deposit = context.instrument_as()?;
 
-        deposit
-            .quote_rate
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "deposit_quote_rate".to_string() }))
+        deposit.quote_rate.ok_or_else(|| {
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "deposit_quote_rate".to_string(),
+            })
+        })
     }
 }
 

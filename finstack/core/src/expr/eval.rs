@@ -134,7 +134,8 @@ impl CompiledExpr {
                 // Cache store
                 if let Some(ref cache) = eval_cache {
                     if plan.cache_strategy.cache_nodes.contains(&node.id) {
-                        let arc: std::sync::Arc<[crate::F]> = std::sync::Arc::from(result.clone().into_boxed_slice());
+                        let arc: std::sync::Arc<[crate::F]> =
+                            std::sync::Arc::from(result.clone().into_boxed_slice());
                         cache.put(node.id, CachedResult::Scalar(arc));
                     }
                 }
@@ -163,7 +164,10 @@ impl CompiledExpr {
         meta.cache_hit_ratio = eval_cache.as_ref().map(|c| c.hit_ratio());
         meta.parallel = plan_to_use.is_some();
 
-        EvaluationResult { values, metadata: meta }
+        EvaluationResult {
+            values,
+            metadata: meta,
+        }
     }
 
     /// Evaluate a single DAG node.
@@ -451,7 +455,9 @@ impl CompiledExpr {
         }
         let base = &arg_results[0];
         let win = arg_results[1][0] as usize;
-        Self::rolling_apply(base, win, |w| w.iter().copied().sum::<crate::F>() / (win as crate::F))
+        Self::rolling_apply(base, win, |w| {
+            w.iter().copied().sum::<crate::F>() / (win as crate::F)
+        })
     }
 
     fn eval_rolling_sum(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
@@ -573,10 +579,14 @@ impl CompiledExpr {
         let win = arg_results[1][0] as usize;
         Self::rolling_apply(base, win, |w| {
             let m = w.iter().copied().sum::<f64>() / (win as f64);
-            let var = w.iter().map(|v| {
-                let dv = *v - m;
-                dv * dv
-            }).sum::<f64>() / (win as f64);
+            let var = w
+                .iter()
+                .map(|v| {
+                    let dv = *v - m;
+                    dv * dv
+                })
+                .sum::<f64>()
+                / (win as f64);
             var.sqrt() as crate::F
         })
     }
@@ -590,10 +600,14 @@ impl CompiledExpr {
         let win = arg_results[1][0] as usize;
         Self::rolling_apply(base, win, |w| {
             let m = w.iter().copied().sum::<f64>() / (win as f64);
-            let var = w.iter().map(|v| {
-                let dv = *v - m;
-                dv * dv
-            }).sum::<f64>() / (win as f64);
+            let var = w
+                .iter()
+                .map(|v| {
+                    let dv = *v - m;
+                    dv * dv
+                })
+                .sum::<f64>()
+                / (win as f64);
             var as crate::F
         })
     }
@@ -609,7 +623,11 @@ impl CompiledExpr {
             let mut v = w.to_vec();
             v.sort_by(|a, b| a.partial_cmp(b).unwrap());
             let k = v.len();
-            if k % 2 == 1 { v[k / 2] } else { (v[k / 2 - 1] + v[k / 2]) * (0.5 as crate::F) }
+            if k % 2 == 1 {
+                v[k / 2]
+            } else {
+                (v[k / 2 - 1] + v[k / 2]) * (0.5 as crate::F)
+            }
         })
     }
 
@@ -697,7 +715,11 @@ impl CompiledExpr {
         let base = &arg_results[0];
         let win = arg_results[1][0] as usize;
         Self::rolling_apply(base, win, |w| {
-            w.iter().copied().filter(|x| !x.is_nan()).min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap_or(f64::NAN)
+            w.iter()
+                .copied()
+                .filter(|x| !x.is_nan())
+                .min_by(|a, b| a.partial_cmp(b).unwrap())
+                .unwrap_or(f64::NAN)
         })
     }
 
@@ -709,7 +731,11 @@ impl CompiledExpr {
         let base = &arg_results[0];
         let win = arg_results[1][0] as usize;
         Self::rolling_apply(base, win, |w| {
-            w.iter().copied().filter(|x| !x.is_nan()).max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap_or(f64::NAN)
+            w.iter()
+                .copied()
+                .filter(|x| !x.is_nan())
+                .max_by(|a, b| a.partial_cmp(b).unwrap())
+                .unwrap_or(f64::NAN)
         })
     }
 
@@ -720,7 +746,9 @@ impl CompiledExpr {
         }
         let base = &arg_results[0];
         let win = arg_results[1][0] as usize;
-        Self::rolling_apply(base, win, |w| w.iter().copied().filter(|x| !x.is_nan()).count() as crate::F)
+        Self::rolling_apply(base, win, |w| {
+            w.iter().copied().filter(|x| !x.is_nan()).count() as crate::F
+        })
     }
 
     fn eval_ewm_std(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
@@ -853,20 +881,18 @@ impl CompiledExpr {
             #[cfg(feature = "decimal128")]
             ExprNode::Literal(_) => None,
             ExprNode::Call(fun, args) => match fun {
-                Function::Lag => Self::lower_binary(&args[0], &args[1], |x, n| {
-                    x.shift(lit(arg_as_i64(n)))
-                }),
-                Function::Lead => Self::lower_binary(&args[0], &args[1], |x, n| {
-                    x.shift(lit(-(arg_as_i64(n))))
-                }),
+                Function::Lag => {
+                    Self::lower_binary(&args[0], &args[1], |x, n| x.shift(lit(arg_as_i64(n))))
+                }
+                Function::Lead => {
+                    Self::lower_binary(&args[0], &args[1], |x, n| x.shift(lit(-(arg_as_i64(n)))))
+                }
                 Function::Diff => Self::lower_unary_int(&args[0], args.get(1), |x, n| {
                     x.clone() - x.shift(lit(n as i64))
                 }),
-                Function::PctChange => {
-                    Self::lower_unary_int(&args[0], args.get(1), |x, n| {
-                        (x.clone() / x.shift(lit(n as i64))) - lit(1.0)
-                    })
-                }
+                Function::PctChange => Self::lower_unary_int(&args[0], args.get(1), |x, n| {
+                    (x.clone() / x.shift(lit(n as i64))) - lit(1.0)
+                }),
                 Function::RollingMean => Some({
                     let n = arg_as_usize(&args[1]);
                     let base = Self {
@@ -971,8 +997,6 @@ impl CompiledExpr {
                 | Function::RollingCount
                 | Function::EwmStd
                 | Function::EwmVar => None,
-
-
             },
         }
     }

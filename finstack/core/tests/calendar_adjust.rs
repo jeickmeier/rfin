@@ -95,7 +95,8 @@ fn test_adjust_modified_following() {
         jan30,
         BusinessDayConvention::ModifiedFollowing,
         &cal_with_holiday,
-    ).unwrap();
+    )
+    .unwrap();
     // Following would go to Feb 3 (Monday), but that crosses month, so go preceding to Jan 29
     assert_eq!(result, make_date(2025, 1, 29)); // Wednesday
 }
@@ -136,14 +137,18 @@ impl HolidayCalendar for AllHolidaysCal {
 fn test_adjust_following_infinite_loop_guard() {
     let cal = AllHolidaysCal;
     let date = make_date(2025, 1, 1);
-    
+
     // This should return an error after 100 days instead of looping forever
     let result = adjust(date, BusinessDayConvention::Following, &cal);
     assert!(result.is_err());
-    
+
     // Verify the error type and message
     match result.unwrap_err() {
-        finstack_core::Error::Input(InputError::AdjustmentFailed { date: _, convention, max_days }) => {
+        finstack_core::Error::Input(InputError::AdjustmentFailed {
+            date: _,
+            convention,
+            max_days,
+        }) => {
             assert_eq!(convention, "Following");
             assert_eq!(max_days, 100);
         }
@@ -155,14 +160,18 @@ fn test_adjust_following_infinite_loop_guard() {
 fn test_adjust_preceding_infinite_loop_guard() {
     let cal = AllHolidaysCal;
     let date = make_date(2025, 1, 1);
-    
+
     // This should return an error after 100 days instead of looping forever
     let result = adjust(date, BusinessDayConvention::Preceding, &cal);
     assert!(result.is_err());
-    
+
     // Verify the error type and message
     match result.unwrap_err() {
-        finstack_core::Error::Input(InputError::AdjustmentFailed { date: _, convention, max_days }) => {
+        finstack_core::Error::Input(InputError::AdjustmentFailed {
+            date: _,
+            convention,
+            max_days,
+        }) => {
             assert_eq!(convention, "Preceding");
             assert_eq!(max_days, 100);
         }
@@ -174,14 +183,18 @@ fn test_adjust_preceding_infinite_loop_guard() {
 fn test_adjust_modified_following_infinite_loop_guard() {
     let cal = AllHolidaysCal;
     let date = make_date(2025, 1, 1);
-    
+
     // This should return an error when trying to find a following business day
     let result = adjust(date, BusinessDayConvention::ModifiedFollowing, &cal);
     assert!(result.is_err());
-    
+
     // Verify the error type and message
     match result.unwrap_err() {
-        finstack_core::Error::Input(InputError::AdjustmentFailed { date: _, convention, max_days }) => {
+        finstack_core::Error::Input(InputError::AdjustmentFailed {
+            date: _,
+            convention,
+            max_days,
+        }) => {
             assert_eq!(convention, "ModifiedFollowing");
             assert_eq!(max_days, 100);
         }
@@ -193,14 +206,18 @@ fn test_adjust_modified_following_infinite_loop_guard() {
 fn test_adjust_modified_preceding_infinite_loop_guard() {
     let cal = AllHolidaysCal;
     let date = make_date(2025, 1, 1);
-    
+
     // This should return an error when trying to find a preceding business day
     let result = adjust(date, BusinessDayConvention::ModifiedPreceding, &cal);
     assert!(result.is_err());
-    
+
     // Verify the error type and message
     match result.unwrap_err() {
-        finstack_core::Error::Input(InputError::AdjustmentFailed { date: _, convention, max_days }) => {
+        finstack_core::Error::Input(InputError::AdjustmentFailed {
+            date: _,
+            convention,
+            max_days,
+        }) => {
             assert_eq!(convention, "ModifiedPreceding");
             assert_eq!(max_days, 100);
         }

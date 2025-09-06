@@ -211,7 +211,11 @@ impl CreditDefaultSwap {
         let mut flows = Vec::with_capacity(dates.len() - 1);
         let mut prev = dates[0];
         for &d in &dates[1..] {
-            let year_frac = self.premium.dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
+            let year_frac = self.premium.dc.year_fraction(
+                prev,
+                d,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
             let amount = self.notional * (self.premium.spread_bp / 10000.0) * year_frac;
             flows.push((d, amount));
             prev = d;
@@ -270,11 +274,7 @@ impl CreditDefaultSwap {
     /// Calculate CS01 (change in PV for 1bp credit spread change) via enhanced pricer
     pub fn cs01(&self, curves: &MarketContext) -> finstack_core::Result<F> {
         let pricer = cds_pricer::CDSPricer::new();
-        pricer.cs01(
-            self,
-            curves,
-            curves.disc(self.premium.disc_id)?.base_date(),
-        )
+        pricer.cs01(self, curves, curves.disc(self.premium.disc_id)?.base_date())
     }
 }
 

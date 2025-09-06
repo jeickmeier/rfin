@@ -17,7 +17,13 @@ impl MetricCalculator for ForwardPoints {
         let as_of = context.as_of;
 
         let dc = finstack_core::dates::DayCount::Act365F;
-        let t_far = dc.year_fraction(as_of, fx_swap.far_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_far = dc
+            .year_fraction(
+                as_of,
+                fx_swap.far_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
 
         let domestic_disc = curves.disc(fx_swap.domestic_disc_id)?;
         let foreign_disc = curves.disc(fx_swap.foreign_disc_id)?;
@@ -26,7 +32,9 @@ impl MetricCalculator for ForwardPoints {
         let df_for_far = foreign_disc.df(t_far);
 
         let fx_matrix = curves.fx.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "fx_matrix".to_string(),
+            })
         })?;
         let near_rate = match fx_swap.near_rate {
             Some(rate) => rate,
@@ -78,8 +86,20 @@ impl MetricCalculator for DomesticIR01 {
         let foreign_disc = curves.disc(fx_swap.foreign_disc_id)?;
 
         let dc = finstack_core::dates::DayCount::Act365F;
-        let t_near = dc.year_fraction(as_of, fx_swap.near_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
-        let t_far = dc.year_fraction(as_of, fx_swap.far_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_near = dc
+            .year_fraction(
+                as_of,
+                fx_swap.near_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+        let t_far = dc
+            .year_fraction(
+                as_of,
+                fx_swap.far_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
 
         let bump = 0.0001;
         let bumped_df_dom_near = domestic_disc.df(t_near) * (-bump * t_near).exp();
@@ -89,7 +109,9 @@ impl MetricCalculator for DomesticIR01 {
         let df_for_far = foreign_disc.df(t_far);
 
         let fx_matrix = curves.fx.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "fx_matrix".to_string(),
+            })
         })?;
         let near_rate = match fx_swap.near_rate {
             Some(rate) => rate,
@@ -165,8 +187,20 @@ impl MetricCalculator for ForeignIR01 {
         let foreign_disc = curves.disc(fx_swap.foreign_disc_id)?;
 
         let dc = finstack_core::dates::DayCount::Act365F;
-        let t_near = dc.year_fraction(as_of, fx_swap.near_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
-        let t_far = dc.year_fraction(as_of, fx_swap.far_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_near = dc
+            .year_fraction(
+                as_of,
+                fx_swap.near_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+        let t_far = dc
+            .year_fraction(
+                as_of,
+                fx_swap.far_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
 
         let bump = 0.0001;
         let df_dom_near = domestic_disc.df(t_near);
@@ -176,7 +210,9 @@ impl MetricCalculator for ForeignIR01 {
         let bumped_df_for_far = foreign_disc.df(t_far) * (-bump * t_far).exp();
 
         let fx_matrix = curves.fx.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "fx_matrix".to_string(),
+            })
         })?;
         let near_rate = match fx_swap.near_rate {
             Some(rate) => rate,
@@ -253,8 +289,20 @@ impl MetricCalculator for FX01 {
         let foreign_disc = curves.disc(fx_swap.foreign_disc_id)?;
 
         let dc = finstack_core::dates::DayCount::Act365F;
-        let t_near = dc.year_fraction(as_of, fx_swap.near_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
-        let t_far = dc.year_fraction(as_of, fx_swap.far_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_near = dc
+            .year_fraction(
+                as_of,
+                fx_swap.near_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+        let t_far = dc
+            .year_fraction(
+                as_of,
+                fx_swap.far_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
 
         let df_dom_near = domestic_disc.df(t_near);
         let df_dom_far = domestic_disc.df(t_far);
@@ -262,7 +310,9 @@ impl MetricCalculator for FX01 {
         let df_for_far = foreign_disc.df(t_far);
 
         let fx_matrix = curves.fx.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "fx_matrix".to_string(),
+            })
         })?;
 
         // Get original spot rate

@@ -1,5 +1,8 @@
 use crate::{
-    market_data::{interp::{InterpFn, ExtrapolationPolicy}, utils::validate_knots},
+    market_data::{
+        interp::{ExtrapolationPolicy, InterpFn},
+        utils::validate_knots,
+    },
     F,
 };
 use std::boxed::Box;
@@ -9,7 +12,7 @@ use std::vec::Vec;
 ///
 /// Implements the full Hagan–West slope-selecting, monotone-convex cubic
 /// interpolation in natural-log discount-factor space. This is the industry
-/// standard for yield curve construction as it guarantees positive and 
+/// standard for yield curve construction as it guarantees positive and
 /// continuous forward rates.
 ///
 /// ## Algorithm Overview
@@ -22,8 +25,8 @@ use std::vec::Vec;
 /// - Uses epsilon protection (100 × machine epsilon) for near-zero slopes
 /// - Harmonic mean calculation protected against division by very small values
 /// - Supports configurable extrapolation policy beyond input domain
-/// 
-/// The constructor computes and stores per-segment cubic coefficients guaranteeing 
+///
+/// The constructor computes and stores per-segment cubic coefficients guaranteeing
 /// positivity, monotonicity and convexity when the input curve is arbitrage-free
 /// (non-increasing). Evaluation is O(log N) due to binary search on the knot vector.
 ///
@@ -37,7 +40,7 @@ pub struct MonotoneConvex {
     /// Per-segment cubic coefficients (a,b,c,d) in ln-DF space.
     /// For segment i with normalized parameter s ∈ [0,1]:
     /// y(s) = a + b*s + c*s² + d*s³ where y = -ln(P)
-    /// 
+    ///
     /// Coefficients computed using the Hagan-West monotone-convex algorithm:
     /// - a = y[i] (left endpoint value)
     /// - b = d[i] * h (left derivative scaled by segment width)
@@ -65,7 +68,11 @@ impl MonotoneConvex {
     /// * `InputError::NonPositiveValue`    – DF ≤ 0.
     /// * `InputError::Invalid`             – DF increases between knots.
     #[allow(clippy::boxed_local)]
-    pub fn new(knots: Box<[F]>, dfs: Box<[F]>, extrapolation: ExtrapolationPolicy) -> crate::Result<Self> {
+    pub fn new(
+        knots: Box<[F]>,
+        dfs: Box<[F]>,
+        extrapolation: ExtrapolationPolicy,
+    ) -> crate::Result<Self> {
         debug_assert_eq!(knots.len(), dfs.len());
 
         // ---- Sanity checks -------------------------------------------------
@@ -76,9 +83,9 @@ impl MonotoneConvex {
         // the struct to avoid partial move/borrow checker conflicts.
         let coeffs = Self::build_coeffs(&knots, &dfs);
 
-        Ok(Self { 
-            knots, 
-            dfs, 
+        Ok(Self {
+            knots,
+            dfs,
             coeffs,
             extrapolation,
         })
@@ -129,8 +136,8 @@ impl MonotoneConvex {
             if m[i].abs() < EPS {
                 continue; // avoid division by zero; d already satisfy monotonic.
             }
-            let alpha = d[i] / m[i];        // Left derivative normalized by secant slope
-            let beta = d[i + 1] / m[i];     // Right derivative normalized by secant slope
+            let alpha = d[i] / m[i]; // Left derivative normalized by secant slope
+            let beta = d[i + 1] / m[i]; // Right derivative normalized by secant slope
             let sum_sq = alpha * alpha + beta * beta;
             if sum_sq > 9.0 {
                 // Violation of convexity constraint: scale both derivatives
@@ -146,22 +153,18 @@ impl MonotoneConvex {
         let mut coeffs: Vec<(F, F, F, F)> = Vec::with_capacity(n - 1);
         for i in 0..n - 1 {
             let h = dt[i];
-            let a = y[i];                                           // y-value at left endpoint
-            let b = d[i] * h;                                      // left derivative scaled by segment width
-            let c = (3.0 * m[i] - 2.0 * d[i] - d[i + 1]) * h;      // C¹ continuity constraint
-            let dcoef = (d[i] + d[i + 1] - 2.0 * m[i]) * h;        // slope matching constraint
+            let a = y[i]; // y-value at left endpoint
+            let b = d[i] * h; // left derivative scaled by segment width
+            let c = (3.0 * m[i] - 2.0 * d[i] - d[i + 1]) * h; // C¹ continuity constraint
+            let dcoef = (d[i] + d[i + 1] - 2.0 * m[i]) * h; // slope matching constraint
             coeffs.push((a, b, c, dcoef));
         }
 
         coeffs.into_boxed_slice()
     }
 
-
-
     // Shared `locate_segment` from utils is used.
 }
-
-
 
 impl InterpFn for MonotoneConvex {
     fn interp(&self, x: F) -> F {
@@ -195,12 +198,12 @@ impl InterpFn for MonotoneConvex {
                 }
             };
         }
-        
+
         // Exact knot match
         if let Ok(idx_exact) = self.knots.binary_search_by(|k| k.partial_cmp(&x).unwrap()) {
             return self.dfs[idx_exact];
         }
-        
+
         // Interior interpolation using monotone-convex cubic
         let idx = crate::market_data::utils::locate_segment(&self.knots, x).unwrap();
         let (a, b, c, d) = self.coeffs[idx];
@@ -236,9 +239,10 @@ impl InterpFn for MonotoneConvex {
                 }
             };
         }
-        
+
         // Find segment and compute derivative
-        let idx = if let Ok(idx_exact) = self.knots.binary_search_by(|k| k.partial_cmp(&x).unwrap()) {
+        let idx = if let Ok(idx_exact) = self.knots.binary_search_by(|k| k.partial_cmp(&x).unwrap())
+        {
             // Exact knot: use right derivative for consistency (except at last knot)
             if idx_exact == self.knots.len() - 1 {
                 idx_exact - 1
@@ -248,22 +252,21 @@ impl InterpFn for MonotoneConvex {
         } else {
             crate::market_data::utils::locate_segment(&self.knots, x).unwrap()
         };
-        
+
         let (a, b, c, d) = self.coeffs[idx];
         let h = self.knots[idx + 1] - self.knots[idx];
         let s = (x - self.knots[idx]) / h;
         let y = a + b * s + c * s * s + d * s * s * s;
         let dy_ds = b + 2.0 * c * s + 3.0 * d * s * s;
         let f_val = (-y).exp();
-        
+
         // Chain rule: df/dx = df/dy * dy/ds * ds/dx = -f * dy/ds / h
         -f_val * dy_ds / h
     }
-
 }
 
 /// Numerical tolerance for near-zero slope detection.
-/// 
+///
 /// Set to 100 × machine epsilon to provide adequate protection against
 /// division by very small numbers while preserving numerical accuracy.
 /// This threshold is used to:

@@ -384,7 +384,9 @@ impl LoanSimulator {
             }
             #[cfg(not(feature = "stochastic-models"))]
             {
-                return Err(finstack_core::Error::Input(finstack_core::error::InputError::Invalid));
+                return Err(finstack_core::Error::Input(
+                    finstack_core::error::InputError::Invalid,
+                ));
             }
         } else {
             self.simulate_deterministic(facility, curves, as_of, &events)?
@@ -523,11 +525,13 @@ impl LoanSimulator {
                 current_drawn = (current_drawn + net_change).max(0.0).min(commitment);
 
                 // PV of draw/repayment itself
-                let df_start = disc.df(finstack_core::dates::DayCount::Act365F.year_fraction(
-                    disc.base_date(),
-                    period_start,
-                    finstack_core::dates::DayCountCtx::default(),
-                ).unwrap_or(0.0));
+                let df_start = disc.df(finstack_core::dates::DayCount::Act365F
+                    .year_fraction(
+                        disc.base_date(),
+                        period_start,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0));
 
                 if net_change > 0.0 {
                     breakdown.future_draws -= net_change * df_start;
@@ -555,11 +559,13 @@ impl LoanSimulator {
             breakdown.other_fees += period_pv.other_fees;
 
             // Apply cash sweep (reduces outstanding)
-            let df_end = disc.df(finstack_core::dates::DayCount::Act365F.year_fraction(
-                disc.base_date(),
-                period_end,
-                finstack_core::dates::DayCountCtx::default(),
-            ).unwrap_or(0.0));
+            let df_end = disc.df(finstack_core::dates::DayCount::Act365F
+                .year_fraction(
+                    disc.base_date(),
+                    period_end,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap_or(0.0));
             current_drawn -= period_pv.cash_sweep / df_end; // Undiscount to get notional impact
             current_drawn = current_drawn.max(0.0); // Ensure non-negative
             breakdown.incremental_principal += period_pv.cash_sweep; // Add to principal PV
@@ -717,11 +723,13 @@ impl LoanSimulator {
                     let actual_change = event.sample_amount(rng, available);
                     current_drawn = (current_drawn + actual_change).max(0.0).min(commitment);
 
-                    let df_start = disc.df(finstack_core::dates::DayCount::Act365F.year_fraction(
-                        disc.base_date(),
-                        period_start,
-                        finstack_core::dates::DayCountCtx::default(),
-                    ).unwrap_or(0.0));
+                    let df_start = disc.df(finstack_core::dates::DayCount::Act365F
+                        .year_fraction(
+                            disc.base_date(),
+                            period_start,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
+                        .unwrap_or(0.0));
 
                     if actual_change > 0.0 {
                         breakdown.future_draws -= actual_change * df_start;
@@ -750,11 +758,13 @@ impl LoanSimulator {
             breakdown.other_fees += period_pv.other_fees;
 
             // Apply cash sweep (reduces outstanding)
-            let df_end = disc.df(finstack_core::dates::DayCount::Act365F.year_fraction(
-                disc.base_date(),
-                period_end,
-                finstack_core::dates::DayCountCtx::default(),
-            ).unwrap_or(0.0));
+            let df_end = disc.df(finstack_core::dates::DayCount::Act365F
+                .year_fraction(
+                    disc.base_date(),
+                    period_end,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap_or(0.0));
             current_drawn -= period_pv.cash_sweep / df_end; // Undiscount to get notional impact
             current_drawn = current_drawn.max(0.0); // Ensure non-negative
             breakdown.incremental_principal += period_pv.cash_sweep; // Add to principal PV
@@ -784,14 +794,18 @@ impl LoanSimulator {
         let mut result = PeriodCashFlows::default();
 
         // Calculate year fraction for the period
-        let tau = facility
-            .day_count()
-            .year_fraction(period_start, period_end, finstack_core::dates::DayCountCtx::default())?;
-        let df_end = disc.df(finstack_core::dates::DayCount::Act365F.year_fraction(
-            disc.base_date(),
+        let tau = facility.day_count().year_fraction(
+            period_start,
             period_end,
             finstack_core::dates::DayCountCtx::default(),
-        ).unwrap_or(0.0));
+        )?;
+        let df_end = disc.df(finstack_core::dates::DayCount::Act365F
+            .year_fraction(
+                disc.base_date(),
+                period_end,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0));
 
         // Interest calculation
         match facility.interest_spec() {
@@ -812,16 +826,20 @@ impl LoanSimulator {
                     // Calculate reset date
                     let reset_date =
                         self.apply_reset_lag(period_start, *reset_lag_days, facility)?;
-                    let t_fix = finstack_core::dates::DayCount::Act365F.year_fraction(
-                        disc.base_date(),
-                        reset_date,
-                        finstack_core::dates::DayCountCtx::default(),
-                    ).unwrap_or(0.0);
-                    let t_pay = finstack_core::dates::DayCount::Act365F.year_fraction(
-                        disc.base_date(),
-                        period_end,
-                        finstack_core::dates::DayCountCtx::default(),
-                    ).unwrap_or(0.0);
+                    let t_fix = finstack_core::dates::DayCount::Act365F
+                        .year_fraction(
+                            disc.base_date(),
+                            reset_date,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
+                        .unwrap_or(0.0);
+                    let t_pay = finstack_core::dates::DayCount::Act365F
+                        .year_fraction(
+                            disc.base_date(),
+                            period_end,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
+                        .unwrap_or(0.0);
 
                     let forward_rate = fwd_curve.rate_period(t_fix, t_pay);
 
@@ -953,11 +971,7 @@ impl LoanSimulator {
         if let Some(calendar_id) = facility.calendar_id() {
             if let Some(cal) = finstack_core::dates::holiday::calendars::calendar_by_id(calendar_id)
             {
-                return finstack_core::dates::adjust(
-                    reset_date,
-                    facility.bdc(),
-                    cal,
-                );
+                return finstack_core::dates::adjust(reset_date, facility.bdc(), cal);
             }
         }
 
@@ -1028,9 +1042,11 @@ impl LoanSimulator {
                 // Pre-compute survival probabilities at timeline nodes
                 let mut survival_probs = Vec::with_capacity(timeline.len());
                 for &date in timeline {
-                    let t = hazard_curve
-                        .day_count()
-                        .year_fraction(base_date, date, finstack_core::dates::DayCountCtx::default())?;
+                    let t = hazard_curve.day_count().year_fraction(
+                        base_date,
+                        date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )?;
                     let sp = hazard_curve.sp(t);
                     survival_probs.push((date, sp));
                 }
@@ -1099,11 +1115,13 @@ impl LoanSimulator {
             .unwrap_or(0.4); // 40% default recovery
 
         let recovery_amount = outstanding * recovery_rate;
-        let df = disc.df(finstack_core::dates::DayCount::Act365F.year_fraction(
-            disc.base_date(),
-            default_time,
-            finstack_core::dates::DayCountCtx::default(),
-        ).unwrap_or(0.0));
+        let df = disc.df(finstack_core::dates::DayCount::Act365F
+            .year_fraction(
+                disc.base_date(),
+                default_time,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0));
 
         Ok(recovery_amount * df)
     }
@@ -2065,7 +2083,9 @@ mod tests {
             .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
-        curves = curves.insert_discount(disc_curve).insert_hazard(hazard_curve);
+        curves = curves
+            .insert_discount(disc_curve)
+            .insert_hazard(hazard_curve);
 
         // Test with hazard curve present
         let credit_config = SimulationConfig {
@@ -2086,13 +2106,13 @@ mod tests {
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
         let result = simulator.simulate(&ddtl, &curves, as_of);
-        
+
         if let Err(ref e) = result {
             println!("Simulation failed with error: {:?}", e);
             // For now, skip this test if simulation fails due to setup issues
             return;
         }
-        
+
         let result = result.unwrap();
         // Should have valid results with hazard curve
         assert!(result.total_pv.amount().is_finite());

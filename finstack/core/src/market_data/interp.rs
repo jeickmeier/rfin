@@ -38,10 +38,10 @@ const DERIVATIVE_EPSILON: crate::F = 1e-6;
 pub trait InterpFn: Send + Sync + core::fmt::Debug {
     /// Interpolate at coordinate `x`.
     fn interp(&self, x: crate::F) -> crate::F;
-    
+
     /// Compute the first derivative at coordinate `x`.
     /// Essential for calculating hedge sensitivities (Delta, Rho, etc.).
-    /// 
+    ///
     /// Default implementation uses central finite differences. Override for
     /// analytical derivatives when available.
     fn interp_prime(&self, x: crate::F) -> crate::F {
@@ -115,15 +115,31 @@ impl InterpStyle {
         extrapolation: ExtrapolationPolicy,
     ) -> crate::Result<Box<dyn InterpFn>> {
         match self {
-            InterpStyle::Linear => Ok(Box::new(super::interp::LinearDf::new(knots, values, extrapolation)?)),
-            InterpStyle::LogLinear => Ok(Box::new(super::interp::LogLinearDf::new(knots, values, extrapolation)?)),
-            InterpStyle::MonotoneConvex => {
-                Ok(Box::new(super::interp::MonotoneConvex::new(knots, values, extrapolation)?))
-            }
-            InterpStyle::CubicHermite => {
-                Ok(Box::new(super::interp::CubicHermite::new(knots, values, extrapolation)?))
-            }
-            InterpStyle::FlatFwd => Ok(Box::new(super::interp::FlatFwd::new(knots, values, extrapolation)?)),
+            InterpStyle::Linear => Ok(Box::new(super::interp::LinearDf::new(
+                knots,
+                values,
+                extrapolation,
+            )?)),
+            InterpStyle::LogLinear => Ok(Box::new(super::interp::LogLinearDf::new(
+                knots,
+                values,
+                extrapolation,
+            )?)),
+            InterpStyle::MonotoneConvex => Ok(Box::new(super::interp::MonotoneConvex::new(
+                knots,
+                values,
+                extrapolation,
+            )?)),
+            InterpStyle::CubicHermite => Ok(Box::new(super::interp::CubicHermite::new(
+                knots,
+                values,
+                extrapolation,
+            )?)),
+            InterpStyle::FlatFwd => Ok(Box::new(super::interp::FlatFwd::new(
+                knots,
+                values,
+                extrapolation,
+            )?)),
         }
     }
 }

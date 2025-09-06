@@ -225,7 +225,9 @@ impl InflationLinkedBond {
     ) -> finstack_core::Result<DatedFlows> {
         // Get inflation index
         let inflation_index = curves.inflation_index(self.inflation_id).ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "inflation_linked_bond_quote".to_string() })
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "inflation_linked_bond_quote".to_string(),
+            })
         })?;
 
         // Use centralized schedule builder for coupon dates
@@ -246,7 +248,9 @@ impl InflationLinkedBond {
         let mut prev = dates[0];
         for &d in &dates[1..] {
             // Accrual over the period using standard DayCount
-            let year_frac = self.dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
+            let year_frac =
+                self.dc
+                    .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
             let base_amount = self.notional * self.real_coupon * year_frac;
 
             // Apply inflation adjustment at payment date

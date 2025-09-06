@@ -182,7 +182,10 @@ pub fn price_from_ytm_compounded(
         if date <= as_of {
             continue;
         }
-        let t = bond.dc.year_fraction(as_of, date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t = bond
+            .dc
+            .year_fraction(as_of, date, finstack_core::dates::DayCountCtx::default())
+            .unwrap_or(0.0);
         if t > 0.0 {
             let df = df_from_yield(ytm, t, comp, bond.freq)?;
             pv += amount.amount() * df;

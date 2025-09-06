@@ -86,7 +86,8 @@ impl Calendar {
             return date.clone();
         }
         let adj: CoreDate = if refs.len() == 1 {
-            adjust(date.inner(), convention.into(), refs[0]).expect("Date adjustment should not fail")
+            adjust(date.inner(), convention.into(), refs[0])
+                .expect("Date adjustment should not fail")
         } else {
             let comp = CompositeCalendar::new(&refs);
             adjust(date.inner(), convention.into(), &comp).expect("Date adjustment should not fail")

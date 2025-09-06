@@ -53,11 +53,7 @@ impl RiskReport {
     }
 
     /// Add bucketed risks.
-    pub fn with_bucketed_risk(
-        mut self,
-        risk_type: &str,
-        buckets: HashMap<String, F>,
-    ) -> Self {
+    pub fn with_bucketed_risk(mut self, risk_type: &str, buckets: HashMap<String, F>) -> Self {
         self.bucketed_risks.insert(risk_type.to_string(), buckets);
         self
     }

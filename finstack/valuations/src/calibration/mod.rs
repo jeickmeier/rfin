@@ -18,7 +18,7 @@ pub mod primitives;
 pub mod surface;
 
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::math::{HybridSolver, NewtonSolver, BrentSolver, Solver};
+use finstack_core::math::{BrentSolver, HybridSolver, NewtonSolver, Solver};
 use finstack_core::{Result, F};
 use std::collections::HashMap;
 
@@ -230,7 +230,8 @@ pub struct CalibrationConfig {
     /// Solver type selection
     pub solver_kind: SolverKind,
     /// Entity-specific seniority mappings for credit calibration
-    pub entity_seniority: HashMap<String, finstack_core::market_data::term_structures::hazard_curve::Seniority>,
+    pub entity_seniority:
+        HashMap<String, finstack_core::market_data::term_structures::hazard_curve::Seniority>,
 }
 
 impl Default for CalibrationConfig {
@@ -272,18 +273,15 @@ impl CalibrationConfig {
     /// Create a solver instance based on the configured solver kind.
     pub fn make_solver(&self) -> SolverInstance {
         match self.solver_kind {
-            SolverKind::Newton => {
-                SolverInstance::Newton(NewtonSolver::new()
+            SolverKind::Newton => SolverInstance::Newton(
+                NewtonSolver::new()
                     .with_tolerance(self.tolerance)
-                    .with_max_iterations(self.max_iterations))
-            }
+                    .with_max_iterations(self.max_iterations),
+            ),
             SolverKind::Brent => {
-                SolverInstance::Brent(BrentSolver::new()
-                    .with_tolerance(self.tolerance))
+                SolverInstance::Brent(BrentSolver::new().with_tolerance(self.tolerance))
             }
-            SolverKind::Hybrid => {
-                SolverInstance::Hybrid(HybridSolver::new())
-            }
+            SolverKind::Hybrid => SolverInstance::Hybrid(HybridSolver::new()),
         }
     }
 }
@@ -337,21 +335,32 @@ impl std::error::Error for CalibrationError {}
 impl From<CalibrationError> for finstack_core::Error {
     fn from(err: CalibrationError) -> Self {
         let (message, category) = match &err {
-            CalibrationError::ConvergenceFailure { iterations, final_error } => {
-                (format!("Failed to converge after {} iterations, final error: {}", iterations, final_error), "convergence".to_string())
-            }
-            CalibrationError::InsufficientData { message } => {
-                (format!("Insufficient market data: {}", message), "data".to_string())
-            }
-            CalibrationError::InvalidQuotes { message } => {
-                (format!("Invalid market quotes: {}", message), "quotes".to_string())
-            }
-            CalibrationError::NumericalInstability { message } => {
-                (format!("Numerical instability: {}", message), "numerical".to_string())
-            }
-            CalibrationError::ArbitrageViolation { message } => {
-                (format!("No-arbitrage violation detected: {}", message), "arbitrage".to_string())
-            }
+            CalibrationError::ConvergenceFailure {
+                iterations,
+                final_error,
+            } => (
+                format!(
+                    "Failed to converge after {} iterations, final error: {}",
+                    iterations, final_error
+                ),
+                "convergence".to_string(),
+            ),
+            CalibrationError::InsufficientData { message } => (
+                format!("Insufficient market data: {}", message),
+                "data".to_string(),
+            ),
+            CalibrationError::InvalidQuotes { message } => (
+                format!("Invalid market quotes: {}", message),
+                "quotes".to_string(),
+            ),
+            CalibrationError::NumericalInstability { message } => (
+                format!("Numerical instability: {}", message),
+                "numerical".to_string(),
+            ),
+            CalibrationError::ArbitrageViolation { message } => (
+                format!("No-arbitrage violation detected: {}", message),
+                "arbitrage".to_string(),
+            ),
         };
         finstack_core::Error::Calibration { message, category }
     }
@@ -366,21 +375,21 @@ mod tests {
     fn test_solver_selection() {
         // Test that different solver kinds can be created and work
         let mut config = CalibrationConfig::default();
-        
+
         // Test default (Hybrid)
         let solver = config.make_solver();
         assert!(matches!(solver, SolverInstance::Hybrid(_)));
-        
+
         // Test Newton
         config.solver_kind = SolverKind::Newton;
         let solver = config.make_solver();
         assert!(matches!(solver, SolverInstance::Newton(_)));
-        
+
         // Test Brent
         config.solver_kind = SolverKind::Brent;
         let solver = config.make_solver();
         assert!(matches!(solver, SolverInstance::Brent(_)));
-        
+
         // Test that solver can actually solve a simple equation
         let f = |x: F| x * x - 4.0; // Root at x = 2
         let root = solver.solve(f, 1.5).unwrap();
@@ -410,11 +419,7 @@ mod tests {
         residuals.insert("test_instrument".to_string(), 1e-6);
         residuals.insert("another_instrument".to_string(), 2e-6);
 
-        let report = CalibrationReport::success_with(
-            residuals,
-            10,
-            "Test calibration completed",
-        );
+        let report = CalibrationReport::success_with(residuals, 10, "Test calibration completed");
 
         assert!(report.success);
         assert_eq!(report.iterations, 10);
@@ -427,13 +432,13 @@ mod tests {
     #[test]
     fn test_calibration_report_push_residual() {
         let mut report = CalibrationReport::new().success();
-        
+
         report.push_residual("instrument1", 1e-6);
         report.push_residual("instrument2", 2e-6);
-        
+
         assert_eq!(report.residuals.len(), 2);
         assert!((report.max_residual - 2e-6).abs() < 1e-12);
-        
+
         // Test that metrics are updated correctly
         let expected_rmse = ((1e-12_f64 + 4e-12_f64) / 2.0_f64).sqrt();
         assert!((report.rmse - expected_rmse).abs() < 1e-15);

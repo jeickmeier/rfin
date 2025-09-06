@@ -46,8 +46,6 @@ impl Default for FinstackConfig {
     }
 }
 
-
-
 /// Policy mapping to determine decimal places for each currency at ingest/output.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

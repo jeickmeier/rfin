@@ -136,8 +136,8 @@ impl Default for FxCacheConfig {
             default_ttl: Duration::from_secs(300), // 5 minutes
             closure_tolerance: 0.0001,             // 1 basis point
             strict_closure: false,
-            pivot_currency: Currency::USD,         // USD as default pivot
-            enable_triangulation: true,            // Enable triangulation by default
+            pivot_currency: Currency::USD, // USD as default pivot
+            enable_triangulation: true,    // Enable triangulation by default
         }
     }
 }
@@ -229,15 +229,38 @@ impl FxMatrix {
             // Identity closure check is trivial if requested
             if let Some(mid) = q.closure_check {
                 if q.want_meta {
-                    let via_a = self.rate(FxQuery { from, to: mid, on, policy, closure_check: None, want_meta: false })?.rate;
-                    let via_b = self.rate(FxQuery { from: mid, to, on, policy, closure_check: None, want_meta: false })?.rate;
+                    let via_a = self
+                        .rate(FxQuery {
+                            from,
+                            to: mid,
+                            on,
+                            policy,
+                            closure_check: None,
+                            want_meta: false,
+                        })?
+                        .rate;
+                    let via_b = self
+                        .rate(FxQuery {
+                            from: mid,
+                            to,
+                            on,
+                            policy,
+                            closure_check: None,
+                            want_meta: false,
+                        })?
+                        .rate;
                     result.closure = Some(self.check_closure(rate, via_a, via_b)?);
                 }
             }
             return Ok(result);
         }
 
-        let cache_key = FxCacheKey { from, to, date: on, policy };
+        let cache_key = FxCacheKey {
+            from,
+            to,
+            date: on,
+            policy,
+        };
 
         // Try to get from cache first
         let mut hit_rate: Option<FxRate> = None;
@@ -256,11 +279,34 @@ impl FxMatrix {
                     entry.last_access_at = Instant::now();
                 }
             }
-            let mut result = FxRateResult { rate, triangulated: false, pivot_currency: None, closure: None };
+            let mut result = FxRateResult {
+                rate,
+                triangulated: false,
+                pivot_currency: None,
+                closure: None,
+            };
             if q.want_meta {
                 if let Some(mid) = q.closure_check {
-                    let via_a = self.rate(FxQuery { from, to: mid, on, policy, closure_check: None, want_meta: false })?.rate;
-                    let via_b = self.rate(FxQuery { from: mid, to, on, policy, closure_check: None, want_meta: false })?.rate;
+                    let via_a = self
+                        .rate(FxQuery {
+                            from,
+                            to: mid,
+                            on,
+                            policy,
+                            closure_check: None,
+                            want_meta: false,
+                        })?
+                        .rate;
+                    let via_b = self
+                        .rate(FxQuery {
+                            from: mid,
+                            to,
+                            on,
+                            policy,
+                            closure_check: None,
+                            want_meta: false,
+                        })?
+                        .rate;
                     result.closure = Some(self.check_closure(rate, via_a, via_b)?);
                 }
             }
@@ -285,11 +331,34 @@ impl FxMatrix {
             Err(e) => return Err(e),
         };
 
-        let mut result = FxRateResult { rate, triangulated, pivot_currency, closure: None };
+        let mut result = FxRateResult {
+            rate,
+            triangulated,
+            pivot_currency,
+            closure: None,
+        };
         if q.want_meta {
             if let Some(mid) = q.closure_check {
-                let via_a = self.rate(FxQuery { from, to: mid, on, policy, closure_check: None, want_meta: false })?.rate;
-                let via_b = self.rate(FxQuery { from: mid, to, on, policy, closure_check: None, want_meta: false })?.rate;
+                let via_a = self
+                    .rate(FxQuery {
+                        from,
+                        to: mid,
+                        on,
+                        policy,
+                        closure_check: None,
+                        want_meta: false,
+                    })?
+                    .rate;
+                let via_b = self
+                    .rate(FxQuery {
+                        from: mid,
+                        to,
+                        on,
+                        policy,
+                        closure_check: None,
+                        want_meta: false,
+                    })?
+                    .rate;
                 let closure_result = self.check_closure(result.rate, via_a, via_b)?;
                 if self.config.strict_closure {
                     if let ClosureCheckResult::Fail { .. } = closure_result {
@@ -334,7 +403,7 @@ impl FxMatrix {
         policy: FxConversionPolicy,
     ) -> crate::Result<FxRate> {
         let pivot = self.config.pivot_currency;
-        
+
         // Don't triangulate if we already involve the pivot currency directly
         if from == pivot || to == pivot {
             return Err(crate::Error::Input(crate::error::InputError::Invalid));
@@ -446,7 +515,7 @@ mod tests {
             rates.insert((Currency::JPY, Currency::USD), 0.0091);
             rates.insert((Currency::USD, Currency::CAD), 1.25);
             rates.insert((Currency::CAD, Currency::USD), 0.80);
-            
+
             // Intentionally omit direct cross-rates to test triangulation
             // EUR/GBP, EUR/JPY, GBP/JPY will be triangulated via USD
 
@@ -455,13 +524,13 @@ mod tests {
 
         fn new_incomplete() -> Self {
             let mut rates = HashMap::new();
-            
+
             // Only USD pivot rates - no cross-rates available
             rates.insert((Currency::USD, Currency::EUR), 0.85);
             rates.insert((Currency::EUR, Currency::USD), 1.18);
             rates.insert((Currency::USD, Currency::GBP), 0.75);
             rates.insert((Currency::GBP, Currency::USD), 1.33);
-            
+
             Self { rates }
         }
     }
@@ -855,7 +924,7 @@ mod tests {
                 rates
             },
         };
-        
+
         let config = FxCacheConfig {
             pivot_currency: Currency::USD,
             enable_triangulation: true,
@@ -900,12 +969,12 @@ mod tests {
 
         assert!(!result.triangulated);
         assert_eq!(result.pivot_currency, None);
-        
+
         #[cfg(feature = "decimal128")]
         let expected = rust_decimal::Decimal::try_from(0.85).unwrap();
         #[cfg(not(feature = "decimal128"))]
         let expected = 0.85;
-        
+
         assert_eq!(result.rate, expected);
 
         // Test triangulated rate
@@ -922,7 +991,7 @@ mod tests {
 
         assert!(result.triangulated);
         assert_eq!(result.pivot_currency, Some(Currency::USD));
-        
+
         // Expected: 1.18 * 0.75 = 0.885
         #[cfg(feature = "decimal128")]
         let expected = rust_decimal::Decimal::try_from(1.18 * 0.75).unwrap();
@@ -948,7 +1017,7 @@ mod tests {
 
         assert!(!result.triangulated);
         assert_eq!(result.pivot_currency, None);
-        
+
         #[cfg(feature = "decimal128")]
         assert_eq!(result.rate, rust_decimal::Decimal::ONE);
         #[cfg(not(feature = "decimal128"))]

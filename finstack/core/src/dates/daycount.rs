@@ -68,9 +68,9 @@
 use core::cmp::Ordering;
 use time::{Date, Duration, Month};
 
-use crate::error::InputError;
 use crate::dates::calendar::HolidayCalendar;
 use crate::dates::schedule_iter::Frequency;
+use crate::error::InputError;
 
 /// Optional context for day-count year-fraction calculations.
 ///
@@ -123,7 +123,11 @@ impl DayCount {
             Ordering::Greater => Err(InputError::InvalidDateRange.into()),
             Ordering::Equal => Ok(0),
             Ordering::Less => match self {
-                DayCount::Act360 | DayCount::Act365F | DayCount::Act365L | DayCount::ActAct | DayCount::ActActIsma => {
+                DayCount::Act360
+                | DayCount::Act365F
+                | DayCount::Act365L
+                | DayCount::ActAct
+                | DayCount::ActActIsma => {
                     let total_days = (end - start).whole_days();
                     Ok(total_days as i32)
                 }
@@ -261,23 +265,19 @@ fn year_fraction_act_act_isda(start: Date, end: Date) -> f64 {
 // ACT/ACT (ISMA/ICMA) helper
 // -------------------------------------------------------------------------------------------------
 /// Calculate year fraction for ACT/ACT (ISMA) convention with coupon-period awareness.
-/// 
-/// Unlike ISDA which splits by calendar years, ISMA divides the period into quasi-coupon 
+///
+/// Unlike ISDA which splits by calendar years, ISMA divides the period into quasi-coupon
 /// periods that match the instrument's payment frequency. This ensures equal valuation
 /// of days within each coupon period.
-/// 
+///
 /// The algorithm:
 /// 1. Generate quasi-coupon periods based on the payment frequency
 /// 2. For each period, calculate: (actual days in period) / (actual days in year)
 /// 3. Sum the fractions from all periods
-/// 
+///
 /// This approach ensures that all coupon payments are valued consistently,
 /// which is essential for bond pricing and accrual calculations.
-fn year_fraction_act_act_isma(
-    start: Date,
-    end: Date,
-    freq: Frequency,
-) -> crate::Result<f64> {
+fn year_fraction_act_act_isma(start: Date, end: Date, freq: Frequency) -> crate::Result<f64> {
     if start == end {
         return Ok(0.0);
     }
@@ -285,42 +285,42 @@ fn year_fraction_act_act_isma(
     // For ISMA, we need to work with quasi-coupon periods
     // We'll generate a schedule that encompasses the period and then
     // calculate the year fraction for each sub-period
-    
+
     let mut total_fraction = 0.0;
-    
+
     // Generate schedule to find quasi-coupon periods
     // We need to extend backward/forward to capture the full coupon periods
     let extended_start = extend_backward_for_coupon_period(start, freq);
     let extended_end = extend_forward_for_coupon_period(end, freq);
-    
+
     let schedule = crate::dates::ScheduleBuilder::new(extended_start, extended_end)
         .frequency(freq)
         .build()?;
-    
+
     let periods: Vec<Date> = schedule.into_iter().collect();
-    
+
     // Find the periods that overlap with our [start, end) interval
     for window in periods.windows(2) {
         let period_start = window[0];
         let period_end = window[1];
-        
+
         // Check if this period overlaps with our target interval
         let overlap_start = start.max(period_start);
         let overlap_end = end.min(period_end);
-        
+
         if overlap_start < overlap_end {
             // Calculate days in this overlap
             let days_in_overlap = (overlap_end - overlap_start).whole_days() as f64;
-            
+
             // Calculate total days in this coupon year
             // For ISMA, we use the actual days in the year containing the period
             let year = period_start.year();
             let days_in_coupon_year = days_in_year(year) as f64;
-            
+
             total_fraction += days_in_overlap / days_in_coupon_year;
         }
     }
-    
+
     Ok(total_fraction)
 }
 
@@ -335,7 +335,7 @@ fn extend_backward_for_coupon_period(date: Date, freq: Frequency) -> Date {
             return date - Duration::days(days_back as i64);
         }
     };
-    
+
     // Calculate a date well before to ensure we capture period boundaries
     let year = date.year() - (months_back / 12) - 1;
     Date::from_calendar_date(year.max(1), Month::January, 1).unwrap_or(date)
@@ -352,7 +352,7 @@ fn extend_forward_for_coupon_period(date: Date, freq: Frequency) -> Date {
             return date + Duration::days(days_forward as i64);
         }
     };
-    
+
     // Calculate a date well after to ensure we capture period boundaries
     let year = date.year() + (months_forward / 12) + 1;
     Date::from_calendar_date(year.min(9999), Month::December, 31).unwrap_or(date)
@@ -362,7 +362,7 @@ fn extend_forward_for_coupon_period(date: Date, freq: Frequency) -> Date {
 // ACT/365L helper
 // -------------------------------------------------------------------------------------------------
 /// Calculate year fraction for Act/365L convention.
-/// 
+///
 /// Act/365L uses 366 as denominator if February 29 falls between start (exclusive) and end (inclusive),
 /// otherwise uses 365.
 fn year_fraction_act_365l(start: Date, end: Date) -> f64 {
@@ -371,14 +371,14 @@ fn year_fraction_act_365l(start: Date, end: Date) -> f64 {
     }
 
     let actual_days = (end - start).whole_days() as f64;
-    
+
     // Check if Feb 29 falls between start (exclusive) and end (inclusive)
     let denominator = if contains_feb_29(start, end) {
         366.0
     } else {
         365.0
     };
-    
+
     actual_days / denominator
 }
 
@@ -386,7 +386,7 @@ fn year_fraction_act_365l(start: Date, end: Date) -> f64 {
 fn contains_feb_29(start: Date, end: Date) -> bool {
     let start_year = start.year();
     let end_year = end.year();
-    
+
     // Check each year in the range for Feb 29
     for year in start_year..=end_year {
         if crate::dates::utils::is_leap_year(year) {
@@ -406,21 +406,17 @@ fn contains_feb_29(start: Date, end: Date) -> bool {
 // Bus/252 helper
 // -------------------------------------------------------------------------------------------------
 /// Count business days between start (inclusive) and end (exclusive) using the given calendar.
-fn count_business_days<C: HolidayCalendar + ?Sized>(
-    start: Date,
-    end: Date,
-    calendar: &C,
-) -> i32 {
+fn count_business_days<C: HolidayCalendar + ?Sized>(start: Date, end: Date, calendar: &C) -> i32 {
     let mut count = 0;
     let mut current = start;
-    
+
     while current < end {
         if calendar.is_business_day(current) {
             count += 1;
         }
         current += Duration::days(1);
     }
-    
+
     count
 }
 
@@ -432,8 +428,6 @@ const fn days_in_year(year: i32) -> i32 {
         365
     }
 }
-
-
 
 // -------------------------------------------------------------------------------------------------
 // Tests
@@ -451,7 +445,9 @@ mod tests {
     fn act360_basic() {
         let start = make_date(2025, 1, 1);
         let end = start + Duration::days(360);
-        let yf = DayCount::Act360.year_fraction(start, end, DayCountCtx::default()).unwrap();
+        let yf = DayCount::Act360
+            .year_fraction(start, end, DayCountCtx::default())
+            .unwrap();
         assert!((yf - 1.0).abs() < 1e-9);
     }
 
@@ -459,7 +455,9 @@ mod tests {
     fn act365f_year_fraction() {
         let start = make_date(2025, 3, 1);
         let end = make_date(2026, 3, 1);
-        let yf = DayCount::Act365F.year_fraction(start, end, DayCountCtx::default()).unwrap();
+        let yf = DayCount::Act365F
+            .year_fraction(start, end, DayCountCtx::default())
+            .unwrap();
         // ACT/365F uses actual days / 365. For 2025-03-01 -> 2026-03-01 there are
         // 365 actual days (no leap day), so expected = 365 / 365.
         let expected = (end - start).whole_days() as f64 / 365.0;
@@ -472,7 +470,9 @@ mod tests {
         let end = make_date(2025, 2, 28);
         let days = DayCount::Thirty360.days(start, end).unwrap();
         assert_eq!(days, 28);
-        let yf = DayCount::Thirty360.year_fraction(start, end, DayCountCtx::default()).unwrap();
+        let yf = DayCount::Thirty360
+            .year_fraction(start, end, DayCountCtx::default())
+            .unwrap();
         assert!((yf * 360.0 - days as f64).abs() < 1e-9);
     }
 
@@ -480,7 +480,9 @@ mod tests {
     fn actact_spanning_years() {
         let start = make_date(2024, 7, 1); // includes leap year 2024
         let end = make_date(2026, 1, 1);
-        let yf = DayCount::ActAct.year_fraction(start, end, DayCountCtx::default()).unwrap();
+        let yf = DayCount::ActAct
+            .year_fraction(start, end, DayCountCtx::default())
+            .unwrap();
         // compute expected manually: part of 2024 (184 days from Jul1 to Jan1 2025), 2025 full year (365 days), part of 2026 (0). Actually end Jan1 so 0.
         let expected = 184.0 / 366.0 + 1.0; // plus full 2025 year 365/365 =1
         assert!((yf - expected).abs() < 1e-9);
@@ -490,7 +492,9 @@ mod tests {
     fn error_on_inverted_dates() {
         let start = make_date(2025, 1, 1);
         let end = make_date(2024, 1, 1);
-        assert!(DayCount::Act360.year_fraction(start, end, DayCountCtx::default()).is_err());
+        assert!(DayCount::Act360
+            .year_fraction(start, end, DayCountCtx::default())
+            .is_err());
     }
 
     #[test]
@@ -498,7 +502,9 @@ mod tests {
         // Period that doesn't contain Feb 29
         let start = make_date(2025, 3, 1); // 2025 is not a leap year
         let end = make_date(2025, 9, 1);
-        let yf = DayCount::Act365L.year_fraction(start, end, DayCountCtx::default()).unwrap();
+        let yf = DayCount::Act365L
+            .year_fraction(start, end, DayCountCtx::default())
+            .unwrap();
         let actual_days = (end - start).whole_days() as f64;
         let expected = actual_days / 365.0; // Should use 365 denominator
         assert!((yf - expected).abs() < 1e-9);
@@ -508,8 +514,10 @@ mod tests {
     fn act365l_with_leap_day() {
         // Period that contains Feb 29, 2024 (leap year)
         let start = make_date(2024, 2, 28); // Feb 28, 2024
-        let end = make_date(2024, 3, 2);    // Mar 2, 2024 (contains Feb 29)
-        let yf = DayCount::Act365L.year_fraction(start, end, DayCountCtx::default()).unwrap();
+        let end = make_date(2024, 3, 2); // Mar 2, 2024 (contains Feb 29)
+        let yf = DayCount::Act365L
+            .year_fraction(start, end, DayCountCtx::default())
+            .unwrap();
         let actual_days = (end - start).whole_days() as f64; // 3 days
         let expected = actual_days / 366.0; // Should use 366 denominator due to Feb 29
         assert!((yf - expected).abs() < 1e-9);
@@ -519,8 +527,10 @@ mod tests {
     fn act365l_leap_year_boundary() {
         // Start in leap year, end after leap year
         let start = make_date(2024, 2, 20); // Before Feb 29
-        let end = make_date(2025, 1, 15);   // After leap year
-        let yf = DayCount::Act365L.year_fraction(start, end, DayCountCtx::default()).unwrap();
+        let end = make_date(2025, 1, 15); // After leap year
+        let yf = DayCount::Act365L
+            .year_fraction(start, end, DayCountCtx::default())
+            .unwrap();
         let actual_days = (end - start).whole_days() as f64;
         let expected = actual_days / 366.0; // Should use 366 due to Feb 29 in period
         assert!((yf - expected).abs() < 1e-9);
@@ -529,9 +539,11 @@ mod tests {
     #[test]
     fn act365l_leap_year_before_period() {
         // Feb 29 exists in year but falls before start date
-        let start = make_date(2024, 3, 1);  // After Feb 29, 2024
-        let end = make_date(2024, 6, 1);    // Later in same leap year
-        let yf = DayCount::Act365L.year_fraction(start, end, DayCountCtx::default()).unwrap();
+        let start = make_date(2024, 3, 1); // After Feb 29, 2024
+        let end = make_date(2024, 6, 1); // Later in same leap year
+        let yf = DayCount::Act365L
+            .year_fraction(start, end, DayCountCtx::default())
+            .unwrap();
         let actual_days = (end - start).whole_days() as f64;
         let expected = actual_days / 365.0; // Should use 365 since Feb 29 not in (start, end]
         assert!((yf - expected).abs() < 1e-9);
@@ -540,7 +552,7 @@ mod tests {
     // Simple test-only calendar that treats only weekends as holidays
     #[derive(Debug, Clone, Copy)]
     struct WeekendsOnly;
-    
+
     impl crate::dates::calendar::HolidayCalendar for WeekendsOnly {
         fn is_holiday(&self, _date: Date) -> bool {
             // Return false for all dates; business day logic will still exclude weekends
@@ -552,16 +564,31 @@ mod tests {
     fn bus252_with_calendar() {
         // Simple test with weekends-only calendar (Monday to Friday)
         let calendar = WeekendsOnly;
-        let start = make_date(2025, 1, 6);  // Monday
-        let end = make_date(2025, 1, 13);   // Next Monday (7 calendar days, 5 business days)
-        
+        let start = make_date(2025, 1, 6); // Monday
+        let end = make_date(2025, 1, 13); // Next Monday (7 calendar days, 5 business days)
+
         let biz_days = DayCount::Bus252
-            .year_fraction(start, end, DayCountCtx { calendar: Some(&calendar), frequency: None })
-            .unwrap() * 252.0;
+            .year_fraction(
+                start,
+                end,
+                DayCountCtx {
+                    calendar: Some(&calendar),
+                    frequency: None,
+                },
+            )
+            .unwrap()
+            * 252.0;
         assert_eq!(biz_days.round() as i32, 5);
-        
+
         let yf = DayCount::Bus252
-            .year_fraction(start, end, DayCountCtx { calendar: Some(&calendar), frequency: None })
+            .year_fraction(
+                start,
+                end,
+                DayCountCtx {
+                    calendar: Some(&calendar),
+                    frequency: None,
+                },
+            )
             .unwrap();
         let expected = 5.0 / 252.0;
         assert!((yf - expected).abs() < 1e-9);
@@ -570,20 +597,35 @@ mod tests {
     #[test]
     fn bus252_with_nyse_calendar() {
         use crate::dates::holiday::calendars::Nyse;
-        
+
         // Test with a real calendar that has holidays
         let calendar = Nyse;
-        let start = make_date(2025, 1, 2);  // Thu (after New Year holiday)
-        let end = make_date(2025, 1, 6);    // Mon (4 calendar days)
-        
+        let start = make_date(2025, 1, 2); // Thu (after New Year holiday)
+        let end = make_date(2025, 1, 6); // Mon (4 calendar days)
+
         let biz_days = DayCount::Bus252
-            .year_fraction(start, end, DayCountCtx { calendar: Some(&calendar), frequency: None })
-            .unwrap() * 252.0;
+            .year_fraction(
+                start,
+                end,
+                DayCountCtx {
+                    calendar: Some(&calendar),
+                    frequency: None,
+                },
+            )
+            .unwrap()
+            * 252.0;
         // Should count Thu, Fri (Sat, Sun are weekends)
         assert_eq!(biz_days.round() as i32, 2);
-        
+
         let yf = DayCount::Bus252
-            .year_fraction(start, end, DayCountCtx { calendar: Some(&calendar), frequency: None })
+            .year_fraction(
+                start,
+                end,
+                DayCountCtx {
+                    calendar: Some(&calendar),
+                    frequency: None,
+                },
+            )
             .unwrap();
         let expected = 2.0 / 252.0;
         assert!((yf - expected).abs() < 1e-9);
@@ -594,23 +636,40 @@ mod tests {
         // Bus/252 should error when using regular methods without calendar
         let start = make_date(2025, 1, 1);
         let end = make_date(2025, 1, 8);
-        
+
         assert!(DayCount::Bus252.days(start, end).is_err());
-        assert!(DayCount::Bus252.year_fraction(start, end, DayCountCtx::default()).is_err());
+        assert!(DayCount::Bus252
+            .year_fraction(start, end, DayCountCtx::default())
+            .is_err());
     }
 
     #[test]
     fn bus252_equal_dates() {
         let calendar = WeekendsOnly;
         let date = make_date(2025, 1, 1);
-        
+
         let biz_days = DayCount::Bus252
-            .year_fraction(date, date, DayCountCtx { calendar: Some(&calendar), frequency: None })
-            .unwrap() * 252.0;
+            .year_fraction(
+                date,
+                date,
+                DayCountCtx {
+                    calendar: Some(&calendar),
+                    frequency: None,
+                },
+            )
+            .unwrap()
+            * 252.0;
         assert_eq!(biz_days.round() as i32, 0);
-        
+
         let yf = DayCount::Bus252
-            .year_fraction(date, date, DayCountCtx { calendar: Some(&calendar), frequency: None })
+            .year_fraction(
+                date,
+                date,
+                DayCountCtx {
+                    calendar: Some(&calendar),
+                    frequency: None,
+                },
+            )
             .unwrap();
         assert_eq!(yf, 0.0);
     }
@@ -621,11 +680,18 @@ mod tests {
         let start = make_date(2025, 1, 15);
         let end = make_date(2025, 7, 15);
         let freq = Frequency::Months(6); // Semi-annual
-        
+
         let yf = DayCount::ActActIsma
-            .year_fraction(start, end, DayCountCtx { calendar: None, frequency: Some(freq) })
+            .year_fraction(
+                start,
+                end,
+                DayCountCtx {
+                    calendar: None,
+                    frequency: Some(freq),
+                },
+            )
             .unwrap();
-        
+
         // For a semi-annual bond with 6-month periods, this should be close to 0.5
         // but accounting for the exact days in the coupon periods
         assert!(yf > 0.49 && yf < 0.51, "Expected ~0.5, got {}", yf);
@@ -637,11 +703,18 @@ mod tests {
         let start = make_date(2025, 1, 1);
         let end = make_date(2025, 4, 1);
         let freq = Frequency::Months(3); // Quarterly
-        
+
         let yf = DayCount::ActActIsma
-            .year_fraction(start, end, DayCountCtx { calendar: None, frequency: Some(freq) })
+            .year_fraction(
+                start,
+                end,
+                DayCountCtx {
+                    calendar: None,
+                    frequency: Some(freq),
+                },
+            )
             .unwrap();
-        
+
         // For a quarterly period, this should be close to 0.25
         assert!(yf > 0.24 && yf < 0.26, "Expected ~0.25, got {}", yf);
     }
@@ -652,26 +725,40 @@ mod tests {
         let start = make_date(2025, 1, 1);
         let end = make_date(2026, 1, 1);
         let freq = Frequency::Months(12); // Annual
-        
+
         let yf = DayCount::ActActIsma
-            .year_fraction(start, end, DayCountCtx { calendar: None, frequency: Some(freq) })
+            .year_fraction(
+                start,
+                end,
+                DayCountCtx {
+                    calendar: None,
+                    frequency: Some(freq),
+                },
+            )
             .unwrap();
-        
+
         // For a full year period, this should be exactly 1.0
         assert!((yf - 1.0).abs() < 1e-9, "Expected 1.0, got {}", yf);
     }
 
     #[test]
     fn actact_isma_spanning_leap_year() {
-        // Test ACT/ACT (ISMA) spanning a leap year boundary  
-        let start = make_date(2023, 7, 1);  // Mid-2023 (non-leap)
-        let end = make_date(2024, 7, 1);    // Mid-2024 (leap year)
-        let freq = Frequency::Months(6);    // Semi-annual
-        
+        // Test ACT/ACT (ISMA) spanning a leap year boundary
+        let start = make_date(2023, 7, 1); // Mid-2023 (non-leap)
+        let end = make_date(2024, 7, 1); // Mid-2024 (leap year)
+        let freq = Frequency::Months(6); // Semi-annual
+
         let yf = DayCount::ActActIsma
-            .year_fraction(start, end, DayCountCtx { calendar: None, frequency: Some(freq) })
+            .year_fraction(
+                start,
+                end,
+                DayCountCtx {
+                    calendar: None,
+                    frequency: Some(freq),
+                },
+            )
             .unwrap();
-        
+
         // This should be close to 1.0 but will account for leap year days
         assert!(yf > 0.99 && yf < 1.01, "Expected ~1.0, got {}", yf);
     }
@@ -679,14 +766,21 @@ mod tests {
     #[test]
     fn actact_isma_partial_period() {
         // Test ACT/ACT (ISMA) for a partial coupon period
-        let start = make_date(2025, 1, 15);  // Mid-month start
-        let end = make_date(2025, 3, 15);    // Two months later
-        let freq = Frequency::Months(6);     // Semi-annual coupons
-        
+        let start = make_date(2025, 1, 15); // Mid-month start
+        let end = make_date(2025, 3, 15); // Two months later
+        let freq = Frequency::Months(6); // Semi-annual coupons
+
         let yf = DayCount::ActActIsma
-            .year_fraction(start, end, DayCountCtx { calendar: None, frequency: Some(freq) })
+            .year_fraction(
+                start,
+                end,
+                DayCountCtx {
+                    calendar: None,
+                    frequency: Some(freq),
+                },
+            )
             .unwrap();
-        
+
         // This should be roughly 2/12 = 0.167, but with ISMA adjustments
         assert!(yf > 0.15 && yf < 0.18, "Expected ~0.167, got {}", yf);
     }
@@ -697,11 +791,18 @@ mod tests {
         let start = make_date(2025, 1, 1);
         let end = make_date(2025, 2, 1);
         let freq = Frequency::Months(1); // Monthly
-        
+
         let yf = DayCount::ActActIsma
-            .year_fraction(start, end, DayCountCtx { calendar: None, frequency: Some(freq) })
+            .year_fraction(
+                start,
+                end,
+                DayCountCtx {
+                    calendar: None,
+                    frequency: Some(freq),
+                },
+            )
             .unwrap();
-        
+
         // For a one-month period, this should be roughly 1/12
         assert!(yf > 0.08 && yf < 0.09, "Expected ~0.083, got {}", yf);
     }
@@ -712,9 +813,16 @@ mod tests {
         let start = make_date(2025, 1, 1);
         let end = make_date(2024, 1, 1);
         let freq = Frequency::Months(6);
-        
+
         assert!(DayCount::ActActIsma
-            .year_fraction(start, end, DayCountCtx { calendar: None, frequency: Some(freq) })
+            .year_fraction(
+                start,
+                end,
+                DayCountCtx {
+                    calendar: None,
+                    frequency: Some(freq)
+                }
+            )
             .is_err());
     }
 
@@ -723,9 +831,16 @@ mod tests {
         // ACT/ACT (ISMA) should return 0.0 for equal dates
         let date = make_date(2025, 1, 1);
         let freq = Frequency::Months(6);
-        
+
         let yf = DayCount::ActActIsma
-            .year_fraction(date, date, DayCountCtx { calendar: None, frequency: Some(freq) })
+            .year_fraction(
+                date,
+                date,
+                DayCountCtx {
+                    calendar: None,
+                    frequency: Some(freq),
+                },
+            )
             .unwrap();
         assert_eq!(yf, 0.0);
     }
@@ -736,17 +851,37 @@ mod tests {
         let start = make_date(2024, 6, 15);
         let end = make_date(2025, 6, 15);
         let freq = Frequency::Months(6); // Semi-annual
-        
-        let yf_isda = DayCount::ActAct.year_fraction(start, end, DayCountCtx::default()).unwrap();
-        let yf_isma = DayCount::ActActIsma
-            .year_fraction(start, end, DayCountCtx { calendar: None, frequency: Some(freq) })
+
+        let yf_isda = DayCount::ActAct
+            .year_fraction(start, end, DayCountCtx::default())
             .unwrap();
-        
+        let yf_isma = DayCount::ActActIsma
+            .year_fraction(
+                start,
+                end,
+                DayCountCtx {
+                    calendar: None,
+                    frequency: Some(freq),
+                },
+            )
+            .unwrap();
+
         // Both should be close to 1.0 but may differ slightly due to different calculation methods
-        assert!(yf_isda > 0.99 && yf_isda < 1.01, "ISDA: Expected ~1.0, got {}", yf_isda);
-        assert!(yf_isma > 0.99 && yf_isma < 1.01, "ISMA: Expected ~1.0, got {}", yf_isma);
-        
+        assert!(
+            yf_isda > 0.99 && yf_isda < 1.01,
+            "ISDA: Expected ~1.0, got {}",
+            yf_isda
+        );
+        assert!(
+            yf_isma > 0.99 && yf_isma < 1.01,
+            "ISMA: Expected ~1.0, got {}",
+            yf_isma
+        );
+
         // They should be close but not necessarily identical
-        assert!((yf_isda - yf_isma).abs() < 0.1, "ISDA and ISMA should be reasonably close");
+        assert!(
+            (yf_isda - yf_isma).abs() < 0.1,
+            "ISDA and ISMA should be reasonably close"
+        );
     }
 }

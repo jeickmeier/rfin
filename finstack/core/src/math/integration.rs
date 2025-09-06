@@ -15,8 +15,8 @@
 //! assert!((integral - 1.0).abs() < 0.1);
 //! ```
 
-use crate::{F, Error};
 use crate::error::InputError;
+use crate::{Error, F};
 
 /// Gauss-Hermite quadrature points and weights for numerical integration
 /// over the standard normal distribution.
@@ -154,17 +154,17 @@ impl GaussHermiteQuadrature {
     {
         // Start with base quadrature
         let base_result = self.integrate(f);
-        
+
         // Check if we need higher precision by comparing with next order
         let higher_order_quad = match self.points.len() {
             5 => GaussHermiteQuadrature::order_7(),
             7 => GaussHermiteQuadrature::order_10(),
             _ => return base_result, // Already at highest order
         };
-        
+
         let refined_result = higher_order_quad.integrate(f);
         let error_estimate = (refined_result - base_result).abs();
-        
+
         if error_estimate <= tolerance {
             refined_result
         } else if self.points.len() < 10 {
@@ -230,13 +230,7 @@ where
 ///
 /// # Returns
 /// Approximate integral value with estimated error control
-pub fn adaptive_quadrature<F2>(
-    f: F2,
-    a: F,
-    b: F,
-    tol: F,
-    max_depth: usize,
-) -> Result<F, Error>
+pub fn adaptive_quadrature<F2>(f: F2, a: F, b: F, tol: F, max_depth: usize) -> Result<F, Error>
 where
     F2: Fn(F) -> F + Copy,
 {
@@ -261,25 +255,27 @@ where
         }
 
         let c = (a + b) / 2.0;
-        
+
         let fd = f((a + c) / 2.0);
         let fe = f((c + b) / 2.0);
-        
+
         // Fixed: Use proper Simpson's rule for each sub-interval
-        let h_left = (c - a) / 6.0;  // (c-a)/6 for left Simpson interval
+        let h_left = (c - a) / 6.0; // (c-a)/6 for left Simpson interval
         let h_right = (b - c) / 6.0; // (b-c)/6 for right Simpson interval
         let left = h_left * (fa + 4.0 * fd + fc);
         let right = h_right * (fc + 4.0 * fe + fb);
         let total = left + right;
-        
+
         let error_estimate = (total - whole).abs() / 15.0;
-        
+
         if error_estimate <= tol {
             Ok(total)
         } else {
             let mid_tol = tol / 2.0;
-            let left_result = adaptive_simpson(f, a, c, mid_tol, left, fa, fc, fd, depth + 1, max_depth)?;
-            let right_result = adaptive_simpson(f, c, b, mid_tol, right, fc, fb, fe, depth + 1, max_depth)?;
+            let left_result =
+                adaptive_simpson(f, a, c, mid_tol, left, fa, fc, fd, depth + 1, max_depth)?;
+            let right_result =
+                adaptive_simpson(f, c, b, mid_tol, right, fc, fb, fe, depth + 1, max_depth)?;
             Ok(left_result + right_result)
         }
     }
@@ -289,9 +285,9 @@ where
     let fa = f(a);
     let fb = f(b);
     let fc = f(c);
-    
+
     let whole = h * (fa + 4.0 * fc + fb);
-    
+
     adaptive_simpson(f, a, b, tol, whole, fa, fb, fc, 0, max_depth)
 }
 
@@ -398,7 +394,7 @@ mod tests {
         // Exact integral = 1/3
         let f = |x: F| x * x;
         let integral = simpson_rule(f, 0.0, 1.0, 100).unwrap();
-        assert!((integral - 1.0/3.0).abs() < 1e-6);
+        assert!((integral - 1.0 / 3.0).abs() < 1e-6);
     }
 
     #[test]

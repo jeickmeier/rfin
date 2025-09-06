@@ -74,7 +74,9 @@ impl_instrument!(
     "Equity",
     pv = |s, _curves, _as_of| {
         let price_per_share = s.price_quote.ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "equity_price_quote".to_string() })
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "equity_price_quote".to_string(),
+            })
         })?;
         let total_value = price_per_share * s.effective_shares();
         Ok(Money::new(total_value, s.currency))

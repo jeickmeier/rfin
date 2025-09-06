@@ -3,7 +3,9 @@
 mod common;
 
 use common::approx_eq;
-use finstack_core::market_data::interp::{flat_fwd::FlatFwd, log_linear::LogLinearDf, InterpFn, ExtrapolationPolicy};
+use finstack_core::market_data::interp::{
+    flat_fwd::FlatFwd, log_linear::LogLinearDf, ExtrapolationPolicy, InterpFn,
+};
 
 #[test]
 fn test_flat_fwd_construction() {
@@ -33,7 +35,8 @@ fn test_flat_fwd_equals_log_linear() {
     let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9].into_boxed_slice();
 
-    let flat_fwd = FlatFwd::new(knots.clone(), dfs.clone(), ExtrapolationPolicy::default()).unwrap();
+    let flat_fwd =
+        FlatFwd::new(knots.clone(), dfs.clone(), ExtrapolationPolicy::default()).unwrap();
     let log_linear = LogLinearDf::new(knots, dfs, ExtrapolationPolicy::default()).unwrap();
 
     // Test several interpolation points

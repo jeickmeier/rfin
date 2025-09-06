@@ -47,9 +47,13 @@ pub fn xirr(cash_flows: &[(Date, F)], guess: Option<F>) -> finstack_core::Result
     let npv = |rate: F| -> F {
         let mut sum = 0.0;
         for &(date, amount) in cash_flows {
-            let years = dc.year_fraction(
-                first_date, date, finstack_core::dates::DayCountCtx::default()
-            ).unwrap_or(0.0);
+            let years = dc
+                .year_fraction(
+                    first_date,
+                    date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap_or(0.0);
             let discount = (1.0 + rate).powf(years);
             sum += amount / discount;
         }
@@ -60,9 +64,13 @@ pub fn xirr(cash_flows: &[(Date, F)], guess: Option<F>) -> finstack_core::Result
     let npv_prime = |rate: F| -> F {
         let mut sum = 0.0;
         for &(date, amount) in cash_flows {
-            let years = dc.year_fraction(
-                first_date, date, finstack_core::dates::DayCountCtx::default()
-            ).unwrap_or(0.0);
+            let years = dc
+                .year_fraction(
+                    first_date,
+                    date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap_or(0.0);
             let discount = (1.0 + rate).powf(years);
             sum -= amount * years / (discount * (1.0 + rate));
         }
@@ -236,9 +244,13 @@ mod tests {
         let mut sum = 0.0;
 
         for &(date, amount) in flows {
-            let years = dc.year_fraction(
-                first_date, date, finstack_core::dates::DayCountCtx::default()
-            ).unwrap_or(0.0);
+            let years = dc
+                .year_fraction(
+                    first_date,
+                    date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap_or(0.0);
             let discount = (1.0 + rate).powf(years);
             sum += amount / discount;
         }

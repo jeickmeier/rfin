@@ -6,15 +6,12 @@
 
 #![allow(clippy::useless_conversion)]
 
-use finstack_core::dates::{
-    next_cds_date as core_next_cds, 
-    next_imm as core_next_imm, 
-    third_wednesday as core_third_wed,
-    third_friday as core_third_fri,
-    next_equity_option_expiry as core_next_equity_option,
-    imm_option_expiry as core_imm_option_expiry,
-};
 use finstack_core::dates::Date as CoreDate;
+use finstack_core::dates::{
+    imm_option_expiry as core_imm_option_expiry, next_cds_date as core_next_cds,
+    next_equity_option_expiry as core_next_equity_option, next_imm as core_next_imm,
+    third_friday as core_third_fri, third_wednesday as core_third_wed,
+};
 use pyo3::prelude::*;
 use time::{Duration, Month};
 
@@ -472,9 +469,13 @@ impl PyDate {
     ///     >>> friday.add_business_days(-1, cal)
     ///     Date('2025-06-26')
     #[pyo3(text_signature = "(self, n, calendar)")]
-    pub fn add_business_days(&self, n: i32, _calendar: &crate::core::dates::calendar::PyCalendar) -> Self {
+    pub fn add_business_days(
+        &self,
+        n: i32,
+        _calendar: &crate::core::dates::calendar::PyCalendar,
+    ) -> Self {
         use finstack_core::dates::DateExt;
-        
+
         // For now, use weekdays-only logic as a simple fallback
         // TODO: Implement proper calendar-aware business day calculation
         let new_date = self.inner.add_weekdays(n);

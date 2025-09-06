@@ -134,7 +134,9 @@ fn emit_fixed_coupons_on(
         },
         |(_, _, prev_map, _), dd| prev_map.get(&dd).copied(),
         |(spec, _ds, _pm, _fl), prev, dd, base_out| {
-            let yf = spec.dc.year_fraction(prev, dd, finstack_core::dates::DayCountCtx::default())?;
+            let yf =
+                spec.dc
+                    .year_fraction(prev, dd, finstack_core::dates::DayCountCtx::default())?;
             let coupon_total = base_out * (spec.rate * yf);
             Ok((yf, coupon_total, None))
         },
@@ -167,7 +169,9 @@ fn emit_float_coupons_on(
         },
         |(_, _, prev_map), dd| prev_map.get(&dd).copied(),
         |(spec, _ds, _pm), prev, dd, base_out| {
-            let yf = spec.dc.year_fraction(prev, dd, finstack_core::dates::DayCountCtx::default())?;
+            let yf =
+                spec.dc
+                    .year_fraction(prev, dd, finstack_core::dates::DayCountCtx::default())?;
             let margin_rate = (spec.margin_bp * 1e-4) * spec.gearing;
             let coupon_total = base_out * (margin_rate * yf);
             let mut reset_date = dd - Duration::days(spec.reset_lag_days as i64);
@@ -286,7 +290,9 @@ fn emit_fees_on(
     let mut new_flows: Vec<CashFlow> = Vec::new();
     for pf in periodic_fees {
         if let Some(&prev) = pf.prev.get(&d) {
-            let yf = pf.dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
+            let yf = pf
+                .dc
+                .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
             let base_amt = match &pf.base {
                 FeeBase::Drawn => outstanding,
                 FeeBase::Undrawn { facility_limit } => {
@@ -1000,8 +1006,8 @@ mod tests {
     use finstack_core::currency::Currency;
     use finstack_core::dates::ScheduleBuilder;
     use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
     use finstack_core::market_data::interp::InterpStyle;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
     use finstack_core::market_data::traits::Discount as _;
     use time::Month;
 

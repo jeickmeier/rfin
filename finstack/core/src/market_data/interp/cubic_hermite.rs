@@ -1,7 +1,10 @@
 use std::boxed::Box;
 
 use crate::{
-    market_data::{interp::{InterpFn, ExtrapolationPolicy}, utils::validate_knots},
+    market_data::{
+        interp::{ExtrapolationPolicy, InterpFn},
+        utils::validate_knots,
+    },
     F,
 };
 
@@ -29,7 +32,11 @@ impl CubicHermite {
     /// * `dfs`   – corresponding discount factors (> 0).
     /// * `extrapolation_policy` – policy for out-of-bounds evaluation.
     #[allow(clippy::boxed_local)]
-    pub fn new(knots: Box<[F]>, dfs: Box<[F]>, extrapolation_policy: ExtrapolationPolicy) -> crate::Result<Self> {
+    pub fn new(
+        knots: Box<[F]>,
+        dfs: Box<[F]>,
+        extrapolation_policy: ExtrapolationPolicy,
+    ) -> crate::Result<Self> {
         debug_assert_eq!(knots.len(), dfs.len());
         // Basic validation – at least two points and strictly ascending times.
         validate_knots(&knots)?;
@@ -39,20 +46,16 @@ impl CubicHermite {
         // Pre-compute monotone slopes (PCHIP / Fritsch-Carlson).
         let ms = compute_monotone_slopes(&knots, &dfs);
 
-        Ok(Self { 
-            knots, 
-            dfs, 
-            ms, 
-            extrapolation_policy
+        Ok(Self {
+            knots,
+            dfs,
+            ms,
+            extrapolation_policy,
         })
     }
 
-
-
     // Shared `locate_segment` from utils is used.
 }
-
-
 
 impl InterpFn for CubicHermite {
     fn interp(&self, x: F) -> F {
@@ -82,7 +85,7 @@ impl InterpFn for CubicHermite {
                 }
             };
         }
-        
+
         // Fast-path: exact knot value → short-circuit.
         if let Ok(idx) = self.knots.binary_search_by(|k| k.partial_cmp(&x).unwrap()) {
             return self.dfs[idx];
@@ -128,7 +131,7 @@ impl InterpFn for CubicHermite {
                 ExtrapolationPolicy::FlatForward => self.ms[self.ms.len() - 1],
             };
         }
-        
+
         // For exact knot values, return the precomputed slope
         if let Ok(idx) = self.knots.binary_search_by(|k| k.partial_cmp(&x).unwrap()) {
             return self.ms[idx];
@@ -156,11 +159,10 @@ impl InterpFn for CubicHermite {
 
         // Derivative w.r.t. t.
         let df_dt = h00_prime * f0 + h10_prime * h * m0 + h01_prime * f1 + h11_prime * h * m1;
-        
+
         // Convert to derivative w.r.t. x using chain rule: df/dx = (df/dt) * (dt/dx) = (df/dt) / h
         df_dt / h
     }
-
 }
 
 // -----------------------------------------------------------------------------

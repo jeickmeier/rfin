@@ -1,7 +1,9 @@
 //! Tests for monotone convex interpolation.
 
 mod common;
-use finstack_core::market_data::interp::{monotone_convex::MonotoneConvex, InterpFn, ExtrapolationPolicy};
+use finstack_core::market_data::interp::{
+    monotone_convex::MonotoneConvex, ExtrapolationPolicy, InterpFn,
+};
 
 #[test]
 fn test_monotone_convex_construction() {

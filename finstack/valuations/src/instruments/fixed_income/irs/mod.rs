@@ -133,7 +133,6 @@ impl InterestRateSwap {
 
     /// Compute PV of floating leg (helper for value calculation).
     fn pv_float_leg(&self, disc: &dyn Discount, fwd: &dyn Forward) -> finstack_core::Result<Money> {
-
         let base = disc.base_date();
         let builder = finstack_core::dates::ScheduleBuilder::new(self.float.start, self.float.end)
             .frequency(self.float.freq)
@@ -161,9 +160,21 @@ impl InterestRateSwap {
         let mut prev = sched_dates[0];
         let mut flows: Vec<(Date, Money)> = Vec::with_capacity(sched_dates.len().saturating_sub(1));
         for &d in &sched_dates[1..] {
-            let t1 = self.float.dc.year_fraction(base, prev, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
-            let t2 = self.float.dc.year_fraction(base, d, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
-            let yf = self.float.dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+            let t1 = self
+                .float
+                .dc
+                .year_fraction(base, prev, finstack_core::dates::DayCountCtx::default())
+                .unwrap_or(0.0);
+            let t2 = self
+                .float
+                .dc
+                .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())
+                .unwrap_or(0.0);
+            let yf = self
+                .float
+                .dc
+                .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
+                .unwrap_or(0.0);
             let f = fwd.rate_period(t1, t2);
             let rate = f + (self.float.spread_bp * 1e-4);
             let coupon = self.notional * (rate * yf);
@@ -500,9 +511,15 @@ impl RiskMeasurable for InterestRateSwap {
         }
 
         // Add maturity bucket
-        let years_to_maturity = self.fixed.dc.year_fraction(
-            as_of, self.fixed.end, finstack_core::dates::DayCountCtx::default()
-        ).unwrap_or(0.0);
+        let years_to_maturity = self
+            .fixed
+            .dc
+            .year_fraction(
+                as_of,
+                self.fixed.end,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
 
         let bucket = if years_to_maturity <= 2.0 {
             RiskBucket {

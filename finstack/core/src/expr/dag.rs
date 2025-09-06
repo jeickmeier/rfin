@@ -67,7 +67,11 @@ impl DagBuilder {
     }
 
     /// Build an execution plan from a list of root expressions.
-    pub fn build_plan(&mut self, exprs: Vec<Expr>, meta: crate::config::ResultsMeta) -> ExecutionPlan {
+    pub fn build_plan(
+        &mut self,
+        exprs: Vec<Expr>,
+        meta: crate::config::ResultsMeta,
+    ) -> ExecutionPlan {
         // Clear state
         self.expr_cache.clear();
         self.nodes.clear();

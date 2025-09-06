@@ -214,10 +214,18 @@ impl InterestRateOption {
         if t <= 0.0 || sigma <= 0.0 {
             return match self.rate_option_type {
                 RateOptionType::Caplet | RateOptionType::Cap => {
-                    if forward_rate > self.strike_rate { 1.0 } else { 0.0 }
+                    if forward_rate > self.strike_rate {
+                        1.0
+                    } else {
+                        0.0
+                    }
                 }
                 RateOptionType::Floorlet | RateOptionType::Floor => {
-                    if forward_rate < self.strike_rate { -1.0 } else { 0.0 }
+                    if forward_rate < self.strike_rate {
+                        -1.0
+                    } else {
+                        0.0
+                    }
                 }
             };
         }
@@ -282,9 +290,21 @@ impl_instrument!(
             s.rate_option_type,
             RateOptionType::Caplet | RateOptionType::Floorlet
         ) {
-            let time_to_fixing = s.day_count.year_fraction(as_of, s.start_date, finstack_core::dates::DayCountCtx::default())?;
-            let time_to_payment = s.day_count.year_fraction(as_of, s.end_date, finstack_core::dates::DayCountCtx::default())?;
-            let period_length = s.day_count.year_fraction(s.start_date, s.end_date, finstack_core::dates::DayCountCtx::default())?;
+            let time_to_fixing = s.day_count.year_fraction(
+                as_of,
+                s.start_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
+            let time_to_payment = s.day_count.year_fraction(
+                as_of,
+                s.end_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
+            let period_length = s.day_count.year_fraction(
+                s.start_date,
+                s.end_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
 
             if time_to_fixing <= 0.0 {
                 // Option expired - intrinsic value only
@@ -309,7 +329,10 @@ impl_instrument!(
             } else if let Some(vol_surf) = &vol_surface {
                 vol_surf.value_clamped(time_to_fixing, s.strike_rate)
             } else {
-                return Err(finstack_core::error::InputError::NotFound { id: "cap_floor_rate_index".to_string() }.into());
+                return Err(finstack_core::error::InputError::NotFound {
+                    id: "cap_floor_rate_index".to_string(),
+                }
+                .into());
             };
 
             return s.black_price_caplet_floorlet(
@@ -339,9 +362,21 @@ impl_instrument!(
         let mut prev_date = schedule.dates[0];
         for &payment_date in &schedule.dates[1..] {
             let fixing_date = prev_date; // Simplified: fixing at period start
-            let time_to_fixing = s.day_count.year_fraction(as_of, fixing_date, finstack_core::dates::DayCountCtx::default())?;
-            let time_to_payment = s.day_count.year_fraction(as_of, payment_date, finstack_core::dates::DayCountCtx::default())?;
-            let period_length = s.day_count.year_fraction(fixing_date, payment_date, finstack_core::dates::DayCountCtx::default())?;
+            let time_to_fixing = s.day_count.year_fraction(
+                as_of,
+                fixing_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
+            let time_to_payment = s.day_count.year_fraction(
+                as_of,
+                payment_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
+            let period_length = s.day_count.year_fraction(
+                fixing_date,
+                payment_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
 
             if time_to_fixing > 0.0 {
                 // Only price future caplets/floorlets
@@ -353,7 +388,10 @@ impl_instrument!(
                 } else if let Some(vol_surf) = &vol_surface {
                     vol_surf.value_clamped(time_to_fixing, s.strike_rate)
                 } else {
-                    return Err(finstack_core::error::InputError::NotFound { id: "cap_floor_rate_index".to_string() }.into());
+                    return Err(finstack_core::error::InputError::NotFound {
+                        id: "cap_floor_rate_index".to_string(),
+                    }
+                    .into());
                 };
 
                 let caplet_price = s.black_price_caplet_floorlet(

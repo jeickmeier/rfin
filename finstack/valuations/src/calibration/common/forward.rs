@@ -25,9 +25,7 @@ pub fn forward_fn_equity<'a>(
     let dividend_yield = context
         .price(&div_yield_key)
         .map(|scalar| match scalar {
-            finstack_core::market_data::primitives::MarketScalar::Unitless(yield_val) => {
-                *yield_val
-            }
+            finstack_core::market_data::primitives::MarketScalar::Unitless(yield_val) => *yield_val,
             _ => 0.0,
         })
         .unwrap_or(0.0);
@@ -117,15 +115,15 @@ pub fn forward_fn_auto<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use finstack_core::dates::Date;
+    use finstack_core::market_data::primitives::MarketScalar;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-    use finstack_core::market_data::primitives::MarketScalar;
-    use finstack_core::dates::Date;
     use time::Month;
 
     fn create_test_context() -> MarketContext {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         // Create discount curve
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
@@ -154,10 +152,10 @@ mod tests {
     fn test_equity_forward_function() {
         let context = create_test_context();
         let forward_fn = forward_fn_equity(&context, "SPY", Currency::USD).unwrap();
-        
+
         // Test forward price calculation
         let forward_1y = forward_fn(1.0);
-        
+
         // Should be positive and reasonable
         assert!(forward_1y > 0.0);
         assert!(forward_1y > 90.0 && forward_1y < 110.0); // Reasonable range around spot
@@ -167,10 +165,10 @@ mod tests {
     fn test_rates_forward_function() {
         let context = create_test_context();
         let forward_fn = forward_fn_rates(&context, "USD-SOFR3M").unwrap();
-        
+
         // Test forward rate
         let forward_rate_1y = forward_fn(1.0);
-        
+
         // Should match the forward curve
         assert!((forward_rate_1y - 0.035).abs() < 1e-6);
     }
@@ -179,7 +177,7 @@ mod tests {
     fn test_auto_detection_equity() {
         let context = create_test_context();
         let forward_fn = forward_fn_auto(&context, "SPY", Currency::USD).unwrap();
-        
+
         let forward_1y = forward_fn(1.0);
         assert!(forward_1y > 0.0);
     }
@@ -188,7 +186,7 @@ mod tests {
     fn test_auto_detection_rates() {
         let context = create_test_context();
         let forward_fn = forward_fn_auto(&context, "USD-SOFR3M", Currency::USD).unwrap();
-        
+
         let forward_rate_1y = forward_fn(1.0);
         assert!((forward_rate_1y - 0.035).abs() < 1e-6);
     }
@@ -206,7 +204,7 @@ mod tests {
 
         let context = create_test_context().insert_discount(eur_disc);
         let forward_fn = forward_fn_auto(&context, "EURUSD", Currency::USD).unwrap();
-        
+
         let forward_1y = forward_fn(1.0);
         assert!(forward_1y > 0.0);
     }
@@ -221,7 +219,7 @@ mod tests {
     #[test]
     fn test_missing_market_data() {
         let context = MarketContext::new(); // Empty context
-        
+
         let result = forward_fn_equity(&context, "SPY", Currency::USD);
         assert!(result.is_err()); // Should fail due to missing spot price
     }

@@ -45,10 +45,7 @@ pub use calendar::available_calendars;
 
 mod schedule_iter;
 
-pub use schedule_iter::{
-    Frequency,
-    ScheduleBuilder, StubKind
-};
+pub use schedule_iter::{Frequency, ScheduleBuilder, StubKind};
 
 mod composite;
 
@@ -57,8 +54,8 @@ pub use composite::CompositeCalendar;
 mod imm;
 
 pub use imm::{
-    imm_option_expiry, next_cds_date, next_equity_option_expiry, next_imm, 
-    next_imm_option_expiry, third_friday, third_wednesday,
+    imm_option_expiry, next_cds_date, next_equity_option_expiry, next_imm, next_imm_option_expiry,
+    third_friday, third_wednesday,
 };
 
 pub mod holiday;

@@ -462,7 +462,10 @@ pub struct EquityWaterfallEngine<'a> {
 impl<'a> EquityWaterfallEngine<'a> {
     /// Create a new waterfall engine.
     pub fn new(spec: &'a WaterfallSpec) -> Self {
-        Self { spec, periods: None }
+        Self {
+            spec,
+            periods: None,
+        }
     }
 
     /// Add period support for tagging allocation rows with period keys.
@@ -772,7 +775,7 @@ impl<'a> EquityWaterfallEngine<'a> {
             allocations.push(AllocationRow {
                 date: params.allocation_date,
                 period_key: self.period_key_for(params.allocation_date),
-                deal_id: None,    // Set by caller for American style
+                deal_id: None, // Set by caller for American style
                 tranche: tranche_name,
                 to_lp: Money::new(to_lp, params.currency),
                 to_gp: Money::new(to_gp_paid, params.currency),
@@ -853,7 +856,11 @@ impl<'a> EquityWaterfallEngine<'a> {
                     let years = self
                         .spec
                         .irr_basis
-                        .year_fraction(base_date, current_date, finstack_core::dates::DayCountCtx::default())
+                        .year_fraction(
+                            base_date,
+                            current_date,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
                         .unwrap_or(1.0);
                     let required_total = contrib_amount * (1.0 + target_irr).powf(years);
                     let already_received = total_contributions - contrib_amount; // Net distributions so far
@@ -877,7 +884,11 @@ impl<'a> EquityWaterfallEngine<'a> {
                 let t = self
                     .spec
                     .irr_basis
-                    .year_fraction(base_date, *date, finstack_core::dates::DayCountCtx::default())
+                    .year_fraction(
+                        base_date,
+                        *date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
                     .unwrap_or(0.0);
                 let df = if rate.abs() < 1e-10 {
                     1.0 // Avoid division by zero for 0% rate
@@ -1287,10 +1298,7 @@ mod tests {
             .unwrap();
 
         let events = vec![
-            FundEvent::contribution(
-                test_date(2025, 1, 1),
-                Money::new(100.0, test_currency()),
-            ),
+            FundEvent::contribution(test_date(2025, 1, 1), Money::new(100.0, test_currency())),
             FundEvent::distribution(
                 test_date(2025, 6, 15), // 2025Q2
                 Money::new(150.0, test_currency()),

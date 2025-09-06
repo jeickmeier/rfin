@@ -122,7 +122,13 @@ impl VolSurfaceCalibrator {
             }
 
             // Calibrate SABR parameters for this expiry with enhanced negative rate support
-            match sabr_calibrator.calibrate_auto_shift(forward, &strikes, &vols, time_to_expiry, self.beta) {
+            match sabr_calibrator.calibrate_auto_shift(
+                forward,
+                &strikes,
+                &vols,
+                time_to_expiry,
+                self.beta,
+            ) {
                 Ok(params) => {
                     sabr_params_by_expiry
                         .insert(HashableFloat::new(time_to_expiry), params.clone());
@@ -171,7 +177,10 @@ impl VolSurfaceCalibrator {
             "Volatility surface calibration completed",
         )
         .with_metadata("beta", format!("{:.3}", self.beta))
-        .with_metadata("calibrated_expiries", format!("{}", sabr_params_by_expiry.len()));
+        .with_metadata(
+            "calibrated_expiries",
+            format!("{}", sabr_params_by_expiry.len()),
+        );
 
         Ok((surface, report))
     }
@@ -252,7 +261,6 @@ impl VolSurfaceCalibrator {
         // Fallback to first available parameters
         Ok(sabr_params[&HashableFloat::new(expiries[0])].clone())
     }
-
 }
 
 impl Calibrator<InstrumentQuote, VolSurface> for VolSurfaceCalibrator {

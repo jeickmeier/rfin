@@ -160,7 +160,7 @@ pub fn next_equity_option_expiry(date: Date) -> Date {
         if candidate > date {
             return candidate;
         }
-        
+
         // Move to next month
         month = month.next();
         if month == Month::January {

@@ -16,10 +16,10 @@ use finstack_core::{
     F,
 };
 
-use finstack_core::market_data::interp::InterpStyle;
-use super::interpolation::{PyInterpStyle, PyExtrapolationPolicy};
+use super::interpolation::{PyExtrapolationPolicy, PyInterpStyle};
 use crate::core::dates::PyDate;
 use crate::core::dates::PyDayCount;
+use finstack_core::market_data::interp::InterpStyle;
 
 /// Discount factor curve for present value calculations.
 ///
@@ -185,7 +185,15 @@ impl PyDiscountCurve {
         // Use the regular constructor
         let py = times.py();
         let dfs_list = PyList::new(py, dfs_vec)?;
-        PyDiscountCurve::new(id, base_date, times, dfs_list.as_any(), interpolation, extrapolation, require_monotonic)
+        PyDiscountCurve::new(
+            id,
+            base_date,
+            times,
+            dfs_list.as_any(),
+            interpolation,
+            extrapolation,
+            require_monotonic,
+        )
     }
 
     /// Unique identifier of the curve.
@@ -429,7 +437,11 @@ impl PyForwardCurve {
                 "t2 must be greater than t1",
             ));
         }
-        Ok(finstack_core::market_data::traits::Forward::rate_period(&*self.inner, t1, t2))
+        Ok(finstack_core::market_data::traits::Forward::rate_period(
+            &*self.inner,
+            t1,
+            t2,
+        ))
     }
 
     fn __repr__(&self) -> String {

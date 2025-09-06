@@ -70,7 +70,7 @@ mod tests {
     fn test_discount_curve_id() {
         let id = discount_curve_id(Currency::USD);
         assert_eq!(id.as_str(), "USD-OIS");
-        
+
         let id = discount_curve_id(Currency::EUR);
         assert_eq!(id.as_str(), "EUR-OIS");
     }
@@ -79,7 +79,7 @@ mod tests {
     fn test_forward_curve_id() {
         let id = forward_curve_id(Currency::USD, "SOFR3M");
         assert_eq!(id.as_str(), "USD-SOFR3M");
-        
+
         let id = forward_curve_id(Currency::EUR, "EURIBOR6M");
         assert_eq!(id.as_str(), "EUR-EURIBOR6M");
     }
@@ -88,7 +88,7 @@ mod tests {
     fn test_vol_surface_id() {
         let id = vol_surface_id("SPY");
         assert_eq!(id.as_str(), "SPY-VOL");
-        
+
         let id = vol_surface_id("EURUSD");
         assert_eq!(id.as_str(), "EURUSD-VOL");
     }

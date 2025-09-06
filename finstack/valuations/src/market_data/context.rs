@@ -58,7 +58,12 @@ impl ValuationMarketContext {
         self.credit_indices
             .get(index_id)
             .map(|arc| arc.as_ref())
-            .ok_or_else(|| finstack_core::error::InputError::NotFound { id: format!("credit_index:{}", index_id) }.into())
+            .ok_or_else(|| {
+                finstack_core::error::InputError::NotFound {
+                    id: format!("credit_index:{}", index_id),
+                }
+                .into()
+            })
     }
 
     /// Check if credit index data is available for a given index.
@@ -126,7 +131,9 @@ impl ValuationMarketContext {
     }
 
     /// Add a forward curve (delegates to core).
-    pub fn insert_forward<C: finstack_core::market_data::traits::Forward + Send + Sync + 'static>(
+    pub fn insert_forward<
+        C: finstack_core::market_data::traits::Forward + Send + Sync + 'static,
+    >(
         mut self,
         curve: C,
     ) -> Self {

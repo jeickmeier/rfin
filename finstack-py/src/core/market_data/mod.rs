@@ -31,7 +31,7 @@ pub use fx::{PyFxConversionPolicy, PyFxMatrix, PySimpleFxProvider};
 pub use inflation_index::{
     PyInflationIndex, PyInflationIndexBuilder, PyInflationInterpolation, PyInflationLag,
 };
-pub use interpolation::{PyInterpStyle, PyExtrapolationPolicy};
+pub use interpolation::{PyExtrapolationPolicy, PyInterpStyle};
 pub use primitives::{PyMarketScalar, PyScalarTimeSeries, PySeriesInterpolation};
 pub use surfaces::PyVolSurface;
 
