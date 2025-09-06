@@ -38,26 +38,22 @@ impl Attributes {
     }
 
     /// Add a tag.
-    pub fn with_tag(mut self, tag: impl Into<String>) -> Self {
-        self.tags.insert(tag.into());
+    pub fn with_tag(mut self, tag: &str) -> Self {
+        self.tags.insert(tag.to_string());
         self
     }
 
     /// Add multiple tags.
-    pub fn with_tags<I, S>(mut self, tags: I) -> Self
-    where
-        I: IntoIterator<Item = S>,
-        S: Into<String>,
-    {
+    pub fn with_tags(mut self, tags: &[&str]) -> Self {
         for tag in tags {
-            self.tags.insert(tag.into());
+            self.tags.insert(tag.to_string());
         }
         self
     }
 
     /// Add a metadata key-value pair.
-    pub fn with_meta(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
-        self.meta.insert(key.into(), value.into());
+    pub fn with_meta(mut self, key: &str, value: &str) -> Self {
+        self.meta.insert(key.to_string(), value.to_string());
         self
     }
 

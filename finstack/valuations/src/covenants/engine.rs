@@ -187,7 +187,7 @@ impl CovenantEngine {
             if !spec.covenant.is_active {
                 reports.insert(
                     covenant_type.clone(),
-                    CovenantReport::passed(covenant_type).with_details("Covenant inactive"),
+                    CovenantReport::passed(&covenant_type).with_details("Covenant inactive"),
                 );
                 continue;
             }

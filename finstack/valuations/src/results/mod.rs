@@ -28,9 +28,9 @@ pub struct CovenantReport {
 
 impl CovenantReport {
     /// Create a passing covenant report.
-    pub fn passed(covenant_type: impl Into<String>) -> Self {
+    pub fn passed(covenant_type: &str) -> Self {
         Self {
-            covenant_type: covenant_type.into(),
+            covenant_type: covenant_type.to_string(),
             passed: true,
             actual_value: None,
             threshold: None,
@@ -39,9 +39,9 @@ impl CovenantReport {
     }
 
     /// Create a failing covenant report.
-    pub fn failed(covenant_type: impl Into<String>) -> Self {
+    pub fn failed(covenant_type: &str) -> Self {
         Self {
-            covenant_type: covenant_type.into(),
+            covenant_type: covenant_type.to_string(),
             passed: false,
             actual_value: None,
             threshold: None,
@@ -62,8 +62,8 @@ impl CovenantReport {
     }
 
     /// Add details to the report.
-    pub fn with_details(mut self, details: impl Into<String>) -> Self {
-        self.details = Some(details.into());
+    pub fn with_details(mut self, details: &str) -> Self {
+        self.details = Some(details.to_string());
         self
     }
 }
@@ -90,14 +90,14 @@ impl ExtendedResultsMeta {
     }
 
     /// Add an FX policy.
-    pub fn with_fx_policy(mut self, key: impl Into<String>, policy: FxPolicyMeta) -> Self {
-        self.core.fx_policies.insert(key.into(), policy);
+    pub fn with_fx_policy(mut self, key: &str, policy: FxPolicyMeta) -> Self {
+        self.core.fx_policies.insert(key.to_string(), policy);
         self
     }
 
     /// Add custom metadata.
-    pub fn with_custom(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
-        self.custom.insert(key.into(), value.into());
+    pub fn with_custom(mut self, key: &str, value: &str) -> Self {
+        self.custom.insert(key.to_string(), value.to_string());
         self
     }
 }
@@ -127,9 +127,9 @@ impl ValuationResult {
     /// Create a basic valuation result with just NPV.
     ///
     /// See unit tests and `examples/` for usage.
-    pub fn stamped<S: Into<String>>(instrument_id: S, as_of: Date, value: Money) -> Self {
+    pub fn stamped(instrument_id: &str, as_of: Date, value: Money) -> Self {
         Self {
-            instrument_id: instrument_id.into(),
+            instrument_id: instrument_id.to_string(),
             as_of,
             value,
             measures: IndexMap::new(),
@@ -157,16 +157,16 @@ impl ValuationResult {
     }
 
     /// Add a single covenant report.
-    pub fn with_covenant(mut self, key: impl Into<String>, report: CovenantReport) -> Self {
+    pub fn with_covenant(mut self, key: &str, report: CovenantReport) -> Self {
         let mut covenants = self.covenants.unwrap_or_default();
-        covenants.insert(key.into(), report);
+        covenants.insert(key.to_string(), report);
         self.covenants = Some(covenants);
         self
     }
 
     /// Add an FX policy to the metadata.
-    pub fn with_fx_policy(mut self, key: impl Into<String>, policy: FxPolicyMeta) -> Self {
-        self.meta.core.fx_policies.insert(key.into(), policy);
+    pub fn with_fx_policy(mut self, key: &str, policy: FxPolicyMeta) -> Self {
+        self.meta.core.fx_policies.insert(key.to_string(), policy);
         self
     }
 

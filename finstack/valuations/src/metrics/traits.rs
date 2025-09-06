@@ -146,6 +146,7 @@ impl MetricContext {
     ///
     /// # Errors
     /// Returns an error if the instrument is not of the expected type
+    #[inline(never)] // Prevent inlining to reduce coverage metadata conflicts
     pub fn instrument_as<T: 'static>(&self) -> finstack_core::Result<&T> {
         self.instrument
             .as_any()

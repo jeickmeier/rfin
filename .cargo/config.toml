@@ -20,14 +20,23 @@ lcov = true
 # Set coverage format
 format = "html+lcov"
 
-# Disable incremental compilation to prevent metadata mismatches
+# Disable incremental compilation to prevent metadata mismatches  
 no-cfg-coverage = false
 
 # Use stable instrumentation to reduce function mismatches
 branch = false
 
 # Skip dead functions that cause metadata issues
-skip-functions = false
+skip-functions = true
 
 # Additional flags to reduce metadata conflicts
 remap-path-prefix = true
+
+# Ignore generic instantiations in generated code and bindings
+ignore-filename-regex = ".*/target/.*|.*/.cargo/.*|.*finstack-py/.*|.*finstack-wasm/.*"
+
+# Reduce inlining conflicts that cause metadata mismatches
+no-demangle = true
+
+# Explicitly exclude binding crates from coverage
+exclude-packages = ["finstack-py", "finstack-wasm"]

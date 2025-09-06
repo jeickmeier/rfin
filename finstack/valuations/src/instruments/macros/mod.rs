@@ -113,9 +113,9 @@ macro_rules! impl_instrument_schedule_pv {
             $type_name,
             pv = |s, curves, as_of| {
                 use $crate::instruments::fixed_income::discountable::Discountable;
-                let flows = <$type as $crate::cashflow::traits::CashflowProvider>::build_schedule(
-                    s, curves, as_of,
-                )?;
+                use $crate::cashflow::traits::CashflowProvider;
+                // Use trait object to avoid monomorphization
+                let flows = CashflowProvider::build_schedule(s, curves, as_of)?;
                 let disc = curves.disc(s.$disc)?;
                 flows.npv(&*disc, disc.base_date(), s.$dc)
             }

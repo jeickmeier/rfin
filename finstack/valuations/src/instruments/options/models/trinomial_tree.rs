@@ -113,6 +113,7 @@ impl TrinomialTree {
     }
 
     /// Generic pricing engine for arbitrary instruments
+    #[inline(never)] // Prevent inlining to reduce coverage metadata conflicts
     pub fn price_generic<V: TreeValuator>(
         &self,
         initial_vars: StateVariables,

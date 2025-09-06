@@ -79,16 +79,16 @@ stubs:
 
 coverage:
 	@echo "Running code coverage..."
-	CARGO_INCREMENTAL=0 cargo llvm-cov --package finstack-core --package finstack-valuations --package finstack-statements --package finstack-scenarios --package finstack-portfolio --package finstack-io --package finstack-analysis --package finstack-structured-credit --ignore-filename-regex '(tests?/|target/|\.cargo/)'
+	CARGO_INCREMENTAL=0 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
 
 coverage-html:
 	@echo "Generating HTML coverage report..."
-	CARGO_INCREMENTAL=0 cargo llvm-cov --package finstack-core --package finstack-valuations --package finstack-statements --package finstack-scenarios --package finstack-portfolio --package finstack-io --package finstack-analysis --package finstack-structured-credit --html --ignore-filename-regex '(tests?/|target/|\.cargo/)'
+	CARGO_INCREMENTAL=0 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --html --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
 
 coverage-open:
 	@echo "Generating HTML coverage report and opening in browser..."
-	CARGO_INCREMENTAL=0 cargo llvm-cov --package finstack-core --package finstack-valuations --package finstack-statements --package finstack-scenarios --package finstack-portfolio --package finstack-io --package finstack-analysis --package finstack-structured-credit --open --ignore-filename-regex '(tests?/|target/|\.cargo/)'
+	CARGO_INCREMENTAL=0 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --open --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
 
 coverage-lcov:
 	@echo "Generating LCOV coverage report for CI..."
-	CARGO_INCREMENTAL=0 cargo llvm-cov --package finstack-core --package finstack-valuations --package finstack-statements --package finstack-scenarios --package finstack-portfolio --package finstack-io --package finstack-analysis --package finstack-structured-credit --lcov --ignore-filename-regex '(tests?/|target/|\.cargo/)'
+	CARGO_INCREMENTAL=0 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --lcov --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'

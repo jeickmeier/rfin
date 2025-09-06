@@ -368,6 +368,7 @@ impl BinomialTree {
     ///
     /// This method implements the TreeModel trait, providing a flexible
     /// interface for pricing any instrument that implements TreeValuator.
+    #[inline(never)] // Prevent inlining to reduce coverage metadata conflicts
     pub fn price_generic<V: TreeValuator>(
         &self,
         initial_vars: StateVariables,

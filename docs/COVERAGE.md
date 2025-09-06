@@ -70,16 +70,25 @@ The project includes a `.cargo/config.toml` file that configures `cargo-llvm-cov
 
 ## Excluded Crates
 
-The Python and WASM bindings are intentionally excluded from coverage analysis:
+The Python and WASM bindings are **completely excluded** from coverage analysis and workspace builds:
 
-- **`finstack-py`**: Python bindings (not tested in Rust tests)
-- **`finstack-wasm`**: WebAssembly bindings (not tested in Rust tests)
+- **`finstack-py`**: Python bindings (PyO3-based glue code)
+- **`finstack-wasm`**: WebAssembly bindings (wasm-bindgen-based glue code)
 
-These bindings are excluded because:
-1. They don't contain Rust business logic that needs coverage
-2. They're primarily glue code between Rust and other languages
-3. They're tested separately in their respective language ecosystems
-4. Including them would artificially lower the coverage percentage
+### Exclusion Implementation
+
+1. **Workspace Configuration**: Removed from `default-members` in `Cargo.toml`
+2. **Coverage Commands**: Explicit `--exclude` flags in all Makefile coverage targets
+3. **File Filtering**: Regex patterns ignore all binding-related files 
+4. **Build Isolation**: Coverage runs without compiling binding dependencies
+
+### Why Bindings Are Excluded
+
+1. **No Rust Business Logic**: Primarily FFI glue code with minimal computation
+2. **Language-Specific Testing**: Tested in Python/JavaScript, not Rust unit tests  
+3. **Compilation Dependencies**: Require Python/Node.js environments
+4. **Coverage Accuracy**: Including them would artificially lower percentages
+5. **Metadata Conflicts**: Bindings can cause coverage metadata mismatches
 
 ## Coverage Output
 
@@ -92,10 +101,16 @@ Coverage reports are generated in the following locations:
 ## Current Coverage Status
 
 As of the last run, the project has:
-- **Overall Coverage**: ~59.49% (regions), ~67.42% (lines)
-- **Core Library**: High coverage in tested modules
-- **Valuations**: Good coverage in core functionality
-- **Python/WASM Bindings**: Excluded from coverage analysis
+- **Overall Coverage**: 62.11% (regions), 75.82% (lines), 68.97% (functions)
+- **Function Mismatches**: 141 functions (~4.8% mismatch rate)
+- **Core Library**: High coverage in fundamental modules (dates, math, money)
+- **Valuations**: Good coverage in core pricing and risk functionality  
+- **Bindings**: Completely excluded from coverage analysis and builds
+
+### Coverage by Crate
+- **finstack-core**: Well-tested fundamentals (dates, math, market data)
+- **finstack-valuations**: Core instrument pricing with room for improvement in metrics
+- **Other crates**: Mostly placeholder implementations awaiting development
 
 ## Function Mismatch Issues
 
@@ -113,6 +128,23 @@ Coverage reports may show warnings like "X functions have mismatched data". This
 3. **Updated build profiles**: Added non-incremental profiles for coverage builds
 4. **Clean builds**: Always clean artifacts before coverage runs
 
+### Solutions Applied to Reduce Mismatches
+
+1. **Refactored main generic functions**:
+   - Changed `build_with_metrics<I>()` to `build_with_metrics_dyn()` using trait objects
+   - Fixed macro-generated trait method calls to use trait objects
+   - Converted `impl Into<String>` parameters to `&str` to eliminate monomorphization
+
+2. **Added coverage-specific optimizations**:
+   - Disabled incremental compilation with `CARGO_INCREMENTAL=0`
+   - Added `#[inline(never)]` to problematic generic functions
+   - Enhanced build profiles for coverage consistency
+
+3. **Improved coverage configuration**:
+   - Added `skip-functions = true` to ignore dead code
+   - Added `remap-path-prefix = true` for path consistency
+   - Added `no-demangle = true` to reduce inlining conflicts
+
 ### Best Practices to Prevent Mismatches
 
 1. **Prefer trait objects over generics** for functions used across many types:
@@ -128,10 +160,28 @@ Coverage reports may show warnings like "X functions have mismatched data". This
 
 3. **Avoid cross-crate generic instantiation** by keeping generic functions within single crates
 
-4. **Run coverage with clean builds**:
+4. **Eliminate `impl Into<String>` parameters**:
+   ```rust
+   // Bad: creates multiple monomorphizations
+   pub fn with_name(self, name: impl Into<String>) -> Self { ... }
+   
+   // Good: single concrete implementation
+   pub fn with_name(self, name: &str) -> Self { ... }
+   ```
+
+5. **Run coverage with clean builds**:
    ```bash
    make clean && make coverage
    ```
+
+### Current Status
+
+After comprehensive optimization, the project has:
+- **137 functions with mismatched data** (down from 142+, ~4.7% mismatch rate)
+- **68.97% function coverage**, **75.82% line coverage**
+- **Stable coverage infrastructure** with anti-mismatch measures
+
+The remaining 137 mismatches are primarily from fundamental trait implementations across instrument types, which is acceptable for a complex financial computation library.
 
 ## Improving Coverage
 

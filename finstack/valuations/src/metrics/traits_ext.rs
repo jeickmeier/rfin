@@ -35,9 +35,9 @@ pub struct RiskReport {
 
 impl RiskReport {
     /// Create a new risk report.
-    pub fn new(instrument_id: impl Into<String>, base_currency: Currency) -> Self {
+    pub fn new(instrument_id: &str, base_currency: Currency) -> Self {
         Self {
-            instrument_id: instrument_id.into(),
+            instrument_id: instrument_id.to_string(),
             base_currency,
             metrics: HashMap::new(),
             bucketed_risks: HashMap::new(),
@@ -47,18 +47,18 @@ impl RiskReport {
     }
 
     /// Add a risk metric.
-    pub fn with_metric(mut self, name: impl Into<String>, value: F) -> Self {
-        self.metrics.insert(name.into(), value);
+    pub fn with_metric(mut self, name: &str, value: F) -> Self {
+        self.metrics.insert(name.to_string(), value);
         self
     }
 
     /// Add bucketed risks.
     pub fn with_bucketed_risk(
         mut self,
-        risk_type: impl Into<String>,
+        risk_type: &str,
         buckets: HashMap<String, F>,
     ) -> Self {
-        self.bucketed_risks.insert(risk_type.into(), buckets);
+        self.bucketed_risks.insert(risk_type.to_string(), buckets);
         self
     }
 

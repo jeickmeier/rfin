@@ -198,7 +198,7 @@ pub fn build_with_metrics_dyn(
     }
 
     let mut result =
-        crate::results::ValuationResult::stamped(instrument.id().to_string(), as_of, base_value);
+        crate::results::ValuationResult::stamped(instrument.id(), as_of, base_value);
     result.measures = measures;
     Ok(result)
 }
