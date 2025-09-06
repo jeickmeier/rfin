@@ -1,12 +1,8 @@
 use std::boxed::Box;
 
-use crate::{
-    market_data::{
-        interp::{ExtrapolationPolicy, InterpFn},
-        utils::validate_knots,
-    },
-    F,
-};
+use crate::{math::interp::ExtrapolationPolicy, F};
+use super::InterpFn;
+use crate::math::interp::utils::validate_knots;
 
 /// Monotone cubic-Hermite discount-factor interpolator (PCHIP / Fritsch-Carlson).
 ///
@@ -40,8 +36,8 @@ impl CubicHermite {
         debug_assert_eq!(knots.len(), dfs.len());
         // Basic validation – at least two points and strictly ascending times.
         validate_knots(&knots)?;
-        // Validate discount factors (positive).
-        crate::market_data::utils::validate_dfs(&dfs, false)?;
+        // Validate values (positive).
+        crate::math::interp::utils::validate_positive_series(&dfs)?;
 
         // Pre-compute monotone slopes (PCHIP / Fritsch-Carlson).
         let ms = compute_monotone_slopes(&knots, &dfs);
@@ -92,7 +88,7 @@ impl InterpFn for CubicHermite {
         }
 
         // Interior interpolation using cubic Hermite
-        let i = crate::market_data::utils::locate_segment(&self.knots, x).unwrap();
+        let i = crate::math::interp::utils::locate_segment(&self.knots, x).unwrap();
         let x0 = self.knots[i];
         let x1 = self.knots[i + 1];
         let h = x1 - x0;
@@ -137,7 +133,7 @@ impl InterpFn for CubicHermite {
             return self.ms[idx];
         }
 
-        let i = crate::market_data::utils::locate_segment(&self.knots, x).unwrap();
+        let i = crate::math::interp::utils::locate_segment(&self.knots, x).unwrap();
         let x0 = self.knots[i];
         let x1 = self.knots[i + 1];
         let h = x1 - x0;

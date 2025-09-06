@@ -4,6 +4,8 @@
 
 This document outlines a comprehensive refactoring plan to extract market data and calibration functionality from the core and valuations crates into a clean, layered architecture. The new architecture separates concerns across five distinct layers, with the legacy valuations crate to be eventually deprecated and replaced.
 
+Note: Layer 5 (analytics) is deferred to v2. Layers 1–4 (instruments, market-data, pricing, calibration) remain in v1.
+
 ## Architecture Overview
 
 ### Layered Design
@@ -22,6 +24,8 @@ This document outlines a comprehensive refactoring plan to extract market data a
 │       finstack-core (Layer 0)       │  ← Core types and math
 └─────────────────────────────────────┘
 ```
+
+Scope note: Layer 5 is planned for v2. v1 delivers Layers 1–4.
 
 ### Dependency Flow
 - Each layer depends only on layers below it
@@ -948,6 +952,8 @@ impl YieldCurveBootstrapper {
 
 ## Layer 5: finstack-analytics (New High-Level Layer)
 
+Status: Deferred to v2 (not part of the v1 cutover).
+
 ### Purpose
 High-level analytics, portfolio management, risk analytics, and reporting. Replaces the legacy valuations crate.
 
@@ -1159,7 +1165,8 @@ The empty `structured-credit` crate will be removed, with all structured product
    - Implement orchestrator
    - Add calibration tests
 
-### Phase 4: Analytics Layer (Weeks 7-8)
+### Phase 4: Analytics Layer — Deferred to v2
+This phase is moved out of v1. The following items are retained here as the v2 roadmap.
 5. Create `finstack-analytics` crate
    - Implement portfolio management with position tracking
    - Add book hierarchy and aggregation
@@ -1325,48 +1332,9 @@ let mut portfolio = Portfolio::new("Trading Book");
 portfolio.add_instrument(Box::new(swap), 10_000_000.0); // $10M notional
 
 let market_value = portfolio.market_value(&market_context, &pricing, base_date)?;
-let var_95_10d = VaR::historical(&portfolio, &market_context, &pricing, 0.95, 10)?;
 
 println!("Portfolio Market Value: {}", market_value);
-println!("95% 10-day VaR: {}", var_95_10d);
 ```
-
-## Recent Updates
-
-This plan has been updated based on architectural review and preferences:
-
-### Major Architectural Changes
-1. **Models Directory** - Added dedicated `finstack-pricing/src/models/` for pure mathematical models
-2. **Simplified Pricing Structure** - Removed redundant "engines" layer; instrument-specific pricers directly use models
-3. **Two-Level Pricing Defaults** - Simple built-in defaults with runtime override, no complex configuration
-4. **Forward Curve Traits** - Changed from functions to traits for flexibility in implementation
-5. **Structured Credit** - Removed empty `structured-credit` crate; all structured products remain in `finstack-instruments`
-6. **Bindings Strategy** - Complete rebuild of Python/WASM bindings after Rust refactoring (no backward compatibility)
-7. **PricingResult Type** - Added lightweight result type in pricing layer, separate from full ValuationResult
-
-### Component Placement Decisions
-1. **Position Management** - Comprehensive position tracking in `finstack-analytics/src/portfolio/`
-2. **Scenario Definitions** - Located in `finstack-analytics/src/analytics/scenario/` (combines market bumps + other params)
-3. **Monte Carlo Paths** - Path generators in `finstack-pricing/src/models/monte_carlo/`
-4. **Cashflow Engine** - Generation engine in `finstack-pricing/src/cashflow/`
-5. **Covenant Split** - Data structures in instruments, evaluation engine in analytics (with clear documentation)
-
-### Added Components
-1. **Credit Index Data** - Full `CreditIndexData` structure integrated into unified `MarketContext`
-2. **Bumping Infrastructure** - Comprehensive market shocking capabilities in `finstack-market-data`
-3. **Covenant Structures** - `CovenantSpec` and `CovenantBreach` added to `finstack-instruments`
-4. **Covenant Engine** - Evaluation engine placed in `finstack-analytics`
-5. **Results Envelopes** - `ValuationResult` and related structures moved to `finstack-analytics`
-6. **Cashflow Aggregation** - Currency-preserving aggregation moved to `finstack-analytics`
-
-### Excluded Components
-- **Performance Calculations** - XIRR and similar metrics excluded per requirements
-
-### Key Design Principles
-- Pure mathematical models separated from pricing orchestration
-- Trait-based abstractions for extensibility
-- Clear separation between data structures and business logic
-- Complete bindings rebuild for clean API design
 
 ## Conclusion
 
@@ -1377,5 +1345,7 @@ This refactoring plan provides a clean, maintainable architecture that:
 - Maintains high performance
 - Enables comprehensive testing
 - Preserves all critical functionality from existing codebase
+
+Versioning note: v1 delivers Layers 1–4 (instruments, market-data, pricing, calibration). Layer 5 (analytics) ships in v2.
 
 The migration can be done incrementally with minimal disruption to existing users while providing significant long-term benefits for maintainability and extensibility.

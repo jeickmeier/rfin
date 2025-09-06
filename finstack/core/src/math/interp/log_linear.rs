@@ -1,8 +1,5 @@
-use crate::{
-    error::InputError,
-    market_data::interp::{ExtrapolationPolicy, InterpFn},
-    F,
-};
+use crate::{error::InputError, math::interp::ExtrapolationPolicy, F};
+use super::InterpFn;
 use std::vec::Vec;
 
 /// Interpolator that performs linear interpolation on the natural logarithm
@@ -28,8 +25,8 @@ impl LogLinearDf {
         if knots.len() < 2 {
             return Err(InputError::TooFewPoints.into());
         }
-        crate::market_data::utils::validate_knots(&knots)?;
-        crate::market_data::utils::validate_dfs(&dfs, false)?;
+        crate::math::interp::utils::validate_knots(&knots)?;
+        crate::math::interp::utils::validate_positive_series(&dfs)?;
         let log_dfs: Vec<F> = dfs.iter().map(|d| d.ln()).collect();
         Ok(Self {
             knots,
@@ -81,7 +78,7 @@ impl InterpFn for LogLinearDf {
         }
 
         // Interior interpolation
-        let idx = crate::market_data::utils::locate_segment(&self.knots, x).unwrap();
+        let idx = crate::math::interp::utils::locate_segment(&self.knots, x).unwrap();
         let x0 = self.knots[idx];
         let x1 = self.knots[idx + 1];
         let y0 = self.log_dfs[idx];
@@ -119,7 +116,7 @@ impl InterpFn for LogLinearDf {
 
         // Get the interpolated value and log-linear slope
         let f_val = self.interp(x);
-        let idx = crate::market_data::utils::locate_segment(&self.knots, x).unwrap();
+        let idx = crate::math::interp::utils::locate_segment(&self.knots, x).unwrap();
         let x0 = self.knots[idx];
         let x1 = self.knots[idx + 1];
         let y0 = self.log_dfs[idx];

@@ -1,7 +1,5 @@
-use crate::{
-    market_data::interp::{InterpFn, LogLinearDf},
-    F,
-};
+use crate::{math::interp::LogLinearDf, F};
+use super::InterpFn;
 
 /// Flat-forward DF interpolator – constant instantaneous forward rate between knots.
 /// Implemented via linear interpolation on log DF (equivalent behaviour).
@@ -21,7 +19,7 @@ impl FlatFwd {
     pub fn new(
         knots: Box<[F]>,
         dfs: Box<[F]>,
-        extrapolation: crate::market_data::interp::ExtrapolationPolicy,
+        extrapolation: crate::math::interp::ExtrapolationPolicy,
     ) -> crate::Result<Self> {
         Ok(Self {
             inner: LogLinearDf::new(knots, dfs, extrapolation)?,

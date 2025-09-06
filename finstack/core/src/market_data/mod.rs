@@ -48,8 +48,8 @@ pub mod context;
 // Identifiers are now defined in `crate::types` (see `types::CurveId`).
 /// Inflation index data (CPI/RPI) using Polars DataFrames.
 pub mod inflation_index;
-/// Interpolation framework and concrete algorithms.
-pub mod interp;
+/// Interpolation framework and concrete algorithms (re-exported from `math::interp`).
+pub use crate::math::interp as interp;
 /// Generic market primitives: scalars and time series
 pub mod primitives;
 /// Two-dimensional surfaces (e.g. volatility).

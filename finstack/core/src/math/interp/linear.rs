@@ -1,8 +1,5 @@
-use crate::{
-    error::InputError,
-    market_data::interp::{ExtrapolationPolicy, InterpFn},
-    F,
-};
+use crate::{error::InputError, math::interp::ExtrapolationPolicy, F};
+use super::InterpFn;
 
 /// Piece-wise linear interpolation on discount factors.
 ///
@@ -31,9 +28,9 @@ impl LinearDf {
             return Err(InputError::TooFewPoints.into());
         }
         // Ensure strictly ascending times via shared helper
-        crate::market_data::utils::validate_knots(&knots)?;
-        // Validate discount factors (positive).
-        crate::market_data::utils::validate_dfs(&dfs, false)?;
+        crate::math::interp::utils::validate_knots(&knots)?;
+        // Validate values (positive).
+        crate::math::interp::utils::validate_positive_series(&dfs)?;
         Ok(Self {
             knots,
             dfs,
@@ -86,7 +83,7 @@ impl InterpFn for LinearDf {
         }
 
         // Interior linear interpolation
-        let idx = crate::market_data::utils::locate_segment(&self.knots, x).unwrap();
+        let idx = crate::math::interp::utils::locate_segment(&self.knots, x).unwrap();
         let x0 = self.knots[idx];
         let x1 = self.knots[idx + 1];
         let df0 = self.dfs[idx];
@@ -112,7 +109,7 @@ impl InterpFn for LinearDf {
         }
 
         // Interior linear interpolation derivative
-        let idx = crate::market_data::utils::locate_segment(&self.knots, x).unwrap();
+        let idx = crate::math::interp::utils::locate_segment(&self.knots, x).unwrap();
         let x0 = self.knots[idx];
         let x1 = self.knots[idx + 1];
         let df0 = self.dfs[idx];

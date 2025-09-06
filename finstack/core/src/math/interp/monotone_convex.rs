@@ -1,10 +1,6 @@
-use crate::{
-    market_data::{
-        interp::{ExtrapolationPolicy, InterpFn},
-        utils::validate_knots,
-    },
-    F,
-};
+use crate::{math::interp::ExtrapolationPolicy, F};
+use super::InterpFn;
+use crate::math::interp::utils::validate_knots;
 use std::boxed::Box;
 use std::vec::Vec;
 
@@ -77,7 +73,7 @@ impl MonotoneConvex {
 
         // ---- Sanity checks -------------------------------------------------
         validate_knots(&knots)?;
-        crate::market_data::utils::validate_dfs(&dfs, true)?;
+        crate::math::interp::utils::validate_monotone_nonincreasing(&dfs)?;
 
         // Compute cubic coefficients **before** moving `knots` and `dfs` into
         // the struct to avoid partial move/borrow checker conflicts.
@@ -205,7 +201,7 @@ impl InterpFn for MonotoneConvex {
         }
 
         // Interior interpolation using monotone-convex cubic
-        let idx = crate::market_data::utils::locate_segment(&self.knots, x).unwrap();
+        let idx = crate::math::interp::utils::locate_segment(&self.knots, x).unwrap();
         let (a, b, c, d) = self.coeffs[idx];
         let h = self.knots[idx + 1] - self.knots[idx];
         let s = (x - self.knots[idx]) / h;
@@ -250,7 +246,7 @@ impl InterpFn for MonotoneConvex {
                 idx_exact
             }
         } else {
-            crate::market_data::utils::locate_segment(&self.knots, x).unwrap()
+            crate::math::interp::utils::locate_segment(&self.knots, x).unwrap()
         };
 
         let (a, b, c, d) = self.coeffs[idx];

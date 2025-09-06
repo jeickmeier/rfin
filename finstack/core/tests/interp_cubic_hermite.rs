@@ -3,7 +3,7 @@
 mod common;
 
 use common::approx_eq;
-use finstack_core::market_data::interp::{
+use finstack_core::math::interp::{
     cubic_hermite::CubicHermite, ExtrapolationPolicy, InterpFn,
 };
 
