@@ -107,8 +107,6 @@ pub struct RoundingContext {
 pub enum NumericMode {
     /// Floating-point f64 engine.
     F64,
-    /// Decimal-128 (rust_decimal) engine.
-    Decimal128,
 }
 
 /// Result metadata commonly stamped into envelopes.
@@ -170,14 +168,7 @@ pub fn rounding_context_from(cfg: &FinstackConfig) -> RoundingContext {
 
 /// Obtain current numeric mode.
 pub fn numeric_mode() -> NumericMode {
-    #[cfg(feature = "decimal128")]
-    {
-        NumericMode::Decimal128
-    }
-    #[cfg(not(feature = "decimal128"))]
-    {
-        NumericMode::F64
-    }
+    NumericMode::F64
 }
 
 /// Construct a `ResultsMeta` snapshot for stamping into result envelopes.

@@ -12,8 +12,6 @@ use crate::instruments::traits::Attributes;
 use finstack_core::money::fx::FxConversionPolicy;
 use finstack_core::prelude::*;
 use finstack_core::F;
-#[cfg(feature = "decimal128")]
-use num_traits::ToPrimitive;
 
 /// FX Swap instrument definition (boilerplate)
 #[derive(Clone, Debug)]
@@ -116,7 +114,7 @@ impl_instrument!(
         let near_rate = match s.near_rate {
             Some(rate) => rate,
             None => {
-                let rate = (**fx_matrix)
+                (**fx_matrix)
                     .rate(finstack_core::money::fx::FxQuery {
                         from: s.base_currency,
                         to: s.quote_currency,
@@ -125,17 +123,7 @@ impl_instrument!(
                         closure_check: None,
                         want_meta: false,
                     })?
-                    .rate;
-                #[cfg(feature = "decimal128")]
-                {
-                    rate.to_f64().ok_or_else(|| {
-                        finstack_core::Error::from(finstack_core::error::InputError::Invalid)
-                    })?
-                }
-                #[cfg(not(feature = "decimal128"))]
-                {
-                    rate
-                }
+                    .rate
             }
         };
 
@@ -173,11 +161,6 @@ impl_instrument!(
                 want_meta: false,
             })?
             .rate;
-        #[cfg(feature = "decimal128")]
-        let spot_rate = spot_rate_val
-            .to_f64()
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        #[cfg(not(feature = "decimal128"))]
         let spot_rate = spot_rate_val;
 
         let total_pv = pv_for_leg * spot_rate + pv_dom_leg;

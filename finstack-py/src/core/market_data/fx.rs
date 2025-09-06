@@ -7,7 +7,6 @@ use finstack_core::money::fx::{
 };
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
-use rust_decimal::prelude::ToPrimitive;
 use std::collections::HashMap;
 
 use crate::core::currency::PyCurrency;
@@ -98,7 +97,7 @@ impl PySimpleFxProvider {
     ///     >>> provider = SimpleFxProvider()
     ///     >>> provider.set_rate(Currency("USD"), Currency("EUR"), 0.85)
     fn set_rate(&mut self, from_currency: &PyCurrency, to_currency: &PyCurrency, rate: f64) {
-        let fx_rate = FxRate::from_f64_retain(rate).unwrap_or(FxRate::ZERO);
+        let fx_rate = rate;
         self.rates
             .insert((from_currency.inner(), to_currency.inner()), fx_rate);
     }
@@ -125,7 +124,6 @@ impl PySimpleFxProvider {
         self.rates
             .get(&key)
             .copied()
-            .map(|fx_rate| fx_rate.to_f64().unwrap_or(0.0))
             .ok_or_else(|| {
                 PyErr::new::<PyValueError, _>(format!(
                     "FX rate not available for {} to {}",
@@ -157,7 +155,7 @@ impl CoreProvider for PySimpleFxProvider {
     ) -> finstack_core::Result<FxRate> {
         // For simplicity, ignore date and policy in this basic implementation
         if from == to {
-            return Ok(FxRate::ONE);
+            return Ok(1.0);
         }
 
         let key = (from, to);
@@ -261,7 +259,7 @@ impl PyFxMatrix {
                 closure_check: None,
                 want_meta: false,
             })
-            .map(|fx_rate| fx_rate.rate.to_f64().unwrap_or(0.0))
+            .map(|fx_rate| fx_rate.rate)
             .map_err(|e| PyErr::new::<PyRuntimeError, _>(format!("Failed to get FX rate: {}", e)))
     }
 

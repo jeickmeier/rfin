@@ -29,14 +29,7 @@ impl FxProvider for BenchFxProvider {
         _p: FxConversionPolicy,
     ) -> finstack_core::Result<FxRate> {
         let r = *self.rates.get(&(from, to)).unwrap_or(&1.0);
-        #[cfg(feature = "decimal128")]
-        {
-            Ok(rust_decimal::Decimal::try_from(r).unwrap_or(rust_decimal::Decimal::ONE))
-        }
-        #[cfg(not(feature = "decimal128"))]
-        {
-            Ok(r)
-        }
+        Ok(r)
     }
 }
 

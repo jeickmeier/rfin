@@ -15,11 +15,7 @@ use std::time::{Duration, Instant};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-/// Provider FX rate type alias – `Decimal` when `decimal128` is enabled, otherwise `f64`.
-#[cfg(feature = "decimal128")]
-pub type FxRate = rust_decimal::Decimal;
-/// Provider FX rate type alias – `Decimal` when `decimal128` is enabled, otherwise `f64`.
-#[cfg(not(feature = "decimal128"))]
+/// Provider FX rate type alias - always f64.
 pub type FxRate = f64;
 
 /// Standard FX conversion strategies. These are metadata hints for providers.
@@ -214,9 +210,6 @@ impl FxMatrix {
 
         // Handle identity case
         if from == to {
-            #[cfg(feature = "decimal128")]
-            let rate = rust_decimal::Decimal::ONE;
-            #[cfg(not(feature = "decimal128"))]
             let rate = 1.0;
 
             let mut result = FxRateResult {
@@ -413,9 +406,6 @@ impl FxMatrix {
         let from_to_pivot = self.provider.rate(from, pivot, on, policy)?;
         let pivot_to_to = self.provider.rate(pivot, to, on, policy)?;
 
-        #[cfg(feature = "decimal128")]
-        let triangulated_rate = from_to_pivot * pivot_to_to;
-        #[cfg(not(feature = "decimal128"))]
         let triangulated_rate = from_to_pivot * pivot_to_to;
 
         // Cache the triangulated rate for future use
@@ -456,37 +446,18 @@ impl FxMatrix {
         via_a: FxRate,
         via_b: FxRate,
     ) -> crate::Result<ClosureCheckResult> {
-        #[cfg(feature = "decimal128")]
-        {
-            // Compute entirely in Decimal to avoid precision loss
-            let calculated = via_a * via_b;
-            let diff = (direct_rate - calculated).abs();
-            let tol = rust_decimal::Decimal::try_from(self.config.closure_tolerance)
-                .unwrap_or(rust_decimal::Decimal::ZERO);
-            if diff <= tol {
-                return Ok(ClosureCheckResult::Pass);
-            }
-            Ok(ClosureCheckResult::Fail {
-                direct_rate,
-                calculated_rate: calculated,
-                difference: diff,
-            })
-        }
-        #[cfg(not(feature = "decimal128"))]
-        {
-            let direct_f64 = direct_rate;
-            let calculated_f64 = via_a * via_b;
-            let difference = (direct_f64 - calculated_f64).abs();
+        let direct_f64 = direct_rate;
+        let calculated_f64 = via_a * via_b;
+        let difference = (direct_f64 - calculated_f64).abs();
 
-            if difference <= self.config.closure_tolerance {
-                Ok(ClosureCheckResult::Pass)
-            } else {
-                Ok(ClosureCheckResult::Fail {
-                    direct_rate: direct_f64,
-                    calculated_rate: calculated_f64,
-                    difference,
-                })
-            }
+        if difference <= self.config.closure_tolerance {
+            Ok(ClosureCheckResult::Pass)
+        } else {
+            Ok(ClosureCheckResult::Fail {
+                direct_rate: direct_f64,
+                calculated_rate: calculated_f64,
+                difference,
+            })
         }
     }
 }
@@ -544,9 +515,6 @@ mod tests {
             _policy: FxConversionPolicy,
         ) -> crate::Result<FxRate> {
             if let Some(&rate) = self.rates.get(&(from, to)) {
-                #[cfg(feature = "decimal128")]
-                return rust_decimal::Decimal::try_from(rate).map_err(|_| crate::Error::Internal);
-                #[cfg(not(feature = "decimal128"))]
                 return Ok(rate);
             }
             Err(crate::Error::Internal)
@@ -576,9 +544,6 @@ mod tests {
             .unwrap()
             .rate;
 
-        #[cfg(feature = "decimal128")]
-        let expected = rust_decimal::Decimal::try_from(0.85).unwrap();
-        #[cfg(not(feature = "decimal128"))]
         let expected = 0.85;
 
         assert_eq!(rate, expected);
@@ -605,9 +570,6 @@ mod tests {
             .unwrap()
             .rate;
 
-        #[cfg(feature = "decimal128")]
-        let expected = rust_decimal::Decimal::ONE;
-        #[cfg(not(feature = "decimal128"))]
         let expected = 1.0;
 
         assert_eq!(rate, expected);
@@ -634,9 +596,6 @@ mod tests {
             .unwrap();
 
         // Should get a rate regardless of closure result
-        #[cfg(feature = "decimal128")]
-        assert!(result.rate > rust_decimal::Decimal::ZERO);
-        #[cfg(not(feature = "decimal128"))]
         assert!(result.rate > 0.0);
 
         // With our mock data, the closure might not be perfect but should be reasonable
@@ -803,14 +762,8 @@ mod tests {
             .rate;
 
         // Expected: 1.18 * 0.75 = 0.885
-        #[cfg(feature = "decimal128")]
-        let expected = rust_decimal::Decimal::try_from(1.18 * 0.75).unwrap();
-        #[cfg(not(feature = "decimal128"))]
         let expected = 1.18 * 0.75;
 
-        #[cfg(feature = "decimal128")]
-        assert!((rate - expected).abs() < rust_decimal::Decimal::try_from(0.001).unwrap());
-        #[cfg(not(feature = "decimal128"))]
         assert!((rate - expected).abs() < 0.001);
     }
 
@@ -905,9 +858,6 @@ mod tests {
             .rate;
 
         // Should get the direct rate
-        #[cfg(feature = "decimal128")]
-        let expected = rust_decimal::Decimal::try_from(0.85).unwrap();
-        #[cfg(not(feature = "decimal128"))]
         let expected = 0.85;
 
         assert_eq!(rate, expected);
@@ -970,9 +920,6 @@ mod tests {
         assert!(!result.triangulated);
         assert_eq!(result.pivot_currency, None);
 
-        #[cfg(feature = "decimal128")]
-        let expected = rust_decimal::Decimal::try_from(0.85).unwrap();
-        #[cfg(not(feature = "decimal128"))]
         let expected = 0.85;
 
         assert_eq!(result.rate, expected);
@@ -993,14 +940,8 @@ mod tests {
         assert_eq!(result.pivot_currency, Some(Currency::USD));
 
         // Expected: 1.18 * 0.75 = 0.885
-        #[cfg(feature = "decimal128")]
-        let expected = rust_decimal::Decimal::try_from(1.18 * 0.75).unwrap();
-        #[cfg(not(feature = "decimal128"))]
         let expected = 1.18 * 0.75;
 
-        #[cfg(feature = "decimal128")]
-        assert!((result.rate - expected).abs() < rust_decimal::Decimal::try_from(0.001).unwrap());
-        #[cfg(not(feature = "decimal128"))]
         assert!((result.rate - expected).abs() < 0.001);
 
         // Test identity rate
@@ -1018,9 +959,6 @@ mod tests {
         assert!(!result.triangulated);
         assert_eq!(result.pivot_currency, None);
 
-        #[cfg(feature = "decimal128")]
-        assert_eq!(result.rate, rust_decimal::Decimal::ONE);
-        #[cfg(not(feature = "decimal128"))]
         assert_eq!(result.rate, 1.0);
     }
 }

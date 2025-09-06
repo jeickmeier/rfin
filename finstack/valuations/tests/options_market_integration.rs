@@ -162,15 +162,9 @@ fn create_test_market_context() -> MarketContext {
             _policy: FxConversionPolicy,
         ) -> finstack_core::Result<FxRate> {
             if from == Currency::EUR && to == Currency::USD {
-                #[cfg(feature = "decimal128")]
-                return Ok(rust_decimal::Decimal::try_from(1.25).unwrap());
-                #[cfg(not(feature = "decimal128"))]
                 return Ok(1.25);
             }
             if from == Currency::USD && to == Currency::EUR {
-                #[cfg(feature = "decimal128")]
-                return Ok(rust_decimal::Decimal::try_from(0.80).unwrap());
-                #[cfg(not(feature = "decimal128"))]
                 return Ok(0.80);
             }
             Err(finstack_core::error::InputError::NotFound {

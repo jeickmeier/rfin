@@ -4,8 +4,6 @@ use crate::instruments::traits::Priceable;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::money::fx::FxConversionPolicy;
 use finstack_core::F;
-#[cfg(feature = "decimal128")]
-use num_traits::ToPrimitive;
 
 /// Forward points (far rate - near rate).
 pub struct ForwardPoints;
@@ -39,7 +37,7 @@ impl MetricCalculator for ForwardPoints {
         let near_rate = match fx_swap.near_rate {
             Some(rate) => rate,
             None => {
-                let rate = (**fx_matrix)
+                (**fx_matrix)
                     .rate(finstack_core::money::fx::FxQuery {
                         from: fx_swap.base_currency,
                         to: fx_swap.quote_currency,
@@ -48,17 +46,7 @@ impl MetricCalculator for ForwardPoints {
                         closure_check: None,
                         want_meta: false,
                     })?
-                    .rate;
-                #[cfg(feature = "decimal128")]
-                {
-                    rate.to_f64().ok_or_else(|| {
-                        finstack_core::Error::from(finstack_core::error::InputError::Invalid)
-                    })?
-                }
-                #[cfg(not(feature = "decimal128"))]
-                {
-                    rate
-                }
+                    .rate
             }
         };
 
@@ -116,7 +104,7 @@ impl MetricCalculator for DomesticIR01 {
         let near_rate = match fx_swap.near_rate {
             Some(rate) => rate,
             None => {
-                let rate = (**fx_matrix)
+                (**fx_matrix)
                     .rate(finstack_core::money::fx::FxQuery {
                         from: fx_swap.base_currency,
                         to: fx_swap.quote_currency,
@@ -125,17 +113,7 @@ impl MetricCalculator for DomesticIR01 {
                         closure_check: None,
                         want_meta: false,
                     })?
-                    .rate;
-                #[cfg(feature = "decimal128")]
-                {
-                    rate.to_f64().ok_or_else(|| {
-                        finstack_core::Error::from(finstack_core::error::InputError::Invalid)
-                    })?
-                }
-                #[cfg(not(feature = "decimal128"))]
-                {
-                    rate
-                }
+                    .rate
             }
         };
 
@@ -159,11 +137,6 @@ impl MetricCalculator for DomesticIR01 {
                 want_meta: false,
             })?
             .rate;
-        #[cfg(feature = "decimal128")]
-        let spot_rate = spot_rate_val
-            .to_f64()
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        #[cfg(not(feature = "decimal128"))]
         let spot_rate = spot_rate_val;
 
         let bumped_pv = pv_for_leg * spot_rate + pv_dom_leg;
@@ -217,7 +190,7 @@ impl MetricCalculator for ForeignIR01 {
         let near_rate = match fx_swap.near_rate {
             Some(rate) => rate,
             None => {
-                let rate = (**fx_matrix)
+                (**fx_matrix)
                     .rate(finstack_core::money::fx::FxQuery {
                         from: fx_swap.base_currency,
                         to: fx_swap.quote_currency,
@@ -226,17 +199,7 @@ impl MetricCalculator for ForeignIR01 {
                         closure_check: None,
                         want_meta: false,
                     })?
-                    .rate;
-                #[cfg(feature = "decimal128")]
-                {
-                    rate.to_f64().ok_or_else(|| {
-                        finstack_core::Error::from(finstack_core::error::InputError::Invalid)
-                    })?
-                }
-                #[cfg(not(feature = "decimal128"))]
-                {
-                    rate
-                }
+                    .rate
             }
         };
 
@@ -259,11 +222,6 @@ impl MetricCalculator for ForeignIR01 {
                 want_meta: false,
             })?
             .rate;
-        #[cfg(feature = "decimal128")]
-        let spot_rate = spot_rate_val
-            .to_f64()
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        #[cfg(not(feature = "decimal128"))]
         let spot_rate = spot_rate_val;
 
         let bumped_pv = pv_for_leg * spot_rate + pv_dom_leg;
@@ -326,11 +284,6 @@ impl MetricCalculator for FX01 {
                 want_meta: false,
             })?
             .rate;
-        #[cfg(feature = "decimal128")]
-        let original_spot = spot_rate_val
-            .to_f64()
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        #[cfg(not(feature = "decimal128"))]
         let original_spot = spot_rate_val;
 
         // Apply 1bp bump to spot rate

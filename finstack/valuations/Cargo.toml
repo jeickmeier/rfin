@@ -17,7 +17,6 @@ serde_json = "1.0"
 time = { version = "0.3" }
 paste = "1.0"
 num-traits = "0.2"
-rust_decimal = { version = "1.36", optional = true, features = ["serde-float"] }
 rand = { version = "0.8", optional = true }
 rand_pcg = { version = "0.3", optional = true }
 rand_distr = { version = "0.4", optional = true }
@@ -33,10 +32,9 @@ name = "bond_custom_cashflows_example"
 path = "../../examples/rust/bond_custom_cashflows_example.rs"
 
 [features]
-default = ["serde", "decimal128"]
+default = ["serde"]
 parallel = ["dep:rayon"]
 serde = ["finstack-core/serde", "hashbrown/serde"]
 index = []
-decimal128 = ["finstack-core/decimal128", "dep:rust_decimal"]
 stochastic-models = ["dep:rand", "dep:rand_pcg", "dep:rand_distr"]
 linear-algebra = ["dep:ndarray-linalg"]

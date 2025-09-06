@@ -1661,7 +1661,7 @@ mod tests {
     use super::*;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::interp::InterpStyle;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::discount_curve::DiscountCurve;
     use time::Month;
 
     #[test]

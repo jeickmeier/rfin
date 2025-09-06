@@ -60,7 +60,7 @@ fn test_dag_dedup_ignores_expr_id() {
     let rm_b = Expr::call(Function::RollingMean, vec![col_x.clone(), lit_3.clone()]).with_id(77);
 
     let meta = ResultsMeta {
-        numeric_mode: NumericMode::Decimal128,
+        numeric_mode: NumericMode::F64,
         rounding: RoundingContext {
             mode: RoundingMode::Bankers,
             ingest_scale_by_ccy: Default::default(),
@@ -103,7 +103,7 @@ fn test_dag_builder_simple_expressions() {
     let rolling_mean = Expr::call(Function::RollingMean, vec![col_x.clone(), lit_3.clone()]);
 
     let meta = ResultsMeta {
-        numeric_mode: NumericMode::Decimal128,
+        numeric_mode: NumericMode::F64,
         rounding: RoundingContext {
             mode: RoundingMode::Bankers,
             ingest_scale_by_ccy: Default::default(),
@@ -140,7 +140,7 @@ fn test_dag_builder_shared_subexpressions() {
     let rolling_sum = Expr::call(Function::RollingSum, vec![col_x.clone(), lit_3.clone()]);
 
     let meta = ResultsMeta {
-        numeric_mode: NumericMode::Decimal128,
+        numeric_mode: NumericMode::F64,
         rounding: RoundingContext {
             mode: RoundingMode::Bankers,
             ingest_scale_by_ccy: Default::default(),
@@ -192,7 +192,7 @@ fn test_dag_polars_eligibility() {
     let cum_sum = Expr::call(Function::CumSum, vec![col_x.clone()]);
 
     let meta = ResultsMeta {
-        numeric_mode: NumericMode::Decimal128,
+        numeric_mode: NumericMode::F64,
         rounding: RoundingContext {
             mode: RoundingMode::Bankers,
             ingest_scale_by_ccy: Default::default(),
@@ -233,7 +233,7 @@ fn test_dag_cost_estimation() {
     let rolling_std = Expr::call(Function::RollingStd, vec![col_x.clone(), lit_5.clone()]);
 
     let meta = ResultsMeta {
-        numeric_mode: NumericMode::Decimal128,
+        numeric_mode: NumericMode::F64,
         rounding: RoundingContext {
             mode: RoundingMode::Bankers,
             ingest_scale_by_ccy: Default::default(),
@@ -276,7 +276,7 @@ fn test_pushdown_boundary_analysis() {
     let rolling_mean = Expr::call(Function::RollingMean, vec![cum_sum, Expr::literal(3.0)]); // Polars-eligible
 
     let meta = ResultsMeta {
-        numeric_mode: NumericMode::Decimal128,
+        numeric_mode: NumericMode::F64,
         rounding: RoundingContext {
             mode: RoundingMode::Bankers,
             ingest_scale_by_ccy: Default::default(),
@@ -326,7 +326,7 @@ fn test_dag_cache_strategy() {
     );
 
     let meta = ResultsMeta {
-        numeric_mode: NumericMode::Decimal128,
+        numeric_mode: NumericMode::F64,
         rounding: RoundingContext {
             mode: RoundingMode::Bankers,
             ingest_scale_by_ccy: Default::default(),
@@ -369,7 +369,7 @@ fn test_dag_topological_ordering() {
     let diff_lag = Expr::call(Function::Diff, vec![lag_x.clone(), Expr::literal(1.0)]);
 
     let meta = ResultsMeta {
-        numeric_mode: NumericMode::Decimal128,
+        numeric_mode: NumericMode::F64,
         rounding: RoundingContext {
             mode: RoundingMode::Bankers,
             ingest_scale_by_ccy: Default::default(),
@@ -412,7 +412,7 @@ fn test_dag_topological_ordering() {
 fn test_dag_empty_plan() {
     let mut builder = DagBuilder::new();
     let meta = ResultsMeta {
-        numeric_mode: NumericMode::Decimal128,
+        numeric_mode: NumericMode::F64,
         rounding: RoundingContext {
             mode: RoundingMode::Bankers,
             ingest_scale_by_ccy: Default::default(),

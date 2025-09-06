@@ -25,10 +25,7 @@ impl FxProvider for TestFxProvider {
         _on: Date,
         _policy: FxConversionPolicy,
     ) -> finstack_core::Result<FxRate> {
-        #[cfg(feature = "decimal128")]
-        return Ok(rust_decimal::Decimal::ONE);
-        #[cfg(not(feature = "decimal128"))]
-        return Ok(1.0);
+        Ok(1.0)
     }
 }
 

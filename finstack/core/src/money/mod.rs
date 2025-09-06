@@ -45,13 +45,6 @@ use crate::error::Error;
 use core::fmt;
 use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
-// no string-based Decimal conversions in decimal mode
-#[cfg(feature = "decimal128")]
-use rust_decimal::prelude::{FromPrimitive, ToPrimitive};
-
-#[cfg(feature = "decimal128")]
-type AmountRepr = rust_decimal::Decimal;
-#[cfg(not(feature = "decimal128"))]
 type AmountRepr = f64;
 
 // Submodule for FX interfaces
@@ -77,26 +70,11 @@ impl Money {
     pub fn new(amount: f64, currency: Currency) -> Self {
         // Fallback to ISO-4217 minor units when no config is provided.
         let dp = currency.decimals();
-        #[cfg(feature = "decimal128")]
-        {
-            let dec = rust_decimal::Decimal::from_f64_retain(amount)
-                .or_else(|| rust_decimal::Decimal::from_f64(amount))
-                .unwrap_or(rust_decimal::Decimal::ZERO);
-            let mode = RoundingMode::Bankers;
-            let rounded = round_decimal(dec, dp as u32, mode);
-            Self {
-                amount: rounded,
-                currency,
-            }
-        }
-        #[cfg(not(feature = "decimal128"))]
-        {
-            let mode = RoundingMode::Bankers;
-            let rounded = round_f64(amount, dp as i32, mode);
-            Self {
-                amount: rounded,
-                currency,
-            }
+        let mode = RoundingMode::Bankers;
+        let rounded = round_f64(amount, dp as i32, mode);
+        Self {
+            amount: rounded,
+            currency,
         }
     }
 
@@ -105,46 +83,14 @@ impl Money {
     #[inline]
     pub fn new_with_config(amount: f64, currency: Currency, cfg: &FinstackConfig) -> Self {
         let dp = crate::config::ingest_scale_for(cfg, currency);
-        #[cfg(feature = "decimal128")]
-        {
-            let dec = rust_decimal::Decimal::from_f64_retain(amount)
-                .or_else(|| rust_decimal::Decimal::from_f64(amount))
-                .unwrap_or(rust_decimal::Decimal::ZERO);
-            let mode = cfg.rounding.mode;
-            let rounded = round_decimal(dec, dp, mode);
-            Self {
-                amount: rounded,
-                currency,
-            }
-        }
-        #[cfg(not(feature = "decimal128"))]
-        {
-            let mode = cfg.rounding.mode;
-            let rounded = round_f64(amount, dp as i32, mode);
-            Self {
-                amount: rounded,
-                currency,
-            }
-        }
-    }
-
-    /// Construct from a decimal when the `decimal128` feature is enabled.
-    #[cfg(feature = "decimal128")]
-    #[must_use]
-    #[inline]
-    pub fn from_decimal_with_config(
-        amount: rust_decimal::Decimal,
-        currency: Currency,
-        cfg: &FinstackConfig,
-    ) -> Self {
-        let dp = crate::config::ingest_scale_for(cfg, currency);
         let mode = cfg.rounding.mode;
-        let dec = round_decimal(amount, dp, mode);
+        let rounded = round_f64(amount, dp as i32, mode);
         Self {
-            amount: dec,
+            amount: rounded,
             currency,
         }
     }
+
 
     /// Amount accessor (by value).
     #[inline]
@@ -208,22 +154,11 @@ impl Money {
             return Ok(self);
         }
         let rate = provider.rate(self.currency, to, on, policy)?;
-        #[cfg(feature = "decimal128")]
-        {
-            let new_amount = self.amount * rate;
-            Ok(Self {
-                amount: new_amount,
-                currency: to,
-            })
-        }
-        #[cfg(not(feature = "decimal128"))]
-        {
-            let new_amount = repr_mul_f64(self.amount, rate);
-            Ok(Self {
-                amount: new_amount,
-                currency: to,
-            })
-        }
+        let new_amount = repr_mul_f64(self.amount, rate);
+        Ok(Self {
+            amount: new_amount,
+            currency: to,
+        })
     }
 }
 
@@ -234,23 +169,15 @@ impl fmt::Display for Money {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Default formatting uses ISO-4217 minor units and bankers rounding.
         let dp = self.currency.decimals() as usize;
-        #[cfg(feature = "decimal128")]
-        {
-            let s = format_decimal(self.amount, dp as u32, RoundingMode::Bankers);
-            write!(f, "{} {}", self.currency, s)
-        }
-        #[cfg(not(feature = "decimal128"))]
-        {
-            // For f64 mode, format with currency-specific minor units. Rounding mode is
-            // not customisable here (uses standard formatting semantics).
-            write!(
-                f,
-                "{} {val:.prec$}",
-                self.currency,
-                val = self.amount,
-                prec = dp
-            )
-        }
+        // For f64 mode, format with currency-specific minor units. Rounding mode is
+        // not customisable here (uses standard formatting semantics).
+        write!(
+            f,
+            "{} {val:.prec$}",
+            self.currency,
+            val = self.amount,
+            prec = dp
+        )
     }
 }
 
@@ -258,20 +185,12 @@ impl Money {
     /// Format this money using an explicit configuration (rounding mode and per-currency scales).
     pub fn format_with_config(&self, cfg: &FinstackConfig) -> String {
         let dp = crate::config::output_scale_for(cfg, self.currency) as usize;
-        #[cfg(feature = "decimal128")]
-        {
-            let s = format_decimal(self.amount, dp as u32, cfg.rounding.mode);
-            format!("{} {}", self.currency, s)
-        }
-        #[cfg(not(feature = "decimal128"))]
-        {
-            format!(
-                "{} {val:.prec$}",
-                self.currency,
-                val = self.amount,
-                prec = dp
-            )
-        }
+        format!(
+            "{} {val:.prec$}",
+            self.currency,
+            val = self.amount,
+            prec = dp
+        )
     }
 }
 
@@ -404,128 +323,29 @@ fn ensure_same_currency(lhs: &Money, rhs: &Money) -> Result<(), Error> {
 
 #[inline]
 fn amount_from_repr(x: AmountRepr) -> f64 {
-    #[cfg(feature = "decimal128")]
-    {
-        x.to_f64().unwrap_or(0.0)
-    }
-    #[cfg(not(feature = "decimal128"))]
-    {
-        x
-    }
+    x
 }
 
 #[inline]
 fn repr_add(a: AmountRepr, b: AmountRepr) -> AmountRepr {
-    #[cfg(feature = "decimal128")]
-    {
-        a + b
-    }
-    #[cfg(not(feature = "decimal128"))]
-    {
-        a + b
-    }
+    a + b
 }
 
 #[inline]
 fn repr_sub(a: AmountRepr, b: AmountRepr) -> AmountRepr {
-    #[cfg(feature = "decimal128")]
-    {
-        a - b
-    }
-    #[cfg(not(feature = "decimal128"))]
-    {
-        a - b
-    }
+    a - b
 }
 
 #[inline]
 fn repr_mul_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
-    #[cfg(feature = "decimal128")]
-    {
-        let m = AmountRepr::from_f64_retain(rhs)
-            .or_else(|| AmountRepr::from_f64(rhs))
-            .unwrap_or(AmountRepr::ZERO);
-        a * m
-    }
-    #[cfg(not(feature = "decimal128"))]
-    {
-        a * rhs
-    }
+    a * rhs
 }
 
 #[inline]
 fn repr_div_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
-    #[cfg(feature = "decimal128")]
-    {
-        let d = AmountRepr::from_f64_retain(rhs)
-            .or_else(|| AmountRepr::from_f64(rhs))
-            .unwrap_or(AmountRepr::ONE);
-        a / d
-    }
-    #[cfg(not(feature = "decimal128"))]
-    {
-        a / rhs
-    }
+    a / rhs
 }
 
-#[cfg(feature = "decimal128")]
-fn format_decimal(x: AmountRepr, dp: u32, mode: RoundingMode) -> String {
-    use rust_decimal::RoundingStrategy;
-    let strategy = match mode {
-        RoundingMode::Bankers => RoundingStrategy::MidpointNearestEven,
-        RoundingMode::AwayFromZero => RoundingStrategy::MidpointAwayFromZero,
-        RoundingMode::TowardZero => RoundingStrategy::ToZero,
-        RoundingMode::Floor => RoundingStrategy::ToNegativeInfinity,
-        RoundingMode::Ceil => RoundingStrategy::ToPositiveInfinity,
-    };
-    let y = x.round_dp_with_strategy(dp, strategy);
-    // Format with fixed dp digits
-    let mut s = y.to_string();
-    if dp == 0 {
-        if let Some(dot) = s.find('.') {
-            s.truncate(dot);
-        }
-        return s;
-    }
-    if !s.contains('.') {
-        s.push('.');
-        for _ in 0..dp {
-            s.push('0');
-        }
-        return s;
-    }
-    let parts: Vec<&str> = s.split('.').collect();
-    let intp = parts[0];
-    let frac = parts.get(1).copied().unwrap_or("");
-    let mut out = String::with_capacity(intp.len() + 1 + dp as usize);
-    out.push_str(intp);
-    out.push('.');
-    if frac.len() >= dp as usize {
-        out.push_str(&frac[..dp as usize]);
-    } else {
-        out.push_str(frac);
-        for _ in 0..(dp as usize - frac.len()) {
-            out.push('0');
-        }
-    }
-    out
-}
-
-#[cfg(feature = "decimal128")]
-#[inline]
-fn round_decimal(x: rust_decimal::Decimal, dp: u32, mode: RoundingMode) -> rust_decimal::Decimal {
-    use rust_decimal::RoundingStrategy;
-    let strategy = match mode {
-        RoundingMode::Bankers => RoundingStrategy::MidpointNearestEven,
-        RoundingMode::AwayFromZero => RoundingStrategy::MidpointAwayFromZero,
-        RoundingMode::TowardZero => RoundingStrategy::ToZero,
-        RoundingMode::Floor => RoundingStrategy::ToNegativeInfinity,
-        RoundingMode::Ceil => RoundingStrategy::ToPositiveInfinity,
-    };
-    x.round_dp_with_strategy(dp, strategy)
-}
-
-#[cfg(not(feature = "decimal128"))]
 #[inline]
 fn round_f64(x: f64, dp: i32, mode: RoundingMode) -> f64 {
     let factor = 10f64.powi(dp);

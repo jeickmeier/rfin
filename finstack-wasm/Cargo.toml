@@ -31,7 +31,6 @@ wasm-bindgen-test = "0.3"
 [features]
 default = ["console_error_panic_hook"]
 console_error_panic_hook = ["dep:console_error_panic_hook"]
-decimal128 = ["finstack-core/decimal128"]
 
 [dependencies.console_error_panic_hook]
 version = "0.1"

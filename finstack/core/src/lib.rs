@@ -32,7 +32,6 @@
 //! |-------------- |----------------------------------------------------|
 //! | `std`         | Required standard library support (always enabled)   |
 //! | `serde`       | `Serialize`/`Deserialize` for public types         |
-//! | `decimal128`  | `MoneyDecimal` using `rust_decimal::Decimal`       |
 //!
 //! # Minimum Supported Rust Version (MSRV)
 //! This crate targets **Rust 1.75**.  It is tested in CI and follows the

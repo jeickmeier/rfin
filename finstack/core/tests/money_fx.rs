@@ -16,14 +16,7 @@ impl FxProvider for StaticFx {
         _on: Date,
         _policy: FxConversionPolicy,
     ) -> finstack_core::Result<FxRate> {
-        #[cfg(feature = "decimal128")]
-        {
-            Ok(rust_decimal::Decimal::from_f64_retain(self.rate).unwrap())
-        }
-        #[cfg(not(feature = "decimal128"))]
-        {
-            Ok(self.rate)
-        }
+        Ok(self.rate)
     }
 }
 
@@ -62,27 +55,13 @@ fn closure_check_matrix() {
             _on: Date,
             _policy: FxConversionPolicy,
         ) -> finstack_core::Result<FxRate> {
-            #[cfg(feature = "decimal128")]
-            {
-                use rust_decimal::Decimal as D;
-                let r = match (from, to) {
-                    (Currency::USD, Currency::EUR) => D::from_f64_retain(0.9).unwrap(),
-                    (Currency::USD, Currency::GBP) => D::from_f64_retain(0.75).unwrap(),
-                    (Currency::GBP, Currency::EUR) => D::from_f64_retain(1.2).unwrap(),
-                    _ => D::from_f64_retain(1.0).unwrap(),
-                };
-                Ok(r)
-            }
-            #[cfg(not(feature = "decimal128"))]
-            {
-                let r = match (from, to) {
-                    (Currency::USD, Currency::EUR) => 0.9,
-                    (Currency::USD, Currency::GBP) => 0.75,
-                    (Currency::GBP, Currency::EUR) => 1.2,
-                    _ => 1.0,
-                };
-                Ok(r)
-            }
+            let r = match (from, to) {
+                (Currency::USD, Currency::EUR) => 0.9,
+                (Currency::USD, Currency::GBP) => 0.75,
+                (Currency::GBP, Currency::EUR) => 1.2,
+                _ => 1.0,
+            };
+            Ok(r)
         }
     }
     let m = FxMatrix::new(Arc::new(Prov));

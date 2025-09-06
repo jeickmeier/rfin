@@ -26,10 +26,6 @@ impl FxProvider for MockFxProvider {
         _policy: FxConversionPolicy,
     ) -> finstack_core::Result<FxRate> {
         if let Some(&rate) = self.rates.get(&(from, to)) {
-            #[cfg(feature = "decimal128")]
-            return rust_decimal::Decimal::try_from(rate)
-                .map_err(|_| finstack_core::Error::Internal);
-            #[cfg(not(feature = "decimal128"))]
             return Ok(rate);
         }
         Err(finstack_core::Error::Internal)

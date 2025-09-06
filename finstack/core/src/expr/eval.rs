@@ -876,10 +876,7 @@ impl CompiledExpr {
         use polars::lazy::dsl::{col, lit};
         match &self.ast.node {
             ExprNode::Column(name) => Some(col(name)),
-            #[cfg(not(feature = "decimal128"))]
             ExprNode::Literal(v) => Some(lit(*v)),
-            #[cfg(feature = "decimal128")]
-            ExprNode::Literal(_) => None,
             ExprNode::Call(fun, args) => match fun {
                 Function::Lag => {
                     Self::lower_binary(&args[0], &args[1], |x, n| x.shift(lit(arg_as_i64(n))))

@@ -12,11 +12,10 @@ name = "finstack"
 crate-type = ["cdylib"]
 
 [dependencies]
-finstack-core = { path = "../finstack/core", features = ["std", "decimal128"] }
+finstack-core = { path = "../finstack/core", features = ["std"] }
 finstack-valuations = { path = "../finstack/valuations" }
 pyo3 = { version = "0.25", features = ["extension-module"] }
 numpy = "0.25"
-rust_decimal = { version = "1.36", default-features = false }
 indexmap = "2.0"
 
 # Needed for Month enum used in Date bindings
@@ -27,4 +26,3 @@ pyo3-build-config = "0.25"
 
 [features]
 default = []
-decimal128 = ["finstack-core/decimal128"]
