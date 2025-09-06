@@ -664,11 +664,66 @@ pub trait Priceable {
     ) -> Result<MetricResults>;
 }
 
+// Default method selection configuration
+// pricing/config.rs
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PricingDefaults {
+    pub equity_option: EquityOptionDefaults,
+    pub bond: BondDefaults,
+    pub swaption: SwaptionDefaults,
+    // ... other instruments
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct EquityOptionDefaults {
+    pub european_vanilla_method: PricingMethod,
+    pub american_vanilla_method: PricingMethod,
+    pub barrier_method: PricingMethod,
+    pub asian_method: PricingMethod,
+}
+
+impl Default for EquityOptionDefaults {
+    fn default() -> Self {
+        Self {
+            european_vanilla_method: PricingMethod::Analytical,
+            american_vanilla_method: PricingMethod::BinomialTree { steps: 100 },
+            barrier_method: PricingMethod::MonteCarlo { paths: 10_000, seed: None },
+            asian_method: PricingMethod::MonteCarlo { paths: 10_000, seed: None },
+        }
+    }
+}
+
 // Example: Equity option pricer supporting multiple methods
 // options/equity_option.rs
-pub struct EquityOptionPricer;
+pub struct EquityOptionPricer {
+    defaults: EquityOptionDefaults,
+}
 
 impl EquityOptionPricer {
+    pub fn new() -> Self {
+        Self { defaults: EquityOptionDefaults::default() }
+    }
+    
+    pub fn with_defaults(defaults: EquityOptionDefaults) -> Self {
+        Self { defaults }
+    }
+    
+    /// Determines the default pricing method based on option characteristics
+    fn select_default_method(&self, option: &EquityOption) -> PricingMethod {
+        if option.has_barriers() {
+            self.defaults.barrier_method.clone()
+        } else if option.is_asian() {
+            self.defaults.asian_method.clone()
+        } else if option.exercise_style == ExerciseStyle::American {
+            self.defaults.american_vanilla_method.clone()
+        } else if option.exercise_style == ExerciseStyle::European {
+            self.defaults.european_vanilla_method.clone()
+        } else {
+            // Fallback for complex/unrecognized types
+            PricingMethod::MonteCarlo { paths: 10_000, seed: None }
+        }
+    }
+    
     pub fn price(
         &self, 
         option: &EquityOption, 
@@ -678,14 +733,9 @@ impl EquityOptionPricer {
     ) -> Result<PricingResult> {
         match method {
             PricingMethod::Auto => {
-                // Intelligent selection based on option characteristics
-                if option.exercise_style == ExerciseStyle::European && !option.has_barriers() {
-                    self.price_black_scholes(option, context, as_of)
-                } else if option.exercise_style == ExerciseStyle::American {
-                    self.price_binomial(option, context, as_of, 100)
-                } else {
-                    self.price_monte_carlo(option, context, as_of, 10000, None)
-                }
+                // Use the configured default for this option type
+                let selected_method = self.select_default_method(option);
+                self.price(option, context, as_of, selected_method)
             },
             PricingMethod::Analytical => {
                 if option.exercise_style != ExerciseStyle::European {
@@ -739,12 +789,36 @@ impl EquityOptionPricer {
     }
 }
 
-// Registry for instrument pricers
+// Registry for instrument pricers with configurable defaults
 pub struct PricingRegistry {
     pricers: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
+    defaults: PricingDefaults,
 }
 
 impl PricingRegistry {
+    pub fn new() -> Self {
+        Self {
+            pricers: HashMap::new(),
+            defaults: PricingDefaults::default(),
+        }
+    }
+    
+    pub fn with_defaults(defaults: PricingDefaults) -> Self {
+        Self {
+            pricers: HashMap::new(),
+            defaults,
+        }
+    }
+    
+    /// Register default pricers with standard defaults
+    pub fn register_defaults(&mut self) {
+        self.register(EquityOptionPricer::with_defaults(self.defaults.equity_option.clone()));
+        self.register(BondPricer::with_defaults(self.defaults.bond.clone()));
+        self.register(SwaptionPricer::with_defaults(self.defaults.swaption.clone()));
+        // ... register other pricers
+    }
+    
+    /// Register a custom pricer
     pub fn register<T, P>(&mut self, pricer: P) 
     where 
         T: 'static,
@@ -757,11 +831,64 @@ impl PricingRegistry {
     where 
         T: 'static
     {
+        self.price_with_method(instrument, context, as_of, PricingMethod::Auto)
+    }
+    
+    pub fn price_with_method<T>(&self, instrument: &T, context: &MarketContext, as_of: Date, method: PricingMethod) -> Result<PricingResult>
+    where 
+        T: 'static
+    {
         let pricer = self.pricers.get(&TypeId::of::<T>())
             .ok_or(PricingError::NoPricerRegistered)?;
-        // ... downcast and price
+        // ... downcast and price with method
     }
 }
+```
+
+### Configuring Default Pricing Methods
+
+Default pricing methods can be configured at three levels:
+
+1. **System Defaults**: Built into each pricer's `Default` implementation
+2. **Registry Configuration**: Set when creating the PricingRegistry
+3. **Runtime Override**: Use custom defaults for specific pricers
+
+```rust
+// Example: Configuring custom defaults
+use finstack_pricing::{PricingRegistry, PricingDefaults, EquityOptionDefaults, PricingMethod};
+
+// Option 1: Use system defaults
+let mut registry = PricingRegistry::new();
+registry.register_defaults();
+
+// Option 2: Configure custom defaults for all instruments
+let custom_defaults = PricingDefaults {
+    equity_option: EquityOptionDefaults {
+        european_vanilla_method: PricingMethod::MonteCarlo { paths: 50_000, seed: None },
+        american_vanilla_method: PricingMethod::BinomialTree { steps: 200 },
+        barrier_method: PricingMethod::MonteCarlo { paths: 100_000, seed: None },
+        asian_method: PricingMethod::MonteCarlo { paths: 100_000, seed: None },
+    },
+    // ... configure other instruments
+    ..Default::default()
+};
+let mut registry = PricingRegistry::with_defaults(custom_defaults);
+registry.register_defaults();
+
+// Option 3: Override defaults for specific pricer
+let custom_option_pricer = EquityOptionPricer::with_defaults(
+    EquityOptionDefaults {
+        european_vanilla_method: PricingMethod::Analytical,
+        american_vanilla_method: PricingMethod::TrinomialTree { steps: 150 },
+        // ... other defaults
+        ..Default::default()
+    }
+);
+registry.register::<EquityOption, _>(custom_option_pricer);
+
+// Option 4: Load defaults from configuration file
+let defaults: PricingDefaults = serde_json::from_str(&config_json)?;
+let mut registry = PricingRegistry::with_defaults(defaults);
 ```
 
 ### Implementation Strategy
@@ -769,7 +896,9 @@ impl PricingRegistry {
 2. Create pure mathematical models in `/models` directory
 3. Implement instrument-specific pricers that support multiple methods
 4. Add `PricingMethod` enum for method selection (Auto, Analytical, MonteCarlo, Tree, etc.)
-5. Each pricer implements all applicable methods and intelligent auto-selection
+5. Create configurable defaults system with multiple override levels
+6. Each pricer implements all applicable methods and intelligent auto-selection
+7. Document default method selection logic for each instrument type
 
 ## Layer 4: finstack-calibration
 
@@ -1015,7 +1144,12 @@ The pricing layer uses a streamlined structure without redundant "engines":
 - Pure mathematical models in `finstack-pricing/src/models/` contain only formulas and algorithms
 - Instrument-specific pricers support multiple pricing methods via a `PricingMethod` enum
 - Users can explicitly choose a method (Black-Scholes, Monte Carlo, Tree) or use `Auto` for intelligent selection
-- Each pricer internally routes to the appropriate model based on the selected method
+- **Default Method Configuration**:
+  - System defaults built into each pricer's `Default` implementation
+  - Registry-level defaults via `PricingDefaults` configuration
+  - Runtime override with custom pricer instances
+  - Configuration file support for enterprise deployments
+- Each pricer's `select_default_method()` function determines which method to use for `Auto` based on instrument characteristics
 - The `PricingResult` includes which method was actually used for transparency
 - Eliminates confusion between "engines" and "pricers" for the same instruments
 - Cleaner testing of mathematical correctness vs. integration testing
