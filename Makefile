@@ -79,16 +79,16 @@ stubs:
 
 coverage:
 	@echo "Running code coverage..."
-	cargo llvm-cov --package finstack-core --package finstack-valuations --package finstack-statements --package finstack-scenarios --package finstack-portfolio --package finstack-io --package finstack-analysis --package finstack-structured-credit
+	CARGO_INCREMENTAL=0 cargo llvm-cov --package finstack-core --package finstack-valuations --package finstack-statements --package finstack-scenarios --package finstack-portfolio --package finstack-io --package finstack-analysis --package finstack-structured-credit --ignore-filename-regex '(tests?/|target/|\.cargo/)'
 
 coverage-html:
 	@echo "Generating HTML coverage report..."
-	cargo llvm-cov --package finstack-core --package finstack-valuations --package finstack-statements --package finstack-scenarios --package finstack-portfolio --package finstack-io --package finstack-analysis --package finstack-structured-credit --html
+	CARGO_INCREMENTAL=0 cargo llvm-cov --package finstack-core --package finstack-valuations --package finstack-statements --package finstack-scenarios --package finstack-portfolio --package finstack-io --package finstack-analysis --package finstack-structured-credit --html --ignore-filename-regex '(tests?/|target/|\.cargo/)'
 
 coverage-open:
 	@echo "Generating HTML coverage report and opening in browser..."
-	cargo llvm-cov --package finstack-core --package finstack-valuations --package finstack-statements --package finstack-scenarios --package finstack-portfolio --package finstack-io --package finstack-analysis --package finstack-structured-credit --open
+	CARGO_INCREMENTAL=0 cargo llvm-cov --package finstack-core --package finstack-valuations --package finstack-statements --package finstack-scenarios --package finstack-portfolio --package finstack-io --package finstack-analysis --package finstack-structured-credit --open --ignore-filename-regex '(tests?/|target/|\.cargo/)'
 
 coverage-lcov:
 	@echo "Generating LCOV coverage report for CI..."
-	cargo llvm-cov --package finstack-core --package finstack-valuations --package finstack-statements --package finstack-scenarios --package finstack-portfolio --package finstack-io --package finstack-analysis --package finstack-structured-credit --lcov
+	CARGO_INCREMENTAL=0 cargo llvm-cov --package finstack-core --package finstack-valuations --package finstack-statements --package finstack-scenarios --package finstack-portfolio --package finstack-io --package finstack-analysis --package finstack-structured-credit --lcov --ignore-filename-regex '(tests?/|target/|\.cargo/)'

@@ -1,37 +1,38 @@
 //! Composable cashflow builder for instruments.
 //!
-//! What: Ergonomic, deterministic builder to produce a `CashFlowSchedule` from
-//! principal, amortization and coupon/fee programs. Fixed coupons are supported
-//! today; floating coupons and fees are scaffolded for parity and determinism.
+//! Provides a simplified interface for common cashflow patterns and an advanced
+//! interface for complex scenarios with programmatic control.
 //!
-//! Why: Centralize schedule logic and ordering invariants so downstream pricing
-//! and risk consumers operate on a single, canonical schedule shape.
+//! # Simple Interface (Recommended)
 //!
-//! How: Start with `cf()` or `CashflowBuilder::new()`, set principal and (optionally)
-//! amortization, add fixed or programmatic coupon windows, then `build()`.
-//!
-//! # Quick Start
-//!
-//! Build a simple fixed-rate bond cashflow:
+//! For most instruments, use the simplified builder:
 //!
 //! ```rust
 //! use finstack_core::currency::Currency;
 //! use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention, StubKind};
 //! use finstack_core::money::Money;
-//! use finstack_valuations::cashflow::builder::{cf, FixedCouponSpec, CouponType};
+//! use finstack_valuations::cashflow::builder::{cf, ScheduleParams, FixedCouponSpec, CouponType};
 //! use time::Month;
 //!
 //! let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
 //! let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
 //!
-//! let fixed_spec = FixedCouponSpec {
-//!     coupon_type: CouponType::Cash,
-//!     rate: 0.05,
+//! let schedule_params = ScheduleParams {
 //!     freq: Frequency::semi_annual(),
 //!     dc: DayCount::Act365F,
 //!     bdc: BusinessDayConvention::Following,
 //!     calendar_id: None,
 //!     stub: StubKind::None,
+//! };
+//!
+//! let fixed_spec = FixedCouponSpec {
+//!     coupon_type: CouponType::Cash,
+//!     rate: 0.05,
+//!     freq: schedule_params.freq,
+//!     dc: schedule_params.dc,
+//!     bdc: schedule_params.bdc,
+//!     calendar_id: schedule_params.calendar_id,
+//!     stub: schedule_params.stub,
 //! };
 //!
 //! let schedule = cf()
@@ -42,18 +43,28 @@
 //!
 //! assert!(schedule.flows.len() > 0);
 //! ```
+//!
+//! # Advanced Interface
+//!
+//! For complex scenarios (windows, programs, PIK toggles), use the `advanced` module.
 
+pub mod advanced;
 mod compile;
 pub mod schedule;
 pub mod schedule_utils;
 mod state;
 pub mod types;
 
+// Export the full-featured builder as CashflowBuilder
 pub use state::CashflowBuilder;
+
+/// Convenience function to create a new cashflow builder.
 #[inline]
 pub fn cf() -> CashflowBuilder {
     CashflowBuilder::default()
 }
+
+// Re-export common types
 pub use schedule::{CashFlowSchedule, CashflowMeta};
 pub use schedule_utils::{build_dates, PeriodSchedule};
 pub use types::{

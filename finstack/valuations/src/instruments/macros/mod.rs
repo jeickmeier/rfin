@@ -84,13 +84,13 @@ macro_rules! impl_instrument {
                 metrics: &[$crate::metrics::MetricId],
             ) -> finstack_core::Result<$crate::results::ValuationResult> {
                 let base_value = self.value(curves, as_of)?;
-                $crate::instruments::build_with_metrics(
-                    self.clone(),
-                    curves,
-                    as_of,
-                    base_value,
-                    metrics,
-                )
+                  $crate::instruments::build_with_metrics_dyn(
+                      self,
+                      curves,
+                      as_of,
+                      base_value,
+                      metrics,
+                  )
             }
         }
     };
@@ -116,7 +116,7 @@ macro_rules! impl_instrument_schedule_pv {
                 let flows = <$type as $crate::cashflow::traits::CashflowProvider>::build_schedule(
                     s, curves, as_of,
                 )?;
-                let disc = curves.discount(s.$disc)?;
+                let disc = curves.disc(s.$disc)?;
                 flows.npv(&*disc, disc.base_date(), s.$dc)
             }
         );

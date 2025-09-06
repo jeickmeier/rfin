@@ -1,5 +1,5 @@
 /// Tests for the piece‐wise linear DF interpolator.
-use finstack_core::market_data::interp::{InterpFn, LinearDf};
+use finstack_core::market_data::interp::{InterpFn, LinearDf, ExtrapolationPolicy};
 
 fn build_inputs() -> (Box<[f64]>, Box<[f64]>) {
     // Simple flat 2 % zero‐rate curve => DF = exp(−0.02 t)
@@ -11,7 +11,7 @@ fn build_inputs() -> (Box<[f64]>, Box<[f64]>) {
 #[test]
 fn linear_exact_fit() {
     let (knots, dfs) = build_inputs();
-    let interp = LinearDf::new(knots.clone(), dfs.clone()).expect("build");
+    let interp = LinearDf::new(knots.clone(), dfs.clone(), ExtrapolationPolicy::default()).expect("build");
 
     for (i, &t) in knots.iter().enumerate() {
         assert!((interp.interp(t) - dfs[i]).abs() < 1e-12);
@@ -21,7 +21,7 @@ fn linear_exact_fit() {
 #[test]
 fn linear_midpoint_matches_manual_formula() {
     let (knots, dfs) = build_inputs();
-    let interp = LinearDf::new(knots.clone(), dfs.clone()).unwrap();
+    let interp = LinearDf::new(knots.clone(), dfs.clone(), ExtrapolationPolicy::default()).unwrap();
 
     for seg in 0..knots.len() - 1 {
         let t_mid = 0.5 * (knots[seg] + knots[seg + 1]);

@@ -127,7 +127,7 @@ impl GaussianCopulaModel {
         let index_data = market_ctx.get_credit_index(tranche.credit_index_id)?;
 
         // Get the discount curve
-        let discount_curve = market_ctx.discount(tranche.disc_id)?;
+        let discount_curve = market_ctx.disc(tranche.disc_id)?;
 
         // Calculate present values of premium and protection legs
         // These now calculate the EL curve internally with proper time dependency
@@ -867,7 +867,7 @@ mod tests {
             .unwrap();
 
         ValuationMarketContext::new()
-            .with_discount(discount_curve)
+            .insert_discount(discount_curve)
             .with_credit_index("CDX.NA.IG.42", index_data)
     }
 
@@ -1101,7 +1101,7 @@ mod tests {
         let index_data = market_ctx
             .get_credit_index(tranche.credit_index_id)
             .unwrap();
-        let discount_curve = market_ctx.discount(tranche.disc_id).unwrap();
+        let discount_curve = market_ctx.disc(tranche.disc_id).unwrap();
 
         // Calculate individual leg PVs
         let pv_premium =

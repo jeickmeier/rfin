@@ -137,11 +137,11 @@ impl HazardCurveCalibrator {
 
         for (maturity, market_spread_bp, upfront_pct_opt) in &cds_quotes {
             // ISDA time axis
-            let tenor_years = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(
+            let tenor_years = CDSConvention::IsdaNa.day_count().year_fraction(
                 self.base_date,
                 *maturity,
-                CDSConvention::IsdaNa.day_count(),
-            );
+                finstack_core::dates::DayCountCtx::default(),
+            ).unwrap_or(0.0);
             if tenor_years <= 0.0 {
                 continue;
             }
@@ -273,7 +273,7 @@ impl Calibrator<InstrumentQuote, HazardCurve> for HazardCurveCalibrator {
         instruments: &[InstrumentQuote],
         base_context: &MarketContext,
     ) -> Result<(HazardCurve, CalibrationReport)> {
-        let disc = base_context.discount(&self.discount_curve_id)?;
+        let disc = base_context.disc(&self.discount_curve_id)?;
         let solver = self.config.make_solver();
         self.bootstrap_internal(instruments, &solver, Some(disc.as_ref()))
     }

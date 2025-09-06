@@ -239,7 +239,7 @@ fn extract_equity_state(
     expected_currency: Currency,
 ) -> Result<(F, F, F, F, F)> {
     // Get spot price
-    let spot_price = ctx.market_scalar(underlying_id)?;
+    let spot_price = ctx.price(underlying_id)?;
     let spot = match spot_price {
         finstack_core::market_data::primitives::MarketScalar::Price(money) => {
             // Enforce currency safety
@@ -254,7 +254,7 @@ fn extract_equity_state(
 
     // Get volatility (must be unitless)
     let vol_id = format!("{}-VOL", underlying_id);
-    let volatility = match ctx.market_scalar(&vol_id)? {
+    let volatility = match ctx.price(&vol_id)? {
         finstack_core::market_data::primitives::MarketScalar::Unitless(vol) => *vol,
         _ => return Err(Error::Internal),
     };
@@ -262,7 +262,7 @@ fn extract_equity_state(
     // Get dividend yield (default to 0 if not available, must be unitless)
     let div_yield_id = format!("{}-DIVYIELD", underlying_id);
     let dividend_yield = ctx
-        .market_scalar(&div_yield_id)
+        .price(&div_yield_id)
         .map(|scalar| match scalar {
             finstack_core::market_data::primitives::MarketScalar::Unitless(yield_val) => *yield_val,
             _ => 0.0,
@@ -270,7 +270,7 @@ fn extract_equity_state(
         .unwrap_or(0.0);
 
     // Get risk-free rate from discount curve
-    let discount_curve = ctx.discount(disc_id)?;
+    let discount_curve = ctx.disc(disc_id)?;
     let base_date = discount_curve.base_date();
 
     // Calculate time to maturity
@@ -337,7 +337,7 @@ pub fn price_convertible_bond(
         ConvertibleTreeType::Trinomial(n) => n,
     };
 
-    let base_date = market_context.discount(bond.disc_id)?.base_date();
+    let base_date = market_context.disc(bond.disc_id)?.base_date();
     let valuator =
         ConvertibleBondValuator::new(bond, &cashflow_schedule, time_to_maturity, steps, base_date)?;
 
@@ -397,7 +397,7 @@ pub fn calculate_convertible_greeks(
         ConvertibleTreeType::Trinomial(n) => n,
     };
 
-    let base_date = market_context.discount(bond.disc_id)?.base_date();
+    let base_date = market_context.disc(bond.disc_id)?.base_date();
     let valuator =
         ConvertibleBondValuator::new(bond, &cashflow_schedule, time_to_maturity, steps, base_date)?;
 
@@ -514,10 +514,10 @@ mod tests {
             .unwrap();
 
         MarketContext::new()
-            .with_discount(discount_curve)
-            .with_price("AAPL", MarketScalar::Unitless(150.0)) // $150 stock price
-            .with_price("AAPL-VOL", MarketScalar::Unitless(0.25)) // 25% volatility
-            .with_price("AAPL-DIVYIELD", MarketScalar::Unitless(0.02)) // 2% dividend yield
+            .insert_discount(discount_curve)
+            .insert_price("AAPL", MarketScalar::Unitless(150.0)) // $150 stock price
+            .insert_price("AAPL-VOL", MarketScalar::Unitless(0.25)) // 25% volatility
+            .insert_price("AAPL-DIVYIELD", MarketScalar::Unitless(0.02)) // 2% dividend yield
     }
 
     #[test]

@@ -177,13 +177,12 @@ pub fn price_from_ytm_compounded(
     ytm: finstack_core::F,
     comp: YieldCompounding,
 ) -> finstack_core::Result<finstack_core::F> {
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     let mut pv = 0.0;
     for &(date, amount) in flows {
         if date <= as_of {
             continue;
         }
-        let t = DiscountCurve::year_fraction(as_of, date, bond.dc);
+        let t = bond.dc.year_fraction(as_of, date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
         if t > 0.0 {
             let df = df_from_yield(ytm, t, comp, bond.freq)?;
             pv += amount.amount() * df;

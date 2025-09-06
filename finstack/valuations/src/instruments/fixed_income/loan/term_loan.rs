@@ -362,7 +362,7 @@ impl CashflowProvider for Loan {
             let mut flows = Vec::new();
 
             // Get the forward curve
-            let fwd_curve = curves.forecast(index_id)?;
+            let fwd_curve = curves.fwd(index_id)?;
 
             // Generate payment dates
             let period_schedule = crate::cashflow::builder::schedule_utils::build_dates(

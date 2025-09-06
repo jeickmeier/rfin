@@ -5,7 +5,6 @@
 
 use finstack_core::dates::Frequency;
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::root_finding::newton_raphson;
 use finstack_core::money::Money;
 use finstack_core::{Result, F};
@@ -192,7 +191,7 @@ impl YtmSolver {
                 continue;
             }
 
-            let t = DiscountCurve::year_fraction(as_of, date, day_count);
+            let t = day_count.year_fraction(as_of, date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
             if t > 0.0 {
                 let df = df_from_yield(yield_rate, t, comp, freq).unwrap_or(0.0);
                 price += amount.amount() * df;
@@ -219,7 +218,7 @@ impl YtmSolver {
                 continue;
             }
 
-            let t = DiscountCurve::year_fraction(as_of, date, day_count);
+            let t = day_count.year_fraction(as_of, date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
             if t > 0.0 {
                 let (_df, ddf_dy) =
                     df_and_derivative_from_yield(yield_rate, t, comp, freq).unwrap_or((0.0, 0.0));
@@ -249,7 +248,7 @@ impl YtmSolver {
             .map(|(date, _)| *date)
             .ok_or(finstack_core::error::InputError::TooFewPoints)?;
 
-        let years_to_maturity = DiscountCurve::year_fraction(as_of, maturity, day_count);
+        let years_to_maturity = day_count.year_fraction(as_of, maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
 
         if years_to_maturity <= 0.0 {
             return Ok(current_yield);

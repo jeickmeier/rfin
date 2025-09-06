@@ -181,18 +181,18 @@ fn create_test_market_context() -> MarketContext {
 
     // Build market context
     MarketContext::new()
-        .with_discount(usd_ois)
-        .with_discount(eur_ois)
-        .with_forecast(usd_sofr3m)
-        .with_hazard(abc_credit)
-        .with_surface(aapl_vol)
-        .with_surface(eurusd_vol)
-        .with_surface(cap_vol)
-        .with_surface(cds_vol)
-        .with_surface(swaption_vol)
-        .with_fx(fx_matrix)
-        .with_price("AAPL-SPOT", MarketScalar::Unitless(110.0))
-        .with_price("AAPL-DIV-YIELD", MarketScalar::Unitless(0.02))
+        .insert_discount(usd_ois)
+        .insert_discount(eur_ois)
+        .insert_forward(usd_sofr3m)
+        .insert_hazard(abc_credit)
+        .insert_surface(aapl_vol)
+        .insert_surface(eurusd_vol)
+        .insert_surface(cap_vol)
+        .insert_surface(cds_vol)
+        .insert_surface(swaption_vol)
+        .insert_fx(fx_matrix)
+        .insert_price("AAPL-SPOT", MarketScalar::Unitless(110.0))
+        .insert_price("AAPL-DIV-YIELD", MarketScalar::Unitless(0.02))
 }
 
 #[test]

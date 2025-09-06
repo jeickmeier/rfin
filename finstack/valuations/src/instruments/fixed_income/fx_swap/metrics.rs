@@ -2,7 +2,6 @@
 use crate::instruments::fixed_income::fx_swap::FxSwap;
 use crate::instruments::traits::Priceable;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::money::fx::FxConversionPolicy;
 use finstack_core::F;
 #[cfg(feature = "decimal128")]
@@ -18,10 +17,10 @@ impl MetricCalculator for ForwardPoints {
         let as_of = context.as_of;
 
         let dc = finstack_core::dates::DayCount::Act365F;
-        let t_far = DiscountCurve::year_fraction(as_of, fx_swap.far_date, dc);
+        let t_far = dc.year_fraction(as_of, fx_swap.far_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
 
-        let domestic_disc = curves.discount(fx_swap.domestic_disc_id)?;
-        let foreign_disc = curves.discount(fx_swap.foreign_disc_id)?;
+        let domestic_disc = curves.disc(fx_swap.domestic_disc_id)?;
+        let foreign_disc = curves.disc(fx_swap.foreign_disc_id)?;
 
         let df_dom_far = domestic_disc.df(t_far);
         let df_for_far = foreign_disc.df(t_far);
@@ -75,12 +74,12 @@ impl MetricCalculator for DomesticIR01 {
         let original_pv = fx_swap.value(&curves, as_of)?;
 
         // Manually re-calculate PV with bumped domestic curve
-        let domestic_disc = curves.discount(fx_swap.domestic_disc_id)?;
-        let foreign_disc = curves.discount(fx_swap.foreign_disc_id)?;
+        let domestic_disc = curves.disc(fx_swap.domestic_disc_id)?;
+        let foreign_disc = curves.disc(fx_swap.foreign_disc_id)?;
 
         let dc = finstack_core::dates::DayCount::Act365F;
-        let t_near = DiscountCurve::year_fraction(as_of, fx_swap.near_date, dc);
-        let t_far = DiscountCurve::year_fraction(as_of, fx_swap.far_date, dc);
+        let t_near = dc.year_fraction(as_of, fx_swap.near_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_far = dc.year_fraction(as_of, fx_swap.far_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
 
         let bump = 0.0001;
         let bumped_df_dom_near = domestic_disc.df(t_near) * (-bump * t_near).exp();
@@ -162,12 +161,12 @@ impl MetricCalculator for ForeignIR01 {
         let original_pv = fx_swap.value(&curves, as_of)?;
 
         // Manually re-calculate PV with bumped foreign curve
-        let domestic_disc = curves.discount(fx_swap.domestic_disc_id)?;
-        let foreign_disc = curves.discount(fx_swap.foreign_disc_id)?;
+        let domestic_disc = curves.disc(fx_swap.domestic_disc_id)?;
+        let foreign_disc = curves.disc(fx_swap.foreign_disc_id)?;
 
         let dc = finstack_core::dates::DayCount::Act365F;
-        let t_near = DiscountCurve::year_fraction(as_of, fx_swap.near_date, dc);
-        let t_far = DiscountCurve::year_fraction(as_of, fx_swap.far_date, dc);
+        let t_near = dc.year_fraction(as_of, fx_swap.near_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_far = dc.year_fraction(as_of, fx_swap.far_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
 
         let bump = 0.0001;
         let df_dom_near = domestic_disc.df(t_near);
@@ -250,12 +249,12 @@ impl MetricCalculator for FX01 {
         let original_pv = fx_swap.value(&curves, as_of)?;
 
         // Manually recalculate PV with bumped spot rate
-        let domestic_disc = curves.discount(fx_swap.domestic_disc_id)?;
-        let foreign_disc = curves.discount(fx_swap.foreign_disc_id)?;
+        let domestic_disc = curves.disc(fx_swap.domestic_disc_id)?;
+        let foreign_disc = curves.disc(fx_swap.foreign_disc_id)?;
 
         let dc = finstack_core::dates::DayCount::Act365F;
-        let t_near = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(as_of, fx_swap.near_date, dc);
-        let t_far = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(as_of, fx_swap.far_date, dc);
+        let t_near = dc.year_fraction(as_of, fx_swap.near_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_far = dc.year_fraction(as_of, fx_swap.far_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
 
         let df_dom_near = domestic_disc.df(t_near);
         let df_dom_far = domestic_disc.df(t_far);

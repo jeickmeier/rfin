@@ -198,7 +198,7 @@ impl BucketedDv01Calculator {
         let mut flow_data: Vec<(Date, Money, F, usize)> = Vec::with_capacity(flows.len());
 
         for &(date, amount) in flows {
-            let t = DiscountCurve::year_fraction(base, date, dc).max(0.0);
+            let t = dc.year_fraction(base, date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0).max(0.0);
 
             // Find nearest bucket
             let (idx, _) = self
@@ -268,7 +268,7 @@ impl MetricCalculator for BucketedDv01Calculator {
         // Get discount curve - try to infer from instrument or use default
         let disc_id = context.discount_curve_id.unwrap_or("USD-OIS");
 
-        let disc = context.curves.discount(disc_id)?;
+        let disc = context.curves.disc(disc_id)?;
 
         // Get day count - try to infer or use default
         let dc = context.day_count.unwrap_or(DayCount::Act365F);
@@ -340,9 +340,9 @@ impl MetricCalculator for ThetaCalculator {
 
         // Try to age the discount curve used by the instrument
         if let Some(disc_id) = context.discount_curve_id {
-            if let Ok(original_disc) = original_curves.discount(disc_id) {
+            if let Ok(original_disc) = original_curves.disc(disc_id) {
                 let aged_disc = AgedDiscountCurve::new(original_disc, shifted_date, day_count)?;
-                aged_context = aged_context.with_discount(aged_disc);
+                aged_context = aged_context.insert_discount(aged_disc);
             }
         }
 
@@ -351,17 +351,17 @@ impl MetricCalculator for ThetaCalculator {
         let common_fwd_ids = ["USD-LIBOR-3M", "USD-SOFR", "EUR-EURIBOR-3M", "GBP-SONIA"];
 
         for &curve_id in &common_disc_ids {
-            if let Ok(original_disc) = original_curves.discount(curve_id) {
+            if let Ok(original_disc) = original_curves.disc(curve_id) {
                 let aged_disc = AgedDiscountCurve::new(original_disc, shifted_date, day_count)?;
-                aged_context = aged_context.with_discount(aged_disc);
+                aged_context = aged_context.insert_discount(aged_disc);
             }
         }
 
         for &curve_id in &common_fwd_ids {
-            if let Ok(original_fwd) = original_curves.forecast(curve_id) {
+            if let Ok(original_fwd) = original_curves.fwd(curve_id) {
                 let dt = day_count.year_fraction(as_of, shifted_date, finstack_core::dates::DayCountCtx::default())?;
                 let aged_fwd = AgedForwardCurve::new(original_fwd, dt);
-                aged_context = aged_context.with_forecast(aged_fwd);
+                aged_context = aged_context.insert_forward(aged_fwd);
             }
         }
 
@@ -576,7 +576,7 @@ mod tests {
         // Build curves and also keep a separate handle to a discount curve for later checks
         let disc_for_ctx = simple_usd_ois();
         let curves =
-            Arc::new(finstack_core::market_data::MarketContext::new().with_discount(disc_for_ctx));
+            Arc::new(finstack_core::market_data::MarketContext::new().insert_discount(disc_for_ctx));
         let instrument: Arc<dyn crate::instruments::traits::InstrumentLike> =
             Arc::new(DummyInstr {
                 attrs: crate::instruments::traits::Attributes::new(),

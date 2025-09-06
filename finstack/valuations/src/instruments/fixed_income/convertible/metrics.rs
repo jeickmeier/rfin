@@ -71,7 +71,7 @@ impl MetricCalculator for ParityCalculator {
             .as_ref()
             .ok_or(finstack_core::Error::Internal)?;
 
-        let spot_price = context.curves.market_scalar(underlying_id)?;
+        let spot_price = context.curves.price(underlying_id)?;
         let spot = match spot_price {
             finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
             finstack_core::market_data::primitives::MarketScalar::Unitless(value) => *value,
@@ -97,7 +97,7 @@ impl MetricCalculator for ConversionPremiumCalculator {
             .as_ref()
             .ok_or(finstack_core::Error::Internal)?;
 
-        let spot_price = context.curves.market_scalar(underlying_id)?;
+        let spot_price = context.curves.price(underlying_id)?;
         let spot = match spot_price {
             finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
             finstack_core::market_data::primitives::MarketScalar::Unitless(value) => *value,

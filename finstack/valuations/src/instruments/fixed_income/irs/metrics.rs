@@ -23,7 +23,7 @@ impl MetricCalculator for AnnuityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs: &InterestRateSwap = context.instrument_as()?;
 
-        let disc = context.curves.discount(irs.fixed.disc_id)?;
+        let disc = context.curves.disc(irs.fixed.disc_id)?;
         let base = disc.base_date();
 
         // Build fixed leg schedule dates using the canonical helper
@@ -43,7 +43,7 @@ impl MetricCalculator for AnnuityCalculator {
         let mut annuity = 0.0;
         let mut prev = dates[0];
         for &d in &dates[1..] {
-            let yf = DiscountCurve::year_fraction(prev, d, irs.fixed.dc);
+            let yf = irs.fixed.dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
             let df = DiscountCurve::df_on(&*disc, base, d, irs.fixed.dc);
             annuity += yf * df;
             prev = d;
@@ -71,8 +71,8 @@ impl MetricCalculator for ParRateCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs: &InterestRateSwap = context.instrument_as()?;
 
-        let disc = context.curves.discount(irs.fixed.disc_id)?;
-        let fwd = context.curves.forecast(irs.float.fwd_id)?;
+        let disc = context.curves.disc(irs.fixed.disc_id)?;
+        let fwd = context.curves.fwd(irs.float.fwd_id)?;
         let base_d = disc.base_date();
 
         // Get annuity from computed metrics
@@ -103,9 +103,9 @@ impl MetricCalculator for ParRateCalculator {
         let mut float_pv = 0.0;
         let mut prev = float_schedule[0];
         for &d in &float_schedule[1..] {
-            let t1 = DiscountCurve::year_fraction(base_d, prev, irs.float.dc);
-            let t2 = DiscountCurve::year_fraction(base_d, d, irs.float.dc);
-            let yf = DiscountCurve::year_fraction(prev, d, irs.float.dc);
+            let t1 = irs.float.dc.year_fraction(base_d, prev, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+            let t2 = irs.float.dc.year_fraction(base_d, d, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+            let yf = irs.float.dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
             let f = fwd.rate_period(t1, t2);
             let rate = f + (irs.float.spread_bp * 1e-4);
             let coupon = irs.notional.amount() * rate * yf;
@@ -170,7 +170,7 @@ impl MetricCalculator for FixedLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs: &InterestRateSwap = context.instrument_as()?;
 
-        let disc = context.curves.discount(irs.fixed.disc_id)?;
+        let disc = context.curves.disc(irs.fixed.disc_id)?;
         let base = disc.base_date();
 
         // Build fixed leg schedule and compute PV
@@ -191,7 +191,7 @@ impl MetricCalculator for FixedLegPvCalculator {
         let mut pv = 0.0;
         let mut prev = schedule[0];
         for &d in &schedule[1..] {
-            let yf = DiscountCurve::year_fraction(prev, d, irs.fixed.dc);
+            let yf = irs.fixed.dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
             let coupon = irs.notional.amount() * irs.fixed.rate * yf;
             let df = DiscountCurve::df_on(&*disc, base, d, irs.fixed.dc);
             pv += coupon * df;
@@ -215,8 +215,8 @@ impl MetricCalculator for FloatLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs: &InterestRateSwap = context.instrument_as()?;
 
-        let disc = context.curves.discount(irs.float.disc_id)?;
-        let fwd = context.curves.forecast(irs.float.fwd_id)?;
+        let disc = context.curves.disc(irs.float.disc_id)?;
+        let fwd = context.curves.fwd(irs.float.fwd_id)?;
         let base = disc.base_date();
 
         // Build float leg schedule and compute PV
@@ -237,9 +237,9 @@ impl MetricCalculator for FloatLegPvCalculator {
         let mut pv = 0.0;
         let mut prev = schedule[0];
         for &d in &schedule[1..] {
-            let t1 = DiscountCurve::year_fraction(base, prev, irs.float.dc);
-            let t2 = DiscountCurve::year_fraction(base, d, irs.float.dc);
-            let yf = DiscountCurve::year_fraction(prev, d, irs.float.dc);
+            let t1 = irs.float.dc.year_fraction(base, prev, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+            let t2 = irs.float.dc.year_fraction(base, d, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+            let yf = irs.float.dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
             let f = fwd.rate_period(t1, t2);
             let rate = f + (irs.float.spread_bp * 1e-4);
             let coupon = irs.notional.amount() * rate * yf;

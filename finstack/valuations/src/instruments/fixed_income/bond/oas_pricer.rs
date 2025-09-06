@@ -14,7 +14,6 @@ use crate::instruments::options::models::{
 };
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::root_finding::brent;
 use finstack_core::{Error, Result, F};
 use std::collections::HashMap;
@@ -73,14 +72,14 @@ impl BondValuator {
 
         // Build cashflow schedule
         let curves = market_context; // Use MarketContext directly
-        let base_date = market_context.discount(bond.disc_id)?.base_date();
+        let base_date = market_context.disc(bond.disc_id)?.base_date();
         let flows = bond.build_schedule(curves, base_date)?;
 
         // Map cashflows to tree steps
         let mut coupon_map = HashMap::new();
         for (date, amount) in &flows {
             if *date > base_date {
-                let time_frac = DiscountCurve::year_fraction(base_date, *date, bond.dc);
+                let time_frac = bond.dc.year_fraction(base_date, *date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
                 let step = ((time_frac / time_to_maturity) * tree_steps as F).round() as usize;
                 if step <= tree_steps {
                     *coupon_map.entry(step).or_insert(0.0) += amount.amount();
@@ -96,7 +95,7 @@ impl BondValuator {
             // Map call schedule
             for call in &call_put.calls {
                 if call.date > base_date && call.date <= bond.maturity {
-                    let time_frac = DiscountCurve::year_fraction(base_date, call.date, bond.dc);
+                    let time_frac = bond.dc.year_fraction(base_date, call.date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
                     let step = ((time_frac / time_to_maturity) * tree_steps as F).round() as usize;
                     if step <= tree_steps {
                         let call_price = bond.notional.amount() * (call.price_pct_of_par / 100.0);
@@ -108,7 +107,7 @@ impl BondValuator {
             // Map put schedule
             for put in &call_put.puts {
                 if put.date > base_date && put.date <= bond.maturity {
-                    let time_frac = DiscountCurve::year_fraction(base_date, put.date, bond.dc);
+                    let time_frac = bond.dc.year_fraction(base_date, put.date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
                     let step = ((time_frac / time_to_maturity) * tree_steps as F).round() as usize;
                     if step <= tree_steps {
                         let put_price = bond.notional.amount() * (put.price_pct_of_par / 100.0);
@@ -193,7 +192,7 @@ impl OASCalculator {
         let dirty_target = dirty_price_pct * bond.notional.amount() / 100.0;
 
         // Calculate time to maturity
-        let time_to_maturity = DiscountCurve::year_fraction(as_of, bond.maturity, bond.dc);
+        let time_to_maturity = bond.dc.year_fraction(as_of, bond.maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
         if time_to_maturity <= 0.0 {
             return Ok(0.0); // Bond has matured
         }
@@ -206,7 +205,7 @@ impl OASCalculator {
         };
 
         let mut tree = ShortRateTree::new(tree_config);
-        let discount_curve = market_context.discount(bond.disc_id)?;
+        let discount_curve = market_context.disc(bond.disc_id)?;
         tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
 
         // Create bond valuator
@@ -307,8 +306,8 @@ impl OASCalculator {
                 let (end_date, coupon_amount) = window[1];
 
                 if start_date <= as_of && as_of < end_date {
-                    let total_period = DiscountCurve::year_fraction(start_date, end_date, bond.dc);
-                    let elapsed = DiscountCurve::year_fraction(start_date, as_of, bond.dc).max(0.0);
+                    let total_period = bond.dc.year_fraction(start_date, end_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+                    let elapsed = bond.dc.year_fraction(start_date, as_of, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0).max(0.0);
 
                     if total_period > 0.0 {
                         return Ok(coupon_amount.amount() * (elapsed / total_period));
@@ -331,9 +330,9 @@ impl OASCalculator {
                 let end_date = window[1];
 
                 if start_date <= as_of && as_of < end_date {
-                    let yf = DiscountCurve::year_fraction(start_date, end_date, bond.dc);
+                    let yf = bond.dc.year_fraction(start_date, end_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
                     let period_coupon = bond.notional.amount() * bond.coupon * yf;
-                    let elapsed = DiscountCurve::year_fraction(start_date, as_of, bond.dc).max(0.0);
+                    let elapsed = bond.dc.year_fraction(start_date, as_of, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0).max(0.0);
 
                     if yf > 0.0 {
                         return Ok(period_coupon * (elapsed / yf));
@@ -367,7 +366,6 @@ pub fn calculate_oas(
 mod tests {
     use super::*;
     use crate::instruments::fixed_income::bond::CallPutSchedule;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::interp::InterpStyle;
     use time::Month;
 
@@ -410,14 +408,14 @@ mod tests {
     fn create_test_market_context() -> MarketContext {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
-        let discount_curve = DiscountCurve::builder("USD-OIS")
+        let discount_curve = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.85), (10.0, 0.70)])
             .set_interp(InterpStyle::LogLinear)
             .build()
             .unwrap();
 
-        MarketContext::new().with_discount(discount_curve)
+        MarketContext::new().insert_discount(discount_curve)
     }
 
     #[test]
@@ -437,7 +435,7 @@ mod tests {
         assert!(!valuator.coupon_map.is_empty());
 
         // Verify market context was used properly
-        assert!(market_context.discount("USD-OIS").is_ok());
+        assert!(market_context.disc("USD-OIS").is_ok());
     }
 
     #[test]

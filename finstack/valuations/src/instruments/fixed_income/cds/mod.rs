@@ -273,7 +273,7 @@ impl CreditDefaultSwap {
         pricer.cs01(
             self,
             curves,
-            curves.discount(self.premium.disc_id)?.base_date(),
+            curves.disc(self.premium.disc_id)?.base_date(),
         )
     }
 }
@@ -283,7 +283,7 @@ impl_instrument!(
     CreditDefaultSwap,
     "CreditDefaultSwap",
     pv = |s, curves, _as_of| {
-        let disc = curves.discount(s.premium.disc_id)?;
+        let disc = curves.disc(s.premium.disc_id)?;
         let surv = curves.hazard(s.protection.credit_id)?;
         let pv_premium = s.pv_premium_leg(&*disc, surv.as_ref())?;
         let pv_protection = s.pv_protection_leg(&*disc, surv.as_ref())?;

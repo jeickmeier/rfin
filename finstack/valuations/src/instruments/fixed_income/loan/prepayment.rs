@@ -318,7 +318,7 @@ impl PrepaymentSchedule {
         }
 
         // Get the benchmark discount curve
-        let base_curve = market.discount(benchmark_curve)?;
+        let base_curve = market.disc(benchmark_curve)?;
 
         // Create z-spread curve (benchmark + spread)
         let discount_curve = ZSpreadCurve::new(base_curve.as_ref(), spread_bp);
@@ -429,7 +429,7 @@ mod tests {
             .unwrap();
 
         // Create market context
-        let market = ValuationMarketContext::new().with_discount(discount_curve);
+        let market = ValuationMarketContext::new().insert_discount(discount_curve);
 
         // Create prepayment schedule with make-whole penalty
         let schedule =
@@ -573,7 +573,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let market = ValuationMarketContext::new().with_discount(discount_curve);
+        let market = ValuationMarketContext::new().insert_discount(discount_curve);
 
         let schedule =
             PrepaymentSchedule::new(PrepaymentType::MakeWhole).with_penalty(PrepaymentPenalty {
@@ -635,7 +635,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let market = ValuationMarketContext::new().with_discount(discount_curve);
+        let market = ValuationMarketContext::new().insert_discount(discount_curve);
 
         // Make-whole schedule
         let mw_schedule =
@@ -770,7 +770,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let market = ValuationMarketContext::new().with_discount(discount_curve);
+        let market = ValuationMarketContext::new().insert_discount(discount_curve);
 
         let schedule =
             PrepaymentSchedule::new(PrepaymentType::MakeWhole).with_penalty(PrepaymentPenalty {

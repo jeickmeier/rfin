@@ -47,10 +47,10 @@
 //!     .unwrap();
 //!
 //! let curves = MarketContext::new()
-//!     .with_discount(disc)
-//!     .with_forecast(fwd3m)
-//!     .with_hazard(hazard);
-//! assert!(curves.discount("USD-OIS").is_ok());
+//!     .insert_discount(disc)
+//!     .insert_forward(fwd3m)
+//!     .insert_hazard(hazard);
+//! assert!(curves.disc("USD-OIS").is_ok());
 //! ```
 
 /// Base correlation curves for CDS tranche pricing.

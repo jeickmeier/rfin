@@ -354,9 +354,9 @@ mod tests {
 
         // Create market context with required data for SPY equity forward
         let context = MarketContext::new()
-            .with_price("SPY", finstack_core::market_data::primitives::MarketScalar::Unitless(100.0))
-            .with_price("SPY-DIVYIELD", finstack_core::market_data::primitives::MarketScalar::Unitless(0.02))
-            .with_discount(
+            .insert_price("SPY", finstack_core::market_data::primitives::MarketScalar::Unitless(100.0))
+            .insert_price("SPY-DIVYIELD", finstack_core::market_data::primitives::MarketScalar::Unitless(0.02))
+            .insert_discount(
                 finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder("USD-OIS")
                     .base_date(base_date)
                     .knots([(0.0, 1.0), (5.0, 0.78)])

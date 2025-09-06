@@ -3,14 +3,14 @@
 mod common;
 
 use common::approx_eq;
-use finstack_core::market_data::interp::{flat_fwd::FlatFwd, log_linear::LogLinearDf, InterpFn};
+use finstack_core::market_data::interp::{flat_fwd::FlatFwd, log_linear::LogLinearDf, InterpFn, ExtrapolationPolicy};
 
 #[test]
 fn test_flat_fwd_construction() {
     let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9].into_boxed_slice();
 
-    let interp = FlatFwd::new(knots, dfs);
+    let interp = FlatFwd::new(knots, dfs, ExtrapolationPolicy::default());
     assert!(interp.is_ok());
 }
 
@@ -19,7 +19,7 @@ fn test_flat_fwd_exact_knot_lookup() {
     let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9].into_boxed_slice();
 
-    let interp = FlatFwd::new(knots, dfs).unwrap();
+    let interp = FlatFwd::new(knots, dfs, ExtrapolationPolicy::default()).unwrap();
 
     // Exact knot values should return exact discount factors
     assert_eq!(interp.interp(0.0), 1.0);
@@ -33,8 +33,8 @@ fn test_flat_fwd_equals_log_linear() {
     let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9].into_boxed_slice();
 
-    let flat_fwd = FlatFwd::new(knots.clone(), dfs.clone()).unwrap();
-    let log_linear = LogLinearDf::new(knots, dfs).unwrap();
+    let flat_fwd = FlatFwd::new(knots.clone(), dfs.clone(), ExtrapolationPolicy::default()).unwrap();
+    let log_linear = LogLinearDf::new(knots, dfs, ExtrapolationPolicy::default()).unwrap();
 
     // Test several interpolation points
     let test_points = [0.25, 0.5, 0.75, 1.25, 1.5, 1.75];
@@ -57,7 +57,7 @@ fn test_flat_fwd_interpolation() {
     let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9].into_boxed_slice();
 
-    let interp = FlatFwd::new(knots, dfs).unwrap();
+    let interp = FlatFwd::new(knots, dfs, ExtrapolationPolicy::default()).unwrap();
 
     // Interpolated value should be between the surrounding knots
     let mid_value = interp.interp(0.5);
@@ -75,14 +75,14 @@ fn test_flat_fwd_validation_via_underlying() {
     let bad_knots = vec![1.0, 0.0, 2.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9].into_boxed_slice();
 
-    let result = FlatFwd::new(bad_knots, dfs);
+    let result = FlatFwd::new(bad_knots, dfs, ExtrapolationPolicy::default());
     assert!(result.is_err());
 
     // Test non-positive discount factors
     let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
     let bad_dfs = vec![1.0, -0.95, 0.9].into_boxed_slice();
 
-    let result = FlatFwd::new(knots, bad_dfs);
+    let result = FlatFwd::new(knots, bad_dfs, ExtrapolationPolicy::default());
     assert!(result.is_err());
 }
 
@@ -92,7 +92,7 @@ fn test_flat_fwd_constant_forward_rate_property() {
     let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9].into_boxed_slice();
 
-    let interp = FlatFwd::new(knots, dfs).unwrap();
+    let interp = FlatFwd::new(knots, dfs, ExtrapolationPolicy::default()).unwrap();
 
     // For flat forward, the forward rate between any two points in a segment should be constant
     // This is equivalent to log-linear interpolation of discount factors

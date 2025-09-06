@@ -73,10 +73,10 @@ fn create_test_market_context() -> MarketContext {
         .unwrap();
 
     MarketContext::new()
-        .with_discount(discount_curve)
-        .with_price("AAPL", MarketScalar::Unitless(150.0)) // $150 stock price
-        .with_price("AAPL-VOL", MarketScalar::Unitless(0.25)) // 25% volatility
-        .with_price("AAPL-DIVYIELD", MarketScalar::Unitless(0.02)) // 2% dividend yield
+        .insert_discount(discount_curve)
+        .insert_price("AAPL", MarketScalar::Unitless(150.0)) // $150 stock price
+        .insert_price("AAPL-VOL", MarketScalar::Unitless(0.25)) // 25% volatility
+        .insert_price("AAPL-DIVYIELD", MarketScalar::Unitless(0.02)) // 2% dividend yield
 }
 
 #[test]
@@ -176,7 +176,7 @@ fn test_out_of_money_convertible() {
     let mut market_context = create_test_market_context();
 
     // Set a low stock price to make conversion out-of-money
-    market_context = market_context.with_price("AAPL", MarketScalar::Unitless(50.0));
+    market_context = market_context.insert_price("AAPL", MarketScalar::Unitless(50.0));
 
     let price =
         price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(50)).unwrap();
@@ -193,7 +193,7 @@ fn test_low_volatility_convertible() {
     let mut market_context = create_test_market_context();
 
     // Set low volatility (but not too low to avoid numerical issues)
-    market_context = market_context.with_price("AAPL-VOL", MarketScalar::Unitless(0.05));
+    market_context = market_context.insert_price("AAPL-VOL", MarketScalar::Unitless(0.05));
 
     let price =
         price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(20)).unwrap();
@@ -695,13 +695,13 @@ fn test_currency_safety() {
         .unwrap();
 
     let market_context = MarketContext::new()
-        .with_discount(discount_curve)
-        .with_price(
+        .insert_discount(discount_curve)
+        .insert_price(
             "AAPL",
             MarketScalar::Price(Money::new(150.0, Currency::EUR)),
         ) // EUR instead of USD
-        .with_price("AAPL-VOL", MarketScalar::Unitless(0.25))
-        .with_price("AAPL-DIVYIELD", MarketScalar::Unitless(0.02));
+        .insert_price("AAPL-VOL", MarketScalar::Unitless(0.25))
+        .insert_price("AAPL-DIVYIELD", MarketScalar::Unitless(0.02));
 
     // Should detect currency mismatch and fail
     let price = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(20));

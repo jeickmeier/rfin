@@ -19,3 +19,15 @@ lcov = true
 
 # Set coverage format
 format = "html+lcov"
+
+# Disable incremental compilation to prevent metadata mismatches
+no-cfg-coverage = false
+
+# Use stable instrumentation to reduce function mismatches
+branch = false
+
+# Skip dead functions that cause metadata issues
+skip-functions = false
+
+# Additional flags to reduce metadata conflicts
+remap-path-prefix = true

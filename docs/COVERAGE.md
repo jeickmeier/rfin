@@ -97,6 +97,42 @@ As of the last run, the project has:
 - **Valuations**: Good coverage in core functionality
 - **Python/WASM Bindings**: Excluded from coverage analysis
 
+## Function Mismatch Issues
+
+Coverage reports may show warnings like "X functions have mismatched data". This is caused by LLVM coverage metadata conflicts between compilation units. Common causes and fixes:
+
+### Causes of Function Mismatches
+1. **Generic functions**: Functions like `fn foo<T>()` that get monomorphized for each type `T`
+2. **Cross-crate inlining**: Generic functions used across multiple crates
+3. **Incremental compilation**: Stale coverage metadata from previous builds
+4. **Trait object vs generic dispatch**: Mixed usage patterns
+
+### Solutions Applied
+1. **Refactored generic functions to use trait objects**: The `build_with_metrics` function was changed from generic to using trait objects to avoid monomorphization
+2. **Disabled incremental compilation**: Set `CARGO_INCREMENTAL=0` in coverage commands
+3. **Updated build profiles**: Added non-incremental profiles for coverage builds
+4. **Clean builds**: Always clean artifacts before coverage runs
+
+### Best Practices to Prevent Mismatches
+
+1. **Prefer trait objects over generics** for functions used across many types:
+   ```rust
+   // Bad: causes monomorphization
+   fn process<T: Trait>(item: T) -> Result<()> { ... }
+   
+   // Good: uses trait objects
+   fn process(item: &dyn Trait) -> Result<()> { ... }
+   ```
+
+2. **Use `#[inline(never)]`** on generic functions if trait objects aren't possible
+
+3. **Avoid cross-crate generic instantiation** by keeping generic functions within single crates
+
+4. **Run coverage with clean builds**:
+   ```bash
+   make clean && make coverage
+   ```
+
 ## Improving Coverage
 
 To improve coverage:

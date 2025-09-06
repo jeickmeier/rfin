@@ -1,4 +1,4 @@
-use finstack_core::market_data::interp::{InterpFn, MonotoneConvex};
+use finstack_core::market_data::interp::{InterpFn, MonotoneConvex, ExtrapolationPolicy};
 
 #[test]
 fn monotone_convex_basic_properties() {
@@ -9,7 +9,7 @@ fn monotone_convex_basic_properties() {
         .collect::<Vec<_>>()
         .into_boxed_slice();
 
-    let interp = MonotoneConvex::new(knots, dfs.clone()).expect("failed to build interp");
+    let interp = MonotoneConvex::new(knots, dfs.clone(), ExtrapolationPolicy::default()).expect("failed to build interp");
 
     // Exact fit at knots
     for (i, &t) in [0.0, 1.0, 2.0, 3.0].iter().enumerate() {

@@ -57,6 +57,7 @@ impl MonotoneConvex {
     ///             points (e.g. years).
     /// * `dfs`   – corresponding discount factors, positive and
     ///             non-increasing (arbitrage-free).
+    /// * `extrapolation` – policy for out-of-bounds evaluation.
     ///
     /// # Errors
     /// * `InputError::TooFewPoints`        – fewer than two knots.
@@ -64,7 +65,7 @@ impl MonotoneConvex {
     /// * `InputError::NonPositiveValue`    – DF ≤ 0.
     /// * `InputError::Invalid`             – DF increases between knots.
     #[allow(clippy::boxed_local)]
-    pub fn new(knots: Box<[F]>, dfs: Box<[F]>) -> crate::Result<Self> {
+    pub fn new(knots: Box<[F]>, dfs: Box<[F]>, extrapolation: ExtrapolationPolicy) -> crate::Result<Self> {
         debug_assert_eq!(knots.len(), dfs.len());
 
         // ---- Sanity checks -------------------------------------------------
@@ -79,7 +80,7 @@ impl MonotoneConvex {
             knots, 
             dfs, 
             coeffs,
-            extrapolation: ExtrapolationPolicy::default(),
+            extrapolation,
         })
     }
 
@@ -259,13 +260,6 @@ impl InterpFn for MonotoneConvex {
         -f_val * dy_ds / h
     }
 
-    fn set_extrapolation_policy(&mut self, policy: ExtrapolationPolicy) {
-        self.extrapolation = policy;
-    }
-
-    fn extrapolation_policy(&self) -> ExtrapolationPolicy {
-        self.extrapolation
-    }
 }
 
 /// Numerical tolerance for near-zero slope detection.

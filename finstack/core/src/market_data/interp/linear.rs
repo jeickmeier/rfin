@@ -17,7 +17,7 @@ impl LinearDf {
     /// Returns [`InputError`] variants if fewer than two points are supplied
     /// or the data is invalid.
     #[allow(clippy::boxed_local)]
-    pub fn new(knots: Box<[F]>, dfs: Box<[F]>) -> crate::Result<Self> {
+    pub fn new(knots: Box<[F]>, dfs: Box<[F]>, extrapolation: ExtrapolationPolicy) -> crate::Result<Self> {
         debug_assert_eq!(knots.len(), dfs.len());
         if knots.len() < 2 {
             return Err(InputError::TooFewPoints.into());
@@ -29,7 +29,7 @@ impl LinearDf {
         Ok(Self { 
             knots, 
             dfs, 
-            extrapolation: ExtrapolationPolicy::default() 
+            extrapolation
         })
     }
 
@@ -120,11 +120,4 @@ impl InterpFn for LinearDf {
         (df1 - df0) / (x1 - x0)
     }
 
-    fn set_extrapolation_policy(&mut self, policy: ExtrapolationPolicy) {
-        self.extrapolation = policy;
-    }
-
-    fn extrapolation_policy(&self) -> ExtrapolationPolicy {
-        self.extrapolation
-    }
 }

@@ -19,7 +19,7 @@ impl MetricCalculator for DeltaCalculator {
 
         if time_to_expiry <= 0.0 {
             // Option expired - delta is 0 or 1/-1 based on moneyness
-            let spot_scalar = context.curves.market_scalar(option.spot_id)?;
+            let spot_scalar = context.curves.price(option.spot_id)?;
             let spot = match spot_scalar {
                 finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
                 finstack_core::market_data::primitives::MarketScalar::Price(money) => {
@@ -46,17 +46,17 @@ impl MetricCalculator for DeltaCalculator {
         }
 
         // Get market data
-        let disc_curve = context.curves.discount(option.disc_id)?;
+        let disc_curve = context.curves.disc(option.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
-        let spot_scalar = context.curves.market_scalar(option.spot_id)?;
+        let spot_scalar = context.curves.price(option.spot_id)?;
         let spot = match spot_scalar {
             finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
             finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
         };
 
         let q = if let Some(div_id) = option.div_yield_id {
-            match context.curves.market_scalar(div_id) {
+            match context.curves.price(div_id) {
                 Ok(scalar) => match scalar {
                     finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
                     finstack_core::market_data::primitives::MarketScalar::Price(_) => 0.0,
@@ -70,7 +70,7 @@ impl MetricCalculator for DeltaCalculator {
         let sigma = if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            let vol_surface = context.curves.vol_surface(option.vol_id)?;
+            let vol_surface = context.curves.surface(option.vol_id)?;
             vol_surface.value_clamped(time_to_expiry, option.strike.amount())
         };
 
@@ -99,17 +99,17 @@ impl MetricCalculator for GammaCalculator {
         }
 
         // Get market data (same pattern as Delta)
-        let disc_curve = context.curves.discount(option.disc_id)?;
+        let disc_curve = context.curves.disc(option.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
-        let spot_scalar = context.curves.market_scalar(option.spot_id)?;
+        let spot_scalar = context.curves.price(option.spot_id)?;
         let spot = match spot_scalar {
             finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
             finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
         };
 
         let q = if let Some(div_id) = option.div_yield_id {
-            match context.curves.market_scalar(div_id) {
+            match context.curves.price(div_id) {
                 Ok(scalar) => match scalar {
                     finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
                     finstack_core::market_data::primitives::MarketScalar::Price(_) => 0.0,
@@ -123,7 +123,7 @@ impl MetricCalculator for GammaCalculator {
         let sigma = if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            let vol_surface = context.curves.vol_surface(option.vol_id)?;
+            let vol_surface = context.curves.surface(option.vol_id)?;
             vol_surface.value_clamped(time_to_expiry, option.strike.amount())
         };
 
@@ -151,17 +151,17 @@ impl MetricCalculator for VegaCalculator {
         }
 
         // Get market data (same pattern)
-        let disc_curve = context.curves.discount(option.disc_id)?;
+        let disc_curve = context.curves.disc(option.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
-        let spot_scalar = context.curves.market_scalar(option.spot_id)?;
+        let spot_scalar = context.curves.price(option.spot_id)?;
         let spot = match spot_scalar {
             finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
             finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
         };
 
         let q = if let Some(div_id) = option.div_yield_id {
-            match context.curves.market_scalar(div_id) {
+            match context.curves.price(div_id) {
                 Ok(scalar) => match scalar {
                     finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
                     finstack_core::market_data::primitives::MarketScalar::Price(_) => 0.0,
@@ -175,7 +175,7 @@ impl MetricCalculator for VegaCalculator {
         let sigma = if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            let vol_surface = context.curves.vol_surface(option.vol_id)?;
+            let vol_surface = context.curves.surface(option.vol_id)?;
             vol_surface.value_clamped(time_to_expiry, option.strike.amount())
         };
 
@@ -204,17 +204,17 @@ impl MetricCalculator for ThetaCalculator {
         }
 
         // Get market data (same pattern)
-        let disc_curve = context.curves.discount(option.disc_id)?;
+        let disc_curve = context.curves.disc(option.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
-        let spot_scalar = context.curves.market_scalar(option.spot_id)?;
+        let spot_scalar = context.curves.price(option.spot_id)?;
         let spot = match spot_scalar {
             finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
             finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
         };
 
         let q = if let Some(div_id) = option.div_yield_id {
-            match context.curves.market_scalar(div_id) {
+            match context.curves.price(div_id) {
                 Ok(scalar) => match scalar {
                     finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
                     finstack_core::market_data::primitives::MarketScalar::Price(_) => 0.0,
@@ -228,7 +228,7 @@ impl MetricCalculator for ThetaCalculator {
         let sigma = if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            let vol_surface = context.curves.vol_surface(option.vol_id)?;
+            let vol_surface = context.curves.surface(option.vol_id)?;
             vol_surface.value_clamped(time_to_expiry, option.strike.amount())
         };
 
@@ -257,17 +257,17 @@ impl MetricCalculator for RhoCalculator {
         }
 
         // Get market data (same pattern)
-        let disc_curve = context.curves.discount(option.disc_id)?;
+        let disc_curve = context.curves.disc(option.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
-        let spot_scalar = context.curves.market_scalar(option.spot_id)?;
+        let spot_scalar = context.curves.price(option.spot_id)?;
         let spot = match spot_scalar {
             finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
             finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
         };
 
         let q = if let Some(div_id) = option.div_yield_id {
-            match context.curves.market_scalar(div_id) {
+            match context.curves.price(div_id) {
                 Ok(scalar) => match scalar {
                     finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
                     finstack_core::market_data::primitives::MarketScalar::Price(_) => 0.0,
@@ -281,7 +281,7 @@ impl MetricCalculator for RhoCalculator {
         let sigma = if let Some(impl_vol) = option.implied_vol {
             impl_vol
         } else {
-            let vol_surface = context.curves.vol_surface(option.vol_id)?;
+            let vol_surface = context.curves.surface(option.vol_id)?;
             vol_surface.value_clamped(time_to_expiry, option.strike.amount())
         };
 
@@ -308,17 +308,17 @@ impl MetricCalculator for ImpliedVolCalculator {
         }
 
         // Gather market inputs
-        let disc_curve = context.curves.discount(option.disc_id)?;
+        let disc_curve = context.curves.disc(option.disc_id)?;
         let r = disc_curve.zero(t);
 
-        let spot_scalar = context.curves.market_scalar(option.spot_id)?;
+        let spot_scalar = context.curves.price(option.spot_id)?;
         let spot = match spot_scalar {
             finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
             finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
         };
 
         let q = if let Some(div_id) = option.div_yield_id {
-            match context.curves.market_scalar(div_id) {
+            match context.curves.price(div_id) {
                 Ok(scalar) => match scalar {
                     finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
                     finstack_core::market_data::primitives::MarketScalar::Price(_) => 0.0,
@@ -333,7 +333,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         let market_price: F = if let Some(p) = option.attributes.get_meta("market_price") {
             p.parse().unwrap_or(0.0)
         } else if let Some(price_id) = option.attributes.get_meta("market_price_id") {
-            match context.curves.market_scalar(price_id) {
+            match context.curves.price(price_id) {
                 Ok(ms) => match ms {
                     finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
                     finstack_core::market_data::primitives::MarketScalar::Price(m) => m.amount(),

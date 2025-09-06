@@ -187,9 +187,9 @@ impl RiskMeasurable for Bond {
         }
 
         // Add maturity bucket
-        let years_to_maturity = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(
-            as_of, self.maturity, self.dc
-        );
+        let years_to_maturity = self.dc.year_fraction(
+            as_of, self.maturity, finstack_core::dates::DayCountCtx::default()
+        ).unwrap_or(0.0);
 
         let bucket = if years_to_maturity <= 1.0 {
             RiskBucket {
@@ -380,7 +380,7 @@ mod tests {
             .set_interp(finstack_core::market_data::interp::InterpStyle::Linear)
             .build()
             .unwrap();
-        let curves = MarketContext::new().with_discount(disc_curve);
+        let curves = MarketContext::new().insert_discount(disc_curve);
 
         // Build schedule and verify it uses custom cashflows
         let flows = bond.build_schedule(&curves, issue).unwrap();
@@ -531,7 +531,7 @@ mod tests {
             .set_interp(finstack_core::market_data::interp::InterpStyle::Linear)
             .build()
             .unwrap();
-        let curves = MarketContext::new().with_discount(disc_curve);
+        let curves = MarketContext::new().insert_discount(disc_curve);
 
         // Build schedules
         let regular_flows = regular_bond.build_schedule(&curves, issue).unwrap();

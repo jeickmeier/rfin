@@ -68,11 +68,11 @@ impl CashflowProvider for Deposit {
         _as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
         // True single-period deposit: two flows with simple interest
-        let yf = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(
+        let yf = self.day_count.year_fraction(
             self.start,
             self.end,
-            self.day_count,
-        );
+            finstack_core::dates::DayCountCtx::default(),
+        ).unwrap_or(0.0);
         let r = self.quote_rate.unwrap_or(0.0);
         let redemption = self.notional * (1.0 + r * yf);
         Ok(vec![

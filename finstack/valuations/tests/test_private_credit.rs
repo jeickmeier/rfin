@@ -49,7 +49,7 @@ fn setup_curves(base: Date) -> Arc<MarketContext> {
         .build()
         .unwrap();
 
-    Arc::new(MarketContext::new().with_discount(disc).with_forecast(fwd))
+    Arc::new(MarketContext::new().insert_discount(disc).insert_forward(fwd))
 }
 
 #[test]

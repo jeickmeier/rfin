@@ -14,7 +14,7 @@ pub fn forward_fn_equity<'a>(
     base_currency: Currency,
 ) -> Result<Box<dyn Fn(F) -> F + 'a>> {
     // Get spot price
-    let spot_scalar = context.market_scalar(underlying)?;
+    let spot_scalar = context.price(underlying)?;
     let spot = match spot_scalar {
         finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
         finstack_core::market_data::primitives::MarketScalar::Unitless(value) => *value,
@@ -23,7 +23,7 @@ pub fn forward_fn_equity<'a>(
     // Get dividend yield (default to 0.0 if not available)
     let div_yield_key = format!("{}-DIVYIELD", underlying);
     let dividend_yield = context
-        .market_scalar(&div_yield_key)
+        .price(&div_yield_key)
         .map(|scalar| match scalar {
             finstack_core::market_data::primitives::MarketScalar::Unitless(yield_val) => {
                 *yield_val
@@ -34,7 +34,7 @@ pub fn forward_fn_equity<'a>(
 
     // Get risk-free rate from discount curve
     let disc_curve_id = format!("{}-OIS", base_currency);
-    let discount_curve = context.discount(&disc_curve_id)?;
+    let discount_curve = context.disc(&disc_curve_id)?;
 
     Ok(Box::new(move |t: F| -> F {
         let risk_free_rate = discount_curve.zero(t);
@@ -58,7 +58,7 @@ pub fn forward_fn_fx<'a>(
     let domestic_ccy = &underlying[3..6];
 
     // Get spot rate
-    let spot_scalar = context.market_scalar(underlying)?;
+    let spot_scalar = context.price(underlying)?;
     let spot = match spot_scalar {
         finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
         finstack_core::market_data::primitives::MarketScalar::Unitless(value) => *value,
@@ -67,8 +67,8 @@ pub fn forward_fn_fx<'a>(
     // Get domestic and foreign discount curves
     let dom_disc_id = format!("{}-OIS", domestic_ccy);
     let for_disc_id = format!("{}-OIS", foreign_ccy);
-    let dom_curve = context.discount(&dom_disc_id)?;
-    let for_curve = context.discount(&for_disc_id)?;
+    let dom_curve = context.disc(&dom_disc_id)?;
+    let for_curve = context.disc(&for_disc_id)?;
 
     Ok(Box::new(move |t: F| -> F {
         let domestic_rate = dom_curve.zero(t);
@@ -83,7 +83,7 @@ pub fn forward_fn_rates<'a>(
     underlying: &str,
 ) -> Result<Box<dyn Fn(F) -> F + 'a>> {
     // Get forward curve for this index
-    let forward_curve = context.forecast(underlying)?;
+    let forward_curve = context.fwd(underlying)?;
 
     Ok(Box::new(move |t: F| -> F { forward_curve.rate(t) }))
 }
@@ -143,11 +143,11 @@ mod tests {
             .unwrap();
 
         MarketContext::new()
-            .with_discount(disc_curve)
-            .with_forecast(fwd_curve)
-            .with_price("SPY", MarketScalar::Unitless(100.0))
-            .with_price("SPY-DIVYIELD", MarketScalar::Unitless(0.02))
-            .with_price("EURUSD", MarketScalar::Unitless(1.1))
+            .insert_discount(disc_curve)
+            .insert_forward(fwd_curve)
+            .insert_price("SPY", MarketScalar::Unitless(100.0))
+            .insert_price("SPY-DIVYIELD", MarketScalar::Unitless(0.02))
+            .insert_price("EURUSD", MarketScalar::Unitless(1.1))
     }
 
     #[test]
@@ -204,7 +204,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let context = create_test_context().with_discount(eur_disc);
+        let context = create_test_context().insert_discount(eur_disc);
         let forward_fn = forward_fn_auto(&context, "EURUSD", Currency::USD).unwrap();
         
         let forward_1y = forward_fn(1.0);

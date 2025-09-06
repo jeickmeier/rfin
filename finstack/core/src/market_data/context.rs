@@ -257,78 +257,74 @@ impl MarketContext {
         }
     }
 
-    /// Attach a FX matrix.
-    pub fn with_fx(mut self, fx: FxMatrix) -> Self {
-        self.fx = Some(Arc::new(fx));
-        self
-    }
 
-    /// Insert or replace a volatility surface.
-    pub fn with_surface(mut self, surface: VolSurface) -> Self {
+    /// Insert volatility surface.
+    pub fn insert_surface(mut self, surface: VolSurface) -> Self {
         let id = crate::market_data::traits::TermStructure::id(&surface).clone();
         self.surfaces.insert(id, Arc::new(surface));
         self
     }
 
-    /// Insert or replace a price/scalar by id.
-    pub fn with_price(mut self, id: impl AsRef<str>, price: MarketScalar) -> Self {
+    /// Insert market scalar (price/constant) by id.
+    pub fn insert_price(mut self, id: impl AsRef<str>, price: MarketScalar) -> Self {
         self.prices.insert(CurveId::from(id.as_ref()), price);
         self
     }
 
-    /// Insert or replace a generic series.
-    pub fn with_series(mut self, series: ScalarTimeSeries) -> Self {
+    /// Insert scalar time series.
+    pub fn insert_series(mut self, series: ScalarTimeSeries) -> Self {
         let id = series.id().clone();
         self.series.insert(id, series);
         self
     }
 
-    // ------------------------------
-    // Curves
-    // ------------------------------
     /// Insert discount curve.
-    pub fn with_discount<C: Discount + Send + Sync + 'static>(mut self, curve: C) -> Self {
+    pub fn insert_discount<C: Discount + Send + Sync + 'static>(mut self, curve: C) -> Self {
         let cid = TermStructure::id(&curve).clone();
         self.disc.insert(cid, Arc::new(curve));
         self
     }
 
-    /// Insert forecast curve.
-    pub fn with_forecast<C: Forward + Send + Sync + 'static>(mut self, curve: C) -> Self {
+    /// Insert forward curve.
+    pub fn insert_forward<C: Forward + Send + Sync + 'static>(mut self, curve: C) -> Self {
         let cid = TermStructure::id(&curve).clone();
         self.fwd.insert(cid, Arc::new(curve));
         self
     }
 
     /// Insert hazard curve.
-    pub fn with_hazard(mut self, curve: crate::market_data::hazard_curve::HazardCurve) -> Self {
+    pub fn insert_hazard(mut self, curve: crate::market_data::hazard_curve::HazardCurve) -> Self {
         let cid = TermStructure::id(&curve).clone();
         self.hazard.insert(cid, Arc::new(curve));
         self
     }
 
     /// Insert inflation curve.
-    pub fn with_inflation(mut self, curve: InflationCurve) -> Self {
+    pub fn insert_inflation(mut self, curve: InflationCurve) -> Self {
         let cid = TermStructure::id(&curve).clone();
         self.inflation.insert(cid, Arc::new(curve));
         self
     }
 
     /// Insert base correlation curve.
-    pub fn with_base_correlation(mut self, curve: BaseCorrelationCurve) -> Self {
+    pub fn insert_base_correlation(mut self, curve: BaseCorrelationCurve) -> Self {
         let cid = TermStructure::id(&curve).clone();
         self.base_correlation.insert(cid, Arc::new(curve));
         self
     }
 
-    // Credit curve storage removed (deprecated). Use hazard curves instead.
-
     /// Insert inflation index.
-    pub fn with_inflation_index(self, id: impl AsRef<str>, index: InflationIndex) -> Self {
+    pub fn insert_inflation_index(self, id: impl AsRef<str>, index: InflationIndex) -> Self {
         let mut this = self;
         let cid = CurveId::from(id.as_ref());
         this.inflation_indices.insert(cid, Arc::new(index));
         this
+    }
+
+    /// Insert FX matrix.
+    pub fn insert_fx(mut self, fx: FxMatrix) -> Self {
+        self.fx = Some(Arc::new(fx));
+        self
     }
 
     /// Map collateral CSA code to discount curve id.
@@ -342,35 +338,9 @@ impl MarketContext {
 // because it conflicts with the standard library's `impl<T> From<T> for T`.
 
 impl MarketContext {
-    /// Convenience getters that forward to underlying containers
-    pub fn vol_surface(&self, id: impl AsRef<str>) -> crate::Result<Arc<VolSurface>> {
-        let id_str = id.as_ref();
-        self.surfaces
-            .get(&CurveId::from(id_str))
-            .cloned()
-            .ok_or(crate::error::InputError::NotFound { id: id_str.to_string() }.into())
-    }
-
-    /// Return a reference to a market scalar (price/constant) by identifier.
-    pub fn market_scalar(&self, id: impl AsRef<str>) -> crate::Result<&MarketScalar> {
-        let id_str = id.as_ref();
-        self.prices
-            .get(&CurveId::from(id_str))
-            .ok_or(crate::error::InputError::NotFound { id: id_str.to_string() }.into())
-    }
-
-    /// Return a reference to a generic date-indexed scalar time series by identifier.
-    pub fn scalar_time_series(&self, id: impl AsRef<str>) -> crate::Result<&ScalarTimeSeries> {
-        let id_str = id.as_ref();
-        self.series
-            .get(&CurveId::from(id_str))
-            .ok_or(crate::error::InputError::NotFound { id: id_str.to_string() }.into())
-    }
-
-    
-
+    // New consolidated getter API with short names
     /// Get discount curve by id.
-    pub fn discount(&self, id: impl AsRef<str>) -> crate::Result<Arc<dyn Discount + Send + Sync>> {
+    pub fn disc(&self, id: impl AsRef<str>) -> crate::Result<Arc<dyn Discount + Send + Sync>> {
         let id_str = id.as_ref();
         self.disc
             .get(&CurveId::from(id_str))
@@ -378,8 +348,8 @@ impl MarketContext {
             .ok_or(crate::error::InputError::NotFound { id: id_str.to_string() }.into())
     }
 
-    /// Get forecast curve by id.
-    pub fn forecast(&self, id: impl AsRef<str>) -> crate::Result<Arc<dyn Forward + Send + Sync>> {
+    /// Get forward curve by id.
+    pub fn fwd(&self, id: impl AsRef<str>) -> crate::Result<Arc<dyn Forward + Send + Sync>> {
         let id_str = id.as_ref();
         self.fwd
             .get(&CurveId::from(id_str))
@@ -387,11 +357,8 @@ impl MarketContext {
             .ok_or(crate::error::InputError::NotFound { id: id_str.to_string() }.into())
     }
 
-    /// Get hazard curve.
-    pub fn hazard(
-        &self,
-        id: impl AsRef<str>,
-    ) -> crate::Result<Arc<crate::market_data::hazard_curve::HazardCurve>> {
+    /// Get hazard curve by id.
+    pub fn hazard(&self, id: impl AsRef<str>) -> crate::Result<Arc<crate::market_data::hazard_curve::HazardCurve>> {
         let id_str = id.as_ref();
         self.hazard
             .get(&CurveId::from(id_str))
@@ -399,8 +366,8 @@ impl MarketContext {
             .ok_or(crate::error::InputError::NotFound { id: id_str.to_string() }.into())
     }
 
-    /// Get inflation curve.
-    pub fn inflation(&self, id: impl AsRef<str>) -> crate::Result<Arc<InflationCurve>> {
+    /// Get inflation curve by id.
+    pub fn infl(&self, id: impl AsRef<str>) -> crate::Result<Arc<InflationCurve>> {
         let id_str = id.as_ref();
         self.inflation
             .get(&CurveId::from(id_str))
@@ -408,16 +375,32 @@ impl MarketContext {
             .ok_or(crate::error::InputError::NotFound { id: id_str.to_string() }.into())
     }
 
-    // Deprecated credit() getter removed. Use hazard().
-
-    /// Get inflation index by id.
-    pub fn inflation_index(&self, id: impl AsRef<str>) -> Option<Arc<InflationIndex>> {
-        self.inflation_indices
-            .get(&CurveId::from(id.as_ref()))
+    /// Get volatility surface by id.
+    pub fn surface(&self, id: impl AsRef<str>) -> crate::Result<Arc<VolSurface>> {
+        let id_str = id.as_ref();
+        self.surfaces
+            .get(&CurveId::from(id_str))
             .cloned()
+            .ok_or(crate::error::InputError::NotFound { id: id_str.to_string() }.into())
     }
 
-    /// Get base correlation curve.
+    /// Get market scalar (price/constant) by id.
+    pub fn price(&self, id: impl AsRef<str>) -> crate::Result<&MarketScalar> {
+        let id_str = id.as_ref();
+        self.prices
+            .get(&CurveId::from(id_str))
+            .ok_or(crate::error::InputError::NotFound { id: id_str.to_string() }.into())
+    }
+
+    /// Get scalar time series by id.
+    pub fn series(&self, id: impl AsRef<str>) -> crate::Result<&ScalarTimeSeries> {
+        let id_str = id.as_ref();
+        self.series
+            .get(&CurveId::from(id_str))
+            .ok_or(crate::error::InputError::NotFound { id: id_str.to_string() }.into())
+    }
+
+    /// Get base correlation curve by id.
     pub fn base_correlation(&self, id: impl AsRef<str>) -> crate::Result<Arc<BaseCorrelationCurve>> {
         let id_str = id.as_ref();
         self.base_correlation
@@ -426,13 +409,20 @@ impl MarketContext {
             .ok_or(crate::error::InputError::NotFound { id: id_str.to_string() }.into())
     }
 
+    /// Get inflation index by id.
+    pub fn inflation_index(&self, id: impl AsRef<str>) -> Option<Arc<InflationIndex>> {
+        self.inflation_indices
+            .get(&CurveId::from(id.as_ref()))
+            .cloned()
+    }
+
     /// Resolve collateral discount curve for CSA code.
     pub fn collateral(&self, csa_code: &str) -> crate::Result<Arc<dyn Discount + Send + Sync>> {
         let id = match self.collat.get(csa_code) {
             Some(cid) => cid,
             None => return Err(crate::error::InputError::NotFound { id: format!("collateral:{}", csa_code) }.into()),
         };
-        self.discount(id.as_str())
+        self.disc(id.as_str())
     }
 
     // -----------------------------------------------------------------------------
@@ -455,11 +445,11 @@ impl MarketContext {
     /// #     .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
     /// #     .knots([(0.0, 1.0), (5.0, 0.9)])
     /// #     .build().unwrap();
-    /// # let context = MarketContext::new().with_discount(curve);
+    /// # let context = MarketContext::new().insert_discount(curve);
     /// let mut bumps = HashMap::new();
     /// bumps.insert(CurveId::new("USD-OIS"), BumpSpec::parallel_bp(100.0));
     /// let bumped = context.bump(bumps).unwrap();
-    /// assert!(bumped.discount("USD-OIS_bump_100bp").is_ok());
+    /// assert!(bumped.disc("USD-OIS_bump_100bp").is_ok());
     /// ```
     ///
     /// # Multi-asset example
@@ -469,8 +459,8 @@ impl MarketContext {
     /// # use finstack_core::market_data::primitives::MarketScalar;
     /// # use finstack_core::types::CurveId;
     /// # let context = MarketContext::new()
-    /// #     .with_price("USD-OIS", MarketScalar::Unitless(0.05))
-    /// #     .with_price("USD-SOFR", MarketScalar::Unitless(0.052));
+    /// #     .insert_price("USD-OIS", MarketScalar::Unitless(0.05))
+    /// #     .insert_price("USD-SOFR", MarketScalar::Unitless(0.052));
     /// let mut bumps = HashMap::new();
     /// bumps.insert(CurveId::new("USD-OIS"), BumpSpec::parallel_bp(100.0));
     /// bumps.insert(CurveId::new("USD-SOFR"), BumpSpec::parallel_bp(50.0));
@@ -483,13 +473,13 @@ impl MarketContext {
             let curve_id_str = curve_id.as_str();
             
             // Try each curve type until we find a match
-            if let Ok(original) = self.discount(curve_id_str) {
+            if let Ok(original) = self.disc(curve_id_str) {
                 if let BumpSpec::ParallelShift(shift) = bump_spec {
                     let bumped_id = CurveId::new(format!("{}_bump_{:.0}bp", curve_id_str, shift.bump_bp));
                     let bumped_curve = BumpedDiscountCurve::new(original, shift.bump_bp, bumped_id.clone());
                     new_context.disc.insert(bumped_id, Arc::new(bumped_curve));
                 }
-            } else if let Ok(original) = self.forecast(curve_id_str) {
+            } else if let Ok(original) = self.fwd(curve_id_str) {
                 if let BumpSpec::ParallelShift(shift) = bump_spec {
                     let bumped_id = CurveId::new(format!("{}_bump_{:.0}bp", curve_id_str, shift.bump_bp));
                     let bumped_curve = BumpedForwardCurve::new(original, shift.bump_bp, bumped_id.clone());
@@ -503,7 +493,7 @@ impl MarketContext {
                         new_context.hazard.insert(bumped_id, Arc::new(bumped_curve));
                     }
                 }
-            } else if let Ok(original) = self.inflation(curve_id_str) {
+            } else if let Ok(original) = self.infl(curve_id_str) {
                 if let BumpSpec::InflationShift(shift) = bump_spec {
                     let inflation_pct = shift.bump_bp / 100.0; // Convert bp back to percentage
                     let multiplier = 1.0 + inflation_pct / 100.0;
@@ -545,7 +535,7 @@ impl MarketContext {
                         new_context.base_correlation.insert(bumped_id, Arc::new(bumped_curve));
                     }
                 }
-            } else if let Ok(original) = self.vol_surface(curve_id_str) {
+            } else if let Ok(original) = self.surface(curve_id_str) {
                 let bump_desc = match &bump_spec {
                     BumpSpec::ParallelShift(shift) => format!("shift_{:.0}bp", shift.bump_bp),
                     BumpSpec::MultiplierShock(shock) => format!("mult_{:.2}", shock.factor),
@@ -555,7 +545,7 @@ impl MarketContext {
                 if let Ok(bumped_surface) = create_bumped_vol_surface(&original, &bump_spec, bumped_id.clone()) {
                     new_context.surfaces.insert(bumped_id, Arc::new(bumped_surface));
                 }
-            } else if let Ok(original) = self.market_scalar(curve_id_str) {
+            } else if let Ok(original) = self.price(curve_id_str) {
                 let bump_desc = match &bump_spec {
                     BumpSpec::ParallelShift(shift) => format!("shift_{:.0}bp", shift.bump_bp),
                     BumpSpec::MultiplierShock(shock) => format!("mult_{:.2}", shock.factor),
@@ -674,10 +664,10 @@ mod bump_tests {
     #[test]
     fn test_discount_curve_bump() {
         let curve = test_discount_curve();
-        let context = MarketContext::new().with_discount(curve);
+        let context = MarketContext::new().insert_discount(curve);
         
         // Test original curve values
-        let original = context.discount("USD-OIS").unwrap();
+        let original = context.disc("USD-OIS").unwrap();
         let original_df_1y = original.df(1.0);
         let original_zero_1y = original.zero(1.0);
         
@@ -686,7 +676,7 @@ mod bump_tests {
         bumps.insert(CurveId::new("USD-OIS"), BumpSpec::parallel_bp(100.0));
         let bumped_context = context.bump(bumps).unwrap();
         let bumped_id = "USD-OIS_bump_100bp";
-        let bumped = bumped_context.discount(bumped_id).unwrap();
+        let bumped = bumped_context.disc(bumped_id).unwrap();
         
         // Bumped discount factor should be lower (higher rates)
         let bumped_df_1y = bumped.df(1.0);
@@ -703,9 +693,9 @@ mod bump_tests {
     #[test]
     fn test_forward_curve_bump() {
         let curve = test_forward_curve();
-        let context = MarketContext::new().with_forecast(curve);
+        let context = MarketContext::new().insert_forward(curve);
         
-        let original = context.forecast("USD-SOFR3M").unwrap();
+        let original = context.fwd("USD-SOFR3M").unwrap();
         let original_rate_1y = original.rate(1.0);
         
         // Apply 50bp bump
@@ -713,7 +703,7 @@ mod bump_tests {
         bumps.insert(CurveId::new("USD-SOFR3M"), BumpSpec::parallel_bp(50.0));
         let bumped_context = context.bump(bumps).unwrap();
         let bumped_id = "USD-SOFR3M_bump_50bp";
-        let bumped = bumped_context.forecast(bumped_id).unwrap();
+        let bumped = bumped_context.fwd(bumped_id).unwrap();
         
         let bumped_rate_1y = bumped.rate(1.0);
         
@@ -725,9 +715,9 @@ mod bump_tests {
     #[test]
     fn test_vol_surface_bump() {
         let surface = test_vol_surface();
-        let context = MarketContext::new().with_surface(surface);
+        let context = MarketContext::new().insert_surface(surface);
         
-        let original = context.vol_surface("USD-ATM-VOL").unwrap();
+        let original = context.surface("USD-ATM-VOL").unwrap();
         let original_vol = original.value(0.5, 95.0);  // Use valid coordinates
         
         // Apply 10% multiplier shock
@@ -735,7 +725,7 @@ mod bump_tests {
         bumps.insert(CurveId::new("USD-ATM-VOL"), BumpSpec::multiplier(1.1));
         let bumped_context = context.bump(bumps).unwrap();
         let bumped_id = "USD-ATM-VOL_mult_1.10";
-        let bumped = bumped_context.vol_surface(bumped_id).unwrap();
+        let bumped = bumped_context.surface(bumped_id).unwrap();
         
         let bumped_vol = bumped.value(0.5, 95.0);
         let expected_vol = original_vol * 1.1;
@@ -745,16 +735,16 @@ mod bump_tests {
     #[test]
     fn test_market_scalar_bump() {
         let context = MarketContext::new()
-            .with_price("GOLD_SPOT", MarketScalar::Unitless(2000.0));
+            .insert_price("GOLD_SPOT", MarketScalar::Unitless(2000.0));
         
-        let original = context.market_scalar("GOLD_SPOT").unwrap();
+        let original = context.price("GOLD_SPOT").unwrap();
         
         // Apply additive bump
         let mut bumps = hashbrown::HashMap::new();
         bumps.insert(CurveId::new("GOLD_SPOT"), BumpSpec::parallel_bp(500.0)); // 5% in bp terms
         let bumped_context = context.bump(bumps).unwrap();
         let bumped_id = "GOLD_SPOT_shift_500bp";
-        let bumped = bumped_context.market_scalar(bumped_id).unwrap();
+        let bumped = bumped_context.price(bumped_id).unwrap();
         
         if let (MarketScalar::Unitless(orig_val), MarketScalar::Unitless(bump_val)) = (original, bumped) {
             let expected = orig_val + 0.05; // 500bp = 0.05
@@ -768,7 +758,7 @@ mod bump_tests {
         bumps2.insert(CurveId::new("GOLD_SPOT"), BumpSpec::multiplier(1.2));
         let mult_context = context.bump(bumps2).unwrap();
         let mult_id = "GOLD_SPOT_mult_1.20";
-        let mult_bumped = mult_context.market_scalar(mult_id).unwrap();
+        let mult_bumped = mult_context.price(mult_id).unwrap();
         
         if let (MarketScalar::Unitless(orig_val), MarketScalar::Unitless(mult_val)) = (original, mult_bumped) {
             let expected_mult = orig_val * 1.2;
@@ -783,8 +773,8 @@ mod bump_tests {
         let disc_curve = test_discount_curve();
         let fwd_curve = test_forward_curve();
         let context = MarketContext::new()
-            .with_discount(disc_curve)
-            .with_forecast(fwd_curve);
+            .insert_discount(disc_curve)
+            .insert_forward(fwd_curve);
         
         // Apply 200bp shock across both curves via bump
         let mut bumps = hashbrown::HashMap::new();
@@ -793,12 +783,12 @@ mod bump_tests {
         let shocked_context = context.bump(bumps).unwrap();
         
         // Verify both curves were bumped
-        let bumped_disc = shocked_context.discount("USD-OIS_bump_200bp").unwrap();
-        let bumped_fwd = shocked_context.forecast("USD-SOFR3M_bump_200bp").unwrap();
+        let bumped_disc = shocked_context.disc("USD-OIS_bump_200bp").unwrap();
+        let bumped_fwd = shocked_context.fwd("USD-SOFR3M_bump_200bp").unwrap();
         
         // Check that the bumped curves behave as expected
-        let original_disc = context.discount("USD-OIS").unwrap();
-        let original_fwd = context.forecast("USD-SOFR3M").unwrap();
+        let original_disc = context.disc("USD-OIS").unwrap();
+        let original_fwd = context.fwd("USD-SOFR3M").unwrap();
         
         assert!(bumped_disc.df(1.0) < original_disc.df(1.0), "Bumped discount should be lower");
         assert!(bumped_fwd.rate(1.0) > original_fwd.rate(1.0), "Bumped forward should be higher");
@@ -807,15 +797,15 @@ mod bump_tests {
     #[test]
     fn test_volatility_shock() { // replaced with consolidated bump API
         let surface = test_vol_surface();
-        let context = MarketContext::new().with_surface(surface);
+        let context = MarketContext::new().insert_surface(surface);
         
         // Apply 20% vol shock via bump
         let mut bumps = hashbrown::HashMap::new();
         bumps.insert(CurveId::new("USD-ATM-VOL"), BumpSpec::multiplier(1.2));
         let shocked_context = context.bump(bumps).unwrap();
         
-        let original = context.vol_surface("USD-ATM-VOL").unwrap();
-        let bumped = shocked_context.vol_surface("USD-ATM-VOL_mult_1.20").unwrap();
+        let original = context.surface("USD-ATM-VOL").unwrap();
+        let bumped = shocked_context.surface("USD-ATM-VOL_mult_1.20").unwrap();
         
         let original_vol = original.value(0.5, 95.0);  // Use valid coordinates
         let bumped_vol = bumped.value(0.5, 95.0);
@@ -828,9 +818,9 @@ mod bump_tests {
         let disc_curve = test_discount_curve();
         let fwd_curve = test_forward_curve();
         let context = MarketContext::new()
-            .with_discount(disc_curve)
-            .with_forecast(fwd_curve)
-            .with_price("SPOT_PRICE", MarketScalar::Unitless(100.0));
+            .insert_discount(disc_curve)
+            .insert_forward(fwd_curve)
+            .insert_price("SPOT_PRICE", MarketScalar::Unitless(100.0));
         
         let mut bumps = hashbrown::HashMap::new();
         bumps.insert(CurveId::new("USD-OIS"), BumpSpec::parallel_bp(100.0));
@@ -840,15 +830,15 @@ mod bump_tests {
         let bumped_context = context.bump(bumps).unwrap();
         
         // Verify all bumps were applied
-        assert!(bumped_context.discount("USD-OIS_bump_100bp").is_ok());
-        assert!(bumped_context.forecast("USD-SOFR3M_bump_-25bp").is_ok());
-        assert!(bumped_context.market_scalar("SPOT_PRICE_mult_1.15").is_ok());
+        assert!(bumped_context.disc("USD-OIS_bump_100bp").is_ok());
+        assert!(bumped_context.fwd("USD-SOFR3M_bump_-25bp").is_ok());
+        assert!(bumped_context.price("SPOT_PRICE_mult_1.15").is_ok());
     }
 
     #[test]
     fn test_hazard_curve_bump() {
         let curve = test_hazard_curve();
-        let context = MarketContext::new().with_hazard(curve);
+        let context = MarketContext::new().insert_hazard(curve);
         
         let original = context.hazard("CORP-HAZARD").unwrap();
         let original_sp_1y = original.sp(1.0);
@@ -869,9 +859,9 @@ mod bump_tests {
     #[test]
     fn test_inflation_curve_bump() {
         let curve = test_inflation_curve();
-        let context = MarketContext::new().with_inflation(curve);
+        let context = MarketContext::new().insert_inflation(curve);
         
-        let original = context.inflation("US-CPI").unwrap();
+        let original = context.infl("US-CPI").unwrap();
         let original_cpi_1y = original.cpi(1.0);
         let original_base_cpi = original.base_cpi();
         
@@ -880,7 +870,7 @@ mod bump_tests {
         bumps.insert(CurveId::new("US-CPI"), BumpSpec::inflation_shift_pct(2.0));
         let bumped_context = context.bump(bumps).unwrap();
         let bumped_id = "US-CPI_infl_2.0pct";
-        let bumped = bumped_context.inflation(bumped_id).unwrap();
+        let bumped = bumped_context.infl(bumped_id).unwrap();
         
         let bumped_cpi_1y = bumped.cpi(1.0);
         let bumped_base_cpi = bumped.base_cpi();
@@ -896,7 +886,7 @@ mod bump_tests {
     #[test]
     fn test_base_correlation_bump() {
         let curve = test_base_correlation_curve();
-        let context = MarketContext::new().with_base_correlation(curve);
+        let context = MarketContext::new().insert_base_correlation(curve);
         
         let original = context.base_correlation("CDX-NA-IG").unwrap();
         let original_corr_5pct = original.correlation(5.0);
@@ -923,10 +913,10 @@ mod bump_tests {
         let base_corr_curve = test_base_correlation_curve();
         
         let context = MarketContext::new()
-            .with_discount(disc_curve)
-            .with_hazard(hazard_curve)
-            .with_inflation(inflation_curve)
-            .with_base_correlation(base_corr_curve);
+            .insert_discount(disc_curve)
+            .insert_hazard(hazard_curve)
+            .insert_inflation(inflation_curve)
+            .insert_base_correlation(base_corr_curve);
         
         let mut bumps = hashbrown::HashMap::new();
         bumps.insert(CurveId::new("USD-OIS"), BumpSpec::parallel_bp(50.0));
@@ -937,9 +927,9 @@ mod bump_tests {
         let bumped_context = context.bump(bumps).unwrap();
         
         // Verify all curve types were bumped
-        assert!(bumped_context.discount("USD-OIS_bump_50bp").is_ok());
+        assert!(bumped_context.disc("USD-OIS_bump_50bp").is_ok());
         assert!(bumped_context.hazard("CORP-HAZARD_spread_25bp").is_ok());
-        assert!(bumped_context.inflation("US-CPI_infl_1.5pct").is_ok());
+        assert!(bumped_context.infl("US-CPI_infl_1.5pct").is_ok());
         assert!(bumped_context.base_correlation("CDX-NA-IG_corr_5.0pct").is_ok());
     }
 

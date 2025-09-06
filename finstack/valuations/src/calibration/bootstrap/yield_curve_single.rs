@@ -13,7 +13,7 @@ use crate::instruments::fixed_income::fra::ForwardRateAgreement;
 use crate::instruments::fixed_income::ir_future::InterestRateFuture;
 use crate::instruments::fixed_income::InterestRateSwap;
 use crate::instruments::traits::Priceable;
-use finstack_core::dates::{Date, DayCount, add_months};
+use finstack_core::dates::{Date, add_months};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::interp::InterpStyle;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -101,21 +101,21 @@ impl DiscountCurveCalibrator {
                     maturity,
                     day_count,
                     ..
-                } => DiscountCurve::year_fraction(self.base_date, *maturity, *day_count),
+                } => day_count.year_fraction(self.base_date, *maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0),
                 InstrumentQuote::FRA { end, day_count, .. } => {
-                    DiscountCurve::year_fraction(self.base_date, *end, *day_count)
+                    day_count.year_fraction(self.base_date, *end, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0)
                 }
                 InstrumentQuote::Future { expiry, specs, .. } => {
                     let end = add_months(*expiry, specs.delivery_months as i32);
-                    DiscountCurve::year_fraction(self.base_date, end, specs.day_count)
+                    specs.day_count.year_fraction(self.base_date, end, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0)
                 }
                 InstrumentQuote::Swap {
                     maturity, fixed_dc, ..
-                } => DiscountCurve::year_fraction(self.base_date, *maturity, *fixed_dc),
+                } => fixed_dc.year_fraction(self.base_date, *maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0),
                 InstrumentQuote::BasisSwap {
                     maturity, primary_dc, ..
-                } => DiscountCurve::year_fraction(self.base_date, *maturity, *primary_dc),
-                _ => DiscountCurve::year_fraction(self.base_date, maturity_date, DayCount::Act365F),
+                } => primary_dc.year_fraction(self.base_date, *maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0),
+                _ => finstack_core::dates::DayCount::Act365F.year_fraction(self.base_date, maturity_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0),
             };
 
             if time_to_maturity <= 0.0 {
@@ -162,8 +162,8 @@ impl DiscountCurveCalibrator {
                 // Update context with temporary curves
                 let temp_context = base_context_clone
                     .clone()
-                    .with_discount(temp_curve)
-                    .with_forecast(forward_curve);
+                    .insert_discount(temp_curve)
+                    .insert_forward(forward_curve);
 
                 // Price the instrument and return error (target is zero)
                 self_clone
@@ -206,8 +206,8 @@ impl DiscountCurveCalibrator {
                 let final_forward = final_curve.to_forward_curve("CALIB_FWD", 0.25)?;
                 let final_context = base_context
                     .clone()
-                    .with_discount(final_curve)
-                    .with_forecast(final_forward);
+                    .insert_discount(final_curve)
+                    .insert_forward(final_forward);
 
                 self.price_instrument(quote, &final_context)
                     .unwrap_or(0.0)
@@ -259,14 +259,14 @@ impl DiscountCurveCalibrator {
             } => {
                 // Deposit par condition: DF_disc(t_disc) * (1 + r * yf) = 1
                 // Use the instrument's accrual day count for both DF time and yf
-                let disc = context.discount("CALIB_CURVE")?;
+                let disc = context.disc("CALIB_CURVE")?;
                 let base = disc.base_date();
 
-                let t_disc = DiscountCurve::year_fraction(base, *maturity, *day_count);
+                let t_disc = day_count.year_fraction(base, *maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
                 if t_disc <= 0.0 {
                     return Ok(0.0);
                 }
-                let yf = DiscountCurve::year_fraction(base, *maturity, *day_count);
+                let yf = day_count.year_fraction(base, *maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
                 let df = disc.df(t_disc);
                 let error = df * (1.0 + rate * yf) - 1.0;
                 Ok(error)
@@ -648,7 +648,7 @@ mod tests {
         assert_eq!(curve.id().as_str(), "USD-OIS");
 
         // Verify repricing via instrument PVs (|PV| ≤ $1 per $1MM)
-        let ctx = base_context.with_discount(curve);
+        let ctx = base_context.insert_discount(curve);
         for quote in &deposit_quotes {
             if let InstrumentQuote::Deposit {
                 maturity,
@@ -715,7 +715,7 @@ mod tests {
 
         // Single-curve: derive forward curve from discount
         let fwd = curve.to_forward_curve("USD-SOFR", 0.25).unwrap();
-        let ctx = base_context.with_discount(curve).with_forecast(fwd);
+        let ctx = base_context.insert_discount(curve).insert_forward(fwd);
 
         // Construct FRA matching the quote, notional $1,000,000
         let fra = ForwardRateAgreement::new(
@@ -777,19 +777,19 @@ mod tests {
             .unwrap();
 
         let fwd = curve.to_forward_curve("USD-SOFR", 0.25).unwrap();
-        let ctx = base_context.with_discount(curve).with_forecast(fwd);
+        let ctx = base_context.insert_discount(curve).insert_forward(fwd);
 
         // Build matching future with implied price from forward curve
         let expiry = base_date + time::Duration::days(90);
         let period_start = expiry;
         let period_end = expiry + time::Duration::days(90);
-        let t1 = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(
-            base_date, period_start, DayCount::Act360,
-        );
-        let t2 = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(
-            base_date, period_end, DayCount::Act360,
-        );
-        let implied_rate = ctx.forecast("USD-SOFR").unwrap().rate_period(t1, t2);
+        let t1 = finstack_core::dates::DayCount::Act360.year_fraction(
+            base_date, period_start, finstack_core::dates::DayCountCtx::default(),
+        ).unwrap_or(0.0);
+        let t2 = finstack_core::dates::DayCount::Act360.year_fraction(
+            base_date, period_end, finstack_core::dates::DayCountCtx::default(),
+        ).unwrap_or(0.0);
+        let implied_rate = ctx.fwd("USD-SOFR").unwrap().rate_period(t1, t2);
         let quoted_price = 100.0 * (1.0 - implied_rate);
         let mut fut = InterestRateFuture::new(
             "SOFR-MAR25",
@@ -855,7 +855,7 @@ mod tests {
             .unwrap();
 
         let fwd = curve.to_forward_curve("USD-SOFR", 0.25).unwrap();
-        let ctx = base_context.with_discount(curve).with_forecast(fwd);
+        let ctx = base_context.insert_discount(curve).insert_forward(fwd);
 
         // Construct 1Y par swap matching quote
         let start = base_date;

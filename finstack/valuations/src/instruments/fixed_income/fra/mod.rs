@@ -8,7 +8,6 @@ pub mod metrics;
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::traits::{Discount, Forward};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
@@ -98,12 +97,12 @@ impl ForwardRateAgreement {
     ) -> finstack_core::Result<Money> {
         // Calculate time fractions
         let base_date = discount_curve.base_date();
-        let t_fixing = DiscountCurve::year_fraction(base_date, self.fixing_date, self.day_count);
-        let t_start = DiscountCurve::year_fraction(base_date, self.start_date, self.day_count);
-        let t_end = DiscountCurve::year_fraction(base_date, self.end_date, self.day_count);
+        let t_fixing = self.day_count.year_fraction(base_date, self.fixing_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_start = self.day_count.year_fraction(base_date, self.start_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_end = self.day_count.year_fraction(base_date, self.end_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
 
         // Interest period length
-        let tau = DiscountCurve::year_fraction(self.start_date, self.end_date, self.day_count);
+        let tau = self.day_count.year_fraction(self.start_date, self.end_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
 
         if tau <= 0.0 || t_fixing < 0.0 {
             return Ok(Money::new(0.0, self.notional.currency()));
@@ -131,8 +130,8 @@ impl_instrument!(
     ForwardRateAgreement,
     "FRA",
     pv = |s, curves, as_of| {
-        let discount_curve = curves.discount(s.disc_id)?;
-        let forward_curve = curves.forecast(s.forward_id)?;
+        let discount_curve = curves.disc(s.disc_id)?;
+        let forward_curve = curves.fwd(s.forward_id)?;
         s.fra_value(discount_curve.as_ref(), forward_curve.as_ref(), as_of)
     }
 );
@@ -150,8 +149,8 @@ impl CashflowProvider for ForwardRateAgreement {
 
         // Calculate the FRA settlement amount
         let pv = self.fra_value(
-            curves.discount(self.disc_id)?.as_ref(),
-            curves.forecast(self.forward_id)?.as_ref(),
+            curves.disc(self.disc_id)?.as_ref(),
+            curves.fwd(self.forward_id)?.as_ref(),
             as_of,
         )?;
 

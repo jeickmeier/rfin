@@ -15,7 +15,7 @@ pub struct LogLinearDf {
 impl LogLinearDf {
     /// Construct a **log‐linear** DF interpolator (constant zero rate).
     #[allow(clippy::boxed_local)]
-    pub fn new(knots: Box<[F]>, dfs: Box<[F]>) -> crate::Result<Self> {
+    pub fn new(knots: Box<[F]>, dfs: Box<[F]>, extrapolation: ExtrapolationPolicy) -> crate::Result<Self> {
         debug_assert_eq!(knots.len(), dfs.len());
         if knots.len() < 2 {
             return Err(InputError::TooFewPoints.into());
@@ -26,7 +26,7 @@ impl LogLinearDf {
         Ok(Self {
             knots,
             log_dfs: log_dfs.into_boxed_slice(),
-            extrapolation: ExtrapolationPolicy::default(),
+            extrapolation,
         })
     }
 
@@ -124,11 +124,4 @@ impl InterpFn for LogLinearDf {
         f_val * (y1 - y0) / (x1 - x0)
     }
 
-    fn set_extrapolation_policy(&mut self, policy: ExtrapolationPolicy) {
-        self.extrapolation = policy;
-    }
-
-    fn extrapolation_policy(&self) -> ExtrapolationPolicy {
-        self.extrapolation
-    }
 }

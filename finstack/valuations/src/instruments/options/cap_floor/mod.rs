@@ -267,10 +267,10 @@ impl_instrument!(
         use finstack_core::dates::{BusinessDayConvention, StubKind};
 
         // Get market curves
-        let disc_curve = curves.discount(s.disc_id)?;
-        let fwd_curve = curves.forecast(s.forward_id)?;
+        let disc_curve = curves.disc(s.disc_id)?;
+        let fwd_curve = curves.fwd(s.forward_id)?;
         let vol_surface = if s.implied_vol.is_none() {
-            Some(curves.vol_surface(s.vol_id)?)
+            Some(curves.surface(s.vol_id)?)
         } else {
             None
         };

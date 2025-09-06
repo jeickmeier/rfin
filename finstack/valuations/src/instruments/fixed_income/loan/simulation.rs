@@ -8,7 +8,6 @@ use super::revolver::UtilizationFeeSchedule;
 use super::term_loan::InterestSpec;
 use crate::instruments::fixed_income::discountable::Discountable;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::traits::Discount;
 use finstack_core::market_data::MarketContext;
 use finstack_core::math::{sample_beta, RandomNumberGenerator};
@@ -488,7 +487,7 @@ impl LoanSimulator {
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
-        let disc = curves.discount(facility.disc_id())?;
+        let disc = curves.disc(facility.disc_id())?;
         let existing_flows = facility.build_existing_flows(curves, as_of)?;
         existing_flows.npv(&*disc, disc.base_date(), facility.day_count())
     }
@@ -501,7 +500,7 @@ impl LoanSimulator {
         as_of: Date,
         timeline: &[Date],
     ) -> finstack_core::Result<(PVBreakdown, Vec<FacilityState>)> {
-        let disc = curves.discount(facility.disc_id())?;
+        let disc = curves.disc(facility.disc_id())?;
 
         let mut breakdown = PVBreakdown::default();
         let mut state_path = Vec::new();
@@ -524,11 +523,11 @@ impl LoanSimulator {
                 current_drawn = (current_drawn + net_change).max(0.0).min(commitment);
 
                 // PV of draw/repayment itself
-                let df_start = disc.df(DiscountCurve::year_fraction(
+                let df_start = disc.df(finstack_core::dates::DayCount::Act365F.year_fraction(
                     disc.base_date(),
                     period_start,
-                    facility.day_count(),
-                ));
+                    finstack_core::dates::DayCountCtx::default(),
+                ).unwrap_or(0.0));
 
                 if net_change > 0.0 {
                     breakdown.future_draws -= net_change * df_start;
@@ -556,11 +555,11 @@ impl LoanSimulator {
             breakdown.other_fees += period_pv.other_fees;
 
             // Apply cash sweep (reduces outstanding)
-            let df_end = disc.df(DiscountCurve::year_fraction(
+            let df_end = disc.df(finstack_core::dates::DayCount::Act365F.year_fraction(
                 disc.base_date(),
                 period_end,
-                facility.day_count(),
-            ));
+                finstack_core::dates::DayCountCtx::default(),
+            ).unwrap_or(0.0));
             current_drawn -= period_pv.cash_sweep / df_end; // Undiscount to get notional impact
             current_drawn = current_drawn.max(0.0); // Ensure non-negative
             breakdown.incremental_principal += period_pv.cash_sweep; // Add to principal PV
@@ -660,7 +659,7 @@ impl LoanSimulator {
         timeline: &[Date],
         rng: &mut dyn RandomNumberGenerator,
     ) -> finstack_core::Result<(PVBreakdown, Vec<FacilityState>, bool)> {
-        let disc = curves.discount(facility.disc_id())?;
+        let disc = curves.disc(facility.disc_id())?;
         let mut breakdown = PVBreakdown::default();
         let mut state_path = Vec::new();
 
@@ -694,7 +693,7 @@ impl LoanSimulator {
                         &self.config.credit_config,
                         def_time,
                         &*disc,
-                        facility.day_count(),
+                        finstack_core::dates::DayCount::Act365F,
                     )?;
                     breakdown.incremental_principal += recovery;
 
@@ -718,11 +717,11 @@ impl LoanSimulator {
                     let actual_change = event.sample_amount(rng, available);
                     current_drawn = (current_drawn + actual_change).max(0.0).min(commitment);
 
-                    let df_start = disc.df(DiscountCurve::year_fraction(
+                    let df_start = disc.df(finstack_core::dates::DayCount::Act365F.year_fraction(
                         disc.base_date(),
                         period_start,
-                        facility.day_count(),
-                    ));
+                        finstack_core::dates::DayCountCtx::default(),
+                    ).unwrap_or(0.0));
 
                     if actual_change > 0.0 {
                         breakdown.future_draws -= actual_change * df_start;
@@ -751,11 +750,11 @@ impl LoanSimulator {
             breakdown.other_fees += period_pv.other_fees;
 
             // Apply cash sweep (reduces outstanding)
-            let df_end = disc.df(DiscountCurve::year_fraction(
+            let df_end = disc.df(finstack_core::dates::DayCount::Act365F.year_fraction(
                 disc.base_date(),
                 period_end,
-                facility.day_count(),
-            ));
+                finstack_core::dates::DayCountCtx::default(),
+            ).unwrap_or(0.0));
             current_drawn -= period_pv.cash_sweep / df_end; // Undiscount to get notional impact
             current_drawn = current_drawn.max(0.0); // Ensure non-negative
             breakdown.incremental_principal += period_pv.cash_sweep; // Add to principal PV
@@ -788,11 +787,11 @@ impl LoanSimulator {
         let tau = facility
             .day_count()
             .year_fraction(period_start, period_end, finstack_core::dates::DayCountCtx::default())?;
-        let df_end = disc.df(DiscountCurve::year_fraction(
+        let df_end = disc.df(finstack_core::dates::DayCount::Act365F.year_fraction(
             disc.base_date(),
             period_end,
-            facility.day_count(),
-        ));
+            finstack_core::dates::DayCountCtx::default(),
+        ).unwrap_or(0.0));
 
         // Interest calculation
         match facility.interest_spec() {
@@ -809,20 +808,20 @@ impl LoanSimulator {
                 gearing,
                 reset_lag_days,
             } => {
-                if let Ok(fwd_curve) = curves.forecast(index_id) {
+                if let Ok(fwd_curve) = curves.fwd(index_id) {
                     // Calculate reset date
                     let reset_date =
                         self.apply_reset_lag(period_start, *reset_lag_days, facility)?;
-                    let t_fix = DiscountCurve::year_fraction(
+                    let t_fix = finstack_core::dates::DayCount::Act365F.year_fraction(
                         disc.base_date(),
                         reset_date,
-                        facility.day_count(),
-                    );
-                    let t_pay = DiscountCurve::year_fraction(
+                        finstack_core::dates::DayCountCtx::default(),
+                    ).unwrap_or(0.0);
+                    let t_pay = finstack_core::dates::DayCount::Act365F.year_fraction(
                         disc.base_date(),
                         period_end,
-                        facility.day_count(),
-                    );
+                        finstack_core::dates::DayCountCtx::default(),
+                    ).unwrap_or(0.0);
 
                     let forward_rate = fwd_curve.rate_period(t_fix, t_pay);
 
@@ -1092,7 +1091,7 @@ impl LoanSimulator {
         credit_config: &Option<CreditConfig>,
         default_time: Date,
         disc: &dyn Discount,
-        day_count: DayCount,
+        _day_count: DayCount,
     ) -> finstack_core::Result<F> {
         let recovery_rate = credit_config
             .as_ref()
@@ -1100,11 +1099,11 @@ impl LoanSimulator {
             .unwrap_or(0.4); // 40% default recovery
 
         let recovery_amount = outstanding * recovery_rate;
-        let df = disc.df(DiscountCurve::year_fraction(
+        let df = disc.df(finstack_core::dates::DayCount::Act365F.year_fraction(
             disc.base_date(),
             default_time,
-            day_count,
-        ));
+            finstack_core::dates::DayCountCtx::default(),
+        ).unwrap_or(0.0));
 
         Ok(recovery_amount * df)
     }
@@ -1644,6 +1643,7 @@ mod tests {
     use super::*;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::interp::InterpStyle;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use time::Month;
 
     #[test]
@@ -1922,14 +1922,13 @@ mod tests {
         let mut curves = finstack_core::market_data::MarketContext::new();
 
         // Add a basic discount curve for USD-OIS
-        use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.78)]) // 5% flat curve approximation
             .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
-        curves = curves.with_discount(disc_curve);
+        curves = curves.insert_discount(disc_curve);
 
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
@@ -2012,14 +2011,13 @@ mod tests {
 
         // Create market context with basic curves
         let mut curves = finstack_core::market_data::MarketContext::new();
-        use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.92), (5.0, 0.67)]) // 8% flat curve approximation
             .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
-        curves = curves.with_discount(disc_curve);
+        curves = curves.insert_discount(disc_curve);
 
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
@@ -2067,7 +2065,7 @@ mod tests {
             .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
-        curves = curves.with_discount(disc_curve).with_hazard(hazard_curve);
+        curves = curves.insert_discount(disc_curve).insert_hazard(hazard_curve);
 
         // Test with hazard curve present
         let credit_config = SimulationConfig {
@@ -2140,7 +2138,7 @@ mod tests {
             .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
-        curves = curves.with_discount(disc_curve);
+        curves = curves.insert_discount(disc_curve);
 
         // Configure to store path PVs for exact metrics
         let config = SimulationConfig {

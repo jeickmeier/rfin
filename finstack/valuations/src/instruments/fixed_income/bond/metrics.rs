@@ -89,11 +89,11 @@ impl MetricCalculator for AccruedInterestCalculator {
                     return Ok(0.0);
                 }
                 // Period coupon amount based on notional × rate × yf
-                let yf = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(
+                let yf = bond.dc.year_fraction(
                     last,
                     next,
-                    bond.dc,
-                );
+                    finstack_core::dates::DayCountCtx::default(),
+                ).unwrap_or(0.0);
                 let coupon_amt = bond.notional * (bond.coupon * yf);
                 (last, next, coupon_amt)
             };
@@ -116,12 +116,11 @@ impl MetricCalculator for AccruedInterestCalculator {
         };
 
         // Calculate accrued interest linearly within the coupon period
-        use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-        let yf_total = DiscountCurve::year_fraction(last, next, dc);
+        let yf_total = dc.year_fraction(last, next, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
         if yf_total <= 0.0 {
             return Ok(0.0);
         }
-        let elapsed = DiscountCurve::year_fraction(last, context.as_of, dc).max(0.0);
+        let elapsed = dc.year_fraction(last, context.as_of, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0).max(0.0);
         let accrued = period_coupon_amount * (elapsed / yf_total);
 
         // Cache basic context hints for downstream metrics
@@ -278,7 +277,7 @@ impl MetricCalculator for MacaulayDurationCalculator {
                 if date <= context.as_of {
                     continue;
                 }
-                let t = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(context.as_of, date, bond.dc).max(0.0);
+                let t = bond.dc.year_fraction(context.as_of, date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0).max(0.0);
                 let df = df_from_yield(ytm, t, YieldCompounding::Street, bond.freq).unwrap_or(0.0);
                 weighted_time += t * amount.amount() * df;
             }
@@ -565,7 +564,7 @@ impl MetricCalculator for Cs01Calculator {
         let flows = bond.build_schedule(&context.curves, context.as_of)?;
 
         // Get the base discount curve
-        let disc_curve = context.curves.discount(bond.disc_id)?;
+        let disc_curve = context.curves.disc(bond.disc_id)?;
 
         // CS01 calculation using spread approximation
         let bp = 0.0001; // 1 basis point
@@ -577,9 +576,9 @@ impl MetricCalculator for Cs01Calculator {
 
         for (date, amount) in &flows {
             if *date > context.as_of {
-                let yf = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(
-                    disc_curve.base_date(), *date, bond.dc
-                );
+                let yf = bond.dc.year_fraction(
+                    disc_curve.base_date(), *date, finstack_core::dates::DayCountCtx::default()
+                ).unwrap_or(0.0);
                 let df = disc_curve.df(yf);
 
                 // Apply spread bumps to the discount factor

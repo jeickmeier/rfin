@@ -6,7 +6,7 @@
 //!
 //! For ergonomics an enum [`InterpStyle`] acts as a factory so that builder
 //! code can simply choose a style and obtain a ready-to-use interpolator via
-//! [`InterpStyle::make_interp`].  The enum also documents all algorithms that
+//! [`InterpStyle::build`].  The enum also documents all algorithms that
 //! ship with *rustfin-core*.
 //!
 //! ## When to pick which style?
@@ -20,14 +20,17 @@
 //!
 //! ## Quick example
 //! ```rust
-//! use finstack_core::market_data::interp::{InterpStyle, InterpFn};
+//! use finstack_core::market_data::interp::{InterpStyle, InterpFn, ExtrapolationPolicy};
 //! let times = vec![0.0, 1.0, 2.0].into_boxed_slice();
 //! let dfs   = vec![1.0, 0.97, 0.94].into_boxed_slice();
 //! let interp = InterpStyle::MonotoneConvex
-//!     .make_interp(times, dfs)
+//!     .build(times, dfs, ExtrapolationPolicy::FlatZero)
 //!     .expect("valid input");
 //! assert!(interp.interp(1.5) < 1.0);
 //! ```
+
+/// Epsilon for finite difference derivative calculations.
+const DERIVATIVE_EPSILON: crate::F = 1e-6;
 
 /// Internal helper trait implemented by each concrete interpolation struct.
 /// Renamed from `Interpolator` to avoid a naming clash with the new enum of
@@ -38,14 +41,13 @@ pub trait InterpFn: Send + Sync + core::fmt::Debug {
     
     /// Compute the first derivative at coordinate `x`.
     /// Essential for calculating hedge sensitivities (Delta, Rho, etc.).
-    fn interp_prime(&self, x: crate::F) -> crate::F;
-    
-    /// Set the extrapolation policy for out-of-bounds evaluation.
-    /// Default implementations should handle this appropriately.
-    fn set_extrapolation_policy(&mut self, policy: ExtrapolationPolicy);
-    
-    /// Get the current extrapolation policy.
-    fn extrapolation_policy(&self) -> ExtrapolationPolicy;
+    /// 
+    /// Default implementation uses central finite differences. Override for
+    /// analytical derivatives when available.
+    fn interp_prime(&self, x: crate::F) -> crate::F {
+        let h = (x.abs() * DERIVATIVE_EPSILON).max(1e-8);
+        (self.interp(x + h) - self.interp(x - h)) / (2.0 * h)
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -105,34 +107,23 @@ pub enum InterpStyle {
 
 impl InterpStyle {
     /// Build a boxed interpolator implementing [`InterpFn`] for the given
-    /// `knots` and `values`.
-    pub fn make_interp(
-        self,
-        knots: Box<[crate::F]>,
-        values: Box<[crate::F]>,
-    ) -> crate::Result<Box<dyn InterpFn>> {
-        self.make_interp_with_extrapolation(knots, values, ExtrapolationPolicy::default())
-    }
-
-    /// Build a boxed interpolator with specified extrapolation policy.
-    pub fn make_interp_with_extrapolation(
+    /// `knots` and `values` with the specified extrapolation policy.
+    pub fn build(
         self,
         knots: Box<[crate::F]>,
         values: Box<[crate::F]>,
         extrapolation: ExtrapolationPolicy,
     ) -> crate::Result<Box<dyn InterpFn>> {
-        let mut interp: Box<dyn InterpFn> = match self {
-            InterpStyle::Linear => Box::new(super::interp::LinearDf::new(knots, values)?),
-            InterpStyle::LogLinear => Box::new(super::interp::LogLinearDf::new(knots, values)?),
+        match self {
+            InterpStyle::Linear => Ok(Box::new(super::interp::LinearDf::new(knots, values, extrapolation)?)),
+            InterpStyle::LogLinear => Ok(Box::new(super::interp::LogLinearDf::new(knots, values, extrapolation)?)),
             InterpStyle::MonotoneConvex => {
-                Box::new(super::interp::MonotoneConvex::new(knots, values)?)
+                Ok(Box::new(super::interp::MonotoneConvex::new(knots, values, extrapolation)?))
             }
             InterpStyle::CubicHermite => {
-                Box::new(super::interp::CubicHermite::new(knots, values)?)
+                Ok(Box::new(super::interp::CubicHermite::new(knots, values, extrapolation)?))
             }
-            InterpStyle::FlatFwd => Box::new(super::interp::FlatFwd::new(knots, values)?),
-        };
-        interp.set_extrapolation_policy(extrapolation);
-        Ok(interp)
+            InterpStyle::FlatFwd => Ok(Box::new(super::interp::FlatFwd::new(knots, values, extrapolation)?)),
+        }
     }
 }

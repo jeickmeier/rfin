@@ -44,6 +44,25 @@
 //!
 //! Keep this table in sync with `CompiledExpr::to_polars_expr`.
 //!
+//! # Quick Example
+//!
+//! ```rust
+//! use finstack_core::expr::{Expr, Function, CompiledExpr, SimpleContext, EvalOpts};
+//!
+//! // Create expression: rolling_mean(x, 3)
+//! let expr = Expr::call(
+//!     Function::RollingMean,
+//!     vec![Expr::column("x"), Expr::literal(3.0)]
+//! );
+//!
+//! // Compile and evaluate
+//! let compiled = CompiledExpr::new(expr);
+//! let context = SimpleContext::new(["x"]);
+//! let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+//! let cols = [data.as_slice()];
+//! let result = compiled.eval(&context, &cols, EvalOpts::default());
+//! ```
+//!
 //! # Execution Strategy
 //!
 //! 1. **Polars Lowering**: Functions marked with ✅ are automatically lowered to
@@ -57,15 +76,15 @@
 //!    consistent behavior regardless of the execution strategy used.
 
 mod ast;
-mod cache;
+pub(crate) mod cache;
 mod context;
-mod dag;
+#[doc(hidden)]
+pub mod dag;
 mod eval;
 
+// Public API - simplified surface for end users
 pub use ast::{EvaluationResult, Expr, ExprNode, Function};
-pub use cache::{CacheManager, CachedResult};
 pub use context::{ExpressionContext, SimpleContext};
-pub use dag::{DagBuilder, ExecutionPlan, PushdownAnalyzer, PushdownBoundaries};
 pub use eval::{CompiledExpr, EvalOpts};
 
 // Polars Series no longer part of public API surface here

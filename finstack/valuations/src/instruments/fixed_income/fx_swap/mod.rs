@@ -81,13 +81,13 @@ impl_instrument!(
     "FxSwap",
     pv = |s, curves, as_of| {
         // 1. Get discount curves
-        let domestic_disc = curves.discount(s.domestic_disc_id)?;
-        let foreign_disc = curves.discount(s.foreign_disc_id)?;
+        let domestic_disc = curves.disc(s.domestic_disc_id)?;
+        let foreign_disc = curves.disc(s.foreign_disc_id)?;
 
         // 2. Get year fractions
         let dc = finstack_core::dates::DayCount::Act365F;
-        let t_near = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(as_of, s.near_date, dc);
-        let t_far = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::year_fraction(as_of, s.far_date, dc);
+        let t_near = dc.year_fraction(as_of, s.near_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t_far = dc.year_fraction(as_of, s.far_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
 
         // 3. Get discount factors
         let df_dom_near = domestic_disc.df(t_near);

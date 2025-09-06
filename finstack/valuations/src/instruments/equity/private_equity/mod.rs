@@ -135,7 +135,7 @@ impl crate::instruments::traits::Priceable for PrivateEquityInvestment {
         if let Some(disc_id) = self.disc_id {
             use crate::instruments::fixed_income::discountable::Discountable;
             let flows = self.lp_cashflows()?;
-            let disc = curves.discount(disc_id)?;
+            let disc = curves.disc(disc_id)?;
             flows.npv(&*disc, disc.base_date(), self.spec.irr_basis)
         } else {
             // Return residual LP value from waterfall
@@ -156,7 +156,7 @@ impl crate::instruments::traits::Priceable for PrivateEquityInvestment {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::build_with_metrics(self.clone(), curves, as_of, base_value, metrics)
+        crate::instruments::build_with_metrics_dyn(self, curves, as_of, base_value, metrics)
     }
 }
 

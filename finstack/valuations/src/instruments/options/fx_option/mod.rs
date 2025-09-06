@@ -277,8 +277,8 @@ impl_instrument!(
         }
 
         // Get market data
-        let domestic_disc = curves.discount(s.domestic_disc_id)?;
-        let foreign_disc = curves.discount(s.foreign_disc_id)?;
+        let domestic_disc = curves.disc(s.domestic_disc_id)?;
+        let foreign_disc = curves.disc(s.foreign_disc_id)?;
         let r_d = domestic_disc.zero(time_to_expiry);
         let r_f = foreign_disc.zero(time_to_expiry);
 
@@ -299,7 +299,7 @@ impl_instrument!(
         let sigma = if let Some(impl_vol) = s.implied_vol {
             impl_vol
         } else {
-            let vol_surface = curves.vol_surface(s.vol_id)?;
+            let vol_surface = curves.surface(s.vol_id)?;
             vol_surface.value_clamped(time_to_expiry, s.strike)
         };
 

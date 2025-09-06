@@ -5,7 +5,6 @@
 
 use crate::instruments::fixed_income::ir_future::InterestRateFuture;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::F;
 use std::sync::Arc;
 
@@ -25,7 +24,7 @@ impl MetricCalculator for IrFutureDv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let fut: &InterestRateFuture = context.instrument_as()?;
 
-        let tau = DiscountCurve::year_fraction(fut.period_start, fut.period_end, fut.day_count);
+        let tau = fut.day_count.year_fraction(fut.period_start, fut.period_end, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
         if tau <= 0.0 {
             return Ok(0.0);
         }

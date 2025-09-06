@@ -6,7 +6,6 @@
 
 use crate::instruments::fixed_income::inflation_swap::{InflationSwap, PayReceiveInflation};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::prelude::*;
 use finstack_core::F;
 use std::sync::Arc;
@@ -33,13 +32,13 @@ impl MetricCalculator for BreakevenCalculator {
             })?;
 
         // Get inflation curve for forward projection
-        let inflation_curve = context.curves.inflation(s.inflation_id)?;
+        let inflation_curve = context.curves.infl(s.inflation_id)?;
 
         // Historical index value at start (with any lag applied by the index)
         let i_start = inflation_index.value_on(s.start)?;
 
         // Project inflation index value at maturity
-        let t_maturity = DiscountCurve::year_fraction(context.as_of, s.maturity, DayCount::Act365F);
+        let t_maturity = DayCount::Act365F.year_fraction(context.as_of, s.maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
         let i_maturity_projected = inflation_curve.cpi(t_maturity);
 
         // Year fraction for the full term of the swap
@@ -103,11 +102,11 @@ impl MetricCalculator for Ir01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let s: &InflationSwap = context.instrument_as()?;
 
-        let disc = context.curves.discount(s.disc_id)?;
+        let disc = context.curves.disc(s.disc_id)?;
         let base = disc.base_date();
 
         // Calculate the time to maturity for duration calculation
-        let t_maturity = DiscountCurve::year_fraction(base, s.maturity, DayCount::Act365F);
+        let t_maturity = DayCount::Act365F.year_fraction(base, s.maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
 
         // Get current PV
         let pv_fixed = s.pv_fixed_leg(&context.curves, context.as_of)?;
@@ -141,7 +140,7 @@ impl MetricCalculator for Inflation01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let s: &InflationSwap = context.instrument_as()?;
 
-        let disc = context.curves.discount(s.disc_id)?;
+        let disc = context.curves.disc(s.disc_id)?;
         let base = disc.base_date();
 
         // Get inflation data for analytical calculation
@@ -152,15 +151,15 @@ impl MetricCalculator for Inflation01Calculator {
                 finstack_core::Error::from(finstack_core::error::InputError::NotFound { id: "inflation_index".to_string() })
             })?;
 
-        let inflation_curve = context.curves.inflation(s.inflation_id)?;
+        let inflation_curve = context.curves.infl(s.inflation_id)?;
 
         // Get current inflation values
         let i_start = inflation_index.value_on(s.start)?;
-        let t_maturity = DiscountCurve::year_fraction(context.as_of, s.maturity, DayCount::Act365F);
+        let t_maturity = DayCount::Act365F.year_fraction(context.as_of, s.maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
         let i_maturity_projected = inflation_curve.cpi(t_maturity);
 
         // Calculate discount factor to maturity
-        let t_discount = DiscountCurve::year_fraction(base, s.maturity, DayCount::Act365F);
+        let t_discount = DayCount::Act365F.year_fraction(base, s.maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
         let df = disc.df(t_discount);
 
         // Analytical sensitivity: ∂PV/∂inflation ≈ N × (I_mat/I_start) × DF × (∂ln(I_mat)/∂inflation)

@@ -26,12 +26,12 @@ impl MetricCalculator for FraDv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let fra: &ForwardRateAgreement = context.instrument_as()?;
 
-        let disc = context.curves.discount(fra.disc_id)?;
+        let disc = context.curves.disc(fra.disc_id)?;
         let base = disc.base_date();
 
         // Settlement at start of period
-        let _t_start = DiscountCurve::year_fraction(base, fra.start_date, fra.day_count);
-        let tau = DiscountCurve::year_fraction(fra.start_date, fra.end_date, fra.day_count);
+        let _t_start = fra.day_count.year_fraction(base, fra.start_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let tau = fra.day_count.year_fraction(fra.start_date, fra.end_date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
 
         if tau <= 0.0 {
             return Ok(0.0);

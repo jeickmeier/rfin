@@ -3,14 +3,14 @@
 mod common;
 
 use common::approx_eq;
-use finstack_core::market_data::interp::{cubic_hermite::CubicHermite, InterpFn};
+use finstack_core::market_data::interp::{cubic_hermite::CubicHermite, InterpFn, ExtrapolationPolicy};
 
 #[test]
 fn test_cubic_hermite_construction() {
     let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9].into_boxed_slice();
 
-    let interp = CubicHermite::new(knots, dfs);
+    let interp = CubicHermite::new(knots, dfs, ExtrapolationPolicy::default());
     assert!(interp.is_ok());
 }
 
@@ -19,7 +19,7 @@ fn test_cubic_hermite_exact_knot_lookup() {
     let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9].into_boxed_slice();
 
-    let interp = CubicHermite::new(knots, dfs).unwrap();
+    let interp = CubicHermite::new(knots, dfs, ExtrapolationPolicy::default()).unwrap();
 
     // Exact knot values should return exact discount factors
     assert_eq!(interp.interp(0.0), 1.0);
@@ -32,7 +32,7 @@ fn test_cubic_hermite_interpolation() {
     let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9].into_boxed_slice();
 
-    let interp = CubicHermite::new(knots, dfs).unwrap();
+    let interp = CubicHermite::new(knots, dfs, ExtrapolationPolicy::default()).unwrap();
 
     // Interpolated value should be between the surrounding knots
     let mid_value = interp.interp(0.5);
@@ -48,7 +48,7 @@ fn test_cubic_hermite_two_point_case() {
     let knots = vec![0.0, 1.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95].into_boxed_slice();
 
-    let interp = CubicHermite::new(knots, dfs).unwrap();
+    let interp = CubicHermite::new(knots, dfs, ExtrapolationPolicy::default()).unwrap();
 
     // Should interpolate linearly between the two points
     let mid_value = interp.interp(0.5);
@@ -61,14 +61,14 @@ fn test_cubic_hermite_validation_errors() {
     let bad_knots = vec![1.0, 0.0, 2.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9].into_boxed_slice();
 
-    let result = CubicHermite::new(bad_knots, dfs);
+    let result = CubicHermite::new(bad_knots, dfs, ExtrapolationPolicy::default());
     assert!(result.is_err());
 
     // Test non-positive discount factors
     let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
     let bad_dfs = vec![1.0, -0.95, 0.9].into_boxed_slice();
 
-    let result = CubicHermite::new(knots, bad_dfs);
+    let result = CubicHermite::new(knots, bad_dfs, ExtrapolationPolicy::default());
     assert!(result.is_err());
 }
 
@@ -78,7 +78,7 @@ fn test_cubic_hermite_monotone_shape() {
     let knots = vec![0.0, 1.0, 2.0, 3.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9, 0.85].into_boxed_slice();
 
-    let interp = CubicHermite::new(knots, dfs).unwrap();
+    let interp = CubicHermite::new(knots, dfs, ExtrapolationPolicy::default()).unwrap();
 
     // Check that interpolated values maintain monotone decreasing property
     let val_0_5 = interp.interp(0.5);
@@ -99,7 +99,7 @@ fn test_cubic_hermite_edge_cases() {
     let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9].into_boxed_slice();
 
-    let interp = CubicHermite::new(knots, dfs).unwrap();
+    let interp = CubicHermite::new(knots, dfs, ExtrapolationPolicy::default()).unwrap();
 
     // Test values very close to boundaries (within bounds)
     let near_start = interp.interp(0.001);
@@ -117,7 +117,7 @@ fn test_cubic_hermite_derivative() {
     let knots = vec![0.0, 1.0, 2.0, 3.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9, 0.85].into_boxed_slice();
 
-    let interp = CubicHermite::new(knots, dfs).unwrap();
+    let interp = CubicHermite::new(knots, dfs, ExtrapolationPolicy::default()).unwrap();
 
     // Test derivative at knot points returns precomputed slopes
     let derivative_at_knots = vec![
@@ -153,7 +153,7 @@ fn test_cubic_hermite_derivative_monotonicity() {
     let knots = vec![0.0, 1.0, 2.0, 3.0, 4.0].into_boxed_slice();
     let dfs = vec![1.0, 0.9, 0.8, 0.7, 0.6].into_boxed_slice();
 
-    let interp = CubicHermite::new(knots, dfs).unwrap();
+    let interp = CubicHermite::new(knots, dfs, ExtrapolationPolicy::default()).unwrap();
 
     // Test derivatives at various points
     let test_points = [0.5, 1.5, 2.5, 3.5];

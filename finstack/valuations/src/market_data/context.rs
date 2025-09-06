@@ -74,22 +74,20 @@ impl ValuationMarketContext {
     // Delegate common market data access to the core context
 
     /// Get discount curve by id (delegates to core).
-    pub fn discount(
+    pub fn disc(
         &self,
         id: impl AsRef<str>,
     ) -> Result<Arc<dyn finstack_core::market_data::traits::Discount + Send + Sync>> {
-        self.core.discount(id)
+        self.core.disc(id)
     }
 
-    /// Get forecast curve by id (delegates to core).
-    pub fn forecast(
+    /// Get forward curve by id (delegates to core).
+    pub fn fwd(
         &self,
         id: impl AsRef<str>,
     ) -> Result<Arc<dyn finstack_core::market_data::traits::Forward + Send + Sync>> {
-        self.core.forecast(id)
+        self.core.fwd(id)
     }
-
-    // Deprecated: credit() accessor. Use hazard().
 
     /// Get hazard curve by id (delegates to core).
     pub fn hazard(
@@ -100,11 +98,11 @@ impl ValuationMarketContext {
     }
 
     /// Get volatility surface by id (delegates to core).
-    pub fn vol_surface(
+    pub fn surface(
         &self,
         id: impl AsRef<str>,
     ) -> Result<Arc<finstack_core::market_data::surfaces::vol_surface::VolSurface>> {
-        self.core.vol_surface(id)
+        self.core.surface(id)
     }
 
     /// Access the FX matrix (delegates to core).
@@ -117,48 +115,46 @@ impl ValuationMarketContext {
 
 impl ValuationMarketContext {
     /// Add a discount curve (delegates to core).
-    pub fn with_discount<
+    pub fn insert_discount<
         C: finstack_core::market_data::traits::Discount + Send + Sync + 'static,
     >(
         mut self,
         curve: C,
     ) -> Self {
-        self.core = self.core.with_discount(curve);
+        self.core = self.core.insert_discount(curve);
         self
     }
 
-    /// Add a forecast curve (delegates to core).
-    pub fn with_forecast<C: finstack_core::market_data::traits::Forward + Send + Sync + 'static>(
+    /// Add a forward curve (delegates to core).
+    pub fn insert_forward<C: finstack_core::market_data::traits::Forward + Send + Sync + 'static>(
         mut self,
         curve: C,
     ) -> Self {
-        self.core = self.core.with_forecast(curve);
+        self.core = self.core.insert_forward(curve);
         self
     }
 
-    // Deprecated: with_credit(). Use with_hazard().
-
     /// Add a hazard curve (delegates to core).
-    pub fn with_hazard(
+    pub fn insert_hazard(
         mut self,
         curve: finstack_core::market_data::hazard_curve::HazardCurve,
     ) -> Self {
-        self.core = self.core.with_hazard(curve);
+        self.core = self.core.insert_hazard(curve);
         self
     }
 
     /// Add a volatility surface (delegates to core).
-    pub fn with_surface(
+    pub fn insert_surface(
         mut self,
         surface: finstack_core::market_data::surfaces::vol_surface::VolSurface,
     ) -> Self {
-        self.core = self.core.with_surface(surface);
+        self.core = self.core.insert_surface(surface);
         self
     }
 
     /// Add FX matrix (delegates to core).
-    pub fn with_fx(mut self, fx: finstack_core::money::fx::FxMatrix) -> Self {
-        self.core = self.core.with_fx(fx);
+    pub fn insert_fx(mut self, fx: finstack_core::money::fx::FxMatrix) -> Self {
+        self.core = self.core.insert_fx(fx);
         self
     }
 }

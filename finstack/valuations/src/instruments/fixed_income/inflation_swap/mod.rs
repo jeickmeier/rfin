@@ -7,7 +7,6 @@
 pub mod metrics;
 
 use crate::instruments::traits::Attributes;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -59,7 +58,7 @@ impl InflationSwap {
 impl InflationSwap {
     /// Calculate PV of the fixed leg (real rate leg)
     fn pv_fixed_leg(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
-        let disc = curves.discount(self.disc_id)?;
+        let disc = curves.disc(self.disc_id)?;
         let base = disc.base_date();
 
         // Year fraction for the full term of the swap
@@ -69,7 +68,7 @@ impl InflationSwap {
         let fixed_payment = self.notional * ((1.0 + self.fixed_rate).powf(tau_accrual) - 1.0);
 
         // Discount factor from as_of to maturity
-        let t_discount = DiscountCurve::year_fraction(base, self.maturity, DayCount::Act365F);
+        let t_discount = DayCount::Act365F.year_fraction(base, self.maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
         let df = disc.df(t_discount);
 
         Ok(fixed_payment * df)
@@ -81,7 +80,7 @@ impl InflationSwap {
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
-        let disc = curves.discount(self.disc_id)?;
+        let disc = curves.disc(self.disc_id)?;
         let base = disc.base_date();
 
         // Get inflation index for historical reference value
@@ -90,20 +89,20 @@ impl InflationSwap {
         })?;
 
         // Get inflation curve for forward projection
-        let inflation_curve = curves.inflation(self.inflation_id)?;
+        let inflation_curve = curves.infl(self.inflation_id)?;
 
         // Historical index value at start (with any lag applied by the index)
         let i_start = inflation_index.value_on(self.start)?;
 
         // Project inflation index value at maturity
-        let t_maturity = DiscountCurve::year_fraction(as_of, self.maturity, DayCount::Act365F);
+        let t_maturity = DayCount::Act365F.year_fraction(as_of, self.maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
         let i_maturity_projected = inflation_curve.cpi(t_maturity);
 
         // Inflation payment at maturity: N * (I(T_mat)/I(T_start) - 1)
         let inflation_payment = self.notional * (i_maturity_projected / i_start - 1.0);
 
         // Discount factor from as_of to maturity
-        let t_discount = DiscountCurve::year_fraction(base, self.maturity, DayCount::Act365F);
+        let t_discount = DayCount::Act365F.year_fraction(base, self.maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
         let df = disc.df(t_discount);
 
         Ok(inflation_payment * df)
@@ -266,10 +265,10 @@ mod tests {
             .build()?;
 
         let context = MarketContext::new()
-            .with_discount(disc_curve)
-            .with_inflation_index("US-CPI-U", inflation_index)
-            .with_inflation(inflation_curve)
-            .with_price(
+            .insert_discount(disc_curve)
+            .insert_inflation_index("US-CPI-U", inflation_index)
+            .insert_inflation(inflation_curve)
+            .insert_price(
                 "US-CPI-U-BASE_CPI",
                 finstack_core::market_data::primitives::MarketScalar::Unitless(290.0),
             );

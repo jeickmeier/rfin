@@ -1,14 +1,14 @@
 //! Tests for monotone convex interpolation.
 
 mod common;
-use finstack_core::market_data::interp::{monotone_convex::MonotoneConvex, InterpFn};
+use finstack_core::market_data::interp::{monotone_convex::MonotoneConvex, InterpFn, ExtrapolationPolicy};
 
 #[test]
 fn test_monotone_convex_construction() {
     let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9].into_boxed_slice();
 
-    let interp = MonotoneConvex::new(knots, dfs);
+    let interp = MonotoneConvex::new(knots, dfs, ExtrapolationPolicy::default());
     assert!(interp.is_ok());
 }
 
@@ -17,7 +17,7 @@ fn test_monotone_convex_exact_knot_lookup() {
     let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9].into_boxed_slice();
 
-    let interp = MonotoneConvex::new(knots, dfs).unwrap();
+    let interp = MonotoneConvex::new(knots, dfs, ExtrapolationPolicy::default()).unwrap();
 
     // Exact knot values should return exact discount factors
     assert_eq!(interp.interp(0.0), 1.0);
@@ -30,7 +30,7 @@ fn test_monotone_convex_interpolation() {
     let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9].into_boxed_slice();
 
-    let interp = MonotoneConvex::new(knots, dfs).unwrap();
+    let interp = MonotoneConvex::new(knots, dfs, ExtrapolationPolicy::default()).unwrap();
 
     // Interpolated value should be between the surrounding knots
     let mid_value = interp.interp(0.5);
@@ -46,21 +46,21 @@ fn test_monotone_convex_validation_errors() {
     let bad_knots = vec![1.0, 0.0, 2.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9].into_boxed_slice();
 
-    let result = MonotoneConvex::new(bad_knots, dfs);
+    let result = MonotoneConvex::new(bad_knots, dfs, ExtrapolationPolicy::default());
     assert!(result.is_err());
 
     // Test non-positive discount factors
     let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
     let bad_dfs = vec![1.0, -0.95, 0.9].into_boxed_slice();
 
-    let result = MonotoneConvex::new(knots, bad_dfs);
+    let result = MonotoneConvex::new(knots, bad_dfs, ExtrapolationPolicy::default());
     assert!(result.is_err());
 
     // Test increasing discount factors (arbitrage)
     let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
     let bad_dfs = vec![0.9, 0.95, 1.0].into_boxed_slice(); // Increasing
 
-    let result = MonotoneConvex::new(knots, bad_dfs);
+    let result = MonotoneConvex::new(knots, bad_dfs, ExtrapolationPolicy::default());
     assert!(result.is_err());
 }
 
@@ -70,7 +70,7 @@ fn test_monotone_convex_monotonicity() {
     let knots = vec![0.0, 1.0, 2.0, 3.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9, 0.85].into_boxed_slice();
 
-    let interp = MonotoneConvex::new(knots, dfs).unwrap();
+    let interp = MonotoneConvex::new(knots, dfs, ExtrapolationPolicy::default()).unwrap();
 
     // Check that interpolated values maintain monotone decreasing property
     let val_0_5 = interp.interp(0.5);
@@ -92,7 +92,7 @@ fn test_monotone_convex_shape_preservation() {
     let knots = vec![0.0, 1.0, 2.0, 3.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9, 0.85].into_boxed_slice();
 
-    let interp = MonotoneConvex::new(knots, dfs).unwrap();
+    let interp = MonotoneConvex::new(knots, dfs, ExtrapolationPolicy::default()).unwrap();
 
     // Sample several points and verify reasonable behavior
     let test_points = [0.25, 0.5, 0.75, 1.25, 1.5, 1.75, 2.25, 2.5, 2.75];
@@ -131,7 +131,7 @@ fn test_monotone_convex_near_flat_curve() {
     let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
     let dfs = vec![1.0, 0.999999, 0.999998].into_boxed_slice(); // Very small slopes
 
-    let interp = MonotoneConvex::new(knots, dfs).unwrap();
+    let interp = MonotoneConvex::new(knots, dfs, ExtrapolationPolicy::default()).unwrap();
 
     // Should handle near-zero slopes gracefully
     let mid_value = interp.interp(0.5);
@@ -144,7 +144,7 @@ fn test_monotone_convex_edge_cases() {
     let knots = vec![0.0, 1.0, 2.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95, 0.9].into_boxed_slice();
 
-    let interp = MonotoneConvex::new(knots, dfs).unwrap();
+    let interp = MonotoneConvex::new(knots, dfs, ExtrapolationPolicy::default()).unwrap();
 
     // Test values very close to boundaries (within bounds)
     let near_start = interp.interp(0.001);
@@ -163,7 +163,7 @@ fn test_monotone_convex_two_point_case() {
     let knots = vec![0.0, 1.0].into_boxed_slice();
     let dfs = vec![1.0, 0.95].into_boxed_slice();
 
-    let interp = MonotoneConvex::new(knots, dfs).unwrap();
+    let interp = MonotoneConvex::new(knots, dfs, ExtrapolationPolicy::default()).unwrap();
 
     // Should interpolate reasonably between the two points
     let mid_value = interp.interp(0.5);

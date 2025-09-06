@@ -232,7 +232,7 @@ impl_instrument!(
 
         if time_to_expiry <= 0.0 {
             // Option expired - return intrinsic value
-            let spot_scalar = curves.market_scalar(s.spot_id)?;
+            let spot_scalar = curves.price(s.spot_id)?;
             let spot = match spot_scalar {
                 finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
                 finstack_core::market_data::primitives::MarketScalar::Price(money) => {
@@ -252,10 +252,10 @@ impl_instrument!(
         }
 
         // Get market data
-        let disc_curve = curves.discount(s.disc_id)?;
+        let disc_curve = curves.disc(s.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
-        let spot_scalar = curves.market_scalar(s.spot_id)?;
+        let spot_scalar = curves.price(s.spot_id)?;
         let spot = match spot_scalar {
             finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
             finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
@@ -263,7 +263,7 @@ impl_instrument!(
 
         // Get dividend yield (default to 0 if not specified)
         let q = if let Some(div_id) = s.div_yield_id {
-            match curves.market_scalar(div_id) {
+            match curves.price(div_id) {
                 Ok(scalar) => match scalar {
                     finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
                     finstack_core::market_data::primitives::MarketScalar::Price(_) => 0.0,
@@ -278,7 +278,7 @@ impl_instrument!(
         let sigma = if let Some(impl_vol) = s.implied_vol {
             impl_vol
         } else {
-            let vol_surface = curves.vol_surface(s.vol_id)?;
+            let vol_surface = curves.surface(s.vol_id)?;
             vol_surface.value_clamped(time_to_expiry, s.strike.amount())
         };
 

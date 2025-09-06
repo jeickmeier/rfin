@@ -4,16 +4,19 @@
 //! day-count conventions instead of ad-hoc arithmetic with magic constants.
 
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::F;
 use crate::instruments::fixed_income::cds::CDSConvention;
 
 /// Convert date to year fraction using specified day count.
 ///
-/// Thin wrapper over DiscountCurve::year_fraction for consistency.
+/// Uses the canonical DayCount::year_fraction method directly.
 #[inline]
 pub fn year_fraction(base: Date, end: Date, dc: DayCount) -> F {
-    DiscountCurve::year_fraction(base, end, dc)
+    if end == base {
+        0.0
+    } else {
+        dc.year_fraction(base, end, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0)
+    }
 }
 
 /// Time-to-expiry for volatility instruments using Act/365F.

@@ -158,7 +158,7 @@ impl CalibrationOrchestrator {
                 }
 
                 let (curve, report) = calibrator.calibrate(&rates_quotes, context)?;
-                let updated_context = context.clone().with_discount(curve);
+                let updated_context = context.clone().insert_discount(curve);
                 Ok((updated_context, report))
             }
             CalibrationTarget::ForwardCurve { currency: _, tenor: _ } => {
@@ -180,7 +180,7 @@ impl CalibrationOrchestrator {
                 );
 
                 let (curve, report) = calibrator.calibrate(quotes, context)?;
-                let updated_context = context.clone().with_hazard(curve);
+                let updated_context = context.clone().insert_hazard(curve);
                 Ok((updated_context, report))
             }
             CalibrationTarget::InflationCurve { index } => {
@@ -194,7 +194,7 @@ impl CalibrationOrchestrator {
                 );
 
                 let (curve, report) = calibrator.calibrate(quotes, context)?;
-                let updated_context = context.clone().with_inflation(curve);
+                let updated_context = context.clone().insert_inflation(curve);
                 Ok((updated_context, report))
             }
             CalibrationTarget::VolatilitySurface { underlying } => {
@@ -210,7 +210,7 @@ impl CalibrationOrchestrator {
                 .with_base_date(self.base_date);
 
                 let (surface, report) = calibrator.calibrate(quotes, context)?;
-                let updated_context = context.clone().with_surface(surface);
+                let updated_context = context.clone().insert_surface(surface);
                 Ok((updated_context, report))
             }
             CalibrationTarget::BaseCorrelationCurve { index, maturity_years } => {
@@ -233,7 +233,7 @@ impl CalibrationOrchestrator {
                 // Use the original curve directly since it already has the right data
                 let curve_with_id = curve;
                 
-                let updated_context = context.clone().with_base_correlation(curve_with_id);
+                let updated_context = context.clone().insert_base_correlation(curve_with_id);
                 Ok((updated_context, report))
             }
         }
@@ -657,13 +657,13 @@ impl CalibrationOrchestrator {
         }
 
         // Try 2: InflationCurve lookup
-        if let Ok(inflation_curve) = context.inflation(index) {
+        if let Ok(inflation_curve) = context.infl(index) {
             return Ok(inflation_curve.cpi(0.0));
         }
 
         // Try 3: MarketScalar lookup with standard naming convention
         let base_cpi_key = format!("{}-BASE_CPI", index);
-        if let Ok(market_scalar) = context.market_scalar(&base_cpi_key) {
+        if let Ok(market_scalar) = context.price(&base_cpi_key) {
             return match market_scalar {
                 finstack_core::market_data::primitives::MarketScalar::Unitless(value) => Ok(*value),
                 finstack_core::market_data::primitives::MarketScalar::Price(money) => {
@@ -687,7 +687,7 @@ impl CalibrationOrchestrator {
         let mut validation_errors = HashMap::new();
 
         // Check discount curve properties
-        if let Ok(disc_curve) = context.discount(format!("{}-OIS", self.base_currency)) {
+        if let Ok(disc_curve) = context.disc(format!("{}-OIS", self.base_currency)) {
             // Check monotonicity
             let test_times = vec![0.0, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0];
             let mut prev_df = 1.0;
@@ -799,7 +799,7 @@ mod tests {
         assert!(report.success);
 
         // Should produce a USD OIS discount curve in the context
-        let disc = context.discount("USD-OIS");
+        let disc = context.disc("USD-OIS");
         assert!(disc.is_ok());
     }
 

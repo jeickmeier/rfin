@@ -10,7 +10,6 @@ use crate::instruments::fixed_income::inflation_swap::{InflationSwap, PayReceive
 use crate::instruments::traits::Priceable;
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::inflation::InflationCurve;
 use finstack_core::market_data::interp::InterpStyle;
 use finstack_core::money::Money;
@@ -132,13 +131,13 @@ impl Calibrator<InstrumentQuote, InflationCurve>
         const CALIB_DISC_ID: &str = "CALIB_DISC";
 
         // Ensure discount curve exists in base context (best-effort; pricing will use context provided by caller)
-        let _ = base_context.discount(&self.discount_id)?;
+        let _ = base_context.disc(&self.discount_id)?;
 
         // Note: We don't require an inflation index during calibration; the index is provided by caller when repricing.
 
         for (maturity, par_rate, _idx) in quotes {
             // Time for the CPI knot (Act365F)
-            let t = DiscountCurve::year_fraction(self.base_date, maturity, DayCount::Act365F);
+            let t = DayCount::Act365F.year_fraction(self.base_date, maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
             if t <= 0.0 {
                 continue;
             }
@@ -147,7 +146,7 @@ impl Calibrator<InstrumentQuote, InflationCurve>
             let tau = DayCount::ActAct
                 .year_fraction(self.base_date, maturity, finstack_core::dates::DayCountCtx::default())
                 .unwrap_or_else(|_| {
-                    DiscountCurve::year_fraction(self.base_date, maturity, DayCount::Act365F)
+                    DayCount::Act365F.year_fraction(self.base_date, maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0)
                 });
             // Use analytical breakeven CPI for initial guess to ensure f(x0)=0
             let initial_guess = self.base_cpi * (1.0 + par_rate).powf(tau);
@@ -206,7 +205,7 @@ impl Calibrator<InstrumentQuote, InflationCurve>
                 };
 
                 // Update market context with temp inflation curve  
-                let temp_ctx = base_ctx_clone.clone().with_inflation(temp_curve);
+                let temp_ctx = base_ctx_clone.clone().insert_inflation(temp_curve);
 
                 match swap.value(&temp_ctx, base_date) {
                     Ok(pv) => pv.amount() / notional.amount(),
@@ -282,7 +281,6 @@ mod tests {
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
     use finstack_core::market_data::inflation_index::InflationIndex;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use time::Month;
 
     fn create_test_inflation_quotes() -> Vec<InstrumentQuote> {
@@ -318,8 +316,8 @@ mod tests {
         InflationIndex::new("US-CPI-U", observations, Currency::USD).unwrap()
     }
 
-    fn create_test_discount_curve() -> DiscountCurve {
-        DiscountCurve::builder("USD-OIS")
+    fn create_test_discount_curve() -> finstack_core::market_data::term_structures::discount_curve::DiscountCurve {
+        finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder("USD-OIS")
             .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80), (10.0, 0.65)])
             .build()
@@ -342,7 +340,7 @@ mod tests {
         let _inflation_index = create_test_inflation_index();
         
         // Create market context with the discount curve
-        let market_context = MarketContext::new().with_discount(discount_curve);
+        let market_context = MarketContext::new().insert_discount(discount_curve);
         
         // Use the calibrate method directly with proper market context
         let result = calibrator.calibrate(&quotes, &market_context);
@@ -367,7 +365,7 @@ mod tests {
 
         // Discount curve required by calibrator and instrument pricer
         let disc_curve = create_test_discount_curve();
-        let base_context = MarketContext::new().with_discount(disc_curve).with_price(
+        let base_context = MarketContext::new().insert_discount(disc_curve).insert_price(
             "US-CPI-U-BASE_CPI",
             finstack_core::market_data::primitives::MarketScalar::Unitless(base_cpi),
         );
@@ -402,11 +400,11 @@ mod tests {
 
         // Market context with calibrated inflation curve and index
         let ctx = base_context
-            .with_inflation_index("US-CPI-U", infl_index)
-            .with_inflation(infl_curve);
+            .insert_inflation_index("US-CPI-U", infl_index)
+            .insert_inflation(infl_curve);
 
         // Sanity checks: inflation pieces are in context
-        let ic = ctx.inflation("US-CPI-U").expect("inflation curve missing");
+        let ic = ctx.infl("US-CPI-U").expect("inflation curve missing");
         assert!(ic.cpi(0.0) > 0.0);
         assert!(
             ctx.inflation_index("US-CPI-U").is_some(),

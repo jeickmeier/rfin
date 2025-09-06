@@ -27,8 +27,9 @@ impl CubicHermite {
     /// # Arguments
     /// * `knots` – strictly ascending knot times (years).
     /// * `dfs`   – corresponding discount factors (> 0).
+    /// * `extrapolation_policy` – policy for out-of-bounds evaluation.
     #[allow(clippy::boxed_local)]
-    pub fn new(knots: Box<[F]>, dfs: Box<[F]>) -> crate::Result<Self> {
+    pub fn new(knots: Box<[F]>, dfs: Box<[F]>, extrapolation_policy: ExtrapolationPolicy) -> crate::Result<Self> {
         debug_assert_eq!(knots.len(), dfs.len());
         // Basic validation – at least two points and strictly ascending times.
         validate_knots(&knots)?;
@@ -42,7 +43,7 @@ impl CubicHermite {
             knots, 
             dfs, 
             ms, 
-            extrapolation_policy: ExtrapolationPolicy::default() 
+            extrapolation_policy
         })
     }
 
@@ -160,13 +161,6 @@ impl InterpFn for CubicHermite {
         df_dt / h
     }
 
-    fn set_extrapolation_policy(&mut self, policy: ExtrapolationPolicy) {
-        self.extrapolation_policy = policy;
-    }
-
-    fn extrapolation_policy(&self) -> ExtrapolationPolicy {
-        self.extrapolation_policy
-    }
 }
 
 // -----------------------------------------------------------------------------

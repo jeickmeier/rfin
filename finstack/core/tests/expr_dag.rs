@@ -2,7 +2,8 @@
 
 mod common;
 
-use finstack_core::expr::{DagBuilder, Expr, ExprNode, Function, PushdownAnalyzer};
+use finstack_core::expr::{Expr, ExprNode, Function};
+use finstack_core::expr::dag::{DagBuilder, PushdownAnalyzer};
 use finstack_core::config::{ResultsMeta, NumericMode, RoundingMode, RoundingContext};
 
 #[test]

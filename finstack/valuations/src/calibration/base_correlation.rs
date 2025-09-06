@@ -487,7 +487,7 @@ mod tests {
             .unwrap();
 
         ValuationMarketContext::new()
-            .with_discount(discount_curve)
+            .insert_discount(discount_curve)
             .with_credit_index("CDX.NA.IG.42", index_data)
     }
 

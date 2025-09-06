@@ -91,7 +91,7 @@ impl PyMarketContext {
         let static_id: &'static str = Box::leak(curve_id.to_string().into_boxed_str());
 
         self.inner
-            .discount(static_id)
+            .disc(static_id)
             .map(|_curve| {
                 // Return a Python None for now
                 py.None()

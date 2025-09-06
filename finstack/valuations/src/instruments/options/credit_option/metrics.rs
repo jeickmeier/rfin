@@ -35,7 +35,7 @@ impl MetricCalculator for DeltaCalculator {
         } else {
             context
                 .curves
-                .vol_surface(option.vol_id)?
+                .surface(option.vol_id)?
                 .value_clamped(time_to_expiry, option.strike_spread_bp)
         };
 
@@ -79,7 +79,7 @@ impl MetricCalculator for GammaCalculator {
         } else {
             context
                 .curves
-                .vol_surface(option.vol_id)?
+                .surface(option.vol_id)?
                 .value_clamped(time_to_expiry, option.strike_spread_bp)
         };
 
@@ -122,7 +122,7 @@ impl MetricCalculator for VegaCalculator {
         } else {
             context
                 .curves
-                .vol_surface(option.vol_id)?
+                .surface(option.vol_id)?
                 .value_clamped(time_to_expiry, option.strike_spread_bp)
         };
 
@@ -149,7 +149,7 @@ impl MetricCalculator for ThetaCalculator {
             return Ok(0.0);
         }
 
-        let disc_curve = context.curves.discount(option.disc_id)?;
+        let disc_curve = context.curves.disc(option.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
         let hazard_curve = context.curves.hazard(option.credit_id)?;
@@ -168,7 +168,7 @@ impl MetricCalculator for ThetaCalculator {
         } else {
             context
                 .curves
-                .vol_surface(option.vol_id)?
+                .surface(option.vol_id)?
                 .value_clamped(time_to_expiry, option.strike_spread_bp)
         };
 

@@ -21,11 +21,11 @@ impl MetricCalculator for YearFractionCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let deposit: &Deposit = context.instrument_as()?;
 
-        Ok(DiscountCurve::year_fraction(
+        Ok(deposit.day_count.year_fraction(
             deposit.start,
             deposit.end,
-            deposit.day_count,
-        ))
+            finstack_core::dates::DayCountCtx::default(),
+        ).unwrap_or(0.0))
     }
 }
 
@@ -41,7 +41,7 @@ impl MetricCalculator for DfStartCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let deposit: &Deposit = context.instrument_as()?;
 
-        let disc = context.curves.discount(deposit.disc_id)?;
+        let disc = context.curves.disc(deposit.disc_id)?;
         let base = disc.base_date();
 
         Ok(DiscountCurve::df_on(
@@ -65,7 +65,7 @@ impl MetricCalculator for DfEndCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let deposit: &Deposit = context.instrument_as()?;
 
-        let disc = context.curves.discount(deposit.disc_id)?;
+        let disc = context.curves.disc(deposit.disc_id)?;
         let base = disc.base_date();
 
         Ok(DiscountCurve::df_on(

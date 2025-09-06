@@ -111,7 +111,7 @@ impl CdsTranche {
 }
 
 // Manual implementation of traits to support complex market data
-use crate::instruments::build_with_metrics;
+use crate::instruments::build_with_metrics_dyn;
 use crate::instruments::traits::Priceable;
 use crate::market_data::ValuationMarketContext;
 use crate::results::ValuationResult;
@@ -146,7 +146,7 @@ impl Priceable for CdsTranche {
         metrics: &[MetricId],
     ) -> finstack_core::Result<ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        build_with_metrics(self.clone(), curves, as_of, base_value, metrics)
+        build_with_metrics_dyn(self, curves, as_of, base_value, metrics)
     }
 }
 

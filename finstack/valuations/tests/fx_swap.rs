@@ -57,9 +57,9 @@ fn setup_market_data(as_of: Date) -> MarketContext {
     let fx_matrix = FxMatrix::new(Arc::new(provider));
 
     MarketContext::new()
-        .with_discount(usd_curve)
-        .with_discount(eur_curve)
-        .with_fx(fx_matrix)
+        .insert_discount(usd_curve)
+        .insert_discount(eur_curve)
+        .insert_fx(fx_matrix)
 }
 
 #[test]

@@ -13,8 +13,8 @@ impl MetricCalculator for DeltaCalculator {
         let option: &InterestRateOption = context.instrument_as()?;
 
         // Get market curves
-        let disc_curve = context.curves.discount(option.disc_id)?;
-        let fwd_curve = context.curves.forecast(option.forward_id)?;
+        let disc_curve = context.curves.disc(option.disc_id)?;
+        let fwd_curve = context.curves.fwd(option.forward_id)?;
         let base_date = disc_curve.base_date();
 
         // For caps/floors, aggregate delta across all caplets/floorlets
@@ -51,7 +51,7 @@ impl MetricCalculator for DeltaCalculator {
                     } else {
                         context
                             .curves
-                            .vol_surface(option.vol_id)?
+                            .surface(option.vol_id)?
                             .value_clamped(time_to_fixing, option.strike_rate)
                     };
 
@@ -84,7 +84,7 @@ impl MetricCalculator for DeltaCalculator {
             } else {
                 context
                     .curves
-                    .vol_surface(option.vol_id)?
+                    .surface(option.vol_id)?
                     .value_clamped(time_to_fixing, option.strike_rate)
             };
 
@@ -106,8 +106,8 @@ impl MetricCalculator for GammaCalculator {
         let option: &InterestRateOption = context.instrument_as()?;
 
         // Similar aggregation logic as Delta but for Gamma
-        let disc_curve = context.curves.discount(option.disc_id)?;
-        let fwd_curve = context.curves.forecast(option.forward_id)?;
+        let disc_curve = context.curves.disc(option.disc_id)?;
+        let fwd_curve = context.curves.fwd(option.forward_id)?;
         let base_date = disc_curve.base_date();
 
         if matches!(
@@ -149,7 +149,7 @@ impl MetricCalculator for GammaCalculator {
                     } else {
                         context
                             .curves
-                            .vol_surface(option.vol_id)?
+                            .surface(option.vol_id)?
                             .value_clamped(time_to_fixing, option.strike_rate)
                     };
 
@@ -183,7 +183,7 @@ impl MetricCalculator for GammaCalculator {
             } else {
                 context
                     .curves
-                    .vol_surface(option.vol_id)?
+                    .surface(option.vol_id)?
                     .value_clamped(time_to_fixing, option.strike_rate)
             };
 
@@ -203,8 +203,8 @@ pub struct VegaCalculator;
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &InterestRateOption = context.instrument_as()?;
-        let disc_curve = context.curves.discount(option.disc_id)?;
-        let fwd_curve = context.curves.forecast(option.forward_id)?;
+        let disc_curve = context.curves.disc(option.disc_id)?;
+        let fwd_curve = context.curves.fwd(option.forward_id)?;
         let base_date = disc_curve.base_date();
 
         if matches!(
@@ -246,7 +246,7 @@ impl MetricCalculator for VegaCalculator {
                     } else {
                         context
                             .curves
-                            .vol_surface(option.vol_id)?
+                            .surface(option.vol_id)?
                             .value_clamped(time_to_fixing, option.strike_rate)
                     };
 
@@ -279,7 +279,7 @@ impl MetricCalculator for VegaCalculator {
             } else {
                 context
                     .curves
-                    .vol_surface(option.vol_id)?
+                    .surface(option.vol_id)?
                     .value_clamped(time_to_fixing, option.strike_rate)
             };
 

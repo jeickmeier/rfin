@@ -46,7 +46,7 @@ fn test_market_context_new() {
 #[test]
 fn test_market_context_with_fx() {
     let fx_matrix = FxMatrix::new(Arc::new(TestFxProvider));
-    let ctx = MarketContext::new().with_fx(fx_matrix);
+    let ctx = MarketContext::new().insert_fx(fx_matrix);
 
     // Should have FX matrix
     assert!(ctx.fx.is_some());
@@ -67,7 +67,7 @@ fn test_market_context_with_surface() {
         .build()
         .unwrap();
 
-    let ctx: MarketContext = MarketContext::new().with_surface(surface);
+    let ctx: MarketContext = MarketContext::new().insert_surface(surface);
 
     // Should have the surface
     assert_eq!(ctx.surfaces.len(), 1);
@@ -77,7 +77,7 @@ fn test_market_context_with_surface() {
 #[test]
 fn test_market_context_with_price() {
     let price = MarketScalar::Unitless(100.0);
-    let ctx: MarketContext = MarketContext::new().with_price("SPOT_PRICE", price);
+    let ctx: MarketContext = MarketContext::new().insert_price("SPOT_PRICE", price);
 
     // Should have the price
     assert_eq!(ctx.prices.len(), 1);
@@ -97,7 +97,7 @@ fn test_market_context_with_series() {
     let observations: Vec<(Date, f64)> = dates.into_iter().zip(values).collect();
     let series = ScalarTimeSeries::new("TEST_SERIES", observations, None).unwrap();
 
-    let ctx: MarketContext = MarketContext::new().with_series(series);
+    let ctx: MarketContext = MarketContext::new().insert_series(series);
 
     // Should have the series
     assert_eq!(ctx.series.len(), 1);
@@ -118,24 +118,24 @@ fn test_market_context_vol_surface_getter() {
         .build()
         .unwrap();
 
-    let ctx: MarketContext = MarketContext::new().with_surface(surface);
+    let ctx: MarketContext = MarketContext::new().insert_surface(surface);
 
     // Should be able to retrieve the surface
-    let retrieved = ctx.vol_surface("TEST_VOL");
+    let retrieved = ctx.surface("TEST_VOL");
     assert!(retrieved.is_ok());
 
     // Should error for non-existent surface
-    let missing = ctx.vol_surface("MISSING");
+    let missing = ctx.surface("MISSING");
     assert!(missing.is_err());
 }
 
 #[test]
 fn test_market_context_market_scalar_getter() {
     let price = MarketScalar::Unitless(123.45);
-    let ctx: MarketContext = MarketContext::new().with_price("TEST_PRICE", price);
+    let ctx: MarketContext = MarketContext::new().insert_price("TEST_PRICE", price);
 
     // Should be able to retrieve the scalar
-    let retrieved = ctx.market_scalar("TEST_PRICE");
+    let retrieved = ctx.price("TEST_PRICE");
     assert!(retrieved.is_ok());
     // Check the value based on the enum variant
     match retrieved.unwrap() {
@@ -144,7 +144,7 @@ fn test_market_context_market_scalar_getter() {
     }
 
     // Should error for non-existent scalar
-    let missing = ctx.market_scalar("MISSING");
+    let missing = ctx.price("MISSING");
     assert!(missing.is_err());
 }
 
@@ -159,14 +159,14 @@ fn test_market_context_scalar_time_series_getter() {
     let observations: Vec<(Date, f64)> = dates.into_iter().zip(values).collect();
     let series = ScalarTimeSeries::new("TEST_SERIES", observations, None).unwrap();
 
-    let ctx: MarketContext = MarketContext::new().with_series(series);
+    let ctx: MarketContext = MarketContext::new().insert_series(series);
 
     // Should be able to retrieve the series
-    let retrieved = ctx.scalar_time_series("TEST_SERIES");
+    let retrieved = ctx.series("TEST_SERIES");
     assert!(retrieved.is_ok());
 
     // Should error for non-existent series
-    let missing = ctx.scalar_time_series("MISSING");
+    let missing = ctx.series("MISSING");
     assert!(missing.is_err());
 }
 
@@ -197,10 +197,10 @@ fn test_market_context_chaining() {
     let series = ScalarTimeSeries::new("SERIES", observations, None).unwrap();
 
     let ctx: MarketContext = MarketContext::new()
-        .with_fx(fx_matrix)
-        .with_surface(surface)
-        .with_price("PRICE", price)
-        .with_series(series);
+        .insert_fx(fx_matrix)
+        .insert_surface(surface)
+        .insert_price("PRICE", price)
+        .insert_series(series);
 
     // Should have all components
     assert!(ctx.fx.is_some());

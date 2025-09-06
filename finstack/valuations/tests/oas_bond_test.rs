@@ -46,7 +46,7 @@ fn create_test_curve() -> DiscountCurve {
 /// Create test market context
 fn create_market_context() -> MarketContext {
     let curve = create_test_curve();
-    MarketContext::new().with_discount(curve)
+    MarketContext::new().insert_discount(curve)
 }
 
 /// Create a plain (non-callable, non-putable) bond
