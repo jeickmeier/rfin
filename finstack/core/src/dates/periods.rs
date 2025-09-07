@@ -4,14 +4,15 @@
 //! (e.g., "2025Q1", "2025M03", "2025W05", "2025H2", "2025") and
 //! range expressions like "2025Q1..Q2" (relative end within the same year) or
 //! "2024Q4..2025Q2" (absolute). Tracks actual vs forecast flags per period.
+//! Note: weekly periods are non-ISO, defined as 7-day blocks anchored at Jan-01.
 
 use crate::dates::utils::add_months;
-use crate::dates::{Date, Frequency};
+use crate::dates::Date;
 use core::fmt;
 use core::str::FromStr;
 use time::Month;
 
-// Map schedule frequency to period categories we support in this module.
+// Period categories supported in this module.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum PeriodKind {
     Quarterly,
@@ -19,26 +20,6 @@ enum PeriodKind {
     Weekly,
     SemiAnnual,
     Annual,
-}
-
-#[inline]
-fn period_kind_from_frequency(freq: Frequency) -> crate::Result<PeriodKind> {
-    if let Some(m) = freq.months() {
-        return match m {
-            1 => Ok(PeriodKind::Monthly),
-            3 => Ok(PeriodKind::Quarterly),
-            6 => Ok(PeriodKind::SemiAnnual),
-            12 => Ok(PeriodKind::Annual),
-            _ => Err(crate::error::InputError::Invalid.into()),
-        };
-    }
-    if let Some(d) = freq.days() {
-        return match d {
-            7 => Ok(PeriodKind::Weekly),
-            _ => Err(crate::error::InputError::Invalid.into()),
-        };
-    }
-    Err(crate::error::InputError::Invalid.into())
 }
 
 /// Identifier for a period like 2025Q1 or 2025M03.
@@ -53,50 +34,30 @@ pub struct PeriodId {
     /// - Half:    1..=2
     /// - Annual:  1
     pub index: u8,
-    /// Frequency of the period.
-    pub freq: Frequency,
+    /// Kind of the period.
+    kind: PeriodKind,
 }
 
 impl PeriodId {
     /// Build a quarterly identifier.
     pub fn quarter(year: i32, q: u8) -> Self {
-        Self {
-            year,
-            index: q,
-            freq: Frequency::quarterly(),
-        }
+        Self { year, index: q, kind: PeriodKind::Quarterly }
     }
     /// Build a monthly identifier.
     pub fn month(year: i32, m: u8) -> Self {
-        Self {
-            year,
-            index: m,
-            freq: Frequency::monthly(),
-        }
+        Self { year, index: m, kind: PeriodKind::Monthly }
     }
     /// Build a weekly identifier.
     pub fn week(year: i32, w: u8) -> Self {
-        Self {
-            year,
-            index: w,
-            freq: Frequency::weekly(),
-        }
+        Self { year, index: w, kind: PeriodKind::Weekly }
     }
     /// Build a semi-annual identifier.
     pub fn half(year: i32, h: u8) -> Self {
-        Self {
-            year,
-            index: h,
-            freq: Frequency::semi_annual(),
-        }
+        Self { year, index: h, kind: PeriodKind::SemiAnnual }
     }
     /// Build an annual identifier.
     pub fn annual(year: i32) -> Self {
-        Self {
-            year,
-            index: 1,
-            freq: Frequency::annual(),
-        }
+        Self { year, index: 1, kind: PeriodKind::Annual }
     }
 }
 
@@ -158,6 +119,38 @@ impl FiscalConfig {
             start_day: 1,
         }
     }
+
+    /// Canadian fiscal year (April 1).
+    pub fn canada() -> Self {
+        Self {
+            start_month: 4,
+            start_day: 1,
+        }
+    }
+
+    /// Australian fiscal year (July 1).
+    pub fn australia() -> Self {
+        Self {
+            start_month: 7,
+            start_day: 1,
+        }
+    }
+
+    /// German fiscal year (January 1).
+    pub fn germany() -> Self {
+        Self {
+            start_month: 1,
+            start_day: 1,
+        }
+    }
+
+    /// French fiscal year (January 1).
+    pub fn france() -> Self {
+        Self {
+            start_month: 1,
+            start_day: 1,
+        }
+    }
 }
 
 /// A concrete period with start/end dates and actual/forecast flag.
@@ -188,15 +181,7 @@ impl PeriodPlan {
 /// Build periods from a range expression (e.g., "2025Q1..Q4" or "2024Q4..2025Q2").
 /// If `actuals_until` is Some(id string), periods <= that id are marked actual, rest forecast.
 pub fn build_periods(range: &str, actuals_until: Option<&str>) -> crate::Result<PeriodPlan> {
-    let (start, end) = parse_range(range)?;
-    let mut ids = enumerate_ids(start, end)?;
-
-    let actual_cut = actuals_until.map(parse_id).transpose()?;
-    let periods = ids
-        .drain(..)
-        .map(|pid| make_period(pid, actual_cut.as_ref()))
-        .collect::<crate::Result<Vec<_>>>()?;
-    Ok(PeriodPlan { periods })
+    build_periods_with_calendar(range, Gregorian, actuals_until)
 }
 
 /// Build fiscal periods from a range expression with custom fiscal year configuration.
@@ -206,53 +191,73 @@ pub fn build_fiscal_periods(
     fiscal_config: FiscalConfig,
     actuals_until: Option<&str>,
 ) -> crate::Result<PeriodPlan> {
+    build_periods_with_calendar(range, FiscalCalendar { config: fiscal_config }, actuals_until)
+}
+
+// Minimal calendar abstraction to unify bounds computation across calendar and fiscal paths.
+trait PeriodCalendar {
+    fn bounds(&self, year: i32, kind: PeriodKind, index: u8) -> (Date, Date);
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Gregorian;
+
+impl PeriodCalendar for Gregorian {
+    fn bounds(&self, year: i32, kind: PeriodKind, index: u8) -> (Date, Date) {
+        match kind {
+            PeriodKind::Quarterly => quarter_bounds(year, index),
+            PeriodKind::Monthly => month_bounds(year, index),
+            PeriodKind::Weekly => week_bounds(year, index),
+            PeriodKind::SemiAnnual => half_bounds(year, index),
+            PeriodKind::Annual => annual_bounds(year),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct FiscalCalendar {
+    config: FiscalConfig,
+}
+
+impl PeriodCalendar for FiscalCalendar {
+    fn bounds(&self, year: i32, kind: PeriodKind, index: u8) -> (Date, Date) {
+        match kind {
+            PeriodKind::Quarterly => fiscal_quarter_bounds(year, index, self.config),
+            PeriodKind::Monthly => fiscal_month_bounds(year, index, self.config),
+            PeriodKind::Weekly => fiscal_week_bounds(year, index, self.config),
+            PeriodKind::SemiAnnual => fiscal_half_bounds(year, index, self.config),
+            PeriodKind::Annual => fiscal_annual_bounds(year, self.config),
+        }
+    }
+}
+
+/// Generic builder using a provided calendar policy.
+fn build_periods_with_calendar<C: PeriodCalendar>(
+    range: &str,
+    calendar: C,
+    actuals_until: Option<&str>,
+) -> crate::Result<PeriodPlan> {
     let (start, end) = parse_range(range)?;
     let mut ids = enumerate_ids(start, end)?;
 
     let actual_cut = actuals_until.map(parse_id).transpose()?;
     let periods = ids
         .drain(..)
-        .map(|pid| make_fiscal_period(pid, fiscal_config, actual_cut.as_ref()))
+        .map(|pid| make_period_with_calendar(pid, &calendar, actual_cut.as_ref()))
         .collect::<crate::Result<Vec<_>>>()?;
     Ok(PeriodPlan { periods })
 }
 
-fn make_period(pid: PeriodId, cut: Option<&PeriodId>) -> crate::Result<Period> {
-    let (start, end) = match period_kind_from_frequency(pid.freq)? {
-        PeriodKind::Quarterly => quarter_bounds(pid.year, pid.index),
-        PeriodKind::Monthly => month_bounds(pid.year, pid.index),
-        PeriodKind::Weekly => week_bounds(pid.year, pid.index),
-        PeriodKind::SemiAnnual => half_bounds(pid.year, pid.index),
-        PeriodKind::Annual => annual_bounds(pid.year),
-    };
-    let is_actual = cut.map(|c| pid <= *c).unwrap_or(false);
-    Ok(Period {
-        id: pid,
-        start,
-        end,
-        is_actual,
-    })
-}
+// (old local variants of make_period were replaced by calendar-based helper)
 
-fn make_fiscal_period(
+fn make_period_with_calendar<C: PeriodCalendar>(
     pid: PeriodId,
-    config: FiscalConfig,
+    calendar: &C,
     cut: Option<&PeriodId>,
 ) -> crate::Result<Period> {
-    let (start, end) = match period_kind_from_frequency(pid.freq)? {
-        PeriodKind::Quarterly => fiscal_quarter_bounds(pid.year, pid.index, config),
-        PeriodKind::Monthly => fiscal_month_bounds(pid.year, pid.index, config),
-        PeriodKind::Weekly => fiscal_week_bounds(pid.year, pid.index, config),
-        PeriodKind::SemiAnnual => fiscal_half_bounds(pid.year, pid.index, config),
-        PeriodKind::Annual => fiscal_annual_bounds(pid.year, config),
-    };
+    let (start, end) = calendar.bounds(pid.year, pid.kind, pid.index);
     let is_actual = cut.map(|c| pid <= *c).unwrap_or(false);
-    Ok(Period {
-        id: pid,
-        start,
-        end,
-        is_actual,
-    })
+    Ok(Period { id: pid, start, end, is_actual })
 }
 
 fn quarter_bounds(year: i32, q: u8) -> (Date, Date) {
@@ -418,12 +423,14 @@ pub fn days_in_month(year: i32, month: u8) -> u8 {
 }
 
 fn parse_range(s: &str) -> crate::Result<(PeriodId, PeriodId)> {
-    let parts: Vec<&str> = s.split("..").collect();
-    if parts.len() != 2 {
-        return Err(crate::error::InputError::Invalid.into());
-    }
-    let start = parse_id(parts[0])?;
-    let rhs = parts[1].trim();
+    let s = s.trim();
+    let (lhs, rhs_raw) = s
+        .split_once("..")
+        .ok_or(crate::error::InputError::Invalid)?;
+    let start = parse_id(lhs)?;
+    let rhs_raw = rhs_raw.trim();
+    let rhs_upper = rhs_raw.to_ascii_uppercase();
+    let rhs = rhs_upper.as_str();
     // Relative if RHS starts with a letter (Q/M/W/H/A). Absolute if it starts with a digit (YYYY...).
     let end = if rhs
         .chars()
@@ -434,48 +441,52 @@ fn parse_range(s: &str) -> crate::Result<(PeriodId, PeriodId)> {
         parse_id(rhs)?
     } else {
         // relative form like "..Q4" / "..M12" / "..W52" / "..H2" / "..A"
-        match period_kind_from_frequency(start.freq)? {
-            PeriodKind::Quarterly => PeriodId {
-                year: start.year,
-                index: rhs
+        match start.kind {
+            PeriodKind::Quarterly => {
+                let idx: u8 = rhs
                     .trim_start_matches('Q')
                     .parse()
-                    .map_err(|_| crate::error::InputError::Invalid)?,
-                freq: Frequency::quarterly(),
-            },
-            PeriodKind::Monthly => PeriodId {
-                year: start.year,
-                index: rhs
+                    .map_err(|_| crate::error::InputError::Invalid)?;
+                if !(1..=4).contains(&idx) {
+                    return Err(crate::error::InputError::Invalid.into());
+                }
+                PeriodId { year: start.year, index: idx, kind: PeriodKind::Quarterly }
+            }
+            PeriodKind::Monthly => {
+                let idx: u8 = rhs
                     .trim_start_matches('M')
                     .parse()
-                    .map_err(|_| crate::error::InputError::Invalid)?,
-                freq: Frequency::monthly(),
-            },
-            PeriodKind::Weekly => PeriodId {
-                year: start.year,
-                index: rhs
+                    .map_err(|_| crate::error::InputError::Invalid)?;
+                if !(1..=12).contains(&idx) {
+                    return Err(crate::error::InputError::Invalid.into());
+                }
+                PeriodId { year: start.year, index: idx, kind: PeriodKind::Monthly }
+            }
+            PeriodKind::Weekly => {
+                let idx: u8 = rhs
                     .trim_start_matches('W')
                     .parse()
-                    .map_err(|_| crate::error::InputError::Invalid)?,
-                freq: Frequency::weekly(),
-            },
-            PeriodKind::SemiAnnual => PeriodId {
-                year: start.year,
-                index: rhs
+                    .map_err(|_| crate::error::InputError::Invalid)?;
+                if !(1..=53).contains(&idx) {
+                    return Err(crate::error::InputError::Invalid.into());
+                }
+                PeriodId { year: start.year, index: idx, kind: PeriodKind::Weekly }
+            }
+            PeriodKind::SemiAnnual => {
+                let idx: u8 = rhs
                     .trim_start_matches('H')
                     .parse()
-                    .map_err(|_| crate::error::InputError::Invalid)?,
-                freq: Frequency::semi_annual(),
-            },
-            PeriodKind::Annual => PeriodId {
-                year: start.year,
-                index: 1,
-                freq: Frequency::annual(),
-            },
+                    .map_err(|_| crate::error::InputError::Invalid)?;
+                if !(1..=2).contains(&idx) {
+                    return Err(crate::error::InputError::Invalid.into());
+                }
+                PeriodId { year: start.year, index: idx, kind: PeriodKind::SemiAnnual }
+            }
+            PeriodKind::Annual => PeriodId { year: start.year, index: 1, kind: PeriodKind::Annual },
         }
     };
     // Validate period kind consistency and non-inverted ranges
-    if period_kind_from_frequency(start.freq)? != period_kind_from_frequency(end.freq)? {
+    if start.kind != end.kind {
         return Err(crate::error::InputError::Invalid.into());
     }
     if start > end {
@@ -486,6 +497,9 @@ fn parse_range(s: &str) -> crate::Result<(PeriodId, PeriodId)> {
 
 fn parse_id(s: &str) -> crate::Result<PeriodId> {
     let s = s.trim();
+    // Normalize to uppercase to accept lowercase inputs.
+    let s = s.to_ascii_uppercase();
+    let s = s.as_str();
     if let Some(i) = s.find('Q') {
         // quarterly
         let year: i32 = s[..i]
@@ -556,7 +570,7 @@ fn enumerate_ids(mut cur: PeriodId, end: PeriodId) -> crate::Result<Vec<PeriodId
 }
 
 fn step(mut id: PeriodId) -> crate::Result<PeriodId> {
-    match period_kind_from_frequency(id.freq)? {
+    match id.kind {
         PeriodKind::Quarterly => {
             if id.index == 4 {
                 id.year += 1;
@@ -597,16 +611,7 @@ fn step(mut id: PeriodId) -> crate::Result<PeriodId> {
     Ok(id)
 }
 
-#[inline]
-fn bounds_for_id(pid: &PeriodId) -> crate::Result<(Date, Date)> {
-    match period_kind_from_frequency(pid.freq)? {
-        PeriodKind::Quarterly => Ok(quarter_bounds(pid.year, pid.index)),
-        PeriodKind::Monthly => Ok(month_bounds(pid.year, pid.index)),
-        PeriodKind::Weekly => Ok(week_bounds(pid.year, pid.index)),
-        PeriodKind::SemiAnnual => Ok(half_bounds(pid.year, pid.index)),
-        PeriodKind::Annual => Ok(annual_bounds(pid.year)),
-    }
-}
+// local helper removed; ordering uses Gregorian bounds directly
 
 // Ordering helpers for PeriodId
 impl PartialOrd for PeriodId {
@@ -621,8 +626,8 @@ impl Ord for PeriodId {
             return self.year.cmp(&other.year);
         }
 
-        let self_kind = period_kind_from_frequency(self.freq).unwrap_or(PeriodKind::Quarterly);
-        let other_kind = period_kind_from_frequency(other.freq).unwrap_or(PeriodKind::Quarterly);
+        let self_kind = self.kind;
+        let other_kind = other.kind;
 
         // Within the same frequency kind and year, order by index.
         if self_kind == other_kind {
@@ -630,21 +635,10 @@ impl Ord for PeriodId {
         }
 
         // Mixed frequencies in the same year: order by actual calendar span
-        // (start date, then end date). This avoids arbitrary cross-kind ordering.
-        let (self_start, self_end) = bounds_for_id(self).unwrap_or_else(|_| {
-            // Fallback to year boundaries if frequency is unsupported
-            (
-                Date::from_calendar_date(self.year, time::Month::January, 1).unwrap(),
-                Date::from_calendar_date(self.year + 1, time::Month::January, 1).unwrap(),
-            )
-        });
-        let (other_start, other_end) = bounds_for_id(other).unwrap_or_else(|_| {
-            // Fallback to year boundaries if frequency is unsupported
-            (
-                Date::from_calendar_date(other.year, time::Month::January, 1).unwrap(),
-                Date::from_calendar_date(other.year + 1, time::Month::January, 1).unwrap(),
-            )
-        });
+        // (start date, then end date) using Gregorian bounds.
+        let greg = Gregorian;
+        let (self_start, self_end) = greg.bounds(self.year, self.kind, self.index);
+        let (other_start, other_end) = greg.bounds(other.year, other.kind, other.index);
 
         let by_start = self_start.cmp(&other_start);
         if by_start != std::cmp::Ordering::Equal {
@@ -666,7 +660,7 @@ impl Ord for PeriodId {
 
 impl fmt::Display for PeriodId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match period_kind_from_frequency(self.freq).unwrap_or(PeriodKind::Quarterly) {
+        match self.kind {
             PeriodKind::Quarterly => write!(f, "{}Q{}", self.year, self.index),
             PeriodKind::Monthly => write!(f, "{}M{:02}", self.year, self.index),
             PeriodKind::Weekly => write!(f, "{}W{:02}", self.year, self.index),
@@ -870,6 +864,37 @@ mod tests {
     }
 
     #[test]
+    fn parse_lowercase_relative_quarters() {
+        let plan = build_periods("2025q1..q2", None).unwrap();
+        assert_eq!(plan.periods.len(), 2);
+        assert_eq!(
+            plan.periods[0].start,
+            Date::from_calendar_date(2025, Month::January, 1).unwrap()
+        );
+        assert_eq!(
+            plan.periods[1].end,
+            Date::from_calendar_date(2025, Month::July, 1).unwrap()
+        );
+    }
+
+    #[test]
+    fn invalid_relative_index_is_error() {
+        let err = build_periods("2025Q1..Q5", None).unwrap_err();
+        match err {
+            crate::error::Error::Input(crate::error::InputError::Invalid) => {}
+            other => panic!("expected Invalid, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn period_id_roundtrip_display_parse() {
+        let id = PeriodId::month(2025, 3);
+        let s = id.to_string();
+        let parsed: PeriodId = s.parse().unwrap();
+        assert_eq!(parsed, id);
+    }
+
+    #[test]
     fn contiguity_quarters() {
         let plan = build_periods("2025Q1..Q4", None).unwrap();
         for w in plan.periods.windows(2) {
@@ -919,5 +944,37 @@ mod tests {
         for w in plan.periods.windows(2) {
             assert_eq!(w[0].end, w[1].start);
         }
+    }
+
+    #[test]
+    fn roundtrip_all_kinds_display_parse() {
+        // Quarters
+        for q in 1..=4u8 {
+            let id = PeriodId::quarter(2025, q);
+            let parsed: PeriodId = id.to_string().parse().unwrap();
+            assert_eq!(parsed, id);
+        }
+        // Months
+        for m in 1..=12u8 {
+            let id = PeriodId::month(2025, m);
+            let parsed: PeriodId = id.to_string().parse().unwrap();
+            assert_eq!(parsed, id);
+        }
+        // Weeks
+        for w in 1..=3u8 { // keep small to avoid long runs
+            let id = PeriodId::week(2025, w);
+            let parsed: PeriodId = id.to_string().parse().unwrap();
+            assert_eq!(parsed, id);
+        }
+        // Halves
+        for h in 1..=2u8 {
+            let id = PeriodId::half(2025, h);
+            let parsed: PeriodId = id.to_string().parse().unwrap();
+            assert_eq!(parsed, id);
+        }
+        // Annual
+        let id = PeriodId::annual(2025);
+        let parsed: PeriodId = id.to_string().parse().unwrap();
+        assert_eq!(parsed, id);
     }
 }
