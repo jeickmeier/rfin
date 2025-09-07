@@ -1,5 +1,5 @@
-use crate::{math::interp::LogLinearDf, F};
 use super::InterpFn;
+use crate::{math::interp::LogLinearDf, F};
 
 /// Flat-forward DF interpolator – constant instantaneous forward rate between knots.
 /// Implemented via linear interpolation on log DF (equivalent behaviour).

@@ -1,5 +1,5 @@
-use crate::{error::InputError, math::interp::ExtrapolationPolicy, F};
 use super::InterpFn;
+use crate::{error::InputError, math::interp::ExtrapolationPolicy, F};
 
 /// Piece-wise linear interpolation on discount factors.
 ///

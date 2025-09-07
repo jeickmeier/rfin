@@ -6,13 +6,13 @@
 
 pub mod distributions;
 pub mod integration;
+pub mod interp;
 pub mod random;
 pub mod root_finding;
 pub mod solver;
 pub mod special_functions;
 pub mod stats;
 pub mod summation;
-pub mod interp;
 
 // Re-exports for ergonomic access
 pub use distributions::{
@@ -20,6 +20,9 @@ pub use distributions::{
 };
 pub use integration::{
     adaptive_quadrature, simpson_rule, trapezoidal_rule, GaussHermiteQuadrature,
+};
+pub use interp::{
+    CubicHermite, ExtrapolationPolicy, FlatFwd, InterpFn, LinearDf, LogLinearDf, MonotoneConvex,
 };
 pub use random::{RandomNumberGenerator, SimpleRng};
 pub use root_finding::{
@@ -35,6 +38,3 @@ pub use special_functions::{
 };
 pub use stats::{correlation, covariance, mean, mean_var, variance};
 pub use summation::{kahan_sum, pairwise_sum, stable_sum};
-pub use interp::{
-    ExtrapolationPolicy, InterpFn, CubicHermite, FlatFwd, LinearDf, LogLinearDf, MonotoneConvex,
-};

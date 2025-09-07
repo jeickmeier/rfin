@@ -121,16 +121,13 @@ impl PySimpleFxProvider {
 
         // Look up the rate
         let key = (from_currency.inner(), to_currency.inner());
-        self.rates
-            .get(&key)
-            .copied()
-            .ok_or_else(|| {
-                PyErr::new::<PyValueError, _>(format!(
-                    "FX rate not available for {} to {}",
-                    from_currency.inner(),
-                    to_currency.inner()
-                ))
-            })
+        self.rates.get(&key).copied().ok_or_else(|| {
+            PyErr::new::<PyValueError, _>(format!(
+                "FX rate not available for {} to {}",
+                from_currency.inner(),
+                to_currency.inner()
+            ))
+        })
     }
 
     /// Clear all rates from the provider.

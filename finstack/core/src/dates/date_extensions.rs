@@ -4,9 +4,9 @@
 
 #![allow(clippy::wrong_self_convention, clippy::assign_op_pattern)]
 
+use crate::dates::calendar::core::{seek_business_day, MAX_BUSINESS_DAY_SEARCH_DAYS};
 use crate::dates::periods::{days_in_month, FiscalConfig};
 use time::{Date, Duration, OffsetDateTime, Weekday};
-use crate::dates::calendar::core::{seek_business_day, MAX_BUSINESS_DAY_SEARCH_DAYS};
 
 /// Convenience extensions for [`time::Date`].
 pub trait DateExt: Sized {
@@ -148,12 +148,7 @@ impl DateExt for Date {
         for _ in 0..n.unsigned_abs() {
             // move at least one day in the desired direction, then seek to a business day
             let start = current + Duration::days(step as i64);
-            current = seek_business_day(
-                start,
-                step,
-                MAX_BUSINESS_DAY_SEARCH_DAYS,
-                cal,
-            )?;
+            current = seek_business_day(start, step, MAX_BUSINESS_DAY_SEARCH_DAYS, cal)?;
         }
         Ok(current)
     }
@@ -401,10 +396,7 @@ mod tests {
             crate::Error::Input(crate::error::InputError::AdjustmentFailed {
                 max_days, ..
             }) => {
-                assert_eq!(
-                    max_days,
-                    MAX_BUSINESS_DAY_SEARCH_DAYS
-                );
+                assert_eq!(max_days, MAX_BUSINESS_DAY_SEARCH_DAYS);
             }
             other => panic!("Expected AdjustmentFailed error, got {:?}", other),
         }

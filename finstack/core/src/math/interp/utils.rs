@@ -40,5 +40,3 @@ pub fn validate_monotone_nonincreasing(values: &[F]) -> crate::Result<()> {
     }
     Ok(())
 }
-
-

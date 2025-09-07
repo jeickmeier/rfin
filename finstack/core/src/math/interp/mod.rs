@@ -4,8 +4,6 @@
 //! depending on market-data specific modules. Suitable for use across math and
 //! pricing components.
 
-/// Shared helpers (validation and search).
-pub mod utils;
 /// Monotone cubic-Hermite interpolation (PCHIP / Fritsch-Carlson).
 pub mod cubic_hermite;
 /// Piecewise-flat instantaneous forward-rate interpolation (log-linear DF).
@@ -16,6 +14,8 @@ pub mod linear;
 pub mod log_linear;
 /// Hagan–West monotone-convex cubic interpolation in log-space.
 pub mod monotone_convex;
+/// Shared helpers (validation and search).
+pub mod utils;
 
 /// Epsilon for finite difference derivative calculations.
 const DERIVATIVE_EPSILON: crate::F = 1e-6;
@@ -83,15 +83,13 @@ impl InterpStyle {
         match self {
             InterpStyle::Linear => Ok(Box::new(LinearDf::new(knots, values, extrapolation)?)),
             InterpStyle::LogLinear => Ok(Box::new(LogLinearDf::new(knots, values, extrapolation)?)),
-            InterpStyle::MonotoneConvex => Ok(Box::new(MonotoneConvex::new(
-                knots, values, extrapolation,
-            )?)),
-            InterpStyle::CubicHermite => Ok(Box::new(CubicHermite::new(
-                knots, values, extrapolation,
-            )?)),
+            InterpStyle::MonotoneConvex => {
+                Ok(Box::new(MonotoneConvex::new(knots, values, extrapolation)?))
+            }
+            InterpStyle::CubicHermite => {
+                Ok(Box::new(CubicHermite::new(knots, values, extrapolation)?))
+            }
             InterpStyle::FlatFwd => Ok(Box::new(FlatFwd::new(knots, values, extrapolation)?)),
         }
     }
 }
-
-

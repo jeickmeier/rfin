@@ -1,6 +1,6 @@
-use crate::{math::interp::ExtrapolationPolicy, F};
 use super::InterpFn;
 use crate::math::interp::utils::validate_knots;
+use crate::{math::interp::ExtrapolationPolicy, F};
 use std::boxed::Box;
 use std::vec::Vec;
 

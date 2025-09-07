@@ -969,8 +969,7 @@ impl LoanSimulator {
 
         // Apply business day adjustment if calendar is specified
         if let Some(calendar_id) = facility.calendar_id() {
-            if let Some(cal) = finstack_core::dates::calendar::calendar_by_id(calendar_id)
-            {
+            if let Some(cal) = finstack_core::dates::calendar::calendar_by_id(calendar_id) {
                 return finstack_core::dates::adjust(reset_date, facility.bdc(), cal);
             }
         }

@@ -1,5 +1,5 @@
-use crate::{error::InputError, math::interp::ExtrapolationPolicy, F};
 use super::InterpFn;
+use crate::{error::InputError, math::interp::ExtrapolationPolicy, F};
 use std::vec::Vec;
 
 /// Interpolator that performs linear interpolation on the natural logarithm

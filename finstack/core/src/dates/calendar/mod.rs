@@ -20,15 +20,15 @@
 //! - Prefer `is_business_day` for scheduling and adjustment logic. Use
 //!   [`crate::dates::calendar::is_weekend`] if you need to only detect Saturday/Sunday.
 
-pub mod generated;
-pub mod rule;
-pub mod core;
 pub mod composite;
+pub mod core;
+pub mod generated;
 pub mod registry;
+pub mod rule;
 
 // Re-export commonly used items for ergonomic imports.
-pub use rule::{Direction, Observed, Rule};
 pub use core::{adjust, available_calendars, BusinessDayConvention, HolidayCalendar};
+pub use rule::{Direction, Observed, Rule};
 
 // Convenience alias so users can `use finstack_core::dates::calendar::Calendar`.
 // We re-export the existing `HolidayCalendar` trait from the parent module.
@@ -87,7 +87,9 @@ macro_rules! impl_calendar_generated {
                     .contains(&date.year())
                 {
                     static STORE: once_cell::sync::Lazy<
-                        Vec<once_cell::sync::OnceCell<$crate::dates::calendar::generated::YearBits>>,
+                        Vec<
+                            once_cell::sync::OnceCell<$crate::dates::calendar::generated::YearBits>,
+                        >,
                     > = once_cell::sync::Lazy::new(|| {
                         let mut v = Vec::with_capacity($crate::dates::calendar::generated::YEARS);
                         for _ in 0..$crate::dates::calendar::generated::YEARS {
@@ -95,7 +97,8 @@ macro_rules! impl_calendar_generated {
                         }
                         v
                     });
-                    let idx = (date.year() - $crate::dates::calendar::generated::BASE_YEAR) as usize;
+                    let idx =
+                        (date.year() - $crate::dates::calendar::generated::BASE_YEAR) as usize;
                     let bits = STORE[idx].get_or_init(|| {
                         $crate::dates::calendar::generated::compute_year_bits_for_rules(
                             $rules,
@@ -143,7 +146,9 @@ macro_rules! declare_calendar {
         #[allow(missing_docs)]
         impl $ty {
             #[inline]
-            pub const fn id(self) -> &'static str { $id }
+            pub const fn id(self) -> &'static str {
+                $id
+            }
         }
         $crate::impl_calendar_generated!($ty, $id, $rules);
     };
@@ -154,7 +159,9 @@ macro_rules! declare_calendar {
         #[allow(missing_docs)]
         impl $ty {
             #[inline]
-            pub const fn id(self) -> &'static str { $id }
+            pub const fn id(self) -> &'static str {
+                $id
+            }
         }
         $crate::impl_calendar_generated!($ty, $id, $rules, ignore_weekends = $ignore_weekends);
     };

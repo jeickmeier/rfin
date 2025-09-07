@@ -91,7 +91,6 @@ impl Money {
         }
     }
 
-
     /// Amount accessor (by value).
     #[inline]
     pub fn amount(&self) -> f64 {

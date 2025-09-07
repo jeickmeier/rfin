@@ -4,8 +4,8 @@
 //! to the corresponding built-in calendar implementations. It uses the
 //! generated registry from `dates::calendar` for the authoritative list.
 
-use crate::dates::calendar::core::HolidayCalendar;
 use crate::dates::calendar::calendar_by_id;
+use crate::dates::calendar::core::HolidayCalendar;
 use core::marker::PhantomData;
 use once_cell::sync::OnceCell;
 
@@ -19,7 +19,9 @@ impl CalendarRegistry<'_> {
     #[inline]
     pub fn global() -> &'static CalendarRegistry<'static> {
         static INSTANCE: OnceCell<CalendarRegistry> = OnceCell::new();
-        INSTANCE.get_or_init(|| CalendarRegistry { _marker: PhantomData })
+        INSTANCE.get_or_init(|| CalendarRegistry {
+            _marker: PhantomData,
+        })
     }
 
     /// Resolve a calendar by its lowercase code string (e.g., "gblo").
@@ -34,5 +36,3 @@ impl CalendarRegistry<'_> {
         crate::dates::calendar::available_calendars()
     }
 }
-
-

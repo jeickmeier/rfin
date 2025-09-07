@@ -2,10 +2,10 @@
 
 #[path = "build/currency_build.rs"]
 mod currency_build;
-#[path = "build/generate_cny.rs"]
-mod generate_cny;
 #[path = "build/generate_calendars_from_json.rs"]
 mod generate_calendars_from_json;
+#[path = "build/generate_cny.rs"]
+mod generate_cny;
 #[path = "build/generate_holidays.rs"]
 mod generate_holidays;
 
