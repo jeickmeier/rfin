@@ -65,10 +65,12 @@
 
 #![allow(clippy::many_single_char_names)]
 
+use crate::dates::utils::add_months;
 use core::cmp::Ordering;
 use time::{Date, Duration, Month};
 
 use crate::dates::calendar::HolidayCalendar;
+use crate::dates::date_extensions::BusinessDayIter;
 use crate::dates::schedule_iter::Frequency;
 use crate::error::InputError;
 
@@ -309,15 +311,16 @@ fn year_fraction_act_act_isma(start: Date, end: Date, freq: Frequency) -> crate:
         let overlap_end = end.min(period_end);
 
         if overlap_start < overlap_end {
-            // Calculate days in this overlap
+            // Numerator: actual days in the overlapping slice
             let days_in_overlap = (overlap_end - overlap_start).whole_days() as f64;
 
-            // Calculate total days in this coupon year
-            // For ISMA, we use the actual days in the year containing the period
-            let year = period_start.year();
-            let days_in_coupon_year = days_in_year(year) as f64;
+            // Denominator (ISMA): actual days in the coupon period that contains this slice
+            let coupon_days = (period_end - period_start).whole_days() as f64;
+            if coupon_days <= 0.0 {
+                return Err(InputError::Invalid.into());
+            }
 
-            total_fraction += days_in_overlap / days_in_coupon_year;
+            total_fraction += days_in_overlap / coupon_days;
         }
     }
 
@@ -326,36 +329,19 @@ fn year_fraction_act_act_isma(start: Date, end: Date, freq: Frequency) -> crate:
 
 /// Extend start date backward to find the beginning of its coupon period.
 fn extend_backward_for_coupon_period(date: Date, freq: Frequency) -> Date {
-    // Go back enough to ensure we capture the coupon period boundary
-    let months_back = match freq {
-        Frequency::Months(m) => m as i32 * 2, // Go back 2 full periods
-        Frequency::Days(d) => {
-            // For daily frequency, go back approximately 2 periods worth of days
-            let days_back = (d as i32) * 2;
-            return date - Duration::days(days_back as i64);
-        }
-    };
-
-    // Calculate a date well before to ensure we capture period boundaries
-    let year = date.year() - (months_back / 12) - 1;
-    Date::from_calendar_date(year.max(1), Month::January, 1).unwrap_or(date)
+    match freq {
+        // Align coupon schedule to the provided date; treat `date` as an anchor.
+        Frequency::Months(_) => date,
+        Frequency::Days(_) => date,
+    }
 }
 
 /// Extend end date forward to find the end of its coupon period.
 fn extend_forward_for_coupon_period(date: Date, freq: Frequency) -> Date {
-    // Go forward enough to ensure we capture the coupon period boundary
-    let months_forward = match freq {
-        Frequency::Months(m) => m as i32 * 2, // Go forward 2 full periods
-        Frequency::Days(d) => {
-            // For daily frequency, go forward approximately 2 periods worth of days
-            let days_forward = (d as i32) * 2;
-            return date + Duration::days(days_forward as i64);
-        }
-    };
-
-    // Calculate a date well after to ensure we capture period boundaries
-    let year = date.year() + (months_forward / 12) + 1;
-    Date::from_calendar_date(year.min(9999), Month::December, 31).unwrap_or(date)
+    match freq {
+        Frequency::Months(m) => add_months(date, m as i32),
+        Frequency::Days(d) => date + Duration::days(d as i64),
+    }
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -407,17 +393,7 @@ fn contains_feb_29(start: Date, end: Date) -> bool {
 // -------------------------------------------------------------------------------------------------
 /// Count business days between start (inclusive) and end (exclusive) using the given calendar.
 fn count_business_days<C: HolidayCalendar + ?Sized>(start: Date, end: Date, calendar: &C) -> i32 {
-    let mut count = 0;
-    let mut current = start;
-
-    while current < end {
-        if calendar.is_business_day(current) {
-            count += 1;
-        }
-        current += Duration::days(1);
-    }
-
-    count
+    BusinessDayIter::new(start, end, calendar).count() as i32
 }
 
 #[inline]
@@ -692,9 +668,8 @@ mod tests {
             )
             .unwrap();
 
-        // For a semi-annual bond with 6-month periods, this should be close to 0.5
-        // but accounting for the exact days in the coupon periods
-        assert!(yf > 0.49 && yf < 0.51, "Expected ~0.5, got {}", yf);
+        // Under ISMA with coupon-period denominator, a full coupon period is 1.0
+        assert!((yf - 1.0).abs() < 1e-6, "Expected 1.0, got {}", yf);
     }
 
     #[test]
@@ -715,8 +690,8 @@ mod tests {
             )
             .unwrap();
 
-        // For a quarterly period, this should be close to 0.25
-        assert!(yf > 0.24 && yf < 0.26, "Expected ~0.25, got {}", yf);
+        // Under ISMA with coupon-period denominator, a full coupon period is 1.0
+        assert!((yf - 1.0).abs() < 1e-6, "Expected 1.0, got {}", yf);
     }
 
     #[test]
@@ -759,8 +734,8 @@ mod tests {
             )
             .unwrap();
 
-        // This should be close to 1.0 but will account for leap year days
-        assert!(yf > 0.99 && yf < 1.01, "Expected ~1.0, got {}", yf);
+        // Two full semi-annual coupon periods → 2.0
+        assert!((yf - 2.0).abs() < 1e-6, "Expected 2.0, got {}", yf);
     }
 
     #[test]
@@ -781,8 +756,8 @@ mod tests {
             )
             .unwrap();
 
-        // This should be roughly 2/12 = 0.167, but with ISMA adjustments
-        assert!(yf > 0.15 && yf < 0.18, "Expected ~0.167, got {}", yf);
+        // Two months out of a 6-month coupon → roughly ~0.33 depending on month lengths
+        assert!(yf > 0.30 && yf < 0.35, "Expected ~0.33, got {}", yf);
     }
 
     #[test]
@@ -803,8 +778,8 @@ mod tests {
             )
             .unwrap();
 
-        // For a one-month period, this should be roughly 1/12
-        assert!(yf > 0.08 && yf < 0.09, "Expected ~0.083, got {}", yf);
+        // For a one-month coupon with monthly frequency, a full coupon period is 1.0
+        assert!((yf - 1.0).abs() < 1e-6, "Expected 1.0, got {}", yf);
     }
 
     #[test]
@@ -866,22 +841,18 @@ mod tests {
             )
             .unwrap();
 
-        // Both should be close to 1.0 but may differ slightly due to different calculation methods
+        // ISDA splits by calendar year → ~1.0; ISMA (coupon-period denominator) sums full coupons → ~2.0
         assert!(
             yf_isda > 0.99 && yf_isda < 1.01,
             "ISDA: Expected ~1.0, got {}",
             yf_isda
         );
         assert!(
-            yf_isma > 0.99 && yf_isma < 1.01,
-            "ISMA: Expected ~1.0, got {}",
+            yf_isma > 1.99 && yf_isma < 2.01,
+            "ISMA: Expected ~2.0, got {}",
             yf_isma
         );
-
-        // They should be close but not necessarily identical
-        assert!(
-            (yf_isda - yf_isma).abs() < 0.1,
-            "ISDA and ISMA should be reasonably close"
-        );
+        // Expect a difference of roughly 1.0 between methods
+        assert!((yf_isma - yf_isda - 1.0).abs() < 0.05);
     }
 }

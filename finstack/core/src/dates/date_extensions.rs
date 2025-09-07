@@ -227,6 +227,43 @@ impl OffsetDateTimeExt for OffsetDateTime {
     }
 }
 
+/// Iterator over business days between two bounds using a `HolidayCalendar`.
+///
+/// Forward iteration yields dates in [start, end). For reverse scans, prefer
+/// constructing with start/end swapped and iterating forward, or add a simple
+/// `.rev()` on a collected Vec if needed.
+#[derive(Clone, Debug)]
+pub struct BusinessDayIter<'a, C: crate::dates::calendar::HolidayCalendar + ?Sized> {
+    current: Date,
+    end: Date,
+    cal: &'a C,
+}
+
+impl<'a, C: crate::dates::calendar::HolidayCalendar + ?Sized> BusinessDayIter<'a, C> {
+    /// Create a forward iterator over business days in [start, end).
+    pub fn new(start: Date, end: Date, cal: &'a C) -> Self {
+        Self {
+            current: start,
+            end,
+            cal,
+        }
+    }
+}
+
+impl<C: crate::dates::calendar::HolidayCalendar + ?Sized> Iterator for BusinessDayIter<'_, C> {
+    type Item = Date;
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.current < self.end {
+            let d = self.current;
+            self.current = self.current + Duration::days(1);
+            if self.cal.is_business_day(d) {
+                return Some(d);
+            }
+        }
+        None
+    }
+}
+
 // -------------------------------------------------------------------------------------------------
 // Tests
 // -------------------------------------------------------------------------------------------------

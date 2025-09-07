@@ -17,6 +17,7 @@
 //! ```
 //! use finstack_core::dates::{CompositeCalendar, HolidayCalendar};
 //! use finstack_core::dates::calendar::{Target2, Gblo};
+//! use finstack_core::dates::calendar::composite::CompositeMode;
 //! use time::Date;
 //!
 //! let t2 = Target2;
@@ -29,7 +30,7 @@
 //! assert!(cal_union.is_holiday(jan1_2025));
 //!
 //! // Intersection – holiday only if *both* markets are closed.
-//! let cal_inter = CompositeCalendar::merge_with_intersection(&calendars, true);
+//! let cal_inter = CompositeCalendar::with_mode(&calendars, CompositeMode::Intersection);
 //! let may26_2025 = Date::from_calendar_date(2025, time::Month::May, 26).unwrap();
 //! assert!(cal_union.is_holiday(may26_2025)); // U.K. spring bank holiday
 //! assert!(!cal_inter.is_holiday(may26_2025));
@@ -39,16 +40,25 @@ use crate::dates::calendar::core::HolidayCalendar;
 use time::Date;
 
 /// A lightweight view combining several holiday calendars.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompositeMode {
+    /// Holiday if any sub-calendar marks the date as holiday (set union).
+    Union,
+    /// Holiday only if all sub-calendars mark the date as holiday (set intersection).
+    Intersection,
+}
+
+/// A lightweight view combining several holiday calendars.
 #[derive(Clone, Copy)]
 pub struct CompositeCalendar<'a> {
     calendars: &'a [&'a dyn HolidayCalendar],
-    intersection: bool,
+    mode: CompositeMode,
 }
 
 impl core::fmt::Debug for CompositeCalendar<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("CompositeCalendar")
-            .field("intersection", &self.intersection)
+            .field("mode", &self.mode)
             .field("calendars_len", &self.calendars.len())
             .finish()
     }
@@ -60,37 +70,34 @@ impl<'a> CompositeCalendar<'a> {
     pub const fn new(calendars: &'a [&'a dyn HolidayCalendar]) -> Self {
         Self {
             calendars,
-            intersection: false,
+            mode: CompositeMode::Union,
         }
     }
 
     // Single canonical constructor is `new`; former `merge` alias removed for simplicity.
 
-    /// Construct a composite calendar with an explicit intersection flag.
-    /// When `intersection` is `true`, a date is a holiday only if all sub-calendars
-    /// mark it as a holiday. When `false`, union semantics are used.
+    /// Construct a composite calendar with an explicit mode.
+    /// When `CompositeMode::Intersection`, a date is a holiday only if all sub-calendars
+    /// mark it as a holiday. With `CompositeMode::Union`, union semantics are used.
     #[must_use]
-    pub const fn merge_with_intersection(
-        calendars: &'a [&'a dyn HolidayCalendar],
-        intersection: bool,
-    ) -> Self {
-        Self {
-            calendars,
-            intersection,
-        }
+    pub const fn with_mode(calendars: &'a [&'a dyn HolidayCalendar], mode: CompositeMode) -> Self {
+        Self { calendars, mode }
     }
 }
 
 impl HolidayCalendar for CompositeCalendar<'_> {
     fn is_holiday(&self, date: Date) -> bool {
-        if self.intersection {
-            if self.calendars.is_empty() {
-                return false;
+        match self.mode {
+            CompositeMode::Union => {
+                // Empty slice ⇒ no holidays, so return false.
+                self.calendars.iter().any(|c| c.is_holiday(date))
             }
-            self.calendars.iter().all(|c| c.is_holiday(date))
-        } else {
-            // Empty slice ⇒ no holidays, so return false.
-            self.calendars.iter().any(|c| c.is_holiday(date))
+            CompositeMode::Intersection => {
+                if self.calendars.is_empty() {
+                    return false;
+                }
+                self.calendars.iter().all(|c| c.is_holiday(date))
+            }
         }
     }
 }
@@ -111,7 +118,7 @@ mod tests {
         let calendars = [&t2 as &dyn HolidayCalendar, &gb as &dyn HolidayCalendar];
 
         let cal_union = CompositeCalendar::new(&calendars);
-        let cal_inter = CompositeCalendar::merge_with_intersection(&calendars, true);
+        let cal_inter = CompositeCalendar::with_mode(&calendars, CompositeMode::Intersection);
 
         // Date that is holiday in both calendars (New Year's Day)
         let d1 = Date::from_calendar_date(2025, Month::January, 1).unwrap();

@@ -312,9 +312,7 @@ impl<'a> ScheduleBuilder<'a> {
         // Apply business day adjustment if configured
         if let (Some(conv), Some(cal)) = (self.conv, self.cal) {
             for d in &mut dates {
-                if let Ok(adjusted) = adjust(*d, conv, cal) {
-                    *d = adjusted;
-                }
+                *d = adjust(*d, conv, cal)?;
             }
         }
 

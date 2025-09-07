@@ -41,9 +41,6 @@ fn period_kind_from_frequency(freq: Frequency) -> crate::Result<PeriodKind> {
     Err(crate::error::InputError::Invalid.into())
 }
 
-// Removed arbitrary frequency sort key; ordering across mixed frequencies now
-// uses concrete calendar bounds (start, then end) with a deterministic tie-breaker.
-
 /// Identifier for a period like 2025Q1 or 2025M03.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PeriodId {
