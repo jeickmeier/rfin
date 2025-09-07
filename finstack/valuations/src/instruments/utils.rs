@@ -118,5 +118,3 @@ where
 {
     build_with_metrics_dyn(&instrument, curves, as_of, base_value, metrics)
 }
-
-

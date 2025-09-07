@@ -64,7 +64,10 @@ impl ForwardCurve {
     }
 
     /// Forward rate starting at time `t` (in years) for the curve’s tenor.
-    pub fn rate(&self, t: F) -> F { self.interp.interp(t) }
+    #[inline]
+    pub fn rate(&self, t: F) -> F {
+        self.interp.interp(t)
+    }
 
     /// Reset lag in calendar days from fixing to spot.
     #[inline]
@@ -158,9 +161,9 @@ impl ForwardCurveBuilder {
         crate::market_data::utils::validate_knots(&kvec)?;
         let knots = kvec.into_boxed_slice();
         let fwds = fvec.into_boxed_slice();
-        let interp = self
-            .style
-            .build_enum(knots.clone(), fwds.clone(), ExtrapolationPolicy::default())?;
+        let interp =
+            self.style
+                .build_enum(knots.clone(), fwds.clone(), ExtrapolationPolicy::default())?;
         Ok(ForwardCurve {
             id: CurveId::new(self.id),
             base: self.base,
@@ -187,6 +190,7 @@ impl TermStructure for ForwardCurve {
 }
 
 impl Forward for ForwardCurve {
+    #[inline]
     fn rate(&self, t: F) -> F {
         ForwardCurve::rate(self, t)
     }

@@ -1,9 +1,9 @@
 //! Deposit instrument types and pricing impl.
 
-use finstack_core::market_data::MarketContext;
-use finstack_core::F;
 use finstack_core::dates::{Date, DayCount};
+use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
+use finstack_core::F;
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::traits::Attributes;
@@ -61,5 +61,3 @@ impl CashflowProvider for Deposit {
         ])
     }
 }
-
-

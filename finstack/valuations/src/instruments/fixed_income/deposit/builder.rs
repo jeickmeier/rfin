@@ -18,5 +18,3 @@ impl_builder!(
         quote_rate: F
     ]
 );
-
-

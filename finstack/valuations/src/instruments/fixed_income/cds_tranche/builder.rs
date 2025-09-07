@@ -1,6 +1,6 @@
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
 use finstack_core::prelude::*;
 use finstack_core::F;
-use finstack_core::dates::{BusinessDayConvention, DayCount, Date, Frequency};
 
 use super::types::{CdsTranche, TrancheSide};
 
@@ -141,5 +141,3 @@ impl CdsTrancheBuilder {
         })
     }
 }
-
-

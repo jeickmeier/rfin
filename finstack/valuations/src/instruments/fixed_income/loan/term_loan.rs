@@ -13,6 +13,7 @@ use finstack_core::market_data::MarketContext;
 
 use finstack_core::money::Money;
 use finstack_core::F;
+use smallvec::SmallVec;
 
 /// Interest rate specification for loans.
 #[derive(Clone, Debug)]
@@ -92,7 +93,7 @@ pub struct Loan {
     /// Prepayment terms
     pub prepayment: Option<PrepaymentSchedule>,
     /// Fee specifications
-    pub fees: Vec<FeeSpec>,
+    pub fees: SmallVec<[FeeSpec; 4]>,
     /// Financial covenants
     pub covenants: Vec<Covenant>,
     /// Discount curve ID for valuation
@@ -136,7 +137,7 @@ impl Loan {
             stub: StubKind::None,
             amortization: AmortizationSpec::None,
             prepayment: None,
-            fees: Vec::new(),
+            fees: SmallVec::new(),
             covenants: Vec::new(),
             disc_id: "USD-OIS",
             attributes: Attributes::new(),
@@ -686,7 +687,7 @@ impl LoanBuilder {
             stub: self.stub.unwrap_or(StubKind::None),
             amortization: self.amortization.unwrap_or(AmortizationSpec::None),
             prepayment: self.prepayment,
-            fees: self.fees.unwrap_or_default(),
+            fees: SmallVec::from_vec(self.fees.unwrap_or_default()),
             covenants: self.covenants.unwrap_or_default(),
             disc_id: self.disc_id.unwrap_or("USD-OIS"),
             attributes: Attributes::new(),

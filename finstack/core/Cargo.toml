@@ -24,6 +24,7 @@ rayon = { version = "1.10", optional = true }
 ndarray = { version = "0.15", default-features = false }
 ndarray-linalg = { version = "0.16", optional = true }
 polars = { workspace = true }
+parking_lot = "0.12"
 
 
 [build-dependencies]

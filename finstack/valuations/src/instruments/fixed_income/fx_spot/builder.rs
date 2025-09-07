@@ -1,7 +1,7 @@
-use finstack_core::prelude::*;
-use finstack_core::dates::BusinessDayConvention;
-use finstack_core::F;
 use crate::instruments::traits::Attributes;
+use finstack_core::dates::BusinessDayConvention;
+use finstack_core::prelude::*;
+use finstack_core::F;
 
 use super::types::FxSpot;
 
@@ -82,5 +82,3 @@ impl FxSpotBuilder {
         })
     }
 }
-
-

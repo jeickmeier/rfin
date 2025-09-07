@@ -1,11 +1,11 @@
 //! Credit option instrument implementation for options on credit default swaps.
 
-use crate::instruments::traits::Attributes;
 use crate::instruments::options::{ExerciseStyle, OptionType, SettlementType};
-use finstack_core::money::Money;
-use finstack_core::F;
+use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::{norm_cdf, norm_pdf};
+use finstack_core::money::Money;
+use finstack_core::F;
 
 /// Credit option instrument (option on CDS spread)
 #[derive(Clone, Debug)]
@@ -142,10 +142,18 @@ impl CreditOption {
         if t <= 0.0 || sigma <= 0.0 {
             return match self.option_type {
                 OptionType::Call => {
-                    if forward_spread_bp > self.strike_spread_bp { 1.0 } else { 0.0 }
+                    if forward_spread_bp > self.strike_spread_bp {
+                        1.0
+                    } else {
+                        0.0
+                    }
                 }
                 OptionType::Put => {
-                    if forward_spread_bp < self.strike_spread_bp { -1.0 } else { 0.0 }
+                    if forward_spread_bp < self.strike_spread_bp {
+                        -1.0
+                    } else {
+                        0.0
+                    }
                 }
             };
         }
@@ -153,7 +161,9 @@ impl CreditOption {
         let forward = forward_spread_bp / 10000.0;
         let strike = self.strike_spread_bp / 10000.0;
 
-        if forward <= 0.0 || strike <= 0.0 { return 0.0; }
+        if forward <= 0.0 || strike <= 0.0 {
+            return 0.0;
+        }
 
         let d1 = ((forward / strike).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
 
@@ -165,32 +175,46 @@ impl CreditOption {
 
     /// Calculate option gamma
     pub fn gamma(&self, forward_spread_bp: F, sigma: F, t: F) -> F {
-        if t <= 0.0 || sigma <= 0.0 { return 0.0; }
+        if t <= 0.0 || sigma <= 0.0 {
+            return 0.0;
+        }
         let forward = forward_spread_bp / 10000.0;
         let strike = self.strike_spread_bp / 10000.0;
-        if forward <= 0.0 || strike <= 0.0 { return 0.0; }
+        if forward <= 0.0 || strike <= 0.0 {
+            return 0.0;
+        }
         let d1 = ((forward / strike).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
         norm_pdf(d1) / (forward * 10000.0 * sigma * t.sqrt())
     }
 
     /// Calculate option vega (sensitivity to credit spread volatility)
     pub fn vega(&self, forward_spread_bp: F, sigma: F, t: F) -> F {
-        if t <= 0.0 { return 0.0; }
+        if t <= 0.0 {
+            return 0.0;
+        }
         let forward = forward_spread_bp / 10000.0;
         let strike = self.strike_spread_bp / 10000.0;
-        if forward <= 0.0 || strike <= 0.0 { return 0.0; }
+        if forward <= 0.0 || strike <= 0.0 {
+            return 0.0;
+        }
         let d1 = if sigma > 0.0 {
             ((forward / strike).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt())
-        } else { 0.0 };
+        } else {
+            0.0
+        };
         forward * 10000.0 * norm_pdf(d1) * t.sqrt() / 100.0
     }
 
     /// Calculate option theta (time decay)
     pub fn theta(&self, forward_spread_bp: F, r: F, sigma: F, t: F) -> F {
-        if t <= 0.0 { return 0.0; }
+        if t <= 0.0 {
+            return 0.0;
+        }
         let forward = forward_spread_bp / 10000.0;
         let strike = self.strike_spread_bp / 10000.0;
-        if forward <= 0.0 || strike <= 0.0 { return 0.0; }
+        if forward <= 0.0 || strike <= 0.0 {
+            return 0.0;
+        }
         let d1 = ((forward / strike).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
         let d2 = d1 - sigma * t.sqrt();
         let sqrt_t = t.sqrt();
@@ -248,7 +272,9 @@ impl_instrument!(
         let forward_spread_bp = if current_tenor > 0.0 {
             use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
             hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
-        } else { s.strike_spread_bp };
+        } else {
+            s.strike_spread_bp
+        };
 
         // Get discount factor to option expiry
         let df_expiry = disc_curve.df(time_to_expiry);
@@ -271,5 +297,3 @@ impl_instrument!(
         )
     }
 );
-
-

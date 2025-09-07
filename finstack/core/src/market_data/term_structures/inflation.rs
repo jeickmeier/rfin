@@ -55,7 +55,9 @@ impl InflationCurve {
 
     /// CPI level at time `t` (years).
     pub fn cpi(&self, t: F) -> F {
-        if t <= 0.0 { return self.base_cpi; }
+        if t <= 0.0 {
+            return self.base_cpi;
+        }
         self.interp.interp(t)
     }
 

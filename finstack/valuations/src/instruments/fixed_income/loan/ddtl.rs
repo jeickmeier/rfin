@@ -10,6 +10,7 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, Stu
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::F;
+use smallvec::SmallVec;
 
 /// Draw rules for a DDTL.
 #[derive(Clone, Debug)]
@@ -88,7 +89,7 @@ pub struct DelayedDrawTermLoan {
     /// Ticking fee on undrawn amount (annual rate)
     pub ticking_fee_rate: Option<F>,
     /// Additional fees
-    pub fees: Vec<FeeSpec>,
+    pub fees: SmallVec<[FeeSpec; 4]>,
     /// Covenants that must be satisfied for draws
     pub draw_conditions: Vec<Covenant>,
     /// Maturity date
@@ -142,7 +143,7 @@ impl DelayedDrawTermLoan {
             interest_spec,
             commitment_fee_rate: 0.005, // 50 bps default
             ticking_fee_rate: None,
-            fees: Vec::new(),
+            fees: SmallVec::new(),
             draw_conditions: Vec::new(),
             maturity,
             amortization: AmortizationSpec::None,

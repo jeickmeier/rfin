@@ -14,12 +14,12 @@ pub mod linear;
 pub mod log_linear;
 /// Hagan–West monotone-convex cubic interpolation in log-space.
 pub mod monotone_convex;
-/// Shared helpers (validation and search).
-pub mod utils;
 /// Traits for interpolation.
 pub mod traits;
 /// Types and factory for interpolation.
 pub mod types;
+/// Shared helpers (validation and search).
+pub mod utils;
 
 // Re-exports for ergonomic access
 pub use cubic_hermite::CubicHermite;

@@ -1,7 +1,9 @@
 //! Private equity investment instrument type and implementations.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::equity::private_equity::waterfall::{AllocationLedger, EquityWaterfallEngine, FundEvent, WaterfallSpec};
+use crate::instruments::equity::private_equity::waterfall::{
+    AllocationLedger, EquityWaterfallEngine, FundEvent, WaterfallSpec,
+};
 use crate::instruments::traits::Attributes;
 use crate::metrics::MetricRegistry;
 use finstack_core::market_data::MarketContext;
@@ -21,16 +23,34 @@ pub struct PrivateEquityInvestment {
 }
 
 impl PrivateEquityInvestment {
-    pub fn new(id: impl Into<String>, currency: Currency, spec: WaterfallSpec, events: Vec<FundEvent>) -> Self {
-        Self { id: id.into(), currency, spec, events, disc_id: None, attributes: Attributes::new() }
+    pub fn new(
+        id: impl Into<String>,
+        currency: Currency,
+        spec: WaterfallSpec,
+        events: Vec<FundEvent>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            currency,
+            spec,
+            events,
+            disc_id: None,
+            attributes: Attributes::new(),
+        }
     }
 
-    pub fn with_discount_curve(mut self, disc_id: &'static str) -> Self { self.disc_id = Some(disc_id); self }
+    pub fn with_discount_curve(mut self, disc_id: &'static str) -> Self {
+        self.disc_id = Some(disc_id);
+        self
+    }
 
     pub fn run_waterfall(&self) -> finstack_core::Result<AllocationLedger> {
         for event in &self.events {
             if event.amount.currency() != self.currency {
-                return Err(finstack_core::Error::CurrencyMismatch { expected: self.currency, actual: event.amount.currency() });
+                return Err(finstack_core::Error::CurrencyMismatch {
+                    expected: self.currency,
+                    actual: event.amount.currency(),
+                });
             }
         }
         let engine = EquityWaterfallEngine::new(&self.spec);
@@ -55,7 +75,11 @@ impl crate::instruments::traits::Priceable for PrivateEquityInvestment {
             flows.npv(&*disc, disc.base_date(), self.spec.irr_basis)
         } else {
             let ledger = self.run_waterfall()?;
-            let residual_value = ledger.rows.last().map(|r| r.lp_unreturned).unwrap_or_else(|| Money::new(0.0, self.currency));
+            let residual_value = ledger
+                .rows
+                .last()
+                .map(|r| r.lp_unreturned)
+                .unwrap_or_else(|| Money::new(0.0, self.currency));
             Ok(residual_value)
         }
     }
@@ -72,7 +96,11 @@ impl crate::instruments::traits::Priceable for PrivateEquityInvestment {
 }
 
 impl CashflowProvider for PrivateEquityInvestment {
-    fn build_schedule(&self, _curves: &MarketContext, _as_of: Date) -> finstack_core::Result<DatedFlows> {
+    fn build_schedule(
+        &self,
+        _curves: &MarketContext,
+        _as_of: Date,
+    ) -> finstack_core::Result<DatedFlows> {
         self.lp_cashflows()
     }
 }
@@ -81,5 +109,3 @@ impl CashflowProvider for PrivateEquityInvestment {
 pub fn register_private_equity_metrics(registry: &mut MetricRegistry) {
     super::metrics::register_private_equity_metrics(registry);
 }
-
-

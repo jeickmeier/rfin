@@ -9,6 +9,7 @@ use super::{
 use polars::prelude as pl;
 use polars::prelude::{IntoColumn, IntoLazy, NamedFrom};
 use std::collections::HashSet;
+use std::sync::Mutex;
 use std::vec::Vec;
 
 /// Options controlling evaluation strategy and caching.
@@ -38,7 +39,7 @@ pub struct EvalOpts {
 
 /// A compiled expression can evaluate scalars and optionally lower to Polars.
 /// Compiled expression wrapper with DAG planning and caching support.
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct CompiledExpr {
     /// Underlying expression AST.
     pub ast: Expr,
@@ -46,6 +47,29 @@ pub struct CompiledExpr {
     pub plan: Option<ExecutionPlan>,
     /// Cache manager for intermediate results.
     pub cache: Option<CacheManager>,
+    /// Small scratch arena to reuse temporary buffers within hot paths.
+    scratch: Mutex<ScratchArena>,
+}
+
+/// Tiny reusable scratch buffers for hot evaluation paths.
+#[derive(Default, Debug)]
+struct ScratchArena {
+    /// Generic temporary buffer for algorithms (e.g., median, sorts).
+    tmp: Vec<crate::F>,
+    /// Window buffer for rolling operations that need a writable copy.
+    window: Vec<crate::F>,
+}
+
+impl Clone for CompiledExpr {
+    fn clone(&self) -> Self {
+        Self {
+            ast: self.ast.clone(),
+            plan: self.plan.clone(),
+            cache: self.cache.clone(),
+            // Fresh scratch for clones; per-instance reuse only.
+            scratch: Mutex::new(ScratchArena::default()),
+        }
+    }
 }
 
 impl CompiledExpr {
@@ -55,6 +79,7 @@ impl CompiledExpr {
             ast,
             plan: None,
             cache: None,
+            scratch: Mutex::new(ScratchArena::default()),
         }
     }
 
@@ -68,6 +93,7 @@ impl CompiledExpr {
             ast,
             plan: Some(plan),
             cache: Some(cache),
+            scratch: Mutex::new(ScratchArena::default()),
         }
     }
 
@@ -215,14 +241,17 @@ impl CompiledExpr {
         expr: &Expr,
     ) -> Vec<crate::F> {
         let len = cols.first().map(|c| c.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
+        let mut out = vec![0.0 as crate::F; len];
         match &expr.node {
             ExprNode::Column(name) => {
                 let idx = ctx.resolve_index(name).expect("unknown column");
-                out.extend_from_slice(cols[idx]);
+                // Preserve semantics: result length equals referenced column length
+                return cols[idx].to_vec();
             }
             ExprNode::Literal(v) => {
-                out.resize(len, *v);
+                for x in &mut out {
+                    *x = *v;
+                }
             }
             ExprNode::Call(fun, args) => {
                 // Recursively evaluate arguments
@@ -249,6 +278,7 @@ impl CompiledExpr {
             ast: expr.clone(),
             plan: None,
             cache: None,
+            scratch: Mutex::new(ScratchArena::default()),
         }
         .to_polars_expr()?;
         let names = Self::collect_column_names(expr);
@@ -305,15 +335,27 @@ impl CompiledExpr {
         mut op: impl FnMut(&[crate::F]) -> crate::F,
     ) -> Vec<crate::F> {
         let len = base.len();
-        let mut out = Vec::with_capacity(len);
+        let mut out = vec![0.0 as crate::F; len];
+        Self::rolling_apply_into(base, win, &mut out, &mut op);
+        out
+    }
+
+    #[inline]
+    fn rolling_apply_into(
+        base: &[crate::F],
+        win: usize,
+        out: &mut [crate::F],
+        op: &mut impl FnMut(&[crate::F]) -> crate::F,
+    ) {
+        let len = base.len();
+        debug_assert_eq!(out.len(), len);
         for i in 0..len {
             if i + 1 < win {
-                out.push(f64::NAN as crate::F);
+                out[i] = f64::NAN as crate::F;
             } else {
-                out.push(op(&base[i + 1 - win..=i]));
+                out[i] = op(&base[i + 1 - win..=i]);
             }
         }
-        out
     }
 
     fn eval_lag(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
@@ -472,102 +514,143 @@ impl CompiledExpr {
 
     fn eval_ewm_mean(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
         if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-            let base = &arg_results[0];
-            let alpha = arg_results[1][0];
-            let adjust = if arg_results.len() >= 3 && !arg_results[2].is_empty() {
-                arg_results[2][0] != 0.0
-            } else {
-                true
-            };
-            let mut outv = Vec::with_capacity(len);
-            let mut prev: crate::F = 0.0;
-            let mut wsum: crate::F = 0.0;
-            for (i, &x) in base.iter().enumerate() {
-                if i == 0 {
-                    prev = x;
-                    wsum = 1.0;
-                    outv.push(x);
-                    continue;
-                }
-                if adjust {
-                    wsum = 1.0 + (1.0 - alpha) * wsum;
-                }
-                prev = alpha * x + (1.0 - alpha) * prev;
-                outv.push(prev / if adjust { wsum } else { 1.0 });
-            }
-            out = outv;
+            let mut out = vec![0.0 as crate::F; len];
+            self.eval_ewm_mean_into(arg_results, &mut out);
+            return out;
         }
-        out
+        Vec::with_capacity(len)
+    }
+
+    fn eval_ewm_mean_into(&self, arg_results: &[Vec<crate::F>], out: &mut [crate::F]) {
+        let len = out.len();
+        if len == 0 {
+            return;
+        }
+        let base = &arg_results[0];
+        let alpha = arg_results[1][0];
+        let adjust = if arg_results.len() >= 3 && !arg_results[2].is_empty() {
+            arg_results[2][0] != 0.0
+        } else {
+            true
+        };
+        let mut prev: crate::F = 0.0;
+        let mut wsum: crate::F = 0.0;
+        for (i, &x) in base.iter().enumerate() {
+            if i == 0 {
+                prev = x;
+                wsum = 1.0;
+                out[0] = x;
+                continue;
+            }
+            if adjust {
+                wsum = 1.0 + (1.0 - alpha) * wsum;
+            }
+            prev = alpha * x + (1.0 - alpha) * prev;
+            out[i] = prev / if adjust { wsum } else { 1.0 };
+        }
     }
 
     fn eval_std(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
         if !arg_results.is_empty() {
-            let data = &arg_results[0];
-            if data.len() > 1 {
-                let mean = data.iter().copied().sum::<f64>() / data.len() as f64;
-                let variance = data
-                    .iter()
-                    .map(|&x| {
-                        let dx = x - mean;
-                        dx * dx
-                    })
-                    .sum::<f64>()
-                    / (data.len() - 1) as f64;
-                let std = variance.sqrt() as crate::F;
-                out.resize(len, std);
-            } else {
-                out.resize(len, f64::NAN as crate::F);
+            let mut out = vec![0.0 as crate::F; len];
+            self.eval_std_into(arg_results, &mut out);
+            return out;
+        }
+        Vec::with_capacity(len)
+    }
+
+    fn eval_std_into(&self, arg_results: &[Vec<crate::F>], out: &mut [crate::F]) {
+        let len = out.len();
+        let data = &arg_results[0];
+        if data.len() > 1 {
+            let mean = data.iter().copied().sum::<f64>() / data.len() as f64;
+            let variance = data
+                .iter()
+                .map(|&x| {
+                    let dx = x - mean;
+                    dx * dx
+                })
+                .sum::<f64>()
+                / (data.len() - 1) as f64;
+            let std = variance.sqrt() as crate::F;
+            for v in out.iter_mut().take(len) {
+                *v = std;
+            }
+        } else {
+            for v in out.iter_mut().take(len) {
+                *v = f64::NAN as crate::F;
             }
         }
-        out
     }
 
     fn eval_var(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
         if !arg_results.is_empty() {
-            let data = &arg_results[0];
-            if data.len() > 1 {
-                let mean = data.iter().copied().sum::<f64>() / data.len() as f64;
-                let variance = data
-                    .iter()
-                    .map(|&x| {
-                        let dx = x - mean;
-                        dx * dx
-                    })
-                    .sum::<f64>()
-                    / (data.len() - 1) as f64;
-                out.resize(len, variance as crate::F);
-            } else {
-                out.resize(len, f64::NAN as crate::F);
+            let mut out = vec![0.0 as crate::F; len];
+            self.eval_var_into(arg_results, &mut out);
+            return out;
+        }
+        Vec::with_capacity(len)
+    }
+
+    fn eval_var_into(&self, arg_results: &[Vec<crate::F>], out: &mut [crate::F]) {
+        let len = out.len();
+        let data = &arg_results[0];
+        if data.len() > 1 {
+            let mean = data.iter().copied().sum::<f64>() / data.len() as f64;
+            let variance = data
+                .iter()
+                .map(|&x| {
+                    let dx = x - mean;
+                    dx * dx
+                })
+                .sum::<f64>()
+                / (data.len() - 1) as f64;
+            for v in out.iter_mut().take(len) {
+                *v = variance as crate::F;
+            }
+        } else {
+            for v in out.iter_mut().take(len) {
+                *v = f64::NAN as crate::F;
             }
         }
-        out
     }
 
     fn eval_median(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
         if !arg_results.is_empty() {
-            let mut data = arg_results[0].clone();
-            if !data.is_empty() {
-                data.sort_by(|a, b| a.partial_cmp(b).unwrap());
-                let n = data.len();
-                let median = if n % 2 == 1 {
-                    data[n / 2]
-                } else {
-                    (data[n / 2 - 1] + data[n / 2]) * (0.5 as crate::F)
-                };
-                out.resize(len, median);
+            let mut out = vec![0.0 as crate::F; len];
+            self.eval_median_into(arg_results, &mut out);
+            return out;
+        }
+        Vec::with_capacity(len)
+    }
+
+    fn eval_median_into(&self, arg_results: &[Vec<crate::F>], out: &mut [crate::F]) {
+        let len = out.len();
+        let data = &arg_results[0];
+        if !data.is_empty() {
+            let mut guard = self.scratch.lock().unwrap();
+            let tmp = &mut guard.tmp;
+            tmp.clear();
+            tmp.extend_from_slice(data);
+            tmp.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            let n = tmp.len();
+            let median = if n % 2 == 1 {
+                tmp[n / 2]
             } else {
-                out.resize(len, f64::NAN as crate::F);
+                (tmp[n / 2 - 1] + tmp[n / 2]) * (0.5 as crate::F)
+            };
+            for v in out.iter_mut().take(len) {
+                *v = median;
+            }
+        } else {
+            for v in out.iter_mut().take(len) {
+                *v = f64::NAN as crate::F;
             }
         }
-        out
     }
 
     fn eval_rolling_std(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
@@ -577,7 +660,8 @@ impl CompiledExpr {
         }
         let base = &arg_results[0];
         let win = arg_results[1][0] as usize;
-        Self::rolling_apply(base, win, |w| {
+        let mut out = vec![0.0 as crate::F; len];
+        Self::rolling_apply_into(base, win, &mut out, &mut |w| {
             let m = w.iter().copied().sum::<f64>() / (win as f64);
             let var = w
                 .iter()
@@ -588,7 +672,8 @@ impl CompiledExpr {
                 .sum::<f64>()
                 / (win as f64);
             var.sqrt() as crate::F
-        })
+        });
+        out
     }
 
     fn eval_rolling_var(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
@@ -598,7 +683,8 @@ impl CompiledExpr {
         }
         let base = &arg_results[0];
         let win = arg_results[1][0] as usize;
-        Self::rolling_apply(base, win, |w| {
+        let mut out = vec![0.0 as crate::F; len];
+        Self::rolling_apply_into(base, win, &mut out, &mut |w| {
             let m = w.iter().copied().sum::<f64>() / (win as f64);
             let var = w
                 .iter()
@@ -609,7 +695,8 @@ impl CompiledExpr {
                 .sum::<f64>()
                 / (win as f64);
             var as crate::F
-        })
+        });
+        out
     }
 
     fn eval_rolling_median(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
@@ -619,47 +706,59 @@ impl CompiledExpr {
         }
         let base = &arg_results[0];
         let win = arg_results[1][0] as usize;
-        Self::rolling_apply(base, win, |w| {
-            let mut v = w.to_vec();
-            v.sort_by(|a, b| a.partial_cmp(b).unwrap());
-            let k = v.len();
-            if k % 2 == 1 {
-                v[k / 2]
+        let mut out = vec![0.0 as crate::F; len];
+        // Use scratch arena to avoid per-window allocations.
+        let mut guard = self.scratch.lock().unwrap();
+        let wbuf = &mut guard.window;
+        for i in 0..len {
+            if i + 1 < win {
+                out[i] = f64::NAN as crate::F;
             } else {
-                (v[k / 2 - 1] + v[k / 2]) * (0.5 as crate::F)
+                let start = i + 1 - win;
+                let slice = &base[start..=i];
+                wbuf.clear();
+                wbuf.extend_from_slice(slice);
+                wbuf.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                let k = wbuf.len();
+                out[i] = if k % 2 == 1 {
+                    wbuf[k / 2]
+                } else {
+                    (wbuf[k / 2 - 1] + wbuf[k / 2]) * (0.5 as crate::F)
+                };
             }
-        })
+        }
+        out
     }
 
     // Time-based rolling (Dynamic windows) are handled via Polars only.
 
     fn eval_shift(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
         if arg_results.len() >= 2 && !arg_results[1].is_empty() {
             let base = &arg_results[0];
             let n = arg_results[1][0] as i32;
-            for i in 0..len {
+            let mut out = vec![0.0 as crate::F; len];
+            for (i, slot) in out.iter_mut().enumerate().take(len) {
                 let shifted_idx = i as i32 - n;
-                if shifted_idx >= 0 && shifted_idx < len as i32 {
-                    out.push(base[shifted_idx as usize]);
+                *slot = if shifted_idx >= 0 && shifted_idx < len as i32 {
+                    base[shifted_idx as usize]
                 } else {
-                    out.push(f64::NAN as crate::F);
-                }
+                    f64::NAN as crate::F
+                };
             }
+            return out;
         }
-        out
+        Vec::with_capacity(len)
     }
 
     fn eval_rank(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out: Vec<crate::F> = Vec::with_capacity(len);
         if !arg_results.is_empty() {
             let base = &arg_results[0];
             let mut indexed: Vec<(f64, usize)> =
                 base.iter().enumerate().map(|(i, &v)| (v, i)).collect();
             indexed.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-            let mut ranks: Vec<crate::F> = vec![0.0 as crate::F; len];
+            let mut out: Vec<crate::F> = vec![0.0 as crate::F; len];
             let mut current_rank: f64 = 1.0;
             let mut last_value: f64 = f64::NAN;
             for (value, orig_idx) in indexed {
@@ -667,20 +766,19 @@ impl CompiledExpr {
                     if value != last_value && !last_value.is_nan() {
                         current_rank += 1.0;
                     }
-                    ranks[orig_idx] = current_rank as crate::F;
+                    out[orig_idx] = current_rank as crate::F;
                     last_value = value;
                 } else {
-                    ranks[orig_idx] = f64::NAN as crate::F;
+                    out[orig_idx] = f64::NAN as crate::F;
                 }
             }
-            out = ranks;
+            return out;
         }
-        out
+        Vec::with_capacity(len)
     }
 
     fn eval_quantile(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
         if arg_results.len() >= 2 && !arg_results[1].is_empty() {
             let base = &arg_results[0];
             let q = arg_results[1][0].clamp(0.0, 1.0);
@@ -688,6 +786,7 @@ impl CompiledExpr {
                 .iter()
                 .filter_map(|&x| if x.is_nan() { None } else { Some(x) })
                 .collect();
+            let mut out = vec![0.0 as crate::F; len];
             if !valid_values.is_empty() {
                 valid_values.sort_by(|a, b| a.partial_cmp(b).unwrap());
                 let index = q * (valid_values.len() - 1) as f64;
@@ -699,12 +798,17 @@ impl CompiledExpr {
                     let weight = index - lower as f64;
                     valid_values[lower] * (1.0 - weight) + valid_values[upper] * weight
                 } as crate::F;
-                out.resize(len, quantile_value);
+                for v in out.iter_mut().take(len) {
+                    *v = quantile_value;
+                }
             } else {
-                out.resize(len, f64::NAN as crate::F);
+                for v in out.iter_mut().take(len) {
+                    *v = f64::NAN as crate::F;
+                }
             }
+            return out;
         }
-        out
+        Vec::with_capacity(len)
     }
 
     fn eval_rolling_min(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
@@ -714,13 +818,15 @@ impl CompiledExpr {
         }
         let base = &arg_results[0];
         let win = arg_results[1][0] as usize;
-        Self::rolling_apply(base, win, |w| {
+        let mut out = vec![0.0 as crate::F; len];
+        Self::rolling_apply_into(base, win, &mut out, &mut |w| {
             w.iter()
                 .copied()
                 .filter(|x| !x.is_nan())
                 .min_by(|a, b| a.partial_cmp(b).unwrap())
                 .unwrap_or(f64::NAN)
-        })
+        });
+        out
     }
 
     fn eval_rolling_max(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
@@ -730,13 +836,15 @@ impl CompiledExpr {
         }
         let base = &arg_results[0];
         let win = arg_results[1][0] as usize;
-        Self::rolling_apply(base, win, |w| {
+        let mut out = vec![0.0 as crate::F; len];
+        Self::rolling_apply_into(base, win, &mut out, &mut |w| {
             w.iter()
                 .copied()
                 .filter(|x| !x.is_nan())
                 .max_by(|a, b| a.partial_cmp(b).unwrap())
                 .unwrap_or(f64::NAN)
-        })
+        });
+        out
     }
 
     fn eval_rolling_count(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
@@ -746,9 +854,11 @@ impl CompiledExpr {
         }
         let base = &arg_results[0];
         let win = arg_results[1][0] as usize;
-        Self::rolling_apply(base, win, |w| {
+        let mut out = vec![0.0 as crate::F; len];
+        Self::rolling_apply_into(base, win, &mut out, &mut |w| {
             w.iter().copied().filter(|x| !x.is_nan()).count() as crate::F
-        })
+        });
+        out
     }
 
     fn eval_ewm_std(&self, arg_results: &[Vec<crate::F>]) -> Vec<crate::F> {
@@ -896,6 +1006,7 @@ impl CompiledExpr {
                         ast: args[0].clone(),
                         plan: None,
                         cache: None,
+                        scratch: Mutex::new(ScratchArena::default()),
                     }
                     .to_polars_expr()
                     .unwrap();
@@ -911,6 +1022,7 @@ impl CompiledExpr {
                         ast: args[0].clone(),
                         plan: None,
                         cache: None,
+                        scratch: Mutex::new(ScratchArena::default()),
                     }
                     .to_polars_expr()
                     .unwrap();
@@ -932,6 +1044,7 @@ impl CompiledExpr {
                         ast: args[0].clone(),
                         plan: None,
                         cache: None,
+                        scratch: Mutex::new(ScratchArena::default()),
                     }
                     .to_polars_expr()
                     .unwrap();
@@ -942,6 +1055,7 @@ impl CompiledExpr {
                         ast: args[0].clone(),
                         plan: None,
                         cache: None,
+                        scratch: Mutex::new(ScratchArena::default()),
                     }
                     .to_polars_expr()
                     .unwrap();
@@ -952,6 +1066,7 @@ impl CompiledExpr {
                         ast: args[0].clone(),
                         plan: None,
                         cache: None,
+                        scratch: Mutex::new(ScratchArena::default()),
                     }
                     .to_polars_expr()
                     .unwrap();
@@ -972,6 +1087,7 @@ impl CompiledExpr {
                         ast: args[0].clone(),
                         plan: None,
                         cache: None,
+                        scratch: Mutex::new(ScratchArena::default()),
                     }
                     .to_polars_expr()?;
                     let n = arg_as_i64(&args[1]);
@@ -1006,6 +1122,7 @@ impl CompiledExpr {
             ast: e.clone(),
             plan: None,
             cache: None,
+            scratch: Mutex::new(ScratchArena::default()),
         }
         .to_polars_expr()?;
         let n = n
@@ -1025,6 +1142,7 @@ impl CompiledExpr {
             ast: lhs.clone(),
             plan: None,
             cache: None,
+            scratch: Mutex::new(ScratchArena::default()),
         }
         .to_polars_expr()?;
         Some(f(x, rhs))

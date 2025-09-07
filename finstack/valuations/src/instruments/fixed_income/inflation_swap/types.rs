@@ -44,14 +44,19 @@ pub struct InflationSwap {
 
 impl InflationSwap {
     /// Builder entrypoint
-    pub fn builder() -> crate::instruments::fixed_income::inflation_swap::builder::InflationSwapBuilder {
+    pub fn builder(
+    ) -> crate::instruments::fixed_income::inflation_swap::builder::InflationSwapBuilder {
         crate::instruments::fixed_income::inflation_swap::builder::InflationSwapBuilder::new()
     }
 }
 
 impl InflationSwap {
     /// Calculate PV of the fixed leg (real rate leg)
-    pub fn pv_fixed_leg(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+    pub fn pv_fixed_leg(
+        &self,
+        curves: &MarketContext,
+        _as_of: Date,
+    ) -> finstack_core::Result<Money> {
         let disc = curves.disc(self.disc_id)?;
         let base = disc.base_date();
 
@@ -142,5 +147,3 @@ impl_instrument!(
         }
     },
 );
-
-

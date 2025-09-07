@@ -135,10 +135,12 @@ impl TermStructure for BumpedDiscountCurve {
 }
 
 impl Discount for BumpedDiscountCurve {
+    #[inline]
     fn base_date(&self) -> Date {
         self.original.base_date()
     }
 
+    #[inline]
     fn df(&self, t: F) -> F {
         let original_df = self.original.df(t);
         original_df * (-self.bump_rate * t).exp()
@@ -169,6 +171,7 @@ impl TermStructure for BumpedForwardCurve {
 }
 
 impl Forward for BumpedForwardCurve {
+    #[inline]
     fn rate(&self, t: F) -> F {
         self.original.rate(t) + self.bump_rate
     }
@@ -341,7 +344,7 @@ impl MarketContext {
     /// Get discount curve by id.
     pub fn disc(&self, id: impl AsRef<str>) -> crate::Result<Arc<dyn Discount + Send + Sync>> {
         let id_str = id.as_ref();
-        self.disc.get(&CurveId::from(id_str)).cloned().ok_or(
+        self.disc.get(id_str).cloned().ok_or(
             crate::error::InputError::NotFound {
                 id: id_str.to_string(),
             }
@@ -352,7 +355,7 @@ impl MarketContext {
     /// Get forward curve by id.
     pub fn fwd(&self, id: impl AsRef<str>) -> crate::Result<Arc<dyn Forward + Send + Sync>> {
         let id_str = id.as_ref();
-        self.fwd.get(&CurveId::from(id_str)).cloned().ok_or(
+        self.fwd.get(id_str).cloned().ok_or(
             crate::error::InputError::NotFound {
                 id: id_str.to_string(),
             }
@@ -366,7 +369,7 @@ impl MarketContext {
         id: impl AsRef<str>,
     ) -> crate::Result<Arc<crate::market_data::hazard_curve::HazardCurve>> {
         let id_str = id.as_ref();
-        self.hazard.get(&CurveId::from(id_str)).cloned().ok_or(
+        self.hazard.get(id_str).cloned().ok_or(
             crate::error::InputError::NotFound {
                 id: id_str.to_string(),
             }
@@ -377,7 +380,7 @@ impl MarketContext {
     /// Get inflation curve by id.
     pub fn infl(&self, id: impl AsRef<str>) -> crate::Result<Arc<InflationCurve>> {
         let id_str = id.as_ref();
-        self.inflation.get(&CurveId::from(id_str)).cloned().ok_or(
+        self.inflation.get(id_str).cloned().ok_or(
             crate::error::InputError::NotFound {
                 id: id_str.to_string(),
             }
@@ -388,7 +391,7 @@ impl MarketContext {
     /// Get volatility surface by id.
     pub fn surface(&self, id: impl AsRef<str>) -> crate::Result<Arc<VolSurface>> {
         let id_str = id.as_ref();
-        self.surfaces.get(&CurveId::from(id_str)).cloned().ok_or(
+        self.surfaces.get(id_str).cloned().ok_or(
             crate::error::InputError::NotFound {
                 id: id_str.to_string(),
             }
@@ -399,7 +402,7 @@ impl MarketContext {
     /// Get market scalar (price/constant) by id.
     pub fn price(&self, id: impl AsRef<str>) -> crate::Result<&MarketScalar> {
         let id_str = id.as_ref();
-        self.prices.get(&CurveId::from(id_str)).ok_or(
+        self.prices.get(id_str).ok_or(
             crate::error::InputError::NotFound {
                 id: id_str.to_string(),
             }
@@ -410,7 +413,7 @@ impl MarketContext {
     /// Get scalar time series by id.
     pub fn series(&self, id: impl AsRef<str>) -> crate::Result<&ScalarTimeSeries> {
         let id_str = id.as_ref();
-        self.series.get(&CurveId::from(id_str)).ok_or(
+        self.series.get(id_str).ok_or(
             crate::error::InputError::NotFound {
                 id: id_str.to_string(),
             }
@@ -424,22 +427,17 @@ impl MarketContext {
         id: impl AsRef<str>,
     ) -> crate::Result<Arc<BaseCorrelationCurve>> {
         let id_str = id.as_ref();
-        self.base_correlation
-            .get(&CurveId::from(id_str))
-            .cloned()
-            .ok_or(
-                crate::error::InputError::NotFound {
-                    id: id_str.to_string(),
-                }
-                .into(),
-            )
+        self.base_correlation.get(id_str).cloned().ok_or(
+            crate::error::InputError::NotFound {
+                id: id_str.to_string(),
+            }
+            .into(),
+        )
     }
 
     /// Get inflation index by id.
     pub fn inflation_index(&self, id: impl AsRef<str>) -> Option<Arc<InflationIndex>> {
-        self.inflation_indices
-            .get(&CurveId::from(id.as_ref()))
-            .cloned()
+        self.inflation_indices.get(id.as_ref()).cloned()
     }
 
     /// Resolve collateral discount curve for CSA code.

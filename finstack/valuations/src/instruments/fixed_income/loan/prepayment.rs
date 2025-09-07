@@ -109,10 +109,12 @@ impl TermStructure for ZSpreadCurve<'_> {
 }
 
 impl Discount for ZSpreadCurve<'_> {
+    #[inline]
     fn base_date(&self) -> Date {
         self.base.base_date()
     }
 
+    #[inline]
     fn df(&self, t: F) -> F {
         self.base.df(t) * (-self.z_spread * t).exp()
     }
@@ -144,10 +146,12 @@ impl TermStructure for FlatRateCurve {
 }
 
 impl Discount for FlatRateCurve {
+    #[inline]
     fn base_date(&self) -> Date {
         self.base_date
     }
 
+    #[inline]
     fn df(&self, t: F) -> F {
         (-self.rate * t).exp()
     }

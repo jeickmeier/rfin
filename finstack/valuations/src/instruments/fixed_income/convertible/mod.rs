@@ -3,8 +3,8 @@
 pub mod metrics;
 pub mod model;
 
-mod types;
 mod builder;
+mod types;
 
 pub use types::{
     AntiDilutionPolicy, ConversionEvent, ConversionPolicy, ConversionSpec, ConvertibleBond,

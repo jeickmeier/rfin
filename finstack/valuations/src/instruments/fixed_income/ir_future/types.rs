@@ -205,5 +205,3 @@ impl CashflowProvider for InterestRateFuture {
         Ok(vec![(self.expiry_date, settlement_pv)])
     }
 }
-
-

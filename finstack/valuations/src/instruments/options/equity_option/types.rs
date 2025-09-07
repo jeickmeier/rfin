@@ -1,12 +1,12 @@
 //! Equity option instrument implementation using Black-Scholes model.
 
+use crate::instruments::options::models::{d1, d2};
+use crate::instruments::options::{ExerciseStyle, OptionType, SettlementType};
 use crate::instruments::traits::Attributes;
+use finstack_core::dates::Date;
+use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
 use finstack_core::F;
-use finstack_core::dates::Date;
-use crate::instruments::options::{ExerciseStyle, OptionType, SettlementType};
-use crate::instruments::options::models::{d1, d2};
-use finstack_core::math::{norm_cdf, norm_pdf};
 
 /// Equity option instrument
 #[derive(Clone, Debug)]
@@ -64,29 +64,58 @@ impl EquityOption {
         }
     }
 
-    pub fn black_scholes_price(&self, spot: F, r: F, sigma: F, t: F, q: F) -> finstack_core::Result<Money> {
+    pub fn black_scholes_price(
+        &self,
+        spot: F,
+        r: F,
+        sigma: F,
+        t: F,
+        q: F,
+    ) -> finstack_core::Result<Money> {
         if t <= 0.0 {
             let intrinsic = match self.option_type {
                 OptionType::Call => (spot - self.strike.amount()).max(0.0),
                 OptionType::Put => (self.strike.amount() - spot).max(0.0),
             };
-            return Ok(Money::new(intrinsic * self.contract_size, self.strike.currency()));
+            return Ok(Money::new(
+                intrinsic * self.contract_size,
+                self.strike.currency(),
+            ));
         }
         let k = self.strike.amount();
         let d1 = d1(spot, k, r, sigma, t, q);
         let d2 = d2(spot, k, r, sigma, t, q);
         let price = match self.option_type {
-            OptionType::Call => spot * (-q * t).exp() * norm_cdf(d1) - k * (-r * t).exp() * norm_cdf(d2),
-            OptionType::Put => k * (-r * t).exp() * norm_cdf(-d2) - spot * (-q * t).exp() * norm_cdf(-d1),
+            OptionType::Call => {
+                spot * (-q * t).exp() * norm_cdf(d1) - k * (-r * t).exp() * norm_cdf(d2)
+            }
+            OptionType::Put => {
+                k * (-r * t).exp() * norm_cdf(-d2) - spot * (-q * t).exp() * norm_cdf(-d1)
+            }
         };
-        Ok(Money::new(price * self.contract_size, self.strike.currency()))
+        Ok(Money::new(
+            price * self.contract_size,
+            self.strike.currency(),
+        ))
     }
 
     pub fn delta(&self, spot: F, r: F, sigma: F, t: F, q: F) -> F {
         if t <= 0.0 {
             return match self.option_type {
-                OptionType::Call => if spot > self.strike.amount() { 1.0 } else { 0.0 },
-                OptionType::Put => if spot < self.strike.amount() { -1.0 } else { 0.0 },
+                OptionType::Call => {
+                    if spot > self.strike.amount() {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                OptionType::Put => {
+                    if spot < self.strike.amount() {
+                        -1.0
+                    } else {
+                        0.0
+                    }
+                }
             };
         }
         let d1 = d1(spot, self.strike.amount(), r, sigma, t, q);
@@ -98,21 +127,27 @@ impl EquityOption {
     }
 
     pub fn gamma(&self, spot: F, r: F, sigma: F, t: F, q: F) -> F {
-        if t <= 0.0 || sigma <= 0.0 { return 0.0; }
+        if t <= 0.0 || sigma <= 0.0 {
+            return 0.0;
+        }
         let d1 = d1(spot, self.strike.amount(), r, sigma, t, q);
         let exp_q_t = (-q * t).exp();
         exp_q_t * norm_pdf(d1) / (spot * sigma * t.sqrt())
     }
 
     pub fn vega(&self, spot: F, r: F, sigma: F, t: F, q: F) -> F {
-        if t <= 0.0 { return 0.0; }
+        if t <= 0.0 {
+            return 0.0;
+        }
         let d1 = d1(spot, self.strike.amount(), r, sigma, t, q);
         let exp_q_t = (-q * t).exp();
         spot * exp_q_t * norm_pdf(d1) * t.sqrt() / 100.0
     }
 
     pub fn theta(&self, spot: F, r: F, sigma: F, t: F, q: F) -> F {
-        if t <= 0.0 { return 0.0; }
+        if t <= 0.0 {
+            return 0.0;
+        }
         let k = self.strike.amount();
         let d1 = d1(spot, k, r, sigma, t, q);
         let d2 = d2(spot, k, r, sigma, t, q);
@@ -134,7 +169,9 @@ impl EquityOption {
     }
 
     pub fn rho(&self, spot: F, r: F, sigma: F, t: F, q: F) -> F {
-        if t <= 0.0 { return 0.0; }
+        if t <= 0.0 {
+            return 0.0;
+        }
         let k = self.strike.amount();
         let d2 = d2(spot, k, r, sigma, t, q);
         match self.option_type {
@@ -157,13 +194,18 @@ impl_instrument!(
             let spot_scalar = curves.price(s.spot_id)?;
             let spot = match spot_scalar {
                 finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
-                finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
+                finstack_core::market_data::primitives::MarketScalar::Price(money) => {
+                    money.amount()
+                }
             };
             let intrinsic = match s.option_type {
                 OptionType::Call => (spot - s.strike.amount()).max(0.0),
                 OptionType::Put => (s.strike.amount() - spot).max(0.0),
             };
-            return Ok(finstack_core::money::Money::new(intrinsic * s.contract_size, s.strike.currency()));
+            return Ok(finstack_core::money::Money::new(
+                intrinsic * s.contract_size,
+                s.strike.currency(),
+            ));
         }
         let disc_curve = curves.disc(s.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
@@ -180,13 +222,15 @@ impl_instrument!(
                 },
                 Err(_) => 0.0,
             }
-        } else { 0.0 };
-        let sigma = if let Some(impl_vol) = s.implied_vol { impl_vol } else {
+        } else {
+            0.0
+        };
+        let sigma = if let Some(impl_vol) = s.implied_vol {
+            impl_vol
+        } else {
             let vol_surface = curves.surface(s.vol_id)?;
             vol_surface.value_clamped(time_to_expiry, s.strike.amount())
         };
         s.black_scholes_price(spot, r, sigma, time_to_expiry, q)
     }
 );
-
-

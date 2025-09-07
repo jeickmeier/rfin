@@ -1,14 +1,14 @@
 //! FX option instrument implementation using Garman-Kohlhagen model.
 
-use crate::instruments::traits::Attributes;
+use crate::instruments::options::models::{d1, d2};
 use crate::instruments::options::{ExerciseStyle, OptionType, SettlementType};
+use crate::instruments::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
+use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
 use finstack_core::F;
 use num_traits::ToPrimitive;
-use crate::instruments::options::models::{d1, d2};
-use finstack_core::math::{norm_cdf, norm_pdf};
 
 /// FX option instrument (Garman-Kohlhagen model)
 #[derive(Clone, Debug)]
@@ -63,51 +63,91 @@ impl FxOption {
         }
     }
 
-    pub fn garman_kohlhagen_price(&self, spot: F, r_d: F, r_f: F, sigma: F, t: F) -> finstack_core::Result<Money> {
+    pub fn garman_kohlhagen_price(
+        &self,
+        spot: F,
+        r_d: F,
+        r_f: F,
+        sigma: F,
+        t: F,
+    ) -> finstack_core::Result<Money> {
         if t <= 0.0 {
             let intrinsic = match self.option_type {
                 OptionType::Call => (spot - self.strike).max(0.0),
                 OptionType::Put => (self.strike - spot).max(0.0),
             };
-            return Ok(Money::new(intrinsic * self.notional.amount(), self.quote_currency));
+            return Ok(Money::new(
+                intrinsic * self.notional.amount(),
+                self.quote_currency,
+            ));
         }
         let d1 = d1(spot, self.strike, r_d, sigma, t, r_f);
         let d2 = d2(spot, self.strike, r_d, sigma, t, r_f);
         let price = match self.option_type {
-            OptionType::Call => spot * (-r_f * t).exp() * norm_cdf(d1) - self.strike * (-r_d * t).exp() * norm_cdf(d2),
-            OptionType::Put => self.strike * (-r_d * t).exp() * norm_cdf(-d2) - spot * (-r_f * t).exp() * norm_cdf(-d1),
+            OptionType::Call => {
+                spot * (-r_f * t).exp() * norm_cdf(d1)
+                    - self.strike * (-r_d * t).exp() * norm_cdf(d2)
+            }
+            OptionType::Put => {
+                self.strike * (-r_d * t).exp() * norm_cdf(-d2)
+                    - spot * (-r_f * t).exp() * norm_cdf(-d1)
+            }
         };
-        Ok(Money::new(price * self.notional.amount(), self.quote_currency))
+        Ok(Money::new(
+            price * self.notional.amount(),
+            self.quote_currency,
+        ))
     }
 
     pub fn delta(&self, spot: F, r_d: F, r_f: F, sigma: F, t: F) -> F {
         if t <= 0.0 {
             return match self.option_type {
-                OptionType::Call => if spot > self.strike { 1.0 } else { 0.0 },
-                OptionType::Put => if spot < self.strike { -1.0 } else { 0.0 },
+                OptionType::Call => {
+                    if spot > self.strike {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                OptionType::Put => {
+                    if spot < self.strike {
+                        -1.0
+                    } else {
+                        0.0
+                    }
+                }
             };
         }
         let d1 = d1(spot, self.strike, r_d, sigma, t, r_f);
         let exp_rf_t = (-r_f * t).exp();
-        match self.option_type { OptionType::Call => exp_rf_t * norm_cdf(d1), OptionType::Put => -exp_rf_t * norm_cdf(-d1) }
+        match self.option_type {
+            OptionType::Call => exp_rf_t * norm_cdf(d1),
+            OptionType::Put => -exp_rf_t * norm_cdf(-d1),
+        }
     }
 
     pub fn gamma(&self, spot: F, r_d: F, r_f: F, sigma: F, t: F) -> F {
-        if t <= 0.0 || sigma <= 0.0 { return 0.0; }
+        if t <= 0.0 || sigma <= 0.0 {
+            return 0.0;
+        }
         let d1 = d1(spot, self.strike, r_d, sigma, t, r_f);
         let exp_rf_t = (-r_f * t).exp();
         exp_rf_t * norm_pdf(d1) / (spot * sigma * t.sqrt())
     }
 
     pub fn vega(&self, spot: F, r_d: F, r_f: F, sigma: F, t: F) -> F {
-        if t <= 0.0 { return 0.0; }
+        if t <= 0.0 {
+            return 0.0;
+        }
         let d1 = d1(spot, self.strike, r_d, sigma, t, r_f);
         let exp_rf_t = (-r_f * t).exp();
         spot * exp_rf_t * norm_pdf(d1) * t.sqrt() / 100.0
     }
 
     pub fn theta(&self, spot: F, r_d: F, r_f: F, sigma: F, t: F) -> F {
-        if t <= 0.0 { return 0.0; }
+        if t <= 0.0 {
+            return 0.0;
+        }
         let d1 = d1(spot, self.strike, r_d, sigma, t, r_f);
         let d2 = d2(spot, self.strike, r_d, sigma, t, r_f);
         let sqrt_t = t.sqrt();
@@ -128,7 +168,9 @@ impl FxOption {
     }
 
     pub fn rho_domestic(&self, spot: F, r_d: F, r_f: F, sigma: F, t: F) -> F {
-        if t <= 0.0 { return 0.0; }
+        if t <= 0.0 {
+            return 0.0;
+        }
         let d2 = d2(spot, self.strike, r_d, sigma, t, r_f);
         match self.option_type {
             OptionType::Call => self.strike * t * (-r_d * t).exp() * norm_cdf(d2) / 100.0,
@@ -137,7 +179,9 @@ impl FxOption {
     }
 
     pub fn rho_foreign(&self, spot: F, r_d: F, r_f: F, sigma: F, t: F) -> F {
-        if t <= 0.0 { return 0.0; }
+        if t <= 0.0 {
+            return 0.0;
+        }
         let d1 = d1(spot, self.strike, r_d, sigma, t, r_f);
         match self.option_type {
             OptionType::Call => -spot * t * (-r_f * t).exp() * norm_cdf(d1) / 100.0,
@@ -150,22 +194,66 @@ impl_instrument!(
     FxOption,
     "FxOption",
     pv = |s, curves, as_of| {
-        let time_to_expiry = s.day_count.year_fraction(as_of, s.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let time_to_expiry = s.day_count.year_fraction(
+            as_of,
+            s.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if time_to_expiry <= 0.0 {
-            let fx_matrix = curves.fx.as_ref().ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
-            let spot = fx_matrix.rate(finstack_core::money::fx::FxQuery { from: s.base_currency, to: s.quote_currency, on: as_of, policy: finstack_core::money::fx::FxConversionPolicy::CashflowDate, closure_check: None, want_meta: false })?;
-            let intrinsic = match s.option_type { OptionType::Call => (spot.rate.to_f64().unwrap_or(0.0) - s.strike).max(0.0), OptionType::Put => (s.strike - spot.rate.to_f64().unwrap_or(0.0)).max(0.0), };
-            return Ok(finstack_core::money::Money::new(intrinsic * s.notional.amount(), s.quote_currency));
+            let fx_matrix =
+                curves
+                    .fx
+                    .as_ref()
+                    .ok_or(finstack_core::error::InputError::NotFound {
+                        id: "fx_matrix".to_string(),
+                    })?;
+            let spot = fx_matrix.rate(finstack_core::money::fx::FxQuery {
+                from: s.base_currency,
+                to: s.quote_currency,
+                on: as_of,
+                policy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })?;
+            let intrinsic = match s.option_type {
+                OptionType::Call => (spot.rate.to_f64().unwrap_or(0.0) - s.strike).max(0.0),
+                OptionType::Put => (s.strike - spot.rate.to_f64().unwrap_or(0.0)).max(0.0),
+            };
+            return Ok(finstack_core::money::Money::new(
+                intrinsic * s.notional.amount(),
+                s.quote_currency,
+            ));
         }
         let domestic_disc = curves.disc(s.domestic_disc_id)?;
         let foreign_disc = curves.disc(s.foreign_disc_id)?;
         let r_d = domestic_disc.zero(time_to_expiry);
         let r_f = foreign_disc.zero(time_to_expiry);
-        let fx_matrix = curves.fx.as_ref().ok_or(finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() })?;
-        let spot = fx_matrix.rate(finstack_core::money::fx::FxQuery { from: s.base_currency, to: s.quote_currency, on: as_of, policy: finstack_core::money::fx::FxConversionPolicy::CashflowDate, closure_check: None, want_meta: false })?;
-        let sigma = if let Some(impl_vol) = s.implied_vol { impl_vol } else { let vol_surface = curves.surface(s.vol_id)?; vol_surface.value_clamped(time_to_expiry, s.strike) };
-        s.garman_kohlhagen_price(spot.rate.to_f64().unwrap_or(0.0), r_d, r_f, sigma, time_to_expiry)
+        let fx_matrix = curves
+            .fx
+            .as_ref()
+            .ok_or(finstack_core::error::InputError::NotFound {
+                id: "fx_matrix".to_string(),
+            })?;
+        let spot = fx_matrix.rate(finstack_core::money::fx::FxQuery {
+            from: s.base_currency,
+            to: s.quote_currency,
+            on: as_of,
+            policy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
+            closure_check: None,
+            want_meta: false,
+        })?;
+        let sigma = if let Some(impl_vol) = s.implied_vol {
+            impl_vol
+        } else {
+            let vol_surface = curves.surface(s.vol_id)?;
+            vol_surface.value_clamped(time_to_expiry, s.strike)
+        };
+        s.garman_kohlhagen_price(
+            spot.rate.to_f64().unwrap_or(0.0),
+            r_d,
+            r_f,
+            sigma,
+            time_to_expiry,
+        )
     }
 );
-
-

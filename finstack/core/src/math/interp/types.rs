@@ -128,5 +128,3 @@ impl InterpStyle {
         Ok(interp)
     }
 }
-
-

@@ -1,6 +1,6 @@
+pub mod builder;
 pub mod metrics;
 mod types;
-pub mod builder;
 
 pub use types::FxSwap;
 

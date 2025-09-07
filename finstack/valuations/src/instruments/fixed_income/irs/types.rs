@@ -7,7 +7,9 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::F;
 
-use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec, FloatingCouponSpec as BuilderFloat};
+use crate::cashflow::builder::{
+    cf, CouponType, FixedCouponSpec, FloatingCouponSpec as BuilderFloat,
+};
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::fixed_income::discountable::Discountable;
 use crate::instruments::traits::Attributes;
@@ -375,5 +377,3 @@ impl CashflowProvider for InterestRateSwap {
         Ok(flows)
     }
 }
-
-

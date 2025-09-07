@@ -1,8 +1,8 @@
 //! Convertible bond instrument types and implementation.
 
-use finstack_core::F;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
+use finstack_core::F;
 
 use crate::cashflow::builder::types::{FixedCouponSpec, FloatingCouponSpec};
 use crate::instruments::fixed_income::bond::CallPutSchedule;
@@ -60,7 +60,10 @@ pub enum ConversionEvent {
     QualifiedIpo,
     ChangeOfControl,
     /// Forced conversion if share price meets threshold for a lookback period.
-    PriceTrigger { threshold: F, lookback_days: u32 },
+    PriceTrigger {
+        threshold: F,
+        lookback_days: u32,
+    },
 }
 
 /// Anti-dilution protection applied to conversion terms.
@@ -102,5 +105,3 @@ impl_instrument!(
         model::price_convertible_bond(s, curves, model::ConvertibleTreeType::default())
     }
 );
-
-

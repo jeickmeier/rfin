@@ -35,10 +35,12 @@ impl TermStructure for BumpedDiscountCurve {
 }
 
 impl Discount for BumpedDiscountCurve {
+    #[inline]
     fn base_date(&self) -> Date {
         self.original.base_date()
     }
 
+    #[inline]
     fn df(&self, t: F) -> F {
         let original_df = self.original.df(t);
         original_df * (-self.bump_rate * t).exp()

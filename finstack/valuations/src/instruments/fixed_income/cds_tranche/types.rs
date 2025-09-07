@@ -2,13 +2,13 @@
 
 use crate::instruments::build_with_metrics_dyn;
 use crate::instruments::traits::{Attributes, Priceable};
-use crate::metrics::MetricId;
 use crate::market_data::ValuationMarketContext;
+use crate::metrics::MetricId;
 use crate::results::ValuationResult;
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
 use finstack_core::market_data::MarketContext;
-use finstack_core::F;
-use finstack_core::dates::{BusinessDayConvention, DayCount, Date, Frequency};
 use finstack_core::money::Money;
+use finstack_core::F;
 
 use super::model;
 
@@ -140,5 +140,3 @@ impl Priceable for CdsTranche {
         build_with_metrics_dyn(self, curves, as_of, base_value, metrics)
     }
 }
-
-

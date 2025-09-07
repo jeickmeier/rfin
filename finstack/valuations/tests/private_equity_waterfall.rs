@@ -234,7 +234,7 @@ fn test_waterfall_spec_validation() {
     // Invalid promote shares (don't sum to 1.0)
     let invalid_spec = WaterfallSpec {
         style: WaterfallStyle::European,
-        tranches: vec![Tranche::PromoteTier {
+        tranches: smallvec::smallvec![Tranche::PromoteTier {
             hurdle: Hurdle::Irr { rate: 0.0 },
             lp_share: 0.7,
             gp_share: 0.4, // 0.7 + 0.4 = 1.1 > 1.0
@@ -248,7 +248,7 @@ fn test_waterfall_spec_validation() {
     // Negative shares should fail
     let negative_spec = WaterfallSpec {
         style: WaterfallStyle::European,
-        tranches: vec![Tranche::PromoteTier {
+        tranches: smallvec::smallvec![Tranche::PromoteTier {
             hurdle: Hurdle::Irr { rate: 0.0 },
             lp_share: -0.2, // Negative share
             gp_share: 1.2,

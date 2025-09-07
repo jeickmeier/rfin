@@ -1,11 +1,11 @@
 //! Interest rate option instrument types and implementation using Black model.
 
+use crate::instruments::options::{ExerciseStyle, SettlementType};
 use crate::instruments::traits::Attributes;
+use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
 use finstack_core::F;
-use finstack_core::dates::{Date, DayCount, Frequency};
-use crate::instruments::options::{ExerciseStyle, SettlementType};
-use finstack_core::math::{norm_cdf, norm_pdf};
 
 /// Type of interest rate option
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -209,16 +209,24 @@ impl InterestRateOption {
         if t <= 0.0 || sigma <= 0.0 {
             return match self.rate_option_type {
                 RateOptionType::Caplet | RateOptionType::Cap => {
-                    if forward_rate > self.strike_rate { 1.0 } else { 0.0 }
+                    if forward_rate > self.strike_rate {
+                        1.0
+                    } else {
+                        0.0
+                    }
                 }
                 RateOptionType::Floorlet | RateOptionType::Floor => {
-                    if forward_rate < self.strike_rate { -1.0 } else { 0.0 }
+                    if forward_rate < self.strike_rate {
+                        -1.0
+                    } else {
+                        0.0
+                    }
                 }
             };
         }
 
-        let d1 = ((forward_rate / self.strike_rate).ln() + 0.5 * sigma * sigma * t)
-            / (sigma * t.sqrt());
+        let d1 =
+            ((forward_rate / self.strike_rate).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
 
         match self.rate_option_type {
             RateOptionType::Caplet | RateOptionType::Cap => norm_cdf(d1),
@@ -228,18 +236,24 @@ impl InterestRateOption {
 
     /// Calculate option gamma
     pub fn gamma(&self, forward_rate: F, sigma: F, t: F) -> F {
-        if t <= 0.0 || sigma <= 0.0 || forward_rate <= 0.0 { return 0.0; }
-        let d1 = ((forward_rate / self.strike_rate).ln() + 0.5 * sigma * sigma * t)
-            / (sigma * t.sqrt());
+        if t <= 0.0 || sigma <= 0.0 || forward_rate <= 0.0 {
+            return 0.0;
+        }
+        let d1 =
+            ((forward_rate / self.strike_rate).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
         norm_pdf(d1) / (forward_rate * sigma * t.sqrt())
     }
 
     /// Calculate option vega
     pub fn vega(&self, forward_rate: F, sigma: F, t: F) -> F {
-        if t <= 0.0 || forward_rate <= 0.0 { return 0.0; }
+        if t <= 0.0 || forward_rate <= 0.0 {
+            return 0.0;
+        }
         let d1 = if sigma > 0.0 {
             ((forward_rate / self.strike_rate).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt())
-        } else { 0.0 };
+        } else {
+            0.0
+        };
         forward_rate * norm_pdf(d1) * t.sqrt() / 100.0 // Per 1% vega
     }
 }
@@ -256,12 +270,17 @@ impl_instrument!(
         let fwd_curve = curves.fwd(s.forward_id)?;
         let vol_surface = if s.implied_vol.is_none() {
             Some(curves.surface(s.vol_id)?)
-        } else { None };
+        } else {
+            None
+        };
 
         let mut total_pv = finstack_core::money::Money::new(0.0, s.notional.currency());
 
         // For single caplet/floorlet, price directly
-        if matches!(s.rate_option_type, RateOptionType::Caplet | RateOptionType::Floorlet) {
+        if matches!(
+            s.rate_option_type,
+            RateOptionType::Caplet | RateOptionType::Floorlet
+        ) {
             let time_to_fixing = s.day_count.year_fraction(
                 as_of,
                 s.start_date,
@@ -301,10 +320,19 @@ impl_instrument!(
             } else if let Some(vol_surf) = &vol_surface {
                 vol_surf.value_clamped(time_to_fixing, s.strike_rate)
             } else {
-                return Err(finstack_core::error::InputError::NotFound { id: "cap_floor_rate_index".to_string() }.into());
+                return Err(finstack_core::error::InputError::NotFound {
+                    id: "cap_floor_rate_index".to_string(),
+                }
+                .into());
             };
 
-            return s.black_price_caplet_floorlet(forward_rate, df, sigma, time_to_fixing, period_length);
+            return s.black_price_caplet_floorlet(
+                forward_rate,
+                df,
+                sigma,
+                time_to_fixing,
+                period_length,
+            );
         }
 
         // For cap/floor, price as portfolio of caplets/floorlets
@@ -317,7 +345,9 @@ impl_instrument!(
             None,
         );
 
-        if schedule.dates.len() < 2 { return Ok(total_pv); }
+        if schedule.dates.len() < 2 {
+            return Ok(total_pv);
+        }
 
         // Price each caplet/floorlet
         let mut prev_date = schedule.dates[0];
@@ -344,14 +374,23 @@ impl_instrument!(
                 let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
                 let df = disc_curve.df(time_to_payment);
 
-                let sigma = if let Some(impl_vol) = s.implied_vol { impl_vol } else if let Some(vol_surf) = &vol_surface {
+                let sigma = if let Some(impl_vol) = s.implied_vol {
+                    impl_vol
+                } else if let Some(vol_surf) = &vol_surface {
                     vol_surf.value_clamped(time_to_fixing, s.strike_rate)
                 } else {
-                    return Err(finstack_core::error::InputError::NotFound { id: "cap_floor_rate_index".to_string() }.into());
+                    return Err(finstack_core::error::InputError::NotFound {
+                        id: "cap_floor_rate_index".to_string(),
+                    }
+                    .into());
                 };
 
                 let caplet_price = s.black_price_caplet_floorlet(
-                    forward_rate, df, sigma, time_to_fixing, period_length,
+                    forward_rate,
+                    df,
+                    sigma,
+                    time_to_fixing,
+                    period_length,
                 )?;
                 total_pv = (total_pv + caplet_price)?;
             }
@@ -362,5 +401,3 @@ impl_instrument!(
         Ok(total_pv)
     }
 );
-
-

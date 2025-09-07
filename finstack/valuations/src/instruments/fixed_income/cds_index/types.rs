@@ -120,5 +120,3 @@ impl_instrument!(
         cds.value(curves, as_of)
     }
 );
-
-

@@ -216,5 +216,3 @@ impl CashflowProvider for FxSpot {
         }
     }
 }
-
-

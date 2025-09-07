@@ -137,6 +137,12 @@ impl<T: TypeTag> AsRef<str> for Id<T> {
     }
 }
 
+impl<T: TypeTag> std::borrow::Borrow<str> for Id<T> {
+    fn borrow(&self) -> &str {
+        &self.value
+    }
+}
+
 impl<T: TypeTag> std::str::FromStr for Id<T> {
     type Err = std::convert::Infallible;
 

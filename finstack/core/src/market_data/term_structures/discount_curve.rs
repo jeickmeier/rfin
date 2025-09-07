@@ -61,7 +61,10 @@ impl DiscountCurve {
         disc.df(t)
     }
     /// Discount factor at time `t` (helper calling the underlying interpolator).
-    pub fn df(&self, t: F) -> F { self.interp.interp(t) }
+    #[inline]
+    pub fn df(&self, t: F) -> F {
+        self.interp.interp(t)
+    }
 
     /// Raw knot times (t) in **years** passed at construction.
     #[inline]
@@ -265,6 +268,7 @@ impl Discount for DiscountCurve {
         self.base
     }
 
+    #[inline]
     fn df(&self, t: F) -> F {
         self.interp.interp(t)
     }

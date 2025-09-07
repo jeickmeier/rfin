@@ -17,5 +17,3 @@ pub trait InterpFn: Send + Sync + Debug {
         (self.interp(x + h) - self.interp(x - h)) / (2.0 * h)
     }
 }
-
-

@@ -97,7 +97,8 @@ pub struct InflationLinkedBond {
 
 impl InflationLinkedBond {
     /// Create a new ILB builder.
-    pub fn builder() -> crate::instruments::fixed_income::inflation_linked_bond::builder::ILBBuilder {
+    pub fn builder() -> crate::instruments::fixed_income::inflation_linked_bond::builder::ILBBuilder
+    {
         crate::instruments::fixed_income::inflation_linked_bond::builder::ILBBuilder::new()
     }
 
@@ -322,5 +323,3 @@ impl crate::cashflow::traits::CashflowProvider for InflationLinkedBond {
         InflationLinkedBond::build_schedule(self, curves, as_of)
     }
 }
-
-

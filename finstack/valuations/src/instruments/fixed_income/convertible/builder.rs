@@ -1,6 +1,4 @@
-use super::types::{
-    ConversionSpec, ConvertibleBond,
-};
+use super::types::{ConversionSpec, ConvertibleBond};
 use crate::cashflow::builder::types::{FixedCouponSpec, FloatingCouponSpec};
 use crate::instruments::fixed_income::bond::CallPutSchedule;
 use finstack_core::dates::Date;
@@ -24,5 +22,3 @@ impl_builder!(
         floating_coupon: FloatingCouponSpec
     ]
 );
-
-

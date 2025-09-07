@@ -51,10 +51,12 @@ impl TermStructure for AgedDiscountCurve {
 }
 
 impl Discount for AgedDiscountCurve {
+    #[inline]
     fn base_date(&self) -> Date {
         self.shift_date
     }
 
+    #[inline]
     fn df(&self, t: F) -> F {
         let original_df_shifted = self.original.df(t + self.dt);
         let original_df_dt = self.original.df(self.dt);
@@ -85,6 +87,7 @@ impl TermStructure for AgedForwardCurve {
 }
 
 impl Forward for AgedForwardCurve {
+    #[inline]
     fn rate(&self, t: F) -> F {
         // For forward curves, we shift the time coordinate
         self.original.rate(t + self.dt)

@@ -1,7 +1,7 @@
+use crate::instruments::traits::Attributes;
+use finstack_core::dates::{BusinessDayConvention, Frequency, StubKind};
 use finstack_core::prelude::*;
 use finstack_core::F;
-use finstack_core::dates::{BusinessDayConvention, Frequency, StubKind};
-use crate::instruments::traits::Attributes;
 
 use super::types::{FixedLegSpec, FloatLegSpec, InterestRateSwap, PayReceive};
 
@@ -39,32 +39,98 @@ impl IRSBuilder {
         Self::default()
     }
 
-    pub fn id(mut self, value: impl Into<String>) -> Self { self.id = Some(value.into()); self }
-    pub fn notional(mut self, value: Money) -> Self { self.notional = Some(value); self }
-    pub fn side(mut self, value: PayReceive) -> Self { self.side = Some(value); self }
+    pub fn id(mut self, value: impl Into<String>) -> Self {
+        self.id = Some(value.into());
+        self
+    }
+    pub fn notional(mut self, value: Money) -> Self {
+        self.notional = Some(value);
+        self
+    }
+    pub fn side(mut self, value: PayReceive) -> Self {
+        self.side = Some(value);
+        self
+    }
 
     // Fixed leg setters
-    pub fn fixed_disc_id(mut self, value: &'static str) -> Self { self.fixed_disc_id = Some(value); self }
-    pub fn fixed_rate(mut self, value: F) -> Self { self.fixed_rate = Some(value); self }
-    pub fn fixed_freq(mut self, value: Frequency) -> Self { self.fixed_freq = Some(value); self }
-    pub fn fixed_dc(mut self, value: DayCount) -> Self { self.fixed_dc = Some(value); self }
-    pub fn fixed_bdc(mut self, value: BusinessDayConvention) -> Self { self.fixed_bdc = Some(value); self }
-    pub fn fixed_calendar_id(mut self, value: &'static str) -> Self { self.fixed_calendar_id = Some(value); self }
-    pub fn fixed_stub(mut self, value: StubKind) -> Self { self.fixed_stub = Some(value); self }
-    pub fn fixed_start(mut self, value: Date) -> Self { self.fixed_start = Some(value); self }
-    pub fn fixed_end(mut self, value: Date) -> Self { self.fixed_end = Some(value); self }
+    pub fn fixed_disc_id(mut self, value: &'static str) -> Self {
+        self.fixed_disc_id = Some(value);
+        self
+    }
+    pub fn fixed_rate(mut self, value: F) -> Self {
+        self.fixed_rate = Some(value);
+        self
+    }
+    pub fn fixed_freq(mut self, value: Frequency) -> Self {
+        self.fixed_freq = Some(value);
+        self
+    }
+    pub fn fixed_dc(mut self, value: DayCount) -> Self {
+        self.fixed_dc = Some(value);
+        self
+    }
+    pub fn fixed_bdc(mut self, value: BusinessDayConvention) -> Self {
+        self.fixed_bdc = Some(value);
+        self
+    }
+    pub fn fixed_calendar_id(mut self, value: &'static str) -> Self {
+        self.fixed_calendar_id = Some(value);
+        self
+    }
+    pub fn fixed_stub(mut self, value: StubKind) -> Self {
+        self.fixed_stub = Some(value);
+        self
+    }
+    pub fn fixed_start(mut self, value: Date) -> Self {
+        self.fixed_start = Some(value);
+        self
+    }
+    pub fn fixed_end(mut self, value: Date) -> Self {
+        self.fixed_end = Some(value);
+        self
+    }
 
     // Float leg setters
-    pub fn float_disc_id(mut self, value: &'static str) -> Self { self.float_disc_id = Some(value); self }
-    pub fn float_fwd_id(mut self, value: &'static str) -> Self { self.float_fwd_id = Some(value); self }
-    pub fn float_spread_bp(mut self, value: F) -> Self { self.float_spread_bp = Some(value); self }
-    pub fn float_freq(mut self, value: Frequency) -> Self { self.float_freq = Some(value); self }
-    pub fn float_dc(mut self, value: DayCount) -> Self { self.float_dc = Some(value); self }
-    pub fn float_bdc(mut self, value: BusinessDayConvention) -> Self { self.float_bdc = Some(value); self }
-    pub fn float_calendar_id(mut self, value: &'static str) -> Self { self.float_calendar_id = Some(value); self }
-    pub fn float_stub(mut self, value: StubKind) -> Self { self.float_stub = Some(value); self }
-    pub fn float_start(mut self, value: Date) -> Self { self.float_start = Some(value); self }
-    pub fn float_end(mut self, value: Date) -> Self { self.float_end = Some(value); self }
+    pub fn float_disc_id(mut self, value: &'static str) -> Self {
+        self.float_disc_id = Some(value);
+        self
+    }
+    pub fn float_fwd_id(mut self, value: &'static str) -> Self {
+        self.float_fwd_id = Some(value);
+        self
+    }
+    pub fn float_spread_bp(mut self, value: F) -> Self {
+        self.float_spread_bp = Some(value);
+        self
+    }
+    pub fn float_freq(mut self, value: Frequency) -> Self {
+        self.float_freq = Some(value);
+        self
+    }
+    pub fn float_dc(mut self, value: DayCount) -> Self {
+        self.float_dc = Some(value);
+        self
+    }
+    pub fn float_bdc(mut self, value: BusinessDayConvention) -> Self {
+        self.float_bdc = Some(value);
+        self
+    }
+    pub fn float_calendar_id(mut self, value: &'static str) -> Self {
+        self.float_calendar_id = Some(value);
+        self
+    }
+    pub fn float_stub(mut self, value: StubKind) -> Self {
+        self.float_stub = Some(value);
+        self
+    }
+    pub fn float_start(mut self, value: Date) -> Self {
+        self.float_start = Some(value);
+        self
+    }
+    pub fn float_end(mut self, value: Date) -> Self {
+        self.float_end = Some(value);
+        self
+    }
 
     /// Convenience method to set both legs to the same start/end dates
     pub fn dates(mut self, start: Date, end: Date) -> Self {
@@ -76,7 +142,13 @@ impl IRSBuilder {
     }
 
     /// Convenience method to set standard fixed leg defaults
-    pub fn standard_fixed_leg(mut self, disc_id: &'static str, rate: F, freq: Frequency, dc: DayCount) -> Self {
+    pub fn standard_fixed_leg(
+        mut self,
+        disc_id: &'static str,
+        rate: F,
+        freq: Frequency,
+        dc: DayCount,
+    ) -> Self {
         self.fixed_disc_id = Some(disc_id);
         self.fixed_rate = Some(rate);
         self.fixed_freq = Some(freq);
@@ -106,39 +178,78 @@ impl IRSBuilder {
     }
 
     pub fn build(self) -> finstack_core::Result<InterestRateSwap> {
-        let id = self.id.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        let notional = self.notional.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        let side = self.side.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let id = self
+            .id
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let notional = self
+            .notional
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let side = self
+            .side
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
 
         // Build fixed leg spec
         let fixed = FixedLegSpec {
-            disc_id: self.fixed_disc_id.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
-            rate: self.fixed_rate.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
-            freq: self.fixed_freq.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
-            dc: self.fixed_dc.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
-            bdc: self.fixed_bdc.unwrap_or(BusinessDayConvention::ModifiedFollowing),
+            disc_id: self.fixed_disc_id.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            rate: self.fixed_rate.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            freq: self.fixed_freq.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            dc: self.fixed_dc.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            bdc: self
+                .fixed_bdc
+                .unwrap_or(BusinessDayConvention::ModifiedFollowing),
             calendar_id: self.fixed_calendar_id,
             stub: self.fixed_stub.unwrap_or(StubKind::None),
-            start: self.fixed_start.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
-            end: self.fixed_end.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
+            start: self.fixed_start.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            end: self.fixed_end.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
         };
 
         // Build float leg spec
         let float = FloatLegSpec {
-            disc_id: self.float_disc_id.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
-            fwd_id: self.float_fwd_id.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
+            disc_id: self.float_disc_id.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            fwd_id: self.float_fwd_id.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
             spread_bp: self.float_spread_bp.unwrap_or(0.0),
-            freq: self.float_freq.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
-            dc: self.float_dc.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
-            bdc: self.float_bdc.unwrap_or(BusinessDayConvention::ModifiedFollowing),
+            freq: self.float_freq.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            dc: self.float_dc.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            bdc: self
+                .float_bdc
+                .unwrap_or(BusinessDayConvention::ModifiedFollowing),
             calendar_id: self.float_calendar_id,
             stub: self.float_stub.unwrap_or(StubKind::None),
-            start: self.float_start.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
-            end: self.float_end.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?,
+            start: self.float_start.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
+            end: self.float_end.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?,
         };
 
-        Ok(InterestRateSwap { id, notional, side, fixed, float, attributes: Attributes::new() })
+        Ok(InterestRateSwap {
+            id,
+            notional,
+            side,
+            fixed,
+            float,
+            attributes: Attributes::new(),
+        })
     }
 }
-
-

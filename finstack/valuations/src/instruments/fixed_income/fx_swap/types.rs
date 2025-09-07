@@ -160,5 +160,3 @@ impl_instrument!(
         Ok(Money::new(total_pv, s.quote_currency))
     }
 );
-
-

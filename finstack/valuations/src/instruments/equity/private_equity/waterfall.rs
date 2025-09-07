@@ -11,6 +11,7 @@ use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::F;
 use indexmap::IndexMap;
+use smallvec::SmallVec;
 use std::collections::HashMap;
 
 #[cfg(feature = "serde")]
@@ -121,7 +122,7 @@ pub struct WaterfallSpec {
     /// Allocation style (European vs American)
     pub style: WaterfallStyle,
     /// Ordered sequence of waterfall tranches
-    pub tranches: Vec<Tranche>,
+    pub tranches: SmallVec<[Tranche; 8]>,
     /// Optional clawback specification
     #[serde(default)]
     pub clawback: Option<ClawbackSpec>,
@@ -175,7 +176,7 @@ impl WaterfallSpec {
 /// Builder for waterfall specifications.
 pub struct WaterfallSpecBuilder {
     style: WaterfallStyle,
-    tranches: Vec<Tranche>,
+    tranches: SmallVec<[Tranche; 8]>,
     clawback: Option<ClawbackSpec>,
     irr_basis: DayCount,
     catchup_mode: CatchUpMode,
@@ -185,7 +186,7 @@ impl Default for WaterfallSpecBuilder {
     fn default() -> Self {
         Self {
             style: WaterfallStyle::default(),
-            tranches: Vec::new(),
+            tranches: SmallVec::new(),
             clawback: None,
             irr_basis: default_irr_basis(),
             catchup_mode: CatchUpMode::default(),
@@ -1004,6 +1005,7 @@ impl<'a> EquityWaterfallEngine<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use smallvec::smallvec;
     use time::Month;
 
     fn test_currency() -> Currency {
@@ -1127,7 +1129,7 @@ mod tests {
         // Invalid spec - promote shares don't sum to 1.0
         let invalid_spec = WaterfallSpec {
             style: WaterfallStyle::European,
-            tranches: vec![Tranche::PromoteTier {
+            tranches: smallvec![Tranche::PromoteTier {
                 hurdle: Hurdle::Irr { rate: 0.0 },
                 lp_share: 0.7,
                 gp_share: 0.4, // 0.7 + 0.4 = 1.1 > 1.0

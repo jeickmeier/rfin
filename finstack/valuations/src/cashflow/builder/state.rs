@@ -51,6 +51,7 @@ use super::types::{
     CouponType, FeeBase, FeeSpec, FixedCouponSpec, FixedWindow, FloatCouponParams, FloatWindow,
     FloatingCouponSpec, ScheduleParams,
 };
+use smallvec::SmallVec;
 
 // -------------------------------------------------------------------------
 // Helper emitters - cashflow emission
@@ -658,7 +659,7 @@ pub struct CashflowBuilder {
     notional: Option<Notional>,
     issue: Option<Date>,
     maturity: Option<Date>,
-    fees: Vec<FeeSpec>,
+    fees: SmallVec<[FeeSpec; 4]>,
     // Segmented programs (optional): coupon program and payment/PIK program
     pub(super) coupon_program: Vec<CouponProgramPiece>,
     pub(super) payment_program: Vec<PaymentProgramPiece>,

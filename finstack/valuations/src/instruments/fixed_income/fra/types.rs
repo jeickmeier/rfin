@@ -180,5 +180,3 @@ impl CashflowProvider for ForwardRateAgreement {
         Ok(vec![(self.start_date, pv)])
     }
 }
-
-
