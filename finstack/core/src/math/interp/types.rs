@@ -45,6 +45,44 @@ pub enum InterpStyle {
     FlatFwd,
 }
 
+/// Crate-private enum enabling static dispatch for interpolation in hot loops.
+///
+/// Storing this enum (instead of `Box<dyn InterpFn>`) allows the compiler to
+/// inline calls to `interp` and `interp_prime` for each concrete variant.
+#[derive(Debug)]
+pub(crate) enum Interp {
+    Linear(LinearDf),
+    LogLinear(LogLinearDf),
+    MonotoneConvex(MonotoneConvex),
+    CubicHermite(CubicHermite),
+    FlatFwd(FlatFwd),
+}
+
+impl Interp {
+    #[inline]
+    pub(crate) fn interp(&self, x: F) -> F {
+        match self {
+            Interp::Linear(i) => i.interp(x),
+            Interp::LogLinear(i) => i.interp(x),
+            Interp::MonotoneConvex(i) => i.interp(x),
+            Interp::CubicHermite(i) => i.interp(x),
+            Interp::FlatFwd(i) => i.interp(x),
+        }
+    }
+
+    #[inline]
+    #[allow(dead_code)]
+    pub(crate) fn interp_prime(&self, x: F) -> F {
+        match self {
+            Interp::Linear(i) => i.interp_prime(x),
+            Interp::LogLinear(i) => i.interp_prime(x),
+            Interp::MonotoneConvex(i) => i.interp_prime(x),
+            Interp::CubicHermite(i) => i.interp_prime(x),
+            Interp::FlatFwd(i) => i.interp_prime(x),
+        }
+    }
+}
+
 impl InterpStyle {
     /// Build a boxed interpolator implementing [`InterpFn`].
     pub fn build(
@@ -64,6 +102,30 @@ impl InterpStyle {
             }
             InterpStyle::FlatFwd => Ok(Box::new(FlatFwd::new(knots, values, extrapolation)?)),
         }
+    }
+
+    /// Build an enum-backed interpolator enabling static dispatch.
+    #[inline]
+    pub(crate) fn build_enum(
+        self,
+        knots: Box<[F]>,
+        values: Box<[F]>,
+        extrapolation: ExtrapolationPolicy,
+    ) -> crate::Result<Interp> {
+        let interp = match self {
+            InterpStyle::Linear => Interp::Linear(LinearDf::new(knots, values, extrapolation)?),
+            InterpStyle::LogLinear => {
+                Interp::LogLinear(LogLinearDf::new(knots, values, extrapolation)?)
+            }
+            InterpStyle::MonotoneConvex => {
+                Interp::MonotoneConvex(MonotoneConvex::new(knots, values, extrapolation)?)
+            }
+            InterpStyle::CubicHermite => {
+                Interp::CubicHermite(CubicHermite::new(knots, values, extrapolation)?)
+            }
+            InterpStyle::FlatFwd => Interp::FlatFwd(FlatFwd::new(knots, values, extrapolation)?),
+        };
+        Ok(interp)
     }
 }
 

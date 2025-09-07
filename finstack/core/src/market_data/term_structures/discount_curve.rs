@@ -27,7 +27,7 @@ extern crate alloc;
 use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     dates::Date,
-    market_data::interp::InterpFn,
+    market_data::interp::types::Interp,
     market_data::traits::{Discount, TermStructure},
     types::CurveId,
     F,
@@ -43,7 +43,7 @@ pub struct DiscountCurve {
     knots: Box<[F]>,
     /// Discount factors (unitless).
     dfs: Box<[F]>,
-    interp: Box<dyn InterpFn>,
+    interp: Interp,
 }
 
 impl DiscountCurve {
@@ -61,9 +61,7 @@ impl DiscountCurve {
         disc.df(t)
     }
     /// Discount factor at time `t` (helper calling the underlying interpolator).
-    pub fn df(&self, t: F) -> F {
-        self.interp.interp(t)
-    }
+    pub fn df(&self, t: F) -> F { self.interp.interp(t) }
 
     /// Raw knot times (t) in **years** passed at construction.
     #[inline]
@@ -236,7 +234,7 @@ impl DiscountCurveBuilder {
 
         let interp = self
             .style
-            .build(knots.clone(), dfs.clone(), self.extrapolation)
+            .build_enum(knots.clone(), dfs.clone(), self.extrapolation)
             .map_err(|_| super::CurveError::NonPositiveValue)?;
 
         Ok(DiscountCurve {

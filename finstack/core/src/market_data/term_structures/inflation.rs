@@ -24,7 +24,7 @@ use alloc::{boxed::Box, vec::Vec};
 use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     error::InputError,
-    market_data::interp::InterpFn,
+    market_data::interp::types::Interp,
     market_data::traits::{Inflation as InflationTrait, TermStructure},
     types::CurveId,
     F,
@@ -39,7 +39,7 @@ pub struct InflationCurve {
     knots: Box<[F]>,
     /// CPI index levels at each knot.
     cpi_levels: Box<[F]>,
-    interp: Box<dyn InterpFn>,
+    interp: Interp,
 }
 
 impl InflationCurve {
@@ -55,9 +55,7 @@ impl InflationCurve {
 
     /// CPI level at time `t` (years).
     pub fn cpi(&self, t: F) -> F {
-        if t <= 0.0 {
-            return self.base_cpi;
-        }
+        if t <= 0.0 { return self.base_cpi; }
         self.interp.interp(t)
     }
 
@@ -153,7 +151,7 @@ impl InflationCurveBuilder {
         crate::market_data::utils::validate_knots(&kvec)?;
         let knots = kvec.into_boxed_slice();
         let cpi_levels = cvec.into_boxed_slice();
-        let interp = self.style.build(
+        let interp = self.style.build_enum(
             knots.clone(),
             cpi_levels.clone(),
             ExtrapolationPolicy::default(),

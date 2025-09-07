@@ -25,7 +25,7 @@ use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     dates::{Date, DayCount},
     error::InputError,
-    market_data::interp::InterpFn,
+    market_data::interp::types::Interp,
     market_data::traits::{Forward, TermStructure},
     types::CurveId,
     F,
@@ -46,7 +46,7 @@ pub struct ForwardCurve {
     knots: Box<[F]>,
     /// Simple forward rates (e.g. 0.025 = 2.5 %).
     fwds: Box<[F]>,
-    interp: Box<dyn InterpFn>,
+    interp: Interp,
 }
 
 impl ForwardCurve {
@@ -64,9 +64,7 @@ impl ForwardCurve {
     }
 
     /// Forward rate starting at time `t` (in years) for the curve’s tenor.
-    pub fn rate(&self, t: F) -> F {
-        self.interp.interp(t)
-    }
+    pub fn rate(&self, t: F) -> F { self.interp.interp(t) }
 
     /// Reset lag in calendar days from fixing to spot.
     #[inline]
@@ -160,9 +158,9 @@ impl ForwardCurveBuilder {
         crate::market_data::utils::validate_knots(&kvec)?;
         let knots = kvec.into_boxed_slice();
         let fwds = fvec.into_boxed_slice();
-        let interp =
-            self.style
-                .build(knots.clone(), fwds.clone(), ExtrapolationPolicy::default())?;
+        let interp = self
+            .style
+            .build_enum(knots.clone(), fwds.clone(), ExtrapolationPolicy::default())?;
         Ok(ForwardCurve {
             id: CurveId::new(self.id),
             base: self.base,
