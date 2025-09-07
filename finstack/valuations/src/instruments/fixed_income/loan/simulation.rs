@@ -969,7 +969,7 @@ impl LoanSimulator {
 
         // Apply business day adjustment if calendar is specified
         if let Some(calendar_id) = facility.calendar_id() {
-            if let Some(cal) = finstack_core::dates::holiday::calendars::calendar_by_id(calendar_id)
+            if let Some(cal) = finstack_core::dates::calendar::calendar_by_id(calendar_id)
             {
                 return finstack_core::dates::adjust(reset_date, facility.bdc(), cal);
             }
@@ -1661,7 +1661,6 @@ mod tests {
     use super::*;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::interp::InterpStyle;
-    use finstack_core::market_data::discount_curve::DiscountCurve;
     use time::Month;
 
     #[test]
@@ -1940,6 +1939,7 @@ mod tests {
         let mut curves = finstack_core::market_data::MarketContext::new();
 
         // Add a basic discount curve for USD-OIS
+        use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.78)]) // 5% flat curve approximation
@@ -2029,6 +2029,7 @@ mod tests {
 
         // Create market context with basic curves
         let mut curves = finstack_core::market_data::MarketContext::new();
+        use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.92), (5.0, 0.67)]) // 8% flat curve approximation

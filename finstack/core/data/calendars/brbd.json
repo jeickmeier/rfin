@@ -1,0 +1,22 @@
+{
+  "id": "brbd",
+  "name": "Brazil B3 (Bovespa) Business Days",
+  "ignore_weekends": true,
+  "rules": [
+    { "type": "fixed", "name": "Confraternização Universal (New Year's Day)", "month": "january", "day": 1 },
+    { "type": "fixed", "name": "Tiradentes", "month": "april", "day": 21 },
+    { "type": "fixed", "name": "Dia do Trabalho (Labor Day)", "month": "may", "day": 1 },
+    { "type": "fixed", "name": "Independência do Brasil", "month": "september", "day": 7 },
+    { "type": "fixed", "name": "Nossa Senhora Aparecida", "month": "october", "day": 12 },
+    { "type": "fixed", "name": "Finados (All Souls' Day)", "month": "november", "day": 2 },
+    { "type": "fixed", "name": "Proclamação da República", "month": "november", "day": 15 },
+    { "type": "fixed", "name": "Dia da Consciência Negra", "month": "november", "day": 20 },
+    { "type": "fixed", "name": "Natal (Christmas)", "month": "december", "day": 25 },
+    { "type": "easter_offset", "name": "Sexta-feira Santa (Good Friday)", "days": -3 },
+    { "type": "easter_offset", "name": "Carnaval (Carnival Monday)", "days": -49 },
+    { "type": "easter_offset", "name": "Carnaval (Carnival Tuesday)", "days": -48 },
+    { "type": "easter_offset", "name": "Corpus Christi", "days": 59 }
+  ]
+}
+
+

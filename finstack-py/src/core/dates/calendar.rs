@@ -6,7 +6,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyType;
 
-use finstack_core::dates::holiday::calendars::calendar_by_id;
+use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::{adjust, BusinessDayConvention, CompositeCalendar, HolidayCalendar};
 
 use super::date::PyDate;

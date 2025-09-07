@@ -6,6 +6,7 @@
 
 use crate::dates::periods::{days_in_month, FiscalConfig};
 use time::{Date, Duration, OffsetDateTime, Weekday};
+use crate::dates::calendar::core::{seek_business_day, MAX_BUSINESS_DAY_SEARCH_DAYS};
 
 /// Convenience extensions for [`time::Date`].
 pub trait DateExt: Sized {
@@ -42,7 +43,7 @@ pub trait DateExt: Sized {
     /// Example:
     /// ```
     /// use finstack_core::dates::{Date, DateExt};
-    /// use finstack_core::dates::holiday::calendars::Target2;
+    /// use finstack_core::dates::calendar::Target2;
     /// use time::Month;
     /// let cal = Target2;
     /// let start = Date::from_calendar_date(2025, Month::June, 27).unwrap(); // Friday
@@ -147,10 +148,10 @@ impl DateExt for Date {
         for _ in 0..n.unsigned_abs() {
             // move at least one day in the desired direction, then seek to a business day
             let start = current + Duration::days(step as i64);
-            current = crate::dates::calendar::seek_business_day(
+            current = seek_business_day(
                 start,
                 step,
-                crate::dates::calendar::MAX_BUSINESS_DAY_SEARCH_DAYS,
+                MAX_BUSINESS_DAY_SEARCH_DAYS,
                 cal,
             )?;
         }
@@ -316,7 +317,7 @@ mod tests {
 
     #[test]
     fn test_add_business_days_forward() {
-        use crate::dates::holiday::calendars::Target2;
+        use crate::dates::calendar::Target2;
 
         let cal = Target2;
 
@@ -328,7 +329,7 @@ mod tests {
 
     #[test]
     fn test_add_business_days_backward() {
-        use crate::dates::holiday::calendars::Target2;
+        use crate::dates::calendar::Target2;
 
         let cal = Target2;
 
@@ -340,7 +341,7 @@ mod tests {
 
     #[test]
     fn test_add_business_days_zero() {
-        use crate::dates::holiday::calendars::Target2;
+        use crate::dates::calendar::Target2;
 
         let cal = Target2;
         let date = make_date(2025, 6, 27);
@@ -351,7 +352,7 @@ mod tests {
     #[test]
     fn test_add_business_days_with_holidays() {
         use crate::dates::calendar::HolidayCalendar;
-        use crate::dates::holiday::calendars::Target2;
+        use crate::dates::calendar::Target2;
 
         let cal = Target2;
 
@@ -368,7 +369,7 @@ mod tests {
 
     #[test]
     fn test_add_business_days_offset_datetime() {
-        use crate::dates::holiday::calendars::Target2;
+        use crate::dates::calendar::Target2;
 
         let cal = Target2;
 
@@ -402,7 +403,7 @@ mod tests {
             }) => {
                 assert_eq!(
                     max_days,
-                    crate::dates::calendar::MAX_BUSINESS_DAY_SEARCH_DAYS
+                    MAX_BUSINESS_DAY_SEARCH_DAYS
                 );
             }
             other => panic!("Expected AdjustmentFailed error, got {:?}", other),

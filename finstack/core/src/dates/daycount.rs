@@ -24,7 +24,7 @@
 //!
 //! ```
 //! use finstack_core::dates::{Date, DayCount, DayCountCtx};
-//! use finstack_core::dates::calendars::Target2;
+//! use finstack_core::dates::calendar::Target2;
 //! use time::Month;
 //!
 //! let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -596,7 +596,7 @@ mod tests {
 
     #[test]
     fn bus252_with_nyse_calendar() {
-        use crate::dates::holiday::calendars::Nyse;
+        use crate::dates::calendar::Nyse;
 
         // Test with a real calendar that has holidays
         let calendar = Nyse;

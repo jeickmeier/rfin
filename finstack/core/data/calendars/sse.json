@@ -1,0 +1,13 @@
+{
+  "id": "sse",
+  "name": "Shanghai Stock Exchange (SSE) Holidays",
+  "ignore_weekends": false,
+  "rules": [
+    { "type": "span", "name": "Spring Festival (Chinese New Year) Holiday", "start": { "type": "chinese_new_year" }, "len": 7 },
+    { "type": "qing_ming", "name": "Qingming Festival" },
+    { "type": "span", "name": "Labour Day Holiday", "start": { "type": "fixed", "month": "may", "day": 1 }, "len": 5 },
+    { "type": "span", "name": "National Day Golden Week", "start": { "type": "fixed", "month": "october", "day": 1 }, "len": 7 }
+  ]
+}
+
+

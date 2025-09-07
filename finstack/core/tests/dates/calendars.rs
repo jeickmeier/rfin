@@ -1,5 +1,5 @@
 use finstack_core::dates::{Date, HolidayCalendar};
-use finstack_core::dates::holiday::calendars::*;
+use finstack_core::dates::calendar::*;
 use time::Month;
 
 fn make_date(y: i32, m: u8, d: u8) -> Date {

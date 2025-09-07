@@ -1,154 +1,242 @@
-# Finstack Market Data and Calibration Refactoring Plan
+# Finstack v1 Refactoring Spec — **Final and Complete**
 
-## Executive Summary
+*(Analytics deferred to v2; calendars/registry live in **core::dates**; instruments split into **CDS** and **CDS Index**; cashflow spec + optionality fully defined.)*
 
-This document outlines a comprehensive refactoring plan to extract market data and calibration functionality from the core and valuations crates into a clean, layered architecture. The new architecture separates concerns across five distinct layers, with the legacy valuations crate to be eventually deprecated and replaced.
+---
 
-Note: Layer 5 (analytics) is deferred to v2. Layers 1–4 (instruments, market-data, pricing, calibration) remain in v1.
+## 0) Executive Summary
 
-## Architecture Overview
+This specification defines a layered refactor of Finstack with clear, one‑directional dependencies:
 
-### Layered Design
+* **Layer 0 — `finstack-core`**: foundational types, math, **dates module with calendars + registry (source of truth)**.
+* **Layer 1 — `finstack-instruments`**: **pure data** instruments & quotes (includes **CashflowSpec + Call/Put optionality**, **CDS** and **CDS Index** as separate instruments, **CDS Tranche**, and **Credit Default Option**).
+* **Layer 2 — `finstack-market-data`**: immutable `MarketContext`, curves, surfaces (incl. **base correlation** & **credit option vol**), indices, FX; **uses calendars from core**.
+* **Layer 3 — `finstack-pricing`**: pricers, models, a single cashflow engine (consumes the unified `CashflowSpec`, emits exercise events), pricers for **CDS**, **CDS Index**, **CDS Tranche**, and **Credit Default Option**.
+* **Layer 4 — `finstack-calibration`**: bootstraps & fittings (yield/multi-curve, hazard, inflation, FX, SABR/local vol, **base correlation**, optional **credit option vol**).
+**Layer 5 — `finstack-analytics`** is deferred to v2 (portfolio, VaR, covenants engine, reporting).
+
+A simple **registry‑based pricer dispatch** is used (erased‑trait approach) to keep instruments pure data while enabling open‑ended extension.
+
+A compatibility bridge re‑exports `MarketContext` for one release:
+
+```rust
+// in finstack-core
+pub use finstack_market_data::MarketContext as LegacyMarketContext;
+```
+
+---
+
+## 1) Architecture & Dependencies
+
+### Layered Design (v1)
+
 ```
 ┌─────────────────────────────────────┐
-│    finstack-analytics (Layer 5)     │  ← High-level portfolio/risk analytics
+│  finstack-calibration (Layer 4)     │  ← Bootstraps & fitting (uses pricing)
 ├─────────────────────────────────────┤
-│   finstack-calibration (Layer 4)    │  ← Market calibration algorithms
+│    finstack-pricing (Layer 3)       │  ← Pricers, models, single cashflow engine
 ├─────────────────────────────────────┤
-│     finstack-pricing (Layer 3)      │  ← Pricing engines and metrics
+│  finstack-market-data (Layer 2)     │  ← Context, curves, surfaces, indices, FX
 ├─────────────────────────────────────┤
-│   finstack-market-data (Layer 2)    │  ← Market context and curves
+│  finstack-instruments (Layer 1)     │  ← Pure instrument & quote data
 ├─────────────────────────────────────┤
-│   finstack-instruments (Layer 1)    │  ← Pure instrument definitions
-├─────────────────────────────────────┤
-│       finstack-core (Layer 0)       │  ← Core types and math
+│       finstack-core (Layer 0)       │  ← Types, math, **dates+calendars**
 └─────────────────────────────────────┘
 ```
 
-Scope note: Layer 5 is planned for v2. v1 delivers Layers 1–4.
+### Rules
 
-### Dependency Flow
-- Each layer depends only on layers below it
-- No circular dependencies
-- Clean interfaces between layers
+* Dependencies flow **downward only**; no cycles.
+* Instruments have **no** pricing/calibration logic.
+* **Calendars and calendar registry live in `finstack-core::dates`**. All layers that need calendars use the core registry.
+* `MarketContext` is immutable; bumping builds a **new** context.
 
-## Layer 1: finstack-instruments
+---
+
+## 2) Workspace & Features
+
+**Workspace members**
+
+* `finstack-core`
+* `finstack-instruments`
+* `finstack-market-data`
+* `finstack-pricing`
+* `finstack-calibration`
+* *(v2 later: `finstack-analytics`)*
+
+**Common features**
+
+* `serde`
+* `parallel` (deterministic parallel computations)
+* `wasm` (restricted std + deterministic RNG)
+
+---
+
+## 3) Layer 0 — `finstack-core`
 
 ### Purpose
-Pure data structures for financial instruments and their market quotes. No pricing logic, just data. All fixed income instruments leverage a comprehensive shared cashflow infrastructure for maximum reusability and consistency.
 
-### Structure
+Foundational types, math, and the **dates subsystem with calendars & registry**.
+
+### Module Layout
+
+```
+finstack-core/
+└── src/
+    ├── lib.rs
+    ├── prelude.rs
+    ├── ids.rs           # InstrumentId, CurveId, SurfaceId, IndexId, CreditIndexId, ScalarId, SeriesId
+    ├── money.rs         # Money, Currency
+    ├── time.rs          # Date, DateTime
+    ├── conv.rs          # DayCount, BusinessDayConvention, Frequency
+    ├── math/
+    │   ├── interp.rs
+    │   ├── roots.rs
+    │   ├── stats.rs
+    │   └── fp.rs        # stable reductions (pairwise/Kahan)
+    └── dates/
+        ├── mod.rs       # CalendarId, CalendarRegistry, business-day logic
+        └── builtin.rs   # TARGET2, NYB, UK, etc.
+```
+
+### Key Points
+
+* **CalendarId** and **CalendarRegistry** live here, with **builtin calendars**.
+* All schedule generation / date adjustments anywhere in the stack call:
+
+  ```rust
+  use finstack_core::dates::{CalendarId, CalendarRegistry, BusinessDayConvention};
+  let cal = CalendarRegistry::global().resolve(CalendarId::TARGET2()).unwrap();
+  let adj_date = finstack_core::dates::adjust(date, BusinessDayConvention::ModifiedFollowing, &cal).unwrap();
+  ```
+* IDs:
+
+  * Instruments: `InstrumentId`
+  * Curves/Surfaces: `CurveId`, `SurfaceId`
+  * Indices: `IndexId`, `CreditIndexId`
+  * Scalars/Series: `ScalarId`, `SeriesId`
+
+---
+
+## 4) Layer 1 — `finstack-instruments`
+
+### Purpose
+
+**Pure data** definitions for instruments and quotes. Serializable with builders. No pricing logic.
+
+### Layout
+
 ```
 finstack-instruments/
-├── Cargo.toml
-├── src/
-│   ├── lib.rs
-│   ├── traits.rs               # Core traits (Identifiable, Attributable)
-│   ├── quotes/
-│   │   ├── mod.rs
-│   │   ├── quote_types.rs      # Generic quote types
-│   │   └── conversion.rs       # Quote to instrument conversions
-│   ├── fixed_income/
-│   │   ├── mod.rs
-│   │   ├── cashflow/           # Shared cashflow infrastructure
-│   │   │   ├── mod.rs
-│   │   │   ├── schedules.rs    # Coupon schedule generation
-│   │   │   ├── amortization.rs # Amortization schedules
-│   │   │   ├── optionality.rs  # Call/put schedules
-│   │   │   ├── fees.rs         # Fee structures
-│   │   │   └── builder.rs      # Cashflow builder pattern
-│   │   ├── deposit.rs          # Deposit struct + DepositQuote
-│   │   ├── fra.rs              # FRA struct + FRAQuote
-│   │   ├── future.rs           # IRFuture struct + FutureQuote
-│   │   ├── swap.rs             # IRS struct + SwapQuote
-│   │   ├── bond.rs             # Bond struct + BondQuote
-│   │   ├── cds.rs              # CDS struct + CDSQuote
-│   │   ├── loan/
-│   │   │   ├── mod.rs
-│   │   │   ├── term_loan.rs    # Term loan structures
-│   │   │   ├── revolver.rs     # Revolving credit structures
-│   │   │   └── ddtl.rs         # Delayed draw term loan
-│   │   └── inflation/
-│   │       ├── mod.rs
-│   │       ├── inflation_swap.rs  # Inflation Swap structure
-│   │       └── inflation_bond.rs  # Inflation Bond (ILB) structure
-│   ├── options/
-│   │   ├── mod.rs
-│   │   ├── equity_option.rs    # Plain vanilla equity European/American options
-│   │   ├── credit_option.rs    # Credit default options
-│   │   ├── swaption.rs         # Swaption structures
-│   │   └── cap_floor.rs        # Interest rate caps/floors
-
-│   ├── equity/
-│   │   ├── mod.rs
-│   │   ├── stock.rs            # Single stock
-│   │   ├── index.rs            # Equity index
-│   │   └── etf.rs              # ETF structures
-│   ├── fx/
-│   │   ├── mod.rs
-│   │   ├── spot.rs             # FX spot
-│   │   ├── forward.rs          # FX forward
-│   │   └── swap.rs             # FX swap
-│   ├── structured/
-│   │   ├── mod.rs
-│   │   ├── convertible.rs      # Convertible bonds
-│   │   ├── tranche.rs          # CDO/CLO tranches
-│   │   └── waterfall.rs        # Waterfall structures
-│   └── covenants/              # NOTE: Data structures only - evaluation logic in analytics layer
-│       ├── mod.rs
-│       ├── covenant_spec.rs    # Covenant specification structures (pure data)
-│       ├── breach.rs           # Covenant breach tracking structures
-│       └── types.rs            # Covenant types and consequences definitions
+└── src/
+    ├── lib.rs
+    ├── traits.rs                 # Identifiable, Attributable (data-only)
+    ├── types.rs                  # Attributes bag
+    ├── quotes/
+    │   ├── mod.rs
+    │   ├── quote_types.rs        # DepositQuote, FRAQuote, SwapQuote, BondQuote,
+    │   │                         # CdsQuote, CdsIndexQuote, CdsTrancheQuote, CreditOptionQuote
+    │   └── conversion.rs         # Conventions-aware *data* conversions
+    ├── fixed_income/
+    │   ├── mod.rs
+    │   ├── cashflow/
+    │   │   ├── mod.rs
+    │   │   ├── spec.rs           # (see full definitions below)
+    │   │   └── builder.rs        # CashflowSpecBuilder (leg/spec only)
+    │   ├── deposit.rs
+    │   ├── fra.rs
+    │   ├── future.rs
+    │   ├── swap.rs               # InterestRateSwap (+ SwapBuilder)
+    │   ├── bond.rs               # Bond (+ BondBuilder)
+    │   ├── cds.rs                # **Single-name CDS** (+ ProtectionSpec)
+    │   ├── cds_index.rs          # **CDS Index** (basket of constituents)
+    │   ├── tranche.rs            # **CDS Tranche** (on credit index)
+    │   ├── loan/
+    │   │   ├── mod.rs
+    │   │   ├── term_loan.rs
+    │   │   ├── revolver.rs
+    │   │   └── ddtl.rs
+    │   └── inflation/
+    │       ├── mod.rs
+    │       ├── inflation_swap.rs
+    │       └── inflation_bond.rs
+    ├── options/
+    │   ├── mod.rs
+    │   ├── equity_vanilla.rs         # European/American (v1 scope)
+    │   └── credit_default_option.rs  # **Credit Default Option** (CDOtion)
+    ├── equity/
+    │   ├── mod.rs
+    │   ├── stock.rs
+    │   ├── index.rs
+    │   └── etf.rs
+    └── covenants/
+        ├── mod.rs
+        ├── covenant_spec.rs
+        ├── breach.rs
+        └── types.rs
 ```
 
-### Key Design Principles
-1. **Pure Data**: Structures contain only data fields, no methods beyond constructors and converters
-2. **Serializable**: All structures implement Serialize/Deserialize
-3. **Immutable by Default**: Use builder patterns for complex construction
-4. **Quote Integration**: Each instrument type has a corresponding quote type
-5. **Shared Cashflow Infrastructure**: Comprehensive reusable cashflow components for all fixed income instruments
-   - Flexible coupon schedule generation (fixed, floating, step-up, PIK, range)
-   - Full amortization support (linear, custom schedules, bullets, step-remaining)
-   - Call/put optionality with multiple exercise dates and make-whole provisions
-   - Complex fee structures (upfront, periodic, exit, commitment fees)
-   - Consistent day count and business day convention handling
+### **Cashflow Spec & Related Structs (Full Definitions)**
 
-### Benefits of Shared Cashflow Infrastructure
-- **Consistency**: All fixed income instruments handle cashflows the same way
-- **Reusability**: Complex cashflow logic written once, used everywhere
-- **Flexibility**: Easy to add new cashflow features that all instruments can use
-- **Maintainability**: Bug fixes and enhancements benefit all instruments
-- **Testing**: Comprehensive cashflow testing covers all instrument types
-
-### Example Implementation
 ```rust
-// src/fixed_income/cashflow/mod.rs
-// Core cashflow components used by all fixed income instruments
-
-use serde::{Deserialize, Serialize};
+use serde::{Serialize, Deserialize};
 use finstack_core::prelude::*;
+use finstack_core::dates::CalendarId;
 
+/// Unified cashflow specification consumed by a single engine in pricing.
+/// Instrument-level fields (notional, issue/maturity dates) live on instruments.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CashflowSpec {
-    pub coupon_spec: CouponSpec,
+    pub coupon: CouponSpec,
     pub amortization: AmortizationSpec,
     pub fees: Vec<FeeSpec>,
     pub day_count: DayCount,
     pub business_day_convention: BusinessDayConvention,
-    pub calendar: String,
+    pub calendar: CalendarId,
+    pub optionality: Option<CallPutSchedule>,  // exercise logic handled by pricers
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum CouponSpec {
+    Fixed   { rate: F, frequency: Frequency },
+    Floating{ index_id: CurveId, spread: F, frequency: Frequency },
+    StepUp  { schedule: Vec<(Date, F)>, frequency: Frequency },
+    Range   { floor: F, cap: F, reference: String, frequency: Frequency },
+    PIK     { rate: F, frequency: Frequency },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum AmortizationSpec {
+    Bullet,
+    Linear { target: Money },
+    Custom { schedule: Vec<(Date, Money)> },
+    PercentPerPeriod { percent: F },
+    StepRemaining { schedule: Vec<(Date, Money)> },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum FeeSpec {
+    Upfront    { amount: Money },
+    Periodic   { bps: F, frequency: Frequency, base: FeeBase },
+    Exit       { amount: Money },
+    Commitment { bps: F, on_undrawn: bool },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum FeeBase { Outstanding, Original, Drawn, Undrawn }
+
+/// Call/Put optionality data. Schedule generation emits events; pricers decide exercise.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CallPutSchedule {
-    pub call_dates: Vec<CallOption>,
-    pub put_dates: Vec<PutOption>,
+    pub call: Vec<CallOption>,
+    pub put:  Vec<PutOption>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CallOption {
     pub exercise_date: Date,
-    pub strike_price: Money,
-    pub make_whole_spread: Option<f64>,
+    pub strike_price: Money,             // clean price or price-equivalent notion
+    pub make_whole_spread: Option<F>,    // optional
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -156,1196 +244,653 @@ pub struct PutOption {
     pub exercise_date: Date,
     pub strike_price: Money,
 }
+```
 
-// src/fixed_income/swap.rs
+**Builder (leg/spec only)**
 
-use super::cashflow::{CashflowSpec, CouponSpec};
-use serde::{Deserialize, Serialize};
-use finstack_core::prelude::*;
+```rust
+pub struct CashflowSpecBuilder {
+    coupon: Option<CouponSpec>,
+    amortization: AmortizationSpec,
+    fees: Vec<FeeSpec>,
+    day_count: Option<DayCount>,
+    bdc: Option<BusinessDayConvention>,
+    calendar: Option<CalendarId>,
+    optionality: Option<CallPutSchedule>,
+}
 
+impl CashflowSpecBuilder {
+    pub fn new() -> Self { /* defaults */ }
+    pub fn coupon(mut self, c: CouponSpec) -> Self { self.coupon = Some(c); self }
+    pub fn amortization(mut self, a: AmortizationSpec) -> Self { self.amortization = a; self }
+    pub fn with_fees(mut self, f: Vec<FeeSpec>) -> Self { self.fees = f; self }
+    pub fn day_count(mut self, dc: DayCount) -> Self { self.day_count = Some(dc); self }
+    pub fn bdc(mut self, b: BusinessDayConvention) -> Self { self.bdc = Some(b); self }
+    pub fn calendar(mut self, cal: CalendarId) -> Self { self.calendar = Some(cal); self }
+    pub fn optionality(mut self, s: CallPutSchedule) -> Self { self.optionality = Some(s); self }
+    pub fn build(self) -> Result<CashflowSpec, InstrumentError> { /* validate & return */ }
+}
+```
+
+### **Key Instruments (Selected)**
+
+**Bond** *(pure data; optionality inside its `CashflowSpec`)*
+
+**InterestRateSwap** *(two legs with `CashflowSpec`)*
+
+**CDS (Single-name)**
+
+```rust
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct InterestRateSwap {
-    pub id: String,
-    pub effective_date: Date,
-    pub maturity_date: Date,
-    pub notional: Money,
-    pub pay_leg: CashflowSpec,    // Uses shared cashflow infrastructure
-    pub receive_leg: CashflowSpec, // Uses shared cashflow infrastructure
-    pub attributes: Attributes,
+pub struct ProtectionSpec {
+    pub accrual_on_default: bool,
+    pub pay_on_default: bool,
+    pub protection_start: Date,
+    pub protection_end: Date,
 }
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SwapQuote {
-    pub maturity: Date,
-    pub rate: f64,
-    pub fixed_freq: Frequency,
-    pub float_freq: Frequency,
-    pub fixed_dc: DayCount,
-    pub float_dc: DayCount,
-    pub index: String,
-    pub quote_type: SwapQuoteType,
-    pub bid_ask_spread: Option<f64>,
-    pub source: String,
-    pub timestamp: DateTime,
-}
-
-impl SwapQuote {
-    pub fn to_instrument(&self, id: String, base_date: Date, notional: Money) -> InterestRateSwap {
-        let pay_leg = CashflowSpec {
-            coupon_spec: CouponSpec::Fixed { 
-                rate: self.rate, 
-                frequency: self.fixed_freq, 
-                day_count: self.fixed_dc 
-            },
-            amortization: AmortizationSpec::Bullet,
-            fees: vec![],
-            day_count: self.fixed_dc,
-            business_day_convention: BusinessDayConvention::ModifiedFollowing,
-            calendar: "TARGET".to_string(),
-        };
-        
-        let receive_leg = CashflowSpec {
-            coupon_spec: CouponSpec::Floating { 
-                index: self.index.clone(), 
-                spread: 0.0, 
-                frequency: self.float_freq 
-            },
-            amortization: AmortizationSpec::Bullet,
-            fees: vec![],
-            day_count: self.float_dc,
-            business_day_convention: BusinessDayConvention::ModifiedFollowing,
-            calendar: "TARGET".to_string(),
-        };
-        
-        InterestRateSwap {
-            id,
-            effective_date: base_date,
-            maturity_date: self.maturity,
-            notional,
-            pay_leg,
-            receive_leg,
-            attributes: Attributes::default(),
-        }
-    }
-}
-
-// src/fixed_income/bond.rs
-// Bond using comprehensive cashflow infrastructure
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Bond {
-    pub id: String,
-    pub issue_date: Date,
-    pub maturity_date: Date,
-    pub notional: Money,
-    pub cashflow_spec: CashflowSpec,      // Coupon, amortization, fees
-    pub optionality: Option<CallPutSchedule>, // Call/put features
-    pub issue_price: Money,
-    pub attributes: Attributes,
-}
-
-// src/fixed_income/loan/term_loan.rs
-// Term loan with full cashflow support
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TermLoan {
-    pub id: String,
-    pub origination_date: Date,
-    pub maturity_date: Date,
-    pub principal: Money,
-    pub cashflow_spec: CashflowSpec,      // Interest, amortization, fees
-    pub prepayment_option: Option<PrepaymentSchedule>,
-    pub covenants: Vec<CovenantSpec>,
-    pub attributes: Attributes,
-}
-
-// src/fixed_income/cds.rs
-// CDS with premium leg cashflows
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CreditDefaultSwap {
-    pub id: String,
+    pub id: InstrumentId,
     pub reference_entity: String,
     pub effective_date: Date,
     pub maturity_date: Date,
     pub notional: Money,
-    pub premium_leg: CashflowSpec,        // Premium payments
-    pub protection_leg: ProtectionSpec,   // Default protection
-    pub recovery_rate: f64,
+    pub premium_leg: CashflowSpec,     // fixed-rate premium schedule
+    pub protection_leg: ProtectionSpec,
+    pub recovery_rate: F,
+    pub disc_curve: CurveId,           // explicit curve wiring allowed
+    pub credit_curve: CurveId,         // hazard curve id
     pub attributes: Attributes,
 }
-
-// src/fixed_income/cashflow/builder.rs
-// Comprehensive cashflow builder shared across all fixed income instruments
-
-use finstack_core::prelude::*;
-
-pub struct CashflowScheduleBuilder {
-    notional: Option<Money>,
-    issue_date: Option<Date>,
-    maturity_date: Option<Date>,
-    coupon_spec: Option<CouponSpec>,
-    amortization: AmortizationSpec,
-    fees: Vec<FeeSpec>,
-    call_schedule: Option<CallSchedule>,
-    put_schedule: Option<PutSchedule>,
-}
-
-impl CashflowScheduleBuilder {
-    pub fn new() -> Self { /* ... */ }
-    
-    pub fn notional(mut self, amount: Money) -> Self { /* ... */ }
-    
-    pub fn coupon(mut self, spec: CouponSpec) -> Self { /* ... */ }
-    
-    pub fn with_amortization(mut self, spec: AmortizationSpec) -> Self { /* ... */ }
-    
-    pub fn with_call_schedule(mut self, schedule: CallSchedule) -> Self { /* ... */ }
-    
-    pub fn with_fees(mut self, fees: Vec<FeeSpec>) -> Self { /* ... */ }
-    
-    pub fn build(self) -> Result<CashflowSchedule> { /* ... */ }
-}
-
-pub enum CouponSpec {
-    Fixed { rate: f64, frequency: Frequency, day_count: DayCount },
-    Floating { index: String, spread: f64, frequency: Frequency, day_count: DayCount },
-    StepUp { schedule: Vec<(Date, f64)>, frequency: Frequency, day_count: DayCount },
-    Range { floor: f64, cap: f64, reference: String, frequency: Frequency },
-    PIK { rate: f64, frequency: Frequency },  // Payment-in-kind
-}
-
-pub enum AmortizationSpec {
-    Bullet,
-    Linear { target: Money },
-    Custom { schedule: Vec<(Date, Money)> },
-    PercentPerPeriod { percent: f64 },
-    StepRemaining { schedule: Vec<(Date, Money)> },  // Remaining balance at dates
-}
-
-pub enum FeeSpec {
-    Upfront { amount: Money },
-    Periodic { bps: f64, frequency: Frequency, base: FeeBase },
-    Exit { amount: Money },
-    Commitment { bps: f64, on_undrawn: bool },
-}
-
-pub enum FeeBase {
-    Outstanding,  // Based on outstanding principal
-    Original,     // Based on original principal
-    Drawn,        // Based on drawn amount
-    Undrawn,      // Based on undrawn commitment
-}
-
-// src/covenants/types.rs
-// Covenant data structures for loans and structured products
-
-/// Covenant specification
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CovenantSpec {
-    /// The covenant definition
-    pub covenant: Covenant,
-    /// Type of covenant
-    pub covenant_type: CovenantType,
-    /// Testing frequency
-    pub test_frequency: Frequency,
-    /// Grace period after breach
-    pub cure_period_days: Option<i32>,
-    /// Consequences if breached
-    pub consequences: Vec<CovenantConsequence>,
-}
-
-/// Covenant breach tracking
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CovenantBreach {
-    /// Covenant that was breached
-    pub covenant_type: String,
-    /// Date of the breach
-    pub breach_date: Date,
-    /// Actual value that caused the breach
-    pub actual_value: Option<F>,
-    /// Required threshold
-    pub threshold: Option<F>,
-    /// Cure deadline
-    pub cure_deadline: Option<Date>,
-    /// Whether the breach has been cured
-    pub is_cured: bool,
-    /// Applied consequences
-    pub applied_consequences: Vec<CovenantConsequence>,
-}
-
-pub enum CovenantType {
-    MaxDebtToEBITDA { threshold: F },
-    MinInterestCoverage { threshold: F },
-    MaxTotalLeverage { threshold: F },
-    MinAssetCoverage { threshold: F },
-    // ... other covenant types
-}
-
-// Example: Creating a complex bond with step-up coupon and amortization
-let bond_cashflows = CashflowScheduleBuilder::new()
-    .notional(Money::new(100_000_000.0, Currency::USD))
-    .issue_date(Date::from_ymd(2024, 1, 1))
-    .maturity_date(Date::from_ymd(2034, 1, 1))
-    .coupon(CouponSpec::StepUp {
-        schedule: vec![
-            (Date::from_ymd(2024, 1, 1), 0.03),
-            (Date::from_ymd(2027, 1, 1), 0.035),
-            (Date::from_ymd(2030, 1, 1), 0.04),
-        ],
-        frequency: Frequency::SemiAnnual,
-        day_count: DayCount::Thirty360,
-    })
-    .with_amortization(AmortizationSpec::Linear {
-        target: Money::new(10_000_000.0, Currency::USD),
-    })
-    .with_call_schedule(CallSchedule {
-        dates: vec![
-            CallOption {
-                exercise_date: Date::from_ymd(2029, 1, 1),
-                strike_price: Money::new(102_000_000.0, Currency::USD),
-                make_whole_spread: Some(0.005),
-            },
-        ],
-    })
-    .with_fees(vec![
-        FeeSpec::Upfront { amount: Money::new(500_000.0, Currency::USD) },
-        FeeSpec::Periodic { bps: 25.0, frequency: Frequency::Annual, base: FeeBase::Outstanding },
-    ])
-    .build()?;
 ```
 
-## Layer 2: finstack-market-data
+**CDS Index (basket of constituents)**
+
+> Separate from single-name CDS; references the **basket** that composes the index (e.g., CDX/iTraxx).
+
+```rust
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CdsConstituent {
+    pub reference_entity: String,
+    pub weight: F,                     // weight or notional share (sum to 1.0)
+    pub fixed_recovery: Option<F>,     // if index uses fixed recovery per entity
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CdsIndex {
+    pub id: InstrumentId,
+    pub index_id: CreditIndexId,       // e.g., CDX_IG_S38 (series/version)
+    pub constituents: Vec<CdsConstituent>,
+    pub effective_date: Date,
+    pub maturity_date: Date,
+    pub notional: Money,
+    pub premium_leg: CashflowSpec,     // index premium schedule
+    pub disc_curve: CurveId,
+    pub index_credit_curve: CurveId,   // aggregated hazard curve id
+    pub attributes: Attributes,
+}
+```
+
+**CDS Tranche (on index)**
+
+```rust
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CdsTranche {
+    pub id: InstrumentId,
+    pub index_id: CreditIndexId,
+    pub attach: F,                     // e.g., 0.03
+    pub detach: F,                     // e.g., 0.07
+    pub effective_date: Date,
+    pub maturity_date: Date,
+    pub notional: Money,
+    pub disc_curve: CurveId,
+    pub index_credit_curve: CurveId,   // for index-level hazard
+    pub base_corr_curve: CurveId,      // base correlation for tranche pricing
+    pub attributes: Attributes,
+}
+```
+
+**Credit Default Option (option on single-name or index CDS spread)**
+
+```rust
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum UnderlyingCds {
+    SingleName { reference: String },
+    Index { index_id: CreditIndexId },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CreditDefaultOption {
+    pub id: InstrumentId,
+    pub underlying: UnderlyingCds,
+    pub option_type: OptionType,       // Call/Put on spread
+    pub exercise_style: ExerciseStyle, // v1: European; (American optional)
+    pub strike: F,                     // strike spread (bps) or price
+    pub maturity: Date,                // option expiry
+    pub notional: Money,
+    pub disc_curve: CurveId,
+    pub credit_curve: CurveId,         // single-name or index aggregate curve
+    pub vol_surface: Option<SurfaceId>,// credit option vol surface (Black)
+    pub attributes: Attributes,
+}
+```
+
+### Quotes & Conversions (always conventions‑explicit)
+
+* `DepositQuote`, `FraQuote`, `SwapQuote`, `BondQuote`
+* `CdsQuote` (single-name), `CdsIndexQuote`, `CdsTrancheQuote`, `CreditOptionQuote`
+
+`conversion.rs` converts quotes to instruments using an explicit `Conventions` struct (no hard-coded calendars/BDC):
+
+```rust
+#[derive(Clone, Debug)]
+pub struct Conventions {
+    pub fixed_dc: DayCount,
+    pub float_dc: DayCount,
+    pub fixed_bdc: BusinessDayConvention,
+    pub float_bdc: BusinessDayConvention,
+    pub calendar: CalendarId,     // resolved through core::dates::CalendarRegistry at use sites
+}
+```
+
+---
+
+## 5) Layer 2 — `finstack-market-data`
 
 ### Purpose
-Market data context, term structures, surfaces, and indices. Infrastructure for storing and retrieving market data.
 
-### Structure
+Immutable `MarketContext` with all curves, surfaces, indices, FX, scalars/series. **Calendars are consumed from `finstack-core::dates`**.
+
+### Layout
+
 ```
 finstack-market-data/
-├── Cargo.toml
-├── src/
-│   ├── lib.rs
-│   ├── context.rs              # Unified MarketContext
-│   ├── traits.rs                # TermStructure, Discount, Forward, etc.
-│   ├── primitives.rs            # MarketScalar, ScalarTimeSeries
-│   ├── utils/
-│   │   ├── mod.rs
-│   │   ├── validation.rs       # Validation helper functions
-│   │   └── forward.rs          # Forward curve extraction traits
-│   ├── bumping/
-│   │   ├── mod.rs
-│   │   ├── bump_spec.rs        # BumpSpec enum with all shock types
-│   │   ├── bumped_curves.rs    # Bumped curve wrappers
-│   │   ├── shock_scenarios.rs  # Predefined market shock scenarios
-│   │   └── bump_engine.rs      # Orchestration for complex bumping
-│   ├── term_structures/
-│   │   ├── mod.rs
-│   │   ├── discount_curve.rs   # Discount interest rate curve
-│   │   ├── forward_curve.rs    # Forward curve
-│   │   ├── hazard_curve.rs     # Credit Hazard Rate Curve
-│   │   ├── inflation_curve.rs  # Inflation Curve
-│   │   └── base_correlation.rs # CDS Tranche Base Correlation Curve
-│   ├── surfaces/
-│   │   ├── mod.rs
-│   │   ├── vol_surface.rs      # Volatility Surfaces
-│   │   └── local_vol.rs
-│   ├── indices/
-│   │   ├── mod.rs
-│   │   ├── inflation_index.rs
-│   │   ├── credit_index.rs      # CreditIndexData for CDS tranche pricing
-│   │   └── equity_index.rs
-│   └── fx/
-│       ├── mod.rs
-│       ├── fx_matrix.rs        # FX rate matrix
-│       └── fx_provider.rs      # FX provider trait
+└── src/
+    ├── lib.rs
+    ├── context.rs                 # MarketContext (immutable)
+    ├── builder.rs                 # MarketContextBuilder
+    ├── traits.rs                  # Discount, Forward, Hazard, Inflation, ...
+    ├── primitives.rs              # MarketScalar, ScalarTimeSeries
+    ├── term_structures/
+    │   ├── discount_curve.rs
+    │   ├── forward_curve.rs
+    │   ├── hazard_curve.rs
+    │   ├── inflation_curve.rs
+    │   └── base_correlation.rs
+    ├── surfaces/
+    │   ├── vol_surface.rs         # rates/equity/fx vol
+    │   ├── credit_vol_surface.rs  # credit option vol
+    │   └── local_vol.rs
+    ├── indices/
+    │   ├── inflation_index.rs
+    │   ├── equity_index.rs
+    │   └── credit_index.rs        # CreditIndexData (num_constituents, recovery, etc.)
+    ├── fx/
+    │   ├── fx_matrix.rs
+    │   └── fx_provider.rs
+    ├── utils/
+    │   ├── validation.rs
+    │   └── forward.rs             # forward extraction traits (equity/FX/rates)
+    └── bumping/
+        ├── spec.rs                # BumpSpec (curves/surfaces/scalars)
+        ├── bumped_curves.rs
+        ├── scenarios.rs
+        └── engine.rs
 ```
 
-### MarketContext Design
+### MarketContext (uses core calendars internally where needed)
+
 ```rust
 pub struct MarketContext {
-    // Core term structures
-    disc: HashMap<CurveId, Arc<dyn Discount + Send + Sync>>,
-    fwd: HashMap<CurveId, Arc<dyn Forward + Send + Sync>>,
-    hazard: HashMap<CurveId, Arc<HazardCurve>>,
-    inflation: HashMap<CurveId, Arc<InflationCurve>>,
-    base_correlation: HashMap<CurveId, Arc<BaseCorrelationCurve>>,
-    
+    // Curves
+    disc:      HashMap<CurveId, Arc<dyn Discount + Send + Sync>>,
+    fwd:       HashMap<CurveId, Arc<dyn Forward  + Send + Sync>>,
+    hazard:    HashMap<CurveId, Arc<HazardCurve>>,
+    infl:      HashMap<CurveId, Arc<InflationCurve>>,
+    base_corr: HashMap<CurveId, Arc<BaseCorrelationCurve>>,
+
     // Surfaces
-    vol_surfaces: HashMap<CurveId, Arc<VolSurface>>,
-    local_vol_surfaces: HashMap<CurveId, Arc<LocalVolSurface>>,
-    
+    vols:        HashMap<SurfaceId, Arc<VolSurface>>,
+    credit_vols: HashMap<SurfaceId, Arc<CreditVolSurface>>,
+
     // Indices
-    inflation_indices: HashMap<String, Arc<InflationIndex>>,
-    credit_indices: HashMap<String, Arc<CreditIndexData>>,  // For CDS tranche pricing
-    equity_indices: HashMap<String, Arc<EquityIndex>>,
-    
+    infl_idx: HashMap<IndexId, Arc<InflationIndex>>,
+    eq_idx:   HashMap<IndexId, Arc<EquityIndex>>,
+    cr_idx:   HashMap<CreditIndexId, Arc<CreditIndexData>>,
+
     // FX
     fx: Option<Arc<FxMatrix>>,
-    
-    // Scalars and series
-    prices: HashMap<CurveId, MarketScalar>,
-    series: HashMap<CurveId, ScalarTimeSeries>,
-    
+
+    // Scalars/Series
+    prices: HashMap<ScalarId, MarketScalar>,
+    series: HashMap<SeriesId, ScalarTimeSeries>,
+
+    // Collateral (CSA -> discount curve)
+    csa_discount: HashMap<&'static str, CurveId>,
+
     // Metadata
     as_of_date: Date,
     market_close_time: Option<DateTime>,
 }
-
-/// Credit index data for standardized indices (CDX, iTraxx, etc.)
-pub struct CreditIndexData {
-    /// Number of constituents (e.g., 125 for CDX IG)
-    pub num_constituents: u16,
-    /// Default recovery rate for the index
-    pub recovery_rate: F,
-    /// Hazard curve for the index as a whole
-    pub index_credit_curve: Arc<HazardCurve>,
-    /// Base correlation curve for tranches
-    pub base_correlation_curve: Arc<BaseCorrelationCurve>,
-    /// Optional individual issuer curves for heterogeneous modeling
-    pub issuer_credit_curves: Option<HashMap<String, Arc<HazardCurve>>>,
-}
 ```
 
-### Key Features
-- Unified context merging core and valuations contexts
-- Efficient Arc-based sharing
-- Comprehensive bumping/shocking capabilities
-- Thread-safe access
-- Credit index data support for CDS tranche pricing
-- Forward curve extraction traits for equity, FX, and rates (in utils/forward.rs)
-  - Provides trait-based forward pricing abstractions from market data
-  - Implementations can vary based on market conventions
-  - Used by calibration, pricing, and analytics layers
+### Builder & Bumping
 
-### Bumping Infrastructure
 ```rust
-/// Comprehensive bump specification for market shocks
-pub enum BumpSpec {
-    /// Parallel shift in basis points for curves
-    ParallelShift(ParallelShift),
-    /// Multiplicative shock factor for prices/volatilities
-    MultiplierShock(MultiplierShock),
-    /// Spread shift in basis points for credit curves
-    SpreadShift(ParallelShift),
-    /// Percentage shift for inflation curves
-    InflationShift(ParallelShift),
-    /// Percentage shift for correlation values
-    CorrelationShift(ParallelShift),
+pub struct MarketContextBuilder { /* partial maps + defaults */ }
+impl MarketContextBuilder {
+    pub fn new(as_of: Date) -> Self { /* ... */ }
+    pub fn with_discount<T: Discount + Send + Sync + 'static>(self, id: CurveId, c: T) -> Self { /* ... */ }
+    pub fn with_forward<T: Forward  + Send + Sync + 'static>(self, id: CurveId, c: T) -> Self { /* ... */ }
+    pub fn with_hazard(self, id: CurveId, c: HazardCurve) -> Self { /* ... */ }
+    pub fn with_base_correlation(self, id: CurveId, bc: BaseCorrelationCurve) -> Self { /* ... */ }
+    pub fn with_vol_surface(self, id: SurfaceId, s: VolSurface) -> Self { /* ... */ }
+    pub fn with_credit_vol_surface(self, id: SurfaceId, s: CreditVolSurface) -> Self { /* ... */ }
+    pub fn with_index_credit(self, id: CreditIndexId, idx: CreditIndexData) -> Self { /* ... */ }
+    pub fn with_scalar(self, id: ScalarId, s: MarketScalar) -> Self { /* ... */ }
+    pub fn with_series(self, id: SeriesId, s: ScalarTimeSeries) -> Self { /* ... */ }
+    pub fn with_collateral_map(self, csa: &'static str, disc_id: CurveId) -> Self { /* ... */ }
+    pub fn build(self) -> MarketContext { /* validate + freeze */ }
 }
 
-impl MarketContext {
-    /// Create a bumped copy of the market context
-    pub fn bump(&self, bumps: HashMap<CurveId, BumpSpec>) -> Result<Self> {
-        // Apply bumps to create new context with shocked market data
-    }
+pub enum BumpSpec {
+    ParallelBps(i32),      // curves
+    SpreadBps(i32),        // credit curves
+    Multiplier(F),         // prices/vols
+    InflationPct(F),
+    CorrelationBps(i32),   // base correlation
+    CreditVolPct(F),       // credit option vol
 }
 ```
 
-## Layer 3: finstack-pricing
+> **Calendars:** When schedule logic is required inside market-data utilities, they resolve calendars via `finstack_core::dates::CalendarRegistry` (no local calendar impl).
+
+---
+
+## 6) Layer 3 — `finstack-pricing`
 
 ### Purpose
-All pricing engines, valuation logic, and metric calculations. Completely separated from instrument definitions.
 
-### Structure
+Pricing models and instrument pricers + a **single cashflow engine** consuming `CashflowSpec` (with optionality events). Deterministic parallelism.
+
+### Layout
+
 ```
 finstack-pricing/
-├── Cargo.toml
-├── src/
-│   ├── lib.rs
-│   ├── traits.rs                # Priceable, MetricCalculator traits
-│   ├── error.rs                 # Pricing-specific errors
-│   ├── results.rs               # PricingResult and basic result types
-│   ├── models/                  # Pure mathematical models
-│   │   ├── mod.rs
-│   │   ├── black_scholes.rs    # Black-Scholes model for equity options
-│   │   ├── black.rs             # Black model for interest rate derivatives
-│   │   ├── garman_kohlhagen.rs  # FX option model
-│   │   ├── sabr.rs              # SABR volatility model
-│   │   ├── trees/
-│   │   │   ├── mod.rs
-│   │   │   ├── binomial.rs      # Cox-Ross-Rubinstein, Leisen-Reimer, etc.
-│   │   │   ├── trinomial.rs     # Trinomial tree models
-│   │   │   └── short_rate.rs    # Ho-Lee, Black-Derman-Toy
-│   │   └── monte_carlo/
-│   │       ├── mod.rs
-│   │       ├── path_generator.rs # Path generation for various processes
-│   │       ├── processes.rs      # GBM, mean-reverting, jump processes
-│   │       └── random.rs         # Random number generation
-│   ├── cashflow/
-│   │   ├── mod.rs
-│   │   └── generator.rs         # Cashflow generation from specs
-│   ├── fixed_income/
-│   │   ├── mod.rs
-│   │   ├── deposit.rs           # Deposit pricing using discount curves
-│   │   ├── fra.rs               # FRA pricing
-│   │   ├── swap.rs              # Swap pricing (vanilla IRS, basis, cross-currency)
-│   │   ├── bond.rs              # Bond pricing (analytical and tree-based for callables)
-│   │   ├── cds.rs               # CDS pricing using hazard curves
-│   │   └── loan.rs              # Loan pricing with prepayment models
-│   ├── options/
-│   │   ├── mod.rs
-│   │   ├── equity_option.rs    # Equity options (uses Black-Scholes or trees)
-│   │   ├── fx_option.rs        # FX options (uses Garman-Kohlhagen)
-│   │   ├── swaption.rs         # Swaptions (uses Black or SABR)
-│   │   ├── cap_floor.rs        # Caps/floors (uses Black or SABR)
-│   │   └── credit_option.rs    # Credit options
-│   ├── structured/
-│   │   ├── mod.rs
-│   │   ├── convertible.rs      # Convertible bonds (tree or MC)
-│   │   └── tranche.rs          # CDO/CLO tranches
-│   └── metrics/
-│       ├── mod.rs
-│       ├── fixed_income/
-│       │   ├── mod.rs
-│       │   ├── yield.rs         # Yield metrics: YTM, YTC, YTW
-│       │   ├── spread.rs        # Spread metrics: Z-Spread, OAS, ASW, G-Spread
-│       │   ├── price.rs         # Accrued, Clean Price, Dirty Price
-│       │   ├── duration.rs      # Bond duration/convexity
-│       ├── options/
-│       │   ├── mod.rs
-│       │   ├── greeks.rs        # Option Greeks
-│       ├── risk/
-│       │   ├── mod.rs
-│       │   ├── dv01.rs          # Bucket DV01, CS01
-│       │   ├── var.rs           # Value at Risk
-│       │   ├── cvar.rs          # Conditional VaR
-│       │   └── stress.rs        # Stress testing
-│       └── cashflow/
-│           ├── mod.rs
-│           └── analysis.rs      # Cashflow analysis
+└── src/
+    ├── lib.rs
+    ├── error.rs                    # PricingError
+    ├── traits.rs                   # Pricer<T>, MetricCalculator
+    ├── results.rs                  # PricingResult, ResultsMeta
+    ├── registry.rs                 # PricingRegistry (erased-pricer)
+    ├── models/
+    │   ├── black_scholes.rs
+    │   ├── black.rs
+    │   ├── garman_kohlhagen.rs
+    │   ├── sabr.rs
+    │   ├── trees/
+    │   │   ├── binomial.rs
+    │   │   └── trinomial.rs
+    │   └── monte_carlo/
+    │       ├── path_generator.rs
+    │       ├── processes.rs
+    │       └── random.rs           # splittable RNG
+    ├── cashflow_engine/
+    │   ├── generator.rs            # single engine (fees/amort/option events)
+    │   └── events.rs               # CashflowEvent incl. Call/Put schedule events
+    ├── fixed_income/
+    │   ├── deposit.rs
+    │   ├── fra.rs
+    │   ├── swap.rs
+    │   ├── bond.rs                 # callable/putable via trees/FD
+    │   ├── cds.rs                  # **single-name CDS pricer**
+    │   ├── cds_index.rs            # **CDS Index pricer**
+    │   ├── tranche.rs              # **CDS Tranche pricer (base correlation)**
+    │   └── loan.rs
+    ├── options/
+    │   ├── equity_vanilla.rs
+    │   └── credit_default_option.rs # **Credit Default Option pricer (Black/structural)**
+    └── metrics/
+        ├── fixed_income/
+        │   ├── yield.rs
+        │   ├── spread.rs
+        │   ├── price.rs
+        │   └── duration.rs
+        └── options/
+            └── greeks.rs
 ```
 
-### Pricing Architecture
+### API Highlights
 
-The pricing layer uses a simplified structure where:
-- **Models** contain pure mathematical formulas (Black-Scholes, SABR, trees, etc.)
-- **Pricers** are instrument-specific and support multiple pricing methods
-- Users can specify which method to use, or let the pricer choose intelligently
-
-This avoids the complexity of having both "engines" and "pricers" while maintaining flexibility.
+**PricingMethod & Results**
 
 ```rust
-// Pricing method selection
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum PricingMethod {
-    Auto,                    // Let the pricer choose the best method
-    Analytical,              // Use closed-form formulas
-    MonteCarlo { paths: usize, seed: Option<u64> },
+    Auto,
+    Analytical,
+    MonteCarlo { paths: usize, seed: Option<u64> },  // default seed applied if None
     BinomialTree { steps: usize },
     TrinomialTree { steps: usize },
     FiniteDifference { grid_points: usize },
 }
 
-// results.rs
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ResultsMeta {
+    pub numeric_mode: String,
+    pub parallel: bool,
+    pub rng_seed: Option<u64>,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PricingResult {
     pub value: Money,
     pub as_of: Date,
-    pub method_used: PricingMethod,  // Records which method was actually used
-    pub calculation_time: Duration,
+    pub method_used: PricingMethod,
+    pub meta: ResultsMeta,
+    pub calculation_time: std::time::Duration,
     pub warnings: Vec<String>,
 }
-
-// traits.rs
-pub trait Priceable {
-    fn value(&self, context: &MarketContext, as_of: Date) -> Result<PricingResult> {
-        self.value_with_method(context, as_of, PricingMethod::Auto)
-    }
-    
-    fn value_with_method(
-        &self, 
-        context: &MarketContext, 
-        as_of: Date,
-        method: PricingMethod
-    ) -> Result<PricingResult>;
-    
-    fn calculate_metrics(
-        &self, 
-        context: &MarketContext, 
-        as_of: Date, 
-        metrics: &[MetricId]
-    ) -> Result<MetricResults>;
-}
-
-// Example: Equity option pricer supporting multiple methods
-// options/equity_option.rs
-pub struct EquityOptionPricer;
-
-impl EquityOptionPricer {
-    /// Determines the default pricing method based on option characteristics
-    /// This is the single source of truth for default method selection
-    fn select_default_method(&self, option: &EquityOption) -> PricingMethod {
-        if option.has_barriers() {
-            PricingMethod::MonteCarlo { paths: 10_000, seed: None }
-        } else if option.is_asian() {
-            PricingMethod::MonteCarlo { paths: 10_000, seed: None }
-        } else if option.exercise_style == ExerciseStyle::American {
-            PricingMethod::BinomialTree { steps: 100 }
-        } else if option.exercise_style == ExerciseStyle::European {
-            PricingMethod::Analytical
-        } else {
-            // Fallback for complex/unrecognized types
-            PricingMethod::MonteCarlo { paths: 10_000, seed: None }
-        }
-    }
-    
-    pub fn price(
-        &self, 
-        option: &EquityOption, 
-        context: &MarketContext, 
-        as_of: Date,
-        method: PricingMethod
-    ) -> Result<PricingResult> {
-        match method {
-            PricingMethod::Auto => {
-                // Use the configured default for this option type
-                let selected_method = self.select_default_method(option);
-                self.price(option, context, as_of, selected_method)
-            },
-            PricingMethod::Analytical => {
-                if option.exercise_style != ExerciseStyle::European {
-                    return Err(PricingError::MethodNotSupported(
-                        "Analytical pricing only available for European options"
-                    ));
-                }
-                self.price_black_scholes(option, context, as_of)
-            },
-            PricingMethod::MonteCarlo { paths, seed } => {
-                self.price_monte_carlo(option, context, as_of, paths, seed)
-            },
-            PricingMethod::BinomialTree { steps } => {
-                self.price_binomial(option, context, as_of, steps)
-            },
-            _ => Err(PricingError::MethodNotSupported("Method not implemented for equity options"))
-        }
-    }
-    
-    fn price_black_scholes(&self, option: &EquityOption, context: &MarketContext, as_of: Date) -> Result<PricingResult> {
-        // Use Black-Scholes model from models/black_scholes.rs
-        let bs_model = BlackScholes::new(/* params */);
-        let value = bs_model.price(/* ... */)?;
-        Ok(PricingResult {
-            value,
-            method_used: PricingMethod::Analytical,
-            // ...
-        })
-    }
-    
-    fn price_monte_carlo(&self, option: &EquityOption, context: &MarketContext, as_of: Date, paths: usize, seed: Option<u64>) -> Result<PricingResult> {
-        // Use Monte Carlo path generator from models/monte_carlo/
-        let path_gen = PathGenerator::new(/* params */);
-        let value = path_gen.simulate(/* ... */)?;
-        Ok(PricingResult {
-            value,
-            method_used: PricingMethod::MonteCarlo { paths, seed },
-            // ...
-        })
-    }
-    
-    fn price_binomial(&self, option: &EquityOption, context: &MarketContext, as_of: Date, steps: usize) -> Result<PricingResult> {
-        // Use binomial tree from models/trees/
-        let tree = BinomialTree::new(steps);
-        let value = tree.price(/* ... */)?;
-        Ok(PricingResult {
-            value,
-            method_used: PricingMethod::BinomialTree { steps },
-            // ...
-        })
-    }
-}
-
-// Simple registry for instrument pricers
-pub struct PricingRegistry {
-    pricers: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
-}
-
-impl PricingRegistry {
-    pub fn new() -> Self {
-        Self {
-            pricers: HashMap::new(),
-        }
-    }
-    
-    /// Register default pricers
-    pub fn register_defaults(&mut self) {
-        self.register::<EquityOption, _>(EquityOptionPricer);
-        self.register::<Bond, _>(BondPricer);
-        self.register::<Swaption, _>(SwaptionPricer);
-        self.register::<InterestRateSwap, _>(SwapPricer);
-        // ... register other pricers
-    }
-    
-    /// Register a custom pricer
-    pub fn register<T, P>(&mut self, pricer: P) 
-    where 
-        T: 'static,
-        P: Pricer<T> + 'static
-    {
-        self.pricers.insert(TypeId::of::<T>(), Box::new(pricer));
-    }
-    
-    /// Price with default method (Auto)
-    pub fn price<T>(&self, instrument: &T, context: &MarketContext, as_of: Date) -> Result<PricingResult>
-    where 
-        T: 'static
-    {
-        self.price_with_method(instrument, context, as_of, PricingMethod::Auto)
-    }
-    
-    /// Price with specific method
-    pub fn price_with_method<T>(&self, instrument: &T, context: &MarketContext, as_of: Date, method: PricingMethod) -> Result<PricingResult>
-    where 
-        T: 'static
-    {
-        let pricer = self.pricers.get(&TypeId::of::<T>())
-            .ok_or(PricingError::NoPricerRegistered)?;
-        // ... downcast and price with method
-    }
-}
 ```
 
-### Default Pricing Methods
-
-Pricing methods work at two simple levels:
-
-1. **Built-in Defaults**: Each pricer has a `select_default_method()` function that chooses the appropriate method based on instrument characteristics
-2. **Runtime Override**: Users can explicitly specify any pricing method when calling `price_with_method()`
+**Pricer Trait & Registry**
 
 ```rust
-// Example usage
-use finstack_pricing::{PricingRegistry, PricingMethod};
+pub trait Pricer<T> {
+    fn price(&self, instrument: &T, ctx: &MarketContext, as_of: Date, method: PricingMethod)
+        -> Result<PricingResult, PricingError>;
+    fn method_hint(&self, instrument: &T) -> PricingMethod;
+}
 
-// Create registry with built-in defaults
-let mut registry = PricingRegistry::new();
-registry.register_defaults();
-
-// Price with built-in default (Auto selects based on instrument type)
-let result = registry.price(&option, &market_context, as_of)?;
-println!("Used method: {:?}", result.method_used);  // e.g., "BinomialTree { steps: 100 }"
-
-// Override with specific method at runtime
-let result_mc = registry.price_with_method(
-    &option,
-    &market_context, 
-    as_of,
-    PricingMethod::MonteCarlo { paths: 100_000, seed: Some(42) }
-)?;
-
-// The defaults are simple and predictable:
-// - European vanilla options → Analytical (Black-Scholes)
-// - American options → Binomial Tree
-// - Barrier options → Monte Carlo
-// - Asian options → Monte Carlo
-// - Bonds without options → Analytical discounting
-// - Callable/Putable bonds → Short-rate tree
+// Erased-pricer registry centralizes downcast at a single, audited point.
+pub struct PricingRegistry { /* ... */ }
+impl PricingRegistry {
+    pub fn new() -> Self { /* ... */ }
+    pub fn register<T: 'static, P>(&mut self, pricer: P)
+    where P: Pricer<T> + Send + Sync + 'static { /* ... */ }
+    pub fn register_defaults(&mut self) {
+        // v1 coverage across core instruments
+        self.register::<EquityVanillaOption, _>(EquityVanillaPricer::default());
+        self.register::<Bond, _>(BondPricer::default());
+        self.register::<InterestRateSwap, _>(SwapPricer::default());
+        self.register::<CreditDefaultSwap, _>(CdsPricer::default());       // single-name
+        self.register::<CdsIndex, _>(CdsIndexPricer::default());           // index
+        self.register::<CdsTranche, _>(CdsTranchePricer::default());       // tranche
+        self.register::<CreditDefaultOption, _>(CreditDefaultOptionPricer::default());
+        // + deposits, FRAs, futures, loans, inflation instruments, etc.
+    }
+    pub fn price<T: 'static>(&self, instrument: &T, ctx: &MarketContext, as_of: Date)
+        -> Result<PricingResult, PricingError> { /* Auto */ }
+    pub fn price_with_method<T: 'static>(&self, instrument: &T, ctx: &MarketContext, as_of: Date, method: PricingMethod)
+        -> Result<PricingResult, PricingError> { /* override */ }
+}
 ```
 
-### Implementation Strategy
-1. Extract all pricing logic from current valuations crate
-2. Create pure mathematical models in `/models` directory
-3. Implement instrument-specific pricers that support multiple methods
-4. Add `PricingMethod` enum for method selection (Auto, Analytical, MonteCarlo, Tree, etc.)
-5. Each pricer implements a simple `select_default_method()` function
-6. Users can override with any method at runtime via `price_with_method()`
+**Determinism & Parallelism**
 
-## Layer 4: finstack-calibration
+* MC defaults to `Some(0)` seed if `None`; splittable RNG yields identical serial/parallel results.
+* Cashflow engine sorts events by `(date, kind)`; stable FP reductions (pairwise/Kahan).
+* `ResultsMeta` captures `parallel` and `rng_seed`.
+
+**Method Hints (examples)**
+
+* Equity vanilla: European → Analytical; American → Binomial(≥200).
+* Bond: no optionality → Analytical; callable/putable → Tree/FD.
+* CDS (SN & Index): Analytical (hazard-based) default; MC fallback.
+* CDS Tranche: Base‑correlation analytical/integration default; MC fallback if needed.
+* Credit Default Option: Analytical (Black on spread using credit vol) default; structural/MC optional.
+
+---
+
+## 7) Layer 4 — `finstack-calibration`
 
 ### Purpose
-Market calibration algorithms that use the pricing layer to bootstrap curves and surfaces from market quotes.
 
-### Structure
+Calibrate curves/surfaces using **pricing** (no duplicated formulas): yield/multi-curve, hazard (single‑name & index), inflation, FX forward, vol (SABR/local), **base correlation**, optional **credit option vol**.
+
+### Layout
+
 ```
 finstack-calibration/
-├── Cargo.toml
-├── src/
-│   ├── lib.rs
-│   ├── traits.rs                # Calibrator trait
-│   ├── config.rs                # CalibrationConfig
-│   ├── report.rs                # CalibrationReport
-│   ├── error.rs                 # Calibration errors
-│   ├── primitives.rs            # HashableFloat, constraints
-│   ├── bootstrap/
-│   │   ├── mod.rs
-│   │   ├── yield_curve.rs       # Single-curve bootstrap
-│   │   ├── multi_curve.rs       # Multi-curve bootstrap
-│   │   ├── hazard_curve.rs      # Credit curve bootstrap
-│   │   ├── inflation_curve.rs   # Inflation curve bootstrap
-│   │   └── fx_curve.rs          # FX forward curve
-│   ├── surface/
-│   │   ├── mod.rs
-│   │   ├── vol_surface.rs       # Volatility surface fitting
-│   │   ├── sabr.rs              # SABR calibration
-│   │   └── local_vol.rs         # Local volatility
-│   ├── correlation/
-│   │   ├── mod.rs
-│   │   └── base_correlation.rs  # Base correlation fitting
-│   ├── optimization/
-│   │   ├── mod.rs
-│   │   ├── global.rs             # Global optimization
-│   │   ├── least_squares.rs      # Least squares fitting
-│   │   └── maximum_likelihood.rs # MLE calibration
-│   ├── common/
-│   │   ├── mod.rs
-│   │   ├── grouping.rs          # Quote grouping utilities
-│   │   ├── identifiers.rs       # Curve ID generation
-│   │   └── time.rs              # Time utilities
-│   ├── dag/
-│   │   ├── mod.rs
-│   │   ├── dependency.rs        # Dependency analysis
-│   │   └── scheduler.rs         # Calibration scheduling
-│   └── orchestrator.rs          # End-to-end orchestration
+└── src/
+    ├── lib.rs
+    ├── traits.rs                  # Calibrator<TQuote, TArtifact>
+    ├── config.rs                  # CalibrationConfig
+    ├── report.rs                  # CalibrationReport
+    ├── error.rs
+    ├── primitives.rs              # HashableFloat, constraints
+    ├── bootstrap/
+    │   ├── yield_curve.rs
+    │   ├── multi_curve.rs
+    │   ├── hazard_curve.rs        # single-name & index
+    │   ├── inflation_curve.rs
+    │   └── fx_curve.rs
+    ├── surface/
+    │   ├── vol_surface.rs
+    │   ├── sabr.rs
+    │   └── local_vol.rs
+    ├── correlation/
+    │   └── base_correlation.rs    # fit base correlation to tranche quotes
+    ├── credit_vol/
+    │   └── credit_opt_surface.rs  # fit credit option vol to option quotes (optional)
+    ├── common/
+    │   ├── grouping.rs
+    │   ├── identifiers.rs
+    │   └── time.rs
+    └── orchestrator.rs
 ```
 
-### Calibration Architecture
-```rust
-// Import forward curve traits from market-data layer
-use finstack_market_data::utils::forward::{ForwardPricer, EquityForward, FxForward, RatesForward};
+### Configuration (deterministic)
 
-// Using pricing layer for calibration
-impl YieldCurveBootstrapper {
-    pub fn calibrate(
-        &self,
-        quotes: &[SwapQuote],
-        pricer: &PricingRegistry,
-        base_context: &MarketContext,
-    ) -> Result<(DiscountCurve, CalibrationReport)> {
-        let mut curve_builder = DiscountCurveBuilder::new();
-        let mut residuals = HashMap::new();
-        
-        for quote in quotes {
-            // Convert quote to instrument
-            let swap = quote.to_instrument(
-                format!("CALIB_{}", quote.maturity),
-                self.base_date, 
-                Money::new(1_000_000.0, self.currency)
-            );
-            
-            // Solve for discount factor
-            let df = self.solver.solve(|df| {
-                let mut temp_context = base_context.clone();
-                temp_context.update_discount_point(quote.maturity, df);
-                
-                // Use pricing layer
-                pricer.price(&swap, &temp_context, self.base_date)
-                    .map(|pv| pv.amount())
-                    .unwrap_or(f64::MAX)
-            }, initial_guess)?;
-            
-            curve_builder.add_point(quote.maturity, df);
-            residuals.insert(format!("{}", quote.maturity), residual);
-        }
-        
-        let curve = curve_builder.build()?;
-        let report = CalibrationReport::success_with(residuals, iterations, "Bootstrap complete");
-        
-        Ok((curve, report))
-    }
+```rust
+#[derive(Clone, Debug)]
+pub struct CalibrationConfig {
+    pub tolerance: F,             // e.g., 1e-12
+    pub max_iterations: usize,    // e.g., 200
+    pub use_parallel: bool,       // deterministic
+    pub random_seed: Option<u64>, // default Some(0) propagated to pricing
+    pub verbose: bool,
+}
+impl Default for CalibrationConfig {
+    fn default() -> Self { Self { tolerance: 1e-12, max_iterations: 200, use_parallel: true, random_seed: Some(0), verbose: false } }
 }
 ```
 
-### Key Features
-- Uses actual instrument pricing from pricing layer
-- No duplication of pricing logic
-- Supports sequential and global calibration
-- Dependency-aware orchestration
+### Process
 
-## Layer 5: finstack-analytics (New High-Level Layer)
+* Use builders for provisional curves/surfaces; **rebuild a fresh `MarketContext`** for each iteration.
+* For **hazard**: support bootstraps from **CdsQuote** (single-name) and **CdsIndexQuote** (index par spreads).
+* For **base correlation**: fit to **CdsTrancheQuote** set.
+* For **credit option vol**: fit to **CreditOptionQuote** set (Black on spread).
+* Reports return residuals/iterations/timings; artifacts returned for insertion into `MarketContextBuilder`.
 
-Status: Deferred to v2 (not part of the v1 cutover).
+---
 
-### Purpose
-High-level analytics, portfolio management, risk analytics, and reporting. Replaces the legacy valuations crate.
+## 8) Testing, Performance, Determinism
 
-### Structure
-```
-finstack-analytics/
-├── Cargo.toml
-├── src/
-│   ├── lib.rs
-│   ├── portfolio/
-│   │   ├── mod.rs
-│   │   ├── portfolio.rs         # Portfolio container
-│   │   ├── position.rs          # Position management (quantity, cost basis, P&L)
-│   │   ├── book.rs              # Trading book hierarchy
-│   │   ├── aggregation.rs       # Risk aggregation
-│   │   └── optimization.rs      # Portfolio optimization (FUTURE FEATURES)
-│   ├── risk/
-│   │   ├── mod.rs
-│   │   ├── market_risk/
-│   │   │   ├── mod.rs
-│   │   │   ├── var.rs           # Value at Risk
-│   │   │   ├── scenarios.rs     # Scenario analysis
-│   │   │   └── stress.rs        # Stress testing
-│   │   ├── credit_risk/
-│   │   │   ├── mod.rs
-│   │   │   ├── cva.rs           # CVA/DVA
-│   │   │   └── exposure.rs      # Exposure profiles
-│   ├── analytics/
-│   │   ├── mod.rs
-│   │   ├── cashflow/
-│   │   │   ├── mod.rs
-│   │   │   ├── projection.rs    # Cashflow projection
-│   │   │   ├── analysis.rs      # Cashflow analysis
-│   │   │   └── aggregation.rs   # Currency-preserving period aggregation
-│   │   ├── scenario/
-│   │   │   ├── mod.rs
-│   │   │   ├── definition.rs    # Scenario definitions (combines market bumps + other params)
-│   │   │   ├── engine.rs        # Scenario execution engine
-│   │   │   ├── builder.rs       # Scenario builder
-│   │   │   └── library.rs       # Pre-defined scenarios (Fed hike, crisis, etc.)
-│   │   └── sensitivity/
-│   │       ├── mod.rs
-│   │       └── ladder.rs        # Risk ladder
-│   ├── results/
-│   │   ├── mod.rs
-│   │   ├── valuation_result.rs  # ValuationResult with metrics
-│   │   ├── covenant_report.rs   # Covenant check results
-│   │   └── metadata.rs          # ExtendedResultsMeta
-│   ├── reporting/
-│   │   ├── mod.rs
-│   │   ├── formats/
-│   │   │   ├── mod.rs
-│   │   │   ├── json.rs
-│   │   │   ├── csv.rs
-│   │   │   └── excel.rs
-│   │   ├── templates/
-│   │   │   ├── mod.rs
-│   │   │   ├── risk_report.rs
-│   │   │   └── performance_report.rs
-│   │   └── visualization/
-│   │       ├── mod.rs
-│   │       └── charts.rs
-│   └── covenants/
-│       ├── mod.rs
-│       ├── engine.rs            # Covenant evaluation engine
-│       ├── evaluator.rs         # Custom evaluator functions
-│       └── application.rs       # Consequence application logic
-```
+* Unit tests per crate; integration tests across layers.
+* Golden tests for IRS, bonds (incl. callable), CDS (single-name & index), tranche, credit options.
+* Deterministic MC (fixed seed default + splittable RNG) validated serial vs parallel.
+* Benchmarks: cashflow gen, IRS/bond/CDS/tranche/credit option, bootstrap steps.
+* CI enforces tolerances, no regressions.
 
-### Example High-Level API
-```rust
-use finstack_analytics::portfolio::Portfolio;
-use finstack_analytics::risk::market_risk::VaR;
-use finstack_analytics::performance::Returns;
+---
 
-// Create portfolio
-let mut portfolio = Portfolio::new("Main Portfolio");
-portfolio.add_position(position1);
-portfolio.add_position(position2);
+## 9) Migration Plan
 
-// Calculate metrics
-let market_value = portfolio.market_value(&market_context, as_of)?;
-let var_95 = VaR::calculate(&portfolio, &market_context, 0.95, 10)?;
-let returns = Returns::calculate(&portfolio, start_date, end_date)?;
+**Phase 1 — Instruments**
 
-// Generate report
-let report = RiskReport::new(&portfolio)
-    .with_var(var_95)
-    .with_stress_scenarios(scenarios)
-    .generate(&market_context)?;
-```
+1. Add `finstack-instruments`; move instruments & quotes.
+2. Implement **CashflowSpec + CallPutSchedule** and **CashflowSpecBuilder** (leg/spec only).
+3. Split credit: add **CreditDefaultSwap** (single-name), **CdsIndex** (basket), **CdsTranche**, **CreditDefaultOption**.
+4. Per-instrument builders; serde & validation tests.
 
-## Key Architectural Decisions
+**Phase 2 — Market Data**
+5\. Add `finstack-market-data`; extract curves/surfaces/indices; **no calendars here**.
+6\. Add **base correlation** & **credit option vol** surfaces.
+7\. Implement `MarketContextBuilder`, bumping, forward utils.
+8\. In `finstack-core`, `pub use finstack_market_data::MarketContext as LegacyMarketContext` for one release.
 
-### 1. Credit Index Data Integration
-Credit index data (`CreditIndexData`) is integrated directly into the unified `MarketContext` in `finstack-market-data`, providing:
-- Support for standardized credit indices (CDX, iTraxx, etc.)
-- Individual issuer curves for heterogeneous portfolio modeling
-- Base correlation curves for tranche pricing
-- Seamless access alongside other market data
+**Phase 3 — Pricing**
+9\. Create `finstack-pricing`: models, single cashflow engine (emits call/put events), pricers for all v1 instruments **including CDS, CDS Index, Tranche, Credit Default Option**.
+10\. Determinism policies; `PricingRegistry::register_defaults`.
+11\. Deprecate legacy “engines”; shim to pricers with warnings.
 
-### 2. Comprehensive Bumping Infrastructure
-The bumping/shocking infrastructure lives in `finstack-market-data/src/bumping/` with:
-- `BumpSpec` enum supporting all shock types (parallel, multiplier, spread, inflation, correlation)
-- Bumped curve wrappers for efficient shocked market data
-- Predefined shock scenarios for regulatory and stress testing
-- The `bump()` method on `MarketContext` for creating shocked scenarios
+**Phase 4 — Calibration**
+12\. Move bootstraps/fittings; add index hazard, base correlation, credit option vol.
+13\. Orchestrator & reports; tests/benchmarks.
 
-### 3. Covenant Data Structures
-Covenant specifications (`CovenantSpec`, `CovenantBreach`) are placed in `finstack-instruments/src/covenants/` as they are:
-- Pure data structures defining covenant terms
-- Used by multiple instrument types (loans, bonds, structured products)
-- Serializable for storage and transmission
-- **NOTE**: Contains only data definitions, no evaluation logic
+**Phase 5 — Bindings**
+14\. Python (PyO3 + Pydantic v2), WASM (TS types); deterministic RNG.
 
-The covenant *engine* for evaluation lives in `finstack-analytics/src/covenants/` as it requires:
-- Metric calculation capabilities
-- Complex evaluation logic
-- Consequence application
-- **NOTE**: All covenant evaluation and testing logic resides here
+**Phase 6 — Docs & Deprecation**
+15\. Update docs/examples; performance testing & profiling.
+16\. Deprecate legacy `valuations`; publish migration guide & timeline.
 
-### 4. Results and Aggregation in Analytics
-Results envelopes (`ValuationResult`, `CovenantReport`) and cashflow aggregation are placed in `finstack-analytics` because they:
-- Represent high-level analysis outputs
-- Require cross-instrument aggregation
-- Support portfolio-level reporting
-- Include metadata about calculation context
+---
 
-### 5. Forward Curve Traits in Market Data
-Forward curve extraction traits (`ForwardPricer`, `EquityForward`, `FxForward`, `RatesForward`) are placed in `finstack-market-data/src/utils/forward.rs` rather than in calibration because:
-- They are general market data utilities, not calibration-specific
-- Multiple layers (pricing, analytics, calibration) benefit from these abstractions
-- Trait-based design allows for different implementations based on market conventions
-- Reduces coupling - other layers don't need to depend on calibration for basic utilities
-- Maintains better cohesion with other market data extraction functions
+## 10) Example Snippets (v1‑only; calendars from core)
 
-### 6. Simple and Flexible Pricing Architecture
-The pricing layer uses a streamlined structure without redundant "engines":
-- Pure mathematical models in `finstack-pricing/src/models/` contain only formulas and algorithms
-- Instrument-specific pricers support multiple pricing methods via a `PricingMethod` enum
-- **Two-level simplicity**:
-  - Built-in defaults: Each pricer's `select_default_method()` chooses based on instrument characteristics
-  - Runtime override: Users can specify any method via `price_with_method()`
-- No complex configuration layers or files - just sensible defaults and runtime flexibility
-- The `PricingResult` includes which method was actually used for transparency
-- Eliminates confusion between "engines" and "pricers" for the same instruments
-- Cleaner testing of mathematical correctness vs. integration testing
-- Aligns with preference for dedicated model code location while maintaining flexibility
-
-### 7. Position Management in Analytics
-Position management is placed in `finstack-analytics/src/portfolio/` including:
-- Position tracking with quantity, cost basis, and P&L calculation
-- Book hierarchy for organizing positions
-- Aggregation logic for portfolio-level metrics
-- This keeps all portfolio management concerns together at the highest layer
-
-### 8. Scenario Definitions in Analytics
-Scenario definitions live in `finstack-analytics/src/analytics/scenario/` because:
-- Scenarios combine multiple market bumps with other parameters
-- They require orchestration across different market data types
-- Pre-defined scenario libraries (Fed scenarios, crisis scenarios) are application-level concerns
-- Scenarios may include non-market parameters (operational assumptions, etc.)
-
-### 9. Monte Carlo Path Generation in Pricing
-Monte Carlo path generators are in `finstack-pricing/src/models/monte_carlo/` because:
-- Path generation is a core pricing capability
-- Used by multiple pricing engines (options, structured products)
-- Tightly coupled with stochastic process definitions
-- May be needed by calibration layer for certain techniques
-
-### 10. Structured Products Remain in Instruments
-The empty `structured-credit` crate will be removed, with all structured product definitions remaining in `finstack-instruments/src/structured/` for:
-- Consistency with other instrument types
-- Simpler dependency graph
-- All instrument definitions in one place
-
-## Migration Plan
-
-### Phase 1: Foundation (Weeks 1-2)
-1. Create `finstack-instruments` crate
-   - Define all instrument structures (including structured products)
-   - Define all quote structures
-   - Implement builders and converters
-   - Add comprehensive tests
-   - Remove empty `structured-credit` crate
-
-2. Create `finstack-market-data` crate
-   - Move interpolation to `finstack-core::math::interp`
-   - Extract market data types from core
-   - Merge MarketContext implementations
-   - Move credit index from valuations
-   - Implement forward curve traits
-
-### Phase 2: Pricing Layer (Weeks 3-4)
-3. Create `finstack-pricing` crate
-   - Define pricing traits and PricingResult type
-   - Create models directory with pure mathematical models
-   - Extract pricing logic from valuations into instrument-specific pricers
-   - Implement pricing registry
-   - Create pricers for all instruments (directly using models)
-   - Implement cashflow generator
-   - Add Monte Carlo path generators in models
-   - Add comprehensive pricing tests
-
-### Phase 3: Calibration (Weeks 5-6)
-4. Create `finstack-calibration` crate
-   - Extract calibration from valuations
-   - Update to use pricing layer
-   - Implement orchestrator
-   - Add calibration tests
-
-### Phase 4: Analytics Layer — Deferred to v2
-This phase is moved out of v1. The following items are retained here as the v2 roadmap.
-5. Create `finstack-analytics` crate
-   - Implement portfolio management with position tracking
-   - Add book hierarchy and aggregation
-   - Create scenario definitions and engine
-   - Add risk analytics (VaR, stress testing)
-   - Implement covenant evaluation engine
-   - Build reporting framework
-   - Create ValuationResult and extended metadata
-
-### Phase 5: Bindings Rebuild (Weeks 9-10)
-6. Rebuild Python bindings from scratch
-   - Complete redesign using new crate structure
-   - No backward compatibility constraints
-   - Modern PyO3 patterns and Pydantic v2 models
-   - Focus on ergonomic Python API
-
-7. Rebuild WASM bindings from scratch
-   - Complete redesign for new architecture
-   - Optimize for browser performance
-   - TypeScript definitions from the start
-   - Tree-shakeable modules
-
-### Phase 6: Migration and Testing (Weeks 11-12)
-8. Migrate existing code
-   - Update all examples
-   - Update all tests
-   - Update documentation
-   - Performance testing
-
-9. Deprecation plan
-   - Mark legacy valuations as deprecated
-   - Provide migration guide
-   - Plan removal timeline
-
-## Benefits
-
-### 1. Clean Architecture
-- Clear separation of concerns
-- Well-defined layer boundaries
-- No circular dependencies
-
-### 2. Maintainability
-- Each layer can be developed independently
-- Changes don't cascade across layers
-- Easy to understand and modify
-
-### 3. Performance
-- Instrument structures are lightweight PODs
-- Pricing can be optimized independently
-- Parallel calibration possible
-
-### 4. Flexibility
-- Multiple pricing engines per instrument
-- Pluggable calibration strategies
-- Extensible analytics framework
-
-### 5. Testing
-- Each layer testable in isolation
-- Mock implementations easy to create
-- Comprehensive test coverage possible
-
-## Risks and Mitigations
-
-### Risk 1: Breaking Changes
-**Mitigation**: 
-- Provide compatibility layer initially
-- Gradual migration with deprecation warnings
-- Comprehensive migration guide
-
-### Risk 2: Performance Regression
-**Mitigation**:
-- Benchmark before and after
-- Profile critical paths
-- Optimize hot spots
-
-### Risk 3: Complexity
-**Mitigation**:
-- Clear documentation
-- Examples for common use cases
-- Training materials for team
-
-## Success Criteria
-
-1. **Architecture Goals**
-   - Clean layer separation achieved
-   - No pricing logic duplication
-   - All tests passing
-
-2. **Performance Goals**
-   - No regression in pricing speed
-   - Calibration at least as fast
-   - Memory usage reasonable
-
-3. **Usability Goals**
-   - Clear, intuitive APIs
-   - Comprehensive documentation
-   - Migration path documented
-
-## Example Code After Refactoring
+### Callable Bond Spec using Core Calendars
 
 ```rust
-use finstack_instruments::fixed_income::{InterestRateSwap, SwapQuote};
-use finstack_market_data::MarketContext;
-use finstack_pricing::{PricingRegistry, Priceable};
-use finstack_calibration::{CalibrationOrchestrator, CalibrationConfig};
-use finstack_analytics::portfolio::Portfolio;
-use finstack_analytics::risk::VaR;
+use finstack_core::prelude::*;
+use finstack_core::dates::{CalendarId, CalendarRegistry};
+use finstack_instruments::fixed_income::cashflow::{
+    builder::CashflowSpecBuilder,
+    spec::{CouponSpec, AmortizationSpec, FeeSpec, CallPutSchedule, CallOption},
+};
+use finstack_instruments::fixed_income::bond::BondBuilder;
 
-// Setup pricing
-let mut pricing = PricingRegistry::new();
-pricing.register_defaults(); // Register all default pricers
+let call_sched = CallPutSchedule {
+    call: vec![ CallOption {
+        exercise_date: date(2029,1,1),
+        strike_price: Money::of(102.0, Currency::USD),
+        make_whole_spread: Some(0.005),
+    }],
+    put: vec![],
+};
 
-// Calibrate market from quotes
-let quotes = vec![
-    SwapQuote { maturity: date1, rate: 0.02, ... },
-    SwapQuote { maturity: date2, rate: 0.025, ... },
-];
-
-let orchestrator = CalibrationOrchestrator::new(base_date, Currency::USD)
-    .with_pricing(pricing.clone());
-let (market_context, report) = orchestrator.calibrate_market(&quotes)?;
-
-// Create and price instruments
-let swap = InterestRateSwap::builder()
-    .id("SWAP_001")
-    .maturity_date(Date::from_ymd(2026, 12, 31))
-    .fixed_rate(0.03)
+let spec = CashflowSpecBuilder::new()
+    .coupon(CouponSpec::Fixed { rate: 0.04, frequency: Frequency::SemiAnnual })
+    .amortization(AmortizationSpec::Bullet)
+    .with_fees(vec![ FeeSpec::Upfront { amount: Money::of(500_000.0, Currency::USD) } ])
+    .day_count(DayCount::Thirty360)
+    .bdc(BusinessDayConvention::ModifiedFollowing)
+    .calendar(CalendarId::TARGET2())
+    .optionality(call_sched)
     .build()?;
 
-// Price with default method (Auto)
-let pv = pricing.price(&swap, &market_context, base_date)?;
+// calendar usage (core):
+let _cal = CalendarRegistry::global().resolve(CalendarId::TARGET2())?;
 
-// Create an equity option
-let option = EquityOption::builder()
-    .underlying("AAPL")
-    .strike(Money::new(150.0, Currency::USD))
-    .maturity(Date::from_ymd(2025, 6, 30))
-    .option_type(OptionType::Call)
-    .exercise_style(ExerciseStyle::American)
+let bond = BondBuilder::new(InstrumentId::from_static("BOND_1"))
+    .issue_date(date(2024,1,1))
+    .maturity_date(date(2034,1,1))
+    .notional(Money::of(100_000_000.0, Currency::USD))
+    .cashflow_spec(spec)
+    .issue_price(Money::of(100.0, Currency::USD))
     .build()?;
-
-// Price with different methods
-let pv_auto = pricing.price(&option, &market_context, base_date)?;  // Auto-selects binomial
-let pv_mc = pricing.price_with_method(
-    &option, 
-    &market_context, 
-    base_date,
-    PricingMethod::MonteCarlo { paths: 100_000, seed: Some(42) }
-)?;
-let pv_tree = pricing.price_with_method(
-    &option,
-    &market_context,
-    base_date, 
-    PricingMethod::BinomialTree { steps: 200 }
-)?;
-
-println!("Auto pricing ({}): {}", pv_auto.method_used, pv_auto.value);
-println!("Monte Carlo pricing: {}", pv_mc.value);
-println!("Binomial tree pricing: {}", pv_tree.value);
-
-// Portfolio analytics
-let mut portfolio = Portfolio::new("Trading Book");
-portfolio.add_instrument(Box::new(swap), 10_000_000.0); // $10M notional
-
-let market_value = portfolio.market_value(&market_context, &pricing, base_date)?;
-
-println!("Portfolio Market Value: {}", market_value);
 ```
 
-## Conclusion
+### CDS Index (basket) and Tranche Pricing
 
-This refactoring plan provides a clean, maintainable architecture that:
-- Separates concerns across well-defined layers
-- Eliminates pricing logic duplication
-- Provides flexibility for future enhancements
-- Maintains high performance
-- Enables comprehensive testing
-- Preserves all critical functionality from existing codebase
+```rust
+use finstack_core::prelude::*;
+use finstack_instruments::fixed_income::cds_index::{CdsIndex, CdsConstituent};
+use finstack_instruments::fixed_income::tranche::CdsTranche;
+use finstack_market_data::MarketContextBuilder;
+use finstack_pricing::PricingRegistry;
 
-Versioning note: v1 delivers Layers 1–4 (instruments, market-data, pricing, calibration). Layer 5 (analytics) ships in v2.
+// Build market context (disc/hazard/base corr/vol surfaces omitted)
+let ctx = MarketContextBuilder::new(date(2025,3,20)).build();
 
-The migration can be done incrementally with minimal disruption to existing users while providing significant long-term benefits for maintainability and extensibility.
+let idx = CdsIndex {
+    id: InstrumentId::from_static("CDX_IG_5Y"),
+    index_id: CreditIndexId::from_static("CDX_IG_S38"),
+    constituents: vec![
+        CdsConstituent { reference_entity: "Acme Corp".into(), weight: 1.0/125.0, fixed_recovery: Some(0.4) },
+        // ... 124 more
+    ],
+    effective_date: date(2025,3,20),
+    maturity_date: date(2030,6,20),
+    notional: Money::of(125_000_000.0, Currency::USD),
+    premium_leg: /* CashflowSpec for index premiums */,
+    disc_curve: CurveId::from_static("USD_DISC"),
+    index_credit_curve: CurveId::from_static("CDX_IG_HAZARD"),
+    attributes: Default::default(),
+};
+
+let tr = CdsTranche {
+    id: InstrumentId::from_static("TR_IG_3_7"),
+    index_id: CreditIndexId::from_static("CDX_IG_S38"),
+    attach: 0.03, detach: 0.07,
+    effective_date: date(2025,3,20),
+    maturity_date: date(2030,6,20),
+    notional: Money::of(100_000_000.0, Currency::USD),
+    disc_curve: CurveId::from_static("USD_DISC"),
+    index_credit_curve: CurveId::from_static("CDX_IG_HAZARD"),
+    base_corr_curve: CurveId::from_static("CDX_IG_BC"),
+    attributes: Default::default(),
+};
+
+let mut reg = PricingRegistry::new(); reg.register_defaults();
+let pv_idx = reg.price(&idx, &ctx, date(2025,3,20))?;
+let pv_tr  = reg.price(&tr , &ctx, date(2025,3,20))?;
+```
+
+---
+
+## 11) Policy Notes & Conventions
+
+* **Calendars**: The only calendar implementation and registry live in **`finstack-core::dates`**. All crates use this registry. No ad‑hoc strings.
+* **Quotes → Instruments**: All conversions require explicit `Conventions` (dc/bdc/calendar).
+* **Instrument coupling**: Curve/surface IDs may be present for explicit wiring; pricers may support context‑policy defaults when IDs are absent (document defaults).
+* **Import hygiene**: No `Priceable` on instruments; all pricing through `PricingRegistry`.
+
+---
+
+## 12) Rationale for the Erased‑Pricer Registry (brief)
+
+* Keeps **instruments as pure data** (serde‑friendly).
+* Enables **open‑world** extension (register pricers for new instrument types without changing central enums/visitors).
+* Centralizes type erasure in one audited module with clear errors (`NoPricerRegisteredFor(type)`).
+
+**Alternatives** (enum/visitor/Priceable trait/static generics) either close the world, push pricing into instruments, or complicate dynamic portfolios. Given goals, the registry is the best fit.
+
+---
+
+## 13) Deliverables & Success Criteria
+
+* **Architecture:** One‑directional deps; immutable `MarketContext`; single cashflow engine; optionality in spec; CDS vs CDS Index split; tranche & credit option supported.
+* **Pricing:** Default pricers for deposits, FRAs, futures, IRS, bonds (incl. callable/putable), CDS (SN & Index), **CDS Tranche**, **Credit Default Option**, loans, inflation instruments.
+* **Calibration:** Yield, multi‑curve, hazard (SN & index), inflation, FX, SABR/local vol, **base correlation**, optional **credit option vol**.
+* **Calendars:** Solely from `core::dates` across the stack.
+* **Determinism:** Serial == parallel (within tolerance); MC fixed‑seed default; metadata recorded.
+* **Performance:** No regressions; benches published.
+* **Usability:** Builders, explicit conventions, clear examples; migration guide.
+* **Docs & Tests:** READMEs, API docs, unit/integration/golden tests, CI thresholds.
+
+---
+
+## 14) Open Type Stubs (declared in their crates)
+
+* **Instruments**: `ProtectionSpec`, `CdsConstituent`, `CdsIndex`, `CdsTranche`, `CreditDefaultOption`, `CallPutSchedule` and related enums shown above.
+* **Quotes**: `CdsQuote`, `CdsIndexQuote`, `CdsTrancheQuote`, `CreditOptionQuote`, `SwapQuoteType`, etc.
+* **Market‑data**: `CreditIndexData`, `BaseCorrelationCurve`, `CreditVolSurface`.
+* **Pricing**: `PricingError`, `ResultsMeta`, `CashflowEvent`.
+* **Calibration**: `CalibrationReport`, `CalibError`.
+
+---
+
+## 15) Conclusion
+
+This finalized v1 spec delivers a clean, extensible architecture that:
+
+* Uses **core calendars and registry** everywhere (single source of truth).
+* Keeps **instruments pure data**, with **CashflowSpec** + **Call/Put optionality** explicitly modeled.
+* Splits **CDS** and **CDS Index** instruments (index contains its **basket**), and supports **CDS Tranche** and **Credit Default Option** end‑to‑end (instruments, pricers, calibration).
+* Provides deterministic, testable pricing with an ergonomic, extensible **registry**.
+
+The migration plan, examples, and module breakdowns are complete and ready for implementation.

@@ -36,7 +36,7 @@ use crate::cashflow::primitives::Notional;
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::adjust;
-use finstack_core::dates::holiday::calendars::calendar_by_id;
+use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::Date;
 use finstack_core::error::InputError;
 use finstack_core::money::Money;

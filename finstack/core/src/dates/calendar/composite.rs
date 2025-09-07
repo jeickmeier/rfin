@@ -16,7 +16,7 @@
 //! # Examples
 //! ```
 //! use finstack_core::dates::{CompositeCalendar, HolidayCalendar};
-//! use finstack_core::dates::calendars::{Target2, Gblo};
+//! use finstack_core::dates::calendar::{Target2, Gblo};
 //! use time::Date;
 //!
 //! let t2 = Target2;
@@ -35,7 +35,7 @@
 //! assert!(!cal_inter.is_holiday(may26_2025));
 //! ```
 
-use super::HolidayCalendar;
+use crate::dates::calendar::core::HolidayCalendar;
 use time::Date;
 
 /// A lightweight view combining several holiday calendars.
@@ -101,7 +101,7 @@ impl HolidayCalendar for CompositeCalendar<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dates::calendars::{Gblo, Target2};
+    use crate::dates::calendar::{Gblo, Target2};
     use time::{Date, Month};
 
     #[test]

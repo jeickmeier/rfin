@@ -7,7 +7,7 @@
 //! Implementing `Rule::applies(&self, date)` once keeps the codebase compact
 //! and avoids dozens of tiny helper structs.
 
-use crate::dates::calendar::HolidayCalendar;
+use crate::dates::calendar::core::HolidayCalendar;
 use time::{Date, Duration, Month, Weekday};
 
 // ---------------------------------------------------------------------------
@@ -227,7 +227,7 @@ impl Rule {
                 base == date
             }
             Rule::NthWeekday { n, weekday, month } => {
-                let target = crate::dates::holiday::generated::nth_weekday_of_month(
+                let target = crate::dates::calendar::generated::nth_weekday_of_month(
                     date.year(),
                     *month,
                     *weekday,
@@ -326,7 +326,7 @@ impl Rule {
                 out.push(base);
             }
             Rule::NthWeekday { n, weekday, month } => {
-                let d = crate::dates::holiday::generated::nth_weekday_of_month(
+                let d = crate::dates::calendar::generated::nth_weekday_of_month(
                     year, *month, *weekday, *n,
                 );
                 out.push(d);

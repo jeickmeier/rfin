@@ -35,21 +35,17 @@ mod daycount;
 
 pub use daycount::{DayCount, DayCountCtx, Thirty360Convention};
 
-mod calendar;
-
 // Re-export new holiday calendars at the top level for convenience
-pub use calendar::{adjust, BusinessDayConvention, HolidayCalendar};
+pub use calendar::core::{adjust, BusinessDayConvention, HolidayCalendar};
 
 // The canonical public discovery helper
-pub use calendar::available_calendars;
+pub use calendar::core::available_calendars;
 
 mod schedule_iter;
 
 pub use schedule_iter::{Frequency, ScheduleBuilder, StubKind};
 
-mod composite;
-
-pub use composite::CompositeCalendar;
+pub use calendar::composite::CompositeCalendar;
 
 mod imm;
 
@@ -58,16 +54,11 @@ pub use imm::{
     third_friday, third_wednesday,
 };
 
-pub mod holiday;
-// Keep holiday DSL under `dates::holiday`. Prefer `dates::calendars::*` (nested alias below).
+pub mod calendar;
+pub use calendar::registry::CalendarRegistry;
 
 mod periods;
 pub use periods::{build_fiscal_periods, build_periods, FiscalConfig, Period, PeriodId, PeriodKey};
 
 pub mod utils;
 pub use utils::{add_months, date_to_days_since_epoch, days_since_epoch_to_date, is_leap_year};
-
-pub mod calendars {
-    #![allow(missing_docs)]
-    pub use crate::dates::holiday::calendars::*;
-}

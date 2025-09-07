@@ -1,7 +1,7 @@
 //! Tests for Chinese New Year edge cases and extended date range coverage.
 
 use finstack_core::dates::{Date, HolidayCalendar};
-use finstack_core::dates::holiday::calendars::{Cnbe, Hkhk, Sgsi};
+use finstack_core::dates::calendar::{Cnbe, Hkhk, Sgsi};
 use time::Month;
 
 fn make_date(y: i32, m: u8, d: u8) -> Date {

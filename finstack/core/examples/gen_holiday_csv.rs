@@ -10,7 +10,7 @@ use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use time::{Date, Duration, Month};
 
-use finstack_core::dates::holiday::calendars::{Cnbe, Hkhk};
+use finstack_core::dates::calendar::{Cnbe, Hkhk};
 use finstack_core::dates::HolidayCalendar;
 
 fn write_calendar_csv<P: Into<PathBuf>>(

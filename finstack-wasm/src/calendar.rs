@@ -1,4 +1,4 @@
-use finstack_core::dates::holiday::calendars::calendar_by_id;
+use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::{
     adjust, BusinessDayConvention as BusDayConv, CompositeCalendar, HolidayCalendar,
 };

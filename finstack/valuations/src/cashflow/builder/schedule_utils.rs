@@ -5,7 +5,7 @@
 //! It returns `PeriodSchedule` with helper maps for previous date lookups and
 //! flags for first/last periods to aid stub classification.
 
-use finstack_core::dates::holiday::calendars::calendar_by_id;
+use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::{BusinessDayConvention, Date, Frequency, ScheduleBuilder, StubKind};
 
 /// Period schedule with helper maps/flags for coupon generation.

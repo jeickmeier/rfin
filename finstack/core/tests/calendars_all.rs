@@ -3,8 +3,8 @@
 mod common;
 
 use common::make_date;
-use finstack_core::dates::calendars::*;
-use finstack_core::dates::HolidayCalendar;
+use finstack_core::dates::calendar::*;
+use finstack_core::dates::{CalendarRegistry, HolidayCalendar};
 
 #[test]
 fn test_calendar_by_id_lookup() {
@@ -12,6 +12,10 @@ fn test_calendar_by_id_lookup() {
     for &id in ALL_IDS {
         let cal = calendar_by_id(id);
         assert!(cal.is_some(), "Calendar '{}' should be found", id);
+
+        // Ensure registry resolves the same id
+        let typed = CalendarRegistry::global().resolve_str(id);
+        assert!(typed.is_some(), "Registry should find '{}'", id);
 
         // Test that each calendar can be used (call is_holiday on a mid-week date)
         let mid_week_date = make_date(2025, 6, 18); // Wednesday

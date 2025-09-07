@@ -6,7 +6,7 @@ pub mod metrics;
 // use crate::results::ValuationResult; // handled via macro-based implementation
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::traits::Attributes;
-use finstack_core::dates::holiday::calendars::calendar_by_id;
+use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::F;

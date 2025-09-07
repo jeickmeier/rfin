@@ -111,7 +111,7 @@ pub enum BusinessDayConvention {
 /// Example:
 /// ```
 /// use finstack_core::dates::{Date, BusinessDayConvention, adjust};
-/// use finstack_core::dates::holiday::calendars::Target2;
+/// use finstack_core::dates::calendar::Target2;
 /// use time::Month;
 /// let cal = Target2;
 /// let sat = Date::from_calendar_date(2025, Month::January, 4).unwrap();
@@ -234,5 +234,5 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
 /// compiled into the crate.
 #[inline]
 pub const fn available_calendars() -> &'static [&'static str] {
-    crate::dates::holiday::calendars::ALL_IDS
+    crate::dates::calendar::ALL_IDS
 }

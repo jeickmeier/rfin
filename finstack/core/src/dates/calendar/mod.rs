@@ -20,14 +20,17 @@
 //! - Prefer `is_business_day` for scheduling and adjustment logic. Use
 //!   [`crate::dates::calendar::is_weekend`] if you need to only detect Saturday/Sunday.
 
-pub mod calendars;
 pub mod generated;
 pub mod rule;
+pub mod core;
+pub mod composite;
+pub mod registry;
 
 // Re-export commonly used items for ergonomic imports.
 pub use rule::{Direction, Observed, Rule};
+pub use core::{adjust, available_calendars, BusinessDayConvention, HolidayCalendar};
 
-// Convenience alias so users can `use finstack_core::dates::holiday::Calendar`.
+// Convenience alias so users can `use finstack_core::dates::calendar::Calendar`.
 // We re-export the existing `HolidayCalendar` trait from the parent module.
 // This keeps the public API surface small while allowing direct usage.
 //
@@ -35,10 +38,7 @@ pub use rule::{Direction, Observed, Rule};
 //
 // fn foo(cal: &impl Calendar) { /* ... */ }
 
-pub use crate::dates::calendar::HolidayCalendar as Calendar;
-
-// Re-export most used calendars at holiday root level
-pub use calendars::*;
+pub use self::core::HolidayCalendar as Calendar;
 
 /// Macro to define thin delegate calendars that mirror another calendar's rules.
 #[macro_export]
@@ -82,29 +82,29 @@ macro_rules! impl_calendar_generated {
     ($ty:ident, $id:literal, $rules:path, ignore_weekends = $ignore_weekends:expr) => {
         impl $crate::dates::calendar::HolidayCalendar for $ty {
             fn is_holiday(&self, date: time::Date) -> bool {
-                if ($crate::dates::holiday::generated::BASE_YEAR
-                    ..=$crate::dates::holiday::generated::END_YEAR)
+                if ($crate::dates::calendar::generated::BASE_YEAR
+                    ..=$crate::dates::calendar::generated::END_YEAR)
                     .contains(&date.year())
                 {
                     static STORE: once_cell::sync::Lazy<
-                        Vec<once_cell::sync::OnceCell<$crate::dates::holiday::generated::YearBits>>,
+                        Vec<once_cell::sync::OnceCell<$crate::dates::calendar::generated::YearBits>>,
                     > = once_cell::sync::Lazy::new(|| {
-                        let mut v = Vec::with_capacity($crate::dates::holiday::generated::YEARS);
-                        for _ in 0..$crate::dates::holiday::generated::YEARS {
+                        let mut v = Vec::with_capacity($crate::dates::calendar::generated::YEARS);
+                        for _ in 0..$crate::dates::calendar::generated::YEARS {
                             v.push(once_cell::sync::OnceCell::new());
                         }
                         v
                     });
-                    let idx = (date.year() - $crate::dates::holiday::generated::BASE_YEAR) as usize;
+                    let idx = (date.year() - $crate::dates::calendar::generated::BASE_YEAR) as usize;
                     let bits = STORE[idx].get_or_init(|| {
-                        $crate::dates::holiday::generated::compute_year_bits_for_rules(
+                        $crate::dates::calendar::generated::compute_year_bits_for_rules(
                             $rules,
                             date.year(),
                         )
                     });
-                    let mut is_h = $crate::dates::holiday::generated::bit_test(
+                    let mut is_h = $crate::dates::calendar::generated::bit_test(
                         bits,
-                        $crate::dates::holiday::generated::day_of_year_0_based(date),
+                        $crate::dates::calendar::generated::day_of_year_0_based(date),
                     );
                     if $ignore_weekends
                         && matches!(
@@ -130,3 +130,35 @@ macro_rules! impl_calendar_generated {
         }
     };
 }
+
+/// Macro that declares a calendar type, its id method, and wires it to the
+/// generated rules using `impl_calendar_generated!`. This reduces boilerplate
+/// in the generated registry file.
+#[macro_export]
+macro_rules! declare_calendar {
+    ($ty:ident, $id:literal, $rules:path) => {
+        #[allow(missing_docs)]
+        #[derive(Debug, Clone, Copy, Default)]
+        pub struct $ty;
+        #[allow(missing_docs)]
+        impl $ty {
+            #[inline]
+            pub const fn id(self) -> &'static str { $id }
+        }
+        $crate::impl_calendar_generated!($ty, $id, $rules);
+    };
+    ($ty:ident, $id:literal, $rules:path, ignore_weekends = $ignore_weekends:expr) => {
+        #[allow(missing_docs)]
+        #[derive(Debug, Clone, Copy, Default)]
+        pub struct $ty;
+        #[allow(missing_docs)]
+        impl $ty {
+            #[inline]
+            pub const fn id(self) -> &'static str { $id }
+        }
+        $crate::impl_calendar_generated!($ty, $id, $rules, ignore_weekends = $ignore_weekends);
+    };
+}
+
+// Include generated registry and calendar types directly into `dates::calendar`
+include!(concat!(env!("OUT_DIR"), "/generated_calendars.rs"));

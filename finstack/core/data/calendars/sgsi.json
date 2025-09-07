@@ -1,0 +1,14 @@
+{
+  "id": "sgsi",
+  "ignore_weekends": false,
+  "rules": [
+    { "type": "fixed", "name": "New Year's Day", "month": "january", "day": 1, "observed": "next_monday" },
+    { "type": "fixed", "name": "Labour Day", "month": "may", "day": 1, "observed": "next_monday" },
+    { "type": "fixed", "name": "National Day", "month": "august", "day": 9, "observed": "next_monday" },
+    { "type": "fixed", "name": "Christmas Day", "month": "december", "day": 25, "observed": "next_monday" },
+    { "type": "span", "name": "Chinese New Year", "start": { "type": "chinese_new_year" }, "len": 2 },
+    { "type": "easter_offset", "name": "Good Friday", "days": -3 }
+  ]
+}
+
+
