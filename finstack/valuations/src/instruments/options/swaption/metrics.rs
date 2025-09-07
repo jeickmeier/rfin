@@ -1,6 +1,7 @@
 //! Swaption-specific metrics calculators
 
 use crate::instruments::options::swaption::Swaption;
+use crate::instruments::options::OptionType;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::dates::Date;
 use finstack_core::market_data::traits::{Discount, TermStructure};
@@ -80,8 +81,8 @@ impl MetricCalculator for DeltaCalculator {
         };
 
         let delta = match option.option_type {
-            super::OptionType::Call => finstack_core::math::norm_cdf(d1),
-            super::OptionType::Put => -finstack_core::math::norm_cdf(-d1),
+            OptionType::Call => finstack_core::math::norm_cdf(d1),
+            OptionType::Put => -finstack_core::math::norm_cdf(-d1),
         };
 
         // Scale by notional and annuity for cash delta
@@ -207,12 +208,12 @@ impl MetricCalculator for ThetaCalculator {
         let sqrt_t = t.sqrt();
         let term1 = -forward * finstack_core::math::norm_pdf(d1) * sigma / (2.0 * sqrt_t);
         let theta = match option.option_type {
-            super::OptionType::Call => {
+            OptionType::Call => {
                 // Payer
                 let term3 = -0.0 * finstack_core::math::norm_cdf(d2);
                 (term1 + term3) * 10000.0 / 365.0 // scaled similar to IR options
             }
-            super::OptionType::Put => {
+            OptionType::Put => {
                 // Receiver
                 let term3 = 0.0 * finstack_core::math::norm_cdf(-d2);
                 (term1 + term3) * 10000.0 / 365.0

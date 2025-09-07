@@ -1,6 +1,7 @@
 //! FX option specific metrics calculators
 
 use crate::instruments::options::fx_option::FxOption;
+use crate::instruments::options::OptionType;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::{Result, F};
 use num_traits::ToPrimitive;
@@ -42,14 +43,14 @@ impl MetricCalculator for DeltaCalculator {
 
             let spot_f64 = spot.to_f64().unwrap_or(0.0);
             return Ok(match option.option_type {
-                super::OptionType::Call => {
+                OptionType::Call => {
                     if spot_f64 > option.strike {
                         1.0
                     } else {
                         0.0
                     }
                 }
-                super::OptionType::Put => {
+                OptionType::Put => {
                     if spot_f64 < option.strike {
                         -1.0
                     } else {

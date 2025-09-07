@@ -1,0 +1,220 @@
+//! FX Spot types and implementations.
+
+use crate::cashflow::traits::CashflowProvider;
+use crate::instruments::traits::Attributes;
+use finstack_core::dates::calendar::calendar_by_id;
+use finstack_core::prelude::*;
+use finstack_core::F;
+
+/// FX Spot instrument (1 unit of `base` priced in `quote`).
+///
+/// Represents the spot exchange rate between two currencies.
+/// The value represents how many units of the quote currency
+/// are needed to buy one unit of the base currency.
+///
+/// See unit tests and `examples/` for usage.
+#[derive(Clone, Debug)]
+pub struct FxSpot {
+    /// Unique identifier for the FX pair
+    pub id: String,
+    /// Base currency (the currency being priced)
+    pub base: Currency,
+    /// Quote currency (the currency used for pricing)
+    pub quote: Currency,
+    /// Optional settlement date (T+2 typically for spot)
+    pub settlement: Option<Date>,
+    /// Optional spot rate (if not provided, will look up from market data)
+    pub spot_rate: Option<F>,
+    /// Optional notional amount in base currency (defaults to 1)
+    pub notional: Option<Money>,
+    /// Business day convention to apply when adjusting settlement (default: Following)
+    pub bdc: BusinessDayConvention,
+    /// Optional holiday calendar identifier used for business-day logic
+    pub calendar_id: Option<&'static str>,
+    /// Attributes for scenario selection and tagging
+    pub attributes: Attributes,
+}
+
+impl FxSpot {
+    /// Create a new FX spot builder.
+    pub fn builder() -> crate::instruments::fixed_income::fx_spot::mod_fx_spot::FxSpotBuilder {
+        crate::instruments::fixed_income::fx_spot::mod_fx_spot::FxSpotBuilder::new()
+    }
+
+    /// Create a new FX spot instrument
+    pub fn new(id: impl Into<String>, base: Currency, quote: Currency) -> Self {
+        Self {
+            id: id.into(),
+            base,
+            quote,
+            settlement: None,
+            spot_rate: None,
+            notional: None,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            attributes: Attributes::new(),
+        }
+    }
+
+    /// Set the settlement date
+    pub fn with_settlement(mut self, date: Date) -> Self {
+        self.settlement = Some(date);
+        self
+    }
+
+    /// Set the spot rate
+    pub fn with_rate(mut self, rate: F) -> Self {
+        self.spot_rate = Some(rate);
+        self
+    }
+
+    /// Set the notional amount (fallible version - preferred)
+    pub fn with_notional_checked(self, notional: Money) -> finstack_core::Result<Self> {
+        self.try_with_notional(notional)
+    }
+
+    /// Set the notional amount (panicking version - deprecated)
+    #[deprecated(
+        since = "0.1.0",
+        note = "Use with_notional_checked instead to avoid panics"
+    )]
+    pub fn with_notional(self, notional: Money) -> Self {
+        self.try_with_notional(notional)
+            .expect("Notional currency must match base currency")
+    }
+
+    /// Set the business day convention
+    pub fn with_bdc(mut self, bdc: BusinessDayConvention) -> Self {
+        self.bdc = bdc;
+        self
+    }
+
+    /// Set the holiday calendar identifier used for settlement adjustment
+    pub fn with_calendar_id(mut self, id: &'static str) -> Self {
+        self.calendar_id = Some(id);
+        self
+    }
+
+    /// Fallible setter for notional that validates currency matches base
+    pub fn try_with_notional(mut self, notional: Money) -> finstack_core::Result<Self> {
+        if notional.currency() != self.base {
+            return Err(finstack_core::Error::CurrencyMismatch {
+                expected: self.base,
+                actual: notional.currency(),
+            });
+        }
+        self.notional = Some(notional);
+        Ok(self)
+    }
+
+    /// Get the effective notional (defaults to 1 unit of base currency)
+    pub fn effective_notional(&self) -> Money {
+        self.notional.unwrap_or_else(|| Money::new(1.0, self.base))
+    }
+
+    /// Standard FX pair name (e.g., "EURUSD")
+    pub fn pair_name(&self) -> String {
+        format!("{}{}", self.base, self.quote)
+    }
+}
+
+impl_instrument!(
+    FxSpot,
+    "FxSpot",
+    pv = |s, curves, as_of| {
+        if let Some(rate) = s.spot_rate {
+            let notional_amount = s.effective_notional().amount();
+            let quote_amount = notional_amount * rate;
+            return Ok(Money::new(quote_amount, s.quote));
+        }
+        let matrix = curves.fx.as_ref().ok_or_else(|| {
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "fx_matrix".to_string(),
+            })
+        })?;
+        struct MatrixProvider<'a> {
+            m: &'a finstack_core::money::fx::FxMatrix,
+        }
+        impl finstack_core::money::fx::FxProvider for MatrixProvider<'_> {
+            fn rate(
+                &self,
+                from: Currency,
+                to: Currency,
+                on: Date,
+                policy: finstack_core::money::fx::FxConversionPolicy,
+            ) -> finstack_core::Result<finstack_core::money::fx::FxRate> {
+                let result = self.m.rate(finstack_core::money::fx::FxQuery {
+                    from,
+                    to,
+                    on,
+                    policy,
+                    closure_check: None,
+                    want_meta: false,
+                })?;
+                Ok(result.rate)
+            }
+        }
+        let provider = MatrixProvider { m: matrix };
+        let policy = finstack_core::money::fx::FxConversionPolicy::CashflowDate;
+        s.effective_notional()
+            .convert(s.quote, as_of, &provider, policy)
+    }
+);
+
+impl CashflowProvider for FxSpot {
+    fn build_schedule(
+        &self,
+        _curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<Vec<(Date, Money)>> {
+        // FX spot settles on provided settlement date (BDC-adjusted if calendar present)
+        // or computed T+2 BUSINESS days when settlement is not provided.
+        let settle_date = if let Some(date) = self.settlement {
+            if let Some(id) = self.calendar_id {
+                if let Some(cal) = calendar_by_id(id) {
+                    adjust(date, self.bdc, cal)?
+                } else {
+                    date
+                }
+            } else {
+                date
+            }
+        } else {
+            // Compute T+2 in a calendar-aware way if a calendar is available; otherwise
+            // fall back to weekend-only business-day addition.
+            if let Some(id) = self.calendar_id {
+                if let Some(cal) = calendar_by_id(id) {
+                    let mut d = as_of;
+                    let mut remaining = 2i32;
+                    while remaining > 0 {
+                        d = d.saturating_add(time::Duration::days(1));
+                        if cal.is_business_day(d) {
+                            remaining -= 1;
+                        }
+                    }
+                    d
+                } else {
+                    as_of.add_weekdays(2)
+                }
+            } else {
+                as_of.add_weekdays(2)
+            }
+        };
+
+        if settle_date > as_of {
+            // Future settlement - require spot rate to be available
+            let rate = self.spot_rate.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: "fx_matrix".to_string(),
+                })
+            })?;
+            let value = Money::new(self.effective_notional().amount() * rate, self.quote);
+            Ok(vec![(settle_date, value)])
+        } else {
+            // Already settled
+            Ok(vec![])
+        }
+    }
+}
+
+

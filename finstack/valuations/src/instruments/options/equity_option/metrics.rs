@@ -1,6 +1,7 @@
 //! Equity option specific metrics calculators
 
 use crate::instruments::options::equity_option::EquityOption;
+use crate::instruments::options::OptionType;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::{Result, F};
 use std::sync::Arc;
@@ -30,14 +31,14 @@ impl MetricCalculator for DeltaCalculator {
             };
 
             return Ok(match option.option_type {
-                super::OptionType::Call => {
+                OptionType::Call => {
                     if spot > option.strike.amount() {
                         1.0
                     } else {
                         0.0
                     }
                 }
-                super::OptionType::Put => {
+                OptionType::Put => {
                     if spot < option.strike.amount() {
                         -1.0
                     } else {
