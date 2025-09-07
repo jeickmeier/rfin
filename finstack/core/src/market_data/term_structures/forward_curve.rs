@@ -158,7 +158,7 @@ impl ForwardCurveBuilder {
             return Err(InputError::TooFewPoints.into());
         }
         let (kvec, fvec): (Vec<F>, Vec<F>) = self.points.into_iter().unzip();
-        crate::market_data::utils::validate_knots(&kvec)?;
+        crate::math::interp::utils::validate_knots(&kvec)?;
         let knots = kvec.into_boxed_slice();
         let fwds = fvec.into_boxed_slice();
         let interp =

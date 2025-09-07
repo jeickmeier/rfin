@@ -8,11 +8,10 @@ extern crate alloc;
 
 use crate::currency::Currency;
 use crate::dates::Date;
-use alloc::collections::VecDeque;
 use alloc::sync::Arc;
-use core::sync::atomic::{AtomicU64, Ordering};
-use hashbrown::HashMap;
-use parking_lot::{Mutex, RwLock};
+use core::num::NonZeroUsize;
+use lru::LruCache;
+use parking_lot::Mutex;
 use std::time::{Duration, Instant};
 
 #[cfg(feature = "serde")]
@@ -92,17 +91,14 @@ struct FxCacheKey {
 struct CachedFxEntry {
     rate: FxRate,
     cached_at: Instant,
-    // Monotonic access counter for O(1) amortized eviction without scanning
-    last_access_tick: AtomicU64,
     ttl: Duration,
 }
 
 impl CachedFxEntry {
-    fn new(rate: FxRate, ttl: Duration, tick: u64) -> Self {
+    fn new(rate: FxRate, ttl: Duration) -> Self {
         Self {
             rate,
             cached_at: Instant::now(),
-            last_access_tick: AtomicU64::new(tick),
             ttl,
         }
     }
@@ -186,9 +182,7 @@ pub trait FxProvider: Send + Sync {
 /// Enhanced FX matrix with LRU caching and closure checking
 pub struct FxMatrix {
     provider: Arc<dyn FxProvider>,
-    cache: RwLock<HashMap<FxCacheKey, CachedFxEntry>>,
-    // Queue of (key, access_tick) to track eviction candidates lazily
-    access_queue: Mutex<VecDeque<(FxCacheKey, u64)>>,
+    cache: Mutex<LruCache<FxCacheKey, CachedFxEntry>>,
     config: FxCacheConfig,
 }
 
@@ -200,10 +194,10 @@ impl FxMatrix {
 
     /// Create a new `FxMatrix` with custom cache configuration
     pub fn with_config(provider: Arc<dyn FxProvider>, config: FxCacheConfig) -> Self {
+        let cap = NonZeroUsize::new(config.max_entries.max(1)).unwrap();
         Self {
             provider,
-            cache: RwLock::new(HashMap::new()),
-            access_queue: Mutex::new(VecDeque::new()),
+            cache: Mutex::new(LruCache::new(cap)),
             config,
         }
     }
@@ -262,52 +256,55 @@ impl FxMatrix {
             policy,
         };
 
-        // Try to get from cache first using upgradable read; hits avoid write lock
+        // Try to get from cache first; acquire lock once and drop before any recursive calls
         {
-            let cache = self.cache.upgradable_read();
+            let mut cache = self.cache.lock();
+            let mut hit_rate: Option<FxRate> = None;
+            let mut was_expired = false;
             if let Some(entry) = cache.get(&cache_key) {
                 if !entry.is_expired() {
-                    // Record access without taking the write lock on the map
-                    let tick = Self::next_access_tick();
-                    entry.last_access_tick.store(tick, Ordering::Relaxed);
-                    let mut access_queue = self.access_queue.lock();
-                    access_queue.push_back((cache_key.clone(), tick));
-
-                    let rate = entry.rate;
-                    drop(cache);
-                    let mut result = FxRateResult {
-                        rate,
-                        triangulated: false,
-                        pivot_currency: None,
-                        closure: None,
-                    };
-                    if query.want_meta {
-                        if let Some(mid) = query.closure_check {
-                            let via_a = self
-                                .rate(FxQuery {
-                                    from,
-                                    to: mid,
-                                    on,
-                                    policy,
-                                    closure_check: None,
-                                    want_meta: false,
-                                })?
-                                .rate;
-                            let via_b = self
-                                .rate(FxQuery {
-                                    from: mid,
-                                    to,
-                                    on,
-                                    policy,
-                                    closure_check: None,
-                                    want_meta: false,
-                                })?
-                                .rate;
-                            result.closure = Some(self.check_closure(rate, via_a, via_b)?);
-                        }
-                    }
-                    return Ok(result);
+                    hit_rate = Some(entry.rate);
+                } else {
+                    was_expired = true;
                 }
+            }
+            if was_expired {
+                cache.pop(&cache_key);
+            }
+            if let Some(rate) = hit_rate {
+                drop(cache);
+                let mut result = FxRateResult {
+                    rate,
+                    triangulated: false,
+                    pivot_currency: None,
+                    closure: None,
+                };
+                if query.want_meta {
+                    if let Some(mid) = query.closure_check {
+                        let via_a = self
+                            .rate(FxQuery {
+                                from,
+                                to: mid,
+                                on,
+                                policy,
+                                closure_check: None,
+                                want_meta: false,
+                            })?
+                            .rate;
+                        let via_b = self
+                            .rate(FxQuery {
+                                from: mid,
+                                to,
+                                on,
+                                policy,
+                                closure_check: None,
+                                want_meta: false,
+                            })?
+                            .rate;
+                        result.closure = Some(self.check_closure(rate, via_a, via_b)?);
+                    }
+                }
+                return Ok(result);
             }
         }
 
@@ -372,23 +369,28 @@ impl FxMatrix {
 
     /// Clear expired entries from the cache
     pub fn clear_expired(&self) {
-        let mut cache = self.cache.write();
-        cache.retain(|_, entry| !entry.is_expired());
+        let mut cache = self.cache.lock();
+        let keys_to_remove: alloc::vec::Vec<_> = cache
+            .iter()
+            .filter(|(_, entry)| entry.is_expired())
+            .map(|(k, _)| k.clone())
+            .collect();
+        for k in keys_to_remove {
+            cache.pop(&k);
+        }
     }
 
     /// Clear all cache entries
     pub fn clear_cache(&self) {
-        let mut cache = self.cache.write();
+        let mut cache = self.cache.lock();
         cache.clear();
-        let mut q = self.access_queue.lock();
-        q.clear();
     }
 
     /// Get cache statistics
     pub fn cache_stats(&self) -> (usize, usize) {
-        let cache = self.cache.read();
+        let cache = self.cache.lock();
         let total = cache.len();
-        let expired = cache.values().filter(|entry| entry.is_expired()).count();
+        let expired = cache.iter().filter(|(_, entry)| entry.is_expired()).count();
         (total, expired)
     }
 
@@ -428,39 +430,9 @@ impl FxMatrix {
     }
 
     fn insert_with_evict(&self, key: FxCacheKey, rate: FxRate) {
-        let tick = Self::next_access_tick();
-        let mut cache = self.cache.write();
-        let mut q = self.access_queue.lock();
-
-        // Insert/overwrite entry
-        let entry = CachedFxEntry::new(rate, self.config.default_ttl, tick);
-        cache.insert(key.clone(), entry);
-        q.push_back((key.clone(), tick));
-
-        // Evict while over capacity using queue and per-entry access ticks
-        while cache.len() > self.config.max_entries {
-            if let Some((victim_key, victim_tick)) = q.pop_front() {
-                if let Some(entry) = cache.get(&victim_key) {
-                    let current_tick = entry.last_access_tick.load(Ordering::Relaxed);
-                    if current_tick == victim_tick || entry.is_expired() {
-                        cache.remove(&victim_key);
-                    }
-                }
-            } else {
-                // Queue empty but map over capacity; fall back to clearing an arbitrary entry
-                if let Some(any_key) = cache.keys().next().cloned() {
-                    cache.remove(&any_key);
-                }
-            }
-        }
-    }
-
-    #[inline]
-    fn next_access_tick() -> u64 {
-        static ACCESS_COUNTER: AtomicU64 = AtomicU64::new(0);
-        ACCESS_COUNTER
-            .fetch_add(1, Ordering::Relaxed)
-            .wrapping_add(1)
+        let mut cache = self.cache.lock();
+        let entry = CachedFxEntry::new(rate, self.config.default_ttl);
+        cache.put(key, entry);
     }
 
     fn check_closure(
@@ -489,6 +461,7 @@ impl FxMatrix {
 mod tests {
     use super::*;
     use crate::currency::Currency;
+    use hashbrown::HashMap;
     use std::time::Duration;
 
     // Mock FX provider for testing

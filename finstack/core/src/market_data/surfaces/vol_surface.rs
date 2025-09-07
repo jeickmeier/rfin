@@ -24,7 +24,7 @@
 use crate::{
     error::InputError,
     market_data::traits::{Surface, TermStructure},
-    market_data::utils::locate_segment,
+    math::interp::utils::locate_segment,
     types::CurveId,
     Error, F,
 };
@@ -211,8 +211,8 @@ impl VolSurfaceBuilder {
         if self.expiries.is_empty() || self.strikes.is_empty() {
             return Err(InputError::TooFewPoints.into());
         }
-        crate::market_data::utils::validate_knots(&self.expiries[..])?;
-        crate::market_data::utils::validate_knots(&self.strikes[..])?;
+        crate::math::interp::utils::validate_knots(&self.expiries[..])?;
+        crate::math::interp::utils::validate_knots(&self.strikes[..])?;
         if self.vols.len() != self.expiries.len() {
             return Err(InputError::DimensionMismatch.into());
         }
@@ -253,8 +253,8 @@ impl VolSurface {
         if expiries.is_empty() || strikes.is_empty() {
             return Err(InputError::TooFewPoints.into());
         }
-        crate::market_data::utils::validate_knots(expiries)?;
-        crate::market_data::utils::validate_knots(strikes)?;
+        crate::math::interp::utils::validate_knots(expiries)?;
+        crate::math::interp::utils::validate_knots(strikes)?;
         let n = expiries.len() * strikes.len();
         if vols_row_major.len() != n {
             return Err(InputError::DimensionMismatch.into());

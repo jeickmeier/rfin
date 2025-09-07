@@ -223,12 +223,12 @@ impl DiscountCurveBuilder {
         }
 
         let (knots_vec, dfs_vec): (Vec<F>, Vec<F>) = self.points.into_iter().unzip();
-        crate::market_data::utils::validate_knots(&knots_vec)
+        crate::math::interp::utils::validate_knots(&knots_vec)
             .map_err(|_| super::CurveError::NonMonotonicKnots)?;
 
         // Validate monotonic discount factors if required (critical for credit curves)
         if self.require_monotonic {
-            crate::market_data::utils::validate_dfs(&dfs_vec, true)
+            crate::math::interp::utils::validate_monotone_nonincreasing(&dfs_vec)
                 .map_err(|_| super::CurveError::Invalid)?;
         }
 

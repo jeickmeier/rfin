@@ -16,8 +16,8 @@
 //!   [`term_structures::hazard_curve::HazardCurve`] and
 //!   [`term_structures::inflation::InflationCurve`].
 //! * [`surfaces`] – two-dimensional objects like implied-volatility surfaces.
-//! * [`utils`] – helper functions shared across the implementation
-//!   (validation, segment location, etc.).
+//! * Helper functions for interpolation/validation live under
+//!   [`crate::math::interp::utils`].
 //! * [`multicurve`] – thin container for keeping many curves in one place.
 //! * [`context`] – lightweight aggregate of curves, FX, surfaces, and prices.
 //!
@@ -58,10 +58,8 @@ pub mod surfaces;
 pub mod term_structures;
 /// Public trait hierarchy used by pricing components.
 pub mod traits;
-/// Helper validation utilities shared across market-data code.
-pub mod utils;
-// Re-export helper(s)
-pub use utils::validate_knots;
+// Re-export selected helpers for convenience at `market_data::*` level.
+pub use crate::math::interp::utils::validate_knots;
 
 // Re-export common term structures at the market_data::* level for backwards compatibility.
 pub use term_structures::{discount_curve, forward_curve, hazard_curve, inflation};

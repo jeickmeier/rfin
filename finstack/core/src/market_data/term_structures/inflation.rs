@@ -143,14 +143,14 @@ impl InflationCurveBuilder {
         if self.points.is_empty() {
             return Err(InputError::TooFewPoints.into());
         }
-        crate::market_data::utils::validate_knots(
+        crate::math::interp::utils::validate_knots(
             &self.points.iter().map(|p| p.0).collect::<Vec<_>>(),
         )?;
         if self.points.iter().any(|&(_, c)| c <= 0.0) {
             return Err(InputError::NonPositiveValue.into());
         }
         let (kvec, cvec): (Vec<F>, Vec<F>) = self.points.into_iter().unzip();
-        crate::market_data::utils::validate_knots(&kvec)?;
+        crate::math::interp::utils::validate_knots(&kvec)?;
         let knots = kvec.into_boxed_slice();
         let cpi_levels = cvec.into_boxed_slice();
         let interp = self.style.build_enum(

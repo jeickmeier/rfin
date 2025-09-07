@@ -328,7 +328,7 @@ impl HazardCurveBuilder {
         points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
         let (kvec, lvec): (Vec<F>, Vec<F>) = points.into_iter().unzip();
         if kvec.len() > 1 {
-            crate::market_data::utils::validate_knots(&kvec)?;
+            crate::math::interp::utils::validate_knots(&kvec)?;
         }
         let mut par_pts = self.par_points;
         par_pts.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
