@@ -41,36 +41,100 @@ impl CalendarRegistry<'_> {
         self.resolve_str(id.0)
     }
 
-    /// Resolve many calendars and return a composite using the specified mode.
+    /// Resolve many calendars into `storage` and return a composite using the specified mode.
     ///
-    /// Note: The caller must own the backing slice for the lifetime of the composite view.
+    /// This avoids allocation leaks by letting the caller own the backing buffer used by the
+    /// returned `CompositeCalendar` view.
+    ///
+    /// Usage:
+    /// ```
+    /// # use finstack_core::dates::calendar::registry::{CalendarId, CalendarRegistry};
+    /// # use finstack_core::dates::calendar::composite::{CompositeCalendar, CompositeMode};
+    /// # use finstack_core::dates::calendar::{Gblo, Target2, HolidayCalendar};
+    /// let ids = [CalendarId(Target2.id()), CalendarId(Gblo.id())];
+    /// let regs = CalendarRegistry::global();
+    /// let mut buf = Vec::new();
+    /// let composite = regs.resolve_many(&ids, CompositeMode::Union, &mut buf);
+    /// # let _ = composite.is_holiday(time::Date::from_calendar_date(2025, time::Month::January, 1).unwrap());
+    /// ```
     #[inline]
     pub fn resolve_many<'s>(
         &self,
-        ids: &'s [CalendarId],
+        ids: &[CalendarId],
         mode: CompositeMode,
+        storage: &'s mut Vec<&'s dyn HolidayCalendar>,
     ) -> CompositeCalendar<'s> {
-        // Materialize resolved calendars into a temporary Vec<&dyn HolidayCalendar> that
-        // shares the same lifetime as the provided `ids` slice. The Vec is then borrowed
-        // as a slice for the CompositeCalendar. Caller is responsible for keeping `ids`
-        // (and thus this Vec) alive for as long as the composite is used.
-        //
-        // To preserve lifetimes, we construct the vector here and then leak it, which is
-        // acceptable for long-lived registries and tiny slices. For short-lived use, prefer
-        // building a local `Vec` and constructing `CompositeCalendar` directly at the call site.
-        let mut tmp: Vec<&'static dyn HolidayCalendar> = Vec::with_capacity(ids.len());
+        storage.clear();
+        storage.reserve(ids.len());
         for id in ids {
             if let Some(c) = self.resolve(*id) {
-                tmp.push(c);
+                storage.push(c);
             }
         }
-        let leaked: &'s [&'s dyn HolidayCalendar] = Box::leak(tmp.into_boxed_slice());
-        CompositeCalendar::with_mode(leaked, mode)
+        CompositeCalendar::with_mode(&storage[..], mode)
+    }
+
+    /// Resolve many calendars and return them as a `Vec<&dyn HolidayCalendar>`.
+    ///
+    /// This helper avoids leaking memory and lets callers build a
+    /// `CompositeCalendar` by borrowing the returned `Vec` as a slice:
+    ///
+    /// ```
+    /// # use finstack_core::dates::calendar::registry::{CalendarId, CalendarRegistry};
+    /// # use finstack_core::dates::calendar::composite::{CompositeCalendar, CompositeMode};
+    /// # use finstack_core::dates::calendar::{Target2, Gblo, HolidayCalendar};
+    /// let ids = [
+    ///     CalendarId(Target2.id()),
+    ///     CalendarId(Gblo.id()),
+    /// ];
+    /// let regs = CalendarRegistry::global();
+    /// let v = regs.resolve_many_vec(&ids);
+    /// let composite = CompositeCalendar::with_mode(&v[..], CompositeMode::Union);
+    /// # let _ = composite.is_holiday(time::Date::from_calendar_date(2025, time::Month::January, 1).unwrap());
+    /// ```
+    #[inline]
+    pub fn resolve_many_vec(&self, ids: &[CalendarId]) -> Vec<&'static dyn HolidayCalendar> {
+        let mut out: Vec<&'static dyn HolidayCalendar> = Vec::with_capacity(ids.len());
+        for id in ids {
+            if let Some(c) = self.resolve(*id) {
+                out.push(c);
+            }
+        }
+        out
     }
 
     /// Return the list of available calendar identifiers.
     #[inline]
     pub fn available_ids(&self) -> &'static [&'static str] {
         crate::dates::calendar::available_calendars()
+    }
+}
+
+// ----------------------------------------------------------------------------------------------
+// Tests
+// ----------------------------------------------------------------------------------------------
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dates::calendar::{Gblo, Target2};
+    use time::{Date, Month};
+
+    #[test]
+    fn resolve_many_vec_builds_composite_without_leak() {
+        let ids = [CalendarId(Target2.id()), CalendarId(Gblo.id())];
+        let regs = CalendarRegistry::global();
+        let v = regs.resolve_many_vec(&ids);
+        assert_eq!(v.len(), 2);
+
+        let composite = CompositeCalendar::with_mode(&v[..], CompositeMode::Union);
+
+        // Jan 1 is a holiday for both; union should be holiday.
+        let d1 = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        assert!(composite.is_holiday(d1));
+
+        // Date that is holiday in GBLO but not necessarily in Target2 (e.g., 26-May-2025)
+        let d2 = Date::from_calendar_date(2025, Month::May, 26).unwrap();
+        assert!(Gblo.is_holiday(d2));
+        assert!(composite.is_holiday(d2));
     }
 }

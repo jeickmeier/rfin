@@ -41,23 +41,43 @@ pub struct PeriodId {
 impl PeriodId {
     /// Build a quarterly identifier.
     pub fn quarter(year: i32, q: u8) -> Self {
-        Self { year, index: q, kind: PeriodKind::Quarterly }
+        Self {
+            year,
+            index: q,
+            kind: PeriodKind::Quarterly,
+        }
     }
     /// Build a monthly identifier.
     pub fn month(year: i32, m: u8) -> Self {
-        Self { year, index: m, kind: PeriodKind::Monthly }
+        Self {
+            year,
+            index: m,
+            kind: PeriodKind::Monthly,
+        }
     }
     /// Build a weekly identifier.
     pub fn week(year: i32, w: u8) -> Self {
-        Self { year, index: w, kind: PeriodKind::Weekly }
+        Self {
+            year,
+            index: w,
+            kind: PeriodKind::Weekly,
+        }
     }
     /// Build a semi-annual identifier.
     pub fn half(year: i32, h: u8) -> Self {
-        Self { year, index: h, kind: PeriodKind::SemiAnnual }
+        Self {
+            year,
+            index: h,
+            kind: PeriodKind::SemiAnnual,
+        }
     }
     /// Build an annual identifier.
     pub fn annual(year: i32) -> Self {
-        Self { year, index: 1, kind: PeriodKind::Annual }
+        Self {
+            year,
+            index: 1,
+            kind: PeriodKind::Annual,
+        }
     }
 }
 
@@ -191,7 +211,13 @@ pub fn build_fiscal_periods(
     fiscal_config: FiscalConfig,
     actuals_until: Option<&str>,
 ) -> crate::Result<PeriodPlan> {
-    build_periods_with_calendar(range, FiscalCalendar { config: fiscal_config }, actuals_until)
+    build_periods_with_calendar(
+        range,
+        FiscalCalendar {
+            config: fiscal_config,
+        },
+        actuals_until,
+    )
 }
 
 // Minimal calendar abstraction to unify bounds computation across calendar and fiscal paths.
@@ -257,7 +283,12 @@ fn make_period_with_calendar<C: PeriodCalendar>(
 ) -> crate::Result<Period> {
     let (start, end) = calendar.bounds(pid.year, pid.kind, pid.index);
     let is_actual = cut.map(|c| pid <= *c).unwrap_or(false);
-    Ok(Period { id: pid, start, end, is_actual })
+    Ok(Period {
+        id: pid,
+        start,
+        end,
+        is_actual,
+    })
 }
 
 fn quarter_bounds(year: i32, q: u8) -> (Date, Date) {
@@ -450,7 +481,11 @@ fn parse_range(s: &str) -> crate::Result<(PeriodId, PeriodId)> {
                 if !(1..=4).contains(&idx) {
                     return Err(crate::error::InputError::Invalid.into());
                 }
-                PeriodId { year: start.year, index: idx, kind: PeriodKind::Quarterly }
+                PeriodId {
+                    year: start.year,
+                    index: idx,
+                    kind: PeriodKind::Quarterly,
+                }
             }
             PeriodKind::Monthly => {
                 let idx: u8 = rhs
@@ -460,7 +495,11 @@ fn parse_range(s: &str) -> crate::Result<(PeriodId, PeriodId)> {
                 if !(1..=12).contains(&idx) {
                     return Err(crate::error::InputError::Invalid.into());
                 }
-                PeriodId { year: start.year, index: idx, kind: PeriodKind::Monthly }
+                PeriodId {
+                    year: start.year,
+                    index: idx,
+                    kind: PeriodKind::Monthly,
+                }
             }
             PeriodKind::Weekly => {
                 let idx: u8 = rhs
@@ -470,7 +509,11 @@ fn parse_range(s: &str) -> crate::Result<(PeriodId, PeriodId)> {
                 if !(1..=53).contains(&idx) {
                     return Err(crate::error::InputError::Invalid.into());
                 }
-                PeriodId { year: start.year, index: idx, kind: PeriodKind::Weekly }
+                PeriodId {
+                    year: start.year,
+                    index: idx,
+                    kind: PeriodKind::Weekly,
+                }
             }
             PeriodKind::SemiAnnual => {
                 let idx: u8 = rhs
@@ -480,9 +523,17 @@ fn parse_range(s: &str) -> crate::Result<(PeriodId, PeriodId)> {
                 if !(1..=2).contains(&idx) {
                     return Err(crate::error::InputError::Invalid.into());
                 }
-                PeriodId { year: start.year, index: idx, kind: PeriodKind::SemiAnnual }
+                PeriodId {
+                    year: start.year,
+                    index: idx,
+                    kind: PeriodKind::SemiAnnual,
+                }
             }
-            PeriodKind::Annual => PeriodId { year: start.year, index: 1, kind: PeriodKind::Annual },
+            PeriodKind::Annual => PeriodId {
+                year: start.year,
+                index: 1,
+                kind: PeriodKind::Annual,
+            },
         }
     };
     // Validate period kind consistency and non-inverted ranges
@@ -961,7 +1012,8 @@ mod tests {
             assert_eq!(parsed, id);
         }
         // Weeks
-        for w in 1..=3u8 { // keep small to avoid long runs
+        for w in 1..=3u8 {
+            // keep small to avoid long runs
             let id = PeriodId::week(2025, w);
             let parsed: PeriodId = id.to_string().parse().unwrap();
             assert_eq!(parsed, id);
