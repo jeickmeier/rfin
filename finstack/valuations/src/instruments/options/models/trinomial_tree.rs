@@ -7,8 +7,12 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::{Error, Result, F};
 
 use super::tree_framework::{
-    state_keys, NodeState, StateVariables, TreeGreeks, TreeModel, TreeValuator,
+    state_keys, StateVariables, TreeBranching, TreeGreeks, TreeModel, TreeValuator,
+    price_recombining_tree, RecombiningInputs,
 };
+
+#[cfg(test)]
+use super::tree_framework::NodeState;
 
 /// Trinomial tree types
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -122,75 +126,32 @@ impl TrinomialTree {
         valuator: &V,
     ) -> Result<F> {
         // Extract required parameters from state variables
-        let spot = initial_vars.get(state_keys::SPOT).ok_or(Error::Internal)?;
-        let r = initial_vars
+        let r = *initial_vars
             .get(state_keys::INTEREST_RATE)
             .ok_or(Error::Internal)?;
-        let q = initial_vars.get(state_keys::DIVIDEND_YIELD).unwrap_or(&0.0);
-        let sigma = initial_vars
+        let q = initial_vars.get(state_keys::DIVIDEND_YIELD).copied().unwrap_or(0.0);
+        let sigma = *initial_vars
             .get(state_keys::VOLATILITY)
             .ok_or(Error::Internal)?;
 
-        // Calculate tree parameters
-        let (u, d, _m, p_u, p_d, p_m) =
-            self.calculate_parameters(*r, *sigma, time_to_maturity, *q)?;
-        let dt = time_to_maturity / self.steps as f64;
-        let df = (-r * dt).exp();
+        let (u, d, m, p_u, p_d, p_m) =
+            self.calculate_parameters(r, sigma, time_to_maturity, q)?;
 
-        // Build the trinomial tree structure
-        // For trinomial trees, we need to track node indices differently
-        // Node (i, j) represents time step i and j up-moves minus down-moves
-        let max_nodes = 2 * self.steps + 1;
-        let mut values = vec![vec![0.0; max_nodes]; self.steps + 1];
-
-        // Initialize terminal values
-        for j in 0..max_nodes {
-            if j <= 2 * self.steps {
-                let net_moves = j as i32 - self.steps as i32;
-                let spot_t = spot * u.powi(net_moves.max(0)) * d.powi((-net_moves).max(0));
-                let time_t = time_to_maturity;
-
-                let mut terminal_vars = initial_vars.clone();
-                terminal_vars.insert(state_keys::SPOT, spot_t);
-
-                let terminal_state =
-                    NodeState::new(self.steps, time_t, terminal_vars, market_context);
-
-                let payoff = valuator.value_at_maturity(&terminal_state)?;
-                values[self.steps][j] = payoff;
-            }
-        }
-
-        // Backward induction
-        for step in (0..self.steps).rev() {
-            let nodes_at_step = 2 * step + 1;
-            for j in 0..nodes_at_step {
-                let net_moves = j as i32 - step as i32;
-                let spot_t = spot * u.powi(net_moves.max(0)) * d.powi((-net_moves).max(0));
-                let time_t = step as f64 * dt;
-
-                // Calculate continuation value from three children
-                let up_idx = j + 2;
-                let mid_idx = j + 1;
-                let down_idx = j;
-
-                let continuation = df
-                    * (p_u * values[step + 1][up_idx]
-                        + p_m * values[step + 1][mid_idx]
-                        + p_d * values[step + 1][down_idx]);
-
-                // Create state for this node
-                let mut node_vars = initial_vars.clone();
-                node_vars.insert(state_keys::SPOT, spot_t);
-
-                let node_state = NodeState::new(step, time_t, node_vars, market_context);
-
-                // Let the valuator determine the final value at this node
-                values[step][j] = valuator.value_at_node(&node_state, continuation)?;
-            }
-        }
-
-        Ok(values[0][0])
+        price_recombining_tree(RecombiningInputs {
+            branching: TreeBranching::Trinomial,
+            steps: self.steps,
+            initial_vars,
+            time_to_maturity,
+            market_context,
+            valuator,
+            up_factor: u,
+            down_factor: d,
+            middle_factor: Some(m),
+            prob_up: p_u,
+            prob_down: p_d,
+            prob_middle: Some(p_m),
+            interest_rate: r,
+        })
     }
 }
 

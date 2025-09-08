@@ -16,6 +16,7 @@ use crate::instruments::options::models::{
     single_factor_equity_state, BinomialTree, NodeState, TreeGreeks, TreeModel, TreeValuator,
     TrinomialTree,
 };
+use crate::instruments::options::models::tree_framework::map_date_to_step;
 
 use super::{ConversionPolicy, ConvertibleBond};
 
@@ -83,23 +84,17 @@ impl ConvertibleBondValuator {
             time_steps.push(i as F * dt);
         }
 
-        // Process coupon and principal cashflows using proper time mapping
+        // Process coupon and principal cashflows using shared date->step mapping
         let mut coupon_map = HashMap::new();
         for cf in &cashflow_schedule.flows {
             if matches!(cf.kind, CFKind::Fixed | CFKind::Stub | CFKind::FloatReset) {
-                // Calculate actual time from base date to cashflow date
-                let cf_time = finstack_core::dates::DayCount::Act365F
-                    .year_fraction(
-                        base_date,
-                        cf.date,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )
-                    .unwrap_or(0.0);
-
-                // Map to tree step with bounds checking
-                let step_index = ((cf_time / time_to_maturity) * steps as F).round() as usize;
-                let bounded_step = step_index.min(steps); // Bound within [0, steps]
-
+                let bounded_step = map_date_to_step(
+					base_date,
+					cf.date,
+					bond.maturity,
+					steps,
+					finstack_core::dates::DayCount::Act365F,
+				);
                 *coupon_map.entry(bounded_step).or_insert(0.0) += cf.amount.amount();
             }
         }
@@ -109,35 +104,31 @@ impl ConvertibleBondValuator {
         let mut put_map = HashMap::new();
 
         if let Some(ref call_put) = bond.call_put {
-            // Map call schedule
+            // Map call schedule using shared helper
             for call in &call_put.calls {
                 if call.date > base_date && call.date <= bond.maturity {
-                    let time_frac = finstack_core::dates::DayCount::Act365F
-                        .year_fraction(
-                            base_date,
-                            call.date,
-                            finstack_core::dates::DayCountCtx::default(),
-                        )
-                        .unwrap_or(0.0);
-                    let step = ((time_frac / time_to_maturity) * steps as F).round() as usize;
-                    let bounded_step = step.min(steps);
+                    let bounded_step = map_date_to_step(
+                        base_date,
+                        call.date,
+                        bond.maturity,
+                        steps,
+                        finstack_core::dates::DayCount::Act365F,
+                    );
                     let call_price = bond.notional.amount() * (call.price_pct_of_par / 100.0);
                     call_map.insert(bounded_step, call_price);
                 }
             }
 
-            // Map put schedule
+            // Map put schedule using shared helper
             for put in &call_put.puts {
                 if put.date > base_date && put.date <= bond.maturity {
-                    let time_frac = finstack_core::dates::DayCount::Act365F
-                        .year_fraction(
-                            base_date,
-                            put.date,
-                            finstack_core::dates::DayCountCtx::default(),
-                        )
-                        .unwrap_or(0.0);
-                    let step = ((time_frac / time_to_maturity) * steps as F).round() as usize;
-                    let bounded_step = step.min(steps);
+                    let bounded_step = map_date_to_step(
+                        base_date,
+                        put.date,
+                        bond.maturity,
+                        steps,
+                        finstack_core::dates::DayCount::Act365F,
+                    );
                     let put_price = bond.notional.amount() * (put.price_pct_of_par / 100.0);
                     put_map.insert(bounded_step, put_price);
                 }

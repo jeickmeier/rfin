@@ -6,12 +6,15 @@
 //! Now includes generic TreeModel implementation for pricing arbitrary instruments.
 
 use crate::instruments::options::{ExerciseStyle, OptionType};
+use std::collections::HashSet;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::{Error, Result, F};
+use crate::instruments::options::models::NodeState;
 
 // Import the generic tree framework
 use super::tree_framework::{
-    state_keys, NodeState, StateVariables, TreeGreeks, TreeModel, TreeValuator,
+    state_keys, single_factor_equity_state, StateVariables, TreeBranching, TreeGreeks, TreeModel,
+    TreeValuator, map_exercise_dates_to_steps, price_recombining_tree, RecombiningInputs,
 };
 
 /// Binomial tree types
@@ -198,46 +201,67 @@ impl BinomialTree {
         option_type: OptionType,
         exercise_steps: Option<&[usize]>,
     ) -> Result<F> {
+        // Compute lattice parameters honoring the configured binomial model
         let (u, d, p) = self.calculate_parameters(spot, strike, r, sigma, t, q)?;
-        let dt = t / self.steps as f64;
-        let df = (-r * dt).exp();
 
-        // Terminal payoffs
-        let mut values = Vec::with_capacity(self.steps + 1);
-        for i in 0..=self.steps {
-            let spot_t = spot * u.powi(i as i32) * d.powi((self.steps - i) as i32);
-            let payoff = match option_type {
-                OptionType::Call => (spot_t - strike).max(0.0),
-                OptionType::Put => (strike - spot_t).max(0.0),
-            };
-            values.push(payoff);
+        // Build an option valuator that applies early exercise at requested steps
+        let exercise_set: Option<HashSet<usize>> = exercise_steps
+            .map(|steps| steps.iter().copied().collect::<HashSet<usize>>());
+
+        struct OptionValuator {
+            strike: F,
+            option_type: OptionType,
+            exercise_steps: Option<HashSet<usize>>,
         }
 
-        // Backward induction with optional early exercise
-        for step in (0..self.steps).rev() {
-            let allow_exercise = match exercise_steps {
-                None => false,
-                Some(steps) => steps.contains(&step),
-            };
-
-            for i in 0..=step {
-                let continuation = df * (p * values[i + 1] + (1.0 - p) * values[i]);
-
-                if allow_exercise {
-                    let spot_t = spot * u.powi(i as i32) * d.powi((step - i) as i32);
-                    let exercise = match option_type {
-                        OptionType::Call => (spot_t - strike).max(0.0),
-                        OptionType::Put => (strike - spot_t).max(0.0),
-                    };
-                    values[i] = continuation.max(exercise);
-                } else {
-                    values[i] = continuation;
-                }
+        impl TreeValuator for OptionValuator {
+            fn value_at_maturity(&self, state: &NodeState) -> Result<F> {
+                let s = state.spot().ok_or(Error::Internal)?;
+                Ok(match self.option_type {
+                    OptionType::Call => (s - self.strike).max(0.0),
+                    OptionType::Put => (self.strike - s).max(0.0),
+                })
             }
-            values.pop();
+
+            fn value_at_node(&self, state: &NodeState, continuation_value: F) -> Result<F> {
+                if let Some(steps) = &self.exercise_steps {
+                    if steps.contains(&state.step) {
+                        let s = state.spot().ok_or(Error::Internal)?;
+                        let exercise = match self.option_type {
+                            OptionType::Call => (s - self.strike).max(0.0),
+                            OptionType::Put => (self.strike - s).max(0.0),
+                        };
+                        return Ok(continuation_value.max(exercise));
+                    }
+                }
+                Ok(continuation_value)
+            }
         }
 
-        Ok(values[0])
+        let valuator = OptionValuator {
+            strike,
+            option_type,
+            exercise_steps: exercise_set,
+        };
+
+        let initial_vars = single_factor_equity_state(spot, r, q, sigma);
+
+        // Delegate to the shared recombining engine
+        price_recombining_tree(RecombiningInputs {
+            branching: TreeBranching::Binomial,
+            steps: self.steps,
+            initial_vars,
+            time_to_maturity: t,
+            market_context: &MarketContext::new(), // not used by valuator
+            valuator: &valuator,
+            up_factor: u,
+            down_factor: d,
+            middle_factor: None,
+            prob_up: p,
+            prob_down: 1.0 - p,
+            prob_middle: None,
+            interest_rate: r,
+        })
     }
 
     /// Price American option using binomial tree
@@ -377,79 +401,33 @@ impl BinomialTree {
         valuator: &V,
     ) -> Result<F> {
         // Extract required parameters from state variables
-        let spot = initial_vars.get(state_keys::SPOT).ok_or(Error::Internal)?;
-        let r = initial_vars
+        let r = *initial_vars
             .get(state_keys::INTEREST_RATE)
             .ok_or(Error::Internal)?;
-        let q = initial_vars.get(state_keys::DIVIDEND_YIELD).unwrap_or(&0.0);
-        let sigma = initial_vars
+        let q = initial_vars.get(state_keys::DIVIDEND_YIELD).copied().unwrap_or(0.0);
+        let sigma = *initial_vars
             .get(state_keys::VOLATILITY)
             .ok_or(Error::Internal)?;
 
-        // Calculate tree parameters using existing logic
-        let (u, d, p) = self.calculate_parameters(*spot, 0.0, *r, *sigma, time_to_maturity, *q)?;
-        let dt = time_to_maturity / self.steps as f64;
-        let df = (-r * dt).exp();
+        // Calculate binomial parameters and delegate to the shared engine
+        let (u, d, p) = self.calculate_parameters(0.0, 0.0, r, sigma, time_to_maturity, q)?;
 
-        // Initialize values at terminal nodes using the valuator
-        let mut values = Vec::with_capacity(self.steps + 1);
-        for i in 0..=self.steps {
-            let spot_t = spot * u.powi(i as i32) * d.powi((self.steps - i) as i32);
-            let time_t = time_to_maturity;
-
-            // Create state variables for this terminal node
-            let mut terminal_vars = initial_vars.clone();
-            terminal_vars.insert(state_keys::SPOT, spot_t);
-
-            let terminal_state = NodeState::new(self.steps, time_t, terminal_vars, market_context);
-
-            let payoff = valuator.value_at_maturity(&terminal_state)?;
-            values.push(payoff);
-        }
-
-        // Backward induction using the valuator
-        for step in (0..self.steps).rev() {
-            for i in 0..=step {
-                // Calculate continuation value (discounted expected value)
-                let continuation = df * (p * values[i + 1] + (1.0 - p) * values[i]);
-
-                // Create state for this node
-                let spot_t = spot * u.powi(i as i32) * d.powi((step - i) as i32);
-                let time_t = step as f64 * dt;
-
-                let mut node_vars = initial_vars.clone();
-                node_vars.insert(state_keys::SPOT, spot_t);
-
-                let node_state = NodeState::new(step, time_t, node_vars, market_context);
-
-                // Let the valuator determine the final value at this node
-                values[i] = valuator.value_at_node(&node_state, continuation)?;
-            }
-            values.pop();
-        }
-
-        Ok(values[0])
+        price_recombining_tree(RecombiningInputs {
+            branching: TreeBranching::Binomial,
+            steps: self.steps,
+            initial_vars,
+            time_to_maturity,
+            market_context,
+            valuator,
+            up_factor: u,
+            down_factor: d,
+            middle_factor: None,
+            prob_up: p,
+            prob_down: 1.0 - p,
+            prob_middle: None,
+            interest_rate: r,
+        })
     }
-}
-
-/// Map Bermudan exercise dates (as year fractions relative to maturity) to tree step indices
-fn map_exercise_dates_to_steps(exercise_dates: &[F], total_time: F, steps: usize) -> Vec<usize> {
-    let mut out = Vec::new();
-    if total_time <= 0.0 || steps == 0 {
-        return out;
-    }
-    for &ex_time in exercise_dates {
-        let ratio = if total_time != 0.0 {
-            ex_time / total_time
-        } else {
-            0.0
-        };
-        let step = (ratio * steps as F).round() as usize;
-        if step <= steps {
-            out.push(step);
-        }
-    }
-    out
 }
 
 /// Greeks calculated from binomial tree

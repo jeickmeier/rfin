@@ -8,6 +8,7 @@
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::{Result, F};
 use std::collections::HashMap;
+use finstack_core::dates::{Date, DayCount, DayCountCtx};
 
 /// Standard state variable keys for consistency
 pub mod state_keys {
@@ -327,6 +328,198 @@ impl EvolutionParams {
             prob_middle: Some(0.0),
         }
     }
+}
+
+/// Shared recombining tree engine that performs backward induction given constant
+/// per-step evolution parameters and a branching policy.
+#[derive(Clone)]
+pub struct RecombiningInputs<'a, V: TreeValuator> {
+    pub branching: TreeBranching,
+    pub steps: usize,
+    pub initial_vars: StateVariables,
+    pub time_to_maturity: F,
+    pub market_context: &'a MarketContext,
+    pub valuator: &'a V,
+    pub up_factor: F,
+    pub down_factor: F,
+    pub middle_factor: Option<F>,
+    pub prob_up: F,
+    pub prob_down: F,
+    pub prob_middle: Option<F>,
+    pub interest_rate: F,
+}
+
+pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>) -> Result<F> {
+    let dt = inputs.time_to_maturity / inputs.steps as F;
+    let df = (-inputs.interest_rate * dt).exp();
+
+    match inputs.branching {
+        TreeBranching::Binomial => {
+            // Initialize terminal values
+            let spot0 = *inputs
+                .initial_vars
+                .get(state_keys::SPOT)
+                .ok_or(finstack_core::Error::Internal)?;
+
+            let mut values = Vec::with_capacity(inputs.steps + 1);
+            for i in 0..=inputs.steps {
+                let spot_t = spot0
+                    * inputs.up_factor.powi(i as i32)
+                    * inputs.down_factor.powi((inputs.steps - i) as i32);
+                let time_t = inputs.time_to_maturity;
+
+                let mut terminal_vars = inputs.initial_vars.clone();
+                terminal_vars.insert(state_keys::SPOT, spot_t);
+
+                let terminal_state =
+                    NodeState::new(inputs.steps, time_t, terminal_vars, inputs.market_context);
+                let payoff = inputs.valuator.value_at_maturity(&terminal_state)?;
+                values.push(payoff);
+            }
+
+            // Backward induction
+            for step in (0..inputs.steps).rev() {
+                for i in 0..=step {
+                    // Discounted expected continuation value
+                    let continuation =
+                        df * (inputs.prob_up * values[i + 1] + inputs.prob_down * values[i]);
+
+                    let spot_t = spot0
+                        * inputs.up_factor.powi(i as i32)
+                        * inputs.down_factor.powi((step - i) as i32);
+                    let time_t = step as F * dt;
+
+                    let mut node_vars = inputs.initial_vars.clone();
+                    node_vars.insert(state_keys::SPOT, spot_t);
+                    let node_state =
+                        NodeState::new(step, time_t, node_vars, inputs.market_context);
+
+                    values[i] = inputs.valuator.value_at_node(&node_state, continuation)?;
+                }
+                values.pop();
+            }
+
+            Ok(values[0])
+        }
+        TreeBranching::Trinomial => {
+            let spot0 = *inputs
+                .initial_vars
+                .get(state_keys::SPOT)
+                .ok_or(finstack_core::Error::Internal)?;
+
+            // In standard recombining trinomial, the middle factor is 1.0; respect provided m
+            let _m = inputs.middle_factor.unwrap_or(1.0);
+            let p_m = inputs.prob_middle.unwrap_or(0.0);
+
+            let max_nodes = 2 * inputs.steps + 1;
+            let mut values = vec![vec![0.0; max_nodes]; inputs.steps + 1];
+
+            // Terminal values
+            for j in 0..max_nodes {
+                if j <= 2 * inputs.steps {
+                    let net_moves = j as i32 - inputs.steps as i32;
+                    let spot_t = spot0
+                        * inputs.up_factor.powi(net_moves.max(0))
+                        * inputs.down_factor.powi((-net_moves).max(0));
+                    let time_t = inputs.time_to_maturity;
+
+                    let mut terminal_vars = inputs.initial_vars.clone();
+                    terminal_vars.insert(state_keys::SPOT, spot_t);
+
+                    let terminal_state = NodeState::new(
+                        inputs.steps,
+                        time_t,
+                        terminal_vars,
+                        inputs.market_context,
+                    );
+                    let payoff = inputs.valuator.value_at_maturity(&terminal_state)?;
+                    values[inputs.steps][j] = payoff;
+                }
+            }
+
+            // Backward induction
+            for step in (0..inputs.steps).rev() {
+                let nodes_at_step = 2 * step + 1;
+                for j in 0..nodes_at_step {
+                    let net_moves = j as i32 - step as i32;
+                    let spot_t = spot0
+                        * inputs.up_factor.powi(net_moves.max(0))
+                        * inputs.down_factor.powi((-net_moves).max(0));
+                    let time_t = step as F * dt;
+
+                    // Child indices: up=j+2, mid=j+1, down=j
+                    let up_idx = j + 2;
+                    let mid_idx = j + 1;
+                    let down_idx = j;
+
+                    let continuation = df
+                        * (inputs.prob_up * values[step + 1][up_idx]
+                            + p_m * values[step + 1][mid_idx]
+                            + inputs.prob_down * values[step + 1][down_idx]);
+
+                    let mut node_vars = inputs.initial_vars.clone();
+                    node_vars.insert(state_keys::SPOT, spot_t);
+                    let node_state =
+                        NodeState::new(step, time_t, node_vars, inputs.market_context);
+                    values[step][j] = inputs.valuator.value_at_node(&node_state, continuation)?;
+                }
+            }
+
+            Ok(values[0][0])
+        }
+    }
+}
+
+/// Map Bermudan exercise dates (as year fractions relative to maturity) to tree step indices
+pub fn map_exercise_dates_to_steps(exercise_dates: &[F], total_time: F, steps: usize) -> Vec<usize> {
+    let mut out = Vec::new();
+    if total_time <= 0.0 || steps == 0 {
+        return out;
+    }
+    for &ex_time in exercise_dates {
+        let ratio = if total_time != 0.0 { ex_time / total_time } else { 0.0 };
+        let step = (ratio * steps as F).round() as usize;
+        if step <= steps {
+            out.push(step);
+        }
+    }
+    out
+}
+
+/// Map a calendar date to a tree step using a given day count convention.
+pub fn map_date_to_step(
+    base_date: Date,
+    event_date: Date,
+    maturity_date: Date,
+    steps: usize,
+    dc: DayCount,
+) -> usize {
+    let ttm = dc
+        .year_fraction(base_date, maturity_date, DayCountCtx::default())
+        .unwrap_or(0.0);
+    if ttm <= 0.0 || steps == 0 {
+        return 0;
+    }
+    let t_event = dc
+        .year_fraction(base_date, event_date, DayCountCtx::default())
+        .unwrap_or(0.0)
+        .clamp(0.0, ttm);
+    let step_index = ((t_event / ttm) * steps as F).round() as usize;
+    step_index.min(steps)
+}
+
+/// Map multiple calendar dates to steps.
+pub fn map_dates_to_steps(
+    base_date: Date,
+    dates: &[Date],
+    maturity_date: Date,
+    steps: usize,
+    dc: DayCount,
+) -> Vec<usize> {
+    dates
+        .iter()
+        .map(|&d| map_date_to_step(base_date, d, maturity_date, steps, dc))
+        .collect()
 }
 
 /// Helper function to create initial state variables for single-factor equity model
