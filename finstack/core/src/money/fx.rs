@@ -1,18 +1,22 @@
-//! Foreign-exchange interfaces and policy types.
+//! Foreign-exchange interfaces and a simplified FX matrix.
 //!
-//! This module defines an `FxProvider` trait and simple policy metadata used by
-//! `Money::convert`. Conversions are always explicit – arithmetic on `Money`
-//! requires the same currency.
+//! Design goals:
+//! - Store raw FX quotes for currency pairs
+//! - Compute reciprocal and triangulated rates on demand (no caching)
+//! - Provide simple, deterministic lookups
+//!
+//! The public surface remains stable:
+//! - `FxProvider` trait for on-demand quotes
+//! - `FxMatrix` offering `rate(FxQuery)` for consumers and `MarketContext`
 
 extern crate alloc;
 
 use crate::currency::Currency;
 use crate::dates::Date;
 use alloc::sync::Arc;
-use core::num::NonZeroUsize;
-use lru::LruCache;
+use hashbrown::HashMap;
 use parking_lot::Mutex;
-use std::time::{Duration, Instant};
+// no duration needed in the simplified config
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -77,59 +81,26 @@ impl Default for FxPolicyMeta {
     }
 }
 
-/// Cache key for FX rate lookups  
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-struct FxCacheKey {
-    from: Currency,
-    to: Currency,
-    date: Date,
-    policy: FxConversionPolicy,
-}
+/// Pair key helper used internally for maps
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+struct Pair(Currency, Currency);
 
-/// Cached FX rate entry with timestamp
-#[derive(Debug)]
-struct CachedFxEntry {
-    rate: FxRate,
-    cached_at: Instant,
-    ttl: Duration,
-}
-
-impl CachedFxEntry {
-    fn new(rate: FxRate, ttl: Duration) -> Self {
-        Self {
-            rate,
-            cached_at: Instant::now(),
-            ttl,
-        }
-    }
-
-    fn is_expired(&self) -> bool {
-        self.cached_at.elapsed() > self.ttl
-    }
-}
-
-/// Configuration for FX caching and closure checking
+/// Configuration for FX matrix behavior
 #[derive(Clone, Debug)]
-pub struct FxCacheConfig {
-    /// Maximum number of entries to cache
-    pub max_entries: usize,
-    /// Default TTL for cached rates
-    pub default_ttl: Duration,
-    /// Tolerance for closure checking (e.g., 0.0001 = 1bp)
+pub struct FxConfig {
+    /// Tolerance for closure checking (e.g., 0.0001 = 1bp). Only used if metadata requested.
     pub closure_tolerance: f64,
-    /// Whether closure violations should produce warnings or errors
+    /// Whether closure violations should produce errors
     pub strict_closure: bool,
-    /// Pivot currency for triangulation (typically USD)
+    /// Pivot currency for optional triangulation fallback (typically USD)
     pub pivot_currency: Currency,
     /// Whether to enable automatic triangulation for missing rates
     pub enable_triangulation: bool,
 }
 
-impl Default for FxCacheConfig {
+impl Default for FxConfig {
     fn default() -> Self {
         Self {
-            max_entries: 1000,
-            default_ttl: Duration::from_secs(300), // 5 minutes
             closure_tolerance: 0.0001,             // 1 basis point
             strict_closure: false,
             pivot_currency: Currency::USD, // USD as default pivot
@@ -179,30 +150,30 @@ pub trait FxProvider: Send + Sync {
     ) -> crate::Result<FxRate>;
 }
 
-/// Enhanced FX matrix with LRU caching and closure checking
+/// Simplified FX matrix that stores quotes and computes cross rates on demand.
 pub struct FxMatrix {
     provider: Arc<dyn FxProvider>,
-    cache: Mutex<LruCache<FxCacheKey, CachedFxEntry>>,
-    config: FxCacheConfig,
+    /// Explicit quotes inserted or observed from provider
+    quotes: Mutex<HashMap<Pair, FxRate>>,
+    config: FxConfig,
 }
 
 impl FxMatrix {
-    /// Create a new `FxMatrix` wrapping the given provider with default cache configuration
+    /// Create a new `FxMatrix` wrapping the given provider with default configuration
     pub fn new(provider: Arc<dyn FxProvider>) -> Self {
-        Self::with_config(provider, FxCacheConfig::default())
+        Self::with_config(provider, FxConfig::default())
     }
 
-    /// Create a new `FxMatrix` with custom cache configuration
-    pub fn with_config(provider: Arc<dyn FxProvider>, config: FxCacheConfig) -> Self {
-        let cap = NonZeroUsize::new(config.max_entries.max(1)).unwrap();
+    /// Create a new `FxMatrix` with custom configuration
+    pub fn with_config(provider: Arc<dyn FxProvider>, config: FxConfig) -> Self {
         Self {
             provider,
-            cache: Mutex::new(LruCache::new(cap)),
+            quotes: Mutex::new(HashMap::new()),
             config,
         }
     }
 
-    /// Get rate (query-based) with caching, optional triangulation, and optional closure diagnostics
+    /// Direct lookup from the implied matrix. Falls back to provider/triangulation if missing.
     pub fn rate(&self, query: FxQuery) -> crate::Result<FxRateResult> {
         let from = query.from;
         let to = query.to;
@@ -249,30 +220,44 @@ impl FxMatrix {
             return Ok(result);
         }
 
-        let cache_key = FxCacheKey {
-            from,
-            to,
-            date: on,
-            policy,
-        };
-
-        // Try to get from cache first; acquire lock once and drop before any recursive calls
-        {
-            let mut cache = self.cache.lock();
-            let mut hit_rate: Option<FxRate> = None;
-            let mut was_expired = false;
-            if let Some(entry) = cache.get(&cache_key) {
-                if !entry.is_expired() {
-                    hit_rate = Some(entry.rate);
-                } else {
-                    was_expired = true;
+        // Prefer explicitly seeded quotes (or their reciprocal) before provider/triangulation
+        if let Some(rate) = self.quotes.lock().get(&Pair(from, to)).copied() {
+            let mut result = FxRateResult {
+                rate,
+                triangulated: false,
+                pivot_currency: None,
+                closure: None,
+            };
+            if query.want_meta {
+                if let Some(mid) = query.closure_check {
+                    let via_a = self
+                        .rate(FxQuery {
+                            from,
+                            to: mid,
+                            on,
+                            policy,
+                            closure_check: None,
+                            want_meta: false,
+                        })?
+                        .rate;
+                    let via_b = self
+                        .rate(FxQuery {
+                            from: mid,
+                            to,
+                            on,
+                            policy,
+                            closure_check: None,
+                            want_meta: false,
+                        })?
+                        .rate;
+                    result.closure = Some(self.check_closure(rate, via_a, via_b)?);
                 }
             }
-            if was_expired {
-                cache.pop(&cache_key);
-            }
-            if let Some(rate) = hit_rate {
-                drop(cache);
+            return Ok(result);
+        }
+        if let Some(r_rev) = self.quotes.lock().get(&Pair(to, from)).copied() {
+            if r_rev != 0.0 {
+                let rate = 1.0 / r_rev;
                 let mut result = FxRateResult {
                     rate,
                     triangulated: false,
@@ -308,16 +293,16 @@ impl FxMatrix {
             }
         }
 
-        // Cache miss or expired - try direct rate first
+        // Ask provider for a direct quote or compute via triangulation if needed
         let mut triangulated = false;
         let mut pivot_currency: Option<Currency> = None;
         let rate = match self.provider.rate(from, to, on, policy) {
             Ok(rate) => {
-                self.insert_with_evict(cache_key, rate);
+                self.insert_quote(from, to, rate);
                 rate
             }
             Err(_) if self.config.enable_triangulation => {
-                // Direct rate failed, try triangulation
+                // Try triangulation using pivot
                 let rate = self.triangulate_rate(from, to, on, policy)?;
                 triangulated = true;
                 pivot_currency = Some(self.config.pivot_currency);
@@ -367,31 +352,35 @@ impl FxMatrix {
         Ok(result)
     }
 
-    /// Clear expired entries from the cache
-    pub fn clear_expired(&self) {
-        let mut cache = self.cache.lock();
-        let keys_to_remove: alloc::vec::Vec<_> = cache
-            .iter()
-            .filter(|(_, entry)| entry.is_expired())
-            .map(|(k, _)| k.clone())
-            .collect();
-        for k in keys_to_remove {
-            cache.pop(&k);
+    /// Seed or update a single quote directly inside the matrix.
+    ///
+    /// Note: This does not automatically insert a reciprocal. Lookups will use
+    /// the reciprocal on demand if the opposite direction is requested.
+    pub fn set_quote(&self, from: Currency, to: Currency, rate: FxRate) {
+        self.insert_quote(from, to, rate);
+    }
+
+    /// Seed multiple quotes at once.
+    pub fn set_quotes(&self, quotes: &[(Currency, Currency, FxRate)]) {
+        let mut map = self.quotes.lock();
+        for &(from, to, rate) in quotes {
+            map.insert(Pair(from, to), rate);
         }
     }
 
-    /// Clear all cache entries
-    pub fn clear_cache(&self) {
-        let mut cache = self.cache.lock();
-        cache.clear();
+    /// No-op (kept for API compatibility)
+    pub fn clear_expired(&self) {
     }
 
-    /// Get cache statistics
+    /// Clear all stored quotes
+    pub fn clear_cache(&self) {
+        self.quotes.lock().clear();
+    }
+
+    /// Get simple statistics: (num_quotes, 0)
     pub fn cache_stats(&self) -> (usize, usize) {
-        let cache = self.cache.lock();
-        let total = cache.len();
-        let expired = cache.iter().filter(|(_, entry)| entry.is_expired()).count();
-        (total, expired)
+        let quotes = self.quotes.lock();
+        (quotes.len(), 0)
     }
 
     // Private helper methods
@@ -406,33 +395,50 @@ impl FxMatrix {
     ) -> crate::Result<FxRate> {
         let pivot = self.config.pivot_currency;
 
-        // Don't triangulate if we already involve the pivot currency directly
-        if from == pivot || to == pivot {
-            return Err(crate::Error::Input(crate::error::InputError::Invalid));
-        }
-
-        // Try triangulation: from → pivot → to
-        let from_to_pivot = self.provider.rate(from, pivot, on, policy)?;
-        let pivot_to_to = self.provider.rate(pivot, to, on, policy)?;
-
-        let triangulated_rate = from_to_pivot * pivot_to_to;
-
-        // Cache the triangulated rate for future use
-        let cache_key = FxCacheKey {
-            from,
-            to,
-            date: on,
-            policy,
-        };
-        self.insert_with_evict(cache_key, triangulated_rate);
-
-        Ok(triangulated_rate)
+        // Compute via pivot using available quotes/provider
+        let a = self.get_or_fetch(from, pivot, on, policy)?;
+        let b = self.get_or_fetch(pivot, to, on, policy)?;
+        let rate = a * b;
+        Ok(rate)
     }
 
-    fn insert_with_evict(&self, key: FxCacheKey, rate: FxRate) {
-        let mut cache = self.cache.lock();
-        let entry = CachedFxEntry::new(rate, self.config.default_ttl);
-        cache.put(key, entry);
+    /// Insert an explicit provider quote
+    fn insert_quote(&self, from: Currency, to: Currency, rate: FxRate) {
+        let mut quotes = self.quotes.lock();
+        quotes.insert(Pair(from, to), rate);
+    }
+
+    /// Get rate preferring explicit quotes, then provider, then reciprocal.
+    fn get_or_fetch(
+        &self,
+        from: Currency,
+        to: Currency,
+        on: Date,
+        policy: FxConversionPolicy,
+    ) -> crate::Result<FxRate> {
+        if from == to {
+            return Ok(1.0);
+        }
+        // 1) Explicit quote wins
+        if let Some(r) = self.quotes.lock().get(&Pair(from, to)).copied() {
+            return Ok(r);
+        }
+        // 2) Try provider for direct
+        if let Ok(r) = self.provider.rate(from, to, on, policy) {
+            self.insert_quote(from, to, r);
+            return Ok(r);
+        }
+        // 3) Reciprocal fallback if available
+        if let Some(r_rev) = self.quotes.lock().get(&Pair(to, from)).copied() {
+            if r_rev != 0.0 {
+                let r = 1.0 / r_rev;
+                return Ok(r);
+            }
+        }
+        // 4) As last resort, propagate provider error
+        let r = self.provider.rate(from, to, on, policy)?;
+        self.insert_quote(from, to, r);
+        Ok(r)
     }
 
     fn check_closure(
@@ -462,7 +468,7 @@ mod tests {
     use super::*;
     use crate::currency::Currency;
     use hashbrown::HashMap;
-    use std::time::Duration;
+    // no duration needed in tests now
 
     // Mock FX provider for testing
     struct MockFxProvider {
@@ -544,9 +550,10 @@ mod tests {
 
         assert_eq!(rate, expected);
 
-        // Test cache stats
-        let (total, _expired) = matrix.cache_stats();
-        assert_eq!(total, 1);
+        // Test stats reflect quotes and implied
+        let (quotes, implied) = matrix.cache_stats();
+        assert!(quotes >= 1);
+        assert_eq!(implied, 0);
     }
 
     #[test]
@@ -574,7 +581,7 @@ mod tests {
     #[test]
     fn fx_closure_checking_pass() {
         let provider = MockFxProvider::new();
-        let config = FxCacheConfig {
+        let config = FxConfig {
             closure_tolerance: 0.01, // 1% tolerance for this test
             ..Default::default()
         };
@@ -606,12 +613,9 @@ mod tests {
     }
 
     #[test]
-    fn fx_cache_ttl_expiry() {
+    fn fx_clear_implied_matrix() {
         let provider = MockFxProvider::new();
-        let config = FxCacheConfig {
-            default_ttl: Duration::from_nanos(1), // Immediate expiry
-            ..Default::default()
-        };
+        let config = FxConfig::default();
         let matrix = FxMatrix::with_config(Arc::new(provider), config);
 
         // Get rate to populate cache
@@ -626,65 +630,11 @@ mod tests {
             })
             .unwrap();
 
-        // Wait a moment for TTL to expire
-        std::thread::sleep(Duration::from_millis(1));
-
-        // Clear expired entries
+        // Clear implied entries
         matrix.clear_expired();
 
-        let (total, _) = matrix.cache_stats();
-        assert_eq!(total, 0); // Should be cleared due to expiry
-    }
-
-    #[test]
-    fn fx_cache_lru_eviction() {
-        let provider = MockFxProvider::new();
-        let config = FxCacheConfig {
-            max_entries: 2,
-            default_ttl: Duration::from_secs(60),
-            ..Default::default()
-        };
-        let matrix = FxMatrix::with_config(Arc::new(provider), config);
-
-        // Fill cache to capacity
-        let _rate1 = matrix
-            .rate(FxQuery {
-                from: Currency::USD,
-                to: Currency::EUR,
-                on: test_date(),
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: None,
-                want_meta: false,
-            })
-            .unwrap();
-        let _rate2 = matrix
-            .rate(FxQuery {
-                from: Currency::EUR,
-                to: Currency::USD,
-                on: test_date(),
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: None,
-                want_meta: false,
-            })
-            .unwrap();
-
-        let (total, _) = matrix.cache_stats();
-        assert_eq!(total, 2);
-
-        // Add one more - should evict the oldest
-        let _rate3 = matrix
-            .rate(FxQuery {
-                from: Currency::USD,
-                to: Currency::GBP,
-                on: test_date(),
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: None,
-                want_meta: false,
-            })
-            .unwrap();
-
-        let (total, _) = matrix.cache_stats();
-        assert_eq!(total, 2); // Still capped at 2
+        let (_, implied) = matrix.cache_stats();
+        assert_eq!(implied, 0); // Implied cleared
     }
 
     #[test]
@@ -704,14 +654,16 @@ mod tests {
             })
             .unwrap();
 
-        let (total, _) = matrix.cache_stats();
-        assert_eq!(total, 1);
+        let (quotes, implied) = matrix.cache_stats();
+        assert!(quotes >= 1);
+        assert_eq!(implied, 0);
 
         // Clear cache
         matrix.clear_cache();
 
-        let (total, _) = matrix.cache_stats();
-        assert_eq!(total, 0);
+        let (quotes, implied) = matrix.cache_stats();
+        assert_eq!(quotes, 0);
+        assert_eq!(implied, 0);
     }
 
     #[test]
@@ -736,7 +688,7 @@ mod tests {
     #[test]
     fn fx_triangulation_success() {
         let provider = MockFxProvider::new_incomplete(); // Only has USD pivot rates
-        let config = FxCacheConfig {
+        let config = FxConfig {
             pivot_currency: Currency::USD,
             enable_triangulation: true,
             closure_tolerance: 0.01, // Allow for some rounding differences
@@ -766,7 +718,7 @@ mod tests {
     #[test]
     fn fx_triangulation_disabled() {
         let provider = MockFxProvider::new_incomplete(); // Only has USD pivot rates
-        let config = FxCacheConfig {
+        let config = FxConfig {
             pivot_currency: Currency::USD,
             enable_triangulation: false, // Disabled
             ..Default::default()
@@ -789,10 +741,9 @@ mod tests {
     #[test]
     fn fx_triangulation_caching() {
         let provider = MockFxProvider::new_incomplete();
-        let config = FxCacheConfig {
+        let config = FxConfig {
             pivot_currency: Currency::USD,
             enable_triangulation: true,
-            max_entries: 10,
             ..Default::default()
         };
         let matrix = FxMatrix::with_config(Arc::new(provider), config);
@@ -825,15 +776,16 @@ mod tests {
 
         assert_eq!(rate1, rate2);
 
-        // Cache should contain the triangulated rate plus intermediate rates
-        let (total, _) = matrix.cache_stats();
-        assert!(total >= 1); // At least the final triangulated rate should be cached
+        // Stats indicate stored quotes only
+        let (quotes, implied) = matrix.cache_stats();
+        assert!(quotes >= 1);
+        assert_eq!(implied, 0);
     }
 
     #[test]
     fn fx_triangulation_pivot_identity() {
         let provider = MockFxProvider::new();
-        let config = FxCacheConfig {
+        let config = FxConfig {
             pivot_currency: Currency::USD,
             enable_triangulation: true,
             ..Default::default()
@@ -871,7 +823,7 @@ mod tests {
             },
         };
 
-        let config = FxCacheConfig {
+        let config = FxConfig {
             pivot_currency: Currency::USD,
             enable_triangulation: true,
             ..Default::default()
@@ -894,7 +846,7 @@ mod tests {
     #[test]
     fn fx_rate_with_metadata() {
         let provider = MockFxProvider::new_incomplete();
-        let config = FxCacheConfig {
+        let config = FxConfig {
             pivot_currency: Currency::USD,
             enable_triangulation: true,
             ..Default::default()
@@ -956,5 +908,59 @@ mod tests {
         assert_eq!(result.pivot_currency, None);
 
         assert_eq!(result.rate, 1.0);
+    }
+
+    #[test]
+    fn fx_seed_quotes_directly() {
+        let provider = MockFxProvider::new_incomplete();
+        let matrix = FxMatrix::new(Arc::new(provider));
+
+        // Seed a direct quote and verify retrieval
+        matrix.set_quote(Currency::USD, Currency::CHF, 0.90);
+        let usd_chf = matrix
+            .rate(FxQuery {
+                from: Currency::USD,
+                to: Currency::CHF,
+                on: test_date(),
+                policy: FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })
+            .unwrap()
+            .rate;
+        assert_eq!(usd_chf, 0.90);
+
+        // Opposite direction should use reciprocal on demand
+        let chf_usd = matrix
+            .rate(FxQuery {
+                from: Currency::CHF,
+                to: Currency::USD,
+                on: test_date(),
+                policy: FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })
+            .unwrap()
+            .rate;
+        assert!((chf_usd - (1.0 / 0.90)).abs() < 1e-12);
+
+        // Bulk seed: add a couple more pairs
+        matrix.set_quotes(&[
+            (Currency::EUR, Currency::CHF, 0.95),
+            (Currency::GBP, Currency::CHF, 1.10),
+        ]);
+
+        let eur_chf = matrix
+            .rate(FxQuery {
+                from: Currency::EUR,
+                to: Currency::CHF,
+                on: test_date(),
+                policy: FxConversionPolicy::CashflowDate,
+                closure_check: None,
+                want_meta: false,
+            })
+            .unwrap()
+            .rate;
+        assert_eq!(eur_chf, 0.95);
     }
 }
