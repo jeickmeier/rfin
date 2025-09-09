@@ -117,7 +117,8 @@ impl CompiledExpr {
         cols: &[&[crate::F]],
         opts: EvalOpts,
     ) -> EvaluationResult {
-        let start_time = std::time::Instant::now();
+        // Retain a start instant for potential external profiling; unused here.
+        let _ = std::time::Instant::now();
 
         // Decide on execution plan preference: opts > self > none
         let plan_to_use: Option<ExecutionPlan> = if let Some(p) = opts.plan {
@@ -184,11 +185,8 @@ impl CompiledExpr {
             }
         };
 
-        // Stamp metadata
-        let mut meta = crate::config::results_meta(&crate::config::FinstackConfig::default());
-        meta.execution_time_ns = Some(start_time.elapsed().as_nanos() as u64);
-        meta.cache_hit_ratio = eval_cache.as_ref().map(|c| c.hit_ratio());
-        meta.parallel = plan_to_use.is_some();
+        // Stamp minimal metadata only at IO boundaries; evaluator does not record timings/cache/parallel
+        let meta = crate::config::results_meta(&crate::config::FinstackConfig::default());
 
         EvaluationResult {
             values,

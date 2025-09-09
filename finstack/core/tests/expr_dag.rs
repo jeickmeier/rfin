@@ -67,13 +67,7 @@ fn test_dag_dedup_ignores_expr_id() {
             output_scale_by_ccy: Default::default(),
             version: 1,
         },
-        deterministic: true,
-        parallel: false,
-        schema_version: 1,
-        fx_policies: indexmap::IndexMap::new(),
         fx_policy_applied: None,
-        execution_time_ns: None,
-        cache_hit_ratio: None,
     };
     let plan = builder.build_plan(vec![rm_a, rm_b], meta);
 
@@ -110,13 +104,7 @@ fn test_dag_builder_simple_expressions() {
             output_scale_by_ccy: Default::default(),
             version: 1,
         },
-        deterministic: true,
-        parallel: false,
-        schema_version: 1,
-        fx_policies: indexmap::IndexMap::new(),
         fx_policy_applied: None,
-        execution_time_ns: None,
-        cache_hit_ratio: None,
     };
     let plan = builder.build_plan(vec![rolling_mean], meta);
 
@@ -147,13 +135,7 @@ fn test_dag_builder_shared_subexpressions() {
             output_scale_by_ccy: Default::default(),
             version: 1,
         },
-        deterministic: true,
-        parallel: false,
-        schema_version: 1,
-        fx_policies: indexmap::IndexMap::new(),
         fx_policy_applied: None,
-        execution_time_ns: None,
-        cache_hit_ratio: None,
     };
     let plan = builder.build_plan(vec![rolling_mean, rolling_sum], meta);
 
@@ -199,13 +181,7 @@ fn test_dag_polars_eligibility() {
             output_scale_by_ccy: Default::default(),
             version: 1,
         },
-        deterministic: true,
-        parallel: false,
-        schema_version: 1,
-        fx_policies: indexmap::IndexMap::new(),
         fx_policy_applied: None,
-        execution_time_ns: None,
-        cache_hit_ratio: None,
     };
     let plan = builder.build_plan(vec![rolling_mean, cum_sum], meta);
 
@@ -240,13 +216,7 @@ fn test_dag_cost_estimation() {
             output_scale_by_ccy: Default::default(),
             version: 1,
         },
-        deterministic: true,
-        parallel: false,
-        schema_version: 1,
-        fx_policies: indexmap::IndexMap::new(),
         fx_policy_applied: None,
-        execution_time_ns: None,
-        cache_hit_ratio: None,
     };
     let plan = builder.build_plan(vec![lag, rolling_std], meta);
 
@@ -283,13 +253,7 @@ fn test_pushdown_boundary_analysis() {
             output_scale_by_ccy: Default::default(),
             version: 1,
         },
-        deterministic: true,
-        parallel: false,
-        schema_version: 1,
-        fx_policies: indexmap::IndexMap::new(),
         fx_policy_applied: None,
-        execution_time_ns: None,
-        cache_hit_ratio: None,
     };
     let plan = builder.build_plan(vec![rolling_mean], meta);
 
@@ -333,13 +297,7 @@ fn test_dag_cache_strategy() {
             output_scale_by_ccy: Default::default(),
             version: 1,
         },
-        deterministic: true,
-        parallel: false,
-        schema_version: 1,
-        fx_policies: indexmap::IndexMap::new(),
         fx_policy_applied: None,
-        execution_time_ns: None,
-        cache_hit_ratio: None,
     };
     let plan = builder.build_plan(vec![expr1, expr2], meta);
 
@@ -376,13 +334,7 @@ fn test_dag_topological_ordering() {
             output_scale_by_ccy: Default::default(),
             version: 1,
         },
-        deterministic: true,
-        parallel: false,
-        schema_version: 1,
-        fx_policies: indexmap::IndexMap::new(),
         fx_policy_applied: None,
-        execution_time_ns: None,
-        cache_hit_ratio: None,
     };
     let plan = builder.build_plan(vec![diff_lag], meta);
 
@@ -419,13 +371,7 @@ fn test_dag_empty_plan() {
             output_scale_by_ccy: Default::default(),
             version: 1,
         },
-        deterministic: true,
-        parallel: false,
-        schema_version: 1,
-        fx_policies: indexmap::IndexMap::new(),
         fx_policy_applied: None,
-        execution_time_ns: None,
-        cache_hit_ratio: None,
     };
     let plan = builder.build_plan(vec![], meta);
 

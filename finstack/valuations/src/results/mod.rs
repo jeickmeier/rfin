@@ -17,6 +17,9 @@ pub struct ExtendedResultsMeta {
 
     /// Additional custom metadata
     pub custom: HashMap<String, String>,
+
+    /// FX policies applied by valuations layer, keyed by policy scope
+    pub fx_policies: IndexMap<String, FxPolicyMeta>,
 }
 
 impl ExtendedResultsMeta {
@@ -25,12 +28,13 @@ impl ExtendedResultsMeta {
         Self {
             core,
             custom: HashMap::new(),
+            fx_policies: IndexMap::new(),
         }
     }
 
     /// Add an FX policy.
     pub fn with_fx_policy(mut self, key: &str, policy: FxPolicyMeta) -> Self {
-        self.core.fx_policies.insert(key.to_string(), policy);
+        self.fx_policies.insert(key.to_string(), policy);
         self
     }
 
@@ -105,7 +109,7 @@ impl ValuationResult {
 
     /// Add an FX policy to the metadata.
     pub fn with_fx_policy(mut self, key: &str, policy: FxPolicyMeta) -> Self {
-        self.meta.core.fx_policies.insert(key.to_string(), policy);
+        self.meta.fx_policies.insert(key.to_string(), policy);
         self
     }
 
