@@ -71,17 +71,31 @@ impl ValuationResult {
     ///
     /// See unit tests and `examples/` for usage.
     pub fn stamped(instrument_id: &str, as_of: Date, value: Money) -> Self {
+        // Default stamping uses default configuration; callers needing custom
+        // policy should construct `ExtendedResultsMeta` and use
+        // `stamped_with_meta` to avoid creating a fresh config here.
+        let meta = ExtendedResultsMeta::from_core(finstack_core::config::results_meta(
+            &finstack_core::config::FinstackConfig::default(),
+        ));
+        Self::stamped_with_meta(instrument_id, as_of, value, meta)
+    }
+
+    /// Create a valuation result with caller-provided metadata.
+    ///
+    /// Prefer this when you already have `ExtendedResultsMeta` available to avoid
+    /// constructing a default `FinstackConfig` in hot paths.
+    pub fn stamped_with_meta(
+        instrument_id: &str,
+        as_of: Date,
+        value: Money,
+        meta: ExtendedResultsMeta,
+    ) -> Self {
         Self {
             instrument_id: instrument_id.to_string(),
             as_of,
             value,
             measures: IndexMap::new(),
-            // Default stamping uses default configuration; callers needing custom
-            // policy should construct `ExtendedResultsMeta` manually or provide
-            // a config-aware constructor in their layer.
-            meta: ExtendedResultsMeta::from_core(finstack_core::config::results_meta(
-                &finstack_core::config::FinstackConfig::default(),
-            )),
+            meta,
             covenants: None,
         }
     }

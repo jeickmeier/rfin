@@ -220,42 +220,27 @@ impl FxMatrix {
             return Ok(result);
         }
 
-        // Prefer explicitly seeded quotes (or their reciprocal) before provider/triangulation
-        if let Some(rate) = self.quotes.lock().get(&Pair(from, to)).copied() {
+        // Prefer explicitly seeded quotes (or their reciprocal) before provider/triangulation.
+        // Take a single lock to read both directions, then drop before any recursive calls.
+        let (direct_opt, reciprocal_opt) = {
+            let quotes = self.quotes.lock();
+            (
+                quotes.get(&Pair(from, to)).copied(),
+                quotes.get(&Pair(to, from)).copied(),
+            )
+        };
+
+        if let Some(rate) = direct_opt {
             let mut result = FxRateResult {
                 rate,
                 triangulated: false,
                 pivot_currency: None,
                 closure: None,
             };
-            if query.want_meta {
-                if let Some(mid) = query.closure_check {
-                    let via_a = self
-                        .rate(FxQuery {
-                            from,
-                            to: mid,
-                            on,
-                            policy,
-                            closure_check: None,
-                            want_meta: false,
-                        })?
-                        .rate;
-                    let via_b = self
-                        .rate(FxQuery {
-                            from: mid,
-                            to,
-                            on,
-                            policy,
-                            closure_check: None,
-                            want_meta: false,
-                        })?
-                        .rate;
-                    result.closure = Some(self.check_closure(rate, via_a, via_b)?);
-                }
-            }
+            result.closure = self.compute_closure_result(&query, rate)?;
             return Ok(result);
         }
-        if let Some(r_rev) = self.quotes.lock().get(&Pair(to, from)).copied() {
+        if let Some(r_rev) = reciprocal_opt {
             if r_rev != 0.0 {
                 let rate = 1.0 / r_rev;
                 let mut result = FxRateResult {
@@ -264,31 +249,7 @@ impl FxMatrix {
                     pivot_currency: None,
                     closure: None,
                 };
-                if query.want_meta {
-                    if let Some(mid) = query.closure_check {
-                        let via_a = self
-                            .rate(FxQuery {
-                                from,
-                                to: mid,
-                                on,
-                                policy,
-                                closure_check: None,
-                                want_meta: false,
-                            })?
-                            .rate;
-                        let via_b = self
-                            .rate(FxQuery {
-                                from: mid,
-                                to,
-                                on,
-                                policy,
-                                closure_check: None,
-                                want_meta: false,
-                            })?
-                            .rate;
-                        result.closure = Some(self.check_closure(rate, via_a, via_b)?);
-                    }
-                }
+                result.closure = self.compute_closure_result(&query, rate)?;
                 return Ok(result);
             }
         }
@@ -318,35 +279,13 @@ impl FxMatrix {
             closure: None,
         };
         if query.want_meta {
-            if let Some(mid) = query.closure_check {
-                let via_a = self
-                    .rate(FxQuery {
-                        from,
-                        to: mid,
-                        on,
-                        policy,
-                        closure_check: None,
-                        want_meta: false,
-                    })?
-                    .rate;
-                let via_b = self
-                    .rate(FxQuery {
-                        from: mid,
-                        to,
-                        on,
-                        policy,
-                        closure_check: None,
-                        want_meta: false,
-                    })?
-                    .rate;
-                let closure_result = self.check_closure(result.rate, via_a, via_b)?;
-                if self.config.strict_closure {
-                    if let ClosureCheckResult::Fail { .. } = closure_result {
-                        return Err(crate::Error::Input(crate::error::InputError::Invalid));
-                    }
+            let closure = self.compute_closure_result(&query, result.rate)?;
+            if self.config.strict_closure {
+                if let Some(ClosureCheckResult::Fail { .. }) = closure {
+                    return Err(crate::Error::Input(crate::error::InputError::Invalid));
                 }
-                result.closure = Some(closure_result);
             }
+            result.closure = closure;
         }
 
         Ok(result)
@@ -419,8 +358,16 @@ impl FxMatrix {
         if from == to {
             return Ok(1.0);
         }
+        // Read both direct and reciprocal under a single lock, then drop before any further work
+        let (direct_opt, reciprocal_opt) = {
+            let quotes = self.quotes.lock();
+            (
+                quotes.get(&Pair(from, to)).copied(),
+                quotes.get(&Pair(to, from)).copied(),
+            )
+        };
         // 1) Explicit quote wins
-        if let Some(r) = self.quotes.lock().get(&Pair(from, to)).copied() {
+        if let Some(r) = direct_opt {
             return Ok(r);
         }
         // 2) Try provider for direct
@@ -429,7 +376,7 @@ impl FxMatrix {
             return Ok(r);
         }
         // 3) Reciprocal fallback if available
-        if let Some(r_rev) = self.quotes.lock().get(&Pair(to, from)).copied() {
+        if let Some(r_rev) = reciprocal_opt {
             if r_rev != 0.0 {
                 let r = 1.0 / r_rev;
                 return Ok(r);
@@ -460,6 +407,45 @@ impl FxMatrix {
                 difference,
             })
         }
+    }
+
+    /// Compute optional closure result based on query flags. Returns None when not requested.
+    fn compute_closure_result(
+        &self,
+        query: &FxQuery,
+        direct_rate: FxRate,
+    ) -> crate::Result<Option<ClosureCheckResult>> {
+        if !query.want_meta {
+            return Ok(None);
+        }
+        let mid = match query.closure_check {
+            Some(c) => c,
+            None => return Ok(None),
+        };
+
+        // Recursively compute via legs without requesting metadata to avoid cycles
+        let via_a = self
+            .rate(FxQuery {
+                from: query.from,
+                to: mid,
+                on: query.on,
+                policy: query.policy,
+                closure_check: None,
+                want_meta: false,
+            })?
+            .rate;
+        let via_b = self
+            .rate(FxQuery {
+                from: mid,
+                to: query.to,
+                on: query.on,
+                policy: query.policy,
+                closure_check: None,
+                want_meta: false,
+            })?
+            .rate;
+
+        Ok(Some(self.check_closure(direct_rate, via_a, via_b)?))
     }
 }
 

@@ -234,6 +234,60 @@ fn create_bumped_vol_surface(
 }
 
 // -----------------------------------------------------------------------------
+// ID/Description formatting helpers (private)
+// -----------------------------------------------------------------------------
+
+#[inline]
+fn id_bump_bp(id: &str, bp: F) -> CurveId {
+    CurveId::new(format!("{}_bump_{:.0}bp", id, bp))
+}
+
+#[inline]
+fn id_spread_bp(id: &str, bp: F) -> CurveId {
+    CurveId::new(format!("{}_spread_{:.0}bp", id, bp))
+}
+
+#[inline]
+fn id_infl_pct(id: &str, pct: F) -> CurveId {
+    CurveId::new(format!("{}_infl_{:.1}pct", id, pct))
+}
+
+#[inline]
+fn id_corr_pct(id: &str, pct: F) -> CurveId {
+    CurveId::new(format!("{}_corr_{:.1}pct", id, pct))
+}
+
+#[inline]
+fn desc_shift_bp(bp: F) -> alloc::string::String {
+    format!("shift_{:.0}bp", bp)
+}
+
+#[inline]
+fn desc_shift_pct(pct: F) -> alloc::string::String {
+    format!("shift_{:.1}pct", pct)
+}
+
+#[inline]
+fn desc_shift_fraction(frac: F) -> alloc::string::String {
+    format!("shift_{:.6}", frac)
+}
+
+#[inline]
+fn desc_mult_factor(factor: F) -> alloc::string::String {
+    format!("mult_{:.2}", factor)
+}
+
+#[inline]
+fn desc_infl_pct(pct: F) -> alloc::string::String {
+    format!("infl_{:.1}pct", pct)
+}
+
+#[inline]
+fn id_with_desc(id: &str, desc: &str) -> CurveId {
+    CurveId::new(format!("{}_{}", id, desc))
+}
+
+// -----------------------------------------------------------------------------
 // Market Context
 // -----------------------------------------------------------------------------
 
@@ -548,14 +602,14 @@ impl MarketContext {
             if let Ok(original) = self.disc(curve_id_str) {
                 if bump_spec.mode == BumpMode::Additive && bump_spec.units == BumpUnits::RateBp {
                     let bump_bp = bump_spec.value;
-                    let bumped_id = CurveId::new(format!("{}_bump_{:.0}bp", curve_id_str, bump_bp));
+                    let bumped_id = id_bump_bp(curve_id_str, bump_bp);
                     let bumped_curve = BumpedDiscountCurve::new(original, bump_bp, bumped_id.clone());
                     new_context.disc.insert(bumped_id, Arc::new(bumped_curve));
                 }
             } else if let Ok(original) = self.fwd(curve_id_str) {
                 if bump_spec.mode == BumpMode::Additive && bump_spec.units == BumpUnits::RateBp {
                     let bump_bp = bump_spec.value;
-                    let bumped_id = CurveId::new(format!("{}_bump_{:.0}bp", curve_id_str, bump_bp));
+                    let bumped_id = id_bump_bp(curve_id_str, bump_bp);
                     let bumped_curve = BumpedForwardCurve::new(original, bump_bp, bumped_id.clone());
                     new_context.fwd.insert(bumped_id, Arc::new(bumped_curve));
                 }
@@ -563,7 +617,7 @@ impl MarketContext {
                 if bump_spec.mode == BumpMode::Additive && bump_spec.units == BumpUnits::RateBp {
                     let spread_rate = bump_spec.additive_fraction().unwrap_or(0.0);
                     if let Ok(bumped_curve) = original.with_hazard_shift(spread_rate) {
-                        let bumped_id = CurveId::new(format!("{}_spread_{:.0}bp", curve_id_str, bump_spec.value));
+                        let bumped_id = id_spread_bp(curve_id_str, bump_spec.value);
                         new_context.hazard.insert(bumped_id, Arc::new(bumped_curve));
                     }
                 }
@@ -579,7 +633,7 @@ impl MarketContext {
                         .map(|(&t, &cpi)| (t, cpi * multiplier))
                         .collect();
 
-                    let bumped_id = CurveId::new(format!("{}_infl_{:.1}pct", curve_id_str, bump_spec.value));
+                    let bumped_id = id_infl_pct(curve_id_str, bump_spec.value);
                     if let Ok(bumped_curve) = InflationCurve::builder("TEMP_BUMPED_INFLATION")
                         .base_cpi(original.base_cpi() * multiplier)
                         .knots(bumped_points)
@@ -603,7 +657,7 @@ impl MarketContext {
                         .map(|(&detach, &corr)| (detach, (corr * multiplier).clamp(0.0, 1.0)))
                         .collect();
 
-                    let bumped_id = CurveId::new(format!("{}_corr_{:.1}pct", curve_id_str, bump_spec.value));
+                    let bumped_id = id_corr_pct(curve_id_str, bump_spec.value);
                     if let Ok(bumped_curve) =
                         BaseCorrelationCurve::builder("TEMP_BUMPED_CORRELATION")
                             .points(bumped_points)
@@ -629,7 +683,7 @@ impl MarketContext {
                             builder = builder.with_issuer_curves(issuer_curves.clone());
                         }
                         if let Ok(bumped_index) = builder.build() {
-                            let bumped_id = CurveId::new(format!("{}_spread_{:.0}bp", curve_id_str, bump_spec.value));
+                            let bumped_id = id_spread_bp(curve_id_str, bump_spec.value);
                             new_context
                                 .credit_indices
                                 .insert(bumped_id, Arc::new(bumped_index));
@@ -662,7 +716,7 @@ impl MarketContext {
                             builder = builder.with_issuer_curves(issuer_curves.clone());
                         }
                         if let Ok(bumped_index) = builder.build() {
-                            let bumped_id = CurveId::new(format!("{}_corr_{:.1}pct", curve_id_str, bump_spec.value));
+                            let bumped_id = id_corr_pct(curve_id_str, bump_spec.value);
                             new_context
                                 .credit_indices
                                 .insert(bumped_id, Arc::new(bumped_index));
@@ -674,16 +728,16 @@ impl MarketContext {
                 let bump_desc = if bump_spec.mode == BumpMode::Additive
                     && bump_spec.units == BumpUnits::RateBp
                 {
-                    Some(format!("shift_{:.0}bp", bump_spec.value))
+                    Some(desc_shift_bp(bump_spec.value))
                 } else if bump_spec.mode == BumpMode::Multiplicative
                     && bump_spec.units == BumpUnits::Factor
                 {
-                    Some(format!("mult_{:.2}", bump_spec.value))
+                    Some(desc_mult_factor(bump_spec.value))
                 } else {
                     None
                 };
                 if let Some(desc) = bump_desc {
-                    let bumped_id = CurveId::new(format!("{}_{}", curve_id_str, desc));
+                    let bumped_id = id_with_desc(curve_id_str, &desc);
                     if let Ok(bumped_surface) =
                         create_bumped_vol_surface(&original, &bump_spec, bumped_id.clone())
                     {
@@ -696,12 +750,12 @@ impl MarketContext {
                 let bump_desc = if bump_spec.mode == BumpMode::Multiplicative
                     && bump_spec.units == BumpUnits::Factor
                 {
-                    format!("mult_{:.2}", bump_spec.value)
+                    desc_mult_factor(bump_spec.value)
                 } else if bump_spec.mode == BumpMode::Additive {
                     match bump_spec.units {
-                        BumpUnits::RateBp => format!("shift_{:.0}bp", bump_spec.value),
-                        BumpUnits::Percent => format!("shift_{:.1}pct", bump_spec.value),
-                        BumpUnits::Fraction => format!("shift_{:.6}", bump_spec.value),
+                        BumpUnits::RateBp => desc_shift_bp(bump_spec.value),
+                        BumpUnits::Percent => desc_shift_pct(bump_spec.value),
+                        BumpUnits::Fraction => desc_shift_fraction(bump_spec.value),
                         BumpUnits::Factor => unreachable!(),
                     }
                 } else {
@@ -730,19 +784,19 @@ impl MarketContext {
                         }
                     },
                 };
-                let bumped_id = CurveId::new(format!("{}_{}", curve_id_str, bump_desc));
+                let bumped_id = id_with_desc(curve_id_str, &bump_desc);
                 new_context.prices.insert(bumped_id, bumped_value);
             } else if let Some(index) = self.inflation_index(curve_id_str) {
                 // Bump inflation index time series values
                 let bump_desc = if bump_spec.mode == BumpMode::Multiplicative
                     && bump_spec.units == BumpUnits::Factor
                 {
-                    format!("mult_{:.2}", bump_spec.value)
+                    desc_mult_factor(bump_spec.value)
                 } else if bump_spec.mode == BumpMode::Additive {
                     match bump_spec.units {
-                        BumpUnits::Percent => format!("infl_{:.1}pct", bump_spec.value),
-                        BumpUnits::RateBp => format!("shift_{:.0}bp", bump_spec.value),
-                        BumpUnits::Fraction => format!("shift_{:.6}", bump_spec.value),
+                        BumpUnits::Percent => desc_infl_pct(bump_spec.value),
+                        BumpUnits::RateBp => desc_shift_bp(bump_spec.value),
+                        BumpUnits::Fraction => desc_shift_fraction(bump_spec.value),
                         BumpUnits::Factor => unreachable!(),
                     }
                 } else {
@@ -754,8 +808,8 @@ impl MarketContext {
                     BumpMode::Additive => 1.0 + bump_spec.additive_fraction().unwrap_or(0.0),
                 };
 
-                // Reconstruct observations and scale
-                let df = index.as_dataframe().clone();
+                // Reconstruct observations and scale (borrow DataFrame; avoid clone)
+                let df = index.as_dataframe();
                 let dates = df
                     .column("date")
                     .map_err(|_| crate::Error::Internal)?
@@ -777,8 +831,9 @@ impl MarketContext {
                     })
                     .collect();
 
+                let bumped_cid = id_with_desc(curve_id_str, &bump_desc);
                 let builder = crate::market_data::inflation_index::InflationIndexBuilder::new(
-                    format!("{}_{}", curve_id_str, bump_desc),
+                    bumped_cid.as_str(),
                     index.currency,
                 )
                 .with_observations(bumped_obs)
@@ -788,19 +843,19 @@ impl MarketContext {
                 if let Ok(bumped_index) = builder.build() {
                     new_context
                         .inflation_indices
-                        .insert(CurveId::new(format!("{}_{}", curve_id_str, bump_desc)), Arc::new(bumped_index));
+                        .insert(bumped_cid, Arc::new(bumped_index));
                 }
             } else if let Ok(series) = self.series(curve_id_str) {
                 // Bump generic scalar time series
                 let bump_desc = if bump_spec.mode == BumpMode::Multiplicative
                     && bump_spec.units == BumpUnits::Factor
                 {
-                    format!("mult_{:.2}", bump_spec.value)
+                    desc_mult_factor(bump_spec.value)
                 } else if bump_spec.mode == BumpMode::Additive {
                     match bump_spec.units {
-                        BumpUnits::RateBp => format!("shift_{:.0}bp", bump_spec.value),
-                        BumpUnits::Percent => format!("shift_{:.1}pct", bump_spec.value),
-                        BumpUnits::Fraction => format!("shift_{:.6}", bump_spec.value),
+                        BumpUnits::RateBp => desc_shift_bp(bump_spec.value),
+                        BumpUnits::Percent => desc_shift_pct(bump_spec.value),
+                        BumpUnits::Fraction => desc_shift_fraction(bump_spec.value),
                         BumpUnits::Factor => unreachable!(),
                     }
                 } else {
@@ -833,15 +888,16 @@ impl MarketContext {
                     })
                     .collect();
 
+                let bumped_cid = id_with_desc(curve_id_str, &bump_desc);
                 let mut bumped_series = ScalarTimeSeries::new(
-                    format!("{}_{}", curve_id_str, bump_desc),
+                    bumped_cid.as_str(),
                     bumped_obs,
                     series.currency(),
                 )?;
                 bumped_series = bumped_series.with_interpolation(series.interpolation());
                 new_context
                     .series
-                    .insert(CurveId::new(format!("{}_{}", curve_id_str, bump_desc)), bumped_series);
+                    .insert(bumped_cid, bumped_series);
             } else if let Some(fx) = &self.fx {
                 // FX base-currency relative bump: curve_id must be a currency code (e.g., "USD")
                 if let Ok(base_ccy) = Currency::from_str(curve_id_str) {

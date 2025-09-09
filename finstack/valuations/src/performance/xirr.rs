@@ -43,10 +43,10 @@ pub fn xirr(cash_flows: &[(Date, F)], guess: Option<F>) -> finstack_core::Result
     let first_date = cash_flows[0].0;
     let dc = DayCount::Act365F; // Standard day count for XIRR
 
-    // NPV function for root finding
-    let npv = |rate: F| -> F {
-        let mut sum = 0.0;
-        for &(date, amount) in cash_flows {
+    // Precompute (year_fraction, amount) once for performance
+    let years_and_amounts: Vec<(F, F)> = cash_flows
+        .iter()
+        .map(|&(date, amount)| {
             let years = dc
                 .year_fraction(
                     first_date,
@@ -54,6 +54,14 @@ pub fn xirr(cash_flows: &[(Date, F)], guess: Option<F>) -> finstack_core::Result
                     finstack_core::dates::DayCountCtx::default(),
                 )
                 .unwrap_or(0.0);
+            (years, amount)
+        })
+        .collect();
+
+    // NPV function for root finding
+    let npv = |rate: F| -> F {
+        let mut sum = 0.0;
+        for &(years, amount) in &years_and_amounts {
             let discount = (1.0 + rate).powf(years);
             sum += amount / discount;
         }
@@ -63,14 +71,7 @@ pub fn xirr(cash_flows: &[(Date, F)], guess: Option<F>) -> finstack_core::Result
     // NPV derivative for Newton-Raphson (optional optimization)
     let npv_prime = |rate: F| -> F {
         let mut sum = 0.0;
-        for &(date, amount) in cash_flows {
-            let years = dc
-                .year_fraction(
-                    first_date,
-                    date,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
-                .unwrap_or(0.0);
+        for &(years, amount) in &years_and_amounts {
             let discount = (1.0 + rate).powf(years);
             sum -= amount * years / (discount * (1.0 + rate));
         }
