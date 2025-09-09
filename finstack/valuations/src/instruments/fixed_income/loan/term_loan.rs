@@ -114,6 +114,84 @@ impl Loan {
         LoanBuilder::new()
     }
 
+    /// Create a fixed-rate term loan with standard conventions.
+    pub fn fixed_rate(
+        id: impl Into<String>,
+        amount: Money,
+        fixed_rate: F,
+        issue_date: Date,
+        maturity_date: Date,
+    ) -> Self {
+        Self::new(
+            id,
+            amount,
+            issue_date,
+            maturity_date,
+            InterestSpec::Fixed {
+                rate: fixed_rate,
+                step_ups: None,
+            },
+        )
+    }
+
+    /// Create a floating-rate term loan with SOFR + spread.
+    pub fn floating_sofr(
+        id: impl Into<String>,
+        amount: Money,
+        spread_bp: F,
+        issue_date: Date,
+        maturity_date: Date,
+    ) -> Self {
+        Self::new(
+            id,
+            amount,
+            issue_date,
+            maturity_date,
+            InterestSpec::Floating {
+                index_id: "USD-SOFR-3M",
+                spread_bp,
+                spread_step_ups: None,
+                gearing: 1.0,
+                reset_lag_days: 2,
+            },
+        )
+    }
+
+    /// Create a PIK loan.
+    pub fn pik(
+        id: impl Into<String>,
+        amount: Money,
+        pik_rate: F,
+        issue_date: Date,
+        maturity_date: Date,
+    ) -> Self {
+        Self::new(
+            id,
+            amount,
+            issue_date,
+            maturity_date,
+            InterestSpec::PIK { rate: pik_rate },
+        )
+    }
+
+    /// Create a cash + PIK loan.
+    pub fn cash_plus_pik(
+        id: impl Into<String>,
+        amount: Money,
+        cash_rate: F,
+        pik_rate: F,
+        issue_date: Date,
+        maturity_date: Date,
+    ) -> Self {
+        Self::new(
+            id,
+            amount,
+            issue_date,
+            maturity_date,
+            InterestSpec::CashPlusPIK { cash_rate, pik_rate },
+        )
+    }
+
     /// Creates a new term loan.
     pub fn new(
         id: impl Into<String>,

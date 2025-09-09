@@ -119,6 +119,66 @@ pub struct DelayedDrawTermLoan {
 }
 
 impl DelayedDrawTermLoan {
+    /// Create a standard fixed-rate DDTL.
+    pub fn fixed_rate(
+        id: impl Into<String>,
+        commitment: Money,
+        fixed_rate: F,
+        commitment_expiry: Date,
+        maturity: Date,
+    ) -> Self {
+        Self::new(
+            id,
+            commitment,
+            commitment_expiry,
+            maturity,
+            InterestSpec::Fixed {
+                rate: fixed_rate,
+                step_ups: None,
+            },
+        )
+    }
+
+    /// Create a standard floating-rate DDTL with SOFR + spread.
+    pub fn floating_sofr(
+        id: impl Into<String>,
+        commitment: Money,
+        spread_bp: F,
+        commitment_expiry: Date,
+        maturity: Date,
+    ) -> Self {
+        Self::new(
+            id,
+            commitment,
+            commitment_expiry,
+            maturity,
+            InterestSpec::Floating {
+                index_id: "USD-SOFR-3M",
+                spread_bp,
+                spread_step_ups: None,
+                gearing: 1.0,
+                reset_lag_days: 2,
+            },
+        )
+    }
+
+    /// Create a PIK DDTL.
+    pub fn pik(
+        id: impl Into<String>,
+        commitment: Money,
+        pik_rate: F,
+        commitment_expiry: Date,
+        maturity: Date,
+    ) -> Self {
+        Self::new(
+            id,
+            commitment,
+            commitment_expiry,
+            maturity,
+            InterestSpec::PIK { rate: pik_rate },
+        )
+    }
+
     /// Creates a new DDTL.
     pub fn new(
         id: impl Into<String>,

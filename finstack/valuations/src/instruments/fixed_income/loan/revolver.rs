@@ -152,6 +152,51 @@ pub struct RevolvingCreditFacility {
 }
 
 impl RevolvingCreditFacility {
+    /// Create a standard floating-rate revolver with SOFR + spread.
+    pub fn floating_sofr(
+        id: impl Into<String>,
+        commitment: Money,
+        spread_bp: F,
+        availability_start: Date,
+        availability_end: Date,
+        maturity: Date,
+    ) -> Self {
+        Self::new(
+            id,
+            commitment,
+            availability_start,
+            availability_end,
+            maturity,
+        ).with_interest(InterestSpec::Floating {
+            index_id: "USD-SOFR-3M",
+            spread_bp,
+            spread_step_ups: None,
+            gearing: 1.0,
+            reset_lag_days: 2,
+        })
+    }
+
+    /// Create a standard fixed-rate revolver.
+    pub fn fixed_rate(
+        id: impl Into<String>,
+        commitment: Money,
+        fixed_rate: F,
+        availability_start: Date,
+        availability_end: Date,
+        maturity: Date,
+    ) -> Self {
+        Self::new(
+            id,
+            commitment,
+            availability_start,
+            availability_end,
+            maturity,
+        ).with_interest(InterestSpec::Fixed {
+            rate: fixed_rate,
+            step_ups: None,
+        })
+    }
+
     /// Creates a new revolving credit facility.
     pub fn new(
         id: impl Into<String>,

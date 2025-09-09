@@ -29,8 +29,96 @@ pub struct EquityOption {
 }
 
 impl EquityOption {
+    /// Create a new equity option builder
     pub fn builder() -> crate::instruments::options::equity_option::builder::EquityOptionBuilder {
         crate::instruments::options::equity_option::builder::EquityOptionBuilder::new()
+    }
+
+    /// Create a European call option with standard conventions.
+    ///
+    /// This convenience constructor eliminates the builder for the most common case.
+    pub fn european_call(
+        id: impl Into<String>,
+        ticker: impl Into<String>,
+        strike: F,
+        expiry: Date,
+        notional: Money,
+        contract_size: F,
+    ) -> Self {
+        use crate::instruments::common::{EquityUnderlyingParams, MarketRefs, OptionParams};
+
+        let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT")
+            .with_dividend_yield("EQUITY-DIVYIELD")
+            .with_contract_size(contract_size);
+        
+        let option_params = OptionParams::european_call(strike, expiry);
+        let market_refs = MarketRefs::option("USD-OIS", "EQUITY-VOL");
+
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .underlying(underlying)
+            .option_params(option_params)
+            .market_refs(market_refs)
+            .build()
+            .expect("European call construction should not fail")
+    }
+
+    /// Create a European put option with standard conventions.
+    pub fn european_put(
+        id: impl Into<String>,
+        ticker: impl Into<String>,
+        strike: F,
+        expiry: Date,
+        notional: Money,
+        contract_size: F,
+    ) -> Self {
+        use crate::instruments::common::{EquityUnderlyingParams, MarketRefs, OptionParams};
+
+        let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT")
+            .with_dividend_yield("EQUITY-DIVYIELD")
+            .with_contract_size(contract_size);
+        
+        let option_params = OptionParams::european_put(strike, expiry);
+        let market_refs = MarketRefs::option("USD-OIS", "EQUITY-VOL");
+
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .underlying(underlying)
+            .option_params(option_params)
+            .market_refs(market_refs)
+            .build()
+            .expect("European put construction should not fail")
+    }
+
+    /// Create an American call option with standard conventions.
+    pub fn american_call(
+        id: impl Into<String>,
+        ticker: impl Into<String>,
+        strike: F,
+        expiry: Date,
+        notional: Money,
+        contract_size: F,
+    ) -> Self {
+        use crate::instruments::common::{EquityUnderlyingParams, MarketRefs, OptionParams};
+
+        let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT")
+            .with_dividend_yield("EQUITY-DIVYIELD")
+            .with_contract_size(contract_size);
+        
+        let option_params = OptionParams::european_call(strike, expiry)
+            .with_exercise_style(ExerciseStyle::American);
+        let market_refs = MarketRefs::option("USD-OIS", "EQUITY-VOL");
+
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .underlying(underlying)
+            .option_params(option_params)
+            .market_refs(market_refs)
+            .build()
+            .expect("American call construction should not fail")
     }
 
     #[allow(clippy::too_many_arguments)]

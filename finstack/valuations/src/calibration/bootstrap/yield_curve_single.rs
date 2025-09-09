@@ -925,15 +925,25 @@ mod tests {
             .standard_fixed_leg(
                 "USD-OIS",
                 0.0470,
-                Frequency::semi_annual(),
-                DayCount::Thirty360,
+                crate::instruments::common::InstrumentScheduleParams {
+                    frequency: Frequency::semi_annual(),
+                    day_count: DayCount::Thirty360,
+                    bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                    calendar_id: None,
+                    stub: finstack_core::dates::StubKind::None,
+                },
             )
             .standard_float_leg(
                 "USD-OIS",
                 "USD-SOFR",
                 0.0,
-                Frequency::quarterly(),
-                DayCount::Act360,
+                crate::instruments::common::InstrumentScheduleParams {
+                    frequency: Frequency::quarterly(),
+                    day_count: DayCount::Act360,
+                    bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                    calendar_id: None,
+                    stub: finstack_core::dates::StubKind::None,
+                },
             )
             .build()
             .unwrap();

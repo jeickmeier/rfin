@@ -73,6 +73,60 @@ impl Bond {
         crate::instruments::fixed_income::bond::builder::BondBuilder::default()
     }
 
+    /// Create a standard fixed-rate bond with semi-annual coupons.
+    pub fn fixed_semiannual(
+        id: impl Into<String>,
+        notional: Money,
+        coupon_rate: F,
+        issue: Date,
+        maturity: Date,
+        disc_id: &'static str,
+    ) -> Self {
+        use crate::instruments::common::{DateRange, InstrumentScheduleParams, MarketRefs};
+
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .coupon(coupon_rate)
+            .date_range(DateRange::new(issue, maturity))
+            .schedule_params(InstrumentScheduleParams::semiannual_30360())
+            .market_refs(MarketRefs::discount_only(disc_id))
+            .build()
+            .expect("Standard bond construction should not fail")
+    }
+
+    /// Create a standard Treasury bond with ActAct day count.
+    pub fn treasury(
+        id: impl Into<String>,
+        notional: Money,
+        coupon_rate: F,
+        issue: Date,
+        maturity: Date,
+    ) -> Self {
+        use crate::instruments::common::{DateRange, InstrumentScheduleParams, MarketRefs};
+
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .coupon(coupon_rate)
+            .date_range(DateRange::new(issue, maturity))
+            .schedule_params(InstrumentScheduleParams::annual_actact())
+            .market_refs(MarketRefs::discount_only("USD-TREASURY"))
+            .build()
+            .expect("Treasury bond construction should not fail")
+    }
+
+    /// Create a zero-coupon bond.
+    pub fn zero_coupon(
+        id: impl Into<String>,
+        notional: Money,
+        issue: Date,
+        maturity: Date,
+        disc_id: &'static str,
+    ) -> Self {
+        Self::fixed_semiannual(id, notional, 0.0, issue, maturity, disc_id)
+    }
+
     /// Create a bond from a pre-built cashflow schedule.
     ///
     /// This extracts key bond parameters from the cashflow schedule and creates
@@ -424,7 +478,7 @@ mod tests {
             .id("PIK_TOGGLE_BOND")
             .cashflows(custom_schedule)
             .disc_curve("USD-OIS")
-            .quoted_clean(Some(99.0))
+            .quoted_clean(99.0)
             .build()
             .unwrap();
 

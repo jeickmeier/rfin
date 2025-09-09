@@ -1,32 +1,31 @@
-use crate::instruments::common::{EquityUnderlyingParams, MarketRefs, OptionParams, PricingOverrides};
+use crate::instruments::common::{FxUnderlyingParams, OptionParams, PricingOverrides};
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
 use finstack_core::F;
 
-use super::types::EquityOption;
+use super::types::FxOption;
 
-/// Enhanced equity option builder using parameter groups.
+/// Enhanced FX option builder using parameter groups.
 ///
-/// Reduces 12 optional fields to 4 required parameter groups plus optional overrides.
+/// Reduces complexity by grouping related parameters together.
 #[derive(Default)]
-pub struct EquityOptionBuilder {
+pub struct FxOptionBuilder {
     // Core required parameters
     id: Option<String>,
     notional: Option<Money>,
     
     // Parameter groups (required)
-    underlying: Option<EquityUnderlyingParams>,
+    fx_underlying: Option<FxUnderlyingParams>,
     option_params: Option<OptionParams>,
-    market_refs: Option<MarketRefs>,
     
     // Optional parameters
     day_count: Option<DayCount>,
     pricing_overrides: Option<PricingOverrides>,
 }
 
-impl EquityOptionBuilder {
-    /// Create a new equity option builder
+impl FxOptionBuilder {
+    /// Create a new FX option builder
     pub fn new() -> Self {
         Self::default()
     }
@@ -43,21 +42,15 @@ impl EquityOptionBuilder {
         self
     }
 
-    /// Set underlying equity parameters (required)
-    pub fn underlying(mut self, value: EquityUnderlyingParams) -> Self {
-        self.underlying = Some(value);
+    /// Set FX underlying parameters (required)
+    pub fn fx_underlying(mut self, value: FxUnderlyingParams) -> Self {
+        self.fx_underlying = Some(value);
         self
     }
 
-    /// Set option parameters (required)  
+    /// Set option parameters (required)
     pub fn option_params(mut self, value: OptionParams) -> Self {
         self.option_params = Some(value);
-        self
-    }
-
-    /// Set market data references (required)
-    pub fn market_refs(mut self, value: MarketRefs) -> Self {
-        self.market_refs = Some(value);
         self
     }
 
@@ -83,22 +76,22 @@ impl EquityOptionBuilder {
         self
     }
 
-    /// Build the equity option
-    pub fn build(self) -> finstack_core::Result<EquityOption> {
+    /// Build the FX option
+    pub fn build(self) -> finstack_core::Result<FxOption> {
         // Validate required fields
         let id = self.id.ok_or_else(|| {
             finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
-                id: "option_id".to_string(),
+                id: "fx_option_id".to_string(),
             })
         })?;
         let notional = self.notional.ok_or_else(|| {
             finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
-                id: "option_notional".to_string(),
+                id: "fx_option_notional".to_string(),
             })
         })?;
-        let underlying = self.underlying.ok_or_else(|| {
+        let fx_underlying = self.fx_underlying.ok_or_else(|| {
             finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
-                id: "underlying_params".to_string(),
+                id: "fx_underlying_params".to_string(),
             })
         })?;
         let option_params = self.option_params.ok_or_else(|| {
@@ -106,36 +99,24 @@ impl EquityOptionBuilder {
                 id: "option_params".to_string(),
             })
         })?;
-        let market_refs = self.market_refs.ok_or_else(|| {
-            finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
-                id: "market_refs".to_string(),
-            })
-        })?;
 
         // Apply pricing overrides if present
         let pricing = self.pricing_overrides.unwrap_or_default();
 
-        // Convert strike from rate to Money format if needed  
-        let strike_money = Money::new(option_params.strike, notional.currency());
-
-        Ok(EquityOption {
+        Ok(FxOption {
             id,
-            underlying_ticker: underlying.ticker,
-            strike: strike_money,
+            base_currency: fx_underlying.base_currency,
+            quote_currency: fx_underlying.quote_currency,
+            strike: option_params.strike,
             option_type: option_params.option_type,
             exercise_style: option_params.exercise_style,
             expiry: option_params.expiry,
-            contract_size: underlying.contract_size,
             day_count: self.day_count.unwrap_or(DayCount::Act365F),
+            notional,
             settlement: option_params.settlement,
-            disc_id: market_refs.disc_id,
-            spot_id: underlying.spot_id,
-            vol_id: market_refs.vol_id.ok_or_else(|| {
-                finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
-                    id: "volatility_surface_id".to_string(),
-                })
-            })?,
-            div_yield_id: underlying.dividend_yield_id,
+            domestic_disc_id: fx_underlying.domestic_disc_id,
+            foreign_disc_id: fx_underlying.foreign_disc_id,
+            vol_id: "FX-VOL", // Standard FX volatility surface
             implied_vol: pricing.implied_volatility,
             attributes: Attributes::new(),
         })

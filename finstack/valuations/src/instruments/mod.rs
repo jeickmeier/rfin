@@ -96,6 +96,9 @@
 #[macro_use]
 pub mod macros;
 
+// Common parameter grouping structures
+pub mod common;
+
 // Instrument-level traits and metadata
 pub mod traits;
 

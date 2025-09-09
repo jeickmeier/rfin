@@ -1,142 +1,172 @@
+use crate::instruments::common::{CreditParams, DateRange, MarketRefs, PricingOverrides};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::F;
 
 use super::types::{CDSConvention, CreditDefaultSwap, PayReceive};
 
-/// Builder pattern for CDS instruments
+/// Enhanced CDS builder using parameter groups.
+///
+/// Reduces 11 optional fields to 4 required parameter groups.
 #[derive(Default)]
 pub struct CDSBuilder {
+    // Core required parameters
     id: Option<String>,
     notional: Option<Money>,
-    reference_entity: Option<String>,
     side: Option<PayReceive>,
-    convention: Option<CDSConvention>,
-    start: Option<Date>,
-    end: Option<Date>,
     spread_bp: Option<F>,
-    credit_id: Option<&'static str>,
-    recovery_rate: Option<F>,
-    disc_id: Option<&'static str>,
-    upfront: Option<Money>,
+    
+    // Parameter groups (required)
+    credit_params: Option<CreditParams>,
+    date_range: Option<DateRange>,
+    market_refs: Option<MarketRefs>,
+    
+    // Optional parameters  
+    convention: Option<CDSConvention>,
+    pricing_overrides: Option<PricingOverrides>,
 }
 
 impl CDSBuilder {
+    /// Create a new CDS builder
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Set instrument ID (required)
     pub fn id(mut self, value: impl Into<String>) -> Self {
         self.id = Some(value.into());
         self
     }
 
+    /// Set notional amount (required)
     pub fn notional(mut self, value: Money) -> Self {
         self.notional = Some(value);
         self
     }
 
-    pub fn reference_entity(mut self, value: impl Into<String>) -> Self {
-        self.reference_entity = Some(value.into());
-        self
-    }
-
+    /// Set side (PayProtection or ReceiveProtection) (required)
     pub fn side(mut self, value: PayReceive) -> Self {
         self.side = Some(value);
         self
     }
 
-    pub fn convention(mut self, value: CDSConvention) -> Self {
-        self.convention = Some(value);
-        self
-    }
-
-    pub fn start(mut self, value: Date) -> Self {
-        self.start = Some(value);
-        self
-    }
-
-    pub fn end(mut self, value: Date) -> Self {
-        self.end = Some(value);
-        self
-    }
-
+    /// Set CDS spread in basis points (required)
     pub fn spread_bp(mut self, value: F) -> Self {
         self.spread_bp = Some(value);
         self
     }
 
-    pub fn credit_id(mut self, value: &'static str) -> Self {
-        self.credit_id = Some(value);
+    /// Set credit parameters (required)
+    pub fn credit_params(mut self, value: CreditParams) -> Self {
+        self.credit_params = Some(value);
         self
     }
 
-    pub fn recovery_rate(mut self, value: F) -> Self {
-        self.recovery_rate = Some(value);
+    /// Set date range (required)
+    pub fn date_range(mut self, value: DateRange) -> Self {
+        self.date_range = Some(value);
         self
     }
 
-    pub fn disc_id(mut self, value: &'static str) -> Self {
-        self.disc_id = Some(value);
+    /// Set dates directly
+    pub fn dates(mut self, start: Date, end: Date) -> Self {
+        self.date_range = Some(DateRange::new(start, end));
         self
     }
 
+    /// Set date range from tenor
+    pub fn tenor(mut self, start: Date, tenor_years: F) -> Self {
+        self.date_range = Some(DateRange::from_tenor(start, tenor_years));
+        self
+    }
+
+    /// Set market data references (required)
+    pub fn market_refs(mut self, value: MarketRefs) -> Self {
+        self.market_refs = Some(value);
+        self
+    }
+
+    /// Set ISDA convention (optional, defaults to IsdaNa)
+    pub fn convention(mut self, value: CDSConvention) -> Self {
+        self.convention = Some(value);
+        self
+    }
+
+    /// Set pricing overrides (optional)
+    pub fn pricing_overrides(mut self, value: PricingOverrides) -> Self {
+        self.pricing_overrides = Some(value);
+        self
+    }
+
+    /// Convenience: Set upfront payment
     pub fn upfront(mut self, value: Money) -> Self {
-        self.upfront = Some(value);
+        self.pricing_overrides = Some(
+            self.pricing_overrides
+                .unwrap_or_default()
+                .with_upfront(value)
+        );
         self
     }
 
+    /// Build the Credit Default Swap
     pub fn build(self) -> finstack_core::Result<CreditDefaultSwap> {
-        let id = self
-            .id
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        let notional = self
-            .notional
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        let reference_entity = self
-            .reference_entity
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        let side = self
-            .side
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        let convention = self
-            .convention
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        let start = self
-            .start
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        let end = self
-            .end
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        let spread_bp = self
-            .spread_bp
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        let credit_id = self
-            .credit_id
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        let recovery_rate = self
-            .recovery_rate
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        let disc_id = self
-            .disc_id
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        // Validate required fields
+        let id = self.id.ok_or_else(|| {
+            finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                id: "cds_id".to_string(),
+            })
+        })?;
+        let notional = self.notional.ok_or_else(|| {
+            finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                id: "cds_notional".to_string(),
+            })
+        })?;
+        let side = self.side.ok_or_else(|| {
+            finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                id: "cds_side".to_string(),
+            })
+        })?;
+        let spread_bp = self.spread_bp.ok_or_else(|| {
+            finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                id: "cds_spread".to_string(),
+            })
+        })?;
+        let credit_params = self.credit_params.ok_or_else(|| {
+            finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                id: "credit_params".to_string(),
+            })
+        })?;
+        let date_range = self.date_range.ok_or_else(|| {
+            finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                id: "cds_dates".to_string(),
+            })
+        })?;
+        let market_refs = self.market_refs.ok_or_else(|| {
+            finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                id: "market_refs".to_string(),
+            })
+        })?;
+
+        // Use provided convention or default to ISDA NA
+        let convention = self.convention.unwrap_or(CDSConvention::IsdaNa);
+        let pricing = self.pricing_overrides.unwrap_or_default();
 
         let mut cds = CreditDefaultSwap::new_isda(
             id,
             notional,
-            reference_entity,
+            credit_params.reference_entity,
             side,
             convention,
-            start,
-            end,
+            date_range.start,
+            date_range.end,
             spread_bp,
-            credit_id,
-            recovery_rate,
-            disc_id,
+            credit_params.credit_id,
+            credit_params.recovery_rate,
+            market_refs.disc_id,
         );
 
-        // Set optional upfront payment
-        cds.upfront = self.upfront;
+        // Set optional upfront payment from pricing overrides
+        cds.upfront = pricing.upfront_payment;
 
         Ok(cds)
     }

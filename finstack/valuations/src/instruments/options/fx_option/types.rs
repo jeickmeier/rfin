@@ -31,6 +31,71 @@ pub struct FxOption {
 }
 
 impl FxOption {
+    /// Create a new FX option builder
+    pub fn builder() -> super::builder::FxOptionBuilder {
+        super::builder::FxOptionBuilder::new()
+    }
+
+    /// Create a European call option on an FX pair with standard conventions.
+    pub fn european_call(
+        id: impl Into<String>,
+        base_currency: Currency,
+        quote_currency: Currency,
+        strike: F,
+        expiry: Date,
+        notional: Money,
+    ) -> Self {
+        use crate::instruments::common::{FxUnderlyingParams, OptionParams};
+
+        let fx_underlying = if quote_currency == Currency::USD && base_currency == Currency::EUR {
+            FxUnderlyingParams::usd_eur()
+        } else if quote_currency == Currency::USD && base_currency == Currency::GBP {
+            FxUnderlyingParams::gbp_usd()
+        } else {
+            // Fallback for other pairs - use USD for both curves
+            FxUnderlyingParams::new(base_currency, quote_currency, "USD-OIS", "USD-OIS")
+        };
+        let option_params = OptionParams::european_call(strike, expiry);
+
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .fx_underlying(fx_underlying)
+            .option_params(option_params)
+            .build()
+            .expect("FX European call construction should not fail")
+    }
+
+    /// Create a European put option on an FX pair with standard conventions.
+    pub fn european_put(
+        id: impl Into<String>,
+        base_currency: Currency,
+        quote_currency: Currency,
+        strike: F,
+        expiry: Date,
+        notional: Money,
+    ) -> Self {
+        use crate::instruments::common::{FxUnderlyingParams, OptionParams};
+
+        let fx_underlying = if quote_currency == Currency::USD && base_currency == Currency::EUR {
+            FxUnderlyingParams::usd_eur()
+        } else if quote_currency == Currency::USD && base_currency == Currency::GBP {
+            FxUnderlyingParams::gbp_usd()
+        } else {
+            // Fallback for other pairs - use USD for both curves
+            FxUnderlyingParams::new(base_currency, quote_currency, "USD-OIS", "USD-OIS")
+        };
+        let option_params = OptionParams::european_put(strike, expiry);
+
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .fx_underlying(fx_underlying)
+            .option_params(option_params)
+            .build()
+            .expect("FX European put construction should not fail")
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: impl Into<String>,

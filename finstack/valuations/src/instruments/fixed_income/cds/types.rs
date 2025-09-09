@@ -134,6 +134,88 @@ impl CreditDefaultSwap {
         crate::instruments::fixed_income::cds::mod_cds::CDSBuilder::new()
     }
 
+    /// Create a standard CDS with ISDA conventions (buy protection).
+    pub fn buy_protection(
+        id: impl Into<String>,
+        reference_entity: impl Into<String>,
+        notional: Money,
+        spread_bp: F,
+        start: Date,
+        maturity: Date,
+    ) -> Self {
+        use crate::instruments::common::{CreditParams, DateRange, MarketRefs};
+
+        let credit_params = CreditParams::investment_grade(reference_entity, "CREDIT-CURVE");
+        let date_range = DateRange::new(start, maturity);
+        let market_refs = MarketRefs::credit("USD-OIS", "CREDIT-CURVE");
+
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .side(PayReceive::PayProtection)
+            .spread_bp(spread_bp)
+            .credit_params(credit_params)
+            .date_range(date_range)
+            .market_refs(market_refs)
+            .build()
+            .expect("CDS buy protection construction should not fail")
+    }
+
+    /// Create a standard CDS with ISDA conventions (sell protection).
+    pub fn sell_protection(
+        id: impl Into<String>,
+        reference_entity: impl Into<String>,
+        notional: Money,
+        spread_bp: F,
+        start: Date,
+        maturity: Date,
+    ) -> Self {
+        use crate::instruments::common::{CreditParams, DateRange, MarketRefs};
+
+        let credit_params = CreditParams::investment_grade(reference_entity, "CREDIT-CURVE");
+        let date_range = DateRange::new(start, maturity);
+        let market_refs = MarketRefs::credit("USD-OIS", "CREDIT-CURVE");
+
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .side(PayReceive::ReceiveProtection)
+            .spread_bp(spread_bp)
+            .credit_params(credit_params)
+            .date_range(date_range)
+            .market_refs(market_refs)
+            .build()
+            .expect("CDS sell protection construction should not fail")
+    }
+
+    /// Create a high-yield CDS with tighter recovery assumptions.
+    pub fn high_yield(
+        id: impl Into<String>,
+        reference_entity: impl Into<String>,
+        notional: Money,
+        spread_bp: F,
+        start: Date,
+        maturity: Date,
+        side: PayReceive,
+    ) -> Self {
+        use crate::instruments::common::{CreditParams, DateRange, MarketRefs};
+
+        let credit_params = CreditParams::high_yield(reference_entity, "CREDIT-CURVE");
+        let date_range = DateRange::new(start, maturity);
+        let market_refs = MarketRefs::credit("USD-OIS", "CREDIT-CURVE");
+
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .side(side)
+            .spread_bp(spread_bp)
+            .credit_params(credit_params)
+            .date_range(date_range)
+            .market_refs(market_refs)
+            .build()
+            .expect("High yield CDS construction should not fail")
+    }
+
     /// Create a new CDS with standard ISDA conventions
     #[allow(clippy::too_many_arguments)]
     pub fn new_isda(

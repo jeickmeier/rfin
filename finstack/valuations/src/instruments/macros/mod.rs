@@ -123,9 +123,10 @@ macro_rules! impl_instrument_schedule_pv {
     };
 }
 
-/// Generate builder pattern for an instrument.
+/// Generate builder pattern for an instrument (legacy version).
 ///
 /// Creates a builder struct with setter methods for all fields.
+/// This is kept for backwards compatibility - prefer `impl_enhanced_builder!` for new code.
 #[macro_export]
 macro_rules! impl_builder {
     (
@@ -178,6 +179,154 @@ macro_rules! impl_builder {
         impl $type {
             pub fn builder() -> $builder {
                 $builder::new()
+            }
+        }
+    };
+}
+
+/// Enhanced builder macro that supports parameter groups and compile-time safety.
+///
+/// This macro generates builders with:
+/// - Required core parameters (compile-time checked)
+/// - Parameter groups for logical collections
+/// - Optional individual fields for flexibility
+/// - Convenience methods for common patterns
+#[macro_export]
+macro_rules! impl_enhanced_builder {
+    (
+        $type:ident,
+        $builder:ident,
+        core: [$($core_field:ident: $core_type:ty),* $(,)?],
+        $(groups: [$($group_field:ident: $group_type:ty),* $(,)?],)?
+        $(optional: [$($opt_field:ident: $opt_type:ty),* $(,)?])?
+    ) => {
+        /// Enhanced builder with parameter groups and compile-time safety
+        #[derive(Default)]
+        pub struct $builder {
+            // Core required fields
+            $($core_field: Option<$core_type>,)*
+            // Parameter groups (if any)
+            $($($group_field: Option<$group_type>,)*)?
+            // Optional individual fields (if any)
+            $($($opt_field: Option<$opt_type>,)*)?
+        }
+
+        impl $builder {
+            /// Create a new builder
+            pub fn new() -> Self {
+                Self::default()
+            }
+
+            // Core field setters (required)
+            $(
+                pub fn $core_field(mut self, value: $core_type) -> Self {
+                    self.$core_field = Some(value);
+                    self
+                }
+            )*
+
+            // Parameter group setters (if any)
+            $($(
+                pub fn $group_field(mut self, value: $group_type) -> Self {
+                    self.$group_field = Some(value);
+                    self
+                }
+            )*)?
+
+            // Optional field setters (if any)
+            $($(
+                pub fn $opt_field(mut self, value: $opt_type) -> Self {
+                    self.$opt_field = Some(value);
+                    self
+                }
+            )*)?
+
+            /// Validate that all required fields are present
+            ///
+            /// This method provides compile-time-like checking at runtime,
+            /// giving clear error messages about missing required fields.
+            fn validate_required(&self) -> finstack_core::Result<()> {
+                $(
+                    if self.$core_field.is_none() {
+                        return Err(finstack_core::Error::Input(
+                            finstack_core::error::InputError::Invalid
+                        ));
+                    }
+                )*
+                Ok(())
+            }
+        }
+
+        impl $type {
+            /// Create a new enhanced builder
+            pub fn builder() -> $builder {
+                $builder::new()
+            }
+        }
+    };
+}
+
+/// Macro for generating convenience constructor methods.
+///
+/// Creates static methods for common instrument patterns, reducing the need
+/// for builder pattern in simple cases.
+#[macro_export]
+macro_rules! impl_convenience_constructors {
+    (
+        $type:ident {
+            $(
+                $method:ident($($param:ident: $param_type:ty),* $(,)?) => $constructor:expr
+            ),* $(,)?
+        }
+    ) => {
+        impl $type {
+            $(
+                /// Convenience constructor
+                pub fn $method($($param: $param_type),*) -> Self {
+                    $constructor
+                }
+            )*
+        }
+    };
+}
+
+/// Macro for generating builder methods that work with parameter groups.
+///
+/// Provides commonly needed builder enhancement methods.
+#[macro_export]
+macro_rules! impl_builder_enhancements {
+    ($builder:ident) => {
+        impl $builder {
+            /// Quick setup for USD market standard parameters
+            pub fn usd_standard(
+                mut self,
+                disc_id: &'static str,
+            ) -> Self {
+                self.market_refs = Some($crate::instruments::common::MarketRefs::discount_only(disc_id));
+                self.schedule_params = Some($crate::instruments::common::InstrumentScheduleParams::usd_standard());
+                self
+            }
+
+            /// Quick setup for EUR market standard parameters
+            pub fn eur_standard(
+                mut self,
+                disc_id: &'static str,
+            ) -> Self {
+                self.market_refs = Some($crate::instruments::common::MarketRefs::discount_only(disc_id));
+                self.schedule_params = Some($crate::instruments::common::InstrumentScheduleParams::eur_standard());
+                self
+            }
+
+            /// Add date range for instruments with start/end dates
+            pub fn date_range(mut self, start: finstack_core::dates::Date, end: finstack_core::dates::Date) -> Self {
+                self.date_range = Some($crate::instruments::common::DateRange::new(start, end));
+                self
+            }
+
+            /// Add date range from tenor
+            pub fn tenor(mut self, start: finstack_core::dates::Date, tenor_years: finstack_core::F) -> Self {
+                self.date_range = Some($crate::instruments::common::DateRange::from_tenor(start, tenor_years));
+                self
             }
         }
     };

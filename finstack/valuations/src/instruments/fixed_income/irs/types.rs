@@ -99,6 +99,74 @@ impl InterestRateSwap {
         crate::instruments::fixed_income::irs::mod_irs::IRSBuilder::new()
     }
 
+    /// Create a standard USD pay-fixed swap with common market conventions.
+    ///
+    /// This convenience constructor eliminates the need for a builder in the most common case.
+    pub fn usd_pay_fixed(
+        id: impl Into<String>,
+        notional: Money,
+        fixed_rate: F,
+        start: Date,
+        end: Date,
+    ) -> Self {
+        use crate::instruments::common::InstrumentScheduleParams;
+        
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .side(PayReceive::PayFixed)
+            .dates(start, end)
+            .standard_fixed_leg("USD-OIS", fixed_rate, InstrumentScheduleParams::usd_standard())
+            .standard_float_leg("USD-OIS", "USD-SOFR-3M", 0.0, InstrumentScheduleParams::usd_standard())
+            .build()
+            .expect("USD pay-fixed swap construction should not fail")
+    }
+
+    /// Create a standard USD receive-fixed swap with common market conventions.
+    pub fn usd_receive_fixed(
+        id: impl Into<String>,
+        notional: Money,
+        fixed_rate: F,
+        start: Date,
+        end: Date,
+    ) -> Self {
+        use crate::instruments::common::InstrumentScheduleParams;
+        
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .side(PayReceive::ReceiveFixed)
+            .dates(start, end)
+            .standard_fixed_leg("USD-OIS", fixed_rate, InstrumentScheduleParams::usd_standard())
+            .standard_float_leg("USD-OIS", "USD-SOFR-3M", 0.0, InstrumentScheduleParams::usd_standard())
+            .build()
+            .expect("USD receive-fixed swap construction should not fail")
+    }
+
+    /// Create a basis swap (float vs float with different indices/spreads).
+    pub fn usd_basis_swap(
+        id: impl Into<String>,
+        notional: Money,
+        start: Date,
+        end: Date,
+        primary_spread_bp: F,   // Spread on the "fixed" leg (really floating)
+        reference_spread_bp: F, // Spread on the "float" leg
+    ) -> Self {
+        use crate::instruments::common::InstrumentScheduleParams;
+        
+        // Use the "fixed" leg for primary index and "float" leg for reference
+        // This is a modeling convenience - both are actually floating
+        Self::builder()
+            .id(id)
+            .notional(notional)
+            .side(PayReceive::PayFixed) // Convention: pay primary, receive reference
+            .dates(start, end)
+            .standard_float_leg("USD-OIS", "USD-SOFR-3M", primary_spread_bp, InstrumentScheduleParams::usd_standard())
+            .standard_float_leg("USD-OIS", "USD-SOFR-6M", reference_spread_bp, InstrumentScheduleParams::usd_standard())
+            .build()
+            .expect("USD basis swap construction should not fail")
+    }
+
     /// Compute PV of fixed leg (helper for value calculation).
     fn pv_fixed_leg(&self, disc: &dyn Discount) -> finstack_core::Result<Money> {
         let base = disc.base_date();
