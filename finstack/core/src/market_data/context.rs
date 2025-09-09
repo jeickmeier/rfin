@@ -1274,6 +1274,230 @@ mod bump_tests {
     }
 
     #[test]
+    fn test_inflation_index_bump() {
+        use crate::currency::Currency;
+        use time::Month;
+
+        // Build a small CPI index
+        let observations = vec![
+            (
+                Date::from_calendar_date(2025, Month::January, 31).unwrap(),
+                300.0,
+            ),
+            (
+                Date::from_calendar_date(2025, Month::February, 28).unwrap(),
+                303.0,
+            ),
+        ];
+        let index = crate::market_data::inflation_index::InflationIndex::new(
+            "US-CPI",
+            observations,
+            Currency::USD,
+        )
+        .unwrap();
+
+        let context = MarketContext::new().insert_inflation_index("US-CPI", index);
+
+        // Baseline value
+        let orig = context
+            .inflation_index("US-CPI")
+            .expect("existing index");
+        let date = Date::from_calendar_date(2025, Month::February, 28).unwrap();
+        let orig_val = orig.value_on(date).unwrap();
+
+        // Apply +2% bump to the index
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(CurveId::new("US-CPI"), BumpSpec::inflation_shift_pct(2.0));
+        let bumped = context.bump(bumps).unwrap();
+
+        let bumped_idx = bumped
+            .inflation_index("US-CPI_infl_2.0pct")
+            .expect("bumped index present");
+        let bumped_val = bumped_idx.value_on(date).unwrap();
+
+        let expected = orig_val * 1.02;
+        assert!((bumped_val - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_scalar_time_series_bump() {
+        use time::Month;
+
+        let d0 = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let d1 = Date::from_calendar_date(2025, Month::February, 1).unwrap();
+        let s = ScalarTimeSeries::new("SERIES_A", vec![(d0, 1.0), (d1, 2.0)], None).unwrap();
+
+        let context = MarketContext::new().insert_series(s);
+
+        // Baseline
+        let orig = context.series("SERIES_A").unwrap();
+        let orig_v = orig.value_on(d0).unwrap();
+
+        // Additive 100bp → +0.01
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(CurveId::new("SERIES_A"), BumpSpec::parallel_bp(100.0));
+        let bumped = context.bump(bumps).unwrap();
+        let bumped_series = bumped.series("SERIES_A_shift_100bp").unwrap();
+        let bumped_v = bumped_series.value_on(d0).unwrap();
+
+        assert!((bumped_v - (orig_v + 0.01)).abs() < 1e-12);
+
+        // Multiplicative 20% → ×1.2
+        let mut bumps2 = hashbrown::HashMap::new();
+        bumps2.insert(CurveId::new("SERIES_A"), BumpSpec::multiplier(1.2));
+        let bumped2 = context.bump(bumps2).unwrap();
+        let bumped_series2 = bumped2.series("SERIES_A_mult_1.20").unwrap();
+        let bumped_v2 = bumped_series2.value_on(d0).unwrap();
+        assert!((bumped_v2 - (orig_v * 1.2)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_fx_base_currency_bump() {
+        use crate::currency::Currency;
+        use crate::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
+        use alloc::sync::Arc;
+        use hashbrown::HashMap as HbMap;
+        use time::Month;
+
+        // Minimal mock provider with USD pivot quotes
+        struct MockFxProvider {
+            rates: HbMap<(Currency, Currency), f64>,
+        }
+        impl FxProvider for MockFxProvider {
+            fn rate(
+                &self,
+                from: Currency,
+                to: Currency,
+                _on: Date,
+                _policy: FxConversionPolicy,
+            ) -> crate::Result<f64> {
+                self.rates
+                    .get(&(from, to))
+                    .copied()
+                    .ok_or(crate::Error::Internal)
+            }
+        }
+
+        let mut rates = HbMap::new();
+        // USD weakness test: define base quotes
+        rates.insert((Currency::USD, Currency::EUR), 0.90);
+        rates.insert((Currency::EUR, Currency::USD), 1.10);
+        rates.insert((Currency::USD, Currency::JPY), 110.0);
+        rates.insert((Currency::JPY, Currency::USD), 0.0091);
+
+        let provider = Arc::new(MockFxProvider { rates });
+        let fx = FxMatrix::new(provider);
+        let context = MarketContext::new().insert_fx(fx);
+
+        let on = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let policy = FxConversionPolicy::CashflowDate;
+
+        // Record original USD→EUR, EUR→USD rates
+        let orig_usd_eur = context
+            .fx
+            .as_ref()
+            .unwrap()
+            .rate(crate::money::fx::FxQuery {
+                from: Currency::USD,
+                to: Currency::EUR,
+                on,
+                policy,
+                closure_check: None,
+                want_meta: false,
+            })
+            .unwrap()
+            .rate;
+        let orig_eur_usd = context
+            .fx
+            .as_ref()
+            .unwrap()
+            .rate(crate::money::fx::FxQuery {
+                from: Currency::EUR,
+                to: Currency::USD,
+                on,
+                policy,
+                closure_check: None,
+                want_meta: false,
+            })
+            .unwrap()
+            .rate;
+
+        // Weaken USD by 10% → base→other ×1.1, other→base ÷1.1
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(CurveId::new("USD"), BumpSpec::multiplier(1.1));
+        let bumped = context.bump(bumps).unwrap();
+        let bumped_fx = bumped.fx.as_ref().expect("bumped fx present");
+
+        let usd_eur = bumped_fx
+            .rate(crate::money::fx::FxQuery {
+                from: Currency::USD,
+                to: Currency::EUR,
+                on,
+                policy,
+                closure_check: None,
+                want_meta: false,
+            })
+            .unwrap()
+            .rate;
+        let eur_usd = bumped_fx
+            .rate(crate::money::fx::FxQuery {
+                from: Currency::EUR,
+                to: Currency::USD,
+                on,
+                policy,
+                closure_check: None,
+                want_meta: false,
+            })
+            .unwrap()
+            .rate;
+
+        assert!((usd_eur - orig_usd_eur * 1.1).abs() < 1e-12);
+        assert!((eur_usd - orig_eur_usd / 1.1).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_credit_index_bump() {
+        // Build base hazard and base correlation curves using helpers
+        let hazard_curve = test_hazard_curve();
+        let base_corr = test_base_correlation_curve();
+
+        let index = crate::market_data::credit_index::CreditIndexData::builder()
+            .num_constituents(125)
+            .recovery_rate(0.40)
+            .index_credit_curve(Arc::new(hazard_curve))
+            .base_correlation_curve(Arc::new(base_corr))
+            .build()
+            .unwrap();
+
+        let context = MarketContext::new().insert_credit_index("CDX.NA.IG.42", index);
+
+        // Apply +25bp hazard (spread) and +5% correlation bumps
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(
+            CurveId::new("CDX.NA.IG.42"),
+            BumpSpec::spread_shift_bp(25.0),
+        );
+        let bumped_spread = context.bump(bumps).unwrap();
+        assert!(
+            bumped_spread
+                .credit_index("CDX.NA.IG.42_spread_25bp")
+                .is_ok()
+        );
+
+        let mut bumps2 = hashbrown::HashMap::new();
+        bumps2.insert(
+            CurveId::new("CDX.NA.IG.42"),
+            BumpSpec::correlation_shift_pct(5.0),
+        );
+        let bumped_corr = context.bump(bumps2).unwrap();
+        assert!(
+            bumped_corr
+                .credit_index("CDX.NA.IG.42_corr_5.0pct")
+                .is_ok()
+        );
+    }
+
+    #[test]
     fn test_comprehensive_multi_curve_bump() {
         let disc_curve = test_discount_curve();
         let hazard_curve = test_hazard_curve();
