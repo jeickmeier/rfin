@@ -190,45 +190,14 @@ impl FxMatrix {
                 pivot_currency: None,
                 closure: None,
             };
-
-            // Identity closure check is trivial if requested
-            if let Some(mid) = query.closure_check {
-                if query.want_meta {
-                    let via_a = self
-                        .rate(FxQuery {
-                            from,
-                            to: mid,
-                            on,
-                            policy,
-                            closure_check: None,
-                            want_meta: false,
-                        })?
-                        .rate;
-                    let via_b = self
-                        .rate(FxQuery {
-                            from: mid,
-                            to,
-                            on,
-                            policy,
-                            closure_check: None,
-                            want_meta: false,
-                        })?
-                        .rate;
-                    result.closure = Some(self.check_closure(rate, via_a, via_b)?);
-                }
-            }
+            // Compute optional closure metadata via helper for consistency
+            result.closure = self.compute_closure_result(&query, rate)?;
             return Ok(result);
         }
 
         // Prefer explicitly seeded quotes (or their reciprocal) before provider/triangulation.
-        // Take a single lock to read both directions, then drop before any recursive calls.
-        let (direct_opt, reciprocal_opt) = {
-            let quotes = self.quotes.lock();
-            (
-                quotes.get(&Pair(from, to)).copied(),
-                quotes.get(&Pair(to, from)).copied(),
-            )
-        };
+        // Read both directions under a single lock, then drop before any recursive calls.
+        let (direct_opt, reciprocal_opt) = self.read_cached_pair_bidir(from, to);
 
         if let Some(rate) = direct_opt {
             let mut result = FxRateResult {
@@ -359,13 +328,7 @@ impl FxMatrix {
             return Ok(1.0);
         }
         // Read both direct and reciprocal under a single lock, then drop before any further work
-        let (direct_opt, reciprocal_opt) = {
-            let quotes = self.quotes.lock();
-            (
-                quotes.get(&Pair(from, to)).copied(),
-                quotes.get(&Pair(to, from)).copied(),
-            )
-        };
+        let (direct_opt, reciprocal_opt) = self.read_cached_pair_bidir(from, to);
         // 1) Explicit quote wins
         if let Some(r) = direct_opt {
             return Ok(r);
@@ -386,6 +349,20 @@ impl FxMatrix {
         let r = self.provider.rate(from, to, on, policy)?;
         self.insert_quote(from, to, r);
         Ok(r)
+    }
+
+    /// Read direct and reciprocal cached quotes for a pair under a single lock.
+    #[inline]
+    fn read_cached_pair_bidir(
+        &self,
+        from: Currency,
+        to: Currency,
+    ) -> (Option<FxRate>, Option<FxRate>) {
+        let quotes = self.quotes.lock();
+        (
+            quotes.get(&Pair(from, to)).copied(),
+            quotes.get(&Pair(to, from)).copied(),
+        )
     }
 
     fn check_closure(
