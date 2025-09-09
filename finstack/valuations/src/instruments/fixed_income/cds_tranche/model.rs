@@ -38,7 +38,7 @@
 
 use crate::cashflow::builder::schedule_utils::build_dates;
 use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
-use crate::market_data::{CreditIndexData, ValuationMarketContext};
+use finstack_core::market_data::{CreditIndexData, MarketContext};
 use finstack_core::dates::{Date, StubKind};
 use finstack_core::market_data::traits::Discount;
 use finstack_core::math::binomial_probability;
@@ -120,22 +120,30 @@ impl GaussianCopulaModel {
     pub fn price_tranche(
         &self,
         tranche: &CdsTranche,
-        market_ctx: &ValuationMarketContext,
+        market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<Money> {
         // Get the credit index data
-        let index_data = market_ctx.get_credit_index(tranche.credit_index_id)?;
+        let index_data_arc = market_ctx.credit_index(tranche.credit_index_id)?;
 
         // Get the discount curve
         let discount_curve = market_ctx.disc(tranche.disc_id)?;
 
         // Calculate present values of premium and protection legs
         // These now calculate the EL curve internally with proper time dependency
-        let pv_premium =
-            self.calculate_premium_leg_pv(tranche, index_data, discount_curve.as_ref(), as_of)?;
+        let pv_premium = self.calculate_premium_leg_pv(
+            tranche,
+            &index_data_arc,
+            discount_curve.as_ref(),
+            as_of,
+        )?;
 
-        let pv_protection =
-            self.calculate_protection_leg_pv(tranche, index_data, discount_curve.as_ref(), as_of)?;
+        let pv_protection = self.calculate_protection_leg_pv(
+            tranche,
+            &index_data_arc,
+            discount_curve.as_ref(),
+            as_of,
+        )?;
 
         // Net present value depends on the side
         let net_pv = match tranche.side {
@@ -675,7 +683,7 @@ impl GaussianCopulaModel {
     pub fn calculate_upfront(
         &self,
         tranche: &CdsTranche,
-        market_ctx: &ValuationMarketContext,
+        market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<F> {
         let pv = self.price_tranche(tranche, market_ctx, as_of)?;
@@ -686,7 +694,7 @@ impl GaussianCopulaModel {
     pub fn calculate_spread_dv01(
         &self,
         tranche: &CdsTranche,
-        market_ctx: &ValuationMarketContext,
+        market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<F> {
         // Create bumped tranche with +1bp running coupon
@@ -705,17 +713,17 @@ impl GaussianCopulaModel {
     pub fn calculate_expected_loss(
         &self,
         tranche: &CdsTranche,
-        market_ctx: &ValuationMarketContext,
+        market_ctx: &MarketContext,
     ) -> Result<F> {
-        let index_data = market_ctx.get_credit_index(tranche.credit_index_id)?;
-        self.calculate_expected_tranche_loss(tranche, index_data, tranche.maturity)
+        let index_data_arc = market_ctx.credit_index(tranche.credit_index_id)?;
+        self.calculate_expected_tranche_loss(tranche, &index_data_arc, tranche.maturity)
     }
 
     /// Calculate CS01 (sensitivity to 1bp parallel shift in credit spreads).
     pub fn calculate_cs01(
         &self,
         tranche: &CdsTranche,
-        market_ctx: &ValuationMarketContext,
+        market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<F> {
         // Get base price
@@ -723,12 +731,13 @@ impl GaussianCopulaModel {
 
         // Create bumped market context with hazard rates shifted by configured amount
         let delta_lambda = self.params.cs01_hazard_bump;
-        let original_index = market_ctx.get_credit_index(tranche.credit_index_id)?;
-        let bumped_index = self.bump_index_hazard(original_index, delta_lambda)?;
+        let original_index_arc = market_ctx.credit_index(tranche.credit_index_id)?;
+        let bumped_index = self.bump_index_hazard(&original_index_arc, delta_lambda)?;
 
         // Create new market context with bumped credit index
-        let bumped_market_ctx = ValuationMarketContext::from_core(market_ctx.core.clone())
-            .with_credit_index(tranche.credit_index_id, bumped_index);
+        let bumped_market_ctx = market_ctx
+            .clone()
+            .insert_credit_index(tranche.credit_index_id, bumped_index);
 
         // Calculate bumped price
         let bumped_pv = self
@@ -743,7 +752,7 @@ impl GaussianCopulaModel {
     pub fn calculate_correlation_delta(
         &self,
         tranche: &CdsTranche,
-        market_ctx: &ValuationMarketContext,
+        market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<F> {
         // Get base price
@@ -751,21 +760,22 @@ impl GaussianCopulaModel {
 
         // Create bumped market context with base correlation shifted by configured amount
         let bump_abs = self.params.corr_bump_abs;
-        let original_index = market_ctx.get_credit_index(tranche.credit_index_id)?;
+        let original_index_arc = market_ctx.credit_index(tranche.credit_index_id)?;
         let bumped_corr_curve =
-            self.bump_base_correlation(&original_index.base_correlation_curve, bump_abs)?;
+            self.bump_base_correlation(&original_index_arc.base_correlation_curve, bump_abs)?;
 
         // Create new credit index data with bumped correlation curve
         let bumped_index = CreditIndexData::builder()
-            .num_constituents(original_index.num_constituents)
-            .recovery_rate(original_index.recovery_rate)
-            .index_credit_curve(original_index.index_credit_curve.clone())
+            .num_constituents(original_index_arc.num_constituents)
+            .recovery_rate(original_index_arc.recovery_rate)
+            .index_credit_curve(original_index_arc.index_credit_curve.clone())
             .base_correlation_curve(std::sync::Arc::new(bumped_corr_curve))
             .build()?;
 
         // Create new market context with bumped credit index
-        let bumped_market_ctx = ValuationMarketContext::from_core(market_ctx.core.clone())
-            .with_credit_index(tranche.credit_index_id, bumped_index);
+        let bumped_market_ctx = market_ctx
+            .clone()
+            .insert_credit_index(tranche.credit_index_id, bumped_index);
 
         // Calculate bumped price
         let bumped_pv = self
@@ -783,10 +793,10 @@ impl GaussianCopulaModel {
     pub fn calculate_jump_to_default(
         &self,
         tranche: &CdsTranche,
-        market_ctx: &ValuationMarketContext,
+        market_ctx: &MarketContext,
         _as_of: Date,
     ) -> Result<F> {
-        let index_data = market_ctx.get_credit_index(tranche.credit_index_id)?;
+        let index_data = market_ctx.credit_index(tranche.credit_index_id)?;
 
         // For homogeneous pool, one name default impact
         let individual_weight = 1.0 / (index_data.num_constituents as F); // Portfolio weight per name
@@ -823,7 +833,7 @@ impl GaussianCopulaModel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::market_data::credit_index::CreditIndexData;
+    use finstack_core::market_data::CreditIndexData;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::{
@@ -833,7 +843,7 @@ mod tests {
     use std::sync::Arc;
     use time::Month;
 
-    fn sample_market_context() -> ValuationMarketContext {
+    fn sample_market_context() -> MarketContext {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
         // Create discount curve
@@ -874,9 +884,9 @@ mod tests {
             .build()
             .unwrap();
 
-        ValuationMarketContext::new()
+        MarketContext::new()
             .insert_discount(discount_curve)
-            .with_credit_index("CDX.NA.IG.42", index_data)
+            .insert_credit_index("CDX.NA.IG.42", index_data)
     }
 
     fn sample_tranche() -> CdsTranche {
@@ -1019,10 +1029,10 @@ mod tests {
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
         let schedule = model.generate_payment_schedule(&tranche, as_of).unwrap();
-        let index_data = market_ctx
-            .get_credit_index(tranche.credit_index_id)
+        let index_data_arc = market_ctx
+            .credit_index(tranche.credit_index_id)
             .unwrap();
-        let el_curve = model.build_el_curve(&tranche, index_data, &schedule);
+        let el_curve = model.build_el_curve(&tranche, &index_data_arc, &schedule);
 
         assert!(el_curve.is_ok());
         let curve = el_curve.unwrap();
@@ -1106,16 +1116,16 @@ mod tests {
         let tranche = sample_tranche();
         let market_ctx = sample_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let index_data = market_ctx
-            .get_credit_index(tranche.credit_index_id)
+        let index_data_arc = market_ctx
+            .credit_index(tranche.credit_index_id)
             .unwrap();
         let discount_curve = market_ctx.disc(tranche.disc_id).unwrap();
 
         // Calculate individual leg PVs
         let pv_premium =
-            model.calculate_premium_leg_pv(&tranche, index_data, discount_curve.as_ref(), as_of);
+            model.calculate_premium_leg_pv(&tranche, &index_data_arc, discount_curve.as_ref(), as_of);
         let pv_protection =
-            model.calculate_protection_leg_pv(&tranche, index_data, discount_curve.as_ref(), as_of);
+            model.calculate_protection_leg_pv(&tranche, &index_data_arc, discount_curve.as_ref(), as_of);
 
         assert!(pv_premium.is_ok());
         assert!(pv_protection.is_ok());
@@ -1134,7 +1144,7 @@ mod tests {
         let model = GaussianCopulaModel::new();
         let market_ctx = sample_market_context();
         let _as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let index_data = market_ctx.get_credit_index("CDX.NA.IG.42").unwrap();
+        let index_data_arc = market_ctx.credit_index("CDX.NA.IG.42").unwrap();
 
         // Test extreme correlation values that are challenging for numerical stability
         let extreme_correlations = [1e-10, 1e-6, 0.001, 0.999, 1.0 - 1e-6, 1.0 - 1e-10];
@@ -1159,7 +1169,7 @@ mod tests {
             let extreme_index_data = CreditIndexData::builder()
                 .num_constituents(125)
                 .recovery_rate(0.40)
-                .index_credit_curve(index_data.index_credit_curve.clone())
+                .index_credit_curve(index_data_arc.index_credit_curve.clone())
                 .base_correlation_curve(std::sync::Arc::new(extreme_corr_curve))
                 .build()
                 .unwrap();

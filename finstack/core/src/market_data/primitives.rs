@@ -117,6 +117,11 @@ impl ScalarTimeSeries {
         self.currency
     }
 
+    /// Current interpolation method accessor.
+    pub fn interpolation(&self) -> SeriesInterpolation {
+        self.interpolation
+    }
+
     /// Retrieve value on a given date according to the selected interpolation.
     pub fn value_on(&self, date: Date) -> Result<crate::F> {
         let days = crate::dates::utils::date_to_days_since_epoch(date);

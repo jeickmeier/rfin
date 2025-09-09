@@ -1,7 +1,7 @@
 //! Prepayment schedules and penalty structures for loans.
 
 use crate::instruments::fixed_income::discountable::Discountable;
-use crate::market_data::context::ValuationMarketContext;
+use finstack_core::market_data::MarketContext;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::traits::{Discount, TermStructure};
 use finstack_core::money::Money;
@@ -244,7 +244,7 @@ impl PrepaymentSchedule {
         amount: Money,
         outstanding_principal: Money,
         remaining_flows: &[(Date, Money)],
-        market: &ValuationMarketContext,
+        market: &MarketContext,
         day_count: DayCount,
     ) -> finstack_core::Result<Money> {
         if !self.is_prepayment_allowed(date) {
@@ -299,7 +299,7 @@ impl PrepaymentSchedule {
         prepay_amount: Money,
         outstanding_principal: Money,
         remaining_flows: &[(Date, Money)],
-        market: &ValuationMarketContext,
+        market: &MarketContext,
         day_count: DayCount,
         benchmark_curve: &str,
         spread_bp: F,
@@ -379,7 +379,7 @@ impl PrepaymentSchedule {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::market_data::context::ValuationMarketContext;
+    use finstack_core::market_data::MarketContext;
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCount;
     use finstack_core::market_data::interp::InterpStyle;
@@ -433,7 +433,7 @@ mod tests {
             .unwrap();
 
         // Create market context
-        let market = ValuationMarketContext::new().insert_discount(discount_curve);
+        let market = MarketContext::new().insert_discount(discount_curve);
 
         // Create prepayment schedule with make-whole penalty
         let schedule =
@@ -522,7 +522,7 @@ mod tests {
                 prepay_amount,
                 outstanding,
                 &remaining_flows,
-                &ValuationMarketContext::new(), // Empty market context (not needed for flat rate)
+                &MarketContext::new(), // Empty market context (not needed for flat rate)
                 DayCount::Act360,
             )
             .unwrap();
@@ -556,7 +556,7 @@ mod tests {
                 prepay_amount,
                 outstanding,
                 &remaining_flows,
-                &ValuationMarketContext::new(),
+                &MarketContext::new(),
                 DayCount::Act360,
             )
             .unwrap();
@@ -577,7 +577,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let market = ValuationMarketContext::new().insert_discount(discount_curve);
+        let market = MarketContext::new().insert_discount(discount_curve);
 
         let schedule =
             PrepaymentSchedule::new(PrepaymentType::MakeWhole).with_penalty(PrepaymentPenalty {
@@ -639,7 +639,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let market = ValuationMarketContext::new().insert_discount(discount_curve);
+        let market = MarketContext::new().insert_discount(discount_curve);
 
         // Make-whole schedule
         let mw_schedule =
@@ -692,7 +692,7 @@ mod tests {
                 prepay_amount,
                 outstanding,
                 &remaining_flows,
-                &ValuationMarketContext::new(), // YM doesn't need market curves
+                &MarketContext::new(), // YM doesn't need market curves
                 DayCount::Act360,
             )
             .unwrap();
@@ -774,7 +774,7 @@ mod tests {
             .build()
             .unwrap();
 
-        let market = ValuationMarketContext::new().insert_discount(discount_curve);
+        let market = MarketContext::new().insert_discount(discount_curve);
 
         let schedule =
             PrepaymentSchedule::new(PrepaymentType::MakeWhole).with_penalty(PrepaymentPenalty {

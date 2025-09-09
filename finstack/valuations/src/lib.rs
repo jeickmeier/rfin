@@ -20,7 +20,6 @@
 
 pub mod calibration;
 pub mod cashflow;
-pub mod market_data;
 pub mod results;
 
 // Export macros before instruments module

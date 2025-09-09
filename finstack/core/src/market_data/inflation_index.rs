@@ -168,6 +168,11 @@ impl InflationIndex {
         self.series.as_dataframe()
     }
 
+    /// Expose current interpolation setting for bump/rebuild helpers.
+    pub fn interpolation(&self) -> InflationInterpolation { self.interpolation }
+    /// Expose current lag setting for bump/rebuild helpers.
+    pub fn lag(&self) -> InflationLag { self.lag }
+
     /// Create from an existing DataFrame
     ///
     /// DataFrame must have columns: date (i32), value (f64), optionally seasonality (f64)

@@ -45,6 +45,8 @@
 
 /// Unified market-data context for valuations.
 pub mod context;
+/// Credit index aggregates for CDS tranche pricing and credit derivatives.
+pub mod credit_index;
 // Identifiers are now defined in `crate::types` (see `types::CurveId`).
 /// Inflation index data (CPI/RPI) using Polars DataFrames.
 pub mod inflation_index;
@@ -69,6 +71,8 @@ pub use surfaces::vol_surface;
 pub use surfaces::vol_surface::VolSurface;
 // Re-export context types
 pub use context::MarketContext;
+// Re-export credit index types for ergonomic access.
+pub use credit_index::*;
 
 /// Numeric precision alias re-exported from the surrounding crate so that
 /// downstream code can simply `use finstack_core::market_data::F`.

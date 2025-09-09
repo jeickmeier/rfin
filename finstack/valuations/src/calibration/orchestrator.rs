@@ -13,7 +13,6 @@ use crate::calibration::primitives::{HashableFloat, InstrumentQuote};
 use crate::calibration::surface::VolSurfaceCalibrator;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 
-use crate::market_data::ValuationMarketContext;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::Seniority;
 use finstack_core::prelude::*;
@@ -259,10 +258,8 @@ impl CalibrationOrchestrator {
                     self.base_date,
                 );
 
-                // Convert to ValuationMarketContext for base correlation calibration
-                let val_context = ValuationMarketContext::from_core(context.clone());
                 let solver = calibrator.config.make_solver();
-                let (curve, report) = calibrator.bootstrap_curve(quotes, &solver, &val_context)?;
+                let (curve, report) = calibrator.bootstrap_curve(quotes, &solver, context)?;
 
                 // Use the original curve directly since it already has the right data
                 let curve_with_id = curve;
@@ -642,11 +639,8 @@ impl CalibrationOrchestrator {
                 let maturity_quote_vec: Vec<_> =
                     maturity_quotes.iter().map(|&q| q.clone()).collect();
 
-                // Convert context to ValuationMarketContext for tranche pricing
-                let val_context = ValuationMarketContext::from_core(context.clone());
-
                 let solver = calibrator.config.make_solver();
-                match calibrator.bootstrap_curve(&maturity_quote_vec, &solver, &val_context) {
+                match calibrator.bootstrap_curve(&maturity_quote_vec, &solver, context) {
                     Ok((curve, report)) => {
                         curves_by_maturity
                             .insert(HashableFloat::new(maturity_years), (curve, report));

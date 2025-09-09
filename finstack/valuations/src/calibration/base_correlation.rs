@@ -8,10 +8,10 @@ use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_core::math::Solver;
 
-use crate::market_data::ValuationMarketContext;
+use finstack_core::market_data::MarketContext;
 use finstack_core::dates::utils::add_months;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
-use finstack_core::market_data::context::MarketContext;
+// use finstack_core::market_data::context::MarketContext; // use re-export above
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
@@ -78,7 +78,7 @@ impl BaseCorrelationCalibrator {
         &self,
         quotes: &[InstrumentQuote],
         solver: &S,
-        market_context: &ValuationMarketContext,
+        market_context: &MarketContext,
     ) -> Result<(BaseCorrelationCurve, CalibrationReport)> {
         use crate::instruments::fixed_income::cds_tranche::model::GaussianCopulaModel;
 
@@ -141,8 +141,7 @@ impl BaseCorrelationCalibrator {
         let num_tranche_quotes = tranche_quotes.len(); // Store length before moving
 
         // Pre-fetch the original credit index data once to avoid repeated lookups
-        let original_index = market_context.get_credit_index("CDX.NA.IG.42")?;
-        let base_core_context = &market_context.core;
+        let original_index = market_context.credit_index("CDX.NA.IG.42")?;
 
         // Sequential bootstrap from equity to senior tranches
         for (attach_pct, detach_pct, _maturity, upfront_pct, running_spread_bp, index) in
@@ -200,7 +199,7 @@ impl BaseCorrelationCalibrator {
                 };
 
                 // Efficiently create index with new correlation curve - reusing shared data
-                let temp_index = match crate::market_data::credit_index::CreditIndexData::builder()
+                let temp_index = match finstack_core::market_data::CreditIndexData::builder()
                     .num_constituents(shared_num_constituents)
                     .recovery_rate(shared_recovery_rate)
                     .index_credit_curve(Arc::clone(&shared_credit_curve))
@@ -212,10 +211,9 @@ impl BaseCorrelationCalibrator {
                 };
 
                 // Create temporary market context - reusing core context
-                let temp_market_ctx = crate::market_data::ValuationMarketContext::from_core(
-                    base_core_context.clone(),
-                )
-                .with_credit_index(synthetic_tranche.credit_index_id, temp_index);
+                let temp_market_ctx = market_context
+                    .clone()
+                    .insert_credit_index(synthetic_tranche.credit_index_id, temp_index);
 
                 // Price the tranche and return upfront error
                 match pricing_model.price_tranche(
@@ -303,7 +301,7 @@ impl Calibrator<InstrumentQuote, BaseCorrelationCurve> for BaseCorrelationCalibr
         base_context: &MarketContext,
     ) -> Result<(BaseCorrelationCurve, CalibrationReport)> {
         // Convert core market context to valuation context
-        let val_ctx = ValuationMarketContext::from_core(base_context.clone());
+        let val_ctx = base_context.clone();
 
         // Use the configured solver for robust root-finding
         let solver = self.config.make_solver();
@@ -355,7 +353,7 @@ impl BaseCorrelationSurfaceCalibrator {
     pub fn calibrate_surface(
         &self,
         quotes: &[InstrumentQuote],
-        market_context: &ValuationMarketContext,
+        market_context: &MarketContext,
     ) -> Result<(
         HashMap<HashableFloat, BaseCorrelationCurve>,
         CalibrationReport,
@@ -440,7 +438,7 @@ impl BaseCorrelationSurfaceCalibrator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::market_data::credit_index::CreditIndexData;
+    use finstack_core::market_data::CreditIndexData;
     #[allow(unused_imports)]
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
@@ -451,7 +449,7 @@ mod tests {
     use std::sync::Arc;
     use time::Month;
 
-    fn create_test_market_context() -> ValuationMarketContext {
+    fn create_test_market_context() -> MarketContext {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
         let discount_curve = DiscountCurve::builder("USD-OIS")
@@ -477,7 +475,7 @@ mod tests {
             .unwrap();
 
         // Create credit index data
-        let index_data = CreditIndexData::builder()
+        let index_data = finstack_core::market_data::CreditIndexData::builder()
             .num_constituents(125)
             .recovery_rate(0.40)
             .index_credit_curve(Arc::new(index_curve))
@@ -485,9 +483,9 @@ mod tests {
             .build()
             .unwrap();
 
-        ValuationMarketContext::new()
+        MarketContext::new()
             .insert_discount(discount_curve)
-            .with_credit_index("CDX.NA.IG.42", index_data)
+            .insert_credit_index("CDX.NA.IG.42", index_data)
     }
 
     #[test]
@@ -570,7 +568,7 @@ mod tests {
             .unwrap();
 
         // Create market context with known correlation curve
-        let original_index = market_ctx.get_credit_index("CDX.NA.IG.42").unwrap();
+        let original_index = market_ctx.credit_index("CDX.NA.IG.42").unwrap();
         let test_index = CreditIndexData::builder()
             .num_constituents(original_index.num_constituents)
             .recovery_rate(original_index.recovery_rate)
@@ -579,8 +577,9 @@ mod tests {
             .build()
             .unwrap();
 
-        let test_market_ctx = ValuationMarketContext::from_core(market_ctx.core.clone())
-            .with_credit_index("CDX.NA.IG.42", test_index);
+        let test_market_ctx = market_ctx
+            .clone()
+            .insert_credit_index("CDX.NA.IG.42", test_index);
 
         // Generate synthetic market quotes using known correlations
         let pricing_model = GaussianCopulaModel::new();
@@ -627,7 +626,7 @@ mod tests {
         let solver = calibrator.config.make_solver();
 
         // Create clean market context for calibration (with dummy base correlation curve)
-        let original_index = market_ctx.get_credit_index("CDX.NA.IG.42").unwrap();
+        let original_index = market_ctx.credit_index("CDX.NA.IG.42").unwrap();
 
         // Create a dummy base correlation curve for initial calibration
         let dummy_base_corr_curve = BaseCorrelationCurve::builder("DUMMY_CALIB_CORR")
@@ -643,8 +642,9 @@ mod tests {
             .build()
             .unwrap();
 
-        let clean_market_ctx = ValuationMarketContext::from_core(market_ctx.core.clone())
-            .with_credit_index("CDX.NA.IG.42", clean_index);
+        let clean_market_ctx = market_ctx
+            .clone()
+            .insert_credit_index("CDX.NA.IG.42", clean_index);
 
         let calibration_result =
             calibrator.bootstrap_curve(&synthetic_quotes, &solver, &clean_market_ctx);

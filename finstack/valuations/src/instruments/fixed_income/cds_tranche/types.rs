@@ -2,11 +2,11 @@
 
 use crate::instruments::build_with_metrics_dyn;
 use crate::instruments::traits::{Attributes, Priceable};
-use crate::market_data::ValuationMarketContext;
+use finstack_core::market_data::MarketContext;
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
-use finstack_core::market_data::MarketContext;
+// use finstack_core::market_data::MarketContext; // re-exported via crate::market_data
 use finstack_core::money::Money;
 use finstack_core::F;
 
@@ -116,14 +116,11 @@ impl Priceable for CdsTranche {
         // Try to use the Gaussian Copula model if credit index data is available
         // Otherwise, fall back to zero PV for backward compatibility
 
-        // Convert MarketContext to ValuationMarketContext
-        let val_market_ctx = ValuationMarketContext::from_core(curves.clone());
-
-        // Check if credit index data is available
-        if val_market_ctx.has_credit_index(self.credit_index_id) {
+        // Check if credit index data is available in core context
+        if curves.credit_index(self.credit_index_id).is_ok() {
             // Use the Gaussian Copula model
             let model = model::GaussianCopulaModel::new();
-            model.price_tranche(self, &val_market_ctx, as_of)
+            model.price_tranche(self, curves, as_of)
         } else {
             // Fallback to zero PV when credit index data is not available
             Ok(Money::new(0.0, self.notional.currency()))

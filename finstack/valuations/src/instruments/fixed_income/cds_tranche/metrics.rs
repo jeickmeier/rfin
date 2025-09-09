@@ -4,7 +4,7 @@
 //! correlation approach with a one-factor Gaussian Copula model.
 
 use crate::instruments::fixed_income::cds_tranche::{model::GaussianCopulaModel, CdsTranche};
-use crate::market_data::ValuationMarketContext;
+// use finstack_core::market_data::MarketContext; // not directly needed here
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::F;
 
@@ -18,13 +18,15 @@ impl MetricCalculator for Upfront {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let tranche: &CdsTranche = context.instrument_as()?;
 
-        // Convert MarketContext to ValuationMarketContext
-        let val_market_ctx = ValuationMarketContext::from_core(context.curves.as_ref().clone());
-
-        // Check if credit index data is available
-        if val_market_ctx.has_credit_index(tranche.credit_index_id) {
+        // Check if credit index data is available in core context
+        if context
+            .curves
+            .as_ref()
+            .credit_index(tranche.credit_index_id)
+            .is_ok()
+        {
             let model = GaussianCopulaModel::new();
-            model.calculate_upfront(tranche, &val_market_ctx, context.as_of)
+            model.calculate_upfront(tranche, context.curves.as_ref(), context.as_of)
         } else {
             // Fallback when credit index data is not available
             Ok(0.0)
@@ -42,13 +44,14 @@ impl MetricCalculator for SpreadDv01 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let tranche: &CdsTranche = context.instrument_as()?;
 
-        // Convert MarketContext to ValuationMarketContext
-        let val_market_ctx = ValuationMarketContext::from_core(context.curves.as_ref().clone());
-
-        // Check if credit index data is available
-        if val_market_ctx.has_credit_index(tranche.credit_index_id) {
+        if context
+            .curves
+            .as_ref()
+            .credit_index(tranche.credit_index_id)
+            .is_ok()
+        {
             let model = GaussianCopulaModel::new();
-            model.calculate_spread_dv01(tranche, &val_market_ctx, context.as_of)
+            model.calculate_spread_dv01(tranche, context.curves.as_ref(), context.as_of)
         } else {
             // Fallback when credit index data is not available
             Ok(0.0)
@@ -66,13 +69,14 @@ impl MetricCalculator for ExpectedLoss {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let tranche: &CdsTranche = context.instrument_as()?;
 
-        // Convert MarketContext to ValuationMarketContext
-        let val_market_ctx = ValuationMarketContext::from_core(context.curves.as_ref().clone());
-
-        // Check if credit index data is available
-        if val_market_ctx.has_credit_index(tranche.credit_index_id) {
+        if context
+            .curves
+            .as_ref()
+            .credit_index(tranche.credit_index_id)
+            .is_ok()
+        {
             let model = GaussianCopulaModel::new();
-            model.calculate_expected_loss(tranche, &val_market_ctx)
+            model.calculate_expected_loss(tranche, context.curves.as_ref())
         } else {
             // Fallback when credit index data is not available
             Ok(0.0)
@@ -91,13 +95,14 @@ impl MetricCalculator for JumpToDefault {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let tranche: &CdsTranche = context.instrument_as()?;
 
-        // Convert MarketContext to ValuationMarketContext
-        let val_market_ctx = ValuationMarketContext::from_core(context.curves.as_ref().clone());
-
-        // Check if credit index data is available
-        if val_market_ctx.has_credit_index(tranche.credit_index_id) {
+        if context
+            .curves
+            .as_ref()
+            .credit_index(tranche.credit_index_id)
+            .is_ok()
+        {
             let model = GaussianCopulaModel::new();
-            model.calculate_jump_to_default(tranche, &val_market_ctx, context.as_of)
+            model.calculate_jump_to_default(tranche, context.curves.as_ref(), context.as_of)
         } else {
             // Fallback when credit index data is not available
             Ok(0.0)
@@ -115,13 +120,14 @@ impl MetricCalculator for Cs01 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let tranche: &CdsTranche = context.instrument_as()?;
 
-        // Convert MarketContext to ValuationMarketContext
-        let val_market_ctx = ValuationMarketContext::from_core(context.curves.as_ref().clone());
-
-        // Check if credit index data is available
-        if val_market_ctx.has_credit_index(tranche.credit_index_id) {
+        if context
+            .curves
+            .as_ref()
+            .credit_index(tranche.credit_index_id)
+            .is_ok()
+        {
             let model = GaussianCopulaModel::new();
-            model.calculate_cs01(tranche, &val_market_ctx, context.as_of)
+            model.calculate_cs01(tranche, context.curves.as_ref(), context.as_of)
         } else {
             // Fallback when credit index data is not available
             Ok(0.0)
@@ -139,13 +145,14 @@ impl MetricCalculator for CorrelationDelta {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let tranche: &CdsTranche = context.instrument_as()?;
 
-        // Convert MarketContext to ValuationMarketContext
-        let val_market_ctx = ValuationMarketContext::from_core(context.curves.as_ref().clone());
-
-        // Check if credit index data is available
-        if val_market_ctx.has_credit_index(tranche.credit_index_id) {
+        if context
+            .curves
+            .as_ref()
+            .credit_index(tranche.credit_index_id)
+            .is_ok()
+        {
             let model = GaussianCopulaModel::new();
-            model.calculate_correlation_delta(tranche, &val_market_ctx, context.as_of)
+            model.calculate_correlation_delta(tranche, context.curves.as_ref(), context.as_of)
         } else {
             // Fallback when credit index data is not available
             Ok(0.0)

@@ -16,91 +16,119 @@ use crate::money::fx::FxMatrix;
 use super::{
     inflation::InflationCurve,
     inflation_index::InflationIndex,
+    credit_index::CreditIndexData,
     primitives::{MarketScalar, ScalarTimeSeries},
     surfaces::vol_surface::VolSurface,
     term_structures::base_correlation::BaseCorrelationCurve,
     traits::{Discount, Forward, TermStructure},
 };
 use crate::dates::Date;
+use crate::currency::Currency;
 use crate::types::CurveId;
 use crate::F;
+use core::str::FromStr;
+use strum::IntoEnumIterator;
 
 // -----------------------------------------------------------------------------
-// Bump Specification Types
+// Bump Specification Types (Unified)
 // -----------------------------------------------------------------------------
 
-/// Specification for parallel rate shifts (adding basis points).
-#[derive(Debug, Clone)]
-pub struct ParallelShift {
-    /// Shift amount in basis points (e.g., 100.0 = 100bp = 1%).
-    pub bump_bp: F,
+/// Mode of applying a bump.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BumpMode {
+    /// Additive bump expressed in a normalized fractional form (e.g., 100bp = 0.01, 2% = 0.02).
+    Additive,
+    /// Multiplicative bump expressed as a factor (e.g., 1.1 = +10%, 0.9 = -10%).
+    Multiplicative,
 }
 
-impl ParallelShift {
-    /// Create a new parallel shift in basis points.
-    pub fn new(bump_bp: F) -> Self {
-        Self { bump_bp }
-    }
-
-    /// Convert basis points to rate units.
-    fn as_rate(&self) -> F {
-        self.bump_bp / 10_000.0
-    }
+/// Units for the bump magnitude. These control normalization to fraction or factor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BumpUnits {
+    /// Basis points for rates/spreads (100bp = 0.01).
+    RateBp,
+    /// Percent units (2.0 = 2%).
+    Percent,
+    /// Direct fraction (0.02 = 2%).
+    Fraction,
+    /// Direct factor (1.10 = +10%). Only valid for Multiplicative mode.
+    Factor,
 }
 
-/// Specification for multiplicative shocks (scaling rates or prices).
-#[derive(Debug, Clone)]
-pub struct MultiplierShock {
-    /// Multiplier factor (e.g., 1.1 = +10%, 0.9 = -10%).
-    pub factor: F,
-}
-
-impl MultiplierShock {
-    /// Create a new multiplier shock.
-    pub fn new(factor: F) -> Self {
-        Self { factor }
-    }
-}
-
-/// Comprehensive bump specification for different types of market shocks.
-#[derive(Debug, Clone)]
-pub enum BumpSpec {
-    /// Parallel shift in basis points for curves.
-    ParallelShift(ParallelShift),
-    /// Multiplicative shock factor for prices/volatilities.
-    MultiplierShock(MultiplierShock),
-    /// Spread shift in basis points for credit curves.
-    SpreadShift(ParallelShift),
-    /// Percentage shift for inflation curves (e.g., +2% inflation shock).
-    InflationShift(ParallelShift),
-    /// Percentage shift for correlation values (e.g., +10% correlation shock).
-    CorrelationShift(ParallelShift),
+/// Unified bump specification capturing mode, units, and value.
+#[derive(Debug, Clone, Copy)]
+pub struct BumpSpec {
+    /// How the bump should be applied (additive vs multiplicative).
+    pub mode: BumpMode,
+    /// Units the value is expressed in, controlling normalization.
+    pub units: BumpUnits,
+    /// Raw magnitude provided by the caller (interpreted using `units`).
+    pub value: F,
 }
 
 impl BumpSpec {
-    /// Convenience constructor for parallel shifts.
+    /// Create an additive bump specified in basis points (e.g., 100.0 = 100bp = 1%).
     pub fn parallel_bp(bump_bp: F) -> Self {
-        Self::ParallelShift(ParallelShift::new(bump_bp))
+        Self {
+            mode: BumpMode::Additive,
+            units: BumpUnits::RateBp,
+            value: bump_bp,
+        }
     }
 
-    /// Convenience constructor for multiplier shocks.
+    /// Create a multiplicative bump given as a factor (e.g., 1.1 = +10%).
     pub fn multiplier(factor: F) -> Self {
-        Self::MultiplierShock(MultiplierShock::new(factor))
+        Self {
+            mode: BumpMode::Multiplicative,
+            units: BumpUnits::Factor,
+            value: factor,
+        }
     }
 
-    /// Convenience constructor for spread shifts (credit curves).
+    /// Create an additive spread shift in basis points for credit curves.
     pub fn spread_shift_bp(bump_bp: F) -> Self {
-        Self::SpreadShift(ParallelShift::new(bump_bp))
+        Self::parallel_bp(bump_bp)
     }
 
-    /// Convenience constructor for inflation shifts (as percentage change).
+    /// Create an additive inflation shift specified in percent (e.g., 2.0 = +2%).
     pub fn inflation_shift_pct(bump_pct: F) -> Self {
-        Self::InflationShift(ParallelShift::new(bump_pct * 100.0)) // Convert % to bp
+        Self {
+            mode: BumpMode::Additive,
+            units: BumpUnits::Percent,
+            value: bump_pct,
+        }
     }
 
-    /// Convenience constructor for correlation shifts (as percentage change).
+    /// Create an additive correlation shift specified in percent (e.g., 10.0 = +10%).
     pub fn correlation_shift_pct(bump_pct: F) -> Self {
-        Self::CorrelationShift(ParallelShift::new(bump_pct * 100.0)) // Convert % to bp
+        Self {
+            mode: BumpMode::Additive,
+            units: BumpUnits::Percent,
+            value: bump_pct,
+        }
+    }
+
+    /// If additive, return the bump as a normalized fraction (e.g., 100bp -> 0.01, 2% -> 0.02).
+    fn additive_fraction(&self) -> Option<F> {
+        if self.mode != BumpMode::Additive {
+            return None;
+        }
+        let frac = match self.units {
+            BumpUnits::RateBp => self.value / 10_000.0,
+            BumpUnits::Percent => self.value / 100.0,
+            BumpUnits::Fraction => self.value,
+            BumpUnits::Factor => return None,
+        };
+        Some(frac)
+    }
+
+    /// Return a multiplicative factor for scaling (e.g., 1.1 for +10%).
+    /// For additive specs, this returns 1.0 + additive_fraction.
+    fn multiplier_value(&self) -> F {
+        match self.mode {
+            BumpMode::Multiplicative => self.value,
+            BumpMode::Additive => 1.0 + self.additive_fraction().unwrap_or(0.0),
+        }
     }
 }
 
@@ -183,13 +211,7 @@ fn create_bumped_vol_surface(
     bump_spec: &BumpSpec,
     bumped_id: CurveId,
 ) -> crate::Result<VolSurface> {
-    let bump_factor = match bump_spec {
-        BumpSpec::ParallelShift(shift) => 1.0 + shift.as_rate(),
-        BumpSpec::MultiplierShock(shock) => shock.factor,
-        BumpSpec::SpreadShift(shift) => 1.0 + shift.as_rate(),
-        BumpSpec::InflationShift(shift) => 1.0 + shift.as_rate(),
-        BumpSpec::CorrelationShift(shift) => 1.0 + shift.as_rate(),
-    };
+    let bump_factor = bump_spec.multiplier_value();
 
     let expiries = original.expiries();
     let strikes = original.strikes();
@@ -230,6 +252,8 @@ pub struct MarketContext {
     inflation_indices: HashMap<CurveId, Arc<InflationIndex>>,
     /// Base correlation curves keyed by identifier
     base_correlation: HashMap<CurveId, Arc<BaseCorrelationCurve>>,
+    /// Credit index aggregates keyed by index identifier (e.g., "CDX.NA.IG.42")
+    credit_indices: HashMap<CurveId, Arc<CreditIndexData>>,
     /// Foreign-exchange matrix used for explicit FX conversions
     pub fx: Option<Arc<FxMatrix>>,
     /// Volatility surfaces keyed by identifier
@@ -252,6 +276,7 @@ impl MarketContext {
             inflation: HashMap::new(),
             inflation_indices: HashMap::new(),
             base_correlation: HashMap::new(),
+            credit_indices: HashMap::new(),
             fx: None,
             surfaces: HashMap::new(),
             prices: HashMap::new(),
@@ -321,6 +346,13 @@ impl MarketContext {
         let cid = CurveId::from(id.as_ref());
         this.inflation_indices.insert(cid, Arc::new(index));
         this
+    }
+
+    /// Insert credit index aggregate data.
+    pub fn insert_credit_index(mut self, id: impl AsRef<str>, data: CreditIndexData) -> Self {
+        let cid = CurveId::from(id.as_ref());
+        self.credit_indices.insert(cid, Arc::new(data));
+        self
     }
 
     /// Insert FX matrix.
@@ -440,6 +472,17 @@ impl MarketContext {
         self.inflation_indices.get(id.as_ref()).cloned()
     }
 
+    /// Get credit index data by identifier.
+    pub fn credit_index(&self, id: impl AsRef<str>) -> crate::Result<Arc<CreditIndexData>> {
+        let id_str = id.as_ref();
+        self.credit_indices.get(id_str).cloned().ok_or(
+            crate::error::InputError::NotFound {
+                id: id_str.to_string(),
+            }
+            .into(),
+        )
+    }
+
     /// Resolve collateral discount curve for CSA code.
     pub fn collateral(&self, csa_code: &str) -> crate::Result<Arc<dyn Discount + Send + Sync>> {
         let id = match self.collat.get(csa_code) {
@@ -503,34 +546,30 @@ impl MarketContext {
 
             // Try each curve type until we find a match
             if let Ok(original) = self.disc(curve_id_str) {
-                if let BumpSpec::ParallelShift(shift) = bump_spec {
-                    let bumped_id =
-                        CurveId::new(format!("{}_bump_{:.0}bp", curve_id_str, shift.bump_bp));
-                    let bumped_curve =
-                        BumpedDiscountCurve::new(original, shift.bump_bp, bumped_id.clone());
+                if bump_spec.mode == BumpMode::Additive && bump_spec.units == BumpUnits::RateBp {
+                    let bump_bp = bump_spec.value;
+                    let bumped_id = CurveId::new(format!("{}_bump_{:.0}bp", curve_id_str, bump_bp));
+                    let bumped_curve = BumpedDiscountCurve::new(original, bump_bp, bumped_id.clone());
                     new_context.disc.insert(bumped_id, Arc::new(bumped_curve));
                 }
             } else if let Ok(original) = self.fwd(curve_id_str) {
-                if let BumpSpec::ParallelShift(shift) = bump_spec {
-                    let bumped_id =
-                        CurveId::new(format!("{}_bump_{:.0}bp", curve_id_str, shift.bump_bp));
-                    let bumped_curve =
-                        BumpedForwardCurve::new(original, shift.bump_bp, bumped_id.clone());
+                if bump_spec.mode == BumpMode::Additive && bump_spec.units == BumpUnits::RateBp {
+                    let bump_bp = bump_spec.value;
+                    let bumped_id = CurveId::new(format!("{}_bump_{:.0}bp", curve_id_str, bump_bp));
+                    let bumped_curve = BumpedForwardCurve::new(original, bump_bp, bumped_id.clone());
                     new_context.fwd.insert(bumped_id, Arc::new(bumped_curve));
                 }
             } else if let Ok(original) = self.hazard(curve_id_str) {
-                if let BumpSpec::SpreadShift(shift) = bump_spec {
-                    let spread_rate = shift.bump_bp / 10_000.0; // Convert bp to rate
+                if bump_spec.mode == BumpMode::Additive && bump_spec.units == BumpUnits::RateBp {
+                    let spread_rate = bump_spec.additive_fraction().unwrap_or(0.0);
                     if let Ok(bumped_curve) = original.with_hazard_shift(spread_rate) {
-                        let bumped_id =
-                            CurveId::new(format!("{}_spread_{:.0}bp", curve_id_str, shift.bump_bp));
+                        let bumped_id = CurveId::new(format!("{}_spread_{:.0}bp", curve_id_str, bump_spec.value));
                         new_context.hazard.insert(bumped_id, Arc::new(bumped_curve));
                     }
                 }
             } else if let Ok(original) = self.infl(curve_id_str) {
-                if let BumpSpec::InflationShift(shift) = bump_spec {
-                    let inflation_pct = shift.bump_bp / 100.0; // Convert bp back to percentage
-                    let multiplier = 1.0 + inflation_pct / 100.0;
+                if bump_spec.mode == BumpMode::Additive && bump_spec.units == BumpUnits::Percent {
+                    let multiplier = bump_spec.multiplier_value();
                     let original_knots = original.knots();
                     let original_cpi_levels = original.cpi_levels();
 
@@ -540,8 +579,7 @@ impl MarketContext {
                         .map(|(&t, &cpi)| (t, cpi * multiplier))
                         .collect();
 
-                    let bumped_id =
-                        CurveId::new(format!("{}_infl_{:.1}pct", curve_id_str, inflation_pct));
+                    let bumped_id = CurveId::new(format!("{}_infl_{:.1}pct", curve_id_str, bump_spec.value));
                     if let Ok(bumped_curve) = InflationCurve::builder("TEMP_BUMPED_INFLATION")
                         .base_cpi(original.base_cpi() * multiplier)
                         .knots(bumped_points)
@@ -554,9 +592,8 @@ impl MarketContext {
                     }
                 }
             } else if let Ok(original) = self.base_correlation(curve_id_str) {
-                if let BumpSpec::CorrelationShift(shift) = bump_spec {
-                    let correlation_pct = shift.bump_bp / 100.0; // Convert bp back to percentage
-                    let multiplier = 1.0 + correlation_pct / 100.0;
+                if bump_spec.mode == BumpMode::Additive && bump_spec.units == BumpUnits::Percent {
+                    let multiplier = bump_spec.multiplier_value();
                     let original_points = original.detachment_points();
                     let original_correlations = original.correlations();
 
@@ -566,8 +603,7 @@ impl MarketContext {
                         .map(|(&detach, &corr)| (detach, (corr * multiplier).clamp(0.0, 1.0)))
                         .collect();
 
-                    let bumped_id =
-                        CurveId::new(format!("{}_corr_{:.1}pct", curve_id_str, correlation_pct));
+                    let bumped_id = CurveId::new(format!("{}_corr_{:.1}pct", curve_id_str, bump_spec.value));
                     if let Ok(bumped_curve) =
                         BaseCorrelationCurve::builder("TEMP_BUMPED_CORRELATION")
                             .points(bumped_points)
@@ -578,68 +614,292 @@ impl MarketContext {
                             .insert(bumped_id, Arc::new(bumped_curve));
                     }
                 }
-            } else if let Ok(original) = self.surface(curve_id_str) {
-                let bump_desc = match &bump_spec {
-                    BumpSpec::ParallelShift(shift) => format!("shift_{:.0}bp", shift.bump_bp),
-                    BumpSpec::MultiplierShock(shock) => format!("mult_{:.2}", shock.factor),
-                    _ => continue, // Skip unsupported bump types for vol surfaces
-                };
-                let bumped_id = CurveId::new(format!("{}_{}", curve_id_str, bump_desc));
-                if let Ok(bumped_surface) =
-                    create_bumped_vol_surface(&original, &bump_spec, bumped_id.clone())
+            } else if let Ok(original_index) = self.credit_index(curve_id_str) {
+                // Support hazard spread bp and correlation percent bumps on aggregated credit index data
+                if bump_spec.mode == BumpMode::Additive && bump_spec.units == BumpUnits::RateBp {
+                    // Hazard spread bump at the index level
+                    let spread_rate = bump_spec.additive_fraction().unwrap_or(0.0);
+                    if let Ok(bumped_hazard) = original_index.index_credit_curve.with_hazard_shift(spread_rate) {
+                        let mut builder = crate::market_data::credit_index::CreditIndexData::builder()
+                            .num_constituents(original_index.num_constituents)
+                            .recovery_rate(original_index.recovery_rate)
+                            .index_credit_curve(Arc::new(bumped_hazard))
+                            .base_correlation_curve(original_index.base_correlation_curve.clone());
+                        if let Some(issuer_curves) = &original_index.issuer_credit_curves {
+                            builder = builder.with_issuer_curves(issuer_curves.clone());
+                        }
+                        if let Ok(bumped_index) = builder.build() {
+                            let bumped_id = CurveId::new(format!("{}_spread_{:.0}bp", curve_id_str, bump_spec.value));
+                            new_context
+                                .credit_indices
+                                .insert(bumped_id, Arc::new(bumped_index));
+                        }
+                    }
+                } else if bump_spec.mode == BumpMode::Additive
+                    && bump_spec.units == BumpUnits::Percent
                 {
-                    new_context
-                        .surfaces
-                        .insert(bumped_id, Arc::new(bumped_surface));
+                    // Base correlation percent bump at the index level
+                    let multiplier = bump_spec.multiplier_value();
+                    let original_points = original_index.base_correlation_curve.detachment_points();
+                    let original_correlations = original_index.base_correlation_curve.correlations();
+
+                    let bumped_points: Vec<(F, F)> = original_points
+                        .iter()
+                        .zip(original_correlations.iter())
+                        .map(|(&detach, &corr)| (detach, (corr * multiplier).clamp(0.0, 1.0)))
+                        .collect();
+
+                    if let Ok(bumped_bc) = BaseCorrelationCurve::builder("TEMP_BUMPED_CORRELATION")
+                        .points(bumped_points)
+                        .build()
+                    {
+                        let mut builder = crate::market_data::credit_index::CreditIndexData::builder()
+                            .num_constituents(original_index.num_constituents)
+                            .recovery_rate(original_index.recovery_rate)
+                            .index_credit_curve(original_index.index_credit_curve.clone())
+                            .base_correlation_curve(Arc::new(bumped_bc));
+                        if let Some(issuer_curves) = &original_index.issuer_credit_curves {
+                            builder = builder.with_issuer_curves(issuer_curves.clone());
+                        }
+                        if let Ok(bumped_index) = builder.build() {
+                            let bumped_id = CurveId::new(format!("{}_corr_{:.1}pct", curve_id_str, bump_spec.value));
+                            new_context
+                                .credit_indices
+                                .insert(bumped_id, Arc::new(bumped_index));
+                        }
+                    }
+                }
+            } else if let Ok(original) = self.surface(curve_id_str) {
+                // Support additive bp or multiplicative factor for surfaces
+                let bump_desc = if bump_spec.mode == BumpMode::Additive
+                    && bump_spec.units == BumpUnits::RateBp
+                {
+                    Some(format!("shift_{:.0}bp", bump_spec.value))
+                } else if bump_spec.mode == BumpMode::Multiplicative
+                    && bump_spec.units == BumpUnits::Factor
+                {
+                    Some(format!("mult_{:.2}", bump_spec.value))
+                } else {
+                    None
+                };
+                if let Some(desc) = bump_desc {
+                    let bumped_id = CurveId::new(format!("{}_{}", curve_id_str, desc));
+                    if let Ok(bumped_surface) =
+                        create_bumped_vol_surface(&original, &bump_spec, bumped_id.clone())
+                    {
+                        new_context
+                            .surfaces
+                            .insert(bumped_id, Arc::new(bumped_surface));
+                    }
                 }
             } else if let Ok(original) = self.price(curve_id_str) {
-                let bump_desc = match &bump_spec {
-                    BumpSpec::ParallelShift(shift) => format!("shift_{:.0}bp", shift.bump_bp),
-                    BumpSpec::MultiplierShock(shock) => format!("mult_{:.2}", shock.factor),
-                    BumpSpec::SpreadShift(shift) => format!("spread_{:.0}bp", shift.bump_bp),
-                    BumpSpec::InflationShift(shift) => format!("infl_{:.0}bp", shift.bump_bp),
-                    BumpSpec::CorrelationShift(shift) => format!("corr_{:.0}bp", shift.bump_bp),
+                let bump_desc = if bump_spec.mode == BumpMode::Multiplicative
+                    && bump_spec.units == BumpUnits::Factor
+                {
+                    format!("mult_{:.2}", bump_spec.value)
+                } else if bump_spec.mode == BumpMode::Additive {
+                    match bump_spec.units {
+                        BumpUnits::RateBp => format!("shift_{:.0}bp", bump_spec.value),
+                        BumpUnits::Percent => format!("shift_{:.1}pct", bump_spec.value),
+                        BumpUnits::Fraction => format!("shift_{:.6}", bump_spec.value),
+                        BumpUnits::Factor => unreachable!(),
+                    }
+                } else {
+                    // Default fallback
+                    "unknown".to_string()
                 };
 
-                let bumped_value = match (original, bump_spec) {
-                    (MarketScalar::Unitless(val), BumpSpec::ParallelShift(shift)) => {
-                        MarketScalar::Unitless(val + shift.as_rate())
-                    }
-                    (MarketScalar::Unitless(val), BumpSpec::MultiplierShock(shock)) => {
-                        MarketScalar::Unitless(val * shock.factor)
-                    }
-                    (MarketScalar::Unitless(val), BumpSpec::SpreadShift(shift)) => {
-                        MarketScalar::Unitless(val + shift.as_rate())
-                    }
-                    (MarketScalar::Unitless(val), BumpSpec::InflationShift(shift)) => {
-                        MarketScalar::Unitless(val + shift.as_rate())
-                    }
-                    (MarketScalar::Unitless(val), BumpSpec::CorrelationShift(shift)) => {
-                        MarketScalar::Unitless(val + shift.as_rate())
-                    }
-                    (MarketScalar::Price(money), BumpSpec::ParallelShift(shift)) => {
-                        let new_amount = money.amount() * (1.0 + shift.as_rate());
-                        MarketScalar::Price(crate::money::Money::new(new_amount, money.currency()))
-                    }
-                    (MarketScalar::Price(money), BumpSpec::MultiplierShock(shock)) => {
-                        let new_amount = money.amount() * shock.factor;
-                        MarketScalar::Price(crate::money::Money::new(new_amount, money.currency()))
-                    }
-                    (MarketScalar::Price(money), BumpSpec::SpreadShift(shift)) => {
-                        let new_amount = money.amount() * (1.0 + shift.as_rate());
-                        MarketScalar::Price(crate::money::Money::new(new_amount, money.currency()))
-                    }
-                    (MarketScalar::Price(money), BumpSpec::InflationShift(shift)) => {
-                        let new_amount = money.amount() * (1.0 + shift.as_rate());
-                        MarketScalar::Price(crate::money::Money::new(new_amount, money.currency()))
-                    }
-                    (MarketScalar::Price(money), BumpSpec::CorrelationShift(shift)) => {
-                        let new_amount = money.amount() * (1.0 + shift.as_rate());
-                        MarketScalar::Price(crate::money::Money::new(new_amount, money.currency()))
-                    }
+                let bumped_value = match original {
+                    MarketScalar::Unitless(val) => match bump_spec.mode {
+                        BumpMode::Additive => {
+                            MarketScalar::Unitless(val + bump_spec.additive_fraction().unwrap_or(0.0))
+                        }
+                        BumpMode::Multiplicative => {
+                            MarketScalar::Unitless(val * bump_spec.multiplier_value())
+                        }
+                    },
+                    MarketScalar::Price(money) => match bump_spec.mode {
+                        BumpMode::Additive => {
+                            let factor = 1.0 + bump_spec.additive_fraction().unwrap_or(0.0);
+                            let new_amount = money.amount() * factor;
+                            MarketScalar::Price(crate::money::Money::new(new_amount, money.currency()))
+                        }
+                        BumpMode::Multiplicative => {
+                            let new_amount = money.amount() * bump_spec.multiplier_value();
+                            MarketScalar::Price(crate::money::Money::new(new_amount, money.currency()))
+                        }
+                    },
                 };
                 let bumped_id = CurveId::new(format!("{}_{}", curve_id_str, bump_desc));
                 new_context.prices.insert(bumped_id, bumped_value);
+            } else if let Some(index) = self.inflation_index(curve_id_str) {
+                // Bump inflation index time series values
+                let bump_desc = if bump_spec.mode == BumpMode::Multiplicative
+                    && bump_spec.units == BumpUnits::Factor
+                {
+                    format!("mult_{:.2}", bump_spec.value)
+                } else if bump_spec.mode == BumpMode::Additive {
+                    match bump_spec.units {
+                        BumpUnits::Percent => format!("infl_{:.1}pct", bump_spec.value),
+                        BumpUnits::RateBp => format!("shift_{:.0}bp", bump_spec.value),
+                        BumpUnits::Fraction => format!("shift_{:.6}", bump_spec.value),
+                        BumpUnits::Factor => unreachable!(),
+                    }
+                } else {
+                    "unknown".to_string()
+                };
+
+                let multiplier = match bump_spec.mode {
+                    BumpMode::Multiplicative => bump_spec.multiplier_value(),
+                    BumpMode::Additive => 1.0 + bump_spec.additive_fraction().unwrap_or(0.0),
+                };
+
+                // Reconstruct observations and scale
+                let df = index.as_dataframe().clone();
+                let dates = df
+                    .column("date")
+                    .map_err(|_| crate::Error::Internal)?
+                    .i32()
+                    .map_err(|_| crate::Error::Internal)?;
+                let values = df
+                    .column("value")
+                    .map_err(|_| crate::Error::Internal)?
+                    .f64()
+                    .map_err(|_| crate::Error::Internal)?;
+                let bumped_obs: Vec<(Date, F)> = dates
+                    .into_no_null_iter()
+                    .zip(values.into_no_null_iter())
+                    .map(|(d, v)| {
+                        (
+                            crate::dates::utils::days_since_epoch_to_date(d),
+                            v * multiplier,
+                        )
+                    })
+                    .collect();
+
+                let builder = crate::market_data::inflation_index::InflationIndexBuilder::new(
+                    format!("{}_{}", curve_id_str, bump_desc),
+                    index.currency,
+                )
+                .with_observations(bumped_obs)
+                .with_interpolation(index.interpolation())
+                .with_lag(index.lag());
+
+                if let Ok(bumped_index) = builder.build() {
+                    new_context
+                        .inflation_indices
+                        .insert(CurveId::new(format!("{}_{}", curve_id_str, bump_desc)), Arc::new(bumped_index));
+                }
+            } else if let Ok(series) = self.series(curve_id_str) {
+                // Bump generic scalar time series
+                let bump_desc = if bump_spec.mode == BumpMode::Multiplicative
+                    && bump_spec.units == BumpUnits::Factor
+                {
+                    format!("mult_{:.2}", bump_spec.value)
+                } else if bump_spec.mode == BumpMode::Additive {
+                    match bump_spec.units {
+                        BumpUnits::RateBp => format!("shift_{:.0}bp", bump_spec.value),
+                        BumpUnits::Percent => format!("shift_{:.1}pct", bump_spec.value),
+                        BumpUnits::Fraction => format!("shift_{:.6}", bump_spec.value),
+                        BumpUnits::Factor => unreachable!(),
+                    }
+                } else {
+                    "unknown".to_string()
+                };
+
+                let (is_add, add_frac) = match bump_spec.mode {
+                    BumpMode::Additive => (true, bump_spec.additive_fraction().unwrap_or(0.0)),
+                    BumpMode::Multiplicative => (false, 0.0),
+                };
+                let mult = if is_add { 1.0 } else { bump_spec.multiplier_value() };
+
+                let df = series.as_dataframe();
+                let dates = df
+                    .column("date")
+                    .map_err(|_| crate::Error::Internal)?
+                    .i32()
+                    .map_err(|_| crate::Error::Internal)?;
+                let values = df
+                    .column("value")
+                    .map_err(|_| crate::Error::Internal)?
+                    .f64()
+                    .map_err(|_| crate::Error::Internal)?;
+                let bumped_obs: Vec<(Date, F)> = dates
+                    .into_no_null_iter()
+                    .zip(values.into_no_null_iter())
+                    .map(|(d, v)| {
+                        let scaled = if is_add { v + add_frac } else { v * mult };
+                        (crate::dates::utils::days_since_epoch_to_date(d), scaled)
+                    })
+                    .collect();
+
+                let mut bumped_series = ScalarTimeSeries::new(
+                    format!("{}_{}", curve_id_str, bump_desc),
+                    bumped_obs,
+                    series.currency(),
+                )?;
+                bumped_series = bumped_series.with_interpolation(series.interpolation());
+                new_context
+                    .series
+                    .insert(CurveId::new(format!("{}_{}", curve_id_str, bump_desc)), bumped_series);
+            } else if let Some(fx) = &self.fx {
+                // FX base-currency relative bump: curve_id must be a currency code (e.g., "USD")
+                if let Ok(base_ccy) = Currency::from_str(curve_id_str) {
+                    // Determine factor: Multiplicative factor preferred; additive percent supported
+                    let factor = match bump_spec.mode {
+                        BumpMode::Multiplicative => bump_spec.multiplier_value(),
+                        BumpMode::Additive => 1.0 + bump_spec.additive_fraction().unwrap_or(0.0),
+                    };
+
+                    // Minimal provider that forces triangulation/use of seeded quotes only
+                    struct StaticFxProvider;
+                    impl crate::money::fx::FxProvider for StaticFxProvider {
+                        fn rate(
+                            &self,
+                            _from: crate::currency::Currency,
+                            _to: crate::currency::Currency,
+                            _on: crate::dates::Date,
+                            _policy: crate::money::fx::FxConversionPolicy,
+                        ) -> crate::Result<crate::money::fx::FxRate> {
+                            Err(crate::Error::Internal)
+                        }
+                    }
+
+                    // Build a new FX matrix with pivot set to base_ccy
+                    let cfg = crate::money::fx::FxConfig {
+                        pivot_currency: base_ccy,
+                        ..Default::default()
+                    };
+                    let bumped_fx = crate::money::fx::FxMatrix::with_config(Arc::new(StaticFxProvider), cfg);
+
+                    // Use a neutral date; quotes are cached without date
+                    let on = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+                    let policy = crate::money::fx::FxConversionPolicy::CashflowDate;
+
+                    // Seed adjusted quotes for base_ccy vs all currencies
+                    for other in crate::currency::Currency::iter() {
+                        if other == base_ccy { continue; }
+                        // base -> other
+                        if let Ok(rate_bo) = fx.rate(crate::money::fx::FxQuery { from: base_ccy, to: other, on, policy, closure_check: None, want_meta: false }) {
+                            let new_rate = rate_bo.rate * factor;
+                            bumped_fx.set_quote(base_ccy, other, new_rate);
+                        }
+                        // other -> base (reciprocal adjusted)
+                        if let Ok(rate_ob) = fx.rate(crate::money::fx::FxQuery { from: other, to: base_ccy, on, policy, closure_check: None, want_meta: false }) {
+                            let new_rate = rate_ob.rate / factor;
+                            bumped_fx.set_quote(other, base_ccy, new_rate);
+                        }
+                    }
+
+                    let mut bumped_ctx = new_context.clone();
+                    bumped_ctx.fx = Some(Arc::new(bumped_fx));
+                    new_context = bumped_ctx;
+                } else {
+                    return Err(crate::error::InputError::NotFound {
+                        id: curve_id_str.to_string(),
+                    }
+                    .into());
+                }
             } else {
                 return Err(crate::error::InputError::NotFound {
                     id: curve_id_str.to_string(),
@@ -1055,30 +1315,25 @@ mod bump_tests {
         let correlation = BumpSpec::correlation_shift_pct(10.0);
         let multiplier = BumpSpec::multiplier(1.2);
 
-        match parallel {
-            BumpSpec::ParallelShift(shift) => assert!((shift.bump_bp - 100.0).abs() < 1e-12),
-            _ => panic!("Expected ParallelShift"),
-        }
+        assert_eq!(parallel.mode, BumpMode::Additive);
+        assert_eq!(parallel.units, BumpUnits::RateBp);
+        assert!((parallel.value - 100.0).abs() < 1e-12);
 
-        match spread {
-            BumpSpec::SpreadShift(shift) => assert!((shift.bump_bp - 50.0).abs() < 1e-12),
-            _ => panic!("Expected SpreadShift"),
-        }
+        assert_eq!(spread.mode, BumpMode::Additive);
+        assert_eq!(spread.units, BumpUnits::RateBp);
+        assert!((spread.value - 50.0).abs() < 1e-12);
 
-        match inflation {
-            BumpSpec::InflationShift(shift) => assert!((shift.bump_bp - 200.0).abs() < 1e-12), // 2% * 100 = 200bp
-            _ => panic!("Expected InflationShift"),
-        }
+        assert_eq!(inflation.mode, BumpMode::Additive);
+        assert_eq!(inflation.units, BumpUnits::Percent);
+        assert!((inflation.value - 2.0).abs() < 1e-12);
 
-        match correlation {
-            BumpSpec::CorrelationShift(shift) => assert!((shift.bump_bp - 1000.0).abs() < 1e-12), // 10% * 100 = 1000bp
-            _ => panic!("Expected CorrelationShift"),
-        }
+        assert_eq!(correlation.mode, BumpMode::Additive);
+        assert_eq!(correlation.units, BumpUnits::Percent);
+        assert!((correlation.value - 10.0).abs() < 1e-12);
 
-        match multiplier {
-            BumpSpec::MultiplierShock(shock) => assert!((shock.factor - 1.2).abs() < 1e-12),
-            _ => panic!("Expected MultiplierShock"),
-        }
+        assert_eq!(multiplier.mode, BumpMode::Multiplicative);
+        assert_eq!(multiplier.units, BumpUnits::Factor);
+        assert!((multiplier.value - 1.2).abs() < 1e-12);
     }
 
     #[test]

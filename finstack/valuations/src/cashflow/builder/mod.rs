@@ -1,7 +1,7 @@
 //! Composable cashflow builder for instruments.
 //!
-//! Provides a simplified interface for common cashflow patterns and an advanced
-//! interface for complex scenarios with programmatic control.
+//! Provides a simplified interface for common cashflow patterns and a full-featured
+//! builder for complex scenarios with programmatic control.
 //!
 //! # Simple Interface (Recommended)
 //!
@@ -44,11 +44,12 @@
 //! assert!(schedule.flows.len() > 0);
 //! ```
 //!
-//! # Advanced Interface
+//! # Full-featured Interface
 //!
-//! For complex scenarios (windows, programs, PIK toggles), use the `advanced` module.
+//! For complex scenarios (windows, programs, PIK toggles), use `CashflowBuilder`
+//! directly with the types re-exported in this module (see `schedule` and
+//! `schedule_utils`).
 
-pub mod advanced;
 mod compile;
 pub mod schedule;
 pub mod schedule_utils;
