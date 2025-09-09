@@ -24,58 +24,11 @@ pub fn build_with_metrics_dyn(
     base_value: Money,
     metrics: &[crate::metrics::MetricId],
 ) -> finstack_core::Result<crate::results::ValuationResult> {
-    use crate::instruments::*;
+    
 
     // Create an owned clone for the Arc to avoid lifetime issues
     // This approach reduces generic monomorphization across compilation units
-    let instrument_clone: Box<dyn crate::instruments::traits::InstrumentLike> = {
-        // Fixed Income instruments
-        if let Some(bond) = instrument.as_any().downcast_ref::<Bond>() {
-            Box::new(bond.clone())
-        } else if let Some(loan) = instrument.as_any().downcast_ref::<Loan>() {
-            Box::new(loan.clone())
-        } else if let Some(irs) = instrument.as_any().downcast_ref::<InterestRateSwap>() {
-            Box::new(irs.clone())
-        } else if let Some(cds) = instrument.as_any().downcast_ref::<CreditDefaultSwap>() {
-            Box::new(cds.clone())
-        } else if let Some(convertible) = instrument.as_any().downcast_ref::<ConvertibleBond>() {
-            Box::new(convertible.clone())
-        } else if let Some(deposit) = instrument.as_any().downcast_ref::<Deposit>() {
-            Box::new(deposit.clone())
-        } else if let Some(inflation_bond) =
-            instrument.as_any().downcast_ref::<InflationLinkedBond>()
-        {
-            Box::new(inflation_bond.clone())
-        } else if let Some(fx_spot) = instrument.as_any().downcast_ref::<FxSpot>() {
-            Box::new(fx_spot.clone())
-        } else if let Some(fx_swap) = instrument.as_any().downcast_ref::<FxSwap>() {
-            Box::new(fx_swap.clone())
-
-        // Equity instruments
-        } else if let Some(equity) = instrument.as_any().downcast_ref::<Equity>() {
-            Box::new(equity.clone())
-
-        // Options
-        } else if let Some(equity_option) = instrument.as_any().downcast_ref::<EquityOption>() {
-            Box::new(equity_option.clone())
-        } else if let Some(fx_option) = instrument.as_any().downcast_ref::<FxOption>() {
-            Box::new(fx_option.clone())
-        } else if let Some(credit_option) = instrument.as_any().downcast_ref::<CreditOption>() {
-            Box::new(credit_option.clone())
-        } else if let Some(ir_option) = instrument.as_any().downcast_ref::<InterestRateOption>() {
-            Box::new(ir_option.clone())
-        } else if let Some(swaption) = instrument.as_any().downcast_ref::<Swaption>() {
-            Box::new(swaption.clone())
-        } else {
-            return Err(finstack_core::error::InputError::NotFound {
-                id: format!(
-                    "unsupported instrument type for metrics computation: {}",
-                    instrument.instrument_type()
-                ),
-            }
-            .into());
-        }
-    };
+    let instrument_clone: Box<dyn crate::instruments::traits::InstrumentLike> = instrument.clone_box();
 
     let mut context = MetricContext::new(
         Arc::from(instrument_clone),

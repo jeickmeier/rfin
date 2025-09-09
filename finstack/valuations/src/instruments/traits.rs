@@ -118,4 +118,9 @@ pub trait InstrumentLike: Priceable + Attributable + Send + Sync {
 
     /// Get access to the concrete type for downcasting.
     fn as_any(&self) -> &dyn std::any::Any;
+
+    /// Clone this instrument into a boxed trait object.
+    ///
+    /// Implementers can typically `derive(Clone)` and return `Box::new(self.clone())`.
+    fn clone_box(&self) -> Box<dyn InstrumentLike>;
 }

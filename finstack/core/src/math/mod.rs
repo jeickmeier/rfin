@@ -29,10 +29,7 @@ pub use root_finding::{
     brent, brent_with_bracketing, find_bracketing_interval, hybrid_root_find, newton_bracketed,
     newton_raphson,
 };
-pub use solver::{
-    BrentSolver, HybridSolver, LeastSquaresSolver, LevenbergMarquardtSolver, MultiDimSolver,
-    NewtonSolver, OptimizationResult, Solver,
-};
+pub use solver::{BrentSolver, HybridSolver, NewtonSolver, Solver};
 pub use special_functions::{
     erf, norm_cdf, norm_pdf, standard_normal_cdf, standard_normal_inv_cdf,
 };

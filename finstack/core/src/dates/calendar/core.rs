@@ -224,8 +224,6 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
     }
 }
 
-// helper functions merged into `adjust` for a single, cohesive business-day logic surface
-
 // -----------------------------------------------------------------------------
 // Runtime discovery helpers
 // -----------------------------------------------------------------------------

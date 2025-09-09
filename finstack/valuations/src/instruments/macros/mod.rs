@@ -44,6 +44,10 @@ macro_rules! impl_instrument_like {
             fn as_any(&self) -> &dyn ::std::any::Any {
                 self
             }
+
+            fn clone_box(&self) -> Box<dyn $crate::instruments::traits::InstrumentLike> {
+                Box::new(self.clone())
+            }
         }
     };
 }

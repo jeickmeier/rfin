@@ -587,6 +587,9 @@ mod tests {
             fn as_any(&self) -> &dyn std::any::Any {
                 self
             }
+            fn clone_box(&self) -> Box<dyn crate::instruments::traits::InstrumentLike> {
+                Box::new(DummyInstr { attrs: self.attrs.clone() })
+            }
         }
 
         // Build curves and also keep a separate handle to a discount curve for later checks
