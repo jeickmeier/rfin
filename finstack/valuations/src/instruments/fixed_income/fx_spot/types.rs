@@ -73,16 +73,6 @@ impl FxSpot {
         self.try_with_notional(notional)
     }
 
-    /// Set the notional amount (panicking version - deprecated)
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use with_notional_checked instead to avoid panics"
-    )]
-    pub fn with_notional(self, notional: Money) -> Self {
-        self.try_with_notional(notional)
-            .expect("Notional currency must match base currency")
-    }
-
     /// Set the business day convention
     pub fn with_bdc(mut self, bdc: BusinessDayConvention) -> Self {
         self.bdc = bdc;

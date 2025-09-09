@@ -100,21 +100,5 @@ pub fn build_with_metrics_dyn(
     Ok(result)
 }
 
-/// Deprecated generic version for backward compatibility.
-/// Use `build_with_metrics_dyn` instead to avoid coverage metadata conflicts.
-#[deprecated(
-    since = "0.3.0",
-    note = "Use build_with_metrics_dyn to avoid coverage metadata conflicts"
-)]
-pub fn build_with_metrics<I>(
-    instrument: I,
-    curves: &MarketContext,
-    as_of: Date,
-    base_value: Money,
-    metrics: &[crate::metrics::MetricId],
-) -> finstack_core::Result<crate::results::ValuationResult>
-where
-    I: crate::instruments::traits::InstrumentLike + Clone + 'static,
-{
-    build_with_metrics_dyn(&instrument, curves, as_of, base_value, metrics)
-}
+// Deprecated generic version for backward compatibility.
+// Use `build_with_metrics_dyn` instead to avoid coverage metadata conflicts.

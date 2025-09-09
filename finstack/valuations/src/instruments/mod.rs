@@ -106,13 +106,19 @@ pub mod fixed_income;
 pub mod options;
 pub mod utils;
 
-// Re-export individual instrument types
-pub use equity::Equity;
-pub use fixed_income::fx_spot::FxSpot;
+// Re-export common types for convenience
+pub use equity::*;
 pub use fixed_income::{
-    Bond, ConvertibleBond, CreditDefaultSwap, Deposit, FxSwap, InflationLinkedBond,
-    InterestRateSwap, Loan,
+    bond::*, cds::*, cds_index::*, cds_tranche::*, convertible::*, deposit::*, fra::*, fx_spot::*,
+    fx_swap::*, inflation_linked_bond::*, inflation_swap::*, ir_future::*, irs::*, loan::*,
 };
-pub use options::{CreditOption, EquityOption, FxOption, InterestRateOption, Swaption};
-#[allow(deprecated)]
-pub use utils::{build_with_metrics, build_with_metrics_dyn};
+pub use options::{
+    cap_floor::*, credit_option::*, equity_option::*, fx_option::*, swaption::*, ExerciseStyle,
+    OptionType, SettlementType,
+};
+
+pub use traits::{
+    Attributable, Attributes, InstrumentLike, Priceable,
+    RiskMeasurable, RiskReport,
+};
+pub use utils::build_with_metrics_dyn;
