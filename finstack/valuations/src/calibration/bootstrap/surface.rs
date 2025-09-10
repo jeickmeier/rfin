@@ -61,8 +61,8 @@ impl VolSurfaceCalibrator {
         self
     }
 
-    /// Calibrate volatility surface from option quotes.
-    pub fn calibrate_surface(
+    /// Internal calibration logic with forward curve.
+    fn calibrate_internal(
         &self,
         quotes: &[InstrumentQuote],
         forward_curve: &dyn Fn(F) -> F, // Forward price/rate as function of time
@@ -285,7 +285,7 @@ impl Calibrator<InstrumentQuote, VolSurface> for VolSurfaceCalibrator {
         // Build asset-specific forward function from market context
         let forward_fn = base_context.auto_forward(&underlying, Currency::USD)?; // TODO: Make base currency configurable
 
-        self.calibrate_surface(instruments, &forward_fn)
+        self.calibrate_internal(instruments, &forward_fn)
     }
 }
 

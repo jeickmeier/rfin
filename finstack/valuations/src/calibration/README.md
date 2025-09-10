@@ -90,8 +90,13 @@ let calibrator = VolSurfaceCalibrator::new(
     vec![80.0, 90.0, 100.0, 110.0, 120.0], // Strike grid
 );
 
-let forward_fn = |t: f64| 100.0 * (0.05 * t).exp(); // Equity forward curve
-let (vol_surface, report) = calibrator.calibrate_surface(&vol_quotes, &forward_fn)?;
+// Create market context with appropriate forward curve data
+// (e.g., equity spots, dividends, discount curves)
+let market_context = MarketContext::new()
+    .insert_spot("SPY", Money::new(100.0, Currency::USD))
+    .insert_discount(discount_curve);
+
+let (vol_surface, report) = calibrator.calibrate(&vol_quotes, &market_context)?;
 ```
 
 ## Implementation Status
