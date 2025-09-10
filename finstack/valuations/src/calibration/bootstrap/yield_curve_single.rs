@@ -21,7 +21,7 @@ use finstack_core::math::Solver;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::F;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Discount curve bootstrapper.
 #[derive(Clone, Debug)]
@@ -94,7 +94,7 @@ impl DiscountCurveCalibrator {
         // Build knots sequentially
         let mut knots = Vec::with_capacity(sorted_quotes.len() + 1);
         knots.push((0.0, 1.0)); // Start with DF(0) = 1.0
-        let mut residuals = HashMap::with_capacity(sorted_quotes.len());
+        let mut residuals = BTreeMap::new();
         let mut residual_key_counter: usize = 0;
         let mut total_iterations = 0;
 

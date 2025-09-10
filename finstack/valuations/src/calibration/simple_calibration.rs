@@ -16,7 +16,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::Seniority;
 use finstack_core::prelude::*;
 use finstack_core::F;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// Simple market calibration builder.
 ///
@@ -60,7 +60,7 @@ impl SimpleCalibration {
     /// Returns a MarketContext with all calibrated curves and a summary report.
     pub fn calibrate(&self, quotes: &[MarketQuote]) -> Result<(MarketContext, CalibrationReport)> {
         let mut context = MarketContext::new();
-        let mut all_residuals = HashMap::new();
+        let mut all_residuals = BTreeMap::new();
         let mut total_iterations = 0;
 
         // Step 1: Discount curves
@@ -134,7 +134,7 @@ impl SimpleCalibration {
         let mut combined_report = CalibrationReport::empty_success("Credit calibration starting");
 
         // Group CDS quotes by entity
-        let mut quotes_by_entity: HashMap<String, Vec<CreditQuote>> = HashMap::new();
+        let mut quotes_by_entity: BTreeMap<String, Vec<CreditQuote>> = BTreeMap::new();
         for quote in quotes {
             if let MarketQuote::Credit(credit_quote) = quote {
                 match credit_quote {
@@ -192,7 +192,7 @@ impl SimpleCalibration {
         let mut combined_report = CalibrationReport::empty_success("Inflation calibration starting");
 
         // Group inflation quotes by index
-        let mut quotes_by_index: HashMap<String, Vec<InflationQuote>> = HashMap::new();
+        let mut quotes_by_index: BTreeMap<String, Vec<InflationQuote>> = BTreeMap::new();
         for quote in quotes {
             if let MarketQuote::Inflation(inflation_quote) = quote {
                 match inflation_quote {
@@ -243,7 +243,7 @@ impl SimpleCalibration {
         let mut combined_report = CalibrationReport::empty_success("Volatility calibration starting");
 
         // Group option quotes by underlying
-        let mut quotes_by_underlying: HashMap<String, Vec<VolQuote>> = HashMap::new();
+        let mut quotes_by_underlying: BTreeMap<String, Vec<VolQuote>> = BTreeMap::new();
         for quote in quotes {
             if let MarketQuote::Vol(vol_quote) = quote {
                 let underlying = match vol_quote {
@@ -304,7 +304,7 @@ impl SimpleCalibration {
         let mut combined_report = CalibrationReport::empty_success("Base correlation calibration starting");
 
         // Group tranche quotes by index and maturity
-        let mut quotes_by_index: HashMap<String, HashMap<OrderedFloat<F>, Vec<CreditQuote>>> = HashMap::new();
+        let mut quotes_by_index: BTreeMap<String, BTreeMap<OrderedFloat<F>, Vec<CreditQuote>>> = BTreeMap::new();
 
         for quote in quotes {
             if let MarketQuote::Credit(credit_quote) = quote {
@@ -408,7 +408,7 @@ impl SimpleCalibration {
     /// Merge report data.
     fn merge_report(
         &self,
-        all_residuals: &mut HashMap<String, F>,
+        all_residuals: &mut BTreeMap<String, F>,
         total_iterations: &mut usize,
         report: &CalibrationReport,
     ) {

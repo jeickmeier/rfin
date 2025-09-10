@@ -1,7 +1,7 @@
 //! Calibration reporting and diagnostics.
 
 use finstack_core::F;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Calibration diagnostic report.
 #[derive(Clone, Debug)]
@@ -9,7 +9,7 @@ pub struct CalibrationReport {
     /// Calibration success flag
     pub success: bool,
     /// Final residuals by instrument
-    pub residuals: HashMap<String, F>,
+    pub residuals: BTreeMap<String, F>,
     /// Number of iterations taken
     pub iterations: usize,
     /// Final objective function value
@@ -21,7 +21,7 @@ pub struct CalibrationReport {
     /// Convergence reason
     pub convergence_reason: String,
     /// Calibration metadata
-    pub metadata: HashMap<String, String>,
+    pub metadata: BTreeMap<String, String>,
 }
 
 impl CalibrationReport {
@@ -29,13 +29,13 @@ impl CalibrationReport {
     fn new() -> Self {
         Self {
             success: false,
-            residuals: HashMap::new(),
+            residuals: BTreeMap::new(),
             iterations: 0,
             objective_value: F::INFINITY,
             max_residual: F::INFINITY,
             rmse: F::INFINITY,
             convergence_reason: "Not started".to_string(),
-            metadata: HashMap::new(),
+            metadata: BTreeMap::new(),
         }
     }
 
@@ -46,7 +46,7 @@ impl CalibrationReport {
     }
 
     /// Internal: Set residuals and calculate metrics.
-    fn with_residuals(mut self, residuals: HashMap<String, F>) -> Self {
+    fn with_residuals(mut self, residuals: BTreeMap<String, F>) -> Self {
         self.max_residual = residuals.values().map(|r| r.abs()).fold(0.0, f64::max);
         let sum_sq: F = residuals.values().map(|r| r * r).sum();
         self.rmse = if residuals.is_empty() {
@@ -75,9 +75,9 @@ impl CalibrationReport {
     /// # Example
     /// ```
     /// use finstack_valuations::calibration::CalibrationReport;
-    /// use std::collections::HashMap;
+    /// use std::collections::BTreeMap;
     /// 
-    /// let residuals = HashMap::from([("quote1".to_string(), 0.001)]);
+    /// let residuals = BTreeMap::from([("quote1".to_string(), 0.001)]);
     /// let iterations = 10;
     /// let report = CalibrationReport::success_simple(residuals, iterations)
     ///     .with_metadata("currency", "USD");
@@ -92,13 +92,13 @@ impl CalibrationReport {
     /// # Example
     /// ```
     /// use finstack_valuations::calibration::CalibrationReport;
-    /// use std::collections::HashMap;
+    /// use std::collections::BTreeMap;
     /// 
-    /// let residuals = HashMap::from([("quote1".to_string(), 0.001)]);
+    /// let residuals = BTreeMap::from([("quote1".to_string(), 0.001)]);
     /// let iterations = 10;
     /// let report = CalibrationReport::success_simple(residuals, iterations);
     /// ```
-    pub fn success_simple(residuals: HashMap<String, F>, iterations: usize) -> Self {
+    pub fn success_simple(residuals: BTreeMap<String, F>, iterations: usize) -> Self {
         Self::new()
             .success()
             .with_residuals(residuals)
@@ -168,15 +168,15 @@ impl CalibrationReport {
     /// # Example
     /// ```
     /// use finstack_valuations::calibration::CalibrationReport;
-    /// use std::collections::HashMap;
+    /// use std::collections::BTreeMap;
     /// 
-    /// let residuals = HashMap::from([("quote1".to_string(), 0.001)]);
+    /// let residuals = BTreeMap::from([("quote1".to_string(), 0.001)]);
     /// let iterations = 10;
     /// let report = CalibrationReport::for_type("yield_curve", residuals, iterations);
     /// ```
     pub fn for_type(
         calibration_type: impl Into<String>,
-        residuals: HashMap<String, F>,
+        residuals: BTreeMap<String, F>,
         iterations: usize,
     ) -> Self {
         let type_str = calibration_type.into();
@@ -194,13 +194,13 @@ impl Default for CalibrationReport {
     fn default() -> Self {
         Self {
             success: false,
-            residuals: HashMap::new(),
+            residuals: BTreeMap::new(),
             iterations: 0,
             objective_value: F::INFINITY,
             max_residual: F::INFINITY,
             rmse: F::INFINITY,
             convergence_reason: "Not started".to_string(),
-            metadata: HashMap::new(),
+            metadata: BTreeMap::new(),
         }
     }
 }

@@ -15,7 +15,7 @@ use finstack_core::market_data::traits::Discount;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::F;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Hazard curve bootstrapper using CDS par spreads.
 #[derive(Clone, Debug)]
@@ -141,7 +141,7 @@ impl HazardCurveCalibrator {
         // Sequentially solve hazards per tenor to match market PV≈0
         let mut hazard_knots: Vec<(F, F)> = Vec::new();
         let mut par_knots: Vec<(F, F)> = Vec::new();
-        let mut residuals: HashMap<String, F> = HashMap::new();
+        let mut residuals: BTreeMap<String, F> = BTreeMap::new();
         let mut total_iterations: usize = 0;
 
         for (maturity, market_spread_bp, upfront_pct_opt) in &cds_quotes {

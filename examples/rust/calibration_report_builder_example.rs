@@ -1,13 +1,13 @@
 //! Example demonstrating the CalibrationReport one-liner API
 
 use finstack_valuations::calibration::CalibrationReport;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 fn main() {
     println!("=== CalibrationReport One-Liner API Examples ===\n");
 
     // Example 1: Simple successful calibration (most common case)
-    let mut residuals = HashMap::new();
+    let mut residuals = BTreeMap::new();
     residuals.insert("USD_1Y".to_string(), 0.0001);
     residuals.insert("USD_2Y".to_string(), -0.0002);
     residuals.insert("USD_5Y".to_string(), 0.0001);
@@ -66,7 +66,7 @@ fn main() {
     println!("   Metadata: {:?}\n", report5.metadata);
 
     // Example 6: Report with dynamic residual building
-    let mut report6 = CalibrationReport::success_simple(HashMap::new(), 0);
+    let mut report6 = CalibrationReport::success_simple(BTreeMap::new(), 0);
     
     // Dynamically add residuals
     report6.push_residual("VOL_1M_ATM", 0.001);

@@ -13,7 +13,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::prelude::Currency;
 use finstack_core::{Result, F};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 /// Volatility surface calibrator using SABR models.
 #[derive(Clone, Debug)]
@@ -102,8 +102,8 @@ impl VolSurfaceCalibrator {
         }
 
         // Calibrate SABR parameters for each expiry
-        let mut sabr_params_by_expiry: HashMap<OrderedFloat<F>, SABRParameters> = HashMap::new();
-        let mut all_residuals = HashMap::new();
+        let mut sabr_params_by_expiry: BTreeMap<OrderedFloat<F>, SABRParameters> = BTreeMap::new();
+        let mut all_residuals = BTreeMap::new();
         let mut residual_key_counter: usize = 0;
         let sabr_calibrator = SABRCalibrator::new()
             .with_tolerance(self.config.tolerance)
@@ -153,12 +153,12 @@ impl VolSurfaceCalibrator {
                         match model.implied_volatility(forward, strike, time_to_expiry) {
                             Ok(model_vol) => {
                                 let residual = model_vol - vols[i];
-                                let key = residual_key_counter.to_string();
+                                let key = format!("{:06}", residual_key_counter);
                                 residual_key_counter += 1;
                                 all_residuals.insert(key, residual);
                             }
                             Err(_) => {
-                                let key = residual_key_counter.to_string();
+                                let key = format!("{:06}", residual_key_counter);
                                 residual_key_counter += 1;
                                 all_residuals.insert(key, crate::calibration::penalize());
                             }
@@ -207,7 +207,7 @@ impl VolSurfaceCalibrator {
     /// Build volatility grid from calibrated SABR parameters.
     fn build_vol_grid(
         &self,
-        sabr_params: &HashMap<OrderedFloat<F>, SABRParameters>,
+        sabr_params: &BTreeMap<OrderedFloat<F>, SABRParameters>,
         forward_curve: &dyn Fn(F) -> F,
     ) -> Result<Vec<F>> {
         let mut vol_grid =
@@ -234,7 +234,7 @@ impl VolSurfaceCalibrator {
     /// Interpolate SABR parameters between calibrated expiries.
     fn interpolate_sabr_params(
         &self,
-        sabr_params: &HashMap<OrderedFloat<F>, SABRParameters>,
+        sabr_params: &BTreeMap<OrderedFloat<F>, SABRParameters>,
         target_expiry: F,
     ) -> Result<SABRParameters> {
         // Find bracketing expiries
@@ -423,7 +423,7 @@ mod tests {
             .with_base_date(base_date);
 
         // Create mock SABR parameters
-        let mut params_map = HashMap::new();
+        let mut params_map = BTreeMap::new();
         params_map.insert(
             1.0.into(),
             SABRParameters::new(0.2, 0.5, 0.3, -0.1).unwrap(),
@@ -468,7 +468,7 @@ mod tests {
         .with_base_date(base_date);
 
         // Create simple SABR parameters
-        let mut params_map = HashMap::new();
+        let mut params_map = BTreeMap::new();
         params_map.insert(
             0.25.into(),
             SABRParameters::new(0.2, 1.0, 0.3, -0.2).unwrap(),

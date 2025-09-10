@@ -15,7 +15,7 @@ use finstack_core::math::{HybridSolver, Solver};
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::F;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Inflation curve bootstrapper using ZC inflation swaps.
 #[derive(Clone, Debug)]
@@ -104,7 +104,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
 
         // Start knots with CPI at base date
         let mut knots: Vec<(F, F)> = vec![(0.0, self.base_cpi)];
-        let mut residuals = HashMap::new();
+        let mut residuals = BTreeMap::new();
         let solver = HybridSolver::new();
 
         // Internal IDs used only for solving. Final curve will use self.curve_id

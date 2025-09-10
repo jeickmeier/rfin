@@ -17,7 +17,7 @@ use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::F;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 /// Minimum correlation bound (1% to avoid numerical issues)
@@ -164,7 +164,7 @@ impl BaseCorrelationCalibrator {
         }
 
         let mut solved_correlations: Vec<(F, F)> = Vec::new();
-        let mut residuals = HashMap::new();
+        let mut residuals = BTreeMap::new();
         let mut total_iterations = 0;
         let pricing_model = GaussianCopulaModel::new();
         let num_tranche_quotes = tranche_quotes.len(); // Store length before moving
@@ -258,7 +258,7 @@ impl BaseCorrelationCalibrator {
             let final_residual = objective(clamped_corr);
 
             solved_correlations.push((*detach_pct, clamped_corr));
-            let key = index.to_string();
+            let key = format!("{:06}", index);
             residuals.insert(key, final_residual);
             total_iterations += 1;
         }
@@ -374,11 +374,11 @@ impl BaseCorrelationSurfaceCalibrator {
         quotes: &[CreditQuote],
         market_context: &MarketContext,
     ) -> Result<(
-        HashMap<OrderedFloat<F>, BaseCorrelationCurve>,
+        BTreeMap<OrderedFloat<F>, BaseCorrelationCurve>,
         CalibrationReport,
     )> {
         // Group quotes by maturity
-        let mut quotes_by_maturity: HashMap<OrderedFloat<F>, Vec<&CreditQuote>> = HashMap::new();
+        let mut quotes_by_maturity: BTreeMap<OrderedFloat<F>, Vec<&CreditQuote>> = BTreeMap::new();
 
         for quote in quotes {
             if let CreditQuote::CDSTranche { maturity, .. } = quote {
@@ -403,8 +403,8 @@ impl BaseCorrelationSurfaceCalibrator {
             }
         }
 
-        let mut curves_by_maturity = HashMap::new();
-        let mut all_residuals = HashMap::new();
+        let mut curves_by_maturity = BTreeMap::new();
+        let mut all_residuals = BTreeMap::new();
         let mut residual_key_counter: usize = 0;
         let mut total_iterations = 0;
 
@@ -429,7 +429,7 @@ impl BaseCorrelationSurfaceCalibrator {
 
                         // Merge residuals with compact numeric keys
                         for (_key, value) in report.residuals {
-                            let k = residual_key_counter.to_string();
+                            let k = format!("{:06}", residual_key_counter);
                             residual_key_counter += 1;
                             all_residuals.insert(k, value);
                         }
