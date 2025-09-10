@@ -167,6 +167,72 @@ impl DiscountCurve {
             .set_interp(InterpStyle::Linear)
             .build()
     }
+
+    /// Create a forward curve from this discount curve using a specific interpolation style.
+    pub fn to_forward_curve_with_interp(
+        &self,
+        forward_id: &'static str,
+        tenor_years: F,
+        interp_style: InterpStyle,
+    ) -> crate::Result<super::forward_curve::ForwardCurve> {
+        use super::forward_curve::ForwardCurve;
+
+        // Calculate forward rates at each knot point (same as to_forward_curve)
+        let mut forward_rates = Vec::with_capacity(self.knots.len());
+
+        if self.knots.len() < 2 {
+            return Err(crate::error::InputError::TooFewPoints.into());
+        }
+
+        for i in 0..self.knots.len() {
+            let t = self.knots[i];
+            let forward_rate = if i == 0 {
+                let t_next = self.knots[1];
+                let df = self.dfs[0];
+                let df_next = self.dfs[1];
+                let dt = t_next - t;
+
+                if dt > 0.0 && df_next > 0.0 && df > 0.0 {
+                    (df / df_next - 1.0) / dt
+                } else if t > 0.0 && df > 0.0 {
+                    (-df.ln()) / t
+                } else {
+                    0.045
+                }
+            } else if i < self.knots.len() - 1 {
+                let t_prev = self.knots[i - 1];
+                let t_next = self.knots[i + 1];
+                let df_prev = self.dfs[i - 1];
+                let df_next = self.dfs[i + 1];
+
+                let dt = t_next - t_prev;
+                if dt > 0.0 && df_next > 0.0 && df_prev > 0.0 {
+                    (df_prev.ln() - df_next.ln()) / dt
+                } else {
+                    0.045
+                }
+            } else {
+                let t_prev = self.knots[i - 1];
+                let df = self.dfs[i];
+                let df_prev = self.dfs[i - 1];
+                let dt = t - t_prev;
+
+                if dt > 0.0 && df > 0.0 && df_prev > 0.0 {
+                    (df_prev / df - 1.0) / dt
+                } else {
+                    0.045
+                }
+            };
+
+            forward_rates.push((t, forward_rate.clamp(0.0, 0.5)));
+        }
+
+        ForwardCurve::builder(forward_id, tenor_years)
+            .base_date(self.base)
+            .knots(forward_rates)
+            .set_interp(interp_style)
+            .build()
+    }
 }
 
 /// Fluent builder for [`DiscountCurve`].

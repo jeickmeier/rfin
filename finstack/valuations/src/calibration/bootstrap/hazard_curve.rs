@@ -10,7 +10,7 @@ use crate::instruments::fixed_income::cds::{
     cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap, PayReceive,
 };
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::hazard_curve::{HazardCurve, Seniority};
+use finstack_core::market_data::term_structures::hazard_curve::{HazardCurve, Seniority, ParInterp};
 use finstack_core::market_data::traits::Discount;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
@@ -34,6 +34,8 @@ pub struct HazardCurveCalibrator {
     pub discount_curve_id: String,
     /// Calibration configuration
     pub config: CalibrationConfig,
+    /// Interpolation used when reporting quoted par spreads from the calibrated curve
+    pub par_interp: ParInterp,
 }
 
 impl HazardCurveCalibrator {
@@ -72,6 +74,7 @@ impl HazardCurveCalibrator {
             currency,
             discount_curve_id: discount_curve_id.into(),
             config: CalibrationConfig::default(),
+            par_interp: ParInterp::Linear,
         }
     }
 
@@ -98,6 +101,12 @@ impl HazardCurveCalibrator {
     /// Set calibration configuration.
     pub fn with_config(mut self, config: CalibrationConfig) -> Self {
         self.config = config;
+        self
+    }
+
+    /// Set the interpolation used for reporting par spreads from the hazard curve.
+    pub fn with_par_interp(mut self, method: ParInterp) -> Self {
+        self.par_interp = method;
         self
     }
 
@@ -257,7 +266,8 @@ impl HazardCurveCalibrator {
 
         let report = CalibrationReport::for_type("hazard_curve", residuals, total_iterations)
             .with_metadata("entity", self.entity.clone())
-            .with_metadata("recovery_rate", format!("{:.3}", self.recovery_rate));
+            .with_metadata("recovery_rate", format!("{:.3}", self.recovery_rate))
+            .with_metadata("par_interp", format!("{:?}", self.par_interp));
 
         Ok((curve, report))
     }

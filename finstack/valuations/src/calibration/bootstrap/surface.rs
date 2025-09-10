@@ -15,6 +15,13 @@ use finstack_core::prelude::Currency;
 use finstack_core::{Result, F};
 use std::collections::BTreeMap;
 
+/// Interpolation choice for volatility surfaces (currently bilinear-only).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SurfaceInterp {
+    /// Bilinear interpolation across expiry × strike grid
+    Bilinear,
+}
+
 /// Volatility surface calibrator using SABR models.
 #[derive(Clone, Debug)]
 pub struct VolSurfaceCalibrator {
@@ -32,6 +39,8 @@ pub struct VolSurfaceCalibrator {
     pub base_date: Date,
     /// Base currency for equity forward calculation (used by auto_forward)
     pub base_currency: Currency,
+    /// Interpolation used for the output surface
+    pub surface_interp: SurfaceInterp,
 }
 
 impl VolSurfaceCalibrator {
@@ -50,6 +59,7 @@ impl VolSurfaceCalibrator {
             target_strikes,
             base_date: Date::from_calendar_date(1970, time::Month::January, 1).unwrap(),
             base_currency: Currency::USD,
+            surface_interp: SurfaceInterp::Bilinear,
         }
     }
 
@@ -68,6 +78,12 @@ impl VolSurfaceCalibrator {
     /// Set the base currency used when building the forward function for equities.
     pub fn with_base_currency(mut self, base_currency: Currency) -> Self {
         self.base_currency = base_currency;
+        self
+    }
+
+    /// Set the interpolation used for the final surface.
+    pub fn with_surface_interp(mut self, interp: SurfaceInterp) -> Self {
+        self.surface_interp = interp;
         self
     }
 
@@ -199,7 +215,8 @@ impl VolSurfaceCalibrator {
         .with_metadata(
             "calibrated_expiries",
             sabr_params_by_expiry.len().to_string(),
-        );
+        )
+        .with_metadata("surface_interp", format!("{:?}", self.surface_interp));
 
         Ok((surface, report))
     }

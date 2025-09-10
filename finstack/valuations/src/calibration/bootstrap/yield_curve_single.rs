@@ -30,8 +30,8 @@ pub struct DiscountCurveCalibrator {
     pub curve_id: &'static str,
     /// Base date for the curve
     pub base_date: finstack_core::dates::Date,
-    /// Interpolation method
-    pub interpolation: InterpStyle,
+    /// Interpolation used during solving and for the final curve
+    pub solve_interp: InterpStyle,
     /// Calibration configuration
     pub config: CalibrationConfig,
     /// Currency for the curve
@@ -44,15 +44,15 @@ impl DiscountCurveCalibrator {
         Self {
             curve_id,
             base_date,
-            interpolation: InterpStyle::MonotoneConvex, // Market standard for yields
+            solve_interp: InterpStyle::MonotoneConvex, // Default; explicit and consistent
             config: CalibrationConfig::default(),
             currency,
         }
     }
 
-    /// Set interpolation method.
-    pub fn with_interpolation(mut self, interpolation: InterpStyle) -> Self {
-        self.interpolation = interpolation;
+    /// Set the interpolation used both during solving and for the final curve.
+    pub fn with_solve_interp(mut self, interpolation: InterpStyle) -> Self {
+        self.solve_interp = interpolation;
         self
     }
 
@@ -62,12 +62,12 @@ impl DiscountCurveCalibrator {
         self
     }
 
-    /// Apply the configured interpolation style to the discount curve builder.
-    fn apply_interpolation(
+    /// Apply the configured solve interpolation style to the discount curve builder.
+    fn apply_solve_interpolation(
         &self,
         builder: finstack_core::market_data::term_structures::discount_curve::DiscountCurveBuilder,
     ) -> finstack_core::market_data::term_structures::discount_curve::DiscountCurveBuilder {
-        builder.set_interp(self.interpolation)
+        builder.set_interp(self.solve_interp)
     }
 
     /// Bootstrap discount curve from instrument quotes using solver.
@@ -182,7 +182,7 @@ impl DiscountCurveCalibrator {
                 let temp_curve = match DiscountCurve::builder("CALIB_CURVE")
                     .base_date(self_clone.base_date)
                     .knots(temp_knots)
-                    .set_interp(InterpStyle::Linear) // Use linear interpolation for stability
+                    .set_interp(self_clone.solve_interp)
                     .build()
                 {
                     Ok(curve) => curve,
@@ -190,7 +190,11 @@ impl DiscountCurveCalibrator {
                 };
 
                 // Create forward curve from discount curve for single-curve bootstrapping
-                let forward_curve = match temp_curve.to_forward_curve("CALIB_FWD", 0.25) {
+                let forward_curve = match temp_curve.to_forward_curve_with_interp(
+                    "CALIB_FWD",
+                    0.25,
+                    self_clone.solve_interp,
+                ) {
                     Ok(curve) => curve,
                     Err(_) => return crate::calibration::penalize(),
                 };
@@ -253,7 +257,7 @@ impl DiscountCurveCalibrator {
                 let final_curve = DiscountCurve::builder("CALIB_CURVE")
                     .base_date(self.base_date)
                     .knots(final_knots)
-                    .set_interp(InterpStyle::Linear) // Use linear interpolation for stability
+                    .set_interp(self.solve_interp)
                     .build()
                     .map_err(|e| finstack_core::Error::Calibration {
                         message: format!(
@@ -263,7 +267,11 @@ impl DiscountCurveCalibrator {
                         category: "yield_curve_bootstrap".to_string(),
                     })?;
 
-                let final_forward = final_curve.to_forward_curve("CALIB_FWD", 0.25)?;
+                let final_forward = final_curve.to_forward_curve_with_interp(
+                    "CALIB_FWD",
+                    0.25,
+                    self.solve_interp,
+                )?;
                 let final_context = base_context
                     .clone()
                     .insert_discount(final_curve)
@@ -285,7 +293,7 @@ impl DiscountCurveCalibrator {
 
         // Build final discount curve with configured interpolation
         let curve = self
-            .apply_interpolation(
+            .apply_solve_interpolation(
                 DiscountCurve::builder(self.curve_id)
                     .base_date(self.base_date)
                     .knots(knots),
@@ -301,7 +309,7 @@ impl DiscountCurveCalibrator {
 
         // Create calibration report
         let report = CalibrationReport::for_type("yield_curve", residuals, total_iterations)
-            .with_metadata("interpolation", format!("{:?}", self.interpolation))
+            .with_metadata("solve_interp", format!("{:?}", self.solve_interp))
             .with_metadata("currency", self.currency.to_string());
 
         Ok((curve, report))
@@ -938,16 +946,16 @@ mod tests {
 
         // Test 1: Verify configured interpolation is used
         let linear_calibrator = DiscountCurveCalibrator::new("TEST", base_date, Currency::USD)
-            .with_interpolation(InterpStyle::Linear);
+            .with_solve_interp(InterpStyle::Linear);
         let monotone_calibrator = DiscountCurveCalibrator::new("TEST", base_date, Currency::USD)
-            .with_interpolation(InterpStyle::MonotoneConvex);
+            .with_solve_interp(InterpStyle::MonotoneConvex);
 
         assert!(matches!(
-            linear_calibrator.interpolation,
+            linear_calibrator.solve_interp,
             InterpStyle::Linear
         ));
         assert!(matches!(
-            monotone_calibrator.interpolation,
+            monotone_calibrator.solve_interp,
             InterpStyle::MonotoneConvex
         ));
 

@@ -20,6 +20,13 @@ use finstack_core::F;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+/// Interpolation method for base correlation curves (currently linear only).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CorrelationInterp {
+    /// Linear interpolation between detachment points
+    Linear,
+}
+
 /// Minimum correlation bound (1% to avoid numerical issues)
 const MIN_CORRELATION: F = 0.01;
 
@@ -52,6 +59,8 @@ pub struct BaseCorrelationCalibrator {
     pub detachment_points: Vec<F>,
     /// Calibration configuration
     pub config: CalibrationConfig,
+    /// Interpolation used for base correlation between detachment points
+    pub corr_interp: CorrelationInterp,
 }
 
 impl BaseCorrelationCalibrator {
@@ -72,6 +81,7 @@ impl BaseCorrelationCalibrator {
             // Standard market detachment points
             detachment_points: vec![3.0, 7.0, 10.0, 15.0, 30.0],
             config: CalibrationConfig::default(),
+            corr_interp: CorrelationInterp::Linear,
         }
     }
 
@@ -90,6 +100,12 @@ impl BaseCorrelationCalibrator {
     /// Set the discount curve identifier used when pricing synthetic tranches.
     pub fn with_discount_curve_id(mut self, disc_id: &'static str) -> Self {
         self.discount_curve_id = disc_id;
+        self
+    }
+
+    /// Set interpolation method for base correlation between detachment points.
+    pub fn with_corr_interp(mut self, interp: CorrelationInterp) -> Self {
+        self.corr_interp = interp;
         self
     }
 
@@ -277,7 +293,8 @@ impl BaseCorrelationCalibrator {
             .build()?;
 
         let report = CalibrationReport::for_type("base_correlation", residuals, total_iterations)
-            .with_metadata("calibrated_tranches", num_tranche_quotes.to_string());
+            .with_metadata("calibrated_tranches", num_tranche_quotes.to_string())
+            .with_metadata("corr_interp", format!("{:?}", self.corr_interp));
 
         Ok((final_curve, report))
     }

@@ -30,6 +30,8 @@ pub struct InflationCurveCalibrator {
     pub base_cpi: F,
     /// Discount curve ID for valuation
     pub discount_id: String,
+    /// Interpolation used during solving and for the final curve
+    pub solve_interp: InterpStyle,
     /// Calibration configuration
     pub config: CalibrationConfig,
 }
@@ -49,6 +51,7 @@ impl InflationCurveCalibrator {
             currency,
             base_cpi,
             discount_id: discount_id.into(),
+            solve_interp: InterpStyle::LogLinear,
             config: CalibrationConfig::default(),
         }
     }
@@ -56,6 +59,12 @@ impl InflationCurveCalibrator {
     /// Set calibration configuration.
     pub fn with_config(mut self, config: CalibrationConfig) -> Self {
         self.config = config;
+        self
+    }
+
+    /// Set the interpolation used both during solving and for the final curve.
+    pub fn with_solve_interp(mut self, interpolation: InterpStyle) -> Self {
+        self.solve_interp = interpolation;
         self
     }
 }
@@ -177,7 +186,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 let temp_curve = match InflationCurve::builder(CALIB_INDEX_ID)
                     .base_cpi(temp_knots.first().map(|&(_, v)| v).unwrap_or(0.0))
                     .knots(temp_knots)
-                    .set_interp(InterpStyle::LogLinear)
+                    .set_interp(self.solve_interp)
                     .build()
                 {
                     Ok(c) => c,
@@ -248,7 +257,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
         let curve = match InflationCurve::builder(&self.curve_id)
             .base_cpi(self.base_cpi)
             .knots(final_knots.clone())
-            .set_interp(InterpStyle::LogLinear)
+            .set_interp(self.solve_interp)
             .build()
         {
             Ok(c) => c,
@@ -257,13 +266,14 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 InflationCurve::builder(&self.curve_id)
                     .base_cpi(self.base_cpi)
                     .knots([(0.0, self.base_cpi), (0.25, self.base_cpi)])
-                    .set_interp(InterpStyle::LogLinear)
+                    .set_interp(self.solve_interp)
                     .build()
                     .map_err(|_| finstack_core::Error::Internal)?
             }
         };
 
-        let report = CalibrationReport::for_type("inflation_curve", residuals, final_knots.len());
+        let report = CalibrationReport::for_type("inflation_curve", residuals, final_knots.len())
+            .with_metadata("solve_interp", format!("{:?}", self.solve_interp));
 
         Ok((curve, report))
     }

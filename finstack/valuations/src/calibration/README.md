@@ -73,7 +73,7 @@ use finstack_valuations::calibration::bootstrap::DiscountCurveCalibrator;
 
 // Calibrate discount curve only
 let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
-    .with_interpolation(InterpStyle::MonotoneConvex);
+    .with_solve_interp(InterpStyle::MonotoneConvex);
 
 let (discount_curve, report) = calibrator.calibrate(&quotes, &base_context)?;
 ```
