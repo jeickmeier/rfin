@@ -133,7 +133,7 @@ impl VolSurfaceCalibrator {
             ) {
                 Ok(params) => {
                     sabr_params_by_expiry
-                        .insert(HashableFloat::new(time_to_expiry), params.clone());
+                        .insert(time_to_expiry.into(), params.clone());
 
                     // Calculate residuals for this expiry
                     let model = SABRModel::new(params);
@@ -221,7 +221,7 @@ impl VolSurfaceCalibrator {
         target_expiry: F,
     ) -> Result<SABRParameters> {
         // Find bracketing expiries
-        let mut expiries: Vec<F> = sabr_params.keys().map(|k| k.value()).collect();
+        let mut expiries: Vec<F> = sabr_params.keys().map(|k| k.into_inner()).collect();
         expiries.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
         if expiries.is_empty() {
@@ -229,16 +229,16 @@ impl VolSurfaceCalibrator {
         }
 
         // If exact match, return it
-        if let Some(params) = sabr_params.get(&HashableFloat::new(target_expiry)) {
+        if let Some(params) = sabr_params.get(&target_expiry.into()) {
             return Ok(params.clone());
         }
 
         // Flat extrapolation outside the range
         if target_expiry <= expiries[0] {
-            return Ok(sabr_params[&HashableFloat::new(expiries[0])].clone());
+            return Ok(sabr_params[&expiries[0].into()].clone());
         }
         if target_expiry >= *expiries.last().unwrap() {
-            return Ok(sabr_params[&HashableFloat::new(*expiries.last().unwrap())].clone());
+            return Ok(sabr_params[&(*expiries.last().unwrap()).into()].clone());
         }
 
         // Linear interpolation between bracketing points
@@ -248,8 +248,8 @@ impl VolSurfaceCalibrator {
 
             if target_expiry > t1 && target_expiry < t2 {
                 let w = (target_expiry - t1) / (t2 - t1);
-                let params1 = &sabr_params[&HashableFloat::new(t1)];
-                let params2 = &sabr_params[&HashableFloat::new(t2)];
+                let params1 = &sabr_params[&t1.into()];
+                let params2 = &sabr_params[&t2.into()];
 
                 // Linear interpolation of SABR parameters
                 let alpha = params1.alpha * (1.0 - w) + params2.alpha * w;
@@ -261,7 +261,7 @@ impl VolSurfaceCalibrator {
         }
 
         // Fallback to first available parameters
-        Ok(sabr_params[&HashableFloat::new(expiries[0])].clone())
+        Ok(sabr_params[&expiries[0].into()].clone())
     }
 }
 
@@ -394,11 +394,11 @@ mod tests {
         // Create mock SABR parameters
         let mut params_map = HashMap::new();
         params_map.insert(
-            HashableFloat::new(1.0),
+            1.0.into(),
             SABRParameters::new(0.2, 0.5, 0.3, -0.1).unwrap(),
         );
         params_map.insert(
-            HashableFloat::new(3.0),
+            3.0.into(),
             SABRParameters::new(0.3, 0.5, 0.4, 0.1).unwrap(),
         );
 
@@ -439,11 +439,11 @@ mod tests {
         // Create simple SABR parameters
         let mut params_map = HashMap::new();
         params_map.insert(
-            HashableFloat::new(0.25),
+            0.25.into(),
             SABRParameters::new(0.2, 1.0, 0.3, -0.2).unwrap(),
         );
         params_map.insert(
-            HashableFloat::new(0.5),
+            0.5.into(),
             SABRParameters::new(0.25, 1.0, 0.35, -0.1).unwrap(),
         );
 

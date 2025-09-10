@@ -307,7 +307,7 @@ impl SimpleCalibration {
                 quotes_by_index
                     .entry(index.clone())
                     .or_default()
-                    .entry(HashableFloat::new(maturity_years))
+                    .entry(maturity_years.into())
                     .or_default()
                     .push(quote.clone());
             }
@@ -322,7 +322,7 @@ impl SimpleCalibration {
                 let calibrator = BaseCorrelationCalibrator::new(
                     &index,
                     42, // Default series number
-                    maturity_key.value(),
+                    maturity_key.into_inner(),
                     self.base_date,
                 );
 

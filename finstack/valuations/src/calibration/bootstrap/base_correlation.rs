@@ -377,7 +377,7 @@ impl BaseCorrelationSurfaceCalibrator {
                         .unwrap()
                 }) {
                     quotes_by_maturity
-                        .entry(HashableFloat::new(target_mat))
+                        .entry(target_mat.into())
                         .or_default()
                         .push(quote);
                 }
@@ -391,7 +391,7 @@ impl BaseCorrelationSurfaceCalibrator {
         // Calibrate each maturity separately
         for &maturity_years in &self.target_maturities {
             if let Some(maturity_quotes) =
-                quotes_by_maturity.get(&HashableFloat::new(maturity_years))
+                quotes_by_maturity.get(&maturity_years.into())
             {
                 let calibrator = BaseCorrelationCalibrator::new(
                     &self.index_id,
@@ -405,7 +405,7 @@ impl BaseCorrelationSurfaceCalibrator {
                 let result = calibrator.calibrate(&maturity_quote_vec, market_context);
                 match result {
                     Ok((curve, report)) => {
-                        curves_by_maturity.insert(HashableFloat::new(maturity_years), curve);
+                        curves_by_maturity.insert(maturity_years.into(), curve);
 
                         // Merge residuals with maturity prefix
                         for (key, value) in report.residuals {

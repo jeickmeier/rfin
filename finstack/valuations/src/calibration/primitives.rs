@@ -3,73 +3,13 @@
 use finstack_core::dates::Date;
 use finstack_core::prelude::*;
 use finstack_core::F;
-use std::hash::{Hash, Hasher};
+use ordered_float::OrderedFloat;
 
-/// Hashable wrapper for floating point values used as HashMap keys.
+/// Type alias for hashable floating point values used as HashMap keys.
 ///
-/// Provides a way to use f64 values as HashMap keys by implementing Hash and Eq.
-/// Uses a tolerance-based equality comparison for floating point values.
-#[derive(Clone, Copy, Debug)]
-pub struct HashableFloat {
-    value: F,
-    precision: i64, // For hash consistency
-}
-
-impl HashableFloat {
-    /// Create a new hashable float with default precision (6 decimal places).
-    pub fn new(value: F) -> Self {
-        Self {
-            value,
-            precision: (value * 1_000_000.0).round() as i64,
-        }
-    }
-
-    /// Create with custom precision (number of decimal places).
-    pub fn with_precision(value: F, decimal_places: u32) -> Self {
-        let multiplier = 10_f64.powi(decimal_places as i32);
-        Self {
-            value,
-            precision: (value * multiplier).round() as i64,
-        }
-    }
-
-    /// Get the underlying value.
-    pub fn value(&self) -> F {
-        self.value
-    }
-}
-
-impl PartialEq for HashableFloat {
-    fn eq(&self, other: &Self) -> bool {
-        self.precision == other.precision
-    }
-}
-
-impl Eq for HashableFloat {}
-
-impl Hash for HashableFloat {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.precision.hash(state);
-    }
-}
-
-impl From<F> for HashableFloat {
-    fn from(value: F) -> Self {
-        Self::new(value)
-    }
-}
-
-impl From<HashableFloat> for F {
-    fn from(hf: HashableFloat) -> Self {
-        hf.value
-    }
-}
-
-impl std::fmt::Display for HashableFloat {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.value)
-    }
-}
+/// Uses OrderedFloat which provides total ordering and hashing for f64 values.
+/// This simplifies the code compared to a custom HashableFloat implementation.
+pub type HashableFloat = OrderedFloat<F>;
 
 /// Market instrument quote for calibration.
 #[derive(Clone, Debug)]
