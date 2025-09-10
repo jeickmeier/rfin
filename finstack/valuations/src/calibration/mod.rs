@@ -20,7 +20,6 @@ mod macros;
 mod quote;
 mod report;
 mod traits;
-mod utils;
 
 // Re-exports
 pub use config::{CalibrationConfig, SolverKind};
@@ -32,4 +31,3 @@ pub use quote::{
 pub use report::CalibrationReport;
 pub use simple_calibration::SimpleCalibration;
 pub use traits::Calibrator;
-pub use utils::HashableFloat;

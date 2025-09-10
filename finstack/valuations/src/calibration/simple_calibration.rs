@@ -8,8 +8,8 @@ use crate::calibration::bootstrap::{
     InflationCurveCalibrator, VolSurfaceCalibrator,
 };
 use crate::calibration::quote::{MarketQuote, CreditQuote, InflationQuote, VolQuote};
-use crate::calibration::utils::HashableFloat;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
+use ordered_float::OrderedFloat;
 
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
@@ -304,7 +304,7 @@ impl SimpleCalibration {
         let mut combined_report = CalibrationReport::empty_success("Base correlation calibration starting");
 
         // Group tranche quotes by index and maturity
-        let mut quotes_by_index: HashMap<String, HashMap<HashableFloat, Vec<CreditQuote>>> = HashMap::new();
+        let mut quotes_by_index: HashMap<String, HashMap<OrderedFloat<F>, Vec<CreditQuote>>> = HashMap::new();
 
         for quote in quotes {
             if let MarketQuote::Credit(credit_quote) = quote {

@@ -5,8 +5,8 @@
 
 // Removed: forward_fn_auto is now a method on MarketContext
 use crate::calibration::quote::VolQuote;
-use crate::calibration::utils::HashableFloat;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
+use ordered_float::OrderedFloat;
 use crate::instruments::options::models::{SABRCalibrator, SABRModel, SABRParameters};
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -85,7 +85,7 @@ impl VolSurfaceCalibrator {
         }
 
         // Calibrate SABR parameters for each expiry
-        let mut sabr_params_by_expiry: HashMap<HashableFloat, SABRParameters> = HashMap::new();
+        let mut sabr_params_by_expiry: HashMap<OrderedFloat<F>, SABRParameters> = HashMap::new();
         let mut all_residuals = HashMap::new();
         let sabr_calibrator = SABRCalibrator::new()
             .with_tolerance(self.config.tolerance)
@@ -191,7 +191,7 @@ impl VolSurfaceCalibrator {
     /// Build volatility grid from calibrated SABR parameters.
     fn build_vol_grid(
         &self,
-        sabr_params: &HashMap<HashableFloat, SABRParameters>,
+        sabr_params: &HashMap<OrderedFloat<F>, SABRParameters>,
         forward_curve: &dyn Fn(F) -> F,
     ) -> Result<Vec<F>> {
         let mut vol_grid =
@@ -218,7 +218,7 @@ impl VolSurfaceCalibrator {
     /// Interpolate SABR parameters between calibrated expiries.
     fn interpolate_sabr_params(
         &self,
-        sabr_params: &HashMap<HashableFloat, SABRParameters>,
+        sabr_params: &HashMap<OrderedFloat<F>, SABRParameters>,
         target_expiry: F,
     ) -> Result<SABRParameters> {
         // Find bracketing expiries

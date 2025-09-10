@@ -4,8 +4,8 @@
 //! one-factor Gaussian Copula model and equity tranche decomposition.
 
 use crate::calibration::quote::CreditQuote;
-use crate::calibration::utils::HashableFloat;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
+use ordered_float::OrderedFloat;
 use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_core::math::Solver;
 
@@ -364,11 +364,11 @@ impl BaseCorrelationSurfaceCalibrator {
         quotes: &[CreditQuote],
         market_context: &MarketContext,
     ) -> Result<(
-        HashMap<HashableFloat, BaseCorrelationCurve>,
+        HashMap<OrderedFloat<F>, BaseCorrelationCurve>,
         CalibrationReport,
     )> {
         // Group quotes by maturity
-        let mut quotes_by_maturity: HashMap<HashableFloat, Vec<&CreditQuote>> = HashMap::new();
+        let mut quotes_by_maturity: HashMap<OrderedFloat<F>, Vec<&CreditQuote>> = HashMap::new();
 
         for quote in quotes {
             if let CreditQuote::CDSTranche { maturity, .. } = quote {
