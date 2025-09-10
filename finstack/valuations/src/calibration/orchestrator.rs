@@ -3,14 +3,14 @@
 //! Provides high-level functions to calibrate complete market environments
 //! from instrument quotes using proper sequencing and dependencies.
 
-use crate::calibration::base_correlation::BaseCorrelationCalibrator;
+use crate::calibration::bootstrap::{BaseCorrelationCalibrator, VolSurfaceCalibrator};
 use crate::calibration::bootstrap::{
     DiscountCurveCalibrator, HazardCurveCalibrator, InflationCurveCalibrator,
 };
-use crate::calibration::common::{forward_fn_auto, time_to_expiry_vol, time_to_maturity_auto};
+use crate::calibration::common::forward_fn_auto;
 use crate::calibration::dependency_dag::{CalibrationDAG, CalibrationTarget};
 use crate::calibration::primitives::{HashableFloat, InstrumentQuote};
-use crate::calibration::surface::VolSurfaceCalibrator;
+
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 
 use finstack_core::market_data::context::MarketContext;
@@ -309,7 +309,9 @@ impl CalibrationOrchestrator {
 
         for quote in quotes {
             if let InstrumentQuote::OptionVol { expiry, strike, .. } = quote {
-                let years = time_to_expiry_vol(self.base_date, *expiry);
+                let years = finstack_core::dates::DayCount::Act365F
+                    .year_fraction(self.base_date, *expiry, finstack_core::dates::DayCountCtx::default())
+                    .unwrap_or(0.0);
                 expiries.insert((years * 1000.0).round() as i32);
                 strikes.insert((*strike * 100.0).round() as i32);
             }
@@ -521,7 +523,9 @@ impl CalibrationOrchestrator {
 
             for quote in &underlying_quotes {
                 if let InstrumentQuote::OptionVol { expiry, strike, .. } = quote {
-                    let years = time_to_expiry_vol(self.base_date, *expiry);
+                    let years = finstack_core::dates::DayCount::Act365F
+                        .year_fraction(self.base_date, *expiry, finstack_core::dates::DayCountCtx::default())
+                        .unwrap_or(0.0);
                     expiries.insert((years * 1000.0).round() as i32); // Round to avoid floating point issues
                     strikes.insert((*strike * 100.0).round() as i32);
                 }
@@ -609,7 +613,9 @@ impl CalibrationOrchestrator {
                 index, maturity, ..
             } = quote
             {
-                let maturity_years = time_to_maturity_auto(self.base_date, *maturity);
+                let maturity_years = finstack_core::dates::DayCount::Act365F
+                    .year_fraction(self.base_date, *maturity, finstack_core::dates::DayCountCtx::default())
+                    .unwrap_or(0.0);
 
                 quotes_by_index
                     .entry(index.clone())

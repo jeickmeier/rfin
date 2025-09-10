@@ -3,7 +3,6 @@
 //! This module provides common functions to group instrument quotes by various
 //! criteria, reducing duplicated logic across calibration modules.
 
-use crate::calibration::common::time::{time_to_expiry_vol, time_to_maturity_auto};
 use crate::calibration::primitives::InstrumentQuote;
 use finstack_core::dates::Date;
 use finstack_core::F;
@@ -112,16 +111,30 @@ pub fn nearest_maturities<'a>(
 
     for quote in quotes {
         let maturity_years = match quote {
-            InstrumentQuote::OptionVol { expiry, .. } => time_to_expiry_vol(base_date, *expiry),
-            InstrumentQuote::CDSTranche { maturity, .. } => {
-                time_to_maturity_auto(base_date, *maturity)
+            InstrumentQuote::OptionVol { expiry, .. } => {
+                finstack_core::dates::DayCount::Act365F
+                    .year_fraction(base_date, *expiry, finstack_core::dates::DayCountCtx::default())
+                    .unwrap_or(0.0)
             }
-            InstrumentQuote::CDS { maturity, .. } => time_to_maturity_auto(base_date, *maturity),
+            InstrumentQuote::CDSTranche { maturity, .. } => {
+                finstack_core::dates::DayCount::Act365F
+                    .year_fraction(base_date, *maturity, finstack_core::dates::DayCountCtx::default())
+                    .unwrap_or(0.0)
+            }
+            InstrumentQuote::CDS { maturity, .. } => {
+                finstack_core::dates::DayCount::Act365F
+                    .year_fraction(base_date, *maturity, finstack_core::dates::DayCountCtx::default())
+                    .unwrap_or(0.0)
+            }
             InstrumentQuote::CDSUpfront { maturity, .. } => {
-                time_to_maturity_auto(base_date, *maturity)
+                finstack_core::dates::DayCount::Act365F
+                    .year_fraction(base_date, *maturity, finstack_core::dates::DayCountCtx::default())
+                    .unwrap_or(0.0)
             }
             InstrumentQuote::InflationSwap { maturity, .. } => {
-                time_to_maturity_auto(base_date, *maturity)
+                finstack_core::dates::DayCount::Act365F
+                    .year_fraction(base_date, *maturity, finstack_core::dates::DayCountCtx::default())
+                    .unwrap_or(0.0)
             }
             _ => continue,
         };

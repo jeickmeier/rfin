@@ -3,7 +3,7 @@
 //! Implements market-standard volatility surface construction by calibrating
 //! SABR parameters per expiry slice and building interpolated surfaces.
 
-use crate::calibration::common::{forward_fn_auto, time_to_expiry_vol};
+use crate::calibration::common::forward_fn_auto;
 use crate::calibration::primitives::{HashableFloat, InstrumentQuote};
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::options::models::{SABRCalibrator, SABRModel, SABRParameters};
@@ -98,7 +98,9 @@ impl VolSurfaceCalibrator {
             // Extract time to expiry using proper day count convention
             let time_to_expiry = if let InstrumentQuote::OptionVol { expiry, .. } = expiry_quotes[0]
             {
-                time_to_expiry_vol(self.base_date, *expiry)
+                finstack_core::dates::DayCount::Act365F
+                    .year_fraction(self.base_date, *expiry, finstack_core::dates::DayCountCtx::default())
+                    .unwrap_or(0.0)
             } else {
                 continue;
             };

@@ -5,7 +5,11 @@
 pub mod hazard_curve;
 pub mod inflation_curve;
 pub mod yield_curve_single;
+pub mod base_correlation;
+pub mod surface;
 
 pub use hazard_curve::*;
 pub use inflation_curve::*;
 pub use yield_curve_single::*;
+pub use base_correlation::*;
+pub use surface::*;

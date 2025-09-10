@@ -6,7 +6,6 @@
 //! - Flexible handling of complex cross-dependencies
 //! - Optimal execution order based on actual dependencies
 
-use crate::calibration::common::time::time_to_maturity_auto;
 use crate::calibration::primitives::{HashableFloat, InstrumentQuote};
 use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::hazard_curve::Seniority;
@@ -210,7 +209,9 @@ impl CalibrationDAG {
                 index, maturity, ..
             } => {
                 // Calculate maturity in years for base correlation using proper day count
-                let maturity_years_f = time_to_maturity_auto(self.base_date, *maturity);
+                let maturity_years_f = finstack_core::dates::DayCount::Act365F
+                    .year_fraction(self.base_date, *maturity, finstack_core::dates::DayCountCtx::default())
+                    .unwrap_or(0.0);
                 let maturity_years = HashableFloat::new(maturity_years_f);
                 targets.push(CalibrationTarget::DiscountCurve {
                     currency: base_currency,

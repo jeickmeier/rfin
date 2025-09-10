@@ -9,13 +9,11 @@
 //!
 //! Supports both sequential bootstrapping and global optimization approaches.
 
-pub mod base_correlation;
 pub mod bootstrap;
 pub mod common;
 pub mod dependency_dag;
 pub mod orchestrator;
 pub mod primitives;
-pub mod surface;
 
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::{BrentSolver, HybridSolver, NewtonSolver, Solver};
