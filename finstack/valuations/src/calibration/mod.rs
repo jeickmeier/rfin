@@ -10,14 +10,16 @@
 //! Supports both sequential bootstrapping and global optimization approaches.
 
 pub mod bootstrap;
-pub mod dependency_dag;
-pub mod orchestrator;
 pub mod primitives;
+pub mod simple_calibration;
 
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::{BrentSolver, HybridSolver, NewtonSolver, Solver};
 use finstack_core::{Result, F};
 use std::collections::HashMap;
+
+// Re-export the simple calibration API for convenience
+pub use simple_calibration::SimpleCalibration;
 
 /// Core trait for calibrating market data structures from instrument quotes.
 ///
