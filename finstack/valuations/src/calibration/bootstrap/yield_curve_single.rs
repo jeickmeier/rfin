@@ -74,7 +74,7 @@ impl DiscountCurveCalibrator {
     ///
     /// This method builds the curve incrementally, solving for each discount factor
     /// that reprices the corresponding instrument to par.
-    pub fn bootstrap_curve_with_solver<S: Solver>(
+    fn bootstrap_curve_with_solver<S: Solver>(
         &self,
         quotes: &[InstrumentQuote],
         solver: &S,
@@ -508,19 +508,6 @@ impl DiscountCurveCalibrator {
     }
 }
 
-impl DiscountCurveCalibrator {
-    /// Backwards-compatible bootstrap API used in tests and examples.
-    pub fn bootstrap_curve<S: finstack_core::math::Solver>(
-        &self,
-        quotes: &[InstrumentQuote],
-        solver: &S,
-        base_context: &MarketContext,
-    ) -> Result<(DiscountCurve, CalibrationReport)> {
-        // Use the solver-based bootstrap implementation
-        self.bootstrap_curve_with_solver(quotes, solver, base_context)
-    }
-}
-
 impl Calibrator<InstrumentQuote, DiscountCurve> for DiscountCurveCalibrator {
     fn calibrate(
         &self,
@@ -686,11 +673,7 @@ mod tests {
             }
         }
 
-        let result = calibrator.bootstrap_curve(
-            &deposit_quotes,
-            &finstack_core::math::NewtonSolver::new(),
-            &base_context,
-        );
+        let result = calibrator.calibrate(&deposit_quotes, &base_context);
 
         assert!(result.is_ok());
         let (curve, report) = result.unwrap();
@@ -756,11 +739,7 @@ mod tests {
 
         let base_context = MarketContext::new();
         let (curve, _report) = calibrator
-            .bootstrap_curve(
-                &quotes,
-                &finstack_core::math::HybridSolver::new(),
-                &base_context,
-            )
+            .calibrate(&quotes, &base_context)
             .unwrap();
 
         // Single-curve: derive forward curve from discount
@@ -819,11 +798,7 @@ mod tests {
 
         let base_context = MarketContext::new();
         let (curve, _report) = calibrator
-            .bootstrap_curve(
-                &quotes,
-                &finstack_core::math::HybridSolver::new(),
-                &base_context,
-            )
+            .calibrate(&quotes, &base_context)
             .unwrap();
 
         let fwd = curve.to_forward_curve("USD-SOFR", 0.25).unwrap();
@@ -905,11 +880,7 @@ mod tests {
 
         let base_context = MarketContext::new();
         let (curve, _report) = calibrator
-            .bootstrap_curve(
-                &quotes,
-                &finstack_core::math::HybridSolver::new(),
-                &base_context,
-            )
+            .calibrate(&quotes, &base_context)
             .unwrap();
 
         let fwd = curve.to_forward_curve("USD-SOFR", 0.25).unwrap();

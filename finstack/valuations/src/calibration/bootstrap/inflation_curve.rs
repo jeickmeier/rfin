@@ -61,20 +61,6 @@ impl InflationCurveCalibrator {
     }
 }
 
-impl InflationCurveCalibrator {
-    /// Backwards-compatible bootstrap API used in tests and examples.
-    pub fn bootstrap_curve<S: finstack_core::math::Solver>(
-        &self,
-        quotes: &[InstrumentQuote],
-        _solver: &S,
-        _discount_curve: &dyn finstack_core::market_data::traits::Discount,
-        _inflation_index: &finstack_core::market_data::inflation_index::InflationIndex,
-    ) -> Result<(InflationCurve, CalibrationReport)> {
-        // Delegate to simplified calibrate implementation for now
-        self.calibrate(quotes, &MarketContext::new())
-    }
-}
-
 impl Calibrator<InstrumentQuote, InflationCurve> for InflationCurveCalibrator {
     fn calibrate(
         &self,

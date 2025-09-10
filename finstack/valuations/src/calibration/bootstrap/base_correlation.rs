@@ -74,7 +74,7 @@ impl BaseCorrelationCalibrator {
     /// 2. For each tranche [A, D], solve for ρ(D) such that:
     ///    Price([A, D]) = Price([0, D], ρ(D)) - Price([0, A], ρ(A))
     /// 3. Use previously solved correlations for [0, A] pricing
-    pub fn bootstrap_curve<S: Solver>(
+    fn bootstrap_curve<S: Solver>(
         &self,
         quotes: &[InstrumentQuote],
         solver: &S,
@@ -402,9 +402,7 @@ impl BaseCorrelationSurfaceCalibrator {
 
                 let maturity_quote_vec: Vec<_> =
                     maturity_quotes.iter().map(|&q| q.clone()).collect();
-                let result = crate::with_solver!(&calibrator.config, |solver| {
-                    calibrator.bootstrap_curve(&maturity_quote_vec, &solver, market_context)
-                });
+                let result = calibrator.calibrate(&maturity_quote_vec, market_context);
                 match result {
                     Ok((curve, report)) => {
                         curves_by_maturity.insert(HashableFloat::new(maturity_years), curve);
@@ -647,9 +645,7 @@ mod tests {
             .clone()
             .insert_credit_index("CDX.NA.IG.42", clean_index);
 
-        let calibration_result = crate::with_solver!(&calibrator.config, |solver| {
-            calibrator.bootstrap_curve(&synthetic_quotes, &solver, &clean_market_ctx)
-        });
+        let calibration_result = calibrator.calibrate(&synthetic_quotes, &clean_market_ctx);
 
         assert!(calibration_result.is_ok());
         let (calibrated_curve, report) = calibration_result.unwrap();

@@ -267,18 +267,6 @@ impl HazardCurveCalibrator {
     }
 }
 
-impl HazardCurveCalibrator {
-    /// Bootstrap API used in tests and examples (explicit solver + discount curve).
-    pub fn bootstrap_curve<S: finstack_core::math::Solver>(
-        &self,
-        quotes: &[InstrumentQuote],
-        solver: &S,
-        discount_curve: &dyn finstack_core::market_data::traits::Discount,
-    ) -> Result<(HazardCurve, CalibrationReport)> {
-        self.bootstrap_internal(quotes, solver, Some(discount_curve))
-    }
-}
-
 impl Calibrator<InstrumentQuote, HazardCurve> for HazardCurveCalibrator {
     fn calibrate(
         &self,
@@ -355,11 +343,14 @@ mod tests {
             Currency::USD,
             "USD-OIS",
         );
-        let solver = finstack_core::math::HybridSolver::new();
+        let market_context = MarketContext::new().insert_discount(disc);
         let (hazard, report) = calibrator
-            .bootstrap_curve(&quotes, &solver, &disc)
+            .calibrate(&quotes, &market_context)
             .expect("hazard curve calibration failed");
         assert!(report.success);
+
+        // Get the discount curve from the market context
+        let disc = market_context.disc("USD-OIS").expect("discount curve not found");
 
         // Reprice each quoted CDS and assert PV per $1MM is within $1
         let pricer = CDSPricer::new();
@@ -385,7 +376,7 @@ mod tests {
                 );
 
                 let pv = pricer
-                    .npv(&cds, &disc, &hazard, base_date)
+                    .npv(&cds, disc.as_ref(), &hazard, base_date)
                     .expect("cds npv failed");
                 assert!(
                     pv.amount().abs() <= 1.0,
@@ -410,9 +401,9 @@ mod tests {
             Currency::USD,
             "USD-OIS",
         );
-        let solver = finstack_core::math::HybridSolver::new();
+        let market_context = MarketContext::new().insert_discount(disc);
         let (hazard, report) = calibrator
-            .bootstrap_curve(&quotes, &solver, &disc)
+            .calibrate(&quotes, &market_context)
             .expect("hazard curve calibration failed");
         assert!(report.success);
 
@@ -479,9 +470,9 @@ mod tests {
             Currency::USD,
             "USD-OIS",
         );
-        let solver = finstack_core::math::HybridSolver::new();
+        let market_context = MarketContext::new().insert_discount(disc);
         let empty: Vec<InstrumentQuote> = vec![];
-        let res = calibrator.bootstrap_curve(&empty, &solver, &disc);
+        let res = calibrator.calibrate(&empty, &market_context);
         assert!(res.is_err());
     }
 
@@ -508,8 +499,8 @@ mod tests {
             Currency::USD,
             "USD-OIS",
         );
-        let solver = finstack_core::math::HybridSolver::new();
-        let result = calibrator.bootstrap_curve(&upfront_quote, &solver, &disc);
+        let market_context = MarketContext::new().insert_discount(disc);
+        let result = calibrator.calibrate(&upfront_quote, &market_context);
 
         // Should succeed and handle upfront quote properly
         assert!(result.is_ok());
