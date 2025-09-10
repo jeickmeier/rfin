@@ -7,7 +7,8 @@ use crate::calibration::bootstrap::{
     BaseCorrelationCalibrator, DiscountCurveCalibrator, HazardCurveCalibrator,
     InflationCurveCalibrator, VolSurfaceCalibrator,
 };
-use crate::calibration::primitives::{HashableFloat, MarketQuote, CreditQuote, InflationQuote, VolQuote};
+use crate::calibration::quote::{MarketQuote, CreditQuote, InflationQuote, VolQuote};
+use crate::calibration::utils::HashableFloat;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
@@ -421,7 +422,7 @@ impl SimpleCalibration {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::calibration::primitives::RatesQuote;
+    use crate::calibration::quote::RatesQuote;
     use finstack_core::dates::{DayCount, Frequency};
     use time::Month;
 

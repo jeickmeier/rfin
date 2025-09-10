@@ -4,7 +4,8 @@
 //! SABR parameters per expiry slice and building interpolated surfaces.
 
 // Removed: forward_fn_auto is now a method on MarketContext
-use crate::calibration::primitives::{HashableFloat, VolQuote};
+use crate::calibration::quote::VolQuote;
+use crate::calibration::utils::HashableFloat;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::options::models::{SABRCalibrator, SABRModel, SABRParameters};
 use finstack_core::dates::Date;

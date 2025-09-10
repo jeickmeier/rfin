@@ -4,7 +4,7 @@
 //! sequentially across maturities using an objective that drives the CDS NPV
 //! to ~0 at the quoted spread.
 
-use crate::calibration::primitives::CreditQuote;
+use crate::calibration::quote::CreditQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::cds::{
     cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap, PayReceive,

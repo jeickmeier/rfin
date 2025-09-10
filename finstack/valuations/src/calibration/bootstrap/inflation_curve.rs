@@ -3,7 +3,7 @@
 //! Implements market-standard inflation curve calibration using zero-coupon
 //! inflation swaps to build forward CPI level curves.
 
-use crate::calibration::primitives::InflationQuote;
+use crate::calibration::quote::InflationQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::inflation_swap::{InflationSwap, PayReceiveInflation};
 use crate::instruments::traits::Priceable;

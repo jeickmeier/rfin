@@ -6,7 +6,7 @@
 //! Uses instrument pricing methods directly rather than reimplementing
 //! pricing formulas, following market-standard bootstrap methodology.
 
-use crate::calibration::primitives::RatesQuote;
+use crate::calibration::quote::RatesQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::fra::ForwardRateAgreement;
 use crate::instruments::fixed_income::ir_future::InterestRateFuture;

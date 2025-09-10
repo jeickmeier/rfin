@@ -3,7 +3,8 @@
 //! Implements market-standard base correlation bootstrapping using the
 //! one-factor Gaussian Copula model and equity tranche decomposition.
 
-use crate::calibration::primitives::{HashableFloat, CreditQuote};
+use crate::calibration::quote::CreditQuote;
+use crate::calibration::utils::HashableFloat;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_core::math::Solver;

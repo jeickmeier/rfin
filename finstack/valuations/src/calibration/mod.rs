@@ -11,22 +11,25 @@
 
 // Submodules
 pub mod bootstrap;
-pub mod primitives;
 pub mod simple_calibration;
 
 // Internal modules
 mod config;
+mod constraints;
 mod macros;
 mod quote;
 mod report;
 mod traits;
-
-#[cfg(test)]
-mod tests;
+mod utils;
 
 // Re-exports
 pub use config::{CalibrationConfig, SolverKind};
-pub use quote::MarketQuote;
+pub use constraints::{CalibrationConstraint, ConstraintType, InequalityDirection};
+pub use quote::{
+    CreditQuote, FutureSpecs, InflationQuote, MarketQuote, QuoteWithMetadata, RatesQuote,
+    VolQuote,
+};
 pub use report::CalibrationReport;
 pub use simple_calibration::SimpleCalibration;
 pub use traits::Calibrator;
+pub use utils::HashableFloat;
