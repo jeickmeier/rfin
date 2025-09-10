@@ -3,7 +3,7 @@
 //! Implements market-standard inflation curve calibration using zero-coupon
 //! inflation swaps to build forward CPI level curves.
 
-use crate::calibration::primitives::InstrumentQuote;
+use crate::calibration::primitives::InflationQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::inflation_swap::{InflationSwap, PayReceiveInflation};
 use crate::instruments::traits::Priceable;
@@ -61,17 +61,17 @@ impl InflationCurveCalibrator {
     }
 }
 
-impl Calibrator<InstrumentQuote, InflationCurve> for InflationCurveCalibrator {
+impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
     fn calibrate(
         &self,
-        instruments: &[InstrumentQuote],
+        instruments: &[InflationQuote],
         base_context: &MarketContext,
     ) -> Result<(InflationCurve, CalibrationReport)> {
         // Extract relevant inflation swap quotes for this index and sort by maturity
         let mut quotes: Vec<(finstack_core::dates::Date, F, String)> = instruments
             .iter()
             .filter_map(|q| match q {
-                InstrumentQuote::InflationSwap {
+                InflationQuote::InflationSwap {
                     maturity,
                     rate,
                     index,
@@ -286,21 +286,21 @@ mod tests {
     use finstack_core::market_data::inflation_index::InflationIndex;
     use time::Month;
 
-    fn create_test_inflation_quotes() -> Vec<InstrumentQuote> {
+    fn create_test_inflation_quotes() -> Vec<InflationQuote> {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
         vec![
-            InstrumentQuote::InflationSwap {
+            InflationQuote::InflationSwap {
                 maturity: base_date + time::Duration::days(365),
                 rate: 0.025, // 2.5% expected inflation
                 index: "US-CPI-U".to_string(),
             },
-            InstrumentQuote::InflationSwap {
+            InflationQuote::InflationSwap {
                 maturity: base_date + time::Duration::days(365 * 2),
                 rate: 0.023,
                 index: "US-CPI-U".to_string(),
             },
-            InstrumentQuote::InflationSwap {
+            InflationQuote::InflationSwap {
                 maturity: base_date + time::Duration::days(365 * 5),
                 rate: 0.024,
                 index: "US-CPI-U".to_string(),
@@ -421,7 +421,7 @@ mod tests {
 
         // Reprice each quoted inflation swap; PV per $1MM should be <= $1
         for q in quotes {
-            if let InstrumentQuote::InflationSwap { maturity, rate, .. } = q {
+            if let InflationQuote::InflationSwap { maturity, rate, .. } = q {
                 let swap = InflationSwap::builder()
                     .id(format!("ZCIS-{}", maturity))
                     .notional(finstack_core::money::Money::new(1_000_000.0, Currency::USD))

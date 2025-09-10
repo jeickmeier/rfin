@@ -36,7 +36,8 @@ The calibration framework provides a unified approach to calibrating:
 
 ```rust
 use finstack_valuations::calibration::{
-    CalibrationOrchestrator, primitives::InstrumentQuote
+    CalibrationOrchestrator, 
+    primitives::{MarketQuote, RatesQuote}
 };
 
 // Create orchestrator
@@ -44,12 +45,12 @@ let orchestrator = CalibrationOrchestrator::new(base_date, Currency::USD);
 
 // Prepare market quotes
 let quotes = vec![
-    InstrumentQuote::Deposit { 
+    MarketQuote::Rates(RatesQuote::Deposit { 
         maturity: base_date + Duration::days(30),
         rate: 0.045,
         day_count: DayCount::Act360,
-    },
-    InstrumentQuote::Swap {
+    }),
+    MarketQuote::Rates(RatesQuote::Swap {
         maturity: base_date + Duration::days(365*2), 
         rate: 0.047,
         fixed_freq: Frequency::semi_annual(),

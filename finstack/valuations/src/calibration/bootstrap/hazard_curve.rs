@@ -4,7 +4,7 @@
 //! sequentially across maturities using an objective that drives the CDS NPV
 //! to ~0 at the quoted spread.
 
-use crate::calibration::primitives::InstrumentQuote;
+use crate::calibration::primitives::CreditQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::cds::{
     cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap, PayReceive,
@@ -103,7 +103,7 @@ impl HazardCurveCalibrator {
 
     fn bootstrap_internal<S: finstack_core::math::Solver>(
         &self,
-        quotes: &[InstrumentQuote],
+        quotes: &[CreditQuote],
         solver: &S,
         discount_curve_opt: Option<&dyn Discount>,
     ) -> Result<(HazardCurve, CalibrationReport)> {
@@ -111,13 +111,13 @@ impl HazardCurveCalibrator {
         let mut cds_quotes: Vec<(finstack_core::dates::Date, F, Option<F>)> = quotes
             .iter()
             .filter_map(|q| match q {
-                InstrumentQuote::CDS {
+                CreditQuote::CDS {
                     entity,
                     maturity,
                     spread_bp,
                     ..
                 } if entity == &self.entity => Some((*maturity, *spread_bp, None)),
-                InstrumentQuote::CDSUpfront {
+                CreditQuote::CDSUpfront {
                     entity,
                     maturity,
                     upfront_pct,
@@ -267,10 +267,10 @@ impl HazardCurveCalibrator {
     }
 }
 
-impl Calibrator<InstrumentQuote, HazardCurve> for HazardCurveCalibrator {
+impl Calibrator<CreditQuote, HazardCurve> for HazardCurveCalibrator {
     fn calibrate(
         &self,
-        instruments: &[InstrumentQuote],
+        instruments: &[CreditQuote],
         base_context: &MarketContext,
     ) -> Result<(HazardCurve, CalibrationReport)> {
         let disc = base_context.disc(&self.discount_curve_id)?;
@@ -302,24 +302,24 @@ mod tests {
             .unwrap()
     }
 
-    fn test_cds_quotes() -> Vec<InstrumentQuote> {
+    fn test_cds_quotes() -> Vec<CreditQuote> {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         vec![
-            InstrumentQuote::CDS {
+            CreditQuote::CDS {
                 entity: "AAPL".to_string(),
                 maturity: base_date + time::Duration::days(365),
                 spread_bp: 50.0,
                 recovery_rate: 0.40,
                 currency: Currency::USD,
             },
-            InstrumentQuote::CDS {
+            CreditQuote::CDS {
                 entity: "AAPL".to_string(),
                 maturity: base_date + time::Duration::days(365 * 3),
                 spread_bp: 75.0,
                 recovery_rate: 0.40,
                 currency: Currency::USD,
             },
-            InstrumentQuote::CDS {
+            CreditQuote::CDS {
                 entity: "AAPL".to_string(),
                 maturity: base_date + time::Duration::days(365 * 5),
                 spread_bp: 100.0,
@@ -355,7 +355,7 @@ mod tests {
         // Reprice each quoted CDS and assert PV per $1MM is within $1
         let pricer = CDSPricer::new();
         for q in quotes {
-            if let InstrumentQuote::CDS {
+            if let CreditQuote::CDS {
                 maturity,
                 spread_bp,
                 ..
@@ -471,7 +471,7 @@ mod tests {
             "USD-OIS",
         );
         let market_context = MarketContext::new().insert_discount(disc);
-        let empty: Vec<InstrumentQuote> = vec![];
+        let empty: Vec<CreditQuote> = vec![];
         let res = calibrator.calibrate(&empty, &market_context);
         assert!(res.is_err());
     }
@@ -482,7 +482,7 @@ mod tests {
         let disc = test_discount_curve();
 
         // Test with upfront quote
-        let upfront_quote = vec![InstrumentQuote::CDSUpfront {
+        let upfront_quote = vec![CreditQuote::CDSUpfront {
             entity: "DISTRESSED".to_string(),
             maturity: base_date + time::Duration::days(365),
             upfront_pct: 5.0,         // 5% upfront

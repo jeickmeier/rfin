@@ -4,7 +4,7 @@
 //! SABR parameters per expiry slice and building interpolated surfaces.
 
 // Removed: forward_fn_auto is now a method on MarketContext
-use crate::calibration::primitives::{HashableFloat, InstrumentQuote};
+use crate::calibration::primitives::{HashableFloat, VolQuote};
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::options::models::{SABRCalibrator, SABRModel, SABRParameters};
 use finstack_core::dates::Date;
@@ -64,14 +64,14 @@ impl VolSurfaceCalibrator {
     /// Internal calibration logic with forward curve.
     fn calibrate_internal(
         &self,
-        quotes: &[InstrumentQuote],
+        quotes: &[VolQuote],
         forward_curve: &dyn Fn(F) -> F, // Forward price/rate as function of time
     ) -> Result<(VolSurface, CalibrationReport)> {
         // Group quotes by expiry
-        let mut quotes_by_expiry: HashMap<String, Vec<&InstrumentQuote>> = HashMap::new();
+        let mut quotes_by_expiry: HashMap<String, Vec<&VolQuote>> = HashMap::new();
 
         for quote in quotes {
-            if let InstrumentQuote::OptionVol { expiry, .. } = quote {
+            if let VolQuote::OptionVol { expiry, .. } = quote {
                 let expiry_key = format!("{}", expiry);
                 quotes_by_expiry.entry(expiry_key).or_default().push(quote);
             }
@@ -96,7 +96,7 @@ impl VolSurfaceCalibrator {
             }
 
             // Extract time to expiry using proper day count convention
-            let time_to_expiry = if let InstrumentQuote::OptionVol { expiry, .. } = expiry_quotes[0]
+            let time_to_expiry = if let VolQuote::OptionVol { expiry, .. } = expiry_quotes[0]
             {
                 finstack_core::dates::DayCount::Act365F
                     .year_fraction(self.base_date, *expiry, finstack_core::dates::DayCountCtx::default())
@@ -117,7 +117,7 @@ impl VolSurfaceCalibrator {
             let mut vols = Vec::new();
 
             for quote in expiry_quotes {
-                if let InstrumentQuote::OptionVol { strike, vol, .. } = quote {
+                if let VolQuote::OptionVol { strike, vol, .. } = quote {
                     strikes.push(*strike);
                     vols.push(*vol);
                 }
@@ -265,17 +265,17 @@ impl VolSurfaceCalibrator {
     }
 }
 
-impl Calibrator<InstrumentQuote, VolSurface> for VolSurfaceCalibrator {
+impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
     fn calibrate(
         &self,
-        instruments: &[InstrumentQuote],
+        instruments: &[VolQuote],
         base_context: &MarketContext,
     ) -> Result<(VolSurface, CalibrationReport)> {
         // Detect underlying from first quote to build appropriate forward function
         let underlying = instruments
             .iter()
             .find_map(|q| match q {
-                InstrumentQuote::OptionVol { underlying, .. } => Some(underlying.clone()),
+                VolQuote::OptionVol { underlying, .. } => Some(underlying.clone()),
                 _ => None,
             })
             .ok_or(finstack_core::Error::Input(
@@ -296,28 +296,28 @@ mod tests {
     use finstack_core::market_data::interp::InterpStyle;
     use time::Month;
 
-    fn create_test_vol_quotes() -> Vec<InstrumentQuote> {
+    fn create_test_vol_quotes() -> Vec<VolQuote> {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let expiry_1m = base_date + time::Duration::days(30);
         let expiry_3m = base_date + time::Duration::days(90);
 
         vec![
             // 1M expiry options
-            InstrumentQuote::OptionVol {
+            VolQuote::OptionVol {
                 underlying: "SPY".to_string(),
                 expiry: expiry_1m,
                 strike: 90.0,
                 vol: 0.22,
                 option_type: "Call".to_string(),
             },
-            InstrumentQuote::OptionVol {
+            VolQuote::OptionVol {
                 underlying: "SPY".to_string(),
                 expiry: expiry_1m,
                 strike: 100.0,
                 vol: 0.20,
                 option_type: "Call".to_string(),
             },
-            InstrumentQuote::OptionVol {
+            VolQuote::OptionVol {
                 underlying: "SPY".to_string(),
                 expiry: expiry_1m,
                 strike: 110.0,
@@ -325,21 +325,21 @@ mod tests {
                 option_type: "Call".to_string(),
             },
             // 3M expiry options
-            InstrumentQuote::OptionVol {
+            VolQuote::OptionVol {
                 underlying: "SPY".to_string(),
                 expiry: expiry_3m,
                 strike: 90.0,
                 vol: 0.24,
                 option_type: "Call".to_string(),
             },
-            InstrumentQuote::OptionVol {
+            VolQuote::OptionVol {
                 underlying: "SPY".to_string(),
                 expiry: expiry_3m,
                 strike: 100.0,
                 vol: 0.22,
                 option_type: "Call".to_string(),
             },
-            InstrumentQuote::OptionVol {
+            VolQuote::OptionVol {
                 underlying: "SPY".to_string(),
                 expiry: expiry_3m,
                 strike: 110.0,

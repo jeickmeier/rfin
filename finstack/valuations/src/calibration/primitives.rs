@@ -11,9 +11,9 @@ use ordered_float::OrderedFloat;
 /// This simplifies the code compared to a custom HashableFloat implementation.
 pub type HashableFloat = OrderedFloat<F>;
 
-/// Market instrument quote for calibration.
+/// Interest rate instrument quotes for yield curve calibration.
 #[derive(Clone, Debug)]
-pub enum InstrumentQuote {
+pub enum RatesQuote {
     /// Deposit rate quote
     Deposit {
         /// Maturity date
@@ -60,6 +60,32 @@ pub enum InstrumentQuote {
         /// Float leg index (e.g., "3M-LIBOR")
         index: String,
     },
+    /// Basis Swap quote for multi-curve construction
+    BasisSwap {
+        /// Swap maturity
+        maturity: Date,
+        /// Primary leg index (e.g., "3M-LIBOR", "3M-SOFR")
+        primary_index: String,
+        /// Reference leg index (e.g., "6M-LIBOR", "1M-SOFR")
+        reference_index: String,
+        /// Basis spread in basis points (primary pays reference + spread)
+        spread_bp: F,
+        /// Primary leg frequency
+        primary_freq: finstack_core::dates::Frequency,
+        /// Reference leg frequency  
+        reference_freq: finstack_core::dates::Frequency,
+        /// Primary leg day count
+        primary_dc: finstack_core::dates::DayCount,
+        /// Reference leg day count
+        reference_dc: finstack_core::dates::DayCount,
+        /// Currency for both legs
+        currency: Currency,
+    },
+}
+
+/// Credit instrument quotes for hazard curve and correlation calibration.
+#[derive(Clone, Debug)]
+pub enum CreditQuote {
     /// CDS par spread quote
     CDS {
         /// Reference entity
@@ -88,28 +114,6 @@ pub enum InstrumentQuote {
         /// Currency
         currency: Currency,
     },
-    /// Option implied volatility quote
-    OptionVol {
-        /// Underlying identifier
-        underlying: String,
-        /// Option expiry
-        expiry: Date,
-        /// Strike (rate for swaptions, price for equity/FX)
-        strike: F,
-        /// Implied volatility
-        vol: F,
-        /// Option type ("Call", "Put", "Straddle")
-        option_type: String,
-    },
-    /// Zero-coupon inflation swap quote
-    InflationSwap {
-        /// Swap maturity
-        maturity: Date,
-        /// Fixed rate (decimal)
-        rate: F,
-        /// Inflation index identifier  
-        index: String,
-    },
     /// CDS Tranche quote
     CDSTranche {
         /// Index name (e.g., "CDX.NA.IG.42")
@@ -125,27 +129,76 @@ pub enum InstrumentQuote {
         /// Running spread (bps)
         running_spread_bp: F,
     },
-    /// Basis Swap quote for multi-curve construction
-    BasisSwap {
+}
+
+/// Volatility quotes for surface calibration.
+#[derive(Clone, Debug)]
+pub enum VolQuote {
+    /// Option implied volatility quote
+    OptionVol {
+        /// Underlying identifier
+        underlying: String,
+        /// Option expiry
+        expiry: Date,
+        /// Strike (rate for swaptions, price for equity/FX)
+        strike: F,
+        /// Implied volatility
+        vol: F,
+        /// Option type ("Call", "Put", "Straddle")
+        option_type: String,
+    },
+    /// Swaption implied volatility
+    SwaptionVol {
+        /// Option expiry
+        expiry: Date,
+        /// Underlying swap tenor
+        tenor: Date,
+        /// Strike rate
+        strike: F,
+        /// Implied volatility
+        vol: F,
+        /// Quote type (ATM, OTM, etc.)
+        quote_type: String,
+    },
+}
+
+/// Inflation instrument quotes.
+#[derive(Clone, Debug)]
+pub enum InflationQuote {
+    /// Zero-coupon inflation swap quote
+    InflationSwap {
         /// Swap maturity
         maturity: Date,
-        /// Primary leg index (e.g., "3M-LIBOR", "3M-SOFR")
-        primary_index: String,
-        /// Reference leg index (e.g., "6M-LIBOR", "1M-SOFR")
-        reference_index: String,
-        /// Basis spread in basis points (primary pays reference + spread)
-        spread_bp: F,
-        /// Primary leg frequency
-        primary_freq: finstack_core::dates::Frequency,
-        /// Reference leg frequency  
-        reference_freq: finstack_core::dates::Frequency,
-        /// Primary leg day count
-        primary_dc: finstack_core::dates::DayCount,
-        /// Reference leg day count
-        reference_dc: finstack_core::dates::DayCount,
-        /// Currency for both legs
-        currency: Currency,
+        /// Fixed rate (decimal)
+        rate: F,
+        /// Inflation index identifier  
+        index: String,
     },
+    /// Year-on-year inflation swap
+    YoYInflationSwap {
+        /// Swap maturity
+        maturity: Date,
+        /// Fixed rate (decimal)
+        rate: F,
+        /// Inflation index identifier  
+        index: String,
+        /// Payment frequency
+        frequency: finstack_core::dates::Frequency,
+    },
+}
+
+/// Unified market quote that can be any instrument type.
+/// Used when multiple quote types need to be handled together.
+#[derive(Clone, Debug)]
+pub enum MarketQuote {
+    /// Interest rate quotes
+    Rates(RatesQuote),
+    /// Credit quotes
+    Credit(CreditQuote),
+    /// Volatility quotes
+    Vol(VolQuote),
+    /// Inflation quotes
+    Inflation(InflationQuote),
 }
 
 /// Specifications for interest rate futures contracts.

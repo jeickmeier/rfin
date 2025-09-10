@@ -7,7 +7,7 @@ use crate::calibration::bootstrap::{
     BaseCorrelationCalibrator, DiscountCurveCalibrator, HazardCurveCalibrator,
     InflationCurveCalibrator, VolSurfaceCalibrator,
 };
-use crate::calibration::primitives::{HashableFloat, InstrumentQuote};
+use crate::calibration::primitives::{HashableFloat, MarketQuote, CreditQuote, InflationQuote, VolQuote};
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
@@ -57,7 +57,7 @@ impl SimpleCalibration {
     /// Calibrate complete market from quotes.
     ///
     /// Returns a MarketContext with all calibrated curves and a summary report.
-    pub fn calibrate(&self, quotes: &[InstrumentQuote]) -> Result<(MarketContext, CalibrationReport)> {
+    pub fn calibrate(&self, quotes: &[MarketQuote]) -> Result<(MarketContext, CalibrationReport)> {
         let mut context = MarketContext::new();
         let mut all_residuals = HashMap::new();
         let mut total_iterations = 0;
@@ -104,20 +104,16 @@ impl SimpleCalibration {
     /// Calibrate discount curves.
     fn calibrate_discount_curves(
         &self,
-        quotes: &[InstrumentQuote],
+        quotes: &[MarketQuote],
         context: &MarketContext,
     ) -> Result<(MarketContext, CalibrationReport)> {
         // Filter rates quotes
         let rates_quotes: Vec<_> = quotes
             .iter()
-            .filter(|q| matches!(
-                q,
-                InstrumentQuote::Deposit { .. }
-                    | InstrumentQuote::FRA { .. }
-                    | InstrumentQuote::Future { .. }
-                    | InstrumentQuote::Swap { .. }
-            ))
-            .cloned()
+            .filter_map(|q| match q {
+                MarketQuote::Rates(rates_quote) => Some(rates_quote.clone()),
+                _ => None,
+            })
             .collect();
 
         if rates_quotes.is_empty() {
@@ -134,20 +130,22 @@ impl SimpleCalibration {
     /// Calibrate hazard curves.
     fn calibrate_hazard_curves(
         &self,
-        quotes: &[InstrumentQuote],
+        quotes: &[MarketQuote],
         context: &MarketContext,
     ) -> Result<(MarketContext, CalibrationReport)> {
         let mut updated_context = context.clone();
         let mut combined_report = CalibrationReport::new().success();
 
         // Group CDS quotes by entity
-        let mut quotes_by_entity: HashMap<String, Vec<InstrumentQuote>> = HashMap::new();
+        let mut quotes_by_entity: HashMap<String, Vec<CreditQuote>> = HashMap::new();
         for quote in quotes {
-            match quote {
-                InstrumentQuote::CDS { entity, .. } | InstrumentQuote::CDSUpfront { entity, .. } => {
-                    quotes_by_entity.entry(entity.clone()).or_default().push(quote.clone());
+            if let MarketQuote::Credit(credit_quote) = quote {
+                match credit_quote {
+                    CreditQuote::CDS { entity, .. } | CreditQuote::CDSUpfront { entity, .. } => {
+                        quotes_by_entity.entry(entity.clone()).or_default().push(credit_quote.clone());
+                    }
+                    _ => {}
                 }
-                _ => {}
             }
         }
 
@@ -158,8 +156,8 @@ impl SimpleCalibration {
 
             // Extract recovery rate and currency from first quote
             let (recovery_rate, currency) = match &entity_quotes[0] {
-                InstrumentQuote::CDS { recovery_rate, currency, .. } => (*recovery_rate, *currency),
-                InstrumentQuote::CDSUpfront { recovery_rate, currency, .. } => (*recovery_rate, *currency),
+                CreditQuote::CDS { recovery_rate, currency, .. } => (*recovery_rate, *currency),
+                CreditQuote::CDSUpfront { recovery_rate, currency, .. } => (*recovery_rate, *currency),
                 _ => continue,
             };
 
@@ -190,17 +188,22 @@ impl SimpleCalibration {
     /// Calibrate inflation curves.
     fn calibrate_inflation_curves(
         &self,
-        quotes: &[InstrumentQuote],
+        quotes: &[MarketQuote],
         context: &MarketContext,
     ) -> Result<(MarketContext, CalibrationReport)> {
         let mut updated_context = context.clone();
         let mut combined_report = CalibrationReport::new().success();
 
         // Group inflation quotes by index
-        let mut quotes_by_index: HashMap<String, Vec<InstrumentQuote>> = HashMap::new();
+        let mut quotes_by_index: HashMap<String, Vec<InflationQuote>> = HashMap::new();
         for quote in quotes {
-            if let InstrumentQuote::InflationSwap { index, .. } = quote {
-                quotes_by_index.entry(index.clone()).or_default().push(quote.clone());
+            if let MarketQuote::Inflation(inflation_quote) = quote {
+                match inflation_quote {
+                    InflationQuote::InflationSwap { index, .. } |
+                    InflationQuote::YoYInflationSwap { index, .. } => {
+                        quotes_by_index.entry(index.clone()).or_default().push(inflation_quote.clone());
+                    }
+                }
             }
         }
 
@@ -236,17 +239,21 @@ impl SimpleCalibration {
     /// Calibrate volatility surfaces.
     fn calibrate_vol_surfaces(
         &self,
-        quotes: &[InstrumentQuote],
+        quotes: &[MarketQuote],
         context: &MarketContext,
     ) -> Result<(MarketContext, CalibrationReport)> {
         let mut updated_context = context.clone();
         let mut combined_report = CalibrationReport::new().success();
 
         // Group option quotes by underlying
-        let mut quotes_by_underlying: HashMap<String, Vec<InstrumentQuote>> = HashMap::new();
+        let mut quotes_by_underlying: HashMap<String, Vec<VolQuote>> = HashMap::new();
         for quote in quotes {
-            if let InstrumentQuote::OptionVol { underlying, .. } = quote {
-                quotes_by_underlying.entry(underlying.clone()).or_default().push(quote.clone());
+            if let MarketQuote::Vol(vol_quote) = quote {
+                let underlying = match vol_quote {
+                    VolQuote::OptionVol { underlying, .. } => underlying.clone(),
+                    VolQuote::SwaptionVol { .. } => "SWAPTION".to_string(),
+                };
+                quotes_by_underlying.entry(underlying).or_default().push(vol_quote.clone());
             }
         }
 
@@ -255,8 +262,12 @@ impl SimpleCalibration {
                 continue;
             }
 
-            // Extract expiry and strike grids
-            let (expiry_grid, strike_grid) = self.extract_vol_grid(&underlying_quotes);
+            // Extract expiry and strike grids - convert VolQuote to MarketQuote for extract_vol_grid
+            let market_quotes: Vec<MarketQuote> = underlying_quotes
+                .iter()
+                .map(|vq| MarketQuote::Vol(vq.clone()))
+                .collect();
+            let (expiry_grid, strike_grid) = self.extract_vol_grid(&market_quotes);
 
             // Determine SABR beta based on asset class
             let beta = if underlying.contains("USD") || underlying.contains("EUR") {
@@ -289,27 +300,29 @@ impl SimpleCalibration {
     /// Calibrate base correlation curves.
     fn calibrate_base_correlation(
         &self,
-        quotes: &[InstrumentQuote],
+        quotes: &[MarketQuote],
         context: &MarketContext,
     ) -> Result<(MarketContext, CalibrationReport)> {
         let mut updated_context = context.clone();
         let mut combined_report = CalibrationReport::new().success();
 
         // Group tranche quotes by index and maturity
-        let mut quotes_by_index: HashMap<String, HashMap<HashableFloat, Vec<InstrumentQuote>>> = HashMap::new();
+        let mut quotes_by_index: HashMap<String, HashMap<HashableFloat, Vec<CreditQuote>>> = HashMap::new();
 
         for quote in quotes {
-            if let InstrumentQuote::CDSTranche { index, maturity, .. } = quote {
-                let maturity_years = DayCount::Act365F
-                    .year_fraction(self.base_date, *maturity, DayCountCtx::default())
-                    .unwrap_or(0.0);
+            if let MarketQuote::Credit(credit_quote) = quote {
+                if let CreditQuote::CDSTranche { index, maturity, .. } = credit_quote {
+                    let maturity_years = DayCount::Act365F
+                        .year_fraction(self.base_date, *maturity, DayCountCtx::default())
+                        .unwrap_or(0.0);
 
-                quotes_by_index
-                    .entry(index.clone())
-                    .or_default()
-                    .entry(maturity_years.into())
-                    .or_default()
-                    .push(quote.clone());
+                    quotes_by_index
+                        .entry(index.clone())
+                        .or_default()
+                        .entry(maturity_years.into())
+                        .or_default()
+                        .push(credit_quote.clone());
+                }
             }
         }
 
@@ -342,17 +355,21 @@ impl SimpleCalibration {
     }
 
     /// Extract volatility grid from option quotes.
-    fn extract_vol_grid(&self, quotes: &[InstrumentQuote]) -> (Vec<F>, Vec<F>) {
+    fn extract_vol_grid(&self, quotes: &[MarketQuote]) -> (Vec<F>, Vec<F>) {
         let mut expiries = std::collections::HashSet::new();
         let mut strikes = std::collections::HashSet::new();
 
         for quote in quotes {
-            if let InstrumentQuote::OptionVol { expiry, strike, .. } = quote {
+            if let MarketQuote::Vol(vol_quote) = quote {
+                let (expiry, strike) = match vol_quote {
+                    VolQuote::OptionVol { expiry, strike, .. } => (*expiry, *strike),
+                    VolQuote::SwaptionVol { expiry, strike, .. } => (*expiry, *strike),
+                };
                 let years = DayCount::Act365F
-                    .year_fraction(self.base_date, *expiry, DayCountCtx::default())
+                    .year_fraction(self.base_date, expiry, DayCountCtx::default())
                     .unwrap_or(0.0);
                 expiries.insert((years * 1000.0).round() as i32);
-                strikes.insert((*strike * 100.0).round() as i32);
+                strikes.insert((strike * 100.0).round() as i32);
             }
         }
 
@@ -408,19 +425,20 @@ impl SimpleCalibration {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::calibration::primitives::RatesQuote;
     use finstack_core::dates::{DayCount, Frequency};
     use time::Month;
 
-    fn create_test_quotes() -> Vec<InstrumentQuote> {
+    fn create_test_quotes() -> Vec<MarketQuote> {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
         vec![
-            InstrumentQuote::Deposit {
+            MarketQuote::Rates(RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.045,
                 day_count: DayCount::Act360,
-            },
-            InstrumentQuote::Swap {
+            }),
+            MarketQuote::Rates(RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(365),
                 rate: 0.047,
                 fixed_freq: Frequency::semi_annual(),
@@ -428,21 +446,21 @@ mod tests {
                 fixed_dc: DayCount::Thirty360,
                 float_dc: DayCount::Act360,
                 index: "USD-SOFR-3M".to_string(),
-            },
-            InstrumentQuote::CDS {
+            }),
+            MarketQuote::Credit(CreditQuote::CDS {
                 entity: "AAPL".to_string(),
                 maturity: base_date + time::Duration::days(365 * 2),
                 spread_bp: 50.0,
                 recovery_rate: 0.4,
                 currency: Currency::USD,
-            },
-            InstrumentQuote::CDS {
+            }),
+            MarketQuote::Credit(CreditQuote::CDS {
                 entity: "AAPL".to_string(),
                 maturity: base_date + time::Duration::days(365 * 5),
                 spread_bp: 75.0,
                 recovery_rate: 0.4,
                 currency: Currency::USD,
-            },
+            }),
         ]
     }
 

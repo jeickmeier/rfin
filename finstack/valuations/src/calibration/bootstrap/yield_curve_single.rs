@@ -6,7 +6,7 @@
 //! Uses instrument pricing methods directly rather than reimplementing
 //! pricing formulas, following market-standard bootstrap methodology.
 
-use crate::calibration::primitives::InstrumentQuote;
+use crate::calibration::primitives::RatesQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::fra::ForwardRateAgreement;
 use crate::instruments::fixed_income::ir_future::InterestRateFuture;
@@ -76,7 +76,7 @@ impl DiscountCurveCalibrator {
     /// that reprices the corresponding instrument to par.
     fn bootstrap_curve_with_solver<S: Solver>(
         &self,
-        quotes: &[InstrumentQuote],
+        quotes: &[RatesQuote],
         solver: &S,
         base_context: &MarketContext,
     ) -> Result<(DiscountCurve, CalibrationReport)> {
@@ -100,7 +100,7 @@ impl DiscountCurveCalibrator {
             let maturity_date = self.get_maturity(quote);
             // Use instrument-specific day count for curve time at this knot
             let time_to_maturity = match quote {
-                InstrumentQuote::Deposit {
+                RatesQuote::Deposit {
                     maturity,
                     day_count,
                     ..
@@ -111,14 +111,14 @@ impl DiscountCurveCalibrator {
                         finstack_core::dates::DayCountCtx::default(),
                     )
                     .unwrap_or(0.0),
-                InstrumentQuote::FRA { end, day_count, .. } => day_count
+                RatesQuote::FRA { end, day_count, .. } => day_count
                     .year_fraction(
                         self.base_date,
                         *end,
                         finstack_core::dates::DayCountCtx::default(),
                     )
                     .unwrap_or(0.0),
-                InstrumentQuote::Future { expiry, specs, .. } => {
+                RatesQuote::Future { expiry, specs, .. } => {
                     let end = add_months(*expiry, specs.delivery_months as i32);
                     specs
                         .day_count
@@ -129,7 +129,7 @@ impl DiscountCurveCalibrator {
                         )
                         .unwrap_or(0.0)
                 }
-                InstrumentQuote::Swap {
+                RatesQuote::Swap {
                     maturity, fixed_dc, ..
                 } => fixed_dc
                     .year_fraction(
@@ -138,7 +138,7 @@ impl DiscountCurveCalibrator {
                         finstack_core::dates::DayCountCtx::default(),
                     )
                     .unwrap_or(0.0),
-                InstrumentQuote::BasisSwap {
+                RatesQuote::BasisSwap {
                     maturity,
                     primary_dc,
                     ..
@@ -146,13 +146,6 @@ impl DiscountCurveCalibrator {
                     .year_fraction(
                         self.base_date,
                         *maturity,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )
-                    .unwrap_or(0.0),
-                _ => finstack_core::dates::DayCount::Act365F
-                    .year_fraction(
-                        self.base_date,
-                        maturity_date,
                         finstack_core::dates::DayCountCtx::default(),
                     )
                     .unwrap_or(0.0),
@@ -287,9 +280,9 @@ impl DiscountCurveCalibrator {
     ///
     /// Returns the pricing error (PV for par instruments) that should be zero
     /// when the curve is correctly calibrated.
-    fn price_instrument(&self, quote: &InstrumentQuote, context: &MarketContext) -> Result<F> {
+    fn price_instrument(&self, quote: &RatesQuote, context: &MarketContext) -> Result<F> {
         match quote {
-            InstrumentQuote::Deposit {
+            RatesQuote::Deposit {
                 maturity,
                 rate,
                 day_count,
@@ -320,7 +313,7 @@ impl DiscountCurveCalibrator {
                 let error = df * (1.0 + rate * yf) - 1.0;
                 Ok(error)
             }
-            InstrumentQuote::FRA {
+            RatesQuote::FRA {
                 start,
                 end,
                 rate,
@@ -343,7 +336,7 @@ impl DiscountCurveCalibrator {
                 let pv = fra.value(context, self.base_date)?;
                 Ok(pv.amount() / fra.notional.amount())
             }
-            InstrumentQuote::Future {
+            RatesQuote::Future {
                 expiry,
                 price,
                 specs,
@@ -380,7 +373,7 @@ impl DiscountCurveCalibrator {
                 let pv = future.value(context, self.base_date)?;
                 Ok(pv.amount() / future.notional.amount())
             }
-            InstrumentQuote::Swap {
+            RatesQuote::Swap {
                 maturity,
                 rate,
                 fixed_freq,
@@ -433,37 +426,33 @@ impl DiscountCurveCalibrator {
                 let pv = swap.value(context, self.base_date)?;
                 Ok(pv.amount() / swap.notional.amount())
             }
-            InstrumentQuote::BasisSwap { spread_bp, .. } => {
+            RatesQuote::BasisSwap { spread_bp, .. } => {
                 // Basis swaps require dual-curve pricing with different forward tenors
                 // For curve calibration purposes, return the quoted spread as a placeholder
                 // TODO: Implement proper basis swap pricing with dual floating legs
                 Ok(*spread_bp / 10_000.0)
             }
-            _ => Err(finstack_core::Error::Input(
-                finstack_core::error::InputError::Invalid,
-            )),
         }
     }
 
     /// Get maturity date from quote.
     #[allow(dead_code)]
-    fn get_maturity(&self, quote: &InstrumentQuote) -> Date {
+    fn get_maturity(&self, quote: &RatesQuote) -> Date {
         match quote {
-            InstrumentQuote::Deposit { maturity, .. } => *maturity,
-            InstrumentQuote::FRA { end, .. } => *end,
-            InstrumentQuote::Future { expiry, specs, .. } => {
+            RatesQuote::Deposit { maturity, .. } => *maturity,
+            RatesQuote::FRA { end, .. } => *end,
+            RatesQuote::Future { expiry, specs, .. } => {
                 // Future maturity is expiry plus delivery period
                 add_months(*expiry, specs.delivery_months as i32)
             }
-            InstrumentQuote::Swap { maturity, .. } => *maturity,
-            InstrumentQuote::BasisSwap { maturity, .. } => *maturity,
-            _ => self.base_date, // Not applicable
+            RatesQuote::Swap { maturity, .. } => *maturity,
+            RatesQuote::BasisSwap { maturity, .. } => *maturity,
         }
     }
 
     /// Validate quote sequence for no-arbitrage and completeness.
     #[allow(dead_code)]
-    fn validate_quotes(&self, quotes: &[InstrumentQuote]) -> Result<()> {
+    fn validate_quotes(&self, quotes: &[RatesQuote]) -> Result<()> {
         if quotes.is_empty() {
             return Err(finstack_core::Error::Input(
                 finstack_core::error::InputError::TooFewPoints,
@@ -496,22 +485,21 @@ impl DiscountCurveCalibrator {
 
     /// Extract rate from quote.
     #[allow(dead_code)]
-    fn get_rate(&self, quote: &InstrumentQuote) -> F {
+    fn get_rate(&self, quote: &RatesQuote) -> F {
         match quote {
-            InstrumentQuote::Deposit { rate, .. } => *rate,
-            InstrumentQuote::FRA { rate, .. } => *rate,
-            InstrumentQuote::Future { price, .. } => (100.0 - price) / 100.0, // Convert price to rate
-            InstrumentQuote::Swap { rate, .. } => *rate,
-            InstrumentQuote::BasisSwap { spread_bp, .. } => *spread_bp / 10_000.0, // Convert bp to decimal
-            _ => 0.0,
+            RatesQuote::Deposit { rate, .. } => *rate,
+            RatesQuote::FRA { rate, .. } => *rate,
+            RatesQuote::Future { price, .. } => (100.0 - price) / 100.0, // Convert price to rate
+            RatesQuote::Swap { rate, .. } => *rate,
+            RatesQuote::BasisSwap { spread_bp, .. } => *spread_bp / 10_000.0, // Convert bp to decimal
         }
     }
 }
 
-impl Calibrator<InstrumentQuote, DiscountCurve> for DiscountCurveCalibrator {
+impl Calibrator<RatesQuote, DiscountCurve> for DiscountCurveCalibrator {
     fn calibrate(
         &self,
-        instruments: &[InstrumentQuote],
+        instruments: &[RatesQuote],
         base_context: &MarketContext,
     ) -> Result<(DiscountCurve, CalibrationReport)> {
         // Use the configured solver for calibration
@@ -521,20 +509,15 @@ impl Calibrator<InstrumentQuote, DiscountCurve> for DiscountCurveCalibrator {
     }
 }
 
-impl InstrumentQuote {
+impl RatesQuote {
     /// Get the quote type as a string.
     pub fn get_type(&self) -> &'static str {
         match self {
-            InstrumentQuote::Deposit { .. } => "Deposit",
-            InstrumentQuote::FRA { .. } => "FRA",
-            InstrumentQuote::Future { .. } => "Future",
-            InstrumentQuote::Swap { .. } => "Swap",
-            InstrumentQuote::CDS { .. } => "CDS",
-            InstrumentQuote::OptionVol { .. } => "OptionVol",
-            InstrumentQuote::InflationSwap { .. } => "InflationSwap",
-            InstrumentQuote::CDSTranche { .. } => "CDSTranche",
-            InstrumentQuote::BasisSwap { .. } => "BasisSwap",
-            InstrumentQuote::CDSUpfront { .. } => "CDSUpfront",
+            RatesQuote::Deposit { .. } => "Deposit",
+            RatesQuote::FRA { .. } => "FRA",
+            RatesQuote::Future { .. } => "Future",
+            RatesQuote::Swap { .. } => "Swap",
+            RatesQuote::BasisSwap { .. } => "BasisSwap",
         }
     }
 }
@@ -548,21 +531,21 @@ mod tests {
     use finstack_core::prelude::TermStructure;
     use time::Month;
 
-    fn create_test_quotes() -> Vec<InstrumentQuote> {
+    fn create_test_quotes() -> Vec<RatesQuote> {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
         vec![
-            InstrumentQuote::Deposit {
+            RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.045,
                 day_count: DayCount::Act360,
             },
-            InstrumentQuote::Deposit {
+            RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.046,
                 day_count: DayCount::Act360,
             },
-            InstrumentQuote::Swap {
+            RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(365),
                 rate: 0.047,
                 fixed_freq: Frequency::semi_annual(),
@@ -571,7 +554,7 @@ mod tests {
                 float_dc: DayCount::Act360,
                 index: "USD-SOFR-3M".to_string(),
             },
-            InstrumentQuote::Swap {
+            RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(365 * 2),
                 rate: 0.048,
                 fixed_freq: Frequency::semi_annual(),
@@ -637,17 +620,17 @@ mod tests {
 
         // Use just deposits for initial test
         let deposit_quotes = vec![
-            InstrumentQuote::Deposit {
+            RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.045,
                 day_count: DayCount::Act360,
             },
-            InstrumentQuote::Deposit {
+            RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.046,
                 day_count: DayCount::Act360,
             },
-            InstrumentQuote::Deposit {
+            RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(180),
                 rate: 0.047,
                 day_count: DayCount::Act360,
@@ -662,7 +645,7 @@ mod tests {
                 "Starting calibration with deposits"
             );
             for (i, quote) in deposit_quotes.iter().enumerate() {
-                if let InstrumentQuote::Deposit { maturity, rate, .. } = quote {
+                if let RatesQuote::Deposit { maturity, rate, .. } = quote {
                     tracing::trace!(
                         deposit = i,
                         maturity = %maturity,
@@ -683,7 +666,7 @@ mod tests {
         // Verify repricing via instrument PVs (|PV| ≤ $1 per $1MM)
         let ctx = base_context.insert_discount(curve);
         for quote in &deposit_quotes {
-            if let InstrumentQuote::Deposit {
+            if let RatesQuote::Deposit {
                 maturity,
                 rate,
                 day_count,
@@ -719,17 +702,17 @@ mod tests {
 
         // Build quotes: deposits + one FRA
         let quotes = vec![
-            InstrumentQuote::Deposit {
+            RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.0450,
                 day_count: DayCount::Act360,
             },
-            InstrumentQuote::Deposit {
+            RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.0460,
                 day_count: DayCount::Act360,
             },
-            InstrumentQuote::FRA {
+            RatesQuote::FRA {
                 start: base_date + time::Duration::days(90),
                 end: base_date + time::Duration::days(180),
                 rate: 0.0470,
@@ -778,17 +761,17 @@ mod tests {
 
         // Quotes: deposits + FRA around the same window
         let quotes = vec![
-            InstrumentQuote::Deposit {
+            RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.0450,
                 day_count: DayCount::Act360,
             },
-            InstrumentQuote::Deposit {
+            RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.0460,
                 day_count: DayCount::Act360,
             },
-            InstrumentQuote::FRA {
+            RatesQuote::FRA {
                 start: base_date + time::Duration::days(90),
                 end: base_date + time::Duration::days(180),
                 rate: 0.0470,
@@ -857,17 +840,17 @@ mod tests {
 
         // Quotes: deposits + one 1Y swap par rate
         let quotes = vec![
-            InstrumentQuote::Deposit {
+            RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(30),
                 rate: 0.0450,
                 day_count: DayCount::Act360,
             },
-            InstrumentQuote::Deposit {
+            RatesQuote::Deposit {
                 maturity: base_date + time::Duration::days(90),
                 rate: 0.0460,
                 day_count: DayCount::Act360,
             },
-            InstrumentQuote::Swap {
+            RatesQuote::Swap {
                 maturity: base_date + time::Duration::days(365),
                 rate: 0.0470,
                 fixed_freq: Frequency::semi_annual(),

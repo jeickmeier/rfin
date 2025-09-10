@@ -3,7 +3,7 @@
 //! Implements market-standard base correlation bootstrapping using the
 //! one-factor Gaussian Copula model and equity tranche decomposition.
 
-use crate::calibration::primitives::{HashableFloat, InstrumentQuote};
+use crate::calibration::primitives::{HashableFloat, CreditQuote};
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_core::math::Solver;
@@ -76,7 +76,7 @@ impl BaseCorrelationCalibrator {
     /// 3. Use previously solved correlations for [0, A] pricing
     fn bootstrap_curve<S: Solver>(
         &self,
-        quotes: &[InstrumentQuote],
+        quotes: &[CreditQuote],
         solver: &S,
         market_context: &MarketContext,
     ) -> Result<(BaseCorrelationCurve, CalibrationReport)> {
@@ -86,7 +86,7 @@ impl BaseCorrelationCalibrator {
         let mut tranche_quotes: Vec<_> = quotes
             .iter()
             .filter_map(|q| {
-                if let InstrumentQuote::CDSTranche {
+                if let CreditQuote::CDSTranche {
                     index,
                     attachment,
                     detachment,
@@ -294,10 +294,10 @@ impl BaseCorrelationCalibrator {
     }
 }
 
-impl Calibrator<InstrumentQuote, BaseCorrelationCurve> for BaseCorrelationCalibrator {
+impl Calibrator<CreditQuote, BaseCorrelationCurve> for BaseCorrelationCalibrator {
     fn calibrate(
         &self,
-        instruments: &[InstrumentQuote],
+        instruments: &[CreditQuote],
         base_context: &MarketContext,
     ) -> Result<(BaseCorrelationCurve, CalibrationReport)> {
         // Convert core market context to valuation context
@@ -352,17 +352,17 @@ impl BaseCorrelationSurfaceCalibrator {
     /// Calibrate correlation surface from tranche quotes across maturities.
     pub fn calibrate_surface(
         &self,
-        quotes: &[InstrumentQuote],
+        quotes: &[CreditQuote],
         market_context: &MarketContext,
     ) -> Result<(
         HashMap<HashableFloat, BaseCorrelationCurve>,
         CalibrationReport,
     )> {
         // Group quotes by maturity
-        let mut quotes_by_maturity: HashMap<HashableFloat, Vec<&InstrumentQuote>> = HashMap::new();
+        let mut quotes_by_maturity: HashMap<HashableFloat, Vec<&CreditQuote>> = HashMap::new();
 
         for quote in quotes {
-            if let InstrumentQuote::CDSTranche { maturity, .. } = quote {
+            if let CreditQuote::CDSTranche { maturity, .. } = quote {
                 let maturity_years = finstack_core::dates::DayCount::Act365F.year_fraction(
                     self.base_date,
                     *maturity,
@@ -611,7 +611,7 @@ mod tests {
                 .unwrap();
             let market_upfront_pct = market_pv.amount() / tranche.notional.amount() * 100.0;
 
-            synthetic_quotes.push(InstrumentQuote::CDSTranche {
+            synthetic_quotes.push(CreditQuote::CDSTranche {
                 index: "CDX.NA.IG.42".to_string(),
                 attachment: 0.0,
                 detachment: *detach_pct,
