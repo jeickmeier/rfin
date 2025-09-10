@@ -8,6 +8,7 @@
 
 use crate::calibration::quote::RatesQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
+use crate::instruments::fixed_income::deposit::Deposit;
 use crate::instruments::fixed_income::fra::ForwardRateAgreement;
 use crate::instruments::fixed_income::ir_future::InterestRateFuture;
 use crate::instruments::fixed_income::InterestRateSwap;
@@ -285,31 +286,22 @@ impl DiscountCurveCalibrator {
                 rate,
                 day_count,
             } => {
-                // Deposit par condition: DF_disc(t_disc) * (1 + r * yf) = 1
-                // Use the instrument's accrual day count for both DF time and yf
+                // Create Deposit instrument and use its pricer for consistency
                 let disc = context.disc("CALIB_CURVE")?;
-                let base = disc.base_date();
-
-                let t_disc = day_count
-                    .year_fraction(
-                        base,
-                        *maturity,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )
-                    .unwrap_or(0.0);
-                if t_disc <= 0.0 {
-                    return Ok(0.0);
-                }
-                let yf = day_count
-                    .year_fraction(
-                        base,
-                        *maturity,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )
-                    .unwrap_or(0.0);
-                let df = disc.df(t_disc);
-                let error = df * (1.0 + rate * yf) - 1.0;
-                Ok(error)
+                let dep = Deposit {
+                    id: format!("CALIB_DEP_{}", maturity),
+                    notional: Money::new(1_000_000.0, self.currency),
+                    start: disc.base_date(),
+                    end: *maturity,
+                    day_count: *day_count,
+                    quote_rate: Some(*rate),
+                    disc_id: "CALIB_CURVE",
+                    attributes: Default::default(),
+                };
+                
+                // Price the deposit - should be zero at par rate
+                let pv = dep.value(context, self.base_date)?;
+                Ok(pv.amount() / dep.notional.amount())
             }
             RatesQuote::FRA {
                 start,
