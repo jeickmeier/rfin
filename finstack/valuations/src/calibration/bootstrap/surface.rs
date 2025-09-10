@@ -3,7 +3,7 @@
 //! Implements market-standard volatility surface construction by calibrating
 //! SABR parameters per expiry slice and building interpolated surfaces.
 
-use crate::calibration::common::forward_fn_auto;
+// Removed: forward_fn_auto is now a method on MarketContext
 use crate::calibration::primitives::{HashableFloat, InstrumentQuote};
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::options::models::{SABRCalibrator, SABRModel, SABRParameters};
@@ -283,7 +283,7 @@ impl Calibrator<InstrumentQuote, VolSurface> for VolSurfaceCalibrator {
             ))?;
 
         // Build asset-specific forward function from market context
-        let forward_fn = forward_fn_auto(base_context, &underlying, Currency::USD)?; // TODO: Make base currency configurable
+        let forward_fn = base_context.auto_forward(&underlying, Currency::USD)?; // TODO: Make base currency configurable
 
         self.calibrate_surface(instruments, &forward_fn)
     }

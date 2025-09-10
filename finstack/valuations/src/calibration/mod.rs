@@ -10,7 +10,6 @@
 //! Supports both sequential bootstrapping and global optimization approaches.
 
 pub mod bootstrap;
-pub mod common;
 pub mod dependency_dag;
 pub mod orchestrator;
 pub mod primitives;

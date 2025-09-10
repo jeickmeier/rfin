@@ -966,6 +966,139 @@ impl MarketContext {
 
         Ok(new_context)
     }
+
+    // -----------------------------------------------------------------------------
+    // Forward Price/Rate Calculators
+    // -----------------------------------------------------------------------------
+
+    /// Build forward function for equity underlyings: F(t) = S₀ × exp((r - q) × t)
+    ///
+    /// # Arguments
+    /// * `underlying` - Identifier for the underlying asset (e.g., "SPY", "AAPL")
+    /// * `base_currency` - Base currency for the risk-free rate
+    ///
+    /// # Returns
+    /// A closure that calculates forward prices for given time `t` (in years)
+    pub fn equity_forward<'a>(
+        &'a self,
+        underlying: &str,
+        base_currency: crate::currency::Currency,
+    ) -> crate::Result<Box<dyn Fn(crate::F) -> crate::F + 'a>> {
+        // Get spot price
+        let spot_scalar = self.price(underlying)?;
+        let spot = match spot_scalar {
+            crate::market_data::primitives::MarketScalar::Price(money) => money.amount(),
+            crate::market_data::primitives::MarketScalar::Unitless(value) => *value,
+        };
+
+        // Get dividend yield (default to 0.0 if not available)
+        let div_yield_key = format!("{}-DIVYIELD", underlying);
+        let dividend_yield = self
+            .price(&div_yield_key)
+            .map(|scalar| match scalar {
+                crate::market_data::primitives::MarketScalar::Unitless(yield_val) => *yield_val,
+                _ => 0.0,
+            })
+            .unwrap_or(0.0);
+
+        // Get risk-free rate from discount curve
+        let disc_curve_id = format!("{}-OIS", base_currency);
+        let discount_curve = self.disc(&disc_curve_id)?;
+
+        Ok(Box::new(move |t: crate::F| -> crate::F {
+            let risk_free_rate = discount_curve.zero(t);
+            spot * ((risk_free_rate - dividend_yield) * t).exp()
+        }))
+    }
+
+    /// Build forward function for FX underlyings: F(t) = S₀ × exp((r_dom - r_for) × t)
+    ///
+    /// # Arguments
+    /// * `underlying` - FX pair identifier (6-char format like "EURUSD")
+    ///
+    /// # Returns
+    /// A closure that calculates forward FX rates for given time `t` (in years)
+    pub fn fx_forward<'a>(
+        &'a self,
+        underlying: &str,
+    ) -> crate::Result<Box<dyn Fn(crate::F) -> crate::F + 'a>> {
+        // Parse FX pair (assume 6-char format like "EURUSD")
+        if underlying.len() != 6 {
+            return Err(crate::error::InputError::Invalid.into());
+        }
+
+        let foreign_ccy = &underlying[0..3];
+        let domestic_ccy = &underlying[3..6];
+
+        // Get spot rate
+        let spot_scalar = self.price(underlying)?;
+        let spot = match spot_scalar {
+            crate::market_data::primitives::MarketScalar::Price(money) => money.amount(),
+            crate::market_data::primitives::MarketScalar::Unitless(value) => *value,
+        };
+
+        // Get domestic and foreign discount curves
+        let dom_disc_id = format!("{}-OIS", domestic_ccy);
+        let for_disc_id = format!("{}-OIS", foreign_ccy);
+        let dom_curve = self.disc(&dom_disc_id)?;
+        let for_curve = self.disc(&for_disc_id)?;
+
+        Ok(Box::new(move |t: crate::F| -> crate::F {
+            let domestic_rate = dom_curve.zero(t);
+            let foreign_rate = for_curve.zero(t);
+            spot * ((domestic_rate - foreign_rate) * t).exp()
+        }))
+    }
+
+    /// Build forward function for interest rate underlyings: F(t) = forward_curve.rate(t)
+    ///
+    /// # Arguments
+    /// * `underlying` - Forward curve identifier (e.g., "USD-SOFR3M")
+    ///
+    /// # Returns
+    /// A closure that returns forward rates for given time `t` (in years)
+    pub fn rates_forward<'a>(
+        &'a self,
+        underlying: &str,
+    ) -> crate::Result<Box<dyn Fn(crate::F) -> crate::F + 'a>> {
+        // Get forward curve for this index
+        let forward_curve = self.fwd(underlying)?;
+
+        Ok(Box::new(move |t: crate::F| -> crate::F { forward_curve.rate(t) }))
+    }
+
+    /// Auto-detect asset class and build appropriate forward function.
+    ///
+    /// Determines asset class from underlying identifier and constructs
+    /// appropriate forward calculation using market data.
+    ///
+    /// # Arguments
+    /// * `underlying` - Asset identifier to detect and build forward for
+    /// * `base_currency` - Base currency for equity forward calculations
+    ///
+    /// # Returns
+    /// A closure that calculates appropriate forward values for given time `t`
+    pub fn auto_forward<'a>(
+        &'a self,
+        underlying: &str,
+        base_currency: crate::currency::Currency,
+    ) -> crate::Result<Box<dyn Fn(crate::F) -> crate::F + 'a>> {
+        // Detect asset class from underlying identifier
+        if underlying.contains("-")
+            && (underlying.contains("SOFR")
+                || underlying.contains("EURIBOR")
+                || underlying.contains("SONIA"))
+        {
+            // Interest rate underlying (e.g., "USD-SOFR3M", "EUR-EURIBOR3M")
+            self.rates_forward(underlying)
+        } else if underlying.len() == 6 && underlying.chars().all(|c| c.is_ascii_alphabetic()) {
+            // FX pair (e.g., "EURUSD", "GBPJPY")
+            self.fx_forward(underlying)
+        } else {
+            // Equity underlying (e.g., "SPY", "AAPL")
+            self.equity_forward(underlying, base_currency)
+        }
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -1584,6 +1717,109 @@ mod bump_tests {
         assert!(bumped_context
             .base_correlation("CDX-NA-IG_corr_5.0pct")
             .is_ok());
+    }
+
+    fn create_forward_test_context() -> MarketContext {
+        let base_date = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+
+        // Create discount curve
+        let disc_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(base_date)
+            .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap();
+
+        // Create forward curve
+        let fwd_curve = ForwardCurve::builder("USD-SOFR3M", 0.25)
+            .base_date(base_date)
+            .knots([(0.0, 0.03), (1.0, 0.035), (5.0, 0.04)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap();
+
+        MarketContext::new()
+            .insert_discount(disc_curve)
+            .insert_forward(fwd_curve)
+            .insert_price("SPY", crate::market_data::primitives::MarketScalar::Unitless(100.0))
+            .insert_price("SPY-DIVYIELD", crate::market_data::primitives::MarketScalar::Unitless(0.02))
+            .insert_price("EURUSD", crate::market_data::primitives::MarketScalar::Unitless(1.1))
+    }
+
+    #[test]
+    fn test_equity_forward_function() {
+        let context = create_forward_test_context();
+        let forward_fn = context.equity_forward("SPY", crate::currency::Currency::USD).unwrap();
+
+        // Test forward price calculation
+        let forward_1y = forward_fn(1.0);
+
+        // Should be positive and reasonable
+        assert!(forward_1y > 0.0);
+        assert!(forward_1y > 90.0 && forward_1y < 110.0); // Reasonable range around spot
+    }
+
+    #[test]
+    fn test_rates_forward_function() {
+        let context = create_forward_test_context();
+        let forward_fn = context.rates_forward("USD-SOFR3M").unwrap();
+
+        // Test forward rate
+        let forward_rate_1y = forward_fn(1.0);
+
+        // Should match the forward curve
+        assert!((forward_rate_1y - 0.035).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_auto_forward_detection_equity() {
+        let context = create_forward_test_context();
+        let forward_fn = context.auto_forward("SPY", crate::currency::Currency::USD).unwrap();
+
+        let forward_1y = forward_fn(1.0);
+        assert!(forward_1y > 0.0);
+    }
+
+    #[test]
+    fn test_auto_forward_detection_rates() {
+        let context = create_forward_test_context();
+        let forward_fn = context.auto_forward("USD-SOFR3M", crate::currency::Currency::USD).unwrap();
+
+        let forward_rate_1y = forward_fn(1.0);
+        assert!((forward_rate_1y - 0.035).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_auto_forward_detection_fx() {
+        // Create additional discount curve for EUR
+        let base_date = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        let eur_disc = DiscountCurve::builder("EUR-OIS")
+            .base_date(base_date)
+            .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.82)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap();
+
+        let context = create_forward_test_context().insert_discount(eur_disc);
+        let forward_fn = context.auto_forward("EURUSD", crate::currency::Currency::USD).unwrap();
+
+        let forward_1y = forward_fn(1.0);
+        assert!(forward_1y > 0.0);
+    }
+
+    #[test]
+    fn test_invalid_fx_pair() {
+        let context = create_forward_test_context();
+        let result = context.fx_forward("INVALID");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_missing_market_data_for_forward() {
+        let context = MarketContext::new(); // Empty context
+
+        let result = context.equity_forward("SPY", crate::currency::Currency::USD);
+        assert!(result.is_err()); // Should fail due to missing spot price
     }
 
     #[test]

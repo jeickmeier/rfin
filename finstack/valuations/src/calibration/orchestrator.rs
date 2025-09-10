@@ -7,7 +7,7 @@ use crate::calibration::bootstrap::{BaseCorrelationCalibrator, VolSurfaceCalibra
 use crate::calibration::bootstrap::{
     DiscountCurveCalibrator, HazardCurveCalibrator, InflationCurveCalibrator,
 };
-use crate::calibration::common::forward_fn_auto;
+// Removed: forward_fn_auto is now a method on MarketContext
 use crate::calibration::dependency_dag::{CalibrationDAG, CalibrationTarget};
 use crate::calibration::primitives::{HashableFloat, InstrumentQuote};
 
@@ -562,7 +562,7 @@ impl CalibrationOrchestrator {
                 underlying_quotes.iter().map(|&q| q.clone()).collect();
 
             // Build asset-specific forward function from market context
-            let forward_fn = match forward_fn_auto(_context, &underlying, self.base_currency) {
+            let forward_fn = match _context.auto_forward(&underlying, self.base_currency) {
                 Ok(fwd_fn) => fwd_fn,
                 Err(_) => {
                     // Skip this underlying if we can't build forward function
