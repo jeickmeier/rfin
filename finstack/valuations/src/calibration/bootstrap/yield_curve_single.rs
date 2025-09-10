@@ -92,8 +92,10 @@ impl DiscountCurveCalibrator {
         self.validate_quotes(&sorted_quotes)?;
 
         // Build knots sequentially
-        let mut knots = vec![(0.0, 1.0)]; // Start with DF(0) = 1.0
-        let mut residuals = HashMap::new();
+        let mut knots = Vec::with_capacity(sorted_quotes.len() + 1);
+        knots.push((0.0, 1.0)); // Start with DF(0) = 1.0
+        let mut residuals = HashMap::with_capacity(sorted_quotes.len());
+        let mut residual_key_counter: usize = 0;
         let mut total_iterations = 0;
 
         for (idx, quote) in sorted_quotes.iter().enumerate() {
@@ -172,13 +174,14 @@ impl DiscountCurveCalibrator {
             let base_context_clone = base_context.clone();
 
             let objective = move |df: F| -> F {
-                let mut temp_knots = knots_clone.clone();
+                let mut temp_knots = Vec::with_capacity(knots_clone.len() + 1);
+                temp_knots.extend_from_slice(&knots_clone);
                 temp_knots.push((time_to_maturity, df));
 
                 // Build temporary curve with current knots
                 let temp_curve = match DiscountCurve::builder("CALIB_CURVE")
                     .base_date(self_clone.base_date)
-                    .knots(temp_knots.clone())
+                    .knots(temp_knots)
                     .set_interp(InterpStyle::Linear) // Use linear interpolation for stability
                     .build()
                 {
@@ -204,29 +207,47 @@ impl DiscountCurveCalibrator {
                     .unwrap_or(F::INFINITY)
             };
 
-            // Initial guess based on previous point or flat extrapolation
-            let initial_df = if let Some((prev_t, prev_df)) = knots.last() {
-                if time_to_maturity > *prev_t && *prev_t > 0.0 {
-                    // Extrapolate forward assuming constant yield
-                    let implied_rate = -prev_df.ln() / prev_t;
-                    (-implied_rate * time_to_maturity).exp()
-                } else {
-                    *prev_df * 0.99 // Small decay
+            // Initial guess
+            // For deposits, use DF ≈ 1 / (1 + r * yf). For others, use
+            // extrapolation from previous point with a constant yield.
+            let initial_df = match quote {
+                RatesQuote::Deposit { .. } => {
+                    let r = self.get_rate(quote);
+                    let yf = time_to_maturity;
+                    1.0 / (1.0 + r * yf)
                 }
-            } else {
-                0.95 // Reasonable fallback
+                _ => {
+                    if let Some((prev_t, prev_df)) = knots.last() {
+                        if time_to_maturity > *prev_t && *prev_t > 0.0 {
+                            // Extrapolate forward assuming constant yield
+                            let implied_rate = -prev_df.ln() / prev_t;
+                            (-implied_rate * time_to_maturity).exp()
+                        } else {
+                            *prev_df * 0.99 // Small decay
+                        }
+                    } else {
+                        0.95 // Reasonable fallback
+                    }
+                }
             };
 
             let solved_df = solver.solve(objective, initial_df)?;
 
             // Validate the solution makes sense
             if solved_df <= 0.0 || solved_df > 1.0 {
-                return Err(finstack_core::Error::Internal);
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Solved discount factor out of bounds [0,1] for {} at t={:.6}: df={:.6}",
+                        self.curve_id, time_to_maturity, solved_df
+                    ),
+                    category: "yield_curve_bootstrap".to_string(),
+                });
             }
 
             // Compute residual for reporting
             let final_residual = {
-                let mut final_knots = knots.clone();
+                let mut final_knots = Vec::with_capacity(knots.len() + 1);
+                final_knots.extend_from_slice(&knots);
                 final_knots.push((time_to_maturity, solved_df));
 
                 let final_curve = DiscountCurve::builder("CALIB_CURVE")
@@ -234,7 +255,13 @@ impl DiscountCurveCalibrator {
                     .knots(final_knots)
                     .set_interp(InterpStyle::Linear) // Use linear interpolation for stability
                     .build()
-                    .map_err(|_| finstack_core::Error::Internal)?;
+                    .map_err(|e| finstack_core::Error::Calibration {
+                        message: format!(
+                            "temp DiscountCurve build failed for {}: {}",
+                            self.curve_id, e
+                        ),
+                        category: "yield_curve_bootstrap".to_string(),
+                    })?;
 
                 let final_forward = final_curve.to_forward_curve("CALIB_FWD", 0.25)?;
                 let final_context = base_context
@@ -249,11 +276,10 @@ impl DiscountCurveCalibrator {
 
             knots.push((time_to_maturity, solved_df));
 
-            // Store residual for reporting
-            residuals.insert(
-                format!("{}-{}", quote.get_type(), maturity_date),
-                final_residual,
-            );
+            // Store residual with compact numeric key
+            let key = residual_key_counter.to_string();
+            residual_key_counter += 1;
+            residuals.insert(key, final_residual);
             total_iterations += 1;
         }
 
@@ -265,7 +291,13 @@ impl DiscountCurveCalibrator {
                     .knots(knots),
             )
             .build()
-            .map_err(|_| finstack_core::Error::Internal)?;
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: format!(
+                    "final DiscountCurve build failed for {}: {}",
+                    self.curve_id, e
+                ),
+                category: "yield_curve_bootstrap".to_string(),
+            })?;
 
         // Create calibration report
         let report = CalibrationReport::for_type("yield_curve", residuals, total_iterations)

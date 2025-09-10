@@ -13,7 +13,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::prelude::Currency;
 use finstack_core::{Result, F};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// Volatility surface calibrator using SABR models.
 #[derive(Clone, Debug)]
@@ -30,6 +30,8 @@ pub struct VolSurfaceCalibrator {
     pub target_strikes: Vec<F>,
     /// Base date for time-to-expiry calculations
     pub base_date: Date,
+    /// Base currency for equity forward calculation (used by auto_forward)
+    pub base_currency: Currency,
 }
 
 impl VolSurfaceCalibrator {
@@ -47,6 +49,7 @@ impl VolSurfaceCalibrator {
             target_expiries,
             target_strikes,
             base_date: Date::from_calendar_date(1970, time::Month::January, 1).unwrap(),
+            base_currency: Currency::USD,
         }
     }
 
@@ -62,19 +65,33 @@ impl VolSurfaceCalibrator {
         self
     }
 
+    /// Set the base currency used when building the forward function for equities.
+    pub fn with_base_currency(mut self, base_currency: Currency) -> Self {
+        self.base_currency = base_currency;
+        self
+    }
+
     /// Internal calibration logic with forward curve.
     fn calibrate_internal(
         &self,
         quotes: &[VolQuote],
         forward_curve: &dyn Fn(F) -> F, // Forward price/rate as function of time
     ) -> Result<(VolSurface, CalibrationReport)> {
-        // Group quotes by expiry
-        let mut quotes_by_expiry: HashMap<String, Vec<&VolQuote>> = HashMap::new();
+        // Group quotes by time-to-expiry (years) using OrderedFloat keys (deterministic ordering)
+        let mut quotes_by_expiry: BTreeMap<OrderedFloat<F>, Vec<&VolQuote>> = BTreeMap::new();
 
         for quote in quotes {
             if let VolQuote::OptionVol { expiry, .. } = quote {
-                let expiry_key = expiry.to_string();
-                quotes_by_expiry.entry(expiry_key).or_default().push(quote);
+                let t = finstack_core::dates::DayCount::Act365F
+                    .year_fraction(
+                        self.base_date,
+                        *expiry,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0);
+                if t > 0.0 {
+                    quotes_by_expiry.entry(t.into()).or_default().push(quote);
+                }
             }
         }
 
@@ -87,24 +104,18 @@ impl VolSurfaceCalibrator {
         // Calibrate SABR parameters for each expiry
         let mut sabr_params_by_expiry: HashMap<OrderedFloat<F>, SABRParameters> = HashMap::new();
         let mut all_residuals = HashMap::new();
+        let mut residual_key_counter: usize = 0;
         let sabr_calibrator = SABRCalibrator::new()
             .with_tolerance(self.config.tolerance)
             .with_max_iterations(self.config.max_iterations);
 
-        for (expiry_key, expiry_quotes) in &quotes_by_expiry {
+        for (t_key, expiry_quotes) in &quotes_by_expiry {
             if expiry_quotes.len() < 3 {
                 continue; // Need at least 3 points for SABR (alpha, nu, rho)
             }
 
-            // Extract time to expiry using proper day count convention
-            let time_to_expiry = if let VolQuote::OptionVol { expiry, .. } = expiry_quotes[0]
-            {
-                finstack_core::dates::DayCount::Act365F
-                    .year_fraction(self.base_date, *expiry, finstack_core::dates::DayCountCtx::default())
-                    .unwrap_or(0.0)
-            } else {
-                continue;
-            };
+            // Use grouped time-to-expiry key
+            let time_to_expiry = t_key.into_inner();
 
             if time_to_expiry <= 0.0 {
                 continue;
@@ -114,8 +125,8 @@ impl VolSurfaceCalibrator {
             let forward = forward_curve(time_to_expiry);
 
             // Extract strikes and vols
-            let mut strikes = Vec::new();
-            let mut vols = Vec::new();
+            let mut strikes = Vec::with_capacity(expiry_quotes.len());
+            let mut vols = Vec::with_capacity(expiry_quotes.len());
 
             for quote in expiry_quotes {
                 if let VolQuote::OptionVol { strike, vol, .. } = quote {
@@ -142,12 +153,14 @@ impl VolSurfaceCalibrator {
                         match model.implied_volatility(forward, strike, time_to_expiry) {
                             Ok(model_vol) => {
                                 let residual = model_vol - vols[i];
-                                all_residuals
-                                    .insert(format!("VOL-{}-{}", expiry_key, strike), residual);
+                                let key = residual_key_counter.to_string();
+                                residual_key_counter += 1;
+                                all_residuals.insert(key, residual);
                             }
                             Err(_) => {
-                                all_residuals
-                                    .insert(format!("VOL-{}-{}", expiry_key, strike), F::INFINITY);
+                                let key = residual_key_counter.to_string();
+                                residual_key_counter += 1;
+                                all_residuals.insert(key, F::INFINITY);
                             }
                         }
                     }
@@ -160,7 +173,10 @@ impl VolSurfaceCalibrator {
         }
 
         if sabr_params_by_expiry.is_empty() {
-            return Err(finstack_core::Error::Internal);
+            return Err(finstack_core::Error::Calibration {
+                message: "No SABR expiries calibrated; check quotes or forward function".to_string(),
+                category: "vol_surface_calibration".to_string(),
+            });
         }
 
         // Build volatility surface on target grid
@@ -226,7 +242,10 @@ impl VolSurfaceCalibrator {
         expiries.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
         if expiries.is_empty() {
-            return Err(finstack_core::Error::Internal);
+            return Err(finstack_core::Error::Calibration {
+                message: "SABR parameter map empty during interpolation".to_string(),
+                category: "vol_surface_interpolation".to_string(),
+            });
         }
 
         // If exact match, return it
@@ -283,8 +302,19 @@ impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
                 finstack_core::error::InputError::Invalid,
             ))?;
 
-        // Build asset-specific forward function from market context
-        let forward_fn = base_context.auto_forward(&underlying, Currency::USD)?; // TODO: Make base currency configurable
+        // Validate all option vol quotes share the same underlying
+        let mismatch = instruments.iter().find(|q| match q {
+            VolQuote::OptionVol { underlying: u, .. } => u != &underlying,
+            _ => false,
+        });
+        if mismatch.is_some() {
+            return Err(finstack_core::Error::Input(
+                finstack_core::error::InputError::Invalid,
+            ));
+        }
+
+        // Build asset-specific forward function from market context using configured base currency
+        let forward_fn = base_context.auto_forward(&underlying, self.base_currency)?;
 
         self.calibrate_internal(instruments, &forward_fn)
     }

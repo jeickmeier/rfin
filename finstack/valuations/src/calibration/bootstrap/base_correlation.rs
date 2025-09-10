@@ -98,7 +98,7 @@ impl BaseCorrelationCalibrator {
     ) -> Result<(BaseCorrelationCurve, CalibrationReport)> {
         use crate::instruments::fixed_income::cds_tranche::model::GaussianCopulaModel;
 
-        // Filter and extract CDS tranche quotes
+        // Filter and extract CDS tranche quotes, keeping only the requested index
         let mut tranche_quotes: Vec<_> = quotes
             .iter()
             .filter_map(|q| {
@@ -111,14 +111,17 @@ impl BaseCorrelationCalibrator {
                     running_spread_bp,
                 } = q
                 {
-                    Some((
-                        attachment,
-                        detachment,
-                        maturity,
-                        upfront_pct,
-                        running_spread_bp,
-                        index,
-                    ))
+                    if index == &self.index_id {
+                        Some((
+                            attachment,
+                            detachment,
+                            maturity,
+                            upfront_pct,
+                            running_spread_bp,
+                        ))
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
@@ -137,7 +140,7 @@ impl BaseCorrelationCalibrator {
         tranche_quotes.sort_by(|a, b| a.1.partial_cmp(b.1).unwrap());
 
         // Validate tranche quotes
-        for (attach, detach, _, _, _, _) in &tranche_quotes {
+        for (attach, detach, _, _, _) in &tranche_quotes {
             if **attach >= **detach {
                 return Err(finstack_core::Error::Input(
                     finstack_core::error::InputError::Invalid,
@@ -157,13 +160,9 @@ impl BaseCorrelationCalibrator {
         let num_tranche_quotes = tranche_quotes.len(); // Store length before moving
 
         // Sequential bootstrap from equity to senior tranches
-        for (attach_pct, detach_pct, _maturity, upfront_pct, running_spread_bp, index) in
-            tranche_quotes
+        for (index, (attach_pct, detach_pct, _maturity, upfront_pct, running_spread_bp)) in
+            tranche_quotes.into_iter().enumerate()
         {
-            // Skip if we don't have the right index
-            if index != &self.index_id {
-                continue;
-            }
 
             // Create synthetic tranche for this quote
             let synthetic_tranche =
@@ -249,7 +248,8 @@ impl BaseCorrelationCalibrator {
             let final_residual = objective(clamped_corr);
 
             solved_correlations.push((*detach_pct, clamped_corr));
-            residuals.insert(format!("{}%-{}%", attach_pct, detach_pct), final_residual);
+            let key = index.to_string();
+            residuals.insert(key, final_residual);
             total_iterations += 1;
         }
 
@@ -395,6 +395,7 @@ impl BaseCorrelationSurfaceCalibrator {
 
         let mut curves_by_maturity = HashMap::new();
         let mut all_residuals = HashMap::new();
+        let mut residual_key_counter: usize = 0;
         let mut total_iterations = 0;
 
         // Calibrate each maturity separately
@@ -416,9 +417,11 @@ impl BaseCorrelationSurfaceCalibrator {
                     Ok((curve, report)) => {
                         curves_by_maturity.insert(maturity_years.into(), curve);
 
-                        // Merge residuals with maturity prefix
-                        for (key, value) in report.residuals {
-                            all_residuals.insert(format!("{}Y-{}", maturity_years, key), value);
+                        // Merge residuals with compact numeric keys
+                        for (_key, value) in report.residuals {
+                            let k = residual_key_counter.to_string();
+                            residual_key_counter += 1;
+                            all_residuals.insert(k, value);
                         }
                         total_iterations += report.iterations;
                     }
