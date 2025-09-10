@@ -118,10 +118,12 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
 
         // Internal IDs used only for solving. Final curve will use self.curve_id
         const CALIB_INDEX_ID: &str = "CALIB_INFLATION";
-        const CALIB_DISC_ID: &str = "CALIB_DISC";
 
         // Ensure discount curve exists in base context (best-effort; pricing will use context provided by caller)
         let _ = base_context.disc(&self.discount_id)?;
+
+        // Provide a 'static discount id for instrument builder requirements
+        let disc_id_static: &'static str = Box::leak(self.discount_id.clone().into_boxed_str());
 
         // Note: We don't require an inflation index during calibration; the index is provided by caller when repricing.
 
@@ -201,7 +203,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                     .maturity(maturity)
                     .fixed_rate(par_rate)
                     .inflation_id(CALIB_INDEX_ID)
-                    .disc_id(CALIB_DISC_ID)
+                    .disc_id(disc_id_static)
                     .dc(DayCount::ActAct)
                     .side(PayReceiveInflation::PayFixed)
                     .build()
