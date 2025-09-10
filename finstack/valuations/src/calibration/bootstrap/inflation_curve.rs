@@ -19,7 +19,6 @@ use std::collections::HashMap;
 
 /// Inflation curve bootstrapper using ZC inflation swaps.
 #[derive(Clone, Debug)]
-#[allow(dead_code)] // Allow dead code for helper methods
 pub struct InflationCurveCalibrator {
     /// Curve identifier
     pub curve_id: String,
@@ -271,7 +270,6 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
 }
 
 #[cfg(test)]
-#[allow(dead_code, unused_imports)]
 mod tests {
     use super::*;
     use crate::instruments::fixed_income::inflation_swap::PayReceiveInflation;

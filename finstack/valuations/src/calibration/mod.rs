@@ -160,6 +160,11 @@ impl CalibrationReport {
     /// 
     /// # Example
     /// ```
+    /// use finstack_valuations::calibration::CalibrationReport;
+    /// use std::collections::HashMap;
+    /// 
+    /// let residuals = HashMap::from([("quote1".to_string(), 0.001)]);
+    /// let iterations = 10;
     /// let report = CalibrationReport::success_simple(residuals, iterations)
     ///     .with_metadata("currency", "USD");
     /// ```
@@ -172,6 +177,11 @@ impl CalibrationReport {
     /// 
     /// # Example
     /// ```
+    /// use finstack_valuations::calibration::CalibrationReport;
+    /// use std::collections::HashMap;
+    /// 
+    /// let residuals = HashMap::from([("quote1".to_string(), 0.001)]);
+    /// let iterations = 10;
     /// let report = CalibrationReport::success_simple(residuals, iterations);
     /// ```
     pub fn success_simple(residuals: HashMap<String, F>, iterations: usize) -> Self {
@@ -186,6 +196,8 @@ impl CalibrationReport {
     /// 
     /// # Example
     /// ```
+    /// use finstack_valuations::calibration::CalibrationReport;
+    /// 
     /// let report = CalibrationReport::empty_success("No quotes provided");
     /// ```
     pub fn empty_success(reason: impl Into<String>) -> Self {
@@ -199,6 +211,9 @@ impl CalibrationReport {
     /// 
     /// # Example
     /// ```
+    /// use finstack_valuations::calibration::CalibrationReport;
+    /// 
+    /// let iterations = 100;
     /// let report = CalibrationReport::failure_simple("Convergence not achieved", iterations);
     /// ```
     pub fn failure_simple(reason: impl Into<String>, iterations: usize) -> Self {
@@ -238,6 +253,11 @@ impl CalibrationReport {
     /// 
     /// # Example
     /// ```
+    /// use finstack_valuations::calibration::CalibrationReport;
+    /// use std::collections::HashMap;
+    /// 
+    /// let residuals = HashMap::from([("quote1".to_string(), 0.001)]);
+    /// let iterations = 10;
     /// let report = CalibrationReport::for_type("yield_curve", residuals, iterations);
     /// ```
     pub fn for_type(

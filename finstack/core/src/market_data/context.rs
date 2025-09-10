@@ -408,6 +408,35 @@ impl MarketContext {
         self.credit_indices.insert(cid, Arc::new(data));
         self
     }
+    
+    /// Update only the base correlation curve for a credit index.
+    /// 
+    /// This is an optimization for calibration routines that need to repeatedly
+    /// update only the correlation curve while keeping other index data constant.
+    /// Returns None if the index doesn't exist.
+    pub fn update_base_correlation_curve(
+        mut self,
+        id: impl AsRef<str>,
+        new_curve: Arc<crate::market_data::term_structures::BaseCorrelationCurve>,
+    ) -> Option<Self> {
+        let cid = CurveId::from(id.as_ref());
+        
+        // Get the existing index data
+        let existing_index = self.credit_indices.get(&cid)?;
+        
+        // Create a new index with the updated correlation curve
+        let updated_index = CreditIndexData {
+            num_constituents: existing_index.num_constituents,
+            recovery_rate: existing_index.recovery_rate,
+            index_credit_curve: Arc::clone(&existing_index.index_credit_curve),
+            base_correlation_curve: new_curve,
+            issuer_credit_curves: existing_index.issuer_credit_curves.clone(),
+        };
+        
+        // Update the context
+        self.credit_indices.insert(cid, Arc::new(updated_index));
+        Some(self)
+    }
 
     /// Insert FX matrix.
     pub fn insert_fx(mut self, fx: FxMatrix) -> Self {
@@ -1642,6 +1671,57 @@ mod bump_tests {
 
         assert!((usd_eur - orig_usd_eur * 1.1).abs() < 1e-12);
         assert!((eur_usd - orig_eur_usd / 1.1).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_update_base_correlation_curve() {
+        // Test the new optimized update_base_correlation_curve method
+        let hazard_curve = test_hazard_curve();
+        let base_corr_curve = test_base_correlation_curve();
+        
+        // Create initial credit index
+        let hazard_arc = Arc::new(hazard_curve);
+        let index = CreditIndexData::builder()
+            .num_constituents(125)
+            .recovery_rate(0.4)
+            .index_credit_curve(Arc::clone(&hazard_arc))
+            .base_correlation_curve(Arc::new(base_corr_curve))
+            .build()
+            .unwrap();
+        
+        // Create context with the index
+        let context = MarketContext::new().insert_credit_index("CDX.NA.IG.42", index);
+        
+        // Create a new base correlation curve
+        let new_base_corr = BaseCorrelationCurve::builder("NEW_CORR")
+            .points(vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.55), (15.0, 0.65)])
+            .build()
+            .unwrap();
+        
+        // Update using the new method
+        let updated_context = context
+            .clone()
+            .update_base_correlation_curve("CDX.NA.IG.42", Arc::new(new_base_corr.clone()))
+            .expect("Should successfully update base correlation curve");
+        
+        // Verify the update worked
+        let updated_index = updated_context
+            .credit_index(CurveId::from("CDX.NA.IG.42"))
+            .expect("Index should exist");
+        
+        // Check that only the base correlation curve changed
+        assert_eq!(updated_index.num_constituents, 125);
+        assert_eq!(updated_index.recovery_rate, 0.4);
+        assert!(Arc::ptr_eq(&updated_index.index_credit_curve, &hazard_arc));
+        
+        // Verify the correlation curve was updated
+        let corr_at_7 = updated_index.base_correlation_curve.correlation(7.0);
+        assert!((corr_at_7 - 0.45).abs() < 1e-10);
+        
+        // Test that update returns None for non-existent index
+        let result = updated_context
+            .update_base_correlation_curve("NON_EXISTENT", Arc::new(new_base_corr));
+        assert!(result.is_none());
     }
 
     #[test]

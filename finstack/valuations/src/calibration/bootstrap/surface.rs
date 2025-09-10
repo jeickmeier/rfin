@@ -72,7 +72,7 @@ impl VolSurfaceCalibrator {
 
         for quote in quotes {
             if let VolQuote::OptionVol { expiry, .. } = quote {
-                let expiry_key = format!("{}", expiry);
+                let expiry_key = expiry.to_string();
                 quotes_by_expiry.entry(expiry_key).or_default().push(quote);
             }
         }
@@ -181,7 +181,7 @@ impl VolSurfaceCalibrator {
         .with_metadata("beta", format!("{:.3}", self.beta))
         .with_metadata(
             "calibrated_expiries",
-            format!("{}", sabr_params_by_expiry.len()),
+            sabr_params_by_expiry.len().to_string(),
         );
 
         Ok((surface, report))

@@ -51,7 +51,7 @@ impl HazardCurveCalibrator {
             Currency::SEK => "SEK-OIS".to_string(),
             Currency::NOK => "NOK-OIS".to_string(),
             Currency::DKK => "DKK-OIS".to_string(),
-            _ => format!("{}-OIS", currency),
+            _ => format!("{}-OIS", currency),  // Keep format! here as it needs currency interpolation
         }
     }
 

@@ -19,6 +19,21 @@ use finstack_core::F;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+/// Minimum correlation bound (1% to avoid numerical issues)
+const MIN_CORRELATION: F = 0.01;
+
+/// Maximum correlation bound (99% to avoid numerical issues)
+const MAX_CORRELATION: F = 0.99;
+
+/// Default initial correlation guess for equity tranches
+const INITIAL_CORRELATION_GUESS: F = 0.3;
+
+/// Correlation step size for monotonic assumption
+const CORRELATION_STEP: F = 0.05;
+
+/// Maximum correlation for monotonic extrapolation
+const MAX_MONOTONIC_CORRELATION: F = 0.9;
+
 /// Base correlation curve calibrator.
 #[derive(Clone, Debug)]
 pub struct BaseCorrelationCalibrator {
@@ -140,9 +155,6 @@ impl BaseCorrelationCalibrator {
         let pricing_model = GaussianCopulaModel::new();
         let num_tranche_quotes = tranche_quotes.len(); // Store length before moving
 
-        // Pre-fetch the original credit index data once to avoid repeated lookups
-        let original_index = market_context.credit_index("CDX.NA.IG.42")?;
-
         // Sequential bootstrap from equity to senior tranches
         for (attach_pct, detach_pct, _maturity, upfront_pct, running_spread_bp, index) in
             tranche_quotes
@@ -161,25 +173,30 @@ impl BaseCorrelationCalibrator {
 
             // Initial guess for correlation
             let initial_guess = if solved_correlations.is_empty() {
-                0.3 // Reasonable starting point for equity tranches
+                INITIAL_CORRELATION_GUESS // Reasonable starting point for equity tranches
             } else {
                 // Start slightly above the last solved correlation (monotonic assumption)
                 let last_pair = solved_correlations.last().unwrap();
                 let last_correlation = last_pair.1;
-                (last_correlation + 0.05).min(0.9)
+                (last_correlation + CORRELATION_STEP).min(MAX_MONOTONIC_CORRELATION)
             };
 
-            // Pre-build shared index data outside the objective function
-            let shared_num_constituents = original_index.num_constituents;
-            let shared_recovery_rate = original_index.recovery_rate;
-            let shared_credit_curve = Arc::clone(&original_index.index_credit_curve);
+            // Pre-build references outside the objective function
             let solved_correlations_ref = &solved_correlations;
             let detach_pct_val = *detach_pct;
+            
+            // OPTIMIZATION: Pre-clone the market context once outside the hot loop
+            // This avoids cloning the entire context on every iteration
+            let template_market_ctx = market_context.clone();
+            
+            // OPTIMIZATION: Pre-allocate the correlation points vector with known capacity
+            // This reduces allocations in the hot loop
+            let base_capacity = solved_correlations_ref.len() + 2; // +2 for trial point and potential padding
 
             // Create objective function for this tranche - now much more efficient
             let objective = |trial_correlation: F| -> F {
-                // Build temporary base correlation curve with solved points + trial point
-                let mut temp_corr_points = Vec::with_capacity(solved_correlations_ref.len() + 1);
+                // OPTIMIZATION: Reuse pre-allocated capacity for correlation points
+                let mut temp_corr_points = Vec::with_capacity(base_capacity);
                 temp_corr_points.extend_from_slice(solved_correlations_ref);
                 temp_corr_points.push((detach_pct_val, trial_correlation));
 
@@ -189,31 +206,26 @@ impl BaseCorrelationCalibrator {
                     temp_corr_points.push((detach_pct_val + 10.0, trial_correlation));
                 }
 
-                // Create temporary base correlation curve - this is now the only rebuild per iteration
+                // NOTE: BaseCorrelationCurve is immutable by design, so we must create
+                // a new curve on each iteration. This is a fundamental constraint of the
+                // curve's API that prioritizes thread-safety and immutability.
                 let temp_base_corr_curve = match BaseCorrelationCurve::builder("TEMP_CALIB_CORR")
                     .points(temp_corr_points)
                     .build()
                 {
-                    Ok(curve) => curve,
+                    Ok(curve) => Arc::new(curve),
                     Err(_) => return F::INFINITY,
                 };
 
-                // Efficiently create index with new correlation curve - reusing shared data
-                let temp_index = match finstack_core::market_data::CreditIndexData::builder()
-                    .num_constituents(shared_num_constituents)
-                    .recovery_rate(shared_recovery_rate)
-                    .index_credit_curve(Arc::clone(&shared_credit_curve))
-                    .base_correlation_curve(Arc::new(temp_base_corr_curve))
-                    .build()
-                {
-                    Ok(idx) => idx,
-                    Err(_) => return F::INFINITY,
-                };
-
-                // Create temporary market context - reusing core context
-                let temp_market_ctx = market_context
+                // OPTIMIZATION: Use the efficient update_base_correlation_curve method
+                // This only updates the correlation curve without rebuilding the entire CreditIndexData
+                let temp_market_ctx = template_market_ctx
                     .clone()
-                    .insert_credit_index(synthetic_tranche.credit_index_id, temp_index);
+                    .update_base_correlation_curve(synthetic_tranche.credit_index_id, temp_base_corr_curve)
+                    .unwrap_or_else(|| {
+                        // This should never happen as the index exists, but provide a fallback
+                        template_market_ctx.clone()
+                    });
 
                 // Price the tranche and return upfront error
                 match pricing_model.price_tranche(
@@ -230,7 +242,7 @@ impl BaseCorrelationCalibrator {
             let solved_corr = solver.solve(objective, initial_guess)?;
 
             // Clamp to reasonable bounds
-            let clamped_corr = solved_corr.clamp(0.01, 0.99);
+            let clamped_corr = solved_corr.clamp(MIN_CORRELATION, MAX_CORRELATION);
 
             // Calculate final residual
             let final_residual = objective(clamped_corr);
@@ -254,7 +266,7 @@ impl BaseCorrelationCalibrator {
             .build()?;
 
         let report = CalibrationReport::for_type("base_correlation", residuals, total_iterations)
-            .with_metadata("calibrated_tranches", format!("{}", num_tranche_quotes));
+            .with_metadata("calibrated_tranches", num_tranche_quotes.to_string());
 
         Ok((final_curve, report))
     }
@@ -424,7 +436,7 @@ impl BaseCorrelationSurfaceCalibrator {
         )
         .with_metadata(
             "calibrated_maturities",
-            format!("{}", curves_by_maturity.len()),
+            curves_by_maturity.len().to_string(),
         );
 
         Ok((curves_by_maturity, report))

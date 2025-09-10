@@ -24,7 +24,6 @@ use std::collections::HashMap;
 
 /// Discount curve bootstrapper.
 #[derive(Clone, Debug)]
-#[allow(dead_code)] // Allow dead code for helper methods
 pub struct DiscountCurveCalibrator {
     /// Curve identifier
     pub curve_id: &'static str,
@@ -270,7 +269,7 @@ impl DiscountCurveCalibrator {
         // Create calibration report
         let report = CalibrationReport::for_type("yield_curve", residuals, total_iterations)
             .with_metadata("interpolation", format!("{:?}", self.interpolation))
-            .with_metadata("currency", format!("{}", self.currency));
+            .with_metadata("currency", self.currency.to_string());
 
         Ok((curve, report))
     }
@@ -435,7 +434,6 @@ impl DiscountCurveCalibrator {
     }
 
     /// Get maturity date from quote.
-    #[allow(dead_code)]
     fn get_maturity(&self, quote: &RatesQuote) -> Date {
         match quote {
             RatesQuote::Deposit { maturity, .. } => *maturity,
@@ -450,7 +448,6 @@ impl DiscountCurveCalibrator {
     }
 
     /// Validate quote sequence for no-arbitrage and completeness.
-    #[allow(dead_code)]
     fn validate_quotes(&self, quotes: &[RatesQuote]) -> Result<()> {
         if quotes.is_empty() {
             return Err(finstack_core::Error::Input(
@@ -483,7 +480,6 @@ impl DiscountCurveCalibrator {
     }
 
     /// Extract rate from quote.
-    #[allow(dead_code)]
     fn get_rate(&self, quote: &RatesQuote) -> F {
         match quote {
             RatesQuote::Deposit { rate, .. } => *rate,
