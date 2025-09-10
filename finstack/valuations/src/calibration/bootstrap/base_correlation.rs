@@ -46,6 +46,8 @@ pub struct BaseCorrelationCalibrator {
     pub maturity_years: F,
     /// Base date for calibration
     pub base_date: Date,
+    /// Discount curve identifier used for tranche PVs
+    pub discount_curve_id: &'static str,
     /// Standard detachment points to calibrate
     pub detachment_points: Vec<F>,
     /// Calibration configuration
@@ -65,6 +67,8 @@ impl BaseCorrelationCalibrator {
             series,
             maturity_years,
             base_date,
+            // Default to common OIS discounting for USD; configurable via with_discount_curve_id
+            discount_curve_id: "USD-OIS",
             // Standard market detachment points
             detachment_points: vec![3.0, 7.0, 10.0, 15.0, 30.0],
             config: CalibrationConfig::default(),
@@ -80,6 +84,12 @@ impl BaseCorrelationCalibrator {
     /// Set calibration configuration.
     pub fn with_config(mut self, config: CalibrationConfig) -> Self {
         self.config = config;
+        self
+    }
+
+    /// Set the discount curve identifier used when pricing synthetic tranches.
+    pub fn with_discount_curve_id(mut self, disc_id: &'static str) -> Self {
+        self.discount_curve_id = disc_id;
         self
     }
 
@@ -296,8 +306,8 @@ impl BaseCorrelationCalibrator {
             .payment_frequency(Frequency::quarterly())
             .day_count(DayCount::Act360)
             .business_day_convention(BusinessDayConvention::Following)
-            .disc_id("USD-OIS")
-            .credit_index_id("CDX.NA.IG.42") // Use static string that matches test context
+            .disc_id(self.discount_curve_id)
+            .credit_index_id(Box::leak(self.index_id.clone().into_boxed_str()))
             .side(TrancheSide::SellProtection)
             .build()
     }
