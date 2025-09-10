@@ -14,7 +14,6 @@ pub mod primitives;
 pub mod simple_calibration;
 
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::math::{BrentSolver, HybridSolver, NewtonSolver, Solver};
 use finstack_core::{Result, F};
 use std::collections::HashMap;
 
@@ -247,42 +246,30 @@ impl Default for CalibrationConfig {
     }
 }
 
-/// Enum wrapper for different solver types to avoid trait object issues.
-#[derive(Debug)]
-pub enum SolverInstance {
-    Newton(NewtonSolver),
-    Brent(BrentSolver),
-    Hybrid(HybridSolver),
-}
-
-impl Solver for SolverInstance {
-    fn solve<Func>(&self, f: Func, initial_guess: F) -> Result<F>
-    where
-        Func: Fn(F) -> F,
-    {
-        match self {
-            SolverInstance::Newton(s) => s.solve(f, initial_guess),
-            SolverInstance::Brent(s) => s.solve(f, initial_guess),
-            SolverInstance::Hybrid(s) => s.solve(f, initial_guess),
-        }
-    }
-}
-
-impl CalibrationConfig {
-    /// Create a solver instance based on the configured solver kind.
-    pub fn make_solver(&self) -> SolverInstance {
-        match self.solver_kind {
-            SolverKind::Newton => SolverInstance::Newton(
-                NewtonSolver::new()
-                    .with_tolerance(self.tolerance)
-                    .with_max_iterations(self.max_iterations),
-            ),
-            SolverKind::Brent => {
-                SolverInstance::Brent(BrentSolver::new().with_tolerance(self.tolerance))
+/// Macro to apply calibration with the appropriate solver type.
+/// This avoids the need for a SolverInstance enum while working around
+/// the object-safety limitations of the Solver trait.
+#[macro_export]
+macro_rules! with_solver {
+    ($config:expr, |$solver:ident| $body:expr) => {
+        match $config.solver_kind {
+            $crate::calibration::SolverKind::Newton => {
+                let $solver = finstack_core::math::NewtonSolver::new()
+                    .with_tolerance($config.tolerance)
+                    .with_max_iterations($config.max_iterations);
+                $body
             }
-            SolverKind::Hybrid => SolverInstance::Hybrid(HybridSolver::new()),
+            $crate::calibration::SolverKind::Brent => {
+                let $solver = finstack_core::math::BrentSolver::new()
+                    .with_tolerance($config.tolerance);
+                $body
+            }
+            $crate::calibration::SolverKind::Hybrid => {
+                let $solver = finstack_core::math::HybridSolver::new();
+                $body
+            }
         }
-    }
+    };
 }
 
 /// Calibration error types.
@@ -375,23 +362,19 @@ mod tests {
         // Test that different solver kinds can be created and work
         let mut config = CalibrationConfig::default();
 
-        // Test default (Hybrid)
-        let solver = config.make_solver();
-        assert!(matches!(solver, SolverInstance::Hybrid(_)));
+        // Test default (Hybrid) - verify it can solve
+        let f = |x: F| x * x - 4.0; // Root at x = 2
+        let root = crate::with_solver!(&config, |solver| solver.solve(f, 1.5).unwrap());
+        assert!((root - 2.0).abs() < 1e-6);
 
         // Test Newton
         config.solver_kind = SolverKind::Newton;
-        let solver = config.make_solver();
-        assert!(matches!(solver, SolverInstance::Newton(_)));
+        let root = crate::with_solver!(&config, |solver| solver.solve(f, 1.5).unwrap());
+        assert!((root - 2.0).abs() < 1e-6);
 
         // Test Brent
         config.solver_kind = SolverKind::Brent;
-        let solver = config.make_solver();
-        assert!(matches!(solver, SolverInstance::Brent(_)));
-
-        // Test that solver can actually solve a simple equation
-        let f = |x: F| x * x - 4.0; // Root at x = 2
-        let root = solver.solve(f, 1.5).unwrap();
+        let root = crate::with_solver!(&config, |solver| solver.solve(f, 1.5).unwrap());
         assert!((root - 2.0).abs() < 1e-6);
     }
 

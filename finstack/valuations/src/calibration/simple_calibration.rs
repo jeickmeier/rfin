@@ -326,8 +326,10 @@ impl SimpleCalibration {
                     self.base_date,
                 );
 
-                let solver = self.config.make_solver();
-                if let Ok((curve, report)) = calibrator.bootstrap_curve(&maturity_quotes, &solver, &updated_context) {
+                let result = crate::with_solver!(&self.config, |solver| {
+                    calibrator.bootstrap_curve(&maturity_quotes, &solver, &updated_context)
+                });
+                if let Ok((curve, report)) = result {
                     updated_context = updated_context.insert_base_correlation(curve);
                     self.merge_report(
                         &mut combined_report.residuals,

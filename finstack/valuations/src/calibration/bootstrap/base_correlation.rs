@@ -304,10 +304,10 @@ impl Calibrator<InstrumentQuote, BaseCorrelationCurve> for BaseCorrelationCalibr
         let val_ctx = base_context.clone();
 
         // Use the configured solver for robust root-finding
-        let solver = self.config.make_solver();
-
         // Delegate to the implemented bootstrap
-        self.bootstrap_curve(instruments, &solver, &val_ctx)
+        crate::with_solver!(&self.config, |solver| {
+            self.bootstrap_curve(instruments, &solver, &val_ctx)
+        })
     }
 }
 
@@ -402,8 +402,10 @@ impl BaseCorrelationSurfaceCalibrator {
 
                 let maturity_quote_vec: Vec<_> =
                     maturity_quotes.iter().map(|&q| q.clone()).collect();
-                let solver = calibrator.config.make_solver();
-                match calibrator.bootstrap_curve(&maturity_quote_vec, &solver, market_context) {
+                let result = crate::with_solver!(&calibrator.config, |solver| {
+                    calibrator.bootstrap_curve(&maturity_quote_vec, &solver, market_context)
+                });
+                match result {
                     Ok((curve, report)) => {
                         curves_by_maturity.insert(HashableFloat::new(maturity_years), curve);
 
@@ -623,7 +625,6 @@ mod tests {
 
         // Now calibrate using these synthetic quotes
         let calibrator = BaseCorrelationCalibrator::new("CDX.NA.IG.42", 42, 5.0, base_date);
-        let solver = calibrator.config.make_solver();
 
         // Create clean market context for calibration (with dummy base correlation curve)
         let original_index = market_ctx.credit_index("CDX.NA.IG.42").unwrap();
@@ -646,8 +647,9 @@ mod tests {
             .clone()
             .insert_credit_index("CDX.NA.IG.42", clean_index);
 
-        let calibration_result =
-            calibrator.bootstrap_curve(&synthetic_quotes, &solver, &clean_market_ctx);
+        let calibration_result = crate::with_solver!(&calibrator.config, |solver| {
+            calibrator.bootstrap_curve(&synthetic_quotes, &solver, &clean_market_ctx)
+        });
 
         assert!(calibration_result.is_ok());
         let (calibrated_curve, report) = calibration_result.unwrap();

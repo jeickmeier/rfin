@@ -528,8 +528,9 @@ impl Calibrator<InstrumentQuote, DiscountCurve> for DiscountCurveCalibrator {
         base_context: &MarketContext,
     ) -> Result<(DiscountCurve, CalibrationReport)> {
         // Use the configured solver for calibration
-        let solver = self.config.make_solver();
-        self.bootstrap_curve_with_solver(instruments, &solver, base_context)
+        crate::with_solver!(&self.config, |solver| {
+            self.bootstrap_curve_with_solver(instruments, &solver, base_context)
+        })
     }
 }
 

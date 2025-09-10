@@ -286,8 +286,9 @@ impl Calibrator<InstrumentQuote, HazardCurve> for HazardCurveCalibrator {
         base_context: &MarketContext,
     ) -> Result<(HazardCurve, CalibrationReport)> {
         let disc = base_context.disc(&self.discount_curve_id)?;
-        let solver = self.config.make_solver();
-        self.bootstrap_internal(instruments, &solver, Some(disc.as_ref()))
+        crate::with_solver!(&self.config, |solver| {
+            self.bootstrap_internal(instruments, &solver, Some(disc.as_ref()))
+        })
     }
 }
 
