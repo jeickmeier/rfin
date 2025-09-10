@@ -186,13 +186,13 @@ impl DiscountCurveCalibrator {
                     .build()
                 {
                     Ok(curve) => curve,
-                    Err(_) => return F::INFINITY,
+                    Err(_) => return crate::calibration::penalize(),
                 };
 
                 // Create forward curve from discount curve for single-curve bootstrapping
                 let forward_curve = match temp_curve.to_forward_curve("CALIB_FWD", 0.25) {
                     Ok(curve) => curve,
-                    Err(_) => return F::INFINITY,
+                    Err(_) => return crate::calibration::penalize(),
                 };
 
                 // Update context with temporary curves
@@ -204,7 +204,7 @@ impl DiscountCurveCalibrator {
                 // Price the instrument and return error (target is zero)
                 self_clone
                     .price_instrument(&quote_clone, &temp_context)
-                    .unwrap_or(F::INFINITY)
+                    .unwrap_or(crate::calibration::penalize())
             };
 
             // Initial guess

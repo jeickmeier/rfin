@@ -194,18 +194,18 @@ impl HazardCurveCalibrator {
 
                 let temp_curve = match temp_curve {
                     Ok(c) => c,
-                    Err(_) => return F::INFINITY,
+                    Err(_) => return crate::calibration::penalize(),
                 };
                 let disc = match discount_curve_opt {
                     Some(d) => d,
-                    None => return F::INFINITY,
+                    None => return crate::calibration::penalize(),
                 };
 
                 // Calculate CDS NPV
                 let npv_result = pricer.npv(&cds, disc, &temp_curve, self.base_date);
                 let npv = match npv_result {
                     Ok(pv) => pv.amount(),
-                    Err(_) => return F::INFINITY,
+                    Err(_) => return crate::calibration::penalize(),
                 };
 
                 // Objective depends on quote type

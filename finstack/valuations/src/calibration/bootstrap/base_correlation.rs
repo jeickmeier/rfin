@@ -224,7 +224,7 @@ impl BaseCorrelationCalibrator {
                     .build()
                 {
                     Ok(curve) => Arc::new(curve),
-                    Err(_) => return F::INFINITY,
+                    Err(_) => return crate::calibration::penalize(),
                 };
 
                 // OPTIMIZATION: Use the efficient update_base_correlation_curve method
@@ -244,7 +244,7 @@ impl BaseCorrelationCalibrator {
                     self.base_date,
                 ) {
                     Ok(pv) => pv.amount() - target_upfront,
-                    Err(_) => F::INFINITY,
+                    Err(_) => crate::calibration::penalize(),
                 }
             };
 

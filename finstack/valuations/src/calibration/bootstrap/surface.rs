@@ -160,7 +160,7 @@ impl VolSurfaceCalibrator {
                             Err(_) => {
                                 let key = residual_key_counter.to_string();
                                 residual_key_counter += 1;
-                                all_residuals.insert(key, F::INFINITY);
+                                all_residuals.insert(key, crate::calibration::penalize());
                             }
                         }
                     }
