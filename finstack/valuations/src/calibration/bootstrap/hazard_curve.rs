@@ -255,13 +255,9 @@ impl HazardCurveCalibrator {
             .par_spreads(par_knots)
             .build()?;
 
-        let report = CalibrationReport::success_with(
-            residuals,
-            total_iterations,
-            "Hazard curve bootstrap completed",
-        )
-        .with_metadata("entity", self.entity.clone())
-        .with_metadata("recovery_rate", format!("{:.3}", self.recovery_rate));
+        let report = CalibrationReport::for_type("hazard_curve", residuals, total_iterations)
+            .with_metadata("entity", self.entity.clone())
+            .with_metadata("recovery_rate", format!("{:.3}", self.recovery_rate));
 
         Ok((curve, report))
     }

@@ -268,10 +268,9 @@ impl DiscountCurveCalibrator {
             .map_err(|_| finstack_core::Error::Internal)?;
 
         // Create calibration report
-        let report =
-            CalibrationReport::success_with(residuals, total_iterations, "Bootstrap completed")
-                .with_metadata("interpolation", format!("{:?}", self.interpolation))
-                .with_metadata("currency", format!("{}", self.currency));
+        let report = CalibrationReport::for_type("yield_curve", residuals, total_iterations)
+            .with_metadata("interpolation", format!("{:?}", self.interpolation))
+            .with_metadata("currency", format!("{}", self.currency));
 
         Ok((curve, report))
     }

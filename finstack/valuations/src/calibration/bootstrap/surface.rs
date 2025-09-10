@@ -173,10 +173,10 @@ impl VolSurfaceCalibrator {
             &vol_grid,
         )?;
 
-        let report = CalibrationReport::success_with(
+        let report = CalibrationReport::for_type(
+            "volatility_surface",
             all_residuals,
             sabr_params_by_expiry.len(), // Use number of calibrated expiries as iteration count
-            "Volatility surface calibration completed",
         )
         .with_metadata("beta", format!("{:.3}", self.beta))
         .with_metadata(

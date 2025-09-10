@@ -88,9 +88,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 .knots([(0.0, self.base_cpi), (0.25, self.base_cpi)])
                 .set_interp(InterpStyle::LogLinear)
                 .build()?;
-            let report = CalibrationReport::new()
-                .success()
-                .with_convergence_reason("No quotes; returned flat CPI curve");
+            let report = CalibrationReport::empty_success("No quotes; returned flat CPI curve");
             return Ok((curve, report));
         }
 
@@ -266,11 +264,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
             }
         };
 
-        let report = CalibrationReport::success_with(
-            residuals,
-            final_knots.len(),
-            "Inflation curve bootstrap completed",
-        );
+        let report = CalibrationReport::for_type("inflation_curve", residuals, final_knots.len());
 
         Ok((curve, report))
     }

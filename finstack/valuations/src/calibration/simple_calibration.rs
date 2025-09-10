@@ -92,11 +92,7 @@ impl SimpleCalibration {
             self.merge_report(&mut all_residuals, &mut total_iterations, &report);
         }
 
-        let final_report = CalibrationReport::new()
-            .success()
-            .with_residuals(all_residuals)
-            .with_iterations(total_iterations)
-            .with_convergence_reason("Market calibration completed");
+        let final_report = CalibrationReport::for_type("market", all_residuals, total_iterations);
 
         Ok((context, final_report))
     }
@@ -117,7 +113,7 @@ impl SimpleCalibration {
             .collect();
 
         if rates_quotes.is_empty() {
-            return Ok((context.clone(), CalibrationReport::new().success()));
+            return Ok((context.clone(), CalibrationReport::empty_success("No rates quotes provided")));
         }
 
         let calibrator = DiscountCurveCalibrator::new("USD-OIS", self.base_date, self.base_currency)
@@ -134,7 +130,7 @@ impl SimpleCalibration {
         context: &MarketContext,
     ) -> Result<(MarketContext, CalibrationReport)> {
         let mut updated_context = context.clone();
-        let mut combined_report = CalibrationReport::new().success();
+        let mut combined_report = CalibrationReport::empty_success("Credit calibration starting");
 
         // Group CDS quotes by entity
         let mut quotes_by_entity: HashMap<String, Vec<CreditQuote>> = HashMap::new();
@@ -192,7 +188,7 @@ impl SimpleCalibration {
         context: &MarketContext,
     ) -> Result<(MarketContext, CalibrationReport)> {
         let mut updated_context = context.clone();
-        let mut combined_report = CalibrationReport::new().success();
+        let mut combined_report = CalibrationReport::empty_success("Inflation calibration starting");
 
         // Group inflation quotes by index
         let mut quotes_by_index: HashMap<String, Vec<InflationQuote>> = HashMap::new();
@@ -243,7 +239,7 @@ impl SimpleCalibration {
         context: &MarketContext,
     ) -> Result<(MarketContext, CalibrationReport)> {
         let mut updated_context = context.clone();
-        let mut combined_report = CalibrationReport::new().success();
+        let mut combined_report = CalibrationReport::empty_success("Volatility calibration starting");
 
         // Group option quotes by underlying
         let mut quotes_by_underlying: HashMap<String, Vec<VolQuote>> = HashMap::new();
@@ -304,7 +300,7 @@ impl SimpleCalibration {
         context: &MarketContext,
     ) -> Result<(MarketContext, CalibrationReport)> {
         let mut updated_context = context.clone();
-        let mut combined_report = CalibrationReport::new().success();
+        let mut combined_report = CalibrationReport::empty_success("Base correlation calibration starting");
 
         // Group tranche quotes by index and maturity
         let mut quotes_by_index: HashMap<String, HashMap<HashableFloat, Vec<CreditQuote>>> = HashMap::new();

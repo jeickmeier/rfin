@@ -37,6 +37,10 @@ path = "../../examples/rust/bond_custom_cashflows_example.rs"
 name = "enhanced_builders_example"
 path = "../../examples/rust/enhanced_builders_example.rs"
 
+[[example]]
+name = "calibration_report_builder_example"
+path = "../../examples/rust/calibration_report_builder_example.rs"
+
 [features]
 default = ["serde"]
 parallel = ["dep:rayon"]

@@ -253,12 +253,8 @@ impl BaseCorrelationCalibrator {
             .points(solved_correlations)
             .build()?;
 
-        let report = CalibrationReport::success_with(
-            residuals,
-            total_iterations,
-            "Base correlation bootstrap completed successfully",
-        )
-        .with_metadata("calibrated_tranches", format!("{}", num_tranche_quotes));
+        let report = CalibrationReport::for_type("base_correlation", residuals, total_iterations)
+            .with_metadata("calibrated_tranches", format!("{}", num_tranche_quotes));
 
         Ok((final_curve, report))
     }
@@ -421,15 +417,15 @@ impl BaseCorrelationSurfaceCalibrator {
             }
         }
 
-        let report = CalibrationReport::new()
-            .success()
-            .with_residuals(all_residuals)
-            .with_iterations(total_iterations)
-            .with_convergence_reason("Base correlation surface calibration completed")
-            .with_metadata(
-                "calibrated_maturities".to_string(),
-                format!("{}", curves_by_maturity.len()),
-            );
+        let report = CalibrationReport::for_type(
+            "base_correlation_surface", 
+            all_residuals, 
+            total_iterations
+        )
+        .with_metadata(
+            "calibrated_maturities",
+            format!("{}", curves_by_maturity.len()),
+        );
 
         Ok((curves_by_maturity, report))
     }

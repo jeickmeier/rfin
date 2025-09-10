@@ -20,6 +20,3 @@ pub use finstack_analysis as analysis;
 
 #[cfg(feature = "scenarios")]
 pub use finstack_scenarios as scenarios;
-
-#[cfg(feature = "structured_credit")]
-pub use finstack_structured_credit as structured_credit;

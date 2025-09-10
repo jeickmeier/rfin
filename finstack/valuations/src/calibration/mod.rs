@@ -111,8 +111,8 @@ pub struct CalibrationReport {
 }
 
 impl CalibrationReport {
-    /// Create a new calibration report.
-    pub fn new() -> Self {
+    /// Internal constructor.
+    fn new() -> Self {
         Self {
             success: false,
             residuals: HashMap::new(),
@@ -125,14 +125,14 @@ impl CalibrationReport {
         }
     }
 
-    /// Mark calibration as successful.
-    pub fn success(mut self) -> Self {
+    /// Internal: Mark calibration as successful.
+    fn success(mut self) -> Self {
         self.success = true;
         self
     }
 
-    /// Set residuals.
-    pub fn with_residuals(mut self, residuals: HashMap<String, F>) -> Self {
+    /// Internal: Set residuals and calculate metrics.
+    fn with_residuals(mut self, residuals: HashMap<String, F>) -> Self {
         self.max_residual = residuals.values().map(|r| r.abs()).fold(0.0, f64::max);
         let sum_sq: F = residuals.values().map(|r| r * r).sum();
         self.rmse = if residuals.is_empty() {
@@ -144,35 +144,81 @@ impl CalibrationReport {
         self
     }
 
-    /// Set iteration count.
-    pub fn with_iterations(mut self, iterations: usize) -> Self {
+    /// Internal: Set iteration count.
+    fn with_iterations(mut self, iterations: usize) -> Self {
         self.iterations = iterations;
         self
     }
 
-    /// Set convergence reason.
-    pub fn with_convergence_reason(mut self, reason: impl Into<String>) -> Self {
+    /// Internal: Set convergence reason.
+    fn with_convergence_reason(mut self, reason: impl Into<String>) -> Self {
         self.convergence_reason = reason.into();
         self
     }
 
-    /// Add metadata.
+    /// Add metadata to the report.
+    /// 
+    /// # Example
+    /// ```
+    /// let report = CalibrationReport::success_simple(residuals, iterations)
+    ///     .with_metadata("currency", "USD");
+    /// ```
     pub fn with_metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.metadata.insert(key.into(), value.into());
         self
     }
 
-    /// Create a successful calibration report with common fields set.
-    pub fn success_with(
-        residuals: HashMap<String, F>,
-        iterations: usize,
-        reason: impl Into<String>,
-    ) -> Self {
+    /// Create a simple successful calibration report (most common case).
+    /// 
+    /// # Example
+    /// ```
+    /// let report = CalibrationReport::success_simple(residuals, iterations);
+    /// ```
+    pub fn success_simple(residuals: HashMap<String, F>, iterations: usize) -> Self {
         Self::new()
             .success()
             .with_residuals(residuals)
             .with_iterations(iterations)
+            .with_convergence_reason("Calibration completed successfully")
+    }
+
+    /// Create an empty successful report (no quotes to calibrate).
+    /// 
+    /// # Example
+    /// ```
+    /// let report = CalibrationReport::empty_success("No quotes provided");
+    /// ```
+    pub fn empty_success(reason: impl Into<String>) -> Self {
+        Self::new()
+            .success()
+            .with_iterations(0)
             .with_convergence_reason(reason)
+    }
+
+    /// Create a simple failure report.
+    /// 
+    /// # Example
+    /// ```
+    /// let report = CalibrationReport::failure_simple("Convergence not achieved", iterations);
+    /// ```
+    pub fn failure_simple(reason: impl Into<String>, iterations: usize) -> Self {
+        Self::new()
+            .with_iterations(iterations)
+            .with_convergence_reason(reason)
+    }
+
+    /// Builder method to set objective value.
+    pub fn with_objective_value(mut self, value: F) -> Self {
+        self.objective_value = value;
+        self
+    }
+
+    /// Builder method to add multiple metadata entries at once.
+    pub fn with_metadata_batch(mut self, entries: Vec<(impl Into<String>, impl Into<String>)>) -> Self {
+        for (key, value) in entries {
+            self.metadata.insert(key.into(), value.into());
+        }
+        self
     }
 
     /// Add a single residual to the report.
@@ -187,11 +233,41 @@ impl CalibrationReport {
             (sum_sq / self.residuals.len() as F).sqrt()
         };
     }
+
+    /// Create a success report for a specific calibration type.
+    /// 
+    /// # Example
+    /// ```
+    /// let report = CalibrationReport::for_type("yield_curve", residuals, iterations);
+    /// ```
+    pub fn for_type(
+        calibration_type: impl Into<String>,
+        residuals: HashMap<String, F>,
+        iterations: usize,
+    ) -> Self {
+        let type_str = calibration_type.into();
+        let reason = format!("{} calibration completed", type_str.replace('_', " "));
+        Self::new()
+            .success()
+            .with_residuals(residuals)
+            .with_iterations(iterations)
+            .with_convergence_reason(reason)
+            .with_metadata("type", type_str)
+    }
 }
 
 impl Default for CalibrationReport {
     fn default() -> Self {
-        Self::new()
+        Self {
+            success: false,
+            residuals: HashMap::new(),
+            iterations: 0,
+            objective_value: F::INFINITY,
+            max_residual: F::INFINITY,
+            rmse: F::INFINITY,
+            convergence_reason: "Not started".to_string(),
+            metadata: HashMap::new(),
+        }
     }
 }
 
@@ -317,16 +393,16 @@ mod tests {
     }
 
     #[test]
-    fn test_calibration_report_success_with() {
+    fn test_calibration_report_success_simple() {
         let mut residuals = HashMap::new();
         residuals.insert("test_instrument".to_string(), 1e-6);
         residuals.insert("another_instrument".to_string(), 2e-6);
 
-        let report = CalibrationReport::success_with(residuals, 10, "Test calibration completed");
+        let report = CalibrationReport::success_simple(residuals, 10);
 
         assert!(report.success);
         assert_eq!(report.iterations, 10);
-        assert_eq!(report.convergence_reason, "Test calibration completed");
+        assert_eq!(report.convergence_reason, "Calibration completed successfully");
         assert_eq!(report.residuals.len(), 2);
         assert!(report.max_residual > 0.0);
         assert!(report.rmse > 0.0);
@@ -334,7 +410,7 @@ mod tests {
 
     #[test]
     fn test_calibration_report_push_residual() {
-        let mut report = CalibrationReport::new().success();
+        let mut report = CalibrationReport::empty_success("Testing push_residual");
 
         report.push_residual("instrument1", 1e-6);
         report.push_residual("instrument2", 2e-6);
