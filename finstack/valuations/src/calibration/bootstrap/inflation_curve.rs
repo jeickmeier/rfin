@@ -30,6 +30,10 @@ pub struct InflationCurveCalibrator {
     pub base_cpi: F,
     /// Discount curve ID for valuation
     pub discount_id: String,
+    /// Day count used for mapping calendar dates to time-axis (knots)
+    pub time_dc: DayCount,
+    /// Day count used for accrual estimations within calibration (e.g., analytical guess)
+    pub accrual_dc: DayCount,
     /// Interpolation used during solving and for the final curve
     pub solve_interp: InterpStyle,
     /// Calibration configuration
@@ -51,6 +55,8 @@ impl InflationCurveCalibrator {
             currency,
             base_cpi,
             discount_id: discount_id.into(),
+            time_dc: DayCount::ActAct,
+            accrual_dc: DayCount::ActAct,
             solve_interp: InterpStyle::LogLinear,
             config: CalibrationConfig::default(),
         }
@@ -65,6 +71,18 @@ impl InflationCurveCalibrator {
     /// Set the interpolation used both during solving and for the final curve.
     pub fn with_solve_interp(mut self, interpolation: InterpStyle) -> Self {
         self.solve_interp = interpolation;
+        self
+    }
+
+    /// Set the time-axis day count used for CPI knot placement.
+    pub fn with_time_dc(mut self, dc: DayCount) -> Self {
+        self.time_dc = dc;
+        self
+    }
+
+    /// Set the accrual day count used for analytical guesses and instrument accrual.
+    pub fn with_accrual_dc(mut self, dc: DayCount) -> Self {
+        self.accrual_dc = dc;
         self
     }
 }
@@ -129,8 +147,8 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
         // Note: We don't require an inflation index during calibration; the index is provided by caller when repricing.
 
         for (maturity, par_rate, _idx) in quotes {
-            // Time for the CPI knot (Act365F)
-            let t = DayCount::Act365F
+            // Consistent time-axis for CPI knot
+            let t = self.time_dc
                 .year_fraction(
                     self.base_date,
                     maturity,
@@ -142,21 +160,13 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
             }
 
             // Initial guess: compound last CPI by par rate over accrual time
-            let tau = DayCount::ActAct
+            let tau = self.accrual_dc
                 .year_fraction(
                     self.base_date,
                     maturity,
                     finstack_core::dates::DayCountCtx::default(),
                 )
-                .unwrap_or_else(|_| {
-                    DayCount::Act365F
-                        .year_fraction(
-                            self.base_date,
-                            maturity,
-                            finstack_core::dates::DayCountCtx::default(),
-                        )
-                        .unwrap_or(0.0)
-                });
+                .unwrap_or(0.0);
             // Use analytical breakeven CPI for initial guess to ensure f(x0)=0
             let initial_guess = self.base_cpi * (1.0 + par_rate).powf(tau);
             if self.config.verbose {
@@ -205,7 +215,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                     .fixed_rate(par_rate)
                     .inflation_id(CALIB_INDEX_ID)
                     .disc_id(disc_id_static)
-                    .dc(DayCount::ActAct)
+                    .dc(self.accrual_dc)
                     .side(PayReceiveInflation::PayFixed)
                     .build()
                 {
@@ -276,7 +286,9 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
         };
 
         let report = CalibrationReport::for_type("inflation_curve", residuals, final_knots.len())
-            .with_metadata("solve_interp", format!("{:?}", self.solve_interp));
+            .with_metadata("solve_interp", format!("{:?}", self.solve_interp))
+            .with_metadata("time_dc", format!("{:?}", self.time_dc))
+            .with_metadata("accrual_dc", format!("{:?}", self.accrual_dc));
 
         Ok((curve, report))
         })

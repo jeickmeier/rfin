@@ -365,6 +365,8 @@ pub struct BaseCorrelationSurfaceCalibrator {
     pub detachment_points: Vec<F>,
     /// Configuration
     pub config: CalibrationConfig,
+    /// Day count used to map tranche maturities to years for grouping
+    pub time_dc: DayCount,
 }
 
 impl BaseCorrelationSurfaceCalibrator {
@@ -382,6 +384,7 @@ impl BaseCorrelationSurfaceCalibrator {
             target_maturities,
             detachment_points: vec![3.0, 7.0, 10.0, 15.0, 30.0],
             config: CalibrationConfig::default(),
+            time_dc: DayCount::Act365F,
         }
     }
 
@@ -399,7 +402,7 @@ impl BaseCorrelationSurfaceCalibrator {
 
         for quote in quotes {
             if let CreditQuote::CDSTranche { maturity, .. } = quote {
-                let maturity_years = finstack_core::dates::DayCount::Act365F.year_fraction(
+                let maturity_years = self.time_dc.year_fraction(
                     self.base_date,
                     *maturity,
                     finstack_core::dates::DayCountCtx::default(),
@@ -468,7 +471,8 @@ impl BaseCorrelationSurfaceCalibrator {
         .with_metadata(
             "calibrated_maturities",
             curves_by_maturity.len().to_string(),
-        );
+        )
+        .with_metadata("time_dc", format!("{:?}", self.time_dc));
 
         Ok((curves_by_maturity, report))
     }

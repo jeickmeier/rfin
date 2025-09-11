@@ -9,6 +9,7 @@ use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use ordered_float::OrderedFloat;
 use crate::instruments::options::models::{SABRCalibrator, SABRModel, SABRParameters};
 use finstack_core::dates::Date;
+use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::prelude::Currency;
@@ -37,6 +38,8 @@ pub struct VolSurfaceCalibrator {
     pub target_strikes: Vec<F>,
     /// Base date for time-to-expiry calculations
     pub base_date: Date,
+    /// Day count used for mapping option expiries to time-to-expiry
+    pub time_dc: DayCount,
     /// Base currency for equity forward calculation (used by auto_forward)
     pub base_currency: Currency,
     /// Interpolation used for the output surface
@@ -58,6 +61,7 @@ impl VolSurfaceCalibrator {
             target_expiries,
             target_strikes,
             base_date: Date::from_calendar_date(1970, time::Month::January, 1).unwrap(),
+            time_dc: DayCount::Act365F,
             base_currency: Currency::USD,
             surface_interp: SurfaceInterp::Bilinear,
         }
@@ -87,6 +91,12 @@ impl VolSurfaceCalibrator {
         self
     }
 
+    /// Set the time-axis day count used for expiries.
+    pub fn with_time_dc(mut self, dc: DayCount) -> Self {
+        self.time_dc = dc;
+        self
+    }
+
     /// Internal calibration logic with forward curve.
     fn calibrate_internal(
         &self,
@@ -98,7 +108,7 @@ impl VolSurfaceCalibrator {
 
         for quote in quotes {
             if let VolQuote::OptionVol { expiry, .. } = quote {
-                let t = finstack_core::dates::DayCount::Act365F
+                let t = self.time_dc
                     .year_fraction(
                         self.base_date,
                         *expiry,
@@ -216,7 +226,8 @@ impl VolSurfaceCalibrator {
             "calibrated_expiries",
             sabr_params_by_expiry.len().to_string(),
         )
-        .with_metadata("surface_interp", format!("{:?}", self.surface_interp));
+        .with_metadata("surface_interp", format!("{:?}", self.surface_interp))
+        .with_metadata("time_dc", format!("{:?}", self.time_dc));
 
         Ok((surface, report))
     }
