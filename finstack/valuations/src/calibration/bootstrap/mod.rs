@@ -2,14 +2,16 @@
 //!
 //! Implements sequential bootstrapping algorithms for various curve types.
 
+pub mod base_correlation;
+pub mod forward_curve;
 pub mod hazard_curve;
 pub mod inflation_curve;
-pub mod yield_curve_single;
-pub mod base_correlation;
 pub mod surface;
+pub mod yield_curve_single;
 
+pub use base_correlation::*;
+pub use forward_curve::*;
 pub use hazard_curve::*;
 pub use inflation_curve::*;
-pub use yield_curve_single::*;
-pub use base_correlation::*;
 pub use surface::*;
+pub use yield_curve_single::*;
