@@ -194,6 +194,25 @@ impl HybridSolver {
     pub fn new() -> Self {
         Self::default()
     }
+
+    /// Set a unified tolerance for both Newton and Brent components.
+    ///
+    /// This ensures consistent convergence criteria regardless of which
+    /// method ultimately succeeds.
+    pub fn with_tolerance(mut self, tolerance: F) -> Self {
+        self.newton.tolerance = tolerance;
+        self.brent.tolerance = tolerance;
+        self
+    }
+
+    /// Set a unified maximum iteration cap for both Newton and Brent components.
+    ///
+    /// This provides predictable iteration limits across fallback paths.
+    pub fn with_max_iterations(mut self, max_iterations: usize) -> Self {
+        self.newton.max_iterations = max_iterations;
+        self.brent.max_iterations = max_iterations;
+        self
+    }
 }
 
 impl Solver for HybridSolver {

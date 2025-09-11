@@ -19,7 +19,9 @@ macro_rules! with_solver {
                 $body
             }
             $crate::calibration::SolverKind::Hybrid => {
-                let $solver = finstack_core::math::HybridSolver::new();
+                let $solver = finstack_core::math::HybridSolver::new()
+                    .with_tolerance($config.tolerance)
+                    .with_max_iterations($config.max_iterations);
                 $body
             }
         }

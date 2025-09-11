@@ -1,7 +1,8 @@
 //! Yield curve bootstrapping from market instruments.
 //!
-//! Implements market-standard discount curve calibration using deposits,
-//! FRAs, futures, and swaps with proper multi-curve treatment.
+//! Implements market-standard single-curve discount curve calibration using deposits,
+//! FRAs, futures, and swaps. This doesn't have the ability to bootstrap multiple 
+//! curves at once.
 //!
 //! Uses instrument pricing methods directly rather than reimplementing
 //! pricing formulas, following market-standard bootstrap methodology.
