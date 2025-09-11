@@ -327,6 +327,59 @@ impl ForwardCurveCalibrator {
                 let pv = swap.value(context, self.base_date)?;
                 Ok(pv.amount() / swap.notional.amount())
             }
+            RatesQuote::BasisSwap {
+                maturity,
+                primary_index,
+                reference_index,
+                spread_bp,
+                primary_freq,
+                reference_freq,
+                primary_dc,
+                reference_dc,
+                currency,
+            } => {
+                // Use basis swaps for forward curve calibration
+                // Check if this basis swap involves our forward curve
+                let involves_our_curve = 
+                    primary_index.contains(&format!("{}M", (self.tenor_years * 12.0) as i32)) ||
+                    reference_index.contains(&format!("{}M", (self.tenor_years * 12.0) as i32));
+                
+                if !involves_our_curve {
+                    return Ok(0.0); // Skip basis swaps that don't involve our tenor
+                }
+                
+                // Create basis swap instrument
+                use crate::instruments::fixed_income::basis_swap::{BasisSwap, BasisSwapLeg};
+                
+                let primary_leg = BasisSwapLeg {
+                    forward_curve_id: self.fwd_curve_id,
+                    frequency: *primary_freq,
+                    day_count: *primary_dc,
+                    bdc: BusinessDayConvention::ModifiedFollowing,
+                    spread: *spread_bp / 10_000.0, // Convert bp to decimal
+                };
+                
+                let reference_leg = BasisSwapLeg {
+                    forward_curve_id: "REF_FWD", // This would need to be mapped properly
+                    frequency: *reference_freq,
+                    day_count: *reference_dc,
+                    bdc: BusinessDayConvention::ModifiedFollowing,
+                    spread: 0.0,
+                };
+                
+                let basis_swap = BasisSwap::new(
+                    format!("CALIB_BASIS_{}", maturity),
+                    Money::new(1_000_000.0, *currency),
+                    self.base_date,
+                    *maturity,
+                    primary_leg,
+                    reference_leg,
+                    self.discount_curve_id,
+                );
+                
+                let pv = basis_swap.value(context, self.base_date)?;
+                Ok(pv.amount() / basis_swap.notional.amount())
+            }
             _ => Ok(0.0), // Skip other quote types
         }
     }

@@ -8,7 +8,7 @@
 //! pricing formulas, following market-standard bootstrap methodology.
 
 use crate::calibration::quote::RatesQuote;
-use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
+use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator, MultiCurveConfig};
 use crate::instruments::fixed_income::deposit::Deposit;
 use crate::instruments::fixed_income::fra::ForwardRateAgreement;
 use crate::instruments::fixed_income::ir_future::InterestRateFuture;
@@ -35,6 +35,8 @@ pub struct DiscountCurveCalibrator {
     pub solve_interp: InterpStyle,
     /// Calibration configuration
     pub config: CalibrationConfig,
+    /// Multi-curve framework configuration
+    pub multi_curve_config: MultiCurveConfig,
     /// Currency for the curve
     pub currency: Currency,
 }
@@ -47,6 +49,7 @@ impl DiscountCurveCalibrator {
             base_date,
             solve_interp: InterpStyle::MonotoneConvex, // Default; explicit and consistent
             config: CalibrationConfig::default(),
+            multi_curve_config: MultiCurveConfig::default(), // Defaults to multi-curve mode
             currency,
         }
     }
@@ -60,6 +63,12 @@ impl DiscountCurveCalibrator {
     /// Set calibration configuration.
     pub fn with_config(mut self, config: CalibrationConfig) -> Self {
         self.config = config;
+        self
+    }
+    
+    /// Set multi-curve framework configuration.
+    pub fn with_multi_curve_config(mut self, multi_curve_config: MultiCurveConfig) -> Self {
+        self.multi_curve_config = multi_curve_config;
         self
     }
 
@@ -190,21 +199,29 @@ impl DiscountCurveCalibrator {
                     Err(_) => return crate::calibration::penalize(),
                 };
 
-                // Create forward curve from discount curve for single-curve bootstrapping
-                let forward_curve = match temp_curve.to_forward_curve_with_interp(
-                    "CALIB_FWD",
-                    0.25,
-                    self_clone.solve_interp,
-                ) {
-                    Ok(curve) => curve,
-                    Err(_) => return crate::calibration::penalize(),
+                // Update context based on multi-curve configuration
+                let temp_context = if self_clone.multi_curve_config.derive_forward_from_discount() {
+                    // Single-curve mode: derive forward curve from discount curve (pre-2008 methodology)
+                    let forward_curve = match temp_curve.to_forward_curve_with_interp(
+                        "CALIB_FWD",
+                        self_clone.multi_curve_config.single_curve_tenor,
+                        self_clone.solve_interp,
+                    ) {
+                        Ok(curve) => curve,
+                        Err(_) => return crate::calibration::penalize(),
+                    };
+                    
+                    base_context_clone
+                        .clone()
+                        .insert_discount(temp_curve)
+                        .insert_forward(forward_curve)
+                } else {
+                    // Multi-curve mode: only insert discount curve
+                    // Forward curves must be calibrated separately
+                    base_context_clone
+                        .clone()
+                        .insert_discount(temp_curve)
                 };
-
-                // Update context with temporary curves
-                let temp_context = base_context_clone
-                    .clone()
-                    .insert_discount(temp_curve)
-                    .insert_forward(forward_curve);
 
                 // Price the instrument and return error (target is zero)
                 self_clone
@@ -457,10 +474,26 @@ impl DiscountCurveCalibrator {
                 let pv = swap.value(context, self.base_date)?;
                 Ok(pv.amount() / swap.notional.amount())
             }
-            RatesQuote::BasisSwap { spread_bp, .. } => {
-                // Basis swaps require dual-curve pricing with different forward tenors
-                // For curve calibration purposes, return the quoted spread as a placeholder
-                // TODO: Implement proper basis swap pricing with dual floating legs
+            RatesQuote::BasisSwap { 
+                maturity: _,
+                primary_index: _,
+                reference_index: _,
+                spread_bp,
+                primary_freq: _,
+                reference_freq: _,
+                primary_dc: _,
+                reference_dc: _,
+                currency: _,
+            } => {
+                // In multi-curve mode, basis swaps should only be used for forward curve calibration
+                if self.multi_curve_config.is_multi_curve() {
+                    // Basis swaps are not used for discount curve calibration in multi-curve mode
+                    // They are used to calibrate the spread between different tenor forward curves
+                    return Ok(0.0);
+                }
+                
+                // In single-curve mode, we can't properly price basis swaps since we only have one curve
+                // Return a placeholder value based on the spread
                 Ok(*spread_bp / 10_000.0)
             }
         }

@@ -4,6 +4,7 @@
 //! bonds, interest rate swaps, deposits, loans, credit default swaps, and
 //! inflation-linked bonds.
 
+pub mod basis_swap;
 pub mod bond;
 pub mod cds;
 pub mod cds_index;
@@ -21,6 +22,7 @@ pub mod irs;
 pub mod loan;
 
 // Re-export all fixed income instrument types
+pub use basis_swap::{BasisSwap, BasisSwapLeg};
 pub use bond::Bond;
 pub use cds::CreditDefaultSwap;
 pub use cds_index::CDSIndex;
