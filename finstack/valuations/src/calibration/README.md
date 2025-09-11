@@ -81,7 +81,7 @@ let (discount_curve, report) = calibrator.calibrate(&quotes, &base_context)?;
 ### Volatility Surface Calibration
 
 ```rust
-use finstack_valuations::calibration::surface::VolSurfaceCalibrator;
+use finstack_valuations::calibration::bootstrap::sabr_surface::VolSurfaceCalibrator;
 
 // Set up SABR calibration for equity volatility
 let calibrator = VolSurfaceCalibrator::new(

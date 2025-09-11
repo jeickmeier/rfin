@@ -6,12 +6,12 @@ pub mod base_correlation;
 pub mod forward_curve;
 pub mod hazard_curve;
 pub mod inflation_curve;
-pub mod surface;
+pub mod sabr_surface;
 pub mod discount;
 
 pub use base_correlation::*;
 pub use forward_curve::*;
 pub use hazard_curve::*;
 pub use inflation_curve::*;
-pub use surface::*;
+pub use sabr_surface::*;
 pub use discount::*;
