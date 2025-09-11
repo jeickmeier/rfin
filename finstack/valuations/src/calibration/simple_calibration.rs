@@ -242,15 +242,21 @@ impl SimpleCalibration {
         let mut updated_context = context.clone();
         let mut combined_report = CalibrationReport::empty_success("Volatility calibration starting");
 
-        // Group option quotes by underlying
+        // Group option quotes by underlying; explicitly skip swaptions for this calibrator
         let mut quotes_by_underlying: BTreeMap<String, Vec<VolQuote>> = BTreeMap::new();
         for quote in quotes {
             if let MarketQuote::Vol(vol_quote) = quote {
-                let underlying = match vol_quote {
-                    VolQuote::OptionVol { underlying, .. } => underlying.clone(),
-                    VolQuote::SwaptionVol { .. } => "SWAPTION".to_string(),
-                };
-                quotes_by_underlying.entry(underlying).or_default().push(vol_quote.clone());
+                match vol_quote {
+                    VolQuote::OptionVol { underlying, .. } => {
+                        quotes_by_underlying.entry(underlying.clone()).or_default().push(vol_quote.clone());
+                    }
+                    VolQuote::SwaptionVol { .. } => {
+                        // Record a metadata note once about skipped swaptions
+                        combined_report = combined_report
+                            .with_metadata("note_swaptions_skipped", "SwaptionVol quotes are ignored by SimpleCalibration; use a swaption-specific calibrator.");
+                        // Skip adding to quotes_by_underlying
+                    }
+                }
             }
         }
 

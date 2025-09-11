@@ -125,6 +125,15 @@ The current implementations provide working stubs that demonstrate the framework
 4. **Performance**: Parallel processing, analytical Jacobians, caching
 5. **Validation**: Comprehensive market data validation and stress testing
 
+## Supported vs Unsupported Volatility Instruments
+
+The current `VolSurfaceCalibrator` is designed for equity/FX-style surfaces where forwards can be inferred from spot, dividend yields, and discount curves. It does not support swaptions.
+
+- Unsupported: `SwaptionVol` quotes are explicitly rejected by `VolSurfaceCalibrator` with a clear error. A swaption-aware calibrator should estimate forwards and annuities from the appropriate rate curves and swap conventions.
+- Supported: `OptionVol` quotes for assets with forwards derivable from market context via `MarketContext::auto_forward` (e.g., equities/FX).
+
+In the higher-level `SimpleCalibration` flow, swaption quotes are skipped with a metadata note so that other asset-class surfaces can still calibrate. A dedicated swaption calibrator can be added alongside this for rates options.
+
 ## Key Features
 
 ### Deterministic & Parallel Ready

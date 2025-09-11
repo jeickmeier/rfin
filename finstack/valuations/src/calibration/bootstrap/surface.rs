@@ -319,6 +319,18 @@ impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
         instruments: &[VolQuote],
         base_context: &MarketContext,
     ) -> Result<(VolSurface, CalibrationReport)> {
+        // Explicitly reject swaptions: this calibrator is equity/FX-style and
+        // assumes forward extraction from spot/dividend/discount, not swaption-aware forwards
+        if instruments
+            .iter()
+            .any(|q| matches!(q, VolQuote::SwaptionVol { .. }))
+        {
+            return Err(finstack_core::Error::Calibration {
+                message: "SwaptionVol quotes are not supported by VolSurfaceCalibrator. Use a dedicated swaption calibrator.".to_string(),
+                category: "vol_surface_calibration".to_string(),
+            });
+        }
+
         // Detect underlying from first quote to build appropriate forward function
         let underlying = instruments
             .iter()
