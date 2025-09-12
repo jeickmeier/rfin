@@ -103,6 +103,7 @@ pub mod common;
 pub mod traits;
 
 // Grouped instrument implementations
+pub mod derivatives;
 pub mod equity;
 pub mod fixed_income;
 // fx_spot moved under fixed_income
@@ -110,6 +111,7 @@ pub mod options;
 pub mod utils;
 
 // Re-export common types for convenience (avoid glob re-exports to keep API unambiguous)
+pub use derivatives::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
 pub use equity::{Equity, PrivateEquityInvestment};
 pub use fixed_income::{
     Bond, CDSIndex, CdsTranche, ConvertibleBond, CreditDefaultSwap, Deposit, Discountable,

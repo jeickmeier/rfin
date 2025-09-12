@@ -184,6 +184,10 @@ pub struct InstrumentTag;
 #[derive(Debug, Clone, Copy, Default)]
 pub struct CounterpartyTag;
 
+/// Marker type for index identifiers (equity or fixed income)
+#[derive(Debug, Clone, Copy, Default)]
+pub struct IndexTag;
+
 /// Type aliases for common ID types
 /// Type-safe identifier for market data curves
 pub type CurveId = Id<CurveTag>;
@@ -199,6 +203,8 @@ pub type ScenarioId = Id<ScenarioTag>;
 pub type InstrumentId = Id<InstrumentTag>;
 /// Type-safe identifier for trading counterparties
 pub type CounterpartyId = Id<CounterpartyTag>;
+/// Type-safe identifier for market indices
+pub type IndexId = Id<IndexTag>;
 
 #[cfg(test)]
 mod tests {

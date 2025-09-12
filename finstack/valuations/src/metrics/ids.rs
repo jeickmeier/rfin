@@ -216,4 +216,10 @@ define_metrics! {
     /// Time decay (theta) - 1D Day Time decay P&L
     Theta => "theta",
 
+    // TRS metrics
+    /// Financing annuity for TRS
+    FinancingAnnuity => "financing_annuity",
+    /// Index delta for TRS
+    IndexDelta => "index_delta",
+
 }

@@ -20,10 +20,10 @@ pub struct EquityOption {
     pub contract_size: F,
     pub day_count: finstack_core::dates::DayCount,
     pub settlement: SettlementType,
-    pub disc_id: &'static str,
-    pub spot_id: &'static str,
-    pub vol_id: &'static str,
-    pub div_yield_id: Option<&'static str>,
+    pub disc_id: String,
+    pub spot_id: String,
+    pub vol_id: String,
+    pub div_yield_id: Option<String>,
     pub implied_vol: Option<F>,
     pub attributes: Attributes,
 }
@@ -129,9 +129,9 @@ impl EquityOption {
         option_type: OptionType,
         expiry: Date,
         contract_size: F,
-        disc_id: &'static str,
-        spot_id: &'static str,
-        vol_id: &'static str,
+        disc_id: impl Into<String>,
+        spot_id: impl Into<String>,
+        vol_id: impl Into<String>,
     ) -> Self {
         Self {
             id: id.into(),
@@ -143,9 +143,9 @@ impl EquityOption {
             contract_size,
             day_count: finstack_core::dates::DayCount::Act365F,
             settlement: SettlementType::Physical,
-            disc_id,
-            spot_id,
-            vol_id,
+            disc_id: disc_id.into(),
+            spot_id: spot_id.into(),
+            vol_id: vol_id.into(),
             div_yield_id: None,
             implied_vol: None,
             attributes: Attributes::new(),
@@ -279,7 +279,7 @@ impl_instrument!(
             finstack_core::dates::DayCountCtx::default(),
         )?;
         if time_to_expiry <= 0.0 {
-            let spot_scalar = curves.price(s.spot_id)?;
+            let spot_scalar = curves.price(&s.spot_id)?;
             let spot = match spot_scalar {
                 finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
                 finstack_core::market_data::primitives::MarketScalar::Price(money) => {
@@ -295,15 +295,15 @@ impl_instrument!(
                 s.strike.currency(),
             ));
         }
-        let disc_curve = curves.disc(s.disc_id)?;
+        let disc_curve = curves.disc(&s.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
-        let spot_scalar = curves.price(s.spot_id)?;
+        let spot_scalar = curves.price(&s.spot_id)?;
         let spot = match spot_scalar {
             finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
             finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
         };
-        let q = if let Some(div_id) = s.div_yield_id {
-            match curves.price(div_id) {
+        let q = if let Some(div_id) = &s.div_yield_id {
+            match curves.price(div_id.as_str()) {
                 Ok(scalar) => match scalar {
                     finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
                     finstack_core::market_data::primitives::MarketScalar::Price(_) => 0.0,
@@ -316,7 +316,7 @@ impl_instrument!(
         let sigma = if let Some(impl_vol) = s.implied_vol {
             impl_vol
         } else {
-            let vol_surface = curves.surface(s.vol_id)?;
+            let vol_surface = curves.surface(&s.vol_id)?;
             vol_surface.value_clamped(time_to_expiry, s.strike.amount())
         };
         s.black_scholes_price(spot, r, sigma, time_to_expiry, q)

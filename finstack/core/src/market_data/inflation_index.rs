@@ -361,7 +361,6 @@ impl InflationIndexBuilder {
     }
 
     /// Build the inflation index.
-    #[must_use]
     pub fn build(self) -> Result<InflationIndex> {
         let mut index = InflationIndex::new(self.id, self.observations, self.currency)?
             .with_interpolation(self.interpolation)

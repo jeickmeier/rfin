@@ -21,8 +21,8 @@
 extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 
-use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
 use super::common::{build_interp, split_points, OneDGrid};
+use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     error::InputError,
     market_data::interp::types::Interp,
@@ -152,7 +152,6 @@ impl InflationCurveBuilder {
     }
 
     /// Validate input and build the [`InflationCurve`].
-    #[must_use]
     pub fn build(self) -> crate::Result<InflationCurve> {
         if self.points.is_empty() {
             return Err(InputError::TooFewPoints.into());

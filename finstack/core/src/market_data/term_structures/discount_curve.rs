@@ -24,8 +24,8 @@
 
 extern crate alloc;
 
-use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
 use super::common::{build_interp_curve_error, split_points, OneDGrid};
+use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     dates::Date,
     market_data::interp::types::Interp,
@@ -293,7 +293,6 @@ impl DiscountCurveBuilder {
     }
 
     /// Validate input and create the [`DiscountCurve`].
-    #[must_use]
     pub fn build(self) -> core::result::Result<DiscountCurve, super::CurveError> {
         if self.points.len() < 2 {
             return Err(super::CurveError::TooFewPoints);

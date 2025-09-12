@@ -133,7 +133,6 @@ impl CreditIndexDataBuilder {
     }
 
     /// Build the credit index data.
-    #[must_use]
     pub fn build(self) -> Result<CreditIndexData> {
         let num_constituents = self
             .num_constituents

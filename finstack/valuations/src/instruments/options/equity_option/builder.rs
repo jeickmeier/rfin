@@ -130,13 +130,16 @@ impl EquityOptionBuilder {
             contract_size: underlying.contract_size,
             day_count: self.day_count.unwrap_or(DayCount::Act365F),
             settlement: option_params.settlement,
-            disc_id: market_refs.disc_id,
+            disc_id: market_refs.disc_id.to_string(),
             spot_id: underlying.spot_id,
-            vol_id: market_refs.vol_id.ok_or_else(|| {
-                finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
-                    id: "volatility_surface_id".to_string(),
-                })
-            })?,
+            vol_id: market_refs
+                .vol_id
+                .ok_or_else(|| {
+                    finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                        id: "volatility_surface_id".to_string(),
+                    })
+                })?
+                .to_string(),
             div_yield_id: underlying.dividend_yield_id,
             implied_vol: pricing.implied_volatility,
             attributes: Attributes::new(),

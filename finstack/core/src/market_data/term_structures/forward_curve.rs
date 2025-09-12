@@ -21,8 +21,8 @@
 extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 
-use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
 use super::common::{build_interp, split_points, OneDGrid};
+use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     dates::{Date, DayCount},
     error::InputError,
@@ -169,7 +169,6 @@ impl ForwardCurveBuilder {
     }
 
     /// Validate input and build the [`ForwardCurve`].
-    #[must_use]
     pub fn build(self) -> crate::Result<ForwardCurve> {
         if self.points.len() < 2 {
             return Err(InputError::TooFewPoints.into());

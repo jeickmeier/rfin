@@ -2125,8 +2125,8 @@ mod bump_tests {
         assert!((corr_at_7 - 0.45).abs() < 1e-10);
 
         // Test that update returns None for non-existent index
-        let result = updated_context
-            .update_base_correlation_curve("NON_EXISTENT", Arc::new(new_base_corr));
+        let result =
+            updated_context.update_base_correlation_curve("NON_EXISTENT", Arc::new(new_base_corr));
         assert!(!result);
     }
 

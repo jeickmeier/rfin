@@ -60,7 +60,7 @@ pub struct ExpressionCache {
 }
 
 /// Cache performance statistics.
-#[derive(Debug, Clone, Default]
+#[derive(Debug, Clone, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CacheStats {
     /// Total cache hits.
