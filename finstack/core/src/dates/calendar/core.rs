@@ -89,6 +89,8 @@ pub trait HolidayCalendar {
 
 /// Common business-day adjustment conventions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum BusinessDayConvention {
     /// Leave the date unadjusted (may fall on weekend/holiday).
     Unadjusted,
@@ -233,4 +235,43 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
 #[inline]
 pub const fn available_calendars() -> &'static [&'static str] {
     crate::dates::calendar::ALL_IDS
+}
+
+#[cfg(all(test, feature = "serde"))]
+mod serde_tests {
+    use super::*;
+
+    #[test]
+    fn test_business_day_convention_serde_roundtrip() {
+        use serde_json;
+
+        // Test all BusinessDayConvention variants
+        let conventions = vec![
+            BusinessDayConvention::Unadjusted,
+            BusinessDayConvention::Following,
+            BusinessDayConvention::ModifiedFollowing,
+            BusinessDayConvention::Preceding,
+            BusinessDayConvention::ModifiedPreceding,
+        ];
+
+        for conv in conventions {
+            let json = serde_json::to_string(&conv).unwrap();
+            let deserialized: BusinessDayConvention = serde_json::from_str(&json).unwrap();
+            assert_eq!(conv, deserialized);
+        }
+    }
+
+    #[test]
+    fn test_business_day_convention_snake_case() {
+        use serde_json;
+
+        // Test that the snake_case renaming works
+        let conv = BusinessDayConvention::ModifiedFollowing;
+        let json = serde_json::to_string(&conv).unwrap();
+        assert_eq!(json, "\"modified_following\"");
+
+        let conv = BusinessDayConvention::ModifiedPreceding;
+        let json = serde_json::to_string(&conv).unwrap();
+        assert_eq!(json, "\"modified_preceding\"");
+    }
 }

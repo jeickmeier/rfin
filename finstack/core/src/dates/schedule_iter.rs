@@ -44,6 +44,7 @@ type Buffer = SmallVec<[Date; 32]>;
 
 /// Coupon/payment frequency.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub enum Frequency {
     /// Calendar-month based frequency (e.g. 3 = quarterly).
@@ -109,6 +110,7 @@ impl Frequency {
 /// Stub convention used when the start/end dates are not exact multiples of
 /// the frequency.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub enum StubKind {
     None,
@@ -164,6 +166,7 @@ fn apply_eom(date: Date) -> Date {
 
 /// Concrete schedule containing generated anchor dates.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Schedule {
     pub dates: Vec<Date>,
 }
@@ -439,5 +442,74 @@ impl BuilderInternal {
             }
         }
         buf.into_vec()
+    }
+}
+
+#[cfg(all(test, feature = "serde"))]
+mod serde_tests {
+    use super::*;
+    use time::Month;
+
+    #[test]
+    fn test_frequency_serde_roundtrip() {
+        use serde_json;
+
+        // Test different Frequency variants
+        let frequencies = vec![
+            Frequency::annual(),
+            Frequency::semi_annual(),
+            Frequency::quarterly(),
+            Frequency::monthly(),
+            Frequency::biweekly(),
+            Frequency::weekly(),
+            Frequency::daily(),
+        ];
+
+        for freq in frequencies {
+            let json = serde_json::to_string(&freq).unwrap();
+            let deserialized: Frequency = serde_json::from_str(&json).unwrap();
+            assert_eq!(freq, deserialized);
+        }
+    }
+
+    #[test]
+    fn test_stub_kind_serde_roundtrip() {
+        use serde_json;
+
+        // Test all StubKind variants
+        let stub_kinds = vec![
+            StubKind::None,
+            StubKind::ShortFront,
+            StubKind::ShortBack,
+            StubKind::LongFront,
+            StubKind::LongBack,
+        ];
+
+        for stub in stub_kinds {
+            let json = serde_json::to_string(&stub).unwrap();
+            let deserialized: StubKind = serde_json::from_str(&json).unwrap();
+            assert_eq!(stub, deserialized);
+        }
+    }
+
+    #[test]
+    fn test_schedule_serde_roundtrip() {
+        use serde_json;
+
+        // Create a schedule
+        let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let end = Date::from_calendar_date(2025, Month::April, 15).unwrap();
+        let sched = ScheduleBuilder::new(start, end)
+            .frequency(Frequency::monthly())
+            .build()
+            .unwrap();
+
+        let json = serde_json::to_string(&sched).unwrap();
+        let deserialized: Schedule = serde_json::from_str(&json).unwrap();
+        
+        assert_eq!(sched.dates.len(), deserialized.dates.len());
+        for (original, deserialized) in sched.dates.iter().zip(deserialized.dates.iter()) {
+            assert_eq!(original, deserialized);
+        }
     }
 }

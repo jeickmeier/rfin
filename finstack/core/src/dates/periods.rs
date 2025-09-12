@@ -14,6 +14,7 @@ use time::Month;
 
 // Period categories supported in this module.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 enum PeriodKind {
     Quarterly,
     Monthly,
@@ -24,6 +25,7 @@ enum PeriodKind {
 
 /// Identifier for a period like 2025Q1 or 2025M03.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PeriodId {
     /// Gregorian calendar year.
     pub year: i32,
@@ -86,6 +88,7 @@ pub type PeriodKey = PeriodId;
 
 /// Configuration for fiscal year periods.
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FiscalConfig {
     /// The month when the fiscal year starts (1-12).
     pub start_month: u8,
@@ -175,6 +178,7 @@ impl FiscalConfig {
 
 /// A concrete period with start/end dates and actual/forecast flag.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Period {
     /// Identifier of this period.
     pub id: PeriodId,
@@ -188,6 +192,7 @@ pub struct Period {
 
 /// Builder/plan for a contiguous sequence of periods and their actual/forecast split.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PeriodPlan {
     pub periods: Vec<Period>,
 }
@@ -1028,5 +1033,44 @@ mod tests {
         let id = PeriodId::annual(2025);
         let parsed: PeriodId = id.to_string().parse().unwrap();
         assert_eq!(parsed, id);
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn test_period_serde_roundtrip() {
+        use serde_json;
+
+        // Test PeriodId serialization
+        let period_id = PeriodId::quarter(2025, 2);
+        let json = serde_json::to_string(&period_id).unwrap();
+        let deserialized: PeriodId = serde_json::from_str(&json).unwrap();
+        assert_eq!(period_id, deserialized);
+
+        // Test FiscalConfig serialization
+        let fiscal_config = FiscalConfig::us_federal();
+        let json = serde_json::to_string(&fiscal_config).unwrap();
+        let deserialized: FiscalConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(fiscal_config.start_month, deserialized.start_month);
+        assert_eq!(fiscal_config.start_day, deserialized.start_day);
+
+        // Test Period serialization
+        let period = Period {
+            id: PeriodId::month(2025, 3),
+            start: Date::from_calendar_date(2025, Month::March, 1).unwrap(),
+            end: Date::from_calendar_date(2025, Month::April, 1).unwrap(),
+            is_actual: true,
+        };
+        let json = serde_json::to_string(&period).unwrap();
+        let deserialized: Period = serde_json::from_str(&json).unwrap();
+        assert_eq!(period, deserialized);
+
+        // Test PeriodPlan serialization
+        let plan = build_periods("2025Q1..Q2", Some("2025Q1")).unwrap();
+        let json = serde_json::to_string(&plan).unwrap();
+        let deserialized: PeriodPlan = serde_json::from_str(&json).unwrap();
+        assert_eq!(plan.periods.len(), deserialized.periods.len());
+        for (original, deserialized) in plan.periods.iter().zip(deserialized.periods.iter()) {
+            assert_eq!(original, deserialized);
+        }
     }
 }
