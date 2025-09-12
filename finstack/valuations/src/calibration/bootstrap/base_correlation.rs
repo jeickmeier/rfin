@@ -244,16 +244,11 @@ impl BaseCorrelationCalibrator {
 
                 // OPTIMIZATION: Use the efficient update_base_correlation_curve method
                 // This only updates the correlation curve without rebuilding the entire CreditIndexData
-                let temp_market_ctx = template_market_ctx
-                    .clone()
-                    .update_base_correlation_curve(
-                        synthetic_tranche.credit_index_id,
-                        temp_base_corr_curve,
-                    )
-                    .unwrap_or_else(|| {
-                        // This should never happen as the index exists, but provide a fallback
-                        template_market_ctx.clone()
-                    });
+                let mut temp_market_ctx = template_market_ctx.clone();
+                let _ = temp_market_ctx.update_base_correlation_curve(
+                    synthetic_tranche.credit_index_id,
+                    temp_base_corr_curve,
+                );
 
                 // Price the tranche and return upfront error
                 match pricing_model.price_tranche(

@@ -247,6 +247,7 @@ impl VolSurfaceBuilder {
 
     /// Finalise the surface and return an immutable [`VolSurface`] instance.
     /// Performs consistency checks on grid dimensions.
+    #[must_use]
     pub fn build(self) -> crate::Result<VolSurface> {
         if self.expiries.is_empty() || self.strikes.is_empty() {
             return Err(InputError::TooFewPoints.into());

@@ -285,6 +285,7 @@ impl<'a> ScheduleBuilder<'a> {
         self
     }
     /// Build a concrete schedule (adjusted if configured).
+    #[must_use]
     pub fn build(self) -> crate::Result<Schedule> {
         if self.start > self.end {
             return Err(crate::error::InputError::InvalidDateRange.into());

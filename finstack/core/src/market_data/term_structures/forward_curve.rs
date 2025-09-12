@@ -169,6 +169,7 @@ impl ForwardCurveBuilder {
     }
 
     /// Validate input and build the [`ForwardCurve`].
+    #[must_use]
     pub fn build(self) -> crate::Result<ForwardCurve> {
         if self.points.len() < 2 {
             return Err(InputError::TooFewPoints.into());

@@ -169,6 +169,7 @@ impl BaseCorrelationCurveBuilder {
     }
 
     /// Build the base correlation curve.
+    #[must_use]
     pub fn build(self) -> Result<BaseCorrelationCurve> {
         if self.points.len() < 2 {
             return Err(InputError::TooFewPoints.into());

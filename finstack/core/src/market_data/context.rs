@@ -421,16 +421,18 @@ impl MarketContext {
     ///
     /// This is an optimization for calibration routines that need to repeatedly
     /// update only the correlation curve while keeping other index data constant.
-    /// Returns None if the index doesn't exist.
+    /// Returns false if the index doesn't exist.
     pub fn update_base_correlation_curve(
-        mut self,
+        &mut self,
         id: impl AsRef<str>,
         new_curve: Arc<crate::market_data::term_structures::BaseCorrelationCurve>,
-    ) -> Option<Self> {
+    ) -> bool {
         let cid = CurveId::from(id.as_ref());
 
         // Get the existing index data
-        let existing_index = self.credit_indices.get(&cid)?;
+        let Some(existing_index) = self.credit_indices.get(&cid) else {
+            return false;
+        };
 
         // Create a new index with the updated correlation curve
         let updated_index = CreditIndexData {
@@ -443,7 +445,7 @@ impl MarketContext {
 
         // Update the context
         self.credit_indices.insert(cid, Arc::new(updated_index));
-        Some(self)
+        true
     }
 
     /// Insert FX matrix.
@@ -2103,10 +2105,10 @@ mod bump_tests {
             .unwrap();
 
         // Update using the new method
-        let updated_context = context
-            .clone()
-            .update_base_correlation_curve("CDX.NA.IG.42", Arc::new(new_base_corr.clone()))
-            .expect("Should successfully update base correlation curve");
+        let mut updated_context = context.clone();
+        let ok = updated_context
+            .update_base_correlation_curve("CDX.NA.IG.42", Arc::new(new_base_corr.clone()));
+        assert!(ok, "Should successfully update base correlation curve");
 
         // Verify the update worked
         let updated_index = updated_context
@@ -2123,9 +2125,9 @@ mod bump_tests {
         assert!((corr_at_7 - 0.45).abs() < 1e-10);
 
         // Test that update returns None for non-existent index
-        let result =
-            updated_context.update_base_correlation_curve("NON_EXISTENT", Arc::new(new_base_corr));
-        assert!(result.is_none());
+        let result = updated_context
+            .update_base_correlation_curve("NON_EXISTENT", Arc::new(new_base_corr));
+        assert!(!result);
     }
 
     #[test]

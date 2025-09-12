@@ -152,6 +152,7 @@ impl InflationCurveBuilder {
     }
 
     /// Validate input and build the [`InflationCurve`].
+    #[must_use]
     pub fn build(self) -> crate::Result<InflationCurve> {
         if self.points.is_empty() {
             return Err(InputError::TooFewPoints.into());

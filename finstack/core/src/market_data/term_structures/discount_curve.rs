@@ -293,6 +293,7 @@ impl DiscountCurveBuilder {
     }
 
     /// Validate input and create the [`DiscountCurve`].
+    #[must_use]
     pub fn build(self) -> core::result::Result<DiscountCurve, super::CurveError> {
         if self.points.len() < 2 {
             return Err(super::CurveError::TooFewPoints);

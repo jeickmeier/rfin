@@ -395,6 +395,7 @@ impl HazardCurveBuilder {
     }
 
     /// Validate input and build the [`HazardCurve`].
+    #[must_use]
     pub fn build(self) -> crate::Result<HazardCurve> {
         if self.points.is_empty() {
             return Err(InputError::TooFewPoints.into());
