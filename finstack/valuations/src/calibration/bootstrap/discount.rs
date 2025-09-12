@@ -216,7 +216,17 @@ impl DiscountCurveCalibrator {
                         .insert_forward(forward_curve)
                 } else {
                     // Multi-curve mode: only insert discount curve
-                    // Forward curves must be calibrated separately
+                    // Check if this instrument requires a forward curve
+                    if quote_clone.requires_forward_curve() {
+                        // In multi-curve mode, if the instrument requires a forward curve,
+                        // we need to have it in the base context already
+                        if (*base_context_ref).fwd("CALIB_FWD").is_err() {
+                            // This instrument cannot be used for discount curve calibration
+                            // in multi-curve mode without a forward curve
+                            return crate::calibration::penalize();
+                        }
+                    }
+                    
                     (*base_context_ref)
                         .clone()
                         .insert_discount(temp_curve)
@@ -425,19 +435,16 @@ impl DiscountCurveCalibrator {
                         finstack_core::dates::DayCountCtx::default(),
                     ).unwrap_or(0.0);
                     
-                    if time_to_expiry > 0.5 {  // Only apply for futures > 6 months out
-                        use super::convexity::ConvexityParameters;
-                        let params = match self.currency {
-                            Currency::USD => ConvexityParameters::usd_sofr(),
-                            Currency::EUR => ConvexityParameters::eur_euribor(),
-                            Currency::GBP => ConvexityParameters::gbp_sonia(),
-                            Currency::JPY => ConvexityParameters::jpy_tonar(),
-                            _ => ConvexityParameters::usd_sofr(),  // Default to USD
-                        };
-                        Some(params.calculate_adjustment(time_to_expiry, time_to_maturity))
-                    } else {
-                        None
-                    }
+                    // Always apply convexity adjustment per market practice
+                    use super::convexity::ConvexityParameters;
+                    let params = match self.currency {
+                        Currency::USD => ConvexityParameters::usd_sofr(),
+                        Currency::EUR => ConvexityParameters::eur_euribor(),
+                        Currency::GBP => ConvexityParameters::gbp_sonia(),
+                        Currency::JPY => ConvexityParameters::jpy_tonar(),
+                        _ => ConvexityParameters::usd_sofr(),  // Default to USD
+                    };
+                    Some(params.calculate_adjustment(time_to_expiry, time_to_maturity))
                 };
 
                 let mut future = InterestRateFuture::new(
@@ -635,6 +642,36 @@ impl DiscountCurveCalibrator {
                 ));
             }
         }
+        
+        // Multi-curve mode validation
+        if self.config.multi_curve.is_multi_curve() {
+            // In multi-curve mode, check if quotes are appropriate for discount curve calibration
+            let mut has_forward_dependent = false;
+            let mut has_ois_suitable = false;
+            
+            for quote in quotes {
+                if quote.requires_forward_curve() {
+                    has_forward_dependent = true;
+                }
+                if quote.is_ois_suitable() {
+                    has_ois_suitable = true;
+                }
+            }
+            
+            // Warn if using forward-dependent instruments for discount curve calibration
+            if has_forward_dependent && !has_ois_suitable {
+                tracing::warn!(
+                    "Multi-curve mode: Using forward-dependent instruments (FRA, Future, Swap) \
+                     for discount curve calibration. Consider using OIS swaps or deposits instead. \
+                     Forward curves must be provided in the context for these instruments to price correctly."
+                );
+            }
+            
+            // If only forward-dependent instruments are provided, this might be intentional
+            // (e.g., calibrating with swaps where forward curve is already in context)
+            // So we don't error out here, but the actual calibration will fail if forward
+            // curves are missing when needed
+        }
 
         Ok(())
     }
@@ -685,6 +722,64 @@ mod tests {
     use finstack_core::dates::{Date, DayCount, Frequency};
     use finstack_core::prelude::TermStructure;
     use time::Month;
+
+    #[test]
+    fn test_multi_curve_instrument_validation() {
+        // Test that RatesQuote correctly identifies forward-dependent instruments
+        let deposit = RatesQuote::Deposit {
+            maturity: Date::from_calendar_date(2024, Month::February, 1).unwrap(),
+            rate: 0.015,
+            day_count: DayCount::Act360,
+        };
+        assert!(!deposit.requires_forward_curve(), "Deposits should not require forward curves");
+        assert!(deposit.is_ois_suitable(), "Deposits should be suitable for OIS");
+
+        let fra = RatesQuote::FRA {
+            start: Date::from_calendar_date(2024, Month::April, 1).unwrap(),
+            end: Date::from_calendar_date(2024, Month::July, 1).unwrap(),
+            rate: 0.018,
+            day_count: DayCount::Act360,
+        };
+        assert!(fra.requires_forward_curve(), "FRAs should require forward curves");
+        assert!(!fra.is_ois_suitable(), "FRAs should not be suitable for OIS");
+
+        let ois_swap = RatesQuote::Swap {
+            maturity: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+            rate: 0.02,
+            fixed_freq: Frequency::annual(),
+            float_freq: Frequency::daily(),
+            fixed_dc: DayCount::Thirty360,
+            float_dc: DayCount::Act360,
+            index: "SOFR".to_string(),
+        };
+        assert!(ois_swap.requires_forward_curve(), "Swaps require forward curves");
+        assert!(ois_swap.is_ois_suitable(), "SOFR swaps should be OIS suitable");
+
+        let libor_swap = RatesQuote::Swap {
+            maturity: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+            rate: 0.02,
+            fixed_freq: Frequency::semi_annual(),
+            float_freq: Frequency::quarterly(),
+            fixed_dc: DayCount::Thirty360,
+            float_dc: DayCount::Act360,
+            index: "3M-LIBOR".to_string(),
+        };
+        assert!(libor_swap.requires_forward_curve(), "Swaps require forward curves");
+        assert!(!libor_swap.is_ois_suitable(), "LIBOR swaps should not be OIS suitable");
+    }
+
+    #[test]
+    fn test_multi_curve_config() {
+        // Test single-curve mode
+        let single_config = MultiCurveConfig::single_curve(0.25);
+        assert!(single_config.derive_forward_from_discount());
+        assert!(!single_config.is_multi_curve());
+
+        // Test multi-curve mode
+        let multi_config = MultiCurveConfig::multi_curve();
+        assert!(!multi_config.derive_forward_from_discount());
+        assert!(multi_config.is_multi_curve());
+    }
 
     fn create_test_quotes() -> Vec<RatesQuote> {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
