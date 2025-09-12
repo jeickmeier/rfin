@@ -25,6 +25,24 @@ impl FlatFwd {
             inner: LogLinearDf::new(knots, dfs, extrapolation)?,
         })
     }
+
+    /// Get the knots for serialization
+    #[cfg(feature = "serde")]
+    pub(crate) fn knots(&self) -> &[F] {
+        self.inner.knots()
+    }
+
+    /// Get the values (discount factors) for serialization
+    #[cfg(feature = "serde")]
+    pub(crate) fn values(&self) -> Vec<F> {
+        self.inner.values()
+    }
+
+    /// Get the extrapolation policy for serialization
+    #[cfg(feature = "serde")]
+    pub(crate) fn extrapolation(&self) -> crate::math::interp::ExtrapolationPolicy {
+        self.inner.extrapolation()
+    }
 }
 
 impl InterpFn for FlatFwd {

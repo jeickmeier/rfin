@@ -28,6 +28,7 @@ pub trait RandomNumberGenerator {
 /// Uses a linear congruential generator for reproducible results.
 /// For production Monte Carlo, use more sophisticated generators.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SimpleRng {
     state: u64,
 }

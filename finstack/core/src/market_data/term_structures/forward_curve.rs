@@ -49,6 +49,20 @@ pub struct ForwardCurve {
     interp: Interp,
 }
 
+/// Serializable representation of ForwardCurve
+#[cfg(feature = "serde")]
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct ForwardCurveData {
+    id: CurveId,
+    base: Date,
+    reset_lag: i32,
+    day_count: DayCount,
+    tenor: F,
+    knots: Vec<F>,
+    fwds: Vec<F>,
+    interp_data: crate::market_data::interp::types::InterpData,
+}
+
 impl ForwardCurve {
     /// Start building a forward curve for `id` with tenor `tenor_years`.
     pub fn builder(id: &'static str, tenor_years: F) -> ForwardCurveBuilder {
@@ -193,6 +207,55 @@ impl Forward for ForwardCurve {
     #[inline]
     fn rate(&self, t: F) -> F {
         ForwardCurve::rate(self, t)
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Serialization support
+// -----------------------------------------------------------------------------
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for ForwardCurve {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let data = ForwardCurveData {
+            id: self.id.clone(),
+            base: self.base,
+            reset_lag: self.reset_lag,
+            day_count: self.day_count,
+            tenor: self.tenor,
+            knots: self.knots.to_vec(),
+            fwds: self.fwds.to_vec(),
+            interp_data: self.interp.to_interp_data(),
+        };
+        data.serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for ForwardCurve {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+        
+        let data = ForwardCurveData::deserialize(deserializer)?;
+        let interp = Interp::from_interp_data(data.interp_data)
+            .map_err(|e| D::Error::custom(format!("Failed to reconstruct interpolator: {}", e)))?;
+        
+        Ok(ForwardCurve {
+            id: data.id,
+            base: data.base,
+            reset_lag: data.reset_lag,
+            day_count: data.day_count,
+            tenor: data.tenor,
+            knots: data.knots.into_boxed_slice(),
+            fwds: data.fwds.into_boxed_slice(),
+            interp,
+        })
     }
 }
 

@@ -32,6 +32,7 @@ pub trait Solver: Send + Sync {
 
 /// Newton-Raphson solver with automatic derivative estimation.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NewtonSolver {
     /// Convergence tolerance
     pub tolerance: F,
@@ -94,6 +95,7 @@ impl Solver for NewtonSolver {
 
 /// Brent's method solver (robust, bracketing required).
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BrentSolver {
     /// Convergence tolerance
     pub tolerance: F,
@@ -184,6 +186,7 @@ impl Solver for BrentSolver {
 
 /// Hybrid solver that tries Newton first, falls back to Brent.
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct HybridSolver {
     newton: NewtonSolver,
     brent: BrentSolver,

@@ -160,6 +160,24 @@ impl MonotoneConvex {
     }
 
     // Shared `locate_segment` from utils is used.
+
+    /// Get the knots for serialization
+    #[cfg(feature = "serde")]
+    pub(crate) fn knots(&self) -> &[F] {
+        &self.knots
+    }
+
+    /// Get the values (discount factors) for serialization
+    #[cfg(feature = "serde")]
+    pub(crate) fn values(&self) -> &[F] {
+        &self.dfs
+    }
+
+    /// Get the extrapolation policy for serialization
+    #[cfg(feature = "serde")]
+    pub(crate) fn extrapolation(&self) -> ExtrapolationPolicy {
+        self.extrapolation
+    }
 }
 
 impl InterpFn for MonotoneConvex {

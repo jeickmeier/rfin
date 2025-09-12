@@ -45,6 +45,25 @@ impl LogLinearDf {
     }
 
     // Shared `locate_segment` from utils is used.
+
+    /// Get the knots for serialization
+    #[cfg(feature = "serde")]
+    pub(crate) fn knots(&self) -> &[F] {
+        &self.knots
+    }
+
+    /// Get the values (discount factors) for serialization
+    /// Note: We need to convert back from log space
+    #[cfg(feature = "serde")]
+    pub(crate) fn values(&self) -> Vec<F> {
+        self.log_dfs.iter().map(|log_df| log_df.exp()).collect()
+    }
+
+    /// Get the extrapolation policy for serialization
+    #[cfg(feature = "serde")]
+    pub(crate) fn extrapolation(&self) -> ExtrapolationPolicy {
+        self.extrapolation
+    }
 }
 
 impl InterpFn for LogLinearDf {

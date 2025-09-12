@@ -30,6 +30,51 @@ pub struct GaussHermiteQuadrature {
     pub weights: &'static [F],
 }
 
+#[cfg(feature = "serde")]
+impl serde::Serialize for GaussHermiteQuadrature {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // Determine the order based on the number of points
+        let order = match self.points.len() {
+            5 => 5,
+            7 => 7,
+            10 => 10,
+            _ => return Err(serde::ser::Error::custom("Unknown quadrature order")),
+        };
+        
+        #[derive(serde::Serialize)]
+        struct QuadratureData {
+            order: usize,
+        }
+        
+        serde::Serialize::serialize(&QuadratureData { order }, serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for GaussHermiteQuadrature {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        struct QuadratureData {
+            order: usize,
+        }
+        
+        let data = QuadratureData::deserialize(deserializer)?;
+        
+        match data.order {
+            5 => Ok(GaussHermiteQuadrature::order_5()),
+            7 => Ok(GaussHermiteQuadrature::order_7()),
+            10 => Ok(GaussHermiteQuadrature::order_10()),
+            _ => Err(serde::de::Error::custom(format!("Invalid quadrature order: {}", data.order))),
+        }
+    }
+}
+
 impl GaussHermiteQuadrature {
     /// Get the 5-point Gauss-Hermite quadrature.
     ///

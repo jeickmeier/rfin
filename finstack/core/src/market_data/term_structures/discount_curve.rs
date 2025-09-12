@@ -46,6 +46,17 @@ pub struct DiscountCurve {
     interp: Interp,
 }
 
+/// Serializable representation of DiscountCurve
+#[cfg(feature = "serde")]
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct DiscountCurveData {
+    id: CurveId,
+    base: Date,
+    knots: Vec<F>,
+    dfs: Vec<F>,
+    interp_data: crate::market_data::interp::types::InterpData,
+}
+
 impl DiscountCurve {
     /// Convenience: discount factor on a specific date `date` given a curve and
     /// the curve base `base` and `day_count`.
@@ -337,6 +348,49 @@ impl Discount for DiscountCurve {
     #[inline]
     fn df(&self, t: F) -> F {
         self.interp.interp(t)
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Serialization support
+// -----------------------------------------------------------------------------
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for DiscountCurve {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let data = DiscountCurveData {
+            id: self.id.clone(),
+            base: self.base,
+            knots: self.knots.to_vec(),
+            dfs: self.dfs.to_vec(),
+            interp_data: self.interp.to_interp_data(),
+        };
+        data.serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for DiscountCurve {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+        
+        let data = DiscountCurveData::deserialize(deserializer)?;
+        let interp = Interp::from_interp_data(data.interp_data)
+            .map_err(|e| D::Error::custom(format!("Failed to reconstruct interpolator: {}", e)))?;
+        
+        Ok(DiscountCurve {
+            id: data.id,
+            base: data.base,
+            knots: data.knots.into_boxed_slice(),
+            dfs: data.dfs.into_boxed_slice(),
+            interp,
+        })
     }
 }
 

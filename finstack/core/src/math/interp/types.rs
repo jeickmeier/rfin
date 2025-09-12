@@ -58,6 +58,38 @@ pub(crate) enum Interp {
     FlatFwd(FlatFwd),
 }
 
+/// Serializable representation of Interp enum for persistence
+#[cfg(feature = "serde")]
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum InterpData {
+    Linear {
+        knots: Vec<F>,
+        values: Vec<F>,
+        extrapolation: ExtrapolationPolicy,
+    },
+    LogLinear {
+        knots: Vec<F>,
+        values: Vec<F>,
+        extrapolation: ExtrapolationPolicy,
+    },
+    MonotoneConvex {
+        knots: Vec<F>,
+        values: Vec<F>,
+        extrapolation: ExtrapolationPolicy,
+    },
+    CubicHermite {
+        knots: Vec<F>,
+        values: Vec<F>,
+        extrapolation: ExtrapolationPolicy,
+    },
+    FlatFwd {
+        knots: Vec<F>,
+        values: Vec<F>,
+        extrapolation: ExtrapolationPolicy,
+    },
+}
+
 impl Interp {
     #[inline]
     pub(crate) fn interp(&self, x: F) -> F {
@@ -79,6 +111,80 @@ impl Interp {
             Interp::MonotoneConvex(i) => i.interp_prime(x),
             Interp::CubicHermite(i) => i.interp_prime(x),
             Interp::FlatFwd(i) => i.interp_prime(x),
+        }
+    }
+
+    /// Extract knots and values from the interpolator
+    #[cfg(feature = "serde")]
+    pub(crate) fn to_interp_data(&self) -> InterpData {
+        match self {
+            Interp::Linear(i) => InterpData::Linear {
+                knots: i.knots().to_vec(),
+                values: i.values().to_vec(),
+                extrapolation: i.extrapolation(),
+            },
+            Interp::LogLinear(i) => InterpData::LogLinear {
+                knots: i.knots().to_vec(),
+                values: i.values(), // already returns Vec<F>
+                extrapolation: i.extrapolation(),
+            },
+            Interp::MonotoneConvex(i) => InterpData::MonotoneConvex {
+                knots: i.knots().to_vec(),
+                values: i.values().to_vec(),
+                extrapolation: i.extrapolation(),
+            },
+            Interp::CubicHermite(i) => InterpData::CubicHermite {
+                knots: i.knots().to_vec(),
+                values: i.values().to_vec(),
+                extrapolation: i.extrapolation(),
+            },
+            Interp::FlatFwd(i) => InterpData::FlatFwd {
+                knots: i.knots().to_vec(),
+                values: i.values(), // already returns Vec<F>
+                extrapolation: i.extrapolation(),
+            },
+        }
+    }
+
+    /// Build an Interp from serialized data
+    #[cfg(feature = "serde")]
+    pub(crate) fn from_interp_data(data: InterpData) -> crate::Result<Self> {
+        match data {
+            InterpData::Linear { knots, values, extrapolation } => {
+                Ok(Interp::Linear(LinearDf::new(
+                    knots.into_boxed_slice(),
+                    values.into_boxed_slice(),
+                    extrapolation,
+                )?))
+            }
+            InterpData::LogLinear { knots, values, extrapolation } => {
+                Ok(Interp::LogLinear(LogLinearDf::new(
+                    knots.into_boxed_slice(),
+                    values.into_boxed_slice(),
+                    extrapolation,
+                )?))
+            }
+            InterpData::MonotoneConvex { knots, values, extrapolation } => {
+                Ok(Interp::MonotoneConvex(MonotoneConvex::new(
+                    knots.into_boxed_slice(),
+                    values.into_boxed_slice(),
+                    extrapolation,
+                )?))
+            }
+            InterpData::CubicHermite { knots, values, extrapolation } => {
+                Ok(Interp::CubicHermite(CubicHermite::new(
+                    knots.into_boxed_slice(),
+                    values.into_boxed_slice(),
+                    extrapolation,
+                )?))
+            }
+            InterpData::FlatFwd { knots, values, extrapolation } => {
+                Ok(Interp::FlatFwd(FlatFwd::new(
+                    knots.into_boxed_slice(),
+                    values.into_boxed_slice(),
+                    extrapolation,
+                )?))
+            }
         }
     }
 }

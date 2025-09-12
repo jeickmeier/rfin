@@ -42,6 +42,17 @@ pub struct InflationCurve {
     interp: Interp,
 }
 
+/// Serializable representation of InflationCurve
+#[cfg(feature = "serde")]
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct InflationCurveData {
+    id: CurveId,
+    base_cpi: F,
+    knots: Vec<F>,
+    cpi_levels: Vec<F>,
+    interp_data: crate::market_data::interp::types::InterpData,
+}
+
 impl InflationCurve {
     /// Start building an inflation curve with identifier `id`.
     pub fn builder(id: impl Into<String>) -> InflationCurveBuilder {
@@ -169,6 +180,49 @@ impl InflationCurveBuilder {
 }
 
 // Interpolator helpers centralised in InterpStyle – local factory fns removed.
+
+// -----------------------------------------------------------------------------
+// Serialization support
+// -----------------------------------------------------------------------------
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for InflationCurve {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let data = InflationCurveData {
+            id: self.id.clone(),
+            base_cpi: self.base_cpi,
+            knots: self.knots.to_vec(),
+            cpi_levels: self.cpi_levels.to_vec(),
+            interp_data: self.interp.to_interp_data(),
+        };
+        data.serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for InflationCurve {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+        
+        let data = InflationCurveData::deserialize(deserializer)?;
+        let interp = Interp::from_interp_data(data.interp_data)
+            .map_err(|e| D::Error::custom(format!("Failed to reconstruct interpolator: {}", e)))?;
+        
+        Ok(InflationCurve {
+            id: data.id,
+            base_cpi: data.base_cpi,
+            knots: data.knots.into_boxed_slice(),
+            cpi_levels: data.cpi_levels.into_boxed_slice(),
+            interp,
+        })
+    }
+}
 
 // -----------------------------------------------------------------------------
 // Tests
