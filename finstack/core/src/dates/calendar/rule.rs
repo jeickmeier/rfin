@@ -410,9 +410,5 @@ impl HolidayCalendar for &[Rule] {
 
 // ---------------------------------------------------------------------------
 // Blanket impl for slices of holiday calendars (composite-union semantics)
+// (removed: use CompositeCalendar for composition)
 // ---------------------------------------------------------------------------
-impl<'a> HolidayCalendar for &'a [&'a dyn HolidayCalendar] {
-    fn is_holiday(&self, date: Date) -> bool {
-        self.iter().any(|c| c.is_holiday(date))
-    }
-}
