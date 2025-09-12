@@ -19,16 +19,14 @@ pub mod simple_calibration;
 mod config;
 mod constraints;
 mod macros;
-mod multi_curve_mode;
 mod quote;
 mod report;
 mod traits;
 mod validation;
 
 // Re-exports
-pub use config::{CalibrationConfig, SolverKind};
+pub use config::{CalibrationConfig, MultiCurveConfig, MultiCurveMode, SolverKind};
 pub use constraints::{CalibrationConstraint, ConstraintType, InequalityDirection};
-pub use multi_curve_mode::{MultiCurveConfig, MultiCurveMode};
 pub use quote::{
     CreditQuote, FutureSpecs, InflationQuote, MarketQuote, QuoteWithMetadata, RatesQuote,
     VolQuote,

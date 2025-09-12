@@ -33,10 +33,8 @@ pub struct DiscountCurveCalibrator {
     pub base_date: finstack_core::dates::Date,
     /// Interpolation used during solving and for the final curve
     pub solve_interp: InterpStyle,
-    /// Calibration configuration
+    /// Calibration configuration (includes multi-curve settings)
     pub config: CalibrationConfig,
-    /// Multi-curve framework configuration
-    pub multi_curve_config: MultiCurveConfig,
     /// Currency for the curve
     pub currency: Currency,
 }
@@ -48,8 +46,7 @@ impl DiscountCurveCalibrator {
             curve_id,
             base_date,
             solve_interp: InterpStyle::MonotoneConvex, // Default; explicit and consistent
-            config: CalibrationConfig::default(),
-            multi_curve_config: MultiCurveConfig::default(), // Defaults to multi-curve mode
+            config: CalibrationConfig::default(), // Defaults to multi-curve mode
             currency,
         }
     }
@@ -68,7 +65,7 @@ impl DiscountCurveCalibrator {
     
     /// Set multi-curve framework configuration.
     pub fn with_multi_curve_config(mut self, multi_curve_config: MultiCurveConfig) -> Self {
-        self.multi_curve_config = multi_curve_config;
+        self.config.multi_curve = multi_curve_config;
         self
     }
 
@@ -200,11 +197,11 @@ impl DiscountCurveCalibrator {
                 };
 
                 // Update context based on multi-curve configuration
-                let temp_context = if self_clone.multi_curve_config.derive_forward_from_discount() {
+                let temp_context = if self_clone.config.multi_curve.derive_forward_from_discount() {
                     // Single-curve mode: derive forward curve from discount curve (pre-2008 methodology)
                     let forward_curve = match temp_curve.to_forward_curve_with_interp(
                         "CALIB_FWD",
-                        self_clone.multi_curve_config.single_curve_tenor,
+                        self_clone.config.multi_curve.single_curve_tenor,
                         self_clone.solve_interp,
                     ) {
                         Ok(curve) => curve,
@@ -502,7 +499,7 @@ impl DiscountCurveCalibrator {
                 currency: _,
             } => {
                 // In multi-curve mode, basis swaps should only be used for forward curve calibration
-                if self.multi_curve_config.is_multi_curve() {
+                if self.config.multi_curve.is_multi_curve() {
                     // Basis swaps are not used for discount curve calibration in multi-curve mode
                     // They are used to calibrate the spread between different tenor forward curves
                     return Ok(0.0);

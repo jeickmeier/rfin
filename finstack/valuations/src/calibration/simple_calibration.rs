@@ -29,7 +29,6 @@ pub struct SimpleCalibration {
     base_date: Date,
     base_currency: Currency,
     config: CalibrationConfig,
-    multi_curve_config: MultiCurveConfig,
     entity_seniority: HashMap<String, Seniority>,
 }
 
@@ -40,7 +39,6 @@ impl SimpleCalibration {
             base_date,
             base_currency,
             config: CalibrationConfig::default(),
-            multi_curve_config: MultiCurveConfig::default(),
             entity_seniority: HashMap::new(),
         }
     }
@@ -53,7 +51,7 @@ impl SimpleCalibration {
     
     /// Set multi-curve framework configuration.
     pub fn with_multi_curve_config(mut self, multi_curve_config: MultiCurveConfig) -> Self {
-        self.multi_curve_config = multi_curve_config;
+        self.config.multi_curve = multi_curve_config;
         self
     }
 
@@ -143,8 +141,7 @@ impl SimpleCalibration {
         }
 
         let calibrator = DiscountCurveCalibrator::new("USD-OIS", self.base_date, self.base_currency)
-            .with_config(self.config.clone())
-            .with_multi_curve_config(self.multi_curve_config.clone());
+            .with_config(self.config.clone());
 
         if self.config.verbose {
             println!("Starting OIS calibration with {} quotes", rates_quotes.len());
