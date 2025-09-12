@@ -26,6 +26,7 @@ use std::vec::Vec;
 /// assert_eq!(out.values, vec![1.0, 2.0, 3.0]);
 /// ```
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EvalOpts {
     /// Optional pre-built execution plan to follow. If not provided, the
     /// evaluator will either use the internal plan (if present) or fallback to
@@ -40,15 +41,23 @@ pub struct EvalOpts {
 /// A compiled expression can evaluate scalars and optionally lower to Polars.
 /// Compiled expression wrapper with DAG planning and caching support.
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CompiledExpr {
     /// Underlying expression AST.
     pub ast: Expr,
     /// Optional execution plan for complex expressions.
     pub plan: Option<ExecutionPlan>,
     /// Cache manager for intermediate results.
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub cache: Option<CacheManager>,
     /// Small scratch arena to reuse temporary buffers within hot paths.
+    #[cfg_attr(feature = "serde", serde(skip, default = "default_scratch"))]
     scratch: Mutex<ScratchArena>,
+}
+
+#[cfg(feature = "serde")]
+fn default_scratch() -> Mutex<ScratchArena> {
+    Mutex::new(ScratchArena::default())
 }
 
 /// Tiny reusable scratch buffers for hot evaluation paths.

@@ -10,6 +10,7 @@ use std::vec::Vec;
 
 /// A node in the execution DAG.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DagNode {
     /// Unique identifier for this node.
     pub id: u64,
@@ -27,6 +28,7 @@ pub struct DagNode {
 
 /// Execution plan for a DAG of expressions.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ExecutionPlan {
     /// All nodes in topological order.
     pub nodes: Vec<DagNode>,
@@ -40,6 +42,7 @@ pub struct ExecutionPlan {
 
 /// Cache strategy for the execution plan.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CacheStrategy {
     /// Nodes that should be cached (high ref count or expensive).
     pub cache_nodes: HashSet<u64>,
@@ -410,6 +413,7 @@ impl PushdownAnalyzer {
 
 /// Analysis of pushdown boundaries in an execution plan.
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PushdownBoundaries {
     /// Specific boundary points.
     pub boundaries: Vec<PushdownBoundary>,
@@ -421,6 +425,7 @@ pub struct PushdownBoundaries {
 
 /// A specific boundary point in the execution.
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PushdownBoundary {
     /// Node ID where boundary occurs.
     pub node_id: u64,
@@ -432,6 +437,7 @@ pub struct PushdownBoundary {
 
 /// Types of pushdown boundaries.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum BoundaryType {
     /// Transition from Polars-eligible to scalar-only.
     PolarsTScalar,

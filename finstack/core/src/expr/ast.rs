@@ -6,6 +6,7 @@ use core::hash::{Hash, Hasher};
 
 /// Expression AST with optional unique ID for DAG planning and caching.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Expr {
     /// Unique identifier for this expression node (for caching and DAG planning).
     pub id: Option<u64>,
@@ -15,6 +16,7 @@ pub struct Expr {
 
 /// The core expression node types.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ExprNode {
     /// Reference a column by name.
     Column(String),
@@ -101,6 +103,7 @@ impl Eq for Expr {}
 
 /// Built-in function identifiers.
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Function {
     /// Previous N values (shift down).
     Lag,
@@ -161,6 +164,7 @@ pub enum Function {
 
 /// Result envelope that includes execution metadata.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EvaluationResult {
     /// The computed values.
     pub values: Vec<crate::F>,

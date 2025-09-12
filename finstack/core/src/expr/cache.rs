@@ -9,6 +9,7 @@ use std::sync::{Arc, RwLock};
 
 /// Cached result for an expression evaluation.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum CachedResult {
     /// Scalar result backed by Arc slice to avoid clones on conversion.
     Scalar(Arc<[f64]>),
@@ -60,6 +61,7 @@ pub struct ExpressionCache {
 
 /// Cache performance statistics.
 #[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CacheStats {
     /// Total cache hits.
     pub hits: usize,
