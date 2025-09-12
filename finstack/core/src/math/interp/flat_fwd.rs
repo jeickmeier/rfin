@@ -6,6 +6,7 @@ use crate::{math::interp::LogLinearDf, F};
 ///
 /// See unit tests and `examples/` for usage.
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FlatFwd {
     inner: LogLinearDf,
 }
@@ -24,18 +25,6 @@ impl FlatFwd {
         Ok(Self {
             inner: LogLinearDf::new(knots, dfs, extrapolation)?,
         })
-    }
-
-    /// Get the knots for serialization
-    #[cfg(feature = "serde")]
-    pub(crate) fn knots(&self) -> &[F] {
-        self.inner.knots()
-    }
-
-    /// Get the values (discount factors) for serialization
-    #[cfg(feature = "serde")]
-    pub(crate) fn values(&self) -> Vec<F> {
-        self.inner.values()
     }
 
     /// Get the extrapolation policy for serialization

@@ -50,7 +50,8 @@ pub struct InflationCurveData {
     base_cpi: F,
     knots: Vec<F>,
     cpi_levels: Vec<F>,
-    interp_data: crate::market_data::interp::types::InterpData,
+    interp_style: InterpStyle,
+    extrapolation: ExtrapolationPolicy,
 }
 
 impl InflationCurve {
@@ -196,7 +197,8 @@ impl serde::Serialize for InflationCurve {
             base_cpi: self.base_cpi,
             knots: self.knots.to_vec(),
             cpi_levels: self.cpi_levels.to_vec(),
-            interp_data: self.interp.to_interp_data(),
+            interp_style: self.interp.style(),
+            extrapolation: self.interp.extrapolation(),
         };
         data.serialize(serializer)
     }
@@ -211,8 +213,12 @@ impl<'de> serde::Deserialize<'de> for InflationCurve {
         use serde::de::Error;
         
         let data = InflationCurveData::deserialize(deserializer)?;
-        let interp = Interp::from_interp_data(data.interp_data)
-            .map_err(|e| D::Error::custom(format!("Failed to reconstruct interpolator: {}", e)))?;
+        let interp = data.interp_style.build_enum(
+            data.knots.clone().into_boxed_slice(),
+            data.cpi_levels.clone().into_boxed_slice(),
+            data.extrapolation,
+        )
+        .map_err(|e| D::Error::custom(format!("Failed to reconstruct interpolator: {}", e)))?;
         
         Ok(InflationCurve {
             id: data.id,

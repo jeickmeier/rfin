@@ -146,10 +146,11 @@ impl BumpSpec {
 ///
 /// This applies the formula: df_bumped(t) = df_original(t) * exp(-bump * t)
 /// where bump is in rate units (e.g., 0.0001 for 1bp).
-struct BumpedDiscountCurve {
-    original: Arc<dyn Discount + Send + Sync>,
-    bump_rate: F,
-    bumped_id: CurveId,
+#[cfg_attr(feature = "serde", derive(Clone))]
+pub(crate) struct BumpedDiscountCurve {
+    pub(crate) original: Arc<dyn Discount + Send + Sync>,
+    pub(crate) bump_rate: F,
+    pub(crate) bumped_id: CurveId,
 }
 
 impl BumpedDiscountCurve {
@@ -182,10 +183,11 @@ impl Discount for BumpedDiscountCurve {
 }
 
 /// Wrapper for a forward curve with a parallel rate bump applied.
-struct BumpedForwardCurve {
-    original: Arc<dyn Forward + Send + Sync>,
-    bump_rate: F,
-    bumped_id: CurveId,
+#[cfg_attr(feature = "serde", derive(Clone))]
+pub(crate) struct BumpedForwardCurve {
+    pub(crate) original: Arc<dyn Forward + Send + Sync>,
+    pub(crate) bump_rate: F,
+    pub(crate) bumped_id: CurveId,
 }
 
 impl BumpedForwardCurve {
@@ -1135,6 +1137,383 @@ impl MarketContext {
         }
     }
 }
+
+// -----------------------------------------------------------------------------
+// Serialization Support
+// -----------------------------------------------------------------------------
+
+#[cfg(feature = "serde")]
+mod serde_support {
+    use super::*;
+    pub use crate::market_data::context_serde::*;
+    
+    impl MarketContext {
+        /// Convert MarketContext to serializable data structure
+        pub fn to_data(&self) -> crate::Result<MarketContextData> {
+            use crate::market_data::primitives::ScalarTimeSeriesState;
+            use crate::market_data::surfaces::vol_surface::VolSurfaceState;
+            
+            // Convert discount curves - for now we only handle bumped curves
+            // TODO: Once DiscountCurve has to_state()/from_state() methods,
+            // we can serialize all discount curves, not just bumped ones.
+            // See finstack/core/src/market_data/term_structures/discount_curve.rs
+            let disc_curves: Vec<DiscountCurveEntry> = self
+                .disc
+                .iter()
+                .filter_map(|(id, _curve)| {
+                    // Try to detect if this is a bumped curve by ID pattern
+                    if let Some(pos) = id.as_str().rfind("_bump_") {
+                        let original_id = CurveId::from(&id.as_str()[..pos]);
+                        let bump_str = &id.as_str()[pos + 6..];
+                        if let Some(bp_pos) = bump_str.rfind("bp") {
+                            if let Ok(bump_bp) = bump_str[..bp_pos].parse::<F>() {
+                                return Some(DiscountCurveEntry {
+                                    id: id.clone(),
+                                    bump_info: Some(BumpInfo {
+                                        original_id,
+                                        bump_spec: BumpSpec::parallel_bp(bump_bp),
+                                    }),
+                                    curve: None,
+                                });
+                            }
+                        }
+                    }
+                    // TODO: Add non-bumped curves once state methods are available
+                    None
+                })
+                .collect();
+
+            // Convert forward curves
+            // TODO: Once ForwardCurve has to_state()/from_state() methods,
+            // we can serialize all forward curves, not just bumped ones.
+            // See finstack/core/src/market_data/term_structures/forward_curve.rs
+            let fwd_curves: Vec<ForwardCurveEntry> = self
+                .fwd
+                .iter()
+                .filter_map(|(id, _curve)| {
+                    if let Some(pos) = id.as_str().rfind("_bump_") {
+                        let original_id = CurveId::from(&id.as_str()[..pos]);
+                        let bump_str = &id.as_str()[pos + 6..];
+                        if let Some(bp_pos) = bump_str.rfind("bp") {
+                            if let Ok(bump_bp) = bump_str[..bp_pos].parse::<F>() {
+                                return Some(ForwardCurveEntry {
+                                    id: id.clone(),
+                                    bump_info: Some(BumpInfo {
+                                        original_id,
+                                        bump_spec: BumpSpec::parallel_bp(bump_bp),
+                                    }),
+                                    curve: None,
+                                });
+                            }
+                        }
+                    }
+                    // TODO: Add non-bumped curves once state methods are available
+                    None
+                })
+                .collect();
+
+            // Convert hazard curves using to_state()
+            let hazard_curves: Vec<(CurveId, crate::market_data::term_structures::hazard_curve::HazardCurveState)> = self
+                .hazard
+                .iter()
+                .map(|(id, curve)| (id.clone(), curve.to_state()))
+                .collect();
+
+            // TODO: InflationCurve implements Serialize but not Clone
+            // Need to add to_state() and from_state() methods to InflationCurve
+            // See finstack/core/src/market_data/term_structures/inflation.rs
+            let inflation_curves: Vec<(CurveId, InflationCurve)> = Vec::new();
+
+            // Convert inflation indices
+            let inflation_indices: Vec<(CurveId, InflationIndexData)> = self
+                .inflation_indices
+                .iter()
+                .map(|(id, index)| {
+                    let df = index.as_dataframe();
+                    let dates = df.column("date").unwrap().i32().unwrap();
+                    let values = df.column("value").unwrap().f64().unwrap();
+                    let observations: Vec<(Date, F)> = dates
+                        .into_no_null_iter()
+                        .zip(values.into_no_null_iter())
+                        .map(|(d, v)| (crate::dates::utils::days_since_epoch_to_date(d), v))
+                        .collect();
+                    
+                    (
+                        id.clone(),
+                        InflationIndexData {
+                            id: id.to_string(),
+                            observations,
+                            currency: index.currency,
+                            interpolation: index.interpolation(),
+                            lag: index.lag(),
+                        },
+                    )
+                })
+                .collect();
+
+            // BaseCorrelationCurve implements Clone
+            let base_correlation_curves: Vec<(CurveId, BaseCorrelationCurve)> = self
+                .base_correlation
+                .iter()
+                .map(|(id, curve)| (id.clone(), (**curve).clone()))
+                .collect();
+
+            // Convert credit indices
+            let credit_indices: Vec<(CurveId, CreditIndexEntry)> = self
+                .credit_indices
+                .iter()
+                .map(|(id, data)| {
+                    let issuer_curves = data.issuer_credit_curves.as_ref().map(|curves| {
+                        curves
+                            .iter()
+                            .map(|(name, curve)| (name.clone(), curve.to_state()))
+                            .collect()
+                    });
+                    
+                    (
+                        id.clone(),
+                        CreditIndexEntry {
+                            num_constituents: data.num_constituents,
+                            recovery_rate: data.recovery_rate,
+                            index_credit_curve: data.index_credit_curve.to_state(),
+                            base_correlation_curve: (*data.base_correlation_curve).clone(),
+                            issuer_credit_curves: issuer_curves,
+                        },
+                    )
+                })
+                .collect();
+
+            // Convert FX matrix - simplified for now
+            // TODO: FxMatrix needs to_state()/from_state() methods to extract quotes
+            // See finstack/core/src/money/fx.rs
+            let fx = self.fx.as_ref().map(|_matrix| {
+                FxMatrixData {
+                    quotes: Vec::new(), // TODO: Extract from matrix state
+                    pivot_currency: None, // TODO: Extract from matrix config
+                }
+            });
+
+            // Convert surfaces using to_state()
+            let surfaces: Vec<(CurveId, VolSurfaceState)> = self
+                .surfaces
+                .iter()
+                .map(|(id, surface)| (id.clone(), surface.to_state()))
+                .collect();
+
+            // Convert prices (MarketScalar implements Clone but not Copy)
+            let prices: Vec<(CurveId, MarketScalar)> = self
+                .prices
+                .iter()
+                .map(|(id, scalar)| (id.clone(), scalar.clone()))
+                .collect();
+
+            // Convert series using to_state()
+            let series: Vec<(CurveId, ScalarTimeSeriesState)> = self
+                .series
+                .iter()
+                .filter_map(|(id, s)| {
+                    s.to_state().ok().map(|state| (id.clone(), state))
+                })
+                .collect();
+
+            // Convert collateral mappings
+            let collateral_mappings: Vec<(alloc::string::String, CurveId)> = self
+                .collat
+                .iter()
+                .map(|(csa, id)| (csa.to_string(), id.clone()))
+                .collect();
+
+            Ok(MarketContextData {
+                disc_curves,
+                fwd_curves,
+                hazard_curves,
+                inflation_curves,
+                inflation_indices,
+                base_correlation_curves,
+                credit_indices,
+                fx,
+                surfaces,
+                prices,
+                series,
+                collateral_mappings,
+            })
+        }
+        
+        /// Reconstruct MarketContext from serializable data
+        pub fn from_data(data: MarketContextData) -> crate::Result<MarketContext> {
+            use crate::market_data::credit_index::CreditIndexData;
+            use crate::market_data::surfaces::vol_surface::VolSurface;
+            use crate::market_data::term_structures::hazard_curve::HazardCurve;
+            use crate::market_data::primitives::ScalarTimeSeries;
+            
+            let mut context = MarketContext::new();
+
+            // First, reconstruct non-bumped curves
+            // TODO: Currently skipping DiscountCurve reconstruction because it lacks Clone
+            // Once DiscountCurve has state methods, change this to:
+            // if let Some(state) = entry.state {
+            //     let curve = DiscountCurve::from_state(state)?;
+            //     context = context.insert_discount(curve);
+            // }
+            for entry in data.disc_curves.iter() {
+                if entry.bump_info.is_none() {
+                    if let Some(curve) = entry.curve.as_ref() {
+                        // DiscountCurve doesn't implement Clone, so we need to skip for now
+                        let _ = curve;
+                    }
+                }
+            }
+
+            // TODO: Currently skipping ForwardCurve reconstruction because it lacks Clone
+            // Once ForwardCurve has state methods, change this to:
+            // if let Some(state) = entry.state {
+            //     let curve = ForwardCurve::from_state(state)?;
+            //     context = context.insert_forward(curve);
+            // }
+            for entry in data.fwd_curves.iter() {
+                if entry.bump_info.is_none() {
+                    if let Some(curve) = entry.curve.as_ref() {
+                        // ForwardCurve doesn't implement Clone, so we need to skip for now
+                        let _ = curve;
+                    }
+                }
+            }
+
+            // Reconstruct hazard curves from state
+            for (_id, state) in data.hazard_curves {
+                let curve = HazardCurve::from_state(state)?;
+                context = context.insert_hazard(curve);
+            }
+
+            // Reconstruct inflation curves
+            for (_id, curve) in data.inflation_curves {
+                context = context.insert_inflation(curve);
+            }
+
+            // Reconstruct inflation indices
+            for (_id, index_data) in data.inflation_indices {
+                let builder = crate::market_data::inflation_index::InflationIndexBuilder::new(
+                    &index_data.id,
+                    index_data.currency,
+                )
+                .with_observations(index_data.observations)
+                .with_interpolation(index_data.interpolation)
+                .with_lag(index_data.lag);
+                
+                if let Ok(index) = builder.build() {
+                    context = context.insert_inflation_index(&index_data.id, index);
+                }
+            }
+
+            // Reconstruct base correlation curves
+            for (_id, curve) in data.base_correlation_curves {
+                context = context.insert_base_correlation(curve);
+            }
+
+            // Reconstruct credit indices
+            for (_id, entry) in data.credit_indices {
+                let index_curve = HazardCurve::from_state(entry.index_credit_curve)?;
+                
+                let mut builder = CreditIndexData::builder()
+                    .num_constituents(entry.num_constituents)
+                    .recovery_rate(entry.recovery_rate)
+                    .index_credit_curve(Arc::new(index_curve))
+                    .base_correlation_curve(Arc::new(entry.base_correlation_curve));
+                
+                if let Some(issuer_curves) = entry.issuer_credit_curves {
+                    let mut arc_curves = std::collections::HashMap::new();
+                    for (name, state) in issuer_curves {
+                        let curve = HazardCurve::from_state(state)?;
+                        arc_curves.insert(name, Arc::new(curve));
+                    }
+                    builder = builder.with_issuer_curves(arc_curves);
+                }
+                
+                if let Ok(index_data) = builder.build() {
+                    // Use a generic ID for now
+                    context = context.insert_credit_index("credit_index", index_data);
+                }
+            }
+
+            // Reconstruct surfaces from state
+            for (_id, state) in data.surfaces {
+                if let Ok(surface) = VolSurface::from_state(state) {
+                    context = context.insert_surface(surface);
+                }
+            }
+
+            // Reconstruct prices
+            for (id, scalar) in data.prices {
+                context = context.insert_price(id.as_str(), scalar);
+            }
+
+            // Reconstruct series from state
+            for (_id, state) in data.series {
+                if let Ok(series) = ScalarTimeSeries::from_state(state) {
+                    context = context.insert_series(series);
+                }
+            }
+
+            // Reconstruct collateral mappings
+            // TODO: This leaks memory by converting String to &'static str
+            // Better solution: Refactor MarketContext.collat to use String or Arc<str>
+            // instead of &'static str for CSA codes
+            for (csa, curve_id) in data.collateral_mappings {
+                // WARNING: This leaks the string - not suitable for production
+                let csa_static = alloc::boxed::Box::leak(csa.into_boxed_str());
+                context = context.map_collateral(csa_static, curve_id);
+            }
+
+            // Now apply bumps to recreate bumped curves
+            for entry in data.disc_curves {
+                if let Some(bump_info) = entry.bump_info {
+                    let mut bumps = HashMap::new();
+                    bumps.insert(bump_info.original_id, bump_info.bump_spec);
+                    if let Ok(bumped) = context.bump(bumps) {
+                        context = bumped;
+                    }
+                }
+            }
+
+            for entry in data.fwd_curves {
+                if let Some(bump_info) = entry.bump_info {
+                    let mut bumps = HashMap::new();
+                    bumps.insert(bump_info.original_id, bump_info.bump_spec);
+                    if let Ok(bumped) = context.bump(bumps) {
+                        context = bumped;
+                    }
+                }
+            }
+
+            Ok(context)
+        }
+    }
+    
+    // Direct Serialize/Deserialize implementations
+    impl serde::Serialize for MarketContext {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            self.to_data()
+                .map_err(serde::ser::Error::custom)?
+                .serialize(serializer)
+        }
+    }
+
+    impl<'de> serde::Deserialize<'de> for MarketContext {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            let data = MarketContextData::deserialize(deserializer)?;
+            MarketContext::from_data(data).map_err(serde::de::Error::custom)
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+pub use serde_support::*;
 
 // -----------------------------------------------------------------------------
 // Tests for Bumping Functionality

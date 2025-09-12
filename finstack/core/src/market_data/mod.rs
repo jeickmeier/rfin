@@ -45,6 +45,9 @@
 
 /// Unified market-data context for valuations.
 pub mod context;
+/// Serialization support for MarketContext
+#[cfg(feature = "serde")]
+pub mod context_serde;
 /// Credit index aggregates for CDS tranche pricing and credit derivatives.
 pub mod credit_index;
 // Identifiers are now defined in `crate::types` (see `types::CurveId`).
@@ -77,3 +80,8 @@ pub use credit_index::*;
 /// Numeric precision alias re-exported from the surrounding crate so that
 /// downstream code can simply `use finstack_core::market_data::F`.
 pub use crate::F;
+
+// Test modules
+#[cfg(test)]
+#[cfg(feature = "serde")]
+mod test_context_serde;

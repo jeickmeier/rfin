@@ -60,7 +60,8 @@ pub struct ForwardCurveData {
     tenor: F,
     knots: Vec<F>,
     fwds: Vec<F>,
-    interp_data: crate::market_data::interp::types::InterpData,
+    interp_style: InterpStyle,
+    extrapolation: ExtrapolationPolicy,
 }
 
 impl ForwardCurve {
@@ -228,7 +229,8 @@ impl serde::Serialize for ForwardCurve {
             tenor: self.tenor,
             knots: self.knots.to_vec(),
             fwds: self.fwds.to_vec(),
-            interp_data: self.interp.to_interp_data(),
+            interp_style: self.interp.style(),
+            extrapolation: self.interp.extrapolation(),
         };
         data.serialize(serializer)
     }
@@ -243,8 +245,12 @@ impl<'de> serde::Deserialize<'de> for ForwardCurve {
         use serde::de::Error;
         
         let data = ForwardCurveData::deserialize(deserializer)?;
-        let interp = Interp::from_interp_data(data.interp_data)
-            .map_err(|e| D::Error::custom(format!("Failed to reconstruct interpolator: {}", e)))?;
+        let interp = data.interp_style.build_enum(
+            data.knots.clone().into_boxed_slice(),
+            data.fwds.clone().into_boxed_slice(),
+            data.extrapolation,
+        )
+        .map_err(|e| D::Error::custom(format!("Failed to reconstruct interpolator: {}", e)))?;
         
         Ok(ForwardCurve {
             id: data.id,

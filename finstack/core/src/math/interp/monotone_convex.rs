@@ -161,18 +161,6 @@ impl MonotoneConvex {
 
     // Shared `locate_segment` from utils is used.
 
-    /// Get the knots for serialization
-    #[cfg(feature = "serde")]
-    pub(crate) fn knots(&self) -> &[F] {
-        &self.knots
-    }
-
-    /// Get the values (discount factors) for serialization
-    #[cfg(feature = "serde")]
-    pub(crate) fn values(&self) -> &[F] {
-        &self.dfs
-    }
-
     /// Get the extrapolation policy for serialization
     #[cfg(feature = "serde")]
     pub(crate) fn extrapolation(&self) -> ExtrapolationPolicy {
@@ -287,3 +275,48 @@ impl InterpFn for MonotoneConvex {
 /// - Avoid harmonic mean calculation when slopes are near zero
 /// - Skip convexity constraint scaling for flat segments
 pub(crate) const EPS: F = F::EPSILON * 100.0;
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for MonotoneConvex {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::Serialize;
+        #[derive(Serialize)]
+        struct MonotoneConvexData<'a> {
+            knots: &'a [F],
+            dfs: &'a [F],
+            extrapolation: ExtrapolationPolicy,
+        }
+        let data = MonotoneConvexData {
+            knots: &self.knots,
+            dfs: &self.dfs,
+            extrapolation: self.extrapolation,
+        };
+        data.serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for MonotoneConvex {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::Deserialize;
+        #[derive(Deserialize)]
+        struct MonotoneConvexData {
+            knots: Vec<F>,
+            dfs: Vec<F>,
+            extrapolation: ExtrapolationPolicy,
+        }
+        let data = MonotoneConvexData::deserialize(deserializer)?;
+        MonotoneConvex::new(
+            data.knots.into_boxed_slice(),
+            data.dfs.into_boxed_slice(),
+            data.extrapolation,
+        )
+        .map_err(serde::de::Error::custom)
+    }
+}

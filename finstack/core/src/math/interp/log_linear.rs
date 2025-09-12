@@ -7,8 +7,10 @@ use std::vec::Vec;
 ///
 /// See unit tests and `examples/` for usage.
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LogLinearDf {
     knots: Box<[F]>,
+    #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_log_dfs", deserialize_with = "deserialize_log_dfs"))]
     log_dfs: Box<[F]>,
     extrapolation: ExtrapolationPolicy,
 }
@@ -45,19 +47,6 @@ impl LogLinearDf {
     }
 
     // Shared `locate_segment` from utils is used.
-
-    /// Get the knots for serialization
-    #[cfg(feature = "serde")]
-    pub(crate) fn knots(&self) -> &[F] {
-        &self.knots
-    }
-
-    /// Get the values (discount factors) for serialization
-    /// Note: We need to convert back from log space
-    #[cfg(feature = "serde")]
-    pub(crate) fn values(&self) -> Vec<F> {
-        self.log_dfs.iter().map(|log_df| log_df.exp()).collect()
-    }
 
     /// Get the extrapolation policy for serialization
     #[cfg(feature = "serde")]
@@ -144,4 +133,25 @@ impl InterpFn for LogLinearDf {
         // Derivative: f(x) * (slope in log space)
         f_val * (y1 - y0) / (x1 - x0)
     }
+}
+
+#[cfg(feature = "serde")]
+fn serialize_log_dfs<S>(log_dfs: &[F], serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    use serde::Serialize;
+    let dfs: Vec<F> = log_dfs.iter().map(|log_df| log_df.exp()).collect();
+    dfs.serialize(serializer)
+}
+
+#[cfg(feature = "serde")]
+fn deserialize_log_dfs<'de, D>(deserializer: D) -> Result<Box<[F]>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::Deserialize;
+    let dfs: Vec<F> = Vec::deserialize(deserializer)?;
+    let log_dfs: Vec<F> = dfs.iter().map(|df| df.ln()).collect();
+    Ok(log_dfs.into_boxed_slice())
 }

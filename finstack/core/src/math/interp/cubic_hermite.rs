@@ -52,18 +52,6 @@ impl CubicHermite {
 
     // Shared `locate_segment` from utils is used.
 
-    /// Get the knots for serialization
-    #[cfg(feature = "serde")]
-    pub(crate) fn knots(&self) -> &[F] {
-        &self.knots
-    }
-
-    /// Get the values (discount factors) for serialization
-    #[cfg(feature = "serde")]
-    pub(crate) fn values(&self) -> &[F] {
-        &self.dfs
-    }
-
     /// Get the extrapolation policy for serialization
     #[cfg(feature = "serde")]
     pub(crate) fn extrapolation(&self) -> ExtrapolationPolicy {
@@ -246,4 +234,49 @@ fn compute_monotone_slopes(xs: &[F], ys: &[F]) -> Box<[F]> {
     }
 
     ms.into_boxed_slice()
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for CubicHermite {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::Serialize;
+        #[derive(Serialize)]
+        struct CubicHermiteData<'a> {
+            knots: &'a [F],
+            dfs: &'a [F],
+            extrapolation_policy: ExtrapolationPolicy,
+        }
+        let data = CubicHermiteData {
+            knots: &self.knots,
+            dfs: &self.dfs,
+            extrapolation_policy: self.extrapolation_policy,
+        };
+        data.serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for CubicHermite {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::Deserialize;
+        #[derive(Deserialize)]
+        struct CubicHermiteData {
+            knots: Vec<F>,
+            dfs: Vec<F>,
+            extrapolation_policy: ExtrapolationPolicy,
+        }
+        let data = CubicHermiteData::deserialize(deserializer)?;
+        CubicHermite::new(
+            data.knots.into_boxed_slice(),
+            data.dfs.into_boxed_slice(),
+            data.extrapolation_policy,
+        )
+        .map_err(serde::de::Error::custom)
+    }
 }
