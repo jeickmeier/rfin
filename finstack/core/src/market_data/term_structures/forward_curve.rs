@@ -22,6 +22,7 @@ extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
+use super::common::{build_interp, split_points, OneDGrid};
 use crate::{
     dates::{Date, DayCount},
     error::InputError,
@@ -172,13 +173,12 @@ impl ForwardCurveBuilder {
         if self.points.len() < 2 {
             return Err(InputError::TooFewPoints.into());
         }
-        let (kvec, fvec): (Vec<F>, Vec<F>) = self.points.into_iter().unzip();
+        let (kvec, fvec): (Vec<F>, Vec<F>) = split_points(self.points);
         crate::math::interp::utils::validate_knots(&kvec)?;
         let knots = kvec.into_boxed_slice();
         let fwds = fvec.into_boxed_slice();
-        let interp =
-            self.style
-                .build_enum(knots.clone(), fwds.clone(), ExtrapolationPolicy::default())?;
+        let grid = OneDGrid::new(knots.clone(), fwds.clone());
+        let interp = build_interp(self.style, &grid, ExtrapolationPolicy::default())?;
         Ok(ForwardCurve {
             id: self.id,
             base: self.base,
@@ -245,14 +245,12 @@ impl<'de> serde::Deserialize<'de> for ForwardCurve {
         use serde::de::Error;
 
         let data = ForwardCurveData::deserialize(deserializer)?;
-        let interp = data
-            .interp_style
-            .build_enum(
-                data.knots.clone().into_boxed_slice(),
-                data.fwds.clone().into_boxed_slice(),
-                data.extrapolation,
-            )
-            .map_err(|e| D::Error::custom(format!("Failed to reconstruct interpolator: {}", e)))?;
+        let grid = OneDGrid::new(
+            data.knots.clone().into_boxed_slice(),
+            data.fwds.clone().into_boxed_slice(),
+        );
+        let interp = build_interp(data.interp_style, &grid, data.extrapolation)
+            .map_err(|_| D::Error::custom("Failed to reconstruct interpolator"))?;
 
         Ok(ForwardCurve {
             id: data.id,

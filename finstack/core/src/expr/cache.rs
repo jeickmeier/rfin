@@ -60,7 +60,7 @@ pub struct ExpressionCache {
 }
 
 /// Cache performance statistics.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CacheStats {
     /// Total cache hits.
@@ -74,8 +74,6 @@ pub struct CacheStats {
     /// Current memory usage in bytes.
     pub memory_usage: usize,
 }
-
-impl CacheStats {}
 
 impl ExpressionCache {
     /// Create a new expression cache with the given memory budget.

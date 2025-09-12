@@ -63,6 +63,8 @@ pub mod forward_curve;
 pub mod hazard_curve;
 /// Real/Breakeven inflation curves.
 pub mod inflation;
+/// Internal shared helpers for 1D curves (not exported publicly).
+pub(crate) mod common;
 
 // 2-D surfaces (volatility) now live in market_data::surfaces.
 

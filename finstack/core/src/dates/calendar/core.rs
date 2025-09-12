@@ -104,6 +104,19 @@ pub enum BusinessDayConvention {
     ModifiedPreceding,
 }
 
+impl core::fmt::Display for BusinessDayConvention {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let s = match self {
+            BusinessDayConvention::Unadjusted => "Unadjusted",
+            BusinessDayConvention::Following => "Following",
+            BusinessDayConvention::ModifiedFollowing => "ModifiedFollowing",
+            BusinessDayConvention::Preceding => "Preceding",
+            BusinessDayConvention::ModifiedPreceding => "ModifiedPreceding",
+        };
+        f.write_str(s)
+    }
+}
+
 /// Adjust `date` according to `conv` utilising `cal` for holiday lookup.
 ///
 /// Returns an error if no business day is found within 100 days of the input date.

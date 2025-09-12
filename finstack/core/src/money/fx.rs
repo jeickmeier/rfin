@@ -323,8 +323,14 @@ impl FxMatrix {
         }
     }
 
-    /// No-op (kept for API compatibility)
-    pub fn clear_expired(&self) {}
+    /// Clear cached quotes considered "expired".
+    ///
+    /// Note: Quotes in this matrix are not timestamped, so we conservatively
+    /// clear the entire cache. Callers that need finer-grained control should
+    /// seed quotes explicitly via `set_quote(s)`.
+    pub fn clear_expired(&self) {
+        self.clear_cache();
+    }
 
     /// Clear all stored quotes
     pub fn clear_cache(&self) {

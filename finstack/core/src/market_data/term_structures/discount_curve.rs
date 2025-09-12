@@ -25,6 +25,7 @@
 extern crate alloc;
 
 use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
+use super::common::{build_interp_curve_error, split_points, OneDGrid};
 use crate::{
     dates::Date,
     market_data::interp::types::Interp,
@@ -300,7 +301,7 @@ impl DiscountCurveBuilder {
             return Err(super::CurveError::NonPositiveValue);
         }
 
-        let (knots_vec, dfs_vec): (Vec<F>, Vec<F>) = self.points.into_iter().unzip();
+        let (knots_vec, dfs_vec): (Vec<F>, Vec<F>) = split_points(self.points);
         crate::math::interp::utils::validate_knots(&knots_vec)
             .map_err(|_| super::CurveError::NonMonotonicKnots)?;
 
@@ -313,10 +314,8 @@ impl DiscountCurveBuilder {
         let knots = knots_vec.into_boxed_slice();
         let dfs = dfs_vec.into_boxed_slice();
 
-        let interp = self
-            .style
-            .build_enum(knots.clone(), dfs.clone(), self.extrapolation)
-            .map_err(|_| super::CurveError::NonPositiveValue)?;
+        let grid = OneDGrid::new(knots.clone(), dfs.clone());
+        let interp = build_interp_curve_error(self.style, &grid, self.extrapolation)?;
 
         Ok(DiscountCurve {
             id: self.id,
@@ -383,14 +382,12 @@ impl<'de> serde::Deserialize<'de> for DiscountCurve {
         use serde::de::Error;
 
         let data = DiscountCurveData::deserialize(deserializer)?;
-        let interp = data
-            .interp_style
-            .build_enum(
-                data.knots.clone().into_boxed_slice(),
-                data.dfs.clone().into_boxed_slice(),
-                data.extrapolation,
-            )
-            .map_err(|e| D::Error::custom(format!("Failed to reconstruct interpolator: {}", e)))?;
+        let grid = OneDGrid::new(
+            data.knots.clone().into_boxed_slice(),
+            data.dfs.clone().into_boxed_slice(),
+        );
+        let interp = build_interp_curve_error(data.interp_style, &grid, data.extrapolation)
+            .map_err(|_| D::Error::custom("Failed to reconstruct interpolator"))?;
 
         Ok(DiscountCurve {
             id: data.id,

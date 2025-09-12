@@ -22,6 +22,7 @@ extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
+use super::common::{build_interp, split_points, OneDGrid};
 use crate::{
     error::InputError,
     market_data::interp::types::Interp,
@@ -161,15 +162,12 @@ impl InflationCurveBuilder {
         if self.points.iter().any(|&(_, c)| c <= 0.0) {
             return Err(InputError::NonPositiveValue.into());
         }
-        let (kvec, cvec): (Vec<F>, Vec<F>) = self.points.into_iter().unzip();
+        let (kvec, cvec): (Vec<F>, Vec<F>) = split_points(self.points);
         crate::math::interp::utils::validate_knots(&kvec)?;
         let knots = kvec.into_boxed_slice();
         let cpi_levels = cvec.into_boxed_slice();
-        let interp = self.style.build_enum(
-            knots.clone(),
-            cpi_levels.clone(),
-            ExtrapolationPolicy::default(),
-        )?;
+        let grid = OneDGrid::new(knots.clone(), cpi_levels.clone());
+        let interp = build_interp(self.style, &grid, ExtrapolationPolicy::default())?;
         Ok(InflationCurve {
             id: self.id,
             base_cpi: self.base_cpi,
@@ -213,14 +211,12 @@ impl<'de> serde::Deserialize<'de> for InflationCurve {
         use serde::de::Error;
 
         let data = InflationCurveData::deserialize(deserializer)?;
-        let interp = data
-            .interp_style
-            .build_enum(
-                data.knots.clone().into_boxed_slice(),
-                data.cpi_levels.clone().into_boxed_slice(),
-                data.extrapolation,
-            )
-            .map_err(|e| D::Error::custom(format!("Failed to reconstruct interpolator: {}", e)))?;
+        let grid = OneDGrid::new(
+            data.knots.clone().into_boxed_slice(),
+            data.cpi_levels.clone().into_boxed_slice(),
+        );
+        let interp = build_interp(data.interp_style, &grid, data.extrapolation)
+            .map_err(|_| D::Error::custom("Failed to reconstruct interpolator"))?;
 
         Ok(InflationCurve {
             id: data.id,
