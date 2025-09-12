@@ -3,7 +3,6 @@
 #[cfg(feature = "serde")]
 mod serde_tests {
     use finstack_core::dates::calendar::{Direction, Observed, Rule};
-    use serde_json;
     use time::{Month, Weekday};
 
     #[test]

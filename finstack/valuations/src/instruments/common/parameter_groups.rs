@@ -373,9 +373,19 @@ impl CreditParams {
         }
     }
 
-    /// Standard investment grade parameters (40% recovery)
-    pub fn investment_grade(reference_entity: impl Into<String>, credit_id: &'static str) -> Self {
+    /// ISDA standard senior unsecured parameters (40% recovery)
+    pub fn senior_unsecured(reference_entity: impl Into<String>, credit_id: &'static str) -> Self {
         Self::new(reference_entity, 0.4, credit_id)
+    }
+    
+    /// ISDA standard subordinated parameters (20% recovery)
+    pub fn subordinated(reference_entity: impl Into<String>, credit_id: &'static str) -> Self {
+        Self::new(reference_entity, 0.2, credit_id)
+    }
+    
+    /// Standard investment grade parameters (40% recovery) - alias for senior_unsecured
+    pub fn investment_grade(reference_entity: impl Into<String>, credit_id: &'static str) -> Self {
+        Self::senior_unsecured(reference_entity, credit_id)
     }
 
     /// High yield parameters (30% recovery)
