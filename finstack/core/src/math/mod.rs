@@ -10,6 +10,7 @@ pub mod interp;
 pub mod random;
 pub mod root_finding;
 pub mod solver;
+pub mod solver_multi;
 pub mod special_functions;
 pub mod stats;
 pub mod summation;
@@ -30,6 +31,9 @@ pub use root_finding::{
     newton_raphson,
 };
 pub use solver::{BrentSolver, HybridSolver, NewtonSolver, Solver};
+pub use solver_multi::{
+    AnalyticalDerivatives, DifferentialEvolutionSolver, LevenbergMarquardtSolver, MultiSolver,
+};
 pub use special_functions::{
     erf, norm_cdf, norm_pdf, standard_normal_cdf, standard_normal_inv_cdf,
 };

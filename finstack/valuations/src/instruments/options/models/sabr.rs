@@ -431,6 +431,33 @@ impl SABRCalibrator {
         }
     }
 
+    /// Calibrate SABR parameters with automatic negative rate detection and analytical derivatives
+    pub fn calibrate_auto_shift_with_derivatives(
+        &self,
+        forward: F,
+        strikes: &[F],
+        market_vols: &[F],
+        time_to_expiry: F,
+        beta: F,
+    ) -> Result<SABRParameters> {
+        // Check if we need shift for negative rates
+        let min_rate = forward.min(
+            *strikes
+                .iter()
+                .min_by(|a, b| a.partial_cmp(b).unwrap())
+                .unwrap(),
+        );
+
+        if min_rate < 0.0 {
+            // Use shifted SABR with derivatives
+            let shift = (-min_rate + 0.001).max(0.001); // At least 10bps shift
+            self.calibrate_shifted_with_derivatives(forward, strikes, market_vols, time_to_expiry, beta, shift)
+        } else {
+            // Use standard SABR with derivatives
+            self.calibrate_with_derivatives(forward, strikes, market_vols, time_to_expiry, beta)
+        }
+    }
+
     /// Calibrate shifted SABR parameters for negative rate environments
     pub fn calibrate_shifted(
         &self,
@@ -473,7 +500,7 @@ impl SABRCalibrator {
         )
     }
 
-    /// Calibrate SABR parameters to market implied volatilities
+    /// Calibrate SABR parameters to market implied volatilities using multi-dimensional solver
     pub fn calibrate(
         &self,
         forward: F,
@@ -486,48 +513,185 @@ impl SABRCalibrator {
             return Err(Error::Internal);
         }
 
+        // Use Levenberg-Marquardt solver for robust calibration
+        use finstack_core::math::solver_multi::{LevenbergMarquardtSolver, MultiSolver};
+        
+        let solver = LevenbergMarquardtSolver::new()
+            .with_tolerance(self.tolerance)
+            .with_max_iterations(self.max_iterations);
+        
+        // Define objective function: sum of squared volatility errors
+        let strikes_vec = strikes.to_vec();
+        let market_vols_vec = market_vols.to_vec();
+        let objective = move |params: &[F]| -> F {
+            let alpha = params[0];
+            let nu = params[1];
+            let rho = params[2];
+            
+            // Create SABR parameters and model
+            if let Ok(sabr_params) = SABRParameters::new(alpha, beta, nu, rho) {
+                let model = SABRModel::new(sabr_params);
+                
+                // Calculate sum of squared errors
+                strikes_vec.iter()
+                    .zip(market_vols_vec.iter())
+                    .map(|(&strike, &market_vol)| {
+                        model.implied_volatility(forward, strike, time_to_expiry)
+                            .map(|model_vol| (model_vol - market_vol).powi(2))
+                            .unwrap_or(1e6) // Large penalty for invalid parameters
+                    })
+                    .sum()
+            } else {
+                1e12 // Very large penalty for invalid parameters
+            }
+        };
+        
         // Initial guess for parameters
         let atm_vol = self.find_atm_vol(forward, strikes, market_vols)?;
-        let mut alpha = atm_vol * forward.powf(1.0 - beta);
-        let mut nu = 0.3; // Typical initial guess
-        let mut rho = 0.0; // Start with zero correlation
+        let initial = vec![
+            atm_vol * forward.powf(1.0 - beta), // alpha: ATM vol adjusted for beta
+            0.3,                                  // nu: typical vol-of-vol
+            0.0,                                  // rho: start neutral
+        ];
+        
+        // Parameter bounds for SABR model
+        let bounds = vec![
+            (0.001, 5.0),     // alpha: positive, reasonable range
+            (0.001, 2.0),     // nu: positive vol-of-vol
+            (-0.99, 0.99),    // rho: correlation bounds
+        ];
+        
+        // Calibrate using multi-dimensional solver
+        let solution = solver.minimize(objective, &initial, Some(&bounds))?;
+        
+        // Extract calibrated parameters
+        SABRParameters::new(solution[0], beta, solution[1], solution[2])
+    }
 
-        // Levenberg-Marquardt optimization
-        for _ in 0..self.max_iterations {
-            let params = SABRParameters::new(alpha, beta, nu, rho)?;
-            let model = SABRModel::new(params.clone());
-
-            // Calculate residuals
-            let mut residuals = Vec::new();
-            let mut jacobian = Vec::new();
-
-            for (i, &strike) in strikes.iter().enumerate() {
-                let model_vol = model.implied_volatility(forward, strike, time_to_expiry)?;
-                let residual = model_vol - market_vols[i];
-                residuals.push(residual);
-
-                // Calculate derivatives numerically
-                let derivatives =
-                    self.calculate_derivatives(&params, forward, strike, time_to_expiry)?;
-                jacobian.push(derivatives);
-            }
-
-            // Check convergence
-            let error: F = residuals.iter().map(|r| r.powi(2)).sum::<F>().sqrt();
-            if error < self.tolerance {
-                return Ok(params);
-            }
-
-            // Update parameters using gradient descent
-            let (d_alpha, d_nu, d_rho) = self.calculate_update(&residuals, &jacobian)?;
-
-            alpha = (alpha - 0.1 * d_alpha).max(0.001);
-            nu = (nu - 0.1 * d_nu).clamp(0.0, 2.0);
-            rho = (rho - 0.1 * d_rho).clamp(-0.99, 0.99);
+    /// Calibrate SABR parameters with analytical derivatives for improved performance
+    pub fn calibrate_with_derivatives(
+        &self,
+        forward: F,
+        strikes: &[F],
+        market_vols: &[F],
+        time_to_expiry: F,
+        beta: F,
+    ) -> Result<SABRParameters> {
+        if strikes.len() != market_vols.len() {
+            return Err(Error::Internal);
         }
 
-        // Return best estimate even if not fully converged
+        // Use analytical derivatives from the calibration module
+        use crate::calibration::derivatives::sabr_derivatives::{SABRCalibrationDerivatives, SABRMarketData};
+        use finstack_core::math::solver_multi::LevenbergMarquardtSolver;
+        
+        // Create market data structure
+        let market_data = SABRMarketData {
+            forward,
+            time_to_expiry,
+            strikes: strikes.to_vec(),
+            market_vols: market_vols.to_vec(),
+            beta,
+        };
+        
+        // Create derivatives provider
+        let derivatives_provider = SABRCalibrationDerivatives::new(market_data.clone());
+        
+        // Create Levenberg-Marquardt solver
+        let solver = LevenbergMarquardtSolver::new()
+            .with_tolerance(self.tolerance)
+            .with_max_iterations(self.max_iterations);
+        
+        // Define objective function: sum of squared volatility errors
+        let objective = move |params: &[F]| -> F {
+            let alpha = params[0];
+            let nu = params[1];
+            let rho = params[2];
+            
+            // Create SABR parameters and model
+            if let Ok(sabr_params) = SABRParameters::new(alpha, beta, nu, rho) {
+                let model = SABRModel::new(sabr_params);
+                
+                // Calculate sum of squared errors
+                market_data.strikes.iter()
+                    .zip(market_data.market_vols.iter())
+                    .map(|(&strike, &market_vol)| {
+                        model.implied_volatility(forward, strike, time_to_expiry)
+                            .map(|model_vol| (model_vol - market_vol).powi(2))
+                            .unwrap_or(1e6) // Large penalty for invalid parameters
+                    })
+                    .sum()
+            } else {
+                1e12 // Very large penalty for invalid parameters
+            }
+        };
+        
+        // Initial guess for parameters
+        let atm_vol = self.find_atm_vol(forward, strikes, market_vols)?;
+        let initial = vec![
+            atm_vol * forward.powf(1.0 - beta), // alpha
+            0.3,                                  // nu
+            0.0,                                  // rho
+        ];
+        
+        // Parameter bounds
+        let bounds = vec![
+            (1e-6, 5.0),   // alpha bounds
+            (1e-6, 2.0),   // nu bounds
+            (-0.99, 0.99), // rho bounds
+        ];
+        
+        // Solve with analytical derivatives
+        let solution = solver.minimize_with_derivatives(objective, &derivatives_provider, &initial, Some(&bounds))?;
+        
+        // Extract calibrated parameters
+        let alpha = solution[0];
+        let nu = solution[1];
+        let rho = solution[2];
+        
         SABRParameters::new(alpha, beta, nu, rho)
+    }
+
+    /// Calibrate shifted SABR with analytical derivatives
+    pub fn calibrate_shifted_with_derivatives(
+        &self,
+        forward: F,
+        strikes: &[F],
+        market_vols: &[F],
+        time_to_expiry: F,
+        beta: F,
+        shift: F,
+    ) -> Result<SABRParameters> {
+        if strikes.len() != market_vols.len() {
+            return Err(Error::Internal);
+        }
+
+        // Apply shift to all rates
+        let shifted_forward = forward + shift;
+        let shifted_strikes: Vec<F> = strikes.iter().map(|&s| s + shift).collect();
+
+        // Validate shifted rates are positive
+        if shifted_forward <= 0.0 || shifted_strikes.iter().any(|&s| s <= 0.0) {
+            return Err(Error::Internal); // Insufficient shift for negative rates
+        }
+
+        // Calibrate using shifted rates with derivatives
+        let base_params = self.calibrate_with_derivatives(
+            shifted_forward,
+            &shifted_strikes,
+            market_vols,
+            time_to_expiry,
+            beta,
+        )?;
+
+        // Return parameters with shift
+        SABRParameters::new_with_shift(
+            base_params.alpha,
+            beta,
+            base_params.nu,
+            base_params.rho,
+            shift,
+        )
     }
 
     /// Find ATM volatility from market data
@@ -545,61 +709,6 @@ impl SABRCalibrator {
         }
 
         Ok(atm_vol)
-    }
-
-    /// Calculate parameter derivatives numerically
-    fn calculate_derivatives(
-        &self,
-        params: &SABRParameters,
-        forward: F,
-        strike: F,
-        time_to_expiry: F,
-    ) -> Result<(F, F, F)> {
-        let bump = 0.0001;
-
-        // Base model
-        let base_model = SABRModel::new(params.clone());
-        let base_vol = base_model.implied_volatility(forward, strike, time_to_expiry)?;
-
-        // Alpha derivative
-        let mut params_alpha = params.clone();
-        params_alpha.alpha += bump;
-        let model_alpha = SABRModel::new(params_alpha);
-        let vol_alpha = model_alpha.implied_volatility(forward, strike, time_to_expiry)?;
-        let d_alpha = (vol_alpha - base_vol) / bump;
-
-        // Nu derivative
-        let mut params_nu = params.clone();
-        params_nu.nu += bump;
-        let model_nu = SABRModel::new(params_nu);
-        let vol_nu = model_nu.implied_volatility(forward, strike, time_to_expiry)?;
-        let d_nu = (vol_nu - base_vol) / bump;
-
-        // Rho derivative
-        let mut params_rho = params.clone();
-        params_rho.rho = (params_rho.rho + bump).min(0.999);
-        let model_rho = SABRModel::new(params_rho);
-        let vol_rho = model_rho.implied_volatility(forward, strike, time_to_expiry)?;
-        let d_rho = (vol_rho - base_vol) / bump;
-
-        Ok((d_alpha, d_nu, d_rho))
-    }
-
-    /// Calculate parameter update using least squares
-    fn calculate_update(&self, residuals: &[F], jacobian: &[(F, F, F)]) -> Result<(F, F, F)> {
-        // Simple gradient calculation
-        let mut grad_alpha = 0.0;
-        let mut grad_nu = 0.0;
-        let mut grad_rho = 0.0;
-
-        for (i, &residual) in residuals.iter().enumerate() {
-            let (d_alpha, d_nu, d_rho) = jacobian[i];
-            grad_alpha += residual * d_alpha;
-            grad_nu += residual * d_nu;
-            grad_rho += residual * d_rho;
-        }
-
-        Ok((grad_alpha, grad_nu, grad_rho))
     }
 }
 

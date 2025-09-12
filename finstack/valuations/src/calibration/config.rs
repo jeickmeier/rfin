@@ -13,12 +13,16 @@ use std::collections::HashMap;
 /// Solver type selection for calibration.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SolverKind {
-    /// Newton-Raphson solver with automatic derivative estimation
+    /// Newton-Raphson solver with automatic derivative estimation (1D)
     Newton,
-    /// Brent's method solver (robust, bracketing required)
+    /// Brent's method solver (robust, bracketing required) (1D)
     Brent,
-    /// Hybrid solver that tries Newton first, falls back to Brent
+    /// Hybrid solver that tries Newton first, falls back to Brent (1D)
     Hybrid,
+    /// Levenberg-Marquardt for non-linear least squares (multi-dimensional)
+    LevenbergMarquardt,
+    /// Differential Evolution for global optimization (multi-dimensional)
+    DifferentialEvolution,
 }
 
 impl Default for SolverKind {
@@ -164,5 +168,44 @@ impl CalibrationConfig {
     /// Create a configuration for multi-curve mode (standard).
     pub fn multi_curve() -> Self {
         Self::default() // Already defaults to multi-curve
+    }
+
+    /// Create a Levenberg-Marquardt solver with current config settings.
+    ///
+    /// Returns a configured LevenbergMarquardtSolver for multi-dimensional optimization.
+    /// We return the concrete type instead of trait object since MultiSolver
+    /// is not object-safe due to generic parameters.
+    pub fn create_lm_solver(&self) -> finstack_core::math::solver_multi::LevenbergMarquardtSolver {
+        use finstack_core::math::solver_multi::LevenbergMarquardtSolver;
+        
+        LevenbergMarquardtSolver::new()
+            .with_tolerance(self.tolerance)
+            .with_max_iterations(self.max_iterations)
+    }
+    
+    /// Create a Differential Evolution solver with current config settings.
+    ///
+    /// Returns a configured DifferentialEvolutionSolver for global optimization.
+    /// Useful when the objective function has multiple local minima.
+    pub fn create_de_solver(&self) -> finstack_core::math::solver_multi::DifferentialEvolutionSolver {
+        use finstack_core::math::solver_multi::DifferentialEvolutionSolver;
+        
+        let mut solver = DifferentialEvolutionSolver::new()
+            .with_tolerance(self.tolerance)
+            .with_max_generations(self.max_iterations);
+        
+        if let Some(seed) = self.random_seed {
+            solver = solver.with_seed(seed);
+        }
+        
+        solver
+    }
+    
+    /// Check if configured for multi-dimensional solving
+    pub fn is_multi_dimensional(&self) -> bool {
+        matches!(
+            self.solver_kind,
+            SolverKind::LevenbergMarquardt | SolverKind::DifferentialEvolution
+        )
     }
 }

@@ -3,6 +3,7 @@
 //! Implements sequential bootstrapping algorithms for various curve types.
 
 pub mod base_correlation;
+pub mod convexity;
 pub mod forward_curve;
 pub mod hazard_curve;
 pub mod inflation_curve;

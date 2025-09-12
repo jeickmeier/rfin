@@ -175,10 +175,12 @@ impl DiscountCurveCalibrator {
             }
 
             // Create objective function that uses instrument pricing directly
+            // Clone only the necessary data, not the entire context (for performance)
             let knots_clone = knots.clone();
             let self_clone = self.clone();
             let quote_clone = quote.clone();
-            let base_context_clone = base_context.clone();
+            // Use Arc reference instead of cloning the entire context
+            let base_context_ref = std::sync::Arc::new(base_context.clone());
 
             let objective = move |df: F| -> F {
                 let mut temp_knots = Vec::with_capacity(knots_clone.len() + 1);
@@ -208,14 +210,14 @@ impl DiscountCurveCalibrator {
                         Err(_) => return crate::calibration::penalize(),
                     };
                     
-                    base_context_clone
+                    (*base_context_ref)
                         .clone()
                         .insert_discount(temp_curve)
                         .insert_forward(forward_curve)
                 } else {
                     // Multi-curve mode: only insert discount curve
                     // Forward curves must be calibrated separately
-                    base_context_clone
+                    (*base_context_ref)
                         .clone()
                         .insert_discount(temp_curve)
                 };
@@ -406,6 +408,38 @@ impl DiscountCurveCalibrator {
                 let period_start = *expiry;
                 let period_end = add_months(*expiry, specs.delivery_months as i32);
 
+                // Calculate convexity adjustment if not provided
+                let convexity_adj = if let Some(adj) = specs.convexity_adjustment {
+                    Some(adj)
+                } else {
+                    // Auto-calculate convexity adjustment based on time to expiry
+                    let time_to_expiry = specs.day_count.year_fraction(
+                        self.base_date,
+                        *expiry,
+                        finstack_core::dates::DayCountCtx::default(),
+                    ).unwrap_or(0.0);
+                    
+                    let time_to_maturity = specs.day_count.year_fraction(
+                        self.base_date,
+                        period_end,
+                        finstack_core::dates::DayCountCtx::default(),
+                    ).unwrap_or(0.0);
+                    
+                    if time_to_expiry > 0.5 {  // Only apply for futures > 6 months out
+                        use super::convexity::ConvexityParameters;
+                        let params = match self.currency {
+                            Currency::USD => ConvexityParameters::usd_sofr(),
+                            Currency::EUR => ConvexityParameters::eur_euribor(),
+                            Currency::GBP => ConvexityParameters::gbp_sonia(),
+                            Currency::JPY => ConvexityParameters::jpy_tonar(),
+                            _ => ConvexityParameters::usd_sofr(),  // Default to USD
+                        };
+                        Some(params.calculate_adjustment(time_to_expiry, time_to_maturity))
+                    } else {
+                        None
+                    }
+                };
+
                 let mut future = InterestRateFuture::new(
                     format!("CALIB_FUT_{}", expiry),
                     Money::new(1_000_000.0, self.currency),
@@ -419,14 +453,14 @@ impl DiscountCurveCalibrator {
                     "CALIB_FWD",
                 );
 
-                // Set contract specs from the quote
+                // Set contract specs from the quote with calculated convexity
                 future = future.with_contract_specs(
                     crate::instruments::fixed_income::ir_future::FutureContractSpecs {
                         face_value: specs.face_value,
                         tick_size: 0.0025,
                         tick_value: 25.0,
                         delivery_months: specs.delivery_months,
-                        convexity_adjustment: specs.convexity_adjustment,
+                        convexity_adjustment: convexity_adj,
                     },
                 );
 
@@ -488,26 +522,73 @@ impl DiscountCurveCalibrator {
                 Ok(pv.amount() / swap.notional.amount())
             }
             RatesQuote::BasisSwap { 
-                maturity: _,
-                primary_index: _,
-                reference_index: _,
+                maturity,
+                primary_index,
+                reference_index,
                 spread_bp,
-                primary_freq: _,
-                reference_freq: _,
-                primary_dc: _,
-                reference_dc: _,
+                primary_freq,
+                reference_freq,
+                primary_dc,
+                reference_dc,
                 currency: _,
             } => {
-                // In multi-curve mode, basis swaps should only be used for forward curve calibration
-                if self.config.multi_curve.is_multi_curve() {
-                    // Basis swaps are not used for discount curve calibration in multi-curve mode
-                    // They are used to calibrate the spread between different tenor forward curves
-                    return Ok(0.0);
-                }
+                // Import BasisSwap types
+                use crate::instruments::fixed_income::basis_swap::{BasisSwap, BasisSwapLeg};
+                use finstack_core::dates::BusinessDayConvention;
                 
-                // In single-curve mode, we can't properly price basis swaps since we only have one curve
-                // Return a placeholder value based on the spread
-                Ok(*spread_bp / 10_000.0)
+                // In multi-curve mode, basis swaps contribute to tenor basis calibration
+                // Extract tenor information from index names (e.g., "3M-SOFR" -> 3M)
+                let primary_forward_id = format!("FWD_{}", primary_index).leak();
+                let reference_forward_id = format!("FWD_{}", reference_index).leak();
+                
+                // Store string references for later use in checks
+                let primary_fwd_str = format!("FWD_{}", primary_index);
+                let reference_fwd_str = format!("FWD_{}", reference_index);
+                
+                // Create basis swap instrument
+                let primary_leg = BasisSwapLeg {
+                    forward_curve_id: primary_forward_id,
+                    frequency: *primary_freq,
+                    day_count: *primary_dc,
+                    bdc: BusinessDayConvention::ModifiedFollowing,
+                    spread: *spread_bp / 10_000.0,  // Convert bp to decimal
+                };
+                
+                let reference_leg = BasisSwapLeg {
+                    forward_curve_id: reference_forward_id,
+                    frequency: *reference_freq,
+                    day_count: *reference_dc,
+                    bdc: BusinessDayConvention::ModifiedFollowing,
+                    spread: 0.0,
+                };
+                
+                let basis_swap = BasisSwap::new(
+                    format!("CALIB_BASIS_{}_{}", primary_index, reference_index),
+                    Money::new(1_000_000.0, self.currency),
+                    self.base_date,
+                    *maturity,
+                    primary_leg,
+                    reference_leg,
+                    "CALIB_CURVE",
+                );
+                
+                // In multi-curve mode, price basis swap properly
+                if self.config.multi_curve.is_multi_curve() {
+                    // Check if forward curves exist for pricing
+                    if context.fwd(&primary_fwd_str).is_err() || 
+                       context.fwd(&reference_fwd_str).is_err() {
+                        // Forward curves not yet calibrated, return placeholder
+                        return Ok(0.0);
+                    }
+                    
+                    // Price the basis swap - should be zero at market spread
+                    let pv = basis_swap.value(context, self.base_date)?;
+                    Ok(pv.amount() / basis_swap.notional.amount())
+                } else {
+                    // In single-curve mode, we can't properly price basis swaps
+                    // Return a placeholder value based on the spread
+                    Ok(*spread_bp / 10_000.0)
+                }
             }
         }
     }

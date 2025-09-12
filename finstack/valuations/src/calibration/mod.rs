@@ -14,6 +14,7 @@ use finstack_core::F;
 // Submodules
 pub mod bootstrap;
 pub mod simple_calibration;
+pub mod derivatives;
 
 // Internal modules
 mod config;

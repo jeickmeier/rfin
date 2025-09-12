@@ -161,7 +161,8 @@ impl VolSurfaceCalibrator {
             }
 
             // Calibrate SABR parameters for this expiry with enhanced negative rate support
-            match sabr_calibrator.calibrate_auto_shift(
+            // Use analytical derivatives for better performance
+            match sabr_calibrator.calibrate_auto_shift_with_derivatives(
                 forward,
                 &strikes,
                 &vols,

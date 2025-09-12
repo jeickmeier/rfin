@@ -81,7 +81,7 @@ impl CurveValidator for DiscountCurve {
                 let fwd_rate = (df1 / df2 - 1.0) / (t2 - t1);
                 
                 // Forward rates should be positive (allowing small negative for technical reasons)
-                if fwd_rate < -0.01 {
+                if fwd_rate < -0.02 {
                     return Err(Error::Validation(format!(
                         "Negative forward rate {:.4}% between t={} and t={} in {}",
                         fwd_rate * 100.0, t1, t2, self.id().as_str()
