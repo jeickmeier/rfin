@@ -29,6 +29,7 @@ tracing = { version = "0.1", default-features = false }
 [dev-dependencies]
 time = { version = "0.3", features = ["macros"] }
 
+
 [[example]]
 name = "bond_custom_cashflows_example"
 path = "../../examples/rust/bond_custom_cashflows_example.rs"
