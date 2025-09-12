@@ -23,6 +23,7 @@ mod multi_curve_mode;
 mod quote;
 mod report;
 mod traits;
+mod validation;
 
 // Re-exports
 pub use config::{CalibrationConfig, SolverKind};
@@ -35,6 +36,7 @@ pub use quote::{
 pub use report::CalibrationReport;
 pub use simple_calibration::SimpleCalibration;
 pub use traits::Calibrator;
+pub use validation::{CurveValidator, MarketValidator, SurfaceValidator, ValidationConfig, ValidationError};
 
 /// Finite penalty value used in objective functions instead of infinity.
 /// Using a large finite value helps solvers behave more predictably and

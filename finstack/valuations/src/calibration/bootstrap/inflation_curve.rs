@@ -285,10 +285,21 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
             }
         };
 
+        // Validate the calibrated inflation curve
+        use crate::calibration::validation::CurveValidator;
+        curve.validate().map_err(|e| finstack_core::Error::Calibration {
+            message: format!(
+                "Calibrated inflation curve {} failed validation: {}",
+                self.curve_id, e
+            ),
+            category: "inflation_curve_validation".to_string(),
+        })?;
+
         let report = CalibrationReport::for_type("inflation_curve", residuals, final_knots.len())
             .with_metadata("solve_interp", format!("{:?}", self.solve_interp))
             .with_metadata("time_dc", format!("{:?}", self.time_dc))
-            .with_metadata("accrual_dc", format!("{:?}", self.accrual_dc));
+            .with_metadata("accrual_dc", format!("{:?}", self.accrual_dc))
+            .with_metadata("validation", "passed");
 
         Ok((curve, report))
         })

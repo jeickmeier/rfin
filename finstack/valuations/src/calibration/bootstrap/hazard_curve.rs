@@ -264,10 +264,21 @@ impl HazardCurveCalibrator {
             .par_spreads(par_knots)
             .build()?;
 
+        // Validate the calibrated hazard curve
+        use crate::calibration::validation::CurveValidator;
+        curve.validate().map_err(|e| finstack_core::Error::Calibration {
+            message: format!(
+                "Calibrated hazard curve for {} failed validation: {}",
+                self.entity, e
+            ),
+            category: "hazard_curve_validation".to_string(),
+        })?;
+
         let report = CalibrationReport::for_type("hazard_curve", residuals, total_iterations)
             .with_metadata("entity", self.entity.clone())
             .with_metadata("recovery_rate", format!("{:.3}", self.recovery_rate))
-            .with_metadata("par_interp", format!("{:?}", self.par_interp));
+            .with_metadata("par_interp", format!("{:?}", self.par_interp))
+            .with_metadata("validation", "passed");
 
         Ok((curve, report))
     }

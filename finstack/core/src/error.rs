@@ -83,6 +83,9 @@ pub enum Error {
         /// Error category for programmatic handling.
         category: String,
     },
+    /// Market data validation failure (no-arbitrage, monotonicity, bounds).
+    #[error("Validation error: {0}")]
+    Validation(String),
     /// Catch-all for unexpected internal failures.
     #[error("Internal system error")]
     Internal,

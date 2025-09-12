@@ -215,13 +215,24 @@ impl ForwardCurveCalibrator {
             .day_count(DayCount::Act360) // Standard for SOFR/forward rates
             .build()?;
 
+        // Validate the calibrated forward curve
+        use crate::calibration::validation::CurveValidator;
+        curve.validate().map_err(|e| finstack_core::Error::Calibration {
+            message: format!(
+                "Calibrated forward curve {} failed validation: {}",
+                self.fwd_curve_id, e
+            ),
+            category: "forward_curve_validation".to_string(),
+        })?;
+
         // Build calibration report
         let report = CalibrationReport::for_type("forward_curve", residuals, total_iterations)
             .with_metadata("curve_id", self.fwd_curve_id)
             .with_metadata("tenor_years", self.tenor_years.to_string())
             .with_metadata("interp", format!("{:?}", self.solve_interp))
             .with_metadata("discount_curve", self.discount_curve_id)
-            .with_metadata("time_dc", format!("{:?}", self.time_dc));
+            .with_metadata("time_dc", format!("{:?}", self.time_dc))
+            .with_metadata("validation", "passed");
 
         Ok((curve, report))
     }

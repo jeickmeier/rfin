@@ -292,9 +292,20 @@ impl BaseCorrelationCalibrator {
             .points(solved_correlations)
             .build()?;
 
+        // Validate the calibrated base correlation curve
+        use crate::calibration::validation::CurveValidator;
+        final_curve.validate().map_err(|e| finstack_core::Error::Calibration {
+            message: format!(
+                "Calibrated base correlation curve failed validation: {}",
+                e
+            ),
+            category: "base_correlation_validation".to_string(),
+        })?;
+
         let report = CalibrationReport::for_type("base_correlation", residuals, total_iterations)
             .with_metadata("calibrated_tranches", num_tranche_quotes.to_string())
-            .with_metadata("corr_interp", format!("{:?}", self.corr_interp));
+            .with_metadata("corr_interp", format!("{:?}", self.corr_interp))
+            .with_metadata("validation", "passed");
 
         Ok((final_curve, report))
     }

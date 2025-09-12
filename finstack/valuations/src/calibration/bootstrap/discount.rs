@@ -325,10 +325,26 @@ impl DiscountCurveCalibrator {
                 category: "yield_curve_bootstrap".to_string(),
             })?;
 
+        // Validate the calibrated curve
+        if self.config.verbose {
+            tracing::debug!("Validating calibrated discount curve {}", self.curve_id);
+        }
+        
+        // Use the CurveValidator trait to validate the curve
+        use crate::calibration::validation::CurveValidator;
+        curve.validate().map_err(|e| finstack_core::Error::Calibration {
+            message: format!(
+                "Calibrated discount curve {} failed validation: {}",
+                self.curve_id, e
+            ),
+            category: "yield_curve_validation".to_string(),
+        })?;
+
         // Create calibration report
         let report = CalibrationReport::for_type("yield_curve", residuals, total_iterations)
             .with_metadata("solve_interp", format!("{:?}", self.solve_interp))
-            .with_metadata("currency", self.currency.to_string());
+            .with_metadata("currency", self.currency.to_string())
+            .with_metadata("validation", "passed");
 
         Ok((curve, report))
     }

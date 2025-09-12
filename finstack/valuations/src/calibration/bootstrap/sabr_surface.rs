@@ -215,6 +215,16 @@ impl VolSurfaceCalibrator {
             &vol_grid,
         )?;
 
+        // Validate the calibrated volatility surface
+        use crate::calibration::validation::SurfaceValidator;
+        surface.validate().map_err(|e| finstack_core::Error::Calibration {
+            message: format!(
+                "Calibrated volatility surface {} failed validation: {}",
+                self.surface_id, e
+            ),
+            category: "vol_surface_validation".to_string(),
+        })?;
+
         let report = CalibrationReport::for_type(
             "volatility_surface",
             all_residuals,
@@ -226,7 +236,8 @@ impl VolSurfaceCalibrator {
             sabr_params_by_expiry.len().to_string(),
         )
         .with_metadata("surface_interp", format!("{:?}", self.surface_interp))
-        .with_metadata("time_dc", format!("{:?}", self.time_dc));
+        .with_metadata("time_dc", format!("{:?}", self.time_dc))
+        .with_metadata("validation", "passed");
 
         Ok((surface, report))
     }
