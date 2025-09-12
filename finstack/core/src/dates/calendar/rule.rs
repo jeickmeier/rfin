@@ -16,6 +16,8 @@ use time::{Date, Duration, Month, Weekday};
 
 /// Weekend-observance behaviour for fixed-date holidays.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum Observed {
     /// No adjustment – holiday is **only** on the calendar date itself.
     None,
@@ -27,6 +29,8 @@ pub enum Observed {
 
 /// Direction selector used by the `WeekdayShift` rule.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum Direction {
     /// Nearest **on/after** the reference date.
     After,
@@ -40,6 +44,8 @@ pub enum Direction {
 
 /// Single holiday rule covering the common patterns.
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 #[non_exhaustive]
 pub enum Rule {
     /// Fixed calendar date (e.g. 1-Jan). Optional weekend observation logic.
@@ -71,6 +77,9 @@ pub enum Rule {
 
     /// Consecutive multi-day block starting at `start` and spanning `len`
     /// calendar days (including the start day).
+    /// Note: This variant cannot be serialized as it contains a static reference.
+    /// It is only used in compiled calendar definitions.
+    #[cfg_attr(feature = "serde", serde(skip))]
     Span { start: &'static Rule, len: u8 },
 
     /// Chinese New Year (Spring Festival) – uses generated lookup table (1970-2150).
