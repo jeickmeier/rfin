@@ -8,6 +8,7 @@ pub mod hazard_curve;
 pub mod inflation_curve;
 pub mod sabr_surface;
 pub mod swaption_vol;
+pub mod swaption_market_conventions;
 pub mod discount;
 
 pub use base_correlation::*;

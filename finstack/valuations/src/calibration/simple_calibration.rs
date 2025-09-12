@@ -451,6 +451,7 @@ impl SimpleCalibration {
                 AtmStrikeConvention::SwapRate, // Most common convention
                 self.base_date,
                 disc_id,
+                self.base_currency,
             )
             .with_config(CalibrationConfig { 
                 verbose: false, // Don't pollute SimpleCalibration output

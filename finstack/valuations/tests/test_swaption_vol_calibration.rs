@@ -125,9 +125,8 @@ fn test_swaption_vol_calibration_direct() {
         AtmStrikeConvention::SwapRate,
         base_date,
         "USD-OIS",
+        Currency::USD,
     )
-    .with_expiries(vec![1.0, 2.0])
-    .with_tenors(vec![1.0, 5.0])
     .with_config(CalibrationConfig { 
         verbose: true, 
         ..CalibrationConfig::default() 
@@ -190,9 +189,8 @@ fn test_normal_vs_lognormal_conventions() {
         AtmStrikeConvention::SwapRate,
         base_date,
         "USD-OIS",
-    )
-    .with_expiries(vec![1.0, 2.0])
-    .with_tenors(vec![1.0, 5.0]);
+        Currency::USD,
+    );
     
     let quotes = create_test_swaption_quotes();
     let result = normal_calibrator.calibrate(&quotes, &context);
@@ -222,6 +220,7 @@ fn test_swaption_pricing_with_calibrated_surface() {
         AtmStrikeConvention::SwapRate,
         base_date,
         "USD-OIS",
+        Currency::USD,
     );
     
     let quotes = create_test_swaption_quotes();
@@ -267,6 +266,7 @@ fn test_insufficient_quotes_error() {
         AtmStrikeConvention::SwapRate,
         base_date,
         "USD-OIS",
+        Currency::USD,
     );
     
     // Empty quotes should fail
