@@ -104,9 +104,8 @@ impl PyDiscountCurve {
             ));
         }
 
-        // Build the curve - leak the string to get 'static lifetime
-        let id_static = Box::leak(id.into_boxed_str());
-        let mut builder = CoreDiscountCurve::builder(id_static).base_date(base_date.inner());
+        // Build the curve using CurveId conversion (no leaks)
+        let mut builder = CoreDiscountCurve::builder(id).base_date(base_date.inner());
 
         // Add knots
         for (t, df) in times_vec.iter().zip(dfs_vec.iter()) {
@@ -360,8 +359,7 @@ impl PyForwardCurve {
             ));
         }
 
-        let id_static = Box::leak(id.into_boxed_str());
-        let mut builder = CoreForwardCurve::builder(id_static, tenor)
+        let mut builder = CoreForwardCurve::builder(id, tenor)
             .base_date(base_date.inner())
             .reset_lag(reset_lag);
 
@@ -509,8 +507,7 @@ impl PyHazardCurve {
             ));
         }
 
-        let id_static = Box::leak(id.into_boxed_str());
-        let mut builder = CoreHazardCurve::builder(id_static).base_date(base_date.inner());
+        let mut builder = CoreHazardCurve::builder(id).base_date(base_date.inner());
 
         // Add knots
         for (t, h) in times_vec.iter().zip(hazards_vec.iter()) {
@@ -633,8 +630,7 @@ impl PyInflationCurve {
             ));
         }
 
-        let id_static = Box::leak(id.into_boxed_str());
-        let mut builder = CoreInflationCurve::builder(id_static).base_cpi(base_cpi);
+        let mut builder = CoreInflationCurve::builder(id).base_cpi(base_cpi);
 
         // Add knots
         for (t, cpi) in times_vec.iter().zip(cpi_vec.iter()) {

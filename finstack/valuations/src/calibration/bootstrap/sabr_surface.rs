@@ -5,7 +5,6 @@
 
 use crate::calibration::quote::VolQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
-use ordered_float::OrderedFloat;
 use crate::instruments::options::models::{SABRCalibrator, SABRModel, SABRParameters};
 use finstack_core::dates::Date;
 use finstack_core::dates::DayCount;
@@ -13,6 +12,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::prelude::Currency;
 use finstack_core::{Result, F};
+use ordered_float::OrderedFloat;
 use std::collections::BTreeMap;
 
 /// Interpolation choice for volatility surfaces (currently bilinear-only).
@@ -107,7 +107,8 @@ impl VolSurfaceCalibrator {
 
         for quote in quotes {
             if let VolQuote::OptionVol { expiry, .. } = quote {
-                let t = self.time_dc
+                let t = self
+                    .time_dc
                     .year_fraction(
                         self.base_date,
                         *expiry,
@@ -170,8 +171,7 @@ impl VolSurfaceCalibrator {
                 self.beta,
             ) {
                 Ok(params) => {
-                    sabr_params_by_expiry
-                        .insert(time_to_expiry.into(), params.clone());
+                    sabr_params_by_expiry.insert(time_to_expiry.into(), params.clone());
 
                     // Calculate residuals for this expiry
                     let model = SABRModel::new(params);
@@ -200,7 +200,8 @@ impl VolSurfaceCalibrator {
 
         if sabr_params_by_expiry.is_empty() {
             return Err(finstack_core::Error::Calibration {
-                message: "No SABR expiries calibrated; check quotes or forward function".to_string(),
+                message: "No SABR expiries calibrated; check quotes or forward function"
+                    .to_string(),
                 category: "vol_surface_calibration".to_string(),
             });
         }
@@ -218,13 +219,15 @@ impl VolSurfaceCalibrator {
 
         // Validate the calibrated volatility surface
         use crate::calibration::validation::SurfaceValidator;
-        surface.validate().map_err(|e| finstack_core::Error::Calibration {
-            message: format!(
-                "Calibrated volatility surface {} failed validation: {}",
-                self.surface_id, e
-            ),
-            category: "vol_surface_validation".to_string(),
-        })?;
+        surface
+            .validate()
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: format!(
+                    "Calibrated volatility surface {} failed validation: {}",
+                    self.surface_id, e
+                ),
+                category: "vol_surface_validation".to_string(),
+            })?;
 
         let report = CalibrationReport::for_type(
             "volatility_surface",
@@ -479,10 +482,7 @@ mod tests {
             1.0.into(),
             SABRParameters::new(0.2, 0.5, 0.3, -0.1).unwrap(),
         );
-        params_map.insert(
-            3.0.into(),
-            SABRParameters::new(0.3, 0.5, 0.4, 0.1).unwrap(),
-        );
+        params_map.insert(3.0.into(), SABRParameters::new(0.3, 0.5, 0.4, 0.1).unwrap());
 
         // Test interpolation at t=2.0 (midpoint)
         let interp_params = calibrator

@@ -588,7 +588,9 @@ mod tests {
                 self
             }
             fn clone_box(&self) -> Box<dyn crate::instruments::traits::InstrumentLike> {
-                Box::new(DummyInstr { attrs: self.attrs.clone() })
+                Box::new(DummyInstr {
+                    attrs: self.attrs.clone(),
+                })
             }
         }
 

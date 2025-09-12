@@ -43,12 +43,12 @@ impl serde::Serialize for GaussHermiteQuadrature {
             10 => 10,
             _ => return Err(serde::ser::Error::custom("Unknown quadrature order")),
         };
-        
+
         #[derive(serde::Serialize)]
         struct QuadratureData {
             order: usize,
         }
-        
+
         serde::Serialize::serialize(&QuadratureData { order }, serializer)
     }
 }
@@ -63,14 +63,17 @@ impl<'de> serde::Deserialize<'de> for GaussHermiteQuadrature {
         struct QuadratureData {
             order: usize,
         }
-        
+
         let data = QuadratureData::deserialize(deserializer)?;
-        
+
         match data.order {
             5 => Ok(GaussHermiteQuadrature::order_5()),
             7 => Ok(GaussHermiteQuadrature::order_7()),
             10 => Ok(GaussHermiteQuadrature::order_10()),
-            _ => Err(serde::de::Error::custom(format!("Invalid quadrature order: {}", data.order))),
+            _ => Err(serde::de::Error::custom(format!(
+                "Invalid quadrature order: {}",
+                data.order
+            ))),
         }
     }
 }

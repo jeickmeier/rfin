@@ -3,7 +3,9 @@
 use super::{Bond, CallPutSchedule};
 use crate::cashflow::builder::CashFlowSchedule;
 use crate::cashflow::primitives::AmortizationSpec;
-use crate::instruments::common::{DateRange, InstrumentScheduleParams, MarketRefs, PricingOverrides};
+use crate::instruments::common::{
+    DateRange, InstrumentScheduleParams, MarketRefs, PricingOverrides,
+};
 use finstack_core::prelude::*;
 use finstack_core::F;
 
@@ -17,12 +19,12 @@ pub struct BondBuilder {
     id: Option<String>,
     notional: Option<Money>,
     coupon: Option<F>,
-    
+
     // Parameter groups (required for traditional bonds)
     date_range: Option<DateRange>,
     schedule_params: Option<InstrumentScheduleParams>,
     market_refs: Option<MarketRefs>,
-    
+
     // Optional parameters
     pricing_overrides: Option<PricingOverrides>,
     call_put: Option<CallPutSchedule>,
@@ -101,7 +103,7 @@ impl BondBuilder {
         self.pricing_overrides = Some(
             self.pricing_overrides
                 .unwrap_or_default()
-                .with_clean_price(price)
+                .with_clean_price(price),
         );
         self
     }
@@ -168,7 +170,9 @@ impl BondBuilder {
             let issue = dates[0];
             let maturity = *dates.last().unwrap();
             let dc = custom.day_count;
-            let market_refs = self.market_refs.unwrap_or_else(|| MarketRefs::discount_only("USD-OIS"));
+            let market_refs = self
+                .market_refs
+                .unwrap_or_else(|| MarketRefs::discount_only("USD-OIS"));
             let pricing = self.pricing_overrides.unwrap_or_default();
 
             return Ok(Bond {

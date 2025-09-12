@@ -9,15 +9,15 @@ use finstack_core::money::Money;
 use time::Month;
 
 use finstack_valuations::instruments::common::{
-    EquityUnderlyingParams, InstrumentScheduleParams, MarketRefs, OptionParams, PricingOverrides
-};
-use finstack_valuations::instruments::{
-    Bond, CreditDefaultSwap, EquityOption, InterestRateSwap, Loan, ExerciseStyle
+    EquityUnderlyingParams, InstrumentScheduleParams, MarketRefs, OptionParams, PricingOverrides,
 };
 use finstack_valuations::instruments::fixed_income::{
-    irs::PayReceive,
     cds::PayReceive as CdsPayReceive,
+    irs::PayReceive,
     loan::{DelayedDrawTermLoan, RevolvingCreditFacility},
+};
+use finstack_valuations::instruments::{
+    Bond, CreditDefaultSwap, EquityOption, ExerciseStyle, InterestRateSwap, Loan,
 };
 
 fn main() -> finstack_core::Result<()> {
@@ -44,7 +44,7 @@ fn main() -> finstack_core::Result<()> {
     );
     println!("✓ IRS created: {} notional", swap.notional.amount());
 
-    // Standard Bond - ONE LINE!  
+    // Standard Bond - ONE LINE!
     let bond = Bond::fixed_semiannual(
         "BOND-001",
         Money::new(1_000_000.0, Currency::USD),
@@ -63,7 +63,10 @@ fn main() -> finstack_core::Result<()> {
         issue,
         maturity_5y,
     );
-    println!("✓ Term loan created: {} outstanding", loan.outstanding.amount());
+    println!(
+        "✓ Term loan created: {} outstanding",
+        loan.outstanding.amount()
+    );
 
     // Credit Default Swap - ONE LINE!
     let cds = CreditDefaultSwap::buy_protection(
@@ -83,13 +86,13 @@ fn main() -> finstack_core::Result<()> {
         150.0, // $150 strike
         expiry_1y,
         Money::new(100_000.0, Currency::USD), // $100k notional
-        100.0, // 100 shares per contract
+        100.0,                                // 100 shares per contract
     );
     println!("✓ Equity option created: {} strike", option.strike.amount());
 
     println!();
 
-    // ==========================================  
+    // ==========================================
     // ENHANCED BUILDER WITH PARAMETER GROUPS
     // ==========================================
     println!("2. Enhanced Builder with Parameter Groups");
@@ -104,31 +107,35 @@ fn main() -> finstack_core::Result<()> {
         .standard_fixed_leg(
             "USD-OIS",
             0.0425, // 4.25% fixed
-            InstrumentScheduleParams::semiannual_30360()
+            InstrumentScheduleParams::semiannual_30360(),
         )
         .standard_float_leg(
-            "USD-OIS", 
+            "USD-OIS",
             "USD-SOFR-3M",
             25.0, // 25bp spread
-            InstrumentScheduleParams::quarterly_act360()
+            InstrumentScheduleParams::quarterly_act360(),
         )
         .build()?;
-    println!("✓ Complex IRS created: {} side", 
-        if matches!(complex_swap.side, PayReceive::ReceiveFixed) { "Receive Fixed" } else { "Pay Fixed" }
+    println!(
+        "✓ Complex IRS created: {} side",
+        if matches!(complex_swap.side, PayReceive::ReceiveFixed) {
+            "Receive Fixed"
+        } else {
+            "Pay Fixed"
+        }
     );
 
     // Equity Option with Custom Parameters
     let underlying_params = EquityUnderlyingParams::new("TSLA", "TSLA-SPOT")
         .with_dividend_yield("TSLA-DIVYIELD")
         .with_contract_size(100.0);
-    
-    let option_params = OptionParams::european_call(200.0, expiry_1y)
-        .with_exercise_style(ExerciseStyle::American);
-    
+
+    let option_params =
+        OptionParams::european_call(200.0, expiry_1y).with_exercise_style(ExerciseStyle::American);
+
     let market_refs = MarketRefs::option("USD-OIS", "TSLA-VOL");
-    
-    let pricing_overrides = PricingOverrides::none()
-        .with_implied_vol(0.45); // 45% implied vol override
+
+    let pricing_overrides = PricingOverrides::none().with_implied_vol(0.45); // 45% implied vol override
 
     let custom_option = EquityOption::builder()
         .id("TSLA-CALL-CUSTOM")
@@ -138,9 +145,13 @@ fn main() -> finstack_core::Result<()> {
         .market_refs(market_refs)
         .pricing_overrides(pricing_overrides)
         .build()?;
-    println!("✓ Custom equity option created: {} style", 
-        if matches!(custom_option.exercise_style, ExerciseStyle::American) 
-            { "American" } else { "European" }
+    println!(
+        "✓ Custom equity option created: {} style",
+        if matches!(custom_option.exercise_style, ExerciseStyle::American) {
+            "American"
+        } else {
+            "European"
+        }
     );
 
     // High-Yield Credit Default Swap
@@ -148,24 +159,27 @@ fn main() -> finstack_core::Result<()> {
         "CDS-HY-001",
         "DISTRESSED_CORP",
         Money::new(5_000_000.0, Currency::USD),
-        800.0, // 800bp spread  
+        800.0, // 800bp spread
         issue,
         maturity_5y,
         CdsPayReceive::PayProtection,
     );
-    println!("✓ High-yield CDS created: {}% recovery", hy_cds.protection.recovery_rate);
+    println!(
+        "✓ High-yield CDS created: {}% recovery",
+        hy_cds.protection.recovery_rate
+    );
 
     // ==========================================
-    // PRIVATE CREDIT FACILITIES  
+    // PRIVATE CREDIT FACILITIES
     // ==========================================
     println!("\n3. Private Credit Facilities");
     println!("-----------------------------");
 
     // Delayed-Draw Term Loan - Floating SOFR + 350bp
     let ddtl = DelayedDrawTermLoan::floating_sofr(
-        "DDTL-001", 
+        "DDTL-001",
         Money::new(50_000_000.0, Currency::USD),
-        350.0, // 350bp over SOFR
+        350.0,                                                       // 350bp over SOFR
         Date::from_calendar_date(2026, Month::January, 15).unwrap(), // Draw expiry
         Date::from_calendar_date(2031, Month::January, 15).unwrap(), // Final maturity
     );
@@ -180,7 +194,10 @@ fn main() -> finstack_core::Result<()> {
         Date::from_calendar_date(2028, Month::January, 15).unwrap(), // Availability end
         Date::from_calendar_date(2030, Month::January, 15).unwrap(), // Final maturity
     );
-    println!("✓ Revolver created: {} commitment", revolver.commitment.amount());
+    println!(
+        "✓ Revolver created: {} commitment",
+        revolver.commitment.amount()
+    );
 
     // PIK Loan
     let pik_loan = Loan::pik(
@@ -190,24 +207,30 @@ fn main() -> finstack_core::Result<()> {
         issue,
         maturity_5y,
     );
-    println!("✓ PIK loan created: {} outstanding", pik_loan.outstanding.amount());
+    println!(
+        "✓ PIK loan created: {} outstanding",
+        pik_loan.outstanding.amount()
+    );
 
-    // Cash + PIK Loan  
+    // Cash + PIK Loan
     let cash_pik_loan = Loan::cash_plus_pik(
         "CASH-PIK-001",
         Money::new(20_000_000.0, Currency::USD),
         0.08, // 8% cash rate
-        0.04, // 4% PIK rate  
+        0.04, // 4% PIK rate
         issue,
         maturity_5y,
     );
-    println!("✓ Cash + PIK loan created: {} outstanding", cash_pik_loan.outstanding.amount());
+    println!(
+        "✓ Cash + PIK loan created: {} outstanding",
+        cash_pik_loan.outstanding.amount()
+    );
 
     println!("\n=== Summary ===");
     println!("✅ All instruments created successfully with new enhanced builders!");
     println!("✅ Demonstrated both convenience constructors and parameter groups");
     println!("✅ Builder complexity reduced by 60-70% across all instrument types");
-    
+
     Ok(())
 }
 

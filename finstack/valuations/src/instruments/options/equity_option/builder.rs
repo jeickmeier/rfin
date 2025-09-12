@@ -1,4 +1,6 @@
-use crate::instruments::common::{EquityUnderlyingParams, MarketRefs, OptionParams, PricingOverrides};
+use crate::instruments::common::{
+    EquityUnderlyingParams, MarketRefs, OptionParams, PricingOverrides,
+};
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
@@ -14,12 +16,12 @@ pub struct EquityOptionBuilder {
     // Core required parameters
     id: Option<String>,
     notional: Option<Money>,
-    
+
     // Parameter groups (required)
     underlying: Option<EquityUnderlyingParams>,
     option_params: Option<OptionParams>,
     market_refs: Option<MarketRefs>,
-    
+
     // Optional parameters
     day_count: Option<DayCount>,
     pricing_overrides: Option<PricingOverrides>,
@@ -78,7 +80,7 @@ impl EquityOptionBuilder {
         self.pricing_overrides = Some(
             self.pricing_overrides
                 .unwrap_or_default()
-                .with_implied_vol(vol)
+                .with_implied_vol(vol),
         );
         self
     }
@@ -115,7 +117,7 @@ impl EquityOptionBuilder {
         // Apply pricing overrides if present
         let pricing = self.pricing_overrides.unwrap_or_default();
 
-        // Convert strike from rate to Money format if needed  
+        // Convert strike from rate to Money format if needed
         let strike_money = Money::new(option_params.strike, notional.currency());
 
         Ok(EquityOption {

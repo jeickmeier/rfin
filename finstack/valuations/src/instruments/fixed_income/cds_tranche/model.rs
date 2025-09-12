@@ -38,9 +38,9 @@
 
 use crate::cashflow::builder::schedule_utils::build_dates;
 use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
-use finstack_core::market_data::{CreditIndexData, MarketContext};
 use finstack_core::dates::{Date, StubKind};
 use finstack_core::market_data::traits::Discount;
+use finstack_core::market_data::{CreditIndexData, MarketContext};
 use finstack_core::math::binomial_probability;
 use finstack_core::math::{
     norm_cdf as standard_normal_cdf, standard_normal_inv_cdf, GaussHermiteQuadrature,
@@ -833,12 +833,12 @@ impl GaussianCopulaModel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use finstack_core::market_data::CreditIndexData;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::{
         hazard_curve::HazardCurve, BaseCorrelationCurve,
     };
+    use finstack_core::market_data::CreditIndexData;
     use finstack_core::money::Money;
     use std::sync::Arc;
     use time::Month;
@@ -1029,9 +1029,7 @@ mod tests {
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
         let schedule = model.generate_payment_schedule(&tranche, as_of).unwrap();
-        let index_data_arc = market_ctx
-            .credit_index(tranche.credit_index_id)
-            .unwrap();
+        let index_data_arc = market_ctx.credit_index(tranche.credit_index_id).unwrap();
         let el_curve = model.build_el_curve(&tranche, &index_data_arc, &schedule);
 
         assert!(el_curve.is_ok());
@@ -1116,16 +1114,22 @@ mod tests {
         let tranche = sample_tranche();
         let market_ctx = sample_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let index_data_arc = market_ctx
-            .credit_index(tranche.credit_index_id)
-            .unwrap();
+        let index_data_arc = market_ctx.credit_index(tranche.credit_index_id).unwrap();
         let discount_curve = market_ctx.disc(tranche.disc_id).unwrap();
 
         // Calculate individual leg PVs
-        let pv_premium =
-            model.calculate_premium_leg_pv(&tranche, &index_data_arc, discount_curve.as_ref(), as_of);
-        let pv_protection =
-            model.calculate_protection_leg_pv(&tranche, &index_data_arc, discount_curve.as_ref(), as_of);
+        let pv_premium = model.calculate_premium_leg_pv(
+            &tranche,
+            &index_data_arc,
+            discount_curve.as_ref(),
+            as_of,
+        );
+        let pv_protection = model.calculate_protection_leg_pv(
+            &tranche,
+            &index_data_arc,
+            discount_curve.as_ref(),
+            as_of,
+        );
 
         assert!(pv_premium.is_ok());
         assert!(pv_protection.is_ok());

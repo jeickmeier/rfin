@@ -104,8 +104,7 @@ impl PyVolSurface {
         }
 
         // Build the surface
-        let id_static = Box::leak(id.into_boxed_str());
-        let mut builder = CoreVolSurface::builder(id_static)
+        let mut builder = CoreVolSurface::builder(id.clone())
             .expiries(&expiries_vec)
             .strikes(&strikes_vec);
 

@@ -10,7 +10,9 @@ use crate::instruments::fixed_income::cds::{
     cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap, PayReceive,
 };
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::hazard_curve::{HazardCurve, Seniority, ParInterp};
+use finstack_core::market_data::term_structures::hazard_curve::{
+    HazardCurve, ParInterp, Seniority,
+};
 use finstack_core::market_data::traits::Discount;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
@@ -53,7 +55,7 @@ impl HazardCurveCalibrator {
             Currency::SEK => "SEK-OIS".to_string(),
             Currency::NOK => "NOK-OIS".to_string(),
             Currency::DKK => "DKK-OIS".to_string(),
-            _ => format!("{}-OIS", currency),  // Keep format! here as it needs currency interpolation
+            _ => format!("{}-OIS", currency), // Keep format! here as it needs currency interpolation
         }
     }
 
@@ -266,13 +268,15 @@ impl HazardCurveCalibrator {
 
         // Validate the calibrated hazard curve
         use crate::calibration::validation::CurveValidator;
-        curve.validate().map_err(|e| finstack_core::Error::Calibration {
-            message: format!(
-                "Calibrated hazard curve for {} failed validation: {}",
-                self.entity, e
-            ),
-            category: "hazard_curve_validation".to_string(),
-        })?;
+        curve
+            .validate()
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: format!(
+                    "Calibrated hazard curve for {} failed validation: {}",
+                    self.entity, e
+                ),
+                category: "hazard_curve_validation".to_string(),
+            })?;
 
         let report = CalibrationReport::for_type("hazard_curve", residuals, total_iterations)
             .with_metadata("entity", self.entity.clone())
@@ -367,7 +371,9 @@ mod tests {
         assert!(report.success);
 
         // Get the discount curve from the market context
-        let disc = market_context.disc("USD-OIS").expect("discount curve not found");
+        let disc = market_context
+            .disc("USD-OIS")
+            .expect("discount curve not found");
 
         // Reprice each quoted CDS and assert PV per $1MM is within $1
         let pricer = CDSPricer::new();

@@ -42,7 +42,7 @@ pub struct BaseCorrelationCurve {
 
 impl BaseCorrelationCurve {
     /// Create a new base correlation curve builder.
-    pub fn builder(id: &'static str) -> BaseCorrelationCurveBuilder {
+    pub fn builder(id: impl Into<CurveId>) -> BaseCorrelationCurveBuilder {
         BaseCorrelationCurveBuilder::new(id)
     }
 
@@ -140,15 +140,15 @@ impl TermStructure for BaseCorrelationCurve {
 
 /// Builder for creating base correlation curves.
 pub struct BaseCorrelationCurveBuilder {
-    id: &'static str,
+    id: CurveId,
     points: Vec<(F, F)>, // (detachment_pct, correlation)
 }
 
 impl BaseCorrelationCurveBuilder {
     /// Create a new builder with the given curve ID.
-    pub fn new(id: &'static str) -> Self {
+    pub fn new(id: impl Into<CurveId>) -> Self {
         Self {
-            id,
+            id: id.into(),
             points: Vec::new(),
         }
     }
@@ -194,7 +194,7 @@ impl BaseCorrelationCurveBuilder {
         let (detachment_points, correlations): (Vec<_>, Vec<_>) = sorted_points.into_iter().unzip();
 
         Ok(BaseCorrelationCurve {
-            id: CurveId::new(self.id),
+            id: self.id,
             detachment_points,
             correlations,
         })

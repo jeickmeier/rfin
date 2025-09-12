@@ -85,7 +85,7 @@ pub struct HazardCurveState {
 
 impl HazardCurve {
     /// Start building a hazard curve with identifier `id`.
-    pub fn builder(id: impl Into<String>) -> HazardCurveBuilder {
+    pub fn builder(id: impl Into<CurveId>) -> HazardCurveBuilder {
         HazardCurveBuilder {
             id: id.into(),
             base: Date::from_calendar_date(1970, time::Month::January, 1).unwrap(),
@@ -168,7 +168,7 @@ impl HazardCurve {
 
     /// Create a builder with this curve's parameters, using a new ID.
     /// Useful for creating modified versions of the curve.
-    pub fn to_builder_with_id(&self, new_id: impl Into<String>) -> HazardCurveBuilder {
+    pub fn to_builder_with_id(&self, new_id: impl Into<CurveId>) -> HazardCurveBuilder {
         let mut builder = HazardCurve::builder(new_id)
             .base_date(self.base)
             .recovery_rate(self.recovery_rate)
@@ -263,21 +263,23 @@ impl HazardCurve {
             }
         }
     }
-    
+
     #[cfg(feature = "serde")]
     /// Extract serializable state
     pub fn to_state(&self) -> HazardCurveState {
-        let knot_points: Vec<(F, F)> = self.knots
+        let knot_points: Vec<(F, F)> = self
+            .knots
             .iter()
             .zip(self.lambdas.iter())
             .map(|(&t, &lambda)| (t, lambda))
             .collect();
-        let par_points: Vec<(F, F)> = self.par_tenors
+        let par_points: Vec<(F, F)> = self
+            .par_tenors
             .iter()
             .zip(self.par_spreads_bp.iter())
             .map(|(&t, &spread)| (t, spread))
             .collect();
-        
+
         HazardCurveState {
             id: self.id.to_string(),
             base: self.base,
@@ -290,7 +292,7 @@ impl HazardCurve {
             par_points,
         }
     }
-    
+
     #[cfg(feature = "serde")]
     /// Create from serialized state
     pub fn from_state(state: HazardCurveState) -> crate::Result<Self> {
@@ -300,7 +302,7 @@ impl HazardCurve {
             .day_count(state.day_count)
             .knots(state.knot_points)
             .par_spreads(state.par_points);
-        
+
         if let Some(issuer) = state.issuer {
             builder = builder.issuer(issuer);
         }
@@ -310,7 +312,7 @@ impl HazardCurve {
         if let Some(currency) = state.currency {
             builder = builder.currency(currency);
         }
-        
+
         builder.build()
     }
 }
@@ -333,7 +335,7 @@ impl Survival for HazardCurve {
 
 /// Fluent builder for [`HazardCurve`].
 pub struct HazardCurveBuilder {
-    id: String,
+    id: CurveId,
     base: Date,
     points: Vec<(F, F)>, // (t, lambda)
     recovery_rate: F,
@@ -411,7 +413,7 @@ impl HazardCurveBuilder {
         par_pts.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
         let (p_ten, p_spd): (Vec<F>, Vec<F>) = par_pts.into_iter().unzip();
         Ok(HazardCurve {
-            id: CurveId::new(&self.id),
+            id: self.id,
             base: self.base,
             knots: kvec.into_boxed_slice(),
             lambdas: lvec.into_boxed_slice(),

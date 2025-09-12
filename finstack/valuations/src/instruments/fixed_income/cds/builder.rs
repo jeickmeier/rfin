@@ -15,13 +15,13 @@ pub struct CDSBuilder {
     notional: Option<Money>,
     side: Option<PayReceive>,
     spread_bp: Option<F>,
-    
+
     // Parameter groups (required)
     credit_params: Option<CreditParams>,
     date_range: Option<DateRange>,
     market_refs: Option<MarketRefs>,
-    
-    // Optional parameters  
+
+    // Optional parameters
     convention: Option<CDSConvention>,
     pricing_overrides: Option<PricingOverrides>,
 }
@@ -103,7 +103,7 @@ impl CDSBuilder {
         self.pricing_overrides = Some(
             self.pricing_overrides
                 .unwrap_or_default()
-                .with_upfront(value)
+                .with_upfront(value),
         );
         self
     }

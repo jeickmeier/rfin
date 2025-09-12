@@ -1,9 +1,9 @@
 //! Prepayment schedules and penalty structures for loans.
 
 use crate::instruments::fixed_income::discountable::Discountable;
-use finstack_core::market_data::MarketContext;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::traits::{Discount, TermStructure};
+use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::F;
@@ -379,11 +379,11 @@ impl PrepaymentSchedule {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use finstack_core::market_data::MarketContext;
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCount;
     use finstack_core::market_data::interp::InterpStyle;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::MarketContext;
     use time::Month;
 
     #[test]

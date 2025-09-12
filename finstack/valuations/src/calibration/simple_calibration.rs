@@ -7,7 +7,7 @@ use crate::calibration::bootstrap::{
     BaseCorrelationCalibrator, DiscountCurveCalibrator, ForwardCurveCalibrator,
     HazardCurveCalibrator, InflationCurveCalibrator, VolSurfaceCalibrator,
 };
-use crate::calibration::quote::{MarketQuote, CreditQuote, InflationQuote, RatesQuote, VolQuote};
+use crate::calibration::quote::{CreditQuote, InflationQuote, MarketQuote, RatesQuote, VolQuote};
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator, MultiCurveConfig};
 use ordered_float::OrderedFloat;
 
@@ -48,7 +48,7 @@ impl SimpleCalibration {
         self.config = config;
         self
     }
-    
+
     /// Set multi-curve framework configuration.
     pub fn with_multi_curve_config(mut self, multi_curve_config: MultiCurveConfig) -> Self {
         self.config.multi_curve = multi_curve_config;
@@ -56,7 +56,11 @@ impl SimpleCalibration {
     }
 
     /// Add entity seniority mapping.
-    pub fn with_entity_seniority(mut self, entity: impl Into<String>, seniority: Seniority) -> Self {
+    pub fn with_entity_seniority(
+        mut self,
+        entity: impl Into<String>,
+        seniority: Seniority,
+    ) -> Self {
         self.entity_seniority.insert(entity.into(), seniority);
         self
     }
@@ -124,7 +128,9 @@ impl SimpleCalibration {
                     // For OIS curve, we want deposits and OIS swaps
                     match rates_quote {
                         RatesQuote::Deposit { .. } => Some(rates_quote.clone()),
-                        RatesQuote::Swap { index, .. } if index.contains("OIS") => Some(rates_quote.clone()),
+                        RatesQuote::Swap { index, .. } if index.contains("OIS") => {
+                            Some(rates_quote.clone())
+                        }
                         _ => None,
                     }
                 }
@@ -133,32 +139,46 @@ impl SimpleCalibration {
             .collect();
 
         if self.config.verbose {
-            println!("Found {} OIS quotes for discount curve calibration", rates_quotes.len());
+            println!(
+                "Found {} OIS quotes for discount curve calibration",
+                rates_quotes.len()
+            );
         }
 
         if rates_quotes.is_empty() {
-            return Ok((context.clone(), CalibrationReport::empty_success("No OIS quotes provided")));
+            return Ok((
+                context.clone(),
+                CalibrationReport::empty_success("No OIS quotes provided"),
+            ));
         }
 
-        let calibrator = DiscountCurveCalibrator::new("USD-OIS", self.base_date, self.base_currency)
-            .with_config(self.config.clone());
+        let calibrator =
+            DiscountCurveCalibrator::new("USD-OIS", self.base_date, self.base_currency)
+                .with_config(self.config.clone());
 
         if self.config.verbose {
-            println!("Starting OIS calibration with {} quotes", rates_quotes.len());
+            println!(
+                "Starting OIS calibration with {} quotes",
+                rates_quotes.len()
+            );
         }
-        
+
         let (curve, report) = calibrator.calibrate(&rates_quotes, context)?;
-        
+
         if self.config.verbose {
-            println!("OIS calibration completed. Curve ID: {}", curve.id().as_str());
+            println!(
+                "OIS calibration completed. Curve ID: {}",
+                curve.id().as_str()
+            );
             println!("Report success: {}", report.success);
         }
-        
+
         // Map collateral to OIS discount curve
-        let updated_context = context.clone()
+        let updated_context = context
+            .clone()
             .insert_discount(curve)
             .map_collateral("USD-CSA", "USD-OIS".into());
-            
+
         Ok((updated_context, report))
     }
 
@@ -169,31 +189,34 @@ impl SimpleCalibration {
         context: &MarketContext,
     ) -> Result<(MarketContext, CalibrationReport)> {
         let mut updated_context = context.clone();
-        let mut combined_report = CalibrationReport::empty_success("Forward curve calibration starting");
-        
+        let mut combined_report =
+            CalibrationReport::empty_success("Forward curve calibration starting");
+
         // Extract all non-OIS rates quotes
         let rates_quotes: Vec<_> = quotes
             .iter()
             .filter_map(|q| match q {
-                MarketQuote::Rates(rates_quote) => {
-                    match rates_quote {
-                        RatesQuote::Swap { index, .. } if !index.contains("OIS") => Some(rates_quote.clone()),
-                        RatesQuote::FRA { .. } | RatesQuote::Future { .. } => Some(rates_quote.clone()),
-                        _ => None,
+                MarketQuote::Rates(rates_quote) => match rates_quote {
+                    RatesQuote::Swap { index, .. } if !index.contains("OIS") => {
+                        Some(rates_quote.clone())
                     }
-                }
+                    RatesQuote::FRA { .. } | RatesQuote::Future { .. } => Some(rates_quote.clone()),
+                    _ => None,
+                },
                 _ => None,
             })
             .collect();
 
         // Group quotes by tenor
         let mut quotes_by_tenor: BTreeMap<String, Vec<RatesQuote>> = BTreeMap::new();
-        
+
         for quote in rates_quotes {
             let tenor_key = match &quote {
                 RatesQuote::FRA { .. } => "3M".to_string(), // Default FRAs to 3M
                 RatesQuote::Future { .. } => "3M".to_string(), // Default futures to 3M
-                RatesQuote::Swap { index, float_freq, .. } => {
+                RatesQuote::Swap {
+                    index, float_freq, ..
+                } => {
                     // Extract tenor from index or frequency
                     if index.contains("1M") {
                         "1M".to_string()
@@ -213,30 +236,30 @@ impl SimpleCalibration {
                 }
                 _ => continue,
             };
-            
+
             quotes_by_tenor.entry(tenor_key).or_default().push(quote);
         }
-        
+
         // Calibrate each tenor
         for (tenor_str, tenor_quotes) in quotes_by_tenor {
             if tenor_quotes.len() < 2 {
                 continue;
             }
-            
+
             let tenor_years = match tenor_str.as_str() {
                 "1M" => 1.0 / 12.0,
                 "3M" => 0.25,
                 "6M" => 0.5,
                 _ => continue,
             };
-            
+
             let fwd_curve_id = match tenor_str.as_str() {
                 "1M" => "USD-SOFR-1M-FWD",
                 "3M" => "USD-SOFR-3M-FWD",
                 "6M" => "USD-SOFR-6M-FWD",
                 _ => continue,
             };
-            
+
             let calibrator = ForwardCurveCalibrator::new(
                 fwd_curve_id,
                 tenor_years,
@@ -245,7 +268,7 @@ impl SimpleCalibration {
                 "USD-OIS",
             )
             .with_config(self.config.clone());
-            
+
             if let Ok((curve, report)) = calibrator.calibrate(&tenor_quotes, &updated_context) {
                 updated_context = updated_context.insert_forward(curve);
                 self.merge_report(
@@ -255,7 +278,7 @@ impl SimpleCalibration {
                 );
             }
         }
-        
+
         Ok((updated_context, combined_report))
     }
 
@@ -274,7 +297,10 @@ impl SimpleCalibration {
             if let MarketQuote::Credit(credit_quote) = quote {
                 match credit_quote {
                     CreditQuote::CDS { entity, .. } | CreditQuote::CDSUpfront { entity, .. } => {
-                        quotes_by_entity.entry(entity.clone()).or_default().push(credit_quote.clone());
+                        quotes_by_entity
+                            .entry(entity.clone())
+                            .or_default()
+                            .push(credit_quote.clone());
                     }
                     _ => {}
                 }
@@ -288,12 +314,24 @@ impl SimpleCalibration {
 
             // Extract recovery rate and currency from first quote
             let (recovery_rate, currency) = match &entity_quotes[0] {
-                CreditQuote::CDS { recovery_rate, currency, .. } => (*recovery_rate, *currency),
-                CreditQuote::CDSUpfront { recovery_rate, currency, .. } => (*recovery_rate, *currency),
+                CreditQuote::CDS {
+                    recovery_rate,
+                    currency,
+                    ..
+                } => (*recovery_rate, *currency),
+                CreditQuote::CDSUpfront {
+                    recovery_rate,
+                    currency,
+                    ..
+                } => (*recovery_rate, *currency),
                 _ => continue,
             };
 
-            let seniority = self.entity_seniority.get(&entity).copied().unwrap_or(Seniority::Senior);
+            let seniority = self
+                .entity_seniority
+                .get(&entity)
+                .copied()
+                .unwrap_or(Seniority::Senior);
 
             let calibrator = HazardCurveCalibrator::new(
                 &entity,
@@ -324,16 +362,20 @@ impl SimpleCalibration {
         context: &MarketContext,
     ) -> Result<(MarketContext, CalibrationReport)> {
         let mut updated_context = context.clone();
-        let mut combined_report = CalibrationReport::empty_success("Inflation calibration starting");
+        let mut combined_report =
+            CalibrationReport::empty_success("Inflation calibration starting");
 
         // Group inflation quotes by index
         let mut quotes_by_index: BTreeMap<String, Vec<InflationQuote>> = BTreeMap::new();
         for quote in quotes {
             if let MarketQuote::Inflation(inflation_quote) = quote {
                 match inflation_quote {
-                    InflationQuote::InflationSwap { index, .. } |
-                    InflationQuote::YoYInflationSwap { index, .. } => {
-                        quotes_by_index.entry(index.clone()).or_default().push(inflation_quote.clone());
+                    InflationQuote::InflationSwap { index, .. }
+                    | InflationQuote::YoYInflationSwap { index, .. } => {
+                        quotes_by_index
+                            .entry(index.clone())
+                            .or_default()
+                            .push(inflation_quote.clone());
                     }
                 }
             }
@@ -375,17 +417,21 @@ impl SimpleCalibration {
         context: &MarketContext,
     ) -> Result<(MarketContext, CalibrationReport)> {
         let mut updated_context = context.clone();
-        let mut combined_report = CalibrationReport::empty_success("Volatility calibration starting");
+        let mut combined_report =
+            CalibrationReport::empty_success("Volatility calibration starting");
 
         // Group option quotes by underlying and collect swaption quotes separately
         let mut quotes_by_underlying: BTreeMap<String, Vec<VolQuote>> = BTreeMap::new();
         let mut swaption_quotes: Vec<VolQuote> = Vec::new();
-        
+
         for quote in quotes {
             if let MarketQuote::Vol(vol_quote) = quote {
                 match vol_quote {
                     VolQuote::OptionVol { underlying, .. } => {
-                        quotes_by_underlying.entry(underlying.clone()).or_default().push(vol_quote.clone());
+                        quotes_by_underlying
+                            .entry(underlying.clone())
+                            .or_default()
+                            .push(vol_quote.clone());
                     }
                     VolQuote::SwaptionVol { .. } => {
                         swaption_quotes.push(vol_quote.clone());
@@ -421,7 +467,9 @@ impl SimpleCalibration {
             )
             .with_base_date(self.base_date);
 
-            if let Ok((surface, report)) = calibrator.calibrate(&underlying_quotes, &updated_context) {
+            if let Ok((surface, report)) =
+                calibrator.calibrate(&underlying_quotes, &updated_context)
+            {
                 updated_context = updated_context.insert_surface(surface);
                 self.merge_report(
                     &mut combined_report.residuals,
@@ -430,11 +478,13 @@ impl SimpleCalibration {
                 );
             }
         }
-        
+
         // Handle swaption quotes if present
         if !swaption_quotes.is_empty() {
-            use crate::calibration::bootstrap::swaption_vol::{SwaptionVolCalibrator, SwaptionVolConvention, AtmStrikeConvention};
-            
+            use crate::calibration::bootstrap::swaption_vol::{
+                AtmStrikeConvention, SwaptionVolCalibrator, SwaptionVolConvention,
+            };
+
             // Determine discount curve ID from context (use first available OIS curve)
             let disc_id = if updated_context.disc("USD-OIS").is_ok() {
                 "USD-OIS"
@@ -444,7 +494,7 @@ impl SimpleCalibration {
                 // This shouldn't happen in a well-formed test, but provide a reasonable fallback
                 "USD-OIS"
             };
-            
+
             let swaption_calibrator = SwaptionVolCalibrator::new(
                 "SWAPTION-VOL",
                 SwaptionVolConvention::Normal, // Normal vols are more stable for rates
@@ -453,20 +503,24 @@ impl SimpleCalibration {
                 disc_id,
                 self.base_currency,
             )
-            .with_config(CalibrationConfig { 
+            .with_config(CalibrationConfig {
                 verbose: false, // Don't pollute SimpleCalibration output
-                ..self.config.clone() 
+                ..self.config.clone()
             });
-            
-            if let Ok((surface, report)) = swaption_calibrator.calibrate(&swaption_quotes, &updated_context) {
+
+            if let Ok((surface, report)) =
+                swaption_calibrator.calibrate(&swaption_quotes, &updated_context)
+            {
                 updated_context = updated_context.insert_surface(surface);
                 self.merge_report(
                     &mut combined_report.residuals,
                     &mut combined_report.iterations,
                     &report,
                 );
-                combined_report = combined_report
-                    .with_metadata("swaption_calibration", "Swaption volatility surface calibrated successfully");
+                combined_report = combined_report.with_metadata(
+                    "swaption_calibration",
+                    "Swaption volatility surface calibrated successfully",
+                );
             }
         }
 
@@ -480,14 +534,19 @@ impl SimpleCalibration {
         context: &MarketContext,
     ) -> Result<(MarketContext, CalibrationReport)> {
         let mut updated_context = context.clone();
-        let mut combined_report = CalibrationReport::empty_success("Base correlation calibration starting");
+        let mut combined_report =
+            CalibrationReport::empty_success("Base correlation calibration starting");
 
         // Group tranche quotes by index and maturity
-        let mut quotes_by_index: BTreeMap<String, BTreeMap<OrderedFloat<F>, Vec<CreditQuote>>> = BTreeMap::new();
+        let mut quotes_by_index: BTreeMap<String, BTreeMap<OrderedFloat<F>, Vec<CreditQuote>>> =
+            BTreeMap::new();
 
         for quote in quotes {
             if let MarketQuote::Credit(credit_quote) = quote {
-                if let CreditQuote::CDSTranche { index, maturity, .. } = credit_quote {
+                if let CreditQuote::CDSTranche {
+                    index, maturity, ..
+                } = credit_quote
+                {
                     let maturity_years = DayCount::Act365F
                         .year_fraction(self.base_date, *maturity, DayCountCtx::default())
                         .unwrap_or(0.0);
@@ -652,27 +711,27 @@ mod tests {
     #[test]
     fn test_simple_calibration() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let calibration = SimpleCalibration::new(base_date, Currency::USD)
-            .with_config(CalibrationConfig {
+        let calibration =
+            SimpleCalibration::new(base_date, Currency::USD).with_config(CalibrationConfig {
                 verbose: true,
                 ..Default::default()
             });
 
         let quotes = create_test_quotes();
         let result = calibration.calibrate(&quotes);
-        
+
         match result {
             Ok((context, report)) => {
                 println!("Calibration succeeded!");
                 println!("Report success: {}", report.success);
-                
+
                 // Debug: check what curves we have
                 println!("Checking for discount curve USD-OIS...");
                 match context.disc("USD-OIS") {
                     Ok(_) => println!("Found USD-OIS discount curve"),
                     Err(e) => println!("Failed to find USD-OIS: {:?}", e),
                 }
-                
+
                 // For now, just ensure we don't panic
                 // The core implementation is correct
                 if report.success {

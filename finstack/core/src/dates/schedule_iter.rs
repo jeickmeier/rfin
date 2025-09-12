@@ -506,7 +506,7 @@ mod serde_tests {
 
         let json = serde_json::to_string(&sched).unwrap();
         let deserialized: Schedule = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(sched.dates.len(), deserialized.dates.len());
         for (original, deserialized) in sched.dates.iter().zip(deserialized.dates.iter()) {
             assert_eq!(original, deserialized);

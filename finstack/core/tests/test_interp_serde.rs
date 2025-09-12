@@ -4,8 +4,7 @@
 #[test]
 fn test_interpolation_serialization() {
     use finstack_core::math::interp::{
-        CubicHermite, ExtrapolationPolicy, FlatFwd, InterpFn, LinearDf, LogLinearDf,
-        MonotoneConvex,
+        CubicHermite, ExtrapolationPolicy, FlatFwd, InterpFn, LinearDf, LogLinearDf, MonotoneConvex,
     };
 
     // Test data

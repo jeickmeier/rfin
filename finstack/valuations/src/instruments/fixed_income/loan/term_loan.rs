@@ -188,7 +188,10 @@ impl Loan {
             amount,
             issue_date,
             maturity_date,
-            InterestSpec::CashPlusPIK { cash_rate, pik_rate },
+            InterestSpec::CashPlusPIK {
+                cash_rate,
+                pik_rate,
+            },
         )
     }
 

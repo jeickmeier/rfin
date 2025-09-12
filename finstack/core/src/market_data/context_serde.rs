@@ -14,17 +14,11 @@ use super::{
     primitives::{MarketScalar, ScalarTimeSeriesState},
     surfaces::vol_surface::VolSurfaceState,
     term_structures::{
-        base_correlation::BaseCorrelationCurve, 
-        discount_curve::DiscountCurve,
-        forward_curve::ForwardCurve, 
-        hazard_curve::HazardCurveState,
+        base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve,
+        forward_curve::ForwardCurve, hazard_curve::HazardCurveState,
     },
 };
-use crate::{
-    dates::Date, 
-    types::CurveId, 
-    F
-};
+use crate::{dates::Date, types::CurveId, F};
 
 // -----------------------------------------------------------------------------
 // Serializable Market Context
@@ -65,7 +59,7 @@ pub struct MarketContextData {
 }
 
 /// Entry for discount curves - stores ID and optional bump info
-/// 
+///
 /// TODO: Once DiscountCurve has state methods, replace Option<DiscountCurve>
 /// with DiscountCurveState for full serialization support.
 #[cfg(feature = "serde")]

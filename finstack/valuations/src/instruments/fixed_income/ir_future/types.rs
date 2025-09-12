@@ -151,20 +151,20 @@ impl InterestRateFuture {
             // Calculate convexity adjustment for all futures
             // Use more sophisticated volatility estimate based on time to expiry
             let vol_estimate = if t_fixing <= 0.25 {
-                0.008  // 80bp for very short-dated futures
+                0.008 // 80bp for very short-dated futures
             } else if t_fixing <= 0.5 {
-                0.0085  // 85bp for 3-6 month futures  
+                0.0085 // 85bp for 3-6 month futures
             } else if t_fixing <= 1.0 {
-                0.009  // 90bp for 6-12 month futures
+                0.009 // 90bp for 6-12 month futures
             } else if t_fixing <= 2.0 {
-                0.0095  // 95bp for 1-2 year futures
+                0.0095 // 95bp for 1-2 year futures
             } else {
-                0.01  // 100bp for longer-dated futures
+                0.01 // 100bp for longer-dated futures
             };
-            
+
             // Hull-White approximation: CA = 0.5 * σ² * T₁ * T₂
             // where T₁ is time to expiry and T₂ is typically close to T₁ for futures
-            let tau = t_end - t_start;  // Length of underlying rate period
+            let tau = t_end - t_start; // Length of underlying rate period
             let convexity = 0.5 * vol_estimate * vol_estimate * t_fixing * (t_fixing + tau);
             forward_rate + convexity
         };

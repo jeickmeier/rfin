@@ -39,11 +39,11 @@ pub struct IRSBuilder {
     id: Option<String>,
     notional: Option<Money>,
     side: Option<PayReceive>,
-    
+
     // Leg specifications (built via convenience methods)
     fixed_leg: Option<FixedLegSpec>,
     float_leg: Option<FloatLegSpec>,
-    
+
     // Date range (shared for both legs)
     date_range: Option<DateRange>,
 }
@@ -167,7 +167,7 @@ impl IRSBuilder {
                 id: "swap_dates".to_string(),
             })
         })?;
-        
+
         // Validate leg specifications
         let mut fixed_leg = self.fixed_leg.ok_or_else(|| {
             finstack_core::Error::Input(finstack_core::error::InputError::NotFound {

@@ -24,11 +24,10 @@ pub fn build_with_metrics_dyn(
     base_value: Money,
     metrics: &[crate::metrics::MetricId],
 ) -> finstack_core::Result<crate::results::ValuationResult> {
-    
-
     // Create an owned clone for the Arc to avoid lifetime issues
     // This approach reduces generic monomorphization across compilation units
-    let instrument_clone: Box<dyn crate::instruments::traits::InstrumentLike> = instrument.clone_box();
+    let instrument_clone: Box<dyn crate::instruments::traits::InstrumentLike> =
+        instrument.clone_box();
 
     let mut context = MetricContext::new(
         Arc::from(instrument_clone),

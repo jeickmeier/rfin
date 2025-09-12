@@ -5,13 +5,13 @@
 
 use crate::calibration::quote::CreditQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
-use ordered_float::OrderedFloat;
 use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_core::math::Solver;
+use ordered_float::OrderedFloat;
 
-use finstack_core::market_data::MarketContext;
 use finstack_core::dates::utils::add_months;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
+use finstack_core::market_data::MarketContext;
 // use finstack_core::market_data::context::MarketContext; // use re-export above
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::money::Money;
@@ -189,7 +189,6 @@ impl BaseCorrelationCalibrator {
         for (index, (attach_pct, detach_pct, _maturity, upfront_pct, running_spread_bp)) in
             tranche_quotes.into_iter().enumerate()
         {
-
             // Create synthetic tranche for this quote
             let synthetic_tranche =
                 self.create_synthetic_tranche(*attach_pct, *detach_pct, *running_spread_bp)?;
@@ -210,11 +209,11 @@ impl BaseCorrelationCalibrator {
             // Pre-build references outside the objective function
             let solved_correlations_ref = &solved_correlations;
             let detach_pct_val = *detach_pct;
-            
+
             // OPTIMIZATION: Pre-clone the market context once outside the hot loop
             // This avoids cloning the entire context on every iteration
             let template_market_ctx = market_context.clone();
-            
+
             // OPTIMIZATION: Pre-allocate the correlation points vector with known capacity
             // This reduces allocations in the hot loop
             let base_capacity = solved_correlations_ref.len() + 2; // +2 for trial point and potential padding
@@ -247,7 +246,10 @@ impl BaseCorrelationCalibrator {
                 // This only updates the correlation curve without rebuilding the entire CreditIndexData
                 let temp_market_ctx = template_market_ctx
                     .clone()
-                    .update_base_correlation_curve(synthetic_tranche.credit_index_id, temp_base_corr_curve)
+                    .update_base_correlation_curve(
+                        synthetic_tranche.credit_index_id,
+                        temp_base_corr_curve,
+                    )
                     .unwrap_or_else(|| {
                         // This should never happen as the index exists, but provide a fallback
                         template_market_ctx.clone()
@@ -294,13 +296,12 @@ impl BaseCorrelationCalibrator {
 
         // Validate the calibrated base correlation curve
         use crate::calibration::validation::CurveValidator;
-        final_curve.validate().map_err(|e| finstack_core::Error::Calibration {
-            message: format!(
-                "Calibrated base correlation curve failed validation: {}",
-                e
-            ),
-            category: "base_correlation_validation".to_string(),
-        })?;
+        final_curve
+            .validate()
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: format!("Calibrated base correlation curve failed validation: {}", e),
+                category: "base_correlation_validation".to_string(),
+            })?;
 
         let report = CalibrationReport::for_type("base_correlation", residuals, total_iterations)
             .with_metadata("calibrated_tranches", num_tranche_quotes.to_string())
@@ -441,9 +442,7 @@ impl BaseCorrelationSurfaceCalibrator {
 
         // Calibrate each maturity separately
         for &maturity_years in &self.target_maturities {
-            if let Some(maturity_quotes) =
-                quotes_by_maturity.get(&maturity_years.into())
-            {
+            if let Some(maturity_quotes) = quotes_by_maturity.get(&maturity_years.into()) {
                 let calibrator = BaseCorrelationCalibrator::new(
                     &self.index_id,
                     self.series,
@@ -475,9 +474,9 @@ impl BaseCorrelationSurfaceCalibrator {
         }
 
         let report = CalibrationReport::for_type(
-            "base_correlation_surface", 
-            all_residuals, 
-            total_iterations
+            "base_correlation_surface",
+            all_residuals,
+            total_iterations,
         )
         .with_metadata(
             "calibrated_maturities",
@@ -492,13 +491,13 @@ impl BaseCorrelationSurfaceCalibrator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use finstack_core::market_data::CreditIndexData;
     #[allow(unused_imports)]
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
     use finstack_core::market_data::term_structures::{
         discount_curve::DiscountCurve, BaseCorrelationCurve,
     };
+    use finstack_core::market_data::CreditIndexData;
     // use finstack_core::market_data::interp::InterpStyle; // not used in this test module
     use std::sync::Arc;
     use time::Month;

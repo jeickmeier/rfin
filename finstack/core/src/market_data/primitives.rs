@@ -46,7 +46,7 @@ pub enum MarketScalar {
 }
 
 /// Generic date-indexed time series with simple interpolation.
-/// 
+///
 /// Note: This struct cannot be directly serialized due to the internal DataFrame.
 /// Use `to_state()` and `from_state()` for serialization.
 #[derive(Clone, Debug)]
@@ -261,23 +261,25 @@ pub struct ScalarTimeSeriesState {
 impl ScalarTimeSeries {
     /// Extract serializable state
     pub fn to_state(&self) -> Result<ScalarTimeSeriesState> {
-        let dates = self.data
+        let dates = self
+            .data
             .column("date")
             .map_err(|_| crate::Error::Internal)?
             .i32()
             .map_err(|_| crate::Error::Internal)?;
-        let values = self.data
+        let values = self
+            .data
             .column("value")
             .map_err(|_| crate::Error::Internal)?
             .f64()
             .map_err(|_| crate::Error::Internal)?;
-        
+
         let observations: Vec<(Date, crate::F)> = dates
             .into_no_null_iter()
             .zip(values.into_no_null_iter())
             .map(|(d, v)| (crate::dates::utils::days_since_epoch_to_date(d), v))
             .collect();
-        
+
         Ok(ScalarTimeSeriesState {
             id: self.id.to_string(),
             currency: self.currency,
@@ -285,7 +287,7 @@ impl ScalarTimeSeries {
             interpolation: self.interpolation,
         })
     }
-    
+
     /// Create from serialized state
     pub fn from_state(state: ScalarTimeSeriesState) -> Result<Self> {
         Self::new(state.id, state.observations, state.currency)

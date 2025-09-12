@@ -38,7 +38,6 @@ mod serde_tests {
             Rule::fixed(Month::January, 1),
             Rule::fixed_next_monday(Month::December, 25),
             Rule::fixed_weekend(Month::July, 4),
-            
             // Nth weekday rules
             Rule::NthWeekday {
                 n: 3,
@@ -50,7 +49,6 @@ mod serde_tests {
                 weekday: Weekday::Monday,
                 month: Month::May,
             },
-            
             // Weekday shift rules
             Rule::WeekdayShift {
                 weekday: Weekday::Monday,
@@ -58,16 +56,13 @@ mod serde_tests {
                 day: 25,
                 dir: Direction::Before,
             },
-            
             // Easter offset
             Rule::EasterOffset(-3), // Good Friday
-            Rule::EasterOffset(0),   // Easter Monday
-            
+            Rule::EasterOffset(0),  // Easter Monday
             // Chinese calendar rules
             Rule::ChineseNewYear,
             Rule::QingMing,
             Rule::BuddhasBirthday,
-            
             // Japanese equinox rules
             Rule::VernalEquinoxJP,
             Rule::AutumnalEquinoxJP,
@@ -76,23 +71,55 @@ mod serde_tests {
         for rule in test_cases {
             let json = serde_json::to_string(&rule).unwrap();
             let deserialized: Rule = serde_json::from_str(&json).unwrap();
-            
+
             // Compare based on variant type
             match (rule, deserialized) {
-                (Rule::Fixed { month: m1, day: d1, observed: o1 }, 
-                 Rule::Fixed { month: m2, day: d2, observed: o2 }) => {
+                (
+                    Rule::Fixed {
+                        month: m1,
+                        day: d1,
+                        observed: o1,
+                    },
+                    Rule::Fixed {
+                        month: m2,
+                        day: d2,
+                        observed: o2,
+                    },
+                ) => {
                     assert_eq!(m1, m2);
                     assert_eq!(d1, d2);
                     assert_eq!(o1, o2);
                 }
-                (Rule::NthWeekday { n: n1, weekday: w1, month: m1 },
-                 Rule::NthWeekday { n: n2, weekday: w2, month: m2 }) => {
+                (
+                    Rule::NthWeekday {
+                        n: n1,
+                        weekday: w1,
+                        month: m1,
+                    },
+                    Rule::NthWeekday {
+                        n: n2,
+                        weekday: w2,
+                        month: m2,
+                    },
+                ) => {
                     assert_eq!(n1, n2);
                     assert_eq!(w1, w2);
                     assert_eq!(m1, m2);
                 }
-                (Rule::WeekdayShift { weekday: w1, month: m1, day: d1, dir: dir1 },
-                 Rule::WeekdayShift { weekday: w2, month: m2, day: d2, dir: dir2 }) => {
+                (
+                    Rule::WeekdayShift {
+                        weekday: w1,
+                        month: m1,
+                        day: d1,
+                        dir: dir1,
+                    },
+                    Rule::WeekdayShift {
+                        weekday: w2,
+                        month: m2,
+                        day: d2,
+                        dir: dir2,
+                    },
+                ) => {
                     assert_eq!(w1, w2);
                     assert_eq!(m1, m2);
                     assert_eq!(d1, d2);
@@ -118,7 +145,7 @@ mod serde_tests {
         let json = serde_json::to_string(&rule).unwrap();
         assert!(json.contains("\"fixed\""));
         assert!(json.contains("\"next_monday\""));
-        
+
         let observed = Observed::FriIfSatMonIfSun;
         let json = serde_json::to_string(&observed).unwrap();
         assert_eq!(json, "\"fri_if_sat_mon_if_sun\"");
@@ -139,10 +166,10 @@ mod serde_tests {
 
         let json = serde_json::to_string(&rules).unwrap();
         let deserialized: Vec<Rule> = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(rules.len(), deserialized.len());
-        
-        // Note: We can't use direct equality comparison on Rule because 
+
+        // Note: We can't use direct equality comparison on Rule because
         // it doesn't derive PartialEq. We'd need to check each field individually
         // as done in the test_rule_serde_roundtrip test above.
     }
@@ -152,7 +179,7 @@ mod serde_tests {
         // The Span variant should be skipped during serialization
         // We can't easily create a Span rule in tests since it requires a &'static Rule,
         // but we can verify the skip behavior doesn't break serialization of other variants
-        
+
         // If we had a way to create a Span rule, we'd test that it gets skipped:
         // let rule = Rule::Span { start: &SOME_STATIC_RULE, len: 7 };
         // let json = serde_json::to_string(&rule).unwrap();
@@ -168,7 +195,7 @@ mod no_serde_tests {
         // the calendar rules can still be used without serialization
         use finstack_core::dates::calendar::Rule;
         use time::Month;
-        
+
         let _rule = Rule::fixed(Month::January, 1);
         // The rule can be created and used, just not serialized
     }

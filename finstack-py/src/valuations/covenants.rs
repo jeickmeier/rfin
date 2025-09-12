@@ -3,12 +3,12 @@
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
+use finstack_valuations::covenants::CovenantReport;
 use finstack_valuations::covenants::{CovenantBreach, CovenantEngine, CovenantSpec};
 use finstack_valuations::instruments::fixed_income::loan::covenants::{
     Covenant, CovenantConsequence, CovenantType, ThresholdTest,
 };
 use finstack_valuations::metrics::MetricId;
-use finstack_valuations::covenants::CovenantReport;
 use std::collections::HashMap;
 
 use crate::core::dates::PyDate;

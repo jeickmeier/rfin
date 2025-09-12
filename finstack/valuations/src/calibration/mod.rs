@@ -61,7 +61,7 @@
 //!
 //! ### Important Notes for Multi-Curve Calibration
 //!
-//! 1. **Instrument Selection**: 
+//! 1. **Instrument Selection**:
 //!    - For discount curve: Use deposits and OIS swaps (instruments that don't require forward curves)
 //!    - For forward curves: Use FRAs, futures, and tenor-specific swaps
 //!
@@ -77,8 +77,8 @@ use finstack_core::F;
 
 // Submodules
 pub mod bootstrap;
-pub mod simple_calibration;
 pub mod derivatives;
+pub mod simple_calibration;
 
 // Internal modules
 mod config;
@@ -93,13 +93,14 @@ mod validation;
 pub use config::{CalibrationConfig, MultiCurveConfig, MultiCurveMode, SolverKind};
 pub use constraints::{CalibrationConstraint, ConstraintType, InequalityDirection};
 pub use quote::{
-    CreditQuote, FutureSpecs, InflationQuote, MarketQuote, QuoteWithMetadata, RatesQuote,
-    VolQuote,
+    CreditQuote, FutureSpecs, InflationQuote, MarketQuote, QuoteWithMetadata, RatesQuote, VolQuote,
 };
 pub use report::CalibrationReport;
 pub use simple_calibration::SimpleCalibration;
 pub use traits::Calibrator;
-pub use validation::{CurveValidator, MarketValidator, SurfaceValidator, ValidationConfig, ValidationError};
+pub use validation::{
+    CurveValidator, MarketValidator, SurfaceValidator, ValidationConfig, ValidationError,
+};
 
 /// Finite penalty value used in objective functions instead of infinity.
 /// Using a large finite value helps solvers behave more predictably and

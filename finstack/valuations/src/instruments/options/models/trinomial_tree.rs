@@ -7,8 +7,8 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::{Error, Result, F};
 
 use super::tree_framework::{
-    state_keys, StateVariables, TreeBranching, TreeGreeks, TreeModel, TreeValuator,
-    price_recombining_tree, RecombiningInputs,
+    price_recombining_tree, state_keys, RecombiningInputs, StateVariables, TreeBranching,
+    TreeGreeks, TreeModel, TreeValuator,
 };
 
 #[cfg(test)]
@@ -129,13 +129,15 @@ impl TrinomialTree {
         let r = *initial_vars
             .get(state_keys::INTEREST_RATE)
             .ok_or(Error::Internal)?;
-        let q = initial_vars.get(state_keys::DIVIDEND_YIELD).copied().unwrap_or(0.0);
+        let q = initial_vars
+            .get(state_keys::DIVIDEND_YIELD)
+            .copied()
+            .unwrap_or(0.0);
         let sigma = *initial_vars
             .get(state_keys::VOLATILITY)
             .ok_or(Error::Internal)?;
 
-        let (u, d, m, p_u, p_d, p_m) =
-            self.calculate_parameters(r, sigma, time_to_maturity, q)?;
+        let (u, d, m, p_u, p_d, p_m) = self.calculate_parameters(r, sigma, time_to_maturity, q)?;
 
         price_recombining_tree(RecombiningInputs {
             branching: TreeBranching::Trinomial,

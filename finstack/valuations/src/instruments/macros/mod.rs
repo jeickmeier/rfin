@@ -298,34 +298,45 @@ macro_rules! impl_builder_enhancements {
     ($builder:ident) => {
         impl $builder {
             /// Quick setup for USD market standard parameters
-            pub fn usd_standard(
-                mut self,
-                disc_id: &'static str,
-            ) -> Self {
-                self.market_refs = Some($crate::instruments::common::MarketRefs::discount_only(disc_id));
-                self.schedule_params = Some($crate::instruments::common::InstrumentScheduleParams::usd_standard());
+            pub fn usd_standard(mut self, disc_id: &'static str) -> Self {
+                self.market_refs = Some($crate::instruments::common::MarketRefs::discount_only(
+                    disc_id,
+                ));
+                self.schedule_params =
+                    Some($crate::instruments::common::InstrumentScheduleParams::usd_standard());
                 self
             }
 
             /// Quick setup for EUR market standard parameters
-            pub fn eur_standard(
-                mut self,
-                disc_id: &'static str,
-            ) -> Self {
-                self.market_refs = Some($crate::instruments::common::MarketRefs::discount_only(disc_id));
-                self.schedule_params = Some($crate::instruments::common::InstrumentScheduleParams::eur_standard());
+            pub fn eur_standard(mut self, disc_id: &'static str) -> Self {
+                self.market_refs = Some($crate::instruments::common::MarketRefs::discount_only(
+                    disc_id,
+                ));
+                self.schedule_params =
+                    Some($crate::instruments::common::InstrumentScheduleParams::eur_standard());
                 self
             }
 
             /// Add date range for instruments with start/end dates
-            pub fn date_range(mut self, start: finstack_core::dates::Date, end: finstack_core::dates::Date) -> Self {
+            pub fn date_range(
+                mut self,
+                start: finstack_core::dates::Date,
+                end: finstack_core::dates::Date,
+            ) -> Self {
                 self.date_range = Some($crate::instruments::common::DateRange::new(start, end));
                 self
             }
 
             /// Add date range from tenor
-            pub fn tenor(mut self, start: finstack_core::dates::Date, tenor_years: finstack_core::F) -> Self {
-                self.date_range = Some($crate::instruments::common::DateRange::from_tenor(start, tenor_years));
+            pub fn tenor(
+                mut self,
+                start: finstack_core::dates::Date,
+                tenor_years: finstack_core::F,
+            ) -> Self {
+                self.date_range = Some($crate::instruments::common::DateRange::from_tenor(
+                    start,
+                    tenor_years,
+                ));
                 self
             }
         }

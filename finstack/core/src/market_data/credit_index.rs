@@ -3,9 +3,7 @@
 //! Aggregates market data components required for pricing instruments on a
 //! standardized credit index (e.g., CDX.NA.IG.42, iTraxx Europe).
 
-use crate::market_data::term_structures::{
-    hazard_curve::HazardCurve, BaseCorrelationCurve,
-};
+use crate::market_data::term_structures::{hazard_curve::HazardCurve, BaseCorrelationCurve};
 use crate::prelude::*;
 use crate::F;
 use std::collections::HashMap;
@@ -15,7 +13,7 @@ use std::sync::Arc;
 ///
 /// Contains all the curves and parameters needed to price credit derivatives
 /// on a standardized credit index using models like the Gaussian Copula.
-/// 
+///
 /// Note: This struct contains Arc-wrapped curves that cannot be directly serialized.
 /// For persistence, extract and serialize the underlying curve data separately.
 #[derive(Clone, Debug)]
@@ -169,5 +167,3 @@ impl CreditIndexDataBuilder {
         })
     }
 }
-
-

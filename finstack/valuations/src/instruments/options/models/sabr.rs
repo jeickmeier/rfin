@@ -318,9 +318,6 @@ impl SABRModel {
         }
     }
 
-
-
-
     /// Get model parameters
     pub fn parameters(&self) -> &SABRParameters {
         &self.params
@@ -368,7 +365,6 @@ impl SABRModel {
 
         Ok(())
     }
-
 }
 
 /// SABR calibration using market prices
@@ -451,7 +447,14 @@ impl SABRCalibrator {
         if min_rate < 0.0 {
             // Use shifted SABR with derivatives
             let shift = (-min_rate + 0.001).max(0.001); // At least 10bps shift
-            self.calibrate_shifted_with_derivatives(forward, strikes, market_vols, time_to_expiry, beta, shift)
+            self.calibrate_shifted_with_derivatives(
+                forward,
+                strikes,
+                market_vols,
+                time_to_expiry,
+                beta,
+                shift,
+            )
         } else {
             // Use standard SABR with derivatives
             self.calibrate_with_derivatives(forward, strikes, market_vols, time_to_expiry, beta)
@@ -515,11 +518,11 @@ impl SABRCalibrator {
 
         // Use Levenberg-Marquardt solver for robust calibration
         use finstack_core::math::solver_multi::{LevenbergMarquardtSolver, MultiSolver};
-        
+
         let solver = LevenbergMarquardtSolver::new()
             .with_tolerance(self.tolerance)
             .with_max_iterations(self.max_iterations);
-        
+
         // Define objective function: sum of squared volatility errors
         let strikes_vec = strikes.to_vec();
         let market_vols_vec = market_vols.to_vec();
@@ -527,16 +530,18 @@ impl SABRCalibrator {
             let alpha = params[0];
             let nu = params[1];
             let rho = params[2];
-            
+
             // Create SABR parameters and model
             if let Ok(sabr_params) = SABRParameters::new(alpha, beta, nu, rho) {
                 let model = SABRModel::new(sabr_params);
-                
+
                 // Calculate sum of squared errors
-                strikes_vec.iter()
+                strikes_vec
+                    .iter()
                     .zip(market_vols_vec.iter())
                     .map(|(&strike, &market_vol)| {
-                        model.implied_volatility(forward, strike, time_to_expiry)
+                        model
+                            .implied_volatility(forward, strike, time_to_expiry)
                             .map(|model_vol| (model_vol - market_vol).powi(2))
                             .unwrap_or(1e6) // Large penalty for invalid parameters
                     })
@@ -545,25 +550,25 @@ impl SABRCalibrator {
                 1e12 // Very large penalty for invalid parameters
             }
         };
-        
+
         // Initial guess for parameters
         let atm_vol = self.find_atm_vol(forward, strikes, market_vols)?;
         let initial = vec![
             atm_vol * forward.powf(1.0 - beta), // alpha: ATM vol adjusted for beta
-            0.3,                                  // nu: typical vol-of-vol
-            0.0,                                  // rho: start neutral
+            0.3,                                // nu: typical vol-of-vol
+            0.0,                                // rho: start neutral
         ];
-        
+
         // Parameter bounds for SABR model
         let bounds = vec![
-            (0.001, 5.0),     // alpha: positive, reasonable range
-            (0.001, 2.0),     // nu: positive vol-of-vol
-            (-0.99, 0.99),    // rho: correlation bounds
+            (0.001, 5.0),  // alpha: positive, reasonable range
+            (0.001, 2.0),  // nu: positive vol-of-vol
+            (-0.99, 0.99), // rho: correlation bounds
         ];
-        
+
         // Calibrate using multi-dimensional solver
         let solution = solver.minimize(objective, &initial, Some(&bounds))?;
-        
+
         // Extract calibrated parameters
         SABRParameters::new(solution[0], beta, solution[1], solution[2])
     }
@@ -582,9 +587,11 @@ impl SABRCalibrator {
         }
 
         // Use analytical derivatives from the calibration module
-        use crate::calibration::derivatives::sabr_derivatives::{SABRCalibrationDerivatives, SABRMarketData};
+        use crate::calibration::derivatives::sabr_derivatives::{
+            SABRCalibrationDerivatives, SABRMarketData,
+        };
         use finstack_core::math::solver_multi::LevenbergMarquardtSolver;
-        
+
         // Create market data structure
         let market_data = SABRMarketData {
             forward,
@@ -593,30 +600,33 @@ impl SABRCalibrator {
             market_vols: market_vols.to_vec(),
             beta,
         };
-        
+
         // Create derivatives provider
         let derivatives_provider = SABRCalibrationDerivatives::new(market_data.clone());
-        
+
         // Create Levenberg-Marquardt solver
         let solver = LevenbergMarquardtSolver::new()
             .with_tolerance(self.tolerance)
             .with_max_iterations(self.max_iterations);
-        
+
         // Define objective function: sum of squared volatility errors
         let objective = move |params: &[F]| -> F {
             let alpha = params[0];
             let nu = params[1];
             let rho = params[2];
-            
+
             // Create SABR parameters and model
             if let Ok(sabr_params) = SABRParameters::new(alpha, beta, nu, rho) {
                 let model = SABRModel::new(sabr_params);
-                
+
                 // Calculate sum of squared errors
-                market_data.strikes.iter()
+                market_data
+                    .strikes
+                    .iter()
                     .zip(market_data.market_vols.iter())
                     .map(|(&strike, &market_vol)| {
-                        model.implied_volatility(forward, strike, time_to_expiry)
+                        model
+                            .implied_volatility(forward, strike, time_to_expiry)
                             .map(|model_vol| (model_vol - market_vol).powi(2))
                             .unwrap_or(1e6) // Large penalty for invalid parameters
                     })
@@ -625,30 +635,35 @@ impl SABRCalibrator {
                 1e12 // Very large penalty for invalid parameters
             }
         };
-        
+
         // Initial guess for parameters
         let atm_vol = self.find_atm_vol(forward, strikes, market_vols)?;
         let initial = vec![
             atm_vol * forward.powf(1.0 - beta), // alpha
-            0.3,                                  // nu
-            0.0,                                  // rho
+            0.3,                                // nu
+            0.0,                                // rho
         ];
-        
+
         // Parameter bounds
         let bounds = vec![
             (1e-6, 5.0),   // alpha bounds
             (1e-6, 2.0),   // nu bounds
             (-0.99, 0.99), // rho bounds
         ];
-        
+
         // Solve with analytical derivatives
-        let solution = solver.minimize_with_derivatives(objective, &derivatives_provider, &initial, Some(&bounds))?;
-        
+        let solution = solver.minimize_with_derivatives(
+            objective,
+            &derivatives_provider,
+            &initial,
+            Some(&bounds),
+        )?;
+
         // Extract calibrated parameters
         let alpha = solution[0];
         let nu = solution[1];
         let rho = solution[2];
-        
+
         SABRParameters::new(alpha, beta, nu, rho)
     }
 
@@ -740,7 +755,8 @@ impl SABRSmile {
         let mut vols = Vec::with_capacity(strikes.len());
 
         for &strike in strikes {
-            let vol = self.model
+            let vol = self
+                .model
                 .implied_volatility(self.forward, strike, self.time_to_expiry)?;
             vols.push(vol);
         }
@@ -768,7 +784,6 @@ impl SABRSmile {
         let strike = self.forward * (z * std_dev).exp();
         Ok(strike)
     }
-
 }
 
 /// Helper function for normal CDF inverse (simplified)
@@ -1001,7 +1016,6 @@ mod tests {
         }
     }
 
-
     #[test]
     fn test_sabr_atm_stability() {
         // Test enhanced ATM stability with very close strikes
@@ -1113,5 +1127,4 @@ mod tests {
         let chi_rho_minus_one = model_rho_minus_one.calculate_chi_robust(0.1);
         assert!(chi_rho_minus_one.is_ok());
     }
-
 }

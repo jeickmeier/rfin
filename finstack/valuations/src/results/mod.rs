@@ -1,13 +1,12 @@
 //! Result type for pricing.
 //!
+use crate::covenants::CovenantReport;
 pub use finstack_core::money::fx::FxPolicyMeta;
 use finstack_core::prelude::*;
 use finstack_core::F;
 use hashbrown::HashMap;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use crate::covenants::CovenantReport;
-
 
 /// Extended metadata for valuation results.
 #[derive(Clone, Debug, Serialize, Deserialize)]

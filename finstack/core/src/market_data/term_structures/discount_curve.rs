@@ -91,9 +91,9 @@ impl DiscountCurve {
     }
 
     /// Builder entry-point.
-    pub fn builder(id: &'static str) -> DiscountCurveBuilder {
+    pub fn builder(id: impl Into<CurveId>) -> DiscountCurveBuilder {
         DiscountCurveBuilder {
-            id,
+            id: id.into(),
             base: Date::from_calendar_date(1970, time::Month::January, 1).unwrap(),
             points: Vec::new(),
             style: InterpStyle::Linear,
@@ -111,7 +111,7 @@ impl DiscountCurve {
     /// For discrete points, we use: f(t) ≈ (DF(t) - DF(t+dt)) / (dt * DF(t+dt))
     pub fn to_forward_curve(
         &self,
-        forward_id: &'static str,
+        forward_id: impl Into<CurveId>,
         tenor_years: F,
     ) -> crate::Result<super::forward_curve::ForwardCurve> {
         use super::forward_curve::ForwardCurve;
@@ -183,7 +183,7 @@ impl DiscountCurve {
     /// Create a forward curve from this discount curve using a specific interpolation style.
     pub fn to_forward_curve_with_interp(
         &self,
-        forward_id: &'static str,
+        forward_id: impl Into<CurveId>,
         tenor_years: F,
         interp_style: InterpStyle,
     ) -> crate::Result<super::forward_curve::ForwardCurve> {
@@ -249,7 +249,7 @@ impl DiscountCurve {
 
 /// Fluent builder for [`DiscountCurve`].
 pub struct DiscountCurveBuilder {
-    id: &'static str,
+    id: CurveId,
     base: Date,
     points: Vec<(F, F)>, // (t, df)
     style: InterpStyle,
@@ -319,7 +319,7 @@ impl DiscountCurveBuilder {
             .map_err(|_| super::CurveError::NonPositiveValue)?;
 
         Ok(DiscountCurve {
-            id: CurveId::new(self.id),
+            id: self.id,
             base: self.base,
             knots,
             dfs,
@@ -381,15 +381,17 @@ impl<'de> serde::Deserialize<'de> for DiscountCurve {
         D: serde::Deserializer<'de>,
     {
         use serde::de::Error;
-        
+
         let data = DiscountCurveData::deserialize(deserializer)?;
-        let interp = data.interp_style.build_enum(
-            data.knots.clone().into_boxed_slice(),
-            data.dfs.clone().into_boxed_slice(),
-            data.extrapolation,
-        )
-        .map_err(|e| D::Error::custom(format!("Failed to reconstruct interpolator: {}", e)))?;
-        
+        let interp = data
+            .interp_style
+            .build_enum(
+                data.knots.clone().into_boxed_slice(),
+                data.dfs.clone().into_boxed_slice(),
+                data.extrapolation,
+            )
+            .map_err(|e| D::Error::custom(format!("Failed to reconstruct interpolator: {}", e)))?;
+
         Ok(DiscountCurve {
             id: data.id,
             base: data.base,

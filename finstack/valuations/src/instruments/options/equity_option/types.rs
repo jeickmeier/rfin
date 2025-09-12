@@ -50,7 +50,7 @@ impl EquityOption {
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT")
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
-        
+
         let option_params = OptionParams::european_call(strike, expiry);
         let market_refs = MarketRefs::option("USD-OIS", "EQUITY-VOL");
 
@@ -78,7 +78,7 @@ impl EquityOption {
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT")
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
-        
+
         let option_params = OptionParams::european_put(strike, expiry);
         let market_refs = MarketRefs::option("USD-OIS", "EQUITY-VOL");
 
@@ -106,7 +106,7 @@ impl EquityOption {
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT")
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
-        
+
         let option_params = OptionParams::european_call(strike, expiry)
             .with_exercise_style(ExerciseStyle::American);
         let market_refs = MarketRefs::option("USD-OIS", "EQUITY-VOL");

@@ -245,7 +245,11 @@ impl OptionParams {
 
     /// Create European call option parameters
     pub fn european_call(strike: F, expiry: Date) -> Self {
-        Self::new(strike, expiry, crate::instruments::options::OptionType::Call)
+        Self::new(
+            strike,
+            expiry,
+            crate::instruments::options::OptionType::Call,
+        )
     }
 
     /// Create European put option parameters
@@ -263,7 +267,10 @@ impl OptionParams {
     }
 
     /// Set settlement type
-    pub fn with_settlement(mut self, settlement: crate::instruments::options::SettlementType) -> Self {
+    pub fn with_settlement(
+        mut self,
+        settlement: crate::instruments::options::SettlementType,
+    ) -> Self {
         self.settlement = settlement;
         self
     }
@@ -377,12 +384,12 @@ impl CreditParams {
     pub fn senior_unsecured(reference_entity: impl Into<String>, credit_id: &'static str) -> Self {
         Self::new(reference_entity, 0.4, credit_id)
     }
-    
+
     /// ISDA standard subordinated parameters (20% recovery)
     pub fn subordinated(reference_entity: impl Into<String>, credit_id: &'static str) -> Self {
         Self::new(reference_entity, 0.2, credit_id)
     }
-    
+
     /// Standard investment grade parameters (40% recovery) - alias for senior_unsecured
     pub fn investment_grade(reference_entity: impl Into<String>, credit_id: &'static str) -> Self {
         Self::senior_unsecured(reference_entity, credit_id)
@@ -459,11 +466,7 @@ pub struct LoanFacilityParams {
 
 impl LoanFacilityParams {
     /// Create loan facility parameters
-    pub fn new(
-        commitment: Money,
-        facility_expiry: Date,
-        maturity: Date,
-    ) -> Self {
+    pub fn new(commitment: Money, facility_expiry: Date, maturity: Date) -> Self {
         Self {
             commitment,
             drawn_amount: None,
@@ -548,13 +551,13 @@ impl LoanFeeParams {
 }
 
 /// Helper functions for working with parameter groups in builders.
-/// 
+///
 /// These functions assist in converting parameter groups to final instrument specifications.
 pub fn validate_currency_consistency(amounts: &[Money]) -> finstack_core::Result<()> {
     if amounts.is_empty() {
         return Ok(());
     }
-    
+
     let expected_currency = amounts[0].currency();
     for amount in amounts.iter().skip(1) {
         if amount.currency() != expected_currency {

@@ -56,7 +56,7 @@ pub struct InflationCurveData {
 
 impl InflationCurve {
     /// Start building an inflation curve with identifier `id`.
-    pub fn builder(id: impl Into<String>) -> InflationCurveBuilder {
+    pub fn builder(id: impl Into<CurveId>) -> InflationCurveBuilder {
         InflationCurveBuilder {
             id: id.into(),
             base_cpi: 100.0,
@@ -124,7 +124,7 @@ impl InflationTrait for InflationCurve {
 
 /// Fluent builder for [`InflationCurve`].
 pub struct InflationCurveBuilder {
-    id: String,
+    id: CurveId,
     base_cpi: F,
     points: Vec<(F, F)>, // (t, cpi)
     style: InterpStyle,
@@ -171,7 +171,7 @@ impl InflationCurveBuilder {
             ExtrapolationPolicy::default(),
         )?;
         Ok(InflationCurve {
-            id: CurveId::new(&self.id),
+            id: self.id,
             base_cpi: self.base_cpi,
             knots,
             cpi_levels,
@@ -211,15 +211,17 @@ impl<'de> serde::Deserialize<'de> for InflationCurve {
         D: serde::Deserializer<'de>,
     {
         use serde::de::Error;
-        
+
         let data = InflationCurveData::deserialize(deserializer)?;
-        let interp = data.interp_style.build_enum(
-            data.knots.clone().into_boxed_slice(),
-            data.cpi_levels.clone().into_boxed_slice(),
-            data.extrapolation,
-        )
-        .map_err(|e| D::Error::custom(format!("Failed to reconstruct interpolator: {}", e)))?;
-        
+        let interp = data
+            .interp_style
+            .build_enum(
+                data.knots.clone().into_boxed_slice(),
+                data.cpi_levels.clone().into_boxed_slice(),
+                data.extrapolation,
+            )
+            .map_err(|e| D::Error::custom(format!("Failed to reconstruct interpolator: {}", e)))?;
+
         Ok(InflationCurve {
             id: data.id,
             base_cpi: data.base_cpi,

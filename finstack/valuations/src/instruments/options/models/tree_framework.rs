@@ -5,10 +5,10 @@
 //! (equity + rates, equity + credit spread, etc.) without requiring code changes
 //! to the core pricing logic.
 
+use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::{Result, F};
 use std::collections::HashMap;
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
 
 /// Standard state variable keys for consistency
 pub mod state_keys {
@@ -391,8 +391,7 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
 
                     let mut node_vars = inputs.initial_vars.clone();
                     node_vars.insert(state_keys::SPOT, spot_t);
-                    let node_state =
-                        NodeState::new(step, time_t, node_vars, inputs.market_context);
+                    let node_state = NodeState::new(step, time_t, node_vars, inputs.market_context);
 
                     values[i] = inputs.valuator.value_at_node(&node_state, continuation)?;
                 }
@@ -426,12 +425,8 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                     let mut terminal_vars = inputs.initial_vars.clone();
                     terminal_vars.insert(state_keys::SPOT, spot_t);
 
-                    let terminal_state = NodeState::new(
-                        inputs.steps,
-                        time_t,
-                        terminal_vars,
-                        inputs.market_context,
-                    );
+                    let terminal_state =
+                        NodeState::new(inputs.steps, time_t, terminal_vars, inputs.market_context);
                     let payoff = inputs.valuator.value_at_maturity(&terminal_state)?;
                     values[inputs.steps][j] = payoff;
                 }
@@ -459,8 +454,7 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
 
                     let mut node_vars = inputs.initial_vars.clone();
                     node_vars.insert(state_keys::SPOT, spot_t);
-                    let node_state =
-                        NodeState::new(step, time_t, node_vars, inputs.market_context);
+                    let node_state = NodeState::new(step, time_t, node_vars, inputs.market_context);
                     values[step][j] = inputs.valuator.value_at_node(&node_state, continuation)?;
                 }
             }
@@ -471,13 +465,21 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
 }
 
 /// Map Bermudan exercise dates (as year fractions relative to maturity) to tree step indices
-pub fn map_exercise_dates_to_steps(exercise_dates: &[F], total_time: F, steps: usize) -> Vec<usize> {
+pub fn map_exercise_dates_to_steps(
+    exercise_dates: &[F],
+    total_time: F,
+    steps: usize,
+) -> Vec<usize> {
     let mut out = Vec::new();
     if total_time <= 0.0 || steps == 0 {
         return out;
     }
     for &ex_time in exercise_dates {
-        let ratio = if total_time != 0.0 { ex_time / total_time } else { 0.0 };
+        let ratio = if total_time != 0.0 {
+            ex_time / total_time
+        } else {
+            0.0
+        };
         let step = (ratio * steps as F).round() as usize;
         if step <= steps {
             out.push(step);

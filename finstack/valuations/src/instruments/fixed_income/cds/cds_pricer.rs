@@ -19,19 +19,19 @@ use finstack_core::{Error, Result, F};
 /// ISDA 2014 standard constants
 pub mod isda_constants {
     use finstack_core::F;
-    
+
     /// Standard recovery rate for senior unsecured (40%)
     pub const STANDARD_RECOVERY_SENIOR: F = 0.40;
-    
+
     /// Standard recovery rate for subordinated (20%)
     pub const STANDARD_RECOVERY_SUB: F = 0.20;
-    
+
     /// Standard integration points per year for protection leg
     pub const STANDARD_INTEGRATION_POINTS: usize = 40;
-    
+
     /// Standard coupon payment day
     pub const STANDARD_COUPON_DAY: u8 = 20;
-    
+
     /// Tolerance for numerical calculations
     pub const NUMERICAL_TOLERANCE: F = 1e-10;
 }
@@ -85,7 +85,7 @@ impl CDSPricerConfig {
             use_isda_coupon_dates: true,
         }
     }
-    
+
     /// Create a simplified configuration for faster but less accurate pricing
     pub fn simplified() -> Self {
         Self {
@@ -249,9 +249,14 @@ impl CDSPricer {
                     ),
                 }
             }
-            IntegrationMethod::IsdaExact => {
-                self.accrual_on_default_isda_exact(spread, t_start, t_end, period_length, disc, surv)
-            }
+            IntegrationMethod::IsdaExact => self.accrual_on_default_isda_exact(
+                spread,
+                t_start,
+                t_end,
+                period_length,
+                disc,
+                surv,
+            ),
         }
     }
 
@@ -358,35 +363,35 @@ impl CDSPricer {
         // ISDA exact accrual calculation using proper integration
         let steps = isda_constants::STANDARD_INTEGRATION_POINTS;
         let dt = period_length / steps as F;
-        
+
         let mut accrual_pv = 0.0;
-        
+
         for i in 0..steps {
             let t = t_start + (i as F + 0.5) * dt;
-            
+
             // Time accrued from period start
             let accrual_fraction = (t - t_start) / period_length;
-            
+
             // Get survival probabilities for hazard rate calculation
             let t1 = t - dt * 0.5;
             let t2 = t + dt * 0.5;
             let sp1 = if t1 >= 0.0 { surv.sp(t1) } else { 1.0 };
             let sp2 = surv.sp(t2);
-            
+
             // Calculate instantaneous default probability
             let default_prob = if sp1 > 0.0 && sp2 < sp1 {
                 (sp1 - sp2) / dt
             } else {
                 0.0
             };
-            
+
             // Discount factor
             let df = disc.df(t);
-            
+
             // Add to integral: spread * accrual_fraction * default_prob * discount
             accrual_pv += spread * accrual_fraction * default_prob * df * dt;
         }
-        
+
         Ok(accrual_pv)
     }
 
@@ -657,36 +662,36 @@ impl CDSPricer {
         }
 
         let lgd = 1.0 - recovery;
-        
+
         // ISDA exact integration uses specific points between coupon dates
         // We integrate over the exact schedule dates plus additional points
         let steps_per_period = isda_constants::STANDARD_INTEGRATION_POINTS;
         let dt = (t_end - t_start) / steps_per_period as F;
-        
+
         let mut integral = 0.0;
-        
+
         // Use exact integration points as per ISDA standard
         for i in 0..steps_per_period {
             // Start and end of integration interval
             let t1 = t_start + i as F * dt;
             let t2 = t1 + dt;
-            
+
             // Survival probabilities at interval boundaries
             let sp1 = surv.sp(t1);
             let sp2 = surv.sp(t2);
-            
+
             // Exact integration assuming piecewise constant hazard rate
             if sp1 > sp2 && sp1 > 0.0 {
                 // Extract implied hazard rate for this interval
                 let hazard_rate = -(sp2 / sp1).ln() / dt;
-                
+
                 // Integrate survival * discount * hazard over the interval
                 // This is the exact formula for constant hazard rate
                 if hazard_rate.abs() > 1e-10 {
                     // For non-zero hazard rate
                     let avg_t = (t1 + t2) * 0.5;
                     let df_mid = disc.df(avg_t);
-                    
+
                     // Exact integral: ∫ S(t) * Z(t) * λ dt from t1 to t2
                     // = (S(t1) - S(t2)) * Z_avg for constant λ
                     integral += (sp1 - sp2) * df_mid;
@@ -695,12 +700,12 @@ impl CDSPricer {
                     let avg_t = (t1 + t2) * 0.5;
                     let df_mid = disc.df(avg_t);
                     let sp_mid = (sp1 + sp2) * 0.5;
-                    
+
                     integral += sp_mid * df_mid * hazard_rate * dt;
                 }
             }
         }
-        
+
         Ok(integral * lgd)
     }
 
@@ -1223,18 +1228,21 @@ mod tests {
         // Test complete ISDA 2014 standard compliance
         let (disc, credit) = create_test_curves();
         let as_of = Date::from_calendar_date(2025, time::Month::March, 20).unwrap();
-        
+
         // 1. Test ISDA standard configuration
         let config = CDSPricerConfig::isda_standard();
         assert_eq!(config.integration_method, IntegrationMethod::IsdaExact);
-        assert_eq!(config.steps_per_year, isda_constants::STANDARD_INTEGRATION_POINTS);
+        assert_eq!(
+            config.steps_per_year,
+            isda_constants::STANDARD_INTEGRATION_POINTS
+        );
         assert!(config.use_isda_coupon_dates);
         assert_eq!(config.tolerance, isda_constants::NUMERICAL_TOLERANCE);
-        
+
         // 2. Test standard recovery rates
         assert_eq!(isda_constants::STANDARD_RECOVERY_SENIOR, 0.40);
         assert_eq!(isda_constants::STANDARD_RECOVERY_SUB, 0.20);
-        
+
         // 3. Test CDS with ISDA standard dates
         let cds = CreditDefaultSwap::new_isda(
             "ISDA-TEST",
@@ -1249,30 +1257,32 @@ mod tests {
             isda_constants::STANDARD_RECOVERY_SENIOR,
             "USD-OIS",
         );
-        
+
         // 4. Test ISDA exact integration
         let pricer = CDSPricer::new(); // Uses ISDA standard by default
-        
+
         let protection_pv = pricer
             .pv_protection_leg(&cds, &disc, &credit, as_of)
             .unwrap();
-        let premium_pv = pricer
-            .pv_premium_leg(&cds, &disc, &credit, as_of)
-            .unwrap();
-        
+        let premium_pv = pricer.pv_premium_leg(&cds, &disc, &credit, as_of).unwrap();
+
         // Verify both legs are properly calculated
-        assert!(protection_pv.amount() > 0.0, "Protection leg should have positive PV");
-        assert!(premium_pv.amount() > 0.0, "Premium leg should have positive PV");
-        
+        assert!(
+            protection_pv.amount() > 0.0,
+            "Protection leg should have positive PV"
+        );
+        assert!(
+            premium_pv.amount() > 0.0,
+            "Premium leg should have positive PV"
+        );
+
         // 5. Test par spread calculation
-        let par_spread = pricer
-            .par_spread(&cds, &disc, &credit, as_of)
-            .unwrap();
+        let par_spread = pricer.par_spread(&cds, &disc, &credit, as_of).unwrap();
         assert!(par_spread > 0.0, "Par spread should be positive");
-        
+
         // 6. Verify schedule uses ISDA standard dates
         let schedule = pricer.generate_isda_schedule(&cds).unwrap();
-        for date in &schedule[1..schedule.len()-1] {
+        for date in &schedule[1..schedule.len() - 1] {
             // All intermediate dates should be on the 20th
             assert_eq!(date.day(), 20, "ISDA dates should be on the 20th");
             let month = date.month() as u8;
@@ -1282,13 +1292,13 @@ mod tests {
             );
         }
     }
-    
+
     #[test]
     fn test_isda_exact_vs_simplified_integration() {
         // Compare ISDA exact integration with simplified methods
         let (disc, credit) = create_test_curves();
         let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-        
+
         let cds = CreditDefaultSwap::new_isda(
             "TEST-CDS",
             Money::new(10_000_000.0, Currency::USD),
@@ -1302,25 +1312,30 @@ mod tests {
             0.40,
             "USD-OIS",
         );
-        
+
         // ISDA exact integration
         let pricer_exact = CDSPricer::with_config(CDSPricerConfig::isda_standard());
         let protection_exact = pricer_exact
             .pv_protection_leg(&cds, &disc, &credit, as_of)
             .unwrap();
-        
-        // Simplified midpoint integration  
+
+        // Simplified midpoint integration
         let pricer_simple = CDSPricer::with_config(CDSPricerConfig::simplified());
         let protection_simple = pricer_simple
             .pv_protection_leg(&cds, &disc, &credit, as_of)
             .unwrap();
-        
+
         // ISDA exact should be more accurate but different from simplified
-        let diff_pct = ((protection_exact.amount() - protection_simple.amount()).abs() 
-                       / protection_simple.amount()) * 100.0;
-        
+        let diff_pct = ((protection_exact.amount() - protection_simple.amount()).abs()
+            / protection_simple.amount())
+            * 100.0;
+
         // They should be close but not identical
         assert!(diff_pct < 5.0, "Methods should be within 5%: {}%", diff_pct);
-        assert!(diff_pct > 0.001, "Methods should show some difference: {}%", diff_pct);
+        assert!(
+            diff_pct > 0.001,
+            "Methods should show some difference: {}%",
+            diff_pct
+        );
     }
 }

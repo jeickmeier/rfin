@@ -71,12 +71,12 @@ impl CalibrationReport {
     }
 
     /// Add metadata to the report.
-    /// 
+    ///
     /// # Example
     /// ```
     /// use finstack_valuations::calibration::CalibrationReport;
     /// use std::collections::BTreeMap;
-    /// 
+    ///
     /// let residuals = BTreeMap::from([("quote1".to_string(), 0.001)]);
     /// let iterations = 10;
     /// let report = CalibrationReport::success_simple(residuals, iterations)
@@ -88,12 +88,12 @@ impl CalibrationReport {
     }
 
     /// Create a simple successful calibration report (most common case).
-    /// 
+    ///
     /// # Example
     /// ```
     /// use finstack_valuations::calibration::CalibrationReport;
     /// use std::collections::BTreeMap;
-    /// 
+    ///
     /// let residuals = BTreeMap::from([("quote1".to_string(), 0.001)]);
     /// let iterations = 10;
     /// let report = CalibrationReport::success_simple(residuals, iterations);
@@ -107,11 +107,11 @@ impl CalibrationReport {
     }
 
     /// Create an empty successful report (no quotes to calibrate).
-    /// 
+    ///
     /// # Example
     /// ```
     /// use finstack_valuations::calibration::CalibrationReport;
-    /// 
+    ///
     /// let report = CalibrationReport::empty_success("No quotes provided");
     /// ```
     pub fn empty_success(reason: impl Into<String>) -> Self {
@@ -122,11 +122,11 @@ impl CalibrationReport {
     }
 
     /// Create a simple failure report.
-    /// 
+    ///
     /// # Example
     /// ```
     /// use finstack_valuations::calibration::CalibrationReport;
-    /// 
+    ///
     /// let iterations = 100;
     /// let report = CalibrationReport::failure_simple("Convergence not achieved", iterations);
     /// ```
@@ -143,7 +143,10 @@ impl CalibrationReport {
     }
 
     /// Builder method to add multiple metadata entries at once.
-    pub fn with_metadata_batch(mut self, entries: Vec<(impl Into<String>, impl Into<String>)>) -> Self {
+    pub fn with_metadata_batch(
+        mut self,
+        entries: Vec<(impl Into<String>, impl Into<String>)>,
+    ) -> Self {
         for (key, value) in entries {
             self.metadata.insert(key.into(), value.into());
         }
@@ -164,12 +167,12 @@ impl CalibrationReport {
     }
 
     /// Create a success report for a specific calibration type.
-    /// 
+    ///
     /// # Example
     /// ```
     /// use finstack_valuations::calibration::CalibrationReport;
     /// use std::collections::BTreeMap;
-    /// 
+    ///
     /// let residuals = BTreeMap::from([("quote1".to_string(), 0.001)]);
     /// let iterations = 10;
     /// let report = CalibrationReport::for_type("yield_curve", residuals, iterations);

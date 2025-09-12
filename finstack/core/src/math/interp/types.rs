@@ -60,7 +60,6 @@ pub(crate) enum Interp {
     FlatFwd(FlatFwd),
 }
 
-
 impl Interp {
     #[inline]
     pub(crate) fn interp(&self, x: F) -> F {
@@ -108,7 +107,6 @@ impl Interp {
             Interp::FlatFwd(i) => i.extrapolation(),
         }
     }
-
 }
 
 impl InterpStyle {

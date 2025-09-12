@@ -116,7 +116,7 @@ impl InflationCurveCalibrator {
     }
 
     /// Apply lag to a given date based on the configured inflation lag.
-    /// 
+    ///
     /// Note: Lag is typically applied during instrument pricing when using the inflation index,
     /// not during curve calibration. The curve knots should represent the actual maturity dates.
     /// This method is provided for consistency with InflationIndex behavior and potential future use.
@@ -165,7 +165,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
 
         if quotes.is_empty() {
             // Build a trivial flat CPI curve when no quotes are provided
-            let curve = InflationCurve::builder(&self.curve_id)
+            let curve = InflationCurve::builder(&*self.curve_id)
                 .base_cpi(self.base_cpi)
                 .knots([(0.0, self.base_cpi), (0.25, self.base_cpi)])
                 .set_interp(InterpStyle::LogLinear)
@@ -190,183 +190,193 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
         let mut residuals = BTreeMap::new();
         // Use configured solver via macro to honor tolerance and iteration settings consistently
         crate::with_solver!(&self.config, |solver| {
+            // Internal IDs used only for solving. Final curve will use self.curve_id
+            const CALIB_INDEX_ID: &str = "CALIB_INFLATION";
 
-        // Internal IDs used only for solving. Final curve will use self.curve_id
-        const CALIB_INDEX_ID: &str = "CALIB_INFLATION";
+            // Ensure discount curve exists in base context (best-effort; pricing will use context provided by caller)
+            let _ = base_context.disc(&self.discount_id)?;
 
-        // Ensure discount curve exists in base context (best-effort; pricing will use context provided by caller)
-        let _ = base_context.disc(&self.discount_id)?;
+            // Provide a 'static discount id for instrument builder requirements
+            let disc_id_static: &'static str = Box::leak(self.discount_id.clone().into_boxed_str());
 
-        // Provide a 'static discount id for instrument builder requirements
-        let disc_id_static: &'static str = Box::leak(self.discount_id.clone().into_boxed_str());
+            // Note: We don't require an inflation index during calibration; the index is provided by caller when repricing.
 
-        // Note: We don't require an inflation index during calibration; the index is provided by caller when repricing.
-
-        for (maturity, par_rate, _idx) in quotes {
-            // Consistent time-axis for CPI knot (use original maturity for curve construction)
-            let t = self.time_dc
-                .year_fraction(
-                    self.base_date,
-                    maturity,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
-                .unwrap_or(0.0);
-            if t <= 0.0 {
-                continue;
-            }
-
-            // Initial guess: compound last CPI by par rate over accrual time
-            let tau = self.accrual_dc
-                .year_fraction(
-                    self.base_date,
-                    maturity,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
-                .unwrap_or(0.0);
-            // Use analytical breakeven CPI for initial guess to ensure f(x0)=0
-            let mut initial_guess = self.base_cpi * (1.0 + par_rate).powf(tau);
-            
-            // Apply seasonality adjustment to initial guess if applicable
-            initial_guess = self.apply_seasonality(initial_guess, maturity);
-            if self.config.verbose {
-                tracing::debug!(
-                    maturity = %maturity,
-                    t = t,
-                    rate = par_rate,
-                    tau = tau,
-                    guess = initial_guess,
-                    "Processing inflation swap quote"
-                );
-            }
-
-            // Objective priced via instrument pricer
-            let knots_clone = knots.clone();
-            let base_ctx_clone = base_context.clone();
-            let notional = Money::new(1_000_000.0, self.currency);
-
-            let base_date = self.base_date;
-            let objective = move |cpi_guess: F| -> F {
-                if !cpi_guess.is_finite() || cpi_guess <= 0.0 {
-                    return crate::calibration::penalize();
+            for (maturity, par_rate, _idx) in quotes {
+                // Consistent time-axis for CPI knot (use original maturity for curve construction)
+                let t = self
+                    .time_dc
+                    .year_fraction(
+                        self.base_date,
+                        maturity,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0);
+                if t <= 0.0 {
+                    continue;
                 }
 
-                // Build temporary inflation curve with current knots + guessed point
-                let mut temp_knots = knots_clone.clone();
-                temp_knots.push((t, cpi_guess));
-                temp_knots.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+                // Initial guess: compound last CPI by par rate over accrual time
+                let tau = self
+                    .accrual_dc
+                    .year_fraction(
+                        self.base_date,
+                        maturity,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0);
+                // Use analytical breakeven CPI for initial guess to ensure f(x0)=0
+                let mut initial_guess = self.base_cpi * (1.0 + par_rate).powf(tau);
 
-                let temp_curve = match InflationCurve::builder(CALIB_INDEX_ID)
-                    .base_cpi(temp_knots.first().map(|&(_, v)| v).unwrap_or(0.0))
-                    .knots(temp_knots)
-                    .set_interp(self.solve_interp)
-                    .build()
-                {
-                    Ok(c) => c,
-                    Err(_) => return crate::calibration::penalize(),
+                // Apply seasonality adjustment to initial guess if applicable
+                initial_guess = self.apply_seasonality(initial_guess, maturity);
+                if self.config.verbose {
+                    tracing::debug!(
+                        maturity = %maturity,
+                        t = t,
+                        rate = par_rate,
+                        tau = tau,
+                        guess = initial_guess,
+                        "Processing inflation swap quote"
+                    );
+                }
+
+                // Objective priced via instrument pricer
+                let knots_clone = knots.clone();
+                let base_ctx_clone = base_context.clone();
+                let notional = Money::new(1_000_000.0, self.currency);
+
+                let base_date = self.base_date;
+                let objective = move |cpi_guess: F| -> F {
+                    if !cpi_guess.is_finite() || cpi_guess <= 0.0 {
+                        return crate::calibration::penalize();
+                    }
+
+                    // Build temporary inflation curve with current knots + guessed point
+                    let mut temp_knots = knots_clone.clone();
+                    temp_knots.push((t, cpi_guess));
+                    temp_knots.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+
+                    let temp_curve = match InflationCurve::builder(CALIB_INDEX_ID)
+                        .base_cpi(temp_knots.first().map(|&(_, v)| v).unwrap_or(0.0))
+                        .knots(temp_knots)
+                        .set_interp(self.solve_interp)
+                        .build()
+                    {
+                        Ok(c) => c,
+                        Err(_) => return crate::calibration::penalize(),
+                    };
+
+                    // Build synthetic ZC inflation swap matching the quote
+                    let swap = match InflationSwap::builder()
+                        .id(format!("CALIB_ZCIS_{}", maturity))
+                        .notional(notional)
+                        .start(base_date)
+                        .maturity(maturity)
+                        .fixed_rate(par_rate)
+                        .inflation_id(CALIB_INDEX_ID)
+                        .disc_id(disc_id_static)
+                        .dc(self.accrual_dc)
+                        .side(PayReceiveInflation::PayFixed)
+                        .build()
+                    {
+                        Ok(s) => s,
+                        Err(_) => return crate::calibration::penalize(),
+                    };
+
+                    // Update market context with temp inflation curve
+                    let temp_ctx = base_ctx_clone.clone().insert_inflation(temp_curve);
+
+                    match swap.value(&temp_ctx, base_date) {
+                        Ok(pv) => pv.amount() / notional.amount(),
+                        Err(_) => crate::calibration::penalize(),
+                    }
                 };
 
-                // Build synthetic ZC inflation swap matching the quote
-                let swap = match InflationSwap::builder()
-                    .id(format!("CALIB_ZCIS_{}", maturity))
-                    .notional(notional)
-                    .start(base_date)
-                    .maturity(maturity)
-                    .fixed_rate(par_rate)
-                    .inflation_id(CALIB_INDEX_ID)
-                    .disc_id(disc_id_static)
-                    .dc(self.accrual_dc)
-                    .side(PayReceiveInflation::PayFixed)
-                    .build()
-                {
-                    Ok(s) => s,
-                    Err(_) => return crate::calibration::penalize(),
+                let mut solved_cpi = match solver.solve(&objective, initial_guess) {
+                    Ok(root) => root,
+                    Err(_) => initial_guess, // Fallback to analytical breakeven CPI
                 };
+                if !solved_cpi.is_finite() || solved_cpi <= 0.0 {
+                    solved_cpi = initial_guess;
+                }
 
-                // Update market context with temp inflation curve
-                let temp_ctx = base_ctx_clone.clone().insert_inflation(temp_curve);
+                // Apply seasonality adjustment to the solved CPI
+                solved_cpi = self.apply_seasonality(solved_cpi, maturity);
 
-                match swap.value(&temp_ctx, base_date) {
-                    Ok(pv) => pv.amount() / notional.amount(),
-                    Err(_) => crate::calibration::penalize(),
+                // Record residual and commit the knot
+                let res = objective(solved_cpi).abs();
+                if self.config.verbose {
+                    tracing::debug!(
+                        solved_cpi = solved_cpi,
+                        residual = res,
+                        "Solved CPI for maturity"
+                    );
+                }
+                residuals.insert(format!("ZCIS-{}", maturity), res);
+                knots.push((t, solved_cpi));
+            }
+
+            // Build final curve with requested identifier
+            let mut final_knots = knots;
+            // Guard against degenerate single-point case
+            if final_knots.len() == 1 {
+                final_knots.push((1e-9, self.base_cpi));
+            }
+            final_knots.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+
+            if self.config.verbose {
+                tracing::debug!(
+                    final_knots = final_knots.len(),
+                    "Building final inflation curve"
+                );
+            }
+            let curve = match InflationCurve::builder(&*self.curve_id)
+                .base_cpi(self.base_cpi)
+                .knots(final_knots.clone())
+                .set_interp(self.solve_interp)
+                .build()
+            {
+                Ok(c) => c,
+                Err(_) => {
+                    // Fallback: minimal two-point curve to avoid calibration hard failure in tests
+                    InflationCurve::builder(&*self.curve_id)
+                        .base_cpi(self.base_cpi)
+                        .knots([(0.0, self.base_cpi), (0.25, self.base_cpi)])
+                        .set_interp(self.solve_interp)
+                        .build()
+                        .map_err(|_| finstack_core::Error::Internal)?
                 }
             };
 
-            let mut solved_cpi = match solver.solve(&objective, initial_guess) {
-                Ok(root) => root,
-                Err(_) => initial_guess, // Fallback to analytical breakeven CPI
-            };
-            if !solved_cpi.is_finite() || solved_cpi <= 0.0 {
-                solved_cpi = initial_guess;
-            }
+            // Validate the calibrated inflation curve
+            use crate::calibration::validation::CurveValidator;
+            curve
+                .validate()
+                .map_err(|e| finstack_core::Error::Calibration {
+                    message: format!(
+                        "Calibrated inflation curve {} failed validation: {}",
+                        self.curve_id, e
+                    ),
+                    category: "inflation_curve_validation".to_string(),
+                })?;
 
-            // Apply seasonality adjustment to the solved CPI
-            solved_cpi = self.apply_seasonality(solved_cpi, maturity);
+            let report =
+                CalibrationReport::for_type("inflation_curve", residuals, final_knots.len())
+                    .with_metadata("solve_interp", format!("{:?}", self.solve_interp))
+                    .with_metadata("time_dc", format!("{:?}", self.time_dc))
+                    .with_metadata("accrual_dc", format!("{:?}", self.accrual_dc))
+                    .with_metadata("inflation_lag", format!("{:?}", self.inflation_lag))
+                    .with_metadata(
+                        "inflation_interpolation",
+                        format!("{:?}", self.inflation_interpolation),
+                    )
+                    .with_metadata(
+                        "has_seasonality",
+                        format!("{}", self.seasonality_adjustments.is_some()),
+                    )
+                    .with_metadata("validation", "passed");
 
-            // Record residual and commit the knot
-            let res = objective(solved_cpi).abs();
-            if self.config.verbose {
-                tracing::debug!(
-                    solved_cpi = solved_cpi,
-                    residual = res,
-                    "Solved CPI for maturity"
-                );
-            }
-            residuals.insert(format!("ZCIS-{}", maturity), res);
-            knots.push((t, solved_cpi));
-        }
-
-        // Build final curve with requested identifier
-        let mut final_knots = knots;
-        // Guard against degenerate single-point case
-        if final_knots.len() == 1 {
-            final_knots.push((1e-9, self.base_cpi));
-        }
-        final_knots.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-
-        if self.config.verbose {
-            tracing::debug!(
-                final_knots = final_knots.len(),
-                "Building final inflation curve"
-            );
-        }
-        let curve = match InflationCurve::builder(&self.curve_id)
-            .base_cpi(self.base_cpi)
-            .knots(final_knots.clone())
-            .set_interp(self.solve_interp)
-            .build()
-        {
-            Ok(c) => c,
-            Err(_) => {
-                // Fallback: minimal two-point curve to avoid calibration hard failure in tests
-                InflationCurve::builder(&self.curve_id)
-                    .base_cpi(self.base_cpi)
-                    .knots([(0.0, self.base_cpi), (0.25, self.base_cpi)])
-                    .set_interp(self.solve_interp)
-                    .build()
-                    .map_err(|_| finstack_core::Error::Internal)?
-            }
-        };
-
-        // Validate the calibrated inflation curve
-        use crate::calibration::validation::CurveValidator;
-        curve.validate().map_err(|e| finstack_core::Error::Calibration {
-            message: format!(
-                "Calibrated inflation curve {} failed validation: {}",
-                self.curve_id, e
-            ),
-            category: "inflation_curve_validation".to_string(),
-        })?;
-
-        let report = CalibrationReport::for_type("inflation_curve", residuals, final_knots.len())
-            .with_metadata("solve_interp", format!("{:?}", self.solve_interp))
-            .with_metadata("time_dc", format!("{:?}", self.time_dc))
-            .with_metadata("accrual_dc", format!("{:?}", self.accrual_dc))
-            .with_metadata("inflation_lag", format!("{:?}", self.inflation_lag))
-            .with_metadata("inflation_interpolation", format!("{:?}", self.inflation_interpolation))
-            .with_metadata("has_seasonality", format!("{}", self.seasonality_adjustments.is_some()))
-            .with_metadata("validation", "passed");
-
-        Ok((curve, report))
+            Ok((curve, report))
         })
     }
 }
@@ -457,23 +467,18 @@ mod tests {
     #[test]
     fn test_inflation_curve_with_lag_and_seasonality() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         // Create seasonality factors (e.g., higher inflation in summer months)
         let seasonality_factors: [F; 12] = [
             0.98, 0.98, 0.99, 1.00, 1.01, 1.02, // Jan-Jun
             1.02, 1.02, 1.01, 1.00, 0.99, 0.98, // Jul-Dec
         ];
-        
-        let calibrator = InflationCurveCalibrator::new(
-            "US-CPI-U",
-            base_date,
-            Currency::USD,
-            290.0,
-            "USD-OIS",
-        )
-        .with_inflation_lag(InflationLag::Months(2))
-        .with_seasonality_adjustments(seasonality_factors)
-        .with_inflation_interpolation(InflationInterpolation::Step);
+
+        let calibrator =
+            InflationCurveCalibrator::new("US-CPI-U", base_date, Currency::USD, 290.0, "USD-OIS")
+                .with_inflation_lag(InflationLag::Months(2))
+                .with_seasonality_adjustments(seasonality_factors)
+                .with_inflation_interpolation(InflationInterpolation::Step);
 
         let quotes = create_test_inflation_quotes();
         let discount_curve = create_test_discount_curve();
@@ -481,16 +486,19 @@ mod tests {
 
         let result = calibrator.calibrate(&quotes, &market_context);
         assert!(result.is_ok());
-        
+
         let (curve, report) = result.unwrap();
         assert!(report.success);
-        
+
         // Check that metadata includes our new settings
         assert!(report.metadata.contains_key("inflation_lag"));
         assert!(report.metadata.contains_key("inflation_interpolation"));
         assert!(report.metadata.contains_key("has_seasonality"));
-        assert_eq!(report.metadata.get("has_seasonality"), Some(&"true".to_string()));
-        
+        assert_eq!(
+            report.metadata.get("has_seasonality"),
+            Some(&"true".to_string())
+        );
+
         // Verify curve has proper CPI levels
         assert!(!curve.cpi_levels().is_empty());
         assert!(curve.cpi(1.0) > 0.0);

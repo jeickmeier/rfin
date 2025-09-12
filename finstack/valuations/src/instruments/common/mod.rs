@@ -6,7 +6,7 @@
 pub mod parameter_groups;
 
 pub use parameter_groups::{
-    DateRange, EquityUnderlyingParams, FxUnderlyingParams, CreditParams, 
-    InstrumentScheduleParams, MarketRefs, OptionParams, PricingOverrides,
-    LoanFacilityParams, LoanFeeParams, validate_currency_consistency
+    validate_currency_consistency, CreditParams, DateRange, EquityUnderlyingParams,
+    FxUnderlyingParams, InstrumentScheduleParams, LoanFacilityParams, LoanFeeParams, MarketRefs,
+    OptionParams, PricingOverrides,
 };

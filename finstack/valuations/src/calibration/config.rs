@@ -39,7 +39,7 @@ pub enum MultiCurveMode {
     /// - Forward curves calibrated independently
     /// - Basis swaps capture tenor spreads
     MultiCurve,
-    
+
     /// Pre-2008 single-curve framework (legacy compatibility):
     /// - Discount curve = forward curve
     /// - No tenor basis spreads
@@ -58,13 +58,13 @@ impl Default for MultiCurveMode {
 pub struct MultiCurveConfig {
     /// Framework mode (multi-curve vs single-curve)
     pub mode: MultiCurveMode,
-    
+
     /// Whether to calibrate basis spreads (only in MultiCurve mode)
     pub calibrate_basis: bool,
-    
+
     /// Default tenor for single-curve mode (in years, e.g., 0.25 for 3M)
     pub single_curve_tenor: f64,
-    
+
     /// Whether to enforce strict separation (fail if trying to derive forward from discount)
     pub enforce_separation: bool,
 }
@@ -85,7 +85,7 @@ impl MultiCurveConfig {
     pub fn multi_curve() -> Self {
         Self::default()
     }
-    
+
     /// Create a single-curve configuration (pre-2008 legacy)
     pub fn single_curve(tenor_years: f64) -> Self {
         Self {
@@ -95,12 +95,12 @@ impl MultiCurveConfig {
             enforce_separation: false,
         }
     }
-    
+
     /// Check if we're in multi-curve mode
     pub fn is_multi_curve(&self) -> bool {
         matches!(self.mode, MultiCurveMode::MultiCurve)
     }
-    
+
     /// Check if we should derive forward from discount (only in single-curve mode)
     pub fn derive_forward_from_discount(&self) -> bool {
         matches!(self.mode, MultiCurveMode::SingleCurve)
@@ -150,13 +150,13 @@ impl CalibrationConfig {
         self.multi_curve = multi_curve_config;
         self
     }
-    
+
     /// Set multi-curve mode directly.
     pub fn with_multi_curve_mode(mut self, mode: MultiCurveMode) -> Self {
         self.multi_curve.mode = mode;
         self
     }
-    
+
     /// Create a configuration for single-curve mode (legacy).
     pub fn single_curve(tenor_years: f64) -> Self {
         Self {
@@ -164,7 +164,7 @@ impl CalibrationConfig {
             ..Self::default()
         }
     }
-    
+
     /// Create a configuration for multi-curve mode (standard).
     pub fn multi_curve() -> Self {
         Self::default() // Already defaults to multi-curve
@@ -177,30 +177,32 @@ impl CalibrationConfig {
     /// is not object-safe due to generic parameters.
     pub fn create_lm_solver(&self) -> finstack_core::math::solver_multi::LevenbergMarquardtSolver {
         use finstack_core::math::solver_multi::LevenbergMarquardtSolver;
-        
+
         LevenbergMarquardtSolver::new()
             .with_tolerance(self.tolerance)
             .with_max_iterations(self.max_iterations)
     }
-    
+
     /// Create a Differential Evolution solver with current config settings.
     ///
     /// Returns a configured DifferentialEvolutionSolver for global optimization.
     /// Useful when the objective function has multiple local minima.
-    pub fn create_de_solver(&self) -> finstack_core::math::solver_multi::DifferentialEvolutionSolver {
+    pub fn create_de_solver(
+        &self,
+    ) -> finstack_core::math::solver_multi::DifferentialEvolutionSolver {
         use finstack_core::math::solver_multi::DifferentialEvolutionSolver;
-        
+
         let mut solver = DifferentialEvolutionSolver::new()
             .with_tolerance(self.tolerance)
             .with_max_generations(self.max_iterations);
-        
+
         if let Some(seed) = self.random_seed {
             solver = solver.with_seed(seed);
         }
-        
+
         solver
     }
-    
+
     /// Check if configured for multi-dimensional solving
     pub fn is_multi_dimensional(&self) -> bool {
         matches!(

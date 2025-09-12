@@ -10,7 +10,13 @@ use std::vec::Vec;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LogLinearDf {
     knots: Box<[F]>,
-    #[cfg_attr(feature = "serde", serde(serialize_with = "serialize_log_dfs", deserialize_with = "deserialize_log_dfs"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(
+            serialize_with = "serialize_log_dfs",
+            deserialize_with = "deserialize_log_dfs"
+        )
+    )]
     log_dfs: Box<[F]>,
     extrapolation: ExtrapolationPolicy,
 }

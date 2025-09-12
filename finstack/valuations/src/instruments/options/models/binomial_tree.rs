@@ -5,16 +5,16 @@
 //!
 //! Now includes generic TreeModel implementation for pricing arbitrary instruments.
 
+use crate::instruments::options::models::NodeState;
 use crate::instruments::options::{ExerciseStyle, OptionType};
-use std::collections::HashSet;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::{Error, Result, F};
-use crate::instruments::options::models::NodeState;
+use std::collections::HashSet;
 
 // Import the generic tree framework
 use super::tree_framework::{
-    state_keys, single_factor_equity_state, StateVariables, TreeBranching, TreeGreeks, TreeModel,
-    TreeValuator, map_exercise_dates_to_steps, price_recombining_tree, RecombiningInputs,
+    map_exercise_dates_to_steps, price_recombining_tree, single_factor_equity_state, state_keys,
+    RecombiningInputs, StateVariables, TreeBranching, TreeGreeks, TreeModel, TreeValuator,
 };
 
 /// Binomial tree types
@@ -205,8 +205,8 @@ impl BinomialTree {
         let (u, d, p) = self.calculate_parameters(spot, strike, r, sigma, t, q)?;
 
         // Build an option valuator that applies early exercise at requested steps
-        let exercise_set: Option<HashSet<usize>> = exercise_steps
-            .map(|steps| steps.iter().copied().collect::<HashSet<usize>>());
+        let exercise_set: Option<HashSet<usize>> =
+            exercise_steps.map(|steps| steps.iter().copied().collect::<HashSet<usize>>());
 
         struct OptionValuator {
             strike: F,
@@ -404,7 +404,10 @@ impl BinomialTree {
         let r = *initial_vars
             .get(state_keys::INTEREST_RATE)
             .ok_or(Error::Internal)?;
-        let q = initial_vars.get(state_keys::DIVIDEND_YIELD).copied().unwrap_or(0.0);
+        let q = initial_vars
+            .get(state_keys::DIVIDEND_YIELD)
+            .copied()
+            .unwrap_or(0.0);
         let sigma = *initial_vars
             .get(state_keys::VOLATILITY)
             .ok_or(Error::Internal)?;

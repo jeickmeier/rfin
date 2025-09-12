@@ -14,11 +14,11 @@ pub struct FxOptionBuilder {
     // Core required parameters
     id: Option<String>,
     notional: Option<Money>,
-    
+
     // Parameter groups (required)
     fx_underlying: Option<FxUnderlyingParams>,
     option_params: Option<OptionParams>,
-    
+
     // Optional parameters
     day_count: Option<DayCount>,
     pricing_overrides: Option<PricingOverrides>,
@@ -71,7 +71,7 @@ impl FxOptionBuilder {
         self.pricing_overrides = Some(
             self.pricing_overrides
                 .unwrap_or_default()
-                .with_implied_vol(vol)
+                .with_implied_vol(vol),
         );
         self
     }

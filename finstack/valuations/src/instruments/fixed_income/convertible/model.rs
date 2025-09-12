@@ -12,11 +12,11 @@ use std::collections::HashMap;
 
 use crate::cashflow::builder::{cf, CashFlowSchedule};
 use crate::cashflow::primitives::CFKind;
+use crate::instruments::options::models::tree_framework::map_date_to_step;
 use crate::instruments::options::models::{
     single_factor_equity_state, BinomialTree, NodeState, TreeGreeks, TreeModel, TreeValuator,
     TrinomialTree,
 };
-use crate::instruments::options::models::tree_framework::map_date_to_step;
 
 use super::{ConversionPolicy, ConvertibleBond};
 
@@ -89,12 +89,12 @@ impl ConvertibleBondValuator {
         for cf in &cashflow_schedule.flows {
             if matches!(cf.kind, CFKind::Fixed | CFKind::Stub | CFKind::FloatReset) {
                 let bounded_step = map_date_to_step(
-					base_date,
-					cf.date,
-					bond.maturity,
-					steps,
-					finstack_core::dates::DayCount::Act365F,
-				);
+                    base_date,
+                    cf.date,
+                    bond.maturity,
+                    steps,
+                    finstack_core::dates::DayCount::Act365F,
+                );
                 *coupon_map.entry(bounded_step).or_insert(0.0) += cf.amount.amount();
             }
         }

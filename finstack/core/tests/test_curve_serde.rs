@@ -22,7 +22,7 @@ mod tests {
 
         // Serialize to JSON
         let json = serde_json::to_string(&original).unwrap();
-        
+
         // Deserialize back
         let deserialized: DiscountCurve = serde_json::from_str(&json).unwrap();
 
@@ -161,7 +161,7 @@ mod tests {
     #[test]
     fn test_forward_curve_serialization() {
         use finstack_core::dates::DayCount;
-        
+
         let original = ForwardCurve::builder("USD-SOFR3M", 0.25)
             .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
             .reset_lag(2)
@@ -180,7 +180,7 @@ mod tests {
 
         // Serialize to JSON
         let json = serde_json::to_string(&original).unwrap();
-        
+
         // Deserialize back
         let deserialized: ForwardCurve = serde_json::from_str(&json).unwrap();
 
@@ -210,7 +210,7 @@ mod tests {
     #[test]
     fn test_forward_curve_serialization_multiple_interp_styles() {
         use finstack_core::dates::DayCount;
-        
+
         // Note: MonotoneConvex requires non-increasing values, so it's not suitable for forward rates
         let interp_styles = [
             InterpStyle::Linear,
@@ -265,7 +265,7 @@ mod tests {
 
         // Serialize to JSON
         let json = serde_json::to_string(&original).unwrap();
-        
+
         // Deserialize back
         let deserialized: InflationCurve = serde_json::from_str(&json).unwrap();
 
@@ -408,7 +408,7 @@ mod tests {
 
         // Serialize to pretty JSON
         let json = serde_json::to_string_pretty(&original).unwrap();
-        
+
         // Verify it's valid JSON and can be deserialized
         let deserialized: DiscountCurve = serde_json::from_str(&json).unwrap();
 

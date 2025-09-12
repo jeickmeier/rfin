@@ -234,7 +234,6 @@ impl Solver for HybridSolver {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -272,7 +271,6 @@ mod tests {
 
         assert!(f(root).abs() < 1e-10);
     }
-
 
     #[test]
     fn test_brent_solver_adaptive_bracket() {

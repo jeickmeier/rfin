@@ -1,7 +1,7 @@
 //! Yield curve bootstrapping from market instruments.
 //!
 //! Implements market-standard single-curve discount curve calibration using deposits,
-//! FRAs, futures, and swaps. This doesn't have the ability to bootstrap multiple 
+//! FRAs, futures, and swaps. This doesn't have the ability to bootstrap multiple
 //! curves at once.
 //!
 //! Uses instrument pricing methods directly rather than reimplementing
@@ -46,7 +46,7 @@ impl DiscountCurveCalibrator {
             curve_id,
             base_date,
             solve_interp: InterpStyle::MonotoneConvex, // Default; explicit and consistent
-            config: CalibrationConfig::default(), // Defaults to multi-curve mode
+            config: CalibrationConfig::default(),      // Defaults to multi-curve mode
             currency,
         }
     }
@@ -62,7 +62,7 @@ impl DiscountCurveCalibrator {
         self.config = config;
         self
     }
-    
+
     /// Set multi-curve framework configuration.
     pub fn with_multi_curve_config(mut self, multi_curve_config: MultiCurveConfig) -> Self {
         self.config.multi_curve = multi_curve_config;
@@ -209,7 +209,7 @@ impl DiscountCurveCalibrator {
                         Ok(curve) => curve,
                         Err(_) => return crate::calibration::penalize(),
                     };
-                    
+
                     (*base_context_ref)
                         .clone()
                         .insert_discount(temp_curve)
@@ -226,10 +226,8 @@ impl DiscountCurveCalibrator {
                             return crate::calibration::penalize();
                         }
                     }
-                    
-                    (*base_context_ref)
-                        .clone()
-                        .insert_discount(temp_curve)
+
+                    (*base_context_ref).clone().insert_discount(temp_curve)
                 };
 
                 // Price the instrument and return error (target is zero)
@@ -338,16 +336,18 @@ impl DiscountCurveCalibrator {
         if self.config.verbose {
             tracing::debug!("Validating calibrated discount curve {}", self.curve_id);
         }
-        
+
         // Use the CurveValidator trait to validate the curve
         use crate::calibration::validation::CurveValidator;
-        curve.validate().map_err(|e| finstack_core::Error::Calibration {
-            message: format!(
-                "Calibrated discount curve {} failed validation: {}",
-                self.curve_id, e
-            ),
-            category: "yield_curve_validation".to_string(),
-        })?;
+        curve
+            .validate()
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: format!(
+                    "Calibrated discount curve {} failed validation: {}",
+                    self.curve_id, e
+                ),
+                category: "yield_curve_validation".to_string(),
+            })?;
 
         // Create calibration report
         let report = CalibrationReport::for_type("yield_curve", residuals, total_iterations)
@@ -381,7 +381,7 @@ impl DiscountCurveCalibrator {
                     disc_id: "CALIB_CURVE",
                     attributes: Default::default(),
                 };
-                
+
                 // Price the deposit - should be zero at par rate
                 let pv = dep.value(context, self.base_date)?;
                 Ok(pv.amount() / dep.notional.amount())
@@ -423,18 +423,24 @@ impl DiscountCurveCalibrator {
                     Some(adj)
                 } else {
                     // Auto-calculate convexity adjustment based on time to expiry
-                    let time_to_expiry = specs.day_count.year_fraction(
-                        self.base_date,
-                        *expiry,
-                        finstack_core::dates::DayCountCtx::default(),
-                    ).unwrap_or(0.0);
-                    
-                    let time_to_maturity = specs.day_count.year_fraction(
-                        self.base_date,
-                        period_end,
-                        finstack_core::dates::DayCountCtx::default(),
-                    ).unwrap_or(0.0);
-                    
+                    let time_to_expiry = specs
+                        .day_count
+                        .year_fraction(
+                            self.base_date,
+                            *expiry,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
+                        .unwrap_or(0.0);
+
+                    let time_to_maturity = specs
+                        .day_count
+                        .year_fraction(
+                            self.base_date,
+                            period_end,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
+                        .unwrap_or(0.0);
+
                     // Always apply convexity adjustment per market practice
                     use super::convexity::ConvexityParameters;
                     let params = match self.currency {
@@ -442,7 +448,7 @@ impl DiscountCurveCalibrator {
                         Currency::EUR => ConvexityParameters::eur_euribor(),
                         Currency::GBP => ConvexityParameters::gbp_sonia(),
                         Currency::JPY => ConvexityParameters::jpy_tonar(),
-                        _ => ConvexityParameters::usd_sofr(),  // Default to USD
+                        _ => ConvexityParameters::usd_sofr(), // Default to USD
                     };
                     Some(params.calculate_adjustment(time_to_expiry, time_to_maturity))
                 };
@@ -528,7 +534,7 @@ impl DiscountCurveCalibrator {
                 let pv = swap.value(context, self.base_date)?;
                 Ok(pv.amount() / swap.notional.amount())
             }
-            RatesQuote::BasisSwap { 
+            RatesQuote::BasisSwap {
                 maturity,
                 primary_index,
                 reference_index,
@@ -542,25 +548,25 @@ impl DiscountCurveCalibrator {
                 // Import BasisSwap types
                 use crate::instruments::fixed_income::basis_swap::{BasisSwap, BasisSwapLeg};
                 use finstack_core::dates::BusinessDayConvention;
-                
+
                 // In multi-curve mode, basis swaps contribute to tenor basis calibration
                 // Extract tenor information from index names (e.g., "3M-SOFR" -> 3M)
                 let primary_forward_id = format!("FWD_{}", primary_index).leak();
                 let reference_forward_id = format!("FWD_{}", reference_index).leak();
-                
+
                 // Store string references for later use in checks
                 let primary_fwd_str = format!("FWD_{}", primary_index);
                 let reference_fwd_str = format!("FWD_{}", reference_index);
-                
+
                 // Create basis swap instrument
                 let primary_leg = BasisSwapLeg {
                     forward_curve_id: primary_forward_id,
                     frequency: *primary_freq,
                     day_count: *primary_dc,
                     bdc: BusinessDayConvention::ModifiedFollowing,
-                    spread: *spread_bp / 10_000.0,  // Convert bp to decimal
+                    spread: *spread_bp / 10_000.0, // Convert bp to decimal
                 };
-                
+
                 let reference_leg = BasisSwapLeg {
                     forward_curve_id: reference_forward_id,
                     frequency: *reference_freq,
@@ -568,7 +574,7 @@ impl DiscountCurveCalibrator {
                     bdc: BusinessDayConvention::ModifiedFollowing,
                     spread: 0.0,
                 };
-                
+
                 let basis_swap = BasisSwap::new(
                     format!("CALIB_BASIS_{}_{}", primary_index, reference_index),
                     Money::new(1_000_000.0, self.currency),
@@ -578,16 +584,17 @@ impl DiscountCurveCalibrator {
                     reference_leg,
                     "CALIB_CURVE",
                 );
-                
+
                 // In multi-curve mode, price basis swap properly
                 if self.config.multi_curve.is_multi_curve() {
                     // Check if forward curves exist for pricing
-                    if context.fwd(&primary_fwd_str).is_err() || 
-                       context.fwd(&reference_fwd_str).is_err() {
+                    if context.fwd(&primary_fwd_str).is_err()
+                        || context.fwd(&reference_fwd_str).is_err()
+                    {
                         // Forward curves not yet calibrated, return placeholder
                         return Ok(0.0);
                     }
-                    
+
                     // Price the basis swap - should be zero at market spread
                     let pv = basis_swap.value(context, self.base_date)?;
                     Ok(pv.amount() / basis_swap.notional.amount())
@@ -642,13 +649,13 @@ impl DiscountCurveCalibrator {
                 ));
             }
         }
-        
+
         // Multi-curve mode validation
         if self.config.multi_curve.is_multi_curve() {
             // In multi-curve mode, check if quotes are appropriate for discount curve calibration
             let mut has_forward_dependent = false;
             let mut has_ois_suitable = false;
-            
+
             for quote in quotes {
                 if quote.requires_forward_curve() {
                     has_forward_dependent = true;
@@ -657,7 +664,7 @@ impl DiscountCurveCalibrator {
                     has_ois_suitable = true;
                 }
             }
-            
+
             // Warn if using forward-dependent instruments for discount curve calibration
             if has_forward_dependent && !has_ois_suitable {
                 tracing::warn!(
@@ -666,7 +673,7 @@ impl DiscountCurveCalibrator {
                      Forward curves must be provided in the context for these instruments to price correctly."
                 );
             }
-            
+
             // If only forward-dependent instruments are provided, this might be intentional
             // (e.g., calibrating with swaps where forward curve is already in context)
             // So we don't error out here, but the actual calibration will fail if forward
@@ -731,8 +738,14 @@ mod tests {
             rate: 0.015,
             day_count: DayCount::Act360,
         };
-        assert!(!deposit.requires_forward_curve(), "Deposits should not require forward curves");
-        assert!(deposit.is_ois_suitable(), "Deposits should be suitable for OIS");
+        assert!(
+            !deposit.requires_forward_curve(),
+            "Deposits should not require forward curves"
+        );
+        assert!(
+            deposit.is_ois_suitable(),
+            "Deposits should be suitable for OIS"
+        );
 
         let fra = RatesQuote::FRA {
             start: Date::from_calendar_date(2024, Month::April, 1).unwrap(),
@@ -740,8 +753,14 @@ mod tests {
             rate: 0.018,
             day_count: DayCount::Act360,
         };
-        assert!(fra.requires_forward_curve(), "FRAs should require forward curves");
-        assert!(!fra.is_ois_suitable(), "FRAs should not be suitable for OIS");
+        assert!(
+            fra.requires_forward_curve(),
+            "FRAs should require forward curves"
+        );
+        assert!(
+            !fra.is_ois_suitable(),
+            "FRAs should not be suitable for OIS"
+        );
 
         let ois_swap = RatesQuote::Swap {
             maturity: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
@@ -752,8 +771,14 @@ mod tests {
             float_dc: DayCount::Act360,
             index: "SOFR".to_string(),
         };
-        assert!(ois_swap.requires_forward_curve(), "Swaps require forward curves");
-        assert!(ois_swap.is_ois_suitable(), "SOFR swaps should be OIS suitable");
+        assert!(
+            ois_swap.requires_forward_curve(),
+            "Swaps require forward curves"
+        );
+        assert!(
+            ois_swap.is_ois_suitable(),
+            "SOFR swaps should be OIS suitable"
+        );
 
         let libor_swap = RatesQuote::Swap {
             maturity: Date::from_calendar_date(2025, Month::January, 1).unwrap(),
@@ -764,8 +789,14 @@ mod tests {
             float_dc: DayCount::Act360,
             index: "3M-LIBOR".to_string(),
         };
-        assert!(libor_swap.requires_forward_curve(), "Swaps require forward curves");
-        assert!(!libor_swap.is_ois_suitable(), "LIBOR swaps should not be OIS suitable");
+        assert!(
+            libor_swap.requires_forward_curve(),
+            "Swaps require forward curves"
+        );
+        assert!(
+            !libor_swap.is_ois_suitable(),
+            "LIBOR swaps should not be OIS suitable"
+        );
     }
 
     #[test]

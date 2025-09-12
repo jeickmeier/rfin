@@ -66,9 +66,9 @@ pub struct ForwardCurveData {
 
 impl ForwardCurve {
     /// Start building a forward curve for `id` with tenor `tenor_years`.
-    pub fn builder(id: &'static str, tenor_years: F) -> ForwardCurveBuilder {
+    pub fn builder(id: impl Into<CurveId>, tenor_years: F) -> ForwardCurveBuilder {
         ForwardCurveBuilder {
-            id,
+            id: id.into(),
             base: Date::from_calendar_date(1970, time::Month::January, 1).unwrap(),
             reset_lag: 2,
             day_count: DayCount::Act360,
@@ -128,7 +128,7 @@ impl ForwardCurve {
 
 /// Fluent builder for [`ForwardCurve`].
 pub struct ForwardCurveBuilder {
-    id: &'static str,
+    id: CurveId,
     base: Date,
     reset_lag: i32,
     day_count: DayCount,
@@ -180,7 +180,7 @@ impl ForwardCurveBuilder {
             self.style
                 .build_enum(knots.clone(), fwds.clone(), ExtrapolationPolicy::default())?;
         Ok(ForwardCurve {
-            id: CurveId::new(self.id),
+            id: self.id,
             base: self.base,
             reset_lag: self.reset_lag,
             day_count: self.day_count,
@@ -243,15 +243,17 @@ impl<'de> serde::Deserialize<'de> for ForwardCurve {
         D: serde::Deserializer<'de>,
     {
         use serde::de::Error;
-        
+
         let data = ForwardCurveData::deserialize(deserializer)?;
-        let interp = data.interp_style.build_enum(
-            data.knots.clone().into_boxed_slice(),
-            data.fwds.clone().into_boxed_slice(),
-            data.extrapolation,
-        )
-        .map_err(|e| D::Error::custom(format!("Failed to reconstruct interpolator: {}", e)))?;
-        
+        let interp = data
+            .interp_style
+            .build_enum(
+                data.knots.clone().into_boxed_slice(),
+                data.fwds.clone().into_boxed_slice(),
+                data.extrapolation,
+            )
+            .map_err(|e| D::Error::custom(format!("Failed to reconstruct interpolator: {}", e)))?;
+
         Ok(ForwardCurve {
             id: data.id,
             base: data.base,

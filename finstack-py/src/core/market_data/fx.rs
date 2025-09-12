@@ -248,15 +248,12 @@ impl PyFxMatrix {
         policy: &PyFxConversionPolicy,
     ) -> PyResult<f64> {
         self.inner
-            .rate(finstack_core::money::fx::FxQuery {
-                from: from_currency.inner(),
-                to: to_currency.inner(),
-                on: date.inner(),
-                policy: (*policy).to_core(),
-                closure_check: None,
-                want_meta: false,
-            })
-            .map(|fx_rate| fx_rate.rate)
+            .rate_simple(
+                from_currency.inner(),
+                to_currency.inner(),
+                date.inner(),
+                (*policy).to_core(),
+            )
             .map_err(|e| PyErr::new::<PyRuntimeError, _>(format!("Failed to get FX rate: {}", e)))
     }
 

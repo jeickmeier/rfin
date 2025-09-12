@@ -6,7 +6,9 @@ mod common;
 
 use finstack_core::config::{NumericMode, ResultsMeta, RoundingContext, RoundingMode};
 use finstack_core::expr::dag::{BoundaryType, CacheStrategy, DagNode, ExecutionPlan};
-use finstack_core::expr::{CompiledExpr, EvalOpts, Expr, ExprNode, Function, EvaluationResult, SimpleContext};
+use finstack_core::expr::{
+    CompiledExpr, EvalOpts, EvaluationResult, Expr, ExprNode, Function, SimpleContext,
+};
 use hashbrown::HashMap;
 use std::collections::HashSet;
 
@@ -46,7 +48,8 @@ fn test_expr_node_types_serde() {
     // Test Literal node
     let lit_node = ExprNode::Literal(42.5);
     let json = serde_json::to_string(&lit_node).expect("Failed to serialize Literal");
-    let deserialized: ExprNode = serde_json::from_str(&json).expect("Failed to deserialize Literal");
+    let deserialized: ExprNode =
+        serde_json::from_str(&json).expect("Failed to deserialize Literal");
     match deserialized {
         ExprNode::Literal(val) => assert_eq!(val, 42.5),
         _ => panic!("Expected Literal node"),
@@ -100,9 +103,10 @@ fn test_function_enum_serde() {
     ];
 
     for func in functions {
-        let json = serde_json::to_string(&func).unwrap_or_else(|_| panic!("Failed to serialize {:?}", func));
-        let deserialized: Function = 
-            serde_json::from_str(&json).unwrap_or_else(|_| panic!("Failed to deserialize {:?}", func));
+        let json = serde_json::to_string(&func)
+            .unwrap_or_else(|_| panic!("Failed to serialize {:?}", func));
+        let deserialized: Function = serde_json::from_str(&json)
+            .unwrap_or_else(|_| panic!("Failed to deserialize {:?}", func));
         assert_eq!(func, deserialized);
     }
 }
@@ -124,12 +128,18 @@ fn test_evaluation_result_serde() {
     };
 
     let json = serde_json::to_string(&result).expect("Failed to serialize EvaluationResult");
-    let deserialized: EvaluationResult = 
+    let deserialized: EvaluationResult =
         serde_json::from_str(&json).expect("Failed to deserialize EvaluationResult");
 
     assert_eq!(result.values, deserialized.values);
-    assert_eq!(result.metadata.numeric_mode, deserialized.metadata.numeric_mode);
-    assert_eq!(result.metadata.rounding.version, deserialized.metadata.rounding.version);
+    assert_eq!(
+        result.metadata.numeric_mode,
+        deserialized.metadata.numeric_mode
+    );
+    assert_eq!(
+        result.metadata.rounding.version,
+        deserialized.metadata.rounding.version
+    );
 }
 
 #[test]
@@ -144,8 +154,7 @@ fn test_dag_node_serde() {
     };
 
     let json = serde_json::to_string(&node).expect("Failed to serialize DagNode");
-    let deserialized: DagNode = 
-        serde_json::from_str(&json).expect("Failed to deserialize DagNode");
+    let deserialized: DagNode = serde_json::from_str(&json).expect("Failed to deserialize DagNode");
 
     assert_eq!(node.id, deserialized.id);
     assert_eq!(node.dependencies, deserialized.dependencies);
@@ -199,13 +208,19 @@ fn test_execution_plan_serde() {
     };
 
     let json = serde_json::to_string(&plan).expect("Failed to serialize ExecutionPlan");
-    let deserialized: ExecutionPlan = 
+    let deserialized: ExecutionPlan =
         serde_json::from_str(&json).expect("Failed to deserialize ExecutionPlan");
 
     assert_eq!(plan.nodes.len(), deserialized.nodes.len());
     assert_eq!(plan.roots, deserialized.roots);
-    assert_eq!(plan.cache_strategy.expected_hit_rate, deserialized.cache_strategy.expected_hit_rate);
-    assert_eq!(plan.cache_strategy.memory_budget, deserialized.cache_strategy.memory_budget);
+    assert_eq!(
+        plan.cache_strategy.expected_hit_rate,
+        deserialized.cache_strategy.expected_hit_rate
+    );
+    assert_eq!(
+        plan.cache_strategy.memory_budget,
+        deserialized.cache_strategy.memory_budget
+    );
 }
 
 #[test]
@@ -216,7 +231,7 @@ fn test_eval_opts_serde() {
     };
 
     let json = serde_json::to_string(&opts).expect("Failed to serialize EvalOpts");
-    let deserialized: EvalOpts = 
+    let deserialized: EvalOpts =
         serde_json::from_str(&json).expect("Failed to deserialize EvalOpts");
 
     assert_eq!(opts.cache_budget_mb, deserialized.cache_budget_mb);
@@ -245,15 +260,15 @@ fn test_compiled_expr_serde() {
     let compiled = CompiledExpr::with_planning(expr.clone(), meta);
 
     let json = serde_json::to_string(&compiled).expect("Failed to serialize CompiledExpr");
-    let deserialized: CompiledExpr = 
+    let deserialized: CompiledExpr =
         serde_json::from_str(&json).expect("Failed to deserialize CompiledExpr");
 
     // Verify AST is preserved
     assert_eq!(compiled.ast.id, deserialized.ast.id);
-    
+
     // Verify plan is preserved if it existed
     assert_eq!(compiled.plan.is_some(), deserialized.plan.is_some());
-    
+
     // Cache should be None after deserialization (it's skipped)
     assert!(deserialized.cache.is_none());
 }
@@ -263,14 +278,20 @@ fn test_simple_context_serde() {
     let context = SimpleContext::new(vec!["price", "volume", "timestamp"]);
 
     let json = serde_json::to_string(&context).expect("Failed to serialize SimpleContext");
-    let deserialized: SimpleContext = 
+    let deserialized: SimpleContext =
         serde_json::from_str(&json).expect("Failed to deserialize SimpleContext");
 
     // Verify indices are preserved
     assert_eq!(context.index_of("price"), deserialized.index_of("price"));
     assert_eq!(context.index_of("volume"), deserialized.index_of("volume"));
-    assert_eq!(context.index_of("timestamp"), deserialized.index_of("timestamp"));
-    assert_eq!(context.index_of("unknown"), deserialized.index_of("unknown"));
+    assert_eq!(
+        context.index_of("timestamp"),
+        deserialized.index_of("timestamp")
+    );
+    assert_eq!(
+        context.index_of("unknown"),
+        deserialized.index_of("unknown")
+    );
 }
 
 // Note: CachedResult and CacheStats are internal types (pub(crate))
@@ -283,20 +304,20 @@ fn test_boundary_type_serde() {
     let boundary2 = BoundaryType::ScalarToPolars;
 
     let json1 = serde_json::to_string(&boundary1).expect("Failed to serialize BoundaryType");
-    let deserialized1: BoundaryType = 
+    let deserialized1: BoundaryType =
         serde_json::from_str(&json1).expect("Failed to deserialize BoundaryType");
-    
+
     let json2 = serde_json::to_string(&boundary2).expect("Failed to serialize BoundaryType");
-    let deserialized2: BoundaryType = 
+    let deserialized2: BoundaryType =
         serde_json::from_str(&json2).expect("Failed to deserialize BoundaryType");
 
     match deserialized1 {
-        BoundaryType::PolarsTScalar => {},
+        BoundaryType::PolarsTScalar => {}
         _ => panic!("Expected PolarsTScalar"),
     }
 
     match deserialized2 {
-        BoundaryType::ScalarToPolars => {},
+        BoundaryType::ScalarToPolars => {}
         _ => panic!("Expected ScalarToPolars"),
     }
 }
@@ -322,7 +343,7 @@ fn test_complex_expression_tree_serde() {
     );
 
     let json = serde_json::to_string(&expr).expect("Failed to serialize complex expression");
-    let deserialized: Expr = 
+    let deserialized: Expr =
         serde_json::from_str(&json).expect("Failed to deserialize complex expression");
 
     // Verify structure is preserved
@@ -330,7 +351,7 @@ fn test_complex_expression_tree_serde() {
         ExprNode::Call(func, args) => {
             assert_eq!(*func, Function::RollingMean);
             assert_eq!(args.len(), 2);
-            
+
             // Check nested structure
             match &args[0].node {
                 ExprNode::Call(inner_func, inner_args) => {

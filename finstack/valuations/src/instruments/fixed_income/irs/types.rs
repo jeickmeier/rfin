@@ -110,14 +110,23 @@ impl InterestRateSwap {
         end: Date,
     ) -> Self {
         use crate::instruments::common::InstrumentScheduleParams;
-        
+
         Self::builder()
             .id(id)
             .notional(notional)
             .side(PayReceive::PayFixed)
             .dates(start, end)
-            .standard_fixed_leg("USD-OIS", fixed_rate, InstrumentScheduleParams::usd_standard())
-            .standard_float_leg("USD-OIS", "USD-SOFR-3M", 0.0, InstrumentScheduleParams::usd_standard())
+            .standard_fixed_leg(
+                "USD-OIS",
+                fixed_rate,
+                InstrumentScheduleParams::usd_standard(),
+            )
+            .standard_float_leg(
+                "USD-OIS",
+                "USD-SOFR-3M",
+                0.0,
+                InstrumentScheduleParams::usd_standard(),
+            )
             .build()
             .expect("USD pay-fixed swap construction should not fail")
     }
@@ -131,14 +140,23 @@ impl InterestRateSwap {
         end: Date,
     ) -> Self {
         use crate::instruments::common::InstrumentScheduleParams;
-        
+
         Self::builder()
             .id(id)
             .notional(notional)
             .side(PayReceive::ReceiveFixed)
             .dates(start, end)
-            .standard_fixed_leg("USD-OIS", fixed_rate, InstrumentScheduleParams::usd_standard())
-            .standard_float_leg("USD-OIS", "USD-SOFR-3M", 0.0, InstrumentScheduleParams::usd_standard())
+            .standard_fixed_leg(
+                "USD-OIS",
+                fixed_rate,
+                InstrumentScheduleParams::usd_standard(),
+            )
+            .standard_float_leg(
+                "USD-OIS",
+                "USD-SOFR-3M",
+                0.0,
+                InstrumentScheduleParams::usd_standard(),
+            )
             .build()
             .expect("USD receive-fixed swap construction should not fail")
     }
@@ -153,7 +171,7 @@ impl InterestRateSwap {
         reference_spread_bp: F, // Spread on the "float" leg
     ) -> Self {
         use crate::instruments::common::InstrumentScheduleParams;
-        
+
         // Use the "fixed" leg for primary index and "float" leg for reference
         // This is a modeling convenience - both are actually floating
         Self::builder()
@@ -161,8 +179,18 @@ impl InterestRateSwap {
             .notional(notional)
             .side(PayReceive::PayFixed) // Convention: pay primary, receive reference
             .dates(start, end)
-            .standard_float_leg("USD-OIS", "USD-SOFR-3M", primary_spread_bp, InstrumentScheduleParams::usd_standard())
-            .standard_float_leg("USD-OIS", "USD-SOFR-6M", reference_spread_bp, InstrumentScheduleParams::usd_standard())
+            .standard_float_leg(
+                "USD-OIS",
+                "USD-SOFR-3M",
+                primary_spread_bp,
+                InstrumentScheduleParams::usd_standard(),
+            )
+            .standard_float_leg(
+                "USD-OIS",
+                "USD-SOFR-6M",
+                reference_spread_bp,
+                InstrumentScheduleParams::usd_standard(),
+            )
             .build()
             .expect("USD basis swap construction should not fail")
     }

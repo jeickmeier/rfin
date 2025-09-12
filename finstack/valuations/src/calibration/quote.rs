@@ -129,22 +129,24 @@ impl RatesQuote {
     /// Check if this quote requires a forward curve for pricing
     pub fn requires_forward_curve(&self) -> bool {
         match self {
-            RatesQuote::Deposit { .. } => false,  // Only needs discount curve
-            RatesQuote::FRA { .. } => true,       // Needs forward curve for forward rate
-            RatesQuote::Future { .. } => true,    // Needs forward curve for implied rate
-            RatesQuote::Swap { .. } => true,      // Float leg needs forward curve
+            RatesQuote::Deposit { .. } => false, // Only needs discount curve
+            RatesQuote::FRA { .. } => true,      // Needs forward curve for forward rate
+            RatesQuote::Future { .. } => true,   // Needs forward curve for implied rate
+            RatesQuote::Swap { .. } => true,     // Float leg needs forward curve
             RatesQuote::BasisSwap { .. } => true, // Both legs need forward curves
         }
     }
-    
+
     /// Check if this quote is suitable for OIS discount curve calibration
     pub fn is_ois_suitable(&self) -> bool {
         match self {
             RatesQuote::Deposit { .. } => true,
             // OIS swaps would have index like "SOFR", "EONIA", etc.
             RatesQuote::Swap { index, .. } => {
-                index.contains("SOFR") || index.contains("EONIA") || 
-                index.contains("SONIA") || index.contains("OIS")
+                index.contains("SOFR")
+                    || index.contains("EONIA")
+                    || index.contains("SONIA")
+                    || index.contains("OIS")
             }
             _ => false,
         }

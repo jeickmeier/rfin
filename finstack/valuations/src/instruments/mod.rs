@@ -117,10 +117,10 @@ pub use fixed_income::{
     InterestRateSwap, Loan,
 };
 pub use options::{
-    BinomialTree, CreditOption, EquityOption, FxOption, InterestRateOption, RateOptionType,
-    Swaption, TreeType, ExerciseStyle, OptionType, SettlementType,
+    BinomialTree, CreditOption, EquityOption, ExerciseStyle, FxOption, InterestRateOption,
+    OptionType, RateOptionType, SettlementType, Swaption, TreeType,
 };
 
-pub use traits::{Attributable, Attributes, InstrumentLike, Priceable};
 pub use crate::metrics::{RiskMeasurable, RiskReport};
+pub use traits::{Attributable, Attributes, InstrumentLike, Priceable};
 pub use utils::build_with_metrics_dyn;

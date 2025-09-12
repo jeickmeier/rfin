@@ -4,10 +4,7 @@
 //! in a multi-curve framework where discounting is performed using a separate OIS curve.
 
 use crate::calibration::{
-    config::CalibrationConfig,
-    quote::RatesQuote,
-    report::CalibrationReport,
-    traits::Calibrator,
+    config::CalibrationConfig, quote::RatesQuote, report::CalibrationReport, traits::Calibrator,
 };
 use crate::instruments::{
     fixed_income::{
@@ -21,8 +18,7 @@ use finstack_core::{
     currency::Currency,
     dates::{add_months, BusinessDayConvention, Date, DayCount, DayCountCtx, Frequency, StubKind},
     market_data::{
-        context::MarketContext,
-        interp::types::InterpStyle,
+        context::MarketContext, interp::types::InterpStyle,
         term_structures::forward_curve::ForwardCurve,
     },
     math::Solver,
@@ -121,11 +117,9 @@ impl ForwardCurveCalibrator {
         for quote in &sorted_quotes {
             // Determine knot time for this instrument
             let knot_date = self.get_knot_date(quote);
-            let knot_time = self.time_dc.year_fraction(
-                self.base_date,
-                knot_date,
-                DayCountCtx::default(),
-            )?;
+            let knot_time =
+                self.time_dc
+                    .year_fraction(self.base_date, knot_date, DayCountCtx::default())?;
 
             // Skip if we already have a knot at this time
             if knots.iter().any(|(t, _)| (*t - knot_time).abs() < 1e-10) {
@@ -145,18 +139,16 @@ impl ForwardCurveCalibrator {
                 temp_knots.push((knot_time, fwd_rate));
                 temp_knots.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
-                let temp_fwd_curve = match ForwardCurve::builder(
-                    self_clone.fwd_curve_id,
-                    self_clone.tenor_years,
-                )
-                .base_date(self_clone.base_date)
-                .knots(temp_knots)
-                .set_interp(self_clone.solve_interp)
-                .build()
-                {
-                    Ok(curve) => curve,
-                    Err(_) => return crate::calibration::penalize(),
-                };
+                let temp_fwd_curve =
+                    match ForwardCurve::builder(self_clone.fwd_curve_id, self_clone.tenor_years)
+                        .base_date(self_clone.base_date)
+                        .knots(temp_knots)
+                        .set_interp(self_clone.solve_interp)
+                        .build()
+                    {
+                        Ok(curve) => curve,
+                        Err(_) => return crate::calibration::penalize(),
+                    };
 
                 // Update context with temporary forward curve
                 let temp_context = base_context_clone.clone().insert_forward(temp_fwd_curve);
@@ -217,13 +209,15 @@ impl ForwardCurveCalibrator {
 
         // Validate the calibrated forward curve
         use crate::calibration::validation::CurveValidator;
-        curve.validate().map_err(|e| finstack_core::Error::Calibration {
-            message: format!(
-                "Calibrated forward curve {} failed validation: {}",
-                self.fwd_curve_id, e
-            ),
-            category: "forward_curve_validation".to_string(),
-        })?;
+        curve
+            .validate()
+            .map_err(|e| finstack_core::Error::Calibration {
+                message: format!(
+                    "Calibrated forward curve {} failed validation: {}",
+                    self.fwd_curve_id, e
+                ),
+                category: "forward_curve_validation".to_string(),
+            })?;
 
         // Build calibration report
         let report = CalibrationReport::for_type("forward_curve", residuals, total_iterations)
@@ -351,26 +345,33 @@ impl ForwardCurveCalibrator {
             } => {
                 // Use basis swaps for forward curve calibration
                 // Check if this basis swap involves our forward curve
-                let involves_our_curve = 
-                    primary_index.contains(&format!("{}M", (self.tenor_years * 12.0) as i32)) ||
-                    reference_index.contains(&format!("{}M", (self.tenor_years * 12.0) as i32));
-                
+                let involves_our_curve = primary_index
+                    .contains(&format!("{}M", (self.tenor_years * 12.0) as i32))
+                    || reference_index.contains(&format!("{}M", (self.tenor_years * 12.0) as i32));
+
                 if !involves_our_curve {
                     return Ok(0.0); // Skip basis swaps that don't involve our tenor
                 }
-                
+
                 // Create basis swap instrument
                 use crate::instruments::fixed_income::basis_swap::{BasisSwap, BasisSwapLeg};
-                
+
                 // Determine which leg uses our curve and which uses the reference
-                let (primary_fwd_id, reference_fwd_id) = if primary_index.contains(&format!("{}M", (self.tenor_years * 12.0) as i32)) {
-                    // Primary leg uses our curve, reference needs to be resolved
-                    (self.fwd_curve_id, self.resolve_forward_curve_id(reference_index))
-                } else {
-                    // Reference leg uses our curve, primary needs to be resolved  
-                    (self.resolve_forward_curve_id(primary_index), self.fwd_curve_id)
-                };
-                
+                let (primary_fwd_id, reference_fwd_id) =
+                    if primary_index.contains(&format!("{}M", (self.tenor_years * 12.0) as i32)) {
+                        // Primary leg uses our curve, reference needs to be resolved
+                        (
+                            self.fwd_curve_id,
+                            self.resolve_forward_curve_id(reference_index),
+                        )
+                    } else {
+                        // Reference leg uses our curve, primary needs to be resolved
+                        (
+                            self.resolve_forward_curve_id(primary_index),
+                            self.fwd_curve_id,
+                        )
+                    };
+
                 let primary_leg = BasisSwapLeg {
                     forward_curve_id: primary_fwd_id,
                     frequency: *primary_freq,
@@ -378,7 +379,7 @@ impl ForwardCurveCalibrator {
                     bdc: BusinessDayConvention::ModifiedFollowing,
                     spread: *spread_bp / 10_000.0, // Convert bp to decimal
                 };
-                
+
                 let reference_leg = BasisSwapLeg {
                     forward_curve_id: reference_fwd_id,
                     frequency: *reference_freq,
@@ -386,7 +387,7 @@ impl ForwardCurveCalibrator {
                     bdc: BusinessDayConvention::ModifiedFollowing,
                     spread: 0.0,
                 };
-                
+
                 let basis_swap = BasisSwap::new(
                     format!("CALIB_BASIS_{}", maturity),
                     Money::new(1_000_000.0, *currency),
@@ -396,7 +397,7 @@ impl ForwardCurveCalibrator {
                     reference_leg,
                     self.discount_curve_id,
                 );
-                
+
                 let pv = basis_swap.value(context, self.base_date)?;
                 Ok(pv.amount() / basis_swap.notional.amount())
             }
@@ -450,10 +451,7 @@ impl ForwardCurveCalibrator {
             }
             _ => {
                 // Fallback: use last knot or default
-                existing_knots
-                    .last()
-                    .map(|(_, fwd)| *fwd)
-                    .unwrap_or(0.045)
+                existing_knots.last().map(|(_, fwd)| *fwd).unwrap_or(0.045)
             }
         }
     }
@@ -531,7 +529,7 @@ impl ForwardCurveCalibrator {
             // This uses Box::leak to create a 'static str from the formatted string
             Box::leak(format!("FWD_{}", reference_index).into_boxed_str())
         };
-        
+
         curve_id
     }
 
@@ -641,7 +639,7 @@ mod tests {
         .with_solve_interp(InterpStyle::Linear);
 
         let quotes = create_test_fra_quotes();
-        
+
         // Try to calibrate and handle the error
         match calibrator.calibrate(&quotes, &context) {
             Ok((curve, report)) => {
@@ -688,11 +686,26 @@ mod tests {
         );
 
         // Test USD curve ID resolution
-        assert_eq!(calibrator.resolve_forward_curve_id("1M-SOFR"), "USD-SOFR-1M-FWD");
-        assert_eq!(calibrator.resolve_forward_curve_id("3M-SOFR"), "USD-SOFR-3M-FWD");
-        assert_eq!(calibrator.resolve_forward_curve_id("6M-SOFR"), "USD-SOFR-6M-FWD");
-        assert_eq!(calibrator.resolve_forward_curve_id("12M-SOFR"), "USD-SOFR-12M-FWD");
-        assert_eq!(calibrator.resolve_forward_curve_id("1Y-SOFR"), "USD-SOFR-12M-FWD");
+        assert_eq!(
+            calibrator.resolve_forward_curve_id("1M-SOFR"),
+            "USD-SOFR-1M-FWD"
+        );
+        assert_eq!(
+            calibrator.resolve_forward_curve_id("3M-SOFR"),
+            "USD-SOFR-3M-FWD"
+        );
+        assert_eq!(
+            calibrator.resolve_forward_curve_id("6M-SOFR"),
+            "USD-SOFR-6M-FWD"
+        );
+        assert_eq!(
+            calibrator.resolve_forward_curve_id("12M-SOFR"),
+            "USD-SOFR-12M-FWD"
+        );
+        assert_eq!(
+            calibrator.resolve_forward_curve_id("1Y-SOFR"),
+            "USD-SOFR-12M-FWD"
+        );
 
         // Test EUR curve ID resolution
         let eur_calibrator = ForwardCurveCalibrator::new(
@@ -702,8 +715,14 @@ mod tests {
             Currency::EUR,
             "EUR-OIS-DISC",
         );
-        assert_eq!(eur_calibrator.resolve_forward_curve_id("3M-EURIBOR"), "EUR-EURIBOR-3M-FWD");
-        assert_eq!(eur_calibrator.resolve_forward_curve_id("6M-EURIBOR"), "EUR-EURIBOR-6M-FWD");
+        assert_eq!(
+            eur_calibrator.resolve_forward_curve_id("3M-EURIBOR"),
+            "EUR-EURIBOR-3M-FWD"
+        );
+        assert_eq!(
+            eur_calibrator.resolve_forward_curve_id("6M-EURIBOR"),
+            "EUR-EURIBOR-6M-FWD"
+        );
 
         // Test fallback for unknown index format
         let unknown_id = calibrator.resolve_forward_curve_id("CUSTOM-INDEX");
@@ -714,21 +733,16 @@ mod tests {
     #[test]
     fn test_basis_swap_calibration() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        
+
         // Create a test context with discount curve and a 6M forward curve
         let disc_curve = create_test_discount_curve();
         let mut context = MarketContext::new();
         context = context.insert_discount(disc_curve);
-        
+
         // Add a 6M forward curve that we'll use as reference
         let fwd_6m = ForwardCurve::builder("USD-SOFR-6M-FWD", 0.5)
             .base_date(base_date)
-            .knots(vec![
-                (0.0, 0.045),
-                (0.5, 0.046),
-                (1.0, 0.047),
-                (2.0, 0.048),
-            ])
+            .knots(vec![(0.0, 0.045), (0.5, 0.046), (1.0, 0.047), (2.0, 0.048)])
             .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
@@ -771,7 +785,7 @@ mod tests {
 
         // Calibrate should work without errors
         let result = calibrator.calibrate(&basis_quotes, &context);
-        
+
         // For now, just check that the function is callable and doesn't panic
         // The actual calibration may fail if the reference curve isn't available
         match result {
@@ -779,7 +793,7 @@ mod tests {
                 // Verify the curve was created
                 assert_eq!(curve.id().as_ref(), "USD-SOFR-3M-FWD");
                 assert_eq!(curve.tenor(), 0.25);
-                
+
                 // Check that calibration was successful
                 assert!(report.success);
             }

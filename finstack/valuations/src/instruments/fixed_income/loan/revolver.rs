@@ -167,7 +167,8 @@ impl RevolvingCreditFacility {
             availability_start,
             availability_end,
             maturity,
-        ).with_interest(InterestSpec::Floating {
+        )
+        .with_interest(InterestSpec::Floating {
             index_id: "USD-SOFR-3M",
             spread_bp,
             spread_step_ups: None,
@@ -191,7 +192,8 @@ impl RevolvingCreditFacility {
             availability_start,
             availability_end,
             maturity,
-        ).with_interest(InterestSpec::Fixed {
+        )
+        .with_interest(InterestSpec::Fixed {
             rate: fixed_rate,
             step_ups: None,
         })

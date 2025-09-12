@@ -103,7 +103,7 @@ pub struct FxConfig {
 impl Default for FxConfig {
     fn default() -> Self {
         Self {
-            closure_tolerance: 0.0001,             // 1 basis point
+            closure_tolerance: 0.0001, // 1 basis point
             strict_closure: false,
             pivot_currency: Currency::USD, // USD as default pivot
             enable_triangulation: true,    // Enable triangulation by default
@@ -157,7 +157,7 @@ pub trait FxProvider: Send + Sync {
 }
 
 /// Simplified FX matrix that stores quotes and computes cross rates on demand.
-/// 
+///
 /// Note: `FxMatrix` cannot be directly serialized due to the trait object `Arc<dyn FxProvider>`.
 /// To persist FX state, use `get_serializable_state()` to extract the config and quotes,
 /// then recreate the matrix with `FxMatrix::with_config()` and `load_from_state()`.
@@ -196,6 +196,32 @@ impl FxMatrix {
 
     /// Direct lookup from the implied matrix. Falls back to provider/triangulation if missing.
     pub fn rate(&self, query: FxQuery) -> crate::Result<FxRateResult> {
+        self.rate_with_meta(query)
+    }
+
+    /// Simple rate lookup returning only the numeric FX rate.
+    ///
+    /// Convenience wrapper that avoids constructing an `FxQuery` when metadata isn't needed.
+    pub fn rate_simple(
+        &self,
+        from: Currency,
+        to: Currency,
+        on: Date,
+        policy: FxConversionPolicy,
+    ) -> crate::Result<FxRate> {
+        self.rate_with_meta(FxQuery {
+            from,
+            to,
+            on,
+            policy,
+            closure_check: None,
+            want_meta: false,
+        })
+        .map(|res| res.rate)
+    }
+
+    /// Rate lookup returning the numeric rate along with triangulation/closure metadata.
+    pub fn rate_with_meta(&self, query: FxQuery) -> crate::Result<FxRateResult> {
         let from = query.from;
         let to = query.to;
         let on = query.on;
@@ -298,8 +324,7 @@ impl FxMatrix {
     }
 
     /// No-op (kept for API compatibility)
-    pub fn clear_expired(&self) {
-    }
+    pub fn clear_expired(&self) {}
 
     /// Clear all stored quotes
     pub fn clear_cache(&self) {
@@ -311,7 +336,7 @@ impl FxMatrix {
         let quotes = self.quotes.lock();
         (quotes.len(), 0)
     }
-    
+
     /// Extract serializable state from the FxMatrix.
     /// Returns the configuration and current quotes that can be persisted.
     #[cfg(feature = "serde")]
@@ -326,7 +351,7 @@ impl FxMatrix {
             quotes: quote_vec,
         }
     }
-    
+
     /// Load quotes from a serialized state.
     /// This allows restoring cached quotes after deserialization.
     #[cfg(feature = "serde")]
@@ -443,27 +468,9 @@ impl FxMatrix {
             None => return Ok(None),
         };
 
-        // Recursively compute via legs without requesting metadata to avoid cycles
-        let via_a = self
-            .rate(FxQuery {
-                from: query.from,
-                to: mid,
-                on: query.on,
-                policy: query.policy,
-                closure_check: None,
-                want_meta: false,
-            })?
-            .rate;
-        let via_b = self
-            .rate(FxQuery {
-                from: mid,
-                to: query.to,
-                on: query.on,
-                policy: query.policy,
-                closure_check: None,
-                want_meta: false,
-            })?
-            .rate;
+        // Recursively compute via legs using the simple API to avoid cycles/metadata
+        let via_a = self.rate_simple(query.from, mid, query.on, query.policy)?;
+        let via_b = self.rate_simple(mid, query.to, query.on, query.policy)?;
 
         Ok(Some(self.check_closure(direct_rate, via_a, via_b)?))
     }

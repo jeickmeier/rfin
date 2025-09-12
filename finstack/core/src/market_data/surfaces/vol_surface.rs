@@ -31,7 +31,7 @@ use crate::{
 use ndarray::Array2;
 
 /// Volatility surface defined on expiry × strike grid.
-/// 
+///
 /// Note: Use `to_state()` and `from_state()` for serialization.
 pub struct VolSurface {
     id: CurveId,
@@ -57,7 +57,7 @@ pub struct VolSurfaceState {
 
 impl VolSurface {
     /// Start building a new volatility surface with identifier `id`.
-    pub fn builder(id: impl Into<String>) -> VolSurfaceBuilder {
+    pub fn builder(id: impl Into<CurveId>) -> VolSurfaceBuilder {
         VolSurfaceBuilder {
             id: id.into(),
             expiries: Vec::new(),
@@ -177,7 +177,7 @@ impl VolSurface {
     pub fn grid_shape(&self) -> (usize, usize) {
         (self.expiries.len(), self.strikes.len())
     }
-    
+
     #[cfg(feature = "serde")]
     /// Extract serializable state
     pub fn to_state(&self) -> VolSurfaceState {
@@ -189,7 +189,7 @@ impl VolSurface {
             vols_row_major: vols_flat,
         }
     }
-    
+
     #[cfg(feature = "serde")]
     /// Create from serialized state
     pub fn from_state(state: VolSurfaceState) -> crate::Result<Self> {
@@ -216,7 +216,7 @@ impl TermStructure for VolSurface {
 
 /// Fluent builder for [`VolSurface`].
 pub struct VolSurfaceBuilder {
-    id: String,
+    id: CurveId,
     expiries: Vec<F>,
     strikes: Vec<F>,
     vols: Vec<Vec<F>>, // row-major expiries
@@ -274,7 +274,7 @@ impl VolSurfaceBuilder {
         let array =
             Array2::from_shape_vec((self.expiries.len(), self.strikes.len()), flat).unwrap();
         Ok(VolSurface {
-            id: CurveId::new(self.id),
+            id: self.id,
             expiries: self.expiries.into_boxed_slice(),
             strikes: self.strikes.into_boxed_slice(),
             vols: array,
