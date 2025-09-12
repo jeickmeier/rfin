@@ -52,6 +52,9 @@ impl Default for InflationLag {
 ///
 /// Stores economic index observations (CPI/RPI) in a Polars DataFrame
 /// with columns: date, value, and optional seasonality factors.
+/// 
+/// Note: This struct cannot be directly serialized due to the internal DataFrame.
+/// Use the builder pattern to reconstruct from observations after deserialization.
 #[derive(Clone, Debug)]
 pub struct InflationIndex {
     /// Unique identifier for this index (e.g., "US-CPI-U", "UK-RPI")
@@ -234,6 +237,71 @@ impl InflationIndex {
 }
 
 // (moved) date conversion helpers are centralized in crate::dates::utils
+
+/// Serializable state of an InflationIndex
+#[cfg(feature = "serde")]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct InflationIndexState {
+    /// Unique identifier
+    pub id: String,
+    /// Currency
+    pub currency: Currency,
+    /// Observations as (date, value) pairs
+    pub observations: Vec<(Date, f64)>,
+    /// Interpolation method
+    pub interpolation: InflationInterpolation,
+    /// Lag policy
+    pub lag: InflationLag,
+    /// Optional seasonality factors
+    pub seasonality: Option<[f64; 12]>,
+}
+
+#[cfg(feature = "serde")]
+impl InflationIndex {
+    /// Extract serializable state
+    pub fn to_state(&self) -> crate::Result<InflationIndexState> {
+        // Extract observations from the underlying series DataFrame
+        let df = self.series.as_dataframe();
+        let dates = df
+            .column("date")
+            .map_err(|_| crate::Error::Internal)?
+            .i32()
+            .map_err(|_| crate::Error::Internal)?;
+        let values = df
+            .column("value")
+            .map_err(|_| crate::Error::Internal)?
+            .f64()
+            .map_err(|_| crate::Error::Internal)?;
+        
+        let observations: Vec<(Date, f64)> = dates
+            .into_no_null_iter()
+            .zip(values.into_no_null_iter())
+            .map(|(d, v)| (crate::dates::utils::days_since_epoch_to_date(d), v))
+            .collect();
+        
+        Ok(InflationIndexState {
+            id: self.id.clone(),
+            currency: self.currency,
+            observations,
+            interpolation: self.interpolation,
+            lag: self.lag,
+            seasonality: self.seasonality,
+        })
+    }
+    
+    /// Create from serialized state
+    pub fn from_state(state: InflationIndexState) -> crate::Result<Self> {
+        let mut index = Self::new(state.id, state.observations, state.currency)?
+            .with_interpolation(state.interpolation)
+            .with_lag(state.lag);
+        
+        if let Some(factors) = state.seasonality {
+            index = index.with_seasonality(factors)?;
+        }
+        
+        Ok(index)
+    }
+}
 
 /// Builder for creating inflation indices from various sources
 pub struct InflationIndexBuilder {

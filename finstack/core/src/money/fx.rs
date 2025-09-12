@@ -87,6 +87,8 @@ struct Pair(Currency, Currency);
 
 /// Configuration for FX matrix behavior
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct FxConfig {
     /// Tolerance for closure checking (e.g., 0.0001 = 1bp). Only used if metadata requested.
     pub closure_tolerance: f64,
@@ -111,6 +113,8 @@ impl Default for FxConfig {
 
 /// Result of a closure check
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum ClosureCheckResult {
     /// Closure check passed within tolerance
     Pass,
@@ -127,6 +131,8 @@ pub enum ClosureCheckResult {
 
 /// Result of an FX rate lookup with triangulation metadata
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct FxRateResult {
     /// The final FX rate
     pub rate: FxRate,
@@ -151,11 +157,26 @@ pub trait FxProvider: Send + Sync {
 }
 
 /// Simplified FX matrix that stores quotes and computes cross rates on demand.
+/// 
+/// Note: `FxMatrix` cannot be directly serialized due to the trait object `Arc<dyn FxProvider>`.
+/// To persist FX state, use `get_serializable_state()` to extract the config and quotes,
+/// then recreate the matrix with `FxMatrix::with_config()` and `load_from_state()`.
 pub struct FxMatrix {
     provider: Arc<dyn FxProvider>,
     /// Explicit quotes inserted or observed from provider
     quotes: Mutex<HashMap<Pair, FxRate>>,
     config: FxConfig,
+}
+
+/// Serializable state of an FxMatrix.
+/// Contains the configuration and cached quotes that can be persisted and restored.
+#[cfg(feature = "serde")]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FxMatrixState {
+    /// FX configuration
+    pub config: FxConfig,
+    /// Cached FX quotes as (from, to, rate) tuples
+    pub quotes: Vec<(Currency, Currency, FxRate)>,
 }
 
 impl FxMatrix {
@@ -289,6 +310,28 @@ impl FxMatrix {
     pub fn cache_stats(&self) -> (usize, usize) {
         let quotes = self.quotes.lock();
         (quotes.len(), 0)
+    }
+    
+    /// Extract serializable state from the FxMatrix.
+    /// Returns the configuration and current quotes that can be persisted.
+    #[cfg(feature = "serde")]
+    pub fn get_serializable_state(&self) -> FxMatrixState {
+        let quotes = self.quotes.lock();
+        let quote_vec: Vec<(Currency, Currency, FxRate)> = quotes
+            .iter()
+            .map(|(pair, &rate)| (pair.0, pair.1, rate))
+            .collect();
+        FxMatrixState {
+            config: self.config.clone(),
+            quotes: quote_vec,
+        }
+    }
+    
+    /// Load quotes from a serialized state.
+    /// This allows restoring cached quotes after deserialization.
+    #[cfg(feature = "serde")]
+    pub fn load_from_state(&self, state: &FxMatrixState) {
+        self.set_quotes(&state.quotes);
     }
 
     // Private helper methods

@@ -35,6 +35,8 @@ use strum::IntoEnumIterator;
 
 /// Mode of applying a bump.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum BumpMode {
     /// Additive bump expressed in a normalized fractional form (e.g., 100bp = 0.01, 2% = 0.02).
     Additive,
@@ -44,6 +46,8 @@ pub enum BumpMode {
 
 /// Units for the bump magnitude. These control normalization to fraction or factor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum BumpUnits {
     /// Basis points for rates/spreads (100bp = 0.01).
     RateBp,
@@ -57,6 +61,8 @@ pub enum BumpUnits {
 
 /// Unified bump specification capturing mode, units, and value.
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct BumpSpec {
     /// How the bump should be applied (additive vs multiplicative).
     pub mode: BumpMode,

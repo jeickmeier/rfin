@@ -15,6 +15,9 @@ use std::sync::Arc;
 ///
 /// Contains all the curves and parameters needed to price credit derivatives
 /// on a standardized credit index using models like the Gaussian Copula.
+/// 
+/// Note: This struct contains Arc-wrapped curves that cannot be directly serialized.
+/// For persistence, extract and serialize the underlying curve data separately.
 #[derive(Clone, Debug)]
 pub struct CreditIndexData {
     /// Number of constituents in the credit index (e.g., 125 for CDX IG)
