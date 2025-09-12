@@ -9,6 +9,7 @@ use crate::instruments::fixed_income::inflation_swap::{InflationSwap, PayReceive
 use crate::instruments::traits::Priceable;
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::inflation_index::{InflationInterpolation, InflationLag};
 use finstack_core::market_data::interp::InterpStyle;
 use finstack_core::market_data::term_structures::inflation::InflationCurve;
 use finstack_core::math::Solver;
@@ -36,6 +37,12 @@ pub struct InflationCurveCalibrator {
     pub accrual_dc: DayCount,
     /// Interpolation used during solving and for the final curve
     pub solve_interp: InterpStyle,
+    /// Inflation lag (typically 3 months for CPI)
+    pub inflation_lag: InflationLag,
+    /// Monthly seasonality adjustment factors (12 values, one per month)
+    pub seasonality_adjustments: Option<[F; 12]>,
+    /// Interpolation method for inflation index
+    pub inflation_interpolation: InflationInterpolation,
     /// Calibration configuration
     pub config: CalibrationConfig,
 }
@@ -58,6 +65,9 @@ impl InflationCurveCalibrator {
             time_dc: DayCount::ActAct,
             accrual_dc: DayCount::ActAct,
             solve_interp: InterpStyle::LogLinear,
+            inflation_lag: InflationLag::Months(3), // Standard 3-month lag for CPI
+            seasonality_adjustments: None,
+            inflation_interpolation: InflationInterpolation::Linear,
             config: CalibrationConfig::default(),
         }
     }
@@ -84,6 +94,52 @@ impl InflationCurveCalibrator {
     pub fn with_accrual_dc(mut self, dc: DayCount) -> Self {
         self.accrual_dc = dc;
         self
+    }
+
+    /// Set the inflation lag (e.g., 3-month lag for CPI).
+    pub fn with_inflation_lag(mut self, lag: InflationLag) -> Self {
+        self.inflation_lag = lag;
+        self
+    }
+
+    /// Set monthly seasonality adjustment factors (12 values, one per month).
+    /// Factors should be close to 1.0 (e.g., 0.98 to 1.02 for ±2% adjustment).
+    pub fn with_seasonality_adjustments(mut self, factors: [F; 12]) -> Self {
+        self.seasonality_adjustments = Some(factors);
+        self
+    }
+
+    /// Set the interpolation method for the inflation index.
+    pub fn with_inflation_interpolation(mut self, interp: InflationInterpolation) -> Self {
+        self.inflation_interpolation = interp;
+        self
+    }
+
+    /// Apply lag to a given date based on the configured inflation lag.
+    /// 
+    /// Note: Lag is typically applied during instrument pricing when using the inflation index,
+    /// not during curve calibration. The curve knots should represent the actual maturity dates.
+    /// This method is provided for consistency with InflationIndex behavior and potential future use.
+    pub fn apply_lag(&self, date: finstack_core::dates::Date) -> finstack_core::dates::Date {
+        match self.inflation_lag {
+            InflationLag::None => date,
+            InflationLag::Days(days) => date
+                .checked_sub(time::Duration::days(days as i64))
+                .unwrap_or(date),
+            InflationLag::Months(months) => {
+                finstack_core::dates::utils::add_months(date, -(months as i32))
+            }
+        }
+    }
+
+    /// Apply seasonality adjustment to a CPI value based on the month.
+    fn apply_seasonality(&self, cpi_value: F, date: finstack_core::dates::Date) -> F {
+        if let Some(factors) = &self.seasonality_adjustments {
+            let month_idx = (date.month() as usize) - 1;
+            cpi_value * factors[month_idx]
+        } else {
+            cpi_value
+        }
     }
 }
 
@@ -147,7 +203,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
         // Note: We don't require an inflation index during calibration; the index is provided by caller when repricing.
 
         for (maturity, par_rate, _idx) in quotes {
-            // Consistent time-axis for CPI knot
+            // Consistent time-axis for CPI knot (use original maturity for curve construction)
             let t = self.time_dc
                 .year_fraction(
                     self.base_date,
@@ -168,7 +224,10 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 )
                 .unwrap_or(0.0);
             // Use analytical breakeven CPI for initial guess to ensure f(x0)=0
-            let initial_guess = self.base_cpi * (1.0 + par_rate).powf(tau);
+            let mut initial_guess = self.base_cpi * (1.0 + par_rate).powf(tau);
+            
+            // Apply seasonality adjustment to initial guess if applicable
+            initial_guess = self.apply_seasonality(initial_guess, maturity);
             if self.config.verbose {
                 tracing::debug!(
                     maturity = %maturity,
@@ -240,6 +299,9 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 solved_cpi = initial_guess;
             }
 
+            // Apply seasonality adjustment to the solved CPI
+            solved_cpi = self.apply_seasonality(solved_cpi, maturity);
+
             // Record residual and commit the knot
             let res = objective(solved_cpi).abs();
             if self.config.verbose {
@@ -299,6 +361,9 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
             .with_metadata("solve_interp", format!("{:?}", self.solve_interp))
             .with_metadata("time_dc", format!("{:?}", self.time_dc))
             .with_metadata("accrual_dc", format!("{:?}", self.accrual_dc))
+            .with_metadata("inflation_lag", format!("{:?}", self.inflation_lag))
+            .with_metadata("inflation_interpolation", format!("{:?}", self.inflation_interpolation))
+            .with_metadata("has_seasonality", format!("{}", self.seasonality_adjustments.is_some()))
             .with_metadata("validation", "passed");
 
         Ok((curve, report))
@@ -387,6 +452,48 @@ mod tests {
         // Note: base_cpi is private, so we can't directly access it in tests
         // This would be validated through the curve's behavior
         assert!(!curve.cpi_levels().is_empty());
+    }
+
+    #[test]
+    fn test_inflation_curve_with_lag_and_seasonality() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        
+        // Create seasonality factors (e.g., higher inflation in summer months)
+        let seasonality_factors: [F; 12] = [
+            0.98, 0.98, 0.99, 1.00, 1.01, 1.02, // Jan-Jun
+            1.02, 1.02, 1.01, 1.00, 0.99, 0.98, // Jul-Dec
+        ];
+        
+        let calibrator = InflationCurveCalibrator::new(
+            "US-CPI-U",
+            base_date,
+            Currency::USD,
+            290.0,
+            "USD-OIS",
+        )
+        .with_inflation_lag(InflationLag::Months(2))
+        .with_seasonality_adjustments(seasonality_factors)
+        .with_inflation_interpolation(InflationInterpolation::Step);
+
+        let quotes = create_test_inflation_quotes();
+        let discount_curve = create_test_discount_curve();
+        let market_context = MarketContext::new().insert_discount(discount_curve);
+
+        let result = calibrator.calibrate(&quotes, &market_context);
+        assert!(result.is_ok());
+        
+        let (curve, report) = result.unwrap();
+        assert!(report.success);
+        
+        // Check that metadata includes our new settings
+        assert!(report.metadata.contains_key("inflation_lag"));
+        assert!(report.metadata.contains_key("inflation_interpolation"));
+        assert!(report.metadata.contains_key("has_seasonality"));
+        assert_eq!(report.metadata.get("has_seasonality"), Some(&"true".to_string()));
+        
+        // Verify curve has proper CPI levels
+        assert!(!curve.cpi_levels().is_empty());
+        assert!(curve.cpi(1.0) > 0.0);
     }
 
     #[test]
