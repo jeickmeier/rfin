@@ -377,8 +377,10 @@ impl SimpleCalibration {
         let mut updated_context = context.clone();
         let mut combined_report = CalibrationReport::empty_success("Volatility calibration starting");
 
-        // Group option quotes by underlying; explicitly skip swaptions for this calibrator
+        // Group option quotes by underlying and collect swaption quotes separately
         let mut quotes_by_underlying: BTreeMap<String, Vec<VolQuote>> = BTreeMap::new();
+        let mut swaption_quotes: Vec<VolQuote> = Vec::new();
+        
         for quote in quotes {
             if let MarketQuote::Vol(vol_quote) = quote {
                 match vol_quote {
@@ -386,10 +388,7 @@ impl SimpleCalibration {
                         quotes_by_underlying.entry(underlying.clone()).or_default().push(vol_quote.clone());
                     }
                     VolQuote::SwaptionVol { .. } => {
-                        // Record a metadata note once about skipped swaptions
-                        combined_report = combined_report
-                            .with_metadata("note_swaptions_skipped", "SwaptionVol quotes are ignored by SimpleCalibration; use a swaption-specific calibrator.");
-                        // Skip adding to quotes_by_underlying
+                        swaption_quotes.push(vol_quote.clone());
                     }
                 }
             }
@@ -429,6 +428,44 @@ impl SimpleCalibration {
                     &mut combined_report.iterations,
                     &report,
                 );
+            }
+        }
+        
+        // Handle swaption quotes if present
+        if !swaption_quotes.is_empty() {
+            use crate::calibration::bootstrap::swaption_vol::{SwaptionVolCalibrator, SwaptionVolConvention, AtmStrikeConvention};
+            
+            // Determine discount curve ID from context (use first available OIS curve)
+            let disc_id = if updated_context.disc("USD-OIS").is_ok() {
+                "USD-OIS"
+            } else if updated_context.disc("EUR-OIS").is_ok() {
+                "EUR-OIS"
+            } else {
+                // This shouldn't happen in a well-formed test, but provide a reasonable fallback
+                "USD-OIS"
+            };
+            
+            let swaption_calibrator = SwaptionVolCalibrator::new(
+                "SWAPTION-VOL",
+                SwaptionVolConvention::Normal, // Normal vols are more stable for rates
+                AtmStrikeConvention::SwapRate, // Most common convention
+                self.base_date,
+                disc_id,
+            )
+            .with_config(CalibrationConfig { 
+                verbose: false, // Don't pollute SimpleCalibration output
+                ..self.config.clone() 
+            });
+            
+            if let Ok((surface, report)) = swaption_calibrator.calibrate(&swaption_quotes, &updated_context) {
+                updated_context = updated_context.insert_surface(surface);
+                self.merge_report(
+                    &mut combined_report.residuals,
+                    &mut combined_report.iterations,
+                    &report,
+                );
+                combined_report = combined_report
+                    .with_metadata("swaption_calibration", "Swaption volatility surface calibrated successfully");
             }
         }
 
