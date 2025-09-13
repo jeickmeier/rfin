@@ -9,3 +9,9 @@ pub mod metrics;
 mod types;
 
 pub use types::{FutureContractSpecs, InterestRateFuture};
+
+// Provide a distinct path for types.rs to reference this builder
+#[allow(unused_imports)]
+pub(crate) mod mod_ir_future {
+    pub use super::builder::IRFutureBuilder;
+}

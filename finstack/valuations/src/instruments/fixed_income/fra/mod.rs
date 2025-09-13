@@ -8,3 +8,9 @@ pub mod metrics;
 mod types;
 
 pub use types::ForwardRateAgreement;
+
+// Provide a distinct path for types.rs to reference this builder
+#[allow(unused_imports)]
+pub(crate) mod mod_fra {
+    pub use super::builder::FraBuilder;
+}
