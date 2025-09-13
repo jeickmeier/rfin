@@ -5,11 +5,11 @@
 
 use finstack_core::dates::Frequency;
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::math::root_finding::newton_raphson;
+use finstack_core::math::solver::{BrentSolver, HybridSolver, Solver};
 use finstack_core::money::Money;
 use finstack_core::{Result, F};
 
-use super::helpers::{df_and_derivative_from_yield, df_from_yield, YieldCompounding};
+use super::helpers::{df_from_yield, YieldCompounding};
 /// Pricing specification for YTM solving and pricing from yield.
 #[derive(Clone, Copy, Debug)]
 pub struct YtmPricingSpec {
@@ -125,52 +125,17 @@ impl YtmSolver {
             ) - target
         };
 
-        let price_derivative = |y: f64| -> f64 {
-            self.calculate_price_derivative(
-                cashflows,
-                as_of,
-                y,
-                spec.day_count,
-                spec.compounding,
-                spec.frequency,
-            )
-        };
-
         if self.config.use_newton {
-            // Try Newton-Raphson with automatic fallback
-            // Try standard Newton first; if it fails, fallback to Brent
-            match newton_raphson(
-                price_fn,
-                price_derivative,
-                initial_guess,
-                self.config.tolerance,
-                self.config.max_iterations,
-            ) {
-                Ok(root) => Ok(root),
-                Err(_) => {
-                    use finstack_core::math::root_finding::brent;
-                    let (a, b) = self.determine_bracket(&price_fn, initial_guess);
-                    brent(
-                        price_fn,
-                        a,
-                        b,
-                        self.config.tolerance,
-                        self.config.max_iterations,
-                    )
-                }
-            }
+            // Use HybridSolver for Newton-Raphson with automatic Brent fallback
+            let solver = HybridSolver::new()
+                .with_tolerance(self.config.tolerance)
+                .with_max_iterations(self.config.max_iterations);
+            solver.solve(price_fn, initial_guess)
         } else {
             // Direct to Brent's method
-            use finstack_core::math::root_finding::brent;
-
-            let (a, b) = self.determine_bracket(&price_fn, initial_guess);
-            brent(
-                price_fn,
-                a,
-                b,
-                self.config.tolerance,
-                self.config.max_iterations,
-            )
+            let solver = BrentSolver::new()
+                .with_tolerance(self.config.tolerance);
+            solver.solve(price_fn, initial_guess)
         }
     }
 
@@ -201,36 +166,6 @@ impl YtmSolver {
         }
 
         price
-    }
-
-    /// Calculate price derivative with respect to yield
-    fn calculate_price_derivative(
-        &self,
-        cashflows: &[(Date, Money)],
-        as_of: Date,
-        yield_rate: F,
-        day_count: DayCount,
-        comp: YieldCompounding,
-        freq: Frequency,
-    ) -> F {
-        let mut derivative = 0.0;
-
-        for &(date, amount) in cashflows {
-            if date <= as_of {
-                continue;
-            }
-
-            let t = day_count
-                .year_fraction(as_of, date, finstack_core::dates::DayCountCtx::default())
-                .unwrap_or(0.0);
-            if t > 0.0 {
-                let (_df, ddf_dy) =
-                    df_and_derivative_from_yield(yield_rate, t, comp, freq).unwrap_or((0.0, 0.0));
-                derivative += amount.amount() * ddf_dy;
-            }
-        }
-
-        derivative
     }
 
     /// Calculate smart initial guess for YTM (FinancePy approach)
@@ -275,34 +210,6 @@ impl YtmSolver {
         Ok(initial_guess.clamp(-0.5, 0.5))
     }
 
-    /// Determine bracket for Brent's method with smarter bounds
-    fn determine_bracket<Func>(&self, f: &Func, initial: f64) -> (f64, f64)
-    where
-        Func: Fn(f64) -> f64,
-    {
-        // Start with bounds around the initial guess
-        let width = 0.05; // 5% initial bracket width
-        let mut a = (initial - width).max(-0.95); // Avoid extreme negative yields
-        let mut b = (initial + width).min(0.5); // Cap at 50% yield for normal bonds
-
-        // Check if initial bracket works
-        if f(a) * f(b) < 0.0 {
-            return (a, b);
-        }
-
-        // Expand bracket gradually
-        for expansion in [2.0, 5.0, 10.0] {
-            a = (initial - width * expansion).max(-0.95);
-            b = (initial + width * expansion).min(2.0); // 200% max for distressed
-
-            if f(a) * f(b) < 0.0 {
-                return (a, b);
-            }
-        }
-
-        // Last resort: wide but bounded bracket
-        (-0.95, 2.0)
-    }
 }
 
 /// Convenience function for solving YTM with default configuration

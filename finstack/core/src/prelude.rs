@@ -40,7 +40,7 @@ pub use crate::Result;
 
 // Math utilities
 pub use crate::math::{
-    root_finding::{brent, newton_bracketed},
+    solver::{BrentSolver, HybridSolver, NewtonSolver, Solver},
     stats::{correlation, covariance, mean, mean_var, variance},
     summation::{kahan_sum, pairwise_sum, stable_sum},
 };

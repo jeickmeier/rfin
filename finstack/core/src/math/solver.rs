@@ -19,7 +19,6 @@
 //! assert!((root - 2.0_f64.sqrt()).abs() < 1e-10);
 //! ```
 
-use super::root_finding::{brent, newton_raphson};
 use crate::{Result, F};
 
 /// Generic solver trait for 1D root finding.
@@ -83,13 +82,58 @@ impl Solver for NewtonSolver {
             (f_plus - f_minus) / (2.0 * self.fd_step)
         };
 
-        newton_raphson(
-            &f,
-            derivative,
-            initial_guess,
-            self.tolerance,
-            self.max_iterations,
-        )
+        self.newton_method(&f, derivative, initial_guess)
+    }
+}
+
+impl NewtonSolver {
+    /// Core Newton-Raphson method implementation.
+    fn newton_method<Func, DFunc>(
+        &self,
+        f: Func,
+        f_prime: DFunc,
+        x0: F,
+    ) -> Result<F>
+    where
+        Func: Fn(F) -> F,
+        DFunc: Fn(F) -> F,
+    {
+        use crate::error::InputError;
+
+        let mut x = x0;
+
+        for _ in 0..self.max_iterations {
+            let fx = f(x);
+            if !fx.is_finite() {
+                return Err(InputError::Invalid.into());
+            }
+
+            // Check for convergence
+            if fx.abs() < self.tolerance {
+                return Ok(x);
+            }
+
+            let fpx = f_prime(x);
+            if !fpx.is_finite() {
+                return Err(InputError::Invalid.into());
+            }
+
+            // Avoid division by zero
+            if fpx.abs() < 1e-10 {
+                return Err(InputError::Invalid.into());
+            }
+
+            let x_new = x - fx / fpx;
+
+            // Check for convergence in x
+            if (x_new - x).abs() < self.tolerance {
+                return Ok(x_new);
+            }
+
+            x = x_new;
+        }
+
+        Err(InputError::Invalid.into())
     }
 }
 
@@ -180,7 +224,115 @@ impl Solver for BrentSolver {
         Func: Fn(F) -> F,
     {
         let (a, b) = self.find_bracket(&f, initial_guess)?;
-        brent(f, a, b, self.tolerance, self.max_iterations)
+        self.brent_method(f, a, b)
+    }
+}
+
+impl BrentSolver {
+    /// Core Brent's method implementation.
+    /// 
+    /// Requirements: `f(lo)` and `f(hi)` must have opposite signs.
+    fn brent_method<Func>(&self, mut f: Func, lo: F, hi: F) -> Result<F>
+    where
+        Func: FnMut(F) -> F,
+    {
+        use crate::error::InputError;
+
+        let flo = f(lo);
+        let fhi = f(hi);
+        // Reject non-finite endpoint evaluations
+        if !(flo.is_finite() && fhi.is_finite()) {
+            return Err(InputError::Invalid.into());
+        }
+        // Early exit if an endpoint is already a root
+        if flo == 0.0 {
+            return Ok(lo);
+        }
+        if fhi == 0.0 {
+            return Ok(hi);
+        }
+        // Require a valid bracket
+        if flo.signum() == fhi.signum() {
+            return Err(InputError::Invalid.into());
+        }
+
+        let mut a = lo;
+        let mut b = hi;
+        let mut fa = flo;
+        let mut fb = fhi;
+        let mut c = a;
+        let mut fc = fa;
+        let mut d = b - a;
+        let mut e = d;
+
+        for _ in 0..self.max_iterations {
+            if fb.signum() == fc.signum() {
+                c = a;
+                fc = fa;
+                d = b - a;
+                e = d;
+            }
+            if fc.abs() < fb.abs() {
+                a = b;
+                b = c;
+                c = a;
+                fa = fb;
+                fb = fc;
+                fc = fa;
+            }
+            // Convergence checks
+            let tol1 = 2.0 * F::EPSILON * b.abs() + 0.5 * self.tolerance;
+            let xm = 0.5 * (c - b);
+            if xm.abs() <= tol1 || fb == 0.0 {
+                return Ok(b);
+            }
+
+            if e.abs() >= tol1 && fa.abs() > fb.abs() {
+                // Attempt inverse quadratic interpolation or secant
+                let s = fb / fa;
+                let (p, q) = if a == c {
+                    // Secant method
+                    (2.0 * xm * s, 1.0 - s)
+                } else {
+                    // Inverse quadratic interpolation
+                    let q1 = fa / fc;
+                    let r = fb / fc;
+                    let p = s * (2.0 * xm * q1 * (q1 - r) - (b - a) * (r - 1.0));
+                    let q = (q1 - 1.0) * (r - 1.0) * (s - 1.0);
+                    (p, q)
+                };
+                let mut p = p;
+                let mut q = q;
+                if p > 0.0 {
+                    q = -q;
+                } else {
+                    p = -p;
+                }
+                let cond1 = 2.0 * p < 3.0 * xm * q - (tol1 * q).abs();
+                let cond2 = p < (e * q).abs() * 0.5;
+                if cond1 && cond2 {
+                    e = d;
+                    d = p / q;
+                } else {
+                    d = xm;
+                    e = d;
+                }
+            } else {
+                d = xm;
+                e = d;
+            }
+
+            a = b;
+            fa = fb;
+            if d.abs() > tol1 {
+                b += d;
+            } else {
+                b += tol1.copysign(xm);
+            }
+            fb = f(b);
+        }
+
+        Ok(b)
     }
 }
 

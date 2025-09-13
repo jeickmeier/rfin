@@ -3,7 +3,7 @@
 use crate::instruments::equity::private_equity::PrivateEquityInvestment;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::math::root_finding::brent;
+use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::Money;
 use finstack_core::F;
 
@@ -209,8 +209,12 @@ pub fn calculate_irr(flows: &[(Date, Money)], day_count: DayCount) -> finstack_c
         npv
     };
 
-    // Use Brent's method with reasonable bounds for PE returns
-    brent(npv_function, -0.99, 5.0, 1e-12, 100)
+    // Use BrentSolver with reasonable bounds for PE returns
+    let solver = BrentSolver::new()
+        .with_tolerance(1e-12)
+        .with_initial_bracket_size(Some(1.0)); // Start with reasonable IRR range
+    
+    solver.solve(npv_function, 0.15) // Start with 15% initial guess for PE returns
         .map_err(|_| finstack_core::error::InputError::Invalid.into())
 }
 

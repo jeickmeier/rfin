@@ -1,47 +1,48 @@
-use finstack_core::math::{brent, hybrid_root_find, newton_bracketed};
+use finstack_core::math::solver::{BrentSolver, HybridSolver, Solver};
 
 #[test]
 fn brent_finds_root_simple_quadratic() {
-    // f(x) = x^2 - 2 in [1, 2] ⇒ root = sqrt(2)
+    // f(x) = x^2 - 2 ⇒ root = sqrt(2)
     let f = |x: f64| x * x - 2.0;
-    let r = brent(f, 1.0, 2.0, 1e-12, 100).unwrap();
+    let solver = BrentSolver::new().with_tolerance(1e-12);
+    let r = solver.solve(f, 1.5).unwrap(); // Initial guess between 1 and 2
     assert!((r - 2.0_f64.sqrt()).abs() < 1e-9);
 }
 
 #[test]
-fn newton_bracketed_handles_derivative_small() {
-    // f(x)=x^3 - x, roots at -1, 0, 1; bracket [0.2, 1.5] ⇒ 1
+fn hybrid_solver_handles_derivative_small() {
+    // f(x)=x^3 - x, roots at -1, 0, 1 ⇒ 1
     let f = |x: f64| x * x * x - x;
-    let df = |x: f64| 3.0 * x * x - 1.0;
-    let r = newton_bracketed(f, df, 0.2, 1.5, 1e-12, 100).unwrap();
+    let solver = HybridSolver::new().with_tolerance(1e-12);
+    let r = solver.solve(f, 0.85).unwrap(); // Initial guess near root at 1
     assert!((r - 1.0).abs() < 1e-9);
 }
 
 #[test]
-fn hybrid_root_find_with_good_newton_guess() {
+fn hybrid_solver_with_good_newton_guess() {
     // Simple case where Newton should work well
     let f = |x: f64| x * x - 4.0; // root at x = 2
-    let df = |x: f64| 2.0 * x;
+    let solver = HybridSolver::new().with_tolerance(1e-12);
 
-    let root = hybrid_root_find(f, df, 1.8, None, 1e-12, 100).unwrap();
+    let root = solver.solve(f, 1.8).unwrap();
     assert!((root - 2.0).abs() < 1e-9);
 }
 
 #[test]
-fn hybrid_root_find_with_bad_newton_guess() {
+fn hybrid_solver_with_bad_newton_guess() {
     // Case where Newton might struggle but hybrid should still work
     let f = |x: f64| x * x * x - x - 2.0; // Cubic with root near 1.5
-    let df = |x: f64| 3.0 * x * x - 1.0;
+    let solver = HybridSolver::new().with_tolerance(1e-12);
 
     // Bad initial guess that might cause Newton to diverge
-    let root = hybrid_root_find(f, df, 100.0, None, 1e-12, 100).unwrap();
+    let root = solver.solve(f, 100.0).unwrap();
 
     // Verify it's actually a root
     assert!(f(root).abs() < 1e-9);
 }
 
 #[test]
-fn hybrid_root_find_with_bracket() {
+fn hybrid_solver_bond_yield() {
     // Financial application: yield-to-maturity type calculation
     // Bond price equation: P = Σ C/(1+y)^t where we solve for y given P
     let target_price = 95.0;
@@ -60,14 +61,9 @@ fn hybrid_root_find_with_bracket() {
         annuity_pv + principal_pv - target_price
     };
 
-    // Derivative of bond price w.r.t. yield (approximate duration)
-    let df = |y: f64| {
-        let eps = 1e-8;
-        (f(y + eps) - f(y - eps)) / (2.0 * eps)
-    };
-
-    // Good bracket for yields: [0, 20%]
-    let yield_result = hybrid_root_find(f, df, 0.06, Some((0.001, 0.20)), 1e-10, 100).unwrap();
+    // Use HybridSolver with good initial guess
+    let solver = HybridSolver::new().with_tolerance(1e-10);
+    let yield_result = solver.solve(f, 0.06).unwrap();
 
     // Verify the yield makes sense (should be around 6-7% for this bond)
     assert!(yield_result > 0.05 && yield_result < 0.08);
@@ -75,17 +71,11 @@ fn hybrid_root_find_with_bracket() {
 }
 
 #[test]
-fn hybrid_root_find_fallback_to_brent() {
+fn hybrid_solver_fallback_to_brent() {
     // Pathological case where derivative is problematic
     let f = |x: f64| (x - 1.5).signum() * (x - 1.5).abs().powf(0.5); // sqrt function with sign
-    let df = |x: f64| {
-        if (x - 1.5).abs() < 1e-10 {
-            f64::INFINITY // Problematic derivative at root
-        } else {
-            0.5 * (x - 1.5).signum() / (x - 1.5).abs().sqrt()
-        }
-    };
+    let solver = HybridSolver::new().with_tolerance(1e-6);
 
-    let root = hybrid_root_find(f, df, 2.0, Some((1.0, 2.0)), 1e-6, 100).unwrap();
+    let root = solver.solve(f, 2.0).unwrap();
     assert!((root - 1.5).abs() < 1e-6);
 }

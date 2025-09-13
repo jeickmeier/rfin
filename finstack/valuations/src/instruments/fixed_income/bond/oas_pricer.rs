@@ -16,8 +16,8 @@ use crate::instruments::options::models::{
 };
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::math::root_finding::brent;
-use finstack_core::{Error, Result, F};
+use finstack_core::math::solver::{BrentSolver, Solver};
+use finstack_core::{Result, F};
 use std::collections::HashMap;
 
 #[cfg(test)]
@@ -266,39 +266,14 @@ impl OASCalculator {
             }
         };
 
-        // Test objective function at endpoints before calling Brent
-        let f_low = objective_fn(-500.0);
-        let f_high = objective_fn(2000.0);
-
-        // Check if there's a sign change (required for Brent)
-        if f_low * f_high > 0.0 {
-            // Try wider range
-            let f_very_low = objective_fn(-2000.0);
-            let f_very_high = objective_fn(5000.0);
-
-            if f_very_low * f_very_high > 0.0 {
-                return Err(Error::Internal);
-            }
-
-            // Use expanded range for Brent
-            return brent(
-                objective_fn,
-                -2000.0,
-                5000.0,
-                self.config.tolerance,
-                self.config.max_iterations,
-            );
-        }
-
-        // Solve for OAS using Brent's method
-        // Typical OAS range is -500bp to +2000bp
-        let oas_bp = brent(
-            objective_fn,
-            -500.0, // -5% in bps
-            2000.0, // +20% in bps
-            self.config.tolerance,
-            self.config.max_iterations,
-        )?;
+        // Use BrentSolver with automatic bracketing
+        let solver = BrentSolver::new()
+            .with_tolerance(self.config.tolerance)
+            .with_initial_bracket_size(Some(1000.0)); // Start with reasonable OAS range
+        
+        // Initial guess near zero (no spread)
+        let initial_guess = 0.0;
+        let oas_bp = solver.solve(objective_fn, initial_guess)?;
 
         Ok(oas_bp)
     }

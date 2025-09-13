@@ -6,7 +6,7 @@
 
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::error::InputError;
-use finstack_core::math::{brent_with_bracketing, newton_raphson};
+use finstack_core::math::solver::{HybridSolver, Solver};
 use finstack_core::F;
 
 /// Calculates XIRR (Extended Internal Rate of Return) for a series of cash flows.
@@ -68,26 +68,13 @@ pub fn xirr(cash_flows: &[(Date, F)], guess: Option<F>) -> finstack_core::Result
         sum
     };
 
-    // NPV derivative for Newton-Raphson (optional optimization)
-    let npv_prime = |rate: F| -> F {
-        let mut sum = 0.0;
-        for &(years, amount) in &years_and_amounts {
-            let discount = (1.0 + rate).powf(years);
-            sum -= amount * years / (discount * (1.0 + rate));
-        }
-        sum
-    };
-
-    // Use Newton-Raphson method with Brent fallback
+    // Use HybridSolver for Newton-Raphson with automatic Brent fallback
     let initial_guess = guess.unwrap_or(0.1);
-
-    // Try Newton-Raphson first (faster convergence when it works)
-    if let Ok(result) = newton_raphson(npv, npv_prime, initial_guess, 1e-6, 100) {
-        return Ok(result);
-    }
-
-    // Fallback to Brent's method (more robust but slower)
-    brent_with_bracketing(npv, -0.999, 10.0, 1e-6, 100)
+    let solver = HybridSolver::new()
+        .with_tolerance(1e-6)
+        .with_max_iterations(100);
+    
+    solver.solve(npv, initial_guess)
 }
 
 /// Checks if cash flows have at least one sign change.

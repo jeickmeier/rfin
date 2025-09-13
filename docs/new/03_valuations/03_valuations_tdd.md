@@ -1434,9 +1434,11 @@ pub fn xirr(
         sum
     };
     
-    // Use core's Brent solver
+    // Use core's HybridSolver for Newton-Raphson with Brent fallback
+    use finstack_core::math::solver::{HybridSolver, Solver};
+    let solver = HybridSolver::new().with_tolerance(1e-6);
     let initial_guess = guess.map(|g| g.to_f64().unwrap()).unwrap_or(0.1);
-    let result = brent(npv_fn, -0.999, 10.0, 1e-6, 100)?;
+    let result = solver.solve(npv_fn, initial_guess)?;
     
     Ok(Decimal::from_f64(result).ok_or(ValuationError::NumericError)?)
 }

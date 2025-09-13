@@ -6,7 +6,7 @@
 
 use finstack_core::config::{results_meta, FinstackConfig, ResultsMeta};
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::math::root_finding::brent;
+use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -846,7 +846,8 @@ impl<'a> EquityWaterfallEngine<'a> {
 
         let max_reasonable = total_contributions * 10.0; // Up to 10x contributions as upper bound
 
-        match brent(target_function, 0.0, max_reasonable, 1e-6, 100) {
+        let solver = BrentSolver::new().with_tolerance(1e-6);
+        match solver.solve(target_function, max_reasonable * 0.5) {
             Ok(amount) => Ok(amount.max(0.0)),
             Err(_) => {
                 // If root finding fails, try to estimate analytically
@@ -901,8 +902,12 @@ impl<'a> EquityWaterfallEngine<'a> {
             npv
         };
 
-        // Use Brent's method to find IRR (rate where NPV = 0)
-        brent(npv_function, -0.99, 5.0, 1e-12, 100)
+        // Use BrentSolver to find IRR (rate where NPV = 0)
+        let solver = BrentSolver::new()
+            .with_tolerance(1e-12)
+            .with_initial_bracket_size(Some(0.5)); // Start with reasonable IRR range
+        
+        solver.solve(npv_function, 0.1)
             .map_err(|_| finstack_core::error::InputError::Invalid.into())
     }
 
