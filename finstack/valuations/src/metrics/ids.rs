@@ -222,4 +222,22 @@ define_metrics! {
     /// Index delta for TRS
     IndexDelta => "index_delta",
 
+    // Repo metrics
+    /// Market value of collateral
+    CollateralValue => "collateral_value",
+    /// Required collateral value (with haircut)
+    RequiredCollateral => "required_collateral",
+    /// Collateral coverage ratio
+    CollateralCoverage => "collateral_coverage",
+    /// Repo interest amount
+    RepoInterest => "repo_interest",
+    /// Funding risk (repo rate sensitivity)
+    FundingRisk => "funding_risk",
+    /// Effective repo rate (adjusted for special collateral)
+    EffectiveRate => "effective_rate",
+    /// Time to maturity in years
+    TimeToMaturity => "time_to_maturity",
+    /// Implied collateral return
+    ImpliedCollateralReturn => "implied_collateral_return",
+
 }

@@ -77,6 +77,7 @@ pub fn standard_registry() -> MetricRegistry {
     );
     crate::instruments::options::swaption::metrics::register_swaption_metrics(&mut registry);
     crate::instruments::fixed_income::loan::metrics::register_loan_metrics(&mut registry);
+    crate::instruments::fixed_income::repo::metrics::register_repo_metrics(&mut registry);
     risk::register_risk_metrics(&mut registry);
     registry
 }

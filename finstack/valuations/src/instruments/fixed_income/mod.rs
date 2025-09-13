@@ -20,6 +20,7 @@ pub mod inflation_swap;
 pub mod ir_future;
 pub mod irs;
 pub mod loan;
+pub mod repo;
 
 // Re-export all fixed income instrument types
 pub use basis_swap::{BasisSwap, BasisSwapLeg};
@@ -38,3 +39,4 @@ pub use inflation_swap::InflationSwap;
 pub use ir_future::InterestRateFuture;
 pub use irs::InterestRateSwap;
 pub use loan::Loan;
+pub use repo::{CollateralSpec, CollateralType, Repo, RepoBuilder, RepoType};
