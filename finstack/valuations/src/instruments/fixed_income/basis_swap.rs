@@ -51,7 +51,7 @@ pub struct BasisSwap {
     /// Discount curve identifier
     pub discount_curve_id: CurveId,
     /// Calendar identifier for date adjustments
-    pub calendar_id: Option<String>,
+    pub calendar_id: Option<&'static str>,
     /// Stub handling
     pub stub_kind: StubKind,
 }
@@ -81,7 +81,7 @@ impl BasisSwap {
     }
 
     /// Set calendar for date adjustments.
-    pub fn with_calendar(mut self, calendar_id: String) -> Self {
+    pub fn with_calendar(mut self, calendar_id: &'static str) -> Self {
         self.calendar_id = Some(calendar_id);
         self
     }

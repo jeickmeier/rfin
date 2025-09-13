@@ -28,7 +28,7 @@ use std::any::Any;
 
 /// Fixed Income Index Total Return Swap instrument
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct FIIndexTotalReturnSwap {
     /// Unique instrument identifier
@@ -93,12 +93,12 @@ impl FIIndexTotalReturnSwap {
 
         // Build schedule
         let period_schedule = build_dates(
-            self.schedule.start,
-            self.schedule.end,
-            self.schedule.frequency,
-            self.schedule.stub,
-            self.schedule.bdc,
-            None, // TODO: Handle calendar_id properly
+            self.schedule.dates.start,
+            self.schedule.dates.end,
+            self.schedule.params.frequency,
+            self.schedule.params.stub,
+            self.schedule.params.bdc,
+            self.schedule.params.calendar_id,
         );
 
         let mut total_pv = 0.0;
@@ -113,6 +113,7 @@ impl FIIndexTotalReturnSwap {
             // Year fraction for the period
             let yf = self
                 .schedule
+                .params
                 .day_count
                 .year_fraction(period_start, period_end, ctx)?;
 
@@ -139,6 +140,7 @@ impl FIIndexTotalReturnSwap {
             // Discount to present
             let t_pay = self
                 .schedule
+                .params
                 .day_count
                 .year_fraction(as_of, period_end, ctx)?;
             let df = disc.df(t_pay);
@@ -237,12 +239,12 @@ impl CashflowProvider for FIIndexTotalReturnSwap {
         // For TRS, we'll return the expected payment dates
         // Actual amounts depend on realized returns
         let period_schedule = build_dates(
-            self.schedule.start,
-            self.schedule.end,
-            self.schedule.frequency,
-            self.schedule.stub,
-            self.schedule.bdc,
-            None, // TODO: Handle calendar_id properly
+            self.schedule.dates.start,
+            self.schedule.dates.end,
+            self.schedule.params.frequency,
+            self.schedule.params.stub,
+            self.schedule.params.bdc,
+            self.schedule.params.calendar_id,
         );
 
         let mut flows = Vec::new();

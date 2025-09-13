@@ -28,7 +28,7 @@ use std::any::Any;
 
 /// Equity Total Return Swap instrument
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct EquityTotalReturnSwap {
     /// Unique instrument identifier
@@ -86,12 +86,12 @@ impl EquityTotalReturnSwap {
 
         // Build schedule
         let period_schedule = build_dates(
-            self.schedule.start,
-            self.schedule.end,
-            self.schedule.frequency,
-            self.schedule.stub,
-            self.schedule.bdc,
-            None, // TODO: Handle calendar_id properly
+            self.schedule.dates.start,
+            self.schedule.dates.end,
+            self.schedule.params.frequency,
+            self.schedule.params.stub,
+            self.schedule.params.bdc,
+            self.schedule.params.calendar_id,
         );
 
         let mut total_pv = 0.0;
@@ -109,10 +109,12 @@ impl EquityTotalReturnSwap {
             // Time to period start and end
             let t_start = self
                 .schedule
+                .params
                 .day_count
                 .year_fraction(as_of, period_start, ctx)?;
             let t_end = self
                 .schedule
+                .params
                 .day_count
                 .year_fraction(as_of, period_end, ctx)?;
 
@@ -220,12 +222,12 @@ impl CashflowProvider for EquityTotalReturnSwap {
         // For TRS, we'll return the expected payment dates
         // Actual amounts depend on realized returns
         let period_schedule = build_dates(
-            self.schedule.start,
-            self.schedule.end,
-            self.schedule.frequency,
-            self.schedule.stub,
-            self.schedule.bdc,
-            None, // TODO: Handle calendar_id properly
+            self.schedule.dates.start,
+            self.schedule.dates.end,
+            self.schedule.params.frequency,
+            self.schedule.params.stub,
+            self.schedule.params.bdc,
+            self.schedule.params.calendar_id,
         );
 
         let mut flows = Vec::new();

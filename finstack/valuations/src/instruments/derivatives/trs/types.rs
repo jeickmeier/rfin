@@ -3,7 +3,7 @@
 use crate::cashflow::builder::schedule_utils::build_dates;
 use crate::instruments::common::parameter_groups::{DateRange, InstrumentScheduleParams};
 use finstack_core::{
-    dates::{BusinessDayConvention, Date, DayCount, DayCountCtx, Frequency, StubKind},
+    dates::{Date, DayCount, DayCountCtx},
     market_data::MarketContext,
     money::Money,
     types::CurveId,
@@ -77,37 +77,19 @@ pub struct TotalReturnLegSpec {
 
 /// Schedule specification for TRS
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct TrsScheduleSpec {
-    /// Start date
-    pub start: Date,
-    /// End date
-    pub end: Date,
-    /// Payment frequency
-    pub frequency: Frequency,
-    /// Day count convention
-    pub day_count: DayCount,
-    /// Business day convention
-    pub bdc: BusinessDayConvention,
-    /// Optional calendar identifier
-    pub calendar_id: Option<String>,
-    /// Stub period handling
-    pub stub: StubKind,
+    /// Date range for the TRS leg
+    pub dates: DateRange,
+    /// Schedule parameters (frequency, day count, bdc, calendar, stub)
+    pub params: InstrumentScheduleParams,
 }
 
 impl TrsScheduleSpec {
     /// Create from DateRange and InstrumentScheduleParams
     pub fn from_params(dates: DateRange, schedule: InstrumentScheduleParams) -> Self {
-        Self {
-            start: dates.start,
-            end: dates.end,
-            frequency: schedule.frequency,
-            day_count: schedule.day_count,
-            bdc: schedule.bdc,
-            calendar_id: schedule.calendar_id.map(|s| s.to_string()),
-            stub: schedule.stub,
-        }
+        Self { dates, params: schedule }
     }
 }
 
@@ -132,12 +114,12 @@ impl TrsEngine {
 
         // Build schedule
         let period_schedule = build_dates(
-            schedule.start,
-            schedule.end,
-            schedule.frequency,
-            schedule.stub,
-            schedule.bdc,
-            None, // TODO: Handle calendar_id properly
+            schedule.dates.start,
+            schedule.dates.end,
+            schedule.params.frequency,
+            schedule.params.stub,
+            schedule.params.bdc,
+            schedule.params.calendar_id,
         );
 
         let mut total_pv = 0.0;
@@ -151,12 +133,19 @@ impl TrsEngine {
 
             // Year fraction for accrual
             let yf = schedule
+                .params
                 .day_count
                 .year_fraction(period_start, period_end, ctx)?;
 
             // Forward rate for the period
-            let t_start = schedule.day_count.year_fraction(as_of, period_start, ctx)?;
-            let t_end = schedule.day_count.year_fraction(as_of, period_end, ctx)?;
+            let t_start = schedule
+                .params
+                .day_count
+                .year_fraction(as_of, period_start, ctx)?;
+            let t_end = schedule
+                .params
+                .day_count
+                .year_fraction(as_of, period_end, ctx)?;
             let fwd_rate = fwd.rate_period(t_start, t_end);
 
             // Add spread
@@ -187,12 +176,12 @@ impl TrsEngine {
 
         // Build schedule
         let period_schedule = build_dates(
-            schedule.start,
-            schedule.end,
-            schedule.frequency,
-            schedule.stub,
-            schedule.bdc,
-            None, // TODO: Handle calendar_id properly
+            schedule.dates.start,
+            schedule.dates.end,
+            schedule.params.frequency,
+            schedule.params.stub,
+            schedule.params.bdc,
+            schedule.params.calendar_id,
         );
 
         let mut annuity = 0.0;
@@ -205,11 +194,15 @@ impl TrsEngine {
 
             // Year fraction for accrual
             let yf = schedule
+                .params
                 .day_count
                 .year_fraction(period_start, period_end, ctx)?;
 
             // Discount factor to payment date
-            let t_pay = schedule.day_count.year_fraction(as_of, period_end, ctx)?;
+            let t_pay = schedule
+                .params
+                .day_count
+                .year_fraction(as_of, period_end, ctx)?;
             let df = disc.df(t_pay);
 
             annuity += df * yf;

@@ -89,6 +89,8 @@ impl MarketRefs {
 /// Groups all the scheduling-related parameters that many instruments share.
 /// This is distinct from cashflow::builder::ScheduleParams to avoid naming conflicts.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct InstrumentScheduleParams {
     /// Payment frequency
     pub frequency: Frequency,
@@ -174,6 +176,8 @@ impl InstrumentScheduleParams {
 ///
 /// Simplifies specifying start and end dates for legs, periods, and option terms.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct DateRange {
     /// Start date
     pub start: Date,
