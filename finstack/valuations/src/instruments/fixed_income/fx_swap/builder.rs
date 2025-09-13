@@ -1,3 +1,4 @@
+use crate::instruments::common::MarketRefs;
 use finstack_core::prelude::*;
 use finstack_core::F;
 
@@ -14,6 +15,7 @@ pub struct FxSwapBuilder {
     base_notional: Option<Money>,
     domestic_disc_id: Option<&'static str>,
     foreign_disc_id: Option<&'static str>,
+    market_refs: Option<MarketRefs>,
     near_rate: Option<F>,
     far_rate: Option<F>,
 }
@@ -55,6 +57,13 @@ impl FxSwapBuilder {
         self.foreign_disc_id = Some(value);
         self
     }
+
+    /// Provide discount ids via MarketRefs (disc_id is domestic; foreign via with_forward/credit not used here)
+    pub fn market_refs(mut self, refs: MarketRefs) -> Self {
+        // For FX swap, use provided refs.disc_id as domestic if matches quote currency setup
+        self.market_refs = Some(refs);
+        self
+    }
     pub fn near_rate(mut self, value: F) -> Self {
         self.near_rate = Some(value);
         self
@@ -65,6 +74,19 @@ impl FxSwapBuilder {
     }
 
     pub fn build(self) -> finstack_core::Result<FxSwap> {
+        // If market_refs provided, prefer those
+        let domestic_disc_id = if let Some(refs) = &self.market_refs {
+            self.domestic_disc_id
+                .unwrap_or_else(|| Box::leak(refs.disc_id.as_str().to_string().into_boxed_str()))
+        } else {
+            self.domestic_disc_id.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?
+        };
+        let foreign_disc_id = self.foreign_disc_id.ok_or_else(|| {
+            finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+        })?;
+
         Ok(FxSwap {
             id: self.id.ok_or_else(|| {
                 finstack_core::Error::from(finstack_core::error::InputError::Invalid)
@@ -84,12 +106,8 @@ impl FxSwapBuilder {
             base_notional: self.base_notional.ok_or_else(|| {
                 finstack_core::Error::from(finstack_core::error::InputError::Invalid)
             })?,
-            domestic_disc_id: self.domestic_disc_id.ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
-            })?,
-            foreign_disc_id: self.foreign_disc_id.ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
-            })?,
+            domestic_disc_id,
+            foreign_disc_id,
             near_rate: self.near_rate,
             far_rate: self.far_rate,
             attributes: crate::instruments::traits::Attributes::new(),

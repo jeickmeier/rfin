@@ -1,3 +1,4 @@
+use crate::instruments::common::MarketRefs;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::F;
@@ -20,6 +21,7 @@ pub struct CDSIndexBuilder {
     credit_id: Option<&'static str>,
     recovery_rate: Option<F>,
     disc_id: Option<&'static str>,
+    market_refs: Option<MarketRefs>,
     upfront: Option<Money>,
 }
 
@@ -80,6 +82,10 @@ impl CDSIndexBuilder {
         self.disc_id = Some(value);
         self
     }
+    pub fn market_refs(mut self, refs: MarketRefs) -> Self {
+        self.market_refs = Some(refs);
+        self
+    }
     pub fn upfront(mut self, value: Money) -> Self {
         self.upfront = Some(value);
         self
@@ -122,9 +128,11 @@ impl CDSIndexBuilder {
         let recovery_rate = self
             .recovery_rate
             .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        let disc_id = self
-            .disc_id
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+        let disc_id = if let Some(refs) = &self.market_refs {
+            self.disc_id.unwrap_or_else(|| Box::leak(refs.disc_id.as_str().to_string().into_boxed_str()))
+        } else {
+            self.disc_id.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?
+        };
 
         let mut index = CDSIndex::new_standard(
             id,

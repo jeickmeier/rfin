@@ -1,4 +1,4 @@
-use crate::instruments::common::{FxUnderlyingParams, OptionParams, PricingOverrides};
+use crate::instruments::common::{FxUnderlyingParams, MarketRefs, OptionParams, PricingOverrides};
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
@@ -18,6 +18,9 @@ pub struct FxOptionBuilder {
     // Parameter groups (required)
     fx_underlying: Option<FxUnderlyingParams>,
     option_params: Option<OptionParams>,
+
+    // Market links (optional but recommended)
+    market_refs: Option<MarketRefs>,
 
     // Optional parameters
     day_count: Option<DayCount>,
@@ -51,6 +54,12 @@ impl FxOptionBuilder {
     /// Set option parameters (required)
     pub fn option_params(mut self, value: OptionParams) -> Self {
         self.option_params = Some(value);
+        self
+    }
+
+    /// Set market references (disc/vol via MarketRefs)
+    pub fn market_refs(mut self, refs: MarketRefs) -> Self {
+        self.market_refs = Some(refs);
         self
     }
 
@@ -103,6 +112,17 @@ impl FxOptionBuilder {
         // Apply pricing overrides if present
         let pricing = self.pricing_overrides.unwrap_or_default();
 
+        // Resolve volatility surface id
+        let vol_id: &'static str = if let Some(mr) = &self.market_refs {
+            if let Some(vol) = &mr.vol_id {
+                Box::leak(vol.as_str().to_string().into_boxed_str())
+            } else {
+                "FX-VOL"
+            }
+        } else {
+            "FX-VOL"
+        };
+
         Ok(FxOption {
             id,
             base_currency: fx_underlying.base_currency,
@@ -116,7 +136,7 @@ impl FxOptionBuilder {
             settlement: option_params.settlement,
             domestic_disc_id: fx_underlying.domestic_disc_id,
             foreign_disc_id: fx_underlying.foreign_disc_id,
-            vol_id: "FX-VOL", // Standard FX volatility surface
+            vol_id,
             implied_vol: pricing.implied_volatility,
             attributes: Attributes::new(),
         })

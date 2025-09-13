@@ -9,7 +9,8 @@ use finstack_valuations::calibration::bootstrap::swaption_vol::{
     AtmStrikeConvention, SwaptionVolCalibrator, SwaptionVolConvention,
 };
 use finstack_valuations::calibration::{CalibrationConfig, Calibrator, VolQuote};
-use finstack_valuations::instruments::options::swaption::Swaption;
+use finstack_valuations::instruments::options::swaption::builder::SwaptionBuilder;
+use finstack_valuations::instruments::common::MarketRefs;
 use finstack_valuations::instruments::traits::Priceable;
 use time::Month;
 
@@ -241,17 +242,20 @@ fn test_swaption_pricing_with_calibrated_surface() {
     context = context.insert_surface(surface);
 
     // Create and price a swaption
-    let swaption = Swaption::new_payer(
-        "TEST-SWAPTION",
-        Money::new(1_000_000.0, Currency::USD),
-        0.04,                                                       // 4% strike
-        Date::from_calendar_date(2026, Month::January, 1).unwrap(), // 1Y expiry
-        Date::from_calendar_date(2026, Month::January, 1).unwrap(), // swap start
-        Date::from_calendar_date(2027, Month::January, 1).unwrap(), // swap end (1Y tenor)
-        "USD-OIS",
-        "USD-OIS",
-        "SWAPTION-VOL",
-    );
+    let mr = MarketRefs::rates("USD-OIS", "USD-OIS").with_volatility("SWAPTION-VOL");
+    let swaption = SwaptionBuilder::new()
+        .id("TEST-SWAPTION")
+        .payer()
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .strike_rate(0.04)
+        .expiry(Date::from_calendar_date(2026, Month::January, 1).unwrap())
+        .swap_dates(
+            Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+            Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+        )
+        .market_refs(mr)
+        .build()
+        .unwrap();
 
     // Price should work with calibrated surface
     let price_result = swaption.value(&context, base_date);

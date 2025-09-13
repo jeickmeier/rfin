@@ -16,9 +16,12 @@ use finstack_core::money::{
     fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate},
     Money,
 };
-use finstack_valuations::instruments::options::swaption::Swaption;
+// use finstack_valuations::instruments::options::swaption::Swaption;
+use finstack_valuations::instruments::options::swaption::builder::SwaptionBuilder;
+use finstack_valuations::instruments::options::cap_floor::builder::IrOptionBuilder;
+use finstack_valuations::instruments::common::MarketRefs;
 use finstack_valuations::instruments::options::{
-    CreditOption, EquityOption, FxOption, InterestRateOption, OptionType,
+    CreditOption, EquityOption, FxOption, OptionType,
 };
 use finstack_valuations::instruments::traits::{InstrumentLike, Priceable};
 use finstack_valuations::metrics::{MetricContext, MetricId, MetricRegistry};
@@ -286,19 +289,20 @@ fn test_interest_rate_option_full_integration() {
     let market = create_test_market_context();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
-    // Create USD cap
-    let cap = InterestRateOption::new_cap(
-        "USD_CAP_3%",
-        Money::new(10_000_000.0, Currency::USD),
-        0.03, // 3% strike
-        Date::from_calendar_date(2025, Month::March, 1).unwrap(),
-        Date::from_calendar_date(2027, Month::March, 1).unwrap(),
-        Frequency::quarterly(),
-        DayCount::Act360,
-        "USD-OIS",
-        "USD-SOFR-3M",
-        "USD-CAP-VOL",
-    );
+    // Create USD cap using MarketRefs-based builder
+    let cap_mr = MarketRefs::rates("USD-OIS", "USD-SOFR-3M").with_volatility("USD-CAP-VOL");
+    let cap = IrOptionBuilder::new()
+        .id("USD_CAP_3%")
+        .notional(Money::new(10_000_000.0, Currency::USD))
+        .rate_option_type(finstack_valuations::instruments::options::cap_floor::RateOptionType::Cap)
+        .strike_rate(0.03)
+        .start_date(Date::from_calendar_date(2025, Month::March, 1).unwrap())
+        .end_date(Date::from_calendar_date(2027, Month::March, 1).unwrap())
+        .frequency(Frequency::quarterly())
+        .day_count(DayCount::Act360)
+        .market_refs(cap_mr)
+        .build()
+        .unwrap();
 
     // Test pricing with market data
     let price = cap.value(&market, as_of).unwrap();
@@ -372,17 +376,17 @@ fn test_swaption_full_integration() {
     let swap_start = expiry;
     let swap_end = Date::from_calendar_date(2031, Month::January, 1).unwrap();
 
-    let swaption = Swaption::new_payer(
-        "1Y5Y_PAYER",
-        Money::new(10_000_000.0, Currency::USD),
-        0.035, // 3.5% strike
-        expiry,
-        swap_start,
-        swap_end,
-        "USD-OIS",
-        "USD-SOFR-3M",
-        "USD-SWAPTION-VOL",
-    );
+    let sw_mr = MarketRefs::rates("USD-OIS", "USD-SOFR-3M").with_volatility("USD-SWAPTION-VOL");
+    let swaption = SwaptionBuilder::new()
+        .id("1Y5Y_PAYER")
+        .payer()
+        .notional(Money::new(10_000_000.0, Currency::USD))
+        .strike_rate(0.035)
+        .expiry(expiry)
+        .swap_dates(swap_start, swap_end)
+        .market_refs(sw_mr)
+        .build()
+        .unwrap();
 
     // Test pricing with market data
     let price = swaption.value(&market, as_of).unwrap();

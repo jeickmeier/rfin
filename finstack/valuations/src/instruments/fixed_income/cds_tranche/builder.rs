@@ -1,3 +1,4 @@
+use crate::instruments::common::MarketRefs;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -21,6 +22,7 @@ pub struct CdsTrancheBuilder {
     calendar_id: Option<&'static str>,
     disc_id: Option<&'static str>,
     credit_index_id: Option<&'static str>,
+    market_refs: Option<MarketRefs>,
     side: Option<TrancheSide>,
     effective_date: Option<Date>,
 }
@@ -86,6 +88,10 @@ impl CdsTrancheBuilder {
         self.credit_index_id = Some(value);
         self
     }
+    pub fn market_refs(mut self, refs: MarketRefs) -> Self {
+        self.market_refs = Some(refs);
+        self
+    }
     pub fn side(mut self, value: TrancheSide) -> Self {
         self.side = Some(value);
         self
@@ -96,6 +102,15 @@ impl CdsTrancheBuilder {
     }
 
     pub fn build(self) -> finstack_core::Result<CdsTranche> {
+        // Prefer MarketRefs for discount id if provided
+        let disc_id = if let Some(refs) = &self.market_refs {
+            self.disc_id.unwrap_or_else(|| Box::leak(refs.disc_id.as_str().to_string().into_boxed_str()))
+        } else {
+            self.disc_id.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
+            })?
+        };
+
         Ok(CdsTranche {
             id: self.id.ok_or_else(|| {
                 finstack_core::Error::from(finstack_core::error::InputError::Invalid)
@@ -127,9 +142,7 @@ impl CdsTrancheBuilder {
                 .business_day_convention
                 .unwrap_or(BusinessDayConvention::Following),
             calendar_id: self.calendar_id,
-            disc_id: self.disc_id.ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
-            })?,
+            disc_id,
             credit_index_id: self.credit_index_id.ok_or_else(|| {
                 finstack_core::Error::from(finstack_core::error::InputError::Invalid)
             })?,
