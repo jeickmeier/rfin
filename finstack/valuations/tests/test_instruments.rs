@@ -48,7 +48,7 @@ fn deposit_par_at_zero_rate_with_unit_df() {
         end,
         day_count: DayCount::Act365F,
         quote_rate: Some(0.0),
-        disc_id: "USD-OIS",
+        disc_id: "USD-OIS".into(),
         attributes: Default::default(),
     };
 
@@ -123,7 +123,7 @@ fn bond_pv_with_unit_df_is_sum_of_cashflows() {
         dc: DayCount::Act365F,
         issue,
         maturity: mat,
-        disc_id: "USD-OIS",
+        disc_id: "USD-OIS".into(),
         quoted_clean: None,
         call_put: None,
         amortization: None,
@@ -235,7 +235,7 @@ fn bond_ytm_ytw_and_amortization() {
         dc: DayCount::Act365F,
         issue,
         maturity: mat,
-        disc_id: "USD-OIS",
+        disc_id: "USD-OIS".into(),
         quoted_clean: Some(100.0), // 100% of par (realistic price)
         call_put: Some(bond::CallPutSchedule {
             calls: vec![bond::CallPut {
@@ -335,7 +335,7 @@ fn dv01_bucketed_bond_simple() {
         dc: DayCount::Act365F,
         issue,
         maturity: mat,
-        disc_id: "USD-OIS",
+        disc_id: "USD-OIS".into(),
         quoted_clean: None,
         call_put: None,
         amortization: None,

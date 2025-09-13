@@ -233,14 +233,14 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
 
     // Create regular bond
     let regular_bond = Bond {
-        id: "REGULAR_BOND".to_string(),
+        id: "REGULAR_BOND".to_string().into(),
         notional: Money::new(1_000_000.0, Currency::USD),
         coupon: 0.05,
         freq: Frequency::annual(),
         dc: DayCount::Act365F,
         issue,
         maturity,
-        disc_id: "USD-OIS",
+        disc_id: "USD-OIS".into(),
         quoted_clean: None,
         call_put: None,
         amortization: None,

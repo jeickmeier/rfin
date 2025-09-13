@@ -22,14 +22,14 @@
 //!
 //! // Create instruments with proper constructors
 //! let bond = Bond {
-//!     id: "BOND001".to_string(),
+//!     id: "BOND001".to_string().into(),
 //!     notional: Money::new(1000.0, Currency::USD),
 //!     coupon: 0.05,
 //!     freq: Frequency::semi_annual(),
 //!     dc: DayCount::Act365F,
 //!     issue: Date::from_calendar_date(2025, Month::January, 15).unwrap(),
 //!     maturity: Date::from_calendar_date(2026, Month::January, 15).unwrap(),
-//!     disc_id: "USD-OIS",
+//!     disc_id: "USD-OIS".into(),
 //!     quoted_clean: None,
 //!     call_put: None,
 //!     amortization: None,
@@ -68,12 +68,12 @@
 //! };
 //!
 //! let deposit = Deposit {
-//!     id: "DEP001".to_string(),
+//!     id: "DEP001".to_string().into(),
 //!     notional: Money::new(1000.0, Currency::USD),
 //!     start: Date::from_calendar_date(2025, Month::January, 15).unwrap(),
 //!     end: Date::from_calendar_date(2025, Month::July, 15).unwrap(),
 //!     day_count: DayCount::Act365F,
-//!     disc_id: "USD-OIS",
+//!     disc_id: "USD-OIS".into(),
 //!     quote_rate: Some(0.05),
 //!     attributes: finstack_valuations::instruments::traits::Attributes::new(),
 //! };
@@ -108,11 +108,13 @@ pub mod equity;
 pub mod fixed_income;
 // fx_spot moved under fixed_income
 pub mod options;
+pub mod structured_credit;
 pub mod utils;
 
 // Re-export common types for convenience (avoid glob re-exports to keep API unambiguous)
 pub use derivatives::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
 pub use equity::{Equity, PrivateEquityInvestment};
+pub use structured_credit::{Abs, Clo, StructuredCredit};
 pub use fixed_income::{
     Bond, CDSIndex, CdsTranche, ConvertibleBond, CreditDefaultSwap, Deposit, Discountable,
     ForwardRateAgreement, FxSpot, FxSwap, InflationLinkedBond, InflationSwap, InterestRateFuture,

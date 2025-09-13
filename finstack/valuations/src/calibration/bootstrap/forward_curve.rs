@@ -373,7 +373,7 @@ impl ForwardCurveCalibrator {
                     };
 
                 let primary_leg = BasisSwapLeg {
-                    forward_curve_id: primary_fwd_id,
+                    forward_curve_id: primary_fwd_id.into(),
                     frequency: *primary_freq,
                     day_count: *primary_dc,
                     bdc: BusinessDayConvention::ModifiedFollowing,
@@ -381,7 +381,7 @@ impl ForwardCurveCalibrator {
                 };
 
                 let reference_leg = BasisSwapLeg {
-                    forward_curve_id: reference_fwd_id,
+                    forward_curve_id: reference_fwd_id.into(),
                     frequency: *reference_freq,
                     day_count: *reference_dc,
                     bdc: BusinessDayConvention::ModifiedFollowing,

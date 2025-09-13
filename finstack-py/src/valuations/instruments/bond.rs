@@ -115,14 +115,14 @@ impl PyBond {
         let disc_id: &'static str = Box::leak(discount_curve.to_string().into_boxed_str());
 
         let bond = Bond {
-            id: id.clone(),
+            id: id.clone().into(),
             notional: notional.inner(),
             coupon,
             freq: frequency.inner(),
             dc: day_count.inner(),
             issue: issue_date.inner(),
             maturity: maturity.inner(),
-            disc_id,
+            disc_id: disc_id.into(),
             quoted_clean: quoted_clean_price,
             call_put: None,
             amortization: None,
@@ -145,7 +145,7 @@ impl PyBond {
     ///     'CORP-5Y-2029'
     #[getter]
     fn id(&self) -> String {
-        self.inner.id.clone()
+        self.inner.id.to_string()
     }
 
     /// The principal amount of the bond.
@@ -236,7 +236,7 @@ impl PyBond {
     ///     'USD-OIS'
     #[getter]
     fn discount_curve(&self) -> &str {
-        self.inner.disc_id
+        self.inner.disc_id.as_str()
     }
 
     /// The quoted clean price (if provided).

@@ -8,6 +8,7 @@ use crate::instruments::common::{
 };
 use finstack_core::prelude::*;
 use finstack_core::F;
+use finstack_core::types::{CurveId, InstrumentId};
 
 /// Enhanced bond builder using parameter groups and required fields.
 ///
@@ -16,7 +17,7 @@ use finstack_core::F;
 #[derive(Default)]
 pub struct BondBuilder {
     // Core required parameters
-    id: Option<String>,
+    id: Option<InstrumentId>,
     notional: Option<Money>,
     coupon: Option<F>,
 
@@ -40,7 +41,7 @@ impl BondBuilder {
 
     /// Set the bond identifier (required)
     pub fn id(mut self, id: impl Into<String>) -> Self {
-        self.id = Some(id.into());
+        self.id = Some(InstrumentId::new(id.into()));
         self
     }
 
@@ -87,7 +88,7 @@ impl BondBuilder {
     }
 
     /// Set discount curve ID directly (convenience)
-    pub fn disc_curve(mut self, disc_id: &'static str) -> Self {
+    pub fn disc_curve(mut self, disc_id: impl Into<CurveId>) -> Self {
         self.market_refs = Some(MarketRefs::discount_only(disc_id));
         self
     }

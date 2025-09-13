@@ -27,14 +27,14 @@ macro_rules! impl_attributable {
 /// Generate InstrumentLike implementation.
 ///
 /// Requirements:
-/// - Struct must have an `id: String` field
+/// - Struct must have an `id` field supporting `as_str()` (e.g., `String`, `InstrumentId`)
 /// - Must already implement Priceable and Attributable
 #[macro_export]
 macro_rules! impl_instrument_like {
     ($type:ident, $type_name:literal) => {
         impl $crate::instruments::traits::InstrumentLike for $type {
             fn id(&self) -> &str {
-                &self.id
+                self.id.as_str()
             }
 
             fn instrument_type(&self) -> &'static str {
@@ -116,7 +116,7 @@ macro_rules! impl_instrument_schedule_pv {
                 use $crate::instruments::fixed_income::discountable::Discountable;
                 // Use trait object to avoid monomorphization
                 let flows = CashflowProvider::build_schedule(s, curves, as_of)?;
-                let disc = curves.disc(s.$disc)?;
+                let disc = curves.disc(<str as ::core::convert::AsRef<str>>::as_ref(s.$disc.as_ref()))?;
                 flows.npv(&*disc, disc.base_date(), s.$dc)
             }
         );
@@ -298,20 +298,16 @@ macro_rules! impl_builder_enhancements {
     ($builder:ident) => {
         impl $builder {
             /// Quick setup for USD market standard parameters
-            pub fn usd_standard(mut self, disc_id: &'static str) -> Self {
-                self.market_refs = Some($crate::instruments::common::MarketRefs::discount_only(
-                    disc_id,
-                ));
+            pub fn usd_standard(mut self, disc_id: impl Into<finstack_core::types::CurveId>) -> Self {
+                self.market_refs = Some($crate::instruments::common::MarketRefs::discount_only(disc_id));
                 self.schedule_params =
                     Some($crate::instruments::common::InstrumentScheduleParams::usd_standard());
                 self
             }
 
             /// Quick setup for EUR market standard parameters
-            pub fn eur_standard(mut self, disc_id: &'static str) -> Self {
-                self.market_refs = Some($crate::instruments::common::MarketRefs::discount_only(
-                    disc_id,
-                ));
+            pub fn eur_standard(mut self, disc_id: impl Into<finstack_core::types::CurveId>) -> Self {
+                self.market_refs = Some($crate::instruments::common::MarketRefs::discount_only(disc_id));
                 self.schedule_params =
                     Some($crate::instruments::common::InstrumentScheduleParams::eur_standard());
                 self

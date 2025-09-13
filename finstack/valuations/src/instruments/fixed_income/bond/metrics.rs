@@ -108,7 +108,7 @@ impl MetricCalculator for AccruedInterestCalculator {
                 last,
                 next,
                 period_coupon_amount,
-                bond.disc_id,
+                bond.disc_id.clone(),
                 bond.dc,
                 maybe_flows,
             )
@@ -132,7 +132,7 @@ impl MetricCalculator for AccruedInterestCalculator {
         let accrued = period_coupon_amount * (elapsed / yf_total);
 
         // Cache basic context hints for downstream metrics
-        context.discount_curve_id = Some(disc_id);
+        context.discount_curve_id = Some(disc_id.clone());
         context.day_count = Some(dc);
         // Also cache full holder cashflows for downstream risk metrics
         if context.cashflows.is_none() {
@@ -181,7 +181,7 @@ impl MetricCalculator for YtmCalculator {
                 })?,
                 bond.notional.currency(),
                 bond.dc,
-                bond.disc_id,
+                bond.disc_id.clone(),
                 bond.notional,
                 bond.coupon,
                 bond.freq,
@@ -209,7 +209,7 @@ impl MetricCalculator for YtmCalculator {
             if let Some(flows) = &built_flows {
                 context.cashflows = Some(flows.clone());
             }
-            context.discount_curve_id = Some(disc_id);
+            context.discount_curve_id = Some(disc_id.clone());
             context.day_count = Some(dc);
         }
 
@@ -264,7 +264,7 @@ impl MetricCalculator for MacaulayDurationCalculator {
             f.clone()
         } else {
             let bond: &Bond = context.instrument_as()?;
-            let disc_id = bond.disc_id;
+            let disc_id = bond.disc_id.clone();
             let dc = bond.dc;
             let built_flows = bond.build_schedule(&context.curves, context.as_of)?;
             context.discount_curve_id = Some(disc_id);
@@ -372,7 +372,7 @@ impl MetricCalculator for ConvexityCalculator {
             f.clone()
         } else {
             let bond: &Bond = context.instrument_as()?;
-            let disc_id = bond.disc_id;
+            let disc_id = bond.disc_id.clone();
             let dc = bond.dc;
             let built = bond.build_schedule(&context.curves, context.as_of)?;
             context.discount_curve_id = Some(disc_id);
@@ -444,7 +444,7 @@ impl MetricCalculator for YtwCalculator {
         if context.cashflows.is_none() {
             // Re-borrow to access fields for hints
             let bond: &Bond = context.instrument_as()?;
-            let disc_id = bond.disc_id;
+            let disc_id = bond.disc_id.clone();
             let dc = bond.dc;
             context.cashflows = Some(flows.clone());
             context.discount_curve_id = Some(disc_id);
@@ -598,7 +598,7 @@ impl MetricCalculator for Cs01Calculator {
         let flows = bond.build_schedule(&context.curves, context.as_of)?;
 
         // Get the base discount curve
-        let disc_curve = context.curves.disc(bond.disc_id)?;
+        let disc_curve = context.curves.disc(bond.disc_id.as_ref())?;
 
         // CS01 calculation using spread approximation
         let bp = 0.0001; // 1 basis point

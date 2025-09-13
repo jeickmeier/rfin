@@ -137,7 +137,7 @@ pub fn flows_from_context_or_build(
     }
     let flows = bond.build_schedule(&context.curves, context.as_of)?;
     // Cache metadata
-    context.discount_curve_id = Some(bond.disc_id);
+    context.discount_curve_id = Some(bond.disc_id.clone());
     context.day_count = Some(bond.dc);
     // Move flows into cache and return a clone (only one clone instead of two)
     context.cashflows = Some(flows.clone());

@@ -72,7 +72,7 @@ impl BondValuator {
 
         // Build cashflow schedule
         let curves = market_context; // Use MarketContext directly
-        let base_date = market_context.disc(bond.disc_id)?.base_date();
+        let base_date = market_context.disc(bond.disc_id.clone())?.base_date();
         let flows = bond.build_schedule(curves, base_date)?;
 
         // Map cashflows to tree steps
@@ -233,7 +233,7 @@ impl OASCalculator {
         };
 
         let mut tree = ShortRateTree::new(tree_config);
-        let discount_curve = market_context.disc(bond.disc_id)?;
+        let discount_curve = market_context.disc(bond.disc_id.clone())?;
         tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
 
         // Create bond valuator
@@ -432,14 +432,14 @@ mod tests {
         let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
         Bond {
-            id: "TEST_BOND".to_string(),
+            id: "TEST_BOND".to_string().into(),
             notional: Money::new(1000.0, finstack_core::currency::Currency::USD),
             coupon: 0.05, // 5% coupon
             freq: finstack_core::dates::Frequency::semi_annual(),
             dc: finstack_core::dates::DayCount::Act365F,
             issue,
             maturity,
-            disc_id: "USD-OIS",
+            disc_id: "USD-OIS".into(),
             quoted_clean: Some(98.5), // Slightly below par
             call_put: None,
             amortization: None,

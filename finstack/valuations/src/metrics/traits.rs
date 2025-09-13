@@ -7,6 +7,7 @@
 use crate::instruments::traits::InstrumentLike;
 use crate::metrics::MetricId;
 use finstack_core::prelude::*;
+use finstack_core::types::CurveId;
 use finstack_core::F;
 use std::sync::Arc;
 
@@ -87,7 +88,7 @@ pub struct MetricContext {
     pub cashflows: Option<Vec<(Date, Money)>>,
 
     /// Cached discount curve ID.
-    pub discount_curve_id: Option<&'static str>,
+    pub discount_curve_id: Option<CurveId>,
 
     /// Cached day count convention.
     pub day_count: Option<DayCount>,

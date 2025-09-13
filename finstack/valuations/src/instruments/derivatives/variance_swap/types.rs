@@ -229,7 +229,7 @@ impl VarianceSwap {
 impl Priceable for VarianceSwap {
     fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
         // Get discount curve
-        let disc = context.disc(&self.disc_id)?;
+        let disc = context.disc(self.disc_id.as_str())?;
         
         if as_of >= self.maturity {
             // Contract has expired - calculate final payoff

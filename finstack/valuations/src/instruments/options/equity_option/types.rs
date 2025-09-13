@@ -7,11 +7,12 @@ use finstack_core::dates::Date;
 use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
 use finstack_core::F;
+use finstack_core::types::{CurveId, InstrumentId};
 
 /// Equity option instrument
 #[derive(Clone, Debug)]
 pub struct EquityOption {
-    pub id: String,
+    pub id: InstrumentId,
     pub underlying_ticker: String,
     pub strike: Money,
     pub option_type: OptionType,
@@ -20,9 +21,9 @@ pub struct EquityOption {
     pub contract_size: F,
     pub day_count: finstack_core::dates::DayCount,
     pub settlement: SettlementType,
-    pub disc_id: String,
+    pub disc_id: CurveId,
     pub spot_id: String,
-    pub vol_id: String,
+    pub vol_id: CurveId,
     pub div_yield_id: Option<String>,
     pub implied_vol: Option<F>,
     pub attributes: Attributes,
@@ -129,12 +130,12 @@ impl EquityOption {
         option_type: OptionType,
         expiry: Date,
         contract_size: F,
-        disc_id: impl Into<String>,
+        disc_id: impl Into<CurveId>,
         spot_id: impl Into<String>,
-        vol_id: impl Into<String>,
+        vol_id: impl Into<CurveId>,
     ) -> Self {
         Self {
-            id: id.into(),
+            id: InstrumentId::new(id.into()),
             underlying_ticker: underlying_ticker.into(),
             strike,
             option_type,
@@ -295,7 +296,7 @@ impl_instrument!(
                 s.strike.currency(),
             ));
         }
-        let disc_curve = curves.disc(&s.disc_id)?;
+        let disc_curve = curves.disc(s.disc_id.as_str())?;
         let r = disc_curve.zero(time_to_expiry);
         let spot_scalar = curves.price(&s.spot_id)?;
         let spot = match spot_scalar {
@@ -316,7 +317,7 @@ impl_instrument!(
         let sigma = if let Some(impl_vol) = s.implied_vol {
             impl_vol
         } else {
-            let vol_surface = curves.surface(&s.vol_id)?;
+            let vol_surface = curves.surface(s.vol_id.as_str())?;
             vol_surface.value_clamped(time_to_expiry, s.strike.amount())
         };
         s.black_scholes_price(spot, r, sigma, time_to_expiry, q)

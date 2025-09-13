@@ -278,9 +278,12 @@ impl MetricCalculator for BucketedDv01Calculator {
         })?;
 
         // Get discount curve - try to infer from instrument or use default
-        let disc_id = context.discount_curve_id.unwrap_or("USD-OIS");
+        let disc_id = context
+            .discount_curve_id
+            .clone()
+            .unwrap_or_else(|| finstack_core::types::CurveId::new("USD-OIS"));
 
-        let disc = context.curves.disc(disc_id)?;
+        let disc = context.curves.disc(disc_id.as_str())?;
 
         // Get day count - try to infer or use default
         let dc = context.day_count.unwrap_or(DayCount::Act365F);
@@ -351,8 +354,8 @@ impl MetricCalculator for ThetaCalculator {
         let mut aged_context = finstack_core::market_data::MarketContext::new();
 
         // Try to age the discount curve used by the instrument
-        if let Some(disc_id) = context.discount_curve_id {
-            if let Ok(original_disc) = original_curves.disc(disc_id) {
+        if let Some(disc_id) = context.discount_curve_id.clone() {
+            if let Ok(original_disc) = original_curves.disc(disc_id.as_str()) {
                 let aged_disc = AgedDiscountCurve::new(original_disc, shifted_date, day_count)?;
                 aged_context = aged_context.insert_discount(aged_disc);
             }
@@ -433,8 +436,8 @@ pub trait CashflowCaching {
     ///
     /// # Arguments
     /// * `context` - Metric context to cache the curve ID in
-    /// * `curve_id` - Static string identifier for the discount curve
-    fn cache_discount_curve(&self, context: &mut MetricContext, curve_id: &'static str) {
+    /// * `curve_id` - Identifier for the discount curve
+    fn cache_discount_curve(&self, context: &mut MetricContext, curve_id: CurveId) {
         context.discount_curve_id = Some(curve_id);
     }
 
@@ -610,7 +613,7 @@ mod tests {
             Money::new(0.0, Currency::USD),
         );
         ctx.cashflows = Some(flows.clone());
-        ctx.discount_curve_id = Some("USD-OIS");
+        ctx.discount_curve_id = Some(CurveId::new("USD-OIS"));
         ctx.day_count = Some(dc);
 
         let resolver: Arc<BucketKeyResolverFn> = Arc::new(|base_id, label, _instr| {

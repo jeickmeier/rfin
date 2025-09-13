@@ -55,14 +55,14 @@ fn create_plain_bond(quoted_clean: Option<F>) -> Bond {
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
     Bond {
-        id: "PLAIN_BOND_5Y".to_string(),
+        id: "PLAIN_BOND_5Y".to_string().into(),
         notional: Money::new(1000.0, Currency::USD),
         coupon: 0.05, // 5% coupon
         freq: Frequency::semi_annual(),
         dc: DayCount::Act365F,
         issue,
         maturity,
-        disc_id: "USD-OIS",
+        disc_id: "USD-OIS".into(),
         quoted_clean,
         call_put: None,
         amortization: None,
@@ -84,7 +84,7 @@ fn create_callable_bond(quoted_clean: Option<F>) -> Bond {
     });
 
     bond.call_put = Some(call_put);
-    bond.id = "CALLABLE_BOND_5Y".to_string();
+    bond.id = "CALLABLE_BOND_5Y".to_string().into();
     bond
 }
 
@@ -101,7 +101,7 @@ fn create_putable_bond(quoted_clean: Option<F>) -> Bond {
     });
 
     bond.call_put = Some(call_put);
-    bond.id = "PUTABLE_BOND_5Y".to_string();
+    bond.id = "PUTABLE_BOND_5Y".to_string().into();
     bond
 }
 

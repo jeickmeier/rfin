@@ -7,6 +7,7 @@ use finstack_core::money::Money;
 use finstack_core::F;
 
 use super::types::EquityOption;
+use finstack_core::types::InstrumentId;
 
 /// Enhanced equity option builder using parameter groups.
 ///
@@ -14,7 +15,7 @@ use super::types::EquityOption;
 #[derive(Default)]
 pub struct EquityOptionBuilder {
     // Core required parameters
-    id: Option<String>,
+    id: Option<InstrumentId>,
     notional: Option<Money>,
 
     // Parameter groups (required)
@@ -35,7 +36,7 @@ impl EquityOptionBuilder {
 
     /// Set instrument ID (required)
     pub fn id(mut self, value: impl Into<String>) -> Self {
-        self.id = Some(value.into());
+        self.id = Some(InstrumentId::new(value.into()));
         self
     }
 
@@ -130,7 +131,7 @@ impl EquityOptionBuilder {
             contract_size: underlying.contract_size,
             day_count: self.day_count.unwrap_or(DayCount::Act365F),
             settlement: option_params.settlement,
-            disc_id: market_refs.disc_id.to_string(),
+            disc_id: market_refs.disc_id,
             spot_id: underlying.spot_id,
             vol_id: market_refs
                 .vol_id
@@ -139,7 +140,7 @@ impl EquityOptionBuilder {
                         id: "volatility_surface_id".to_string(),
                     })
                 })?
-                .to_string(),
+                ,
             div_yield_id: underlying.dividend_yield_id,
             implied_vol: pricing.implied_volatility,
             attributes: Attributes::new(),

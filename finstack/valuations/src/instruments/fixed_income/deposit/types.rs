@@ -4,6 +4,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::F;
+use finstack_core::types::{CurveId, InstrumentId};
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::traits::Attributes;
@@ -15,7 +16,7 @@ use crate::instruments::traits::Attributes;
 #[derive(Clone, Debug)]
 pub struct Deposit {
     /// Unique identifier for the deposit.
-    pub id: String,
+    pub id: InstrumentId,
     /// Principal amount of the deposit.
     pub notional: Money,
     /// Start date of the deposit period.
@@ -27,7 +28,7 @@ pub struct Deposit {
     /// Optional quoted simple rate r (annualised) for the deposit.
     pub quote_rate: Option<F>,
     /// Discount curve id used for valuation and par extraction.
-    pub disc_id: &'static str,
+    pub disc_id: CurveId,
     /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,
 }

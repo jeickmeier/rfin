@@ -10,6 +10,7 @@ use crate::cashflow::primitives::CFKind;
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::traits::{Attributes, Priceable};
 use crate::metrics::{RiskBucket, RiskMeasurable, RiskReport};
+use finstack_core::types::{CurveId, InstrumentId};
 
 // Re-export for compatibility in tests and external users referencing bond::AmortizationSpec
 pub use crate::cashflow::primitives::AmortizationSpec;
@@ -21,7 +22,7 @@ pub use crate::cashflow::primitives::AmortizationSpec;
 #[derive(Clone, Debug)]
 pub struct Bond {
     /// Unique identifier for the bond.
-    pub id: String,
+    pub id: InstrumentId,
     /// Principal amount of the bond.
     pub notional: Money,
     /// Annual coupon rate (e.g., 0.05 for 5%).
@@ -35,7 +36,7 @@ pub struct Bond {
     /// Maturity date of the bond.
     pub maturity: Date,
     /// Discount curve identifier for pricing.
-    pub disc_id: &'static str,
+    pub disc_id: CurveId,
     /// Optional quoted clean price (per notional unit). If provided, we compute YTM measures.
     pub quoted_clean: Option<F>,
     /// Optional call/put schedule (dates and redemption prices as % of par amount).
@@ -80,7 +81,7 @@ impl Bond {
         coupon_rate: F,
         issue: Date,
         maturity: Date,
-        disc_id: &'static str,
+        disc_id: impl Into<CurveId>,
     ) -> Self {
         use crate::instruments::common::{DateRange, InstrumentScheduleParams, MarketRefs};
 
@@ -122,7 +123,7 @@ impl Bond {
         notional: Money,
         issue: Date,
         maturity: Date,
-        disc_id: &'static str,
+        disc_id: impl Into<CurveId>,
     ) -> Self {
         Self::fixed_semiannual(id, notional, 0.0, issue, maturity, disc_id)
     }
@@ -134,7 +135,7 @@ impl Bond {
     pub fn from_cashflows(
         id: impl Into<String>,
         schedule: CashFlowSchedule,
-        disc_id: &'static str,
+        disc_id: impl Into<CurveId>,
         quoted_clean: Option<F>,
     ) -> finstack_core::Result<Self> {
         // Extract parameters from the schedule
@@ -154,14 +155,14 @@ impl Bond {
         let coupon = 0.0;
 
         Ok(Self {
-            id: id.into(),
+            id: InstrumentId::new(id.into()),
             notional,
             coupon,
             freq,
             dc,
             issue,
             maturity,
-            disc_id,
+            disc_id: disc_id.into(),
             quoted_clean,
             call_put: None,
             amortization: None,
@@ -199,7 +200,7 @@ impl RiskMeasurable for Bond {
         use std::sync::Arc;
 
         // Create risk report
-        let mut report = RiskReport::new(&self.id, self.notional.currency());
+        let mut report = RiskReport::new(self.id.as_str(), self.notional.currency());
 
         // Compute base value
         let base_value = self.value(curves, as_of)?;
@@ -415,8 +416,8 @@ mod tests {
         .unwrap();
 
         // Verify bond properties
-        assert_eq!(bond.id, "CUSTOM_STEPUP_BOND");
-        assert_eq!(bond.disc_id, "USD-OIS");
+        assert_eq!(bond.id.as_str(), "CUSTOM_STEPUP_BOND");
+        assert_eq!(bond.disc_id.as_str(), "USD-OIS");
         assert_eq!(bond.quoted_clean, Some(98.5));
         assert_eq!(bond.issue, issue);
         assert_eq!(bond.maturity, maturity);
@@ -482,8 +483,8 @@ mod tests {
             .build()
             .unwrap();
 
-        assert_eq!(bond.id, "PIK_TOGGLE_BOND");
-        assert_eq!(bond.disc_id, "USD-OIS");
+        assert_eq!(bond.id.as_str(), "PIK_TOGGLE_BOND");
+        assert_eq!(bond.disc_id.as_str(), "USD-OIS");
         assert_eq!(bond.quoted_clean, Some(99.0));
         assert!(bond.custom_cashflows.is_some());
         assert_eq!(bond.notional.currency(), Currency::USD);
@@ -496,14 +497,14 @@ mod tests {
 
         // Create a traditional bond first
         let mut bond = Bond {
-            id: "REGULAR_BOND".to_string(),
+            id: InstrumentId::new("REGULAR_BOND"),
             notional: Money::new(1_000_000.0, Currency::USD),
             coupon: 0.04,
             freq: Frequency::semi_annual(),
             dc: DayCount::Act365F,
             issue,
             maturity,
-            disc_id: "USD-OIS",
+            disc_id: CurveId::new("USD-OIS"),
             quoted_clean: None,
             call_put: None,
             amortization: None,
@@ -541,14 +542,14 @@ mod tests {
 
         // Create bond with regular specs
         let regular_bond = Bond {
-            id: "TEST".to_string(),
+            id: InstrumentId::new("TEST"),
             notional: Money::new(1_000_000.0, Currency::USD),
             coupon: 0.03,
             freq: Frequency::annual(),
             dc: DayCount::Act365F,
             issue,
             maturity,
-            disc_id: "USD-OIS",
+            disc_id: CurveId::new("USD-OIS"),
             quoted_clean: None,
             call_put: None,
             amortization: None,

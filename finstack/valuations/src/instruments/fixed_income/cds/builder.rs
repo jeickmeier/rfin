@@ -162,7 +162,7 @@ impl CDSBuilder {
             spread_bp,
             credit_params.credit_id,
             credit_params.recovery_rate,
-            market_refs.disc_id,
+            Box::leak(market_refs.disc_id.to_string().into_boxed_str()),
         );
 
         // Set optional upfront payment from pricing overrides

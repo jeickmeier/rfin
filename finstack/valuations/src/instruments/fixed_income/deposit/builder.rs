@@ -7,12 +7,12 @@ impl_builder!(
     Deposit,
     DepositBuilder,
     required: [
-        id: String,
+        id: finstack_core::types::InstrumentId,
         notional: Money,
         start: Date,
         end: Date,
         day_count: DayCount,
-        disc_id: &'static str
+        disc_id: finstack_core::types::CurveId
     ],
     optional: [
         quote_rate: F

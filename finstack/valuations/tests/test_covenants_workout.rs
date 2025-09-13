@@ -86,14 +86,14 @@ fn test_covenant_evaluation() {
     let curves = Arc::new(MarketContext::new());
     let mut context = MetricContext::new(
         Arc::new(finstack_valuations::instruments::fixed_income::bond::Bond {
-            id: "TEST".to_string(),
+            id: "TEST".to_string().into(),
             notional: Money::new(1_000_000.0, Currency::USD),
             coupon: 0.05,
             freq: finstack_core::dates::Frequency::semi_annual(),
             dc: DayCount::Act365F,
             issue: as_of,
             maturity: Date::from_calendar_date(2030, Month::January, 1).unwrap(),
-            disc_id: "USD-OIS",
+            disc_id: "USD-OIS".into(),
             quoted_clean: None,
             call_put: None,
             amortization: None,

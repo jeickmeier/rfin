@@ -141,7 +141,7 @@ impl BasketBuilder {
         units: Option<F>,
     ) -> Self {
         let id_str = id.into();
-        let ticker = bond.id.clone();
+        let ticker = bond.id.to_string();
         
         self.constituents.push(BasketConstituent {
             id: id_str,

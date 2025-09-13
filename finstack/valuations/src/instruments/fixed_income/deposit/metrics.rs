@@ -44,7 +44,7 @@ impl MetricCalculator for DfStartCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let deposit: &Deposit = context.instrument_as()?;
 
-        let disc = context.curves.disc(deposit.disc_id)?;
+        let disc = context.curves.disc(deposit.disc_id.clone())?;
         let base = disc.base_date();
 
         Ok(DiscountCurve::df_on(
@@ -68,7 +68,7 @@ impl MetricCalculator for DfEndCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let deposit: &Deposit = context.instrument_as()?;
 
-        let disc = context.curves.disc(deposit.disc_id)?;
+        let disc = context.curves.disc(deposit.disc_id.clone())?;
         let base = disc.base_date();
 
         Ok(DiscountCurve::df_on(

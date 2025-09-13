@@ -187,7 +187,7 @@ fn demo_basis_swap(base_date: Date) -> Result<()> {
 
     // Create a basis swap: 3M SOFR vs 6M SOFR + spread
     let primary_leg = BasisSwapLeg {
-        forward_curve_id: "USD-SOFR-3M",
+        forward_curve_id: "USD-SOFR-3M".into(),
         frequency: Frequency::quarterly(),
         day_count: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
@@ -195,7 +195,7 @@ fn demo_basis_swap(base_date: Date) -> Result<()> {
     };
 
     let reference_leg = BasisSwapLeg {
-        forward_curve_id: "USD-SOFR-6M",
+        forward_curve_id: "USD-SOFR-6M".into(),
         frequency: Frequency::semi_annual(),
         day_count: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,

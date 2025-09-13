@@ -59,7 +59,7 @@ fn test_equity_option_creation() {
         "AAPL-VOL",
     );
 
-    assert_eq!(option.id, "AAPL_CALL_100");
+    assert_eq!(option.id, "AAPL_CALL_100".into());
     assert_eq!(option.underlying_ticker, "AAPL");
     assert_eq!(option.strike.amount(), 100.0);
     assert_eq!(option.option_type, OptionType::Call);

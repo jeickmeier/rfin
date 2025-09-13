@@ -5,6 +5,7 @@ use crate::instruments::traits::Attributes;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::F;
+use finstack_core::types::InstrumentId;
 // use indexmap::IndexMap;
 
 /// Type alias for ticker symbols
@@ -20,7 +21,7 @@ pub type Ticker = String;
 #[derive(Clone, Debug)]
 pub struct Equity {
     /// Unique identifier for the equity
-    pub id: String,
+    pub id: InstrumentId,
     /// Ticker symbol (e.g., "AAPL", "MSFT")
     pub ticker: Ticker,
     /// Currency in which the equity is quoted
@@ -42,7 +43,7 @@ impl Equity {
     /// Create a new equity instrument with default 1 share
     pub fn new(id: impl Into<String>, ticker: impl Into<String>, currency: Currency) -> Self {
         Self {
-            id: id.into(),
+            id: InstrumentId::new(id.into()),
             ticker: ticker.into(),
             currency,
             shares: None,
@@ -127,9 +128,9 @@ impl EquityBuilder {
 
     pub fn build(self) -> finstack_core::Result<Equity> {
         Ok(Equity {
-            id: self.id.ok_or_else(|| {
+            id: InstrumentId::new(self.id.ok_or_else(|| {
                 finstack_core::Error::from(finstack_core::error::InputError::Invalid)
-            })?,
+            })?),
             ticker: self.ticker.ok_or_else(|| {
                 finstack_core::Error::from(finstack_core::error::InputError::Invalid)
             })?,
@@ -165,7 +166,7 @@ mod tests {
             .with_shares(100.0)
             .with_price(150.0);
 
-        assert_eq!(equity.id, "AAPL");
+        assert_eq!(equity.id.as_str(), "AAPL");
         assert_eq!(equity.ticker, "AAPL");
         assert_eq!(equity.currency, Currency::USD);
         assert_eq!(equity.effective_shares(), 100.0);

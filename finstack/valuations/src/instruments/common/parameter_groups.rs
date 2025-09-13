@@ -6,7 +6,7 @@
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
-use finstack_core::types::id::IndexId;
+use finstack_core::types::{id::IndexId, CurveId};
 use finstack_core::F;
 
 /// Market data references for instrument pricing.
@@ -15,20 +15,20 @@ use finstack_core::F;
 #[derive(Clone, Debug)]
 pub struct MarketRefs {
     /// Discount curve ID for present value calculations
-    pub disc_id: &'static str,
+    pub disc_id: CurveId,
     /// Optional forward curve ID (for floating rate instruments)
-    pub fwd_id: Option<&'static str>,
+    pub fwd_id: Option<CurveId>,
     /// Optional volatility surface ID (for option instruments)
-    pub vol_id: Option<&'static str>,
+    pub vol_id: Option<CurveId>,
     /// Optional credit/hazard curve ID (for credit instruments)
-    pub credit_id: Option<&'static str>,
+    pub credit_id: Option<CurveId>,
 }
 
 impl MarketRefs {
     /// Create market refs with just discount curve (most common case)
-    pub fn discount_only(disc_id: &'static str) -> Self {
+    pub fn discount_only(disc_id: impl Into<CurveId>) -> Self {
         Self {
-            disc_id,
+            disc_id: disc_id.into(),
             fwd_id: None,
             vol_id: None,
             credit_id: None,
@@ -36,50 +36,50 @@ impl MarketRefs {
     }
 
     /// Create market refs for rates instruments (discount + forward)
-    pub fn rates(disc_id: &'static str, fwd_id: &'static str) -> Self {
+    pub fn rates(disc_id: impl Into<CurveId>, fwd_id: impl Into<CurveId>) -> Self {
         Self {
-            disc_id,
-            fwd_id: Some(fwd_id),
+            disc_id: disc_id.into(),
+            fwd_id: Some(fwd_id.into()),
             vol_id: None,
             credit_id: None,
         }
     }
 
     /// Create market refs for options (discount + volatility)
-    pub fn option(disc_id: &'static str, vol_id: &'static str) -> Self {
+    pub fn option(disc_id: impl Into<CurveId>, vol_id: impl Into<CurveId>) -> Self {
         Self {
-            disc_id,
+            disc_id: disc_id.into(),
             fwd_id: None,
-            vol_id: Some(vol_id),
+            vol_id: Some(vol_id.into()),
             credit_id: None,
         }
     }
 
     /// Create market refs for credit instruments (discount + credit)
-    pub fn credit(disc_id: &'static str, credit_id: &'static str) -> Self {
+    pub fn credit(disc_id: impl Into<CurveId>, credit_id: impl Into<CurveId>) -> Self {
         Self {
-            disc_id,
+            disc_id: disc_id.into(),
             fwd_id: None,
             vol_id: None,
-            credit_id: Some(credit_id),
+            credit_id: Some(credit_id.into()),
         }
     }
 
     /// Add forward curve
-    pub fn with_forward(mut self, fwd_id: &'static str) -> Self {
-        self.fwd_id = Some(fwd_id);
+    pub fn with_forward(mut self, fwd_id: impl Into<CurveId>) -> Self {
+        self.fwd_id = Some(fwd_id.into());
         self
     }
 
     /// Add volatility surface
-    pub fn with_volatility(mut self, vol_id: &'static str) -> Self {
-        self.vol_id = Some(vol_id);
+    pub fn with_volatility(mut self, vol_id: impl Into<CurveId>) -> Self {
+        self.vol_id = Some(vol_id.into());
         self
     }
 
     /// Add credit curve
-    pub fn with_credit(mut self, credit_id: &'static str) -> Self {
-        self.credit_id = Some(credit_id);
+    pub fn with_credit(mut self, credit_id: impl Into<CurveId>) -> Self {
+        self.credit_id = Some(credit_id.into());
         self
     }
 }

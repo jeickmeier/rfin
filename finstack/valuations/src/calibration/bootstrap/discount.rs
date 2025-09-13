@@ -372,13 +372,13 @@ impl DiscountCurveCalibrator {
                 // Create Deposit instrument and use its pricer for consistency
                 let disc = context.disc("CALIB_CURVE")?;
                 let dep = Deposit {
-                    id: format!("CALIB_DEP_{}", maturity),
+                    id: format!("CALIB_DEP_{}", maturity).into(),
                     notional: Money::new(1_000_000.0, self.currency),
                     start: disc.base_date(),
                     end: *maturity,
                     day_count: *day_count,
                     quote_rate: Some(*rate),
-                    disc_id: "CALIB_CURVE",
+                    disc_id: "CALIB_CURVE".into(),
                     attributes: Default::default(),
                 };
 
@@ -551,8 +551,8 @@ impl DiscountCurveCalibrator {
 
                 // In multi-curve mode, basis swaps contribute to tenor basis calibration
                 // Extract tenor information from index names (e.g., "3M-SOFR" -> 3M)
-                let primary_forward_id = format!("FWD_{}", primary_index).leak();
-                let reference_forward_id = format!("FWD_{}", reference_index).leak();
+                let primary_forward_id = format!("FWD_{}", primary_index).into();
+                let reference_forward_id = format!("FWD_{}", reference_index).into();
 
                 // Store string references for later use in checks
                 let primary_fwd_str = format!("FWD_{}", primary_index);
@@ -959,13 +959,13 @@ mod tests {
             } = quote
             {
                 let dep = Deposit {
-                    id: format!("DEP-{}", maturity),
+                    id: format!("DEP-{}", maturity).into(),
                     notional: Money::new(1_000_000.0, Currency::USD),
                     start: base_date,
                     end: *maturity,
                     day_count: *day_count,
                     quote_rate: Some(*rate),
-                    disc_id: "USD-OIS",
+                    disc_id: "USD-OIS".into(),
                     attributes: Default::default(),
                 };
                 let pv = dep.value(&ctx, base_date).unwrap();

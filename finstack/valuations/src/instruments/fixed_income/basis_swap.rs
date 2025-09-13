@@ -11,6 +11,7 @@ use finstack_core::{
     market_data::context::MarketContext,
     money::Money,
     prelude::*,
+    types::{CurveId, InstrumentId},
     F,
 };
 
@@ -18,7 +19,7 @@ use finstack_core::{
 #[derive(Clone, Debug)]
 pub struct BasisSwapLeg {
     /// Forward curve identifier for this leg
-    pub forward_curve_id: &'static str,
+    pub forward_curve_id: CurveId,
     /// Payment frequency
     pub frequency: Frequency,
     /// Day count convention
@@ -36,7 +37,7 @@ pub struct BasisSwapLeg {
 #[derive(Clone, Debug)]
 pub struct BasisSwap {
     /// Instrument identifier
-    pub id: String,
+    pub id: InstrumentId,
     /// Notional amount
     pub notional: Money,
     /// Start date
@@ -48,7 +49,7 @@ pub struct BasisSwap {
     /// Reference leg (pays flat)
     pub reference_leg: BasisSwapLeg,
     /// Discount curve identifier
-    pub discount_curve_id: &'static str,
+    pub discount_curve_id: CurveId,
     /// Calendar identifier for date adjustments
     pub calendar_id: Option<String>,
     /// Stub handling
@@ -64,16 +65,16 @@ impl BasisSwap {
         maturity_date: Date,
         primary_leg: BasisSwapLeg,
         reference_leg: BasisSwapLeg,
-        discount_curve_id: &'static str,
+        discount_curve_id: impl Into<CurveId>,
     ) -> Self {
         Self {
-            id: id.into(),
+            id: InstrumentId::new(id.into()),
             notional,
             start_date,
             maturity_date,
             primary_leg,
             reference_leg,
-            discount_curve_id,
+            discount_curve_id: discount_curve_id.into(),
             calendar_id: None,
             stub_kind: StubKind::None,
         }
@@ -99,8 +100,8 @@ impl BasisSwap {
         valuation_date: Date,
     ) -> Result<Money> {
         // Get curves
-        let discount_curve = context.disc(self.discount_curve_id)?;
-        let forward_curve = context.fwd(leg.forward_curve_id)?;
+        let discount_curve = context.disc(self.discount_curve_id.as_str())?;
+        let forward_curve = context.fwd(leg.forward_curve_id.as_str())?;
 
         // Generate payment schedule using simple date logic
         let mut schedule = Vec::new();
@@ -198,7 +199,7 @@ impl Priceable for BasisSwap {
         let mut measures = indexmap::IndexMap::new();
         measures.insert("pv".to_string(), pv.amount());
 
-        let result = ValuationResult::stamped(&self.id, as_of, pv).with_measures(measures);
+        let result = ValuationResult::stamped(self.id.as_str(), as_of, pv).with_measures(measures);
 
         Ok(result)
     }
@@ -250,7 +251,7 @@ mod tests {
 
         // Create basis swap: 3M receives 6M + 5bp
         let primary_leg = BasisSwapLeg {
-            forward_curve_id: "3M-SOFR",
+            forward_curve_id: CurveId::new("3M-SOFR"),
             frequency: Frequency::quarterly(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -258,7 +259,7 @@ mod tests {
         };
 
         let reference_leg = BasisSwapLeg {
-            forward_curve_id: "6M-SOFR",
+            forward_curve_id: CurveId::new("6M-SOFR"),
             frequency: Frequency::semi_annual(),
             day_count: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
@@ -272,7 +273,7 @@ mod tests {
             maturity,
             primary_leg,
             reference_leg,
-            "OIS",
+            CurveId::new("OIS"),
         );
 
         // Price the swap
