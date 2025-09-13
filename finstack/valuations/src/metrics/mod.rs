@@ -47,6 +47,7 @@ pub fn standard_registry() -> MetricRegistry {
     let mut registry = MetricRegistry::new();
 
     crate::instruments::equity::metrics::register_equity_metrics(&mut registry);
+    crate::instruments::equity::basket::metrics::register_basket_metrics(&mut registry);
     crate::instruments::fixed_income::bond::metrics::register_bond_metrics(&mut registry);
     crate::instruments::fixed_income::irs::metrics::register_irs_metrics(&mut registry);
     crate::instruments::fixed_income::deposit::metrics::register_deposit_metrics(&mut registry);

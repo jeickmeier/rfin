@@ -240,4 +240,20 @@ define_metrics! {
     /// Implied collateral return
     ImpliedCollateralReturn => "implied_collateral_return",
 
+    // Basket/ETF metrics
+    /// Net Asset Value per share
+    Nav => "nav",
+    /// Total basket value
+    BasketValue => "basket_value",
+    /// Number of constituents in the basket
+    ConstituentCount => "constituent_count",
+    /// Expense ratio as percentage
+    ExpenseRatio => "expense_ratio",
+    /// Tracking error vs benchmark
+    TrackingError => "tracking_error",
+    /// Utilization vs creation unit size
+    Utilization => "utilization",
+    /// Premium/discount to NAV
+    PremiumDiscount => "premium_discount",
+
 }
