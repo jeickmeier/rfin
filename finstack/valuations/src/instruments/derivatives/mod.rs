@@ -4,6 +4,8 @@
 //! underlying assets or indices.
 
 pub mod trs;
+pub mod variance_swap;
 
 // Re-export main types
 pub use trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
+pub use variance_swap::{VarianceSwap, VarianceSwapBuilder, PayReceive, RealizedVarMethod};

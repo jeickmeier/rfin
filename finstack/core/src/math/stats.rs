@@ -93,3 +93,150 @@ pub fn correlation(x: &[f64], y: &[f64]) -> f64 {
     }
     cov / (vx.sqrt() * vy.sqrt())
 }
+
+// ====== Realized Variance Calculations ======
+
+/// Methods for calculating realized variance from price series.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RealizedVarMethod {
+    /// Standard close-to-close returns
+    CloseToClose,
+    /// Parkinson (1980) high-low estimator
+    Parkinson,
+    /// Garman-Klass (1980) OHLC estimator
+    GarmanKlass,
+    /// Rogers-Satchell (1991) drift-independent OHLC estimator
+    RogersSatchell,
+    /// Yang-Zhang (2000) drift and opening gaps estimator
+    YangZhang,
+}
+
+/// Calculate log returns from a price series.
+pub fn log_returns(prices: &[f64]) -> Vec<f64> {
+    if prices.len() < 2 {
+        return vec![];
+    }
+    prices
+        .windows(2)
+        .map(|w| (w[1] / w[0]).ln())
+        .collect()
+}
+
+/// Calculate realized variance from price series.
+///
+/// # Arguments
+/// * `prices` - Price series (for CloseToClose method)
+/// * `method` - Method to use for calculation
+/// * `annualization_factor` - Factor to annualize variance (e.g., 252 for daily data)
+///
+/// # Returns
+/// Annualized realized variance
+pub fn realized_variance(
+    prices: &[f64],
+    method: RealizedVarMethod,
+    annualization_factor: f64,
+) -> f64 {
+    match method {
+        RealizedVarMethod::CloseToClose => {
+            if prices.len() < 2 {
+                return 0.0;
+            }
+            let returns = log_returns(prices);
+            variance(&returns) * annualization_factor
+        }
+        // Other methods can be implemented incrementally
+        _ => realized_variance(prices, RealizedVarMethod::CloseToClose, annualization_factor),
+    }
+}
+
+/// Calculate realized variance from OHLC data using advanced estimators.
+///
+/// # Arguments
+/// * `open` - Opening prices
+/// * `high` - High prices
+/// * `low` - Low prices
+/// * `close` - Closing prices
+/// * `method` - Method to use for calculation
+/// * `annualization_factor` - Factor to annualize variance
+///
+/// # Returns
+/// Annualized realized variance
+pub fn realized_variance_ohlc(
+    open: &[f64],
+    high: &[f64],
+    low: &[f64],
+    close: &[f64],
+    method: RealizedVarMethod,
+    annualization_factor: f64,
+) -> f64 {
+    let n = open.len();
+    if n < 2 {
+        return 0.0;
+    }
+    
+    match method {
+        RealizedVarMethod::CloseToClose => {
+            realized_variance(close, method, annualization_factor)
+        }
+        RealizedVarMethod::Parkinson => {
+            // Parkinson estimator: uses high-low range
+            let sum: f64 = (0..n)
+                .map(|i| {
+                    let hl_ratio = high[i] / low[i];
+                    (hl_ratio.ln()).powi(2)
+                })
+                .sum();
+            let factor = 1.0 / (4.0 * (2.0_f64).ln());
+            (sum / n as f64) * factor * annualization_factor
+        }
+        RealizedVarMethod::GarmanKlass => {
+            // Garman-Klass estimator
+            let sum: f64 = (0..n)
+                .map(|i| {
+                    let hl = (high[i] / low[i]).ln();
+                    let co = (close[i] / open[i]).ln();
+                    0.5 * hl.powi(2) - (2.0 * (2.0_f64).ln() - 1.0) * co.powi(2)
+                })
+                .sum();
+            (sum / n as f64) * annualization_factor
+        }
+        RealizedVarMethod::RogersSatchell => {
+            // Rogers-Satchell estimator: drift-independent
+            let sum: f64 = (0..n)
+                .map(|i| {
+                    let hc = (high[i] / close[i]).ln();
+                    let ho = (high[i] / open[i]).ln();
+                    let lc = (low[i] / close[i]).ln();
+                    let lo = (low[i] / open[i]).ln();
+                    hc * ho + lc * lo
+                })
+                .sum();
+            (sum / n as f64) * annualization_factor
+        }
+        RealizedVarMethod::YangZhang => {
+            // Yang-Zhang estimator: includes overnight jumps
+            // Simplified version - full implementation would need opening jumps
+            let mut sum_oc = 0.0;
+            let mut sum_rs = 0.0;
+            
+            for i in 1..n {
+                // Overnight component
+                let overnight = (open[i] / close[i - 1]).ln();
+                sum_oc += overnight.powi(2);
+                
+                // Rogers-Satchell component for intraday
+                let hc = (high[i] / close[i]).ln();
+                let ho = (high[i] / open[i]).ln();
+                let lc = (low[i] / close[i]).ln();
+                let lo = (low[i] / open[i]).ln();
+                sum_rs += hc * ho + lc * lo;
+            }
+            
+            let k = 0.34 / (1.34 + (n + 1) as f64 / (n - 1) as f64);
+            let var_oc = sum_oc / (n - 1) as f64;
+            let var_rs = sum_rs / n as f64;
+            
+            (k * var_oc + (1.0 - k) * var_rs) * annualization_factor
+        }
+    }
+}

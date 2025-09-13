@@ -1,0 +1,326 @@
+//! Variance swap type definitions.
+
+use finstack_core::{
+    dates::{Date, DayCount, Frequency},
+    market_data::context::MarketContext,
+    math::stats::{realized_variance, RealizedVarMethod},
+    money::Money,
+    types::id::{CurveId, InstrumentId},
+    F, Result,
+};
+
+use crate::{
+    instruments::traits::{Attributable, Attributes, InstrumentLike, Priceable},
+    metrics::MetricId,
+    results::ValuationResult,
+    cashflow::traits::{CashflowProvider, DatedFlows},
+};
+
+use std::any::Any;
+
+/// Side of the variance swap (pay or receive variance).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PayReceive {
+    /// Pay variance (short variance)
+    Pay,
+    /// Receive variance (long variance)
+    Receive,
+}
+
+impl PayReceive {
+    /// Get the sign multiplier for PV calculation.
+    pub fn sign(&self) -> F {
+        match self {
+            PayReceive::Pay => -1.0,
+            PayReceive::Receive => 1.0,
+        }
+    }
+}
+
+/// Variance swap instrument.
+///
+/// A variance swap is a forward contract on realized variance with payoff:
+/// Notional * (Realized Variance - Strike Variance)
+#[derive(Clone, Debug)]
+pub struct VarianceSwap {
+    /// Unique instrument identifier
+    pub id: InstrumentId,
+    /// Underlying identifier (equity/index)
+    pub underlying_id: String,
+    /// Variance notional (in variance units)
+    pub notional: Money,
+    /// Strike variance (annualized)
+    pub strike_variance: F,
+    /// Start date of observation period
+    pub start_date: Date,
+    /// Maturity/settlement date
+    pub maturity: Date,
+    /// Observation frequency
+    pub observation_freq: Frequency,
+    /// Method for calculating realized variance
+    pub realized_var_method: RealizedVarMethod,
+    /// Pay/receive variance
+    pub side: PayReceive,
+    /// Discount curve identifier
+    pub disc_id: CurveId,
+    /// Day count convention for time calculations
+    pub day_count: DayCount,
+    /// Attributes for scenario selection
+    pub attributes: Attributes,
+}
+
+impl VarianceSwap {
+    /// Create a new variance swap builder.
+    pub fn builder() -> super::builder::VarianceSwapBuilder {
+        super::builder::VarianceSwapBuilder::new()
+    }
+
+    /// Calculate payoff given realized variance.
+    pub fn payoff(&self, realized_variance: F) -> Money {
+        let variance_diff = realized_variance - self.strike_variance;
+        let sign = self.side.sign();
+        Money::new(
+            self.notional.amount() * variance_diff * sign,
+            self.notional.currency(),
+        )
+    }
+
+    /// Get observation dates based on frequency.
+    pub fn observation_dates(&self) -> Vec<Date> {
+        use finstack_core::dates::utils::add_months;
+        
+        // Simple date generation based on frequency
+        let mut dates = Vec::new();
+        let mut current = self.start_date;
+        
+        // Determine the step based on frequency
+        if let Some(months_step) = self.observation_freq.months() {
+            // Month-based frequency
+            while current <= self.maturity {
+                dates.push(current);
+                current = add_months(current, months_step as i32);
+                
+                if current > self.maturity {
+                    break;
+                }
+            }
+        } else if let Some(days_step) = self.observation_freq.days() {
+            // Day-based frequency
+            while current <= self.maturity {
+                dates.push(current);
+                current += time::Duration::days(days_step as i64);
+                
+                if current > self.maturity {
+                    break;
+                }
+            }
+        } else {
+            // Default to daily for unknown frequency
+            while current <= self.maturity {
+                dates.push(current);
+                current += time::Duration::days(1);
+                
+                if current > self.maturity {
+                    break;
+                }
+            }
+        }
+        
+        // Ensure maturity is included if not already
+        if dates.is_empty() || dates.last() != Some(&self.maturity) {
+            dates.push(self.maturity);
+        }
+        
+        dates
+    }
+
+    /// Calculate annualization factor based on observation frequency.
+    pub fn annualization_factor(&self) -> F {
+        // Check month-based frequencies first
+        if let Some(months) = self.observation_freq.months() {
+            match months {
+                1 => 12.0,   // Monthly
+                3 => 4.0,    // Quarterly
+                6 => 2.0,    // Semi-annual
+                12 => 1.0,   // Annual
+                _ => 252.0,  // Default to daily for other month counts
+            }
+        } else if let Some(days) = self.observation_freq.days() {
+            // Handle day-based frequencies
+            match days {
+                1 => 252.0,  // Daily (trading days)
+                7 => 52.0,   // Weekly
+                14 => 26.0,  // Bi-weekly
+                _ => 365.0 / days as F, // General day-based approximation
+            }
+        } else {
+            252.0 // Default to daily
+        }
+    }
+
+    /// Calculate the fraction of time elapsed in the observation period.
+    pub fn time_elapsed_fraction(&self, as_of: Date) -> F {
+        if as_of <= self.start_date {
+            return 0.0;
+        }
+        if as_of >= self.maturity {
+            return 1.0;
+        }
+        
+        let total_days = (self.maturity - self.start_date).whole_days() as F;
+        let elapsed_days = (as_of - self.start_date).whole_days() as F;
+        elapsed_days / total_days
+    }
+
+    /// Get historical prices from market context.
+    fn get_historical_prices(
+        &self,
+        context: &MarketContext,
+        _as_of: Date,
+    ) -> Result<Vec<F>> {
+        // This would fetch from market data provider
+        // For now, return a placeholder
+        if let Ok(scalar) = context.price(&self.underlying_id) {
+            let spot = match scalar {
+                finstack_core::market_data::primitives::MarketScalar::Unitless(v) => *v,
+                finstack_core::market_data::primitives::MarketScalar::Price(p) => p.amount(),
+            };
+            Ok(vec![spot])
+        } else {
+            Ok(vec![])
+        }
+    }
+
+    /// Calculate partial realized variance for the elapsed period.
+    fn partial_realized_variance(&self, context: &MarketContext, as_of: Date) -> Result<F> {
+        let prices = self.get_historical_prices(context, as_of)?;
+        if prices.len() < 2 {
+            return Ok(0.0);
+        }
+        
+        Ok(realized_variance(
+            &prices,
+            self.realized_var_method,
+            self.annualization_factor(),
+        ))
+    }
+
+    /// Calculate implied forward variance for the remaining period.
+    fn remaining_forward_variance(&self, context: &MarketContext, _as_of: Date) -> Result<F> {
+        // In a full implementation, this would:
+        // 1. Get ATM implied volatility from vol surface
+        // 2. Square it to get implied variance
+        // For now, use a simple approximation
+        
+        // Try to get implied vol from market data
+        if let Ok(scalar) = context.price(format!("{}_IMPL_VOL", self.underlying_id)) {
+            let vol = match scalar {
+                finstack_core::market_data::primitives::MarketScalar::Unitless(v) => *v,
+                finstack_core::market_data::primitives::MarketScalar::Price(p) => p.amount(),
+            };
+            Ok(vol * vol) // Variance = volatility squared
+        } else {
+            // Default to strike variance as forward estimate
+            Ok(self.strike_variance)
+        }
+    }
+}
+
+impl Priceable for VarianceSwap {
+    fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
+        // Get discount curve
+        let disc = context.disc(&self.disc_id)?;
+        
+        if as_of >= self.maturity {
+            // Contract has expired - calculate final payoff
+            let prices = self.get_historical_prices(context, as_of)?;
+            if prices.is_empty() {
+                return Ok(Money::new(0.0, self.notional.currency()));
+            }
+            
+            let realized_var = realized_variance(
+                &prices,
+                self.realized_var_method,
+                self.annualization_factor(),
+            );
+            return Ok(self.payoff(realized_var));
+        }
+        
+        if as_of < self.start_date {
+            // Not yet started - value using forward variance
+            let forward_var = self.remaining_forward_variance(context, as_of)?;
+            let payoff = self.payoff(forward_var);
+            
+            // Discount to present value
+            let t_maturity = self.day_count.year_fraction(as_of, self.maturity, Default::default())?;
+            let df = disc.df(t_maturity);
+            return Ok(payoff * df);
+        }
+        
+        // Partially observed - blend realized and forward
+        let partial_realized = self.partial_realized_variance(context, as_of)?;
+        let remaining_forward = self.remaining_forward_variance(context, as_of)?;
+        let weight_realized = self.time_elapsed_fraction(as_of);
+        
+        let expected_var = partial_realized * weight_realized + 
+                          remaining_forward * (1.0 - weight_realized);
+        
+        let payoff = self.payoff(expected_var);
+        
+        // Discount to present value
+        let t_maturity = self.day_count.year_fraction(as_of, self.maturity, Default::default())?;
+        let df = disc.df(t_maturity);
+        Ok(payoff * df)
+    }
+
+    fn price_with_metrics(
+        &self,
+        context: &MarketContext,
+        as_of: Date,
+        _metrics: &[MetricId],
+    ) -> Result<ValuationResult> {
+        let pv = self.value(context, as_of)?;
+        let result = ValuationResult::stamped(self.id.as_str(), as_of, pv);
+        
+        // TODO: Add metadata using the proper API when available
+        // result = result.with_metadata("instrument_type", "VarianceSwap");
+        
+        Ok(result)
+    }
+}
+
+impl InstrumentLike for VarianceSwap {
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+
+    fn instrument_type(&self) -> &'static str {
+        "VarianceSwap"
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn clone_box(&self) -> Box<dyn InstrumentLike> {
+        Box::new(self.clone())
+    }
+}
+
+impl Attributable for VarianceSwap {
+    fn attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn attributes_mut(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+}
+
+impl CashflowProvider for VarianceSwap {
+    fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
+        // Variance swaps have a single payment at maturity
+        // The amount is not known until maturity (path-dependent)
+        Ok(vec![(self.maturity, Money::new(0.0, self.notional.currency()))])
+    }
+}
