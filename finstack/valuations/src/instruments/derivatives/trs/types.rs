@@ -96,7 +96,86 @@ impl TrsScheduleSpec {
 /// Common TRS pricing engine
 pub struct TrsEngine;
 
+/// Parameters for total return leg calculation
+#[derive(Debug, Clone)]
+pub struct TotalReturnLegParams<'a> {
+    pub schedule: &'a TrsScheduleSpec,
+    pub notional: Money,
+    pub disc_id: &'a str,
+    pub contract_size: F,
+    pub initial_level: Option<F>,
+}
+
 impl TrsEngine {
+    /// Calculate PV of total return leg using shared logic
+    /// 
+    /// This method contains the common period iteration and discounting logic,
+    /// while delegating underlying-specific return calculations to the closure.
+    #[allow(clippy::too_many_arguments)]
+    pub fn pv_total_return_leg_common<FReturn>(
+        params: TotalReturnLegParams,
+        context: &MarketContext,
+        as_of: Date,
+        calculate_period_return: FReturn,
+    ) -> Result<Money>
+    where
+        FReturn: Fn(Date, Date, F, F, F, &MarketContext) -> Result<F>,
+    {
+        // Get discount curve
+        let disc = context.disc(params.disc_id)?;
+
+        // Build schedule
+        let period_schedule = build_dates(
+            params.schedule.dates.start,
+            params.schedule.dates.end,
+            params.schedule.params.frequency,
+            params.schedule.params.stub,
+            params.schedule.params.bdc,
+            params.schedule.params.calendar_id,
+        );
+
+        let mut total_pv = 0.0;
+        let currency = params.notional.currency();
+        let ctx = DayCountCtx::default();
+
+        // Iterate through periods
+        for i in 1..period_schedule.dates.len() {
+            let period_start = period_schedule.dates[i - 1];
+            let period_end = period_schedule.dates[i];
+
+            // Time fractions
+            let t_start = params
+                .schedule
+                .params
+                .day_count
+                .year_fraction(as_of, period_start, ctx)?;
+            let t_end = params
+                .schedule
+                .params
+                .day_count
+                .year_fraction(as_of, period_end, ctx)?;
+
+            // Calculate underlying return for this period (delegated to underlying-specific logic)
+            let total_return = calculate_period_return(
+                period_start, 
+                period_end, 
+                t_start, 
+                t_end, 
+                params.initial_level.unwrap_or(1.0), 
+                context
+            )?;
+
+            // Payment amount
+            let payment = params.notional.amount() * total_return * params.contract_size;
+
+            // Discount to present
+            let df = disc.df(t_end);
+            total_pv += payment * df;
+        }
+
+        Ok(Money::new(total_pv, currency))
+    }
+
     /// Calculate PV of financing leg
     pub fn pv_financing_leg(
         financing: &FinancingLegSpec,

@@ -1,6 +1,6 @@
 //! Fixed Income Index Total Return Swap implementation.
 
-use super::types::{FinancingLegSpec, TrsEngine, TrsScheduleSpec, TrsSide};
+use super::types::{FinancingLegSpec, TotalReturnLegParams, TrsEngine, TrsScheduleSpec, TrsSide};
 use crate::instruments::traits::{Attributable, InstrumentLike};
 use crate::{
     cashflow::{
@@ -55,16 +55,8 @@ impl FIIndexTotalReturnSwap {
         FIIndexTrsBuilder::new()
     }
 
-    /// Calculate PV of the total return leg using carry-only approximation
-    pub(super) fn pv_total_return_leg(
-        &self,
-        context: &MarketContext,
-        as_of: Date,
-    ) -> Result<Money> {
-        // Get discount curve
-        let disc_curve_id = self.financing.disc_id.as_str();
-        let disc = context.disc(disc_curve_id)?;
-
+    /// Extract underlying data for return calculation
+    fn extract_underlying_data(&self, context: &MarketContext) -> Result<(F, F)> {
         // Get index yield if available (for carry calculation)
         let index_yield = self
             .underlying
@@ -91,63 +83,60 @@ impl FIIndexTotalReturnSwap {
             })
             .unwrap_or(0.0);
 
-        // Build schedule
-        let period_schedule = build_dates(
-            self.schedule.dates.start,
-            self.schedule.dates.end,
-            self.schedule.params.frequency,
-            self.schedule.params.stub,
-            self.schedule.params.bdc,
-            self.schedule.params.calendar_id,
-        );
+        Ok((index_yield, duration))
+    }
 
-        let mut total_pv = 0.0;
-        let currency = self.notional.currency();
-        let ctx = DayCountCtx::default();
+    /// Calculate PV of the total return leg using carry-only approximation
+    pub(super) fn pv_total_return_leg(
+        &self,
+        context: &MarketContext,
+        as_of: Date,
+    ) -> Result<Money> {
+        // Extract underlying data
+        let (index_yield, duration) = self.extract_underlying_data(context)?;
 
-        // Iterate through periods
-        for i in 1..period_schedule.dates.len() {
-            let period_start = period_schedule.dates[i - 1];
-            let period_end = period_schedule.dates[i];
+        // Use shared implementation with fixed income-specific return calculation
+        let params = TotalReturnLegParams {
+            schedule: &self.schedule,
+            notional: self.notional,
+            disc_id: self.financing.disc_id.as_str(),
+            contract_size: self.underlying.contract_size,
+            initial_level: self.initial_level,
+        };
 
-            // Year fraction for the period
-            let yf = self
-                .schedule
-                .params
-                .day_count
-                .year_fraction(period_start, period_end, ctx)?;
+        TrsEngine::pv_total_return_leg_common(
+            params,
+            context,
+            as_of,
+            |period_start, period_end, _t_start, _t_end, _initial_level, _context| {
+                // Calculate year fraction for the period
+                let ctx = DayCountCtx::default();
+                let yf = self
+                    .schedule
+                    .params
+                    .day_count
+                    .year_fraction(period_start, period_end, ctx)?;
 
-            // Carry component: yield * time
-            let carry_return = index_yield * yf;
+                // Carry component: yield * time
+                let carry_return = index_yield * yf;
 
-            // Optional roll-down component (simplified)
-            // In a more sophisticated model, we'd look at the forward curve slope
-            let roll_return = if duration > 0.0 {
-                // Approximate roll-down as duration * yield change
-                // This is a placeholder - real implementation would use forward curve
-                let yield_change_estimate = -0.0001 * yf; // -1bp per year estimate
-                duration * yield_change_estimate
-            } else {
-                0.0
-            };
+                // Optional roll-down component (simplified)
+                // In a more sophisticated model, we'd look at the forward curve slope
+                let roll_return = if duration > 0.0 {
+                    // Approximate roll-down as duration * yield change
+                    // This is a placeholder - real implementation would use forward curve
+                    let yield_change_estimate = -0.0001 * yf; // -1bp per year estimate
+                    duration * yield_change_estimate
+                } else {
+                    0.0
+                };
 
-            // Total return for the period
-            let total_return = carry_return + roll_return;
+                // Total return for the period
+                let total_return = carry_return + roll_return;
 
-            // Payment amount
-            let payment = self.notional.amount() * total_return * self.underlying.contract_size;
-
-            // Discount to present
-            let t_pay = self
-                .schedule
-                .params
-                .day_count
-                .year_fraction(as_of, period_end, ctx)?;
-            let df = disc.df(t_pay);
-            total_pv += payment * df;
-        }
-
-        Ok(Money::new(total_pv, currency))
+                Ok(total_return)
+            },
+        )
     }
 }
 

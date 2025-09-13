@@ -1,6 +1,6 @@
 //! Equity Total Return Swap implementation.
 
-use super::types::{FinancingLegSpec, TrsEngine, TrsScheduleSpec, TrsSide};
+use super::types::{FinancingLegSpec, TotalReturnLegParams, TrsEngine, TrsScheduleSpec, TrsSide};
 use crate::instruments::traits::{Attributable, InstrumentLike};
 use crate::{
     cashflow::{
@@ -18,7 +18,7 @@ use crate::{
     results::ValuationResult,
 };
 use finstack_core::{
-    dates::{Date, DayCount, DayCountCtx},
+    dates::{Date, DayCount},
     market_data::MarketContext,
     money::Money,
     types::InstrumentId,
@@ -55,16 +55,8 @@ impl EquityTotalReturnSwap {
         EquityTrsBuilder::new()
     }
 
-    /// Calculate PV of the total return leg
-    pub(super) fn pv_total_return_leg(
-        &self,
-        context: &MarketContext,
-        as_of: Date,
-    ) -> Result<Money> {
-        // Get market data
-        let disc_curve_id = self.financing.disc_id.as_str();
-        let disc = context.disc(disc_curve_id)?;
-
+    /// Extract underlying data for return calculation
+    fn extract_underlying_data(&self, context: &MarketContext) -> Result<(F, F)> {
         // Get spot price
         let spot = match context.price(&self.underlying.spot_id)? {
             finstack_core::market_data::primitives::MarketScalar::Unitless(v) => *v,
@@ -84,61 +76,52 @@ impl EquityTotalReturnSwap {
             })
             .unwrap_or(0.0);
 
-        // Build schedule
-        let period_schedule = build_dates(
-            self.schedule.dates.start,
-            self.schedule.dates.end,
-            self.schedule.params.frequency,
-            self.schedule.params.stub,
-            self.schedule.params.bdc,
-            self.schedule.params.calendar_id,
-        );
+        Ok((spot, div_yield))
+    }
 
-        let mut total_pv = 0.0;
-        let currency = self.notional.currency();
-        let ctx = DayCountCtx::default();
-
-        // Use initial level if provided, otherwise use spot
+    /// Calculate PV of the total return leg
+    pub(super) fn pv_total_return_leg(
+        &self,
+        context: &MarketContext,
+        as_of: Date,
+    ) -> Result<Money> {
+        // Extract underlying data
+        let (spot, div_yield) = self.extract_underlying_data(context)?;
         let initial = self.initial_level.unwrap_or(spot);
 
-        // Iterate through periods
-        for i in 1..period_schedule.dates.len() {
-            let period_start = period_schedule.dates[i - 1];
-            let period_end = period_schedule.dates[i];
+        // Use shared implementation with equity-specific return calculation
+        let params = TotalReturnLegParams {
+            schedule: &self.schedule,
+            notional: self.notional,
+            disc_id: self.financing.disc_id.as_str(),
+            contract_size: self.underlying.contract_size,
+            initial_level: Some(initial),
+        };
 
-            // Time to period start and end
-            let t_start = self
-                .schedule
-                .params
-                .day_count
-                .year_fraction(as_of, period_start, ctx)?;
-            let t_end = self
-                .schedule
-                .params
-                .day_count
-                .year_fraction(as_of, period_end, ctx)?;
+        TrsEngine::pv_total_return_leg_common(
+            params,
+            context,
+            as_of,
+            |_period_start, _period_end, t_start, t_end, initial_level, context| {
+                // Get discount curve for forward calculation
+                let disc = context.disc(self.financing.disc_id.as_str())?;
+                
+                // Forward levels using cost-of-carry model
+                // F(t) = S0 * exp((r - q) * t)
+                // where r is implied from discount curve, q is dividend yield
+                let df_start = disc.df(t_start);
+                let df_end = disc.df(t_end);
 
-            // Forward levels using cost-of-carry
-            // F(t) = S0 * exp((r - q) * t)
-            // where r is implied from discount curve, q is dividend yield
-            let df_start = disc.df(t_start);
-            let df_end = disc.df(t_end);
+                // Implied forward levels
+                let fwd_start = initial_level * df_start.recip() * (-div_yield * t_start).exp();
+                let fwd_end = initial_level * df_end.recip() * (-div_yield * t_end).exp();
 
-            // Implied forward levels
-            let fwd_start = initial * df_start.recip() * (-div_yield * t_start).exp();
-            let fwd_end = initial * df_end.recip() * (-div_yield * t_end).exp();
+                // Total return for the period
+                let total_return = (fwd_end - fwd_start) / fwd_start;
 
-            // Total return for the period
-            let total_return = (fwd_end - fwd_start) / fwd_start;
-
-            // Payment amount
-            let payment = self.notional.amount() * total_return * self.underlying.contract_size;
-
-            // Discount to present
-            total_pv += payment * df_end;
-        }
-
-        Ok(Money::new(total_pv, currency))
+                Ok(total_return)
+            },
+        )
     }
 }
 
