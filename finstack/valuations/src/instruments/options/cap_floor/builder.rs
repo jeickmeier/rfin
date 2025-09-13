@@ -150,7 +150,7 @@ impl IrOptionBuilder {
 
         let mut instrument = instrument;
         if let Some(po) = self.pricing_overrides {
-            instrument.implied_vol = po.implied_volatility;
+            instrument.pricing_overrides = po;
         }
         instrument.attributes = Attributes::new();
         Ok(instrument)

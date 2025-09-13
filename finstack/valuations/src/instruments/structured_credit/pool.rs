@@ -86,7 +86,7 @@ impl PoolAsset {
             obligor_id: None,
             is_defaulted: false,
             recovery_amount: None,
-            purchase_price: bond.quoted_clean.map(|p| bond.notional * p),
+            purchase_price: bond.pricing_overrides.quoted_clean_price.map(|p| bond.notional * p),
             acquisition_date: Some(bond.issue),
         }
     }

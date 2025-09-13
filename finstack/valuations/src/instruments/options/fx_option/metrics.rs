@@ -87,7 +87,7 @@ impl MetricCalculator for DeltaCalculator {
             .to_f64()
             .unwrap_or(0.0);
 
-        let sigma = if let Some(impl_vol) = option.implied_vol {
+        let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             let vol_surface = context.curves.surface(option.vol_id)?;
@@ -142,7 +142,7 @@ impl MetricCalculator for GammaCalculator {
             .rate
             .to_f64()
             .unwrap_or(0.0);
-        let sigma = if let Some(impl_vol) = option.implied_vol {
+        let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             context
@@ -198,7 +198,7 @@ impl MetricCalculator for VegaCalculator {
             .rate
             .to_f64()
             .unwrap_or(0.0);
-        let sigma = if let Some(impl_vol) = option.implied_vol {
+        let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             context
@@ -254,7 +254,7 @@ impl MetricCalculator for ThetaCalculator {
             .rate
             .to_f64()
             .unwrap_or(0.0);
-        let sigma = if let Some(impl_vol) = option.implied_vol {
+        let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             context
@@ -310,7 +310,7 @@ impl MetricCalculator for RhoDomesticCalculator {
             .rate
             .to_f64()
             .unwrap_or(0.0);
-        let sigma = if let Some(impl_vol) = option.implied_vol {
+        let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             context
@@ -366,7 +366,7 @@ impl MetricCalculator for RhoForeignCalculator {
             .rate
             .to_f64()
             .unwrap_or(0.0);
-        let sigma = if let Some(impl_vol) = option.implied_vol {
+        let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             context

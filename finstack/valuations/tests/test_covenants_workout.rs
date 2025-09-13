@@ -6,6 +6,7 @@ use finstack_core::F;
 use finstack_valuations::covenants::{
     CovenantBreach, CovenantEngine, CovenantSpec, CovenantWindow, InstrumentMutator,
 };
+use finstack_valuations::instruments::common::PricingOverrides;
 use finstack_valuations::instruments::fixed_income::loan::covenants::{
     Covenant, CovenantConsequence, CovenantType, ThresholdTest,
 };
@@ -94,7 +95,7 @@ fn test_covenant_evaluation() {
             issue: as_of,
             maturity: Date::from_calendar_date(2030, Month::January, 1).unwrap(),
             disc_id: "USD-OIS".into(),
-            quoted_clean: None,
+            pricing_overrides: PricingOverrides::default(),
             call_put: None,
             amortization: None,
             custom_cashflows: None,

@@ -165,8 +165,8 @@ impl CDSBuilder {
             Box::leak(market_refs.disc_id.as_str().to_string().into_boxed_str()),
         );
 
-        // Set optional upfront payment from pricing overrides
-        cds.upfront = pricing.upfront_payment;
+        // Set pricing overrides
+        cds.pricing_overrides = pricing;
 
         Ok(cds)
     }

@@ -174,9 +174,9 @@ impl MetricCalculator for YtmCalculator {
             };
 
             (
-                bond.quoted_clean.ok_or_else(|| {
+                bond.pricing_overrides.quoted_clean_price.ok_or_else(|| {
                     finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                        id: "bond.quoted_clean".to_string(),
+                        id: "bond.pricing_overrides.quoted_clean_price".to_string(),
                     })
                 })?,
                 bond.notional.currency(),
@@ -525,9 +525,9 @@ impl MetricCalculator for DirtyPriceCalculator {
         let bond: &Bond = context.instrument_as()?;
 
         // Dirty price only makes sense if we have a quoted clean price
-        let clean_px = bond.quoted_clean.ok_or_else(|| {
+        let clean_px = bond.pricing_overrides.quoted_clean_price.ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                id: "bond.quoted_clean".to_string(),
+                id: "bond.pricing_overrides.quoted_clean_price".to_string(),
             })
         })?;
 
@@ -559,7 +559,7 @@ impl MetricCalculator for CleanPriceCalculator {
         let bond: &Bond = context.instrument_as()?;
 
         // If we have quoted clean price, just return it
-        if let Some(clean_px) = bond.quoted_clean {
+        if let Some(clean_px) = bond.pricing_overrides.quoted_clean_price {
             return Ok(clean_px);
         }
 
@@ -655,9 +655,9 @@ impl MetricCalculator for OasCalculator {
         let bond: &Bond = context.instrument_as()?;
 
         // Require quoted clean price
-        let clean_price = bond.quoted_clean.ok_or_else(|| {
+        let clean_price = bond.pricing_overrides.quoted_clean_price.ok_or_else(|| {
             finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                id: "bond.quoted_clean".to_string(),
+                id: "bond.pricing_overrides.quoted_clean_price".to_string(),
             })
         })?;
 

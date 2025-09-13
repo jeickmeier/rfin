@@ -70,7 +70,7 @@ impl MetricCalculator for DeltaCalculator {
             0.0
         };
 
-        let sigma = if let Some(impl_vol) = option.implied_vol {
+        let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             let vol_surface = context.curves.surface(&option.vol_id)?;
@@ -125,7 +125,7 @@ impl MetricCalculator for GammaCalculator {
             0.0
         };
 
-        let sigma = if let Some(impl_vol) = option.implied_vol {
+        let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             let vol_surface = context.curves.surface(&option.vol_id)?;
@@ -179,7 +179,7 @@ impl MetricCalculator for VegaCalculator {
             0.0
         };
 
-        let sigma = if let Some(impl_vol) = option.implied_vol {
+        let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             let vol_surface = context.curves.surface(&option.vol_id)?;
@@ -234,7 +234,7 @@ impl MetricCalculator for ThetaCalculator {
             0.0
         };
 
-        let sigma = if let Some(impl_vol) = option.implied_vol {
+        let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             let vol_surface = context.curves.surface(&option.vol_id)?;
@@ -289,7 +289,7 @@ impl MetricCalculator for RhoCalculator {
             0.0
         };
 
-        let sigma = if let Some(impl_vol) = option.implied_vol {
+        let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             let vol_surface = context.curves.surface(&option.vol_id)?;

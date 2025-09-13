@@ -8,6 +8,7 @@ use finstack_core::prelude::*;
 use finstack_core::F;
 use finstack_valuations as _; // ensure crate is linked
 use finstack_valuations::cashflow::aggregation::aggregate_by_period;
+use finstack_valuations::instruments::common::PricingOverrides;
 use finstack_valuations::instruments::fixed_income::{bond, deposit, irs};
 use finstack_valuations::instruments::traits::Priceable;
 use finstack_valuations::metrics::{standard_registry, MetricContext};
@@ -124,7 +125,7 @@ fn bond_pv_with_unit_df_is_sum_of_cashflows() {
         issue,
         maturity: mat,
         disc_id: "USD-OIS".into(),
-        quoted_clean: None,
+        pricing_overrides: PricingOverrides::default(),
         call_put: None,
         amortization: None,
         custom_cashflows: None,
@@ -236,7 +237,7 @@ fn bond_ytm_ytw_and_amortization() {
         issue,
         maturity: mat,
         disc_id: "USD-OIS".into(),
-        quoted_clean: Some(100.0), // 100% of par (realistic price)
+        pricing_overrides: PricingOverrides::default().with_clean_price(100.0), // 100% of par (realistic price)
         call_put: Some(bond::CallPutSchedule {
             calls: vec![bond::CallPut {
                 date: mat_short,
@@ -268,7 +269,7 @@ fn bond_ytm_ytw_and_amortization() {
         amortization: Some(bond::AmortizationSpec::LinearTo {
             final_notional: Money::new(800.0, Currency::USD),
         }),
-        quoted_clean: None,
+        pricing_overrides: PricingOverrides::default(),
         call_put: None,
         attributes: finstack_valuations::instruments::traits::Attributes::new(),
         ..bullet
@@ -336,7 +337,7 @@ fn dv01_bucketed_bond_simple() {
         issue,
         maturity: mat,
         disc_id: "USD-OIS".into(),
-        quoted_clean: None,
+        pricing_overrides: PricingOverrides::default(),
         call_put: None,
         amortization: None,
         custom_cashflows: None,

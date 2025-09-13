@@ -9,6 +9,7 @@
 use crate::calibration::bootstrap::swaption_market_conventions::SwaptionMarketConvention;
 use crate::calibration::quote::VolQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
+use crate::instruments::common::PricingOverrides;
 use crate::instruments::options::models::{SABRCalibrator, SABRModel, SABRParameters};
 use crate::instruments::options::swaption::Swaption;
 use finstack_core::dates::utils::add_months;
@@ -243,7 +244,7 @@ impl SwaptionVolCalibrator {
             disc_id: self.disc_id,
             forward_id: self.forward_id.unwrap_or(self.disc_id),
             vol_id: "dummy",
-            implied_vol: None,
+            pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Default::default(),
         };

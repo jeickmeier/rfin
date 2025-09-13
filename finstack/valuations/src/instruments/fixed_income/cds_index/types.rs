@@ -1,5 +1,6 @@
 //! CDS Index types and implementations.
 
+use crate::instruments::common::PricingOverrides;
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
@@ -32,8 +33,8 @@ pub struct CDSIndex {
     pub premium: PremiumLegSpec,
     /// Protection leg specification (credit curve and settlement)
     pub protection: ProtectionLegSpec,
-    /// Optional upfront payment
-    pub upfront: Option<Money>,
+    /// Pricing overrides (including upfront payment)
+    pub pricing_overrides: PricingOverrides,
     /// Attributes for tagging and selection
     pub attributes: Attributes,
 }
@@ -91,7 +92,7 @@ impl CDSIndex {
                 settlement: SettlementType::Cash,
                 settlement_delay: 3,
             },
-            upfront: None,
+            pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
     }
@@ -106,7 +107,7 @@ impl CDSIndex {
             convention: self.convention,
             premium: self.premium.clone(),
             protection: self.protection.clone(),
-            upfront: self.upfront,
+            pricing_overrides: self.pricing_overrides.clone(),
             attributes: self.attributes.clone(),
         }
     }

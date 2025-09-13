@@ -8,6 +8,8 @@ use super::Bond;
 #[cfg(test)]
 use super::CallPut;
 use crate::cashflow::traits::CashflowProvider;
+#[cfg(test)]
+use crate::instruments::common::PricingOverrides;
 use crate::instruments::options::models::{
     short_rate_keys, NodeState, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
     TreeValuator,
@@ -440,7 +442,7 @@ mod tests {
             issue,
             maturity,
             disc_id: "USD-OIS".into(),
-            quoted_clean: Some(98.5), // Slightly below par
+            pricing_overrides: PricingOverrides::default().with_clean_price(98.5), // Slightly below par
             call_put: None,
             amortization: None,
             custom_cashflows: None,

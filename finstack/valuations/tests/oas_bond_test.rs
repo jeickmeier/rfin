@@ -6,6 +6,7 @@
 //! - Putable bonds (lower OAS due to positive option value)
 //! - Convergence properties and edge cases
 
+use finstack_valuations::instruments::common::PricingOverrides;
 use finstack_valuations::instruments::fixed_income::bond::{
     oas_pricer::{calculate_oas, OASCalculator, OASPricerConfig},
     Bond, CallPut, CallPutSchedule,
@@ -63,7 +64,11 @@ fn create_plain_bond(quoted_clean: Option<F>) -> Bond {
         issue,
         maturity,
         disc_id: "USD-OIS".into(),
-        quoted_clean,
+        pricing_overrides: if let Some(price) = quoted_clean {
+            PricingOverrides::default().with_clean_price(price)
+        } else {
+            PricingOverrides::default()
+        },
         call_put: None,
         amortization: None,
         custom_cashflows: None,

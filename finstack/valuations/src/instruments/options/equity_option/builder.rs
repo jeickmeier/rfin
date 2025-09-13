@@ -142,7 +142,7 @@ impl EquityOptionBuilder {
                 })?
                 ,
             div_yield_id: underlying.dividend_yield_id,
-            implied_vol: pricing.implied_volatility,
+            pricing_overrides: pricing,
             attributes: Attributes::new(),
         })
     }

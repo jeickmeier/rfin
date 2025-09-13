@@ -137,7 +137,7 @@ impl FxOptionBuilder {
             domestic_disc_id: fx_underlying.domestic_disc_id,
             foreign_disc_id: fx_underlying.foreign_disc_id,
             vol_id,
-            implied_vol: pricing.implied_volatility,
+            pricing_overrides: pricing,
             attributes: Attributes::new(),
         })
     }

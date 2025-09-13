@@ -91,7 +91,7 @@ impl SwaptionBuilder {
         };
 
         // overrides
-        if let Some(po) = self.pricing_overrides { s.implied_vol = po.implied_volatility; }
+        if let Some(po) = self.pricing_overrides { s.pricing_overrides = po; }
         if let Some(ff) = self.fixed_freq { s.fixed_freq = ff; }
         if let Some(fl) = self.float_freq { s.float_freq = fl; }
         if let Some(dc) = self.day_count { s.day_count = dc; }

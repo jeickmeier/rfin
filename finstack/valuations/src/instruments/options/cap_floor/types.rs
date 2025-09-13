@@ -1,5 +1,6 @@
 //! Interest rate option instrument types and implementation using Black model.
 
+use crate::instruments::common::PricingOverrides;
 use crate::instruments::options::{ExerciseStyle, SettlementType};
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount, Frequency};
@@ -49,8 +50,8 @@ pub struct InterestRateOption {
     pub forward_id: &'static str,
     /// Volatility surface identifier
     pub vol_id: &'static str,
-    /// Implied volatility (if known, overrides vol surface)
-    pub implied_vol: Option<F>,
+    /// Pricing overrides (including implied volatility)
+    pub pricing_overrides: PricingOverrides,
     /// Additional attributes
     pub attributes: Attributes,
 }
@@ -85,7 +86,7 @@ impl InterestRateOption {
             disc_id,
             forward_id,
             vol_id,
-            implied_vol: None,
+            pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
     }
@@ -268,7 +269,7 @@ impl_instrument!(
         // Get market curves
         let disc_curve = curves.disc(s.disc_id)?;
         let fwd_curve = curves.fwd(s.forward_id)?;
-        let vol_surface = if s.implied_vol.is_none() {
+        let vol_surface = if s.pricing_overrides.implied_volatility.is_none() {
             Some(curves.surface(s.vol_id)?)
         } else {
             None
@@ -315,7 +316,7 @@ impl_instrument!(
             let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
             let df = disc_curve.df(time_to_payment);
 
-            let sigma = if let Some(impl_vol) = s.implied_vol {
+            let sigma = if let Some(impl_vol) = s.pricing_overrides.implied_volatility {
                 impl_vol
             } else if let Some(vol_surf) = &vol_surface {
                 vol_surf.value_clamped(time_to_fixing, s.strike_rate)
@@ -374,7 +375,7 @@ impl_instrument!(
                 let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
                 let df = disc_curve.df(time_to_payment);
 
-                let sigma = if let Some(impl_vol) = s.implied_vol {
+                let sigma = if let Some(impl_vol) = s.pricing_overrides.implied_volatility {
                     impl_vol
                 } else if let Some(vol_surf) = &vol_surface {
                     vol_surf.value_clamped(time_to_fixing, s.strike_rate)

@@ -66,7 +66,7 @@ impl MetricCalculator for DeltaCalculator {
         let sigma = if let Some(sabr) = &option.sabr_params {
             let model = crate::instruments::options::models::SABRModel::new(sabr.clone());
             model.implied_volatility(forward, option.strike_rate, t)?
-        } else if let Some(impl_vol) = option.implied_vol {
+        } else if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             context
@@ -115,7 +115,7 @@ impl MetricCalculator for GammaCalculator {
         let sigma = if let Some(sabr) = &option.sabr_params {
             let model = crate::instruments::options::models::SABRModel::new(sabr.clone());
             model.implied_volatility(forward, option.strike_rate, t)?
-        } else if let Some(impl_vol) = option.implied_vol {
+        } else if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             context
@@ -160,7 +160,7 @@ impl MetricCalculator for VegaCalculator {
         let sigma = if let Some(sabr) = &option.sabr_params {
             let model = crate::instruments::options::models::SABRModel::new(sabr.clone());
             model.implied_volatility(forward, option.strike_rate, t)?
-        } else if let Some(impl_vol) = option.implied_vol {
+        } else if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             context
@@ -243,7 +243,7 @@ impl MetricCalculator for RhoCalculator {
         // Get volatility from surface using original curves (vol held constant)
         let time_to_expiry =
             option.year_fraction(disc.base_date(), option.expiry, option.day_count)?;
-        let vol = if let Some(impl_vol) = option.implied_vol {
+        let vol = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             let vol_surface = context.curves.surface(option.vol_id)?;

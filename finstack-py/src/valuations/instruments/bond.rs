@@ -123,7 +123,12 @@ impl PyBond {
             issue: issue_date.inner(),
             maturity: maturity.inner(),
             disc_id: disc_id.into(),
-            quoted_clean: quoted_clean_price,
+            pricing_overrides: if let Some(price) = quoted_clean_price {
+                finstack_valuations::instruments::common::PricingOverrides::default()
+                    .with_clean_price(price)
+            } else {
+                finstack_valuations::instruments::common::PricingOverrides::default()
+            },
             call_put: None,
             amortization: None,
             custom_cashflows: custom_cashflows.map(|cf| cf.inner()),
@@ -249,7 +254,7 @@ impl PyBond {
     ///     98.5
     #[getter]
     fn quoted_clean_price(&self) -> Option<f64> {
-        self.inner.quoted_clean
+        self.inner.pricing_overrides.quoted_clean_price
     }
 
     /// Calculate the number of coupon payments remaining.
@@ -776,7 +781,7 @@ impl PyBond {
         market_context: &crate::core::market_data::context::PyMarketContext,
         as_of: &PyDate,
     ) -> PyResult<f64> {
-        if self.inner.quoted_clean.is_none() {
+        if self.inner.pricing_overrides.quoted_clean_price.is_none() {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
                 "Bond must have a quoted clean price to calculate YTM",
             ));

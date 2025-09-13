@@ -34,7 +34,7 @@ impl MetricCalculator for DeltaCalculator {
             option.strike_spread_bp
         };
 
-        let sigma = if let Some(impl_vol) = option.implied_vol {
+        let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             context
@@ -82,7 +82,7 @@ impl MetricCalculator for GammaCalculator {
             option.strike_spread_bp
         };
 
-        let sigma = if let Some(impl_vol) = option.implied_vol {
+        let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             context
@@ -129,7 +129,7 @@ impl MetricCalculator for VegaCalculator {
             option.strike_spread_bp
         };
 
-        let sigma = if let Some(impl_vol) = option.implied_vol {
+        let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             context
@@ -179,7 +179,7 @@ impl MetricCalculator for ThetaCalculator {
             option.strike_spread_bp
         };
 
-        let sigma = if let Some(impl_vol) = option.implied_vol {
+        let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             context

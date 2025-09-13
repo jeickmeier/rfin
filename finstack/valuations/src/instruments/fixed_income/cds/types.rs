@@ -1,6 +1,7 @@
 //! Credit Default Swap (CDS) types and implementations.
 
 use crate::cashflow::traits::DatedFlows;
+use crate::instruments::common::PricingOverrides;
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::traits::{Discount, Survival};
@@ -122,8 +123,8 @@ pub struct CreditDefaultSwap {
     pub premium: PremiumLegSpec,
     /// Protection leg specification
     pub protection: ProtectionLegSpec,
-    /// Upfront payment (if any)
-    pub upfront: Option<Money>,
+    /// Pricing overrides (including upfront payment)
+    pub pricing_overrides: PricingOverrides,
     /// Additional attributes
     pub attributes: Attributes,
 }
@@ -259,7 +260,7 @@ impl CreditDefaultSwap {
                 settlement: SettlementType::Cash,
                 settlement_delay: 3,
             },
-            upfront: None,
+            pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
     }
@@ -366,7 +367,7 @@ impl_instrument!(
             PayReceive::PayProtection => (pv_protection - pv_premium)?,
             PayReceive::ReceiveProtection => (pv_premium - pv_protection)?,
         };
-        if let Some(upfront) = s.upfront {
+        if let Some(upfront) = s.pricing_overrides.upfront_payment {
             pv + upfront
         } else {
             Ok(pv)

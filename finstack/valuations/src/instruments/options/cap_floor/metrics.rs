@@ -58,7 +58,7 @@ impl MetricCalculator for DeltaCalculator {
                     let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
                     let df = disc_curve.df(time_to_payment);
 
-                    let sigma = if let Some(impl_vol) = option.implied_vol {
+                    let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
                         impl_vol
                     } else {
                         context
@@ -99,7 +99,7 @@ impl MetricCalculator for DeltaCalculator {
             let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
             let df = disc_curve.df(time_to_payment);
 
-            let sigma = if let Some(impl_vol) = option.implied_vol {
+            let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
                 impl_vol
             } else {
                 context
@@ -170,7 +170,7 @@ impl MetricCalculator for GammaCalculator {
                     let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
                     let df = disc_curve.df(time_to_payment);
 
-                    let sigma = if let Some(impl_vol) = option.implied_vol {
+                    let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
                         impl_vol
                     } else {
                         context
@@ -210,7 +210,7 @@ impl MetricCalculator for GammaCalculator {
             let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
             let df = disc_curve.df(time_to_payment);
 
-            let sigma = if let Some(impl_vol) = option.implied_vol {
+            let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
                 impl_vol
             } else {
                 context
@@ -279,7 +279,7 @@ impl MetricCalculator for VegaCalculator {
                     let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
                     let df = disc_curve.df(time_to_payment);
 
-                    let sigma = if let Some(impl_vol) = option.implied_vol {
+                    let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
                         impl_vol
                     } else {
                         context
@@ -318,7 +318,7 @@ impl MetricCalculator for VegaCalculator {
             let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
             let df = disc_curve.df(time_to_payment);
 
-            let sigma = if let Some(impl_vol) = option.implied_vol {
+            let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
                 impl_vol
             } else {
                 context

@@ -15,6 +15,7 @@
 //!
 //! ```rust
 //! use finstack_valuations::instruments::{Bond, InterestRateSwap, Deposit};
+//! use finstack_valuations::instruments::common::PricingOverrides;
 //! use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention, StubKind};
 //! use finstack_core::money::Money;
 //! use finstack_core::currency::Currency;
@@ -30,7 +31,7 @@
 //!     issue: Date::from_calendar_date(2025, Month::January, 15).unwrap(),
 //!     maturity: Date::from_calendar_date(2026, Month::January, 15).unwrap(),
 //!     disc_id: "USD-OIS".into(),
-//!     quoted_clean: None,
+//!     pricing_overrides: PricingOverrides::default(),
 //!     call_put: None,
 //!     amortization: None,
 //!     custom_cashflows: None,

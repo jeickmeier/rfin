@@ -1,5 +1,6 @@
 //! Swaption (option on interest rate swap) implementation with SABR volatility.
 
+use crate::instruments::common::PricingOverrides;
 use crate::instruments::options::models::{SABRModel, SABRParameters};
 use crate::instruments::options::OptionType;
 use crate::instruments::traits::Attributes;
@@ -42,7 +43,7 @@ pub struct Swaption {
     pub disc_id: &'static str,
     pub forward_id: &'static str,
     pub vol_id: &'static str,
-    pub implied_vol: Option<F>,
+    pub pricing_overrides: PricingOverrides,
     pub sabr_params: Option<SABRParameters>,
     pub attributes: Attributes,
 }
@@ -76,7 +77,7 @@ impl Swaption {
             disc_id,
             forward_id,
             vol_id,
-            implied_vol: None,
+            pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::default(),
         }
@@ -110,7 +111,7 @@ impl Swaption {
             disc_id,
             forward_id,
             vol_id,
-            implied_vol: None,
+            pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::default(),
         }
@@ -209,7 +210,7 @@ impl_instrument!(
             s.sabr_price(disc.as_ref())
         } else {
             let time_to_expiry = s.year_fraction(disc.base_date(), s.expiry, s.day_count)?;
-            let vol = if let Some(impl_vol) = s.implied_vol {
+            let vol = if let Some(impl_vol) = s.pricing_overrides.implied_volatility {
                 impl_vol
             } else {
                 let vol_surface = curves.surface(s.vol_id)?;

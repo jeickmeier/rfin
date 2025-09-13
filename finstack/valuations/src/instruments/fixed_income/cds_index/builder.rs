@@ -1,4 +1,4 @@
-use crate::instruments::common::MarketRefs;
+use crate::instruments::common::{MarketRefs, PricingOverrides};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::F;
@@ -22,7 +22,7 @@ pub struct CDSIndexBuilder {
     recovery_rate: Option<F>,
     disc_id: Option<&'static str>,
     market_refs: Option<MarketRefs>,
-    upfront: Option<Money>,
+    pricing_overrides: Option<PricingOverrides>,
 }
 
 impl CDSIndexBuilder {
@@ -87,7 +87,11 @@ impl CDSIndexBuilder {
         self
     }
     pub fn upfront(mut self, value: Money) -> Self {
-        self.upfront = Some(value);
+        self.pricing_overrides = Some(
+            self.pricing_overrides
+                .unwrap_or_default()
+                .with_upfront(value),
+        );
         self
     }
 
@@ -149,7 +153,7 @@ impl CDSIndexBuilder {
             recovery_rate,
             disc_id,
         );
-        index.upfront = self.upfront;
+        index.pricing_overrides = self.pricing_overrides.unwrap_or_default();
         Ok(index)
     }
 }

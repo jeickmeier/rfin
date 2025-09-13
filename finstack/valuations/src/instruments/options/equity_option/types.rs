@@ -1,5 +1,6 @@
 //! Equity option instrument implementation using Black-Scholes model.
 
+use crate::instruments::common::PricingOverrides;
 use crate::instruments::options::models::{d1, d2};
 use crate::instruments::options::{ExerciseStyle, OptionType, SettlementType};
 use crate::instruments::traits::Attributes;
@@ -25,7 +26,7 @@ pub struct EquityOption {
     pub spot_id: String,
     pub vol_id: CurveId,
     pub div_yield_id: Option<String>,
-    pub implied_vol: Option<F>,
+    pub pricing_overrides: PricingOverrides,
     pub attributes: Attributes,
 }
 
@@ -148,7 +149,7 @@ impl EquityOption {
             spot_id: spot_id.into(),
             vol_id: vol_id.into(),
             div_yield_id: None,
-            implied_vol: None,
+            pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
     }
@@ -314,7 +315,7 @@ impl_instrument!(
         } else {
             0.0
         };
-        let sigma = if let Some(impl_vol) = s.implied_vol {
+        let sigma = if let Some(impl_vol) = s.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             let vol_surface = curves.surface(s.vol_id.as_str())?;

@@ -8,6 +8,7 @@ use finstack_core::F;
 use crate::cashflow::builder::{cf, CashFlowSchedule, CouponType, FixedCouponSpec};
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
+use crate::instruments::common::PricingOverrides;
 use crate::instruments::traits::{Attributes, Priceable};
 use crate::metrics::{RiskBucket, RiskMeasurable, RiskReport};
 use finstack_core::types::{CurveId, InstrumentId};
@@ -37,8 +38,8 @@ pub struct Bond {
     pub maturity: Date,
     /// Discount curve identifier for pricing.
     pub disc_id: CurveId,
-    /// Optional quoted clean price (per notional unit). If provided, we compute YTM measures.
-    pub quoted_clean: Option<F>,
+    /// Pricing overrides (including quoted clean price)
+    pub pricing_overrides: PricingOverrides,
     /// Optional call/put schedule (dates and redemption prices as % of par amount).
     pub call_put: Option<CallPutSchedule>,
     /// Optional amortization specification (principal paid during life).
@@ -163,7 +164,11 @@ impl Bond {
             issue,
             maturity,
             disc_id: disc_id.into(),
-            quoted_clean,
+            pricing_overrides: if let Some(price) = quoted_clean {
+                PricingOverrides::default().with_clean_price(price)
+            } else {
+                PricingOverrides::default()
+            },
             call_put: None,
             amortization: None,
             custom_cashflows: Some(schedule),
@@ -418,7 +423,7 @@ mod tests {
         // Verify bond properties
         assert_eq!(bond.id.as_str(), "CUSTOM_STEPUP_BOND");
         assert_eq!(bond.disc_id.as_str(), "USD-OIS");
-        assert_eq!(bond.quoted_clean, Some(98.5));
+        assert_eq!(bond.pricing_overrides.quoted_clean_price, Some(98.5));
         assert_eq!(bond.issue, issue);
         assert_eq!(bond.maturity, maturity);
         assert!(bond.custom_cashflows.is_some());
@@ -485,7 +490,7 @@ mod tests {
 
         assert_eq!(bond.id.as_str(), "PIK_TOGGLE_BOND");
         assert_eq!(bond.disc_id.as_str(), "USD-OIS");
-        assert_eq!(bond.quoted_clean, Some(99.0));
+        assert_eq!(bond.pricing_overrides.quoted_clean_price, Some(99.0));
         assert!(bond.custom_cashflows.is_some());
         assert_eq!(bond.notional.currency(), Currency::USD);
     }
@@ -505,7 +510,7 @@ mod tests {
             issue,
             maturity,
             disc_id: CurveId::new("USD-OIS"),
-            quoted_clean: None,
+            pricing_overrides: PricingOverrides::default(),
             call_put: None,
             amortization: None,
             custom_cashflows: None,
@@ -550,7 +555,7 @@ mod tests {
             issue,
             maturity,
             disc_id: CurveId::new("USD-OIS"),
-            quoted_clean: None,
+            pricing_overrides: PricingOverrides::default(),
             call_put: None,
             amortization: None,
             custom_cashflows: None,

@@ -1,5 +1,6 @@
 //! FX option instrument implementation using Garman-Kohlhagen model.
 
+use crate::instruments::common::PricingOverrides;
 use crate::instruments::options::models::{d1, d2};
 use crate::instruments::options::{ExerciseStyle, OptionType, SettlementType};
 use crate::instruments::traits::Attributes;
@@ -26,7 +27,7 @@ pub struct FxOption {
     pub domestic_disc_id: &'static str,
     pub foreign_disc_id: &'static str,
     pub vol_id: &'static str,
-    pub implied_vol: Option<F>,
+    pub pricing_overrides: PricingOverrides,
     pub attributes: Attributes,
 }
 
@@ -123,7 +124,7 @@ impl FxOption {
             domestic_disc_id,
             foreign_disc_id,
             vol_id,
-            implied_vol: None,
+            pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
     }
@@ -307,7 +308,7 @@ impl_instrument!(
             closure_check: None,
             want_meta: false,
         })?;
-        let sigma = if let Some(impl_vol) = s.implied_vol {
+        let sigma = if let Some(impl_vol) = s.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             let vol_surface = curves.surface(s.vol_id)?;

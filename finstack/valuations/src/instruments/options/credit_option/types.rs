@@ -1,5 +1,6 @@
 //! Credit option instrument implementation for options on credit default swaps.
 
+use crate::instruments::common::PricingOverrides;
 use crate::instruments::options::{ExerciseStyle, OptionType, SettlementType};
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
@@ -38,8 +39,8 @@ pub struct CreditOption {
     pub credit_id: &'static str,
     /// Volatility surface identifier
     pub vol_id: &'static str,
-    /// Implied volatility of credit spread (if known, overrides vol surface)
-    pub implied_vol: Option<F>,
+    /// Pricing overrides (including implied volatility)
+    pub pricing_overrides: PricingOverrides,
     /// Additional attributes
     pub attributes: Attributes,
 }
@@ -75,7 +76,7 @@ impl CreditOption {
             disc_id,
             credit_id,
             vol_id,
-            implied_vol: None,
+            pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
     }
@@ -280,7 +281,7 @@ impl_instrument!(
         let df_expiry = disc_curve.df(time_to_expiry);
 
         // Get volatility (use implied_vol if set, otherwise fetch from surface)
-        let sigma = if let Some(impl_vol) = s.implied_vol {
+        let sigma = if let Some(impl_vol) = s.pricing_overrides.implied_volatility {
             impl_vol
         } else {
             let vol_surface = curves.surface(s.vol_id)?;

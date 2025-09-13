@@ -474,12 +474,12 @@ fn test_market_data_override_behavior() {
     );
 
     // Set implied vol to override surface
-    option.implied_vol = Some(0.30); // 30% vs surface ~20%
+    option.pricing_overrides.implied_volatility = Some(0.30); // 30% vs surface ~20%
 
     let price_with_implied = option.value(&market, as_of).unwrap();
 
     // Remove implied vol to use surface
-    option.implied_vol = None;
+    option.pricing_overrides.implied_volatility = None;
     let price_with_surface = option.value(&market, as_of).unwrap();
 
     // Prices should be different due to different volatilities
