@@ -50,19 +50,27 @@ pub struct ForwardCurve {
     interp: Interp,
 }
 
-/// Serializable representation of ForwardCurve
+/// Serializable state of ForwardCurve
 #[cfg(feature = "serde")]
-#[derive(serde::Serialize, serde::Deserialize)]
-pub struct ForwardCurveData {
-    id: CurveId,
-    base: Date,
-    reset_lag: i32,
-    day_count: DayCount,
-    tenor: F,
-    knots: Vec<F>,
-    fwds: Vec<F>,
-    interp_style: InterpStyle,
-    extrapolation: ExtrapolationPolicy,
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct ForwardCurveState {
+    /// Curve identifier
+    pub id: String,
+    /// Base date
+    pub base: Date,
+    /// Reset lag in calendar days
+    pub reset_lag: i32,
+    /// Day count convention
+    pub day_count: DayCount,
+    /// Index tenor in years
+    pub tenor: F,
+    /// Time/forward rate pairs
+    pub knot_points: Vec<(F, F)>,
+    /// Interpolation style
+    pub interp_style: InterpStyle,
+    /// Extrapolation policy
+    pub extrapolation: ExtrapolationPolicy,
 }
 
 impl ForwardCurve {
@@ -124,6 +132,40 @@ impl ForwardCurve {
     #[inline]
     pub fn base_date(&self) -> Date {
         self.base
+    }
+
+    #[cfg(feature = "serde")]
+    /// Extract serializable state
+    pub fn to_state(&self) -> ForwardCurveState {
+        let knot_points: Vec<(F, F)> = self
+            .knots
+            .iter()
+            .zip(self.fwds.iter())
+            .map(|(&t, &fwd)| (t, fwd))
+            .collect();
+
+        ForwardCurveState {
+            id: self.id.to_string(),
+            base: self.base,
+            reset_lag: self.reset_lag,
+            day_count: self.day_count,
+            tenor: self.tenor,
+            knot_points,
+            interp_style: self.interp.style(),
+            extrapolation: self.interp.extrapolation(),
+        }
+    }
+
+    #[cfg(feature = "serde")]
+    /// Create from serialized state
+    pub fn from_state(state: ForwardCurveState) -> crate::Result<Self> {
+        ForwardCurve::builder(state.id, state.tenor)
+            .base_date(state.base)
+            .reset_lag(state.reset_lag)
+            .day_count(state.day_count)
+            .knots(state.knot_points)
+            .set_interp(state.interp_style)
+            .build()
     }
 }
 
@@ -221,18 +263,7 @@ impl serde::Serialize for ForwardCurve {
     where
         S: serde::Serializer,
     {
-        let data = ForwardCurveData {
-            id: self.id.clone(),
-            base: self.base,
-            reset_lag: self.reset_lag,
-            day_count: self.day_count,
-            tenor: self.tenor,
-            knots: self.knots.to_vec(),
-            fwds: self.fwds.to_vec(),
-            interp_style: self.interp.style(),
-            extrapolation: self.interp.extrapolation(),
-        };
-        data.serialize(serializer)
+        self.to_state().serialize(serializer)
     }
 }
 
@@ -242,26 +273,8 @@ impl<'de> serde::Deserialize<'de> for ForwardCurve {
     where
         D: serde::Deserializer<'de>,
     {
-        use serde::de::Error;
-
-        let data = ForwardCurveData::deserialize(deserializer)?;
-        let grid = OneDGrid::new(
-            data.knots.clone().into_boxed_slice(),
-            data.fwds.clone().into_boxed_slice(),
-        );
-        let interp = build_interp(data.interp_style, &grid, data.extrapolation)
-            .map_err(|_| D::Error::custom("Failed to reconstruct interpolator"))?;
-
-        Ok(ForwardCurve {
-            id: data.id,
-            base: data.base,
-            reset_lag: data.reset_lag,
-            day_count: data.day_count,
-            tenor: data.tenor,
-            knots: data.knots.into_boxed_slice(),
-            fwds: data.fwds.into_boxed_slice(),
-            interp,
-        })
+        let state = ForwardCurveState::deserialize(deserializer)?;
+        ForwardCurve::from_state(state).map_err(serde::de::Error::custom)
     }
 }
 

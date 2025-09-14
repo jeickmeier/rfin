@@ -47,16 +47,23 @@ pub struct DiscountCurve {
     interp: Interp,
 }
 
-/// Serializable representation of DiscountCurve
+/// Serializable state of DiscountCurve
 #[cfg(feature = "serde")]
-#[derive(serde::Serialize, serde::Deserialize)]
-pub struct DiscountCurveData {
-    id: CurveId,
-    base: Date,
-    knots: Vec<F>,
-    dfs: Vec<F>,
-    interp_style: InterpStyle,
-    extrapolation: ExtrapolationPolicy,
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct DiscountCurveState {
+    /// Curve identifier
+    pub id: String,
+    /// Base date
+    pub base: Date,
+    /// Time/discount factor pairs
+    pub knot_points: Vec<(F, F)>,
+    /// Interpolation style
+    pub interp_style: InterpStyle,
+    /// Extrapolation policy
+    pub extrapolation: ExtrapolationPolicy,
+    /// Whether monotonic discount factors were required
+    pub require_monotonic: bool,
 }
 
 impl DiscountCurve {
@@ -246,6 +253,42 @@ impl DiscountCurve {
             .set_interp(interp_style)
             .build()
     }
+
+    #[cfg(feature = "serde")]
+    /// Extract serializable state
+    pub fn to_state(&self) -> DiscountCurveState {
+        let knot_points: Vec<(F, F)> = self
+            .knots
+            .iter()
+            .zip(self.dfs.iter())
+            .map(|(&t, &df)| (t, df))
+            .collect();
+
+        DiscountCurveState {
+            id: self.id.to_string(),
+            base: self.base,
+            knot_points,
+            interp_style: self.interp.style(),
+            extrapolation: self.interp.extrapolation(),
+            require_monotonic: false, // Default - we can't recover this info from existing curves
+        }
+    }
+
+    #[cfg(feature = "serde")]
+    /// Create from serialized state
+    pub fn from_state(state: DiscountCurveState) -> core::result::Result<Self, super::CurveError> {
+        let mut builder = DiscountCurve::builder(state.id)
+            .base_date(state.base)
+            .knots(state.knot_points)
+            .set_interp(state.interp_style)
+            .extrapolation(state.extrapolation);
+
+        if state.require_monotonic {
+            builder = builder.require_monotonic();
+        }
+
+        builder.build()
+    }
 }
 
 /// Fluent builder for [`DiscountCurve`].
@@ -361,15 +404,7 @@ impl serde::Serialize for DiscountCurve {
     where
         S: serde::Serializer,
     {
-        let data = DiscountCurveData {
-            id: self.id.clone(),
-            base: self.base,
-            knots: self.knots.to_vec(),
-            dfs: self.dfs.to_vec(),
-            interp_style: self.interp.style(),
-            extrapolation: self.interp.extrapolation(),
-        };
-        data.serialize(serializer)
+        self.to_state().serialize(serializer)
     }
 }
 
@@ -379,23 +414,8 @@ impl<'de> serde::Deserialize<'de> for DiscountCurve {
     where
         D: serde::Deserializer<'de>,
     {
-        use serde::de::Error;
-
-        let data = DiscountCurveData::deserialize(deserializer)?;
-        let grid = OneDGrid::new(
-            data.knots.clone().into_boxed_slice(),
-            data.dfs.clone().into_boxed_slice(),
-        );
-        let interp = build_interp_curve_error(data.interp_style, &grid, data.extrapolation)
-            .map_err(|_| D::Error::custom("Failed to reconstruct interpolator"))?;
-
-        Ok(DiscountCurve {
-            id: data.id,
-            base: data.base,
-            knots: data.knots.into_boxed_slice(),
-            dfs: data.dfs.into_boxed_slice(),
-            interp,
-        })
+        let state = DiscountCurveState::deserialize(deserializer)?;
+        DiscountCurve::from_state(state).map_err(serde::de::Error::custom)
     }
 }
 

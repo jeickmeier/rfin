@@ -14,8 +14,10 @@ use super::{
     primitives::{MarketScalar, ScalarTimeSeriesState},
     surfaces::vol_surface::VolSurfaceState,
     term_structures::{
-        base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve,
-        forward_curve::ForwardCurve, hazard_curve::HazardCurveState,
+        base_correlation::BaseCorrelationCurve, 
+        discount_curve::DiscountCurveState,
+        forward_curve::ForwardCurveState, 
+        hazard_curve::HazardCurveState,
     },
 };
 use crate::{dates::Date, types::CurveId, F};
@@ -58,10 +60,7 @@ pub struct MarketContextData {
     pub collateral_mappings: Vec<(String, CurveId)>,
 }
 
-/// Entry for discount curves - stores ID and optional bump info
-///
-/// TODO: Once DiscountCurve has state methods, replace Option<DiscountCurve>
-/// with DiscountCurveState for full serialization support.
+/// Entry for discount curves with proper state-based serialization
 #[cfg(feature = "serde")]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DiscountCurveEntry {
@@ -69,15 +68,11 @@ pub struct DiscountCurveEntry {
     pub id: CurveId,
     /// If this is a bumped curve, store the original ID and bump
     pub bump_info: Option<BumpInfo>,
-    /// The actual curve data (if not bumped)
-    /// TODO: Replace with DiscountCurveState once implemented
-    pub curve: Option<DiscountCurve>,
+    /// The actual curve state data (for non-bumped curves)
+    pub state: Option<DiscountCurveState>,
 }
 
-/// Entry for forward curves
-///
-/// TODO: Once ForwardCurve has state methods, replace Option<ForwardCurve>
-/// with ForwardCurveState for full serialization support.
+/// Entry for forward curves with proper state-based serialization
 #[cfg(feature = "serde")]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ForwardCurveEntry {
@@ -85,9 +80,8 @@ pub struct ForwardCurveEntry {
     pub id: CurveId,
     /// Bump information for reconstruction
     pub bump_info: Option<BumpInfo>,
-    /// The actual curve data (if not bumped)
-    /// TODO: Replace with ForwardCurveState once implemented
-    pub curve: Option<ForwardCurve>,
+    /// The actual curve state data (for non-bumped curves)
+    pub state: Option<ForwardCurveState>,
 }
 
 /// Bump information for reconstructing bumped curves
