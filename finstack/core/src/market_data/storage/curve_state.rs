@@ -140,7 +140,6 @@ impl<'de> serde::Deserialize<'de> for CurveStorage {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::dates::Date;
     use crate::market_data::{
         interp::InterpStyle,
