@@ -3,49 +3,10 @@
 use crate::instruments::options::swaption::Swaption;
 use crate::instruments::options::OptionType;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
-use finstack_core::dates::Date;
-use finstack_core::market_data::traits::{Discount, TermStructure};
+use finstack_core::market_data::traits::Discount;
 use finstack_core::prelude::Result;
-use finstack_core::types::CurveId;
 use finstack_core::F;
 use std::sync::Arc;
-
-/// Wrapper for a discount curve with a parallel rate bump applied.
-///
-/// This applies the formula: df_bumped(t) = df_original(t) * exp(-bump * t)
-/// where bump is in rate units (e.g., 0.0001 for 1bp).
-struct BumpedDiscountCurve {
-    original: Arc<dyn Discount + Send + Sync>,
-    bump_rate: F,
-}
-
-impl BumpedDiscountCurve {
-    fn new(original: Arc<dyn Discount + Send + Sync>, bump_bp: F) -> Self {
-        Self {
-            original,
-            bump_rate: bump_bp / 10_000.0, // Convert bp to rate
-        }
-    }
-}
-
-impl TermStructure for BumpedDiscountCurve {
-    fn id(&self) -> &CurveId {
-        self.original.id()
-    }
-}
-
-impl Discount for BumpedDiscountCurve {
-    #[inline]
-    fn base_date(&self) -> Date {
-        self.original.base_date()
-    }
-
-    #[inline]
-    fn df(&self, t: F) -> F {
-        let original_df = self.original.df(t);
-        original_df * (-self.bump_rate * t).exp()
-    }
-}
 
 /// Delta calculator for swaptions
 pub struct DeltaCalculator;
@@ -250,8 +211,8 @@ impl MetricCalculator for RhoCalculator {
             vol_surface.value_clamped(time_to_expiry, option.strike_rate)
         };
 
-        // Create bumped discount curve (+1bp)
-        let bumped_disc = BumpedDiscountCurve::new(disc, 1.0);
+        // Create bumped discount curve (+1bp) by modifying knots directly
+        let bumped_disc = disc.with_parallel_bump(1.0);
 
         // Reprice with bumped curve
         let bumped_price = if option.sabr_params.is_some() {

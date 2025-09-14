@@ -447,27 +447,11 @@ impl MarketContext {
             if let Ok(original) = self.discount(curve_id_str) {
                 if bump_spec.mode == BumpMode::Additive && bump_spec.units == BumpUnits::RateBp {
                     let bump_bp = bump_spec.value;
-                    let bump_rate = bump_bp / 10_000.0;
-                    let bumped_id = id_bump_bp(curve_id_str, bump_bp);
-                    
-                    // Apply bump directly to the original curve's knot points
-                    let base_date = original.base_date();
-                    let bumped_dfs: Vec<(F, F)> = original.knots()
-                        .iter()
-                        .zip(original.dfs().iter())
-                        .map(|(&t, &df)| {
-                            // Apply formula: df_bumped(t) = df_original(t) * exp(-bump * t)
-                            (t, df * (-bump_rate * t).exp())
-                        })
-                        .collect();
-                    
-                    if let Ok(bumped_curve) = DiscountCurve::builder(bumped_id.as_str())
-                        .base_date(base_date)
-                        .knots(bumped_dfs)
-                        .build()
-                    {
-                        new_context.curves.insert(bumped_id, CurveStorage::Discount(Arc::new(bumped_curve)));
-                    }
+                    let bumped_curve = original.with_parallel_bump(bump_bp);
+                    let bumped_id = TermStructure::id(&bumped_curve).clone();
+                    new_context
+                        .curves
+                        .insert(bumped_id, CurveStorage::Discount(Arc::new(bumped_curve)));
                 }
             }
             // Try forward curves

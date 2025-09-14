@@ -80,6 +80,31 @@ impl DiscountCurve {
         };
         disc.df(t)
     }
+
+    /// Create a new curve with a parallel rate bump applied in basis points.
+    ///
+    /// Uses df_bumped(t) = df_original(t) * exp(-bump * t), where bump = bp / 10_000.
+    pub fn with_parallel_bump(&self, bp: F) -> Self {
+        let bump_rate = bp / 10_000.0;
+        let bumped_points: Vec<(F, F)> = self
+            .knots
+            .iter()
+            .zip(self.dfs.iter())
+            .map(|(&t, &df)| (t, df * (-bump_rate * t).exp()))
+            .collect();
+
+        // Derive new ID with suffix
+        let new_id = crate::market_data::bumps::id_bump_bp(self.id.as_str(), bp);
+
+        // Rebuild preserving base date, interpolation, and extrapolation policies
+        DiscountCurve::builder(new_id)
+            .base_date(self.base)
+            .knots(bumped_points)
+            .set_interp(self.interp.style())
+            .extrapolation(self.interp.extrapolation())
+            .build()
+            .expect("building bumped discount curve should not fail")
+    }
     /// Discount factor at time `t` (helper calling the underlying interpolator).
     #[inline]
     pub fn df(&self, t: F) -> F {
