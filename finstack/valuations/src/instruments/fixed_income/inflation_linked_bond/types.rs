@@ -3,7 +3,7 @@
 use crate::cashflow::traits::DatedFlows;
 use crate::instruments::common::InflationLinkedBondParams;
 use crate::instruments::traits::Attributes;
-use finstack_core::market_data::inflation_index::{InflationIndex, InflationLag};
+use finstack_core::market_data::scalars::inflation_index::{InflationIndex, InflationLag};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::F;

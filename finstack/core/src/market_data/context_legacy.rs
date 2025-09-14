@@ -621,7 +621,7 @@ impl MarketContext {
     /// ```rust
     /// # use hashbrown::HashMap;
     /// # use finstack_core::market_data::context::{MarketContext, BumpSpec};
-    /// # use finstack_core::market_data::primitives::MarketScalar;
+    /// # use finstack_core::market_data::scalars::MarketScalar;
     /// # use finstack_core::types::CurveId;
     /// # let context = MarketContext::new()
     /// #     .insert_price("USD-OIS", MarketScalar::Unitless(0.05))
@@ -1044,8 +1044,8 @@ impl MarketContext {
         // Get spot price
         let spot_scalar = self.price(underlying)?;
         let spot = match spot_scalar {
-            crate::market_data::primitives::MarketScalar::Price(money) => money.amount(),
-            crate::market_data::primitives::MarketScalar::Unitless(value) => *value,
+            crate::market_data::scalars::MarketScalar::Price(money) => money.amount(),
+            crate::market_data::scalars::MarketScalar::Unitless(value) => *value,
         };
 
         // Get dividend yield (default to 0.0 if not available)
@@ -1053,7 +1053,7 @@ impl MarketContext {
         let dividend_yield = self
             .price(&div_yield_key)
             .map(|scalar| match scalar {
-                crate::market_data::primitives::MarketScalar::Unitless(yield_val) => *yield_val,
+                crate::market_data::scalars::MarketScalar::Unitless(yield_val) => *yield_val,
                 _ => 0.0,
             })
             .unwrap_or(0.0);
@@ -1090,8 +1090,8 @@ impl MarketContext {
         // Get spot rate
         let spot_scalar = self.price(underlying)?;
         let spot = match spot_scalar {
-            crate::market_data::primitives::MarketScalar::Price(money) => money.amount(),
-            crate::market_data::primitives::MarketScalar::Unitless(value) => *value,
+            crate::market_data::scalars::MarketScalar::Price(money) => money.amount(),
+            crate::market_data::scalars::MarketScalar::Unitless(value) => *value,
         };
 
         // Get domestic and foreign discount curves
@@ -1199,7 +1199,7 @@ mod serde_support {
         /// 
         /// Currently, only HazardCurve, VolSurface, and time series can be fully serialized.
         pub fn to_data(&self) -> crate::Result<MarketContextData> {
-            use crate::market_data::primitives::ScalarTimeSeriesState;
+            use crate::market_data::scalars::ScalarTimeSeriesState;
             use crate::market_data::surfaces::vol_surface::VolSurfaceState;
 
         // Convert discount curves using proper state methods
@@ -1393,8 +1393,8 @@ mod serde_support {
 
         /// Reconstruct MarketContext from serializable data
         pub fn from_data(data: MarketContextData) -> crate::Result<MarketContext> {
-            use crate::market_data::credit_index::CreditIndexData;
-            use crate::market_data::primitives::ScalarTimeSeries;
+            use crate::market_data::term_structures::credit_index::CreditIndexData;
+            use crate::market_data::scalars::ScalarTimeSeries;
             use crate::market_data::surfaces::vol_surface::VolSurface;
             use crate::market_data::term_structures::hazard_curve::HazardCurve;
 
@@ -2243,15 +2243,15 @@ mod bump_tests {
             .insert_forward(fwd_curve)
             .insert_price(
                 "SPY",
-                crate::market_data::primitives::MarketScalar::Unitless(100.0),
+                crate::market_data::scalars::MarketScalar::Unitless(100.0),
             )
             .insert_price(
                 "SPY-DIVYIELD",
-                crate::market_data::primitives::MarketScalar::Unitless(0.02),
+                crate::market_data::scalars::MarketScalar::Unitless(0.02),
             )
             .insert_price(
                 "EURUSD",
-                crate::market_data::primitives::MarketScalar::Unitless(1.1),
+                crate::market_data::scalars::MarketScalar::Unitless(1.1),
             )
     }
 

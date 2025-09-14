@@ -57,6 +57,8 @@
 pub mod base_correlation;
 /// Internal shared helpers for 1D curves (not exported publicly).
 pub(crate) mod common;
+/// Credit index aggregates for CDS tranche pricing and credit derivatives.
+pub mod credit_index;
 /// Discount factor curves.
 pub mod discount_curve;
 /// Forward‐rate curves.
@@ -73,6 +75,7 @@ pub use crate::error::InputError as CurveError;
 
 // Re-export for ergonomic access
 pub use base_correlation::*;
+pub use credit_index::*;
 pub use discount_curve::*;
 pub use forward_curve::*;
 pub use hazard_curve::*;

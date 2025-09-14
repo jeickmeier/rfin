@@ -10,7 +10,7 @@ mod tests {
     use crate::dates::Date;
     use crate::market_data::{
         interp::InterpStyle,
-        primitives::MarketScalar,
+        scalars::MarketScalar,
         term_structures::{
             discount_curve::DiscountCurve,
             forward_curve::ForwardCurve,

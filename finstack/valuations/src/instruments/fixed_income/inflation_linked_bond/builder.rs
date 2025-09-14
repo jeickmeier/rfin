@@ -1,6 +1,6 @@
 use super::types::{DeflationProtection, IndexationMethod};
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
-use finstack_core::market_data::inflation_index::InflationLag;
+use finstack_core::market_data::scalars::inflation_index::InflationLag;
 use finstack_core::money::Money;
 use finstack_core::F;
 

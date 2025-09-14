@@ -100,14 +100,14 @@ impl CollateralSpec {
     pub fn market_value(&self, context: &MarketContext) -> Result<Money> {
         let price_scalar = context.price(&self.market_value_id)?;
         let unit_value = match price_scalar {
-            finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
-            finstack_core::market_data::primitives::MarketScalar::Unitless(value) => *value,
+            finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
+            finstack_core::market_data::scalars::MarketScalar::Unitless(value) => *value,
         };
         
         // Get currency from price scalar
         let currency = match price_scalar {
-            finstack_core::market_data::primitives::MarketScalar::Price(money) => money.currency(),
-            finstack_core::market_data::primitives::MarketScalar::Unitless(_) => Currency::USD, // Default
+            finstack_core::market_data::scalars::MarketScalar::Price(money) => money.currency(),
+            finstack_core::market_data::scalars::MarketScalar::Unitless(_) => Currency::USD, // Default
         };
         
         Ok(Money::new(unit_value * self.quantity, currency))

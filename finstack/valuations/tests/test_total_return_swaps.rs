@@ -4,7 +4,7 @@ use finstack_core::{
     currency::Currency::*,
     dates::{Date, DayCount},
     market_data::{
-        primitives::MarketScalar, term_structures::DiscountCurve, term_structures::ForwardCurve,
+        scalars::MarketScalar, term_structures::DiscountCurve, term_structures::ForwardCurve,
         MarketContext,
     },
     math::interp::InterpStyle,

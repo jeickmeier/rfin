@@ -8,7 +8,7 @@
 
 use finstack_core::prelude::*;
 use finstack_core::market_data::MarketContext;
-use finstack_core::market_data::primitives::MarketScalar;
+use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::interp::InterpStyle;
 use finstack_valuations::instruments::fixed_income::repo::*;

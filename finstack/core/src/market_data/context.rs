@@ -14,10 +14,10 @@ use hashbrown::HashMap;
 use crate::money::fx::FxMatrix;
 
 use super::{
-    credit_index::CreditIndexData,
+    scalars::inflation_index::InflationIndex,
+    term_structures::credit_index::CreditIndexData,
     inflation::InflationCurve,
-    inflation_index::InflationIndex,
-    primitives::{MarketScalar, ScalarTimeSeries},
+    scalars::{MarketScalar, ScalarTimeSeries},
     surfaces::vol_surface::VolSurface,
     term_structures::base_correlation::BaseCorrelationCurve,
     traits::{Discount, Forward, TermStructure},
@@ -621,7 +621,7 @@ impl MarketContext {
     /// ```rust
     /// # use hashbrown::HashMap;
     /// # use finstack_core::market_data::context::{MarketContext, BumpSpec};
-    /// # use finstack_core::market_data::primitives::MarketScalar;
+    /// # use finstack_core::market_data::scalars::MarketScalar;
     /// # use finstack_core::types::CurveId;
     /// # let context = MarketContext::new()
     /// #     .insert_price("USD-OIS", MarketScalar::Unitless(0.05))
@@ -719,7 +719,7 @@ impl MarketContext {
                         .with_hazard_shift(spread_rate)
                     {
                         let mut builder =
-                            crate::market_data::credit_index::CreditIndexData::builder()
+                            CreditIndexData::builder()
                                 .num_constituents(original_index.num_constituents)
                                 .recovery_rate(original_index.recovery_rate)
                                 .index_credit_curve(Arc::new(bumped_hazard))
@@ -756,7 +756,7 @@ impl MarketContext {
                         .build()
                     {
                         let mut builder =
-                            crate::market_data::credit_index::CreditIndexData::builder()
+                            CreditIndexData::builder()
                                 .num_constituents(original_index.num_constituents)
                                 .recovery_rate(original_index.recovery_rate)
                                 .index_credit_curve(original_index.index_credit_curve.clone())
@@ -887,7 +887,7 @@ impl MarketContext {
                     .collect();
 
                 let bumped_cid = id_with_desc(curve_id_str, &bump_desc);
-                let builder = crate::market_data::inflation_index::InflationIndexBuilder::new(
+                let builder = crate::market_data::scalars::inflation_index::InflationIndexBuilder::new(
                     bumped_cid.as_str(),
                     index.currency,
                 )
@@ -1044,8 +1044,8 @@ impl MarketContext {
         // Get spot price
         let spot_scalar = self.price(underlying)?;
         let spot = match spot_scalar {
-            crate::market_data::primitives::MarketScalar::Price(money) => money.amount(),
-            crate::market_data::primitives::MarketScalar::Unitless(value) => *value,
+            crate::market_data::scalars::MarketScalar::Price(money) => money.amount(),
+            crate::market_data::scalars::MarketScalar::Unitless(value) => *value,
         };
 
         // Get dividend yield (default to 0.0 if not available)
@@ -1053,7 +1053,7 @@ impl MarketContext {
         let dividend_yield = self
             .price(&div_yield_key)
             .map(|scalar| match scalar {
-                crate::market_data::primitives::MarketScalar::Unitless(yield_val) => *yield_val,
+                crate::market_data::scalars::MarketScalar::Unitless(yield_val) => *yield_val,
                 _ => 0.0,
             })
             .unwrap_or(0.0);
@@ -1090,8 +1090,8 @@ impl MarketContext {
         // Get spot rate
         let spot_scalar = self.price(underlying)?;
         let spot = match spot_scalar {
-            crate::market_data::primitives::MarketScalar::Price(money) => money.amount(),
-            crate::market_data::primitives::MarketScalar::Unitless(value) => *value,
+            crate::market_data::scalars::MarketScalar::Price(money) => money.amount(),
+            crate::market_data::scalars::MarketScalar::Unitless(value) => *value,
         };
 
         // Get domestic and foreign discount curves
@@ -1182,7 +1182,7 @@ mod bump_tests {
         forward_curve::ForwardCurve, hazard_curve::HazardCurve, inflation::InflationCurve,
     };
 
-    fn test_discount_curve() -> DiscountCurve {
+    fn _test_discount_curve() -> DiscountCurve {
         DiscountCurve::builder("USD-OIS")
             .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)])
@@ -1191,7 +1191,7 @@ mod bump_tests {
             .unwrap()
     }
 
-    fn test_forward_curve() -> ForwardCurve {
+    fn _test_forward_curve() -> ForwardCurve {
         ForwardCurve::builder("USD-SOFR3M", 0.25)
             .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
             .knots([(0.0, 0.03), (1.0, 0.035), (5.0, 0.04)])
@@ -1200,7 +1200,7 @@ mod bump_tests {
             .unwrap()
     }
 
-    fn test_vol_surface() -> VolSurface {
+    fn _test_vol_surface() -> VolSurface {
         VolSurface::builder("USD-ATM-VOL")
             .expiries(&[0.25, 1.0])
             .strikes(&[90.0, 100.0])
@@ -1210,7 +1210,7 @@ mod bump_tests {
             .unwrap()
     }
 
-    fn test_hazard_curve() -> HazardCurve {
+    fn _test_hazard_curve() -> HazardCurve {
         HazardCurve::builder("CORP-HAZARD")
             .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
             .recovery_rate(0.4)
@@ -1219,7 +1219,7 @@ mod bump_tests {
             .unwrap()
     }
 
-    fn test_inflation_curve() -> InflationCurve {
+    fn _test_inflation_curve() -> InflationCurve {
         InflationCurve::builder("US-CPI")
             .base_cpi(300.0)
             .knots([(0.0, 300.0), (1.0, 303.0), (5.0, 315.0)])
@@ -1228,7 +1228,7 @@ mod bump_tests {
             .unwrap()
     }
 
-    fn test_base_correlation_curve() -> BaseCorrelationCurve {
+    fn _test_base_correlation_curve() -> BaseCorrelationCurve {
         BaseCorrelationCurve::builder("CDX-NA-IG")
             .points(vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)])
             .build()
@@ -1237,7 +1237,7 @@ mod bump_tests {
 
     #[test]
     fn test_discount_curve_bump() {
-        let curve = test_discount_curve();
+        let curve = _test_discount_curve();
         let context = MarketContext::new().insert_discount(curve);
 
         // Test original curve values
@@ -1272,7 +1272,7 @@ mod bump_tests {
 
     #[test]
     fn test_forward_curve_bump() {
-        let curve = test_forward_curve();
+        let curve = _test_forward_curve();
         let context = MarketContext::new().insert_forward(curve);
 
         let original = context.fwd("USD-SOFR3M").unwrap();
@@ -1297,7 +1297,7 @@ mod bump_tests {
 
     #[test]
     fn test_vol_surface_bump() {
-        let surface = test_vol_surface();
+        let surface = _test_vol_surface();
         let context = MarketContext::new().insert_surface(surface);
 
         let original = context.surface("USD-ATM-VOL").unwrap();
@@ -1367,8 +1367,8 @@ mod bump_tests {
     #[test]
     fn test_parallel_rate_shock() {
         // replaced with consolidated bump API
-        let disc_curve = test_discount_curve();
-        let fwd_curve = test_forward_curve();
+        let disc_curve = _test_discount_curve();
+        let fwd_curve = _test_forward_curve();
         let context = MarketContext::new()
             .insert_discount(disc_curve)
             .insert_forward(fwd_curve);
@@ -1400,7 +1400,7 @@ mod bump_tests {
     #[test]
     fn test_volatility_shock() {
         // replaced with consolidated bump API
-        let surface = test_vol_surface();
+        let surface = _test_vol_surface();
         let context = MarketContext::new().insert_surface(surface);
 
         // Apply 20% vol shock via bump
@@ -1422,8 +1422,8 @@ mod bump_tests {
 
     #[test]
     fn test_multiple_bumps() {
-        let disc_curve = test_discount_curve();
-        let fwd_curve = test_forward_curve();
+        let disc_curve = _test_discount_curve();
+        let fwd_curve = _test_forward_curve();
         let context = MarketContext::new()
             .insert_discount(disc_curve)
             .insert_forward(fwd_curve)
@@ -1444,7 +1444,7 @@ mod bump_tests {
 
     #[test]
     fn test_hazard_curve_bump() {
-        let curve = test_hazard_curve();
+        let curve = _test_hazard_curve();
         let context = MarketContext::new().insert_hazard(curve);
 
         let original = context.hazard("CORP-HAZARD").unwrap();
@@ -1471,7 +1471,7 @@ mod bump_tests {
 
     #[test]
     fn test_inflation_curve_bump() {
-        let curve = test_inflation_curve();
+        let curve = _test_inflation_curve();
         let context = MarketContext::new().insert_inflation(curve);
 
         let original = context.infl("US-CPI").unwrap();
@@ -1504,7 +1504,7 @@ mod bump_tests {
 
     #[test]
     fn test_base_correlation_bump() {
-        let curve = test_base_correlation_curve();
+        let curve = _test_base_correlation_curve();
         let context = MarketContext::new().insert_base_correlation(curve);
 
         let original = context.base_correlation("CDX-NA-IG").unwrap();
@@ -1546,7 +1546,7 @@ mod bump_tests {
                 303.0,
             ),
         ];
-        let index = crate::market_data::inflation_index::InflationIndex::new(
+        let index = crate::market_data::scalars::inflation_index::InflationIndex::new(
             "US-CPI",
             observations,
             Currency::USD,
@@ -1713,8 +1713,8 @@ mod bump_tests {
     #[test]
     fn test_update_base_correlation_curve() {
         // Test the new optimized update_base_correlation_curve method
-        let hazard_curve = test_hazard_curve();
-        let base_corr_curve = test_base_correlation_curve();
+        let hazard_curve = _test_hazard_curve();
+        let base_corr_curve = _test_base_correlation_curve();
 
         // Create initial credit index
         let hazard_arc = Arc::new(hazard_curve);
@@ -1764,10 +1764,10 @@ mod bump_tests {
     #[test]
     fn test_credit_index_bump() {
         // Build base hazard and base correlation curves using helpers
-        let hazard_curve = test_hazard_curve();
-        let base_corr = test_base_correlation_curve();
+        let hazard_curve = _test_hazard_curve();
+        let base_corr = _test_base_correlation_curve();
 
-        let index = crate::market_data::credit_index::CreditIndexData::builder()
+        let index = CreditIndexData::builder()
             .num_constituents(125)
             .recovery_rate(0.40)
             .index_credit_curve(Arc::new(hazard_curve))
@@ -1799,10 +1799,10 @@ mod bump_tests {
 
     #[test]
     fn test_comprehensive_multi_curve_bump() {
-        let disc_curve = test_discount_curve();
-        let hazard_curve = test_hazard_curve();
-        let inflation_curve = test_inflation_curve();
-        let base_corr_curve = test_base_correlation_curve();
+        let disc_curve = _test_discount_curve();
+        let hazard_curve = _test_hazard_curve();
+        let inflation_curve = _test_inflation_curve();
+        let base_corr_curve = _test_base_correlation_curve();
 
         let context = MarketContext::new()
             .insert_discount(disc_curve)
@@ -1830,7 +1830,7 @@ mod bump_tests {
             .is_ok());
     }
 
-    fn create_forward_test_context() -> MarketContext {
+    fn _create_forward_test_context() -> MarketContext {
         let base_date = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
         // Create discount curve
@@ -1854,21 +1854,21 @@ mod bump_tests {
             .insert_forward(fwd_curve)
             .insert_price(
                 "SPY",
-                crate::market_data::primitives::MarketScalar::Unitless(100.0),
+                crate::market_data::scalars::MarketScalar::Unitless(100.0),
             )
             .insert_price(
                 "SPY-DIVYIELD",
-                crate::market_data::primitives::MarketScalar::Unitless(0.02),
+                crate::market_data::scalars::MarketScalar::Unitless(0.02),
             )
             .insert_price(
                 "EURUSD",
-                crate::market_data::primitives::MarketScalar::Unitless(1.1),
+                crate::market_data::scalars::MarketScalar::Unitless(1.1),
             )
     }
 
     #[test]
     fn test_equity_forward_function() {
-        let context = create_forward_test_context();
+        let context = _create_forward_test_context();
         let forward_fn = context
             .equity_forward("SPY", crate::currency::Currency::USD)
             .unwrap();
@@ -1883,7 +1883,7 @@ mod bump_tests {
 
     #[test]
     fn test_rates_forward_function() {
-        let context = create_forward_test_context();
+        let context = _create_forward_test_context();
         let forward_fn = context.rates_forward("USD-SOFR3M").unwrap();
 
         // Test forward rate
@@ -1895,7 +1895,7 @@ mod bump_tests {
 
     #[test]
     fn test_auto_forward_detection_equity() {
-        let context = create_forward_test_context();
+        let context = _create_forward_test_context();
         let forward_fn = context
             .auto_forward("SPY", crate::currency::Currency::USD)
             .unwrap();
@@ -1906,7 +1906,7 @@ mod bump_tests {
 
     #[test]
     fn test_auto_forward_detection_rates() {
-        let context = create_forward_test_context();
+        let context = _create_forward_test_context();
         let forward_fn = context
             .auto_forward("USD-SOFR3M", crate::currency::Currency::USD)
             .unwrap();
@@ -1926,7 +1926,7 @@ mod bump_tests {
             .build()
             .unwrap();
 
-        let context = create_forward_test_context().insert_discount(eur_disc);
+        let context = _create_forward_test_context().insert_discount(eur_disc);
         let forward_fn = context
             .auto_forward("EURUSD", crate::currency::Currency::USD)
             .unwrap();
@@ -1937,7 +1937,7 @@ mod bump_tests {
 
     #[test]
     fn test_invalid_fx_pair() {
-        let context = create_forward_test_context();
+        let context = _create_forward_test_context();
         let result = context.fx_forward("INVALID");
         assert!(result.is_err());
     }

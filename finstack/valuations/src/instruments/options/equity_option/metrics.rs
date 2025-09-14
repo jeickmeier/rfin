@@ -24,8 +24,8 @@ impl MetricCalculator for DeltaCalculator {
             // Option expired - delta is 0 or 1/-1 based on moneyness
             let spot_scalar = context.curves.price(&option.spot_id)?;
             let spot = match spot_scalar {
-                finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
-                finstack_core::market_data::primitives::MarketScalar::Price(money) => {
+                finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
+                finstack_core::market_data::scalars::MarketScalar::Price(money) => {
                     money.amount()
                 }
             };
@@ -54,15 +54,15 @@ impl MetricCalculator for DeltaCalculator {
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
         let spot = match spot_scalar {
-            finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
-            finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
+            finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
+            finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
         };
 
         let q = if let Some(div_id) = &option.div_yield_id {
             match context.curves.price(div_id.as_str()) {
                 Ok(scalar) => match scalar {
-                    finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
-                    finstack_core::market_data::primitives::MarketScalar::Price(_) => 0.0,
+                    finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
+                    finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
                 },
                 Err(_) => 0.0,
             }
@@ -109,15 +109,15 @@ impl MetricCalculator for GammaCalculator {
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
         let spot = match spot_scalar {
-            finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
-            finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
+            finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
+            finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
         };
 
         let q = if let Some(div_id) = &option.div_yield_id {
             match context.curves.price(div_id.as_str()) {
                 Ok(scalar) => match scalar {
-                    finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
-                    finstack_core::market_data::primitives::MarketScalar::Price(_) => 0.0,
+                    finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
+                    finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
                 },
                 Err(_) => 0.0,
             }
@@ -163,15 +163,15 @@ impl MetricCalculator for VegaCalculator {
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
         let spot = match spot_scalar {
-            finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
-            finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
+            finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
+            finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
         };
 
         let q = if let Some(div_id) = &option.div_yield_id {
             match context.curves.price(div_id.as_str()) {
                 Ok(scalar) => match scalar {
-                    finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
-                    finstack_core::market_data::primitives::MarketScalar::Price(_) => 0.0,
+                    finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
+                    finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
                 },
                 Err(_) => 0.0,
             }
@@ -218,15 +218,15 @@ impl MetricCalculator for ThetaCalculator {
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
         let spot = match spot_scalar {
-            finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
-            finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
+            finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
+            finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
         };
 
         let q = if let Some(div_id) = &option.div_yield_id {
             match context.curves.price(div_id.as_str()) {
                 Ok(scalar) => match scalar {
-                    finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
-                    finstack_core::market_data::primitives::MarketScalar::Price(_) => 0.0,
+                    finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
+                    finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
                 },
                 Err(_) => 0.0,
             }
@@ -273,15 +273,15 @@ impl MetricCalculator for RhoCalculator {
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
         let spot = match spot_scalar {
-            finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
-            finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
+            finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
+            finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
         };
 
         let q = if let Some(div_id) = &option.div_yield_id {
             match context.curves.price(div_id.as_str()) {
                 Ok(scalar) => match scalar {
-                    finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
-                    finstack_core::market_data::primitives::MarketScalar::Price(_) => 0.0,
+                    finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
+                    finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
                 },
                 Err(_) => 0.0,
             }
@@ -326,15 +326,15 @@ impl MetricCalculator for ImpliedVolCalculator {
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
         let spot = match spot_scalar {
-            finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
-            finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
+            finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
+            finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
         };
 
         let q = if let Some(div_id) = &option.div_yield_id {
             match context.curves.price(div_id.as_str()) {
                 Ok(scalar) => match scalar {
-                    finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
-                    finstack_core::market_data::primitives::MarketScalar::Price(_) => 0.0,
+                    finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
+                    finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
                 },
                 Err(_) => 0.0,
             }
@@ -348,8 +348,8 @@ impl MetricCalculator for ImpliedVolCalculator {
         } else if let Some(price_id) = option.attributes.get_meta("market_price_id") {
             match context.curves.price(price_id) {
                 Ok(ms) => match ms {
-                    finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
-                    finstack_core::market_data::primitives::MarketScalar::Price(m) => m.amount(),
+                    finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
+                    finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
                 },
                 Err(_) => 0.0,
             }

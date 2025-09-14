@@ -8,7 +8,7 @@ mod demo_tests {
         dates::Date,
         market_data::{
             interp::InterpStyle,
-            primitives::MarketScalar,
+            scalars::MarketScalar,
             term_structures::{
                 base_correlation::BaseCorrelationCurve,
                 discount_curve::DiscountCurve,

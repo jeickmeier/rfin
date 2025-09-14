@@ -498,7 +498,7 @@ mod tests {
     use finstack_core::market_data::term_structures::{
         discount_curve::DiscountCurve, BaseCorrelationCurve,
     };
-    use finstack_core::market_data::CreditIndexData;
+    use finstack_core::market_data::term_structures::CreditIndexData;
     // use finstack_core::market_data::interp::InterpStyle; // not used in this test module
     use std::sync::Arc;
     use time::Month;
@@ -529,7 +529,7 @@ mod tests {
             .unwrap();
 
         // Create credit index data
-        let index_data = finstack_core::market_data::CreditIndexData::builder()
+        let index_data = CreditIndexData::builder()
             .num_constituents(125)
             .recovery_rate(0.40)
             .index_credit_curve(Arc::new(index_curve))

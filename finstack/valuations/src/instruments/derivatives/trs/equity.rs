@@ -59,8 +59,8 @@ impl EquityTotalReturnSwap {
     fn extract_underlying_data(&self, context: &MarketContext) -> Result<(F, F)> {
         // Get spot price
         let spot = match context.price(&self.underlying.spot_id)? {
-            finstack_core::market_data::primitives::MarketScalar::Unitless(v) => *v,
-            finstack_core::market_data::primitives::MarketScalar::Price(p) => p.amount(),
+            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+            finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
         };
 
         // Get dividend yield if available
@@ -70,8 +70,8 @@ impl EquityTotalReturnSwap {
             .as_ref()
             .and_then(|id| {
                 context.price(id.as_str()).ok().map(|s| match s {
-                    finstack_core::market_data::primitives::MarketScalar::Unitless(v) => *v,
-                    finstack_core::market_data::primitives::MarketScalar::Price(p) => p.amount(),
+                    finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+                    finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
                 })
             })
             .unwrap_or(0.0);

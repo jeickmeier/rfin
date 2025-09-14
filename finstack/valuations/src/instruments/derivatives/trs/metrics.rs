@@ -151,8 +151,8 @@ impl MetricCalculator for IndexDeltaCalculator {
         {
             // For equity TRS, delta is approximately notional / spot
             let spot = match context.curves.price(&equity_trs.underlying.spot_id)? {
-                finstack_core::market_data::primitives::MarketScalar::Unitless(v) => *v,
-                finstack_core::market_data::primitives::MarketScalar::Price(p) => p.amount(),
+                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+                finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
             };
 
             if spot.abs() < 1e-10 {
@@ -183,8 +183,8 @@ impl MetricCalculator for IndexDeltaCalculator {
                 .as_ref()
                 .and_then(|id| {
                     context.curves.price(id.as_str()).ok().map(|s| match s {
-                        finstack_core::market_data::primitives::MarketScalar::Unitless(v) => *v,
-                        finstack_core::market_data::primitives::MarketScalar::Price(p) => {
+                        finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+                        finstack_core::market_data::scalars::MarketScalar::Price(p) => {
                             p.amount()
                         }
                     })

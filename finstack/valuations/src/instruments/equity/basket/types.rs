@@ -244,8 +244,8 @@ impl Basket {
                 // For simple market data lookups when no instrument model exists
                 let scalar = context.price(price_id)?;
                 match scalar {
-                    finstack_core::market_data::primitives::MarketScalar::Price(money) => *money,
-                    finstack_core::market_data::primitives::MarketScalar::Unitless(v) => {
+                    finstack_core::market_data::scalars::MarketScalar::Price(money) => *money,
+                    finstack_core::market_data::scalars::MarketScalar::Unitless(v) => {
                         Money::new(*v, self.currency)
                     }
                 }

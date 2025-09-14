@@ -283,8 +283,8 @@ impl_instrument!(
         if time_to_expiry <= 0.0 {
             let spot_scalar = curves.price(&s.spot_id)?;
             let spot = match spot_scalar {
-                finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
-                finstack_core::market_data::primitives::MarketScalar::Price(money) => {
+                finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
+                finstack_core::market_data::scalars::MarketScalar::Price(money) => {
                     money.amount()
                 }
             };
@@ -301,14 +301,14 @@ impl_instrument!(
         let r = disc_curve.zero(time_to_expiry);
         let spot_scalar = curves.price(&s.spot_id)?;
         let spot = match spot_scalar {
-            finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
-            finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
+            finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
+            finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
         };
         let q = if let Some(div_id) = &s.div_yield_id {
             match curves.price(div_id.as_str()) {
                 Ok(scalar) => match scalar {
-                    finstack_core::market_data::primitives::MarketScalar::Unitless(val) => *val,
-                    finstack_core::market_data::primitives::MarketScalar::Price(_) => 0.0,
+                    finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
+                    finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
                 },
                 Err(_) => 0.0,
             }

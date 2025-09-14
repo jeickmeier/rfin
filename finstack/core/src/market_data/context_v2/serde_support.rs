@@ -12,9 +12,9 @@ use alloc::{sync::Arc, string::String, vec::Vec};
 use super::core::MarketContext;
 #[cfg(feature = "serde")]
 use crate::market_data::{
-    credit_index::CreditIndexData,
-    inflation_index::{InflationIndexState as InflationIndexData},
-    primitives::{MarketScalar, ScalarTimeSeries, ScalarTimeSeriesState},
+    scalars::inflation_index::{InflationIndexState as InflationIndexData},
+    term_structures::credit_index::CreditIndexData,
+    scalars::{MarketScalar, ScalarTimeSeries, ScalarTimeSeriesState},
     storage::CurveState,
     surfaces::vol_surface::{VolSurface, VolSurfaceState},
     term_structures::hazard_curve::HazardCurveState,
@@ -227,7 +227,7 @@ impl MarketContext {
 
         // Reconstruct inflation indices
         for (id, index_data) in data.inflation_indices {
-            let builder = crate::market_data::inflation_index::InflationIndexBuilder::new(
+            let builder = crate::market_data::scalars::inflation_index::InflationIndexBuilder::new(
                 &index_data.id,
                 index_data.currency,
             )

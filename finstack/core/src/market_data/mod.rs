@@ -49,15 +49,10 @@ pub mod context;
 pub mod storage;  
 /// Modern MarketContext with enum-based storage (recommended).
 pub mod context_v2;
-/// Credit index aggregates for CDS tranche pricing and credit derivatives.
-pub mod credit_index;
-// Identifiers are now defined in `crate::types` (see `types::CurveId`).
-/// Inflation index data (CPI/RPI) using Polars DataFrames.
-pub mod inflation_index;
 /// Interpolation framework and concrete algorithms (re-exported from `math::interp`).
 pub use crate::math::interp;
-/// Generic market primitives: scalars and time series
-pub mod primitives;
+/// Scalar market data types and time series (including primitives)
+pub mod scalars;
 /// Two-dimensional surfaces (e.g. volatility).
 pub mod surfaces;
 /// One-dimensional term structures (yield, credit, ...).
@@ -76,8 +71,6 @@ pub use surfaces::vol_surface::VolSurface;
 // Re-export legacy MarketContext for backward compatibility
 pub use context::MarketContext;
 // For new development, use: context_v2::MarketContext (enum-based, faster, complete serialization)
-// Re-export credit index types for ergonomic access.
-pub use credit_index::*;
 
 /// Numeric precision alias re-exported from the surrounding crate so that
 /// downstream code can simply `use finstack_core::market_data::F`.

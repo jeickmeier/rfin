@@ -31,8 +31,8 @@ impl MetricCalculator for VegaCalculator {
         // Try to get current implied vol
         let current_vol = if let Ok(scalar) = context.curves.price(format!("{}_IMPL_VOL", swap.underlying_id)) {
             match scalar {
-                finstack_core::market_data::primitives::MarketScalar::Unitless(vol) => *vol,
-                finstack_core::market_data::primitives::MarketScalar::Price(price) => price.amount(),
+                finstack_core::market_data::scalars::MarketScalar::Unitless(vol) => *vol,
+                finstack_core::market_data::scalars::MarketScalar::Price(price) => price.amount(),
             }
         } else {
             // Use strike vol as approximation
@@ -105,8 +105,8 @@ impl MetricCalculator for ExpectedVarianceCalculator {
             // Use forward variance (implied)
             if let Ok(scalar) = context.curves.price(format!("{}_IMPL_VOL", swap.underlying_id)) {
                 let vol = match scalar {
-                    finstack_core::market_data::primitives::MarketScalar::Unitless(v) => *v,
-                    finstack_core::market_data::primitives::MarketScalar::Price(p) => p.amount(),
+                    finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+                    finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
                 };
                 return Ok(vol * vol);
             }
@@ -118,8 +118,8 @@ impl MetricCalculator for ExpectedVarianceCalculator {
         let realized = swap.strike_variance * 0.95;
         let forward = if let Ok(scalar) = context.curves.price(format!("{}_IMPL_VOL", swap.underlying_id)) {
             let vol = match scalar {
-                finstack_core::market_data::primitives::MarketScalar::Unitless(v) => *v,
-                finstack_core::market_data::primitives::MarketScalar::Price(p) => p.amount(),
+                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+                finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
             };
             vol * vol
         } else {

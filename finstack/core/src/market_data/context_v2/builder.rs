@@ -8,9 +8,9 @@ use alloc::{string::String, vec::Vec};
 
 use super::core::MarketContext;
 use crate::market_data::{
-    credit_index::CreditIndexData,
-    inflation_index::InflationIndex,
-    primitives::{MarketScalar, ScalarTimeSeries},
+    scalars::inflation_index::InflationIndex,
+    term_structures::credit_index::CreditIndexData,
+    scalars::{MarketScalar, ScalarTimeSeries},
     surfaces::vol_surface::VolSurface,
     term_structures::{
         base_correlation::BaseCorrelationCurve,

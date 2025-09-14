@@ -225,7 +225,7 @@ mod tests {
     use super::*;
     use crate::instruments::fixed_income::repo::{CollateralSpec, Repo};
     use finstack_core::market_data::MarketContext;
-    use finstack_core::market_data::primitives::MarketScalar;
+    use finstack_core::market_data::scalars::MarketScalar;
     use finstack_core::currency::Currency;
     use time::Month;
 

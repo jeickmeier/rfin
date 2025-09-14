@@ -73,8 +73,8 @@ impl MetricCalculator for ParityCalculator {
 
         let spot_price = context.curves.price(underlying_id)?;
         let spot = match spot_price {
-            finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
-            finstack_core::market_data::primitives::MarketScalar::Unitless(value) => *value,
+            finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
+            finstack_core::market_data::scalars::MarketScalar::Unitless(value) => *value,
         };
 
         Ok(calculate_parity(bond, spot))
@@ -99,8 +99,8 @@ impl MetricCalculator for ConversionPremiumCalculator {
 
         let spot_price = context.curves.price(underlying_id)?;
         let spot = match spot_price {
-            finstack_core::market_data::primitives::MarketScalar::Price(money) => money.amount(),
-            finstack_core::market_data::primitives::MarketScalar::Unitless(value) => *value,
+            finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
+            finstack_core::market_data::scalars::MarketScalar::Unitless(value) => *value,
         };
 
         // Get conversion ratio

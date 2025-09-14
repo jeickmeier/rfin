@@ -9,7 +9,7 @@ use crate::instruments::fixed_income::inflation_swap::{InflationSwap, PayReceive
 use crate::instruments::traits::Priceable;
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::inflation_index::{InflationInterpolation, InflationLag};
+use finstack_core::market_data::scalars::inflation_index::{InflationInterpolation, InflationLag};
 use finstack_core::market_data::interp::InterpStyle;
 use finstack_core::market_data::term_structures::inflation::InflationCurve;
 use finstack_core::math::Solver;
@@ -387,7 +387,7 @@ mod tests {
     use crate::instruments::fixed_income::inflation_swap::PayReceiveInflation;
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
-    use finstack_core::market_data::inflation_index::InflationIndex;
+    use finstack_core::market_data::scalars::inflation_index::InflationIndex;
     use time::Month;
 
     fn create_test_inflation_quotes() -> Vec<InflationQuote> {
@@ -519,7 +519,7 @@ mod tests {
             .insert_discount(disc_curve)
             .insert_price(
                 "US-CPI-U-BASE_CPI",
-                finstack_core::market_data::primitives::MarketScalar::Unitless(base_cpi),
+                finstack_core::market_data::scalars::MarketScalar::Unitless(base_cpi),
             );
 
         // Calibrate inflation curve (base_cpi will be sourced from context in production)

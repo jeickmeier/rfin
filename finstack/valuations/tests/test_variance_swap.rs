@@ -32,8 +32,8 @@ fn create_test_market_context() -> MarketContext {
     
     MarketContext::new()
         .insert_discount(disc_curve)
-        .insert_price("SPX", finstack_core::market_data::primitives::MarketScalar::Unitless(5000.0))
-        .insert_price("SPX_IMPL_VOL", finstack_core::market_data::primitives::MarketScalar::Unitless(0.20))
+        .insert_price("SPX", finstack_core::market_data::scalars::MarketScalar::Unitless(5000.0))
+        .insert_price("SPX_IMPL_VOL", finstack_core::market_data::scalars::MarketScalar::Unitless(0.20))
 }
 
 #[test]

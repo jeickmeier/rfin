@@ -256,7 +256,7 @@ fn extract_equity_state(
     // Get spot price
     let spot_price = ctx.price(underlying_id)?;
     let spot = match spot_price {
-        finstack_core::market_data::primitives::MarketScalar::Price(money) => {
+        finstack_core::market_data::scalars::MarketScalar::Price(money) => {
             // Enforce currency safety
             if money.currency() != expected_currency {
                 return Err(Error::Internal);
@@ -264,13 +264,13 @@ fn extract_equity_state(
             // For currency safety, we extract the amount but currency checks should be done by caller
             money.amount()
         }
-        finstack_core::market_data::primitives::MarketScalar::Unitless(value) => *value,
+        finstack_core::market_data::scalars::MarketScalar::Unitless(value) => *value,
     };
 
     // Get volatility (must be unitless)
     let vol_id = format!("{}-VOL", underlying_id);
     let volatility = match ctx.price(&vol_id)? {
-        finstack_core::market_data::primitives::MarketScalar::Unitless(vol) => *vol,
+        finstack_core::market_data::scalars::MarketScalar::Unitless(vol) => *vol,
         _ => return Err(Error::Internal),
     };
 
@@ -279,7 +279,7 @@ fn extract_equity_state(
     let dividend_yield = ctx
         .price(&div_yield_id)
         .map(|scalar| match scalar {
-            finstack_core::market_data::primitives::MarketScalar::Unitless(yield_val) => *yield_val,
+            finstack_core::market_data::scalars::MarketScalar::Unitless(yield_val) => *yield_val,
             _ => 0.0,
         })
         .unwrap_or(0.0);
@@ -481,7 +481,7 @@ mod tests {
     };
     use finstack_core::currency::Currency;
     use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
-    use finstack_core::market_data::primitives::MarketScalar;
+    use finstack_core::market_data::scalars::MarketScalar;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use time::Month;
 

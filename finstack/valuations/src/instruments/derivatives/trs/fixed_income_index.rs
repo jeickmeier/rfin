@@ -64,8 +64,8 @@ impl FIIndexTotalReturnSwap {
             .as_ref()
             .and_then(|id| {
                 context.price(id.as_str()).ok().map(|s| match s {
-                    finstack_core::market_data::primitives::MarketScalar::Unitless(v) => *v,
-                    finstack_core::market_data::primitives::MarketScalar::Price(p) => p.amount(),
+                    finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+                    finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
                 })
             })
             .unwrap_or(0.0);
@@ -77,8 +77,8 @@ impl FIIndexTotalReturnSwap {
             .as_ref()
             .and_then(|id| {
                 context.price(id.as_str()).ok().map(|s| match s {
-                    finstack_core::market_data::primitives::MarketScalar::Unitless(v) => *v,
-                    finstack_core::market_data::primitives::MarketScalar::Price(p) => p.amount(),
+                    finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+                    finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
                 })
             })
             .unwrap_or(0.0);

@@ -3,7 +3,7 @@
 //! Aggregates market data components required for pricing instruments on a
 //! standardized credit index (e.g., CDX.NA.IG.42, iTraxx Europe).
 
-use crate::market_data::term_structures::{hazard_curve::HazardCurve, BaseCorrelationCurve};
+use super::{hazard_curve::HazardCurve, BaseCorrelationCurve};
 use crate::prelude::*;
 use crate::F;
 use std::collections::HashMap;

@@ -40,7 +40,7 @@ use crate::cashflow::builder::schedule_utils::build_dates;
 use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_core::dates::{Date, StubKind};
 use finstack_core::market_data::traits::Discount;
-use finstack_core::market_data::{CreditIndexData, MarketContext};
+use finstack_core::market_data::{term_structures::CreditIndexData, MarketContext};
 use finstack_core::math::binomial_probability;
 use finstack_core::math::{
     norm_cdf as standard_normal_cdf, standard_normal_inv_cdf, GaussHermiteQuadrature,
@@ -840,7 +840,7 @@ mod tests {
     use finstack_core::market_data::term_structures::{
         hazard_curve::HazardCurve, BaseCorrelationCurve,
     };
-    use finstack_core::market_data::CreditIndexData;
+    use finstack_core::market_data::term_structures::CreditIndexData;
     use finstack_core::money::Money;
     use std::sync::Arc;
     use time::Month;

@@ -182,8 +182,8 @@ impl VarianceSwap {
         // For now, return a placeholder
         if let Ok(scalar) = context.price(&self.underlying_id) {
             let spot = match scalar {
-                finstack_core::market_data::primitives::MarketScalar::Unitless(v) => *v,
-                finstack_core::market_data::primitives::MarketScalar::Price(p) => p.amount(),
+                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+                finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
             };
             Ok(vec![spot])
         } else {
@@ -215,8 +215,8 @@ impl VarianceSwap {
         // Try to get implied vol from market data
         if let Ok(scalar) = context.price(format!("{}_IMPL_VOL", self.underlying_id)) {
             let vol = match scalar {
-                finstack_core::market_data::primitives::MarketScalar::Unitless(v) => *v,
-                finstack_core::market_data::primitives::MarketScalar::Price(p) => p.amount(),
+                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+                finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
             };
             Ok(vol * vol) // Variance = volatility squared
         } else {

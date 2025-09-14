@@ -635,8 +635,8 @@ impl SimpleCalibration {
         let key = format!("{}-BASE_CPI", index);
         if let Ok(scalar) = context.price(&key) {
             return match scalar {
-                finstack_core::market_data::primitives::MarketScalar::Unitless(v) => Some(*v),
-                finstack_core::market_data::primitives::MarketScalar::Price(m) => Some(m.amount()),
+                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
+                finstack_core::market_data::scalars::MarketScalar::Price(m) => Some(m.amount()),
             };
         }
 

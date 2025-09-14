@@ -6,7 +6,7 @@ use pyo3::types::PyList;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::PyDate;
 use crate::core::money::PyMoney;
-use finstack_core::market_data::primitives::{
+use finstack_core::market_data::scalars::{
     MarketScalar as CoreMarketScalar, ScalarTimeSeries as CoreSeries,
     SeriesInterpolation as CoreInterp,
 };

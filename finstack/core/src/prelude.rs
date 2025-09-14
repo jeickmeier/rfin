@@ -24,11 +24,11 @@ pub use crate::types::{
 // Expression engine - only re-export public items
 pub use crate::expr::CompiledExpr;
 pub use crate::market_data::{
-    inflation_index::{
+    scalars::inflation_index::{
         InflationIndex, InflationIndexBuilder, InflationInterpolation, InflationLag,
     },
     interp::{InterpFn, InterpStyle},
-    primitives::{MarketScalar, ScalarTimeSeries, SeriesInterpolation},
+    scalars::{MarketScalar, ScalarTimeSeries, SeriesInterpolation},
     traits::{Discount, Forward, Inflation as InflationTs, Surface, Survival, TermStructure},
     MarketContext,
 };

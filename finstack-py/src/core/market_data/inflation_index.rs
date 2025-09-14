@@ -2,7 +2,7 @@
 
 use crate::core::currency::PyCurrency;
 use crate::core::dates::PyDate;
-use finstack_core::market_data::inflation_index::{
+use finstack_core::market_data::scalars::inflation_index::{
     InflationIndex as CoreInflationIndex, InflationIndexBuilder as CoreBuilder,
     InflationInterpolation as CoreInterpolation, InflationLag as CoreLag,
 };
