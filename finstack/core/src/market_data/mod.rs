@@ -49,8 +49,7 @@ pub mod context;
 pub mod bumps;
 /// Enum-based storage system for market data.
 pub mod storage;  
-/// Builder utilities for MarketContext.
-pub mod builder;
+// (Removed) MarketContextBuilder eliminated in favor of fluent insert_* API on MarketContext
 // TODO: Serialization support needs to be reimplemented for the new enum-based architecture
 // #[cfg(feature = "serde")]
 // pub mod serde_support;

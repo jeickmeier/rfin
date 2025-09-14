@@ -409,7 +409,7 @@ finstack-market-data/
 └── src/
     ├── lib.rs
     ├── context.rs                 # MarketContext (immutable)
-    ├── builder.rs                 # MarketContextBuilder
+    ├── (no builder; use MarketContext::new().insert_*)
     ├── traits.rs                  # Discount, Forward, Hazard, Inflation, ...
     ├── primitives.rs              # MarketScalar, ScalarTimeSeries
     ├── term_structures/
@@ -475,33 +475,15 @@ pub struct MarketContext {
 }
 ```
 
-### Builder & Bumping
+### Context Construction & Bumping
 
 ```rust
-pub struct MarketContextBuilder { /* partial maps + defaults */ }
-impl MarketContextBuilder {
-    pub fn new(as_of: Date) -> Self { /* ... */ }
-    pub fn with_discount<T: Discount + Send + Sync + 'static>(self, id: CurveId, c: T) -> Self { /* ... */ }
-    pub fn with_forward<T: Forward  + Send + Sync + 'static>(self, id: CurveId, c: T) -> Self { /* ... */ }
-    pub fn with_hazard(self, id: CurveId, c: HazardCurve) -> Self { /* ... */ }
-    pub fn with_base_correlation(self, id: CurveId, bc: BaseCorrelationCurve) -> Self { /* ... */ }
-    pub fn with_vol_surface(self, id: SurfaceId, s: VolSurface) -> Self { /* ... */ }
-    pub fn with_credit_vol_surface(self, id: SurfaceId, s: CreditVolSurface) -> Self { /* ... */ }
-    pub fn with_index_credit(self, id: CreditIndexId, idx: CreditIndexData) -> Self { /* ... */ }
-    pub fn with_scalar(self, id: ScalarId, s: MarketScalar) -> Self { /* ... */ }
-    pub fn with_series(self, id: SeriesId, s: ScalarTimeSeries) -> Self { /* ... */ }
-    pub fn with_collateral_map(self, csa: &'static str, disc_id: CurveId) -> Self { /* ... */ }
-    pub fn build(self) -> MarketContext { /* validate + freeze */ }
-}
-
-pub enum BumpSpec {
-    ParallelBps(i32),      // curves
-    SpreadBps(i32),        // credit curves
-    Multiplier(F),         // prices/vols
-    InflationPct(F),
-    CorrelationBps(i32),   // base correlation
-    CreditVolPct(F),       // credit option vol
-}
+// Build using fluent insert_* API (no builder)
+let ctx = MarketContext::new()
+    .insert_discount(disc_curve)
+    .insert_forward(fwd_curve)
+    .insert_hazard(hazard_curve)
+    .insert_fx(fx_matrix);
 ```
 
 > **Calendars:** When schedule logic is required inside market-data utilities, they resolve calendars via `finstack_core::dates::CalendarRegistry` (no local calendar impl).
@@ -703,7 +685,7 @@ impl Default for CalibrationConfig {
 * For **hazard**: support bootstraps from **CdsQuote** (single-name) and **CdsIndexQuote** (index par spreads).
 * For **base correlation**: fit to **CdsTrancheQuote** set.
 * For **credit option vol**: fit to **CreditOptionQuote** set (Black on spread).
-* Reports return residuals/iterations/timings; artifacts returned for insertion into `MarketContextBuilder`.
+* Reports return residuals/iterations/timings; artifacts returned for insertion into `MarketContext` via `insert_*`.
 
 ---
 
@@ -729,7 +711,7 @@ impl Default for CalibrationConfig {
 **Phase 2 — Market Data**
 5\. Add `finstack-market-data`; extract curves/surfaces/indices; **no calendars here**.
 6\. Add **base correlation** & **credit option vol** surfaces.
-7\. Implement `MarketContextBuilder`, bumping, forward utils.
+7\. Implement fluent `insert_*` on `MarketContext`, bumping, forward utils.
 8\. In `finstack-core`, `pub use finstack_market_data::MarketContext as LegacyMarketContext` for one release.
 
 **Phase 3 — Pricing**
@@ -800,11 +782,11 @@ let bond = BondBuilder::new(InstrumentId::from_static("BOND_1"))
 use finstack_core::prelude::*;
 use finstack_instruments::fixed_income::cds_index::{CdsIndex, CdsConstituent};
 use finstack_instruments::fixed_income::tranche::CdsTranche;
-use finstack_market_data::MarketContextBuilder;
+use finstack_market_data::MarketContext;
 use finstack_pricing::PricingRegistry;
 
 // Build market context (disc/hazard/base corr/vol surfaces omitted)
-let ctx = MarketContextBuilder::new(date(2025,3,20)).build();
+let ctx = MarketContext::new();
 
 let idx = CdsIndex {
     id: InstrumentId::from_static("CDX_IG_5Y"),
