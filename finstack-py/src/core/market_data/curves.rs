@@ -258,7 +258,7 @@ impl PyDiscountCurve {
                 "t2 must be greater than t1",
             ));
         }
-        Ok(Discount::fwd(&*self.inner, t1, t2))
+        Ok(Discount::forward(&*self.inner, t1, t2))
     }
 
     /// Get discount factors for multiple time points.

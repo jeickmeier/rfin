@@ -22,7 +22,6 @@
 //! assert!(curve.df(3.0) < 1.0);
 //! ```
 
-extern crate alloc;
 
 use super::common::{build_interp_curve_error, split_points, OneDGrid};
 use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
@@ -33,7 +32,6 @@ use crate::{
     types::CurveId,
     F,
 };
-use alloc::{boxed::Box, vec::Vec};
 
 /// Piece-wise discount factor curve supporting several interpolation styles.
 #[derive(Debug)]

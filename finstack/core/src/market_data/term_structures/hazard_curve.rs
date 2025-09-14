@@ -14,8 +14,6 @@
 //! assert!(hc.sp(5.0) < 1.0);
 //! ```
 
-extern crate alloc;
-use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
     currency::Currency,
@@ -105,8 +103,8 @@ impl HazardCurve {
         if t <= 0.0 {
             return 1.0;
         }
-        let mut accum = 0.0;
-        let mut prev = 0.0;
+        let mut accum: F = 0.0;
+        let mut prev: F = 0.0;
         for (i, &k) in self.knots.iter().enumerate() {
             let dt = if t <= k { t - prev } else { k - prev };
             accum += self.lambdas[i] * dt;

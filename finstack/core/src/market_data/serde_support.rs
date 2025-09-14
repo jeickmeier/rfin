@@ -6,7 +6,6 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-extern crate alloc;
 use alloc::{sync::Arc, string::String, vec::Vec};
 
 use super::context::MarketContext;
@@ -310,7 +309,7 @@ mod serde_tests {
     use crate::market_data::term_structures::base_correlation::BaseCorrelationCurve;
 
     fn create_test_context() -> MarketContext {
-        let disc_curve = crate::market_data::term_structures::discount_curve::DiscountCurve::builder("USD-OIS")
+        let discount_curve = crate::market_data::term_structures::discount_curve::DiscountCurve::builder("USD-OIS")
             .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.95)])
             .build()
@@ -329,7 +328,7 @@ mod serde_tests {
             .unwrap();
 
         MarketContext::new()
-            .insert_discount(disc_curve)
+            .insert_discount(discount_curve)
             .insert_hazard(hazard_curve)
             .insert_base_correlation(base_corr)
             .insert_price("SPOT_GOLD", MarketScalar::Unitless(2000.0))

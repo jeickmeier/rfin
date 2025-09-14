@@ -18,8 +18,6 @@
 //! assert!(fc.rate(1.0) > 0.0);
 //! ```
 
-extern crate alloc;
-use alloc::{boxed::Box, vec::Vec};
 
 use super::common::{build_interp, split_points, OneDGrid};
 use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
@@ -46,7 +44,7 @@ pub struct ForwardCurve {
     /// Knot times in **years** (strictly increasing, first may be 0.0).
     knots: Box<[F]>,
     /// Simple forward rates (e.g. 0.025 = 2.5 %).
-    fwds: Box<[F]>,
+    forwards: Box<[F]>,
     interp: Interp,
 }
 
@@ -119,8 +117,8 @@ impl ForwardCurve {
 
     /// Raw simple forward rates at each knot.
     #[inline]
-    pub fn fwds(&self) -> &[F] {
-        &self.fwds
+    pub fn forwards(&self) -> &[F] {
+        &self.forwards
     }
 
     /// Curve identifier.
@@ -140,7 +138,7 @@ impl ForwardCurve {
         let knot_points: Vec<(F, F)> = self
             .knots
             .iter()
-            .zip(self.fwds.iter())
+            .zip(self.forwards.iter())
             .map(|(&t, &fwd)| (t, fwd))
             .collect();
 
@@ -218,8 +216,8 @@ impl ForwardCurveBuilder {
         let (kvec, fvec): (Vec<F>, Vec<F>) = split_points(self.points);
         crate::math::interp::utils::validate_knots(&kvec)?;
         let knots = kvec.into_boxed_slice();
-        let fwds = fvec.into_boxed_slice();
-        let grid = OneDGrid::new(knots.clone(), fwds.clone());
+        let forwards = fvec.into_boxed_slice();
+        let grid = OneDGrid::new(knots.clone(), forwards.clone());
         let interp = build_interp(self.style, &grid, ExtrapolationPolicy::default())?;
         Ok(ForwardCurve {
             id: self.id,
@@ -228,7 +226,7 @@ impl ForwardCurveBuilder {
             day_count: self.day_count,
             tenor: self.tenor,
             knots,
-            fwds,
+            forwards,
             interp,
         })
     }
@@ -285,7 +283,7 @@ impl<'de> serde::Deserialize<'de> for ForwardCurve {
 mod tests {
     use super::*;
 
-    fn sample_fwd() -> ForwardCurve {
+    fn sample_forward() -> ForwardCurve {
         ForwardCurve::builder("USD-LIB3M", 0.25)
             .knots([(0.0, 0.03), (1.0, 0.04)])
             .build()
@@ -294,7 +292,7 @@ mod tests {
 
     #[test]
     fn interpolates_rate() {
-        let fc = sample_fwd();
+        let fc = sample_forward();
         assert!((fc.rate(0.5) - 0.035).abs() < 1e-12);
     }
 }

@@ -3,7 +3,6 @@
 use crate::dates::Date;
 use crate::types::CurveId;
 use crate::F;
-extern crate alloc;
 #[cfg(all(feature = "parallel", not(feature = "deterministic")))]
 use rayon::prelude::*;
 
@@ -42,8 +41,8 @@ pub trait Discount: TermStructure {
 
     /// Simple forward rate between `t1` and `t2`.
     #[inline]
-    fn fwd(&self, t1: F, t2: F) -> F {
-        debug_assert!(t2 > t1, "fwd requires t2 > t1");
+    fn forward(&self, t1: F, t2: F) -> F {
+        debug_assert!(t2 > t1, "forward requires t2 > t1");
         let z1 = self.zero(t1) * t1;
         let z2 = self.zero(t2) * t2;
         (z1 - z2) / (t2 - t1)
@@ -52,7 +51,7 @@ pub trait Discount: TermStructure {
     /// Batch evaluation helper (parallel over `times` slice when compiled
     /// with the `parallel` feature).
     #[cfg_attr(docsrs, doc(cfg(feature = "parallel")))]
-    fn df_batch(&self, times: &[F]) -> alloc::vec::Vec<F>
+    fn df_batch(&self, times: &[F]) -> Vec<F>
     where
         Self: Sync,
     {
@@ -159,10 +158,10 @@ mod tests {
     }
 
     #[test]
-    fn fwd_rate_matches_difference() {
+    fn forward_rate_matches_difference() {
         let c = FlatCurve::new("TEST", 0.95);
         let (t1, t2) = (1.0, 3.0);
-        let fwd = c.fwd(t1, t2);
-        assert!(fwd.abs() < 1e-12);
+        let forward = c.forward(t1, t2);
+        assert!(forward.abs() < 1e-12);
     }
 }

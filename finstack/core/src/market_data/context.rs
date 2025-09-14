@@ -7,8 +7,7 @@
 //! The container is intentionally minimal and cloning it is cheap because it
 //! stores `Arc` references and small maps.
 
-extern crate alloc;
-use alloc::sync::Arc;
+use std::sync::Arc;
 use hashbrown::HashMap;
 
 use crate::money::fx::FxMatrix;
@@ -54,23 +53,9 @@ pub enum CurveStorage {
     BaseCorrelation(Arc<BaseCorrelationCurve>),
 }
 
-impl CurveStorage {
-    /// Get the type name for statistics
-    pub fn type_name(&self) -> &'static str {
-        match self {
-            CurveStorage::Discount(_) => "Discount",
-            CurveStorage::Forward(_) => "Forward",
-            CurveStorage::Hazard(_) => "Hazard",
-            CurveStorage::Inflation(_) => "Inflation",
-            CurveStorage::BaseCorrelation(_) => "BaseCorrelation",
-        }
-    }
-}
-
 // Extended API (moved from storage::curve_storage)
 impl CurveStorage {
     /// Get the curve's unique identifier
-    #[inline]
     pub fn id(&self) -> &CurveId {
         match self {
             Self::Discount(c) => c.id(),
@@ -169,7 +154,6 @@ impl CurveStorage {
 }
 
 impl TermStructure for CurveStorage {
-    #[inline]
     fn id(&self) -> &CurveId { self.id() }
 }
 
@@ -219,7 +203,7 @@ pub struct InflationCurveData {
     /// Base CPI level
     pub base_cpi: crate::F,
     /// Time/CPI level pairs
-    pub knot_points: alloc::vec::Vec<(crate::F, crate::F)>,
+    pub knot_points: Vec<(crate::F, crate::F)>,
     /// Interpolation style
     pub interp_style: crate::market_data::interp::InterpStyle,
 }
@@ -233,7 +217,7 @@ impl CurveStorage {
             Self::Forward(curve) => CurveState::Forward(curve.to_state()),
             Self::Hazard(curve) => CurveState::Hazard(curve.to_state()),
             Self::Inflation(curve) => {
-                let knot_points: alloc::vec::Vec<(crate::F, crate::F)> = curve
+                let knot_points: Vec<(crate::F, crate::F)> = curve
                     .knots()
                     .iter()
                     .zip(curve.cpi_levels().iter())
@@ -253,7 +237,7 @@ impl CurveStorage {
 
     /// Reconstruct from serializable state
     pub fn from_state(state: CurveState) -> crate::Result<Self> {
-        use alloc::sync::Arc;
+        use std::sync::Arc;
         use crate::market_data::term_structures::{
             discount_curve::DiscountCurve,
             forward_curve::ForwardCurve,
@@ -417,8 +401,8 @@ impl MarketContext {
     }
 
     /// Map collateral CSA code to discount curve ID
-    pub fn map_collateral(mut self, csa_code: impl Into<String>, disc_id: CurveId) -> Self {
-        self.collateral.insert(csa_code.into(), disc_id);
+    pub fn map_collateral(mut self, csa_code: impl Into<String>, discount_id: CurveId) -> Self {
+        self.collateral.insert(csa_code.into(), discount_id);
         self
     }
 
@@ -593,14 +577,14 @@ impl MarketContext {
     /// Filter curves by type
     pub fn curves_of_type<'a>(&'a self, curve_type: &'a str) -> impl Iterator<Item = (&'a CurveId, &'a CurveStorage)> + 'a {
         self.curves.iter()
-            .filter(move |(_, storage)| storage.type_name() == curve_type)
+            .filter(move |(_, storage)| storage.curve_type() == curve_type)
     }
 
     /// Count curves by type
     pub fn count_by_type(&self) -> HashMap<&'static str, usize> {
         let mut counts = HashMap::new();
         for storage in self.curves.values() {
-            *counts.entry(storage.type_name()).or_insert(0) += 1;
+            *counts.entry(storage.curve_type()).or_insert(0) += 1;
         }
         counts
     }
@@ -699,7 +683,7 @@ impl MarketContext {
                     let base_date = original.base_date();
                     let bumped_rates: Vec<(F, F)> = original.knots()
                         .iter()
-                        .zip(original.fwds().iter())
+                        .zip(original.forwards().iter())
                         .map(|(&t, &rate)| {
                             // Simple additive bump for forward rates
                             (t, rate + bump_rate)
@@ -761,8 +745,8 @@ impl MarketContext {
             .unwrap_or(0.0);
 
         // Get risk-free rate from discount curve
-        let disc_curve_id = format!("{}-OIS", base_currency);
-        let discount_curve = self.discount(&disc_curve_id)?;
+        let discount_curve_id = format!("{}-OIS", base_currency);
+        let discount_curve = self.discount(&discount_curve_id)?;
 
         Ok(Box::new(move |t: F| -> F {
             let risk_free_rate = discount_curve.zero(t);
@@ -788,10 +772,10 @@ impl MarketContext {
         };
 
         // Get domestic and foreign discount curves
-        let dom_disc_id = format!("{}-OIS", domestic_ccy);
-        let for_disc_id = format!("{}-OIS", foreign_ccy);
-        let dom_curve = self.discount(&dom_disc_id)?;
-        let for_curve = self.discount(&for_disc_id)?;
+        let dom_discount_id = format!("{}-OIS", domestic_ccy);
+        let for_discount_id = format!("{}-OIS", foreign_ccy);
+        let dom_curve = self.discount(&dom_discount_id)?;
+        let for_curve = self.discount(&for_discount_id)?;
 
         Ok(Box::new(move |t: F| -> F {
             let domestic_rate = dom_curve.zero(t);

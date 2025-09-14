@@ -9,11 +9,10 @@
 //! - `FxProvider` trait for on-demand quotes
 //! - `FxMatrix` offering `rate(FxQuery)` for consumers and `MarketContext`
 
-extern crate alloc;
 
 use crate::currency::Currency;
 use crate::dates::Date;
-use alloc::sync::Arc;
+use std::sync::Arc;
 use hashbrown::HashMap;
 use parking_lot::Mutex;
 // no duration needed in the simplified config

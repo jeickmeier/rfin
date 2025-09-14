@@ -191,7 +191,7 @@ mod tests {
         assert_eq!(original.day_count(), deserialized.day_count());
         assert_eq!(original.tenor(), deserialized.tenor());
         assert_eq!(original.knots(), deserialized.knots());
-        assert_eq!(original.fwds(), deserialized.fwds());
+        assert_eq!(original.forwards(), deserialized.forwards());
 
         // Test rate interpolation
         for t in [0.0, 0.1, 0.25, 0.4, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0] {

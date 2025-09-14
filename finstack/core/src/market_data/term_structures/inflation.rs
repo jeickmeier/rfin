@@ -18,8 +18,6 @@
 //! assert!(ic.inflation_rate(0.0, 5.0) > 0.0);
 //! ```
 
-extern crate alloc;
-use alloc::{boxed::Box, vec::Vec};
 
 use super::common::{build_interp, split_points, OneDGrid};
 use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};

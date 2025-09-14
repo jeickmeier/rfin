@@ -1,8 +1,6 @@
 //! Interpolation types, enums, and factory.
 
-extern crate alloc;
 
-use alloc::boxed::Box;
 
 use crate::F;
 
