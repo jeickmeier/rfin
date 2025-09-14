@@ -357,7 +357,8 @@ impl MetricCalculator for ThetaCalculator {
         if let Some(disc_id) = context.discount_curve_id.clone() {
             if let Ok(original_disc) = original_curves.disc(disc_id.as_str()) {
                 let aged_disc = AgedDiscountCurve::new(original_disc, shifted_date, day_count)?;
-                aged_context = aged_context.insert_discount(aged_disc);
+                let concrete_aged_disc = self.convert_aged_discount_curve_to_concrete(aged_disc)?;
+                aged_context = aged_context.insert_discount(concrete_aged_disc);
             }
         }
 
@@ -368,7 +369,8 @@ impl MetricCalculator for ThetaCalculator {
         for &curve_id in &common_disc_ids {
             if let Ok(original_disc) = original_curves.disc(curve_id) {
                 let aged_disc = AgedDiscountCurve::new(original_disc, shifted_date, day_count)?;
-                aged_context = aged_context.insert_discount(aged_disc);
+                let concrete_aged_disc = self.convert_aged_discount_curve_to_concrete(aged_disc)?;
+                aged_context = aged_context.insert_discount(concrete_aged_disc);
             }
         }
 
@@ -380,7 +382,8 @@ impl MetricCalculator for ThetaCalculator {
                     finstack_core::dates::DayCountCtx::default(),
                 )?;
                 let aged_fwd = AgedForwardCurve::new(original_fwd, dt);
-                aged_context = aged_context.insert_forward(aged_fwd);
+                let concrete_aged_fwd = self.convert_aged_forward_curve_to_concrete(aged_fwd)?;
+                aged_context = aged_context.insert_forward(concrete_aged_fwd);
             }
         }
 
@@ -403,6 +406,53 @@ impl MetricCalculator for ThetaCalculator {
 
     fn dependencies(&self) -> &[MetricId] {
         &[]
+    }
+}
+
+impl ThetaCalculator {
+    /// Convert an aged discount curve to a concrete DiscountCurve by sampling
+    fn convert_aged_discount_curve_to_concrete(
+        &self,
+        aged_curve: AgedDiscountCurve,
+    ) -> finstack_core::Result<finstack_core::market_data::term_structures::DiscountCurve> {
+        use finstack_core::market_data::term_structures::DiscountCurve;
+        
+        // Sample the aged curve at standard tenor points
+        let standard_times = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0, 30.0];
+        let dfs: Vec<(finstack_core::F, finstack_core::F)> = standard_times
+            .iter()
+            .map(|&t| (t, aged_curve.df(t)))
+            .collect();
+
+        // Create a new concrete curve with the aged base date and sampled discount factors
+        DiscountCurve::builder(aged_curve.id().as_str())
+            .base_date(aged_curve.base_date())
+            .knots(dfs)
+            .build()
+            .map_err(|_| finstack_core::error::InputError::Invalid.into())
+    }
+
+    /// Convert an aged forward curve to a concrete ForwardCurve by sampling
+    fn convert_aged_forward_curve_to_concrete(
+        &self,
+        aged_curve: AgedForwardCurve,
+    ) -> finstack_core::Result<finstack_core::market_data::term_structures::ForwardCurve> {
+        use finstack_core::market_data::term_structures::ForwardCurve;
+        
+        // Sample the aged curve at standard tenor points  
+        let standard_times = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0, 30.0];
+        let rates: Vec<(finstack_core::F, finstack_core::F)> = standard_times
+            .iter()
+            .map(|&t| (t, aged_curve.rate(t)))
+            .collect();
+
+        // Use standard 3M tenor and base date for forward curves (this is a limitation)
+        let base_date = finstack_core::dates::Date::from_calendar_date(2025, time::Month::January, 1)
+            .unwrap();
+        ForwardCurve::builder(aged_curve.id().as_str(), 0.25)
+            .base_date(base_date)
+            .knots(rates)
+            .build()
     }
 }
 

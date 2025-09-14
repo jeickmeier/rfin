@@ -13,7 +13,6 @@ use hashbrown::HashMap;
 
 use crate::money::fx::FxMatrix;
 use crate::currency::Currency;
-use crate::dates::Date;
 use crate::types::CurveId;
 use crate::F;
 use crate::Result;
@@ -110,41 +109,17 @@ impl MarketContext {
     // Insert methods - builder pattern
 // -----------------------------------------------------------------------------
 
-    /// Insert a discount curve (accepts any Discount trait implementor)
-    pub fn insert_discount<C: Discount + Send + Sync + 'static>(mut self, curve: C) -> Self {
+    /// Insert a discount curve
+    pub fn insert_discount(mut self, curve: DiscountCurve) -> Self {
         let id = TermStructure::id(&curve).clone();
-        
-        // Convert any Discount implementor to a concrete DiscountCurve by sampling
-        let base_date = curve.base_date();
-        let times = [0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 20.0, 30.0];
-        let dfs: Vec<(F, F)> = times.iter().map(|&t| (t, curve.df(t))).collect();
-        
-        if let Ok(concrete_curve) = DiscountCurve::builder(id.as_str())
-            .base_date(base_date)
-            .knots(dfs)
-            .build()
-        {
-            self.curves.insert(id, CurveStorage::Discount(Arc::new(concrete_curve)));
-        }
+        self.curves.insert(id, CurveStorage::Discount(Arc::new(curve)));
         self
     }
 
-    /// Insert a forward curve (accepts any Forward trait implementor)
-    pub fn insert_forward<C: Forward + Send + Sync + 'static>(mut self, curve: C) -> Self {
+    /// Insert a forward curve
+    pub fn insert_forward(mut self, curve: ForwardCurve) -> Self {
         let id = TermStructure::id(&curve).clone();
-        
-        // Convert any Forward implementor to a concrete ForwardCurve by sampling
-        let times = [0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 20.0, 30.0];
-        let rates: Vec<(F, F)> = times.iter().map(|&t| (t, curve.rate(t))).collect();
-        
-        // Use arbitrary tenor and base date - this is a limitation for generic Forward curves
-        if let Ok(concrete_curve) = ForwardCurve::builder(id.as_str(), 0.25)
-            .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
-            .knots(rates)
-            .build()
-        {
-            self.curves.insert(id, CurveStorage::Forward(Arc::new(concrete_curve)));
-        }
+        self.curves.insert(id, CurveStorage::Forward(Arc::new(curve)));
         self
     }
 
@@ -500,54 +475,53 @@ impl MarketContext {
             let curve_id_str = curve_id.as_str();
 
             // Try discount curves
-            if let Ok(original) = self.disc(curve_id_str) {
+            if let Ok(original) = self.discount(curve_id_str) {
                 if bump_spec.mode == BumpMode::Additive && bump_spec.units == BumpUnits::RateBp {
                     let bump_bp = bump_spec.value;
+                    let bump_rate = bump_bp / 10_000.0;
                     let bumped_id = id_bump_bp(curve_id_str, bump_bp);
                     
-                    // Create wrapper that implements Discount trait
-                    let wrapper = BumpedDiscountCurve::new(
-                        original as Arc<dyn Discount + Send + Sync>,
-                        bump_bp,
-                        bumped_id.clone()
-                    );
-                    
-                    // Convert wrapper to DiscountCurve for storage
-                    // This requires creating a new DiscountCurve from the wrapper's behavior
-                    let base_date = wrapper.base_date();
-                    let times = [0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 20.0, 30.0];
-                    let dfs: Vec<(F, F)> = times.iter().map(|&t| (t, wrapper.df(t))).collect();
+                    // Apply bump directly to the original curve's knot points
+                    let base_date = original.base_date();
+                    let bumped_dfs: Vec<(F, F)> = original.knots()
+                        .iter()
+                        .zip(original.dfs().iter())
+                        .map(|(&t, &df)| {
+                            // Apply formula: df_bumped(t) = df_original(t) * exp(-bump * t)
+                            (t, df * (-bump_rate * t).exp())
+                        })
+                        .collect();
                     
                     if let Ok(bumped_curve) = DiscountCurve::builder(bumped_id.as_str())
                         .base_date(base_date)
-                        .knots(dfs)
-                            .build()
+                        .knots(bumped_dfs)
+                        .build()
                     {
                         new_context.curves.insert(bumped_id, CurveStorage::Discount(Arc::new(bumped_curve)));
                     }
                 }
             }
             // Try forward curves
-            else if let Ok(original) = self.fwd(curve_id_str) {
+            else if let Ok(original) = self.forward(curve_id_str) {
                 if bump_spec.mode == BumpMode::Additive && bump_spec.units == BumpUnits::RateBp {
                     let bump_bp = bump_spec.value;
+                    let bump_rate = bump_bp / 10_000.0;
                     let bumped_id = id_bump_bp(curve_id_str, bump_bp);
                     
-                    // Create wrapper that implements Forward trait
-                    let wrapper = BumpedForwardCurve::new(
-                        original as Arc<dyn Forward + Send + Sync>,
-                        bump_bp,
-                        bumped_id.clone()
-                    );
+                    // Apply bump directly to the original curve's knot points
+                    let base_date = original.base_date();
+                    let bumped_rates: Vec<(F, F)> = original.knots()
+                        .iter()
+                        .zip(original.fwds().iter())
+                        .map(|(&t, &rate)| {
+                            // Simple additive bump for forward rates
+                            (t, rate + bump_rate)
+                        })
+                        .collect();
                     
-                    // Convert wrapper to ForwardCurve for storage
-                    let times = [0.0, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 20.0, 30.0];
-                    let rates: Vec<(F, F)> = times.iter().map(|&t| (t, wrapper.rate(t))).collect();
-                    
-                    // Use arbitrary tenor for now
-                    if let Ok(bumped_curve) = ForwardCurve::builder(bumped_id.as_str(), 0.25)
-                        .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
-                        .knots(rates)
+                    if let Ok(bumped_curve) = ForwardCurve::builder(bumped_id.as_str(), original.tenor())
+                        .base_date(base_date)
+                        .knots(bumped_rates)
                         .build()
                     {
                         new_context.curves.insert(bumped_id, CurveStorage::Forward(Arc::new(bumped_curve)));

@@ -3,16 +3,8 @@
 //! This module provides functionality to apply parallel shocks and bumps
 //! to market data curves, surfaces, and scalars.
 
-extern crate alloc;
-use alloc::sync::Arc;
-
-use crate::dates::Date;
 use crate::types::CurveId;
 use crate::F;
-
-use super::{
-    traits::{Discount, Forward, TermStructure},
-};
 
 // -----------------------------------------------------------------------------
 // Bump Specification Types
@@ -114,80 +106,6 @@ impl BumpSpec {
     }
 }
 
-// -----------------------------------------------------------------------------
-// Wrapper Curves for Bumping
-// -----------------------------------------------------------------------------
-
-/// Wrapper for a discount curve with a parallel rate bump applied.
-///
-/// This applies the formula: df_bumped(t) = df_original(t) * exp(-bump * t)
-/// where bump is in rate units (e.g., 0.0001 for 1bp).
-#[derive(Clone)]
-pub struct BumpedDiscountCurve {
-    pub(crate) original: Arc<dyn Discount + Send + Sync>,
-    pub(crate) bump_rate: F,
-    pub(crate) bumped_id: CurveId,
-}
-
-impl BumpedDiscountCurve {
-    pub(crate) fn new(original: Arc<dyn Discount + Send + Sync>, bump_bp: F, bumped_id: CurveId) -> Self {
-        Self {
-            original,
-            bump_rate: bump_bp / 10_000.0, // Convert bp to rate
-            bumped_id,
-        }
-    }
-}
-
-impl TermStructure for BumpedDiscountCurve {
-    fn id(&self) -> &CurveId {
-        &self.bumped_id
-    }
-}
-
-impl Discount for BumpedDiscountCurve {
-    #[inline]
-    fn base_date(&self) -> Date {
-        self.original.base_date()
-    }
-
-    #[inline]
-    fn df(&self, t: F) -> F {
-        let original_df = self.original.df(t);
-        original_df * (-self.bump_rate * t).exp()
-    }
-}
-
-/// Wrapper for a forward curve with a parallel rate bump applied.
-#[derive(Clone)]
-pub struct BumpedForwardCurve {
-    pub(crate) original: Arc<dyn Forward + Send + Sync>,
-    pub(crate) bump_rate: F,
-    pub(crate) bumped_id: CurveId,
-}
-
-impl BumpedForwardCurve {
-    pub(crate) fn new(original: Arc<dyn Forward + Send + Sync>, bump_bp: F, bumped_id: CurveId) -> Self {
-        Self {
-            original,
-            bump_rate: bump_bp / 10_000.0, // Convert bp to rate
-            bumped_id,
-        }
-    }
-}
-
-impl TermStructure for BumpedForwardCurve {
-    fn id(&self) -> &CurveId {
-        &self.bumped_id
-    }
-}
-
-impl Forward for BumpedForwardCurve {
-    #[inline]
-    fn rate(&self, t: F) -> F {
-        self.original.rate(t) + self.bump_rate
-    }
-}
 
 // -----------------------------------------------------------------------------
 // ID formatting helpers
