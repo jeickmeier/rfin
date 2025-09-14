@@ -10,7 +10,6 @@ use finstack_core::money::Money;
 
 use super::types::{FixedCouponSpec, FloatingCouponSpec};
 
-#[inline]
 pub(crate) fn kind_rank(kind: CFKind) -> u8 {
     match kind {
         CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => 0,
@@ -21,7 +20,6 @@ pub(crate) fn kind_rank(kind: CFKind) -> u8 {
     }
 }
 
-#[inline]
 pub(crate) fn finalize_flows(
     mut flows: Vec<CashFlow>,
     fixed: &[FixedCouponSpec],
@@ -83,13 +81,11 @@ pub struct CashFlowSchedule {
 
 impl CashFlowSchedule {
     /// Returns the list of dates for all flows in schedule order.
-    #[inline]
     pub fn dates(&self) -> Vec<Date> {
         self.flows.iter().map(|cf| cf.date).collect()
     }
 
     /// Returns an iterator over flows of the given `CFKind`.
-    #[inline]
     pub fn flows_of_kind(&self, kind: CFKind) -> impl Iterator<Item = &CashFlow> {
         self.flows.iter().filter(move |cf| cf.kind == kind)
     }
@@ -140,21 +136,18 @@ impl CashFlowSchedule {
     }
 
     // Convenience iterators for callers to avoid ad-hoc filtering.
-    #[inline]
     pub fn coupons(&self) -> impl Iterator<Item = &CashFlow> {
         self.flows
             .iter()
             .filter(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub)
     }
 
-    #[inline]
     pub fn amortizations(&self) -> impl Iterator<Item = &CashFlow> {
         self.flows
             .iter()
             .filter(|cf| cf.kind == CFKind::Amortization)
     }
 
-    #[inline]
     pub fn redemptions(&self) -> impl Iterator<Item = &CashFlow> {
         self.flows
             .iter()
@@ -163,7 +156,6 @@ impl CashFlowSchedule {
 
     /// End-of-date outstanding path: one entry per unique date after applying
     /// Amortization/PIK on that date. Redemption does not reduce outstanding here.
-    #[inline]
     pub fn outstanding_by_date(&self) -> Vec<(Date, Money)> {
         let mut result: Vec<(Date, Money)> = Vec::new();
         if self.flows.is_empty() {

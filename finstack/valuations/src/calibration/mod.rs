@@ -107,7 +107,6 @@ pub use validation::{
 /// documents intent while keeping diagnostics reasonable.
 pub const PENALTY: F = 1e12;
 
-#[inline]
 pub fn penalize() -> F {
     PENALTY
 }

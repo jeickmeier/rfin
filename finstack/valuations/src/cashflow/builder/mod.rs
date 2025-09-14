@@ -60,7 +60,6 @@ pub mod types;
 pub use state::CashflowBuilder;
 
 /// Convenience function to create a new cashflow builder.
-#[inline]
 pub fn cf() -> CashflowBuilder {
     CashflowBuilder::default()
 }

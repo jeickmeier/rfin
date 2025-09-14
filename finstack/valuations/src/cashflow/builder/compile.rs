@@ -65,7 +65,6 @@ pub(super) struct PeriodicFee {
 pub(super) type PeriodicFees = Vec<PeriodicFee>;
 pub(super) type FixedFees = Vec<(Date, Money)>;
 
-#[inline]
 pub(super) fn build_fee_schedules(
     issue: Date,
     maturity: Date,
@@ -192,7 +191,6 @@ pub(super) struct CompiledSchedules {
     pub(super) used_float_specs: Vec<FloatingCouponSpec>,
 }
 
-#[inline]
 pub(super) fn collect_dates(
     issue: Date,
     maturity: Date,
@@ -255,7 +253,6 @@ pub(super) fn collect_dates(
     set.into_iter().collect()
 }
 
-#[inline]
 pub(super) fn compute_coupon_schedules(
     builder: &crate::cashflow::builder::state::CashflowBuilder,
     issue: Date,

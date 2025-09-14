@@ -21,7 +21,6 @@ pub enum CouponType {
 }
 
 impl CouponType {
-    #[inline]
     pub(crate) fn split_parts(self) -> finstack_core::Result<(f64, f64)> {
         match self {
             CouponType::Cash => Ok((1.0, 0.0)),

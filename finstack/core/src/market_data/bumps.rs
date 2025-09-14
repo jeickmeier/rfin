@@ -5,6 +5,14 @@
 
 use crate::types::CurveId;
 use crate::F;
+use super::term_structures::{
+    discount_curve::DiscountCurve,
+    forward_curve::ForwardCurve,
+    hazard_curve::HazardCurve,
+    inflation::InflationCurve,
+    base_correlation::BaseCorrelationCurve,
+};
+use super::traits::TermStructure;
 
 // -----------------------------------------------------------------------------
 // Bump Specification Types
@@ -119,4 +127,174 @@ pub(crate) fn id_bump_bp(id: &str, bp: F) -> CurveId {
 #[inline]
 pub(crate) fn id_spread_bp(id: &str, bp: F) -> CurveId {
     CurveId::new(format!("{}_spread_{:.0}bp", id, bp))
+}
+
+#[inline]
+pub(crate) fn id_bump_pct(id: &str, pct: F) -> CurveId {
+    CurveId::new(format!("{}_bump_{:.0}pct", id, pct))
+}
+
+// -----------------------------------------------------------------------------
+// Curve bump helpers (centralized)
+// -----------------------------------------------------------------------------
+
+/// Apply a bump to a `DiscountCurve`. Currently supports additive rate shifts in bp.
+pub fn bump_discount_curve(curve: &DiscountCurve, spec: BumpSpec) -> Option<DiscountCurve> {
+    if spec.mode == BumpMode::Additive && spec.units == BumpUnits::RateBp {
+        Some(curve.with_parallel_bump(spec.value))
+    } else {
+        None
+    }
+}
+
+/// Apply a bump to a `ForwardCurve`.
+/// - Additive: units=RateBp/Fraction/Percent apply as simple additive to forward rates
+/// - Multiplicative: units=Factor scales all forward rates
+pub fn bump_forward_curve(curve: &ForwardCurve, spec: BumpSpec) -> Option<ForwardCurve> {
+    // Determine transformation of forward rates
+    let transform: Box<dyn Fn(F) -> F> = match (spec.mode, spec.units) {
+        (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Fraction) => {
+            let bump = spec.additive_fraction()?;
+            Box::new(move |r| r + bump)
+        }
+        (BumpMode::Additive, BumpUnits::Percent) => {
+            let bump = spec.additive_fraction()?; // percent -> fraction
+            Box::new(move |r| r + bump)
+        }
+        (BumpMode::Multiplicative, BumpUnits::Factor) => {
+            let factor = spec.value;
+            Box::new(move |r| r * factor)
+        }
+        _ => return None,
+    };
+
+    let bumped_id = match spec.mode {
+        BumpMode::Additive => match spec.units {
+            BumpUnits::RateBp => id_bump_bp(curve.id().as_str(), spec.value),
+            BumpUnits::Percent => id_bump_pct(curve.id().as_str(), spec.value),
+            BumpUnits::Fraction => CurveId::new(format!("{}_bump_frac_{:.4}", curve.id(), spec.value)),
+            BumpUnits::Factor => CurveId::new(format!("{}_bump_factor_{:.4}", curve.id(), spec.value)),
+        },
+        BumpMode::Multiplicative => CurveId::new(format!("{}_bump_factor_{:.4}", curve.id(), spec.value)),
+    };
+
+    let bumped_rates: Vec<(F, F)> = curve
+        .knots()
+        .iter()
+        .copied()
+        .zip(curve.forwards().iter().copied())
+        .map(|(t, r)| (t, transform(r)))
+        .collect();
+
+    // Preserve base date, reset lag, day count; interpolation style defaults
+    // (original style is not publicly exposed)
+    ForwardCurve::builder(bumped_id, curve.tenor())
+        .base_date(curve.base_date())
+        .reset_lag(curve.reset_lag())
+        .day_count(curve.day_count())
+        .knots(bumped_rates)
+        .build()
+        .ok()
+}
+
+/// Apply a bump to a `HazardCurve`.
+/// - Additive: units=RateBp/Fraction/Percent adds to hazard rate λ(t) and clamps at 0.
+pub fn bump_hazard_curve(curve: &HazardCurve, spec: BumpSpec) -> Option<HazardCurve> {
+    let shift = match (spec.mode, spec.units) {
+        (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Fraction | BumpUnits::Percent) => {
+            spec.additive_fraction()?
+        }
+        _ => return None,
+    };
+
+    let bumped_id = match spec.units {
+        BumpUnits::RateBp => id_spread_bp(curve.id().as_str(), spec.value),
+        BumpUnits::Percent => id_bump_pct(curve.id().as_str(), spec.value),
+        BumpUnits::Fraction => CurveId::new(format!("{}_shift_{:.4}", curve.id(), spec.value)),
+        BumpUnits::Factor => CurveId::new(format!("{}_shift_factor_{:.4}", curve.id(), spec.value)),
+    };
+
+    let shifted_points: Vec<(F, F)> = curve
+        .knot_points()
+        .map(|(t, lambda)| (t, (lambda + shift).max(0.0)))
+        .collect();
+
+    // Rebuild a proper curve with the bumped ID, preserving key metadata
+    HazardCurve::builder(bumped_id)
+        .base_date(curve.base_date())
+        .recovery_rate(curve.recovery_rate())
+        .day_count(curve.day_count())
+        .knots(shifted_points)
+        .par_spreads(curve.par_spread_points())
+        .build()
+        .ok()
+}
+
+/// Apply a bump to an `InflationCurve`.
+/// - Additive Percent/Fraction: scales CPI levels by (1 + shift)
+/// - Multiplicative Factor: scales CPI levels by `factor`
+pub fn bump_inflation_curve(curve: &InflationCurve, spec: BumpSpec) -> Option<InflationCurve> {
+    let factor = match (spec.mode, spec.units) {
+        (BumpMode::Additive, BumpUnits::Percent | BumpUnits::Fraction) => 1.0 + spec.additive_fraction()?,
+        (BumpMode::Multiplicative, BumpUnits::Factor) => spec.value,
+        _ => return None,
+    };
+
+    let bumped_id = match spec.mode {
+        BumpMode::Additive => match spec.units {
+            BumpUnits::Percent => id_bump_pct(curve.id().as_str(), spec.value),
+            BumpUnits::Fraction => CurveId::new(format!("{}_bump_frac_{:.4}", curve.id(), spec.value)),
+            BumpUnits::RateBp => id_bump_bp(curve.id().as_str(), spec.value),
+            BumpUnits::Factor => CurveId::new(format!("{}_bump_factor_{:.4}", curve.id(), spec.value)),
+        },
+        BumpMode::Multiplicative => CurveId::new(format!("{}_bump_factor_{:.4}", curve.id(), spec.value)),
+    };
+
+    let bumped_points: Vec<(F, F)> = curve
+        .knots()
+        .iter()
+        .copied()
+        .zip(curve.cpi_levels().iter().copied())
+        .map(|(t, cpi)| (t, cpi * factor))
+        .collect();
+
+    InflationCurve::builder(bumped_id)
+        .base_cpi(curve.base_cpi())
+        .knots(bumped_points)
+        .build()
+        .ok()
+}
+
+/// Apply a bump to a `BaseCorrelationCurve`.
+/// - Additive Percent/Fraction: adds to correlation; clamped to [0,1]
+/// - Multiplicative Factor: scales correlation; clamped to [0,1]
+pub fn bump_base_correlation_curve(curve: &BaseCorrelationCurve, spec: BumpSpec) -> Option<BaseCorrelationCurve> {
+    let (add, mul) = match (spec.mode, spec.units) {
+        (BumpMode::Additive, BumpUnits::Percent | BumpUnits::Fraction) => (spec.additive_fraction()?, 1.0),
+        (BumpMode::Multiplicative, BumpUnits::Factor) => (0.0, spec.value),
+        _ => return None,
+    };
+
+    let bumped_id = match spec.mode {
+        BumpMode::Additive => match spec.units {
+            BumpUnits::Percent => id_bump_pct(curve.id().as_str(), spec.value),
+            BumpUnits::Fraction => CurveId::new(format!("{}_bump_frac_{:.4}", curve.id(), spec.value)),
+            BumpUnits::RateBp => id_bump_bp(curve.id().as_str(), spec.value),
+            BumpUnits::Factor => CurveId::new(format!("{}_bump_factor_{:.4}", curve.id(), spec.value)),
+        },
+        BumpMode::Multiplicative => CurveId::new(format!("{}_bump_factor_{:.4}", curve.id(), spec.value)),
+    };
+
+    let bumped_points: Vec<(F, F)> = curve
+        .detachment_points()
+        .iter()
+        .copied()
+        .zip(curve.correlations().iter().copied())
+        .map(|(d, c)| (d, (c * mul + add).clamp(0.0, 1.0)))
+        .collect();
+
+    BaseCorrelationCurve::builder(bumped_id)
+        .points(bumped_points)
+        .build()
+        .ok()
 }

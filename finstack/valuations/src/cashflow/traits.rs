@@ -30,7 +30,6 @@ pub trait CashflowProvider: Send + Sync {
     /// Convenience: present value the built schedule against a discount curve and day-count.
     ///
     /// See unit tests and `examples/` for usage.
-    #[inline]
     fn npv_with(
         &self,
         curves: &MarketContext,

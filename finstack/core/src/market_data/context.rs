@@ -655,64 +655,54 @@ impl MarketContext {
     /// ```
     pub fn bump(&self, bumps: HashMap<CurveId, BumpSpec>) -> Result<Self> {
         use super::bumps::*;
-        
+
         let mut new_context = self.clone();
 
         for (curve_id, bump_spec) in bumps {
-            let curve_id_str = curve_id.as_str();
+            let cid = curve_id.as_str();
 
-            // Try discount curves
-            if let Ok(original) = self.discount(curve_id_str) {
-                if bump_spec.mode == BumpMode::Additive && bump_spec.units == BumpUnits::RateBp {
-                    let bump_bp = bump_spec.value;
-                    let bumped_curve = original.with_parallel_bump(bump_bp);
-                    let bumped_id = TermStructure::id(&bumped_curve).clone();
-                    new_context
-                        .curves
-                        .insert(bumped_id, CurveStorage::Discount(Arc::new(bumped_curve)));
+            // Try each curve type and delegate to centralized helpers
+            if let Ok(original) = self.discount(cid) {
+                if let Some(bumped) = bump_discount_curve(&original, bump_spec) {
+                    let bumped_id = TermStructure::id(&bumped).clone();
+                    new_context.curves.insert(bumped_id, CurveStorage::Discount(Arc::new(bumped)));
+                    continue;
                 }
             }
-            // Try forward curves
-            else if let Ok(original) = self.forward(curve_id_str) {
-                if bump_spec.mode == BumpMode::Additive && bump_spec.units == BumpUnits::RateBp {
-                    let bump_bp = bump_spec.value;
-                    let bump_rate = bump_bp / 10_000.0;
-                    let bumped_id = id_bump_bp(curve_id_str, bump_bp);
-                    
-                    // Apply bump directly to the original curve's knot points
-                    let base_date = original.base_date();
-                    let bumped_rates: Vec<(F, F)> = original.knots()
-                        .iter()
-                        .zip(original.forwards().iter())
-                        .map(|(&t, &rate)| {
-                            // Simple additive bump for forward rates
-                            (t, rate + bump_rate)
-                        })
-                        .collect();
-                    
-                    if let Ok(bumped_curve) = ForwardCurve::builder(bumped_id.as_str(), original.tenor())
-                        .base_date(base_date)
-                        .knots(bumped_rates)
-                        .build()
-                    {
-                        new_context.curves.insert(bumped_id, CurveStorage::Forward(Arc::new(bumped_curve)));
-                    }
+
+            if let Ok(original) = self.forward(cid) {
+                if let Some(bumped) = bump_forward_curve(&original, bump_spec) {
+                    let bumped_id = TermStructure::id(&bumped).clone();
+                    new_context.curves.insert(bumped_id, CurveStorage::Forward(Arc::new(bumped)));
+                    continue;
                 }
             }
-            // Hazard curves, inflation curves, base correlation, and other types continue...
-            // These can directly modify and recreate curves without wrappers
-            else if let Ok(original) = self.hazard(curve_id_str) {
-                if bump_spec.mode == BumpMode::Additive && bump_spec.units == BumpUnits::RateBp {
-                    let spread_rate = bump_spec.additive_fraction().unwrap_or(0.0);
-                    if let Ok(bumped_curve) = original.with_hazard_shift(spread_rate) {
-                        let bumped_id = id_spread_bp(curve_id_str, bump_spec.value);
-                        new_context.curves.insert(bumped_id, CurveStorage::Hazard(Arc::new(bumped_curve)));
-                    }
+
+            if let Ok(original) = self.hazard(cid) {
+                if let Some(bumped) = bump_hazard_curve(&original, bump_spec) {
+                    let bumped_id = TermStructure::id(&bumped).clone();
+                    new_context.curves.insert(bumped_id, CurveStorage::Hazard(Arc::new(bumped)));
+                    continue;
                 }
             }
-            else {
-                return Err(crate::error::InputError::NotFound { id: curve_id_str.to_string() }.into());
+
+            if let Ok(original) = self.inflation(cid) {
+                if let Some(bumped) = bump_inflation_curve(&original, bump_spec) {
+                    let bumped_id = TermStructure::id(&bumped).clone();
+                    new_context.curves.insert(bumped_id, CurveStorage::Inflation(Arc::new(bumped)));
+                    continue;
+                }
             }
+
+            if let Ok(original) = self.base_correlation(cid) {
+                if let Some(bumped) = bump_base_correlation_curve(&original, bump_spec) {
+                    let bumped_id = TermStructure::id(&bumped).clone();
+                    new_context.curves.insert(bumped_id, CurveStorage::BaseCorrelation(Arc::new(bumped)));
+                    continue;
+                }
+            }
+
+            return Err(crate::error::InputError::NotFound { id: cid.to_string() }.into());
         }
 
         Ok(new_context)

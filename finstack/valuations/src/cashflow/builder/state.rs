@@ -65,7 +65,6 @@ struct CouponEmissionCtx<'a> {
     ccy: Currency,
 }
 
-#[inline]
 fn emit_coupons_on<S, PrevFn, ComputeFn, KindFn, SplitFn>(
     schedules: &[S],
     ctx: CouponEmissionCtx,
@@ -117,7 +116,6 @@ where
     Ok((pik_to_add, new_flows))
 }
 
-#[inline]
 fn emit_fixed_coupons_on(
     d: Date,
     fixed_schedules: &[FixedSchedule],
@@ -152,7 +150,6 @@ fn emit_fixed_coupons_on(
     )
 }
 
-#[inline]
 fn emit_float_coupons_on(
     d: Date,
     float_schedules: &[FloatSchedule],
@@ -197,7 +194,6 @@ struct AmortizationParams<'a> {
     step_remaining_map: &'a Option<hashbrown::HashMap<Date, Money>>,
 }
 
-#[inline]
 fn emit_amortization_on(
     d: Date,
     notional: &Notional,
@@ -280,7 +276,6 @@ fn emit_amortization_on(
     Ok(new_flows)
 }
 
-#[inline]
 fn emit_fees_on(
     d: Date,
     periodic_fees: &[PeriodicFee],
@@ -334,7 +329,6 @@ fn emit_fees_on(
 // Tiny pass helpers — used by build() for clarity and determinism
 // -------------------------------------------------------------------------
 
-#[inline]
 fn emit_coupons(
     d: Date,
     fixed_schedules: &[FixedSchedule],
@@ -363,7 +357,6 @@ fn emit_coupons(
     Ok((pik_f + pik_fl, flows))
 }
 
-#[inline]
 fn apply_amortization(
     d: Date,
     notional: &Notional,
@@ -373,14 +366,12 @@ fn apply_amortization(
     emit_amortization_on(d, notional, outstanding, params)
 }
 
-#[inline]
 fn apply_pik(outstanding: &mut f64, pik_to_add: f64) {
     if pik_to_add > 0.0 {
         *outstanding += pik_to_add;
     }
 }
 
-#[inline]
 fn emit_fees(
     d: Date,
     periodic_fees: &[PeriodicFee],
@@ -391,7 +382,6 @@ fn emit_fees(
     emit_fees_on(d, periodic_fees, fixed_fees, outstanding, ccy)
 }
 
-#[inline]
 fn redeem_at_maturity(
     d: Date,
     maturity: Date,
@@ -413,7 +403,6 @@ fn redeem_at_maturity(
     }
 }
 
-#[inline]
 fn record_outstanding(
     outstanding_after: &mut hashbrown::HashMap<Date, f64>,
     d: Date,
@@ -452,7 +441,6 @@ struct BuildContext<'a> {
     fixed_fees: &'a [(Date, Money)],
 }
 
-#[inline]
 fn validate_core_inputs(b: &CashflowBuilder) -> finstack_core::Result<(Notional, Date, Date)> {
     let notional = b
         .notional
@@ -467,7 +455,6 @@ fn validate_core_inputs(b: &CashflowBuilder) -> finstack_core::Result<(Notional,
     Ok((notional, issue, maturity))
 }
 
-#[inline]
 fn compile_schedules_and_fees(
     b: &CashflowBuilder,
     issue: Date,
@@ -478,7 +465,6 @@ fn compile_schedules_and_fees(
     Ok((compiled, periodic_fees, fixed_fees))
 }
 
-#[inline]
 fn derive_amortization_setup(
     notional: &Notional,
     fixed_schedules: &[FixedSchedule],
@@ -549,7 +535,6 @@ fn derive_amortization_setup(
     })
 }
 
-#[inline]
 fn initialize_build_state(issue: Date, notional: &Notional) -> BuildState {
     let flows: Vec<CashFlow> = vec![CashFlow {
         date: issue,
@@ -569,7 +554,6 @@ fn initialize_build_state(issue: Date, notional: &Notional) -> BuildState {
     }
 }
 
-#[inline]
 fn collect_all_dates(
     issue: Date,
     maturity: Date,
@@ -596,7 +580,6 @@ fn collect_all_dates(
     Ok(dates)
 }
 
-#[inline]
 fn process_one_date(
     d: Date,
     mut state: BuildState,
