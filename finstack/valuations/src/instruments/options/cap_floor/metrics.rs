@@ -3,6 +3,7 @@
 use crate::instruments::options::cap_floor::InterestRateOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::{Result, F};
+use finstack_core::market_data::traits::{Discount, Forward};
 use std::sync::Arc;
 
 /// Delta calculator for interest rate options
@@ -13,8 +14,8 @@ impl MetricCalculator for DeltaCalculator {
         let option: &InterestRateOption = context.instrument_as()?;
 
         // Get market curves
-        let disc_curve = context.curves.disc(option.disc_id)?;
-        let fwd_curve = context.curves.fwd(option.forward_id)?;
+        let disc_curve = context.curves.discount(option.disc_id)?;
+        let fwd_curve = context.curves.forward(option.forward_id)?;
         let base_date = disc_curve.base_date();
 
         // For caps/floors, aggregate delta across all caplets/floorlets
@@ -126,8 +127,8 @@ impl MetricCalculator for GammaCalculator {
         let option: &InterestRateOption = context.instrument_as()?;
 
         // Similar aggregation logic as Delta but for Gamma
-        let disc_curve = context.curves.disc(option.disc_id)?;
-        let fwd_curve = context.curves.fwd(option.forward_id)?;
+        let disc_curve = context.curves.discount(option.disc_id)?;
+        let fwd_curve = context.curves.forward(option.forward_id)?;
         let base_date = disc_curve.base_date();
 
         if matches!(
@@ -235,8 +236,8 @@ pub struct VegaCalculator;
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &InterestRateOption = context.instrument_as()?;
-        let disc_curve = context.curves.disc(option.disc_id)?;
-        let fwd_curve = context.curves.fwd(option.forward_id)?;
+        let disc_curve = context.curves.discount(option.disc_id)?;
+        let fwd_curve = context.curves.forward(option.forward_id)?;
         let base_date = disc_curve.base_date();
 
         if matches!(

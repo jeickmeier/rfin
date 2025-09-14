@@ -271,7 +271,7 @@ impl Repo {
 impl Priceable for Repo {
     fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
         // Get discount curve
-        let disc_curve = context.disc(self.disc_id)?;
+        let disc_curve = context.discount(self.disc_id)?;
         
         // Calculate total repayment at maturity
         let total_repayment = self.total_repayment()?;

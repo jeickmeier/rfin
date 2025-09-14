@@ -4,6 +4,7 @@ use crate::instruments::options::fx_option::FxOption;
 use crate::instruments::options::OptionType;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::{Result, F};
+use finstack_core::market_data::traits::Discount;
 use num_traits::ToPrimitive;
 use std::sync::Arc;
 
@@ -61,8 +62,8 @@ impl MetricCalculator for DeltaCalculator {
         }
 
         // Get market data
-        let domestic_disc = context.curves.disc(option.domestic_disc_id)?;
-        let foreign_disc = context.curves.disc(option.foreign_disc_id)?;
+        let domestic_disc = context.curves.discount(option.domestic_disc_id)?;
+        let foreign_disc = context.curves.discount(option.foreign_disc_id)?;
         let r_d = domestic_disc.zero(time_to_expiry);
         let r_f = foreign_disc.zero(time_to_expiry);
 
@@ -118,8 +119,8 @@ impl MetricCalculator for GammaCalculator {
             return Ok(0.0);
         }
 
-        let domestic_disc = context.curves.disc(option.domestic_disc_id)?;
-        let foreign_disc = context.curves.disc(option.foreign_disc_id)?;
+        let domestic_disc = context.curves.discount(option.domestic_disc_id)?;
+        let foreign_disc = context.curves.discount(option.foreign_disc_id)?;
         let r_d = domestic_disc.zero(time_to_expiry);
         let r_f = foreign_disc.zero(time_to_expiry);
         let fx_matrix =
@@ -174,8 +175,8 @@ impl MetricCalculator for VegaCalculator {
             return Ok(0.0);
         }
 
-        let domestic_disc = context.curves.disc(option.domestic_disc_id)?;
-        let foreign_disc = context.curves.disc(option.foreign_disc_id)?;
+        let domestic_disc = context.curves.discount(option.domestic_disc_id)?;
+        let foreign_disc = context.curves.discount(option.foreign_disc_id)?;
         let r_d = domestic_disc.zero(time_to_expiry);
         let r_f = foreign_disc.zero(time_to_expiry);
         let fx_matrix =
@@ -230,8 +231,8 @@ impl MetricCalculator for ThetaCalculator {
             return Ok(0.0);
         }
 
-        let domestic_disc = context.curves.disc(option.domestic_disc_id)?;
-        let foreign_disc = context.curves.disc(option.foreign_disc_id)?;
+        let domestic_disc = context.curves.discount(option.domestic_disc_id)?;
+        let foreign_disc = context.curves.discount(option.foreign_disc_id)?;
         let r_d = domestic_disc.zero(time_to_expiry);
         let r_f = foreign_disc.zero(time_to_expiry);
         let fx_matrix =
@@ -286,8 +287,8 @@ impl MetricCalculator for RhoDomesticCalculator {
             return Ok(0.0);
         }
 
-        let domestic_disc = context.curves.disc(option.domestic_disc_id)?;
-        let foreign_disc = context.curves.disc(option.foreign_disc_id)?;
+        let domestic_disc = context.curves.discount(option.domestic_disc_id)?;
+        let foreign_disc = context.curves.discount(option.foreign_disc_id)?;
         let r_d = domestic_disc.zero(time_to_expiry);
         let r_f = foreign_disc.zero(time_to_expiry);
         let fx_matrix =
@@ -342,8 +343,8 @@ impl MetricCalculator for RhoForeignCalculator {
             return Ok(0.0);
         }
 
-        let domestic_disc = context.curves.disc(option.domestic_disc_id)?;
-        let foreign_disc = context.curves.disc(option.foreign_disc_id)?;
+        let domestic_disc = context.curves.discount(option.domestic_disc_id)?;
+        let foreign_disc = context.curves.discount(option.foreign_disc_id)?;
         let r_d = domestic_disc.zero(time_to_expiry);
         let r_f = foreign_disc.zero(time_to_expiry);
         let fx_matrix =

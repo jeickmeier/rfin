@@ -247,7 +247,7 @@ impl_instrument!(
         )?;
 
         // Get market curves
-        let disc_curve = curves.disc(s.disc_id)?;
+        let disc_curve = curves.discount(s.disc_id)?;
         let hazard_curve = curves.hazard(s.credit_id)?;
 
         // Calculate risky annuity (RPV01) of the underlying CDS (simplified quarterly)

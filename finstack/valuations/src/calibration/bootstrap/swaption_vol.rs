@@ -134,7 +134,7 @@ impl SwaptionVolCalibrator {
         tenor_years: F,
         context: &MarketContext,
     ) -> Result<F> {
-        let disc = context.disc(self.disc_id)?;
+        let disc = context.discount(self.disc_id)?;
         let swap_start = expiry;
         let swap_end = add_months(expiry, (tenor_years * 12.0) as i32);
 
@@ -249,7 +249,7 @@ impl SwaptionVolCalibrator {
             attributes: Default::default(),
         };
 
-        let disc = context.disc(self.disc_id)?;
+        let disc = context.discount(self.disc_id)?;
         swaption.swap_annuity(disc.as_ref())
     }
 

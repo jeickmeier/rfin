@@ -153,8 +153,8 @@ impl_instrument!(
     ForwardRateAgreement,
     "FRA",
     pv = |s, curves, as_of| {
-        let discount_curve = curves.disc(s.disc_id)?;
-        let forward_curve = curves.fwd(s.forward_id)?;
+        let discount_curve = curves.discount(s.disc_id)?;
+        let forward_curve = curves.forward(s.forward_id)?;
         s.fra_value(discount_curve.as_ref(), forward_curve.as_ref(), as_of)
     }
 );
@@ -172,8 +172,8 @@ impl CashflowProvider for ForwardRateAgreement {
 
         // Calculate the FRA settlement amount
         let pv = self.fra_value(
-            curves.disc(self.disc_id)?.as_ref(),
-            curves.fwd(self.forward_id)?.as_ref(),
+            curves.discount(self.disc_id)?.as_ref(),
+            curves.forward(self.forward_id)?.as_ref(),
             as_of,
         )?;
 

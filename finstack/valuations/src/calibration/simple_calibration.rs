@@ -486,9 +486,9 @@ impl SimpleCalibration {
             };
 
             // Determine discount curve ID from context (use first available OIS curve)
-            let disc_id = if updated_context.disc("USD-OIS").is_ok() {
+            let disc_id = if updated_context.discount("USD-OIS").is_ok() {
                 "USD-OIS"
-            } else if updated_context.disc("EUR-OIS").is_ok() {
+            } else if updated_context.discount("EUR-OIS").is_ok() {
                 "EUR-OIS"
             } else {
                 // This shouldn't happen in a well-formed test, but provide a reasonable fallback
@@ -627,7 +627,7 @@ impl SimpleCalibration {
         }
 
         // Try inflation curve
-        if let Ok(curve) = context.infl(index) {
+        if let Ok(curve) = context.inflation(index) {
             return Some(curve.cpi(0.0));
         }
 
@@ -727,7 +727,7 @@ mod tests {
 
                 // Debug: check what curves we have
                 println!("Checking for discount curve USD-OIS...");
-                match context.disc("USD-OIS") {
+                match context.discount("USD-OIS") {
                     Ok(_) => println!("Found USD-OIS discount curve"),
                     Err(e) => println!("Failed to find USD-OIS: {:?}", e),
                 }

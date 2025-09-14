@@ -7,6 +7,7 @@ use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
 use finstack_core::F;
+use finstack_core::market_data::traits::Forward;
 
 /// Type of interest rate option
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -238,8 +239,8 @@ impl_instrument!(
         use finstack_core::dates::{BusinessDayConvention, StubKind};
 
         // Get market curves
-        let disc_curve = curves.disc(s.disc_id)?;
-        let fwd_curve = curves.fwd(s.forward_id)?;
+        let disc_curve = curves.discount(s.disc_id)?;
+        let fwd_curve = curves.forward(s.forward_id)?;
         let vol_surface = if s.pricing_overrides.implied_volatility.is_none() {
             Some(curves.surface(s.vol_id)?)
         } else {

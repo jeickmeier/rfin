@@ -4,6 +4,7 @@ use crate::instruments::options::equity_option::EquityOption;
 use crate::instruments::options::OptionType;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::{Result, F};
+use finstack_core::market_data::traits::Discount;
 use std::sync::Arc;
 
 /// Delta calculator for equity options
@@ -49,7 +50,7 @@ impl MetricCalculator for DeltaCalculator {
         }
 
         // Get market data
-        let disc_curve = context.curves.disc(&option.disc_id)?;
+        let disc_curve = context.curves.discount(&option.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
@@ -104,7 +105,7 @@ impl MetricCalculator for GammaCalculator {
         }
 
         // Get market data (same pattern as Delta)
-        let disc_curve = context.curves.disc(&option.disc_id)?;
+        let disc_curve = context.curves.discount(&option.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
@@ -158,7 +159,7 @@ impl MetricCalculator for VegaCalculator {
         }
 
         // Get market data (same pattern)
-        let disc_curve = context.curves.disc(&option.disc_id)?;
+        let disc_curve = context.curves.discount(&option.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
@@ -213,7 +214,7 @@ impl MetricCalculator for ThetaCalculator {
         }
 
         // Get market data (same pattern)
-        let disc_curve = context.curves.disc(&option.disc_id)?;
+        let disc_curve = context.curves.discount(&option.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
@@ -268,7 +269,7 @@ impl MetricCalculator for RhoCalculator {
         }
 
         // Get market data (same pattern)
-        let disc_curve = context.curves.disc(&option.disc_id)?;
+        let disc_curve = context.curves.discount(&option.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
@@ -321,7 +322,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         }
 
         // Gather market inputs
-        let disc_curve = context.curves.disc(&option.disc_id)?;
+        let disc_curve = context.curves.discount(&option.disc_id)?;
         let r = disc_curve.zero(t);
 
         let spot_scalar = context.curves.price(&option.spot_id)?;

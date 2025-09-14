@@ -194,7 +194,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
             const CALIB_INDEX_ID: &str = "CALIB_INFLATION";
 
             // Ensure discount curve exists in base context (best-effort; pricing will use context provided by caller)
-            let _ = base_context.disc(&self.discount_id)?;
+            let _ = base_context.discount(&self.discount_id)?;
 
             // Provide a 'static discount id for instrument builder requirements
             let disc_id_static: &'static str = Box::leak(self.discount_id.clone().into_boxed_str());
@@ -556,7 +556,7 @@ mod tests {
             .insert_inflation(infl_curve);
 
         // Sanity checks: inflation pieces are in context
-        let ic = ctx.infl("US-CPI-U").expect("inflation curve missing");
+        let ic = ctx.inflation("US-CPI-U").expect("inflation curve missing");
         assert!(ic.cpi(0.0) > 0.0);
         assert!(
             ctx.inflation_index("US-CPI-U").is_some(),

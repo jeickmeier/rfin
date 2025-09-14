@@ -57,7 +57,7 @@ impl InflationSwap {
         curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<Money> {
-        let disc = curves.disc(self.disc_id)?;
+        let disc = curves.discount(self.disc_id)?;
         let base = disc.base_date();
 
         // Year fraction for the full term of the swap
@@ -89,7 +89,7 @@ impl InflationSwap {
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
-        let disc = curves.disc(self.disc_id)?;
+        let disc = curves.discount(self.disc_id)?;
         let base = disc.base_date();
 
         // Get inflation index for historical reference value
@@ -100,7 +100,7 @@ impl InflationSwap {
         })?;
 
         // Get inflation curve for forward projection
-        let inflation_curve = curves.infl(self.inflation_id)?;
+        let inflation_curve = curves.inflation(self.inflation_id)?;
 
         // Historical index value at start (with any lag applied by the index)
         let i_start = inflation_index.value_on(self.start)?;

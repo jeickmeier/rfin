@@ -282,8 +282,8 @@ impl_instrument!(
     InterestRateSwap,
     "InterestRateSwap",
     pv = |s, curves, _as_of| {
-        let disc = curves.disc(s.fixed.disc_id)?;
-        let fwd = curves.fwd(s.float.fwd_id)?;
+        let disc = curves.discount(s.fixed.disc_id)?;
+        let fwd = curves.forward(s.float.fwd_id)?;
         let pv_fixed = s.pv_fixed_leg(&*disc)?;
         let pv_float = s.pv_float_leg(&*disc, &*fwd)?;
         match s.side {

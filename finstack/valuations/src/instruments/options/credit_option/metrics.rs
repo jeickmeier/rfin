@@ -3,6 +3,7 @@
 use crate::instruments::options::credit_option::CreditOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::{Result, F};
+use finstack_core::market_data::traits::Discount;
 use std::sync::Arc;
 
 /// Delta calculator for credit options
@@ -163,7 +164,7 @@ impl MetricCalculator for ThetaCalculator {
             return Ok(0.0);
         }
 
-        let disc_curve = context.curves.disc(option.disc_id)?;
+        let disc_curve = context.curves.discount(option.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
         let hazard_curve = context.curves.hazard(option.credit_id)?;

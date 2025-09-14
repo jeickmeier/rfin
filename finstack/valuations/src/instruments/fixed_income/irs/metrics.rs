@@ -23,7 +23,7 @@ impl MetricCalculator for AnnuityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs: &InterestRateSwap = context.instrument_as()?;
 
-        let disc = context.curves.disc(irs.fixed.disc_id)?;
+        let disc = context.curves.discount(irs.fixed.disc_id)?;
         let base = disc.base_date();
 
         // Build fixed leg schedule dates using the canonical helper
@@ -75,8 +75,8 @@ impl MetricCalculator for ParRateCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs: &InterestRateSwap = context.instrument_as()?;
 
-        let disc = context.curves.disc(irs.fixed.disc_id)?;
-        let fwd = context.curves.fwd(irs.float.fwd_id)?;
+        let disc = context.curves.discount(irs.fixed.disc_id)?;
+        let fwd = context.curves.forward(irs.float.fwd_id)?;
         let base_d = disc.base_date();
 
         // Get annuity from computed metrics
@@ -186,7 +186,7 @@ impl MetricCalculator for FixedLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs: &InterestRateSwap = context.instrument_as()?;
 
-        let disc = context.curves.disc(irs.fixed.disc_id)?;
+        let disc = context.curves.discount(irs.fixed.disc_id)?;
         let base = disc.base_date();
 
         // Build fixed leg schedule and compute PV
@@ -235,8 +235,8 @@ impl MetricCalculator for FloatLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs: &InterestRateSwap = context.instrument_as()?;
 
-        let disc = context.curves.disc(irs.float.disc_id)?;
-        let fwd = context.curves.fwd(irs.float.fwd_id)?;
+        let disc = context.curves.discount(irs.float.disc_id)?;
+        let fwd = context.curves.forward(irs.float.fwd_id)?;
         let base = disc.base_date();
 
         // Build float leg schedule and compute PV

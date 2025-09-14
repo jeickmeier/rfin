@@ -29,7 +29,7 @@ use super::{
         forward_curve::ForwardCurve,
         hazard_curve::HazardCurve,
     },
-    traits::{Discount, Forward, TermStructure},
+    traits::{Discount, TermStructure},
 };
 
 // Re-export bump functionality
@@ -189,30 +189,8 @@ impl MarketContext {
     }
 
     // -----------------------------------------------------------------------------
-    // Trait object getters - backward compatible API
+    // Typed getters - return concrete types (preferred API)
     // -----------------------------------------------------------------------------
-
-    /// Get a discount curve by ID (returns trait object for backward compatibility)
-    pub fn disc(&self, id: impl AsRef<str>) -> Result<Arc<dyn Discount + Send + Sync>> {
-        let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::Discount(curve)) => Ok(Arc::clone(curve) as Arc<dyn Discount + Send + Sync>),
-            _ => Err(crate::error::InputError::NotFound {
-                id: id_str.to_string(),
-            }.into()),
-        }
-    }
-
-    /// Get a forward curve by ID (returns trait object for backward compatibility)
-    pub fn fwd(&self, id: impl AsRef<str>) -> Result<Arc<dyn Forward + Send + Sync>> {
-        let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::Forward(curve)) => Ok(Arc::clone(curve) as Arc<dyn Forward + Send + Sync>),
-            _ => Err(crate::error::InputError::NotFound {
-                id: id_str.to_string(),
-            }.into()),
-        }
-    }
 
     /// Get a hazard curve by ID (returns concrete type)
     pub fn hazard(&self, id: impl AsRef<str>) -> Result<Arc<HazardCurve>> {
@@ -225,16 +203,7 @@ impl MarketContext {
         }
     }
 
-    /// Get an inflation curve by ID (returns concrete type)
-    pub fn infl(&self, id: impl AsRef<str>) -> Result<Arc<InflationCurve>> {
-        let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::Inflation(curve)) => Ok(Arc::clone(curve)),
-            _ => Err(crate::error::InputError::NotFound {
-                id: id_str.to_string(),
-            }.into()),
-            }
-    }
+    
 
     /// Get a base correlation curve by ID (returns concrete type)
     pub fn base_correlation(&self, id: impl AsRef<str>) -> Result<Arc<BaseCorrelationCurve>> {
@@ -335,7 +304,7 @@ impl MarketContext {
             .ok_or(crate::error::InputError::NotFound {
                     id: format!("collateral:{}", csa_code),
             })?;
-        self.disc(curve_id.as_str())
+        self.discount(curve_id.as_str()).map(|arc| arc as Arc<dyn Discount + Send + Sync>)
     }
 
     // -----------------------------------------------------------------------------
@@ -464,7 +433,7 @@ impl MarketContext {
     /// let mut bumps = HashMap::new();
     /// bumps.insert(CurveId::new("USD-OIS"), BumpSpec::parallel_bp(100.0));
     /// let bumped = context.bump(bumps).unwrap();
-    /// assert!(bumped.disc("USD-OIS_bump_100bp").is_ok());
+    /// assert!(bumped.discount("USD-OIS_bump_100bp").is_ok());
     /// ```
     pub fn bump(&self, bumps: HashMap<CurveId, BumpSpec>) -> Result<Self> {
         use super::bumps::*;
@@ -575,7 +544,7 @@ impl MarketContext {
 
         // Get risk-free rate from discount curve
         let disc_curve_id = format!("{}-OIS", base_currency);
-        let discount_curve = self.disc(&disc_curve_id)?;
+        let discount_curve = self.discount(&disc_curve_id)?;
 
         Ok(Box::new(move |t: F| -> F {
             let risk_free_rate = discount_curve.zero(t);
@@ -603,8 +572,8 @@ impl MarketContext {
         // Get domestic and foreign discount curves
         let dom_disc_id = format!("{}-OIS", domestic_ccy);
         let for_disc_id = format!("{}-OIS", foreign_ccy);
-        let dom_curve = self.disc(&dom_disc_id)?;
-        let for_curve = self.disc(&for_disc_id)?;
+        let dom_curve = self.discount(&dom_disc_id)?;
+        let for_curve = self.discount(&for_disc_id)?;
 
         Ok(Box::new(move |t: F| -> F {
             let domestic_rate = dom_curve.zero(t);
@@ -615,7 +584,7 @@ impl MarketContext {
 
     /// Build forward function for interest rate underlyings: F(t) = forward_curve.rate(t)
     pub fn rates_forward<'a>(&'a self, underlying: &str) -> Result<Box<dyn Fn(F) -> F + 'a>> {
-        let forward_curve = self.fwd(underlying)?;
+        let forward_curve = self.forward(underlying)?;
         Ok(Box::new(move |t: F| -> F {
             forward_curve.rate(t)
         }))

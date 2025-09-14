@@ -285,7 +285,7 @@ fn extract_equity_state(
         .unwrap_or(0.0);
 
     // Get risk-free rate from discount curve
-    let discount_curve = ctx.disc(disc_id)?;
+    let discount_curve = ctx.discount(disc_id)?;
     let base_date = discount_curve.base_date();
 
     // Calculate time to maturity
@@ -356,7 +356,7 @@ pub fn price_convertible_bond(
         ConvertibleTreeType::Trinomial(n) => n,
     };
 
-    let base_date = market_context.disc(bond.disc_id)?.base_date();
+    let base_date = market_context.discount(bond.disc_id)?.base_date();
     let valuator =
         ConvertibleBondValuator::new(bond, &cashflow_schedule, time_to_maturity, steps, base_date)?;
 
@@ -416,7 +416,7 @@ pub fn calculate_convertible_greeks(
         ConvertibleTreeType::Trinomial(n) => n,
     };
 
-    let base_date = market_context.disc(bond.disc_id)?.base_date();
+    let base_date = market_context.discount(bond.disc_id)?.base_date();
     let valuator =
         ConvertibleBondValuator::new(bond, &cashflow_schedule, time_to_maturity, steps, base_date)?;
 

@@ -104,7 +104,7 @@ impl EquityTotalReturnSwap {
             as_of,
             |_period_start, _period_end, t_start, t_end, initial_level, context| {
                 // Get discount curve for forward calculation
-                let disc = context.disc(self.financing.disc_id.as_str())?;
+                let disc = context.discount(self.financing.disc_id.as_str())?;
                 
                 // Forward levels using cost-of-carry model
                 // F(t) = S0 * exp((r - q) * t)

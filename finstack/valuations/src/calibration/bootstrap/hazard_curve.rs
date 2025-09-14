@@ -303,7 +303,7 @@ impl Calibrator<CreditQuote, HazardCurve> for HazardCurveCalibrator {
         instruments: &[CreditQuote],
         base_context: &MarketContext,
     ) -> Result<(HazardCurve, CalibrationReport)> {
-        let disc = base_context.disc(&self.discount_curve_id)?;
+        let disc = base_context.discount(&self.discount_curve_id)?;
         crate::with_solver!(&self.config, |solver| {
             self.bootstrap_internal(instruments, &solver, Some(disc.as_ref()))
         })
@@ -381,7 +381,7 @@ mod tests {
 
         // Get the discount curve from the market context
         let disc = market_context
-            .disc("USD-OIS")
+            .discount("USD-OIS")
             .expect("discount curve not found");
 
         // Reprice each quoted CDS and assert PV per $1MM is within $1

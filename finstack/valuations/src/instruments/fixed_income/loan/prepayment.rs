@@ -357,7 +357,7 @@ impl PrepaymentSchedule {
         }
 
         // Get the benchmark discount curve
-        let base_curve = market.disc(&params.benchmark_curve)?;
+        let base_curve = market.discount(&params.benchmark_curve)?;
 
         // Create z-spread curve (benchmark + spread)
         let discount_curve = ZSpreadCurve::new(base_curve.as_ref(), params.spread_bp);

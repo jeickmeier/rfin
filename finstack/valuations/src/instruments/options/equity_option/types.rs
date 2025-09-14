@@ -297,7 +297,8 @@ impl_instrument!(
                 s.strike.currency(),
             ));
         }
-        let disc_curve = curves.disc(s.disc_id.as_str())?;
+        use finstack_core::market_data::traits::Discount;
+        let disc_curve = curves.discount(s.disc_id.as_str())?;
         let r = disc_curve.zero(time_to_expiry);
         let spot_scalar = curves.price(&s.spot_id)?;
         let spot = match spot_scalar {

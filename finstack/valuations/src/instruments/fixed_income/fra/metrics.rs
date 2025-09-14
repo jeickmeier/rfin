@@ -26,7 +26,8 @@ impl MetricCalculator for FraDv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let fra: &ForwardRateAgreement = context.instrument_as()?;
 
-        let disc = context.curves.disc(fra.disc_id)?;
+        use finstack_core::market_data::traits::Discount;
+        let disc = context.curves.discount(fra.disc_id)?;
         let base = disc.base_date();
 
         // Settlement at start of period

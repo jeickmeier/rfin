@@ -489,7 +489,8 @@ impl LoanSimulator {
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
-        let disc = curves.disc(facility.disc_id())?;
+        use finstack_core::market_data::traits::Discount;
+        let disc = curves.discount(facility.disc_id())?;
         let existing_flows = facility.build_existing_flows(curves, as_of)?;
         existing_flows.npv(&*disc, disc.base_date(), facility.day_count())
     }
@@ -502,7 +503,8 @@ impl LoanSimulator {
         as_of: Date,
         timeline: &[Date],
     ) -> finstack_core::Result<(PVBreakdown, Vec<FacilityState>)> {
-        let disc = curves.disc(facility.disc_id())?;
+        use finstack_core::market_data::traits::Discount;
+        let disc = curves.discount(facility.disc_id())?;
 
         let mut breakdown = PVBreakdown::default();
         let mut state_path = Vec::new();
@@ -665,7 +667,8 @@ impl LoanSimulator {
         timeline: &[Date],
         rng: &mut dyn RandomNumberGenerator,
     ) -> finstack_core::Result<(PVBreakdown, Vec<FacilityState>, bool)> {
-        let disc = curves.disc(facility.disc_id())?;
+        use finstack_core::market_data::traits::Discount;
+        let disc = curves.discount(facility.disc_id())?;
         let mut breakdown = PVBreakdown::default();
         let mut state_path = Vec::new();
 
@@ -822,7 +825,8 @@ impl LoanSimulator {
                 gearing,
                 reset_lag_days,
             } => {
-                if let Ok(fwd_curve) = curves.fwd(index_id) {
+                use finstack_core::market_data::traits::Forward;
+                if let Ok(fwd_curve) = curves.forward(index_id) {
                     // Calculate reset date
                     let reset_date =
                         self.apply_reset_lag(period_start, *reset_lag_days, facility)?;

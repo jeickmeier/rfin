@@ -7,6 +7,7 @@
 use crate::instruments::fixed_income::deposit::Deposit;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::traits::Discount;
 use finstack_core::F;
 
 /// Calculates year fraction for deposits.
@@ -44,7 +45,7 @@ impl MetricCalculator for DfStartCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let deposit: &Deposit = context.instrument_as()?;
 
-        let disc = context.curves.disc(deposit.disc_id.clone())?;
+        let disc = context.curves.discount(deposit.disc_id.clone())?;
         let base = disc.base_date();
 
         Ok(DiscountCurve::df_on(
@@ -68,7 +69,7 @@ impl MetricCalculator for DfEndCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let deposit: &Deposit = context.instrument_as()?;
 
-        let disc = context.curves.disc(deposit.disc_id.clone())?;
+        let disc = context.curves.discount(deposit.disc_id.clone())?;
         let base = disc.base_date();
 
         Ok(DiscountCurve::df_on(

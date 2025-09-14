@@ -50,7 +50,7 @@
 //!     .insert_discount(disc)
 //!     .insert_forward(fwd3m)
 //!     .insert_hazard(hazard);
-//! assert!(curves.disc("USD-OIS").is_ok());
+//! assert!(curves.discount("USD-OIS").is_ok());
 //! ```
 
 /// Base correlation curves for CDS tranche pricing.

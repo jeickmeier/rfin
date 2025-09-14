@@ -16,6 +16,7 @@ use crate::instruments::options::models::{
 };
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::traits::Discount;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::{Result, F};
 use std::collections::HashMap;
@@ -74,7 +75,7 @@ impl BondValuator {
 
         // Build cashflow schedule
         let curves = market_context; // Use MarketContext directly
-        let base_date = market_context.disc(bond.disc_id.clone())?.base_date();
+        let base_date = market_context.discount(bond.disc_id.clone())?.base_date();
         let flows = bond.build_schedule(curves, base_date)?;
 
         // Map cashflows to tree steps
@@ -235,7 +236,7 @@ impl OASCalculator {
         };
 
         let mut tree = ShortRateTree::new(tree_config);
-        let discount_curve = market_context.disc(bond.disc_id.clone())?;
+        let discount_curve = market_context.discount(bond.disc_id.clone())?;
         tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
 
         // Create bond valuator
@@ -473,7 +474,7 @@ mod tests {
         assert!(!valuator.coupon_map.is_empty());
 
         // Verify market context was used properly
-        assert!(market_context.disc("USD-OIS").is_ok());
+        assert!(market_context.discount("USD-OIS").is_ok());
     }
 
     #[test]

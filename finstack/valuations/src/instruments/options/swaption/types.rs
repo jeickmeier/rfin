@@ -211,7 +211,7 @@ impl_instrument!(
     Swaption,
     "Swaption",
     pv = |s, curves, _as_of| {
-        let disc = curves.disc(s.disc_id)?;
+        let disc = curves.discount(s.disc_id)?;
         if s.sabr_params.is_some() {
             s.sabr_price(disc.as_ref())
         } else {

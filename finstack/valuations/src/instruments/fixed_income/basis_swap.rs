@@ -100,8 +100,8 @@ impl BasisSwap {
         valuation_date: Date,
     ) -> Result<Money> {
         // Get curves
-        let discount_curve = context.disc(self.discount_curve_id.as_str())?;
-        let forward_curve = context.fwd(leg.forward_curve_id.as_str())?;
+        let discount_curve = context.discount(self.discount_curve_id.as_str())?;
+        let forward_curve = context.forward(leg.forward_curve_id.as_str())?;
 
         // Generate payment schedule using simple date logic
         let mut schedule = Vec::new();

@@ -9,6 +9,7 @@ use finstack_core::{
     types::CurveId,
     Result, F,
 };
+use finstack_core::market_data::traits::Forward;
 
 /// Side of the TRS trade (perspective of the party)
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -122,7 +123,7 @@ impl TrsEngine {
         FReturn: Fn(Date, Date, F, F, F, &MarketContext) -> Result<F>,
     {
         // Get discount curve
-        let disc = context.disc(params.disc_id)?;
+        let disc = context.discount(params.disc_id)?;
 
         // Build schedule
         let period_schedule = build_dates(
@@ -188,8 +189,8 @@ impl TrsEngine {
         let disc_curve_id = financing.disc_id.as_str();
         let fwd_curve_id = financing.fwd_id.as_str();
 
-        let disc = context.disc(disc_curve_id)?;
-        let fwd = context.fwd(fwd_curve_id)?;
+        let disc = context.discount(disc_curve_id)?;
+        let fwd = context.forward(fwd_curve_id)?;
 
         // Build schedule
         let period_schedule = build_dates(
@@ -251,7 +252,7 @@ impl TrsEngine {
     ) -> Result<F> {
         // Get discount curve
         let disc_curve_id = financing.disc_id.as_str();
-        let disc = context.disc(disc_curve_id)?;
+        let disc = context.discount(disc_curve_id)?;
 
         // Build schedule
         let period_schedule = build_dates(
