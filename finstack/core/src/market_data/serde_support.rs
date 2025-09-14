@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 extern crate alloc;
 use alloc::{sync::Arc, string::String, vec::Vec};
 
-use super::core::MarketContext;
+use super::context::MarketContext;
 #[cfg(feature = "serde")]
 use crate::market_data::{
     scalars::inflation_index::{InflationIndexState as InflationIndexData},

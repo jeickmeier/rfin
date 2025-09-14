@@ -43,12 +43,17 @@
 //! assert!(df < 1.0);
 //! ```
 
-/// Legacy market-data context (trait object based).
+/// Market data context with enum-based storage (simplified from V2).
 pub mod context;
+/// Bump functionality for scenario analysis and stress testing.
+pub mod bumps;
 /// Enum-based storage system for market data.
 pub mod storage;  
-/// Modern MarketContext with enum-based storage (recommended).
-pub mod context_v2;
+/// Builder utilities for MarketContext.
+pub mod builder;
+// TODO: Serialization support needs to be reimplemented for the new enum-based architecture
+// #[cfg(feature = "serde")]
+// pub mod serde_support;
 /// Interpolation framework and concrete algorithms (re-exported from `math::interp`).
 pub use crate::math::interp;
 /// Scalar market data types and time series (including primitives)
@@ -68,12 +73,11 @@ pub use term_structures::{discount_curve, forward_curve, hazard_curve, inflation
 pub use surfaces::vol_surface;
 // Also re-export the concrete VolSurface type for a shorter import path.
 pub use surfaces::vol_surface::VolSurface;
-// Re-export legacy MarketContext for backward compatibility
+// Re-export MarketContext at the top level for backward compatibility
 pub use context::MarketContext;
-// For new development, use: context_v2::MarketContext (enum-based, faster, complete serialization)
+// Also re-export bump types for convenience
+pub use bumps::{BumpMode, BumpSpec, BumpUnits};
 
 /// Numeric precision alias re-exported from the surrounding crate so that
 /// downstream code can simply `use finstack_core::market_data::F`.
 pub use crate::F;
-
-// Test modules are now in context_v2/

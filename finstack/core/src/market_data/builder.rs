@@ -6,7 +6,7 @@
 extern crate alloc;
 use alloc::{string::String, vec::Vec};
 
-use super::core::MarketContext;
+use super::context::MarketContext;
 use crate::market_data::{
     scalars::inflation_index::InflationIndex,
     term_structures::credit_index::CreditIndexData,
