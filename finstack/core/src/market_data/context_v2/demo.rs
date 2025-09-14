@@ -15,7 +15,6 @@ mod demo_tests {
                 forward_curve::ForwardCurve,
                 hazard_curve::HazardCurve,
             },
-            traits::TermStructure,
         },
     };
 
