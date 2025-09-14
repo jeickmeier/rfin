@@ -113,26 +113,22 @@ impl FraBuilder {
                 id: "market_refs".to_string(),
             })
         })?;
-        let fwd_id = refs.fwd_id.ok_or_else(|| {
-            finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+        // Validate that forward curve is provided
+        if refs.fwd_id.is_none() {
+            return Err(finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
                 id: "forward_curve_id".to_string(),
-            })
-        })?;
+            }));
+        }
 
-        let disc_id: &'static str = Box::leak(refs.disc_id.into_string().into_boxed_str());
-        let forward_id: &'static str = Box::leak(fwd_id.into_string().into_boxed_str());
-
-        let mut fra = ForwardRateAgreement::new(
-            id,
+        let fra_params = crate::instruments::common::parameter_groups::FRAParams::new(
             notional,
             fixing_date,
-            start_date,
-            end_date,
             fixed_rate,
             self.day_count.unwrap_or(DayCount::Act360),
-            disc_id,
-            forward_id,
         );
+        let date_range = crate::instruments::common::DateRange::new(start_date, end_date);
+
+        let mut fra = ForwardRateAgreement::new(id, &fra_params, &date_range, &refs);
 
         if let Some(pf) = self.pay_fixed {
             fra = fra.with_pay_fixed(pf);

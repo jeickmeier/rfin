@@ -3,9 +3,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::fixed_income::cds::{
-    CDSConvention, PayReceive as CDSPayReceive,
-};
+use finstack_valuations::instruments::fixed_income::cds::CDSConvention;
 use finstack_valuations::instruments::fixed_income::inflation_linked_bond::IndexationMethod;
 use finstack_valuations::instruments::options::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::{
@@ -22,18 +20,26 @@ fn test_cds_creation_and_basic_pricing() {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
+    let construction_params = finstack_valuations::instruments::common::CDSConstructionParams::buy_protection(
+        notional,
+        100.0, // 100bp spread
+    );
+    let date_range = finstack_valuations::instruments::common::DateRange::new(start, end);
+    let credit_params = finstack_valuations::instruments::common::CreditParams::new(
+        "ABC Corp",
+        0.4, // 40% recovery
+        "ABC-SENIOR",
+    );
+    let market_refs = finstack_valuations::instruments::common::MarketRefs::discount_only(
+        finstack_core::types::CurveId::new("USD-OIS"),
+    ).with_credit(finstack_core::types::CurveId::new("ABC-SENIOR"));
+
     let cds = CreditDefaultSwap::new_isda(
         "CDS_TEST",
-        notional,
-        "ABC Corp",
-        CDSPayReceive::PayProtection,
-        CDSConvention::IsdaNa,
-        start,
-        end,
-        100.0, // 100bp spread
-        "ABC-SENIOR",
-        0.4, // 40% recovery
-        "USD-OIS",
+        &construction_params,
+        &date_range,
+        &credit_params,
+        &market_refs,
     );
 
     assert_eq!(cds.id, "CDS_TEST");
@@ -48,16 +54,25 @@ fn test_equity_option_creation() {
     let strike = Money::new(100.0, Currency::USD);
     let expiry = Date::from_calendar_date(2025, Month::December, 31).unwrap();
 
-    let option = EquityOption::new(
-        "AAPL_CALL_100",
-        "AAPL",
+    let option_params = finstack_valuations::instruments::common::EquityOptionParams::european_call(
         strike,
-        OptionType::Call,
         expiry,
         100.0, // Contract size
-        "USD-OIS",
+    );
+    let underlying_params = finstack_valuations::instruments::common::EquityUnderlyingParams::new(
+        "AAPL",
         "AAPL-SPOT",
-        "AAPL-VOL",
+    );
+    let market_refs = finstack_valuations::instruments::common::MarketRefs::option(
+        finstack_core::types::CurveId::new("USD-OIS"),
+        finstack_core::types::CurveId::new("AAPL-VOL"),
+    );
+
+    let option = EquityOption::new(
+        "AAPL_CALL_100",
+        &option_params,
+        &underlying_params,
+        &market_refs,
     );
 
     assert_eq!(option.id, "AAPL_CALL_100".into());
@@ -89,16 +104,22 @@ fn test_fx_option_creation() {
     let notional = Money::new(1_000_000.0, Currency::EUR);
     let expiry = Date::from_calendar_date(2025, Month::December, 31).unwrap();
 
-    let option = FxOption::new(
-        "EURUSD_CALL_1.20",
-        Currency::EUR,
-        Currency::USD,
+    let option_params = finstack_valuations::instruments::common::FxOptionParams::european_call(
         1.20,
-        OptionType::Call,
         expiry,
         notional,
+    );
+    let underlying_params = finstack_valuations::instruments::common::FxUnderlyingParams::new(
+        Currency::EUR,
+        Currency::USD,
         "USD-OIS",
         "EUR-OIS",
+    );
+
+    let option = FxOption::new(
+        "EURUSD_CALL_1.20",
+        &option_params,
+        &underlying_params,
         "EURUSD-VOL",
     );
 
@@ -152,18 +173,27 @@ fn test_credit_option_creation() {
     let expiry = Date::from_calendar_date(2025, Month::June, 30).unwrap();
     let cds_maturity = Date::from_calendar_date(2030, Month::June, 30).unwrap();
 
-    let option = CreditOption::new(
-        "ABC_CDS_CALL_200",
-        "ABC Corp",
+    let option_params = finstack_valuations::instruments::common::CreditOptionParams::call(
         200.0, // 200bp strike
-        OptionType::Call,
         expiry,
         cds_maturity,
         notional,
+    );
+    let credit_params = finstack_valuations::instruments::common::CreditParams::new(
+        "ABC Corp",
         0.4, // 40% recovery
-        "USD-OIS",
         "ABC-SENIOR",
-        "ABC-CDS-VOL",
+    );
+    let market_refs = finstack_valuations::instruments::common::MarketRefs::discount_only(
+        finstack_core::types::CurveId::new("USD-OIS"),
+    ).with_credit(finstack_core::types::CurveId::new("ABC-SENIOR"))
+        .with_volatility(finstack_core::types::CurveId::new("ABC-CDS-VOL"));
+
+    let option = CreditOption::new(
+        "ABC_CDS_CALL_200",
+        &option_params,
+        &credit_params,
+        &market_refs,
     );
 
     assert_eq!(option.id, "ABC_CDS_CALL_200");
@@ -178,13 +208,17 @@ fn test_inflation_linked_bond_creation() {
     let issue = Date::from_calendar_date(2020, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
 
-    let tips = InflationLinkedBond::new_tips(
-        "US_TIPS_2030",
+    let bond_params = finstack_valuations::instruments::common::InflationLinkedBondParams::tips(
         notional,
         0.0125, // 1.25% real coupon
         issue,
         maturity,
         250.0, // Base CPI
+    );
+
+    let tips = InflationLinkedBond::new_tips(
+        "US_TIPS_2030",
+        &bond_params,
         "USD-REAL",
         "US-CPI-U",
     );
@@ -198,13 +232,17 @@ fn test_inflation_linked_bond_creation() {
     let gbp_notional = Money::new(1_000_000.0, Currency::GBP);
     let base_date = Date::from_calendar_date(2019, Month::November, 1).unwrap();
 
-    let uk_linker = InflationLinkedBond::new_uk_linker(
-        "UK_LINKER_2040",
+    let uk_bond_params = finstack_valuations::instruments::common::InflationLinkedBondParams::uk_linker(
         gbp_notional,
         0.00625, // 0.625% real coupon
         issue,
         maturity,
         280.0, // Base RPI
+    );
+
+    let uk_linker = InflationLinkedBond::new_uk_linker(
+        "UK_LINKER_2040",
+        &uk_bond_params,
         base_date,
         "GBP-NOMINAL",
         "UK-RPI",

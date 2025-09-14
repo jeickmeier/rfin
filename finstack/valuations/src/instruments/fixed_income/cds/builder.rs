@@ -151,18 +151,18 @@ impl CDSBuilder {
         let convention = self.convention.unwrap_or(CDSConvention::IsdaNa);
         let pricing = self.pricing_overrides.unwrap_or_default();
 
-        let mut cds = CreditDefaultSwap::new_isda(
-            id,
+        let construction_params = crate::instruments::common::CDSConstructionParams::new(
             notional,
-            credit_params.reference_entity,
             side,
             convention,
-            date_range.start,
-            date_range.end,
             spread_bp,
-            credit_params.credit_id,
-            credit_params.recovery_rate,
-            Box::leak(market_refs.disc_id.as_str().to_string().into_boxed_str()),
+        );
+        let mut cds = CreditDefaultSwap::new_isda(
+            id,
+            &construction_params,
+            &date_range,
+            &credit_params,
+            &market_refs,
         );
 
         // Set pricing overrides

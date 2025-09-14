@@ -1,12 +1,12 @@
 //! CDS Tranche types, builder entrypoint, and pricing impl.
 
 use crate::instruments::build_with_metrics_dyn;
+use crate::instruments::common::{CDSTrancheParams, InstrumentScheduleParams, MarketRefs};
 use crate::instruments::traits::{Attributes, Priceable};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
 use finstack_core::market_data::MarketContext;
-// use finstack_core::market_data::MarketContext; // re-exported via crate::market_data
 use finstack_core::money::Money;
 use finstack_core::F;
 
@@ -61,40 +61,34 @@ pub struct CdsTranche {
 }
 
 impl CdsTranche {
-    /// Create a new CDS tranche with required fields
-    #[allow(clippy::too_many_arguments)]
+    /// Create a new CDS tranche using parameter structs
     pub fn new(
         id: impl Into<String>,
-        index_name: impl Into<String>,
-        series: u16,
-        attach_pct: F,
-        detach_pct: F,
-        notional: Money,
-        maturity: Date,
-        running_coupon_bp: F,
-        payment_frequency: Frequency,
-        day_count: DayCount,
-        business_day_convention: BusinessDayConvention,
-        calendar_id: Option<&'static str>,
-        disc_id: &'static str,
-        credit_index_id: &'static str,
+        tranche_params: &CDSTrancheParams,
+        schedule_params: &InstrumentScheduleParams,
+        market_refs: &MarketRefs,
         side: TrancheSide,
     ) -> Self {
+        let credit_index_id = market_refs
+            .credit_id
+            .as_ref()
+            .expect("Credit index curve required for CDS tranches");
+
         Self {
             id: id.into(),
-            index_name: index_name.into(),
-            series,
-            attach_pct,
-            detach_pct,
-            notional,
-            maturity,
-            running_coupon_bp,
-            payment_frequency,
-            day_count,
-            business_day_convention,
-            calendar_id,
-            disc_id,
-            credit_index_id,
+            index_name: tranche_params.index_name.clone(),
+            series: tranche_params.series,
+            attach_pct: tranche_params.attach_pct,
+            detach_pct: tranche_params.detach_pct,
+            notional: tranche_params.notional,
+            maturity: tranche_params.maturity,
+            running_coupon_bp: tranche_params.running_coupon_bp,
+            payment_frequency: schedule_params.frequency,
+            day_count: schedule_params.day_count,
+            business_day_convention: schedule_params.bdc,
+            calendar_id: schedule_params.calendar_id,
+            disc_id: Box::leak(market_refs.disc_id.to_string().into_boxed_str()),
+            credit_index_id: Box::leak(credit_index_id.to_string().into_boxed_str()),
             side,
             effective_date: None,
             attributes: Attributes::new(),

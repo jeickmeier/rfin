@@ -8,6 +8,46 @@ use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::F;
 
+/// Parameters for make-whole prepayment penalty calculation.
+///
+/// Groups parameters needed for calculating make-whole penalties.
+#[derive(Clone, Debug)]
+pub struct MakeWholePenaltyParams {
+    /// Prepayment date
+    pub prepay_date: Date,
+    /// Amount being prepaid
+    pub prepay_amount: Money,
+    /// Outstanding principal balance
+    pub outstanding_principal: Money,
+    /// Day count convention
+    pub day_count: DayCount,
+    /// Benchmark curve identifier
+    pub benchmark_curve: String,
+    /// Spread over benchmark in basis points
+    pub spread_bp: F,
+}
+
+impl MakeWholePenaltyParams {
+    /// Create new make-whole penalty parameters
+    pub fn new(
+        prepay_date: Date,
+        prepay_amount: Money,
+        outstanding_principal: Money,
+        day_count: DayCount,
+        benchmark_curve: impl Into<String>,
+        spread_bp: F,
+    ) -> Self {
+        Self {
+            prepay_date,
+            prepay_amount,
+            outstanding_principal,
+            day_count,
+            benchmark_curve: benchmark_curve.into(),
+            spread_bp,
+        }
+    }
+}
+
 /// Type of prepayment allowed on the loan.
 #[derive(Clone, Debug, PartialEq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -264,16 +304,17 @@ impl PrepaymentSchedule {
                     PenaltyType::MakeWhole {
                         benchmark_curve,
                         spread_bp,
-                    } => self.calculate_make_whole_penalty(
-                        date,
-                        amount,
-                        outstanding_principal,
-                        remaining_flows,
-                        market,
-                        day_count,
-                        benchmark_curve,
-                        *spread_bp,
-                    ),
+                    } => {
+                        let penalty_params = MakeWholePenaltyParams::new(
+                            date,
+                            amount,
+                            outstanding_principal,
+                            day_count,
+                            benchmark_curve,
+                            *spread_bp,
+                        );
+                        self.calculate_make_whole_penalty(&penalty_params, remaining_flows, market)
+                    }
                     PenaltyType::YieldMaintenance { reference_rate } => self
                         .calculate_yield_maintenance_penalty(
                             date,
@@ -292,23 +333,17 @@ impl PrepaymentSchedule {
     }
 
     /// Calculate make-whole penalty: PV of remaining flows at benchmark + spread minus outstanding principal.
-    #[allow(clippy::too_many_arguments)]
     fn calculate_make_whole_penalty(
         &self,
-        prepay_date: Date,
-        prepay_amount: Money,
-        outstanding_principal: Money,
+        params: &MakeWholePenaltyParams,
         remaining_flows: &[(Date, Money)],
         market: &MarketContext,
-        day_count: DayCount,
-        benchmark_curve: &str,
-        spread_bp: F,
     ) -> finstack_core::Result<Money> {
         // Filter remaining flows after prepayment date and scale by prepayment ratio
-        let prepay_ratio = prepay_amount.amount() / outstanding_principal.amount();
+        let prepay_ratio = params.prepay_amount.amount() / params.outstanding_principal.amount();
         let scaled_flows: Vec<(Date, Money)> = remaining_flows
             .iter()
-            .filter(|(flow_date, _)| *flow_date > prepay_date)
+            .filter(|(flow_date, _)| *flow_date > params.prepay_date)
             .map(|(flow_date, flow_amount)| {
                 (
                     *flow_date,
@@ -318,21 +353,21 @@ impl PrepaymentSchedule {
             .collect();
 
         if scaled_flows.is_empty() {
-            return Ok(Money::new(0.0, prepay_amount.currency()));
+            return Ok(Money::new(0.0, params.prepay_amount.currency()));
         }
 
         // Get the benchmark discount curve
-        let base_curve = market.disc(benchmark_curve)?;
+        let base_curve = market.disc(&params.benchmark_curve)?;
 
         // Create z-spread curve (benchmark + spread)
-        let discount_curve = ZSpreadCurve::new(base_curve.as_ref(), spread_bp);
+        let discount_curve = ZSpreadCurve::new(base_curve.as_ref(), params.spread_bp);
 
         // Calculate present value of remaining flows
-        let pv = scaled_flows.npv(&discount_curve, prepay_date, day_count)?;
+        let pv = scaled_flows.npv(&discount_curve, params.prepay_date, params.day_count)?;
 
         // Penalty is max(PV - prepaid amount, 0)
-        let penalty_amount = (pv.amount() - prepay_amount.amount()).max(0.0);
-        Ok(Money::new(penalty_amount, prepay_amount.currency()))
+        let penalty_amount = (pv.amount() - params.prepay_amount.amount()).max(0.0);
+        Ok(Money::new(penalty_amount, params.prepay_amount.currency()))
     }
 
     /// Calculate yield maintenance penalty: PV of remaining coupon flows at reference rate.

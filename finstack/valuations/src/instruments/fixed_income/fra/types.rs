@@ -1,6 +1,7 @@
 //! Forward Rate Agreement (FRA) instrument types and implementation.
 
 use crate::cashflow::traits::CashflowProvider;
+use crate::instruments::common::{DateRange, FRAParams, MarketRefs};
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::traits::{Discount, Forward};
@@ -42,30 +43,29 @@ pub struct ForwardRateAgreement {
 }
 
 impl ForwardRateAgreement {
-    /// Create a new FRA.
-    #[allow(clippy::too_many_arguments)]
+    /// Create a new FRA using parameter structs.
     pub fn new(
         id: impl Into<String>,
-        notional: Money,
-        fixing_date: Date,
-        start_date: Date,
-        end_date: Date,
-        fixed_rate: F,
-        day_count: DayCount,
-        disc_id: &'static str,
-        forward_id: &'static str,
+        fra_params: &FRAParams,
+        date_range: &DateRange,
+        market_refs: &MarketRefs,
     ) -> Self {
+        let forward_id = market_refs
+            .fwd_id
+            .as_ref()
+            .expect("Forward curve required for FRA");
+
         Self {
             id: id.into(),
-            notional,
-            fixing_date,
-            start_date,
-            end_date,
-            fixed_rate,
-            day_count,
+            notional: fra_params.notional,
+            fixing_date: fra_params.fixing_date,
+            start_date: date_range.start,
+            end_date: date_range.end,
+            fixed_rate: fra_params.fixed_rate,
+            day_count: fra_params.day_count,
             reset_lag: 2, // Standard T+2 settlement
-            disc_id,
-            forward_id,
+            disc_id: Box::leak(market_refs.disc_id.to_string().into_boxed_str()),
+            forward_id: Box::leak(forward_id.to_string().into_boxed_str()),
             pay_fixed: false, // Default to receive fixed
             attributes: Attributes::new(),
         }

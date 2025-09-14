@@ -140,25 +140,21 @@ impl IRFutureBuilder {
             .ok_or(finstack_core::error::InputError::Invalid)?;
 
         // Extract curve IDs from market refs
-        let disc_id: &'static str = Box::leak(refs.disc_id.into_string().into_boxed_str());
-        let forward_id: &'static str = if let Some(fwd_id) = refs.fwd_id {
-            Box::leak(fwd_id.into_string().into_boxed_str())
-        } else {
+        // Validate that forward curve is provided
+        if refs.fwd_id.is_none() {
             return Err(finstack_core::error::InputError::Invalid.into());
-        };
+        }
 
-        let mut future = InterestRateFuture::new(
-            id,
+        let future_params = crate::instruments::common::parameter_groups::IRFutureParams::new(
             notional,
             expiry_date,
             fixing_date,
-            period_start,
-            period_end,
             quoted_price,
             day_count,
-            disc_id,
-            forward_id,
         );
+        let period_range = crate::instruments::common::DateRange::new(period_start, period_end);
+
+        let mut future = InterestRateFuture::new(id, &future_params, &period_range, &refs);
 
         if let Some(specs) = self.contract_specs {
             future = future.with_contract_specs(specs);

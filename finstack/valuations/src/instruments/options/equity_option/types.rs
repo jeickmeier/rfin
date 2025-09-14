@@ -1,6 +1,6 @@
 //! Equity option instrument implementation using Black-Scholes model.
 
-use crate::instruments::common::PricingOverrides;
+use crate::instruments::common::{EquityOptionParams, EquityUnderlyingParams, MarketRefs, PricingOverrides};
 use crate::instruments::options::models::{d1, d2};
 use crate::instruments::options::{ExerciseStyle, OptionType, SettlementType};
 use crate::instruments::traits::Attributes;
@@ -123,32 +123,32 @@ impl EquityOption {
             .expect("American call construction should not fail")
     }
 
-    #[allow(clippy::too_many_arguments)]
+    /// Create a new equity option using parameter structs
     pub fn new(
         id: impl Into<String>,
-        underlying_ticker: impl Into<String>,
-        strike: Money,
-        option_type: OptionType,
-        expiry: Date,
-        contract_size: F,
-        disc_id: impl Into<CurveId>,
-        spot_id: impl Into<String>,
-        vol_id: impl Into<CurveId>,
+        option_params: &EquityOptionParams,
+        underlying_params: &EquityUnderlyingParams,
+        market_refs: &MarketRefs,
     ) -> Self {
+        let vol_id = market_refs
+            .vol_id
+            .as_ref()
+            .expect("Volatility surface required for equity options");
+
         Self {
             id: InstrumentId::new(id.into()),
-            underlying_ticker: underlying_ticker.into(),
-            strike,
-            option_type,
-            exercise_style: ExerciseStyle::European,
-            expiry,
-            contract_size,
+            underlying_ticker: underlying_params.ticker.clone(),
+            strike: option_params.strike,
+            option_type: option_params.option_type,
+            exercise_style: option_params.exercise_style,
+            expiry: option_params.expiry,
+            contract_size: option_params.contract_size,
             day_count: finstack_core::dates::DayCount::Act365F,
-            settlement: SettlementType::Physical,
-            disc_id: disc_id.into(),
-            spot_id: spot_id.into(),
-            vol_id: vol_id.into(),
-            div_yield_id: None,
+            settlement: option_params.settlement,
+            disc_id: market_refs.disc_id.clone(),
+            spot_id: underlying_params.spot_id.clone(),
+            vol_id: vol_id.clone(),
+            div_yield_id: underlying_params.dividend_yield_id.clone(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }

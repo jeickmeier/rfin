@@ -1,10 +1,8 @@
 //! CDS Index types and implementations.
 
-use crate::instruments::common::PricingOverrides;
+use crate::instruments::common::{CDSIndexConstructionParams, CDSIndexParams, CreditParams, DateRange, MarketRefs, PricingOverrides};
 use crate::instruments::traits::Attributes;
-use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::F;
 
 // Reuse CDS components for conventions and legs
 use crate::instruments::fixed_income::cds::{
@@ -45,50 +43,47 @@ impl CDSIndex {
         crate::instruments::fixed_income::cds_index::builder::CDSIndexBuilder::new()
     }
 
-    /// Create a new CDS Index with standard ISDA conventions
-    #[allow(clippy::too_many_arguments)]
+    /// Create a new CDS Index with standard ISDA conventions using parameter structs
     pub fn new_standard(
         id: impl Into<String>,
-        index_name: impl Into<String>,
-        series: u16,
-        version: u16,
-        notional: Money,
-        side: CdsPayReceive,
-        convention: CDSConvention,
-        start: Date,
-        end: Date,
-        fixed_coupon_bp: F,
-        credit_id: &'static str,
-        recovery_rate: F,
-        disc_id: &'static str,
+        index_params: &CDSIndexParams,
+        construction_params: &CDSIndexConstructionParams,
+        date_range: &DateRange,
+        credit_params: &CreditParams,
+        market_refs: &MarketRefs,
     ) -> Self {
-        let dc = convention.day_count();
-        let freq = convention.frequency();
-        let bdc = convention.business_day_convention();
-        let stub = convention.stub_convention();
+        let dc = construction_params.convention.day_count();
+        let freq = construction_params.convention.frequency();
+        let bdc = construction_params.convention.business_day_convention();
+        let stub = construction_params.convention.stub_convention();
+
+        let credit_id = market_refs
+            .credit_id
+            .as_ref()
+            .expect("Credit curve required for CDS index");
 
         Self {
             id: id.into(),
-            index_name: index_name.into(),
-            series,
-            version,
-            notional,
-            side,
-            convention,
+            index_name: index_params.index_name.clone(),
+            series: index_params.series,
+            version: index_params.version,
+            notional: construction_params.notional,
+            side: construction_params.side,
+            convention: construction_params.convention,
             premium: PremiumLegSpec {
-                start,
-                end,
+                start: date_range.start,
+                end: date_range.end,
                 freq,
                 stub,
                 bdc,
                 calendar_id: None,
                 dc,
-                spread_bp: fixed_coupon_bp,
-                disc_id,
+                spread_bp: index_params.fixed_coupon_bp,
+                disc_id: Box::leak(market_refs.disc_id.to_string().into_boxed_str()),
             },
             protection: ProtectionLegSpec {
-                credit_id,
-                recovery_rate,
+                credit_id: Box::leak(credit_id.to_string().into_boxed_str()),
+                recovery_rate: credit_params.recovery_rate,
                 settlement: SettlementType::Cash,
                 settlement_delay: 3,
             },

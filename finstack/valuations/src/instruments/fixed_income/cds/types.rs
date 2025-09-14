@@ -1,7 +1,7 @@
 //! Credit Default Swap (CDS) types and implementations.
 
 use crate::cashflow::traits::DatedFlows;
-use crate::instruments::common::PricingOverrides;
+use crate::instruments::common::{CDSConstructionParams, CreditParams, DateRange, MarketRefs, PricingOverrides};
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::traits::{Discount, Survival};
@@ -217,46 +217,44 @@ impl CreditDefaultSwap {
             .expect("High yield CDS construction should not fail")
     }
 
-    /// Create a new CDS with standard ISDA conventions
-    #[allow(clippy::too_many_arguments)]
+    /// Create a new CDS with standard ISDA conventions using parameter structs
     pub fn new_isda(
         id: impl Into<String>,
-        notional: Money,
-        reference_entity: impl Into<String>,
-        side: PayReceive,
-        convention: CDSConvention,
-        start: Date,
-        end: Date,
-        spread_bp: F,
-        credit_id: &'static str,
-        recovery_rate: F,
-        disc_id: &'static str,
+        construction_params: &CDSConstructionParams,
+        date_range: &DateRange,
+        credit_params: &CreditParams,
+        market_refs: &MarketRefs,
     ) -> Self {
-        let dc = convention.day_count();
-        let freq = convention.frequency();
-        let bdc = convention.business_day_convention();
-        let stub = convention.stub_convention();
+        let dc = construction_params.convention.day_count();
+        let freq = construction_params.convention.frequency();
+        let bdc = construction_params.convention.business_day_convention();
+        let stub = construction_params.convention.stub_convention();
+
+        let credit_id = market_refs
+            .credit_id
+            .as_ref()
+            .expect("Credit curve required for CDS");
 
         Self {
             id: id.into(),
-            notional,
-            reference_entity: reference_entity.into(),
-            side,
-            convention,
+            notional: construction_params.notional,
+            reference_entity: credit_params.reference_entity.clone(),
+            side: construction_params.side,
+            convention: construction_params.convention,
             premium: PremiumLegSpec {
-                start,
-                end,
+                start: date_range.start,
+                end: date_range.end,
                 freq,
                 stub,
                 bdc,
                 calendar_id: None,
                 dc,
-                spread_bp,
-                disc_id,
+                spread_bp: construction_params.spread_bp,
+                disc_id: Box::leak(market_refs.disc_id.to_string().into_boxed_str()),
             },
             protection: ProtectionLegSpec {
-                credit_id,
-                recovery_rate,
+                credit_id: Box::leak(credit_id.to_string().into_boxed_str()),
+                recovery_rate: credit_params.recovery_rate,
                 settlement: SettlementType::Cash,
                 settlement_delay: 3,
             },

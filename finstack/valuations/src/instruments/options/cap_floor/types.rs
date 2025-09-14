@@ -1,6 +1,6 @@
 //! Interest rate option instrument types and implementation using Black model.
 
-use crate::instruments::common::PricingOverrides;
+use crate::instruments::common::{DateRange, InterestRateOptionParams, MarketRefs, PricingOverrides};
 use crate::instruments::options::{ExerciseStyle, SettlementType};
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount, Frequency};
@@ -57,96 +57,67 @@ pub struct InterestRateOption {
 }
 
 impl InterestRateOption {
-    /// Create a new interest rate option
-    #[allow(clippy::too_many_arguments)]
+    /// Create a new interest rate option using parameter structs
     pub fn new(
         id: impl Into<String>,
-        rate_option_type: RateOptionType,
-        notional: Money,
-        strike_rate: F,
-        start_date: Date,
-        end_date: Date,
-        frequency: Frequency,
-        day_count: DayCount,
-        disc_id: &'static str,
-        forward_id: &'static str,
-        vol_id: &'static str,
+        option_params: &InterestRateOptionParams,
+        date_range: &DateRange,
+        market_refs: &MarketRefs,
     ) -> Self {
+        let forward_id = market_refs
+            .fwd_id
+            .as_ref()
+            .expect("Forward curve required for interest rate options");
+        let vol_id = market_refs
+            .vol_id
+            .as_ref()
+            .expect("Volatility surface required for interest rate options");
+
         Self {
             id: id.into(),
-            rate_option_type,
-            notional,
-            strike_rate,
-            start_date,
-            end_date,
-            frequency,
-            day_count,
+            rate_option_type: option_params.rate_option_type,
+            notional: option_params.notional,
+            strike_rate: option_params.strike_rate,
+            start_date: date_range.start,
+            end_date: date_range.end,
+            frequency: option_params.frequency,
+            day_count: option_params.day_count,
             exercise_style: ExerciseStyle::European,
             settlement: SettlementType::Cash,
-            disc_id,
-            forward_id,
-            vol_id,
+            disc_id: Box::leak(market_refs.disc_id.to_string().into_boxed_str()),
+            forward_id: Box::leak(forward_id.to_string().into_boxed_str()),
+            vol_id: Box::leak(vol_id.to_string().into_boxed_str()),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
     }
 
-    /// Create a cap instrument
-    #[allow(clippy::too_many_arguments)]
+    /// Create a cap instrument using parameter structs
     pub fn new_cap(
         id: impl Into<String>,
         notional: Money,
         strike_rate: F,
-        start_date: Date,
-        end_date: Date,
+        date_range: &DateRange,
         frequency: Frequency,
         day_count: DayCount,
-        disc_id: &'static str,
-        forward_id: &'static str,
-        vol_id: &'static str,
+        market_refs: &MarketRefs,
     ) -> Self {
-        Self::new(
-            id,
-            RateOptionType::Cap,
-            notional,
-            strike_rate,
-            start_date,
-            end_date,
-            frequency,
-            day_count,
-            disc_id,
-            forward_id,
-            vol_id,
-        )
+        let option_params = InterestRateOptionParams::cap(notional, strike_rate, frequency, day_count);
+        Self::new(id, &option_params, date_range, market_refs)
     }
 
-    /// Create a floor instrument
-    #[allow(clippy::too_many_arguments)]
+    /// Create a floor instrument using parameter structs
     pub fn new_floor(
         id: impl Into<String>,
         notional: Money,
         strike_rate: F,
-        start_date: Date,
-        end_date: Date,
+        date_range: &DateRange,
         frequency: Frequency,
         day_count: DayCount,
-        disc_id: &'static str,
-        forward_id: &'static str,
-        vol_id: &'static str,
+        market_refs: &MarketRefs,
     ) -> Self {
-        Self::new(
-            id,
-            RateOptionType::Floor,
-            notional,
-            strike_rate,
-            start_date,
-            end_date,
-            frequency,
-            day_count,
-            disc_id,
-            forward_id,
-            vol_id,
-        )
+        let option_params = InterestRateOptionParams::floor(notional, strike_rate, frequency, day_count);
+        Self::new(id, &option_params, date_range, market_refs)
     }
 
     /// Calculate caplet/floorlet price using Black's model

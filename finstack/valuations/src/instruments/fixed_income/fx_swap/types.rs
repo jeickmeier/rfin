@@ -1,5 +1,6 @@
 //! FX Swap types and implementations.
 
+use crate::instruments::common::{FxSwapParams, FxUnderlyingParams};
 use crate::instruments::traits::Attributes;
 use finstack_core::money::fx::FxConversionPolicy;
 use finstack_core::prelude::*;
@@ -33,29 +34,23 @@ pub struct FxSwap {
 }
 
 impl FxSwap {
-    /// Create a new FX swap with required fields
-    #[allow(clippy::too_many_arguments)]
+    /// Create a new FX swap using parameter structs
     pub fn new(
         id: impl Into<String>,
-        base_currency: Currency,
-        quote_currency: Currency,
-        near_date: Date,
-        far_date: Date,
-        base_notional: Money,
-        domestic_disc_id: &'static str,
-        foreign_disc_id: &'static str,
+        swap_params: &FxSwapParams,
+        underlying_params: &FxUnderlyingParams,
     ) -> Self {
         Self {
             id: id.into(),
-            base_currency,
-            quote_currency,
-            near_date,
-            far_date,
-            base_notional,
-            domestic_disc_id,
-            foreign_disc_id,
-            near_rate: None,
-            far_rate: None,
+            base_currency: underlying_params.base_currency,
+            quote_currency: underlying_params.quote_currency,
+            near_date: swap_params.near_date,
+            far_date: swap_params.far_date,
+            base_notional: swap_params.base_notional,
+            domestic_disc_id: underlying_params.domestic_disc_id,
+            foreign_disc_id: underlying_params.foreign_disc_id,
+            near_rate: swap_params.near_rate,
+            far_rate: swap_params.far_rate,
             attributes: Attributes::new(),
         }
     }

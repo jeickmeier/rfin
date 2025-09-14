@@ -49,6 +49,8 @@ use finstack_core::prelude::*;
 
 #[cfg(test)]
 use finstack_core::math::log_factorial;
+#[cfg(test)]
+use finstack_core::types::CurveId;
 use finstack_core::F;
 
 /// Parameters for the Gaussian Copula pricing model.
@@ -893,23 +895,35 @@ mod tests {
         let _issue_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
-        CdsTranche::new(
-            "CDX_IG42_3_7_5Y",                                      // id
-            "CDX.NA.IG.42",                                         // index_name
-            42,                                                     // series
-            3.0,                                                    // attach_pct (3%)
-            7.0,                                                    // detach_pct (7%)
-            Money::new(10_000_000.0, Currency::USD),                // $10MM notional
-            maturity,                                               // maturity
-            500.0,                                                  // running_coupon_bp (5%)
-            finstack_core::dates::Frequency::quarterly(),           // payment_frequency
-            finstack_core::dates::DayCount::Act360,                 // day_count
-            finstack_core::dates::BusinessDayConvention::Following, // business_day_convention
-            None,                                                   // calendar_id
-            "USD-OIS",                                              // disc_id
-            "CDX.NA.IG.42",                                         // credit_index_id
-            TrancheSide::SellProtection,                            // side
-        )
+        {
+            let tranche_params = crate::instruments::common::CDSTrancheParams::new(
+                "CDX.NA.IG.42",                                     // index_name
+                42,                                                 // series
+                3.0,                                                // attach_pct (3%)
+                7.0,                                                // detach_pct (7%)
+                Money::new(10_000_000.0, Currency::USD),            // $10MM notional
+                maturity,                                           // maturity
+                500.0,                                              // running_coupon_bp (5%)
+            );
+            let schedule_params = crate::instruments::common::InstrumentScheduleParams {
+                frequency: finstack_core::dates::Frequency::quarterly(),
+                day_count: finstack_core::dates::DayCount::Act360,
+                bdc: finstack_core::dates::BusinessDayConvention::Following,
+                calendar_id: None,
+                stub: finstack_core::dates::StubKind::None,
+            };
+            let market_refs = crate::instruments::common::MarketRefs::discount_only(
+                CurveId::new("USD-OIS"),
+            ).with_credit(CurveId::new("CDX.NA.IG.42"));
+
+            CdsTranche::new(
+                "CDX_IG42_3_7_5Y",
+                &tranche_params,
+                &schedule_params,
+                &market_refs,
+                TrancheSide::SellProtection,
+            )
+        }
     }
 
     #[test]

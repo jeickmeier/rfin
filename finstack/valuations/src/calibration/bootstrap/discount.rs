@@ -21,6 +21,7 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::Solver;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
+use finstack_core::types::CurveId;
 use finstack_core::F;
 use std::collections::BTreeMap;
 
@@ -393,16 +394,22 @@ impl DiscountCurveCalibrator {
                 day_count,
             } => {
                 // Create FRA instrument
-                let fra = ForwardRateAgreement::new(
-                    format!("CALIB_FRA_{}_{}", start, end),
+                let fra_params = crate::instruments::common::FRAParams::new(
                     Money::new(1_000_000.0, self.currency),
                     *start - time::Duration::days(2), // Fixing date (T-2)
-                    *start,
-                    *end,
                     *rate,
                     *day_count,
-                    "CALIB_CURVE",
-                    "CALIB_FWD",
+                );
+                let date_range = crate::instruments::common::DateRange::new(*start, *end);
+                let market_refs = crate::instruments::common::MarketRefs::rates(
+                    CurveId::new("CALIB_CURVE"),
+                    CurveId::new("CALIB_FWD"),
+                );
+                let fra = ForwardRateAgreement::new(
+                    format!("CALIB_FRA_{}_{}", start, end),
+                    &fra_params,
+                    &date_range,
+                    &market_refs,
                 );
 
                 // Price the FRA - should be zero at par rate
@@ -453,17 +460,23 @@ impl DiscountCurveCalibrator {
                     Some(params.calculate_adjustment(time_to_expiry, time_to_maturity))
                 };
 
-                let mut future = InterestRateFuture::new(
-                    format!("CALIB_FUT_{}", expiry),
+                let future_params = crate::instruments::common::IRFutureParams::new(
                     Money::new(1_000_000.0, self.currency),
                     *expiry,
                     *expiry - time::Duration::days(2), // Fixing date
-                    period_start,
-                    period_end,
                     *price,
                     specs.day_count,
-                    "CALIB_CURVE",
-                    "CALIB_FWD",
+                );
+                let period_range = crate::instruments::common::DateRange::new(period_start, period_end);
+                let market_refs = crate::instruments::common::MarketRefs::rates(
+                    CurveId::new("CALIB_CURVE"),
+                    CurveId::new("CALIB_FWD"),
+                );
+                let mut future = InterestRateFuture::new(
+                    format!("CALIB_FUT_{}", expiry),
+                    &future_params,
+                    &period_range,
+                    &market_refs,
                 );
 
                 // Set contract specs from the quote with calculated convexity
@@ -1019,17 +1032,21 @@ mod tests {
         let ctx = base_context.insert_discount(curve).insert_forward(fwd);
 
         // Construct FRA matching the quote, notional $1,000,000
-        let fra = ForwardRateAgreement::new(
-            "FRA-3x6",
+        let fra_params = crate::instruments::common::parameter_groups::FRAParams::new(
             Money::new(1_000_000.0, Currency::USD),
             base_date + time::Duration::days(88), // approximate fixing = start - 2d
-            base_date + time::Duration::days(90),
-            base_date + time::Duration::days(180),
             0.0470,
             DayCount::Act360,
-            "USD-OIS",
-            "USD-SOFR",
         );
+        let date_range = crate::instruments::common::DateRange::new(
+            base_date + time::Duration::days(90),
+            base_date + time::Duration::days(180),
+        );
+        let market_refs = crate::instruments::common::MarketRefs::rates(
+            CurveId::new("USD-OIS"),
+            CurveId::new("USD-SOFR"),
+        );
+        let fra = ForwardRateAgreement::new("FRA-3x6", &fra_params, &date_range, &market_refs);
 
         let pv = fra.value(&ctx, base_date).unwrap();
         assert!(
@@ -1099,18 +1116,19 @@ mod tests {
             .unwrap_or(0.0);
         let implied_rate = ctx.fwd("USD-SOFR").unwrap().rate_period(t1, t2);
         let quoted_price = 100.0 * (1.0 - implied_rate);
-        let mut fut = InterestRateFuture::new(
-            "SOFR-MAR25",
+        let future_params = crate::instruments::common::parameter_groups::IRFutureParams::new(
             Money::new(1_000_000.0, Currency::USD),
             expiry,
             expiry - time::Duration::days(2),
-            period_start,
-            period_end,
             quoted_price,
             DayCount::Act360,
-            "USD-OIS",
-            "USD-SOFR",
         );
+        let period_range = crate::instruments::common::DateRange::new(period_start, period_end);
+        let market_refs = crate::instruments::common::MarketRefs::rates(
+            CurveId::new("USD-OIS"),
+            CurveId::new("USD-SOFR"),
+        );
+        let mut fut = InterestRateFuture::new("SOFR-MAR25", &future_params, &period_range, &market_refs);
         fut = fut.with_contract_specs(FutureContractSpecs {
             ..Default::default()
         });

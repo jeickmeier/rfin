@@ -123,30 +123,28 @@ impl IrOptionBuilder {
             })
         })?;
 
-        let fwd_id = refs.fwd_id.ok_or_else(|| {
-            finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+        // Validate that forward and volatility curves are provided
+        if refs.fwd_id.is_none() {
+            return Err(finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
                 id: "forward_curve_id".to_string(),
-            })
-        })?;
-        let vol_id = refs.vol_id.ok_or_else(|| {
-            finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+            }));
+        }
+        if refs.vol_id.is_none() {
+            return Err(finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
                 id: "vol_surface_id".to_string(),
-            })
-        })?;
+            }));
+        }
 
-        let instrument = InterestRateOption::new(
-            id,
+        let option_params = crate::instruments::common::InterestRateOptionParams::new(
             rate_option_type,
             notional,
             strike_rate,
-            start_date,
-            end_date,
             self.frequency.unwrap_or(Frequency::quarterly()),
             self.day_count.unwrap_or(DayCount::Act360),
-            Box::leak(refs.disc_id.into_string().into_boxed_str()),
-            Box::leak(fwd_id.into_string().into_boxed_str()),
-            Box::leak(vol_id.into_string().into_boxed_str()),
         );
+        let date_range = crate::instruments::common::DateRange::new(start_date, end_date);
+
+        let instrument = InterestRateOption::new(id, &option_params, &date_range, &refs);
 
         let mut instrument = instrument;
         if let Some(po) = self.pricing_overrides {

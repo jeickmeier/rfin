@@ -1,6 +1,7 @@
 use crate::instruments::common::{MarketRefs, PricingOverrides};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
+use finstack_core::types::CurveId;
 use finstack_core::F;
 
 use super::types::CDSIndex;
@@ -138,20 +139,34 @@ impl CDSIndexBuilder {
             self.disc_id.ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?
         };
 
-        let mut index = CDSIndex::new_standard(
-            id,
+        let index_params = crate::instruments::common::CDSIndexParams::new(
             index_name,
             series,
             version,
+            fixed_coupon_bp,
+        );
+        let date_range = crate::instruments::common::DateRange::new(start, end);
+        let credit_params = crate::instruments::common::CreditParams::new(
+            "INDEX-ENTITY", // Generic entity for index
+            recovery_rate,
+            credit_id,
+        );
+        let market_refs = crate::instruments::common::MarketRefs::discount_only(
+            CurveId::new(disc_id),
+        ).with_credit(CurveId::new(credit_id));
+
+        let construction_params = crate::instruments::common::CDSIndexConstructionParams::new(
             notional,
             side,
             convention,
-            start,
-            end,
-            fixed_coupon_bp,
-            credit_id,
-            recovery_rate,
-            disc_id,
+        );
+        let mut index = CDSIndex::new_standard(
+            id,
+            &index_params,
+            &construction_params,
+            &date_range,
+            &credit_params,
+            &market_refs,
         );
         index.pricing_overrides = self.pricing_overrides.unwrap_or_default();
         Ok(index)

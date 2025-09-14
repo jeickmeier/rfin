@@ -1,6 +1,6 @@
 //! Swaption (option on interest rate swap) implementation with SABR volatility.
 
-use crate::instruments::common::PricingOverrides;
+use crate::instruments::common::{MarketRefs, PricingOverrides, SwaptionParams};
 use crate::instruments::options::models::{SABRModel, SABRParameters};
 use crate::instruments::options::OptionType;
 use crate::instruments::traits::Attributes;
@@ -49,68 +49,74 @@ pub struct Swaption {
 }
 
 impl Swaption {
-    #[allow(clippy::too_many_arguments)]
+    /// Create a new payer swaption using parameter structs
     pub fn new_payer(
         id: impl Into<String>,
-        notional: Money,
-        strike_rate: F,
-        expiry: Date,
-        swap_start: Date,
-        swap_end: Date,
-        disc_id: &'static str,
-        forward_id: &'static str,
-        vol_id: &'static str,
+        params: &SwaptionParams,
+        market_refs: &MarketRefs,
     ) -> Self {
+        let forward_id = market_refs
+            .fwd_id
+            .as_ref()
+            .expect("Forward curve required for swaptions");
+        let vol_id = market_refs
+            .vol_id
+            .as_ref()
+            .expect("Volatility surface required for swaptions");
+
         Self {
             id: id.into(),
             option_type: OptionType::Call,
-            notional,
-            strike_rate,
-            expiry,
-            swap_start,
-            swap_end,
+            notional: params.notional,
+            strike_rate: params.strike_rate,
+            expiry: params.expiry,
+            swap_start: params.swap_start,
+            swap_end: params.swap_end,
             fixed_freq: Frequency::semi_annual(),
             float_freq: Frequency::quarterly(),
             day_count: DayCount::Thirty360,
             exercise: SwaptionExercise::European,
             settlement: SwaptionSettlement::Physical,
-            disc_id,
-            forward_id,
-            vol_id,
+            disc_id: Box::leak(market_refs.disc_id.to_string().into_boxed_str()),
+            forward_id: Box::leak(forward_id.to_string().into_boxed_str()),
+            vol_id: Box::leak(vol_id.to_string().into_boxed_str()),
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::default(),
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
+    /// Create a new receiver swaption using parameter structs
     pub fn new_receiver(
         id: impl Into<String>,
-        notional: Money,
-        strike_rate: F,
-        expiry: Date,
-        swap_start: Date,
-        swap_end: Date,
-        disc_id: &'static str,
-        forward_id: &'static str,
-        vol_id: &'static str,
+        params: &SwaptionParams,
+        market_refs: &MarketRefs,
     ) -> Self {
+        let forward_id = market_refs
+            .fwd_id
+            .as_ref()
+            .expect("Forward curve required for swaptions");
+        let vol_id = market_refs
+            .vol_id
+            .as_ref()
+            .expect("Volatility surface required for swaptions");
+
         Self {
             id: id.into(),
             option_type: OptionType::Put,
-            notional,
-            strike_rate,
-            expiry,
-            swap_start,
-            swap_end,
+            notional: params.notional,
+            strike_rate: params.strike_rate,
+            expiry: params.expiry,
+            swap_start: params.swap_start,
+            swap_end: params.swap_end,
             fixed_freq: Frequency::semi_annual(),
             float_freq: Frequency::quarterly(),
             day_count: DayCount::Thirty360,
             exercise: SwaptionExercise::European,
             settlement: SwaptionSettlement::Physical,
-            disc_id,
-            forward_id,
-            vol_id,
+            disc_id: Box::leak(market_refs.disc_id.to_string().into_boxed_str()),
+            forward_id: Box::leak(forward_id.to_string().into_boxed_str()),
+            vol_id: Box::leak(vol_id.to_string().into_boxed_str()),
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::default(),

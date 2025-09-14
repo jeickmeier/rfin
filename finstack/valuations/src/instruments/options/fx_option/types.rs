@@ -1,6 +1,6 @@
 //! FX option instrument implementation using Garman-Kohlhagen model.
 
-use crate::instruments::common::PricingOverrides;
+use crate::instruments::common::{FxOptionParams, FxUnderlyingParams, PricingOverrides};
 use crate::instruments::options::models::{d1, d2};
 use crate::instruments::options::{ExerciseStyle, OptionType, SettlementType};
 use crate::instruments::traits::Attributes;
@@ -97,32 +97,26 @@ impl FxOption {
             .expect("FX European put construction should not fail")
     }
 
-    #[allow(clippy::too_many_arguments)]
+    /// Create a new FX option using parameter structs
     pub fn new(
         id: impl Into<String>,
-        base_currency: Currency,
-        quote_currency: Currency,
-        strike: F,
-        option_type: OptionType,
-        expiry: Date,
-        notional: Money,
-        domestic_disc_id: &'static str,
-        foreign_disc_id: &'static str,
+        option_params: &FxOptionParams,
+        underlying_params: &FxUnderlyingParams,
         vol_id: &'static str,
     ) -> Self {
         Self {
             id: id.into(),
-            base_currency,
-            quote_currency,
-            strike,
-            option_type,
-            exercise_style: ExerciseStyle::European,
-            expiry,
+            base_currency: underlying_params.base_currency,
+            quote_currency: underlying_params.quote_currency,
+            strike: option_params.strike,
+            option_type: option_params.option_type,
+            exercise_style: option_params.exercise_style,
+            expiry: option_params.expiry,
             day_count: finstack_core::dates::DayCount::Act365F,
-            notional,
-            settlement: SettlementType::Cash,
-            domestic_disc_id,
-            foreign_disc_id,
+            notional: option_params.notional,
+            settlement: option_params.settlement,
+            domestic_disc_id: underlying_params.domestic_disc_id,
+            foreign_disc_id: underlying_params.foreign_disc_id,
             vol_id,
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),

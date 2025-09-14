@@ -1,6 +1,7 @@
 //! Inflation-Linked Bond (ILB) types and implementation.
 
 use crate::cashflow::traits::DatedFlows;
+use crate::instruments::common::InflationLinkedBondParams;
 use crate::instruments::traits::Attributes;
 use finstack_core::market_data::inflation_index::{InflationIndex, InflationLag};
 use finstack_core::market_data::MarketContext;
@@ -102,28 +103,23 @@ impl InflationLinkedBond {
         crate::instruments::fixed_income::inflation_linked_bond::builder::ILBBuilder::new()
     }
 
-    /// Create a new US TIPS bond
-    #[allow(clippy::too_many_arguments)]
+    /// Create a new US TIPS bond using parameter structs
     pub fn new_tips(
         id: impl Into<String>,
-        notional: Money,
-        real_coupon: F,
-        issue: Date,
-        maturity: Date,
-        base_index: F,
+        bond_params: &InflationLinkedBondParams,
         disc_id: &'static str,
         inflation_id: &'static str,
     ) -> Self {
         Self {
             id: id.into(),
-            notional,
-            real_coupon,
-            freq: Frequency::semi_annual(),
-            dc: DayCount::ActAct,
-            issue,
-            maturity,
-            base_index,
-            base_date: issue,
+            notional: bond_params.notional,
+            real_coupon: bond_params.real_coupon,
+            freq: bond_params.frequency,
+            dc: bond_params.day_count,
+            issue: bond_params.issue,
+            maturity: bond_params.maturity,
+            base_index: bond_params.base_index,
+            base_date: bond_params.issue,
             indexation_method: IndexationMethod::TIPS,
             lag: InflationLag::Months(3),
             deflation_protection: DeflationProtection::MaturityOnly,
@@ -137,28 +133,23 @@ impl InflationLinkedBond {
         }
     }
 
-    /// Create a new UK Index-Linked Gilt
-    #[allow(clippy::too_many_arguments)]
+    /// Create a new UK Index-Linked Gilt using parameter structs
     pub fn new_uk_linker(
         id: impl Into<String>,
-        notional: Money,
-        real_coupon: F,
-        issue: Date,
-        maturity: Date,
-        base_index: F,
+        bond_params: &InflationLinkedBondParams,
         base_date: Date,
         disc_id: &'static str,
         inflation_id: &'static str,
     ) -> Self {
         Self {
             id: id.into(),
-            notional,
-            real_coupon,
-            freq: Frequency::semi_annual(),
-            dc: DayCount::ActAct,
-            issue,
-            maturity,
-            base_index,
+            notional: bond_params.notional,
+            real_coupon: bond_params.real_coupon,
+            freq: bond_params.frequency,
+            dc: bond_params.day_count,
+            issue: bond_params.issue,
+            maturity: bond_params.maturity,
+            base_index: bond_params.base_index,
             base_date,
             indexation_method: IndexationMethod::UK,
             lag: InflationLag::Months(8),

@@ -21,7 +21,7 @@ use finstack_valuations::instruments::options::swaption::builder::SwaptionBuilde
 use finstack_valuations::instruments::options::cap_floor::builder::IrOptionBuilder;
 use finstack_valuations::instruments::common::MarketRefs;
 use finstack_valuations::instruments::options::{
-    CreditOption, EquityOption, FxOption, OptionType,
+    CreditOption, EquityOption, FxOption,
 };
 use finstack_valuations::instruments::traits::{InstrumentLike, Priceable};
 use finstack_valuations::metrics::{MetricContext, MetricId, MetricRegistry};
@@ -201,16 +201,25 @@ fn test_equity_option_full_integration() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // Create AAPL call option
-    let option = EquityOption::new(
-        "AAPL_CALL_100",
-        "AAPL",
+    let option_params = finstack_valuations::instruments::common::EquityOptionParams::european_call(
         Money::new(100.0, Currency::USD),
-        OptionType::Call,
         Date::from_calendar_date(2025, Month::December, 31).unwrap(),
         100.0, // 100 shares
-        "USD-OIS",
+    );
+    let underlying_params = finstack_valuations::instruments::common::EquityUnderlyingParams::new(
+        "AAPL",
         "AAPL-SPOT",
-        "AAPL-VOL",
+    );
+    let market_refs = finstack_valuations::instruments::common::MarketRefs::option(
+        finstack_core::types::CurveId::new("USD-OIS"),
+        finstack_core::types::CurveId::new("AAPL-VOL"),
+    );
+
+    let option = EquityOption::new(
+        "AAPL_CALL_100",
+        &option_params,
+        &underlying_params,
+        &market_refs,
     );
 
     // Test pricing with market data
@@ -244,16 +253,22 @@ fn test_fx_option_full_integration() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // Create EUR/USD call option
-    let option = FxOption::new(
-        "EURUSD_CALL_1.20",
-        Currency::EUR,
-        Currency::USD,
+    let option_params = finstack_valuations::instruments::common::FxOptionParams::european_call(
         1.20,
-        OptionType::Call,
         Date::from_calendar_date(2025, Month::June, 30).unwrap(),
         Money::new(1_000_000.0, Currency::EUR),
+    );
+    let underlying_params = finstack_valuations::instruments::common::FxUnderlyingParams::new(
+        Currency::EUR,
+        Currency::USD,
         "USD-OIS",
         "EUR-OIS",
+    );
+
+    let option = FxOption::new(
+        "EURUSD_CALL_1.20",
+        &option_params,
+        &underlying_params,
         "EURUSD-VOL",
     );
 
@@ -331,18 +346,27 @@ fn test_credit_option_full_integration() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // Create credit option
-    let option = CreditOption::new(
-        "ABC_CDS_CALL_200",
-        "ABC Corp",
+    let option_params = finstack_valuations::instruments::common::CreditOptionParams::call(
         200.0, // 200bp strike
-        OptionType::Call,
         Date::from_calendar_date(2025, Month::June, 30).unwrap(),
         Date::from_calendar_date(2030, Month::June, 30).unwrap(),
         Money::new(10_000_000.0, Currency::USD),
+    );
+    let credit_params = finstack_valuations::instruments::common::CreditParams::new(
+        "ABC Corp",
         0.4, // 40% recovery
-        "USD-OIS",
         "ABC-SENIOR",
-        "ABC-CDS-VOL",
+    );
+    let market_refs = finstack_valuations::instruments::common::MarketRefs::discount_only(
+        finstack_core::types::CurveId::new("USD-OIS"),
+    ).with_credit(finstack_core::types::CurveId::new("ABC-SENIOR"))
+        .with_volatility(finstack_core::types::CurveId::new("ABC-CDS-VOL"));
+
+    let option = CreditOption::new(
+        "ABC_CDS_CALL_200",
+        &option_params,
+        &credit_params,
+        &market_refs,
     );
 
     // Test pricing with market data
@@ -420,28 +444,37 @@ fn test_options_pricing_consistency() {
     let strike = Money::new(100.0, Currency::USD);
     let expiry = Date::from_calendar_date(2025, Month::June, 30).unwrap();
 
-    let call = EquityOption::new(
-        "AAPL_CALL_100",
-        "AAPL",
+    let call_params = finstack_valuations::instruments::common::EquityOptionParams::european_call(
         strike,
-        OptionType::Call,
         expiry,
         1.0, // 1 share
-        "USD-OIS",
+    );
+    let put_params = finstack_valuations::instruments::common::EquityOptionParams::european_put(
+        strike,
+        expiry,
+        1.0, // 1 share
+    );
+    let underlying_params = finstack_valuations::instruments::common::EquityUnderlyingParams::new(
+        "AAPL",
         "AAPL-SPOT",
-        "AAPL-VOL",
+    );
+    let market_refs = finstack_valuations::instruments::common::MarketRefs::option(
+        finstack_core::types::CurveId::new("USD-OIS"),
+        finstack_core::types::CurveId::new("AAPL-VOL"),
+    );
+
+    let call = EquityOption::new(
+        "AAPL_CALL_100",
+        &call_params,
+        &underlying_params,
+        &market_refs,
     );
 
     let put = EquityOption::new(
         "AAPL_PUT_100",
-        "AAPL",
-        strike,
-        OptionType::Put,
-        expiry,
-        1.0, // 1 share
-        "USD-OIS",
-        "AAPL-SPOT",
-        "AAPL-VOL",
+        &put_params,
+        &underlying_params,
+        &market_refs,
     );
 
     let call_price = call.value(&market, as_of).unwrap();
@@ -461,16 +494,25 @@ fn test_market_data_override_behavior() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // Create option with implied vol override
-    let mut option = EquityOption::new(
-        "AAPL_CALL_100_IMPLIED",
-        "AAPL",
+    let option_params = finstack_valuations::instruments::common::EquityOptionParams::european_call(
         Money::new(100.0, Currency::USD),
-        OptionType::Call,
         Date::from_calendar_date(2025, Month::June, 30).unwrap(),
         1.0,
-        "USD-OIS",
+    );
+    let underlying_params = finstack_valuations::instruments::common::EquityUnderlyingParams::new(
+        "AAPL",
         "AAPL-SPOT",
-        "AAPL-VOL",
+    );
+    let market_refs = finstack_valuations::instruments::common::MarketRefs::option(
+        finstack_core::types::CurveId::new("USD-OIS"),
+        finstack_core::types::CurveId::new("AAPL-VOL"),
+    );
+    
+    let mut option = EquityOption::new(
+        "AAPL_CALL_100_IMPLIED",
+        &option_params,
+        &underlying_params,
+        &market_refs,
     );
 
     // Set implied vol to override surface

@@ -6,15 +6,47 @@
 //! - Exact day count handling
 //! - Bootstrapping of hazard rates from market spreads
 
-use super::{CDSConvention, CreditDefaultSwap, PayReceive};
+use super::{CreditDefaultSwap, PayReceive};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{next_cds_date, Date, DayCount};
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::traits::{Discount, Survival};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-
+use finstack_core::types::CurveId;
 use finstack_core::{Error, Result, F};
+
+/// Helper function to create test CDS with standard parameters
+#[cfg(test)]
+fn create_test_cds(
+    id: impl Into<String>,
+    start_date: Date,
+    end_date: Date,
+    spread_bp: F,
+    recovery_rate: F,
+) -> CreditDefaultSwap {
+    let construction_params = crate::instruments::common::CDSConstructionParams::buy_protection(
+        Money::new(10_000_000.0, Currency::USD),
+        spread_bp,
+    );
+    let date_range = crate::instruments::common::DateRange::new(start_date, end_date);
+    let credit_params = crate::instruments::common::CreditParams::new(
+        "TEST-CORP",
+        recovery_rate,
+        "TEST-CREDIT",
+    );
+    let market_refs = crate::instruments::common::MarketRefs::discount_only(
+        CurveId::new("USD-OIS"),
+    ).with_credit(CurveId::new("TEST-CREDIT"));
+
+    CreditDefaultSwap::new_isda(
+        id,
+        &construction_params,
+        &date_range,
+        &credit_params,
+        &market_refs,
+    )
+}
 
 /// ISDA 2014 standard constants
 pub mod isda_constants {
@@ -784,18 +816,27 @@ impl CDSBootstrapper {
     ) -> Result<CreditDefaultSwap> {
         let end_date = base_date + time::Duration::days((tenor_years * 365.25) as i64);
 
+        let date_range = crate::instruments::common::DateRange::new(base_date, end_date);
+        let credit_params = crate::instruments::common::CreditParams::new(
+            "SYNTHETIC",
+            recovery_rate,
+            "CREDIT",
+        );
+        let market_refs = crate::instruments::common::MarketRefs::discount_only(
+            CurveId::new("DISC"),
+        ).with_credit(CurveId::new("CREDIT"));
+
+        let construction_params = crate::instruments::common::CDSConstructionParams::buy_protection(
+            Money::new(1_000_000.0, Currency::USD),
+            spread_bps,
+        );
+
         Ok(CreditDefaultSwap::new_isda(
             format!("SYNTHETIC_{:.1}Y", tenor_years),
-            Money::new(1_000_000.0, Currency::USD),
-            "SYNTHETIC",
-            PayReceive::PayProtection,
-            CDSConvention::IsdaNa,
-            base_date,
-            end_date,
-            spread_bps,
-            "CREDIT",
-            recovery_rate,
-            "DISC",
+            &construction_params,
+            &date_range,
+            &credit_params,
+            &market_refs,
         ))
     }
 
@@ -894,18 +935,12 @@ mod tests {
         let (disc, credit) = create_test_curves();
         let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
-        let cds = CreditDefaultSwap::new_isda(
+        let cds = create_test_cds(
             "TEST-CDS",
-            Money::new(10_000_000.0, Currency::USD),
-            "TEST-CORP",
-            PayReceive::PayProtection,
-            CDSConvention::IsdaNa,
             as_of,
             as_of + time::Duration::days(5 * 365),
             100.0, // 100bps
-            "TEST-CREDIT",
             0.40,
-            "USD-OIS",
         );
 
         let pricer = CDSPricer::new();
@@ -922,18 +957,12 @@ mod tests {
         let (disc, credit) = create_test_curves();
         let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
-        let cds = CreditDefaultSwap::new_isda(
+        let cds = create_test_cds(
             "TEST-CDS",
-            Money::new(10_000_000.0, Currency::USD),
-            "TEST-CORP",
-            PayReceive::PayProtection,
-            CDSConvention::IsdaNa,
             as_of,
             as_of + time::Duration::days(5 * 365),
             100.0,
-            "TEST-CREDIT",
             0.40,
-            "USD-OIS",
         );
 
         // Test with and without accrual
@@ -960,18 +989,12 @@ mod tests {
         let (disc, credit) = create_test_curves();
         let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
-        let cds = CreditDefaultSwap::new_isda(
+        let cds = create_test_cds(
             "TEST-CDS",
-            Money::new(10_000_000.0, Currency::USD),
-            "TEST-CORP",
-            PayReceive::PayProtection,
-            CDSConvention::IsdaNa,
             as_of,
             as_of + time::Duration::days(5 * 365),
             100.0,
-            "TEST-CREDIT",
             0.40,
-            "USD-OIS",
         );
 
         // Test with different integration methods
@@ -1006,18 +1029,12 @@ mod tests {
         let (disc, credit) = create_test_curves();
         let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
-        let cds = CreditDefaultSwap::new_isda(
+        let cds = create_test_cds(
             "TEST-CDS",
-            Money::new(10_000_000.0, Currency::USD),
-            "TEST-CORP",
-            PayReceive::PayProtection,
-            CDSConvention::IsdaNa,
             as_of,
             as_of + time::Duration::days(5 * 365),
             0.0, // Will calculate par spread
-            "TEST-CREDIT",
             0.40,
-            "USD-OIS",
         );
 
         let pricer = CDSPricer::new();
@@ -1053,18 +1070,12 @@ mod tests {
         let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
         let maturity = Date::from_calendar_date(2025, Month::December, 20).unwrap();
 
-        let cds = CreditDefaultSwap::new_isda(
+        let cds = create_test_cds(
             "TEST-ISDA-CDS",
-            Money::new(10_000_000.0, Currency::USD),
-            "TEST-CORP",
-            PayReceive::PayProtection,
-            CDSConvention::IsdaNa,
             as_of,
             maturity,
             100.0,
-            "TEST-CREDIT",
             0.40,
-            "USD-OIS",
         );
 
         // Test ISDA schedule generation
@@ -1109,18 +1120,12 @@ mod tests {
         let (disc, credit) = create_test_curves();
         let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
-        let cds = CreditDefaultSwap::new_isda(
+        let cds = create_test_cds(
             "TEST-CDS",
-            Money::new(10_000_000.0, Currency::USD),
-            "TEST-CORP",
-            PayReceive::PayProtection,
-            CDSConvention::IsdaNa,
             as_of,
             as_of + time::Duration::days(5 * 365),
             100.0,
-            "TEST-CREDIT",
             0.40,
-            "USD-OIS",
         );
 
         // Test different integration methods
@@ -1173,18 +1178,12 @@ mod tests {
         let (disc, credit) = create_test_curves();
         let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
-        let cds = CreditDefaultSwap::new_isda(
+        let cds = create_test_cds(
             "TEST-ACCRUAL-CDS",
-            Money::new(10_000_000.0, Currency::USD),
-            "TEST-CORP",
-            PayReceive::PayProtection,
-            CDSConvention::IsdaNa,
             as_of,
             as_of + time::Duration::days(365), // 1 year
             500.0,                             // Higher spread to make accrual more visible
-            "TEST-CREDIT",
             0.40,
-            "USD-OIS",
         );
 
         // Test enhanced accrual calculation vs original
@@ -1244,18 +1243,12 @@ mod tests {
         assert_eq!(isda_constants::STANDARD_RECOVERY_SUB, 0.20);
 
         // 3. Test CDS with ISDA standard dates
-        let cds = CreditDefaultSwap::new_isda(
+        let cds = create_test_cds(
             "ISDA-TEST",
-            Money::new(10_000_000.0, Currency::USD),
-            "TEST-CORP",
-            PayReceive::PayProtection,
-            CDSConvention::IsdaNa,
             as_of,
             as_of + time::Duration::days(5 * 365),
             100.0, // 100 bps
-            "TEST-CREDIT",
             isda_constants::STANDARD_RECOVERY_SENIOR,
-            "USD-OIS",
         );
 
         // 4. Test ISDA exact integration
@@ -1299,18 +1292,12 @@ mod tests {
         let (disc, credit) = create_test_curves();
         let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
-        let cds = CreditDefaultSwap::new_isda(
+        let cds = create_test_cds(
             "TEST-CDS",
-            Money::new(10_000_000.0, Currency::USD),
-            "TEST-CORP",
-            PayReceive::PayProtection,
-            CDSConvention::IsdaNa,
             as_of,
             as_of + time::Duration::days(5 * 365),
             150.0, // 150 bps
-            "TEST-CREDIT",
             0.40,
-            "USD-OIS",
         );
 
         // ISDA exact integration

@@ -1,6 +1,6 @@
 //! Credit option instrument implementation for options on credit default swaps.
 
-use crate::instruments::common::PricingOverrides;
+use crate::instruments::common::{CreditOptionParams, CreditParams, MarketRefs, PricingOverrides};
 use crate::instruments::options::{ExerciseStyle, OptionType, SettlementType};
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
@@ -46,36 +46,37 @@ pub struct CreditOption {
 }
 
 impl CreditOption {
-    /// Create a new credit option
-    #[allow(clippy::too_many_arguments)]
+    /// Create a new credit option using parameter structs
     pub fn new(
         id: impl Into<String>,
-        reference_entity: impl Into<String>,
-        strike_spread_bp: F,
-        option_type: OptionType,
-        expiry: Date,
-        cds_maturity: Date,
-        notional: Money,
-        recovery_rate: F,
-        disc_id: &'static str,
-        credit_id: &'static str,
-        vol_id: &'static str,
+        option_params: &CreditOptionParams,
+        credit_params: &CreditParams,
+        market_refs: &MarketRefs,
     ) -> Self {
+        let credit_id = market_refs
+            .credit_id
+            .as_ref()
+            .expect("Credit curve required for credit options");
+        let vol_id = market_refs
+            .vol_id
+            .as_ref()
+            .expect("Volatility surface required for credit options");
+
         Self {
             id: id.into(),
-            reference_entity: reference_entity.into(),
-            strike_spread_bp,
-            option_type,
+            reference_entity: credit_params.reference_entity.clone(),
+            strike_spread_bp: option_params.strike_spread_bp,
+            option_type: option_params.option_type,
             exercise_style: ExerciseStyle::European,
-            expiry,
-            cds_maturity,
+            expiry: option_params.expiry,
+            cds_maturity: option_params.cds_maturity,
             day_count: DayCount::Act360,
-            notional,
+            notional: option_params.notional,
             settlement: SettlementType::Cash,
-            recovery_rate,
-            disc_id,
-            credit_id,
-            vol_id,
+            recovery_rate: credit_params.recovery_rate,
+            disc_id: Box::leak(market_refs.disc_id.to_string().into_boxed_str()),
+            credit_id: Box::leak(credit_id.to_string().into_boxed_str()),
+            vol_id: Box::leak(vol_id.to_string().into_boxed_str()),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }

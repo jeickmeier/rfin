@@ -5,6 +5,7 @@
 
 #[cfg(test)]
 use crate::instruments::options::models::SABRParameters;
+use crate::instruments::common::SABRModelParams;
 use finstack_core::math::solver_multi::AnalyticalDerivatives;
 use finstack_core::F;
 
@@ -76,9 +77,10 @@ impl SABRCalibrationDerivatives {
         let vol = term1 * x * term2_base;
 
         // Compute derivatives
-        let d_vol_d_alpha = self.d_vol_d_alpha_impl(strike, alpha, nu, rho, vol, x, term2_base);
-        let d_vol_d_nu = self.d_vol_d_nu_impl(strike, alpha, nu, rho, vol, x, term2_base);
-        let d_vol_d_rho = self.d_vol_d_rho_impl(strike, alpha, nu, rho, vol, x, term2_base);
+        let sabr_params = SABRModelParams::new(alpha, nu, rho, self.market_data.beta);
+        let d_vol_d_alpha = self.d_vol_d_alpha_impl(strike, &sabr_params, vol, x, term2_base);
+        let d_vol_d_nu = self.d_vol_d_nu_impl(strike, &sabr_params, vol, x, term2_base);
+        let d_vol_d_rho = self.d_vol_d_rho_impl(strike, &sabr_params, vol, x, term2_base);
 
         (vol, d_vol_d_alpha, d_vol_d_nu, d_vol_d_rho)
     }
@@ -118,13 +120,10 @@ impl SABRCalibrationDerivatives {
     }
 
     /// Partial derivative with respect to alpha.
-    #[allow(clippy::too_many_arguments)]
     fn d_vol_d_alpha_impl(
         &self,
         _strike: F,
-        alpha: F,
-        nu: F,
-        rho: F,
+        sabr_params: &SABRModelParams,
         _vol: F,
         x: F,
         term2: F,
@@ -138,16 +137,15 @@ impl SABRCalibrationDerivatives {
         // Direct differentiation of the SABR formula
         let d_term1_d_alpha = 1.0 / f_power;
         let d_term2_d_alpha = t
-            * (((1.0 - beta).powi(2) * 2.0 * alpha) / (24.0 * f.powf(2.0 * (1.0 - beta)))
-                + (rho * beta * nu) / (4.0 * f_power));
+            * (((1.0 - beta).powi(2) * 2.0 * sabr_params.alpha) / (24.0 * f.powf(2.0 * (1.0 - beta)))
+                + (sabr_params.rho * beta * sabr_params.nu) / (4.0 * f_power));
 
         // For simplicity, assume x is approximately constant w.r.t. alpha for small changes
-        d_term1_d_alpha * x * term2 + (alpha / f_power) * x * d_term2_d_alpha
+        d_term1_d_alpha * x * term2 + (sabr_params.alpha / f_power) * x * d_term2_d_alpha
     }
 
     /// Partial derivative with respect to nu (vol of vol).
-    #[allow(clippy::too_many_arguments)]
-    fn d_vol_d_nu_impl(&self, _strike: F, alpha: F, nu: F, rho: F, _vol: F, x: F, _term2: F) -> F {
+    fn d_vol_d_nu_impl(&self, _strike: F, sabr_params: &SABRModelParams, _vol: F, x: F, _term2: F) -> F {
         let f = self.market_data.forward;
         let t = self.market_data.time_to_expiry;
         let beta = self.market_data.beta;
@@ -155,15 +153,14 @@ impl SABRCalibrationDerivatives {
         let f_power = f.powf(1.0 - beta);
 
         let d_term2_d_nu = t
-            * ((rho * beta * alpha) / (4.0 * f_power) + (2.0 - 3.0 * rho * rho) * 2.0 * nu / 24.0);
+            * ((sabr_params.rho * beta * sabr_params.alpha) / (4.0 * f_power) + (2.0 - 3.0 * sabr_params.rho * sabr_params.rho) * 2.0 * sabr_params.nu / 24.0);
 
         // Simplified: assume x changes negligibly with nu for small perturbations
-        (alpha / f_power) * x * d_term2_d_nu
+        (sabr_params.alpha / f_power) * x * d_term2_d_nu
     }
 
     /// Partial derivative with respect to rho (correlation).
-    #[allow(clippy::too_many_arguments)]
-    fn d_vol_d_rho_impl(&self, _strike: F, alpha: F, nu: F, rho: F, _vol: F, x: F, _term2: F) -> F {
+    fn d_vol_d_rho_impl(&self, _strike: F, sabr_params: &SABRModelParams, _vol: F, x: F, _term2: F) -> F {
         let f = self.market_data.forward;
         let t = self.market_data.time_to_expiry;
         let beta = self.market_data.beta;
@@ -171,9 +168,9 @@ impl SABRCalibrationDerivatives {
         let f_power = f.powf(1.0 - beta);
 
         let d_term2_d_rho =
-            t * ((beta * nu * alpha) / (4.0 * f_power) - 6.0 * rho * nu * nu / 24.0);
+            t * ((beta * sabr_params.nu * sabr_params.alpha) / (4.0 * f_power) - 6.0 * sabr_params.rho * sabr_params.nu * sabr_params.nu / 24.0);
 
-        (alpha / f_power) * x * d_term2_d_rho
+        (sabr_params.alpha / f_power) * x * d_term2_d_rho
     }
 }
 

@@ -1,6 +1,7 @@
-use crate::instruments::common::{MarketRefs, PricingOverrides};
+use crate::instruments::common::{MarketRefs, PricingOverrides, SwaptionParams};
 use crate::instruments::options::swaption::{Swaption, SwaptionExercise, SwaptionSettlement};
 use crate::instruments::options::OptionType;
+use crate::instruments::fixed_income::irs::PayReceive;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
 use finstack_core::F;
@@ -62,32 +63,29 @@ impl SwaptionBuilder {
         let swap_start = self.swap_start.ok_or_else(|| finstack_core::error::InputError::NotFound { id: "swap_start".to_string() })?;
         let swap_end = self.swap_end.ok_or_else(|| finstack_core::error::InputError::NotFound { id: "swap_end".to_string() })?;
         let refs = self.market_refs.ok_or_else(|| finstack_core::error::InputError::NotFound { id: "market_refs".to_string() })?;
-        let fwd_id = refs.fwd_id.ok_or_else(|| finstack_core::error::InputError::NotFound { id: "forward_curve_id".to_string() })?;
-        let vol_id = refs.vol_id.ok_or_else(|| finstack_core::error::InputError::NotFound { id: "vol_surface_id".to_string() })?;
+        // Validate that forward and volatility curves are provided
+        if refs.fwd_id.is_none() {
+            return Err(finstack_core::error::InputError::NotFound { id: "forward_curve_id".to_string() }.into());
+        }
+        if refs.vol_id.is_none() {
+            return Err(finstack_core::error::InputError::NotFound { id: "vol_surface_id".to_string() }.into());
+        }
+
+        let swaption_params = SwaptionParams {
+            notional,
+            strike_rate: strike,
+            expiry,
+            swap_start,
+            swap_end,
+            side: match option_type {
+                OptionType::Call => PayReceive::PayFixed,
+                OptionType::Put => PayReceive::ReceiveFixed,
+            },
+        };
 
         let mut s = match option_type {
-            OptionType::Call => Swaption::new_payer(
-                id,
-                notional,
-                strike,
-                expiry,
-                swap_start,
-                swap_end,
-                Box::leak(refs.disc_id.into_string().into_boxed_str()),
-                Box::leak(fwd_id.into_string().into_boxed_str()),
-                Box::leak(vol_id.into_string().into_boxed_str()),
-            ),
-            OptionType::Put => Swaption::new_receiver(
-                id,
-                notional,
-                strike,
-                expiry,
-                swap_start,
-                swap_end,
-                Box::leak(refs.disc_id.into_string().into_boxed_str()),
-                Box::leak(fwd_id.into_string().into_boxed_str()),
-                Box::leak(vol_id.into_string().into_boxed_str()),
-            ),
+            OptionType::Call => Swaption::new_payer(id, &swaption_params, &refs),
+            OptionType::Put => Swaption::new_receiver(id, &swaption_params, &refs),
         };
 
         // overrides

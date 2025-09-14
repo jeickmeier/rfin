@@ -7,7 +7,7 @@
 use crate::calibration::quote::CreditQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::cds::{
-    cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap, PayReceive,
+    cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::{
@@ -16,6 +16,7 @@ use finstack_core::market_data::term_structures::hazard_curve::{
 use finstack_core::market_data::traits::Discount;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
+use finstack_core::types::CurveId;
 use finstack_core::F;
 use std::collections::BTreeMap;
 
@@ -174,18 +175,26 @@ impl HazardCurveCalibrator {
             const CALIB_HAZARD_ID: &str = "CALIB_HAZARD";
             const CALIB_DISC_ID: &str = "CALIB_DISC";
 
+            let date_range = crate::instruments::common::DateRange::new(self.base_date, *maturity);
+            let credit_params = crate::instruments::common::CreditParams::new(
+                &self.entity,
+                self.recovery_rate,
+                CALIB_HAZARD_ID,
+            );
+            let market_refs = crate::instruments::common::MarketRefs::discount_only(
+                CurveId::new(CALIB_DISC_ID),
+            ).with_credit(CurveId::new(CALIB_HAZARD_ID));
+
+            let construction_params = crate::instruments::common::CDSConstructionParams::buy_protection(
+                Money::new(10_000_000.0, self.currency),
+                *market_spread_bp,
+            );
             let cds = CreditDefaultSwap::new_isda(
                 format!("CALIB_CDS_{}", maturity),
-                Money::new(10_000_000.0, self.currency),
-                &self.entity,
-                PayReceive::PayProtection,
-                CDSConvention::IsdaNa,
-                self.base_date,
-                *maturity,
-                *market_spread_bp,
-                CALIB_HAZARD_ID,
-                self.recovery_rate,
-                CALIB_DISC_ID,
+                &construction_params,
+                &date_range,
+                &credit_params,
+                &market_refs,
             );
 
             let pricer = CDSPricer::new();
@@ -384,18 +393,26 @@ mod tests {
                 ..
             } = q
             {
+                let date_range = crate::instruments::common::DateRange::new(base_date, maturity);
+                let credit_params = crate::instruments::common::CreditParams::new(
+                    "AAPL",
+                    0.40,
+                    "AAPL-Senior",
+                );
+                let market_refs = crate::instruments::common::MarketRefs::discount_only(
+                    CurveId::new("USD-OIS"),
+                ).with_credit(CurveId::new("AAPL-Senior"));
+                
+                let construction_params = crate::instruments::common::CDSConstructionParams::buy_protection(
+                    Money::new(1_000_000.0, Currency::USD),
+                    spread_bp,
+                );
                 let cds = CreditDefaultSwap::new_isda(
                     format!("CDS-{}", maturity),
-                    Money::new(1_000_000.0, Currency::USD),
-                    "AAPL",
-                    PayReceive::PayProtection,
-                    CDSConvention::IsdaNa,
-                    base_date,
-                    maturity,
-                    spread_bp,
-                    "AAPL-Senior",
-                    0.40,
-                    "USD-OIS",
+                    &construction_params,
+                    &date_range,
+                    &credit_params,
+                    &market_refs,
                 );
 
                 let pv = pricer

@@ -5,6 +5,7 @@
 //!
 //! Now includes generic TreeModel implementation for pricing arbitrary instruments.
 
+use crate::instruments::common::OptionMarketParams;
 use crate::instruments::options::models::NodeState;
 use crate::instruments::options::{ExerciseStyle, OptionType};
 use finstack_core::market_data::context::MarketContext;
@@ -189,20 +190,20 @@ impl BinomialTree {
 
     /// Internal unified pricer supporting European, American, and Bermudan styles
     /// via an optional list of exercise steps.
-    #[allow(clippy::too_many_arguments)]
     fn price_with_exercise(
         &self,
-        spot: F,
-        strike: F,
-        r: F,
-        sigma: F,
-        t: F,
-        q: F,
-        option_type: OptionType,
+        market_params: &OptionMarketParams,
         exercise_steps: Option<&[usize]>,
     ) -> Result<F> {
         // Compute lattice parameters honoring the configured binomial model
-        let (u, d, p) = self.calculate_parameters(spot, strike, r, sigma, t, q)?;
+        let (u, d, p) = self.calculate_parameters(
+            market_params.spot,
+            market_params.strike,
+            market_params.rate,
+            market_params.volatility,
+            market_params.time_to_expiry,
+            market_params.dividend_yield,
+        )?;
 
         // Build an option valuator that applies early exercise at requested steps
         let exercise_set: Option<HashSet<usize>> =
@@ -239,19 +240,24 @@ impl BinomialTree {
         }
 
         let valuator = OptionValuator {
-            strike,
-            option_type,
+            strike: market_params.strike,
+            option_type: market_params.option_type,
             exercise_steps: exercise_set,
         };
 
-        let initial_vars = single_factor_equity_state(spot, r, q, sigma);
+        let initial_vars = single_factor_equity_state(
+            market_params.spot,
+            market_params.rate,
+            market_params.dividend_yield,
+            market_params.volatility,
+        );
 
         // Delegate to the shared recombining engine
         price_recombining_tree(RecombiningInputs {
             branching: TreeBranching::Binomial,
             steps: self.steps,
             initial_vars,
-            time_to_maturity: t,
+            time_to_maturity: market_params.time_to_expiry,
             market_context: &MarketContext::new(), // not used by valuator
             valuator: &valuator,
             up_factor: u,
@@ -260,103 +266,65 @@ impl BinomialTree {
             prob_up: p,
             prob_down: 1.0 - p,
             prob_middle: None,
-            interest_rate: r,
+            interest_rate: market_params.rate,
         })
     }
 
     /// Price American option using binomial tree
-    #[allow(clippy::too_many_arguments)]
-    pub fn price_american(
-        &self,
-        spot: F,
-        strike: F,
-        r: F,
-        sigma: F,
-        t: F,
-        q: F,
-        option_type: OptionType,
-    ) -> Result<F> {
+    pub fn price_american(&self, market_params: &OptionMarketParams) -> Result<F> {
         let all_steps: Vec<usize> = (0..self.steps).collect();
-        self.price_with_exercise(spot, strike, r, sigma, t, q, option_type, Some(&all_steps))
+        self.price_with_exercise(market_params, Some(&all_steps))
     }
 
     /// Price European option using binomial tree (for validation)
-    #[allow(clippy::too_many_arguments)]
-    pub fn price_european(
-        &self,
-        spot: F,
-        strike: F,
-        r: F,
-        sigma: F,
-        t: F,
-        q: F,
-        option_type: OptionType,
-    ) -> Result<F> {
-        self.price_with_exercise(spot, strike, r, sigma, t, q, option_type, None)
+    pub fn price_european(&self, market_params: &OptionMarketParams) -> Result<F> {
+        self.price_with_exercise(market_params, None)
     }
 
     /// Price Bermudan option with specified exercise dates
-    #[allow(clippy::too_many_arguments)]
     pub fn price_bermudan(
         &self,
-        spot: F,
-        strike: F,
-        r: F,
-        sigma: F,
-        t: F,
-        q: F,
-        option_type: OptionType,
+        market_params: &OptionMarketParams,
         exercise_dates: &[F], // Times when exercise is allowed
     ) -> Result<F> {
-        let mut steps = map_exercise_dates_to_steps(exercise_dates, t, self.steps);
+        let mut steps = map_exercise_dates_to_steps(
+            exercise_dates,
+            market_params.time_to_expiry,
+            self.steps,
+        );
         steps.sort();
         steps.dedup();
-        self.price_with_exercise(spot, strike, r, sigma, t, q, option_type, Some(&steps))
+        self.price_with_exercise(market_params, Some(&steps))
     }
 
     /// Calculate Greeks using binomial tree
-    #[allow(clippy::too_many_arguments)]
     pub fn calculate_greeks(
         &self,
-        spot: F,
-        strike: F,
-        r: F,
-        sigma: F,
-        t: F,
-        q: F,
-        option_type: OptionType,
+        market_params: &OptionMarketParams,
         exercise_style: ExerciseStyle,
     ) -> Result<BinomialGreeks> {
         // Price at base case
         let base_price = match exercise_style {
-            ExerciseStyle::American => {
-                self.price_american(spot, strike, r, sigma, t, q, option_type)?
-            }
-            ExerciseStyle::European => {
-                self.price_european(spot, strike, r, sigma, t, q, option_type)?
-            }
+            ExerciseStyle::American => self.price_american(market_params)?,
+            ExerciseStyle::European => self.price_european(market_params)?,
             _ => return Err(Error::Internal),
         };
 
         // Delta: use small bump
-        let h = 0.01 * spot;
+        let h = 0.01 * market_params.spot;
+        let mut params_up = market_params.clone();
+        params_up.spot += h;
         let price_up = match exercise_style {
-            ExerciseStyle::American => {
-                self.price_american(spot + h, strike, r, sigma, t, q, option_type)?
-            }
-            ExerciseStyle::European => {
-                self.price_european(spot + h, strike, r, sigma, t, q, option_type)?
-            }
+            ExerciseStyle::American => self.price_american(&params_up)?,
+            ExerciseStyle::European => self.price_european(&params_up)?,
             _ => return Err(Error::Internal),
         };
 
+        let mut params_down = market_params.clone();
+        params_down.spot -= h;
         let price_down = match exercise_style {
-            ExerciseStyle::American => {
-                self.price_american(spot - h, strike, r, sigma, t, q, option_type)?
-            }
-            ExerciseStyle::European => {
-                self.price_european(spot - h, strike, r, sigma, t, q, option_type)?
-            }
+            ExerciseStyle::American => self.price_american(&params_down)?,
+            ExerciseStyle::European => self.price_european(&params_down)?,
             _ => return Err(Error::Internal),
         };
 
@@ -365,14 +333,12 @@ impl BinomialTree {
 
         // Theta: use 1-day bump
         let dt = 1.0 / 365.25;
-        let theta = if t > dt {
+        let theta = if market_params.time_to_expiry > dt {
+            let mut params_later = market_params.clone();
+            params_later.time_to_expiry -= dt;
             let price_later = match exercise_style {
-                ExerciseStyle::American => {
-                    self.price_american(spot, strike, r, sigma, t - dt, q, option_type)?
-                }
-                ExerciseStyle::European => {
-                    self.price_european(spot, strike, r, sigma, t - dt, q, option_type)?
-                }
+                ExerciseStyle::American => self.price_american(&params_later)?,
+                ExerciseStyle::European => self.price_european(&params_later)?,
                 _ => return Err(Error::Internal),
             };
             -(base_price - price_later) / dt
@@ -550,27 +516,16 @@ mod tests {
     #[test]
     fn test_crr_european_converges_to_black_scholes() {
         // Test that CRR converges to Black-Scholes for European options
-        let spot = 100.0;
-        let strike = 100.0;
-        let r = 0.05;
-        let sigma = 0.20;
-        let t = 1.0;
-        let q = 0.0;
+        let market_params = OptionMarketParams::call(100.0, 100.0, 0.05, 0.20, 1.0);
 
         // Calculate with increasing steps
         let tree_50 = BinomialTree::crr(50);
         let tree_100 = BinomialTree::crr(100);
         let tree_200 = BinomialTree::crr(200);
 
-        let price_50 = tree_50
-            .price_european(spot, strike, r, sigma, t, q, OptionType::Call)
-            .unwrap();
-        let price_100 = tree_100
-            .price_european(spot, strike, r, sigma, t, q, OptionType::Call)
-            .unwrap();
-        let price_200 = tree_200
-            .price_european(spot, strike, r, sigma, t, q, OptionType::Call)
-            .unwrap();
+        let price_50 = tree_50.price_european(&market_params).unwrap();
+        let price_100 = tree_100.price_european(&market_params).unwrap();
+        let price_200 = tree_200.price_european(&market_params).unwrap();
 
         // Should converge
         assert!((price_100 - price_50).abs() > (price_200 - price_100).abs());
@@ -582,22 +537,13 @@ mod tests {
     #[test]
     fn test_leisen_reimer_better_convergence() {
         // Test that Leisen-Reimer converges faster than CRR
-        let spot = 100.0;
-        let strike = 100.0;
-        let r = 0.05;
-        let sigma = 0.20;
-        let t = 1.0;
-        let q = 0.0;
+        let market_params = OptionMarketParams::call(100.0, 100.0, 0.05, 0.20, 1.0);
 
         let crr = BinomialTree::crr(401);
         let lr = BinomialTree::leisen_reimer(401);
 
-        let crr_price = crr
-            .price_european(spot, strike, r, sigma, t, q, OptionType::Call)
-            .unwrap();
-        let lr_price = lr
-            .price_european(spot, strike, r, sigma, t, q, OptionType::Call)
-            .unwrap();
+        let crr_price = crr.price_european(&market_params).unwrap();
+        let lr_price = lr.price_european(&market_params).unwrap();
 
         // Both should be close to Black-Scholes value
         let bs_value = 10.4506; // Known Black-Scholes value
@@ -627,21 +573,14 @@ mod tests {
     #[test]
     fn test_leisen_reimer_converges_put() {
         // Validate LR convergence for put via put-call parity
-        let spot = 100.0;
-        let strike = 100.0;
-        let r = 0.05;
-        let sigma = 0.20;
-        let t = 1.0;
-        let q = 0.0;
+        let market_params = OptionMarketParams::put(100.0, 100.0, 0.05, 0.20, 1.0);
 
         let lr = BinomialTree::leisen_reimer(201);
-        let lr_put = lr
-            .price_european(spot, strike, r, sigma, t, q, OptionType::Put)
-            .unwrap();
+        let lr_put = lr.price_european(&market_params).unwrap();
 
         // BS call value known; derive put via parity: P = C - S e^{-qT} + K e^{-rT}
         let bs_call = 10.4506;
-        let bs_put = bs_call - spot * (-q * t).exp() + strike * (-r * t).exp();
+        let bs_put = bs_call - market_params.spot * (-market_params.dividend_yield * market_params.time_to_expiry).exp() + market_params.strike * (-market_params.rate * market_params.time_to_expiry).exp();
 
         assert!(
             (lr_put - bs_put).abs() < 0.05,
@@ -677,21 +616,12 @@ mod tests {
     #[test]
     fn test_american_put_early_exercise_premium() {
         // American put should be worth more than European put
-        let spot = 100.0;
-        let strike = 110.0;
-        let r = 0.05;
-        let sigma = 0.20;
-        let t = 1.0;
-        let q = 0.0;
+        let market_params = OptionMarketParams::put(100.0, 110.0, 0.05, 0.20, 1.0);
 
         let tree = BinomialTree::crr(100); // Use CRR since LR has issues
 
-        let american = tree
-            .price_american(spot, strike, r, sigma, t, q, OptionType::Put)
-            .unwrap();
-        let european = tree
-            .price_european(spot, strike, r, sigma, t, q, OptionType::Put)
-            .unwrap();
+        let american = tree.price_american(&market_params).unwrap();
+        let european = tree.price_european(&market_params).unwrap();
 
         println!(
             "American put: {}, European put: {}, Premium: {}",
@@ -712,36 +642,18 @@ mod tests {
     #[test]
     fn test_bermudan_between_european_and_american() {
         // Bermudan should be between European and American
-        let spot = 100.0;
-        let strike = 110.0;
-        let r = 0.05;
-        let sigma = 0.20;
-        let t = 1.0;
-        let q = 0.0;
+        let market_params = OptionMarketParams::put(100.0, 110.0, 0.05, 0.20, 1.0);
 
         let tree = BinomialTree::leisen_reimer(100);
 
         // Exercise allowed quarterly
         let exercise_dates = vec![0.25, 0.5, 0.75, 1.0];
 
-        let american = tree
-            .price_american(spot, strike, r, sigma, t, q, OptionType::Put)
-            .unwrap();
+        let american = tree.price_american(&market_params).unwrap();
         let bermudan = tree
-            .price_bermudan(
-                spot,
-                strike,
-                r,
-                sigma,
-                t,
-                q,
-                OptionType::Put,
-                &exercise_dates,
-            )
+            .price_bermudan(&market_params, &exercise_dates)
             .unwrap();
-        let european = tree
-            .price_european(spot, strike, r, sigma, t, q, OptionType::Put)
-            .unwrap();
+        let european = tree.price_european(&market_params).unwrap();
 
         // Bermudan should be between European and American
         assert!(bermudan >= european);
