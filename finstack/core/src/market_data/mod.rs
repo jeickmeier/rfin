@@ -48,6 +48,12 @@ pub mod context;
 /// Serialization support for MarketContext
 #[cfg(feature = "serde")]
 pub mod context_serde;
+/// New enum-based storage system (experimental)
+#[cfg(feature = "new-context")]
+pub mod storage;
+/// MarketContext V2 with enum-based storage (experimental)
+#[cfg(feature = "new-context")]
+pub mod context_v2;
 /// Credit index aggregates for CDS tranche pricing and credit derivatives.
 pub mod credit_index;
 // Identifiers are now defined in `crate::types` (see `types::CurveId`).

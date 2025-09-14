@@ -39,13 +39,17 @@ serde_json = "1.0"
 criterion = "0.5"
 
 [features]
-default = ["std"]
+default = ["std", "legacy-context"]
 std = ["serde?/std"]
 serde = ["dep:serde", "serde/derive", "time/serde", "hashbrown/serde", "indexmap/serde"]
 parallel = ["dep:rayon"]
 linear-algebra = ["dep:ndarray-linalg"]
 # Controls deterministic vs. performance-optimized execution paths
 deterministic = []
+
+# Market context storage strategies (for migration)
+legacy-context = []  # Current trait object-based storage (default)
+new-context = []     # New enum-based storage (opt-in during development)
 
 
 [package.metadata.docs.rs]
