@@ -232,6 +232,30 @@ impl ForwardCurveBuilder {
     }
 }
 
+// Implement unified builder trait for ForwardCurveBuilder
+impl super::common::CurveBuilder for ForwardCurveBuilder {
+    type Output = ForwardCurve;
+
+    fn base_date(self, d: Date) -> Self {
+        ForwardCurveBuilder::base_date(self, d)
+    }
+
+    fn knots<I>(self, pts: I) -> Self
+    where
+        I: IntoIterator<Item = (F, F)>,
+    {
+        ForwardCurveBuilder::knots(self, pts)
+    }
+
+    fn set_interp(self, style: InterpStyle) -> Self {
+        ForwardCurveBuilder::set_interp(self, style)
+    }
+
+    fn build(self) -> crate::Result<Self::Output> {
+        ForwardCurveBuilder::build(self)
+    }
+}
+
 // Interpolator helpers moved to InterpStyle – factory fns removed.
 
 // -----------------------------------------------------------------------------

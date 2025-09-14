@@ -393,6 +393,30 @@ impl DiscountCurveBuilder {
     }
 }
 
+// Implement unified builder trait for DiscountCurveBuilder
+impl super::common::CurveBuilder for DiscountCurveBuilder {
+    type Output = DiscountCurve;
+
+    fn base_date(self, d: Date) -> Self {
+        DiscountCurveBuilder::base_date(self, d)
+    }
+
+    fn knots<I>(self, pts: I) -> Self
+    where
+        I: IntoIterator<Item = (F, F)>,
+    {
+        DiscountCurveBuilder::knots(self, pts)
+    }
+
+    fn set_interp(self, style: InterpStyle) -> Self {
+        DiscountCurveBuilder::set_interp(self, style)
+    }
+
+    fn build(self) -> crate::Result<Self::Output> {
+        DiscountCurveBuilder::build(self).map_err(crate::error::Error::from)
+    }
+}
+
 // Interpolator helpers now centralised in InterpStyle – local factory fns removed.
 
 // -----------------------------------------------------------------------------

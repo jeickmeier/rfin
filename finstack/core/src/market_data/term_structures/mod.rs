@@ -80,6 +80,8 @@ pub use discount_curve::*;
 pub use forward_curve::*;
 pub use hazard_curve::*;
 pub use inflation::*;
+// Re-export the unified builder trait so callers can import it easily.
+pub use common::CurveBuilder;
 // Re-export the relocated volatility surface
 pub use crate::market_data::surfaces::vol_surface::*;
 // Interpolation helpers removed; use `set_interp(InterpStyle::...)` on builders.

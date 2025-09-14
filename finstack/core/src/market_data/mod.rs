@@ -18,7 +18,6 @@
 //! * [`surfaces`] – two-dimensional objects like implied-volatility surfaces.
 //! * Helper functions for interpolation/validation live under
 //!   [`crate::math::interp::utils`].
-//! * [`multicurve`] – thin container for keeping many curves in one place.
 //! * [`context`] – lightweight aggregate of curves, FX, surfaces, and prices.
 //!
 //! Convenience re-exports are provided so that downstream code can simply

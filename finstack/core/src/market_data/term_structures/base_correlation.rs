@@ -201,6 +201,22 @@ impl BaseCorrelationCurveBuilder {
     }
 }
 
+// Implement unified builder trait for BaseCorrelationCurveBuilder
+impl super::common::CurveBuilder for BaseCorrelationCurveBuilder {
+    type Output = BaseCorrelationCurve;
+
+    fn knots<I>(self, pts: I) -> Self
+    where
+        I: IntoIterator<Item = (F, F)>,
+    {
+        BaseCorrelationCurveBuilder::points(self, pts)
+    }
+
+    fn build(self) -> crate::Result<Self::Output> {
+        BaseCorrelationCurveBuilder::build(self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

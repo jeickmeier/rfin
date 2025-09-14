@@ -176,6 +176,26 @@ impl InflationCurveBuilder {
     }
 }
 
+// Implement unified builder trait for InflationCurveBuilder
+impl super::common::CurveBuilder for InflationCurveBuilder {
+    type Output = InflationCurve;
+
+    fn knots<I>(self, pts: I) -> Self
+    where
+        I: IntoIterator<Item = (F, F)>,
+    {
+        InflationCurveBuilder::knots(self, pts)
+    }
+
+    fn set_interp(self, style: InterpStyle) -> Self {
+        InflationCurveBuilder::set_interp(self, style)
+    }
+
+    fn build(self) -> crate::Result<Self::Output> {
+        InflationCurveBuilder::build(self)
+    }
+}
+
 // Interpolator helpers centralised in InterpStyle – local factory fns removed.
 
 // -----------------------------------------------------------------------------
