@@ -1,8 +1,7 @@
 //! Enum-based storage for all curve types
 //!
-//! This module provides `CurveStorage` which replaces trait object storage
-//! (`Arc<dyn Trait + Send + Sync>`) with a concrete enum, enabling complete
-//! serialization support while maintaining API compatibility.
+//! This module provides `CurveStorage` which uses concrete enum storage  
+//! for optimal performance and complete serialization support.
 
 extern crate alloc;
 use alloc::sync::Arc;

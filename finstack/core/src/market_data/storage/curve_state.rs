@@ -4,8 +4,9 @@
 //! serializing curve data extracted from `CurveStorage`.
 
 extern crate alloc;
-use alloc::sync::Arc;
 
+#[cfg(feature = "serde")]
+use alloc::sync::Arc;
 #[cfg(feature = "serde")]
 use crate::market_data::term_structures::{
     base_correlation::BaseCorrelationCurve,
@@ -14,7 +15,6 @@ use crate::market_data::term_structures::{
     hazard_curve::{HazardCurve, HazardCurveState},
     inflation::InflationCurve,
 };
-
 
 #[cfg(feature = "serde")]
 use super::curve_storage::CurveStorage;
@@ -142,7 +142,14 @@ impl<'de> serde::Deserialize<'de> for CurveStorage {
 mod tests {
     use super::*;
     use crate::dates::Date;
-    use crate::market_data::interp::InterpStyle;
+    use crate::market_data::{
+        interp::InterpStyle,
+        storage::CurveStorage,
+        term_structures::{
+            discount_curve::DiscountCurve,
+            hazard_curve::HazardCurve,
+        },
+    };
 
     fn test_discount_curve() -> DiscountCurve {
         DiscountCurve::builder("TEST-DISC")

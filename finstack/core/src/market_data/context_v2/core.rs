@@ -26,12 +26,12 @@ use crate::money::fx::FxMatrix;
 use crate::types::CurveId;
 use crate::{error::InputError, Result};
 
-/// MarketContext V2 with enum-based storage
+/// MarketContext with enum-based storage
 ///
-/// This is a redesigned version of MarketContext that uses `CurveStorage`
+/// This is the main MarketContext implementation that uses `CurveStorage`
 /// enum instead of trait objects, enabling complete serialization support.
 ///
-/// # Key Improvements
+/// # Key Features
 /// - Complete serialization for all curve types
 /// - Direct concrete type access with zero overhead
 /// - Type-safe curve access with compile-time guarantees
@@ -40,9 +40,9 @@ use crate::{error::InputError, Result};
 ///
 /// # Example
 /// ```rust,ignore
-/// use finstack_core::market_data::context_v2::MarketContextV2;
+/// use finstack_core::market_data::MarketContext;
 /// 
-/// let context = MarketContextV2::new()
+/// let context = MarketContext::new()
 ///     .insert_discount(discount_curve)
 ///     .insert_forward(forward_curve);
 /// 
@@ -51,21 +51,21 @@ use crate::{error::InputError, Result};
 /// let fwd = context.forward("USD-SOFR3M")?;     // Arc<ForwardCurve>
 /// ```
 #[derive(Clone, Default)]
-pub struct MarketContextV2 {
+pub struct MarketContext {
     /// All curves stored in unified enum-based map
     pub(super) curves: HashMap<CurveId, CurveStorage>,
     
     /// Foreign-exchange matrix
-    pub(super) fx: Option<Arc<FxMatrix>>,
+    pub fx: Option<Arc<FxMatrix>>,
     
     /// Volatility surfaces
-    pub(super) surfaces: HashMap<CurveId, Arc<VolSurface>>,
+    pub surfaces: HashMap<CurveId, Arc<VolSurface>>,
     
     /// Market scalars and prices
-    pub(super) prices: HashMap<CurveId, MarketScalar>,
+    pub prices: HashMap<CurveId, MarketScalar>,
     
     /// Generic time series
-    pub(super) series: HashMap<CurveId, ScalarTimeSeries>,
+    pub series: HashMap<CurveId, ScalarTimeSeries>,
     
     /// Inflation indices
     pub(super) inflation_indices: HashMap<CurveId, Arc<InflationIndex>>,
@@ -74,10 +74,10 @@ pub struct MarketContextV2 {
     pub(super) credit_indices: HashMap<CurveId, Arc<CreditIndexData>>,
     
     /// Collateral CSA code mappings
-    pub(super) collateral: HashMap<String, CurveId>, // Changed from &'static str to String
+    pub(super) collateral: HashMap<String, CurveId>,
 }
 
-impl MarketContextV2 {
+impl MarketContext {
     /// Create an empty market context
     pub fn new() -> Self {
         Self::default()
@@ -242,6 +242,31 @@ impl MarketContextV2 {
             })
     }
 
+    // -----------------------------------------------------------------------------
+    // Compatibility Methods (for downstream code migration)
+    // -----------------------------------------------------------------------------
+
+    /// Get discount curve by ID (compatibility alias)
+    pub fn disc(&self, id: impl AsRef<str>) -> Result<Arc<DiscountCurve>> {
+        self.discount(id)
+    }
+
+    /// Get forward curve by ID (compatibility alias)
+    pub fn fwd(&self, id: impl AsRef<str>) -> Result<Arc<ForwardCurve>> {
+        self.forward(id)
+    }
+
+    /// Get inflation curve by ID (compatibility alias)
+    pub fn infl(&self, id: impl AsRef<str>) -> Result<Arc<InflationCurve>> {
+        self.inflation(id)
+    }
+
+    /// Access to curves (for API compatibility)
+    pub fn curves(&self) -> &Self {
+        self
+    }
+
+
     /// Get volatility surface by ID
     pub fn surface(&self, id: impl AsRef<str>) -> Result<Arc<VolSurface>> {
         let curve_id = CurveId::from(id.as_ref());
@@ -384,7 +409,7 @@ impl MarketContextV2 {
     }
 }
 
-/// Summary statistics for MarketContextV2
+/// Summary statistics for MarketContext
 #[derive(Debug, Clone)]
 pub struct ContextStats {
     /// Count of curves by type
@@ -461,7 +486,7 @@ mod tests {
 
     #[test]
     fn test_context_creation_and_insertion() {
-        let context = MarketContextV2::new()
+        let context = MarketContext::new()
             .insert_discount(test_discount_curve())
             .insert_forward(test_forward_curve())
             .insert_hazard(test_hazard_curve());
@@ -475,7 +500,7 @@ mod tests {
 
     #[test]
     fn test_direct_concrete_api() {
-        let context = MarketContextV2::new()
+        let context = MarketContext::new()
             .insert_discount(test_discount_curve());
 
         // Test direct concrete API - clean and simple
@@ -486,7 +511,7 @@ mod tests {
 
     #[test]
     fn test_error_handling() {
-        let context = MarketContextV2::new();
+        let context = MarketContext::new();
         
         // Should return NotFound errors for missing curves
         assert!(context.discount("NONEXISTENT").is_err());
@@ -498,7 +523,7 @@ mod tests {
 
     #[test]
     fn test_curve_type_filtering() {
-        let context = MarketContextV2::new()
+        let context = MarketContext::new()
             .insert_discount(test_discount_curve())
             .insert_forward(test_forward_curve())
             .insert_hazard(test_hazard_curve());
@@ -514,7 +539,7 @@ mod tests {
 
     #[test]
     fn test_context_stats() {
-        let context = MarketContextV2::new()
+        let context = MarketContext::new()
             .insert_discount(test_discount_curve())
             .insert_price("SPOT_GOLD", MarketScalar::Unitless(2000.0));
 
@@ -531,7 +556,7 @@ mod tests {
 
     #[test]
     fn test_collateral_mapping() {
-        let context = MarketContextV2::new()
+        let context = MarketContext::new()
             .insert_discount(test_discount_curve())
             .map_collateral("USD-CSA", CurveId::new("USD-OIS"));
 
@@ -541,7 +566,7 @@ mod tests {
 
     #[test]
     fn test_empty_context() {
-        let context = MarketContextV2::new();
+        let context = MarketContext::new();
         assert!(context.is_empty());
         assert_eq!(context.total_objects(), 0);
     }

@@ -1161,8 +1161,1220 @@ impl MarketContext {
 }
 
 // -----------------------------------------------------------------------------
-// Serialization Support  
+// Serialization Support
 // -----------------------------------------------------------------------------
 
-// Note: Legacy MarketContext does not support serialization due to trait object limitations.
-// Use finstack_core::market_data::context_v2::MarketContext for complete serialization support.
+#[cfg(feature = "serde")]
+mod serde_support {
+    use super::*;
+    pub use crate::market_data::context_serde::*;
+
+    impl MarketContext {
+        /// Convert MarketContext to serializable data structure
+        /// 
+        /// # Architectural Limitations
+        /// 
+        /// This serialization implementation has significant limitations due to MarketContext
+        /// storing trait objects (`Arc<dyn Trait + Send + Sync>`). Key issues:
+        /// 
+        /// 1. **Trait objects cannot be downcast** to concrete types to call `to_state()`
+        /// 2. **Bumped curves** are wrapper types that can't be properly serialized
+        /// 3. **String parsing hacks** are used to detect bumped curves by ID patterns
+        /// 
+        /// ## Recommended Architectural Changes
+        /// 
+        /// For proper serialization support, consider:
+        /// 
+        /// 1. **Enum-based storage** instead of trait objects:
+        ///    ```rust,ignore
+        ///    enum CurveType {
+        ///        Discount(DiscountCurve),
+        ///        Forward(ForwardCurve),
+        ///        Hazard(HazardCurve),
+        ///    }
+        ///    ```
+        /// 
+        /// 2. **Redesign bump system** to store bump metadata separately from curves
+        /// 3. **Remove string-based curve ID parsing** in favor of structured metadata
+        /// 
+        /// Currently, only HazardCurve, VolSurface, and time series can be fully serialized.
+        pub fn to_data(&self) -> crate::Result<MarketContextData> {
+            use crate::market_data::primitives::ScalarTimeSeriesState;
+            use crate::market_data::surfaces::vol_surface::VolSurfaceState;
+
+        // Convert discount curves using proper state methods
+        let disc_curves: Vec<DiscountCurveEntry> = self
+            .disc
+            .iter()
+            .filter_map(|(id, _curve)| {
+                // Try to detect if this is a bumped curve by ID pattern (temporary until we redesign bump system)
+                if let Some(pos) = id.as_str().rfind("_bump_") {
+                    let original_id = CurveId::from(&id.as_str()[..pos]);
+                    let bump_str = &id.as_str()[pos + 6..];
+                    if let Some(bp_pos) = bump_str.rfind("bp") {
+                        if let Ok(bump_bp) = bump_str[..bp_pos].parse::<F>() {
+                            return Some(DiscountCurveEntry {
+                                id: id.clone(),
+                                bump_info: Some(BumpInfo {
+                                    original_id,
+                                    bump_spec: BumpSpec::parallel_bp(bump_bp),
+                                }),
+                                state: None,
+                            });
+                        }
+                    }
+                }
+                // Handle non-bumped curves with proper state serialization
+                // For bumped curves, we can't get their underlying state, but that's a design issue
+                // For now, we'll skip serializing bumped curves' state
+                if !id.as_str().contains("_bump_") {
+                    // This is a regular discount curve, serialize its state
+                    // We can't call to_state() on trait objects, so we skip for now
+                    // This is a limitation that needs architectural changes
+                }
+                None
+            })
+            .collect();
+
+            // Convert forward curves (same architectural limitation as discount curves)
+            let fwd_curves: Vec<ForwardCurveEntry> = self
+                .fwd
+                .iter()
+                .filter_map(|(id, _curve)| {
+                    // Try to detect if this is a bumped curve by ID pattern (temporary)
+                    if let Some(pos) = id.as_str().rfind("_bump_") {
+                        let original_id = CurveId::from(&id.as_str()[..pos]);
+                        let bump_str = &id.as_str()[pos + 6..];
+                        if let Some(bp_pos) = bump_str.rfind("bp") {
+                            if let Ok(bump_bp) = bump_str[..bp_pos].parse::<F>() {
+                                return Some(ForwardCurveEntry {
+                                    id: id.clone(),
+                                    bump_info: Some(BumpInfo {
+                                        original_id,
+                                        bump_spec: BumpSpec::parallel_bp(bump_bp),
+                                    }),
+                                    state: None,
+                                });
+                            }
+                        }
+                    }
+                    // Non-bumped curves face the same trait object limitation as discount curves
+                    None
+                })
+                .collect();
+
+            // Convert hazard curves using to_state()
+            let hazard_curves: Vec<(
+                CurveId,
+                crate::market_data::term_structures::hazard_curve::HazardCurveState,
+            )> = self
+                .hazard
+                .iter()
+                .map(|(id, curve)| (id.clone(), curve.to_state()))
+                .collect();
+
+            // TODO: InflationCurve implements Serialize but not Clone
+            // Need to add to_state() and from_state() methods to InflationCurve
+            // See finstack/core/src/market_data/term_structures/inflation.rs
+            let inflation_curves: Vec<(CurveId, InflationCurve)> = Vec::new();
+
+            // Convert inflation indices
+            let inflation_indices: Vec<(CurveId, InflationIndexData)> = self
+                .inflation_indices
+                .iter()
+                .map(|(id, index)| {
+                    let df = index.as_dataframe();
+                    let dates = df.column("date").unwrap().i32().unwrap();
+                    let values = df.column("value").unwrap().f64().unwrap();
+                    let observations: Vec<(Date, F)> = dates
+                        .into_no_null_iter()
+                        .zip(values.into_no_null_iter())
+                        .map(|(d, v)| (crate::dates::utils::days_since_epoch_to_date(d), v))
+                        .collect();
+
+                    (
+                        id.clone(),
+                        InflationIndexData {
+                            id: id.to_string(),
+                            observations,
+                            currency: index.currency,
+                            interpolation: index.interpolation(),
+                            lag: index.lag(),
+                        },
+                    )
+                })
+                .collect();
+
+            // BaseCorrelationCurve implements Clone
+            let base_correlation_curves: Vec<(CurveId, BaseCorrelationCurve)> = self
+                .base_correlation
+                .iter()
+                .map(|(id, curve)| (id.clone(), (**curve).clone()))
+                .collect();
+
+            // Convert credit indices
+            let credit_indices: Vec<(CurveId, CreditIndexEntry)> = self
+                .credit_indices
+                .iter()
+                .map(|(id, data)| {
+                    let issuer_curves = data.issuer_credit_curves.as_ref().map(|curves| {
+                        curves
+                            .iter()
+                            .map(|(name, curve)| (name.clone(), curve.to_state()))
+                            .collect()
+                    });
+
+                    (
+                        id.clone(),
+                        CreditIndexEntry {
+                            num_constituents: data.num_constituents,
+                            recovery_rate: data.recovery_rate,
+                            index_credit_curve: data.index_credit_curve.to_state(),
+                            base_correlation_curve: (*data.base_correlation_curve).clone(),
+                            issuer_credit_curves: issuer_curves,
+                        },
+                    )
+                })
+                .collect();
+
+            // Convert FX matrix - simplified for now
+            // TODO: FxMatrix needs to_state()/from_state() methods to extract quotes
+            // See finstack/core/src/money/fx.rs
+            let fx = self.fx.as_ref().map(|_matrix| {
+                FxMatrixData {
+                    quotes: Vec::new(),   // TODO: Extract from matrix state
+                    pivot_currency: None, // TODO: Extract from matrix config
+                }
+            });
+
+            // Convert surfaces using to_state()
+            let surfaces: Vec<(CurveId, VolSurfaceState)> = self
+                .surfaces
+                .iter()
+                .map(|(id, surface)| (id.clone(), surface.to_state()))
+                .collect();
+
+            // Convert prices (MarketScalar implements Clone but not Copy)
+            let prices: Vec<(CurveId, MarketScalar)> = self
+                .prices
+                .iter()
+                .map(|(id, scalar)| (id.clone(), scalar.clone()))
+                .collect();
+
+            // Convert series using to_state()
+            let series: Vec<(CurveId, ScalarTimeSeriesState)> = self
+                .series
+                .iter()
+                .filter_map(|(id, s)| s.to_state().ok().map(|state| (id.clone(), state)))
+                .collect();
+
+            // Convert collateral mappings
+            let collateral_mappings: Vec<(alloc::string::String, CurveId)> = self
+                .collat
+                .iter()
+                .map(|(csa, id)| (csa.to_string(), id.clone()))
+                .collect();
+
+            Ok(MarketContextData {
+                disc_curves,
+                fwd_curves,
+                hazard_curves,
+                inflation_curves,
+                inflation_indices,
+                base_correlation_curves,
+                credit_indices,
+                fx,
+                surfaces,
+                prices,
+                series,
+                collateral_mappings,
+            })
+        }
+
+        /// Reconstruct MarketContext from serializable data
+        pub fn from_data(data: MarketContextData) -> crate::Result<MarketContext> {
+            use crate::market_data::credit_index::CreditIndexData;
+            use crate::market_data::primitives::ScalarTimeSeries;
+            use crate::market_data::surfaces::vol_surface::VolSurface;
+            use crate::market_data::term_structures::hazard_curve::HazardCurve;
+
+            let mut context = MarketContext::new();
+
+            // Reconstruct discount curves using state methods (where available)
+            for entry in data.disc_curves.iter() {
+                if entry.bump_info.is_none() {
+                    if let Some(state) = entry.state.as_ref() {
+                        // We have proper state methods now, but can't reconstruct from trait objects
+                        // This is an architectural limitation - MarketContext stores trait objects
+                        // but we need concrete types to reconstruct from state
+                        let _ = state; // Acknowledge but can't use due to trait object storage
+                    }
+                }
+            }
+
+            // Reconstruct forward curves using state methods (same limitation)
+            for entry in data.fwd_curves.iter() {
+                if entry.bump_info.is_none() {
+                    if let Some(state) = entry.state.as_ref() {
+                        // Same architectural limitation as discount curves
+                        let _ = state;
+                    }
+                }
+            }
+
+            // Reconstruct hazard curves from state
+            for (_id, state) in data.hazard_curves {
+                let curve = HazardCurve::from_state(state)?;
+                context = context.insert_hazard(curve);
+            }
+
+            // Reconstruct inflation curves
+            for (_id, curve) in data.inflation_curves {
+                context = context.insert_inflation(curve);
+            }
+
+            // Reconstruct inflation indices
+            for (_id, index_data) in data.inflation_indices {
+                let builder = crate::market_data::inflation_index::InflationIndexBuilder::new(
+                    &index_data.id,
+                    index_data.currency,
+                )
+                .with_observations(index_data.observations)
+                .with_interpolation(index_data.interpolation)
+                .with_lag(index_data.lag);
+
+                if let Ok(index) = builder.build() {
+                    context = context.insert_inflation_index(&index_data.id, index);
+                }
+            }
+
+            // Reconstruct base correlation curves
+            for (_id, curve) in data.base_correlation_curves {
+                context = context.insert_base_correlation(curve);
+            }
+
+            // Reconstruct credit indices
+            for (_id, entry) in data.credit_indices {
+                let index_curve = HazardCurve::from_state(entry.index_credit_curve)?;
+
+                let mut builder = CreditIndexData::builder()
+                    .num_constituents(entry.num_constituents)
+                    .recovery_rate(entry.recovery_rate)
+                    .index_credit_curve(Arc::new(index_curve))
+                    .base_correlation_curve(Arc::new(entry.base_correlation_curve));
+
+                if let Some(issuer_curves) = entry.issuer_credit_curves {
+                    let mut arc_curves = std::collections::HashMap::new();
+                    for (name, state) in issuer_curves {
+                        let curve = HazardCurve::from_state(state)?;
+                        arc_curves.insert(name, Arc::new(curve));
+                    }
+                    builder = builder.with_issuer_curves(arc_curves);
+                }
+
+                if let Ok(index_data) = builder.build() {
+                    // Use a generic ID for now
+                    context = context.insert_credit_index("credit_index", index_data);
+                }
+            }
+
+            // Reconstruct surfaces from state
+            for (_id, state) in data.surfaces {
+                if let Ok(surface) = VolSurface::from_state(state) {
+                    context = context.insert_surface(surface);
+                }
+            }
+
+            // Reconstruct prices
+            for (id, scalar) in data.prices {
+                context = context.insert_price(id.as_str(), scalar);
+            }
+
+            // Reconstruct series from state
+            for (_id, state) in data.series {
+                if let Ok(series) = ScalarTimeSeries::from_state(state) {
+                    context = context.insert_series(series);
+                }
+            }
+
+            // Reconstruct collateral mappings
+            // TODO: This leaks memory by converting String to &'static str
+            // Better solution: Refactor MarketContext.collat to use String or Arc<str>
+            // instead of &'static str for CSA codes
+            for (csa, curve_id) in data.collateral_mappings {
+                // WARNING: This leaks the string - not suitable for production
+                let csa_static = alloc::boxed::Box::leak(csa.into_boxed_str());
+                context = context.map_collateral(csa_static, curve_id);
+            }
+
+            // Now apply bumps to recreate bumped curves
+            for entry in data.disc_curves {
+                if let Some(bump_info) = entry.bump_info {
+                    let mut bumps = HashMap::new();
+                    bumps.insert(bump_info.original_id, bump_info.bump_spec);
+                    if let Ok(bumped) = context.bump(bumps) {
+                        context = bumped;
+                    }
+                }
+            }
+
+            for entry in data.fwd_curves {
+                if let Some(bump_info) = entry.bump_info {
+                    let mut bumps = HashMap::new();
+                    bumps.insert(bump_info.original_id, bump_info.bump_spec);
+                    if let Ok(bumped) = context.bump(bumps) {
+                        context = bumped;
+                    }
+                }
+            }
+
+            Ok(context)
+        }
+    }
+
+    // Direct Serialize/Deserialize implementations
+    impl serde::Serialize for MarketContext {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            self.to_data()
+                .map_err(serde::ser::Error::custom)?
+                .serialize(serializer)
+        }
+    }
+
+    impl<'de> serde::Deserialize<'de> for MarketContext {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            let data = MarketContextData::deserialize(deserializer)?;
+            MarketContext::from_data(data).map_err(serde::de::Error::custom)
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+pub use serde_support::*;
+
+// -----------------------------------------------------------------------------
+// Tests for Bumping Functionality
+// -----------------------------------------------------------------------------
+#[cfg(test)]
+mod bump_tests {
+    use super::*;
+    use crate::market_data::interp::InterpStyle;
+    use crate::market_data::surfaces::vol_surface::VolSurface;
+    use crate::market_data::term_structures::{
+        base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve,
+        forward_curve::ForwardCurve, hazard_curve::HazardCurve, inflation::InflationCurve,
+    };
+
+    fn test_discount_curve() -> DiscountCurve {
+        DiscountCurve::builder("USD-OIS")
+            .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
+            .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap()
+    }
+
+    fn test_forward_curve() -> ForwardCurve {
+        ForwardCurve::builder("USD-SOFR3M", 0.25)
+            .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
+            .knots([(0.0, 0.03), (1.0, 0.035), (5.0, 0.04)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap()
+    }
+
+    fn test_vol_surface() -> VolSurface {
+        VolSurface::builder("USD-ATM-VOL")
+            .expiries(&[0.25, 1.0])
+            .strikes(&[90.0, 100.0])
+            .row(&[0.20, 0.22])
+            .row(&[0.18, 0.19])
+            .build()
+            .unwrap()
+    }
+
+    fn test_hazard_curve() -> HazardCurve {
+        HazardCurve::builder("CORP-HAZARD")
+            .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
+            .recovery_rate(0.4)
+            .knots([(0.0, 0.01), (1.0, 0.015), (5.0, 0.02)])
+            .build()
+            .unwrap()
+    }
+
+    fn test_inflation_curve() -> InflationCurve {
+        InflationCurve::builder("US-CPI")
+            .base_cpi(300.0)
+            .knots([(0.0, 300.0), (1.0, 303.0), (5.0, 315.0)])
+            .set_interp(InterpStyle::LogLinear)
+            .build()
+            .unwrap()
+    }
+
+    fn test_base_correlation_curve() -> BaseCorrelationCurve {
+        BaseCorrelationCurve::builder("CDX-NA-IG")
+            .points(vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60)])
+            .build()
+            .unwrap()
+    }
+
+    #[test]
+    fn test_discount_curve_bump() {
+        let curve = test_discount_curve();
+        let context = MarketContext::new().insert_discount(curve);
+
+        // Test original curve values
+        let original = context.disc("USD-OIS").unwrap();
+        let original_df_1y = original.df(1.0);
+        let original_zero_1y = original.zero(1.0);
+
+        // Apply 100bp bump
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(CurveId::new("USD-OIS"), BumpSpec::parallel_bp(100.0));
+        let bumped_context = context.bump(bumps).unwrap();
+        let bumped_id = "USD-OIS_bump_100bp";
+        let bumped = bumped_context.disc(bumped_id).unwrap();
+
+        // Bumped discount factor should be lower (higher rates)
+        let bumped_df_1y = bumped.df(1.0);
+        let bumped_zero_1y = bumped.zero(1.0);
+
+        assert!(bumped_df_1y < original_df_1y, "Bumped DF should be lower");
+        assert!(
+            bumped_zero_1y > original_zero_1y,
+            "Bumped zero rate should be higher"
+        );
+
+        // Check the mathematical relationship: df_bumped = df_original * exp(-0.01 * 1.0)
+        let expected_df = original_df_1y * (-0.01_f64).exp();
+        assert!(
+            (bumped_df_1y - expected_df).abs() < 1e-12,
+            "DF bump formula should be precise"
+        );
+    }
+
+    #[test]
+    fn test_forward_curve_bump() {
+        let curve = test_forward_curve();
+        let context = MarketContext::new().insert_forward(curve);
+
+        let original = context.fwd("USD-SOFR3M").unwrap();
+        let original_rate_1y = original.rate(1.0);
+
+        // Apply 50bp bump
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(CurveId::new("USD-SOFR3M"), BumpSpec::parallel_bp(50.0));
+        let bumped_context = context.bump(bumps).unwrap();
+        let bumped_id = "USD-SOFR3M_bump_50bp";
+        let bumped = bumped_context.fwd(bumped_id).unwrap();
+
+        let bumped_rate_1y = bumped.rate(1.0);
+
+        // Forward rate should increase by exactly 50bp
+        let expected_rate = original_rate_1y + 0.005; // 50bp = 0.005
+        assert!(
+            (bumped_rate_1y - expected_rate).abs() < 1e-12,
+            "Forward bump should be additive"
+        );
+    }
+
+    #[test]
+    fn test_vol_surface_bump() {
+        let surface = test_vol_surface();
+        let context = MarketContext::new().insert_surface(surface);
+
+        let original = context.surface("USD-ATM-VOL").unwrap();
+        let original_vol = original.value(0.5, 95.0); // Use valid coordinates
+
+        // Apply 10% multiplier shock
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(CurveId::new("USD-ATM-VOL"), BumpSpec::multiplier(1.1));
+        let bumped_context = context.bump(bumps).unwrap();
+        let bumped_id = "USD-ATM-VOL_mult_1.10";
+        let bumped = bumped_context.surface(bumped_id).unwrap();
+
+        let bumped_vol = bumped.value(0.5, 95.0);
+        let expected_vol = original_vol * 1.1;
+        assert!(
+            (bumped_vol - expected_vol).abs() < 1e-12,
+            "Vol bump should be multiplicative"
+        );
+    }
+
+    #[test]
+    fn test_market_scalar_bump() {
+        let context =
+            MarketContext::new().insert_price("GOLD_SPOT", MarketScalar::Unitless(2000.0));
+
+        let original = context.price("GOLD_SPOT").unwrap();
+
+        // Apply additive bump
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(CurveId::new("GOLD_SPOT"), BumpSpec::parallel_bp(500.0)); // 5% in bp terms
+        let bumped_context = context.bump(bumps).unwrap();
+        let bumped_id = "GOLD_SPOT_shift_500bp";
+        let bumped = bumped_context.price(bumped_id).unwrap();
+
+        if let (MarketScalar::Unitless(orig_val), MarketScalar::Unitless(bump_val)) =
+            (original, bumped)
+        {
+            let expected = orig_val + 0.05; // 500bp = 0.05
+            assert!(
+                (bump_val - expected).abs() < 1e-12,
+                "Scalar additive bump should be precise"
+            );
+        } else {
+            panic!("Expected Unitless MarketScalar values");
+        }
+
+        // Apply multiplicative bump
+        let mut bumps2 = hashbrown::HashMap::new();
+        bumps2.insert(CurveId::new("GOLD_SPOT"), BumpSpec::multiplier(1.2));
+        let mult_context = context.bump(bumps2).unwrap();
+        let mult_id = "GOLD_SPOT_mult_1.20";
+        let mult_bumped = mult_context.price(mult_id).unwrap();
+
+        if let (MarketScalar::Unitless(orig_val), MarketScalar::Unitless(mult_val)) =
+            (original, mult_bumped)
+        {
+            let expected_mult = orig_val * 1.2;
+            assert!(
+                (mult_val - expected_mult).abs() < 1e-12,
+                "Scalar multiplicative bump should be precise"
+            );
+        } else {
+            panic!("Expected Unitless MarketScalar values");
+        }
+    }
+
+    #[test]
+    fn test_parallel_rate_shock() {
+        // replaced with consolidated bump API
+        let disc_curve = test_discount_curve();
+        let fwd_curve = test_forward_curve();
+        let context = MarketContext::new()
+            .insert_discount(disc_curve)
+            .insert_forward(fwd_curve);
+
+        // Apply 200bp shock across both curves via bump
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(CurveId::new("USD-OIS"), BumpSpec::parallel_bp(200.0));
+        bumps.insert(CurveId::new("USD-SOFR3M"), BumpSpec::parallel_bp(200.0));
+        let shocked_context = context.bump(bumps).unwrap();
+
+        // Verify both curves were bumped
+        let bumped_disc = shocked_context.disc("USD-OIS_bump_200bp").unwrap();
+        let bumped_fwd = shocked_context.fwd("USD-SOFR3M_bump_200bp").unwrap();
+
+        // Check that the bumped curves behave as expected
+        let original_disc = context.disc("USD-OIS").unwrap();
+        let original_fwd = context.fwd("USD-SOFR3M").unwrap();
+
+        assert!(
+            bumped_disc.df(1.0) < original_disc.df(1.0),
+            "Bumped discount should be lower"
+        );
+        assert!(
+            bumped_fwd.rate(1.0) > original_fwd.rate(1.0),
+            "Bumped forward should be higher"
+        );
+    }
+
+    #[test]
+    fn test_volatility_shock() {
+        // replaced with consolidated bump API
+        let surface = test_vol_surface();
+        let context = MarketContext::new().insert_surface(surface);
+
+        // Apply 20% vol shock via bump
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(CurveId::new("USD-ATM-VOL"), BumpSpec::multiplier(1.2));
+        let shocked_context = context.bump(bumps).unwrap();
+
+        let original = context.surface("USD-ATM-VOL").unwrap();
+        let bumped = shocked_context.surface("USD-ATM-VOL_mult_1.20").unwrap();
+
+        let original_vol = original.value(0.5, 95.0); // Use valid coordinates
+        let bumped_vol = bumped.value(0.5, 95.0);
+
+        assert!(
+            (bumped_vol - original_vol * 1.2).abs() < 1e-12,
+            "Vol shock should be multiplicative"
+        );
+    }
+
+    #[test]
+    fn test_multiple_bumps() {
+        let disc_curve = test_discount_curve();
+        let fwd_curve = test_forward_curve();
+        let context = MarketContext::new()
+            .insert_discount(disc_curve)
+            .insert_forward(fwd_curve)
+            .insert_price("SPOT_PRICE", MarketScalar::Unitless(100.0));
+
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(CurveId::new("USD-OIS"), BumpSpec::parallel_bp(100.0));
+        bumps.insert(CurveId::new("USD-SOFR3M"), BumpSpec::parallel_bp(-25.0));
+        bumps.insert(CurveId::new("SPOT_PRICE"), BumpSpec::multiplier(1.15));
+
+        let bumped_context = context.bump(bumps).unwrap();
+
+        // Verify all bumps were applied
+        assert!(bumped_context.disc("USD-OIS_bump_100bp").is_ok());
+        assert!(bumped_context.fwd("USD-SOFR3M_bump_-25bp").is_ok());
+        assert!(bumped_context.price("SPOT_PRICE_mult_1.15").is_ok());
+    }
+
+    #[test]
+    fn test_hazard_curve_bump() {
+        let curve = test_hazard_curve();
+        let context = MarketContext::new().insert_hazard(curve);
+
+        let original = context.hazard("CORP-HAZARD").unwrap();
+        let original_sp_1y = original.sp(1.0);
+
+        // Apply 100bp spread shift
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(
+            CurveId::new("CORP-HAZARD"),
+            BumpSpec::spread_shift_bp(100.0),
+        );
+        let bumped_context = context.bump(bumps).unwrap();
+        let bumped_id = "CORP-HAZARD_spread_100bp";
+        let bumped = bumped_context.hazard(bumped_id).unwrap();
+
+        let bumped_sp_1y = bumped.sp(1.0);
+
+        // Higher hazard rates should lead to lower survival probability
+        assert!(
+            bumped_sp_1y < original_sp_1y,
+            "Bumped survival probability should be lower"
+        );
+    }
+
+    #[test]
+    fn test_inflation_curve_bump() {
+        let curve = test_inflation_curve();
+        let context = MarketContext::new().insert_inflation(curve);
+
+        let original = context.infl("US-CPI").unwrap();
+        let original_cpi_1y = original.cpi(1.0);
+        let original_base_cpi = original.base_cpi();
+
+        // Apply 2% inflation shock
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(CurveId::new("US-CPI"), BumpSpec::inflation_shift_pct(2.0));
+        let bumped_context = context.bump(bumps).unwrap();
+        let bumped_id = "US-CPI_infl_2.0pct";
+        let bumped = bumped_context.infl(bumped_id).unwrap();
+
+        let bumped_cpi_1y = bumped.cpi(1.0);
+        let bumped_base_cpi = bumped.base_cpi();
+
+        // CPI levels should be scaled by 1.02
+        let expected_cpi_1y = original_cpi_1y * 1.02;
+        let expected_base_cpi = original_base_cpi * 1.02;
+
+        assert!(
+            (bumped_cpi_1y - expected_cpi_1y).abs() < 1e-10,
+            "Inflation bump should scale CPI levels"
+        );
+        assert!(
+            (bumped_base_cpi - expected_base_cpi).abs() < 1e-10,
+            "Base CPI should be scaled"
+        );
+    }
+
+    #[test]
+    fn test_base_correlation_bump() {
+        let curve = test_base_correlation_curve();
+        let context = MarketContext::new().insert_base_correlation(curve);
+
+        let original = context.base_correlation("CDX-NA-IG").unwrap();
+        let original_corr_5pct = original.correlation(5.0);
+
+        // Apply 10% correlation increase
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(
+            CurveId::new("CDX-NA-IG"),
+            BumpSpec::correlation_shift_pct(10.0),
+        );
+        let bumped_context = context.bump(bumps).unwrap();
+        let bumped_id = "CDX-NA-IG_corr_10.0pct";
+        let bumped = bumped_context.base_correlation(bumped_id).unwrap();
+
+        let bumped_corr_5pct = bumped.correlation(5.0);
+
+        // Correlation should increase by 10%
+        let expected_corr = (original_corr_5pct * 1.1).clamp(0.0, 1.0);
+        assert!(
+            (bumped_corr_5pct - expected_corr).abs() < 1e-10,
+            "Correlation bump should be multiplicative and clamped"
+        );
+    }
+
+    #[test]
+    fn test_inflation_index_bump() {
+        use crate::currency::Currency;
+        use time::Month;
+
+        // Build a small CPI index
+        let observations = vec![
+            (
+                Date::from_calendar_date(2025, Month::January, 31).unwrap(),
+                300.0,
+            ),
+            (
+                Date::from_calendar_date(2025, Month::February, 28).unwrap(),
+                303.0,
+            ),
+        ];
+        let index = crate::market_data::inflation_index::InflationIndex::new(
+            "US-CPI",
+            observations,
+            Currency::USD,
+        )
+        .unwrap();
+
+        let context = MarketContext::new().insert_inflation_index("US-CPI", index);
+
+        // Baseline value
+        let orig = context.inflation_index("US-CPI").expect("existing index");
+        let date = Date::from_calendar_date(2025, Month::February, 28).unwrap();
+        let orig_val = orig.value_on(date).unwrap();
+
+        // Apply +2% bump to the index
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(CurveId::new("US-CPI"), BumpSpec::inflation_shift_pct(2.0));
+        let bumped = context.bump(bumps).unwrap();
+
+        let bumped_idx = bumped
+            .inflation_index("US-CPI_infl_2.0pct")
+            .expect("bumped index present");
+        let bumped_val = bumped_idx.value_on(date).unwrap();
+
+        let expected = orig_val * 1.02;
+        assert!((bumped_val - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_scalar_time_series_bump() {
+        use time::Month;
+
+        let d0 = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let d1 = Date::from_calendar_date(2025, Month::February, 1).unwrap();
+        let s = ScalarTimeSeries::new("SERIES_A", vec![(d0, 1.0), (d1, 2.0)], None).unwrap();
+
+        let context = MarketContext::new().insert_series(s);
+
+        // Baseline
+        let orig = context.series("SERIES_A").unwrap();
+        let orig_v = orig.value_on(d0).unwrap();
+
+        // Additive 100bp → +0.01
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(CurveId::new("SERIES_A"), BumpSpec::parallel_bp(100.0));
+        let bumped = context.bump(bumps).unwrap();
+        let bumped_series = bumped.series("SERIES_A_shift_100bp").unwrap();
+        let bumped_v = bumped_series.value_on(d0).unwrap();
+
+        assert!((bumped_v - (orig_v + 0.01)).abs() < 1e-12);
+
+        // Multiplicative 20% → ×1.2
+        let mut bumps2 = hashbrown::HashMap::new();
+        bumps2.insert(CurveId::new("SERIES_A"), BumpSpec::multiplier(1.2));
+        let bumped2 = context.bump(bumps2).unwrap();
+        let bumped_series2 = bumped2.series("SERIES_A_mult_1.20").unwrap();
+        let bumped_v2 = bumped_series2.value_on(d0).unwrap();
+        assert!((bumped_v2 - (orig_v * 1.2)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_fx_base_currency_bump() {
+        use crate::currency::Currency;
+        use crate::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
+        use alloc::sync::Arc;
+        use hashbrown::HashMap as HbMap;
+        use time::Month;
+
+        // Minimal mock provider with USD pivot quotes
+        struct MockFxProvider {
+            rates: HbMap<(Currency, Currency), f64>,
+        }
+        impl FxProvider for MockFxProvider {
+            fn rate(
+                &self,
+                from: Currency,
+                to: Currency,
+                _on: Date,
+                _policy: FxConversionPolicy,
+            ) -> crate::Result<f64> {
+                self.rates
+                    .get(&(from, to))
+                    .copied()
+                    .ok_or(crate::Error::Internal)
+            }
+        }
+
+        let mut rates = HbMap::new();
+        // USD weakness test: define base quotes
+        rates.insert((Currency::USD, Currency::EUR), 0.90);
+        rates.insert((Currency::EUR, Currency::USD), 1.10);
+        rates.insert((Currency::USD, Currency::JPY), 110.0);
+        rates.insert((Currency::JPY, Currency::USD), 0.0091);
+
+        let provider = Arc::new(MockFxProvider { rates });
+        let fx = FxMatrix::new(provider);
+        let context = MarketContext::new().insert_fx(fx);
+
+        let on = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let policy = FxConversionPolicy::CashflowDate;
+
+        // Record original USD→EUR, EUR→USD rates
+        let orig_usd_eur = context
+            .fx
+            .as_ref()
+            .unwrap()
+            .rate(crate::money::fx::FxQuery {
+                from: Currency::USD,
+                to: Currency::EUR,
+                on,
+                policy,
+                closure_check: None,
+                want_meta: false,
+            })
+            .unwrap()
+            .rate;
+        let orig_eur_usd = context
+            .fx
+            .as_ref()
+            .unwrap()
+            .rate(crate::money::fx::FxQuery {
+                from: Currency::EUR,
+                to: Currency::USD,
+                on,
+                policy,
+                closure_check: None,
+                want_meta: false,
+            })
+            .unwrap()
+            .rate;
+
+        // Weaken USD by 10% → base→other ×1.1, other→base ÷1.1
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(CurveId::new("USD"), BumpSpec::multiplier(1.1));
+        let bumped = context.bump(bumps).unwrap();
+        let bumped_fx = bumped.fx.as_ref().expect("bumped fx present");
+
+        let usd_eur = bumped_fx
+            .rate(crate::money::fx::FxQuery {
+                from: Currency::USD,
+                to: Currency::EUR,
+                on,
+                policy,
+                closure_check: None,
+                want_meta: false,
+            })
+            .unwrap()
+            .rate;
+        let eur_usd = bumped_fx
+            .rate(crate::money::fx::FxQuery {
+                from: Currency::EUR,
+                to: Currency::USD,
+                on,
+                policy,
+                closure_check: None,
+                want_meta: false,
+            })
+            .unwrap()
+            .rate;
+
+        assert!((usd_eur - orig_usd_eur * 1.1).abs() < 1e-12);
+        assert!((eur_usd - orig_eur_usd / 1.1).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_update_base_correlation_curve() {
+        // Test the new optimized update_base_correlation_curve method
+        let hazard_curve = test_hazard_curve();
+        let base_corr_curve = test_base_correlation_curve();
+
+        // Create initial credit index
+        let hazard_arc = Arc::new(hazard_curve);
+        let index = CreditIndexData::builder()
+            .num_constituents(125)
+            .recovery_rate(0.4)
+            .index_credit_curve(Arc::clone(&hazard_arc))
+            .base_correlation_curve(Arc::new(base_corr_curve))
+            .build()
+            .unwrap();
+
+        // Create context with the index
+        let context = MarketContext::new().insert_credit_index("CDX.NA.IG.42", index);
+
+        // Create a new base correlation curve
+        let new_base_corr = BaseCorrelationCurve::builder("NEW_CORR")
+            .points(vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.55), (15.0, 0.65)])
+            .build()
+            .unwrap();
+
+        // Update using the new method
+        let mut updated_context = context.clone();
+        let ok = updated_context
+            .update_base_correlation_curve("CDX.NA.IG.42", Arc::new(new_base_corr.clone()));
+        assert!(ok, "Should successfully update base correlation curve");
+
+        // Verify the update worked
+        let updated_index = updated_context
+            .credit_index(CurveId::from("CDX.NA.IG.42"))
+            .expect("Index should exist");
+
+        // Check that only the base correlation curve changed
+        assert_eq!(updated_index.num_constituents, 125);
+        assert_eq!(updated_index.recovery_rate, 0.4);
+        assert!(Arc::ptr_eq(&updated_index.index_credit_curve, &hazard_arc));
+
+        // Verify the correlation curve was updated
+        let corr_at_7 = updated_index.base_correlation_curve.correlation(7.0);
+        assert!((corr_at_7 - 0.45).abs() < 1e-10);
+
+        // Test that update returns None for non-existent index
+        let result =
+            updated_context.update_base_correlation_curve("NON_EXISTENT", Arc::new(new_base_corr));
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_credit_index_bump() {
+        // Build base hazard and base correlation curves using helpers
+        let hazard_curve = test_hazard_curve();
+        let base_corr = test_base_correlation_curve();
+
+        let index = crate::market_data::credit_index::CreditIndexData::builder()
+            .num_constituents(125)
+            .recovery_rate(0.40)
+            .index_credit_curve(Arc::new(hazard_curve))
+            .base_correlation_curve(Arc::new(base_corr))
+            .build()
+            .unwrap();
+
+        let context = MarketContext::new().insert_credit_index("CDX.NA.IG.42", index);
+
+        // Apply +25bp hazard (spread) and +5% correlation bumps
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(
+            CurveId::new("CDX.NA.IG.42"),
+            BumpSpec::spread_shift_bp(25.0),
+        );
+        let bumped_spread = context.bump(bumps).unwrap();
+        assert!(bumped_spread
+            .credit_index("CDX.NA.IG.42_spread_25bp")
+            .is_ok());
+
+        let mut bumps2 = hashbrown::HashMap::new();
+        bumps2.insert(
+            CurveId::new("CDX.NA.IG.42"),
+            BumpSpec::correlation_shift_pct(5.0),
+        );
+        let bumped_corr = context.bump(bumps2).unwrap();
+        assert!(bumped_corr.credit_index("CDX.NA.IG.42_corr_5.0pct").is_ok());
+    }
+
+    #[test]
+    fn test_comprehensive_multi_curve_bump() {
+        let disc_curve = test_discount_curve();
+        let hazard_curve = test_hazard_curve();
+        let inflation_curve = test_inflation_curve();
+        let base_corr_curve = test_base_correlation_curve();
+
+        let context = MarketContext::new()
+            .insert_discount(disc_curve)
+            .insert_hazard(hazard_curve)
+            .insert_inflation(inflation_curve)
+            .insert_base_correlation(base_corr_curve);
+
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(CurveId::new("USD-OIS"), BumpSpec::parallel_bp(50.0));
+        bumps.insert(CurveId::new("CORP-HAZARD"), BumpSpec::spread_shift_bp(25.0));
+        bumps.insert(CurveId::new("US-CPI"), BumpSpec::inflation_shift_pct(1.5));
+        bumps.insert(
+            CurveId::new("CDX-NA-IG"),
+            BumpSpec::correlation_shift_pct(5.0),
+        );
+
+        let bumped_context = context.bump(bumps).unwrap();
+
+        // Verify all curve types were bumped
+        assert!(bumped_context.disc("USD-OIS_bump_50bp").is_ok());
+        assert!(bumped_context.hazard("CORP-HAZARD_spread_25bp").is_ok());
+        assert!(bumped_context.infl("US-CPI_infl_1.5pct").is_ok());
+        assert!(bumped_context
+            .base_correlation("CDX-NA-IG_corr_5.0pct")
+            .is_ok());
+    }
+
+    fn create_forward_test_context() -> MarketContext {
+        let base_date = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+
+        // Create discount curve
+        let disc_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(base_date)
+            .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap();
+
+        // Create forward curve
+        let fwd_curve = ForwardCurve::builder("USD-SOFR3M", 0.25)
+            .base_date(base_date)
+            .knots([(0.0, 0.03), (1.0, 0.035), (5.0, 0.04)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap();
+
+        MarketContext::new()
+            .insert_discount(disc_curve)
+            .insert_forward(fwd_curve)
+            .insert_price(
+                "SPY",
+                crate::market_data::primitives::MarketScalar::Unitless(100.0),
+            )
+            .insert_price(
+                "SPY-DIVYIELD",
+                crate::market_data::primitives::MarketScalar::Unitless(0.02),
+            )
+            .insert_price(
+                "EURUSD",
+                crate::market_data::primitives::MarketScalar::Unitless(1.1),
+            )
+    }
+
+    #[test]
+    fn test_equity_forward_function() {
+        let context = create_forward_test_context();
+        let forward_fn = context
+            .equity_forward("SPY", crate::currency::Currency::USD)
+            .unwrap();
+
+        // Test forward price calculation
+        let forward_1y = forward_fn(1.0);
+
+        // Should be positive and reasonable
+        assert!(forward_1y > 0.0);
+        assert!(forward_1y > 90.0 && forward_1y < 110.0); // Reasonable range around spot
+    }
+
+    #[test]
+    fn test_rates_forward_function() {
+        let context = create_forward_test_context();
+        let forward_fn = context.rates_forward("USD-SOFR3M").unwrap();
+
+        // Test forward rate
+        let forward_rate_1y = forward_fn(1.0);
+
+        // Should match the forward curve
+        assert!((forward_rate_1y - 0.035).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_auto_forward_detection_equity() {
+        let context = create_forward_test_context();
+        let forward_fn = context
+            .auto_forward("SPY", crate::currency::Currency::USD)
+            .unwrap();
+
+        let forward_1y = forward_fn(1.0);
+        assert!(forward_1y > 0.0);
+    }
+
+    #[test]
+    fn test_auto_forward_detection_rates() {
+        let context = create_forward_test_context();
+        let forward_fn = context
+            .auto_forward("USD-SOFR3M", crate::currency::Currency::USD)
+            .unwrap();
+
+        let forward_rate_1y = forward_fn(1.0);
+        assert!((forward_rate_1y - 0.035).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_auto_forward_detection_fx() {
+        // Create additional discount curve for EUR
+        let base_date = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+        let eur_disc = DiscountCurve::builder("EUR-OIS")
+            .base_date(base_date)
+            .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.82)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap();
+
+        let context = create_forward_test_context().insert_discount(eur_disc);
+        let forward_fn = context
+            .auto_forward("EURUSD", crate::currency::Currency::USD)
+            .unwrap();
+
+        let forward_1y = forward_fn(1.0);
+        assert!(forward_1y > 0.0);
+    }
+
+    #[test]
+    fn test_invalid_fx_pair() {
+        let context = create_forward_test_context();
+        let result = context.fx_forward("INVALID");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_missing_market_data_for_forward() {
+        let context = MarketContext::new(); // Empty context
+
+        let result = context.equity_forward("SPY", crate::currency::Currency::USD);
+        assert!(result.is_err()); // Should fail due to missing spot price
+    }
+
+    #[test]
+    fn test_bump_specification_constructors() {
+        // Test convenience constructors
+        let parallel = BumpSpec::parallel_bp(100.0);
+        let spread = BumpSpec::spread_shift_bp(50.0);
+        let inflation = BumpSpec::inflation_shift_pct(2.0);
+        let correlation = BumpSpec::correlation_shift_pct(10.0);
+        let multiplier = BumpSpec::multiplier(1.2);
+
+        assert_eq!(parallel.mode, BumpMode::Additive);
+        assert_eq!(parallel.units, BumpUnits::RateBp);
+        assert!((parallel.value - 100.0).abs() < 1e-12);
+
+        assert_eq!(spread.mode, BumpMode::Additive);
+        assert_eq!(spread.units, BumpUnits::RateBp);
+        assert!((spread.value - 50.0).abs() < 1e-12);
+
+        assert_eq!(inflation.mode, BumpMode::Additive);
+        assert_eq!(inflation.units, BumpUnits::Percent);
+        assert!((inflation.value - 2.0).abs() < 1e-12);
+
+        assert_eq!(correlation.mode, BumpMode::Additive);
+        assert_eq!(correlation.units, BumpUnits::Percent);
+        assert!((correlation.value - 10.0).abs() < 1e-12);
+
+        assert_eq!(multiplier.mode, BumpMode::Multiplicative);
+        assert_eq!(multiplier.units, BumpUnits::Factor);
+        assert!((multiplier.value - 1.2).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_bump_nonexistent_curve() {
+        let context = MarketContext::new();
+        let mut bumps = hashbrown::HashMap::new();
+        bumps.insert(CurveId::new("NONEXISTENT"), BumpSpec::parallel_bp(100.0));
+        let result = context.bump(bumps);
+        assert!(result.is_err(), "Should fail for nonexistent curve");
+    }
+}

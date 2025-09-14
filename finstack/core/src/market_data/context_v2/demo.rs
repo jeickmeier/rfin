@@ -1,9 +1,9 @@
-//! Demonstration test for MarketContextV2 benefits
+//! Demonstration test for MarketContext benefits
 
 #[cfg(test)]
-#[cfg(all(feature = "new-context", feature = "serde"))]
+#[cfg(feature = "serde")]
 mod demo_tests {
-    use super::super::core::MarketContextV2;
+    use super::super::core::MarketContext;
     use crate::{
         dates::Date,
         market_data::{
@@ -20,7 +20,7 @@ mod demo_tests {
 
     #[test]
     fn demo_comprehensive_benefits() {
-        println!("\n🚀 MarketContextV2 - Enum-Based Storage Demo");
+        println!("\n🚀 MarketContext - Enum-Based Storage Demo");
         println!("=============================================");
 
         // Create curves using the standard builders
@@ -54,7 +54,7 @@ mod demo_tests {
 
         // BENEFIT 1: Ergonomic Builder Pattern
         println!("\n✅ 1. Ergonomic Builder Pattern");
-        let context = MarketContextV2::builder()
+        let context = MarketContext::builder()
             .discount(discount_curve)
             .forward(forward_curve) 
             .hazard(hazard_curve)
@@ -97,7 +97,7 @@ mod demo_tests {
         println!("   ✓ No string parsing artifacts in JSON");
 
         // Round-trip test
-        let restored: MarketContextV2 = serde_json::from_str(&json)
+        let restored: MarketContext = serde_json::from_str(&json)
             .expect("Should deserialize perfectly");
         
         println!("   ✓ Perfect round-trip serialization");
@@ -146,7 +146,7 @@ mod demo_tests {
         println!("   Performance: {}ns/call", ns_per_call);
         println!("   ✓ Zero trait object overhead - maximum performance");
 
-        println!("\n🎉 MarketContextV2 Demo Complete!");
+        println!("\n🎉 MarketContext Demo Complete!");
         println!("🎯 Key Benefits Demonstrated:");
         println!("   ✓ Complete serialization without workarounds");
         println!("   ✓ Type-safe access with compile-time guarantees"); 

@@ -1,4 +1,4 @@
-//! Serialization support for MarketContextV2
+//! Serialization support for MarketContext
 //!
 //! This module provides complete serialization support for the new enum-based
 //! MarketContext, eliminating all the workarounds and string parsing from V1.
@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 extern crate alloc;
 use alloc::{sync::Arc, string::String, vec::Vec};
 
-use super::core::MarketContextV2;
+use super::core::MarketContext;
 #[cfg(feature = "serde")]
 use crate::market_data::{
     credit_index::CreditIndexData,
@@ -22,14 +22,14 @@ use crate::market_data::{
 use crate::types::CurveId;
 use crate::{dates::Date, F};
 
-/// Serializable representation of MarketContextV2
+/// Serializable representation of MarketContext
 ///
 /// This structure provides complete serialization support for all market data
 /// types without workarounds or string parsing.
 #[cfg(feature = "serde")]
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MarketContextV2Data {
+pub struct MarketContextData {
     /// All curves with their complete state
     pub curves: Vec<(CurveId, CurveState)>,
     
@@ -82,12 +82,12 @@ pub struct CreditIndexEntry {
 }
 
 #[cfg(feature = "serde")]
-impl MarketContextV2 {
+impl MarketContext {
     /// Convert to serializable data structure
     ///
     /// Unlike the V1 implementation, this provides complete serialization
     /// for all curve types without any workarounds or string parsing.
-    pub fn to_data(&self) -> crate::Result<MarketContextV2Data> {
+    pub fn to_data(&self) -> crate::Result<MarketContextData> {
         // Convert all curves using their state methods
         let curves: Vec<(CurveId, CurveState)> = self
             .curves
@@ -184,7 +184,7 @@ impl MarketContextV2 {
             pivot_currency: None, // TODO: Extract pivot currency
         });
 
-        Ok(MarketContextV2Data {
+        Ok(MarketContextData {
             curves,
             fx,
             surfaces,
@@ -199,8 +199,8 @@ impl MarketContextV2 {
     /// Reconstruct from serializable data
     ///
     /// This provides complete reconstruction without any architectural limitations.
-    pub fn from_data(data: MarketContextV2Data) -> crate::Result<MarketContextV2> {
-        let mut context = MarketContextV2::new();
+    pub fn from_data(data: MarketContextData) -> crate::Result<MarketContext> {
+        let mut context = MarketContext::new();
 
         // Reconstruct all curves from their states
         for (id, state) in data.curves {
@@ -280,7 +280,7 @@ impl MarketContextV2 {
 
 // Direct Serialize/Deserialize implementations
 #[cfg(feature = "serde")]
-impl serde::Serialize for MarketContextV2 {
+impl serde::Serialize for MarketContext {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -292,13 +292,13 @@ impl serde::Serialize for MarketContextV2 {
 }
 
 #[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for MarketContextV2 {
+impl<'de> serde::Deserialize<'de> for MarketContext {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        let data = MarketContextV2Data::deserialize(deserializer)?;
-        MarketContextV2::from_data(data).map_err(serde::de::Error::custom)
+        let data = MarketContextData::deserialize(deserializer)?;
+        MarketContext::from_data(data).map_err(serde::de::Error::custom)
     }
 }
 
@@ -309,7 +309,7 @@ mod serde_tests {
     use crate::dates::Date;
     use crate::market_data::term_structures::base_correlation::BaseCorrelationCurve;
 
-    fn create_test_context() -> MarketContextV2 {
+    fn create_test_context() -> MarketContext {
         let disc_curve = crate::market_data::term_structures::discount_curve::DiscountCurve::builder("USD-OIS")
             .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.95)])
@@ -328,7 +328,7 @@ mod serde_tests {
             .build()
             .unwrap();
 
-        MarketContextV2::new()
+        MarketContext::new()
             .insert_discount(disc_curve)
             .insert_hazard(hazard_curve)
             .insert_base_correlation(base_corr)
@@ -347,7 +347,7 @@ mod serde_tests {
         assert_eq!(data.prices.len(), 1);
         
         // Reconstruct from data
-        let reconstructed = MarketContextV2::from_data(data).expect("Should reconstruct");
+        let reconstructed = MarketContext::from_data(data).expect("Should reconstruct");
         
         // Verify all curves are accessible
         assert!(reconstructed.discount("USD-OIS").is_ok());
@@ -374,7 +374,7 @@ mod serde_tests {
         assert!(json.contains("USD-OIS"));
         
         // Deserialize from JSON
-        let reconstructed: MarketContextV2 = 
+        let reconstructed: MarketContext = 
             serde_json::from_str(&json).expect("Should deserialize from JSON");
         
         // Verify functionality
@@ -387,10 +387,10 @@ mod serde_tests {
 
     #[test]
     fn test_empty_context_serialization() {
-        let context = MarketContextV2::new();
+        let context = MarketContext::new();
         
         let json = serde_json::to_string(&context).expect("Should serialize empty context");
-        let restored: MarketContextV2 = serde_json::from_str(&json).expect("Should deserialize");
+        let restored: MarketContext = serde_json::from_str(&json).expect("Should deserialize");
         
         assert!(restored.is_empty());
         assert_eq!(restored.total_objects(), 0);
@@ -433,8 +433,8 @@ mod serde_tests {
         assert!(!json.contains("_mult_"));
         
         // Reconstruct should work perfectly
-        let restored_data: MarketContextV2Data = serde_json::from_str(&json).unwrap();
-        let restored = MarketContextV2::from_data(restored_data).unwrap();
+        let restored_data: MarketContextData = serde_json::from_str(&json).unwrap();
+        let restored = MarketContext::from_data(restored_data).unwrap();
         
         // All original curves should be accessible
         assert_eq!(context.curves.len(), restored.curves.len());

@@ -1,4 +1,4 @@
-//! Builder utilities for MarketContextV2
+//! Builder utilities for MarketContext
 //!
 //! This module provides ergonomic builder patterns and batch operations
 //! for constructing complex market data contexts.
@@ -6,7 +6,7 @@
 extern crate alloc;
 use alloc::{string::String, vec::Vec};
 
-use super::core::MarketContextV2;
+use super::core::MarketContext;
 use crate::market_data::{
     credit_index::CreditIndexData,
     inflation_index::InflationIndex,
@@ -24,11 +24,11 @@ use crate::money::fx::FxMatrix;
 use crate::types::CurveId;
 use crate::Result;
 
-/// Batch builder for MarketContextV2
+/// Batch builder for MarketContext
 ///
 /// Provides ergonomic methods for building contexts with many curves
 /// and validation of relationships between curves.
-pub struct MarketContextV2Builder {
+pub struct MarketContextBuilder {
     curves: Vec<CurveInput>,
     surfaces: Vec<VolSurface>,
     prices: Vec<(String, MarketScalar)>,
@@ -53,7 +53,7 @@ pub enum CurveInput {
     BaseCorrelation(BaseCorrelationCurve),
 }
 
-impl MarketContextV2Builder {
+impl MarketContextBuilder {
     /// Create a new builder
     pub fn new() -> Self {
         Self {
@@ -153,8 +153,8 @@ impl MarketContextV2Builder {
     }
 
     /// Build the market context with validation
-    pub fn build(self) -> Result<MarketContextV2> {
-        let mut context = MarketContextV2::new();
+    pub fn build(self) -> Result<MarketContext> {
+        let mut context = MarketContext::new();
 
         // Add all curves
         for curve in self.curves {
@@ -209,12 +209,12 @@ impl MarketContextV2Builder {
     }
 
     /// Build without validation (faster for trusted inputs)
-    pub fn build_unchecked(self) -> MarketContextV2 {
+    pub fn build_unchecked(self) -> MarketContext {
         self.build().expect("build_unchecked failed - input was not trusted")
     }
 
     /// Validate the constructed context
-    fn validate_context_static(context: &MarketContextV2, collateral: &[(String, String)]) -> Result<()> {
+    fn validate_context_static(context: &MarketContext, collateral: &[(String, String)]) -> Result<()> {
         // Check for circular dependencies in collateral mappings
         for (csa_code, curve_id) in collateral {
             if !context.curves.contains_key(&CurveId::from(curve_id.as_str())) {
@@ -229,34 +229,34 @@ impl MarketContextV2Builder {
     }
 }
 
-impl Default for MarketContextV2Builder {
+impl Default for MarketContextBuilder {
     fn default() -> Self {
         Self::new()
     }
 }
 
 /// Convenience methods for common context patterns
-impl MarketContextV2 {
+impl MarketContext {
     /// Create a builder
-    pub fn builder() -> MarketContextV2Builder {
-        MarketContextV2Builder::new()
+    pub fn builder() -> MarketContextBuilder {
+        MarketContextBuilder::new()
     }
 
     /// Create a context with standard USD curves
-    pub fn usd_standard() -> MarketContextV2Builder {
-        MarketContextV2Builder::new()
+    pub fn usd_standard() -> MarketContextBuilder {
+        MarketContextBuilder::new()
         // Pre-configured builder for common USD setup
         // Can be extended with typical curve IDs and structures
     }
 
     /// Create a context with standard EUR curves
-    pub fn eur_standard() -> MarketContextV2Builder {
-        MarketContextV2Builder::new()
+    pub fn eur_standard() -> MarketContextBuilder {
+        MarketContextBuilder::new()
         // Pre-configured builder for common EUR setup
     }
 
     /// Merge another context into this one
-    pub fn merge(mut self, other: MarketContextV2) -> Self {
+    pub fn merge(mut self, other: MarketContext) -> Self {
         // Merge curves
         for (id, storage) in other.curves {
             self.curves.insert(id, storage);
@@ -305,7 +305,7 @@ mod tests {
 
     #[test]
     fn test_builder_pattern() {
-        let context = MarketContextV2::builder()
+        let context = MarketContext::builder()
             .discount(test_discount_curve())
             .hazard(test_hazard_curve())
             .price("SPOT_GOLD", MarketScalar::Unitless(2000.0))
@@ -330,7 +330,7 @@ mod tests {
             ("USD_RATE".to_string(), MarketScalar::Unitless(0.05)),
         ];
 
-        let context = MarketContextV2::builder()
+        let context = MarketContext::builder()
             .curves(curves)
             .prices(prices)
             .build()
@@ -342,10 +342,10 @@ mod tests {
 
     #[test]
     fn test_context_merge() {
-        let context1 = MarketContextV2::new()
+        let context1 = MarketContext::new()
             .insert_discount(test_discount_curve());
 
-        let context2 = MarketContextV2::new()
+        let context2 = MarketContext::new()
             .insert_hazard(test_hazard_curve())
             .insert_price("SPOT_GOLD", MarketScalar::Unitless(2000.0));
 
@@ -359,7 +359,7 @@ mod tests {
 
     #[test]
     fn test_validation_catches_invalid_collateral() {
-        let result = MarketContextV2::builder()
+        let result = MarketContext::builder()
             .discount(test_discount_curve())
             .collateral("USD-CSA", "NONEXISTENT-CURVE")
             .build();
@@ -369,7 +369,7 @@ mod tests {
 
     #[test]
     fn test_context_stats_with_builder() {
-        let context = MarketContextV2::builder()
+        let context = MarketContext::builder()
             .discount(test_discount_curve())
             .hazard(test_hazard_curve())
             .price("SPOT_GOLD", MarketScalar::Unitless(2000.0))

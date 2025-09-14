@@ -43,16 +43,11 @@
 //! assert!(df < 1.0);
 //! ```
 
-/// Unified market-data context for valuations.
+/// Legacy market-data context (trait object based).
 pub mod context;
-/// Serialization support for MarketContext
-#[cfg(feature = "serde")]
-pub mod context_serde;
-/// New enum-based storage system (experimental)
-#[cfg(feature = "new-context")]
-pub mod storage;
-/// MarketContext V2 with enum-based storage (experimental)
-#[cfg(feature = "new-context")]
+/// Enum-based storage system for market data.
+pub mod storage;  
+/// Modern MarketContext with enum-based storage (recommended).
 pub mod context_v2;
 /// Credit index aggregates for CDS tranche pricing and credit derivatives.
 pub mod credit_index;
@@ -78,8 +73,9 @@ pub use term_structures::{discount_curve, forward_curve, hazard_curve, inflation
 pub use surfaces::vol_surface;
 // Also re-export the concrete VolSurface type for a shorter import path.
 pub use surfaces::vol_surface::VolSurface;
-// Re-export context types
+// Re-export legacy MarketContext for backward compatibility
 pub use context::MarketContext;
+// For new development, use: context_v2::MarketContext (enum-based, faster, complete serialization)
 // Re-export credit index types for ergonomic access.
 pub use credit_index::*;
 
@@ -87,7 +83,4 @@ pub use credit_index::*;
 /// downstream code can simply `use finstack_core::market_data::F`.
 pub use crate::F;
 
-// Test modules
-#[cfg(test)]
-#[cfg(feature = "serde")]
-mod test_context_serde;
+// Test modules are now in context_v2/

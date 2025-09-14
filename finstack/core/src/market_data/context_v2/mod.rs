@@ -1,20 +1,15 @@
-//! MarketContext V2 - Enum-based storage implementation
+//! MarketContext - Clean enum-based storage implementation
 //!
-//! This module provides a redesigned MarketContext that uses enum-based storage
-//! instead of trait objects, enabling complete serialization support.
+//! This module provides the MarketContext implementation that uses enum-based storage
+//! instead of trait objects, enabling complete serialization support and maximum performance.
 
-#[cfg(feature = "new-context")]
 pub mod core;
-#[cfg(feature = "new-context")]
 pub mod builder;
-#[cfg(feature = "new-context")]
 pub mod serde_support;
-#[cfg(all(feature = "new-context", test))]
+#[cfg(test)]
 mod proof_of_concept;
-#[cfg(all(feature = "new-context", test))]
+#[cfg(test)]
 mod demo;
 
-#[cfg(feature = "new-context")]
 pub use core::*;
-#[cfg(feature = "new-context")]
 pub use builder::*;

@@ -1,12 +1,12 @@
-//! Proof of concept test for MarketContextV2
+//! Proof of concept test for MarketContext
 //!
 //! This module provides a basic test to verify that the new enum-based
 //! storage system works correctly and provides the expected benefits.
 
 #[cfg(test)]
-#[cfg(all(feature = "new-context", feature = "serde"))]
+#[cfg(feature = "serde")]
 mod tests {
-    use super::super::core::MarketContextV2;
+    use super::super::core::MarketContext;
     use crate::dates::Date;
     use crate::market_data::{
         interp::InterpStyle,
@@ -19,7 +19,7 @@ mod tests {
         traits::TermStructure,
     };
 
-    fn create_test_context() -> MarketContextV2 {
+    fn create_test_context() -> MarketContext {
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)])
@@ -41,7 +41,7 @@ mod tests {
             .build()
             .unwrap();
 
-        MarketContextV2::new()
+        MarketContext::new()
             .insert_discount(disc_curve)
             .insert_forward(fwd_curve)
             .insert_hazard(hazard_curve)
@@ -92,7 +92,7 @@ mod tests {
         assert!(!json.contains("_spread_"));
 
         // Deserialize from JSON
-        let restored: MarketContextV2 = 
+        let restored: MarketContext = 
             serde_json::from_str(&json).expect("Should deserialize from JSON");
 
         // Verify all functionality is preserved
@@ -136,7 +136,7 @@ mod tests {
 
     #[test]
     fn proof_of_concept_builder_pattern() {
-        let context = MarketContextV2::builder()
+        let context = MarketContext::builder()
             .discount(DiscountCurve::builder("EUR-OIS")
                 .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
                 .knots([(0.0, 1.0), (1.0, 0.96)])
