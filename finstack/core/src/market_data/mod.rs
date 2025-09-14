@@ -47,8 +47,7 @@
 pub mod context;
 /// Bump functionality for scenario analysis and stress testing.
 pub mod bumps;
-/// Enum-based storage system for market data.
-pub mod storage;  
+// (Removed) storage/ module flattened; CurveStorage and CurveState now live in context.rs
 // (Removed) MarketContextBuilder eliminated in favor of fluent insert_* API on MarketContext
 // TODO: Serialization support needs to be reimplemented for the new enum-based architecture
 // #[cfg(feature = "serde")]

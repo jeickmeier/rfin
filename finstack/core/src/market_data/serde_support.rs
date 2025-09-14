@@ -15,7 +15,7 @@ use crate::market_data::{
     scalars::inflation_index::{InflationIndexState as InflationIndexData},
     term_structures::credit_index::CreditIndexData,
     scalars::{MarketScalar, ScalarTimeSeries, ScalarTimeSeriesState},
-    storage::CurveState,
+    context::CurveState,
     surfaces::vol_surface::{VolSurface, VolSurfaceState},
     term_structures::hazard_curve::HazardCurveState,
 };
@@ -204,7 +204,7 @@ impl MarketContext {
 
         // Reconstruct all curves from their states
         for (id, state) in data.curves {
-            let storage = crate::market_data::storage::CurveStorage::from_state(state)?;
+            let storage = crate::market_data::context::CurveStorage::from_state(state)?;
             context.curves.insert(id, storage);
         }
 

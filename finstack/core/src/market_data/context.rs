@@ -40,7 +40,7 @@ pub use super::bumps::{BumpMode, BumpSpec, BumpUnits};
 // -----------------------------------------------------------------------------
 
 /// Unified storage for all curve types using an enum
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum CurveStorage {
     /// Discount factor curve
     Discount(Arc<DiscountCurve>),
@@ -64,6 +64,240 @@ impl CurveStorage {
             CurveStorage::Inflation(_) => "Inflation",
             CurveStorage::BaseCorrelation(_) => "BaseCorrelation",
         }
+    }
+}
+
+// Extended API (moved from storage::curve_storage)
+impl CurveStorage {
+    /// Get the curve's unique identifier
+    #[inline]
+    pub fn id(&self) -> &CurveId {
+        match self {
+            Self::Discount(c) => c.id(),
+            Self::Forward(c) => c.id(),
+            Self::Hazard(c) => c.id(),
+            Self::Inflation(c) => c.id(),
+            Self::BaseCorrelation(c) => c.id(),
+        }
+    }
+
+    /// Get discount curve if this storage contains one
+    pub fn discount(&self) -> Option<&Arc<DiscountCurve>> {
+        match self {
+            Self::Discount(curve) => Some(curve),
+            _ => None,
+        }
+    }
+
+    /// Get forward curve if this storage contains one
+    pub fn forward(&self) -> Option<&Arc<ForwardCurve>> {
+        match self {
+            Self::Forward(curve) => Some(curve),
+            _ => None,
+        }
+    }
+
+    /// Get hazard curve if this storage contains one
+    pub fn hazard(&self) -> Option<&Arc<HazardCurve>> {
+        match self {
+            Self::Hazard(curve) => Some(curve),
+            _ => None,
+        }
+    }
+
+    /// Get inflation curve if this storage contains one
+    pub fn inflation(&self) -> Option<&Arc<InflationCurve>> {
+        match self {
+            Self::Inflation(curve) => Some(curve),
+            _ => None,
+        }
+    }
+
+    /// Get base correlation curve if this storage contains one
+    pub fn base_correlation(&self) -> Option<&Arc<BaseCorrelationCurve>> {
+        match self {
+            Self::BaseCorrelation(curve) => Some(curve),
+            _ => None,
+        }
+    }
+
+    /// Extract discount curve, consuming the storage
+    pub fn into_discount(self) -> Option<Arc<DiscountCurve>> {
+        match self {
+            Self::Discount(curve) => Some(curve),
+            _ => None,
+        }
+    }
+
+    /// Extract forward curve, consuming the storage
+    pub fn into_forward(self) -> Option<Arc<ForwardCurve>> {
+        match self {
+            Self::Forward(curve) => Some(curve),
+            _ => None,
+        }
+    }
+
+    /// Extract hazard curve, consuming the storage
+    pub fn into_hazard(self) -> Option<Arc<HazardCurve>> {
+        match self {
+            Self::Hazard(curve) => Some(curve),
+            _ => None,
+        }
+    }
+
+    /// Check if this storage contains a specific curve type
+    pub fn is_discount(&self) -> bool { matches!(self, Self::Discount(_)) }
+    /// Check if this storage contains a forward curve
+    pub fn is_forward(&self) -> bool { matches!(self, Self::Forward(_)) }
+    /// Check if this storage contains a hazard curve
+    pub fn is_hazard(&self) -> bool { matches!(self, Self::Hazard(_)) }
+    /// Check if this storage contains an inflation curve
+    pub fn is_inflation(&self) -> bool { matches!(self, Self::Inflation(_)) }
+    /// Check if this storage contains a base correlation curve
+    pub fn is_base_correlation(&self) -> bool { matches!(self, Self::BaseCorrelation(_)) }
+
+    /// Get the curve type as a string (for debugging/logging)
+    pub fn curve_type(&self) -> &'static str {
+        match self {
+            Self::Discount(_) => "Discount",
+            Self::Forward(_) => "Forward",
+            Self::Hazard(_) => "Hazard",
+            Self::Inflation(_) => "Inflation",
+            Self::BaseCorrelation(_) => "BaseCorrelation",
+        }
+    }
+}
+
+impl TermStructure for CurveStorage {
+    #[inline]
+    fn id(&self) -> &CurveId { self.id() }
+}
+
+// Convenience constructors
+impl CurveStorage {
+    /// Create storage for a discount curve
+    pub fn new_discount(curve: DiscountCurve) -> Self { Self::Discount(Arc::new(curve)) }
+    /// Create storage for a forward curve
+    pub fn new_forward(curve: ForwardCurve) -> Self { Self::Forward(Arc::new(curve)) }
+    /// Create storage for a hazard curve
+    pub fn new_hazard(curve: HazardCurve) -> Self { Self::Hazard(Arc::new(curve)) }
+    /// Create storage for an inflation curve
+    pub fn new_inflation(curve: InflationCurve) -> Self { Self::Inflation(Arc::new(curve)) }
+    /// Create storage for a base correlation curve
+    pub fn new_base_correlation(curve: BaseCorrelationCurve) -> Self { Self::BaseCorrelation(Arc::new(curve)) }
+}
+
+// -----------------------------------------------------------------------------
+// Serde: move CurveState and (De)Serialize impls here
+// -----------------------------------------------------------------------------
+
+#[cfg(feature = "serde")]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type", rename_all = "snake_case"))]
+/// Serializable state representation for any curve type
+pub enum CurveState {
+    /// Discount curve state
+    Discount(crate::market_data::term_structures::discount_curve::DiscountCurveState),
+    /// Forward curve state
+    Forward(crate::market_data::term_structures::forward_curve::ForwardCurveState),
+    /// Hazard curve state
+    Hazard(crate::market_data::term_structures::hazard_curve::HazardCurveState),
+    /// Inflation curve state
+    Inflation(InflationCurveData),
+    /// Base correlation curve state
+    BaseCorrelation(crate::market_data::term_structures::base_correlation::BaseCorrelationCurve),
+}
+
+#[cfg(feature = "serde")]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+/// Serializable representation of an inflation curve
+pub struct InflationCurveData {
+    /// Curve identifier
+    pub id: String,
+    /// Base CPI level
+    pub base_cpi: crate::F,
+    /// Time/CPI level pairs
+    pub knot_points: alloc::vec::Vec<(crate::F, crate::F)>,
+    /// Interpolation style
+    pub interp_style: crate::market_data::interp::InterpStyle,
+}
+
+#[cfg(feature = "serde")]
+impl CurveStorage {
+    /// Convert to serializable state
+    pub fn to_state(&self) -> crate::Result<CurveState> {
+        Ok(match self {
+            Self::Discount(curve) => CurveState::Discount(curve.to_state()),
+            Self::Forward(curve) => CurveState::Forward(curve.to_state()),
+            Self::Hazard(curve) => CurveState::Hazard(curve.to_state()),
+            Self::Inflation(curve) => {
+                let knot_points: alloc::vec::Vec<(crate::F, crate::F)> = curve
+                    .knots()
+                    .iter()
+                    .zip(curve.cpi_levels().iter())
+                    .map(|(&t, &cpi)| (t, cpi))
+                    .collect();
+
+                CurveState::Inflation(InflationCurveData {
+                    id: curve.id().to_string(),
+                    base_cpi: curve.base_cpi(),
+                    knot_points,
+                    interp_style: crate::market_data::interp::InterpStyle::LogLinear,
+                })
+            }
+            Self::BaseCorrelation(curve) => CurveState::BaseCorrelation((**curve).clone()),
+        })
+    }
+
+    /// Reconstruct from serializable state
+    pub fn from_state(state: CurveState) -> crate::Result<Self> {
+        use alloc::sync::Arc;
+        use crate::market_data::term_structures::{
+            discount_curve::DiscountCurve,
+            forward_curve::ForwardCurve,
+            hazard_curve::HazardCurve,
+            inflation::InflationCurve,
+        };
+
+        Ok(match state {
+            CurveState::Discount(s) => Self::Discount(Arc::new(DiscountCurve::from_state(s).map_err(|_| crate::Error::Internal)?)),
+            CurveState::Forward(s) => Self::Forward(Arc::new(ForwardCurve::from_state(s)?)),
+            CurveState::Hazard(s) => Self::Hazard(Arc::new(HazardCurve::from_state(s)?)),
+            CurveState::Inflation(s) => {
+                let curve = InflationCurve::builder(s.id)
+                    .base_cpi(s.base_cpi)
+                    .knots(s.knot_points)
+                    .set_interp(s.interp_style)
+                    .build()?;
+                Self::Inflation(Arc::new(curve))
+            }
+            CurveState::BaseCorrelation(c) => Self::BaseCorrelation(Arc::new(c)),
+        })
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for CurveStorage {
+    fn serialize<S>(&self, serializer: S) -> core::result::Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.to_state()
+            .map_err(serde::ser::Error::custom)?
+            .serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for CurveStorage {
+    fn deserialize<D>(deserializer: D) -> core::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let state = CurveState::deserialize(deserializer)?;
+        Self::from_state(state).map_err(serde::de::Error::custom)
     }
 }
 
