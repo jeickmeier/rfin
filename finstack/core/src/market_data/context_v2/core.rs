@@ -20,7 +20,7 @@ use crate::market_data::{
         hazard_curve::HazardCurve,
         inflation::InflationCurve,
     },
-    traits::{Discount, Forward, Inflation as InflationTrait, Survival, TermStructure},
+    traits::TermStructure,
 };
 use crate::money::fx::FxMatrix;
 use crate::types::CurveId;
@@ -33,9 +33,10 @@ use crate::{error::InputError, Result};
 ///
 /// # Key Improvements
 /// - Complete serialization for all curve types
+/// - Direct concrete type access with zero overhead
 /// - Type-safe curve access with compile-time guarantees
 /// - No string parsing for curve identification
-/// - Cleaner separation of concerns
+/// - Clean, simple API with no confusion
 ///
 /// # Example
 /// ```rust,ignore
@@ -45,9 +46,9 @@ use crate::{error::InputError, Result};
 ///     .insert_discount(discount_curve)
 ///     .insert_forward(forward_curve);
 /// 
-/// // Backward-compatible API
-/// let disc = context.disc("USD-OIS")?;
-/// let fwd = context.fwd("USD-SOFR3M")?;
+/// // Clean, direct API - returns concrete types
+/// let disc = context.discount("USD-OIS")?;      // Arc<DiscountCurve>
+/// let fwd = context.forward("USD-SOFR3M")?;     // Arc<ForwardCurve>
 /// ```
 #[derive(Clone, Default)]
 pub struct MarketContextV2 {
@@ -89,35 +90,35 @@ impl MarketContextV2 {
     /// Insert a discount curve
     pub fn insert_discount(mut self, curve: DiscountCurve) -> Self {
         let id = curve.id().clone();
-        self.curves.insert(id, CurveStorage::discount(curve));
+        self.curves.insert(id, CurveStorage::new_discount(curve));
         self
     }
 
     /// Insert a forward curve
     pub fn insert_forward(mut self, curve: ForwardCurve) -> Self {
         let id = curve.id().clone();
-        self.curves.insert(id, CurveStorage::forward(curve));
+        self.curves.insert(id, CurveStorage::new_forward(curve));
         self
     }
 
     /// Insert a hazard curve
     pub fn insert_hazard(mut self, curve: HazardCurve) -> Self {
         let id = curve.id().clone();
-        self.curves.insert(id, CurveStorage::hazard(curve));
+        self.curves.insert(id, CurveStorage::new_hazard(curve));
         self
     }
 
     /// Insert an inflation curve
     pub fn insert_inflation(mut self, curve: InflationCurve) -> Self {
         let id = curve.id().clone();
-        self.curves.insert(id, CurveStorage::inflation(curve));
+        self.curves.insert(id, CurveStorage::new_inflation(curve));
         self
     }
 
     /// Insert a base correlation curve
     pub fn insert_base_correlation(mut self, curve: BaseCorrelationCurve) -> Self {
         let id = curve.id().clone();
-        self.curves.insert(id, CurveStorage::base_correlation(curve));
+        self.curves.insert(id, CurveStorage::new_base_correlation(curve));
         self
     }
 
@@ -168,15 +169,16 @@ impl MarketContextV2 {
     }
 
     // -----------------------------------------------------------------------------
-    // Getter Methods (Backward Compatible API)
+    // Clean, Direct Getter Methods
     // -----------------------------------------------------------------------------
 
-    /// Get discount curve by ID (backward compatible)
-    pub fn disc(&self, id: impl AsRef<str>) -> Result<Arc<dyn Discount + Send + Sync>> {
+    /// Get discount curve by ID
+    pub fn discount(&self, id: impl AsRef<str>) -> Result<Arc<DiscountCurve>> {
         let curve_id = CurveId::from(id.as_ref());
         self.curves
             .get(&curve_id)
-            .and_then(|storage| storage.as_discount())
+            .and_then(|storage| storage.discount())
+            .cloned()
             .ok_or_else(|| {
                 crate::Error::Input(InputError::NotFound {
                     id: id.as_ref().to_string(),
@@ -184,12 +186,13 @@ impl MarketContextV2 {
             })
     }
 
-    /// Get forward curve by ID (backward compatible)
-    pub fn fwd(&self, id: impl AsRef<str>) -> Result<Arc<dyn Forward + Send + Sync>> {
+    /// Get forward curve by ID
+    pub fn forward(&self, id: impl AsRef<str>) -> Result<Arc<ForwardCurve>> {
         let curve_id = CurveId::from(id.as_ref());
         self.curves
             .get(&curve_id)
-            .and_then(|storage| storage.as_forward())
+            .and_then(|storage| storage.forward())
+            .cloned()
             .ok_or_else(|| {
                 crate::Error::Input(InputError::NotFound {
                     id: id.as_ref().to_string(),
@@ -197,12 +200,13 @@ impl MarketContextV2 {
             })
     }
 
-    /// Get hazard curve by ID (backward compatible)
-    pub fn hazard(&self, id: impl AsRef<str>) -> Result<Arc<dyn Survival + Send + Sync>> {
+    /// Get hazard curve by ID
+    pub fn hazard(&self, id: impl AsRef<str>) -> Result<Arc<HazardCurve>> {
         let curve_id = CurveId::from(id.as_ref());
         self.curves
             .get(&curve_id)
-            .and_then(|storage| storage.as_survival())
+            .and_then(|storage| storage.hazard())
+            .cloned()
             .ok_or_else(|| {
                 crate::Error::Input(InputError::NotFound {
                     id: id.as_ref().to_string(),
@@ -210,12 +214,13 @@ impl MarketContextV2 {
             })
     }
 
-    /// Get inflation curve by ID (backward compatible)
-    pub fn infl(&self, id: impl AsRef<str>) -> Result<Arc<dyn InflationTrait + Send + Sync>> {
+    /// Get inflation curve by ID
+    pub fn inflation(&self, id: impl AsRef<str>) -> Result<Arc<InflationCurve>> {
         let curve_id = CurveId::from(id.as_ref());
         self.curves
             .get(&curve_id)
-            .and_then(|storage| storage.as_inflation())
+            .and_then(|storage| storage.inflation())
+            .cloned()
             .ok_or_else(|| {
                 crate::Error::Input(InputError::NotFound {
                     id: id.as_ref().to_string(),
@@ -228,7 +233,7 @@ impl MarketContextV2 {
         let curve_id = CurveId::from(id.as_ref());
         self.curves
             .get(&curve_id)
-            .and_then(|storage| storage.as_concrete_base_correlation())
+            .and_then(|storage| storage.base_correlation())
             .cloned()
             .ok_or_else(|| {
                 crate::Error::Input(InputError::NotFound {
@@ -290,17 +295,17 @@ impl MarketContextV2 {
     }
 
     /// Resolve collateral discount curve for CSA code
-    pub fn collateral(&self, csa_code: &str) -> Result<Arc<dyn Discount + Send + Sync>> {
+    pub fn collateral(&self, csa_code: &str) -> Result<Arc<DiscountCurve>> {
         let curve_id = self.collateral.get(csa_code).ok_or_else(|| {
             crate::Error::Input(InputError::NotFound {
                 id: format!("collateral:{}", csa_code),
             })
         })?;
-        self.disc(curve_id.as_str())
+        self.discount(curve_id.as_str())
     }
 
     // -----------------------------------------------------------------------------
-    // Advanced Access Methods (New API)
+    // Advanced Access and Introspection Methods
     // -----------------------------------------------------------------------------
 
     /// Get any curve by ID (returns the storage enum)
@@ -335,74 +340,6 @@ impl MarketContextV2 {
         counts
     }
 
-    // -----------------------------------------------------------------------------
-    // Concrete Type Access (Advanced API)
-    // -----------------------------------------------------------------------------
-
-    /// Get concrete discount curve (no trait object overhead)
-    pub fn discount_curve(&self, id: impl AsRef<str>) -> Result<&Arc<DiscountCurve>> {
-        let curve_id = CurveId::from(id.as_ref());
-        self.curves
-            .get(&curve_id)
-            .and_then(|storage| storage.as_concrete_discount())
-            .ok_or_else(|| {
-                crate::Error::Input(InputError::NotFound {
-                    id: id.as_ref().to_string(),
-                })
-            })
-    }
-
-    /// Get concrete forward curve (no trait object overhead)
-    pub fn forward_curve(&self, id: impl AsRef<str>) -> Result<&Arc<ForwardCurve>> {
-        let curve_id = CurveId::from(id.as_ref());
-        self.curves
-            .get(&curve_id)
-            .and_then(|storage| storage.as_concrete_forward())
-            .ok_or_else(|| {
-                crate::Error::Input(InputError::NotFound {
-                    id: id.as_ref().to_string(),
-                })
-            })
-    }
-
-    /// Get concrete hazard curve (no trait object overhead)
-    pub fn hazard_curve(&self, id: impl AsRef<str>) -> Result<&Arc<HazardCurve>> {
-        let curve_id = CurveId::from(id.as_ref());
-        self.curves
-            .get(&curve_id)
-            .and_then(|storage| storage.as_concrete_hazard())
-            .ok_or_else(|| {
-                crate::Error::Input(InputError::NotFound {
-                    id: id.as_ref().to_string(),
-                })
-            })
-    }
-
-    /// Get concrete inflation curve (no trait object overhead)
-    pub fn inflation_curve(&self, id: impl AsRef<str>) -> Result<&Arc<InflationCurve>> {
-        let curve_id = CurveId::from(id.as_ref());
-        self.curves
-            .get(&curve_id)
-            .and_then(|storage| storage.as_concrete_inflation())
-            .ok_or_else(|| {
-                crate::Error::Input(InputError::NotFound {
-                    id: id.as_ref().to_string(),
-                })
-            })
-    }
-
-    /// Get concrete base correlation curve (no trait object overhead)
-    pub fn base_correlation_curve(&self, id: impl AsRef<str>) -> Result<&Arc<BaseCorrelationCurve>> {
-        let curve_id = CurveId::from(id.as_ref());
-        self.curves
-            .get(&curve_id)
-            .and_then(|storage| storage.as_concrete_base_correlation())
-            .ok_or_else(|| {
-                crate::Error::Input(InputError::NotFound {
-                    id: id.as_ref().to_string(),
-                })
-            })
-    }
 
     // -----------------------------------------------------------------------------
     // Statistics and Introspection
@@ -531,33 +468,32 @@ mod tests {
 
         // Verify curves were inserted
         assert_eq!(context.curves.len(), 3);
-        assert!(context.disc("USD-OIS").is_ok());
-        assert!(context.fwd("USD-SOFR3M").is_ok());
+        assert!(context.discount("USD-OIS").is_ok());
+        assert!(context.forward("USD-SOFR3M").is_ok());
         assert!(context.hazard("CORP-HAZARD").is_ok());
     }
 
     #[test]
-    fn test_backward_compatible_api() {
+    fn test_direct_concrete_api() {
         let context = MarketContextV2::new()
             .insert_discount(test_discount_curve());
 
-        // Test trait object API (backward compatible)
-        let disc_trait = context.disc("USD-OIS").unwrap();
-        assert!((disc_trait.df(1.0) - 0.95).abs() < 1e-12);
-        
-        // Test concrete API (new)
-        let disc_concrete = context.discount_curve("USD-OIS").unwrap();
-        assert!((disc_concrete.df(1.0) - 0.95).abs() < 1e-12);
+        // Test direct concrete API - clean and simple
+        let disc = context.discount("USD-OIS").unwrap();
+        assert!((disc.df(1.0) - 0.95).abs() < 1e-12);
+        assert_eq!(disc.id().as_str(), "USD-OIS");
     }
 
     #[test]
     fn test_error_handling() {
         let context = MarketContextV2::new();
         
-        // Should return NotFound errors
-        assert!(context.disc("NONEXISTENT").is_err());
-        assert!(context.fwd("NONEXISTENT").is_err());
+        // Should return NotFound errors for missing curves
+        assert!(context.discount("NONEXISTENT").is_err());
+        assert!(context.forward("NONEXISTENT").is_err());
         assert!(context.hazard("NONEXISTENT").is_err());
+        assert!(context.inflation("NONEXISTENT").is_err());
+        assert!(context.base_correlation("NONEXISTENT").is_err());
     }
 
     #[test]

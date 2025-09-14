@@ -350,14 +350,14 @@ mod serde_tests {
         let reconstructed = MarketContextV2::from_data(data).expect("Should reconstruct");
         
         // Verify all curves are accessible
-        assert!(reconstructed.disc("USD-OIS").is_ok());
+        assert!(reconstructed.discount("USD-OIS").is_ok());
         assert!(reconstructed.hazard("CORP-HAZARD").is_ok());
         assert!(reconstructed.base_correlation("CDX-CORR").is_ok());
         assert!(reconstructed.price("SPOT_GOLD").is_ok());
         
         // Verify values are preserved
-        let original_df = context.disc("USD-OIS").unwrap().df(1.0);
-        let restored_df = reconstructed.disc("USD-OIS").unwrap().df(1.0);
+        let original_df = context.discount("USD-OIS").unwrap().df(1.0);
+        let restored_df = reconstructed.discount("USD-OIS").unwrap().df(1.0);
         assert!((original_df - restored_df).abs() < 1e-12);
     }
 
@@ -378,7 +378,7 @@ mod serde_tests {
             serde_json::from_str(&json).expect("Should deserialize from JSON");
         
         // Verify functionality
-        assert!(reconstructed.disc("USD-OIS").is_ok());
+        assert!(reconstructed.discount("USD-OIS").is_ok());
         let price = reconstructed.price("SPOT_GOLD").expect("Should have gold price");
         if let MarketScalar::Unitless(val) = price {
             assert_eq!(*val, 2000.0);

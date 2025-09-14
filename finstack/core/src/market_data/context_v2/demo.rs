@@ -77,18 +77,13 @@ mod demo_tests {
         println!("   Is discount: {}", curve.is_discount());
         println!("   Is forward: {}", curve.is_forward());
 
-        // BENEFIT 3: Backward Compatible API
-        println!("\n✅ 3. Backward Compatible API");
-        let disc_trait = context.disc("USD-OIS").unwrap();
-        let fwd_trait = context.fwd("USD-SOFR3M").unwrap();
-        println!("   Discount factor at 1Y: {:.6}", disc_trait.df(1.0));
-        println!("   Forward rate at 1Y: {:.4}%", fwd_trait.rate(1.0) * 100.0);
-
-        // BENEFIT 4: Direct Concrete Access
-        println!("\n✅ 4. Direct Concrete Access (No Dynamic Dispatch)");
-        let disc_concrete = context.discount_curve("USD-OIS").unwrap();
-        println!("   Direct access DF at 1Y: {:.6}", disc_concrete.df(1.0));
-        println!("   Curve ID: {}", disc_concrete.id().as_str());
+        // BENEFIT 3: Clean, Direct API (No Trait Objects!)
+        println!("\n✅ 3. Clean, Direct API (Zero Overhead)");
+        let disc = context.discount("USD-OIS").unwrap();
+        let fwd = context.forward("USD-SOFR3M").unwrap();
+        println!("   Discount factor at 1Y: {:.6}", disc.df(1.0));
+        println!("   Forward rate at 1Y: {:.4}%", fwd.rate(1.0) * 100.0);
+        println!("   ✓ Direct concrete types - no trait object overhead");
 
         // BENEFIT 5: Complete Serialization
         println!("\n✅ 5. Complete Serialization (No String Parsing!)");
@@ -112,8 +107,8 @@ mod demo_tests {
             restored.stats().total_curves);
 
         // Verify values are preserved exactly
-        let orig_df = context.disc("USD-OIS").unwrap().df(1.0);
-        let rest_df = restored.disc("USD-OIS").unwrap().df(1.0);
+        let orig_df = context.discount("USD-OIS").unwrap().df(1.0);
+        let rest_df = restored.discount("USD-OIS").unwrap().df(1.0);
         assert!((orig_df - rest_df).abs() < 1e-15);
         println!("   ✓ Values preserved with machine precision");
 
@@ -134,40 +129,31 @@ mod demo_tests {
             println!("     - {}: {}", id, storage.curve_type());
         }
 
-        // BENEFIT 8: Performance Characteristics
-        println!("\n✅ 8. Performance Comparison");
+        // BENEFIT 8: Optimal Performance
+        println!("\n✅ 8. Optimal Performance (Zero Overhead)");
         
-        // Measure trait object access (backward compatible)
+        // Measure direct concrete access - the only API now!
         let iterations = 10000;
         let start = std::time::Instant::now();
         for _ in 0..iterations {
-            let disc = context.disc("USD-OIS").unwrap();
+            let disc = context.discount("USD-OIS").unwrap();
             let _ = disc.df(1.0);
         }
-        let trait_time = start.elapsed();
+        let access_time = start.elapsed();
         
-        // Measure concrete access (new capability)
-        let start = std::time::Instant::now();
-        for _ in 0..iterations {
-            let disc = context.discount_curve("USD-OIS").unwrap();
-            let _ = disc.df(1.0);
-        }
-        let concrete_time = start.elapsed();
+        println!("   Direct concrete access ({} calls): {:?}", iterations, access_time);
         
-        println!("   Trait object access ({} calls): {:?}", iterations, trait_time);
-        println!("   Concrete access ({} calls): {:?}", iterations, concrete_time);
-        
-        let trait_ns_per_call = trait_time.as_nanos() / iterations as u128;
-        let concrete_ns_per_call = concrete_time.as_nanos() / iterations as u128;
-        println!("   Trait: {}ns/call, Concrete: {}ns/call", trait_ns_per_call, concrete_ns_per_call);
+        let ns_per_call = access_time.as_nanos() / iterations as u128;
+        println!("   Performance: {}ns/call", ns_per_call);
+        println!("   ✓ Zero trait object overhead - maximum performance");
 
         println!("\n🎉 MarketContextV2 Demo Complete!");
         println!("🎯 Key Benefits Demonstrated:");
         println!("   ✓ Complete serialization without workarounds");
-        println!("   ✓ Type-safe access with compile-time guarantees");
-        println!("   ✓100% backward compatible API");
-        println!("   ✓ Performance improvements for concrete access");
+        println!("   ✓ Type-safe access with compile-time guarantees"); 
+        println!("   ✓ Clean, direct API with zero overhead");
+        println!("   ✓ Maximum performance - no trait object conversions");
         println!("   ✓ Rich introspection and filtering capabilities");
-        println!("   ✓ Clean, maintainable architecture");
+        println!("   ✓ Simplified, maintainable architecture");
     }
 }

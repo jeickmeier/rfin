@@ -14,14 +14,14 @@ use crate::market_data::term_structures::{
     hazard_curve::HazardCurve,
     inflation::InflationCurve,
 };
-use crate::market_data::traits::{Discount, Forward, Inflation as InflationTrait, Survival, TermStructure};
+use crate::market_data::traits::TermStructure;
 use crate::types::CurveId;
 
 /// Unified storage for all curve types
 ///
 /// This enum replaces trait object storage (`Arc<dyn Trait>`) with concrete
-/// type storage, enabling full serialization support while maintaining
-/// backward API compatibility through conversion methods.
+/// type storage, enabling full serialization support and direct type access
+/// with zero overhead.
 #[derive(Clone, Debug)]
 pub enum CurveStorage {
     /// Discount factor curve
@@ -49,74 +49,66 @@ impl CurveStorage {
         }
     }
 
-    /// Get as discount curve trait (backward compatibility)
-    pub fn as_discount(&self) -> Option<Arc<dyn Discount + Send + Sync>> {
-        match self {
-            Self::Discount(curve) => Some(curve.clone() as Arc<dyn Discount + Send + Sync>),
-            _ => None,
-        }
-    }
-
-    /// Get as forward curve trait (backward compatibility)
-    pub fn as_forward(&self) -> Option<Arc<dyn Forward + Send + Sync>> {
-        match self {
-            Self::Forward(curve) => Some(curve.clone() as Arc<dyn Forward + Send + Sync>),
-            _ => None,
-        }
-    }
-
-    /// Get as survival curve trait (backward compatibility)
-    pub fn as_survival(&self) -> Option<Arc<dyn Survival + Send + Sync>> {
-        match self {
-            Self::Hazard(curve) => Some(curve.clone() as Arc<dyn Survival + Send + Sync>),
-            _ => None,
-        }
-    }
-
-    /// Get as inflation curve trait (backward compatibility)
-    pub fn as_inflation(&self) -> Option<Arc<dyn InflationTrait + Send + Sync>> {
-        match self {
-            Self::Inflation(curve) => Some(curve.clone() as Arc<dyn InflationTrait + Send + Sync>),
-            _ => None,
-        }
-    }
-
-    /// Get concrete discount curve (advanced use cases)
-    pub fn as_concrete_discount(&self) -> Option<&Arc<DiscountCurve>> {
+    /// Get discount curve if this storage contains one
+    pub fn discount(&self) -> Option<&Arc<DiscountCurve>> {
         match self {
             Self::Discount(curve) => Some(curve),
             _ => None,
         }
     }
 
-    /// Get concrete forward curve (advanced use cases)
-    pub fn as_concrete_forward(&self) -> Option<&Arc<ForwardCurve>> {
+    /// Get forward curve if this storage contains one
+    pub fn forward(&self) -> Option<&Arc<ForwardCurve>> {
         match self {
             Self::Forward(curve) => Some(curve),
             _ => None,
         }
     }
 
-    /// Get concrete hazard curve (advanced use cases)
-    pub fn as_concrete_hazard(&self) -> Option<&Arc<HazardCurve>> {
+    /// Get hazard curve if this storage contains one
+    pub fn hazard(&self) -> Option<&Arc<HazardCurve>> {
         match self {
             Self::Hazard(curve) => Some(curve),
             _ => None,
         }
     }
 
-    /// Get concrete inflation curve (advanced use cases)
-    pub fn as_concrete_inflation(&self) -> Option<&Arc<InflationCurve>> {
+    /// Get inflation curve if this storage contains one
+    pub fn inflation(&self) -> Option<&Arc<InflationCurve>> {
         match self {
             Self::Inflation(curve) => Some(curve),
             _ => None,
         }
     }
 
-    /// Get concrete base correlation curve (advanced use cases)
-    pub fn as_concrete_base_correlation(&self) -> Option<&Arc<BaseCorrelationCurve>> {
+    /// Get base correlation curve if this storage contains one
+    pub fn base_correlation(&self) -> Option<&Arc<BaseCorrelationCurve>> {
         match self {
             Self::BaseCorrelation(curve) => Some(curve),
+            _ => None,
+        }
+    }
+
+    /// Extract discount curve, consuming the storage
+    pub fn into_discount(self) -> Option<Arc<DiscountCurve>> {
+        match self {
+            Self::Discount(curve) => Some(curve),
+            _ => None,
+        }
+    }
+
+    /// Extract forward curve, consuming the storage  
+    pub fn into_forward(self) -> Option<Arc<ForwardCurve>> {
+        match self {
+            Self::Forward(curve) => Some(curve),
+            _ => None,
+        }
+    }
+
+    /// Extract hazard curve, consuming the storage
+    pub fn into_hazard(self) -> Option<Arc<HazardCurve>> {
+        match self {
+            Self::Hazard(curve) => Some(curve),
             _ => None,
         }
     }
@@ -168,27 +160,27 @@ impl TermStructure for CurveStorage {
 // Convenience constructors
 impl CurveStorage {
     /// Create storage for a discount curve
-    pub fn discount(curve: DiscountCurve) -> Self {
+    pub fn new_discount(curve: DiscountCurve) -> Self {
         Self::Discount(Arc::new(curve))
     }
 
     /// Create storage for a forward curve
-    pub fn forward(curve: ForwardCurve) -> Self {
+    pub fn new_forward(curve: ForwardCurve) -> Self {
         Self::Forward(Arc::new(curve))
     }
 
     /// Create storage for a hazard curve
-    pub fn hazard(curve: HazardCurve) -> Self {
+    pub fn new_hazard(curve: HazardCurve) -> Self {
         Self::Hazard(Arc::new(curve))
     }
 
     /// Create storage for an inflation curve
-    pub fn inflation(curve: InflationCurve) -> Self {
+    pub fn new_inflation(curve: InflationCurve) -> Self {
         Self::Inflation(Arc::new(curve))
     }
 
     /// Create storage for a base correlation curve
-    pub fn base_correlation(curve: BaseCorrelationCurve) -> Self {
+    pub fn new_base_correlation(curve: BaseCorrelationCurve) -> Self {
         Self::BaseCorrelation(Arc::new(curve))
     }
 }
@@ -229,7 +221,7 @@ mod tests {
     #[test]
     fn test_curve_storage_creation() {
         let disc_curve = test_discount_curve();
-        let storage = CurveStorage::discount(disc_curve);
+        let storage = CurveStorage::new_discount(disc_curve);
         
         assert!(storage.is_discount());
         assert!(!storage.is_forward());
@@ -238,33 +230,36 @@ mod tests {
     }
 
     #[test]
-    fn test_trait_conversion() {
+    fn test_direct_access() {
         let disc_curve = test_discount_curve();
-        let storage = CurveStorage::discount(disc_curve);
+        let storage = CurveStorage::new_discount(disc_curve);
         
-        let discount_trait = storage.as_discount().unwrap();
-        assert!((discount_trait.df(1.0) - 0.95).abs() < 1e-12);
+        // Direct concrete access
+        let discount_curve = storage.discount().unwrap();
+        assert_eq!(discount_curve.id().as_str(), "TEST-DISC");
+        assert!((discount_curve.df(1.0) - 0.95).abs() < 1e-12);
         
-        // Should not convert to other types
-        assert!(storage.as_forward().is_none());
-        assert!(storage.as_survival().is_none());
+        // Should not access other types
+        assert!(storage.forward().is_none());
+        assert!(storage.hazard().is_none());
     }
 
     #[test]
-    fn test_concrete_access() {
+    fn test_extraction() {
         let disc_curve = test_discount_curve();
-        let storage = CurveStorage::discount(disc_curve);
+        let storage = CurveStorage::new_discount(disc_curve);
         
-        let concrete = storage.as_concrete_discount().unwrap();
-        assert_eq!(concrete.id().as_str(), "TEST-DISC");
-        assert!((concrete.df(1.0) - 0.95).abs() < 1e-12);
+        // Extract the curve by consuming storage
+        let extracted = storage.into_discount().unwrap();
+        assert_eq!(extracted.id().as_str(), "TEST-DISC");
+        assert!((extracted.df(1.0) - 0.95).abs() < 1e-12);
     }
 
     #[test]
     fn test_all_curve_types() {
-        let disc = CurveStorage::discount(test_discount_curve());
-        let fwd = CurveStorage::forward(test_forward_curve());
-        let hazard = CurveStorage::hazard(test_hazard_curve());
+        let disc = CurveStorage::new_discount(test_discount_curve());
+        let fwd = CurveStorage::new_forward(test_forward_curve());
+        let hazard = CurveStorage::new_hazard(test_hazard_curve());
         
         assert!(disc.is_discount());
         assert!(fwd.is_forward());

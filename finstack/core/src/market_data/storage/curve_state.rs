@@ -166,7 +166,7 @@ mod tests {
     #[cfg(feature = "serde")]
     fn test_state_round_trip_discount() {
         let curve = test_discount_curve();
-        let storage = CurveStorage::discount(curve);
+        let storage = CurveStorage::new_discount(curve);
         
         // Convert to state and back
         let state = storage.to_state().unwrap();
@@ -179,16 +179,16 @@ mod tests {
         assert!(restored.is_discount());
         
         // Verify functionality is preserved
-        let original_trait = storage.as_discount().unwrap();
-        let restored_trait = restored.as_discount().unwrap();
-        assert!((original_trait.df(1.0) - restored_trait.df(1.0)).abs() < 1e-12);
+        let original_curve = storage.discount().unwrap();
+        let restored_curve = restored.discount().unwrap();
+        assert!((original_curve.df(1.0) - restored_curve.df(1.0)).abs() < 1e-12);
     }
 
     #[test]
     #[cfg(feature = "serde")]
     fn test_state_round_trip_hazard() {
         let curve = test_hazard_curve();
-        let storage = CurveStorage::hazard(curve);
+        let storage = CurveStorage::new_hazard(curve);
         
         // Convert to state and back
         let state = storage.to_state().unwrap();
@@ -198,16 +198,16 @@ mod tests {
         assert_eq!(storage.id(), restored.id());
         assert!(restored.is_hazard());
         
-        let original_trait = storage.as_survival().unwrap();
-        let restored_trait = restored.as_survival().unwrap();
-        assert!((original_trait.sp(1.0) - restored_trait.sp(1.0)).abs() < 1e-12);
+        let original_curve = storage.hazard().unwrap();
+        let restored_curve = restored.hazard().unwrap();
+        assert!((original_curve.sp(1.0) - restored_curve.sp(1.0)).abs() < 1e-12);
     }
 
     #[test]
     #[cfg(feature = "serde")]
     fn test_json_serialization() {
         let curve = test_discount_curve();
-        let storage = CurveStorage::discount(curve);
+        let storage = CurveStorage::new_discount(curve);
         
         // Serialize to JSON
         let json = serde_json::to_string(&storage).unwrap();
@@ -224,8 +224,8 @@ mod tests {
 
     #[test]
     fn test_type_checking() {
-        let disc = CurveStorage::discount(test_discount_curve());
-        let hazard = CurveStorage::hazard(test_hazard_curve());
+        let disc = CurveStorage::new_discount(test_discount_curve());
+        let hazard = CurveStorage::new_hazard(test_hazard_curve());
         
         // Type checks
         assert!(disc.is_discount());
@@ -239,15 +239,15 @@ mod tests {
     }
 
     #[test]
-    fn test_trait_conversion_safety() {
-        let storage = CurveStorage::discount(test_discount_curve());
+    fn test_access_safety() {
+        let storage = CurveStorage::new_discount(test_discount_curve());
         
-        // Should convert to correct trait
-        assert!(storage.as_discount().is_some());
+        // Should access correct type
+        assert!(storage.discount().is_some());
         
-        // Should not convert to incorrect traits
-        assert!(storage.as_forward().is_none());
-        assert!(storage.as_survival().is_none());
-        assert!(storage.as_inflation().is_none());
+        // Should not access incorrect types
+        assert!(storage.forward().is_none());
+        assert!(storage.hazard().is_none());
+        assert!(storage.inflation().is_none());
     }
 }

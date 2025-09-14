@@ -353,7 +353,7 @@ mod tests {
 
         assert_eq!(merged.curves.len(), 2);
         assert_eq!(merged.prices.len(), 1);
-        assert!(merged.disc("USD-OIS").is_ok());
+        assert!(merged.discount("USD-OIS").is_ok());
         assert!(merged.hazard("CORP-HAZARD").is_ok());
     }
 

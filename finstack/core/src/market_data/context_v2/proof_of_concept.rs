@@ -52,19 +52,15 @@ mod tests {
     fn proof_of_concept_basic_functionality() {
         let context = create_test_context();
 
-        // Test backward-compatible API
-        let disc = context.disc("USD-OIS").unwrap();
-        let fwd = context.fwd("USD-SOFR3M").unwrap();
+        // Test direct concrete API - clean and simple!
+        let disc = context.discount("USD-OIS").unwrap();
+        let fwd = context.forward("USD-SOFR3M").unwrap();
         let hazard = context.hazard("CORP-HAZARD").unwrap();
 
-        // Verify functionality
+        // Verify functionality - all concrete types, no trait objects
         assert!((disc.df(1.0) - 0.95).abs() < 1e-12);
         assert!((fwd.rate(1.0) - 0.035).abs() < 1e-12);
         assert!(hazard.sp(1.0) < 1.0);
-
-        // Test new concrete API
-        let disc_concrete = context.discount_curve("USD-OIS").unwrap();
-        assert!((disc_concrete.df(1.0) - 0.95).abs() < 1e-12);
 
         // Test introspection
         let stats = context.stats();
@@ -104,12 +100,12 @@ mod tests {
         assert_eq!(original.prices.len(), restored.prices.len());
 
         // Test that all curves work identically
-        let orig_disc = original.disc("USD-OIS").unwrap();
-        let rest_disc = restored.disc("USD-OIS").unwrap();
+        let orig_disc = original.discount("USD-OIS").unwrap();
+        let rest_disc = restored.discount("USD-OIS").unwrap();
         assert!((orig_disc.df(1.0) - rest_disc.df(1.0)).abs() < 1e-12);
 
-        let orig_fwd = original.fwd("USD-SOFR3M").unwrap();
-        let rest_fwd = restored.fwd("USD-SOFR3M").unwrap();
+        let orig_fwd = original.forward("USD-SOFR3M").unwrap();
+        let rest_fwd = restored.forward("USD-SOFR3M").unwrap();
         assert!((orig_fwd.rate(1.0) - rest_fwd.rate(1.0)).abs() < 1e-12);
 
         // Test market data preservation
@@ -130,12 +126,12 @@ mod tests {
         assert!(!curve.is_forward());
 
         // Can't accidentally get wrong type
-        assert!(curve.as_forward().is_none());
-        assert!(curve.as_discount().is_some());
+        assert!(curve.forward().is_none());
+        assert!(curve.discount().is_some());
 
-        // Concrete access with no dynamic dispatch
-        let disc_concrete = context.discount_curve("USD-OIS").unwrap();
-        assert_eq!(disc_concrete.id().as_str(), "USD-OIS");
+        // Direct concrete access with zero overhead
+        let disc = context.discount("USD-OIS").unwrap();
+        assert_eq!(disc.id().as_str(), "USD-OIS");
     }
 
     #[test]
@@ -160,28 +156,18 @@ mod tests {
     fn proof_of_concept_performance_characteristics() {
         let context = create_test_context();
 
-        // Measure dispatch performance (should be same as V1 for trait object API)
+        // Measure direct concrete access performance
         let start = std::time::Instant::now();
         for _ in 0..1000 {
-            let disc = context.disc("USD-OIS").unwrap();
+            let disc = context.discount("USD-OIS").unwrap();
             let _ = disc.df(1.0);
         }
-        let trait_time = start.elapsed();
+        let access_time = start.elapsed();
 
-        // Measure concrete access (should be faster)
-        let start = std::time::Instant::now();
-        for _ in 0..1000 {
-            let disc = context.discount_curve("USD-OIS").unwrap();
-            let _ = disc.df(1.0);
-        }
-        let concrete_time = start.elapsed();
+        println!("Direct concrete access: {:?}", access_time);
 
-        println!("Trait object access: {:?}", trait_time);
-        println!("Concrete access: {:?}", concrete_time);
-
-        // In a real benchmark, concrete should be faster, but for this test
-        // we just verify both work correctly
-        assert!(trait_time > std::time::Duration::ZERO);
-        assert!(concrete_time > std::time::Duration::ZERO);
+        // Should be fast and efficient
+        assert!(access_time > std::time::Duration::ZERO);
+        assert!(access_time < std::time::Duration::from_millis(10)); // Should be very fast
     }
 }
