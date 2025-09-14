@@ -320,7 +320,7 @@ impl MarketContextV2 {
     }
 
     /// Get curves by type
-    pub fn curves_of_type<'a>(&'a self, curve_type: &'a str) -> impl Iterator<Item = (&CurveId, &CurveStorage)> + 'a {
+    pub fn curves_of_type<'a>(&'a self, curve_type: &'a str) -> impl Iterator<Item = (&'a CurveId, &'a CurveStorage)> + 'a {
         self.curves
             .iter()
             .filter(move |(_, storage)| storage.curve_type() == curve_type)

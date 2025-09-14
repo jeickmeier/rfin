@@ -307,7 +307,6 @@ impl<'de> serde::Deserialize<'de> for MarketContextV2 {
 mod serde_tests {
     use super::*;
     use crate::dates::Date;
-    use crate::market_data::interp::InterpStyle;
     use crate::market_data::term_structures::base_correlation::BaseCorrelationCurve;
 
     fn create_test_context() -> MarketContextV2 {
