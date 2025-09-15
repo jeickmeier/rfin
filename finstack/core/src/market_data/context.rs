@@ -188,24 +188,9 @@ pub enum CurveState {
     /// Hazard curve state
     Hazard(crate::market_data::term_structures::hazard_curve::HazardCurveState),
     /// Inflation curve state
-    Inflation(InflationCurveData),
+    Inflation(crate::market_data::term_structures::inflation::InflationCurveState),
     /// Base correlation curve state
     BaseCorrelation(crate::market_data::term_structures::base_correlation::BaseCorrelationCurve),
-}
-
-#[cfg(feature = "serde")]
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-/// Serializable representation of an inflation curve
-pub struct InflationCurveData {
-    /// Curve identifier
-    pub id: String,
-    /// Base CPI level
-    pub base_cpi: crate::F,
-    /// Time/CPI level pairs
-    pub knot_points: Vec<(crate::F, crate::F)>,
-    /// Interpolation style
-    pub interp_style: crate::market_data::interp::InterpStyle,
 }
 
 #[cfg(feature = "serde")]
@@ -216,21 +201,7 @@ impl CurveStorage {
             Self::Discount(curve) => CurveState::Discount(curve.to_state()),
             Self::Forward(curve) => CurveState::Forward(curve.to_state()),
             Self::Hazard(curve) => CurveState::Hazard(curve.to_state()),
-            Self::Inflation(curve) => {
-                let knot_points: Vec<(crate::F, crate::F)> = curve
-                    .knots()
-                    .iter()
-                    .zip(curve.cpi_levels().iter())
-                    .map(|(&t, &cpi)| (t, cpi))
-                    .collect();
-
-                CurveState::Inflation(InflationCurveData {
-                    id: curve.id().to_string(),
-                    base_cpi: curve.base_cpi(),
-                    knot_points,
-                    interp_style: crate::market_data::interp::InterpStyle::LogLinear,
-                })
-            }
+            Self::Inflation(curve) => CurveState::Inflation(curve.to_state()),
             Self::BaseCorrelation(curve) => CurveState::BaseCorrelation((**curve).clone()),
         })
     }
@@ -249,14 +220,7 @@ impl CurveStorage {
             CurveState::Discount(s) => Self::Discount(Arc::new(DiscountCurve::from_state(s).map_err(|_| crate::Error::Internal)?)),
             CurveState::Forward(s) => Self::Forward(Arc::new(ForwardCurve::from_state(s)?)),
             CurveState::Hazard(s) => Self::Hazard(Arc::new(HazardCurve::from_state(s)?)),
-            CurveState::Inflation(s) => {
-                let curve = InflationCurve::builder(s.id)
-                    .base_cpi(s.base_cpi)
-                    .knots(s.knot_points)
-                    .set_interp(s.interp_style)
-                    .build()?;
-                Self::Inflation(Arc::new(curve))
-            }
+            CurveState::Inflation(s) => Self::Inflation(Arc::new(InflationCurve::from_state(s)?)),
             CurveState::BaseCorrelation(c) => Self::BaseCorrelation(Arc::new(c)),
         })
     }

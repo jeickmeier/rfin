@@ -50,16 +50,14 @@ pub struct DiscountCurve {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DiscountCurveState {
-    /// Curve identifier
-    pub id: String,
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    common_id: super::common::StateId,
     /// Base date
     pub base: Date,
-    /// Time/discount factor pairs
-    pub knot_points: Vec<(F, F)>,
-    /// Interpolation style
-    pub interp_style: InterpStyle,
-    /// Extrapolation policy
-    pub extrapolation: ExtrapolationPolicy,
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    points: super::common::StateKnotPoints,
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    interp: super::common::StateInterp,
     /// Whether monotonic discount factors were required
     pub require_monotonic: bool,
 }
@@ -288,11 +286,13 @@ impl DiscountCurve {
             .collect();
 
         DiscountCurveState {
-            id: self.id.to_string(),
+            common_id: super::common::StateId { id: self.id.to_string() },
             base: self.base,
-            knot_points,
-            interp_style: self.interp.style(),
-            extrapolation: self.interp.extrapolation(),
+            points: super::common::StateKnotPoints { knot_points },
+            interp: super::common::StateInterp {
+                interp_style: self.interp.style(),
+                extrapolation: self.interp.extrapolation(),
+            },
             require_monotonic: false, // Default - we can't recover this info from existing curves
         }
     }
@@ -300,11 +300,11 @@ impl DiscountCurve {
     #[cfg(feature = "serde")]
     /// Create from serialized state
     pub fn from_state(state: DiscountCurveState) -> core::result::Result<Self, super::CurveError> {
-        let mut builder = DiscountCurve::builder(state.id)
+        let mut builder = DiscountCurve::builder(state.common_id.id)
             .base_date(state.base)
-            .knots(state.knot_points)
-            .set_interp(state.interp_style)
-            .extrapolation(state.extrapolation);
+            .knots(state.points.knot_points)
+            .set_interp(state.interp.interp_style)
+            .extrapolation(state.interp.extrapolation);
 
         if state.require_monotonic {
             builder = builder.require_monotonic();

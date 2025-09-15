@@ -53,8 +53,8 @@ pub struct ForwardCurve {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ForwardCurveState {
-    /// Curve identifier
-    pub id: String,
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    common_id: super::common::StateId,
     /// Base date
     pub base: Date,
     /// Reset lag in calendar days
@@ -63,12 +63,10 @@ pub struct ForwardCurveState {
     pub day_count: DayCount,
     /// Index tenor in years
     pub tenor: F,
-    /// Time/forward rate pairs
-    pub knot_points: Vec<(F, F)>,
-    /// Interpolation style
-    pub interp_style: InterpStyle,
-    /// Extrapolation policy
-    pub extrapolation: ExtrapolationPolicy,
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    points: super::common::StateKnotPoints,
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    interp: super::common::StateInterp,
 }
 
 impl ForwardCurve {
@@ -143,26 +141,28 @@ impl ForwardCurve {
             .collect();
 
         ForwardCurveState {
-            id: self.id.to_string(),
+            common_id: super::common::StateId { id: self.id.to_string() },
             base: self.base,
             reset_lag: self.reset_lag,
             day_count: self.day_count,
             tenor: self.tenor,
-            knot_points,
-            interp_style: self.interp.style(),
-            extrapolation: self.interp.extrapolation(),
+            points: super::common::StateKnotPoints { knot_points },
+            interp: super::common::StateInterp {
+                interp_style: self.interp.style(),
+                extrapolation: self.interp.extrapolation(),
+            },
         }
     }
 
     #[cfg(feature = "serde")]
     /// Create from serialized state
     pub fn from_state(state: ForwardCurveState) -> crate::Result<Self> {
-        ForwardCurve::builder(state.id, state.tenor)
+        ForwardCurve::builder(state.common_id.id, state.tenor)
             .base_date(state.base)
             .reset_lag(state.reset_lag)
             .day_count(state.day_count)
-            .knots(state.knot_points)
-            .set_interp(state.interp_style)
+            .knots(state.points.knot_points)
+            .set_interp(state.interp.interp_style)
             .build()
     }
 }

@@ -46,11 +46,6 @@
 pub mod context;
 /// Bump functionality for scenario analysis and stress testing.
 pub mod bumps;
-// (Removed) storage/ module flattened; CurveStorage and CurveState now live in context.rs
-// (Removed) MarketContextBuilder eliminated in favor of fluent insert_* API on MarketContext
-// TODO: Serialization support needs to be reimplemented for the new enum-based architecture
-// #[cfg(feature = "serde")]
-// pub mod serde_support;
 /// Interpolation framework and concrete algorithms (re-exported from `math::interp`).
 pub use crate::math::interp;
 /// Scalar market data types and time series (including primitives)

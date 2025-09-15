@@ -87,3 +87,30 @@ pub trait CurveBuilder: Sized {
     /// Finalize and build the concrete curve
     fn build(self) -> crate::Result<Self::Output>;
 }
+
+// -----------------------------------------------------------------------------
+// Shared serde state fragments to DRY curve state definitions
+// -----------------------------------------------------------------------------
+
+#[cfg(feature = "serde")]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub(crate) struct StateId {
+    /// Curve identifier
+    pub id: String,
+}
+
+#[cfg(feature = "serde")]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub(crate) struct StateKnotPoints {
+    /// Time/value pairs used to construct the curve
+    pub knot_points: Vec<(F, F)>,
+}
+
+#[cfg(feature = "serde")]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub(crate) struct StateInterp {
+    /// Interpolation style
+    pub interp_style: InterpStyle,
+    /// Extrapolation policy
+    pub extrapolation: ExtrapolationPolicy,
+}
