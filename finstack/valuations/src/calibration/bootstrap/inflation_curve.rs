@@ -10,7 +10,7 @@ use crate::instruments::traits::Priceable;
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::inflation_index::{InflationInterpolation, InflationLag};
-use finstack_core::market_data::interp::InterpStyle;
+use finstack_core::math::interp::InterpStyle;
 use finstack_core::market_data::term_structures::inflation::InflationCurve;
 use finstack_core::math::Solver;
 use finstack_core::money::Money;

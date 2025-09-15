@@ -16,7 +16,7 @@ use crate::instruments::fixed_income::InterestRateSwap;
 use crate::instruments::traits::Priceable;
 use finstack_core::dates::{add_months, Date};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::interp::InterpStyle;
+use finstack_core::math::interp::InterpStyle;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::Solver;
 use finstack_core::money::Money;

@@ -528,7 +528,7 @@ mod tests {
         let discount_curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .knots([(0.0, 1.0), (10.0, 0.90)]) // Extended to 10 years
-            .set_interp(finstack_core::market_data::interp::InterpStyle::Linear)
+            .set_interp(finstack_core::math::interp::InterpStyle::Linear)
             .build()
             .unwrap();
 

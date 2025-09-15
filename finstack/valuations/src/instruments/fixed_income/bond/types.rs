@@ -432,7 +432,7 @@ mod tests {
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(issue)
             .knots([(0.0, 1.0), (3.0, 0.95)])
-            .set_interp(finstack_core::market_data::interp::InterpStyle::Linear)
+            .set_interp(finstack_core::math::interp::InterpStyle::Linear)
             .build()
             .unwrap();
         let curves = MarketContext::new().insert_discount(disc_curve);
@@ -583,7 +583,7 @@ mod tests {
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(issue)
             .knots([(0.0, 1.0), (2.0, 0.98)])
-            .set_interp(finstack_core::market_data::interp::InterpStyle::Linear)
+            .set_interp(finstack_core::math::interp::InterpStyle::Linear)
             .build()
             .unwrap();
         let curves = MarketContext::new().insert_discount(disc_curve);

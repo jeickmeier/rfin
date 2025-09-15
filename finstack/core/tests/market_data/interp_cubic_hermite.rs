@@ -1,4 +1,4 @@
-use finstack_core::market_data::interp::{CubicHermite, InterpFn, ExtrapolationPolicy};
+use finstack_core::math::interp::{CubicHermite, InterpFn, ExtrapolationPolicy};
 
 fn build_inputs() -> (Box<[f64]>, Box<[f64]>) {
     let knots: Vec<f64> = vec![0.0, 1.0, 2.0, 4.0, 7.0];

@@ -8,8 +8,9 @@
 //!
 //! # Sub-modules
 //! * [`crate::types::CurveId`] – type-safe identifiers for market data.
-//! * [`interp`] – a collection of curve interpolation schemes implementing the
-//!   polymorphic [`interp::InterpFn`] trait.
+//! * [`interp`] – Deprecated re-export; use [`crate::math::interp`] as the
+//!   canonical module. Types like [`crate::math::interp::InterpFn`] and
+//!   [`crate::math::interp::InterpStyle`] live under `math::interp`.
 //! * [`term_structures`] – one-dimensional term structures such as
 //!   [`term_structures::discount_curve::DiscountCurve`],
 //!   [`term_structures::forward_curve::ForwardCurve`],
@@ -28,7 +29,7 @@
 //! # use finstack_core::market_data::term_structures::DiscountCurve;
 //! # use finstack_core::dates::Date;
 //! # use time::Month;
-//! # use finstack_core::market_data::interp::InterpStyle;
+//! # use finstack_core::math::interp::InterpStyle;
 //! // 1. Create a simple USD OIS discount curve.
 //! let yc = DiscountCurve::builder("USD-OIS")
 //!     .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
@@ -46,7 +47,8 @@
 pub mod context;
 /// Bump functionality for scenario analysis and stress testing.
 pub mod bumps;
-/// Interpolation framework and concrete algorithms (re-exported from `math::interp`).
+/// Interpolation framework and concrete algorithms (deprecated re-export).
+#[deprecated(since = "0.1.0", note = "Use crate::math::interp as the canonical module")]
 pub use crate::math::interp;
 /// Scalar market data types and time series (including primitives)
 pub mod scalars;

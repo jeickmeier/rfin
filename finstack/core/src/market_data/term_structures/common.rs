@@ -4,8 +4,8 @@
 //! curves while keeping wire formats stable. Hazard curves intentionally do not
 //! use the `Interp` engine and are excluded.
 
-use crate::market_data::interp::types::Interp;
-use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
+use crate::math::interp::types::Interp;
+use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{Error, Result, F};
 
 /// Simple holder for a 1D grid (times and values) used to build an `Interp`.

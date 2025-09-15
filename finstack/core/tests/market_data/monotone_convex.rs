@@ -1,4 +1,4 @@
-use finstack_core::market_data::interp::{InterpFn, MonotoneConvex, ExtrapolationPolicy};
+use finstack_core::math::interp::{InterpFn, MonotoneConvex, ExtrapolationPolicy};
 
 #[test]
 fn monotone_convex_basic_properties() {

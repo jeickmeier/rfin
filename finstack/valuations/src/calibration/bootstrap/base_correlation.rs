@@ -499,7 +499,7 @@ mod tests {
         discount_curve::DiscountCurve, BaseCorrelationCurve,
     };
     use finstack_core::market_data::term_structures::CreditIndexData;
-    // use finstack_core::market_data::interp::InterpStyle; // not used in this test module
+    // use finstack_core::math::interp::InterpStyle; // not used in this test module
     use std::sync::Arc;
     use time::Month;
 
@@ -509,7 +509,7 @@ mod tests {
         let discount_curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80), (10.0, 0.60)])
-            .set_interp(finstack_core::market_data::interp::InterpStyle::LogLinear)
+            .set_interp(finstack_core::math::interp::InterpStyle::LogLinear)
             .build()
             .unwrap();
 

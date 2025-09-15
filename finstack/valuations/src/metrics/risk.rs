@@ -536,7 +536,7 @@ mod tests {
         DiscountCurve::builder("USD-OIS")
             .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.99), (5.0, 0.95), (10.0, 0.90)])
-            .set_interp(finstack_core::market_data::interp::InterpStyle::Linear)
+            .set_interp(finstack_core::math::interp::InterpStyle::Linear)
             .build()
             .unwrap()
     }

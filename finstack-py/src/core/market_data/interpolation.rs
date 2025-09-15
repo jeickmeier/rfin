@@ -1,6 +1,6 @@
 //! Python bindings for interpolation styles.
 
-use finstack_core::market_data::interp::{ExtrapolationPolicy, InterpStyle};
+use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use pyo3::prelude::*;
 
 /// Interpolation method for curve construction.

@@ -9,7 +9,7 @@ fn df_batch_matches_serial() {
     let yc = DiscountCurve::builder("USD-OIS")
         .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
         .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95)])
-        .set_interp(finstack_core::market_data::interp::InterpStyle::LogLinear)
+        .set_interp(finstack_core::math::interp::InterpStyle::LogLinear)
         .build()
         .unwrap();
 

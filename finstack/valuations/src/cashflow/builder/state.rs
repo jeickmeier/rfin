@@ -990,7 +990,7 @@ mod tests {
     use finstack_core::currency::Currency;
     use finstack_core::dates::ScheduleBuilder;
     use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
-    use finstack_core::market_data::interp::InterpStyle;
+    use finstack_core::math::interp::InterpStyle;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
     use finstack_core::market_data::traits::Discount as _;
     use time::Month;

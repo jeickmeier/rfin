@@ -2,13 +2,13 @@
 //!
 //! Provides interpolated CPI values and derived annualised inflation rates via
 //! [`crate::market_data::traits::Inflation`].  Accepts any interpolation style
-//! supported by the [`crate::market_data::interp`] subsystem although
+//! supported by the [`crate::math::interp`] subsystem although
 //! `LogLinear` is the most common choice for exponential CPI growth.
 //!
 //! ## Example
 //! ```rust
 //! use finstack_core::market_data::term_structures::inflation::InflationCurve;
-//! # use finstack_core::market_data::interp::InterpStyle;
+//! # use finstack_core::math::interp::InterpStyle;
 //! let ic = InflationCurve::builder("US-CPI")
 //!     .base_cpi(300.0)
 //!     .knots([(0.0, 300.0), (5.0, 327.0)])
@@ -20,10 +20,10 @@
 
 
 use super::common::{build_interp, split_points, OneDGrid};
-use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
+use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     error::InputError,
-    market_data::interp::types::Interp,
+    math::interp::types::Interp,
     market_data::traits::{Inflation as InflationTrait, TermStructure},
     types::CurveId,
     F,

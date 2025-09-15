@@ -505,7 +505,7 @@ pub mod short_rate_keys {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use finstack_core::market_data::interp::InterpStyle;
+    use finstack_core::math::interp::InterpStyle;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use time::Month;
 

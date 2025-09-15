@@ -1,5 +1,5 @@
 /// Tests for the piece‐wise linear DF interpolator.
-use finstack_core::market_data::interp::{InterpFn, LinearDf, ExtrapolationPolicy};
+use finstack_core::math::interp::{InterpFn, LinearDf, ExtrapolationPolicy};
 
 fn build_inputs() -> (Box<[f64]>, Box<[f64]>) {
     // Simple flat 2 % zero‐rate curve => DF = exp(−0.02 t)

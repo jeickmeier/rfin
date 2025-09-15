@@ -1663,7 +1663,7 @@ impl RandomNumberGenerator for AntitheticRng {
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;
-    use finstack_core::market_data::interp::InterpStyle;
+    use finstack_core::math::interp::InterpStyle;
     use time::Month;
 
     #[test]

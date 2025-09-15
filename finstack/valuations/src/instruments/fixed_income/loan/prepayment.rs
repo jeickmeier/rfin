@@ -416,7 +416,7 @@ mod tests {
     use super::*;
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCount;
-    use finstack_core::market_data::interp::InterpStyle;
+    use finstack_core::math::interp::InterpStyle;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::MarketContext;
     use time::Month;

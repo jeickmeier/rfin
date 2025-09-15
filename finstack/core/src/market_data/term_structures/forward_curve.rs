@@ -1,7 +1,7 @@
 //! Forward-rate curve for a fixed-tenor index (e.g. 3-month SOFR).
 //!
 //! Stores simple forward rates at knot times and interpolates them with a
-//! chosen [`crate::market_data::interp::InterpStyle`].  Implements
+//! chosen [`crate::math::interp::InterpStyle`].  Implements
 //! [`crate::market_data::traits::Forward`] which provides helper methods such
 //! as [`crate::market_data::traits::Forward::rate_period`].
 //!
@@ -9,7 +9,7 @@
 //! ```rust
 //! use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 //! // 3-month tenor expressed in years
-//! # use finstack_core::market_data::interp::InterpStyle;
+//! # use finstack_core::math::interp::InterpStyle;
 //! let fc = ForwardCurve::builder("USD-SOFR3M", 0.25)
 //!     .knots([(0.0, 0.03), (5.0, 0.04)])
 //!     .set_interp(InterpStyle::Linear)
@@ -20,11 +20,11 @@
 
 
 use super::common::{build_interp, split_points, OneDGrid};
-use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
+use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     dates::{Date, DayCount},
     error::InputError,
-    market_data::interp::types::Interp,
+    math::interp::types::Interp,
     market_data::traits::{Forward, TermStructure},
     types::CurveId,
     F,

@@ -441,7 +441,7 @@ impl super::common::CurveBuilder for HazardCurveBuilder {
         HazardCurveBuilder::knots(self, pts)
     }
 
-    fn set_interp(self, _style: crate::market_data::interp::InterpStyle) -> Self {
+    fn set_interp(self, _style: crate::math::interp::InterpStyle) -> Self {
         // Hazard curve does not use Interp; ignore
         self
     }

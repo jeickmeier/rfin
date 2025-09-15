@@ -2,7 +2,8 @@
 
 use finstack_core::{
     dates::Date,
-    market_data::{interp::ExtrapolationPolicy, term_structures::DiscountCurve},
+    math::interp::ExtrapolationPolicy,
+    market_data::term_structures::DiscountCurve,
     F,
 };
 use time::Month;
@@ -15,7 +16,7 @@ fn create_test_curve(
     let mut builder = DiscountCurve::builder("TEST-CURVE")
         .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
         .knots([(0.0, 1.0), (1.0, 0.95), (2.0, 0.90), (5.0, 0.78)])
-        .set_interp(finstack_core::market_data::interp::InterpStyle::MonotoneConvex)
+        .set_interp(finstack_core::math::interp::InterpStyle::MonotoneConvex)
         .extrapolation(extrapolation);
 
     if require_monotonic {
@@ -67,7 +68,7 @@ fn test_monotonic_validation_success() {
     let result = DiscountCurve::builder("CREDIT-CURVE")
         .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
         .knots([(0.0, 1.0), (1.0, 0.95), (2.0, 0.90), (5.0, 0.78)])
-        .set_interp(finstack_core::market_data::interp::InterpStyle::MonotoneConvex)
+        .set_interp(finstack_core::math::interp::InterpStyle::MonotoneConvex)
         .require_monotonic()
         .build();
 
@@ -80,7 +81,9 @@ fn test_monotonic_validation_failure() {
     let result = DiscountCurve::builder("INVALID-CURVE")
         .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
         .knots([(0.0, 1.0), (1.0, 0.95), (2.0, 0.96), (5.0, 0.78)]) // 0.96 > 0.95
-        .set_interp(finstack_core::market_data::interp::InterpStyle::MonotoneConvex)
+        .set_interp(finstack_core::math::interp::InterpStyle::MonotoneConvex)
+        .set_interp(finstack_core::math::interp::InterpStyle::MonotoneConvex)
+        .set_interp(finstack_core::math::interp::InterpStyle::MonotoneConvex)
         .require_monotonic()
         .build();
 
@@ -96,7 +99,7 @@ fn test_non_monotonic_without_validation() {
     let result = DiscountCurve::builder("NON-MONOTONIC")
         .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
         .knots([(0.0, 1.0), (1.0, 0.95), (2.0, 0.96), (5.0, 0.78)])
-        .set_interp(finstack_core::market_data::interp::InterpStyle::Linear) // Use linear instead of monotone_convex for non-monotonic data
+        .set_interp(finstack_core::math::interp::InterpStyle::Linear) // Use linear instead of monotone_convex for non-monotonic data
         // Note: not calling require_monotonic()
         .build();
 
@@ -117,7 +120,7 @@ fn test_interpolation_styles_with_extrapolation() {
         let linear_curve = DiscountCurve::builder("LINEAR-TEST")
             .base_date(base_date)
             .knots(knots)
-            .set_interp(finstack_core::market_data::interp::InterpStyle::Linear)
+            .set_interp(finstack_core::math::interp::InterpStyle::Linear)
             .extrapolation(extrapolation)
             .build()
             .unwrap();
@@ -126,7 +129,7 @@ fn test_interpolation_styles_with_extrapolation() {
         let log_curve = DiscountCurve::builder("LOG-TEST")
             .base_date(base_date)
             .knots(knots)
-            .set_interp(finstack_core::market_data::interp::InterpStyle::LogLinear)
+            .set_interp(finstack_core::math::interp::InterpStyle::LogLinear)
             .extrapolation(extrapolation)
             .build()
             .unwrap();
@@ -135,7 +138,7 @@ fn test_interpolation_styles_with_extrapolation() {
         let mc_curve = DiscountCurve::builder("MC-TEST")
             .base_date(base_date)
             .knots(knots)
-            .set_interp(finstack_core::market_data::interp::InterpStyle::MonotoneConvex)
+            .set_interp(finstack_core::math::interp::InterpStyle::MonotoneConvex)
             .extrapolation(extrapolation)
             .build()
             .unwrap();
@@ -144,7 +147,7 @@ fn test_interpolation_styles_with_extrapolation() {
         let ch_curve = DiscountCurve::builder("CH-TEST")
             .base_date(base_date)
             .knots(knots)
-            .set_interp(finstack_core::market_data::interp::InterpStyle::CubicHermite)
+            .set_interp(finstack_core::math::interp::InterpStyle::CubicHermite)
             .extrapolation(extrapolation)
             .build()
             .unwrap();
@@ -205,7 +208,7 @@ fn test_credit_curve_construction() {
     let credit_curve = DiscountCurve::builder("CREDIT-5Y")
         .base_date(base_date)
         .knots(knots)
-        .set_interp(finstack_core::market_data::interp::InterpStyle::MonotoneConvex)
+        .set_interp(finstack_core::math::interp::InterpStyle::MonotoneConvex)
         .extrapolation(ExtrapolationPolicy::FlatForward) // Appropriate for credit curves
         .require_monotonic() // Critical for credit
         .build()
@@ -233,7 +236,8 @@ fn test_edge_cases() {
     let minimal_curve = DiscountCurve::builder("MINIMAL")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.95)])
-        .set_interp(finstack_core::market_data::interp::InterpStyle::Linear)
+        .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+        .set_interp(finstack_core::math::interp::InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -258,31 +262,31 @@ fn test_interpolation_consistency() {
         DiscountCurve::builder("LINEAR")
             .base_date(base_date)
             .knots(knots)
-            .set_interp(finstack_core::market_data::interp::InterpStyle::Linear)
+            .set_interp(finstack_core::math::interp::InterpStyle::Linear)
             .build()
             .unwrap(),
         DiscountCurve::builder("LOG")
             .base_date(base_date)
             .knots(knots)
-            .set_interp(finstack_core::market_data::interp::InterpStyle::LogLinear)
+            .set_interp(finstack_core::math::interp::InterpStyle::LogLinear)
             .build()
             .unwrap(),
         DiscountCurve::builder("MC")
             .base_date(base_date)
             .knots(knots)
-            .set_interp(finstack_core::market_data::interp::InterpStyle::MonotoneConvex)
+            .set_interp(finstack_core::math::interp::InterpStyle::MonotoneConvex)
             .build()
             .unwrap(),
         DiscountCurve::builder("CH")
             .base_date(base_date)
             .knots(knots)
-            .set_interp(finstack_core::market_data::interp::InterpStyle::CubicHermite)
+            .set_interp(finstack_core::math::interp::InterpStyle::CubicHermite)
             .build()
             .unwrap(),
         DiscountCurve::builder("FF")
             .base_date(base_date)
             .knots(knots)
-            .set_interp(finstack_core::market_data::interp::InterpStyle::FlatFwd)
+            .set_interp(finstack_core::math::interp::InterpStyle::FlatFwd)
             .build()
             .unwrap(),
     ];

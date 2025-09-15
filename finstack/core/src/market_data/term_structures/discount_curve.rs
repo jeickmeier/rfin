@@ -2,7 +2,7 @@
 //!
 //! A `DiscountCurve` stores discount factors at user-defined knot times (year
 //! fractions) and interpolates between them using any
-//! [`crate::market_data::interp::InterpStyle`].  The curve implements
+//! [`crate::math::interp::InterpStyle`].  The curve implements
 //! [`crate::market_data::traits::Discount`] so downstream pricing code can
 //! consume it polymorphically.
 //!
@@ -11,7 +11,7 @@
 //! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 //! use finstack_core::dates::Date;
 //! use time::Month;
-//! # use finstack_core::market_data::interp::InterpStyle;
+//! # use finstack_core::math::interp::InterpStyle;
 //!
 //! let curve = DiscountCurve::builder("USD-OIS")
 //!     .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
@@ -24,10 +24,10 @@
 
 
 use super::common::{build_interp_curve_error, split_points, OneDGrid};
-use crate::market_data::interp::{ExtrapolationPolicy, InterpStyle};
+use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     dates::Date,
-    market_data::interp::types::Interp,
+    math::interp::types::Interp,
     market_data::traits::{Discount, TermStructure},
     types::CurveId,
     F,

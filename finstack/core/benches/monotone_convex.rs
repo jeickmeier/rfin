@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use finstack_core::market_data::interp::{InterpFn, MonotoneConvex};
+use finstack_core::math::interp::{InterpFn, MonotoneConvex};
 
 fn bench_monotone_convex(c: &mut Criterion) {
     // Dense test curve: 101 knots from 0 to 10 years.
@@ -8,7 +8,7 @@ fn bench_monotone_convex(c: &mut Criterion) {
     let interp = MonotoneConvex::new(
         knots.clone().into_boxed_slice(),
         dfs.into_boxed_slice(),
-        finstack_core::market_data::interp::ExtrapolationPolicy::default(),
+        finstack_core::math::interp::ExtrapolationPolicy::default(),
     )
     .unwrap();
 

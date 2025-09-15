@@ -1,6 +1,6 @@
 //! Tests for valuations traits implementations.
 
-use finstack_core::market_data::interp::InterpStyle;
+use finstack_core::math::interp::InterpStyle;
 use finstack_core::{
     currency::Currency,
     dates::{Date, DayCount},

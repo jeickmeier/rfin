@@ -19,7 +19,7 @@ use finstack_core::{
 use super::interpolation::{PyExtrapolationPolicy, PyInterpStyle};
 use crate::core::dates::PyDate;
 use crate::core::dates::PyDayCount;
-use finstack_core::market_data::interp::InterpStyle;
+use finstack_core::math::interp::InterpStyle;
 
 /// Discount factor curve for present value calculations.
 ///

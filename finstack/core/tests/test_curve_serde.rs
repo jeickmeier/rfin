@@ -3,7 +3,7 @@
 #[cfg(feature = "serde")]
 mod tests {
     use finstack_core::dates::Date;
-    use finstack_core::market_data::interp::{ExtrapolationPolicy, InterpStyle};
+    use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
     use finstack_core::market_data::term_structures::{
         DiscountCurve, ForwardCurve, InflationCurve,
     };

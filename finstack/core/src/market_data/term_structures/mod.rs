@@ -17,7 +17,7 @@
 //!
 //! ## Choosing an interpolation style
 //! All curves are bootstrapped from knot points and allow selecting an
-//! [`crate::market_data::interp::InterpStyle`] via a single `set_interp(...)`
+//! [`crate::math::interp::InterpStyle`] via a single `set_interp(...)`
 //! method on their builders.
 //!
 //! ## Example – building three curves and bundling them in a `MarketContext`
@@ -26,7 +26,7 @@
 //! use finstack_core::market_data::MarketContext;
 //! use finstack_core::dates::Date;
 //! use time::Month;
-//! # use finstack_core::market_data::interp::InterpStyle;
+//! # use finstack_core::math::interp::InterpStyle;
 //!
 //! let disc = DiscountCurve::builder("USD-OIS")
 //!     .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())

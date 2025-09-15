@@ -402,7 +402,7 @@ pub fn calculate_oas(
 mod tests {
     use super::*;
     use crate::instruments::fixed_income::bond::CallPutSchedule;
-    use finstack_core::market_data::interp::InterpStyle;
+    use finstack_core::math::interp::InterpStyle;
     use time::Month;
 
     fn create_test_bond() -> Bond {

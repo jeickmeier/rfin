@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use finstack_core::dates::DayCount as CoreDayCount;
 use finstack_core::dates::{BusinessDayConvention, StubKind};
-use finstack_core::market_data::interp::InterpStyle;
+use finstack_core::math::interp::InterpStyle;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
 use finstack_core::market_data::traits::Discount as _;
 use finstack_valuations::cashflow::builder::{cf, CashFlowSchedule, CouponType, FixedCouponSpec};

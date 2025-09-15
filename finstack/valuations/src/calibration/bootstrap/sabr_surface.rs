@@ -378,7 +378,7 @@ impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
 mod tests {
     use super::*;
     use finstack_core::dates::Date;
-    use finstack_core::market_data::interp::InterpStyle;
+    use finstack_core::math::interp::InterpStyle;
     use time::Month;
 
     fn create_test_vol_quotes() -> Vec<VolQuote> {

@@ -2,7 +2,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency};
-use finstack_core::market_data::interp::InterpStyle;
+use finstack_core::math::interp::InterpStyle;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::market_data::MarketContext;
