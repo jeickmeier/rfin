@@ -9,7 +9,7 @@ use finstack_core::{
     types::CurveId,
     Result, F,
 };
-use finstack_core::market_data::traits::Forward;
+// Forward trait removed - use direct method calls on curve types
 
 /// Side of the TRS trade (perspective of the party)
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

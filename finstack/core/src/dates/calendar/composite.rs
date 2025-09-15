@@ -42,6 +42,7 @@ use time::Date;
 /// A lightweight view combining several holiday calendars.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[non_exhaustive]
 pub enum CompositeMode {
     /// Holiday if any sub-calendar marks the date as holiday (set union).
     Union,

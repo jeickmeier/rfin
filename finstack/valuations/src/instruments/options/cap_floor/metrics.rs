@@ -3,7 +3,7 @@
 use crate::instruments::options::cap_floor::InterestRateOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::{Result, F};
-use finstack_core::market_data::traits::{Discount, Forward};
+// use finstack_core::market_data::traits::Discounting;
 use std::sync::Arc;
 
 /// Delta calculator for interest rate options

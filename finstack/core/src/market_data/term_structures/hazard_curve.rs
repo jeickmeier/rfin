@@ -315,19 +315,19 @@ impl HazardCurve {
     }
 }
 
-impl TermStructure for HazardCurve {
-    fn id(&self) -> &CurveId {
-        &self.id
+// Minimal trait implementations for polymorphism where needed
+
+impl Survival for HazardCurve {
+    #[inline]
+    fn sp(&self, t: F) -> F {
+        self.sp(t)
     }
 }
 
-impl Survival for HazardCurve {
-    fn sp(&self, t: F) -> F {
-        HazardCurve::sp(self, t)
-    }
-
-    fn default_prob(&self, t1: F, t2: F) -> F {
-        HazardCurve::default_prob(self, t1, t2)
+impl TermStructure for HazardCurve {
+    #[inline]
+    fn id(&self) -> &CurveId {
+        &self.id
     }
 }
 

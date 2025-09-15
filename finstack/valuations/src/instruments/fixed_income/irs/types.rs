@@ -1,8 +1,8 @@
 //! Interest Rate Swap (IRS) types and implementations.
-
+use finstack_core::market_data::traits::Forward;
 use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::{BusinessDayConvention, Frequency, StubKind};
-use finstack_core::market_data::traits::{Discount, Forward};
+use finstack_core::market_data::traits::{Discounting};
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -196,7 +196,7 @@ impl InterestRateSwap {
     }
 
     /// Compute PV of fixed leg (helper for value calculation).
-    fn pv_fixed_leg(&self, disc: &dyn Discount) -> finstack_core::Result<Money> {
+    fn pv_fixed_leg(&self, disc: &dyn Discounting) -> finstack_core::Result<Money> {
         let base = disc.base_date();
         let mut b = cf();
         b.principal(self.notional, self.fixed.start, self.fixed.end)
@@ -225,7 +225,7 @@ impl InterestRateSwap {
     }
 
     /// Compute PV of floating leg (helper for value calculation).
-    fn pv_float_leg(&self, disc: &dyn Discount, fwd: &dyn Forward) -> finstack_core::Result<Money> {
+    fn pv_float_leg(&self, disc: &dyn Discounting, fwd: &dyn Forward) -> finstack_core::Result<Money> {
         let base = disc.base_date();
         let builder = finstack_core::dates::ScheduleBuilder::new(self.float.start, self.float.end)
             .frequency(self.float.freq)

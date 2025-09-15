@@ -57,6 +57,7 @@ impl From<CoreInterpolation> for PyInflationInterpolation {
         match core {
             CoreInterpolation::Step => PyInflationInterpolation::Step,
             CoreInterpolation::Linear => PyInflationInterpolation::Linear,
+            _ => PyInflationInterpolation::Step,
         }
     }
 }
@@ -119,6 +120,7 @@ impl PyInflationLag {
             CoreLag::Months(m) => format!("{}-month lag", m),
             CoreLag::Days(d) => format!("{}-day lag", d),
             CoreLag::None => "No lag".to_string(),
+            _ => "No lag".to_string(),
         }
     }
 
@@ -127,6 +129,7 @@ impl PyInflationLag {
             CoreLag::Months(m) => format!("InflationLag.months({})", m),
             CoreLag::Days(d) => format!("InflationLag.days({})", d),
             CoreLag::None => "InflationLag.none()".to_string(),
+            _ => "InflationLag.none()".to_string(),
         }
     }
 }

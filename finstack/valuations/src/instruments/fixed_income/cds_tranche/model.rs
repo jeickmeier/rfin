@@ -39,7 +39,7 @@
 use crate::cashflow::builder::schedule_utils::build_dates;
 use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_core::dates::{Date, StubKind};
-use finstack_core::market_data::traits::Discount;
+use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::{term_structures::CreditIndexData, MarketContext};
 use finstack_core::math::binomial_probability;
 use finstack_core::math::{
@@ -471,7 +471,7 @@ impl GaussianCopulaModel {
         &self,
         tranche: &CdsTranche,
         index_data: &CreditIndexData,
-        discount_curve: &dyn Discount,
+        discount_curve: &dyn Discounting,
         as_of: Date,
     ) -> Result<F> {
         let coupon = tranche.running_coupon_bp / 10000.0; // Convert bp to decimal
@@ -540,7 +540,7 @@ impl GaussianCopulaModel {
         &self,
         tranche: &CdsTranche,
         index_data: &CreditIndexData,
-        discount_curve: &dyn Discount,
+        discount_curve: &dyn Discounting,
         as_of: Date,
     ) -> Result<F> {
         let tranche_notional = tranche.notional.amount();

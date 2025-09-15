@@ -2,7 +2,7 @@
 //!
 //! These helpers are intentionally lightweight and do not allocate.
 
-#![allow(clippy::wrong_self_convention, clippy::assign_op_pattern)]
+#![allow(clippy::wrong_self_convention)]
 
 use crate::dates::calendar::core::{seek_business_day, MAX_BUSINESS_DAY_SEARCH_DAYS};
 use crate::dates::periods::{days_in_month, FiscalConfig};
@@ -126,7 +126,7 @@ impl DateExt for Date {
         let mut date = self;
         while n != 0 {
             // Safe unwrap: adding 1 day to a valid Date always succeeds within time range.
-            date = date + Duration::days(step as i64);
+            date += Duration::days(step as i64);
             if !date.is_weekend() {
                 n -= step;
             }
@@ -148,7 +148,7 @@ impl DateExt for Date {
         for _ in 0..n.unsigned_abs() {
             // move at least one day in the desired direction, then seek to a business day
             let start = current + Duration::days(step as i64);
-            current = seek_business_day(start, step, MAX_BUSINESS_DAY_SEARCH_DAYS, cal)?;
+            current = seek_business_day(start, step, MAX_BUSINESS_DAY_SEARCH_DAYS, cal, "BusinessDayAddition", self)?;
         }
         Ok(current)
     }
@@ -255,7 +255,7 @@ impl<C: crate::dates::calendar::HolidayCalendar + ?Sized> Iterator for BusinessD
     fn next(&mut self) -> Option<Self::Item> {
         while self.current < self.end {
             let d = self.current;
-            self.current = self.current + Duration::days(1);
+            self.current += Duration::days(1);
             if self.cal.is_business_day(d) {
                 return Some(d);
             }

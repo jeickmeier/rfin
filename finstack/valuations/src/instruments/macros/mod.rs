@@ -117,7 +117,7 @@ macro_rules! impl_instrument_schedule_pv {
                 // Use trait object to avoid monomorphization
                 let flows = CashflowProvider::build_schedule(s, curves, as_of)?;
                 let disc = curves.discount(<str as ::core::convert::AsRef<str>>::as_ref(s.$disc.as_ref()))?;
-                use finstack_core::market_data::traits::Discount;
+                // Import not needed here; types expose required methods
                 flows.npv(&*disc, disc.base_date(), s.$dc)
             }
         );

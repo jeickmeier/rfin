@@ -5,7 +5,7 @@
 //! like Ho-Lee and Black-Derman-Toy.
 
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::traits::Discount;
+use finstack_core::market_data::traits::Discounting;
 use finstack_core::{Error, Result, F};
 
 use super::tree_framework::{NodeState, StateVariables, TreeGreeks, TreeModel, TreeValuator};
@@ -95,7 +95,7 @@ impl ShortRateTree {
     }
 
     /// Calibrate the tree to match a given discount curve
-    pub fn calibrate(&mut self, discount_curve: &dyn Discount, time_to_maturity: F) -> Result<()> {
+    pub fn calibrate(&mut self, discount_curve: &dyn Discounting, time_to_maturity: F) -> Result<()> {
         self.calibration_curve_id = "CALIBRATED".to_string();
 
         // Build time grid
@@ -115,7 +115,7 @@ impl ShortRateTree {
     }
 
     /// Calibrate Ho-Lee model parameters
-    fn calibrate_ho_lee(&mut self, discount_curve: &dyn Discount, dt: F) -> Result<()> {
+    fn calibrate_ho_lee(&mut self, discount_curve: &dyn Discounting, dt: F) -> Result<()> {
         let sigma = self.config.volatility;
 
         // Initialize first step with current short rate
@@ -173,7 +173,7 @@ impl ShortRateTree {
     /// Calculate Ho-Lee drift term to match discount curve
     fn calculate_ho_lee_drift(
         &self,
-        discount_curve: &dyn Discount,
+        discount_curve: &dyn Discounting,
         current_time: F,
         next_time: F,
         current_rates: &[F],
@@ -212,7 +212,7 @@ impl ShortRateTree {
     ///
     /// Implements proper BDT calibration that matches the discount curve at each step
     /// by solving for the drift parameter using state-price recursion and root finding.
-    fn calibrate_bdt(&mut self, discount_curve: &dyn Discount, dt: F) -> Result<()> {
+    fn calibrate_bdt(&mut self, discount_curve: &dyn Discounting, dt: F) -> Result<()> {
         use finstack_core::math::{HybridSolver, Solver};
 
         let sigma = self.config.volatility;

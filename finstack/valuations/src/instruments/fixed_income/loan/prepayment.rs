@@ -2,7 +2,7 @@
 
 use crate::instruments::fixed_income::discountable::Discountable;
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::traits::{Discount, TermStructure};
+use finstack_core::market_data::traits::{Discounting, TermStructure};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
@@ -129,13 +129,13 @@ pub struct PrepaymentSchedule {
 /// Helper discount curve that applies a z-spread on top of a base curve.
 /// Used for make-whole calculations: DF(t) = base_DF(t) * exp(-z*t)
 struct ZSpreadCurve<'a> {
-    base: &'a dyn Discount,
+    base: &'a dyn Discounting,
     z_spread: F, // in decimal (not basis points)
     id: CurveId,
 }
 
 impl<'a> ZSpreadCurve<'a> {
-    fn new(base: &'a dyn Discount, spread_bp: F) -> Self {
+    fn new(base: &'a dyn Discounting, spread_bp: F) -> Self {
         let z_spread = spread_bp / 10000.0; // Convert basis points to decimal
         let id = CurveId::from(format!("{}+{}bp", base.id().as_str(), spread_bp));
         Self { base, z_spread, id }
@@ -148,7 +148,7 @@ impl TermStructure for ZSpreadCurve<'_> {
     }
 }
 
-impl Discount for ZSpreadCurve<'_> {
+impl Discounting for ZSpreadCurve<'_> {
     #[inline]
     fn base_date(&self) -> Date {
         self.base.base_date()
@@ -185,7 +185,7 @@ impl TermStructure for FlatRateCurve {
     }
 }
 
-impl Discount for FlatRateCurve {
+impl Discounting for FlatRateCurve {
     #[inline]
     fn base_date(&self) -> Date {
         self.base_date

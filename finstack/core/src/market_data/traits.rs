@@ -1,74 +1,29 @@
-//! Term-structure traits for market data (curves, surfaces, lattices)
+//! Minimal traits for market data polymorphism
+//!
+//! After collapsing trait hierarchies, these traits exist only where
+//! true polymorphism is needed. Most functionality is now directly
+//! implemented on concrete types for better API discoverability.
 
 use crate::dates::Date;
-use crate::types::CurveId;
 use crate::F;
-#[cfg(feature = "parallel")]
-use rayon::prelude::*;
 
 // -----------------------------------------------------------------------------
-// Core super-trait
-// -----------------------------------------------------------------------------
-/// Common super-trait for all term-structure types (curves, surfaces, lattices).
-///
-/// The trait purposefully only exposes the [`id`] accessor which every market
-/// object shares. Specialised behaviour lives in focused traits such as
-/// [`Discount`], [`Forward`], [`Survival`], [`Inflation`] and [`Surface`].
-pub trait TermStructure {
-    /// Unique identifier of the term structure (e.g. "USD-OIS").
-    fn id(&self) -> &CurveId;
-}
-
-// -----------------------------------------------------------------------------
-// Specialised traits
+// Minimal traits for polymorphism only
 // -----------------------------------------------------------------------------
 
-/// Discount-factor based curve.
-pub trait Discount: TermStructure {
+/// Minimal trait for discount curve polymorphism.
+/// Only implement this where you need to accept different discount curve types.
+/// 
+/// Most code should call methods directly on `DiscountCurve` for better discoverability.
+pub trait Discounting: TermStructure {
     /// Base (valuation) date of the curve.
     fn base_date(&self) -> Date;
     /// Discount factor at time `t` (year fraction from the base date).
     fn df(&self, t: F) -> F;
-
-    /// Continuously-compounded zero rate.
-    #[inline]
-    fn zero(&self, t: F) -> F {
-        if t == 0.0 {
-            return 0.0;
-        }
-        -self.df(t).ln() / t
-    }
-
-    /// Simple forward rate between `t1` and `t2`.
-    #[inline]
-    fn forward(&self, t1: F, t2: F) -> F {
-        debug_assert!(t2 > t1, "forward requires t2 > t1");
-        let z1 = self.zero(t1) * t1;
-        let z2 = self.zero(t2) * t2;
-        (z1 - z2) / (t2 - t1)
-    }
-
-    /// Batch evaluation helper (parallel over `times` slice when compiled
-    /// with the `parallel` feature).
-    #[cfg_attr(docsrs, doc(cfg(feature = "parallel")))]
-    fn df_batch(&self, times: &[F]) -> Vec<F>
-    where
-        Self: Sync,
-    {
-        #[cfg(feature = "parallel")]
-        {
-            // Parallel iteration is required to be order-stable; results must be bit-identical
-            // to the sequential path. We therefore only parallelize the map, preserving order.
-            times.par_iter().map(|&t| self.df(t)).collect()
-        }
-        #[cfg(not(feature = "parallel"))]
-        {
-            times.iter().map(|&t| self.df(t)).collect()
-        }
-    }
 }
 
-/// Forward-rate curves (e.g. 3-month SOFR).
+/// Minimal trait for forward curve polymorphism where needed.
+/// Most code should call methods directly on `ForwardCurve`.
 pub trait Forward: TermStructure {
     /// Simple forward rate starting at time `t`.
     fn rate(&self, t: F) -> F;
@@ -81,46 +36,27 @@ pub trait Forward: TermStructure {
     }
 }
 
-/// Credit survival / hazard curves.
+/// Minimal trait for survival/hazard curve polymorphism where needed.
+/// Most code should call methods directly on `HazardCurve`.
 pub trait Survival: TermStructure {
     /// Survival probability up to time `t`.
     fn sp(&self, t: F) -> F;
-
-    /// Default probability between `t1` and `t2`.
-    #[inline]
-    fn default_prob(&self, t1: F, t2: F) -> F {
-        debug_assert!(t2 >= t1, "t2 must be >= t1");
-        let s1 = self.sp(t1);
-        let s2 = self.sp(t2);
-        s1 - s2
-    }
 }
 
-/// CPI / real inflation index curves.
-pub trait Inflation: TermStructure {
-    /// CPI at time `t`.
-    fn cpi(&self, t: F) -> F;
-
-    /// Simple annualised inflation rate.
-    #[inline]
-    fn inflation_rate(&self, t1: F, t2: F) -> F {
-        debug_assert!(t2 > t1, "t2 must be after t1");
-        (self.cpi(t2) / self.cpi(t1) - 1.0) / (t2 - t1)
-    }
-}
-
-/// Generic 2-D surface (e.g. volatility grid).
-pub trait Surface: TermStructure {
-    /// Surface value at (`x`, `y`).
-    fn value(&self, x: F, y: F) -> F;
+/// Minimal trait for term structure polymorphism where needed.
+/// Most code should call methods directly on concrete curve types.
+pub trait TermStructure {
+    /// Unique identifier of the term structure.
+    fn id(&self) -> &crate::types::CurveId;
 }
 
 // -----------------------------------------------------------------------------
-// Tests – confirm helper methods behave as expected
+// Tests
 // -----------------------------------------------------------------------------
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::CurveId;
 
     struct FlatCurve {
         id: CurveId,
@@ -137,12 +73,12 @@ mod tests {
     }
 
     impl TermStructure for FlatCurve {
-        fn id(&self) -> &CurveId {
+        fn id(&self) -> &crate::types::CurveId {
             &self.id
         }
     }
 
-    impl Discount for FlatCurve {
+    impl Discounting for FlatCurve {
         fn base_date(&self) -> Date {
             Date::from_calendar_date(2025, time::Month::January, 1).unwrap()
         }
@@ -152,18 +88,9 @@ mod tests {
     }
 
     #[test]
-    fn zero_rate_matches_formula() {
+    fn discounting_trait_works() {
         let c = FlatCurve::new("TEST", 0.9);
-        let t = 2.0;
-        let expected = -0.9f64.ln() / t;
-        assert!((c.zero(t) - expected).abs() < 1e-12);
-    }
-
-    #[test]
-    fn forward_rate_matches_difference() {
-        let c = FlatCurve::new("TEST", 0.95);
-        let (t1, t2) = (1.0, 3.0);
-        let forward = c.forward(t1, t2);
-        assert!(forward.abs() < 1e-12);
+        let df = c.df(1.0);
+        assert_eq!(df, 0.9);
     }
 }

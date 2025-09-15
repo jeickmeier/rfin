@@ -28,7 +28,7 @@ use super::{
         forward_curve::ForwardCurve,
         hazard_curve::HazardCurve,
     },
-    traits::{Discount, TermStructure},
+    traits::Discounting,
 };
 
 // Re-export bump functionality
@@ -132,9 +132,6 @@ impl CurveStorage {
     }
 }
 
-impl TermStructure for CurveStorage {
-    fn id(&self) -> &CurveId { self.id() }
-}
 
 // Convenience constructors (removed unused new_* helpers)
 
@@ -260,42 +257,42 @@ impl MarketContext {
 
     /// Insert a discount curve
     pub fn insert_discount(mut self, curve: DiscountCurve) -> Self {
-        let id = TermStructure::id(&curve).clone();
+        let id = curve.id().clone();
         self.curves.insert(id, CurveStorage::Discount(Arc::new(curve)));
         self
     }
 
     /// Insert a forward curve
     pub fn insert_forward(mut self, curve: ForwardCurve) -> Self {
-        let id = TermStructure::id(&curve).clone();
+        let id = curve.id().clone();
         self.curves.insert(id, CurveStorage::Forward(Arc::new(curve)));
         self
     }
 
     /// Insert a hazard curve
     pub fn insert_hazard(mut self, curve: HazardCurve) -> Self {
-        let id = TermStructure::id(&curve).clone();
+        let id = curve.id().clone();
         self.curves.insert(id, CurveStorage::Hazard(Arc::new(curve)));
         self
     }
 
     /// Insert an inflation curve
     pub fn insert_inflation(mut self, curve: InflationCurve) -> Self {
-        let id = TermStructure::id(&curve).clone();
+        let id = curve.id().clone();
         self.curves.insert(id, CurveStorage::Inflation(Arc::new(curve)));
         self
     }
 
     /// Insert a base correlation curve
     pub fn insert_base_correlation(mut self, curve: BaseCorrelationCurve) -> Self {
-        let id = TermStructure::id(&curve).clone();
+        let id = curve.id().clone();
         self.curves.insert(id, CurveStorage::BaseCorrelation(Arc::new(curve)));
         self
     }
 
     /// Insert a volatility surface
     pub fn insert_surface(mut self, surface: VolSurface) -> Self {
-        let id = TermStructure::id(&surface).clone();
+        let id = surface.id().clone();
         self.surfaces.insert(id, Arc::new(surface));
         self
     }
@@ -514,19 +511,19 @@ impl MarketContext {
     }
 
     /// Resolve collateral discount curve for CSA code
-    pub fn collateral(&self, csa_code: &str) -> Result<Arc<dyn Discount + Send + Sync>> {
+    pub fn collateral(&self, csa_code: &str) -> Result<Arc<dyn Discounting + Send + Sync>> {
         let curve_id = self.collateral.get(csa_code)
             .ok_or(crate::error::InputError::NotFound {
                     id: format!("collateral:{}", csa_code),
             })?;
-        self.discount(curve_id.as_str()).map(|arc| arc as Arc<dyn Discount + Send + Sync>)
+        self.discount(curve_id.as_str()).map(|arc| arc as Arc<dyn Discounting + Send + Sync>)
     }
 
     /// Borrow discount curve for collateral CSA code without cloning the `Arc`
-    pub fn collateral_ref(&self, csa_code: &str) -> Result<&dyn Discount> {
+    pub fn collateral_ref(&self, csa_code: &str) -> Result<&dyn Discounting> {
         let curve_id = self.collateral.get(csa_code)
             .ok_or(crate::error::InputError::NotFound { id: format!("collateral:{}", csa_code) })?;
-        self.discount_ref(curve_id.as_str()).map(|r| r as &dyn Discount)
+        self.discount_ref(curve_id.as_str()).map(|r| r as &dyn Discounting)
     }
 
     // -----------------------------------------------------------------------------
@@ -666,7 +663,7 @@ impl MarketContext {
             // Try each curve type and delegate to centralized helpers
             if let Ok(original) = self.discount_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let bumped_id = TermStructure::id(&bumped).clone();
+                    let bumped_id = bumped.id().clone();
                     new_context.curves.insert(bumped_id, CurveStorage::Discount(Arc::new(bumped)));
                     continue;
                 }
@@ -674,7 +671,7 @@ impl MarketContext {
 
             if let Ok(original) = self.forward_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let bumped_id = TermStructure::id(&bumped).clone();
+                    let bumped_id = bumped.id().clone();
                     new_context.curves.insert(bumped_id, CurveStorage::Forward(Arc::new(bumped)));
                     continue;
                 }
@@ -682,7 +679,7 @@ impl MarketContext {
 
             if let Ok(original) = self.hazard_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let bumped_id = TermStructure::id(&bumped).clone();
+                    let bumped_id = bumped.id().clone();
                     new_context.curves.insert(bumped_id, CurveStorage::Hazard(Arc::new(bumped)));
                     continue;
                 }
@@ -690,7 +687,7 @@ impl MarketContext {
 
             if let Ok(original) = self.inflation_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let bumped_id = TermStructure::id(&bumped).clone();
+                    let bumped_id = bumped.id().clone();
                     new_context.curves.insert(bumped_id, CurveStorage::Inflation(Arc::new(bumped)));
                     continue;
                 }
@@ -698,7 +695,7 @@ impl MarketContext {
 
             if let Ok(original) = self.base_correlation_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let bumped_id = TermStructure::id(&bumped).clone();
+                    let bumped_id = bumped.id().clone();
                     new_context.curves.insert(bumped_id, CurveStorage::BaseCorrelation(Arc::new(bumped)));
                     continue;
                 }

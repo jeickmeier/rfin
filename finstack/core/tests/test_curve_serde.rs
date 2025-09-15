@@ -7,7 +7,6 @@ mod tests {
     use finstack_core::market_data::term_structures::{
         DiscountCurve, ForwardCurve, InflationCurve,
     };
-    use finstack_core::market_data::traits::{Discount, TermStructure};
     use time::Month;
 
     #[test]

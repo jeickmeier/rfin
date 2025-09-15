@@ -24,7 +24,7 @@ use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     error::InputError,
     math::interp::types::Interp,
-    market_data::traits::{Inflation as InflationTrait, TermStructure},
+    market_data::traits::TermStructure,
     types::CurveId,
     F,
 };
@@ -108,19 +108,12 @@ impl InflationCurve {
     }
 }
 
+// Minimal trait implementation for polymorphism where needed
+
 impl TermStructure for InflationCurve {
-    fn id(&self) -> &crate::types::CurveId {
+    #[inline]
+    fn id(&self) -> &CurveId {
         &self.id
-    }
-}
-
-impl InflationTrait for InflationCurve {
-    fn cpi(&self, t: F) -> F {
-        InflationCurve::cpi(self, t)
-    }
-
-    fn inflation_rate(&self, t1: F, t2: F) -> F {
-        InflationCurve::inflation_rate(self, t1, t2)
     }
 }
 

@@ -444,7 +444,7 @@ impl CashflowProvider for Loan {
             let mut flows = Vec::new();
 
             // Get the forward curve
-            use finstack_core::market_data::traits::Forward;
+            // Forward trait removed - use direct method calls on curve types
             let fwd_curve = curves.forward_ref(index_id)?;
 
             // Generate payment dates

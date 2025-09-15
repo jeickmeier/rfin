@@ -26,9 +26,9 @@
 use super::common::{build_interp_curve_error, split_points, OneDGrid};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
-    dates::Date,
+    dates::{Date, DayCountCtx},
     math::interp::types::Interp,
-    market_data::traits::{Discount, TermStructure},
+    market_data::traits::{Discounting, TermStructure},
     types::CurveId,
     F,
 };
@@ -43,6 +43,10 @@ pub struct DiscountCurve {
     /// Discount factors (unitless).
     dfs: Box<[F]>,
     interp: Interp,
+    /// Interpolation style (stored for serialization and bumping)
+    style: InterpStyle,
+    /// Extrapolation policy (stored for serialization and bumping)
+    extrapolation: ExtrapolationPolicy,
 }
 
 /// Serializable state of DiscountCurve
@@ -63,15 +67,75 @@ pub struct DiscountCurveState {
 }
 
 impl DiscountCurve {
+    /// Unique identifier of the curve.
+    #[inline]
+    pub fn id(&self) -> &CurveId {
+        &self.id
+    }
+
+    /// Base (valuation) date of the curve.
+    #[inline]
+    pub fn base_date(&self) -> Date {
+        self.base
+    }
+
+    /// Continuously-compounded zero rate.
+    #[inline]
+    pub fn zero(&self, t: F) -> F {
+        if t == 0.0 {
+            return 0.0;
+        }
+        -self.df(t).ln() / t
+    }
+
+    /// Simple forward rate between `t1` and `t2`.
+    #[inline]
+    pub fn forward(&self, t1: F, t2: F) -> F {
+        debug_assert!(t2 > t1, "forward requires t2 > t1");
+        let z1 = self.zero(t1) * t1;
+        let z2 = self.zero(t2) * t2;
+        (z1 - z2) / (t2 - t1)
+    }
+
+    /// Batch evaluation helper (parallel over `times` slice when compiled
+    /// with the `parallel` feature).
+    #[cfg_attr(docsrs, doc(cfg(feature = "parallel")))]
+    pub fn df_batch(&self, times: &[F]) -> Vec<F> {
+        #[cfg(feature = "parallel")]
+        {
+            use rayon::prelude::*;
+            // Parallel iteration is required to be order-stable; results must be bit-identical
+            // to the sequential path. We therefore only parallelize the map, preserving order.
+            times.par_iter().map(|&t| self.df(t)).collect()
+        }
+        #[cfg(not(feature = "parallel"))]
+        {
+            times.iter().map(|&t| self.df(t)).collect()
+        }
+    }
+
     /// Convenience: discount factor on a specific date `date` given a curve and
     /// the curve base `base` and `day_count`.
     /// This is equivalent to `disc.df(t)` where `t` is the year fraction from `base` to `date`.
     #[inline]
-    pub fn df_on(disc: &dyn Discount, base: Date, date: Date, dc: crate::dates::DayCount) -> F {
+    pub fn df_on_date(&self, date: Date, dc: crate::dates::DayCount) -> F {
+        let t = if date == self.base {
+            0.0
+        } else {
+            dc.year_fraction(self.base, date, DayCountCtx::default())
+                .unwrap_or(0.0)
+        };
+        self.df(t)
+    }
+
+    /// Static convenience: discount factor on a specific date given any discount curve.
+    /// For backward compatibility with existing code.
+    #[inline]
+    pub fn df_on(disc: &dyn Discounting, base: Date, date: Date, dc: crate::dates::DayCount) -> F {
         let t = if date == base {
             0.0
         } else {
-            dc.year_fraction(base, date, crate::dates::DayCountCtx::default())
+            dc.year_fraction(base, date, DayCountCtx::default())
                 .unwrap_or(0.0)
         };
         disc.df(t)
@@ -96,8 +160,8 @@ impl DiscountCurve {
         DiscountCurve::builder(new_id)
             .base_date(self.base)
             .knots(bumped_points)
-            .set_interp(self.interp.style())
-            .extrapolation(self.interp.extrapolation())
+            .set_interp(self.style)
+            .extrapolation(self.extrapolation)
             .build()
             .expect("building bumped discount curve should not fail")
     }
@@ -290,8 +354,8 @@ impl DiscountCurve {
             base: self.base,
             points: super::common::StateKnotPoints { knot_points },
             interp: super::common::StateInterp {
-                interp_style: self.interp.style(),
-                extrapolation: self.interp.extrapolation(),
+                interp_style: self.style,
+                extrapolation: self.extrapolation,
             },
             require_monotonic: false, // Default - we can't recover this info from existing curves
         }
@@ -389,6 +453,8 @@ impl DiscountCurveBuilder {
             knots,
             dfs,
             interp,
+            style: self.style,
+            extrapolation: self.extrapolation,
         })
     }
 }
@@ -420,17 +486,11 @@ impl super::common::CurveBuilder for DiscountCurveBuilder {
 // Interpolator helpers now centralised in InterpStyle – local factory fns removed.
 
 // -----------------------------------------------------------------------------
-// Trait impls – new generic trait family
+// Minimal trait implementation for polymorphism where needed
 // -----------------------------------------------------------------------------
 
-impl TermStructure for DiscountCurve {
+impl Discounting for DiscountCurve {
     #[inline]
-    fn id(&self) -> &CurveId {
-        &self.id
-    }
-}
-
-impl Discount for DiscountCurve {
     fn base_date(&self) -> Date {
         self.base
     }
@@ -438,6 +498,13 @@ impl Discount for DiscountCurve {
     #[inline]
     fn df(&self, t: F) -> F {
         self.interp.interp(t)
+    }
+}
+
+impl TermStructure for DiscountCurve {
+    #[inline]
+    fn id(&self) -> &CurveId {
+        &self.id
     }
 }
 

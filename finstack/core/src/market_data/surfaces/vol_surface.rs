@@ -23,8 +23,8 @@
 
 use crate::{
     error::InputError,
-    market_data::traits::{Surface, TermStructure},
     math::interp::utils::locate_segment,
+    market_data::traits::TermStructure,
     types::CurveId,
     Error, F,
 };
@@ -202,13 +202,10 @@ impl VolSurface {
     }
 }
 
-impl Surface for VolSurface {
-    fn value(&self, x: F, y: F) -> F {
-        self.value(x, y)
-    }
-}
+// Minimal trait implementation for polymorphism where needed
 
 impl TermStructure for VolSurface {
+    #[inline]
     fn id(&self) -> &CurveId {
         &self.id
     }

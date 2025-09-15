@@ -1,10 +1,10 @@
 //! Credit Default Swap (CDS) types and implementations.
-
+use finstack_core::market_data::traits::Survival;
 use crate::cashflow::traits::DatedFlows;
 use crate::instruments::common::{CDSConstructionParams, CreditParams, DateRange, MarketRefs, PricingOverrides};
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
-use finstack_core::market_data::traits::{Discount, Survival};
+use finstack_core::market_data::traits::{Discounting};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::F;
@@ -302,7 +302,7 @@ impl CreditDefaultSwap {
     /// Calculate premium leg PV (delegates to enhanced pricer)
     pub fn pv_premium_leg(
         &self,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> finstack_core::Result<Money> {
         let pricer = cds_pricer::CDSPricer::new();
@@ -313,7 +313,7 @@ impl CreditDefaultSwap {
     /// Calculate protection leg PV (delegates to enhanced pricer)
     pub fn pv_protection_leg(
         &self,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> finstack_core::Result<Money> {
         let pricer = cds_pricer::CDSPricer::new();
@@ -322,7 +322,7 @@ impl CreditDefaultSwap {
     }
 
     /// Calculate par spread (spread that makes PV = 0) via enhanced pricer
-    pub fn par_spread(&self, disc: &dyn Discount, surv: &dyn Survival) -> finstack_core::Result<F> {
+    pub fn par_spread(&self, disc: &dyn Discounting, surv: &dyn Survival) -> finstack_core::Result<F> {
         let pricer = cds_pricer::CDSPricer::new();
         let as_of = disc.base_date();
         pricer.par_spread(self, disc, surv, as_of)
@@ -331,7 +331,7 @@ impl CreditDefaultSwap {
     /// Calculate risky annuity (premium leg PV per bp) via enhanced pricer
     pub fn risky_annuity(
         &self,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> finstack_core::Result<F> {
         let pricer = cds_pricer::CDSPricer::new();
@@ -340,7 +340,7 @@ impl CreditDefaultSwap {
     }
 
     /// Calculate risky PV01 (change in PV for 1bp spread change)
-    pub fn risky_pv01(&self, disc: &dyn Discount, surv: &dyn Survival) -> finstack_core::Result<F> {
+    pub fn risky_pv01(&self, disc: &dyn Discounting, surv: &dyn Survival) -> finstack_core::Result<F> {
         let pricer = cds_pricer::CDSPricer::new();
         let as_of = disc.base_date();
         pricer.risky_pv01(self, disc, surv, as_of)

@@ -18,7 +18,6 @@
 //! ```
 
 use crate::error::InputError;
-use crate::market_data::traits::TermStructure;
 use crate::types::CurveId;
 use crate::Result;
 use crate::F;
@@ -132,8 +131,10 @@ impl BaseCorrelationCurve {
     }
 }
 
-impl TermStructure for BaseCorrelationCurve {
-    fn id(&self) -> &crate::types::CurveId {
+impl BaseCorrelationCurve {
+    /// Curve identifier.
+    #[inline]
+    pub fn id(&self) -> &CurveId {
         &self.id
     }
 }

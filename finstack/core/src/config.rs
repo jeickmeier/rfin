@@ -22,6 +22,7 @@ use hashbrown::HashMap;
 /// Rounding modes supported by the library.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub enum RoundingMode {
     /// Banker's rounding (ties to even).
     Bankers,
@@ -112,6 +113,7 @@ pub struct RoundingContext {
 /// Numeric engine mode.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub enum NumericMode {
     /// Floating-point f64 engine.
     F64,

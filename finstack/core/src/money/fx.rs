@@ -28,6 +28,7 @@ pub type FxRate = f64;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[non_exhaustive]
 pub enum FxConversionPolicy {
     /// Use spot/forward on the cashflow date.
     CashflowDate,

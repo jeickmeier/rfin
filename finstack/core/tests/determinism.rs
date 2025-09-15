@@ -1,6 +1,5 @@
 use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::traits::Discount;
 use finstack_core::math::{kahan_sum, pairwise_sum};
 use time::Month;
 

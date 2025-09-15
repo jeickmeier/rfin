@@ -13,7 +13,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::{
     HazardCurve, ParInterp, Seniority,
 };
-use finstack_core::market_data::traits::Discount;
+use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
@@ -117,7 +117,7 @@ impl HazardCurveCalibrator {
         &self,
         quotes: &[CreditQuote],
         solver: &S,
-        discount_curve_opt: Option<&dyn Discount>,
+        discount_curve_opt: Option<&dyn Discounting>,
     ) -> Result<(HazardCurve, CalibrationReport)> {
         // Extract CDS quotes for this entity and sort by maturity
         let mut cds_quotes: Vec<(finstack_core::dates::Date, F, Option<F>)> = quotes

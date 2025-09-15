@@ -175,6 +175,7 @@ impl InflationLinkedBond {
             InflationLag::Months(m) => finstack_core::dates::add_months(date, -(m as i32)),
             InflationLag::Days(d) => date - time::Duration::days(d as i64),
             InflationLag::None => date,
+            _ => date,
         };
 
         // Get index value at reference date

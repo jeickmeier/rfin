@@ -7,7 +7,7 @@ use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
 use finstack_core::F;
-use finstack_core::market_data::traits::Forward;
+// Forward trait removed - use direct method calls on curve types
 
 /// Type of interest rate option
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

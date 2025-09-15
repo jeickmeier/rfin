@@ -8,8 +8,6 @@ use finstack_core::market_data::term_structures::{
     discount_curve::DiscountCurve, forward_curve::ForwardCurve, hazard_curve::HazardCurve,
     inflation::InflationCurve, BaseCorrelationCurve,
 };
-use finstack_core::market_data::traits::Discount;
-use finstack_core::prelude::*;
 use finstack_core::{Error, Result, F};
 use std::collections::BTreeMap;
 

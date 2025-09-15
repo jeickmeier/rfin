@@ -7,7 +7,7 @@
 use super::ids::MetricId;
 use super::traits::{MetricCalculator, MetricContext};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::traits::{Discount, Forward, TermStructure};
+use finstack_core::market_data::traits::{Discounting, Forward, TermStructure};
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
 use finstack_core::F;
@@ -19,14 +19,14 @@ use std::sync::Arc;
 /// This shifts the effective time axis: df_aged(u) = df_original(u + dt) / df_original(dt)
 /// where dt is the time shift in year fractions.
 struct AgedDiscountCurve {
-    original: Arc<dyn Discount + Send + Sync>,
+    original: Arc<dyn Discounting + Send + Sync>,
     shift_date: Date,
     dt: F,
 }
 
 impl AgedDiscountCurve {
     fn new(
-        original: Arc<dyn Discount + Send + Sync>,
+        original: Arc<dyn Discounting + Send + Sync>,
         shift_date: Date,
         day_count: DayCount,
     ) -> finstack_core::Result<Self> {
@@ -50,7 +50,7 @@ impl TermStructure for AgedDiscountCurve {
     }
 }
 
-impl Discount for AgedDiscountCurve {
+impl Discounting for AgedDiscountCurve {
     #[inline]
     fn base_date(&self) -> Date {
         self.shift_date
@@ -187,7 +187,7 @@ impl BucketedDv01Calculator {
     fn compute_bucketed(
         &self,
         flows: &[(Date, Money)],
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         dc: DayCount,
         base: Date,
     ) -> HashMap<String, F> {

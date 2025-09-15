@@ -1,7 +1,7 @@
 //! Cashflow-related traits and aliases.
 
 use crate::instruments::fixed_income::discountable::Discountable;
-use finstack_core::market_data::traits::Discount;
+use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 
@@ -34,7 +34,7 @@ pub trait CashflowProvider: Send + Sync {
         &self,
         curves: &MarketContext,
         as_of: Date,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         dc: DayCount,
     ) -> finstack_core::Result<Money> {
         let base = disc.base_date();

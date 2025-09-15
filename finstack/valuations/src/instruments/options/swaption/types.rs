@@ -5,7 +5,7 @@ use crate::instruments::options::models::{SABRModel, SABRParameters};
 use crate::instruments::options::OptionType;
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
-use finstack_core::market_data::traits::Discount;
+use finstack_core::market_data::traits::Discounting;
 use finstack_core::math::norm_cdf;
 use finstack_core::money::Money;
 use finstack_core::{Error, Result, F};
@@ -128,7 +128,7 @@ impl Swaption {
         self
     }
 
-    pub(crate) fn swap_annuity(&self, disc: &dyn Discount) -> Result<F> {
+    pub(crate) fn swap_annuity(&self, disc: &dyn Discounting) -> Result<F> {
         let base_date = disc.base_date();
         let mut annuity = 0.0;
         let sched = crate::cashflow::builder::build_dates(
@@ -154,7 +154,7 @@ impl Swaption {
         Ok(annuity)
     }
 
-    pub(crate) fn forward_swap_rate(&self, disc: &dyn Discount) -> Result<F> {
+    pub(crate) fn forward_swap_rate(&self, disc: &dyn Discounting) -> Result<F> {
         let base_date = disc.base_date();
         let t_start = self.year_fraction(base_date, self.swap_start, self.day_count)?;
         let t_end = self.year_fraction(base_date, self.swap_end, self.day_count)?;
@@ -164,7 +164,7 @@ impl Swaption {
         Ok((df_start - df_end) / annuity)
     }
 
-    pub fn black_price(&self, disc: &dyn Discount, volatility: F) -> Result<Money> {
+    pub fn black_price(&self, disc: &dyn Discounting, volatility: F) -> Result<Money> {
         let base_date = disc.base_date();
         let time_to_expiry = self.year_fraction(base_date, self.expiry, self.day_count)?;
         if time_to_expiry <= 0.0 {
@@ -189,7 +189,7 @@ impl Swaption {
         ))
     }
 
-    pub fn sabr_price(&self, disc: &dyn Discount) -> Result<Money> {
+    pub fn sabr_price(&self, disc: &dyn Discounting) -> Result<Money> {
         let sabr_params = self.sabr_params.as_ref().ok_or(Error::Internal)?;
         let model = SABRModel::new(sabr_params.clone());
         let base_date = disc.base_date();

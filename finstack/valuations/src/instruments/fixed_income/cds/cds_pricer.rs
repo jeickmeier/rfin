@@ -8,9 +8,10 @@
 
 use super::{CreditDefaultSwap, PayReceive};
 use finstack_core::currency::Currency;
+use finstack_core::market_data::traits::Survival;
 use finstack_core::dates::{next_cds_date, Date, DayCount};
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-use finstack_core::market_data::traits::{Discount, Survival};
+use finstack_core::market_data::traits::{Discounting};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
@@ -153,7 +154,7 @@ impl CDSPricer {
     pub fn pv_protection_leg(
         &self,
         cds: &CreditDefaultSwap,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         surv: &dyn Survival,
         _as_of: Date,
     ) -> Result<Money> {
@@ -199,7 +200,7 @@ impl CDSPricer {
     pub fn pv_premium_leg(
         &self,
         cds: &CreditDefaultSwap,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         surv: &dyn Survival,
         as_of: Date,
     ) -> Result<Money> {
@@ -247,7 +248,7 @@ impl CDSPricer {
         spread: F,
         t_start: F,
         t_end: F,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> Result<F> {
         // ISDA Standard Model: Accrual on default calculation
@@ -299,7 +300,7 @@ impl CDSPricer {
         t_start: F,
         _t_end: F,
         period_length: F,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> Result<F> {
         let num_steps = (period_length * self.config.steps_per_year as f64).ceil() as usize;
@@ -341,7 +342,7 @@ impl CDSPricer {
         t_start: F,
         t_end: F,
         period_length: F,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> Result<F> {
         // Validate inputs
@@ -389,7 +390,7 @@ impl CDSPricer {
         t_start: F,
         _t_end: F,
         period_length: F,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> Result<F> {
         // ISDA exact accrual calculation using proper integration
@@ -431,7 +432,7 @@ impl CDSPricer {
     pub fn par_spread(
         &self,
         cds: &CreditDefaultSwap,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         surv: &dyn Survival,
         as_of: Date,
     ) -> Result<F> {
@@ -457,7 +458,7 @@ impl CDSPricer {
     pub fn risky_annuity(
         &self,
         cds: &CreditDefaultSwap,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         surv: &dyn Survival,
         as_of: Date,
     ) -> Result<F> {
@@ -492,7 +493,7 @@ impl CDSPricer {
     pub fn risky_pv01(
         &self,
         cds: &CreditDefaultSwap,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         surv: &dyn Survival,
         as_of: Date,
     ) -> Result<F> {
@@ -521,7 +522,7 @@ impl CDSPricer {
     pub fn npv(
         &self,
         cds: &CreditDefaultSwap,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         surv: &dyn Survival,
         as_of: Date,
     ) -> Result<Money> {
@@ -586,7 +587,7 @@ impl CDSPricer {
         t_start: F,
         t_end: F,
         recovery: F,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> Result<F> {
         let num_steps = ((t_end - t_start) * self.config.steps_per_year as f64).ceil() as usize;
@@ -622,7 +623,7 @@ impl CDSPricer {
         t_start: F,
         t_end: F,
         recovery: F,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> Result<F> {
         // Validate inputs
@@ -666,7 +667,7 @@ impl CDSPricer {
         t_start: F,
         t_end: F,
         recovery: F,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> Result<F> {
         // Validate inputs
@@ -685,7 +686,7 @@ impl CDSPricer {
         t_start: F,
         t_end: F,
         recovery: F,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> Result<F> {
         // Validate inputs
@@ -779,7 +780,7 @@ impl CDSBootstrapper {
         &self,
         cds_spreads: &[(F, F)], // (tenor_years, spread_bps)
         recovery_rate: F,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         base_date: Date,
     ) -> Result<HazardCurve> {
         let mut hazard_rates = Vec::new();
@@ -844,7 +845,7 @@ impl CDSBootstrapper {
     fn solve_for_hazard_rate(
         &self,
         cds: &CreditDefaultSwap,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         target_spread_bps: F,
         pricer: &CDSPricer,
     ) -> Result<F> {

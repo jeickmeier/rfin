@@ -4,7 +4,6 @@ use crate::instruments::options::equity_option::EquityOption;
 use crate::instruments::options::OptionType;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::{Result, F};
-use finstack_core::market_data::traits::Discount;
 use std::sync::Arc;
 
 /// Delta calculator for equity options

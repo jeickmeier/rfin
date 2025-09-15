@@ -176,7 +176,7 @@ impl SwaptionVolCalibrator {
         &self,
         start: Date,
         end: Date,
-        disc: &dyn finstack_core::market_data::traits::Discount,
+        disc: &dyn finstack_core::market_data::traits::Discounting,
     ) -> Result<F> {
         // Generate payment dates based on frequency
         let mut dates = vec![start];

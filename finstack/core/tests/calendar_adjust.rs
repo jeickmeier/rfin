@@ -224,3 +224,85 @@ fn test_adjust_modified_preceding_infinite_loop_guard() {
         other => panic!("Expected AdjustmentFailed error, got {:?}", other),
     }
 }
+
+#[test]
+fn test_improved_error_messages_contain_original_date_and_correct_convention() {
+    let cal = AllHolidaysCal;
+    let original_date = make_date(2025, 1, 1);
+
+    // Test Following convention error contains correct information
+    let result = adjust(original_date, BusinessDayConvention::Following, &cal);
+    assert!(result.is_err());
+    
+    match result.unwrap_err() {
+        finstack_core::Error::Input(InputError::AdjustmentFailed {
+            date,
+            convention,
+            max_days,
+        }) => {
+            // Verify the error contains the ORIGINAL date (not the last attempted date)
+            assert_eq!(date, original_date.to_string());
+            // Verify the error contains the correct convention name (not "seek")
+            assert_eq!(convention, "Following");
+            assert_eq!(max_days, 100);
+        }
+        other => panic!("Expected AdjustmentFailed error, got {:?}", other),
+    }
+
+    // Test Preceding convention error contains correct information
+    let result = adjust(original_date, BusinessDayConvention::Preceding, &cal);
+    assert!(result.is_err());
+    
+    match result.unwrap_err() {
+        finstack_core::Error::Input(InputError::AdjustmentFailed {
+            date,
+            convention,
+            max_days,
+        }) => {
+            // Verify the error contains the ORIGINAL date (not the last attempted date)
+            assert_eq!(date, original_date.to_string());
+            // Verify the error contains the correct convention name (not "seek")
+            assert_eq!(convention, "Preceding");
+            assert_eq!(max_days, 100);
+        }
+        other => panic!("Expected AdjustmentFailed error, got {:?}", other),
+    }
+
+    // Test ModifiedFollowing convention error contains correct information
+    let result = adjust(original_date, BusinessDayConvention::ModifiedFollowing, &cal);
+    assert!(result.is_err());
+    
+    match result.unwrap_err() {
+        finstack_core::Error::Input(InputError::AdjustmentFailed {
+            date,
+            convention,
+            max_days,
+        }) => {
+            // Verify the error contains the ORIGINAL date (not the last attempted date)
+            assert_eq!(date, original_date.to_string());
+            // Verify the error contains the correct convention name (not "seek")
+            assert_eq!(convention, "ModifiedFollowing");
+            assert_eq!(max_days, 100);
+        }
+        other => panic!("Expected AdjustmentFailed error, got {:?}", other),
+    }
+
+    // Test ModifiedPreceding convention error contains correct information
+    let result = adjust(original_date, BusinessDayConvention::ModifiedPreceding, &cal);
+    assert!(result.is_err());
+    
+    match result.unwrap_err() {
+        finstack_core::Error::Input(InputError::AdjustmentFailed {
+            date,
+            convention,
+            max_days,
+        }) => {
+            // Verify the error contains the ORIGINAL date (not the last attempted date)
+            assert_eq!(date, original_date.to_string());
+            // Verify the error contains the correct convention name (not "seek")
+            assert_eq!(convention, "ModifiedPreceding");
+            assert_eq!(max_days, 100);
+        }
+        other => panic!("Expected AdjustmentFailed error, got {:?}", other),
+    }
+}

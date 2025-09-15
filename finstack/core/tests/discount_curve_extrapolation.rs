@@ -175,6 +175,14 @@ fn test_interpolation_styles_with_extrapolation() {
                 assert!(mc_curve.df(extrap_test_time) < 0.90);
                 assert!(ch_curve.df(extrap_test_time) < 0.90);
             }
+            _ => {
+                // Handle any other extrapolation policies
+                // Default test - ensure we get some reasonable value
+                assert!(linear_curve.df(extrap_test_time) > 0.0);
+                assert!(log_curve.df(extrap_test_time) > 0.0);
+                assert!(mc_curve.df(extrap_test_time) > 0.0);
+                assert!(ch_curve.df(extrap_test_time) > 0.0);
+            }
         }
     }
 }

@@ -740,7 +740,7 @@ mod tests {
     use crate::instruments::fixed_income::deposit::Deposit;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{Date, DayCount, Frequency};
-    use finstack_core::prelude::TermStructure;
+    // use finstack_core::market_data::traits::TermStructure;
     use time::Month;
 
     #[test]

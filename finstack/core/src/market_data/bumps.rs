@@ -12,7 +12,6 @@ use super::term_structures::{
     inflation::InflationCurve,
     base_correlation::BaseCorrelationCurve,
 };
-use super::traits::TermStructure;
 
 // -----------------------------------------------------------------------------
 // Bump Specification Types
@@ -22,6 +21,7 @@ use super::traits::TermStructure;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[non_exhaustive]
 pub enum BumpMode {
     /// Additive bump expressed in a normalized fractional form (e.g., 100bp = 0.01, 2% = 0.02).
     Additive,
@@ -33,6 +33,7 @@ pub enum BumpMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[non_exhaustive]
 pub enum BumpUnits {
     /// Basis points for rates/spreads (100bp = 0.01).
     RateBp,

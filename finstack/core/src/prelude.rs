@@ -50,7 +50,7 @@ pub use crate::market_data::{
     },
     interp::{InterpFn, InterpStyle},
     scalars::{MarketScalar, ScalarTimeSeries, SeriesInterpolation},
-    traits::{Discount, Forward, Inflation as InflationTs, Surface, Survival, TermStructure},
+    traits::Discounting,
     MarketContext,
 };
 pub use crate::money::{

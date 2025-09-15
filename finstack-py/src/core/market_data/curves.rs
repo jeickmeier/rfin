@@ -11,7 +11,7 @@ use finstack_core::{
             DiscountCurve as CoreDiscountCurve, ForwardCurve as CoreForwardCurve,
             HazardCurve as CoreHazardCurve, InflationCurve as CoreInflationCurve,
         },
-        traits::{Discount, TermStructure},
+        traits::TermStructure,
     },
     F,
 };
@@ -237,9 +237,7 @@ impl PyDiscountCurve {
     ///
     /// Returns:
     ///     float: The zero rate at time t
-    fn zero(&self, t: F) -> F {
-        Discount::zero(&*self.inner, t)
-    }
+    fn zero(&self, t: F) -> F { self.inner.zero(t) }
 
     /// Forward rate between t1 and t2.
     ///
@@ -258,7 +256,9 @@ impl PyDiscountCurve {
                 "t2 must be greater than t1",
             ));
         }
-        Ok(Discount::forward(&*self.inner, t1, t2))
+        let z1 = self.inner.zero(t1) * t1;
+        let z2 = self.inner.zero(t2) * t2;
+        Ok((z1 - z2) / (t2 - t1))
     }
 
     /// Get discount factors for multiple time points.

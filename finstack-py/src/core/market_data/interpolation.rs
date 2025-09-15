@@ -114,6 +114,7 @@ impl PyInterpStyle {
             InterpStyle::MonotoneConvex => PyInterpStyle::MonotoneConvex,
             InterpStyle::CubicHermite => PyInterpStyle::CubicHermite,
             InterpStyle::FlatFwd => PyInterpStyle::FlatForward,
+            _ => PyInterpStyle::Linear,
         }
     }
 }
@@ -208,6 +209,7 @@ impl PyExtrapolationPolicy {
         match policy {
             ExtrapolationPolicy::FlatZero => PyExtrapolationPolicy::FlatZero,
             ExtrapolationPolicy::FlatForward => PyExtrapolationPolicy::FlatForward,
+            _ => PyExtrapolationPolicy::FlatZero,
         }
     }
 }

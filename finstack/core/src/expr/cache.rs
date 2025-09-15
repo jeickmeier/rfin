@@ -4,8 +4,10 @@
 //! results to avoid recomputation in complex DAGs with shared sub-expressions.
 
 use super::dag::ExecutionPlan;
-use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, RwLock};
+use lru::LruCache;
+use parking_lot::Mutex;
+use std::num::NonZeroUsize;
+use std::sync::Arc;
 
 /// Cached result for an expression evaluation.
 #[derive(Debug, Clone)]
@@ -47,10 +49,8 @@ struct CacheEntry {
 /// LRU cache for expression results with memory budget management.
 #[derive(Debug)]
 pub struct ExpressionCache {
-    /// The actual cache storage.
-    entries: HashMap<u64, CacheEntry>,
-    /// Access order for LRU eviction.
-    access_order: VecDeque<u64>,
+    /// The actual cache storage using lru crate.
+    cache: LruCache<u64, CacheEntry>,
     /// Maximum memory budget in bytes.
     max_memory: usize,
     /// Current memory usage.
@@ -78,9 +78,10 @@ pub struct CacheStats {
 impl ExpressionCache {
     /// Create a new expression cache with the given memory budget.
     pub fn with_budget(max_memory_mb: usize) -> Self {
+        // Default to a reasonable number of entries - can be tuned based on usage
+        let default_capacity = 1024;
         Self {
-            entries: HashMap::new(),
-            access_order: VecDeque::new(),
+            cache: LruCache::new(NonZeroUsize::new(default_capacity).unwrap()),
             max_memory: max_memory_mb * 1024 * 1024, // Convert MB to bytes
             current_memory: 0,
             stats: CacheStats::default(),
@@ -89,27 +90,23 @@ impl ExpressionCache {
 
     /// Create cache optimized for the given execution plan.
     pub fn for_plan(plan: &ExecutionPlan, budget_mb: usize) -> Self {
-        let mut cache = Self::with_budget(budget_mb);
-
-        // Pre-allocate space for nodes that are likely to be cached
-        let estimated_entries = plan.cache_strategy.cache_nodes.len();
-        cache.entries.reserve(estimated_entries);
-
-        cache
+        // Use the estimated entries from the plan as the initial capacity
+        let estimated_entries = plan.cache_strategy.cache_nodes.len().max(64);
+        let capacity = NonZeroUsize::new(estimated_entries).unwrap();
+        Self {
+            cache: LruCache::new(capacity),
+            max_memory: budget_mb * 1024 * 1024, // Convert MB to bytes
+            current_memory: 0,
+            stats: CacheStats::default(),
+        }
     }
 
     /// Get a cached result if available.
     pub fn get(&mut self, node_id: u64) -> Option<CachedResult> {
-        if let Some(entry) = self.entries.get_mut(&node_id) {
+        if let Some(entry) = self.cache.get_mut(&node_id) {
             // Update access metadata
             entry.last_access = std::time::Instant::now();
             entry.access_count += 1;
-
-            // Move to end of access order (most recently used)
-            if let Some(pos) = self.access_order.iter().position(|&id| id == node_id) {
-                self.access_order.remove(pos);
-            }
-            self.access_order.push_back(node_id);
 
             self.stats.hits += 1;
             Some(entry.result.clone())
@@ -123,23 +120,20 @@ impl ExpressionCache {
     pub fn put(&mut self, node_id: u64, result: CachedResult) -> bool {
         let size = result.memory_size();
 
-        // Check if we need to make space
-        while self.current_memory + size > self.max_memory && !self.access_order.is_empty() {
+        // Check if we need to make space for memory budget
+        while self.current_memory + size > self.max_memory && !self.cache.is_empty() {
             if !self.evict_lru() {
-                // Couldn't evict anything, item too large
+                // Couldn't evict anything, item too large for budget
                 return false;
             }
         }
 
-        // Remove existing entry if present
-        if let Some(old_entry) = self.entries.remove(&node_id) {
+        // Handle existing entry replacement
+        if let Some(old_entry) = self.cache.peek(&node_id) {
             self.current_memory -= old_entry.size;
-            if let Some(pos) = self.access_order.iter().position(|&id| id == node_id) {
-                self.access_order.remove(pos);
-            }
         }
 
-        // Insert new entry
+        // Create new entry
         let entry = CacheEntry {
             result,
             last_access: std::time::Instant::now(),
@@ -147,12 +141,17 @@ impl ExpressionCache {
             size,
         };
 
-        self.entries.insert(node_id, entry);
-        self.access_order.push_back(node_id);
+        // Insert will handle LRU eviction if capacity is exceeded
+        if let Some(evicted) = self.cache.put(node_id, entry) {
+            // The LRU cache evicted an entry due to capacity limit
+            self.current_memory -= evicted.size;
+            self.stats.evictions += 1;
+        }
+
         self.current_memory += size;
 
         // Update stats
-        self.stats.entries = self.entries.len();
+        self.stats.entries = self.cache.len();
         self.stats.memory_usage = self.current_memory;
 
         true
@@ -160,22 +159,20 @@ impl ExpressionCache {
 
     /// Evict the least recently used entry.
     fn evict_lru(&mut self) -> bool {
-        if let Some(node_id) = self.access_order.pop_front() {
-            if let Some(entry) = self.entries.remove(&node_id) {
-                self.current_memory -= entry.size;
-                self.stats.evictions += 1;
-                self.stats.entries = self.entries.len();
-                self.stats.memory_usage = self.current_memory;
-                return true;
-            }
+        if let Some((_, entry)) = self.cache.pop_lru() {
+            self.current_memory -= entry.size;
+            self.stats.evictions += 1;
+            self.stats.entries = self.cache.len();
+            self.stats.memory_usage = self.current_memory;
+            true
+        } else {
+            false
         }
-        false
     }
 
     /// Clear all cached entries.
     pub fn clear(&mut self) {
-        self.entries.clear();
-        self.access_order.clear();
+        self.cache.clear();
         self.current_memory = 0;
         self.stats = CacheStats::default();
     }
@@ -187,7 +184,7 @@ impl ExpressionCache {
 
     /// Check if a node result is cached.
     pub fn contains(&self, node_id: u64) -> bool {
-        self.entries.contains_key(&node_id)
+        self.cache.contains(&node_id)
     }
 
     /// Calculate cache hit ratio.
@@ -204,61 +201,53 @@ impl ExpressionCache {
 /// Global cache manager with thread-safe access.
 #[derive(Debug, Clone)]
 pub struct CacheManager {
-    /// The underlying cache, protected by RwLock for thread safety.
-    cache: Arc<RwLock<ExpressionCache>>,
+    /// The underlying cache, protected by Mutex for thread safety.
+    cache: Arc<Mutex<ExpressionCache>>,
 }
 
 impl CacheManager {
     /// Create a new cache manager.
     pub fn new(budget_mb: usize) -> Self {
         Self {
-            cache: Arc::new(RwLock::new(ExpressionCache::with_budget(budget_mb))),
+            cache: Arc::new(Mutex::new(ExpressionCache::with_budget(budget_mb))),
         }
     }
 
     /// Create cache manager optimized for an execution plan.
     pub fn for_plan(plan: &ExecutionPlan, budget_mb: usize) -> Self {
         Self {
-            cache: Arc::new(RwLock::new(ExpressionCache::for_plan(plan, budget_mb))),
+            cache: Arc::new(Mutex::new(ExpressionCache::for_plan(plan, budget_mb))),
         }
     }
 
     /// Get a cached result.
     pub fn get(&self, node_id: u64) -> Option<CachedResult> {
-        self.cache.write().ok()?.get(node_id)
+        self.cache.lock().get(node_id)
     }
 
     /// Store a result in the cache.
     pub fn put(&self, node_id: u64, result: CachedResult) -> bool {
-        self.cache
-            .write()
-            .map(|mut c| c.put(node_id, result))
-            .unwrap_or(false)
+        self.cache.lock().put(node_id, result)
     }
 
     /// Check if a result is cached.
     pub fn contains(&self, node_id: u64) -> bool {
-        self.cache
-            .read()
-            .map(|c| c.contains(node_id))
-            .unwrap_or(false)
+        self.cache.lock().contains(node_id)
     }
 
     /// Get cache statistics.
-    pub fn stats(&self) -> Option<CacheStats> {
-        self.cache.read().ok().map(|c| c.stats())
+    pub fn stats(&self) -> CacheStats {
+        self.cache.lock().stats()
     }
 
     /// Get cache hit ratio.
     pub fn hit_ratio(&self) -> f64 {
-        self.cache.read().map(|c| c.hit_ratio()).unwrap_or(0.0)
+        self.cache.lock().hit_ratio()
     }
 
     /// Clear the cache.
     pub fn clear(&self) {
-        if let Ok(mut cache) = self.cache.write() {
-            cache.clear();
-        }
+        self.cache.lock().clear();
     }
 }
 
@@ -290,8 +279,7 @@ mod tests {
         // Create cache with very small budget (64KB = 0.0625MB)
         // Each large_data item is ~80KB (10000 * 8 bytes), so only one will fit
         let mut cache = ExpressionCache {
-            entries: HashMap::new(),
-            access_order: VecDeque::new(),
+            cache: LruCache::new(NonZeroUsize::new(10).unwrap()), // Small capacity for testing
             max_memory: 65536, // 64KB in bytes
             current_memory: 0,
             stats: CacheStats {

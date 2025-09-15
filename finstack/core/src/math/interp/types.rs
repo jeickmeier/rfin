@@ -17,6 +17,7 @@ pub const DERIVATIVE_EPSILON: F = 1e-6;
 #[derive(Copy, Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[non_exhaustive]
 pub enum ExtrapolationPolicy {
     /// Constant value extension.
     #[default]
@@ -29,6 +30,7 @@ pub enum ExtrapolationPolicy {
 #[derive(Copy, Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[non_exhaustive]
 pub enum InterpStyle {
     /// Linear interpolation in values.
     #[default]
@@ -96,7 +98,7 @@ impl Interp {
 
     /// Get the extrapolation policy of this Interp
     #[cfg(feature = "serde")]
-    pub(crate) fn extrapolation(&self) -> ExtrapolationPolicy {
+    pub fn extrapolation(&self) -> ExtrapolationPolicy {
         match self {
             Interp::Linear(i) => i.extrapolation(),
             Interp::LogLinear(i) => i.extrapolation(),

@@ -284,7 +284,7 @@ impl_instrument!(
                 s.quote_currency,
             ));
         }
-        use finstack_core::market_data::traits::Discount;
+        // Discounting trait not needed explicitly here
         let domestic_disc = curves.discount_ref(s.domestic_disc_id)?;
         let foreign_disc = curves.discount_ref(s.foreign_disc_id)?;
         let r_d = domestic_disc.zero(time_to_expiry);

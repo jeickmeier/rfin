@@ -130,6 +130,13 @@ impl ForwardCurve {
         self.base
     }
 
+    /// Average rate over `[t1, t2]`.
+    #[inline]
+    pub fn rate_period(&self, t1: F, t2: F) -> F {
+        debug_assert!(t2 > t1, "t2 must be after t1");
+        (self.rate(t1) + self.rate(t2)) * 0.5
+    }
+
     #[cfg(feature = "serde")]
     /// Extract serializable state
     pub fn to_state(&self) -> ForwardCurveState {
@@ -259,19 +266,20 @@ impl super::common::CurveBuilder for ForwardCurveBuilder {
 // Interpolator helpers moved to InterpStyle – factory fns removed.
 
 // -----------------------------------------------------------------------------
-// Trait impls – new generic family
+// Minimal trait implementations for polymorphism where needed
 // -----------------------------------------------------------------------------
-
-impl TermStructure for ForwardCurve {
-    fn id(&self) -> &CurveId {
-        &self.id
-    }
-}
 
 impl Forward for ForwardCurve {
     #[inline]
     fn rate(&self, t: F) -> F {
-        ForwardCurve::rate(self, t)
+        self.rate(t)
+    }
+}
+
+impl TermStructure for ForwardCurve {
+    #[inline]
+    fn id(&self) -> &CurveId {
+        &self.id
     }
 }
 

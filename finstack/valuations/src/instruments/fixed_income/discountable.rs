@@ -1,7 +1,7 @@
 //! Interface for objects that can be present-valued against a `Discount` curve.
 
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::traits::Discount;
+use finstack_core::market_data::traits::Discounting;
+use finstack_core::dates::DayCountCtx;
 use finstack_core::prelude::*;
 
 /// Objects that can be present-valued against a `Discount` curve.
@@ -13,7 +13,7 @@ pub trait Discountable {
     type PVOutput;
 
     /// Compute present value using the given discount curve and day count.
-    fn npv(&self, disc: &dyn Discount, base: Date, dc: DayCount) -> Self::PVOutput;
+    fn npv(&self, disc: &dyn Discounting, base: Date, dc: DayCount) -> Self::PVOutput;
 }
 
 /// Compute NPV of dated `Money` flows using a `Discount` curve and `DayCount`.
@@ -26,7 +26,7 @@ pub trait Discountable {
 ///
 /// See unit tests and `examples/` for usage.
 fn npv(
-    disc: &dyn Discount,
+    disc: &dyn Discounting,
     base: Date,
     dc: DayCount,
     flows: &[(Date, Money)],
@@ -37,7 +37,13 @@ fn npv(
     let ccy = flows[0].1.currency();
     let mut total = Money::new(0.0, ccy);
     for (d, amt) in flows {
-        let df = DiscountCurve::df_on(disc, base, *d, dc);
+        let t = if *d == base {
+            0.0
+        } else {
+            dc.year_fraction(base, *d, DayCountCtx::default())
+                .unwrap_or(0.0)
+        };
+        let df = disc.df(t);
         let disc_amt = *amt * df;
         total = (total + disc_amt)?;
     }
@@ -47,7 +53,7 @@ fn npv(
 impl Discountable for &[(Date, Money)] {
     type PVOutput = finstack_core::Result<Money>;
 
-    fn npv(&self, disc: &dyn Discount, base: Date, dc: DayCount) -> finstack_core::Result<Money> {
+    fn npv(&self, disc: &dyn Discounting, base: Date, dc: DayCount) -> finstack_core::Result<Money> {
         npv(disc, base, dc, self)
     }
 }
@@ -55,7 +61,7 @@ impl Discountable for &[(Date, Money)] {
 impl Discountable for Vec<(Date, Money)> {
     type PVOutput = finstack_core::Result<Money>;
 
-    fn npv(&self, disc: &dyn Discount, base: Date, dc: DayCount) -> finstack_core::Result<Money> {
+    fn npv(&self, disc: &dyn Discounting, base: Date, dc: DayCount) -> finstack_core::Result<Money> {
         npv(disc, base, dc, self)
     }
 }
@@ -69,7 +75,7 @@ impl Discountable for crate::cashflow::builder::CashFlowSchedule {
     /// present value using the provided discount curve.
     ///
     /// See unit tests and `examples/` for usage.
-    fn npv(&self, disc: &dyn Discount, base: Date, dc: DayCount) -> finstack_core::Result<Money> {
+    fn npv(&self, disc: &dyn Discounting, base: Date, dc: DayCount) -> finstack_core::Result<Money> {
         let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
         npv(disc, base, dc, &flows)
     }
@@ -78,7 +84,6 @@ impl Discountable for crate::cashflow::builder::CashFlowSchedule {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use finstack_core::market_data::traits::TermStructure;
     use finstack_core::types::CurveId;
     use finstack_core::F;
     use time::Month;
@@ -86,12 +91,13 @@ mod tests {
     struct FlatCurve {
         id: CurveId,
     }
-    impl TermStructure for FlatCurve {
+    impl finstack_core::market_data::traits::TermStructure for FlatCurve {
         fn id(&self) -> &CurveId {
             &self.id
         }
     }
-    impl Discount for FlatCurve {
+    // No TermStructure impl needed in this test context
+    impl Discounting for FlatCurve {
         fn base_date(&self) -> Date {
             Date::from_calendar_date(2025, Month::January, 1).unwrap()
         }

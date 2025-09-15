@@ -297,7 +297,7 @@ impl_instrument!(
                 s.strike.currency(),
             ));
         }
-        use finstack_core::market_data::traits::Discount;
+        // Discounting trait not needed explicitly here
         let disc_curve = curves.discount_ref(s.disc_id.as_str())?;
         let r = disc_curve.zero(time_to_expiry);
         let spot_scalar = curves.price(&s.spot_id)?;

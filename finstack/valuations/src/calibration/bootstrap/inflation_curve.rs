@@ -129,6 +129,7 @@ impl InflationCurveCalibrator {
             InflationLag::Months(months) => {
                 finstack_core::dates::utils::add_months(date, -(months as i32))
             }
+            _ => date, // Fallback for any unknown variants to satisfy non-exhaustive enum
         }
     }
 

@@ -4,7 +4,6 @@ use crate::instruments::options::fx_option::FxOption;
 use crate::instruments::options::OptionType;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::{Result, F};
-use finstack_core::market_data::traits::Discount;
 use num_traits::ToPrimitive;
 use std::sync::Arc;
 

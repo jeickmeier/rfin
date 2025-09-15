@@ -1,6 +1,6 @@
 //! Unified holiday rule enum replacing the previous micro-struct DSL.
 #![allow(missing_docs)]
-#![allow(clippy::assign_op_pattern, clippy::unnecessary_map_or)]
+#![allow(clippy::unnecessary_map_or)]
 //!
 //! This module provides a single `Rule` enum with data-carrying variants that
 //! can express the common holiday patterns used across market calendars.
@@ -18,6 +18,7 @@ use time::{Date, Duration, Month, Weekday};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[non_exhaustive]
 pub enum Observed {
     /// No adjustment – holiday is **only** on the calendar date itself.
     None,
@@ -31,6 +32,7 @@ pub enum Observed {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[non_exhaustive]
 pub enum Direction {
     /// Nearest **on/after** the reference date.
     After,
@@ -220,16 +222,16 @@ impl Rule {
                     Observed::None => { /* keep base */ }
                     Observed::NextMonday => {
                         if matches!(base.weekday(), Weekday::Saturday) {
-                            base = base + Duration::days(2);
+                            base += Duration::days(2);
                         } else if matches!(base.weekday(), Weekday::Sunday) {
-                            base = base + Duration::days(1);
+                            base += Duration::days(1);
                         }
                     }
                     Observed::FriIfSatMonIfSun => {
                         if matches!(base.weekday(), Weekday::Saturday) {
-                            base = base - Duration::days(1);
+                            base -= Duration::days(1);
                         } else if matches!(base.weekday(), Weekday::Sunday) {
-                            base = base + Duration::days(1);
+                            base += Duration::days(1);
                         }
                     }
                 }
@@ -254,12 +256,12 @@ impl Rule {
                 match dir {
                     Direction::After => {
                         while d.weekday() != *weekday {
-                            d = d + Duration::days(1);
+                            d += Duration::days(1);
                         }
                     }
                     Direction::Before => {
                         while d.weekday() != *weekday {
-                            d = d - Duration::days(1);
+                            d -= Duration::days(1);
                         }
                     }
                 }
@@ -319,16 +321,16 @@ impl Rule {
                     Observed::None => {}
                     Observed::NextMonday => {
                         if matches!(base.weekday(), Weekday::Saturday) {
-                            base = base + Duration::days(2);
+                            base += Duration::days(2);
                         } else if matches!(base.weekday(), Weekday::Sunday) {
-                            base = base + Duration::days(1);
+                            base += Duration::days(1);
                         }
                     }
                     Observed::FriIfSatMonIfSun => {
                         if matches!(base.weekday(), Weekday::Saturday) {
-                            base = base - Duration::days(1);
+                            base -= Duration::days(1);
                         } else if matches!(base.weekday(), Weekday::Sunday) {
-                            base = base + Duration::days(1);
+                            base += Duration::days(1);
                         }
                     }
                 }
@@ -350,12 +352,12 @@ impl Rule {
                 match dir {
                     Direction::After => {
                         while d.weekday() != *weekday {
-                            d = d + Duration::days(1);
+                            d += Duration::days(1);
                         }
                     }
                     Direction::Before => {
                         while d.weekday() != *weekday {
-                            d = d - Duration::days(1);
+                            d -= Duration::days(1);
                         }
                     }
                 }

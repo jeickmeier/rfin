@@ -1,10 +1,10 @@
 //! Forward Rate Agreement (FRA) instrument types and implementation.
-
+use finstack_core::market_data::traits::Forward;
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::{DateRange, FRAParams, MarketRefs};
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::traits::{Discount, Forward};
+use finstack_core::market_data::traits::{Discounting};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::F;
@@ -86,7 +86,7 @@ impl ForwardRateAgreement {
     /// Calculate FRA value using market curves.
     pub fn fra_value(
         &self,
-        discount_curve: &dyn Discount,
+        discount_curve: &dyn Discounting,
         forward_curve: &dyn Forward,
         _as_of: Date,
     ) -> finstack_core::Result<Money> {

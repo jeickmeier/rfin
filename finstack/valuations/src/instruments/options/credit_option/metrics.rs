@@ -3,7 +3,6 @@
 use crate::instruments::options::credit_option::CreditOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::{Result, F};
-use finstack_core::market_data::traits::Discount;
 use std::sync::Arc;
 
 /// Delta calculator for credit options

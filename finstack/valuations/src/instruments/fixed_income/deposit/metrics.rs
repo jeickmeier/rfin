@@ -7,7 +7,6 @@
 use crate::instruments::fixed_income::deposit::Deposit;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::traits::Discount;
 use finstack_core::F;
 
 /// Calculates year fraction for deposits.

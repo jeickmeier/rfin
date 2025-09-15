@@ -16,7 +16,6 @@ use crate::instruments::options::models::{
 };
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::traits::Discount;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::{Result, F};
 use std::collections::HashMap;

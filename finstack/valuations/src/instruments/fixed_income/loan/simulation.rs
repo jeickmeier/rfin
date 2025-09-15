@@ -8,7 +8,7 @@ use super::revolver::UtilizationFeeSchedule;
 use super::term_loan::InterestSpec;
 use crate::instruments::fixed_income::discountable::Discountable;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
-use finstack_core::market_data::traits::Discount;
+use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::MarketContext;
 use finstack_core::math::{sample_beta, RandomNumberGenerator};
 use finstack_core::money::Money;
@@ -489,7 +489,7 @@ impl LoanSimulator {
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
-        use finstack_core::market_data::traits::Discount;
+        // use finstack_core::market_data::traits::Discounting;
         let disc = curves.discount_ref(facility.disc_id())?;
         let existing_flows = facility.build_existing_flows(curves, as_of)?;
         existing_flows.npv(disc, disc.base_date(), facility.day_count())
@@ -503,7 +503,7 @@ impl LoanSimulator {
         as_of: Date,
         timeline: &[Date],
     ) -> finstack_core::Result<(PVBreakdown, Vec<FacilityState>)> {
-        use finstack_core::market_data::traits::Discount;
+        // use finstack_core::market_data::traits::Discounting;
         let disc = curves.discount_ref(facility.disc_id())?;
 
         let mut breakdown = PVBreakdown::default();
@@ -667,7 +667,7 @@ impl LoanSimulator {
         timeline: &[Date],
         rng: &mut dyn RandomNumberGenerator,
     ) -> finstack_core::Result<(PVBreakdown, Vec<FacilityState>, bool)> {
-        use finstack_core::market_data::traits::Discount;
+        // use finstack_core::market_data::traits::Discounting;
         let disc = curves.discount_ref(facility.disc_id())?;
         let mut breakdown = PVBreakdown::default();
         let mut state_path = Vec::new();
@@ -786,7 +786,7 @@ impl LoanSimulator {
     fn calculate_period_cash_flows<T: LoanFacility>(
         &self,
         facility: &T,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         curves: &MarketContext,
         period_start: Date,
         period_end: Date,
@@ -825,7 +825,7 @@ impl LoanSimulator {
                 gearing,
                 reset_lag_days,
             } => {
-                use finstack_core::market_data::traits::Forward;
+                // Forward trait removed - use direct method calls on curve types
                 if let Ok(fwd_curve) = curves.forward_ref(index_id) {
                     // Calculate reset date
                     let reset_date =
@@ -1109,7 +1109,7 @@ impl LoanSimulator {
         outstanding: F,
         credit_config: &Option<CreditConfig>,
         default_time: Date,
-        disc: &dyn Discount,
+        disc: &dyn Discounting,
         _day_count: DayCount,
     ) -> finstack_core::Result<F> {
         let recovery_rate = credit_config
