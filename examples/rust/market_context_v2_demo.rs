@@ -56,7 +56,7 @@ fn main() -> finstack_core::Result<()> {
     println!("✅ 1. Ergonomic Builder Pattern");
     let context = MarketContextV2::builder()
         .discount(discount_curve)
-        .forward(forward_curve) 
+        .forward(forward_curve)
         .hazard(hazard_curve)
         .base_correlation(base_corr)
         .price("SPOT_SPY", MarketScalar::Unitless(450.0))

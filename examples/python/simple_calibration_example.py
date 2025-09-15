@@ -86,31 +86,25 @@ def main():
     # Check what we calibrated
     print("\nCalibrated market data:")
     
-    # Discount curve
+    # Discount curve (new API via Python wrapper if available)
     try:
-        disc_curve = market_context.disc("USD-OIS")
-        print(f"✓ USD-OIS discount curve")
-        print(f"  1Y DF: {disc_curve.df(1.0):.6f}")
-        print(f"  2Y DF: {disc_curve.df(2.0):.6f}")
-    except:
+        disc_curve = market_context.get_discount_curve("USD-OIS")
+        print(f"✓ USD-OIS discount curve (retrieved)")
+    except Exception:
         print("✗ USD-OIS discount curve not found")
     
-    # Hazard curve
+    # Hazard curve (new API naming)
     try:
-        hazard_curve = market_context.hazard("AAPL-Senior")
-        print(f"✓ AAPL hazard curve")
-        print(f"  2Y survival: {hazard_curve.survival(2.0):.6f}")
-        print(f"  5Y survival: {hazard_curve.survival(5.0):.6f}")
-    except:
+        hazard_curve = market_context.get_hazard_curve("AAPL-Senior")
+        print(f"✓ AAPL hazard curve (retrieved)")
+    except Exception:
         print("✗ AAPL hazard curve not found")
     
-    # Inflation curve
+    # Inflation curve (new API naming)
     try:
-        infl_curve = market_context.infl("US-CPI-U")
-        print(f"✓ US-CPI-U inflation curve")
-        print(f"  2Y CPI: {infl_curve.cpi(2.0):.2f}")
-        print(f"  5Y CPI: {infl_curve.cpi(5.0):.2f}")
-    except:
+        infl_curve = market_context.get_inflation_curve("US-CPI-U")
+        print(f"✓ US-CPI-U inflation curve (retrieved)")
+    except Exception:
         print("✗ US-CPI-U inflation curve not found")
     
     print("\n" + "="*50)
