@@ -311,9 +311,3 @@ impl Bumpable for BaseCorrelationCurve {
             .ok()
     }
 }
-
-// -----------------------------------------------------------------------------
-// Backward compatibility aliases (to be deprecated)
-// -----------------------------------------------------------------------------
-
-// Note: Deprecated aliases removed after refactoring MarketContext::bump to use Bumpable directly.
