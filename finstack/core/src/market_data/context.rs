@@ -33,6 +33,7 @@ use super::{
 
 // Re-export bump functionality
 pub use super::bumps::{BumpMode, BumpSpec, BumpUnits};
+use super::bumps::Bumpable;
 
 // -----------------------------------------------------------------------------
 // Curve Storage
@@ -106,29 +107,7 @@ impl CurveStorage {
         }
     }
 
-    /// Extract discount curve, consuming the storage
-    pub fn into_discount(self) -> Option<Arc<DiscountCurve>> {
-        match self {
-            Self::Discount(curve) => Some(curve),
-            _ => None,
-        }
-    }
-
-    /// Extract forward curve, consuming the storage
-    pub fn into_forward(self) -> Option<Arc<ForwardCurve>> {
-        match self {
-            Self::Forward(curve) => Some(curve),
-            _ => None,
-        }
-    }
-
-    /// Extract hazard curve, consuming the storage
-    pub fn into_hazard(self) -> Option<Arc<HazardCurve>> {
-        match self {
-            Self::Hazard(curve) => Some(curve),
-            _ => None,
-        }
-    }
+    
 
     /// Check if this storage contains a specific curve type
     pub fn is_discount(&self) -> bool { matches!(self, Self::Discount(_)) }
@@ -157,19 +136,7 @@ impl TermStructure for CurveStorage {
     fn id(&self) -> &CurveId { self.id() }
 }
 
-// Convenience constructors
-impl CurveStorage {
-    /// Create storage for a discount curve
-    pub fn new_discount(curve: DiscountCurve) -> Self { Self::Discount(Arc::new(curve)) }
-    /// Create storage for a forward curve
-    pub fn new_forward(curve: ForwardCurve) -> Self { Self::Forward(Arc::new(curve)) }
-    /// Create storage for a hazard curve
-    pub fn new_hazard(curve: HazardCurve) -> Self { Self::Hazard(Arc::new(curve)) }
-    /// Create storage for an inflation curve
-    pub fn new_inflation(curve: InflationCurve) -> Self { Self::Inflation(Arc::new(curve)) }
-    /// Create storage for a base correlation curve
-    pub fn new_base_correlation(curve: BaseCorrelationCurve) -> Self { Self::BaseCorrelation(Arc::new(curve)) }
-}
+// Convenience constructors (removed unused new_* helpers)
 
 // -----------------------------------------------------------------------------
 // Serde: move CurveState and (De)Serialize impls here
@@ -691,8 +658,6 @@ impl MarketContext {
     /// assert!(bumped.discount("USD-OIS_bump_100bp").is_ok());
     /// ```
     pub fn bump(&self, bumps: HashMap<CurveId, BumpSpec>) -> Result<Self> {
-        use super::bumps::*;
-
         let mut new_context = self.clone();
 
         for (curve_id, bump_spec) in bumps {
@@ -700,7 +665,7 @@ impl MarketContext {
 
             // Try each curve type and delegate to centralized helpers
             if let Ok(original) = self.discount_ref(cid) {
-                if let Some(bumped) = bump_discount_curve(original, bump_spec) {
+                if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = TermStructure::id(&bumped).clone();
                     new_context.curves.insert(bumped_id, CurveStorage::Discount(Arc::new(bumped)));
                     continue;
@@ -708,7 +673,7 @@ impl MarketContext {
             }
 
             if let Ok(original) = self.forward_ref(cid) {
-                if let Some(bumped) = bump_forward_curve(original, bump_spec) {
+                if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = TermStructure::id(&bumped).clone();
                     new_context.curves.insert(bumped_id, CurveStorage::Forward(Arc::new(bumped)));
                     continue;
@@ -716,7 +681,7 @@ impl MarketContext {
             }
 
             if let Ok(original) = self.hazard_ref(cid) {
-                if let Some(bumped) = bump_hazard_curve(original, bump_spec) {
+                if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = TermStructure::id(&bumped).clone();
                     new_context.curves.insert(bumped_id, CurveStorage::Hazard(Arc::new(bumped)));
                     continue;
@@ -724,7 +689,7 @@ impl MarketContext {
             }
 
             if let Ok(original) = self.inflation_ref(cid) {
-                if let Some(bumped) = bump_inflation_curve(original, bump_spec) {
+                if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = TermStructure::id(&bumped).clone();
                     new_context.curves.insert(bumped_id, CurveStorage::Inflation(Arc::new(bumped)));
                     continue;
@@ -732,7 +697,7 @@ impl MarketContext {
             }
 
             if let Ok(original) = self.base_correlation_ref(cid) {
-                if let Some(bumped) = bump_base_correlation_curve(original, bump_spec) {
+                if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = TermStructure::id(&bumped).clone();
                     new_context.curves.insert(bumped_id, CurveStorage::BaseCorrelation(Arc::new(bumped)));
                     continue;

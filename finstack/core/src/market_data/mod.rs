@@ -60,14 +60,18 @@ pub mod traits;
 pub use crate::math::interp::utils::validate_knots;
 
 // Re-export common term structures at the market_data::* level for backwards compatibility.
+#[deprecated(since = "0.1.0", note = "Import via market_data::term_structures::{discount_curve, forward_curve, hazard_curve, inflation}")]
 pub use term_structures::{discount_curve, forward_curve, hazard_curve, inflation};
 // Re-export volatility surface from the new module for unchanged public path `market_data::vol_surface`.
+#[deprecated(since = "0.1.0", note = "Import via market_data::surfaces::vol_surface")]
 pub use surfaces::vol_surface;
 // Also re-export the concrete VolSurface type for a shorter import path.
+#[deprecated(since = "0.1.0", note = "Use market_data::surfaces::vol_surface::VolSurface")]
 pub use surfaces::vol_surface::VolSurface;
 // Re-export MarketContext at the top level for backward compatibility
 pub use context::MarketContext;
 // Also re-export bump types for convenience
+#[deprecated(since = "0.1.0", note = "Use market_data::context::{BumpSpec,BumpMode,BumpUnits}")]
 pub use bumps::{BumpMode, BumpSpec, BumpUnits};
 
 /// Numeric precision alias re-exported from the surrounding crate so that

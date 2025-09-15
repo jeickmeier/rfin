@@ -316,32 +316,4 @@ impl Bumpable for BaseCorrelationCurve {
 // Backward compatibility aliases (to be deprecated)
 // -----------------------------------------------------------------------------
 
-/// Apply a bump to a `DiscountCurve`. Currently supports additive rate shifts in bp.
-#[inline]
-pub fn bump_discount_curve(curve: &DiscountCurve, spec: BumpSpec) -> Option<DiscountCurve> {
-    bump_curve(curve, spec)
-}
-
-/// Apply a bump to a `ForwardCurve`.
-#[inline]
-pub fn bump_forward_curve(curve: &ForwardCurve, spec: BumpSpec) -> Option<ForwardCurve> {
-    bump_curve(curve, spec)
-}
-
-/// Apply a bump to a `HazardCurve`.
-#[inline]
-pub fn bump_hazard_curve(curve: &HazardCurve, spec: BumpSpec) -> Option<HazardCurve> {
-    bump_curve(curve, spec)
-}
-
-/// Apply a bump to an `InflationCurve`.
-#[inline]
-pub fn bump_inflation_curve(curve: &InflationCurve, spec: BumpSpec) -> Option<InflationCurve> {
-    bump_curve(curve, spec)
-}
-
-/// Apply a bump to a `BaseCorrelationCurve`.
-#[inline]
-pub fn bump_base_correlation_curve(curve: &BaseCorrelationCurve, spec: BumpSpec) -> Option<BaseCorrelationCurve> {
-    bump_curve(curve, spec)
-}
+// Note: Deprecated aliases removed after refactoring MarketContext::bump to use Bumpable directly.
