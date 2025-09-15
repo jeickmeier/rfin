@@ -211,7 +211,10 @@ impl_instrument!(
     Swaption,
     "Swaption",
     pv = |s, curves, _as_of| {
-        let disc = curves.discount_ref(s.disc_id)?;
+        let disc = curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                s.disc_id,
+            )?;
         if s.sabr_params.is_some() {
             s.sabr_price(disc)
         } else {

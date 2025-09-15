@@ -71,7 +71,10 @@ impl crate::instruments::traits::Priceable for PrivateEquityInvestment {
         if let Some(disc_id) = self.disc_id {
             use crate::instruments::fixed_income::discountable::Discountable;
             let flows = self.lp_cashflows()?;
-            let disc = curves.discount_ref(disc_id)?;
+            let disc = curves
+                .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    disc_id,
+                )?;
             flows.npv(disc, disc.base_date(), self.spec.irr_basis)
         } else {
             let ledger = self.run_waterfall()?;

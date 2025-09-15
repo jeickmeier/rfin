@@ -598,7 +598,11 @@ impl MetricCalculator for Cs01Calculator {
         let flows = bond.build_schedule(&context.curves, context.as_of)?;
 
         // Get the base discount curve
-        let disc_curve = context.curves.discount_ref(bond.disc_id.as_ref())?;
+        let disc_curve = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                bond.disc_id.as_ref(),
+            )?;
 
         // CS01 calculation using spread approximation
         let bp = 0.0001; // 1 basis point

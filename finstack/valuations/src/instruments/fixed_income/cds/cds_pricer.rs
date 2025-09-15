@@ -503,8 +503,14 @@ impl CDSPricer {
 
     /// Calculate CS01 (change in value for 1bp credit spread change)
     pub fn cs01(&self, cds: &CreditDefaultSwap, curves: &MarketContext, as_of: Date) -> Result<F> {
-        let disc = curves.discount_ref(cds.premium.disc_id)?;
-        let surv = curves.hazard_ref(cds.protection.credit_id)?;
+        let disc = curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                cds.premium.disc_id,
+            )?;
+        let surv = curves
+            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                cds.protection.credit_id,
+            )?;
 
         // Base NPV
         let base_npv = self.npv(cds, disc, surv, as_of)?;

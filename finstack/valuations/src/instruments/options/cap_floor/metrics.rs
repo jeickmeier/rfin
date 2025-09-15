@@ -14,8 +14,16 @@ impl MetricCalculator for DeltaCalculator {
         let option: &InterestRateOption = context.instrument_as()?;
 
         // Get market curves
-        let disc_curve = context.curves.discount_ref(option.disc_id)?;
-        let fwd_curve = context.curves.forward_ref(option.forward_id)?;
+        let disc_curve = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                option.disc_id,
+            )?;
+        let fwd_curve = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
+                option.forward_id,
+            )?;
         let base_date = disc_curve.base_date();
 
         // For caps/floors, aggregate delta across all caplets/floorlets
@@ -127,8 +135,16 @@ impl MetricCalculator for GammaCalculator {
         let option: &InterestRateOption = context.instrument_as()?;
 
         // Similar aggregation logic as Delta but for Gamma
-        let disc_curve = context.curves.discount_ref(option.disc_id)?;
-        let fwd_curve = context.curves.forward_ref(option.forward_id)?;
+        let disc_curve = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                option.disc_id,
+            )?;
+        let fwd_curve = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
+                option.forward_id,
+            )?;
         let base_date = disc_curve.base_date();
 
         if matches!(
@@ -236,8 +252,16 @@ pub struct VegaCalculator;
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &InterestRateOption = context.instrument_as()?;
-        let disc_curve = context.curves.discount_ref(option.disc_id)?;
-        let fwd_curve = context.curves.forward_ref(option.forward_id)?;
+        let disc_curve = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                option.disc_id,
+            )?;
+        let fwd_curve = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
+                option.forward_id,
+            )?;
         let base_date = disc_curve.base_date();
 
         if matches!(

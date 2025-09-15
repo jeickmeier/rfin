@@ -282,8 +282,14 @@ impl_instrument!(
     InterestRateSwap,
     "InterestRateSwap",
     pv = |s, curves, _as_of| {
-        let disc = curves.discount(s.fixed.disc_id)?;
-        let fwd = curves.forward(s.float.fwd_id)?;
+        let disc = curves
+            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                s.fixed.disc_id,
+            )?;
+        let fwd = curves
+            .get::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
+                s.float.fwd_id,
+            )?;
         let pv_fixed = s.pv_fixed_leg(&*disc)?;
         let pv_float = s.pv_float_leg(&*disc, &*fwd)?;
         match s.side {

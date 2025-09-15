@@ -129,7 +129,10 @@ impl GaussianCopulaModel {
         let index_data_arc = market_ctx.credit_index_ref(tranche.credit_index_id)?;
 
         // Get the discount curve
-        let discount_curve = market_ctx.discount_ref(tranche.disc_id)?;
+        let discount_curve = market_ctx
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                tranche.disc_id,
+            )?;
 
         // Calculate present values of premium and protection legs
         // These now calculate the EL curve internally with proper time dependency
@@ -1129,7 +1132,11 @@ mod tests {
         let market_ctx = sample_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let index_data_arc = market_ctx.credit_index(tranche.credit_index_id).unwrap();
-        let discount_curve = market_ctx.discount(tranche.disc_id).unwrap();
+        let discount_curve = market_ctx
+            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                tranche.disc_id,
+            )
+            .unwrap();
 
         // Calculate individual leg PVs
         let pv_premium = model.calculate_premium_leg_pv(

@@ -13,7 +13,11 @@ pub struct DeltaCalculator;
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &Swaption = context.instrument_as()?;
-        let disc = context.curves.discount_ref(option.disc_id)?;
+        let disc = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                option.disc_id,
+            )?;
         let t = option.year_fraction(disc.base_date(), option.expiry, option.day_count)?;
 
         if t <= 0.0 {
@@ -62,7 +66,11 @@ pub struct GammaCalculator;
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &Swaption = context.instrument_as()?;
-        let disc = context.curves.discount_ref(option.disc_id)?;
+        let disc = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                option.disc_id,
+            )?;
         let t = option.year_fraction(disc.base_date(), option.expiry, option.day_count)?;
 
         if t <= 0.0 {
@@ -107,7 +115,11 @@ pub struct VegaCalculator;
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &Swaption = context.instrument_as()?;
-        let disc = context.curves.discount_ref(option.disc_id)?;
+        let disc = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                option.disc_id,
+            )?;
         let t = option.year_fraction(disc.base_date(), option.expiry, option.day_count)?;
 
         if t <= 0.0 {
@@ -152,7 +164,11 @@ pub struct ThetaCalculator;
 impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &Swaption = context.instrument_as()?;
-        let disc = context.curves.discount_ref(option.disc_id)?;
+        let disc = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                option.disc_id,
+            )?;
         let base = disc.base_date();
         let t = option.year_fraction(base, option.expiry, option.day_count)?;
         if t <= 0.0 {
@@ -195,7 +211,11 @@ pub struct RhoCalculator;
 impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &Swaption = context.instrument_as()?;
-        let disc = context.curves.discount(option.disc_id)?;
+        let disc = context
+            .curves
+            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                option.disc_id,
+            )?;
 
         // Base price from context
         let base_price = context.base_value.amount();

@@ -190,8 +190,14 @@ impl_instrument!(
     InterestRateFuture,
     "InterestRateFuture",
     pv = |s, curves, as_of| {
-        let discount_curve = curves.discount_ref(s.disc_id)?;
-        let forward_curve = curves.forward_ref(s.forward_id)?;
+        let discount_curve = curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                s.disc_id,
+            )?;
+        let forward_curve = curves
+            .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
+                s.forward_id,
+            )?;
         s.future_value(discount_curve, forward_curve, as_of)
     }
 );
@@ -209,8 +215,12 @@ impl CashflowProvider for InterestRateFuture {
         }
 
         let settlement_pv = self.future_value(
-            curves.discount_ref(self.disc_id)?,
-            curves.forward_ref(self.forward_id)?,
+            curves.get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                self.disc_id,
+            )?,
+            curves.get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
+                self.forward_id,
+            )?,
             as_of,
         )?;
 

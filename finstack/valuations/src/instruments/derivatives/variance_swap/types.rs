@@ -229,7 +229,10 @@ impl VarianceSwap {
 impl Priceable for VarianceSwap {
     fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
         // Get discount curve
-        let disc = context.discount_ref(self.disc_id.as_str())?;
+        let disc = context
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                self.disc_id.as_str(),
+            )?;
         
         if as_of >= self.maturity {
             // Contract has expired - calculate final payoff

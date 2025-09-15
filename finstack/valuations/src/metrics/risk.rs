@@ -283,7 +283,11 @@ impl MetricCalculator for BucketedDv01Calculator {
             .clone()
             .unwrap_or_else(|| finstack_core::types::CurveId::new("USD-OIS"));
 
-        let disc = context.curves.discount(disc_id.as_str())?;
+        let disc = context
+            .curves
+            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                disc_id.as_str(),
+            )?;
 
         // Get day count - try to infer or use default
         let dc = context.day_count.unwrap_or(DayCount::Act365F);
@@ -355,7 +359,11 @@ impl MetricCalculator for ThetaCalculator {
 
         // Try to age the discount curve used by the instrument
         if let Some(disc_id) = context.discount_curve_id.clone() {
-            if let Ok(original_disc) = original_curves.discount(disc_id.as_str()) {
+            if let Ok(original_disc) = original_curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    disc_id.as_str(),
+                )
+            {
                 let aged_disc = AgedDiscountCurve::new(original_disc, shifted_date, day_count)?;
                 let concrete_aged_disc = self.convert_aged_discount_curve_to_concrete(aged_disc)?;
                 aged_context = aged_context.insert_discount(concrete_aged_disc);
@@ -367,7 +375,11 @@ impl MetricCalculator for ThetaCalculator {
         let common_fwd_ids = ["USD-LIBOR-3M", "USD-SOFR", "EUR-EURIBOR-3M", "GBP-SONIA"];
 
         for &curve_id in &common_disc_ids {
-            if let Ok(original_disc) = original_curves.discount(curve_id) {
+            if let Ok(original_disc) = original_curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    curve_id,
+                )
+            {
                 let aged_disc = AgedDiscountCurve::new(original_disc, shifted_date, day_count)?;
                 let concrete_aged_disc = self.convert_aged_discount_curve_to_concrete(aged_disc)?;
                 aged_context = aged_context.insert_discount(concrete_aged_disc);
@@ -375,7 +387,11 @@ impl MetricCalculator for ThetaCalculator {
         }
 
         for &curve_id in &common_fwd_ids {
-            if let Ok(original_fwd) = original_curves.forward(curve_id) {
+            if let Ok(original_fwd) = original_curves
+                .get::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
+                    curve_id,
+                )
+            {
                 let dt = day_count.year_fraction(
                     as_of,
                     shifted_date,

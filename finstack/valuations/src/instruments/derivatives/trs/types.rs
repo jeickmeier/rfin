@@ -123,7 +123,10 @@ impl TrsEngine {
         FReturn: Fn(Date, Date, F, F, F, &MarketContext) -> Result<F>,
     {
         // Get discount curve
-        let disc = context.discount_ref(params.disc_id)?;
+        let disc = context
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                params.disc_id,
+            )?;
 
         // Build schedule
         let period_schedule = build_dates(
@@ -189,8 +192,14 @@ impl TrsEngine {
         let disc_curve_id = financing.disc_id.as_str();
         let fwd_curve_id = financing.fwd_id.as_str();
 
-        let disc = context.discount_ref(disc_curve_id)?;
-        let fwd = context.forward_ref(fwd_curve_id)?;
+        let disc = context
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                disc_curve_id,
+            )?;
+        let fwd = context
+            .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
+                fwd_curve_id,
+            )?;
 
         // Build schedule
         let period_schedule = build_dates(
@@ -252,7 +261,10 @@ impl TrsEngine {
     ) -> Result<F> {
         // Get discount curve
         let disc_curve_id = financing.disc_id.as_str();
-        let disc = context.discount_ref(disc_curve_id)?;
+        let disc = context
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                disc_curve_id,
+            )?;
 
         // Build schedule
         let period_schedule = build_dates(

@@ -490,7 +490,10 @@ impl LoanSimulator {
         as_of: Date,
     ) -> finstack_core::Result<Money> {
         // use finstack_core::market_data::traits::Discounting;
-        let disc = curves.discount_ref(facility.disc_id())?;
+        let disc = curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                facility.disc_id(),
+            )?;
         let existing_flows = facility.build_existing_flows(curves, as_of)?;
         existing_flows.npv(disc, disc.base_date(), facility.day_count())
     }
@@ -504,7 +507,10 @@ impl LoanSimulator {
         timeline: &[Date],
     ) -> finstack_core::Result<(PVBreakdown, Vec<FacilityState>)> {
         // use finstack_core::market_data::traits::Discounting;
-        let disc = curves.discount_ref(facility.disc_id())?;
+        let disc = curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                facility.disc_id(),
+            )?;
 
         let mut breakdown = PVBreakdown::default();
         let mut state_path = Vec::new();
@@ -668,7 +674,10 @@ impl LoanSimulator {
         rng: &mut dyn RandomNumberGenerator,
     ) -> finstack_core::Result<(PVBreakdown, Vec<FacilityState>, bool)> {
         // use finstack_core::market_data::traits::Discounting;
-        let disc = curves.discount_ref(facility.disc_id())?;
+        let disc = curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                facility.disc_id(),
+            )?;
         let mut breakdown = PVBreakdown::default();
         let mut state_path = Vec::new();
 
@@ -826,7 +835,11 @@ impl LoanSimulator {
                 reset_lag_days,
             } => {
                 // Forward trait removed - use direct method calls on curve types
-                if let Ok(fwd_curve) = curves.forward_ref(index_id) {
+                if let Ok(fwd_curve) = curves
+                    .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
+                        index_id,
+                    )
+                {
                     // Calculate reset date
                     let reset_date =
                         self.apply_reset_lag(period_start, *reset_lag_days, facility)?;
@@ -1037,7 +1050,11 @@ impl LoanSimulator {
     ) -> finstack_core::Result<Option<Date>> {
         if let Some(curve_id) = credit_curve_id {
             // Try to get hazard curve from MarketContext
-            if let Ok(hazard_curve) = curves.hazard(curve_id) {
+            if let Ok(hazard_curve) = curves
+                .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                    curve_id,
+                )
+            {
                 // Use proper hazard curve for default simulation
                 let base_date = timeline[0];
                 let u = rng.uniform();

@@ -285,8 +285,14 @@ impl_instrument!(
             ));
         }
         // Discounting trait not needed explicitly here
-        let domestic_disc = curves.discount_ref(s.domestic_disc_id)?;
-        let foreign_disc = curves.discount_ref(s.foreign_disc_id)?;
+        let domestic_disc = curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                s.domestic_disc_id,
+            )?;
+        let foreign_disc = curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                s.foreign_disc_id,
+            )?;
         let r_d = domestic_disc.zero(time_to_expiry);
         let r_f = foreign_disc.zero(time_to_expiry);
         let fx_matrix = curves

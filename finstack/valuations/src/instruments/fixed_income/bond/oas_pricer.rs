@@ -74,7 +74,11 @@ impl BondValuator {
 
         // Build cashflow schedule
         let curves = market_context; // Use MarketContext directly
-        let base_date = market_context.discount(bond.disc_id.clone())?.base_date();
+        let base_date = market_context
+            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                bond.disc_id.clone(),
+            )?
+            .base_date();
         let flows = bond.build_schedule(curves, base_date)?;
 
         // Map cashflows to tree steps
@@ -235,7 +239,10 @@ impl OASCalculator {
         };
 
         let mut tree = ShortRateTree::new(tree_config);
-        let discount_curve = market_context.discount(bond.disc_id.clone())?;
+        let discount_curve = market_context
+            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                bond.disc_id.clone(),
+            )?;
         tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
 
         // Create bond valuator
@@ -473,7 +480,11 @@ mod tests {
         assert!(!valuator.coupon_map.is_empty());
 
         // Verify market context was used properly
-        assert!(market_context.discount("USD-OIS").is_ok());
+        assert!(market_context
+            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                "USD-OIS",
+            )
+            .is_ok());
     }
 
     #[test]

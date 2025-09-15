@@ -48,7 +48,8 @@ let curves = MarketContext::new()
     .with_forecast("USD-LIB3M", fwd_curve)
     .with_collateral("CSA-USD", coll_curve);
 
-let pv = swapleg.npv(&curves.discount("USD-OIS")?);
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+let pv = swapleg.npv(&curves.get::<DiscountCurve>("USD-OIS")?);
 ```
 
 ## 4 Module Layout

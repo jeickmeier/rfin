@@ -247,8 +247,14 @@ impl_instrument!(
         )?;
 
         // Get market curves
-        let disc_curve = curves.discount_ref(s.disc_id)?;
-        let hazard_curve = curves.hazard_ref(s.credit_id)?;
+        let disc_curve = curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                s.disc_id,
+            )?;
+        let hazard_curve = curves
+            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                s.credit_id,
+            )?;
 
         // Calculate risky annuity (RPV01) of the underlying CDS (simplified quarterly)
         let cds_tenor = s.day_count.year_fraction(

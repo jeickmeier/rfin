@@ -445,7 +445,10 @@ impl CashflowProvider for Loan {
 
             // Get the forward curve
             // Forward trait removed - use direct method calls on curve types
-            let fwd_curve = curves.forward_ref(index_id)?;
+            let fwd_curve = curves
+                .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
+                    index_id,
+                )?;
 
             // Generate payment dates
             let period_schedule = crate::cashflow::builder::schedule_utils::build_dates(

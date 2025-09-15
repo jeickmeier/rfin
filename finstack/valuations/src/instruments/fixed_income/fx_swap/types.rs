@@ -66,8 +66,14 @@ impl_instrument!(
     "FxSwap",
     pv = |s, curves, as_of| {
         // 1. Get discount curves
-        let domestic_disc = curves.discount(s.domestic_disc_id)?;
-        let foreign_disc = curves.discount(s.foreign_disc_id)?;
+        let domestic_disc = curves
+            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                s.domestic_disc_id,
+            )?;
+        let foreign_disc = curves
+            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                s.foreign_disc_id,
+            )?;
 
         // 2. Get year fractions
         let dc = finstack_core::dates::DayCount::Act365F;

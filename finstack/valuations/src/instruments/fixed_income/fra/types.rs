@@ -153,8 +153,14 @@ impl_instrument!(
     ForwardRateAgreement,
     "FRA",
     pv = |s, curves, as_of| {
-        let discount_curve = curves.discount(s.disc_id)?;
-        let forward_curve = curves.forward(s.forward_id)?;
+        let discount_curve = curves
+            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                s.disc_id,
+            )?;
+        let forward_curve = curves
+            .get::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
+                s.forward_id,
+            )?;
         s.fra_value(discount_curve.as_ref(), forward_curve.as_ref(), as_of)
     }
 );
@@ -172,8 +178,16 @@ impl CashflowProvider for ForwardRateAgreement {
 
         // Calculate the FRA settlement amount
         let pv = self.fra_value(
-            curves.discount(self.disc_id)?.as_ref(),
-            curves.forward(self.forward_id)?.as_ref(),
+            curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    self.disc_id,
+                )?
+                .as_ref(),
+            curves
+                .get::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
+                    self.forward_id,
+                )?
+                .as_ref(),
             as_of,
         )?;
 

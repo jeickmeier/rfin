@@ -271,7 +271,10 @@ impl Repo {
 impl Priceable for Repo {
     fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
         // Get discount curve
-        let disc_curve = context.discount_ref(self.disc_id)?;
+        let disc_curve = context
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                self.disc_id,
+            )?;
         
         // Calculate total repayment at maturity
         let total_repayment = self.total_repayment()?;

@@ -132,6 +132,40 @@ impl CurveStorage {
     }
 }
 
+// -----------------------------------------------------------------------------
+// Generic casting from CurveStorage → concrete curve types
+// -----------------------------------------------------------------------------
+
+/// Internal helper trait to cast `CurveStorage` to a concrete curve type.
+pub trait StorageCast<T: 'static> {
+    /// Return `&Arc<T>` when the stored variant matches `T`.
+    fn as_arc(&self) -> Option<&Arc<T>>;
+    /// Human-readable type name for diagnostics.
+    fn type_name() -> &'static str;
+}
+
+macro_rules! impl_storage_cast {
+    ($ty:ty, $variant:ident, $name:expr) => {
+        impl StorageCast<$ty> for CurveStorage {
+            #[inline]
+            fn as_arc(&self) -> Option<&Arc<$ty>> {
+                match self {
+                    CurveStorage::$variant(x) => Some(x),
+                    _ => None,
+                }
+            }
+            #[inline]
+            fn type_name() -> &'static str { $name }
+        }
+    };
+}
+
+impl_storage_cast!(DiscountCurve, Discount, "Discount");
+impl_storage_cast!(ForwardCurve, Forward, "Forward");
+impl_storage_cast!(HazardCurve, Hazard, "Hazard");
+impl_storage_cast!(InflationCurve, Inflation, "Inflation");
+impl_storage_cast!(BaseCorrelationCurve, BaseCorrelation, "BaseCorrelation");
+
 
 // Convenience constructors (removed unused new_* helpers)
 
@@ -335,113 +369,49 @@ impl MarketContext {
     }
 
     // -----------------------------------------------------------------------------
-    // Typed getters - return concrete types (preferred API)
+    // Single generic typed getters for curves
     // -----------------------------------------------------------------------------
 
-    /// Get a hazard curve by ID (returns concrete type)
-    pub fn hazard(&self, id: impl AsRef<str>) -> Result<Arc<HazardCurve>> {
+    /// Get a curve by ID as a concrete type `T`.
+    pub fn get<T: 'static>(&self, id: impl AsRef<str>) -> Result<Arc<T>>
+    where
+        CurveStorage: StorageCast<T>,
+    {
         let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::Hazard(curve)) => Ok(Arc::clone(curve)),
-            _ => Err(crate::error::InputError::NotFound {
-                id: id_str.to_string(),
-            }.into()),
+        let storage = self
+            .curves
+            .get(id_str)
+            .ok_or_else(|| crate::error::Error::from(crate::error::InputError::NotFound { id: id_str.to_string() }))?;
+        if let Some(arc) = <CurveStorage as StorageCast<T>>::as_arc(storage) {
+            Ok(Arc::clone(arc))
+        } else {
+            Err(crate::error::Error::Validation(format!(
+                "Type mismatch: curve '{}' is '{}', expected '{}'",
+                id_str,
+                storage.curve_type(),
+                <CurveStorage as StorageCast<T>>::type_name()
+            )))
         }
     }
 
-    /// Borrow a hazard curve by ID without cloning the Arc
-    pub fn hazard_ref(&self, id: impl AsRef<str>) -> Result<&HazardCurve> {
+    /// Borrow a curve by ID as a concrete type `T` without cloning the Arc.
+    pub fn get_ref<T: 'static>(&self, id: impl AsRef<str>) -> Result<&T>
+    where
+        CurveStorage: StorageCast<T>,
+    {
         let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::Hazard(curve)) => Ok(curve.as_ref()),
-            _ => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
-        }
-    }
-
-    
-
-    /// Get a base correlation curve by ID (returns concrete type)
-    pub fn base_correlation(&self, id: impl AsRef<str>) -> Result<Arc<BaseCorrelationCurve>> {
-        let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::BaseCorrelation(curve)) => Ok(Arc::clone(curve)),
-            _ => Err(crate::error::InputError::NotFound {
-                id: id_str.to_string(),
-            }.into()),
-        }
-    }
-
-    /// Borrow a base correlation curve by ID without cloning the Arc
-    pub fn base_correlation_ref(&self, id: impl AsRef<str>) -> Result<&BaseCorrelationCurve> {
-        let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::BaseCorrelation(curve)) => Ok(curve.as_ref()),
-            _ => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
-        }
-    }
-
-    // -----------------------------------------------------------------------------
-    // Typed getters - return concrete types (for new code)
-    // -----------------------------------------------------------------------------
-
-    /// Get a discount curve by ID (returns concrete type)
-    pub fn discount(&self, id: impl AsRef<str>) -> Result<Arc<DiscountCurve>> {
-        let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::Discount(curve)) => Ok(Arc::clone(curve)),
-            _ => Err(crate::error::InputError::NotFound {
-                id: id_str.to_string(),
-            }.into()),
-            }
-    }
-
-    /// Borrow a discount curve by ID without cloning the Arc
-    pub fn discount_ref(&self, id: impl AsRef<str>) -> Result<&DiscountCurve> {
-        let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::Discount(curve)) => Ok(curve.as_ref()),
-            _ => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
-        }
-    }
-
-    /// Get a forward curve by ID (returns concrete type)
-    pub fn forward(&self, id: impl AsRef<str>) -> Result<Arc<ForwardCurve>> {
-        let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::Forward(curve)) => Ok(Arc::clone(curve)),
-            _ => Err(crate::error::InputError::NotFound {
-                id: id_str.to_string(),
-            }.into()),
-            }
-    }
-
-    /// Borrow a forward curve by ID without cloning the Arc
-    pub fn forward_ref(&self, id: impl AsRef<str>) -> Result<&ForwardCurve> {
-        let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::Forward(curve)) => Ok(curve.as_ref()),
-            _ => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
-        }
-    }
-
-    /// Get an inflation curve by ID (returns concrete type)
-    pub fn inflation(&self, id: impl AsRef<str>) -> Result<Arc<InflationCurve>> {
-        let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::Inflation(curve)) => Ok(Arc::clone(curve)),
-            _ => Err(crate::error::InputError::NotFound {
-                id: id_str.to_string(),
-            }.into()),
-            }
-    }
-
-    /// Borrow an inflation curve by ID without cloning the Arc
-    pub fn inflation_ref(&self, id: impl AsRef<str>) -> Result<&InflationCurve> {
-        let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::Inflation(curve)) => Ok(curve.as_ref()),
-            _ => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
-        }
+        let storage = self
+            .curves
+            .get(id_str)
+            .ok_or_else(|| crate::error::Error::from(crate::error::InputError::NotFound { id: id_str.to_string() }))?;
+        <CurveStorage as StorageCast<T>>::as_arc(storage)
+            .map(|arc| arc.as_ref())
+            .ok_or_else(|| crate::error::Error::Validation(format!(
+                "Type mismatch: curve '{}' is '{}', expected '{}'",
+                id_str,
+                storage.curve_type(),
+                <CurveStorage as StorageCast<T>>::type_name()
+            )))
     }
 
     /// Get a volatility surface by ID
@@ -516,14 +486,14 @@ impl MarketContext {
             .ok_or(crate::error::InputError::NotFound {
                     id: format!("collateral:{}", csa_code),
             })?;
-        self.discount(curve_id.as_str()).map(|arc| arc as Arc<dyn Discounting + Send + Sync>)
+        self.get::<DiscountCurve>(curve_id.as_str()).map(|arc| arc as Arc<dyn Discounting + Send + Sync>)
     }
 
     /// Borrow discount curve for collateral CSA code without cloning the `Arc`
     pub fn collateral_ref(&self, csa_code: &str) -> Result<&dyn Discounting> {
         let curve_id = self.collateral.get(csa_code)
             .ok_or(crate::error::InputError::NotFound { id: format!("collateral:{}", csa_code) })?;
-        self.discount_ref(curve_id.as_str()).map(|r| r as &dyn Discounting)
+        self.get_ref::<DiscountCurve>(curve_id.as_str()).map(|r| r as &dyn Discounting)
     }
 
     // -----------------------------------------------------------------------------
@@ -652,7 +622,8 @@ impl MarketContext {
     /// let mut bumps = HashMap::new();
     /// bumps.insert(CurveId::new("USD-OIS"), BumpSpec::parallel_bp(100.0));
     /// let bumped = context.bump(bumps).unwrap();
-    /// assert!(bumped.discount("USD-OIS_bump_100bp").is_ok());
+    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as _;
+    /// assert!(bumped.get::<DiscountCurve>("USD-OIS_bump_100bp").is_ok());
     /// ```
     pub fn bump(&self, bumps: HashMap<CurveId, BumpSpec>) -> Result<Self> {
         let mut new_context = self.clone();
@@ -661,7 +632,7 @@ impl MarketContext {
             let cid = curve_id.as_str();
 
             // Try each curve type and delegate to centralized helpers
-            if let Ok(original) = self.discount_ref(cid) {
+            if let Ok(original) = self.get_ref::<DiscountCurve>(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = bumped.id().clone();
                     new_context.curves.insert(bumped_id, CurveStorage::Discount(Arc::new(bumped)));
@@ -669,7 +640,7 @@ impl MarketContext {
                 }
             }
 
-            if let Ok(original) = self.forward_ref(cid) {
+            if let Ok(original) = self.get_ref::<ForwardCurve>(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = bumped.id().clone();
                     new_context.curves.insert(bumped_id, CurveStorage::Forward(Arc::new(bumped)));
@@ -677,7 +648,7 @@ impl MarketContext {
                 }
             }
 
-            if let Ok(original) = self.hazard_ref(cid) {
+            if let Ok(original) = self.get_ref::<HazardCurve>(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = bumped.id().clone();
                     new_context.curves.insert(bumped_id, CurveStorage::Hazard(Arc::new(bumped)));
@@ -685,7 +656,7 @@ impl MarketContext {
                 }
             }
 
-            if let Ok(original) = self.inflation_ref(cid) {
+            if let Ok(original) = self.get_ref::<InflationCurve>(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = bumped.id().clone();
                     new_context.curves.insert(bumped_id, CurveStorage::Inflation(Arc::new(bumped)));
@@ -693,7 +664,7 @@ impl MarketContext {
                 }
             }
 
-            if let Ok(original) = self.base_correlation_ref(cid) {
+            if let Ok(original) = self.get_ref::<BaseCorrelationCurve>(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = bumped.id().clone();
                     new_context.curves.insert(bumped_id, CurveStorage::BaseCorrelation(Arc::new(bumped)));
@@ -735,7 +706,7 @@ impl MarketContext {
 
         // Get risk-free rate from discount curve
         let discount_curve_id = format!("{}-OIS", base_currency);
-        let discount_curve = self.discount_ref(&discount_curve_id)?;
+        let discount_curve = self.get_ref::<DiscountCurve>(&discount_curve_id)?;
 
         Ok(Box::new(move |t: F| -> F {
             let risk_free_rate = discount_curve.zero(t);
@@ -763,8 +734,8 @@ impl MarketContext {
         // Get domestic and foreign discount curves
         let dom_discount_id = format!("{}-OIS", domestic_ccy);
         let for_discount_id = format!("{}-OIS", foreign_ccy);
-        let dom_curve = self.discount_ref(&dom_discount_id)?;
-        let for_curve = self.discount_ref(&for_discount_id)?;
+        let dom_curve = self.get_ref::<DiscountCurve>(&dom_discount_id)?;
+        let for_curve = self.get_ref::<DiscountCurve>(&for_discount_id)?;
 
         Ok(Box::new(move |t: F| -> F {
             let domestic_rate = dom_curve.zero(t);
@@ -775,7 +746,7 @@ impl MarketContext {
 
     /// Build forward function for interest rate underlyings: F(t) = forward_curve.rate(t)
     pub fn rates_forward<'a>(&'a self, underlying: &str) -> Result<Box<dyn Fn(F) -> F + 'a>> {
-        let forward_curve = self.forward_ref(underlying)?;
+        let forward_curve = self.get_ref::<ForwardCurve>(underlying)?;
         Ok(Box::new(move |t: F| -> F {
             forward_curve.rate(t)
         }))

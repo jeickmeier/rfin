@@ -285,7 +285,10 @@ fn extract_equity_state(
         .unwrap_or(0.0);
 
     // Get risk-free rate from discount curve
-    let discount_curve = ctx.discount_ref(disc_id)?;
+    let discount_curve = ctx
+        .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            disc_id,
+        )?;
     let base_date = discount_curve.base_date();
 
     // Calculate time to maturity
@@ -356,7 +359,11 @@ pub fn price_convertible_bond(
         ConvertibleTreeType::Trinomial(n) => n,
     };
 
-    let base_date = market_context.discount_ref(bond.disc_id)?.base_date();
+    let base_date = market_context
+        .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            bond.disc_id,
+        )?
+        .base_date();
     let valuator =
         ConvertibleBondValuator::new(bond, &cashflow_schedule, time_to_maturity, steps, base_date)?;
 
@@ -416,7 +423,11 @@ pub fn calculate_convertible_greeks(
         ConvertibleTreeType::Trinomial(n) => n,
     };
 
-    let base_date = market_context.discount_ref(bond.disc_id)?.base_date();
+    let base_date = market_context
+        .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            bond.disc_id,
+        )?
+        .base_date();
     let valuator =
         ConvertibleBondValuator::new(bond, &cashflow_schedule, time_to_maturity, steps, base_date)?;
 

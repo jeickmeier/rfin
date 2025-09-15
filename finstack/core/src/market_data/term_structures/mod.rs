@@ -50,7 +50,8 @@
 //!     .insert_discount(disc)
 //!     .insert_forward(fwd3m)
 //!     .insert_hazard(hazard);
-//! assert!(curves.discount("USD-OIS").is_ok());
+//! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+//! assert!(curves.get::<DiscountCurve>("USD-OIS").is_ok());
 //! ```
 
 /// Base correlation curves for CDS tranche pricing.

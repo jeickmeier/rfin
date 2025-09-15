@@ -11,8 +11,16 @@ pub struct ParSpreadCalculator;
 impl MetricCalculator for ParSpreadCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let cds: &CreditDefaultSwap = context.instrument_as()?;
-        let disc = context.curves.discount_ref(cds.premium.disc_id)?;
-        let surv = context.curves.hazard_ref(cds.protection.credit_id)?;
+        let disc = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                cds.premium.disc_id,
+            )?;
+        let surv = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                cds.protection.credit_id,
+            )?;
         cds.par_spread(disc, surv)
     }
 
@@ -27,8 +35,16 @@ pub struct RiskyPv01Calculator;
 impl MetricCalculator for RiskyPv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let cds: &CreditDefaultSwap = context.instrument_as()?;
-        let disc = context.curves.discount_ref(cds.premium.disc_id)?;
-        let surv = context.curves.hazard_ref(cds.protection.credit_id)?;
+        let disc = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                cds.premium.disc_id,
+            )?;
+        let surv = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                cds.protection.credit_id,
+            )?;
         cds.risky_pv01(disc, surv)
     }
 
@@ -57,8 +73,16 @@ pub struct ProtectionLegPvCalculator;
 impl MetricCalculator for ProtectionLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let cds: &CreditDefaultSwap = context.instrument_as()?;
-        let disc = context.curves.discount_ref(cds.premium.disc_id)?;
-        let surv = context.curves.hazard_ref(cds.protection.credit_id)?;
+        let disc = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                cds.premium.disc_id,
+            )?;
+        let surv = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                cds.protection.credit_id,
+            )?;
         let pv = cds.pv_protection_leg(disc, surv)?;
         Ok(pv.amount())
     }
@@ -74,8 +98,16 @@ pub struct PremiumLegPvCalculator;
 impl MetricCalculator for PremiumLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let cds: &CreditDefaultSwap = context.instrument_as()?;
-        let disc = context.curves.discount_ref(cds.premium.disc_id)?;
-        let surv = context.curves.hazard_ref(cds.protection.credit_id)?;
+        let disc = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                cds.premium.disc_id,
+            )?;
+        let surv = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                cds.protection.credit_id,
+            )?;
         let pv = cds.pv_premium_leg(disc, surv)?;
         Ok(pv.amount())
     }

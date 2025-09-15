@@ -49,7 +49,11 @@ impl MetricCalculator for DeltaCalculator {
         }
 
         // Get market data
-        let disc_curve = context.curves.discount_ref(&option.disc_id)?;
+        let disc_curve = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                &option.disc_id,
+            )?;
         let r = disc_curve.zero(time_to_expiry);
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
@@ -104,7 +108,11 @@ impl MetricCalculator for GammaCalculator {
         }
 
         // Get market data (same pattern as Delta)
-        let disc_curve = context.curves.discount_ref(&option.disc_id)?;
+        let disc_curve = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                &option.disc_id,
+            )?;
         let r = disc_curve.zero(time_to_expiry);
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
@@ -158,7 +166,11 @@ impl MetricCalculator for VegaCalculator {
         }
 
         // Get market data (same pattern)
-        let disc_curve = context.curves.discount_ref(&option.disc_id)?;
+        let disc_curve = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                &option.disc_id,
+            )?;
         let r = disc_curve.zero(time_to_expiry);
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
@@ -213,7 +225,11 @@ impl MetricCalculator for ThetaCalculator {
         }
 
         // Get market data (same pattern)
-        let disc_curve = context.curves.discount_ref(&option.disc_id)?;
+        let disc_curve = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                &option.disc_id,
+            )?;
         let r = disc_curve.zero(time_to_expiry);
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
@@ -268,7 +284,11 @@ impl MetricCalculator for RhoCalculator {
         }
 
         // Get market data (same pattern)
-        let disc_curve = context.curves.discount_ref(&option.disc_id)?;
+        let disc_curve = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                &option.disc_id,
+            )?;
         let r = disc_curve.zero(time_to_expiry);
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
@@ -321,7 +341,11 @@ impl MetricCalculator for ImpliedVolCalculator {
         }
 
         // Gather market inputs
-        let disc_curve = context.curves.discount(&option.disc_id)?;
+        let disc_curve = context
+            .curves
+            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                &option.disc_id,
+            )?;
         let r = disc_curve.zero(t);
 
         let spot_scalar = context.curves.price(&option.spot_id)?;

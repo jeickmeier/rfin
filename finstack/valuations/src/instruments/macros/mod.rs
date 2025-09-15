@@ -116,7 +116,7 @@ macro_rules! impl_instrument_schedule_pv {
                 use $crate::instruments::fixed_income::discountable::Discountable;
                 // Use trait object to avoid monomorphization
                 let flows = CashflowProvider::build_schedule(s, curves, as_of)?;
-                let disc = curves.discount(<str as ::core::convert::AsRef<str>>::as_ref(s.$disc.as_ref()))?;
+                let disc = curves.get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(<str as ::core::convert::AsRef<str>>::as_ref(s.$disc.as_ref()))?;
                 // Import not needed here; types expose required methods
                 flows.npv(&*disc, disc.base_date(), s.$dc)
             }

@@ -34,7 +34,11 @@ impl MetricCalculator for BreakevenCalculator {
             })?;
 
         // Get inflation curve for forward projection
-        let inflation_curve = context.curves.inflation_ref(s.inflation_id)?;
+        let inflation_curve = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::inflation::InflationCurve>(
+                s.inflation_id,
+            )?;
 
         // Historical index value at start (with any lag applied by the index)
         let i_start = inflation_index.value_on(s.start)?;
@@ -114,7 +118,11 @@ impl MetricCalculator for Ir01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let s: &InflationSwap = context.instrument_as()?;
 
-        let disc = context.curves.discount_ref(s.disc_id)?;
+        let disc = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                s.disc_id,
+            )?;
         let base = disc.base_date();
 
         // Calculate the time to maturity for duration calculation
@@ -158,7 +166,11 @@ impl MetricCalculator for Inflation01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let s: &InflationSwap = context.instrument_as()?;
 
-        let disc = context.curves.discount_ref(s.disc_id)?;
+        let disc = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                s.disc_id,
+            )?;
         let base = disc.base_date();
 
         // Get inflation data for analytical calculation
@@ -171,7 +183,11 @@ impl MetricCalculator for Inflation01Calculator {
                 })
             })?;
 
-        let inflation_curve = context.curves.inflation_ref(s.inflation_id)?;
+        let inflation_curve = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::inflation::InflationCurve>(
+                s.inflation_id,
+            )?;
 
         // Get current inflation values
         let i_start = inflation_index.value_on(s.start)?;

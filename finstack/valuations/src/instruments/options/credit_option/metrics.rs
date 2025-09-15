@@ -21,7 +21,11 @@ impl MetricCalculator for DeltaCalculator {
             return Ok(0.0);
         }
 
-        let hazard_curve = context.curves.hazard_ref(option.credit_id)?;
+        let hazard_curve = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                option.credit_id,
+            )?;
         let current_tenor = option.day_count.year_fraction(
             context.as_of,
             option.cds_maturity,
@@ -69,7 +73,11 @@ impl MetricCalculator for GammaCalculator {
             return Ok(0.0);
         }
 
-        let hazard_curve = context.curves.hazard_ref(option.credit_id)?;
+        let hazard_curve = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                option.credit_id,
+            )?;
         let current_tenor = option.day_count.year_fraction(
             context.as_of,
             option.cds_maturity,
@@ -116,7 +124,11 @@ impl MetricCalculator for VegaCalculator {
             return Ok(0.0);
         }
 
-        let hazard_curve = context.curves.hazard_ref(option.credit_id)?;
+        let hazard_curve = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                option.credit_id,
+            )?;
         let current_tenor = option.day_count.year_fraction(
             context.as_of,
             option.cds_maturity,
@@ -163,10 +175,18 @@ impl MetricCalculator for ThetaCalculator {
             return Ok(0.0);
         }
 
-        let disc_curve = context.curves.discount_ref(option.disc_id)?;
+        let disc_curve = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                option.disc_id,
+            )?;
         let r = disc_curve.zero(time_to_expiry);
 
-        let hazard_curve = context.curves.hazard(option.credit_id)?;
+        let hazard_curve = context
+            .curves
+            .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                option.credit_id,
+            )?;
         let current_tenor = option.day_count.year_fraction(
             context.as_of,
             option.cds_maturity,
