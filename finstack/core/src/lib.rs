@@ -27,6 +27,8 @@
 //! assert_eq!(format!("{}", total), "EUR 59.40");
 //! ```
 //!
+//! See also: the [`prelude`] module for a curated set of commonly used types.
+//!
 //! # Cargo features
 //! | Feature       | Purpose                                            |
 //! |-------------- |----------------------------------------------------|

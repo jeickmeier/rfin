@@ -8,6 +8,27 @@
 //! ```rust
 //! use polars::prelude::*;
 //! ```
+//!
+//! # Most-used quick guide
+//!
+//! - `Currency`, `Money`: currency-safe amounts
+//! - `Date`, `BusinessDayConvention`, `adjust`: business-day logic
+//! - `ScheduleBuilder`, `Period`, `DayCount`: scheduling & accruals
+//! - `MarketContext`, `FxProvider`, `FxMatrix`: market data and FX
+//! - `ResultsMeta`, `RoundingContext`: IO boundary stamping
+//!
+//! Example:
+//! ```rust
+//! use finstack_core::prelude::*;
+//! use time::Month;
+//!
+//! let cal = finstack_core::dates::calendar::Target2;
+//! let d = Date::from_calendar_date(2025, Month::January, 4).unwrap();
+//! let adj = adjust(d, BusinessDayConvention::Following, &cal).unwrap();
+//! let amt = Money::new(100.0, Currency::EUR);
+//! assert!(adj >= d);
+//! assert_eq!(amt.currency(), Currency::EUR);
+//! ```
 
 // Core re-exports (keep list focused on ergonomic entry points)
 pub use crate::currency::Currency;

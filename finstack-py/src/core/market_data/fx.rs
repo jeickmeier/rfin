@@ -3,7 +3,7 @@
 use finstack_core::currency::Currency as CoreCurrency;
 use finstack_core::dates::Date;
 use finstack_core::money::fx::{
-    FxConversionPolicy as CorePolicy, FxMatrix as CoreMatrix, FxProvider as CoreProvider, FxRate,
+    FxConversionPolicy as CorePolicy, FxMatrix as CoreMatrix, FxProvider as CoreProvider, FxQuery as CoreFxQuery, FxRate,
 };
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
@@ -248,12 +248,15 @@ impl PyFxMatrix {
         policy: &PyFxConversionPolicy,
     ) -> PyResult<f64> {
         self.inner
-            .rate_simple(
-                from_currency.inner(),
-                to_currency.inner(),
-                date.inner(),
-                (*policy).to_core(),
-            )
+            .rate(CoreFxQuery {
+                from: from_currency.inner(),
+                to: to_currency.inner(),
+                on: date.inner(),
+                policy: (*policy).to_core(),
+                closure_check: None,
+                want_meta: false,
+            })
+            .map(|r| r.rate)
             .map_err(|e| PyErr::new::<PyRuntimeError, _>(format!("Failed to get FX rate: {}", e)))
     }
 

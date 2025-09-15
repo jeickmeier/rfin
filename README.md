@@ -121,9 +121,9 @@ python -m http.server 8000
 
 - **Core Library** (`finstack-core`):
   - `std` - Standard library support (always on)
-  - `decimal128` - High-precision decimal support
   - `serde` - Serialization support
-  - `holidays` - Holiday calendar functionality
+  - `parallel` - Optional Rayon-backed parallel evaluation (order-stable)
+  - `linear-algebra` - Optional ndarray-linalg support
 
 - **Python Bindings** (`finstack-py`):
   - Inherits features from core
@@ -135,6 +135,10 @@ python -m http.server 8000
   - TypeScript definitions
 
 ## CI/CD
+## Determinism and Parallelism Policy
+
+By default, builds enable deterministic numerics for accounting-grade reproducibility. When the `parallel` feature is enabled, parallel execution is used only in ways that preserve bit-identical results relative to the sequential path. If a parallel path cannot be proven bit-identical, it remains disabled.
+
 
 The project uses GitHub Actions for continuous integration:
 

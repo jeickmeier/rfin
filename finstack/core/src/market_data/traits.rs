@@ -3,7 +3,7 @@
 use crate::dates::Date;
 use crate::types::CurveId;
 use crate::F;
-#[cfg(all(feature = "parallel", not(feature = "deterministic")))]
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 // -----------------------------------------------------------------------------
@@ -55,11 +55,13 @@ pub trait Discount: TermStructure {
     where
         Self: Sync,
     {
-        #[cfg(all(feature = "parallel", not(feature = "deterministic")))]
+        #[cfg(feature = "parallel")]
         {
+            // Parallel iteration is required to be order-stable; results must be bit-identical
+            // to the sequential path. We therefore only parallelize the map, preserving order.
             times.par_iter().map(|&t| self.df(t)).collect()
         }
-        #[cfg(any(not(feature = "parallel"), feature = "deterministic"))]
+        #[cfg(not(feature = "parallel"))]
         {
             times.iter().map(|&t| self.df(t)).collect()
         }

@@ -4,6 +4,14 @@
 //! an explicit `FinstackConfig` passed by the caller. There is no global
 //! configuration state; call sites must provide the configuration they wish to
 //! apply.
+//!
+//! ## Numeric mode
+//!
+//! The engine currently operates in a single numeric mode: [`NumericMode::F64`].
+//! To make this explicit and avoid unnecessary function calls, the active mode
+//! is exposed as a constant: [`NUMERIC_MODE`]. Future releases may introduce
+//! additional modes (e.g., Decimal) or feature-gated switching; in that case
+//! the constant will remain stable and reflect the compile-time choice.
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -148,15 +156,13 @@ pub fn rounding_context_from(cfg: &FinstackConfig) -> RoundingContext {
     }
 }
 
-/// Obtain current numeric mode.
-pub fn numeric_mode() -> NumericMode {
-    NumericMode::F64
-}
+/// Active numeric mode used by the engine.
+pub const NUMERIC_MODE: NumericMode = NumericMode::F64;
 
 /// Construct a `ResultsMeta` snapshot for stamping into result envelopes.
 pub fn results_meta(cfg: &FinstackConfig) -> ResultsMeta {
     ResultsMeta {
-        numeric_mode: numeric_mode(),
+        numeric_mode: NUMERIC_MODE,
         rounding: rounding_context_from(cfg),
         fx_policy_applied: None,
     }

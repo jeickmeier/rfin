@@ -26,6 +26,6 @@ fn valuation_result_roundtrip_serde() {
     // Ensure meta carried through
     assert_eq!(
         de.meta.core.numeric_mode as u8,
-        finstack_core::config::numeric_mode() as u8
+        finstack_core::config::NUMERIC_MODE as u8
     );
 }

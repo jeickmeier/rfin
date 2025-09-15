@@ -2,8 +2,8 @@
 //!
 //! Design goals:
 //! - Store raw FX quotes for currency pairs
-//! - Compute reciprocal and triangulated rates on demand (no caching)
-//! - Provide simple, deterministic lookups
+//! - Compute reciprocal and triangulated rates on demand
+//! - Provide simple, deterministic lookups with bounded LRU caching
 //!
 //! The public surface remains stable:
 //! - `FxProvider` trait for on-demand quotes
@@ -13,8 +13,9 @@
 use crate::currency::Currency;
 use crate::dates::Date;
 use std::sync::Arc;
-use hashbrown::HashMap;
+use lru::LruCache;
 use parking_lot::Mutex;
+use std::num::NonZeroUsize;
 // no duration needed in the simplified config
 
 #[cfg(feature = "serde")]
@@ -88,6 +89,7 @@ struct Pair(Currency, Currency);
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+#[cfg_attr(feature = "serde", serde(default))]
 pub struct FxConfig {
     /// Tolerance for closure checking (e.g., 0.0001 = 1bp). Only used if metadata requested.
     pub closure_tolerance: f64,
@@ -97,6 +99,8 @@ pub struct FxConfig {
     pub pivot_currency: Currency,
     /// Whether to enable automatic triangulation for missing rates
     pub enable_triangulation: bool,
+    /// Maximum number of cached quotes to retain in an LRU
+    pub cache_capacity: usize,
 }
 
 impl Default for FxConfig {
@@ -106,6 +110,7 @@ impl Default for FxConfig {
             strict_closure: false,
             pivot_currency: Currency::USD, // USD as default pivot
             enable_triangulation: true,    // Enable triangulation by default
+            cache_capacity: 1024,          // Default LRU capacity
         }
     }
 }
@@ -129,6 +134,9 @@ pub enum ClosureCheckResult {
 }
 
 /// Result of an FX rate lookup with triangulation metadata
+///
+/// Serialization is available when the crate is built with the `serde` feature.
+/// The shape is stable and suitable for logs and result envelopes.
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -163,7 +171,7 @@ pub trait FxProvider: Send + Sync {
 pub struct FxMatrix {
     provider: Arc<dyn FxProvider>,
     /// Explicit quotes inserted or observed from provider
-    quotes: Mutex<HashMap<Pair, FxRate>>,
+    quotes: Mutex<LruCache<Pair, FxRate>>,
     config: FxConfig,
 }
 
@@ -186,41 +194,13 @@ impl FxMatrix {
 
     /// Create a new `FxMatrix` with custom configuration
     pub fn with_config(provider: Arc<dyn FxProvider>, config: FxConfig) -> Self {
-        Self {
-            provider,
-            quotes: Mutex::new(HashMap::new()),
-            config,
-        }
+        let capacity = if config.cache_capacity == 0 { 1 } else { config.cache_capacity };
+        let quotes = LruCache::new(NonZeroUsize::new(capacity).expect("non-zero capacity"));
+        Self { provider, quotes: Mutex::new(quotes), config }
     }
 
     /// Direct lookup from the implied matrix. Falls back to provider/triangulation if missing.
     pub fn rate(&self, query: FxQuery) -> crate::Result<FxRateResult> {
-        self.rate_with_meta(query)
-    }
-
-    /// Simple rate lookup returning only the numeric FX rate.
-    ///
-    /// Convenience wrapper that avoids constructing an `FxQuery` when metadata isn't needed.
-    pub fn rate_simple(
-        &self,
-        from: Currency,
-        to: Currency,
-        on: Date,
-        policy: FxConversionPolicy,
-    ) -> crate::Result<FxRate> {
-        self.rate_with_meta(FxQuery {
-            from,
-            to,
-            on,
-            policy,
-            closure_check: None,
-            want_meta: false,
-        })
-        .map(|res| res.rate)
-    }
-
-    /// Rate lookup returning the numeric rate along with triangulation/closure metadata.
-    pub fn rate_with_meta(&self, query: FxQuery) -> crate::Result<FxRateResult> {
         let from = query.from;
         let to = query.to;
         let on = query.on;
@@ -287,12 +267,7 @@ impl FxMatrix {
             Err(e) => return Err(e),
         };
 
-        let mut result = FxRateResult {
-            rate,
-            triangulated,
-            pivot_currency,
-            closure: None,
-        };
+        let mut result = FxRateResult { rate, triangulated, pivot_currency, closure: None };
         if query.want_meta {
             let closure = self.compute_closure_result(&query, result.rate)?;
             if self.config.strict_closure {
@@ -306,6 +281,7 @@ impl FxMatrix {
         Ok(result)
     }
 
+
     /// Seed or update a single quote directly inside the matrix.
     ///
     /// Note: This does not automatically insert a reciprocal. Lookups will use
@@ -318,7 +294,7 @@ impl FxMatrix {
     pub fn set_quotes(&self, quotes: &[(Currency, Currency, FxRate)]) {
         let mut map = self.quotes.lock();
         for &(from, to, rate) in quotes {
-            map.insert(Pair(from, to), rate);
+            map.put(Pair(from, to), rate);
         }
     }
 
@@ -349,7 +325,7 @@ impl FxMatrix {
         let quotes = self.quotes.lock();
         let quote_vec: Vec<(Currency, Currency, FxRate)> = quotes
             .iter()
-            .map(|(pair, &rate)| (pair.0, pair.1, rate))
+            .map(|(pair, rate)| (pair.0, pair.1, *rate))
             .collect();
         FxMatrixState {
             config: self.config.clone(),
@@ -386,7 +362,7 @@ impl FxMatrix {
     /// Insert an explicit provider quote
     fn insert_quote(&self, from: Currency, to: Currency, rate: FxRate) {
         let mut quotes = self.quotes.lock();
-        quotes.insert(Pair(from, to), rate);
+        quotes.put(Pair(from, to), rate);
     }
 
     /// Get rate preferring explicit quotes, then provider, then reciprocal.
@@ -431,7 +407,7 @@ impl FxMatrix {
         from: Currency,
         to: Currency,
     ) -> (Option<FxRate>, Option<FxRate>) {
-        let quotes = self.quotes.lock();
+        let mut quotes = self.quotes.lock();
         (
             quotes.get(&Pair(from, to)).copied(),
             quotes.get(&Pair(to, from)).copied(),
@@ -473,9 +449,27 @@ impl FxMatrix {
             None => return Ok(None),
         };
 
-        // Recursively compute via legs using the simple API to avoid cycles/metadata
-        let via_a = self.rate_simple(query.from, mid, query.on, query.policy)?;
-        let via_b = self.rate_simple(mid, query.to, query.on, query.policy)?;
+        // Recursively compute via legs using the unified API without metadata
+        let via_a = self
+            .rate(FxQuery {
+                from: query.from,
+                to: mid,
+                on: query.on,
+                policy: query.policy,
+                closure_check: None,
+                want_meta: false,
+            })?
+            .rate;
+        let via_b = self
+            .rate(FxQuery {
+                from: mid,
+                to: query.to,
+                on: query.on,
+                policy: query.policy,
+                closure_check: None,
+                want_meta: false,
+            })?
+            .rate;
 
         Ok(Some(self.check_closure(direct_rate, via_a, via_b)?))
     }

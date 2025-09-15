@@ -160,16 +160,6 @@ macro_rules! declare_calendar {
 pub use core::{adjust, available_calendars, BusinessDayConvention, HolidayCalendar};
 pub use rule::{Direction, Observed, Rule};
 
-// Convenience alias so users can `use finstack_core::dates::calendar::Calendar`.
-// We re-export the existing `HolidayCalendar` trait from the parent module.
-// This keeps the public API surface small while allowing direct usage.
-//
-// Example:
-//
-// fn foo(cal: &impl Calendar) { /* ... */ }
-
-pub use self::core::HolidayCalendar as Calendar;
-
 // Include generated calendar types and registry helpers directly at this module root.
 // `Rule` is already in scope via `pub use rule::Rule` above.
 include!(concat!(env!("OUT_DIR"), "/generated_calendars.rs"));

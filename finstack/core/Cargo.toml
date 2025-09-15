@@ -39,16 +39,13 @@ serde_json = "1.0"
 criterion = "0.5"
 
 [features]
-default = ["std"]
+default = ["std", "deterministic"]
 std = ["serde?/std"]
 serde = ["dep:serde", "serde/derive", "time/serde", "hashbrown/serde", "indexmap/serde"]
 parallel = ["dep:rayon"]
 linear-algebra = ["dep:ndarray-linalg"]
 # Controls deterministic vs. performance-optimized execution paths
 deterministic = []
-
-# Legacy support (deprecated)
-legacy-context = []  # Old trait object-based storage (deprecated)
 
 
 [package.metadata.docs.rs]

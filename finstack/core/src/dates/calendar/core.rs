@@ -180,7 +180,7 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
                     Err(Error::Input(InputError::AdjustmentFailed { date, max_days, .. })) => {
                         Err(Error::Input(InputError::AdjustmentFailed {
                             date,
-                            convention: "ModifiedFollowing (fallback to preceding)".to_string(),
+                            convention: "ModifiedFollowing".to_string(),
                             max_days,
                         }))
                     }
@@ -228,7 +228,7 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
                     Err(Error::Input(InputError::AdjustmentFailed { date, max_days, .. })) => {
                         Err(Error::Input(InputError::AdjustmentFailed {
                             date,
-                            convention: "ModifiedPreceding (fallback to following)".to_string(),
+                            convention: "ModifiedPreceding".to_string(),
                             max_days,
                         }))
                     }
@@ -245,6 +245,18 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
 
 /// Returns the identifiers of all built-in holiday calendars that have been
 /// compiled into the crate.
+///
+/// Identifiers are lowercase, stable market codes (e.g., `"gblo"`, `"target2"`).
+/// They are suitable for serialization and long-lived pipelines.
+///
+/// Example using the registry:
+/// ```
+/// use finstack_core::dates::calendar::registry::{CalendarId, CalendarRegistry};
+/// let regs = CalendarRegistry::global();
+/// let ids = regs.available_ids();
+/// let maybe = regs.resolve(CalendarId(ids[0]));
+/// assert!(maybe.is_some());
+/// ```
 #[inline]
 pub const fn available_calendars() -> &'static [&'static str] {
     crate::dates::calendar::ALL_IDS
