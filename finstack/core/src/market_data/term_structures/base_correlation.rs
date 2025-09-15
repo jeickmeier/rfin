@@ -168,6 +168,15 @@ impl BaseCorrelationCurveBuilder {
         self
     }
 
+    /// Alias for `points` to align naming with other 1D curve builders.
+    #[inline]
+    pub fn knots<I>(self, points: I) -> Self
+    where
+        I: IntoIterator<Item = (F, F)>,
+    {
+        self.points(points)
+    }
+
     /// Build the base correlation curve.
     pub fn build(self) -> Result<BaseCorrelationCurve> {
         if self.points.len() < 2 {

@@ -15,9 +15,9 @@ impl MetricCalculator for ParSpreadCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let idx: &CDSIndex = context.instrument_as()?;
         let cds = idx.to_synthetic_cds();
-        let disc = context.curves.discount(cds.premium.disc_id)?;
-        let surv = context.curves.hazard(cds.protection.credit_id)?;
-        cds.par_spread(&*disc, surv.as_ref())
+        let disc = context.curves.discount_ref(cds.premium.disc_id)?;
+        let surv = context.curves.hazard_ref(cds.protection.credit_id)?;
+        cds.par_spread(disc, surv)
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -32,9 +32,9 @@ impl MetricCalculator for RiskyPv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let idx: &CDSIndex = context.instrument_as()?;
         let cds = idx.to_synthetic_cds();
-        let disc = context.curves.discount(cds.premium.disc_id)?;
-        let surv = context.curves.hazard(cds.protection.credit_id)?;
-        cds.risky_pv01(&*disc, surv.as_ref())
+        let disc = context.curves.discount_ref(cds.premium.disc_id)?;
+        let surv = context.curves.hazard_ref(cds.protection.credit_id)?;
+        cds.risky_pv01(disc, surv)
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -65,9 +65,9 @@ impl MetricCalculator for ProtectionLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let idx: &CDSIndex = context.instrument_as()?;
         let cds = idx.to_synthetic_cds();
-        let disc = context.curves.discount(cds.premium.disc_id)?;
-        let surv = context.curves.hazard(cds.protection.credit_id)?;
-        let pv = cds.pv_protection_leg(&*disc, surv.as_ref())?;
+        let disc = context.curves.discount_ref(cds.premium.disc_id)?;
+        let surv = context.curves.hazard_ref(cds.protection.credit_id)?;
+        let pv = cds.pv_protection_leg(disc, surv)?;
         Ok(pv.amount())
     }
 
@@ -83,9 +83,9 @@ impl MetricCalculator for PremiumLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let idx: &CDSIndex = context.instrument_as()?;
         let cds = idx.to_synthetic_cds();
-        let disc = context.curves.discount(cds.premium.disc_id)?;
-        let surv = context.curves.hazard(cds.protection.credit_id)?;
-        let pv = cds.pv_premium_leg(&*disc, surv.as_ref())?;
+        let disc = context.curves.discount_ref(cds.premium.disc_id)?;
+        let surv = context.curves.hazard_ref(cds.protection.credit_id)?;
+        let pv = cds.pv_premium_leg(disc, surv)?;
         Ok(pv.amount())
     }
 

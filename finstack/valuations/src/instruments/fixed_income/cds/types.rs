@@ -349,7 +349,7 @@ impl CreditDefaultSwap {
     /// Calculate CS01 (change in PV for 1bp credit spread change) via enhanced pricer
     pub fn cs01(&self, curves: &MarketContext) -> finstack_core::Result<F> {
         let pricer = cds_pricer::CDSPricer::new();
-        pricer.cs01(self, curves, curves.discount(self.premium.disc_id)?.base_date())
+        pricer.cs01(self, curves, curves.discount_ref(self.premium.disc_id)?.base_date())
     }
 }
 
@@ -357,10 +357,10 @@ impl_instrument!(
     CreditDefaultSwap,
     "CreditDefaultSwap",
     pv = |s, curves, _as_of| {
-        let disc = curves.discount(s.premium.disc_id)?;
-        let surv = curves.hazard(s.protection.credit_id)?;
-        let pv_premium = s.pv_premium_leg(&*disc, surv.as_ref())?;
-        let pv_protection = s.pv_protection_leg(&*disc, surv.as_ref())?;
+        let disc = curves.discount_ref(s.premium.disc_id)?;
+        let surv = curves.hazard_ref(s.protection.credit_id)?;
+        let pv_premium = s.pv_premium_leg(disc, surv)?;
+        let pv_protection = s.pv_protection_leg(disc, surv)?;
         let pv = match s.side {
             PayReceive::PayProtection => (pv_protection - pv_premium)?,
             PayReceive::ReceiveProtection => (pv_premium - pv_protection)?,

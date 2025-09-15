@@ -50,7 +50,7 @@ impl MetricCalculator for DeltaCalculator {
         }
 
         // Get market data
-        let disc_curve = context.curves.discount(&option.disc_id)?;
+        let disc_curve = context.curves.discount_ref(&option.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
@@ -74,7 +74,7 @@ impl MetricCalculator for DeltaCalculator {
         let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            let vol_surface = context.curves.surface(&option.vol_id)?;
+            let vol_surface = context.curves.surface_ref(&option.vol_id)?;
             vol_surface.value_clamped(time_to_expiry, option.strike.amount())
         };
 
@@ -105,7 +105,7 @@ impl MetricCalculator for GammaCalculator {
         }
 
         // Get market data (same pattern as Delta)
-        let disc_curve = context.curves.discount(&option.disc_id)?;
+        let disc_curve = context.curves.discount_ref(&option.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
@@ -129,7 +129,7 @@ impl MetricCalculator for GammaCalculator {
         let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            let vol_surface = context.curves.surface(&option.vol_id)?;
+            let vol_surface = context.curves.surface_ref(&option.vol_id)?;
             vol_surface.value_clamped(time_to_expiry, option.strike.amount())
         };
 
@@ -159,7 +159,7 @@ impl MetricCalculator for VegaCalculator {
         }
 
         // Get market data (same pattern)
-        let disc_curve = context.curves.discount(&option.disc_id)?;
+        let disc_curve = context.curves.discount_ref(&option.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
@@ -183,7 +183,7 @@ impl MetricCalculator for VegaCalculator {
         let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            let vol_surface = context.curves.surface(&option.vol_id)?;
+            let vol_surface = context.curves.surface_ref(&option.vol_id)?;
             vol_surface.value_clamped(time_to_expiry, option.strike.amount())
         };
 
@@ -214,7 +214,7 @@ impl MetricCalculator for ThetaCalculator {
         }
 
         // Get market data (same pattern)
-        let disc_curve = context.curves.discount(&option.disc_id)?;
+        let disc_curve = context.curves.discount_ref(&option.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
         let spot_scalar = context.curves.price(&option.spot_id)?;
@@ -238,7 +238,7 @@ impl MetricCalculator for ThetaCalculator {
         let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            let vol_surface = context.curves.surface(&option.vol_id)?;
+            let vol_surface = context.curves.surface_ref(&option.vol_id)?;
             vol_surface.value_clamped(time_to_expiry, option.strike.amount())
         };
 
@@ -269,7 +269,7 @@ impl MetricCalculator for RhoCalculator {
         }
 
         // Get market data (same pattern)
-        let disc_curve = context.curves.discount(&option.disc_id)?;
+        let disc_curve = context.curves.discount_ref(&option.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
         let spot_scalar = context.curves.price(&option.spot_id)?;

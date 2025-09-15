@@ -126,24 +126,24 @@ impl GaussianCopulaModel {
         as_of: Date,
     ) -> Result<Money> {
         // Get the credit index data
-        let index_data_arc = market_ctx.credit_index(tranche.credit_index_id)?;
+        let index_data_arc = market_ctx.credit_index_ref(tranche.credit_index_id)?;
 
         // Get the discount curve
-        let discount_curve = market_ctx.discount(tranche.disc_id)?;
+        let discount_curve = market_ctx.discount_ref(tranche.disc_id)?;
 
         // Calculate present values of premium and protection legs
         // These now calculate the EL curve internally with proper time dependency
         let pv_premium = self.calculate_premium_leg_pv(
             tranche,
-            &index_data_arc,
-            discount_curve.as_ref(),
+            index_data_arc,
+            discount_curve,
             as_of,
         )?;
 
         let pv_protection = self.calculate_protection_leg_pv(
             tranche,
-            &index_data_arc,
-            discount_curve.as_ref(),
+            index_data_arc,
+            discount_curve,
             as_of,
         )?;
 
@@ -717,8 +717,8 @@ impl GaussianCopulaModel {
         tranche: &CdsTranche,
         market_ctx: &MarketContext,
     ) -> Result<F> {
-        let index_data_arc = market_ctx.credit_index(tranche.credit_index_id)?;
-        self.calculate_expected_tranche_loss(tranche, &index_data_arc, tranche.maturity)
+        let index_data_arc = market_ctx.credit_index_ref(tranche.credit_index_id)?;
+        self.calculate_expected_tranche_loss(tranche, index_data_arc, tranche.maturity)
     }
 
     /// Calculate CS01 (sensitivity to 1bp parallel shift in credit spreads).
@@ -733,8 +733,8 @@ impl GaussianCopulaModel {
 
         // Create bumped market context with hazard rates shifted by configured amount
         let delta_lambda = self.params.cs01_hazard_bump;
-        let original_index_arc = market_ctx.credit_index(tranche.credit_index_id)?;
-        let bumped_index = self.bump_index_hazard(&original_index_arc, delta_lambda)?;
+        let original_index_arc = market_ctx.credit_index_ref(tranche.credit_index_id)?;
+        let bumped_index = self.bump_index_hazard(original_index_arc, delta_lambda)?;
 
         // Create new market context with bumped credit index
         let bumped_market_ctx = market_ctx
@@ -762,7 +762,7 @@ impl GaussianCopulaModel {
 
         // Create bumped market context with base correlation shifted by configured amount
         let bump_abs = self.params.corr_bump_abs;
-        let original_index_arc = market_ctx.credit_index(tranche.credit_index_id)?;
+        let original_index_arc = market_ctx.credit_index_ref(tranche.credit_index_id)?;
         let bumped_corr_curve =
             self.bump_base_correlation(&original_index_arc.base_correlation_curve, bump_abs)?;
 
@@ -798,7 +798,7 @@ impl GaussianCopulaModel {
         market_ctx: &MarketContext,
         _as_of: Date,
     ) -> Result<F> {
-        let index_data = market_ctx.credit_index(tranche.credit_index_id)?;
+        let index_data = market_ctx.credit_index_ref(tranche.credit_index_id)?;
 
         // For homogeneous pool, one name default impact
         let individual_weight = 1.0 / (index_data.num_constituents as F); // Portfolio weight per name

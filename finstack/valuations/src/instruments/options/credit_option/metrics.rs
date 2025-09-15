@@ -22,7 +22,7 @@ impl MetricCalculator for DeltaCalculator {
             return Ok(0.0);
         }
 
-        let hazard_curve = context.curves.hazard(option.credit_id)?;
+        let hazard_curve = context.curves.hazard_ref(option.credit_id)?;
         let current_tenor = option.day_count.year_fraction(
             context.as_of,
             option.cds_maturity,
@@ -40,7 +40,7 @@ impl MetricCalculator for DeltaCalculator {
         } else {
             context
                 .curves
-                .surface(option.vol_id)?
+                .surface_ref(option.vol_id)?
                 .value_clamped(time_to_expiry, option.strike_spread_bp)
         };
 
@@ -70,7 +70,7 @@ impl MetricCalculator for GammaCalculator {
             return Ok(0.0);
         }
 
-        let hazard_curve = context.curves.hazard(option.credit_id)?;
+        let hazard_curve = context.curves.hazard_ref(option.credit_id)?;
         let current_tenor = option.day_count.year_fraction(
             context.as_of,
             option.cds_maturity,
@@ -88,7 +88,7 @@ impl MetricCalculator for GammaCalculator {
         } else {
             context
                 .curves
-                .surface(option.vol_id)?
+                .surface_ref(option.vol_id)?
                 .value_clamped(time_to_expiry, option.strike_spread_bp)
         };
 
@@ -117,7 +117,7 @@ impl MetricCalculator for VegaCalculator {
             return Ok(0.0);
         }
 
-        let hazard_curve = context.curves.hazard(option.credit_id)?;
+        let hazard_curve = context.curves.hazard_ref(option.credit_id)?;
         let current_tenor = option.day_count.year_fraction(
             context.as_of,
             option.cds_maturity,
@@ -135,7 +135,7 @@ impl MetricCalculator for VegaCalculator {
         } else {
             context
                 .curves
-                .surface(option.vol_id)?
+                .surface_ref(option.vol_id)?
                 .value_clamped(time_to_expiry, option.strike_spread_bp)
         };
 
@@ -164,7 +164,7 @@ impl MetricCalculator for ThetaCalculator {
             return Ok(0.0);
         }
 
-        let disc_curve = context.curves.discount(option.disc_id)?;
+        let disc_curve = context.curves.discount_ref(option.disc_id)?;
         let r = disc_curve.zero(time_to_expiry);
 
         let hazard_curve = context.curves.hazard(option.credit_id)?;

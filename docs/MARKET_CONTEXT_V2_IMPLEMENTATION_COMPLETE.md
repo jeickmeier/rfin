@@ -54,7 +54,7 @@ pub enum CurveState {
     Discount(DiscountCurveState),
     Forward(ForwardCurveState),
     Hazard(HazardCurveState),
-    Inflation(InflationCurveData),
+    Inflation(InflationCurveState),
     BaseCorrelation(BaseCorrelationCurve),
 }
 

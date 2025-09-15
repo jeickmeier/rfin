@@ -211,18 +211,18 @@ impl_instrument!(
     Swaption,
     "Swaption",
     pv = |s, curves, _as_of| {
-        let disc = curves.discount(s.disc_id)?;
+        let disc = curves.discount_ref(s.disc_id)?;
         if s.sabr_params.is_some() {
-            s.sabr_price(disc.as_ref())
+            s.sabr_price(disc)
         } else {
             let time_to_expiry = s.year_fraction(disc.base_date(), s.expiry, s.day_count)?;
             let vol = if let Some(impl_vol) = s.pricing_overrides.implied_volatility {
                 impl_vol
             } else {
-                let vol_surface = curves.surface(s.vol_id)?;
+                let vol_surface = curves.surface_ref(s.vol_id)?;
                 vol_surface.value_clamped(time_to_expiry, s.strike_rate)
             };
-            s.black_price(disc.as_ref(), vol)
+            s.black_price(disc, vol)
         }
     },
 );

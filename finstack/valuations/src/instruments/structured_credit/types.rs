@@ -588,14 +588,14 @@ impl CashflowProvider for StructuredCredit {
 impl Priceable for StructuredCredit {
     fn value(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         // Get discount curve
-        let disc = context.discount(self.disc_id.as_str())?;
+        let disc = context.discount_ref(self.disc_id.as_str())?;
         
         // Get all cashflows
         let flows = self.build_schedule(context, as_of)?;
         
         // Discount to present value
         use crate::instruments::fixed_income::discountable::Discountable;
-        flows.npv(&*disc, as_of, finstack_core::dates::DayCount::Act360)
+        flows.npv(disc, as_of, finstack_core::dates::DayCount::Act360)
     }
     
     fn price_with_metrics(

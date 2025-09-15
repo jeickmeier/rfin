@@ -490,9 +490,9 @@ impl LoanSimulator {
         as_of: Date,
     ) -> finstack_core::Result<Money> {
         use finstack_core::market_data::traits::Discount;
-        let disc = curves.discount(facility.disc_id())?;
+        let disc = curves.discount_ref(facility.disc_id())?;
         let existing_flows = facility.build_existing_flows(curves, as_of)?;
-        existing_flows.npv(&*disc, disc.base_date(), facility.day_count())
+        existing_flows.npv(disc, disc.base_date(), facility.day_count())
     }
 
     /// Deterministic expected-path simulation
@@ -504,7 +504,7 @@ impl LoanSimulator {
         timeline: &[Date],
     ) -> finstack_core::Result<(PVBreakdown, Vec<FacilityState>)> {
         use finstack_core::market_data::traits::Discount;
-        let disc = curves.discount(facility.disc_id())?;
+        let disc = curves.discount_ref(facility.disc_id())?;
 
         let mut breakdown = PVBreakdown::default();
         let mut state_path = Vec::new();
@@ -545,7 +545,7 @@ impl LoanSimulator {
             // Calculate cash flows over [period_start, period_end]
             let period_pv = self.calculate_period_cash_flows(
                 facility,
-                &*disc,
+                disc,
                 curves,
                 period_start,
                 period_end,
@@ -668,7 +668,7 @@ impl LoanSimulator {
         rng: &mut dyn RandomNumberGenerator,
     ) -> finstack_core::Result<(PVBreakdown, Vec<FacilityState>, bool)> {
         use finstack_core::market_data::traits::Discount;
-        let disc = curves.discount(facility.disc_id())?;
+        let disc = curves.discount_ref(facility.disc_id())?;
         let mut breakdown = PVBreakdown::default();
         let mut state_path = Vec::new();
 
@@ -701,7 +701,7 @@ impl LoanSimulator {
                         current_drawn,
                         &self.config.credit_config,
                         def_time,
-                        &*disc,
+                        disc,
                         finstack_core::dates::DayCount::Act365F,
                     )?;
                     breakdown.incremental_principal += recovery;
@@ -745,7 +745,7 @@ impl LoanSimulator {
             // Calculate period cash flows with actual utilization
             let period_pv = self.calculate_period_cash_flows(
                 facility,
-                &*disc,
+                disc,
                 curves,
                 period_start,
                 period_end,
@@ -826,7 +826,7 @@ impl LoanSimulator {
                 reset_lag_days,
             } => {
                 use finstack_core::market_data::traits::Forward;
-                if let Ok(fwd_curve) = curves.forward(index_id) {
+                if let Ok(fwd_curve) = curves.forward_ref(index_id) {
                     // Calculate reset date
                     let reset_date =
                         self.apply_reset_lag(period_start, *reset_lag_days, facility)?;

@@ -247,8 +247,8 @@ impl_instrument!(
         )?;
 
         // Get market curves
-        let disc_curve = curves.discount(s.disc_id)?;
-        let hazard_curve = curves.hazard(s.credit_id)?;
+        let disc_curve = curves.discount_ref(s.disc_id)?;
+        let hazard_curve = curves.hazard_ref(s.credit_id)?;
 
         // Calculate risky annuity (RPV01) of the underlying CDS (simplified quarterly)
         let cds_tenor = s.day_count.year_fraction(
@@ -285,7 +285,7 @@ impl_instrument!(
         let sigma = if let Some(impl_vol) = s.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            let vol_surface = curves.surface(s.vol_id)?;
+            let vol_surface = curves.surface_ref(s.vol_id)?;
             vol_surface.value_clamped(time_to_expiry, s.strike_spread_bp)
         };
 

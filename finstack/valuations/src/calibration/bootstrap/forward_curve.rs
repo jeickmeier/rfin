@@ -102,7 +102,7 @@ impl ForwardCurveCalibrator {
         self.validate_quotes(quotes)?;
 
         // Get discount curve
-        let _discount_curve = base_context.discount(self.discount_curve_id)?;
+        let _discount_curve = base_context.discount_ref(self.discount_curve_id)?;
 
         // Filter and sort quotes by maturity
         let mut sorted_quotes = quotes.to_vec();

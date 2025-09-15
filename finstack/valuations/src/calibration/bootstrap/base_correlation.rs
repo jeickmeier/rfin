@@ -241,7 +241,7 @@ impl BaseCorrelationCalibrator {
                 // a new curve on each iteration. This is a fundamental constraint of the
                 // curve's API that prioritizes thread-safety and immutability.
                 let temp_base_corr_curve = match BaseCorrelationCurve::builder("TEMP_CALIB_CORR")
-                    .points(temp_corr_points)
+                    .knots(temp_corr_points)
                     .build()
                 {
                     Ok(curve) => Arc::new(curve),
@@ -292,7 +292,7 @@ impl BaseCorrelationCalibrator {
 
         // Build final base correlation curve
         let final_curve = BaseCorrelationCurve::builder("CALIBRATED_BASE_CORR")
-            .points(solved_correlations)
+            .knots(solved_correlations)
             .build()?;
 
         // Validate the calibrated base correlation curve

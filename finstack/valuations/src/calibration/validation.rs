@@ -825,7 +825,7 @@ mod tests {
     fn test_base_correlation_validation() {
         // Valid base correlation curve - monotonically increasing
         let valid_curve = BaseCorrelationCurve::builder("TEST-CORR")
-            .points(vec![
+            .knots(vec![
                 (3.0, 0.20),
                 (7.0, 0.35),
                 (10.0, 0.45),
@@ -839,7 +839,7 @@ mod tests {
 
         // Invalid curve - decreasing correlation
         let invalid_curve = BaseCorrelationCurve::builder("TEST-INVALID-CORR")
-            .points(vec![
+            .knots(vec![
                 (3.0, 0.40),
                 (7.0, 0.30), // Decreases!
                 (10.0, 0.50),

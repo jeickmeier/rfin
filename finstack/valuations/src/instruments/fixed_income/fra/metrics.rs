@@ -27,7 +27,7 @@ impl MetricCalculator for FraDv01Calculator {
         let fra: &ForwardRateAgreement = context.instrument_as()?;
 
         use finstack_core::market_data::traits::Discount;
-        let disc = context.curves.discount(fra.disc_id)?;
+        let disc = context.curves.discount_ref(fra.disc_id)?;
         let base = disc.base_date();
 
         // Settlement at start of period
@@ -52,7 +52,7 @@ impl MetricCalculator for FraDv01Calculator {
             return Ok(0.0);
         }
 
-        let df_start = DiscountCurve::df_on(&*disc, base, fra.start_date, fra.day_count);
+        let df_start = DiscountCurve::df_on(disc, base, fra.start_date, fra.day_count);
         let dv01 = fra.notional.amount() * tau * df_start * 1e-4;
 
         // Sign: Receive-fixed has positive DV01; Pay-fixed negative

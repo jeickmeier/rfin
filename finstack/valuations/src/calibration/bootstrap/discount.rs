@@ -371,7 +371,7 @@ impl DiscountCurveCalibrator {
                 day_count,
             } => {
                 // Create Deposit instrument and use its pricer for consistency
-                let disc = context.discount("CALIB_CURVE")?;
+                let disc = context.discount_ref("CALIB_CURVE")?;
                 let dep = Deposit {
                     id: format!("CALIB_DEP_{}", maturity).into(),
                     notional: Money::new(1_000_000.0, self.currency),
@@ -1114,7 +1114,7 @@ mod tests {
                 finstack_core::dates::DayCountCtx::default(),
             )
             .unwrap_or(0.0);
-        let implied_rate = ctx.forward("USD-SOFR").unwrap().rate_period(t1, t2);
+        let implied_rate = ctx.forward_ref("USD-SOFR").unwrap().rate_period(t1, t2);
         let quoted_price = 100.0 * (1.0 - implied_rate);
         let future_params = crate::instruments::common::parameter_groups::IRFutureParams::new(
             Money::new(1_000_000.0, Currency::USD),

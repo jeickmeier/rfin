@@ -34,7 +34,7 @@ This PR implements serialization support for curve types that contain interpolat
 - Preserves: curve ID, base date, reset lag, day count, tenor, knots, forward rates, and interpolation style
 
 #### InflationCurve (`finstack/core/src/market_data/term_structures/inflation.rs`)
-- Added `InflationCurveData` struct for serializable representation
+- Added `InflationCurveState` struct for serializable representation
 - Custom `Serialize` and `Deserialize` implementations
 - Preserves: curve ID, base CPI, knots, CPI levels, and interpolation style
 

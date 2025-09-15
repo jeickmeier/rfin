@@ -298,7 +298,7 @@ impl_instrument!(
             ));
         }
         use finstack_core::market_data::traits::Discount;
-        let disc_curve = curves.discount(s.disc_id.as_str())?;
+        let disc_curve = curves.discount_ref(s.disc_id.as_str())?;
         let r = disc_curve.zero(time_to_expiry);
         let spot_scalar = curves.price(&s.spot_id)?;
         let spot = match spot_scalar {
@@ -319,7 +319,7 @@ impl_instrument!(
         let sigma = if let Some(impl_vol) = s.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            let vol_surface = curves.surface(s.vol_id.as_str())?;
+            let vol_surface = curves.surface_ref(s.vol_id.as_str())?;
             vol_surface.value_clamped(time_to_expiry, s.strike.amount())
         };
         s.black_scholes_price(spot, r, sigma, time_to_expiry, q)

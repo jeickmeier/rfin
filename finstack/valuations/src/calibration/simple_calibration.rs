@@ -620,14 +620,14 @@ impl SimpleCalibration {
     /// Get base CPI from context.
     fn get_base_cpi(&self, context: &MarketContext, index: &str) -> Option<F> {
         // Try inflation index
-        if let Some(inflation_index) = context.inflation_index(index) {
+        if let Some(inflation_index) = context.inflation_index_ref(index) {
             if let Ok(value) = inflation_index.value_on(self.base_date) {
                 return Some(value);
             }
         }
 
         // Try inflation curve
-        if let Ok(curve) = context.inflation(index) {
+        if let Ok(curve) = context.inflation_ref(index) {
             return Some(curve.cpi(0.0));
         }
 

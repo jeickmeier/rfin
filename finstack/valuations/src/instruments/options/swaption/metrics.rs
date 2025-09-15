@@ -14,15 +14,15 @@ pub struct DeltaCalculator;
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &Swaption = context.instrument_as()?;
-        let disc = context.curves.discount(option.disc_id)?;
+        let disc = context.curves.discount_ref(option.disc_id)?;
         let t = option.year_fraction(disc.base_date(), option.expiry, option.day_count)?;
 
         if t <= 0.0 {
             return Ok(0.0);
         }
 
-        let forward = option.forward_swap_rate(disc.as_ref())?;
-        let annuity = option.swap_annuity(disc.as_ref())?;
+        let forward = option.forward_swap_rate(disc)?;
+        let annuity = option.swap_annuity(disc)?;
 
         let sigma = if let Some(sabr) = &option.sabr_params {
             let model = crate::instruments::options::models::SABRModel::new(sabr.clone());
@@ -32,7 +32,7 @@ impl MetricCalculator for DeltaCalculator {
         } else {
             context
                 .curves
-                .surface(option.vol_id)?
+                .surface_ref(option.vol_id)?
                 .value_clamped(t, option.strike_rate)
         };
 
@@ -63,15 +63,15 @@ pub struct GammaCalculator;
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &Swaption = context.instrument_as()?;
-        let disc = context.curves.discount(option.disc_id)?;
+        let disc = context.curves.discount_ref(option.disc_id)?;
         let t = option.year_fraction(disc.base_date(), option.expiry, option.day_count)?;
 
         if t <= 0.0 {
             return Ok(0.0);
         }
 
-        let forward = option.forward_swap_rate(disc.as_ref())?;
-        let annuity = option.swap_annuity(disc.as_ref())?;
+        let forward = option.forward_swap_rate(disc)?;
+        let annuity = option.swap_annuity(disc)?;
 
         let sigma = if let Some(sabr) = &option.sabr_params {
             let model = crate::instruments::options::models::SABRModel::new(sabr.clone());
@@ -81,7 +81,7 @@ impl MetricCalculator for GammaCalculator {
         } else {
             context
                 .curves
-                .surface(option.vol_id)?
+                .surface_ref(option.vol_id)?
                 .value_clamped(t, option.strike_rate)
         };
 
@@ -108,15 +108,15 @@ pub struct VegaCalculator;
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &Swaption = context.instrument_as()?;
-        let disc = context.curves.discount(option.disc_id)?;
+        let disc = context.curves.discount_ref(option.disc_id)?;
         let t = option.year_fraction(disc.base_date(), option.expiry, option.day_count)?;
 
         if t <= 0.0 {
             return Ok(0.0);
         }
 
-        let forward = option.forward_swap_rate(disc.as_ref())?;
-        let annuity = option.swap_annuity(disc.as_ref())?;
+        let forward = option.forward_swap_rate(disc)?;
+        let annuity = option.swap_annuity(disc)?;
 
         let sigma = if let Some(sabr) = &option.sabr_params {
             let model = crate::instruments::options::models::SABRModel::new(sabr.clone());
@@ -126,7 +126,7 @@ impl MetricCalculator for VegaCalculator {
         } else {
             context
                 .curves
-                .surface(option.vol_id)?
+                .surface_ref(option.vol_id)?
                 .value_clamped(t, option.strike_rate)
         };
 
@@ -153,13 +153,13 @@ pub struct ThetaCalculator;
 impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &Swaption = context.instrument_as()?;
-        let disc = context.curves.discount(option.disc_id)?;
+        let disc = context.curves.discount_ref(option.disc_id)?;
         let base = disc.base_date();
         let t = option.year_fraction(base, option.expiry, option.day_count)?;
         if t <= 0.0 {
             return Ok(0.0);
         }
-        let forward = option.forward_swap_rate(disc.as_ref())?;
+        let forward = option.forward_swap_rate(disc)?;
         let sigma = option.sabr_params.as_ref().map(|p| p.alpha).unwrap_or(0.20);
         let variance = sigma * sigma * t;
         let d1 = if variance > 0.0 {
@@ -207,7 +207,7 @@ impl MetricCalculator for RhoCalculator {
         let vol = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            let vol_surface = context.curves.surface(option.vol_id)?;
+            let vol_surface = context.curves.surface_ref(option.vol_id)?;
             vol_surface.value_clamped(time_to_expiry, option.strike_rate)
         };
 

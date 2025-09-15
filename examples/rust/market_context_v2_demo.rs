@@ -48,7 +48,7 @@ fn main() -> finstack_core::Result<()> {
         .unwrap();
 
     let base_corr = BaseCorrelationCurve::builder("CDX.NA.IG.42")
-        .points(vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60), (15.0, 0.75)])
+        .knots(vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60), (15.0, 0.75)])
         .build()
         .unwrap();
 

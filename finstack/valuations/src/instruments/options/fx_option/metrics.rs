@@ -62,8 +62,8 @@ impl MetricCalculator for DeltaCalculator {
         }
 
         // Get market data
-        let domestic_disc = context.curves.discount(option.domestic_disc_id)?;
-        let foreign_disc = context.curves.discount(option.foreign_disc_id)?;
+        let domestic_disc = context.curves.discount_ref(option.domestic_disc_id)?;
+        let foreign_disc = context.curves.discount_ref(option.foreign_disc_id)?;
         let r_d = domestic_disc.zero(time_to_expiry);
         let r_f = foreign_disc.zero(time_to_expiry);
 
@@ -91,7 +91,7 @@ impl MetricCalculator for DeltaCalculator {
         let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
-            let vol_surface = context.curves.surface(option.vol_id)?;
+            let vol_surface = context.curves.surface_ref(option.vol_id)?;
             vol_surface.value_checked(time_to_expiry, option.strike)?
         };
 
@@ -119,8 +119,8 @@ impl MetricCalculator for GammaCalculator {
             return Ok(0.0);
         }
 
-        let domestic_disc = context.curves.discount(option.domestic_disc_id)?;
-        let foreign_disc = context.curves.discount(option.foreign_disc_id)?;
+        let domestic_disc = context.curves.discount_ref(option.domestic_disc_id)?;
+        let foreign_disc = context.curves.discount_ref(option.foreign_disc_id)?;
         let r_d = domestic_disc.zero(time_to_expiry);
         let r_f = foreign_disc.zero(time_to_expiry);
         let fx_matrix =
@@ -148,7 +148,7 @@ impl MetricCalculator for GammaCalculator {
         } else {
             context
                 .curves
-                .surface(option.vol_id)?
+                .surface_ref(option.vol_id)?
                 .value_clamped(time_to_expiry, option.strike)
         };
 
@@ -175,8 +175,8 @@ impl MetricCalculator for VegaCalculator {
             return Ok(0.0);
         }
 
-        let domestic_disc = context.curves.discount(option.domestic_disc_id)?;
-        let foreign_disc = context.curves.discount(option.foreign_disc_id)?;
+        let domestic_disc = context.curves.discount_ref(option.domestic_disc_id)?;
+        let foreign_disc = context.curves.discount_ref(option.foreign_disc_id)?;
         let r_d = domestic_disc.zero(time_to_expiry);
         let r_f = foreign_disc.zero(time_to_expiry);
         let fx_matrix =
@@ -204,7 +204,7 @@ impl MetricCalculator for VegaCalculator {
         } else {
             context
                 .curves
-                .surface(option.vol_id)?
+                .surface_ref(option.vol_id)?
                 .value_clamped(time_to_expiry, option.strike)
         };
 
@@ -231,8 +231,8 @@ impl MetricCalculator for ThetaCalculator {
             return Ok(0.0);
         }
 
-        let domestic_disc = context.curves.discount(option.domestic_disc_id)?;
-        let foreign_disc = context.curves.discount(option.foreign_disc_id)?;
+        let domestic_disc = context.curves.discount_ref(option.domestic_disc_id)?;
+        let foreign_disc = context.curves.discount_ref(option.foreign_disc_id)?;
         let r_d = domestic_disc.zero(time_to_expiry);
         let r_f = foreign_disc.zero(time_to_expiry);
         let fx_matrix =
@@ -260,7 +260,7 @@ impl MetricCalculator for ThetaCalculator {
         } else {
             context
                 .curves
-                .surface(option.vol_id)?
+                .surface_ref(option.vol_id)?
                 .value_clamped(time_to_expiry, option.strike)
         };
 

@@ -502,16 +502,16 @@ impl CDSPricer {
 
     /// Calculate CS01 (change in value for 1bp credit spread change)
     pub fn cs01(&self, cds: &CreditDefaultSwap, curves: &MarketContext, as_of: Date) -> Result<F> {
-        let disc = curves.discount(cds.premium.disc_id)?;
-        let surv = curves.hazard(cds.protection.credit_id)?;
+        let disc = curves.discount_ref(cds.premium.disc_id)?;
+        let surv = curves.hazard_ref(cds.protection.credit_id)?;
 
         // Base NPV
-        let base_npv = self.npv(cds, disc.as_ref(), surv.as_ref(), as_of)?;
+        let base_npv = self.npv(cds, disc, surv, as_of)?;
 
         // Bump credit spreads by 1bp
         // Simple CS01 via finite difference is not well-defined for hazard curves.
         // Compute via risky PV01 approximation scaled by notional.
-        let risky_pv01 = self.risky_pv01(cds, disc.as_ref(), surv.as_ref(), as_of)?;
+        let risky_pv01 = self.risky_pv01(cds, disc, surv, as_of)?;
         let bumped_npv = Money::new(risky_pv01, cds.notional.currency());
 
         Ok((bumped_npv.amount() - base_npv.amount()).abs())

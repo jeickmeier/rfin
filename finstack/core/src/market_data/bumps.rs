@@ -306,7 +306,7 @@ impl Bumpable for BaseCorrelationCurve {
             .collect();
 
         BaseCorrelationCurve::builder(bumped_id)
-            .points(bumped_points)
+            .knots(bumped_points)
             .build()
             .ok()
     }

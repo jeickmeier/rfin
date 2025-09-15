@@ -357,10 +357,10 @@ impl PrepaymentSchedule {
         }
 
         // Get the benchmark discount curve
-        let base_curve = market.discount(&params.benchmark_curve)?;
+        let base_curve = market.discount_ref(&params.benchmark_curve)?;
 
         // Create z-spread curve (benchmark + spread)
-        let discount_curve = ZSpreadCurve::new(base_curve.as_ref(), params.spread_bp);
+        let discount_curve = ZSpreadCurve::new(base_curve, params.spread_bp);
 
         // Calculate present value of remaining flows
         let pv = scaled_flows.npv(&discount_curve, params.prepay_date, params.day_count)?;

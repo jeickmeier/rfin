@@ -71,8 +71,8 @@ impl crate::instruments::traits::Priceable for PrivateEquityInvestment {
         if let Some(disc_id) = self.disc_id {
             use crate::instruments::fixed_income::discountable::Discountable;
             let flows = self.lp_cashflows()?;
-            let disc = curves.discount(disc_id)?;
-            flows.npv(&*disc, disc.base_date(), self.spec.irr_basis)
+            let disc = curves.discount_ref(disc_id)?;
+            flows.npv(disc, disc.base_date(), self.spec.irr_basis)
         } else {
             let ledger = self.run_waterfall()?;
             let residual_value = ledger
