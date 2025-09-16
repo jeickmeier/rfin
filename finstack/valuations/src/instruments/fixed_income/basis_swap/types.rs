@@ -34,7 +34,7 @@ pub struct BasisSwapLeg {
 ///
 /// Exchanges two floating rate payments with different tenors,
 /// plus an optional spread on one leg.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct BasisSwap {
     /// Instrument identifier
     pub id: InstrumentId,

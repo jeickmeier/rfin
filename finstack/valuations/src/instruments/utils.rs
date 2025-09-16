@@ -50,6 +50,3 @@ pub fn build_with_metrics_dyn(
     result.measures = measures;
     Ok(result)
 }
-
-// Deprecated generic version for backward compatibility.
-// Use `build_with_metrics_dyn` instead to avoid coverage metadata conflicts.

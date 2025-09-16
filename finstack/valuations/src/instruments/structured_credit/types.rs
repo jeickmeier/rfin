@@ -272,7 +272,7 @@ pub enum TriggerConsequence {
 }
 
 /// Main structured credit instrument (CLO/ABS)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, finstack_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct StructuredCredit {
     /// Unique instrument identifier

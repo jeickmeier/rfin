@@ -102,7 +102,7 @@ impl RevolverFundingCurve {
 }
 
 /// Revolving Credit Facility instrument.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct RevolvingCreditFacility {
     /// Unique identifier
     pub id: String,

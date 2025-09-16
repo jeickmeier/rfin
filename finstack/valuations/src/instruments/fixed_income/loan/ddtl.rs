@@ -64,7 +64,7 @@ impl ExpectedFundingCurve {
 }
 
 /// Delayed-Draw Term Loan instrument.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct DelayedDrawTermLoan {
     /// Unique identifier
     pub id: String,

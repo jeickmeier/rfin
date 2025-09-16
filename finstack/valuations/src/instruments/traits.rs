@@ -147,6 +147,3 @@ pub trait Instrument: Priceable + Send + Sync {
         <Self as Priceable>::price_with_metrics(self, curves, as_of, metrics)
     }
 }
-
-// Note: Legacy InstrumentLike has been removed; implement Instrument directly.
-

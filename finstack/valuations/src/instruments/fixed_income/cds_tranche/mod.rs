@@ -11,5 +11,3 @@ pub mod model;
 mod types;
 
 pub use types::{CdsTranche, TrancheSide};
-
-// Builder is provided via derive on `CdsTranche`.
