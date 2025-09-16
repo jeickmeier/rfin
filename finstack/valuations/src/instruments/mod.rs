@@ -80,8 +80,8 @@
 //! };
 //!
 //! // Use trait objects for unified handling
-//! use finstack_valuations::instruments::traits::InstrumentLike;
-//! let instruments: Vec<Box<dyn InstrumentLike>> = vec![
+//! use finstack_valuations::instruments::traits::Instrument;
+//! let instruments: Vec<Box<dyn Instrument>> = vec![
 //!     Box::new(bond),
 //!     Box::new(irs),
 //!     Box::new(deposit),
@@ -127,5 +127,5 @@ pub use options::{
 };
 
 pub use crate::metrics::{RiskMeasurable, RiskReport};
-pub use traits::{Attributable, Attributes, InstrumentLike, Priceable};
+pub use traits::{Attributes, Instrument};
 pub use utils::build_with_metrics_dyn;

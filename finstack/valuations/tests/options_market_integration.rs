@@ -23,7 +23,7 @@ use finstack_valuations::instruments::common::MarketRefs;
 use finstack_valuations::instruments::options::{
     CreditOption, EquityOption, FxOption,
 };
-use finstack_valuations::instruments::traits::{InstrumentLike, Priceable};
+use finstack_valuations::instruments::traits::{Instrument, Priceable};
 use finstack_valuations::metrics::{MetricContext, MetricId, MetricRegistry};
 use std::sync::Arc;
 use time::Month;
@@ -231,7 +231,7 @@ fn test_equity_option_full_integration() {
     let mut registry = MetricRegistry::new();
     finstack_valuations::instruments::options::equity_option::metrics::register_equity_option_metrics(&mut registry);
 
-    let instrument: Arc<dyn InstrumentLike> = Arc::new(option);
+    let instrument: Arc<dyn Instrument> = Arc::new(option);
     let mut context = MetricContext::new(instrument, Arc::new(market), as_of, price);
 
     let metrics = registry
@@ -283,7 +283,7 @@ fn test_fx_option_full_integration() {
         &mut registry,
     );
 
-    let instrument: Arc<dyn InstrumentLike> = Arc::new(option);
+    let instrument: Arc<dyn Instrument> = Arc::new(option);
     let mut context = MetricContext::new(instrument, Arc::new(market), as_of, price);
 
     let metrics = registry
@@ -328,7 +328,7 @@ fn test_interest_rate_option_full_integration() {
     let mut registry = MetricRegistry::new();
     finstack_valuations::instruments::options::cap_floor::metrics::register_interest_rate_option_metrics(&mut registry);
 
-    let instrument: Arc<dyn InstrumentLike> = Arc::new(cap);
+    let instrument: Arc<dyn Instrument> = Arc::new(cap);
     let mut context = MetricContext::new(instrument, Arc::new(market), as_of, price);
 
     let metrics = registry
@@ -378,7 +378,7 @@ fn test_credit_option_full_integration() {
     let mut registry = MetricRegistry::new();
     finstack_valuations::instruments::options::credit_option::metrics::register_credit_option_metrics(&mut registry);
 
-    let instrument: Arc<dyn InstrumentLike> = Arc::new(option);
+    let instrument: Arc<dyn Instrument> = Arc::new(option);
     let mut context = MetricContext::new(instrument, Arc::new(market), as_of, price);
 
     let metrics = registry
@@ -423,7 +423,7 @@ fn test_swaption_full_integration() {
         &mut registry,
     );
 
-    let instrument: Arc<dyn InstrumentLike> = Arc::new(swaption);
+    let instrument: Arc<dyn Instrument> = Arc::new(swaption);
     let mut context = MetricContext::new(instrument, Arc::new(market), as_of, price);
 
     let metrics = registry

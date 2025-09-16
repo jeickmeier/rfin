@@ -342,7 +342,7 @@ pub struct ThetaCalculator;
 
 impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let base_price = context.base_value.amount();
+        let base_price = context.base_value;
         let as_of = context.as_of;
 
         // Shift valuation date by 1 calendar day
@@ -413,11 +413,10 @@ impl MetricCalculator for ThetaCalculator {
         // Reprice instrument with aged market context
         let aged_price = context
             .instrument
-            .value(&aged_context, shifted_date)?
-            .amount();
+            .value_dyn(&aged_context, shifted_date)?;
 
         // Theta per calendar day
-        Ok(aged_price - base_price)
+        Ok((aged_price - base_price)?.amount())
     }
 
     fn dependencies(&self) -> &[MetricId] {
@@ -646,21 +645,13 @@ mod tests {
                 &mut self.attrs
             }
         }
-        impl crate::instruments::traits::InstrumentLike for DummyInstr {
-            fn id(&self) -> &str {
-                "DUMMY"
-            }
-            fn instrument_type(&self) -> &'static str {
-                "Dummy"
-            }
-            fn as_any(&self) -> &dyn std::any::Any {
-                self
-            }
-            fn clone_box(&self) -> Box<dyn crate::instruments::traits::InstrumentLike> {
-                Box::new(DummyInstr {
-                    attrs: self.attrs.clone(),
-                })
-            }
+        impl crate::instruments::traits::Instrument for DummyInstr {
+            fn id(&self) -> &str { "DUMMY" }
+            fn instrument_type(&self) -> &'static str { "Dummy" }
+            fn as_any(&self) -> &dyn std::any::Any { self }
+            fn attributes(&self) -> &crate::instruments::traits::Attributes { &self.attrs }
+            fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes { &mut self.attrs }
+            fn clone_box(&self) -> Box<dyn crate::instruments::traits::Instrument> { Box::new(Self { attrs: self.attrs.clone() }) }
         }
 
         // Build curves and also keep a separate handle to a discount curve for later checks
@@ -668,7 +659,7 @@ mod tests {
         let curves = Arc::new(
             finstack_core::market_data::MarketContext::new().insert_discount(disc_for_ctx),
         );
-        let instrument: Arc<dyn crate::instruments::traits::InstrumentLike> =
+        let instrument: Arc<dyn crate::instruments::traits::Instrument> =
             Arc::new(DummyInstr {
                 attrs: crate::instruments::traits::Attributes::new(),
             });

@@ -1,6 +1,6 @@
 //! Core types for Repurchase Agreement (Repo) instruments.
 
-use crate::instruments::traits::{Attributable, Attributes, InstrumentLike, Priceable};
+use crate::instruments::traits::{Attributable, Attributes, Instrument, Priceable};
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
@@ -302,11 +302,11 @@ impl Priceable for Repo {
         as_of: Date,
         metrics: &[MetricId],
     ) -> Result<ValuationResult> {
-        let base_value = self.value(context, as_of)?;
+        let base_value = <Self as Priceable>::value(self, context, as_of)?;
         
         // Use existing utility function to build metrics
         crate::instruments::utils::build_with_metrics_dyn(
-            self as &dyn InstrumentLike,
+            self as &dyn Instrument,
             context,
             as_of,
             base_value,
@@ -315,23 +315,16 @@ impl Priceable for Repo {
     }
 }
 
-impl InstrumentLike for Repo {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn instrument_type(&self) -> &'static str {
-        "Repo"
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn clone_box(&self) -> Box<dyn InstrumentLike> {
-        Box::new(self.clone())
-    }
+impl Instrument for Repo {
+    fn id(&self) -> &str { self.id.as_str() }
+    fn instrument_type(&self) -> &'static str { "Repo" }
+    fn as_any(&self) -> &dyn Any { self }
+    fn attributes(&self) -> &Attributes { &self.attributes }
+    fn attributes_mut(&mut self) -> &mut Attributes { &mut self.attributes }
+    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
 }
+
+// Do not add explicit Instrument impl; provided by blanket impl.
 
 impl Attributable for Repo {
     fn attributes(&self) -> &Attributes {

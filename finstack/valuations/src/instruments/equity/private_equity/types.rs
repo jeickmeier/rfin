@@ -4,7 +4,7 @@ use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::equity::private_equity::waterfall::{
     AllocationLedger, EquityWaterfallEngine, FundEvent, WaterfallSpec,
 };
-use crate::instruments::traits::Attributes;
+use crate::instruments::traits::{Attributes, Attributable, Instrument};
 use crate::metrics::MetricRegistry;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
@@ -64,7 +64,15 @@ impl PrivateEquityInvestment {
 }
 
 crate::impl_attributable!(PrivateEquityInvestment);
-crate::impl_instrument_like!(PrivateEquityInvestment, "PrivateEquityInvestment");
+
+impl Instrument for PrivateEquityInvestment {
+    fn id(&self) -> &str { &self.id }
+    fn instrument_type(&self) -> &'static str { "PrivateEquityInvestment" }
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn attributes(&self) -> &Attributes { <Self as Attributable>::attributes(self) }
+    fn attributes_mut(&mut self) -> &mut Attributes { <Self as Attributable>::attributes_mut(self) }
+    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
+}
 
 impl crate::instruments::traits::Priceable for PrivateEquityInvestment {
     fn value(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
@@ -93,7 +101,7 @@ impl crate::instruments::traits::Priceable for PrivateEquityInvestment {
         as_of: Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
+        let base_value = crate::instruments::traits::Priceable::value(self, curves, as_of)?;
         crate::instruments::build_with_metrics_dyn(self, curves, as_of, base_value, metrics)
     }
 }

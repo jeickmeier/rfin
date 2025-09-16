@@ -1,7 +1,7 @@
 //! Core types for structured credit instruments.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::traits::{Attributable, Attributes, InstrumentLike, Priceable};
+use crate::instruments::traits::{Attributable, Attributes, Instrument, Priceable};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, Frequency};
@@ -607,7 +607,7 @@ impl Priceable for StructuredCredit {
         as_of: Date,
         _metrics: &[MetricId],
     ) -> finstack_core::Result<ValuationResult> {
-        let base_value = self.value(context, as_of)?;
+        let base_value = <Self as Priceable>::value(self, context, as_of)?;
         
         // Create basic valuation result
         // In full implementation, would calculate requested metrics
@@ -629,10 +629,8 @@ impl Attributable for StructuredCredit {
     }
 }
 
-impl InstrumentLike for StructuredCredit {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
+impl Instrument for StructuredCredit {
+    fn id(&self) -> &str { self.id.as_str() }
     
     fn instrument_type(&self) -> &'static str {
         match self.deal_type {
@@ -646,11 +644,10 @@ impl InstrumentLike for StructuredCredit {
         }
     }
     
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-    
-    fn clone_box(&self) -> Box<dyn InstrumentLike> {
-        Box::new(self.clone())
-    }
+    fn as_any(&self) -> &dyn Any { self }
+    fn attributes(&self) -> &Attributes { &self.attributes }
+    fn attributes_mut(&mut self) -> &mut Attributes { &mut self.attributes }
+    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
 }
+
+// Do not add explicit Instrument impl; provided by blanket impl.

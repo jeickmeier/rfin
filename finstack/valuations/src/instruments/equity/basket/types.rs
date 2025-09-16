@@ -4,7 +4,7 @@
 //! including equities, bonds, ETFs, and other instruments by leveraging existing
 //! pricing infrastructure.
 
-use crate::instruments::traits::{Attributable, Attributes, InstrumentLike, Priceable};
+use crate::instruments::traits::{Attributable, Attributes, Instrument, Priceable};
 use finstack_core::prelude::*;
 use finstack_core::types::{id::IndexId, InstrumentId};
 use finstack_core::{dates::Frequency, F};
@@ -37,7 +37,7 @@ pub enum AssetType {
 pub enum ConstituentReference {
     /// Direct reference to an existing instrument (uses instrument's value() method)
     /// Note: Cannot be serialized due to trait object limitations
-    Instrument(Arc<dyn InstrumentLike>),
+    Instrument(Arc<dyn Instrument + Send + Sync>),
     /// Market data reference for simple price lookups
     MarketData {
         /// Price identifier in MarketContext
@@ -238,7 +238,7 @@ impl Basket {
             ConstituentReference::Instrument(instrument) => {
                 // Use the existing instrument's value() method - this leverages
                 // all existing pricing logic for bonds, equities, etc.
-                instrument.value(context, as_of)?
+                instrument.value_dyn(context, as_of)?
             }
             ConstituentReference::MarketData { price_id, .. } => {
                 // For simple market data lookups when no instrument model exists
@@ -374,29 +374,20 @@ impl Priceable for Basket {
         as_of: Date,
         metrics: &[crate::metrics::MetricId],
     ) -> Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
+        let base_value = Priceable::value(self, curves, as_of)?;
         crate::instruments::utils::build_with_metrics_dyn(
             self, curves, as_of, base_value, metrics,
         )
     }
 }
 
-impl InstrumentLike for Basket {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn instrument_type(&self) -> &'static str {
-        "Basket"
-    }
-
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
-    fn clone_box(&self) -> Box<dyn InstrumentLike> {
-        Box::new(self.clone())
-    }
+impl Instrument for Basket {
+    fn id(&self) -> &str { self.id.as_str() }
+    fn instrument_type(&self) -> &'static str { "Basket" }
+    fn as_any(&self) -> &dyn ::std::any::Any { self }
+    fn attributes(&self) -> &Attributes { &self.attributes }
+    fn attributes_mut(&mut self) -> &mut Attributes { &mut self.attributes }
+    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
 }
 
 impl Attributable for Basket {

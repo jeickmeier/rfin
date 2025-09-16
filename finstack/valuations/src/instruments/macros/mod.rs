@@ -24,37 +24,10 @@ macro_rules! impl_attributable {
     };
 }
 
-/// Generate InstrumentLike implementation.
-///
-/// Requirements:
-/// - Struct must have an `id` field supporting `as_str()` (e.g., `String`, `InstrumentId`)
-/// - Must already implement Priceable and Attributable
-#[macro_export]
-macro_rules! impl_instrument_like {
-    ($type:ident, $type_name:literal) => {
-        impl $crate::instruments::traits::InstrumentLike for $type {
-            fn id(&self) -> &str {
-                self.id.as_str()
-            }
-
-            fn instrument_type(&self) -> &'static str {
-                $type_name
-            }
-
-            fn as_any(&self) -> &dyn ::std::any::Any {
-                self
-            }
-
-            fn clone_box(&self) -> Box<dyn $crate::instruments::traits::InstrumentLike> {
-                Box::new(self.clone())
-            }
-        }
-    };
-}
 
 /// Generate a full instrument implementation:
 /// - Attributable
-/// - InstrumentLike
+/// - Instrument
 /// - Priceable: value (via pv closure), price_with_metrics
 #[macro_export]
 macro_rules! impl_instrument {
@@ -65,8 +38,26 @@ macro_rules! impl_instrument {
         // Attributes
         impl_attributable!($type);
 
-        // InstrumentLike implementation
-        impl_instrument_like!($type, $type_name);
+        // Unified Instrument implementation
+        impl $crate::instruments::traits::Instrument for $type {
+            #[inline]
+            fn id(&self) -> &str { self.id.as_str() }
+
+            #[inline]
+            fn instrument_type(&self) -> &'static str { $type_name }
+
+            #[inline]
+            fn as_any(&self) -> &dyn ::std::any::Any { self }
+
+            #[inline]
+            fn attributes(&self) -> &$crate::instruments::traits::Attributes { &self.attributes }
+
+            #[inline]
+            fn attributes_mut(&mut self) -> &mut $crate::instruments::traits::Attributes { &mut self.attributes }
+
+            #[inline]
+            fn clone_box(&self) -> Box<dyn $crate::instruments::traits::Instrument> { Box::new(self.clone()) }
+        }
 
         // Pricing surface (PV + metrics)
         impl $crate::instruments::traits::Priceable for $type {
@@ -93,6 +84,7 @@ macro_rules! impl_instrument {
                 )
             }
         }
+
     };
 }
 

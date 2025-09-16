@@ -10,7 +10,7 @@ use finstack_core::{
 };
 
 use crate::{
-    instruments::traits::{Attributable, Attributes, InstrumentLike, Priceable},
+    instruments::traits::{Attributable, Attributes, Instrument, Priceable},
     metrics::MetricId,
     results::ValuationResult,
     cashflow::traits::{CashflowProvider, DatedFlows},
@@ -282,7 +282,7 @@ impl Priceable for VarianceSwap {
         as_of: Date,
         _metrics: &[MetricId],
     ) -> Result<ValuationResult> {
-        let pv = self.value(context, as_of)?;
+        let pv = <Self as Priceable>::value(self, context, as_of)?;
         let result = ValuationResult::stamped(self.id.as_str(), as_of, pv);
         
         // TODO: Add metadata using the proper API when available
@@ -292,23 +292,16 @@ impl Priceable for VarianceSwap {
     }
 }
 
-impl InstrumentLike for VarianceSwap {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn instrument_type(&self) -> &'static str {
-        "VarianceSwap"
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn clone_box(&self) -> Box<dyn InstrumentLike> {
-        Box::new(self.clone())
-    }
+impl Instrument for VarianceSwap {
+    fn id(&self) -> &str { self.id.as_str() }
+    fn instrument_type(&self) -> &'static str { "VarianceSwap" }
+    fn as_any(&self) -> &dyn Any { self }
+    fn attributes(&self) -> &Attributes { &self.attributes }
+    fn attributes_mut(&mut self) -> &mut Attributes { &mut self.attributes }
+    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
 }
+
+// Do not add explicit Instrument impl; provided by blanket impl.
 
 impl Attributable for VarianceSwap {
     fn attributes(&self) -> &Attributes {

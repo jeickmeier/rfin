@@ -5,6 +5,7 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use hashbrown::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
+use std::any::Any;
 
 /// Priceable instruments expose a fast present-value surface and optional metrics.
 pub trait Priceable: Send + Sync {
@@ -105,22 +106,47 @@ pub trait Attributable: Send + Sync {
     }
 }
 
-/// Object-safe trait that all instruments implement for unified handling.
+/// Unified instrument trait combining identity, attributes, and pricing.
 ///
-/// This trait provides the minimal interface needed for metrics computation
-/// and portfolio management without requiring hardcoded enum matching.
-pub trait InstrumentLike: Priceable + Attributable + Send + Sync {
+/// This is the single trait to implement and use for new code. Existing
+/// implementers that already use `impl_instrument!` will automatically
+/// implement this trait via the macro wiring.
+pub trait Instrument: Priceable + Send + Sync {
     /// Get the instrument's unique identifier.
     fn id(&self) -> &str;
 
     /// Get the instrument type as a string identifier.
     fn instrument_type(&self) -> &'static str;
 
-    /// Get access to the concrete type for downcasting.
-    fn as_any(&self) -> &dyn std::any::Any;
+    /// Access to the concrete type for downcasting.
+    fn as_any(&self) -> &dyn Any;
 
-    /// Clone this instrument into a boxed trait object.
-    ///
-    /// Implementers can typically `derive(Clone)` and return `Box::new(self.clone())`.
-    fn clone_box(&self) -> Box<dyn InstrumentLike>;
+    /// Attributes accessors
+    fn attributes(&self) -> &Attributes;
+    fn attributes_mut(&mut self) -> &mut Attributes;
+
+    /// Clone this instrument as a boxed trait object
+    fn clone_box(&self) -> Box<dyn Instrument>;
+
+    /// Convenience: price via dyn Instrument without trait disambiguation
+    fn value_dyn(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<Money> {
+        <Self as Priceable>::value(self, curves, as_of)
+    }
+
+    /// Convenience: price with metrics via dyn Instrument without disambiguation
+    fn price_with_metrics_dyn(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+        metrics: &[MetricId],
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
+        <Self as Priceable>::price_with_metrics(self, curves, as_of, metrics)
+    }
 }
+
+// Note: Legacy InstrumentLike has been removed; implement Instrument directly.
+

@@ -3,7 +3,7 @@
 use super::types::{AssetType, Basket, BasketConstituent, ConstituentReference, ReplicationMethod};
 use crate::instruments::equity::Equity;
 use crate::instruments::fixed_income::bond::Bond;
-use crate::instruments::traits::{Attributes, InstrumentLike};
+use crate::instruments::traits::{Attributes, Instrument};
 use finstack_core::prelude::*;
 use finstack_core::types::{id::IndexId, InstrumentId};
 use finstack_core::{dates::Frequency, Error, Result, F};
@@ -153,11 +153,11 @@ impl BasketBuilder {
         self
     }
 
-    /// Add any instrument that implements InstrumentLike
+    /// Add any instrument that implements Instrument
     pub fn add_instrument(
         mut self,
         id: impl Into<String>,
-        instrument: Arc<dyn InstrumentLike>,
+        instrument: Arc<dyn Instrument>,
         weight: F,
         units: Option<F>,
     ) -> Self {

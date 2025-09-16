@@ -91,7 +91,7 @@ impl MetricCalculator for TrsIR01Calculator {
         // Get base NPV
         let _base_npv = context
             .instrument
-            .value(context.curves.as_ref(), context.as_of)?;
+            .value_dyn(context.curves.as_ref(), context.as_of)?;
 
         // Create a bumped market context (1bp up)
         let bump_size = 0.0001; // 1bp

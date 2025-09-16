@@ -1,7 +1,7 @@
 //! Fixed Income Index Total Return Swap implementation.
 
 use super::types::{FinancingLegSpec, TotalReturnLegParams, TrsEngine, TrsScheduleSpec, TrsSide};
-use crate::instruments::traits::{Attributable, InstrumentLike};
+use crate::instruments::traits::{Attributable, Instrument};
 use crate::{
     cashflow::{
         builder::schedule_utils::build_dates,
@@ -178,7 +178,7 @@ impl Priceable for FIIndexTotalReturnSwap {
         as_of: Date,
         _metrics: &[MetricId],
     ) -> Result<ValuationResult> {
-        let npv = self.value(context, as_of)?;
+        let npv = <Self as Priceable>::value(self, context, as_of)?;
 
         let result = ValuationResult::stamped(self.id.as_str(), as_of, npv);
 
@@ -205,23 +205,16 @@ impl Attributable for FIIndexTotalReturnSwap {
     }
 }
 
-impl InstrumentLike for FIIndexTotalReturnSwap {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    fn instrument_type(&self) -> &'static str {
-        "FIIndexTotalReturnSwap"
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn clone_box(&self) -> Box<dyn InstrumentLike> {
-        Box::new(self.clone())
-    }
+impl Instrument for FIIndexTotalReturnSwap {
+    fn id(&self) -> &str { self.id.as_str() }
+    fn instrument_type(&self) -> &'static str { "FIIndexTotalReturnSwap" }
+    fn as_any(&self) -> &dyn Any { self }
+    fn attributes(&self) -> &crate::instruments::traits::Attributes { <Self as Attributable>::attributes(self) }
+    fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes { <Self as Attributable>::attributes_mut(self) }
+    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
 }
+
+// Do not add explicit Instrument impl; provided by blanket impl.
 
 impl CashflowProvider for FIIndexTotalReturnSwap {
     fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {

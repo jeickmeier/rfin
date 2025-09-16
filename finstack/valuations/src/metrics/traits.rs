@@ -4,7 +4,7 @@
 //! metrics. The `MetricCalculator` trait enables custom metric implementations,
 //! while `MetricContext` provides the execution environment with caching.
 
-use crate::instruments::traits::InstrumentLike;
+use crate::instruments::traits::Instrument;
 use crate::metrics::MetricId;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
@@ -53,7 +53,7 @@ pub trait MetricCalculator: Send + Sync {
 /// Given a base metric ID (e.g., `MetricId::BucketedDv01`), a bucket label
 /// (e.g., "1y"), and the instrument, return the final `MetricId` to store.
 pub type BucketKeyResolverFn =
-    dyn Fn(&MetricId, &str, &dyn InstrumentLike) -> MetricId + Send + Sync;
+    dyn Fn(&MetricId, &str, &dyn Instrument) -> MetricId + Send + Sync;
 
 /// Context containing all data needed for metric calculations.
 ///
@@ -70,7 +70,7 @@ pub type BucketKeyResolverFn =
 /// - **Metadata**: Discount curve ID and day count convention
 pub struct MetricContext {
     /// The instrument being valued.
-    pub instrument: Arc<dyn InstrumentLike>,
+    pub instrument: Arc<dyn Instrument>,
 
     /// Market curves for discounting and forwarding.
     pub curves: Arc<finstack_core::market_data::MarketContext>,
@@ -111,7 +111,7 @@ impl MetricContext {
     ///
     /// See unit tests and `examples/` for usage.
     pub fn new(
-        instrument: Arc<dyn InstrumentLike>,
+        instrument: Arc<dyn Instrument>,
         curves: Arc<finstack_core::market_data::MarketContext>,
         as_of: Date,
         base_value: Money,

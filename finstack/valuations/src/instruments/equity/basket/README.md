@@ -42,7 +42,7 @@ This module implements a generic basket instrument that can handle various asset
 ```rust
 pub enum ConstituentReference {
     /// Direct instrument reference (uses existing pricing)
-    Instrument(Arc<dyn InstrumentLike>),
+    Instrument(Arc<dyn Instrument>),
     /// Market data reference (simple price lookup)
     MarketData { price_id: String, asset_type: AssetType },
 }
@@ -120,7 +120,7 @@ let balanced = Basket::builder()
 - Supports FX conversion through existing `MarketContext` infrastructure
 
 ### Memory Efficiency
-- Uses `Arc<dyn InstrumentLike>` for shared instrument references
+- Uses `Arc<dyn Instrument>` for shared instrument references
 - Avoids cloning heavy instrument objects
 - Lazy evaluation of constituent values
 
@@ -139,7 +139,7 @@ let balanced = Basket::builder()
 - **Risk framework**: Compatible with existing risk measurement systems
 
 ### Follows Library Patterns
-- **Trait implementations**: Implements `Priceable`, `InstrumentLike`, `Attributable`
+- **Trait implementations**: Implements `Priceable`, `Instrument`, `Attributable`
 - **Builder pattern**: Consistent with other instrument builders
 - **Error handling**: Uses library's unified error types
 - **Currency safety**: Follows existing currency validation patterns

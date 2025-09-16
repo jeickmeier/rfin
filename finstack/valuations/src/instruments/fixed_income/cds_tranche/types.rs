@@ -2,7 +2,7 @@
 
 use crate::instruments::build_with_metrics_dyn;
 use crate::instruments::common::{CDSTrancheParams, InstrumentScheduleParams, MarketRefs};
-use crate::instruments::traits::{Attributes, Priceable};
+use crate::instruments::traits::{Attributes, Attributable, Instrument, Priceable};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
@@ -103,7 +103,15 @@ impl CdsTranche {
 }
 
 impl_attributable!(CdsTranche);
-impl_instrument_like!(CdsTranche, "CDSTranche");
+
+impl Instrument for CdsTranche {
+    fn id(&self) -> &str { &self.id }
+    fn instrument_type(&self) -> &'static str { "CDSTranche" }
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn attributes(&self) -> &Attributes { <Self as Attributable>::attributes(self) }
+    fn attributes_mut(&mut self) -> &mut Attributes { <Self as Attributable>::attributes_mut(self) }
+    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
+}
 
 impl Priceable for CdsTranche {
     fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
@@ -127,7 +135,7 @@ impl Priceable for CdsTranche {
         as_of: Date,
         metrics: &[MetricId],
     ) -> finstack_core::Result<ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
+        let base_value = crate::instruments::traits::Priceable::value(self, curves, as_of)?;
         build_with_metrics_dyn(self, curves, as_of, base_value, metrics)
     }
 }
