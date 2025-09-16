@@ -323,9 +323,9 @@ impl BaseCorrelationCalibrator {
         let months_to_add = (self.maturity_years * 12.0).round() as i32;
         let maturity = add_months(self.base_date, months_to_add);
 
-        // Use builder to avoid lifetime issues with &str parameters
+        let id = format!("CALIB_TRANCHE_{:.1}_{:.1}", attach_pct, detach_pct);
         CdsTranche::builder()
-            .id(format!("CALIB_TRANCHE_{:.1}_{:.1}", attach_pct, detach_pct))
+            .id(id)
             .index_name(self.index_id.clone())
             .series(self.series)
             .attach_pct(attach_pct)
@@ -336,9 +336,11 @@ impl BaseCorrelationCalibrator {
             .payment_frequency(Frequency::quarterly())
             .day_count(DayCount::Act360)
             .business_day_convention(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
             .disc_id(self.discount_curve_id)
             .credit_index_id(Box::leak(self.index_id.clone().into_boxed_str()))
             .side(TrancheSide::SellProtection)
+            .effective_date_opt(None)
             .build()
     }
 }

@@ -8,4 +8,4 @@ pub mod variance_swap;
 
 // Re-export main types
 pub use trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
-pub use variance_swap::{VarianceSwap, VarianceSwapBuilder, PayReceive, RealizedVarMethod};
+pub use variance_swap::{VarianceSwap, PayReceive, RealizedVarMethod};

@@ -203,7 +203,10 @@ pub fn register_variance_swap_metrics(registry: &mut MetricRegistry) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::derivatives::variance_swap::VarianceSwapBuilder;
+    use crate::instruments::derivatives::variance_swap::VarianceSwap;
+    use finstack_core::dates::{DayCount, Frequency};
+    use finstack_core::math::stats::RealizedVarMethod;
+    use crate::instruments::derivatives::variance_swap::PayReceive;
     use finstack_core::{
         currency::Currency,
         dates::Date,
@@ -218,13 +221,19 @@ mod tests {
 
     #[test]
     fn test_variance_notional_calculator() {
-        let swap = VarianceSwapBuilder::new()
-            .id("VAR_TEST")
-            .underlying_id("SPX")
-            .notional_amount(100_000.0, Currency::USD)
-            .strike_volatility(0.20)
-            .dates(test_date(2025, 1, 1), test_date(2026, 1, 1))
-            .disc_id("USD_OIS")
+        let swap = VarianceSwap::builder()
+            .id("VAR_TEST".into())
+            .underlying_id("SPX".to_string())
+            .notional(Money::new(100_000.0, Currency::USD))
+            .strike_variance(0.20 * 0.20)
+            .start_date(test_date(2025, 1, 1))
+            .maturity(test_date(2026, 1, 1))
+            .observation_freq(Frequency::daily())
+            .realized_var_method(RealizedVarMethod::CloseToClose)
+            .side(PayReceive::Receive)
+            .disc_id("USD_OIS".into())
+            .day_count(DayCount::Act365F)
+            .attributes(crate::instruments::traits::Attributes::new())
             .build()
             .unwrap();
 
@@ -243,13 +252,19 @@ mod tests {
 
     #[test]
     fn test_strike_vol_calculator() {
-        let swap = VarianceSwapBuilder::new()
-            .id("VAR_TEST")
-            .underlying_id("SPX")
-            .notional_amount(100_000.0, Currency::USD)
-            .strike_volatility(0.20) // Sets strike_variance to 0.04
-            .dates(test_date(2025, 1, 1), test_date(2026, 1, 1))
-            .disc_id("USD_OIS")
+        let swap = VarianceSwap::builder()
+            .id("VAR_TEST".into())
+            .underlying_id("SPX".to_string())
+            .notional(Money::new(100_000.0, Currency::USD))
+            .strike_variance(0.20 * 0.20)
+            .start_date(test_date(2025, 1, 1))
+            .maturity(test_date(2026, 1, 1))
+            .observation_freq(Frequency::daily())
+            .realized_var_method(RealizedVarMethod::CloseToClose)
+            .side(PayReceive::Receive)
+            .disc_id("USD_OIS".into())
+            .day_count(DayCount::Act365F)
+            .attributes(crate::instruments::traits::Attributes::new())
             .build()
             .unwrap();
 

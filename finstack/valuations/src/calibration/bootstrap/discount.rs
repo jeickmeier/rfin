@@ -1207,33 +1207,32 @@ mod tests {
         let start = base_date;
         let end = base_date + time::Duration::days(365);
         let irs = InterestRateSwap::builder()
-            .id("IRS-1Y")
+            .id("IRS-1Y".to_string())
             .notional(Money::new(1_000_000.0, Currency::USD))
             .side(PayReceive::ReceiveFixed)
-            .dates(start, end)
-            .standard_fixed_leg(
-                "USD-OIS",
-                0.0470,
-                crate::instruments::common::InstrumentScheduleParams {
-                    frequency: Frequency::semi_annual(),
-                    day_count: DayCount::Thirty360,
-                    bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
-                    calendar_id: None,
-                    stub: finstack_core::dates::StubKind::None,
-                },
-            )
-            .standard_float_leg(
-                "USD-OIS",
-                "USD-SOFR",
-                0.0,
-                crate::instruments::common::InstrumentScheduleParams {
-                    frequency: Frequency::quarterly(),
-                    day_count: DayCount::Act360,
-                    bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
-                    calendar_id: None,
-                    stub: finstack_core::dates::StubKind::None,
-                },
-            )
+            .fixed(crate::instruments::fixed_income::irs::FixedLegSpec {
+                disc_id: "USD-OIS",
+                rate: 0.0470,
+                freq: Frequency::semi_annual(),
+                dc: DayCount::Thirty360,
+                bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: finstack_core::dates::StubKind::None,
+                start,
+                end,
+            })
+            .float(crate::instruments::fixed_income::irs::FloatLegSpec {
+                disc_id: "USD-OIS",
+                fwd_id: "USD-SOFR",
+                spread_bp: 0.0,
+                freq: Frequency::quarterly(),
+                dc: DayCount::Act360,
+                bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: finstack_core::dates::StubKind::None,
+                start,
+                end,
+            })
             .build()
             .unwrap();
 

@@ -20,7 +20,7 @@ pub use crate::cashflow::primitives::AmortizationSpec;
 ///
 /// Supports call/put schedules, amortization, quoted prices for
 /// yield-to-maturity calculations, and custom cashflow schedules.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct Bond {
     /// Unique identifier for the bond.
     pub id: InstrumentId,
@@ -70,11 +70,6 @@ pub struct CallPutSchedule {
 }
 
 impl Bond {
-    /// Create a bond builder.
-    pub fn builder() -> crate::instruments::fixed_income::bond::builder::BondBuilder {
-        crate::instruments::fixed_income::bond::builder::BondBuilder::default()
-    }
-
     /// Create a standard fixed-rate bond with semi-annual coupons.
     pub fn fixed_semiannual(
         id: impl Into<String>,
@@ -84,15 +79,17 @@ impl Bond {
         maturity: Date,
         disc_id: impl Into<CurveId>,
     ) -> Self {
-        use crate::instruments::common::{DateRange, InstrumentScheduleParams, MarketRefs};
-
         Self::builder()
-            .id(id)
+            .id(id.into().into())
             .notional(notional)
             .coupon(coupon_rate)
-            .date_range(DateRange::new(issue, maturity))
-            .schedule_params(InstrumentScheduleParams::semiannual_30360())
-            .market_refs(MarketRefs::discount_only(disc_id))
+            .issue(issue)
+            .maturity(maturity)
+            .freq(finstack_core::dates::Frequency::semi_annual())
+            .dc(DayCount::Thirty360)
+            .disc_id(disc_id.into())
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
             .build()
             .expect("Standard bond construction should not fail")
     }
@@ -105,15 +102,17 @@ impl Bond {
         issue: Date,
         maturity: Date,
     ) -> Self {
-        use crate::instruments::common::{DateRange, InstrumentScheduleParams, MarketRefs};
-
         Self::builder()
-            .id(id)
+            .id(id.into().into())
             .notional(notional)
             .coupon(coupon_rate)
-            .date_range(DateRange::new(issue, maturity))
-            .schedule_params(InstrumentScheduleParams::annual_actact())
-            .market_refs(MarketRefs::discount_only("USD-TREASURY"))
+            .issue(issue)
+            .maturity(maturity)
+            .freq(finstack_core::dates::Frequency::annual())
+            .dc(DayCount::ActActIsma)
+            .disc_id(CurveId::new("USD-TREASURY"))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
             .build()
             .expect("Treasury bond construction should not fail")
     }
@@ -480,11 +479,18 @@ mod tests {
             .unwrap();
 
         // Use builder pattern
-        let bond = crate::instruments::fixed_income::bond::builder::BondBuilder::default()
-            .id("PIK_TOGGLE_BOND")
-            .cashflows(custom_schedule)
-            .disc_curve("USD-OIS")
-            .quoted_clean(99.0)
+        let bond = Bond::builder()
+            .id("PIK_TOGGLE_BOND".into())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .coupon(0.06)
+            .issue(issue)
+            .maturity(maturity)
+            .freq(Frequency::quarterly())
+            .dc(DayCount::Thirty360)
+            .custom_cashflows_opt(Some(custom_schedule))
+            .disc_id(CurveId::new("USD-OIS"))
+            .pricing_overrides(PricingOverrides::default().with_clean_price(99.0))
+            .attributes(Attributes::new())
             .build()
             .unwrap();
 

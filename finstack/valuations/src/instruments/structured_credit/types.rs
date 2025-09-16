@@ -344,10 +344,7 @@ impl StructuredCredit {
         }
     }
     
-    /// Builder for structured credit instruments
-    pub fn builder(id: impl Into<String>, deal_type: DealType) -> StructuredCreditBuilder {
-        StructuredCreditBuilder::new(id, deal_type)
-    }
+    // Derive-based builder available via StructuredCredit::builder()
     
     /// Calculate current loss percentage of the pool
     pub fn current_loss_percentage(&self) -> F {
@@ -381,141 +378,7 @@ impl StructuredCredit {
     }
 }
 
-/// Builder for structured credit instruments
-pub struct StructuredCreditBuilder {
-    id: String,
-    deal_type: DealType,
-    pool: Option<AssetPool>,
-    tranches: Vec<super::tranches::AbsTranche>,
-    legal_maturity: Option<Date>,
-    disc_id: Option<String>,
-    manager_id: Option<String>,
-}
-
-impl StructuredCreditBuilder {
-    /// Create new builder
-    pub fn new(id: impl Into<String>, deal_type: DealType) -> Self {
-        Self {
-            id: id.into(),
-            deal_type,
-            pool: None,
-            tranches: Vec::new(),
-            legal_maturity: None,
-            disc_id: None,
-            manager_id: None,
-        }
-    }
-    
-    /// Set the asset pool
-    pub fn pool(mut self, pool: AssetPool) -> Self {
-        self.pool = Some(pool);
-        self
-    }
-    
-    /// Add a tranche to the structure
-    pub fn add_tranche(mut self, tranche: super::tranches::AbsTranche) -> Self {
-        self.tranches.push(tranche);
-        self
-    }
-    
-    /// Add equity tranche (convenience method)
-    pub fn add_equity_tranche(
-        mut self,
-        attachment: F,
-        detachment: F,
-        balance: Money,
-        coupon_rate: F,
-    ) -> Self {
-        let legal_maturity = Date::from_calendar_date(2030, time::Month::January, 1).unwrap();
-        let tranche = super::tranches::AbsTranche::new(
-            "EQUITY",
-            attachment,
-            detachment,
-            super::types::TrancheSeniority::Equity,
-            balance,
-            super::tranches::TrancheCoupon::Fixed { rate: coupon_rate },
-            legal_maturity,
-        ).unwrap();
-        
-        self.tranches.push(tranche);
-        self
-    }
-    
-    /// Add senior tranche (convenience method)
-    pub fn add_senior_tranche(
-        mut self,
-        attachment: F,
-        detachment: F,
-        balance: Money,
-        spread_bp: F,
-    ) -> Self {
-        let legal_maturity = Date::from_calendar_date(2030, time::Month::January, 1).unwrap();
-        let tranche = super::tranches::AbsTranche::new(
-            "SENIOR_A",
-            attachment,
-            detachment,
-            super::types::TrancheSeniority::Senior,
-            balance,
-            super::tranches::TrancheCoupon::Floating {
-                index: "SOFR-3M".to_string(),
-                spread_bp,
-                floor: None,
-                cap: None,
-            },
-            legal_maturity,
-        ).unwrap();
-        
-        self.tranches.push(tranche);
-        self
-    }
-    
-    /// Set legal maturity
-    pub fn legal_maturity(mut self, date: Date) -> Self {
-        self.legal_maturity = Some(date);
-        self
-    }
-    
-    /// Set discount curve
-    pub fn disc_id(mut self, id: impl Into<String>) -> Self {
-        self.disc_id = Some(id.into());
-        self
-    }
-    
-    /// Set manager
-    pub fn manager(mut self, manager_id: impl Into<String>) -> Self {
-        self.manager_id = Some(manager_id.into());
-        self
-    }
-    
-    /// Build the structured credit instrument
-    pub fn build(self) -> finstack_core::Result<StructuredCredit> {
-        let pool = self.pool.ok_or(finstack_core::error::InputError::Invalid)?;
-        let legal_maturity = self.legal_maturity.ok_or(finstack_core::error::InputError::Invalid)?;
-        let disc_id = self.disc_id.ok_or(finstack_core::error::InputError::Invalid)?;
-        
-        // Create tranche structure
-        let tranche_structure = TrancheStructure::new(self.tranches)?;
-        
-        // Create waterfall
-        let waterfall = super::waterfall::WaterfallBuilder::standard_clo(&tranche_structure).build();
-        
-        let mut instrument = StructuredCredit::new(
-            self.id,
-            self.deal_type,
-            pool,
-            tranche_structure,
-            waterfall,
-            legal_maturity,
-            disc_id,
-        );
-        
-        if let Some(manager) = self.manager_id {
-            instrument.manager_id = Some(manager);
-        }
-        
-        Ok(instrument)
-    }
-}
+// Removed bespoke StructuredCreditBuilder in favor of derive-based builder.
 
 /// Convenience type alias for CLO instruments
 pub type Clo = StructuredCredit;

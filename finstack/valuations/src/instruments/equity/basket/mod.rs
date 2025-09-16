@@ -20,11 +20,12 @@
 //! use finstack_valuations::instruments::equity::basket::*;
 //! use finstack_core::prelude::*;
 //!
-//! let spy = BasketBuilder::equity_etf("SPY", "SPY", "SPDR S&P 500 ETF")
-//!     .add_market_data("AAPL", "AAPL", AssetType::Equity, 0.5, Some(150000.0))
-//!     .add_market_data("MSFT", "MSFT", AssetType::Equity, 0.5, Some(120000.0))
-//!     .build()
-//!     .unwrap();
+//! let spy = Basket::builder()
+//!     .id("SPY".into())
+//!     .ticker("SPY".to_string())
+//!     .name("SPDR S&P 500 ETF".to_string())
+//!     .currency(Currency::USD)
+//!     .build().unwrap();
 //! ```
 //!
 //! ## Bond ETF (like LQD)
@@ -40,17 +41,18 @@
 //! let bond = Bond::fixed_semiannual("AAPL_BOND", Money::new(1000.0, Currency::USD), 
 //!                                   0.025, issue_date, maturity_date, "USD-OIS");
 //!
-//! let lqd = BasketBuilder::bond_etf("LQD", "LQD", "iShares iBoxx $ IG Corporate Bond ETF")
-//!     .add_bond("AAPL_BOND", bond, 1.0, Some(15000.0))
-//!     .build()
-//!     .unwrap();
+//! let lqd = Basket::builder()
+//!     .id("LQD".into())
+//!     .ticker("LQD".to_string())
+//!     .name("iShares iBoxx $ IG Corporate Bond ETF".to_string())
+//!     .currency(Currency::USD)
+//!     .build().unwrap();
 //! ```
 
-pub mod builder;
 pub mod metrics;
 pub mod types;
 
 // Re-export main types for convenience
-pub use builder::BasketBuilder;
+// Builder is generated via derive on `Basket`.
 pub use metrics::register_basket_metrics;
 pub use types::{AssetType, Basket, BasketConstituent, ConstituentReference, ReplicationMethod};

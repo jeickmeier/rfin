@@ -12,7 +12,7 @@ use finstack_core::F;
 use num_traits::ToPrimitive;
 
 /// FX option instrument (Garman-Kohlhagen model)
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct FxOption {
     pub id: String,
     pub base_currency: Currency,
@@ -32,11 +32,6 @@ pub struct FxOption {
 }
 
 impl FxOption {
-    /// Create a new FX option builder
-    pub fn builder() -> super::builder::FxOptionBuilder {
-        super::builder::FxOptionBuilder::new()
-    }
-
     /// Create a European call option on an FX pair with standard conventions.
     pub fn european_call(
         id: impl Into<String>,
@@ -59,10 +54,21 @@ impl FxOption {
         let option_params = OptionParams::european_call(strike, expiry);
 
         Self::builder()
-            .id(id)
+            .id(id.into())
+            .base_currency(fx_underlying.base_currency)
+            .quote_currency(fx_underlying.quote_currency)
+            .strike(option_params.strike)
+            .option_type(option_params.option_type)
+            .exercise_style(option_params.exercise_style)
+            .expiry(option_params.expiry)
+            .day_count(finstack_core::dates::DayCount::Act365F)
             .notional(notional)
-            .fx_underlying(fx_underlying)
-            .option_params(option_params)
+            .settlement(option_params.settlement)
+            .domestic_disc_id(fx_underlying.domestic_disc_id)
+            .foreign_disc_id(fx_underlying.foreign_disc_id)
+            .vol_id("FX-VOL")
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
             .build()
             .expect("FX European call construction should not fail")
     }
@@ -89,10 +95,21 @@ impl FxOption {
         let option_params = OptionParams::european_put(strike, expiry);
 
         Self::builder()
-            .id(id)
+            .id(id.into())
+            .base_currency(fx_underlying.base_currency)
+            .quote_currency(fx_underlying.quote_currency)
+            .strike(option_params.strike)
+            .option_type(option_params.option_type)
+            .exercise_style(option_params.exercise_style)
+            .expiry(option_params.expiry)
+            .day_count(finstack_core::dates::DayCount::Act365F)
             .notional(notional)
-            .fx_underlying(fx_underlying)
-            .option_params(option_params)
+            .settlement(option_params.settlement)
+            .domestic_disc_id(fx_underlying.domestic_disc_id)
+            .foreign_disc_id(fx_underlying.foreign_disc_id)
+            .vol_id("FX-VOL")
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
             .build()
             .expect("FX European put construction should not fail")
     }

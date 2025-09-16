@@ -13,7 +13,7 @@ use finstack_core::F;
 /// are needed to buy one unit of the base currency.
 ///
 /// See unit tests and `examples/` for usage.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct FxSpot {
     /// Unique identifier for the FX pair
     pub id: String,
@@ -22,25 +22,24 @@ pub struct FxSpot {
     /// Quote currency (the currency used for pricing)
     pub quote: Currency,
     /// Optional settlement date (T+2 typically for spot)
+    #[builder(optional)]
     pub settlement: Option<Date>,
     /// Optional spot rate (if not provided, will look up from market data)
+    #[builder(optional)]
     pub spot_rate: Option<F>,
     /// Optional notional amount in base currency (defaults to 1)
+    #[builder(optional)]
     pub notional: Option<Money>,
     /// Business day convention to apply when adjusting settlement (default: Following)
     pub bdc: BusinessDayConvention,
     /// Optional holiday calendar identifier used for business-day logic
+    #[builder(optional)]
     pub calendar_id: Option<&'static str>,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
 
 impl FxSpot {
-    /// Create a new FX spot builder.
-    pub fn builder() -> crate::instruments::fixed_income::fx_spot::mod_fx_spot::FxSpotBuilder {
-        crate::instruments::fixed_income::fx_spot::mod_fx_spot::FxSpotBuilder::new()
-    }
-
     /// Create a new FX spot instrument
     pub fn new(id: impl Into<String>, base: Currency, quote: Currency) -> Self {
         Self {

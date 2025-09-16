@@ -9,7 +9,7 @@ use finstack_valuations::instruments::options::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::{
     CreditDefaultSwap, CreditOption, EquityOption, FxOption, InflationLinkedBond,
 };
-use finstack_valuations::instruments::options::cap_floor::builder::IrOptionBuilder;
+use finstack_valuations::instruments::options::cap_floor::InterestRateOption;
 use finstack_valuations::instruments::common::MarketRefs;
 use time::Month;
 
@@ -149,18 +149,14 @@ fn test_interest_rate_option_creation() {
     let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
     let mr = MarketRefs::rates("USD-OIS", "USD-LIBOR-3M").with_volatility("USD-CAP-VOL");
-    let cap = IrOptionBuilder::new()
-        .id("USD_CAP_3%")
-        .notional(notional)
-        .rate_option_type(finstack_valuations::instruments::options::cap_floor::RateOptionType::Cap)
-        .strike_rate(0.03)
-        .start_date(start)
-        .end_date(end)
-        .frequency(Frequency::quarterly())
-        .day_count(DayCount::Act360)
-        .market_refs(mr)
-        .build()
-        .unwrap();
+    let dr = finstack_valuations::instruments::common::DateRange::new(start, end);
+    let params = finstack_valuations::instruments::common::InterestRateOptionParams::cap(
+        notional,
+        0.03,
+        Frequency::quarterly(),
+        DayCount::Act360,
+    );
+    let cap = InterestRateOption::new("USD_CAP_3%", &params, &dr, &mr);
 
     assert_eq!(cap.id, "USD_CAP_3%");
     assert_eq!(cap.strike_rate, 0.03);

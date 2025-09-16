@@ -1,6 +1,5 @@
 //! Bond instrument module: declares submodules and re-exports types.
 
-pub mod builder;
 pub mod helpers;
 pub mod metrics;
 pub mod oas_pricer;

@@ -14,7 +14,7 @@ use finstack_core::F;
 /// A FRA is a forward contract on an interest rate. The holder receives
 /// the difference between the realized rate and the fixed rate, paid at
 /// the start of the interest period (FRA convention).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct ForwardRateAgreement {
     /// Unique identifier
     pub id: String,

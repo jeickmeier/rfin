@@ -6,14 +6,10 @@
 //! framework. Valuation logic is intentionally minimal and returns zero PV in the
 //! instrument currency until tranche pricing models are implemented.
 
-mod builder;
 pub mod metrics;
 pub mod model;
 mod types;
 
 pub use types::{CdsTranche, TrancheSide};
 
-// Provide a distinct path for external references to the builder (parity with CDS/IRS)
-pub(crate) mod mod_cds_tranche {
-    pub use super::builder::CdsTrancheBuilder;
-}
+// Builder is provided via derive on `CdsTranche`.

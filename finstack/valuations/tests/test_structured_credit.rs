@@ -205,16 +205,37 @@ fn test_clo_builder() {
         pool.add_loan(loan, Some("Mixed".to_string()));
     }
     
-    // Use builder pattern
-    let clo = StructuredCredit::builder("CLO_BUILDER_TEST", DealType::CLO)
-        .pool(pool)
-        .add_equity_tranche(0.0, 15.0, Money::new(45_000_000.0, Currency::USD), 0.18)
-        .add_senior_tranche(15.0, 100.0, Money::new(255_000_000.0, Currency::USD), 200.0)
-        .legal_maturity(Date::from_calendar_date(2030, Month::January, 15).unwrap())
-        .disc_id("USD-OIS")
-        .manager("TEST_MANAGER")
-        .build()
-        .unwrap();
+    // Use direct constructor now that bespoke builder is removed
+    let equity_tranche = AbsTranche::new(
+        "EQUITY",
+        0.0,
+        15.0,
+        TrancheSeniority::Equity,
+        Money::new(45_000_000.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.18 },
+        Date::from_calendar_date(2030, Month::January, 15).unwrap(),
+    ).unwrap();
+    let senior_tranche = AbsTranche::new(
+        "SENIOR_A",
+        15.0,
+        100.0,
+        TrancheSeniority::Senior,
+        Money::new(255_000_000.0, Currency::USD),
+        TrancheCoupon::Floating { index: "SOFR-3M".to_string(), spread_bp: 200.0, floor: None, cap: None },
+        Date::from_calendar_date(2030, Month::January, 15).unwrap(),
+    ).unwrap();
+    let tranche_structure = TrancheStructure::new(vec![equity_tranche, senior_tranche]).unwrap();
+    let waterfall = WaterfallBuilder::standard_clo(&tranche_structure).build();
+    let mut clo = StructuredCredit::new(
+        "CLO_BUILDER_TEST",
+        DealType::CLO,
+        pool,
+        tranche_structure,
+        waterfall,
+        Date::from_calendar_date(2030, Month::January, 15).unwrap(),
+        "USD-OIS",
+    );
+    clo.manager_id = Some("TEST_MANAGER".to_string());
     
     assert_eq!(clo.id.as_str(), "CLO_BUILDER_TEST");
     assert_eq!(clo.manager_id.as_ref().unwrap(), "TEST_MANAGER");

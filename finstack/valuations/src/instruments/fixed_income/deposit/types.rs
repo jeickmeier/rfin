@@ -13,7 +13,7 @@ use crate::instruments::traits::Attributes;
 ///
 /// Represents a single-period deposit where principal is exchanged
 /// at start and principal plus interest at maturity.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct Deposit {
     /// Unique identifier for the deposit.
     pub id: InstrumentId,
@@ -25,7 +25,9 @@ pub struct Deposit {
     pub end: Date,
     /// Day count convention for interest accrual.
     pub day_count: DayCount,
+    
     /// Optional quoted simple rate r (annualised) for the deposit.
+    #[builder(optional)]
     pub quote_rate: Option<F>,
     /// Discount curve id used for valuation and par extraction.
     pub disc_id: CurveId,

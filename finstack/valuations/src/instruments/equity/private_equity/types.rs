@@ -10,7 +10,7 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 
 /// Private equity fund investment instrument.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct PrivateEquityInvestment {

@@ -97,16 +97,20 @@ fn test_repo_builder_pattern() {
     let collateral = create_general_collateral();
     
     let repo = Repo::builder()
-        .id("REPO_BUILDER_001")
+        .id("REPO_BUILDER_001".into())
         .cash_amount(Money::new(500_000.0, Currency::USD))
         .collateral(collateral)
         .repo_rate(0.055)
-        .dates(test_date(2025, 1, 10), test_date(2025, 7, 10))
+        .start_date(test_date(2025, 1, 10))
+        .maturity(test_date(2025, 7, 10))
+        .repo_type(RepoType::Term)
         .haircut(0.025) // 2.5% haircut
+        .day_count(DayCount::Act360)
+        .bdc(BusinessDayConvention::Following)
+        .calendar_id_opt(Some("target2"))
         .triparty(true)
         .disc_id("USD-OIS")
-        .with_tag("funding")
-        .with_meta("desk", "repo_trading")
+        .attributes(Attributes::new().with_tag("funding").with_meta("desk", "repo_trading"))
         .build()
         .unwrap();
     
@@ -342,11 +346,12 @@ fn test_builder_validation() {
     // Test invalid dates
     let collateral = create_general_collateral();
     let result = Repo::builder()
-        .id("INVALID_DATES")
+        .id("INVALID_DATES".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
         .repo_rate(0.05)
-        .dates(test_date(2025, 4, 15), test_date(2025, 1, 15)) // End before start
+        .start_date(test_date(2025, 4, 15))
+        .maturity(test_date(2025, 1, 15)) // End before start
         .disc_id("USD-OIS")
         .build();
     assert!(result.is_err()); // Should fail due to invalid date range
@@ -354,11 +359,12 @@ fn test_builder_validation() {
     // Test negative repo rate
     let collateral = create_general_collateral();
     let result = Repo::builder()
-        .id("NEGATIVE_RATE")
+        .id("NEGATIVE_RATE".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
         .repo_rate(-0.01) // Negative rate
-        .dates(test_date(2025, 1, 15), test_date(2025, 4, 15))
+        .start_date(test_date(2025, 1, 15))
+        .maturity(test_date(2025, 4, 15))
         .disc_id("USD-OIS")
         .build();
     assert!(result.is_err()); // Should fail due to negative rate
@@ -372,11 +378,20 @@ fn test_overnight_repo_maturity_calculation() {
     let friday = test_date(2025, 1, 17); // Friday
     
     let repo = Repo::builder()
-        .id("OVERNIGHT_WEEKEND")
+        .id("OVERNIGHT_WEEKEND".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
         .repo_rate(0.05)
-        .overnight(friday)
+        // simulate overnight via convenience constructor
+        // leave builder path for broader coverage
+        .start_date(friday)
+        .maturity(friday.add_business_days(1, &finstack_core::dates::calendar::Target2).unwrap())
+        .repo_type(RepoType::Overnight)
+        .haircut(0.02)
+        .day_count(DayCount::Act360)
+        .bdc(BusinessDayConvention::Following)
+        .calendar_id_opt(Some("target2"))
+        .triparty(false)
         .disc_id("USD-OIS")
         .build()
         .unwrap();
@@ -391,11 +406,18 @@ fn test_open_repo_functionality() {
     let collateral = create_general_collateral();
     
     let repo = Repo::builder()
-        .id("OPEN_REPO_001")
+        .id("OPEN_REPO_001".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
         .repo_rate(0.05)
-        .open(test_date(2025, 1, 15), test_date(2025, 12, 15)) // Initial 1-year term
+        .start_date(test_date(2025, 1, 15))
+        .maturity(test_date(2025, 12, 15)) // Initial 1-year term
+        .repo_type(RepoType::Open)
+        .haircut(0.02)
+        .day_count(DayCount::Act360)
+        .bdc(BusinessDayConvention::Following)
+        .calendar_id_opt(Some("target2"))
+        .triparty(false)
         .disc_id("USD-OIS")
         .build()
         .unwrap();
@@ -410,11 +432,17 @@ fn test_triparty_repo_flag() {
     let collateral = create_general_collateral();
     
     let repo = Repo::builder()
-        .id("TRIPARTY_TEST")
+        .id("TRIPARTY_TEST".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
         .repo_rate(0.05)
-        .dates(test_date(2025, 1, 15), test_date(2025, 4, 15))
+        .start_date(test_date(2025, 1, 15))
+        .maturity(test_date(2025, 4, 15))
+        .repo_type(RepoType::Term)
+        .haircut(0.02)
+        .day_count(DayCount::Act360)
+        .bdc(BusinessDayConvention::Following)
+        .calendar_id_opt(Some("target2"))
         .triparty(true)
         .disc_id("USD-OIS")
         .build()
@@ -475,12 +503,18 @@ fn test_different_day_count_conventions() {
     
     // Test with Act/365 instead of default Act/360
     let repo = Repo::builder()
-        .id("DAYCOUNT_TEST")
+        .id("DAYCOUNT_TEST".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
         .repo_rate(0.05)
-        .dates(test_date(2025, 1, 15), test_date(2025, 4, 15))
+        .start_date(test_date(2025, 1, 15))
+        .maturity(test_date(2025, 4, 15))
+        .repo_type(RepoType::Term)
+        .haircut(0.02)
         .day_count(DayCount::Act365F)
+        .bdc(BusinessDayConvention::Following)
+        .calendar_id_opt(Some("target2"))
+        .triparty(false)
         .disc_id("USD-OIS")
         .build()
         .unwrap();
@@ -490,12 +524,18 @@ fn test_different_day_count_conventions() {
     // Create similar repo with Act/360
     let collateral2 = create_general_collateral();
     let repo_360 = Repo::builder()
-        .id("DAYCOUNT_360_TEST")
+        .id("DAYCOUNT_360_TEST".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral2)
         .repo_rate(0.05)
-        .dates(test_date(2025, 1, 15), test_date(2025, 4, 15))
+        .start_date(test_date(2025, 1, 15))
+        .maturity(test_date(2025, 4, 15))
+        .repo_type(RepoType::Term)
+        .haircut(0.02)
         .day_count(DayCount::Act360)
+        .bdc(BusinessDayConvention::Following)
+        .calendar_id_opt(Some("target2"))
+        .triparty(false)
         .disc_id("USD-OIS")
         .build()
         .unwrap();
@@ -581,11 +621,12 @@ fn test_edge_case_same_day_maturity() {
     // Same day start and maturity should fail validation
     let same_date = test_date(2025, 1, 15);
     let result = Repo::builder()
-        .id("SAME_DAY_TEST")
+        .id("SAME_DAY_TEST".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
         .repo_rate(0.05)
-        .dates(same_date, same_date)
+        .start_date(same_date)
+        .maturity(same_date)
         .disc_id("USD-OIS")
         .build();
     
@@ -597,12 +638,18 @@ fn test_high_haircut_scenario() {
     let collateral = create_general_collateral();
     
     let repo = Repo::builder()
-        .id("HIGH_HAIRCUT_TEST")
+        .id("HIGH_HAIRCUT_TEST".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
         .repo_rate(0.05)
-        .dates(test_date(2025, 1, 15), test_date(2025, 4, 15))
+        .start_date(test_date(2025, 1, 15))
+        .maturity(test_date(2025, 4, 15))
         .haircut(0.20) // 20% haircut
+        .repo_type(RepoType::Term)
+        .day_count(DayCount::Act360)
+        .bdc(BusinessDayConvention::Following)
+        .calendar_id_opt(Some("target2"))
+        .triparty(false)
         .disc_id("USD-OIS")
         .build()
         .unwrap();
@@ -618,16 +665,24 @@ fn test_repo_attributes_and_tagging() {
     let collateral = create_general_collateral();
     
     let repo = Repo::builder()
-        .id("TAGGED_REPO")
+        .id("TAGGED_REPO".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
         .collateral(collateral)
         .repo_rate(0.05)
-        .dates(test_date(2025, 1, 15), test_date(2025, 4, 15))
+        .start_date(test_date(2025, 1, 15))
+        .maturity(test_date(2025, 4, 15))
+        .repo_type(RepoType::Term)
+        .haircut(0.02)
+        .day_count(DayCount::Act360)
+        .bdc(BusinessDayConvention::Following)
+        .calendar_id_opt(Some("target2"))
+        .triparty(false)
         .disc_id("USD-OIS")
-        .with_tag("treasury")
-        .with_tag("short_term")
-        .with_meta("counterparty", "PRIMARY_DEALER_A")
-        .with_meta("settlement", "DVP")
+        .attributes(Attributes::new()
+            .with_tag("treasury")
+            .with_tag("short_term")
+            .with_meta("counterparty", "PRIMARY_DEALER_A")
+            .with_meta("settlement", "DVP"))
         .build()
         .unwrap();
     

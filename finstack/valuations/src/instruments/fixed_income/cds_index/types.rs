@@ -11,7 +11,7 @@ use crate::instruments::fixed_income::cds::{
 };
 
 /// CDS Index instrument definition
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct CDSIndex {
     /// Unique instrument identifier
     pub id: String,
@@ -38,10 +38,6 @@ pub struct CDSIndex {
 }
 
 impl CDSIndex {
-    /// Create a new CDS Index builder
-    pub fn builder() -> crate::instruments::fixed_income::cds_index::builder::CDSIndexBuilder {
-        crate::instruments::fixed_income::cds_index::builder::CDSIndexBuilder::new()
-    }
 
     /// Create a new CDS Index with standard ISDA conventions using parameter structs
     pub fn new_standard(

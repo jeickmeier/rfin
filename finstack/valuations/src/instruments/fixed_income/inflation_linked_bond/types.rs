@@ -54,7 +54,7 @@ pub enum DeflationProtection {
 }
 
 /// Inflation-Linked Bond instrument
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct InflationLinkedBond {
     /// Unique instrument identifier
     pub id: String,
@@ -97,11 +97,6 @@ pub struct InflationLinkedBond {
 }
 
 impl InflationLinkedBond {
-    /// Create a new ILB builder.
-    pub fn builder() -> crate::instruments::fixed_income::inflation_linked_bond::builder::ILBBuilder
-    {
-        crate::instruments::fixed_income::inflation_linked_bond::builder::ILBBuilder::new()
-    }
 
     /// Create a new US TIPS bond using parameter structs
     pub fn new_tips(

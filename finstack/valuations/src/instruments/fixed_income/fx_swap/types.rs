@@ -7,7 +7,7 @@ use finstack_core::prelude::*;
 use finstack_core::F;
 
 /// FX Swap instrument definition
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct FxSwap {
     /// Unique instrument identifier
     pub id: String,
@@ -26,8 +26,10 @@ pub struct FxSwap {
     /// Foreign discount curve id (base currency)
     pub foreign_disc_id: &'static str,
     /// Optional near leg FX rate (quote per base). If None, source from market.
+    #[builder(optional)]
     pub near_rate: Option<F>,
     /// Optional far leg FX rate (quote per base). If None, source from forwards.
+    #[builder(optional)]
     pub far_rate: Option<F>,
     /// Attributes for tagging and selection
     pub attributes: Attributes,
@@ -55,10 +57,7 @@ impl FxSwap {
         }
     }
 
-    /// Builder entrypoint
-    pub fn builder() -> crate::instruments::fixed_income::fx_swap::mod_fx_swap::FxSwapBuilder {
-        crate::instruments::fixed_income::fx_swap::mod_fx_swap::FxSwapBuilder::new()
-    }
+    // Builder entrypoint is provided via derive
 }
 
 impl_instrument!(

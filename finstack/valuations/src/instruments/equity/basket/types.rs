@@ -147,7 +147,7 @@ pub enum ReplicationMethod {
 }
 
 /// Generic basket instrument supporting multiple asset types
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct Basket {
@@ -178,10 +178,7 @@ pub struct Basket {
 }
 
 impl Basket {
-    /// Create a new basket builder
-    pub fn builder() -> super::builder::BasketBuilder {
-        super::builder::BasketBuilder::new()
-    }
+    // Builder provided by derive
 
     /// Calculate Net Asset Value per share
     pub fn nav(&self, context: &MarketContext, as_of: Date) -> Result<Money> {

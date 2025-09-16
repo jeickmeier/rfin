@@ -9,7 +9,7 @@ use finstack_core::money::Money;
 use time::Month;
 
 use finstack_valuations::instruments::common::{
-    EquityUnderlyingParams, InstrumentScheduleParams, MarketRefs, OptionParams, PricingOverrides,
+    EquityUnderlyingParams, MarketRefs, OptionParams, PricingOverrides,
 };
 use finstack_valuations::instruments::fixed_income::{
     cds::PayReceive as CdsPayReceive,
@@ -100,21 +100,32 @@ fn main() -> finstack_core::Result<()> {
 
     // Complex Interest Rate Swap with custom schedules
     let complex_swap = InterestRateSwap::builder()
-        .id("IRS-COMPLEX")
+        .id("IRS-COMPLEX".to_string())
         .notional(Money::new(25_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
-        .dates(issue, maturity_5y)
-        .standard_fixed_leg(
-            "USD-OIS",
-            0.0425, // 4.25% fixed
-            InstrumentScheduleParams::semiannual_30360(),
-        )
-        .standard_float_leg(
-            "USD-OIS",
-            "USD-SOFR-3M",
-            25.0, // 25bp spread
-            InstrumentScheduleParams::quarterly_act360(),
-        )
+        .fixed(finstack_valuations::instruments::fixed_income::irs::FixedLegSpec {
+            disc_id: "USD-OIS",
+            rate: 0.0425,
+            freq: finstack_core::dates::Frequency::semi_annual(),
+            dc: finstack_core::dates::DayCount::Thirty360,
+            bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: finstack_core::dates::StubKind::None,
+            start: issue,
+            end: maturity_5y,
+        })
+        .float(finstack_valuations::instruments::fixed_income::irs::FloatLegSpec {
+            disc_id: "USD-OIS",
+            fwd_id: "USD-SOFR-3M",
+            spread_bp: 25.0,
+            freq: finstack_core::dates::Frequency::quarterly(),
+            dc: finstack_core::dates::DayCount::Act360,
+            bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: finstack_core::dates::StubKind::None,
+            start: issue,
+            end: maturity_5y,
+        })
         .build()?;
     println!(
         "✓ Complex IRS created: {} side",
@@ -133,17 +144,26 @@ fn main() -> finstack_core::Result<()> {
     let option_params =
         OptionParams::european_call(200.0, expiry_1y).with_exercise_style(ExerciseStyle::American);
 
-    let market_refs = MarketRefs::option("USD-OIS", "TSLA-VOL");
+    let _market_refs = MarketRefs::option("USD-OIS", "TSLA-VOL");
 
     let pricing_overrides = PricingOverrides::none().with_implied_vol(0.45); // 45% implied vol override
 
     let custom_option = EquityOption::builder()
-        .id("TSLA-CALL-CUSTOM")
-        .notional(Money::new(200_000.0, Currency::USD))
-        .underlying(underlying_params)
-        .option_params(option_params)
-        .market_refs(market_refs)
+        .id("TSLA-CALL-CUSTOM".into())
+        .underlying_ticker(underlying_params.ticker)
+        .strike(Money::new(200.0, Currency::USD))
+        .option_type(option_params.option_type)
+        .exercise_style(option_params.exercise_style)
+        .expiry(expiry_1y)
+        .contract_size(underlying_params.contract_size)
+        .day_count(finstack_core::dates::DayCount::Act365F)
+        .settlement(option_params.settlement)
+        .disc_id(MarketRefs::option("USD-OIS", "TSLA-VOL").disc_id)
+        .spot_id(underlying_params.spot_id)
+        .vol_id(MarketRefs::option("USD-OIS", "TSLA-VOL").vol_id.unwrap())
+        .div_yield_id_opt(underlying_params.dividend_yield_id)
         .pricing_overrides(pricing_overrides)
+        .attributes(finstack_valuations::instruments::traits::Attributes::new())
         .build()?;
     println!(
         "✓ Custom equity option created: {} style",

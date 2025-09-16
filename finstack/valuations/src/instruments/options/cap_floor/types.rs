@@ -23,7 +23,7 @@ pub enum RateOptionType {
 }
 
 /// Interest rate option instrument (Black model)
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct InterestRateOption {
     /// Unique instrument identifier
     pub id: String,

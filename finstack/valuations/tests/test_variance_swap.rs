@@ -12,7 +12,7 @@ use finstack_core::{
 };
 
 use finstack_valuations::instruments::{
-    derivatives::variance_swap::VarianceSwapBuilder,
+    derivatives::variance_swap::{PayReceive, VarianceSwap},
     traits::Priceable,
 };
 
@@ -38,14 +38,19 @@ fn create_test_market_context() -> MarketContext {
 
 #[test]
 fn test_variance_swap_creation() {
-    let swap = VarianceSwapBuilder::new()
-        .id("VAR_SPX_1Y")
-        .underlying_id("SPX")
-        .notional_amount(100_000.0, Currency::USD)
-        .strike_volatility(0.20) // 20% vol -> 0.04 variance
-        .dates(test_date(2025, 1, 1), test_date(2026, 1, 1))
+    let swap = VarianceSwap::builder()
+        .id("VAR_SPX_1Y".into())
+        .underlying_id("SPX".to_string())
+        .notional(Money::new(100_000.0, Currency::USD))
+        .strike_variance(0.20 * 0.20)
+        .start_date(test_date(2025, 1, 1))
+        .maturity(test_date(2026, 1, 1))
         .observation_freq(Frequency::daily())
-        .disc_id("USD_OIS")
+        .realized_var_method(RealizedVarMethod::CloseToClose)
+        .side(PayReceive::Receive)
+        .disc_id("USD_OIS".into())
+        .day_count(finstack_core::dates::DayCount::Act365F)
+        .attributes(finstack_valuations::instruments::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -58,14 +63,19 @@ fn test_variance_swap_creation() {
 
 #[test]
 fn test_variance_swap_payoff() {
-    let swap = VarianceSwapBuilder::new()
-        .id("VAR_SPX_1Y")
-        .underlying_id("SPX")
-        .notional_amount(100_000.0, Currency::USD)
+    let swap = VarianceSwap::builder()
+        .id("VAR_SPX_1Y".into())
+        .underlying_id("SPX".to_string())
+        .notional(Money::new(100_000.0, Currency::USD))
         .strike_variance(0.04) // 20% annualized vol squared
-        .dates(test_date(2025, 1, 1), test_date(2026, 1, 1))
-        .receive_variance()
-        .disc_id("USD_OIS")
+        .start_date(test_date(2025, 1, 1))
+        .maturity(test_date(2026, 1, 1))
+        .observation_freq(Frequency::daily())
+        .realized_var_method(RealizedVarMethod::CloseToClose)
+        .side(PayReceive::Receive)
+        .disc_id("USD_OIS".into())
+        .day_count(finstack_core::dates::DayCount::Act365F)
+        .attributes(finstack_valuations::instruments::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -92,14 +102,19 @@ fn test_variance_swap_pay_receive() {
     let realized_var = 0.05;
 
     // Test receive variance (long)
-    let swap_long = VarianceSwapBuilder::new()
-        .id("VAR_LONG")
-        .underlying_id("SPX")
+    let swap_long = VarianceSwap::builder()
+        .id("VAR_LONG".into())
+        .underlying_id("SPX".to_string())
         .notional(notional)
         .strike_variance(strike_var)
-        .dates(test_date(2025, 1, 1), test_date(2026, 1, 1))
-        .receive_variance()
-        .disc_id("USD_OIS")
+        .start_date(test_date(2025, 1, 1))
+        .maturity(test_date(2026, 1, 1))
+        .observation_freq(Frequency::daily())
+        .realized_var_method(RealizedVarMethod::CloseToClose)
+        .side(PayReceive::Receive)
+        .disc_id("USD_OIS".into())
+        .day_count(finstack_core::dates::DayCount::Act365F)
+        .attributes(finstack_valuations::instruments::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -107,14 +122,19 @@ fn test_variance_swap_pay_receive() {
     assert_eq!(payoff_long.amount(), 1000.0); // Positive when realized > strike
 
     // Test pay variance (short)
-    let swap_short = VarianceSwapBuilder::new()
-        .id("VAR_SHORT")
-        .underlying_id("SPX")
+    let swap_short = VarianceSwap::builder()
+        .id("VAR_SHORT".into())
+        .underlying_id("SPX".to_string())
         .notional(notional)
         .strike_variance(strike_var)
-        .dates(test_date(2025, 1, 1), test_date(2026, 1, 1))
-        .pay_variance()
-        .disc_id("USD_OIS")
+        .start_date(test_date(2025, 1, 1))
+        .maturity(test_date(2026, 1, 1))
+        .observation_freq(Frequency::daily())
+        .realized_var_method(RealizedVarMethod::CloseToClose)
+        .side(PayReceive::Pay)
+        .disc_id("USD_OIS".into())
+        .day_count(finstack_core::dates::DayCount::Act365F)
+        .attributes(finstack_valuations::instruments::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -124,13 +144,19 @@ fn test_variance_swap_pay_receive() {
 
 #[test]
 fn test_variance_swap_pricing_before_start() {
-    let swap = VarianceSwapBuilder::new()
-        .id("VAR_SPX_1Y")
-        .underlying_id("SPX")
-        .notional_amount(100_000.0, Currency::USD)
+    let swap = VarianceSwap::builder()
+        .id("VAR_SPX_1Y".into())
+        .underlying_id("SPX".to_string())
+        .notional(Money::new(100_000.0, Currency::USD))
         .strike_variance(0.04)
-        .dates(test_date(2025, 1, 1), test_date(2026, 1, 1))
-        .disc_id("USD_OIS")
+        .start_date(test_date(2025, 1, 1))
+        .maturity(test_date(2026, 1, 1))
+        .observation_freq(Frequency::daily())
+        .realized_var_method(RealizedVarMethod::CloseToClose)
+        .side(PayReceive::Receive)
+        .disc_id("USD_OIS".into())
+        .day_count(finstack_core::dates::DayCount::Act365F)
+        .attributes(finstack_valuations::instruments::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -147,13 +173,19 @@ fn test_variance_swap_pricing_before_start() {
 
 #[test]
 fn test_variance_swap_pricing_at_maturity() {
-    let swap = VarianceSwapBuilder::new()
-        .id("VAR_SPX_1Y")
-        .underlying_id("SPX")
-        .notional_amount(100_000.0, Currency::USD)
+    let swap = VarianceSwap::builder()
+        .id("VAR_SPX_1Y".into())
+        .underlying_id("SPX".to_string())
+        .notional(Money::new(100_000.0, Currency::USD))
         .strike_variance(0.04)
-        .dates(test_date(2025, 1, 1), test_date(2026, 1, 1))
-        .disc_id("USD_OIS")
+        .start_date(test_date(2025, 1, 1))
+        .maturity(test_date(2026, 1, 1))
+        .observation_freq(Frequency::daily())
+        .realized_var_method(RealizedVarMethod::CloseToClose)
+        .side(PayReceive::Receive)
+        .disc_id("USD_OIS".into())
+        .day_count(finstack_core::dates::DayCount::Act365F)
+        .attributes(finstack_valuations::instruments::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -170,27 +202,37 @@ fn test_variance_swap_pricing_at_maturity() {
 
 #[test]
 fn test_annualization_factor() {
-    let swap = VarianceSwapBuilder::new()
-        .id("VAR_TEST")
-        .underlying_id("SPX")
-        .notional_amount(100_000.0, Currency::USD)
+    let swap = VarianceSwap::builder()
+        .id("VAR_TEST".into())
+        .underlying_id("SPX".to_string())
+        .notional(Money::new(100_000.0, Currency::USD))
         .strike_variance(0.04)
-        .dates(test_date(2025, 1, 1), test_date(2026, 1, 1))
+        .start_date(test_date(2025, 1, 1))
+        .maturity(test_date(2026, 1, 1))
         .observation_freq(Frequency::daily())
-        .disc_id("USD_OIS")
+        .realized_var_method(RealizedVarMethod::CloseToClose)
+        .side(PayReceive::Receive)
+        .disc_id("USD_OIS".into())
+        .day_count(finstack_core::dates::DayCount::Act365F)
+        .attributes(finstack_valuations::instruments::traits::Attributes::new())
         .build()
         .unwrap();
 
     assert_eq!(swap.annualization_factor(), 252.0);
 
-    let swap_weekly = VarianceSwapBuilder::new()
-        .id("VAR_TEST")
-        .underlying_id("SPX")
-        .notional_amount(100_000.0, Currency::USD)
+    let swap_weekly = VarianceSwap::builder()
+        .id("VAR_TEST".into())
+        .underlying_id("SPX".to_string())
+        .notional(Money::new(100_000.0, Currency::USD))
         .strike_variance(0.04)
-        .dates(test_date(2025, 1, 1), test_date(2026, 1, 1))
+        .start_date(test_date(2025, 1, 1))
+        .maturity(test_date(2026, 1, 1))
         .observation_freq(Frequency::weekly())
-        .disc_id("USD_OIS")
+        .realized_var_method(RealizedVarMethod::CloseToClose)
+        .side(PayReceive::Receive)
+        .disc_id("USD_OIS".into())
+        .day_count(finstack_core::dates::DayCount::Act365F)
+        .attributes(finstack_valuations::instruments::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -199,13 +241,19 @@ fn test_annualization_factor() {
 
 #[test]
 fn test_time_elapsed_fraction() {
-    let swap = VarianceSwapBuilder::new()
-        .id("VAR_TEST")
-        .underlying_id("SPX")
-        .notional_amount(100_000.0, Currency::USD)
+    let swap = VarianceSwap::builder()
+        .id("VAR_TEST".into())
+        .underlying_id("SPX".to_string())
+        .notional(Money::new(100_000.0, Currency::USD))
         .strike_variance(0.04)
-        .dates(test_date(2025, 1, 1), test_date(2025, 12, 31))
-        .disc_id("USD_OIS")
+        .start_date(test_date(2025, 1, 1))
+        .maturity(test_date(2025, 12, 31))
+        .observation_freq(Frequency::daily())
+        .realized_var_method(RealizedVarMethod::CloseToClose)
+        .side(PayReceive::Receive)
+        .disc_id("USD_OIS".into())
+        .day_count(finstack_core::dates::DayCount::Act365F)
+        .attributes(finstack_valuations::instruments::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -244,14 +292,19 @@ fn test_realized_variance_calculation() {
 
 #[test]
 fn test_observation_dates() {
-    let swap = VarianceSwapBuilder::new()
-        .id("VAR_TEST")
-        .underlying_id("SPX")
-        .notional_amount(100_000.0, Currency::USD)
+    let swap = VarianceSwap::builder()
+        .id("VAR_TEST".into())
+        .underlying_id("SPX".to_string())
+        .notional(Money::new(100_000.0, Currency::USD))
         .strike_variance(0.04)
-        .dates(test_date(2025, 1, 1), test_date(2025, 3, 1))
+        .start_date(test_date(2025, 1, 1))
+        .maturity(test_date(2025, 3, 1))
         .observation_freq(Frequency::weekly())
-        .disc_id("USD_OIS")
+        .realized_var_method(RealizedVarMethod::CloseToClose)
+        .side(PayReceive::Receive)
+        .disc_id("USD_OIS".into())
+        .day_count(finstack_core::dates::DayCount::Act365F)
+        .attributes(finstack_valuations::instruments::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -272,30 +325,42 @@ fn test_observation_dates() {
 #[test]
 fn test_builder_validation() {
     // Missing required fields
-    let result = VarianceSwapBuilder::new()
-        .id("VAR_TEST")
+    let result = VarianceSwap::builder()
+        .id("VAR_TEST".into())
         .build();
     assert!(result.is_err());
 
     // Invalid strike variance
-    let result = VarianceSwapBuilder::new()
-        .id("VAR_TEST")
-        .underlying_id("SPX")
-        .notional_amount(100_000.0, Currency::USD)
+    let result = VarianceSwap::builder()
+        .id("VAR_TEST".into())
+        .underlying_id("SPX".to_string())
+        .notional(Money::new(100_000.0, Currency::USD))
         .strike_variance(-0.04)
-        .dates(test_date(2025, 1, 1), test_date(2026, 1, 1))
-        .disc_id("USD_OIS")
+        .start_date(test_date(2025, 1, 1))
+        .maturity(test_date(2026, 1, 1))
+        .observation_freq(Frequency::daily())
+        .realized_var_method(RealizedVarMethod::CloseToClose)
+        .side(PayReceive::Receive)
+        .disc_id("USD_OIS".into())
+        .day_count(finstack_core::dates::DayCount::Act365F)
+        .attributes(finstack_valuations::instruments::traits::Attributes::new())
         .build();
     assert!(result.is_err());
 
     // Invalid dates
-    let result = VarianceSwapBuilder::new()
-        .id("VAR_TEST")
-        .underlying_id("SPX")
-        .notional_amount(100_000.0, Currency::USD)
+    let result = VarianceSwap::builder()
+        .id("VAR_TEST".into())
+        .underlying_id("SPX".to_string())
+        .notional(Money::new(100_000.0, Currency::USD))
         .strike_variance(0.04)
-        .dates(test_date(2025, 1, 1), test_date(2024, 1, 1)) // End before start
-        .disc_id("USD_OIS")
+        .start_date(test_date(2025, 1, 1))
+        .maturity(test_date(2024, 1, 1)) // End before start
+        .observation_freq(Frequency::daily())
+        .realized_var_method(RealizedVarMethod::CloseToClose)
+        .side(PayReceive::Receive)
+        .disc_id("USD_OIS".into())
+        .day_count(finstack_core::dates::DayCount::Act365F)
+        .attributes(finstack_valuations::instruments::traits::Attributes::new())
         .build();
     assert!(result.is_err());
 }

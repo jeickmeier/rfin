@@ -9,7 +9,8 @@ members = [
     "finstack/analysis",
     "finstack-py",
     "finstack-wasm",
-    "finstack"
+    "finstack",
+    "finstack-macros"
 ]
 resolver = "2"
 
@@ -22,7 +23,8 @@ default-members = [
     "finstack/portfolio",
     "finstack/io",
     "finstack/analysis",
-    "finstack"
+    "finstack",
+    "finstack-macros"
 ]
 
 [workspace.package]

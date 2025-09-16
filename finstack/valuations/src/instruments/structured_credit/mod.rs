@@ -21,13 +21,36 @@
 //! // Create a simple CLO with equity and senior tranches
 //! # fn example() -> finstack_core::Result<()> {
 //! # let pool = AssetPool::new("TEST_POOL", DealType::CLO, Currency::USD);
-//! let clo = StructuredCredit::builder("CLO-2025-1", DealType::CLO)
-//!     .pool(pool)
-//!     .add_equity_tranche(0.0, 10.0, Money::new(100_000_000.0, Currency::USD), 0.15)
-//!     .add_senior_tranche(10.0, 100.0, Money::new(900_000_000.0, Currency::USD), 150.0)
-//!     .legal_maturity(finstack_core::dates::Date::from_calendar_date(2030, time::Month::January, 1).unwrap())
-//!     .disc_id("USD-OIS")
-//!     .build()?;
+//! // Build tranches
+//! let equity = AbsTranche::new(
+//!     "EQUITY",
+//!     0.0,
+//!     10.0,
+//!     TrancheSeniority::Equity,
+//!     Money::new(100_000_000.0, Currency::USD),
+//!     TrancheCoupon::Fixed { rate: 0.15 },
+//!     finstack_core::dates::Date::from_calendar_date(2030, time::Month::January, 1).unwrap(),
+//! )?;
+//! let senior = AbsTranche::new(
+//!     "SENIOR_A",
+//!     10.0,
+//!     100.0,
+//!     TrancheSeniority::Senior,
+//!     Money::new(900_000_000.0, Currency::USD),
+//!     TrancheCoupon::Floating { index: "SOFR-3M".to_string(), spread_bp: 150.0, floor: None, cap: None },
+//!     finstack_core::dates::Date::from_calendar_date(2030, time::Month::January, 1).unwrap(),
+//! )?;
+//! let tranches = TrancheStructure::new(vec![equity, senior])?;
+//! let waterfall = WaterfallBuilder::standard_clo(&tranches).build();
+//! let clo = StructuredCredit::new(
+//!     "CLO-2025-1",
+//!     DealType::CLO,
+//!     pool,
+//!     tranches,
+//!     waterfall,
+//!     finstack_core::dates::Date::from_calendar_date(2030, time::Month::January, 1).unwrap(),
+//!     "USD-OIS",
+//! );
 //! # Ok(())
 //! # }
 //! ```

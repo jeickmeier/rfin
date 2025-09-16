@@ -74,16 +74,15 @@ fn test_equity_trs_creation() {
     let sched = InstrumentScheduleParams::quarterly_act360();
 
     let trs = EquityTotalReturnSwap::builder()
-        .id("TRS-SPX-001")
+        .id("TRS-SPX-001".into())
         .notional(notional)
         .underlying(underlying)
-        .financing("USD-OIS", "USD-SOFR-3M", 25.0, DayCount::Act360)
-        .dates(
-            as_of,
-            Date::from_calendar_date(2026, Month::January, 2).unwrap(),
-        )
-        .schedule_params(sched)
-        .receive_total_return()
+        .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 25.0, DayCount::Act360))
+        .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
+            finstack_valuations::instruments::common::parameter_groups::DateRange::new(as_of, Date::from_calendar_date(2026, Month::January, 2).unwrap()),
+            sched,
+        ))
+        .side(TrsSide::ReceiveTotalReturn)
         .build()
         .unwrap();
 
@@ -105,16 +104,15 @@ fn test_equity_trs_pricing() {
     let sched = InstrumentScheduleParams::quarterly_act360();
 
     let trs = EquityTotalReturnSwap::builder()
-        .id("TRS-SPX-001")
+        .id("TRS-SPX-001".into())
         .notional(notional)
         .underlying(underlying)
-        .financing("USD-OIS", "USD-SOFR-3M", 50.0, DayCount::Act360) // 50bp spread to balance equity risk premium
-        .dates(
-            as_of,
-            Date::from_calendar_date(2026, Month::January, 2).unwrap(),
-        )
-        .schedule_params(sched)
-        .receive_total_return()
+        .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 50.0, DayCount::Act360))
+        .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
+            finstack_valuations::instruments::common::parameter_groups::DateRange::new(as_of, Date::from_calendar_date(2026, Month::January, 2).unwrap()),
+            sched,
+        ))
+        .side(TrsSide::ReceiveTotalReturn)
         .build()
         .unwrap();
 
@@ -139,16 +137,15 @@ fn test_equity_trs_delta() {
         .with_contract_size(1.0);
 
     let trs = EquityTotalReturnSwap::builder()
-        .id("TRS-SPX-001")
+        .id("TRS-SPX-001".into())
         .notional(notional)
         .underlying(underlying)
-        .financing("USD-OIS", "USD-SOFR-3M", 25.0, DayCount::Act360)
-        .dates(
-            as_of,
-            Date::from_calendar_date(2026, Month::January, 2).unwrap(),
-        )
-        .schedule_params(InstrumentScheduleParams::quarterly_act360())
-        .receive_total_return()
+        .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 25.0, DayCount::Act360))
+        .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
+            finstack_valuations::instruments::common::parameter_groups::DateRange::new(as_of, Date::from_calendar_date(2026, Month::January, 2).unwrap()),
+            InstrumentScheduleParams::quarterly_act360(),
+        ))
+        .side(TrsSide::ReceiveTotalReturn)
         .build()
         .unwrap();
 
@@ -172,16 +169,15 @@ fn test_fi_index_trs_creation() {
     let sched = InstrumentScheduleParams::quarterly_act360();
 
     let trs = FIIndexTotalReturnSwap::builder()
-        .id("TRS-HY-001")
+        .id("TRS-HY-001".into())
         .notional(notional)
         .underlying(underlying)
-        .financing("USD-OIS", "USD-SOFR-3M", 100.0, DayCount::Act360)
-        .dates(
-            as_of,
-            Date::from_calendar_date(2026, Month::January, 2).unwrap(),
-        )
-        .schedule_params(sched)
-        .receive_total_return()
+        .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 100.0, DayCount::Act360))
+        .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
+            finstack_valuations::instruments::common::parameter_groups::DateRange::new(as_of, Date::from_calendar_date(2026, Month::January, 2).unwrap()),
+            sched,
+        ))
+        .side(TrsSide::ReceiveTotalReturn)
         .build()
         .unwrap();
 
@@ -202,16 +198,15 @@ fn test_fi_index_trs_par_spread() {
         .with_contract_size(1.0);
 
     let trs = FIIndexTotalReturnSwap::builder()
-        .id("TRS-HY-001")
+        .id("TRS-HY-001".into())
         .notional(notional)
         .underlying(underlying)
-        .financing("USD-OIS", "USD-SOFR-3M", 0.0, DayCount::Act360)
-        .dates(
-            as_of,
-            Date::from_calendar_date(2026, Month::January, 2).unwrap(),
-        )
-        .schedule_params(InstrumentScheduleParams::quarterly_act360())
-        .receive_total_return()
+        .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 0.0, DayCount::Act360))
+        .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
+            finstack_valuations::instruments::common::parameter_groups::DateRange::new(as_of, Date::from_calendar_date(2026, Month::January, 2).unwrap()),
+            InstrumentScheduleParams::quarterly_act360(),
+        ))
+        .side(TrsSide::ReceiveTotalReturn)
         .build()
         .unwrap();
 
@@ -233,15 +228,14 @@ fn test_currency_safety() {
         .with_contract_size(1.0);
 
     let result = FIIndexTotalReturnSwap::builder()
-        .id("TRS-EUR-001")
+        .id("TRS-EUR-001".into())
         .notional(notional) // USD notional
         .underlying(underlying) // EUR index
-        .financing("USD-OIS", "USD-SOFR-3M", 0.0, DayCount::Act360)
-        .dates(
-            as_of,
-            Date::from_calendar_date(2026, Month::January, 2).unwrap(),
-        )
-        .schedule_params(InstrumentScheduleParams::quarterly_act360())
+        .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 0.0, DayCount::Act360))
+        .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
+            finstack_valuations::instruments::common::parameter_groups::DateRange::new(as_of, Date::from_calendar_date(2026, Month::January, 2).unwrap()),
+            InstrumentScheduleParams::quarterly_act360(),
+        ))
         .build();
 
     assert!(result.is_err(), "Should fail with currency mismatch");
@@ -257,16 +251,15 @@ fn test_trs_cashflow_schedule() {
         EquityUnderlyingParams::new("SPX", "SPX-SPOT").with_dividend_yield("SPX-DIV-YIELD");
 
     let trs = EquityTotalReturnSwap::builder()
-        .id("TRS-SPX-001")
+        .id("TRS-SPX-001".into())
         .notional(notional)
         .underlying(underlying)
-        .financing("USD-OIS", "USD-SOFR-3M", 0.0, DayCount::Act360)
-        .dates(
-            as_of,
-            Date::from_calendar_date(2026, Month::January, 2).unwrap(),
-        )
-        .schedule_params(InstrumentScheduleParams::quarterly_act360())
-        .receive_total_return()
+        .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 0.0, DayCount::Act360))
+        .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
+            finstack_valuations::instruments::common::parameter_groups::DateRange::new(as_of, Date::from_calendar_date(2026, Month::January, 2).unwrap()),
+            InstrumentScheduleParams::quarterly_act360(),
+        ))
+        .side(TrsSide::ReceiveTotalReturn)
         .build()
         .unwrap();
 
@@ -293,31 +286,29 @@ fn test_pay_vs_receive_total_return() {
 
     // Receive total return
     let trs_receive = EquityTotalReturnSwap::builder()
-        .id("TRS-RECEIVE")
+        .id("TRS-RECEIVE".into())
         .notional(notional)
         .underlying(underlying.clone())
-        .financing("USD-OIS", "USD-SOFR-3M", 50.0, DayCount::Act360)
-        .dates(
-            as_of,
-            Date::from_calendar_date(2026, Month::January, 2).unwrap(),
-        )
-        .schedule_params(InstrumentScheduleParams::quarterly_act360())
-        .receive_total_return()
+        .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 50.0, DayCount::Act360))
+        .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
+            finstack_valuations::instruments::common::parameter_groups::DateRange::new(as_of, Date::from_calendar_date(2026, Month::January, 2).unwrap()),
+            InstrumentScheduleParams::quarterly_act360(),
+        ))
+        .side(TrsSide::ReceiveTotalReturn)
         .build()
         .unwrap();
 
     // Pay total return
     let trs_pay = EquityTotalReturnSwap::builder()
-        .id("TRS-PAY")
+        .id("TRS-PAY".into())
         .notional(notional)
         .underlying(underlying)
-        .financing("USD-OIS", "USD-SOFR-3M", 50.0, DayCount::Act360)
-        .dates(
-            as_of,
-            Date::from_calendar_date(2026, Month::January, 2).unwrap(),
-        )
-        .schedule_params(InstrumentScheduleParams::quarterly_act360())
-        .pay_total_return()
+        .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 50.0, DayCount::Act360))
+        .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
+            finstack_valuations::instruments::common::parameter_groups::DateRange::new(as_of, Date::from_calendar_date(2026, Month::January, 2).unwrap()),
+            InstrumentScheduleParams::quarterly_act360(),
+        ))
+        .side(TrsSide::PayTotalReturn)
         .build()
         .unwrap();
 

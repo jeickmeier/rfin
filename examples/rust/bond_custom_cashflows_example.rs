@@ -129,9 +129,9 @@ fn example_pik_toggle_bond() -> finstack_core::Result<()> {
 
     // Create bond using builder pattern
     let bond = Bond::builder()
-        .id("PIK_TOGGLE_2027")
-        .cashflows(custom_schedule.clone())
-        .disc_curve("USD-OIS")
+        .id("PIK_TOGGLE_2027".into())
+        .custom_cashflows(custom_schedule.clone())
+        .disc_id(finstack_core::types::CurveId::new("USD-OIS"))
         .build()?;
 
     // Create market data
@@ -263,9 +263,9 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
         .build()?;
 
     let custom_bond = Bond::builder()
-        .id("CUSTOM_BOND")
-        .cashflows(custom_schedule)
-        .disc_curve("USD-OIS")
+        .id("CUSTOM_BOND".into())
+        .custom_cashflows(custom_schedule)
+        .disc_id(finstack_core::types::CurveId::new("USD-OIS"))
         .build()?;
 
     // Create market data

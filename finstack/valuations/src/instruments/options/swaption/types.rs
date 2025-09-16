@@ -26,7 +26,7 @@ pub enum SwaptionExercise {
 }
 
 /// Swaption instrument
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct Swaption {
     pub id: String,
     pub option_type: OptionType,

@@ -15,7 +15,7 @@ use super::model;
 /// This fixed income instrument combines debt characteristics (coupons, principal)
 /// with equity optionality (conversion rights). Uses the CashflowBuilder for
 /// robust schedule generation and tree-based pricing for the hybrid valuation.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct ConvertibleBond {
     /// Unique identifier for the instrument.
     pub id: String,
@@ -30,12 +30,16 @@ pub struct ConvertibleBond {
     /// Conversion terms for equity conversion.
     pub conversion: ConversionSpec,
     /// Optional underlying equity identifier (ticker or instrument id).
+    #[builder(optional)]
     pub underlying_equity_id: Option<String>,
     /// Optional call/put schedule (issuer/holder redemption before maturity).
+    #[builder(optional)]
     pub call_put: Option<CallPutSchedule>,
     /// Fixed coupon specification (if applicable).
+    #[builder(optional)]
     pub fixed_coupon: Option<FixedCouponSpec>,
     /// Floating coupon specification (if applicable).
+    #[builder(optional)]
     pub floating_coupon: Option<FloatingCouponSpec>,
     /// Attributes for selection and tagging.
     pub attributes: Attributes,

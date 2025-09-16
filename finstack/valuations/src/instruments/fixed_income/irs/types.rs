@@ -77,7 +77,7 @@ pub struct FloatLegSpec {
 ///
 /// Represents a standard interest rate swap where one party pays
 /// a fixed rate and the other pays a floating rate plus spread.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct InterestRateSwap {
     /// Unique identifier for the swap.
     pub id: String,
@@ -94,10 +94,6 @@ pub struct InterestRateSwap {
 }
 
 impl InterestRateSwap {
-    /// Create a new IRS builder.
-    pub fn builder() -> crate::instruments::fixed_income::irs::mod_irs::IRSBuilder {
-        crate::instruments::fixed_income::irs::mod_irs::IRSBuilder::new()
-    }
 
     /// Create a standard USD pay-fixed swap with common market conventions.
     ///
@@ -110,23 +106,36 @@ impl InterestRateSwap {
         end: Date,
     ) -> Self {
         use crate::instruments::common::InstrumentScheduleParams;
-
+        let sched = InstrumentScheduleParams::usd_standard();
+        let fixed = FixedLegSpec {
+            disc_id: "USD-OIS",
+            rate: fixed_rate,
+            freq: sched.frequency,
+            dc: sched.day_count,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id,
+            stub: sched.stub,
+            start,
+            end,
+        };
+        let float = FloatLegSpec {
+            disc_id: "USD-OIS",
+            fwd_id: "USD-SOFR-3M",
+            spread_bp: 0.0,
+            freq: sched.frequency,
+            dc: sched.day_count,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id,
+            stub: sched.stub,
+            start,
+            end,
+        };
         Self::builder()
-            .id(id)
+            .id(id.into())
             .notional(notional)
             .side(PayReceive::PayFixed)
-            .dates(start, end)
-            .standard_fixed_leg(
-                "USD-OIS",
-                fixed_rate,
-                InstrumentScheduleParams::usd_standard(),
-            )
-            .standard_float_leg(
-                "USD-OIS",
-                "USD-SOFR-3M",
-                0.0,
-                InstrumentScheduleParams::usd_standard(),
-            )
+            .fixed(fixed)
+            .float(float)
             .build()
             .expect("USD pay-fixed swap construction should not fail")
     }
@@ -141,22 +150,36 @@ impl InterestRateSwap {
     ) -> Self {
         use crate::instruments::common::InstrumentScheduleParams;
 
+        let sched = InstrumentScheduleParams::usd_standard();
+        let fixed = FixedLegSpec {
+            disc_id: "USD-OIS",
+            rate: fixed_rate,
+            freq: sched.frequency,
+            dc: sched.day_count,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id,
+            stub: sched.stub,
+            start,
+            end,
+        };
+        let float = FloatLegSpec {
+            disc_id: "USD-OIS",
+            fwd_id: "USD-SOFR-3M",
+            spread_bp: 0.0,
+            freq: sched.frequency,
+            dc: sched.day_count,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id,
+            stub: sched.stub,
+            start,
+            end,
+        };
         Self::builder()
-            .id(id)
+            .id(id.into())
             .notional(notional)
             .side(PayReceive::ReceiveFixed)
-            .dates(start, end)
-            .standard_fixed_leg(
-                "USD-OIS",
-                fixed_rate,
-                InstrumentScheduleParams::usd_standard(),
-            )
-            .standard_float_leg(
-                "USD-OIS",
-                "USD-SOFR-3M",
-                0.0,
-                InstrumentScheduleParams::usd_standard(),
-            )
+            .fixed(fixed)
+            .float(float)
             .build()
             .expect("USD receive-fixed swap construction should not fail")
     }
@@ -172,25 +195,37 @@ impl InterestRateSwap {
     ) -> Self {
         use crate::instruments::common::InstrumentScheduleParams;
 
-        // Use the "fixed" leg for primary index and "float" leg for reference
-        // This is a modeling convenience - both are actually floating
+        // Approximate basis swap by using fixed leg to carry the primary spread as a fixed coupon
+        let sched = InstrumentScheduleParams::usd_standard();
+        let fixed = FixedLegSpec {
+            disc_id: "USD-OIS",
+            rate: primary_spread_bp * 1e-4,
+            freq: sched.frequency,
+            dc: sched.day_count,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id,
+            stub: sched.stub,
+            start,
+            end,
+        };
+        let float = FloatLegSpec {
+            disc_id: "USD-OIS",
+            fwd_id: "USD-SOFR-6M",
+            spread_bp: reference_spread_bp,
+            freq: sched.frequency,
+            dc: sched.day_count,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id,
+            stub: sched.stub,
+            start,
+            end,
+        };
         Self::builder()
-            .id(id)
+            .id(id.into())
             .notional(notional)
-            .side(PayReceive::PayFixed) // Convention: pay primary, receive reference
-            .dates(start, end)
-            .standard_float_leg(
-                "USD-OIS",
-                "USD-SOFR-3M",
-                primary_spread_bp,
-                InstrumentScheduleParams::usd_standard(),
-            )
-            .standard_float_leg(
-                "USD-OIS",
-                "USD-SOFR-6M",
-                reference_spread_bp,
-                InstrumentScheduleParams::usd_standard(),
-            )
+            .side(PayReceive::PayFixed)
+            .fixed(fixed)
+            .float(float)
             .build()
             .expect("USD basis swap construction should not fail")
     }

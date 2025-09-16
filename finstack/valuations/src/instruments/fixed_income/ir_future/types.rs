@@ -10,7 +10,7 @@ use finstack_core::money::Money;
 use finstack_core::F;
 
 /// Interest Rate Future instrument.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct InterestRateFuture {
     /// Unique identifier
     pub id: String,

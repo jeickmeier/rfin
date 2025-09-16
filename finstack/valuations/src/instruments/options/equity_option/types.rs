@@ -11,7 +11,7 @@ use finstack_core::F;
 use finstack_core::types::{CurveId, InstrumentId};
 
 /// Equity option instrument
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct EquityOption {
     pub id: InstrumentId,
     pub underlying_ticker: String,
@@ -31,11 +31,6 @@ pub struct EquityOption {
 }
 
 impl EquityOption {
-    /// Create a new equity option builder
-    pub fn builder() -> crate::instruments::options::equity_option::builder::EquityOptionBuilder {
-        crate::instruments::options::equity_option::builder::EquityOptionBuilder::new()
-    }
-
     /// Create a European call option with standard conventions.
     ///
     /// This convenience constructor eliminates the builder for the most common case.
@@ -56,12 +51,23 @@ impl EquityOption {
         let option_params = OptionParams::european_call(strike, expiry);
         let market_refs = MarketRefs::option("USD-OIS", "EQUITY-VOL");
 
+        // Build directly using derive-generated builder setters
         Self::builder()
-            .id(id)
-            .notional(notional)
-            .underlying(underlying)
-            .option_params(option_params)
-            .market_refs(market_refs)
+            .id(InstrumentId::new(id.into()))
+            .underlying_ticker(underlying.ticker)
+            .strike(Money::new(option_params.strike, notional.currency()))
+            .option_type(option_params.option_type)
+            .exercise_style(option_params.exercise_style)
+            .expiry(option_params.expiry)
+            .contract_size(underlying.contract_size)
+            .day_count(finstack_core::dates::DayCount::Act365F)
+            .settlement(option_params.settlement)
+            .disc_id(market_refs.disc_id)
+            .spot_id(underlying.spot_id)
+            .vol_id(market_refs.vol_id.expect("vol surface id required"))
+            .div_yield_id_opt(underlying.dividend_yield_id)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
             .build()
             .expect("European call construction should not fail")
     }
@@ -85,11 +91,21 @@ impl EquityOption {
         let market_refs = MarketRefs::option("USD-OIS", "EQUITY-VOL");
 
         Self::builder()
-            .id(id)
-            .notional(notional)
-            .underlying(underlying)
-            .option_params(option_params)
-            .market_refs(market_refs)
+            .id(InstrumentId::new(id.into()))
+            .underlying_ticker(underlying.ticker)
+            .strike(Money::new(option_params.strike, notional.currency()))
+            .option_type(option_params.option_type)
+            .exercise_style(option_params.exercise_style)
+            .expiry(option_params.expiry)
+            .contract_size(underlying.contract_size)
+            .day_count(finstack_core::dates::DayCount::Act365F)
+            .settlement(option_params.settlement)
+            .disc_id(market_refs.disc_id)
+            .spot_id(underlying.spot_id)
+            .vol_id(market_refs.vol_id.expect("vol surface id required"))
+            .div_yield_id_opt(underlying.dividend_yield_id)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
             .build()
             .expect("European put construction should not fail")
     }
@@ -114,11 +130,21 @@ impl EquityOption {
         let market_refs = MarketRefs::option("USD-OIS", "EQUITY-VOL");
 
         Self::builder()
-            .id(id)
-            .notional(notional)
-            .underlying(underlying)
-            .option_params(option_params)
-            .market_refs(market_refs)
+            .id(InstrumentId::new(id.into()))
+            .underlying_ticker(underlying.ticker)
+            .strike(Money::new(option_params.strike, notional.currency()))
+            .option_type(option_params.option_type)
+            .exercise_style(option_params.exercise_style)
+            .expiry(option_params.expiry)
+            .contract_size(underlying.contract_size)
+            .day_count(finstack_core::dates::DayCount::Act365F)
+            .settlement(option_params.settlement)
+            .disc_id(market_refs.disc_id)
+            .spot_id(underlying.spot_id)
+            .vol_id(market_refs.vol_id.expect("vol surface id required"))
+            .div_yield_id_opt(underlying.dividend_yield_id)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
             .build()
             .expect("American call construction should not fail")
     }

@@ -18,7 +18,7 @@ pub enum PayReceiveInflation {
 ///
 /// Minimal fields to represent a zero-coupon inflation swap. We keep this
 /// intentionally compact until full pricing is implemented.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct InflationSwap {
     /// Unique instrument identifier
     pub id: String,
@@ -42,13 +42,7 @@ pub struct InflationSwap {
     pub attributes: Attributes,
 }
 
-impl InflationSwap {
-    /// Builder entrypoint
-    pub fn builder(
-    ) -> crate::instruments::fixed_income::inflation_swap::builder::InflationSwapBuilder {
-        crate::instruments::fixed_income::inflation_swap::builder::InflationSwapBuilder::new()
-    }
-}
+impl InflationSwap {}
 
 impl InflationSwap {
     /// Calculate PV of the fixed leg (real rate leg)

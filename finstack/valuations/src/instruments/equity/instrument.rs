@@ -18,7 +18,7 @@ pub type Ticker = String;
 /// underlying fundamentals.
 ///
 /// See unit tests and `examples/` for usage.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct Equity {
     /// Unique identifier for the equity
     pub id: InstrumentId,
@@ -35,11 +35,6 @@ pub struct Equity {
 }
 
 impl Equity {
-    /// Create a new equity builder.
-    pub fn builder() -> EquityBuilder {
-        EquityBuilder::new()
-    }
-
     /// Create a new equity instrument with default 1 share
     pub fn new(id: impl Into<String>, ticker: impl Into<String>, currency: Currency) -> Self {
         Self {
@@ -85,64 +80,6 @@ impl_instrument!(
 );
 
 // Conversions and Attributable provided by macro
-
-/// Builder pattern for Equity instruments
-#[derive(Default)]
-pub struct EquityBuilder {
-    id: Option<String>,
-    ticker: Option<String>,
-    currency: Option<Currency>,
-    shares: Option<F>,
-    price_quote: Option<F>,
-}
-
-impl EquityBuilder {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn id(mut self, value: impl Into<String>) -> Self {
-        self.id = Some(value.into());
-        self
-    }
-
-    pub fn ticker(mut self, value: impl Into<String>) -> Self {
-        self.ticker = Some(value.into());
-        self
-    }
-
-    pub fn currency(mut self, value: Currency) -> Self {
-        self.currency = Some(value);
-        self
-    }
-
-    pub fn shares(mut self, value: F) -> Self {
-        self.shares = Some(value);
-        self
-    }
-
-    pub fn price_quote(mut self, value: F) -> Self {
-        self.price_quote = Some(value);
-        self
-    }
-
-    pub fn build(self) -> finstack_core::Result<Equity> {
-        Ok(Equity {
-            id: InstrumentId::new(self.id.ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
-            })?),
-            ticker: self.ticker.ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
-            })?,
-            currency: self.currency.ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::Invalid)
-            })?,
-            shares: self.shares,
-            price_quote: self.price_quote,
-            attributes: Attributes::new(),
-        })
-    }
-}
 
 impl CashflowProvider for Equity {
     fn build_schedule(

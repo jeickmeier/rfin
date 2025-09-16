@@ -107,7 +107,7 @@ pub struct ProtectionLegSpec {
 }
 
 /// Credit Default Swap instrument
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct CreditDefaultSwap {
     /// Unique instrument identifier
     pub id: String,
@@ -130,10 +130,6 @@ pub struct CreditDefaultSwap {
 }
 
 impl CreditDefaultSwap {
-    /// Create a new CDS builder.
-    pub fn builder() -> crate::instruments::fixed_income::cds::mod_cds::CDSBuilder {
-        crate::instruments::fixed_income::cds::mod_cds::CDSBuilder::new()
-    }
 
     /// Create a standard CDS with ISDA conventions (buy protection).
     pub fn buy_protection(
@@ -150,14 +146,46 @@ impl CreditDefaultSwap {
         let date_range = DateRange::new(start, maturity);
         let market_refs = MarketRefs::credit("USD-OIS", "CREDIT-CURVE");
 
-        Self::builder()
-            .id(id)
+        let dc = CDSConvention::IsdaNa.day_count();
+        let freq = CDSConvention::IsdaNa.frequency();
+        let bdc = CDSConvention::IsdaNa.business_day_convention();
+        let stub = CDSConvention::IsdaNa.stub_convention();
+
+        let disc_id = Box::leak(market_refs.disc_id.to_string().into_boxed_str());
+        let credit_id = Box::leak(
+            market_refs
+                .credit_id
+                .as_ref()
+                .expect("Credit curve required")
+                .to_string()
+                .into_boxed_str(),
+        );
+
+        CreditDefaultSwapBuilder::new()
+            .id(id.into())
             .notional(notional)
+            .reference_entity(credit_params.reference_entity.clone())
             .side(PayReceive::PayProtection)
-            .spread_bp(spread_bp)
-            .credit_params(credit_params)
-            .date_range(date_range)
-            .market_refs(market_refs)
+            .convention(CDSConvention::IsdaNa)
+            .premium(PremiumLegSpec {
+                start: date_range.start,
+                end: date_range.end,
+                freq,
+                stub,
+                bdc,
+                calendar_id: None,
+                dc,
+                spread_bp,
+                disc_id,
+            })
+            .protection(ProtectionLegSpec {
+                credit_id,
+                recovery_rate: credit_params.recovery_rate,
+                settlement: SettlementType::Cash,
+                settlement_delay: 3,
+            })
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
             .build()
             .expect("CDS buy protection construction should not fail")
     }
@@ -177,14 +205,46 @@ impl CreditDefaultSwap {
         let date_range = DateRange::new(start, maturity);
         let market_refs = MarketRefs::credit("USD-OIS", "CREDIT-CURVE");
 
-        Self::builder()
-            .id(id)
+        let dc = CDSConvention::IsdaNa.day_count();
+        let freq = CDSConvention::IsdaNa.frequency();
+        let bdc = CDSConvention::IsdaNa.business_day_convention();
+        let stub = CDSConvention::IsdaNa.stub_convention();
+
+        let disc_id = Box::leak(market_refs.disc_id.to_string().into_boxed_str());
+        let credit_id = Box::leak(
+            market_refs
+                .credit_id
+                .as_ref()
+                .expect("Credit curve required")
+                .to_string()
+                .into_boxed_str(),
+        );
+
+        CreditDefaultSwapBuilder::new()
+            .id(id.into())
             .notional(notional)
+            .reference_entity(credit_params.reference_entity.clone())
             .side(PayReceive::ReceiveProtection)
-            .spread_bp(spread_bp)
-            .credit_params(credit_params)
-            .date_range(date_range)
-            .market_refs(market_refs)
+            .convention(CDSConvention::IsdaNa)
+            .premium(PremiumLegSpec {
+                start: date_range.start,
+                end: date_range.end,
+                freq,
+                stub,
+                bdc,
+                calendar_id: None,
+                dc,
+                spread_bp,
+                disc_id,
+            })
+            .protection(ProtectionLegSpec {
+                credit_id,
+                recovery_rate: credit_params.recovery_rate,
+                settlement: SettlementType::Cash,
+                settlement_delay: 3,
+            })
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
             .build()
             .expect("CDS sell protection construction should not fail")
     }
@@ -205,14 +265,46 @@ impl CreditDefaultSwap {
         let date_range = DateRange::new(start, maturity);
         let market_refs = MarketRefs::credit("USD-OIS", "CREDIT-CURVE");
 
-        Self::builder()
-            .id(id)
+        let dc = CDSConvention::IsdaNa.day_count();
+        let freq = CDSConvention::IsdaNa.frequency();
+        let bdc = CDSConvention::IsdaNa.business_day_convention();
+        let stub = CDSConvention::IsdaNa.stub_convention();
+
+        let disc_id = Box::leak(market_refs.disc_id.to_string().into_boxed_str());
+        let credit_id = Box::leak(
+            market_refs
+                .credit_id
+                .as_ref()
+                .expect("Credit curve required")
+                .to_string()
+                .into_boxed_str(),
+        );
+
+        CreditDefaultSwapBuilder::new()
+            .id(id.into())
             .notional(notional)
+            .reference_entity(credit_params.reference_entity.clone())
             .side(side)
-            .spread_bp(spread_bp)
-            .credit_params(credit_params)
-            .date_range(date_range)
-            .market_refs(market_refs)
+            .convention(CDSConvention::IsdaNa)
+            .premium(PremiumLegSpec {
+                start: date_range.start,
+                end: date_range.end,
+                freq,
+                stub,
+                bdc,
+                calendar_id: None,
+                dc,
+                spread_bp,
+                disc_id,
+            })
+            .protection(ProtectionLegSpec {
+                credit_id,
+                recovery_rate: credit_params.recovery_rate,
+                settlement: SettlementType::Cash,
+                settlement_delay: 3,
+            })
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
             .build()
             .expect("High yield CDS construction should not fail")
     }

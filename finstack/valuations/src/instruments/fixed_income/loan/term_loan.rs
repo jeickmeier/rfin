@@ -62,7 +62,7 @@ pub enum InterestSpec {
 }
 
 /// Term loan instrument.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct Loan {
     /// Unique identifier
     pub id: String,
@@ -85,12 +85,14 @@ pub struct Loan {
     /// Business day convention
     pub bdc: BusinessDayConvention,
     /// Calendar for adjustments
+    #[builder(optional)]
     pub calendar_id: Option<&'static str>,
     /// Stub handling
     pub stub: StubKind,
     /// Amortization specification
     pub amortization: AmortizationSpec,
     /// Prepayment terms
+    #[builder(optional)]
     pub prepayment: Option<PrepaymentSchedule>,
     /// Fee specifications
     pub fees: SmallVec<[FeeSpec; 4]>,
@@ -109,10 +111,6 @@ pub struct Loan {
 }
 
 impl Loan {
-    /// Create a new loan builder.
-    pub fn builder() -> LoanBuilder {
-        LoanBuilder::new()
-    }
 
     /// Create a fixed-rate term loan with standard conventions.
     pub fn fixed_rate(
@@ -122,16 +120,29 @@ impl Loan {
         issue_date: Date,
         maturity_date: Date,
     ) -> Self {
-        Self::new(
-            id,
-            amount,
-            issue_date,
-            maturity_date,
-            InterestSpec::Fixed {
-                rate: fixed_rate,
-                step_ups: None,
-            },
-        )
+        Self::builder()
+            .id(id.into())
+            .borrower(String::new())
+            .original_amount(amount)
+            .outstanding(amount)
+            .issue_date(issue_date)
+            .maturity_date(maturity_date)
+            .interest(InterestSpec::Fixed { rate: fixed_rate, step_ups: None })
+            .frequency(Frequency::quarterly())
+            .day_count(DayCount::Act360)
+            .bdc(BusinessDayConvention::ModifiedFollowing)
+            .calendar_id_opt(Some("usd"))
+            .stub(StubKind::None)
+            .amortization(AmortizationSpec::None)
+            .fees(SmallVec::new())
+            .covenants(Vec::new())
+            .disc_id("USD-OIS")
+            .attributes(Attributes::new())
+            .cash_sweep_pct(0.0)
+            .is_default(false)
+            .distribution_blocked(false)
+            .build()
+            .expect("Loan fixed default construction should not fail")
     }
 
     /// Create a floating-rate term loan with SOFR + spread.
@@ -195,7 +206,7 @@ impl Loan {
         )
     }
 
-    /// Creates a new term loan.
+    /// Creates a new term loan (legacy convenience constructor; prefer builder).
     pub fn new(
         id: impl Into<String>,
         amount: Money,
@@ -203,29 +214,29 @@ impl Loan {
         maturity_date: Date,
         interest: InterestSpec,
     ) -> Self {
-        Self {
-            id: id.into(),
-            borrower: String::new(),
-            original_amount: amount,
-            outstanding: amount,
-            issue_date,
-            maturity_date,
-            interest,
-            frequency: Frequency::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: Some("usd"),
-            stub: StubKind::None,
-            amortization: AmortizationSpec::None,
-            prepayment: None,
-            fees: SmallVec::new(),
-            covenants: Vec::new(),
-            disc_id: "USD-OIS",
-            attributes: Attributes::new(),
-            cash_sweep_pct: 0.0,
-            is_default: false,
-            distribution_blocked: false,
-        }
+        Self::builder()
+            .id(id.into())
+            .borrower(String::new())
+            .original_amount(amount)
+            .outstanding(amount)
+            .issue_date(issue_date)
+            .maturity_date(maturity_date)
+            .interest(interest)
+            .frequency(Frequency::quarterly())
+            .day_count(DayCount::Act360)
+            .bdc(BusinessDayConvention::ModifiedFollowing)
+            .calendar_id_opt(Some("usd"))
+            .stub(StubKind::None)
+            .amortization(AmortizationSpec::None)
+            .fees(SmallVec::new())
+            .covenants(Vec::new())
+            .disc_id("USD-OIS")
+            .attributes(Attributes::new())
+            .cash_sweep_pct(0.0)
+            .is_default(false)
+            .distribution_blocked(false)
+            .build()
+            .expect("Loan::new default construction should not fail")
     }
 
     /// Sets the borrower.
@@ -628,160 +639,7 @@ impl crate::covenants::engine::InstrumentMutator for Loan {
     }
 }
 
-/// Builder pattern for Loan instruments
-#[derive(Default)]
-pub struct LoanBuilder {
-    id: Option<String>,
-    borrower: Option<String>,
-    original_amount: Option<Money>,
-    outstanding: Option<Money>,
-    issue_date: Option<Date>,
-    maturity_date: Option<Date>,
-    interest: Option<InterestSpec>,
-    frequency: Option<Frequency>,
-    day_count: Option<DayCount>,
-    bdc: Option<BusinessDayConvention>,
-    calendar_id: Option<&'static str>,
-    stub: Option<StubKind>,
-    amortization: Option<AmortizationSpec>,
-    prepayment: Option<PrepaymentSchedule>,
-    fees: Option<Vec<FeeSpec>>,
-    covenants: Option<Vec<Covenant>>,
-    disc_id: Option<&'static str>,
-}
-
-impl LoanBuilder {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn id(mut self, value: impl Into<String>) -> Self {
-        self.id = Some(value.into());
-        self
-    }
-
-    pub fn borrower(mut self, value: impl Into<String>) -> Self {
-        self.borrower = Some(value.into());
-        self
-    }
-
-    pub fn original_amount(mut self, value: Money) -> Self {
-        self.original_amount = Some(value);
-        self
-    }
-
-    pub fn outstanding(mut self, value: Money) -> Self {
-        self.outstanding = Some(value);
-        self
-    }
-
-    pub fn issue_date(mut self, value: Date) -> Self {
-        self.issue_date = Some(value);
-        self
-    }
-
-    pub fn maturity_date(mut self, value: Date) -> Self {
-        self.maturity_date = Some(value);
-        self
-    }
-
-    pub fn interest(mut self, value: InterestSpec) -> Self {
-        self.interest = Some(value);
-        self
-    }
-
-    pub fn frequency(mut self, value: Frequency) -> Self {
-        self.frequency = Some(value);
-        self
-    }
-
-    pub fn day_count(mut self, value: DayCount) -> Self {
-        self.day_count = Some(value);
-        self
-    }
-
-    pub fn bdc(mut self, value: BusinessDayConvention) -> Self {
-        self.bdc = Some(value);
-        self
-    }
-
-    pub fn calendar_id(mut self, value: &'static str) -> Self {
-        self.calendar_id = Some(value);
-        self
-    }
-
-    pub fn stub(mut self, value: StubKind) -> Self {
-        self.stub = Some(value);
-        self
-    }
-
-    pub fn amortization(mut self, value: AmortizationSpec) -> Self {
-        self.amortization = Some(value);
-        self
-    }
-
-    pub fn prepayment(mut self, value: PrepaymentSchedule) -> Self {
-        self.prepayment = Some(value);
-        self
-    }
-
-    pub fn fees(mut self, value: Vec<FeeSpec>) -> Self {
-        self.fees = Some(value);
-        self
-    }
-
-    pub fn covenants(mut self, value: Vec<Covenant>) -> Self {
-        self.covenants = Some(value);
-        self
-    }
-
-    pub fn disc_id(mut self, value: &'static str) -> Self {
-        self.disc_id = Some(value);
-        self
-    }
-
-    pub fn build(self) -> finstack_core::Result<Loan> {
-        let id = self
-            .id
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        let original_amount = self
-            .original_amount
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        let issue_date = self
-            .issue_date
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        let maturity_date = self
-            .maturity_date
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-        let interest = self
-            .interest
-            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
-
-        Ok(Loan {
-            id,
-            borrower: self.borrower.unwrap_or_default(),
-            original_amount,
-            outstanding: self.outstanding.unwrap_or(original_amount),
-            issue_date,
-            maturity_date,
-            interest,
-            frequency: self.frequency.unwrap_or_else(Frequency::quarterly),
-            day_count: self.day_count.unwrap_or(DayCount::Act360),
-            bdc: self.bdc.unwrap_or(BusinessDayConvention::ModifiedFollowing),
-            calendar_id: self.calendar_id.or(Some("usd")),
-            stub: self.stub.unwrap_or(StubKind::None),
-            amortization: self.amortization.unwrap_or(AmortizationSpec::None),
-            prepayment: self.prepayment,
-            fees: SmallVec::from_vec(self.fees.unwrap_or_default()),
-            covenants: self.covenants.unwrap_or_default(),
-            disc_id: self.disc_id.unwrap_or("USD-OIS"),
-            attributes: Attributes::new(),
-            cash_sweep_pct: 0.0,
-            is_default: false,
-            distribution_blocked: false,
-        })
-    }
-}
+// Manual LoanBuilder removed; derive-based builder is used.
 
 #[cfg(test)]
 mod tests {
@@ -875,8 +733,8 @@ mod tests {
         let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
         let loan = Loan::builder()
-            .id("LOAN-BUILDER-001")
-            .borrower("Test Borrower LLC")
+            .id("LOAN-BUILDER-001".to_string())
+            .borrower("Test Borrower LLC".to_string())
             .original_amount(amount)
             .outstanding(amount)
             .issue_date(issue)
@@ -887,7 +745,17 @@ mod tests {
             })
             .frequency(Frequency::quarterly())
             .day_count(DayCount::Act360)
+            .bdc(BusinessDayConvention::ModifiedFollowing)
+            .calendar_id_opt(Some("usd"))
+            .stub(StubKind::None)
+            .amortization(AmortizationSpec::None)
+            .fees(SmallVec::new())
+            .covenants(Vec::new())
             .disc_id("USD-OIS")
+            .attributes(Attributes::new())
+            .cash_sweep_pct(0.0)
+            .is_default(false)
+            .distribution_blocked(false)
             .build()
             .unwrap();
 

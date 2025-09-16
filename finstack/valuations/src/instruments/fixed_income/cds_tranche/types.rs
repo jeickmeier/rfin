@@ -22,7 +22,7 @@ pub enum TrancheSide {
 }
 
 /// CDS Tranche instrument definition (boilerplate)
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct CdsTranche {
     /// Unique instrument identifier
     pub id: String,
@@ -95,11 +95,7 @@ impl CdsTranche {
         }
     }
 
-    /// Builder entrypoint
-    pub fn builder(
-    ) -> crate::instruments::fixed_income::cds_tranche::mod_cds_tranche::CdsTrancheBuilder {
-        crate::instruments::fixed_income::cds_tranche::mod_cds_tranche::CdsTrancheBuilder::new()
-    }
+    // Builder now provided by derive
 }
 
 impl_attributable!(CdsTranche);

@@ -65,7 +65,7 @@ fn test_fx_swap_pv() {
     let far_date = Date::from_calendar_date(2025, Month::January, 3).unwrap();
 
     let fx_swap = FxSwap::builder()
-        .id("test_swap")
+        .id("test_swap".to_string())
         .base_currency(Currency::EUR)
         .quote_currency(Currency::USD)
         .near_date(near_date)
@@ -94,7 +94,7 @@ fn test_fx_swap_metrics() {
     let far_date = Date::from_calendar_date(2025, Month::January, 3).unwrap();
 
     let fx_swap = FxSwap::builder()
-        .id("test_swap_metrics")
+        .id("test_swap_metrics".to_string())
         .base_currency(Currency::EUR)
         .quote_currency(Currency::USD)
         .near_date(near_date)

@@ -9,8 +9,7 @@ use crate::{
     },
     instruments::{
         common::parameter_groups::{
-            validate_currency_consistency, DateRange, EquityUnderlyingParams,
-            InstrumentScheduleParams,
+            validate_currency_consistency, EquityUnderlyingParams,
         },
         traits::{Attributes, Priceable},
     },
@@ -18,16 +17,16 @@ use crate::{
     results::ValuationResult,
 };
 use finstack_core::{
-    dates::{Date, DayCount},
+    dates::Date,
     market_data::MarketContext,
     money::Money,
     types::InstrumentId,
-    Error, Result, F,
+    Result, F,
 };
 use std::any::Any;
 
 /// Equity Total Return Swap instrument
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct EquityTotalReturnSwap {
@@ -50,10 +49,6 @@ pub struct EquityTotalReturnSwap {
 }
 
 impl EquityTotalReturnSwap {
-    /// Create a new builder
-    pub fn builder() -> EquityTrsBuilder {
-        EquityTrsBuilder::new()
-    }
 
     /// Extract underlying data for return calculation
     fn extract_underlying_data(&self, context: &MarketContext) -> Result<(F, F)> {
@@ -220,137 +215,4 @@ impl CashflowProvider for EquityTotalReturnSwap {
     }
 }
 
-/// Builder for EquityTotalReturnSwap
-pub struct EquityTrsBuilder {
-    id: Option<InstrumentId>,
-    notional: Option<Money>,
-    underlying: Option<EquityUnderlyingParams>,
-    financing: Option<FinancingLegSpec>,
-    dates: Option<DateRange>,
-    schedule_params: Option<InstrumentScheduleParams>,
-    side: TrsSide,
-    initial_level: Option<F>,
-}
-
-impl EquityTrsBuilder {
-    /// Create a new builder
-    pub fn new() -> Self {
-        Self {
-            id: None,
-            notional: None,
-            underlying: None,
-            financing: None,
-            dates: None,
-            schedule_params: None,
-            side: TrsSide::ReceiveTotalReturn,
-            initial_level: None,
-        }
-    }
-
-    /// Set instrument ID
-    pub fn id(mut self, id: impl Into<String>) -> Self {
-        self.id = Some(InstrumentId::new(id));
-        self
-    }
-
-    /// Set notional amount
-    pub fn notional(mut self, notional: Money) -> Self {
-        self.notional = Some(notional);
-        self
-    }
-
-    /// Set underlying equity parameters
-    pub fn underlying(mut self, underlying: EquityUnderlyingParams) -> Self {
-        self.underlying = Some(underlying);
-        self
-    }
-
-    /// Set financing leg parameters
-    pub fn financing(
-        mut self,
-        disc_id: impl Into<String>,
-        fwd_id: impl Into<String>,
-        spread_bp: F,
-        day_count: DayCount,
-    ) -> Self {
-        self.financing = Some(FinancingLegSpec::new(disc_id, fwd_id, spread_bp, day_count));
-        self
-    }
-
-    /// Set date range
-    pub fn dates(mut self, start: Date, end: Date) -> Self {
-        self.dates = Some(DateRange::new(start, end));
-        self
-    }
-
-    /// Set date range from tenor
-    pub fn tenor(mut self, start: Date, tenor_years: F) -> Self {
-        self.dates = Some(DateRange::from_tenor(start, tenor_years));
-        self
-    }
-
-    /// Set schedule parameters
-    pub fn schedule_params(mut self, params: InstrumentScheduleParams) -> Self {
-        self.schedule_params = Some(params);
-        self
-    }
-
-    /// Set to receive total return (pay financing)
-    pub fn receive_total_return(mut self) -> Self {
-        self.side = TrsSide::ReceiveTotalReturn;
-        self
-    }
-
-    /// Set to pay total return (receive financing)
-    pub fn pay_total_return(mut self) -> Self {
-        self.side = TrsSide::PayTotalReturn;
-        self
-    }
-
-    /// Set initial index level
-    pub fn with_initial_level(mut self, level: F) -> Self {
-        self.initial_level = Some(level);
-        self
-    }
-
-    /// Build the TRS
-    pub fn build(self) -> Result<EquityTotalReturnSwap> {
-        let id = self
-            .id
-            .ok_or(Error::Input(finstack_core::error::InputError::Invalid))?;
-        let notional = self
-            .notional
-            .ok_or(Error::Input(finstack_core::error::InputError::Invalid))?;
-        let underlying = self
-            .underlying
-            .ok_or(Error::Input(finstack_core::error::InputError::Invalid))?;
-        let financing = self
-            .financing
-            .ok_or(Error::Input(finstack_core::error::InputError::Invalid))?;
-        let dates = self
-            .dates
-            .ok_or(Error::Input(finstack_core::error::InputError::Invalid))?;
-        let schedule_params = self
-            .schedule_params
-            .unwrap_or_else(InstrumentScheduleParams::quarterly_act360);
-
-        let schedule = TrsScheduleSpec::from_params(dates, schedule_params);
-
-        Ok(EquityTotalReturnSwap {
-            id,
-            notional,
-            underlying,
-            financing,
-            schedule,
-            side: self.side,
-            initial_level: self.initial_level,
-            attributes: Attributes::new(),
-        })
-    }
-}
-
-impl Default for EquityTrsBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+// Manual builder removed; derive-based builder is used.

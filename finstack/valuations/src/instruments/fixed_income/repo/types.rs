@@ -115,7 +115,7 @@ impl CollateralSpec {
 }
 
 /// Repurchase Agreement instrument.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, finstack_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Repo {
     /// Unique instrument identifier
@@ -149,11 +149,7 @@ pub struct Repo {
 }
 
 impl Repo {
-    /// Create a new repo builder.
-    pub fn builder() -> crate::instruments::fixed_income::repo::mod_repo::RepoBuilder {
-        crate::instruments::fixed_income::repo::builder::RepoBuilder::new()
-    }
-
+    /// Create a new repo builder (provided by derive).
     /// Create a standard overnight repo.
     pub fn overnight(
         id: impl Into<String>,
@@ -163,25 +159,23 @@ impl Repo {
         start_date: Date,
         disc_id: &'static str,
     ) -> Result<Self> {
-        // Calculate next business day for maturity using Target2 calendar (standard for repos)
         let maturity = start_date.add_business_days(1, &finstack_core::dates::calendar::Target2)?;
-        
-        Ok(Self {
-            id: InstrumentId::new(id.into()),
-            cash_amount,
-            collateral,
-            repo_rate,
-            start_date,
-            maturity,
-            haircut: 0.02, // Default 2% haircut
-            repo_type: RepoType::Overnight,
-            triparty: false,
-            day_count: DayCount::Act360, // Standard for repos
-            bdc: BusinessDayConvention::Following,
-            calendar_id: Some("target2"),
-            disc_id,
-            attributes: Attributes::default(),
-        })
+        RepoBuilder::new()
+            .id(id.into().into())
+            .cash_amount(cash_amount)
+            .collateral(collateral)
+            .repo_rate(repo_rate)
+            .start_date(start_date)
+            .maturity(maturity)
+            .haircut(0.02)
+            .repo_type(RepoType::Overnight)
+            .triparty(false)
+            .day_count(DayCount::Act360)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(Some("target2"))
+            .disc_id(disc_id)
+            .attributes(Attributes::default())
+            .build()
     }
 
     /// Create a term repo with specified maturity.
@@ -194,22 +188,52 @@ impl Repo {
         maturity: Date,
         disc_id: &'static str,
     ) -> Self {
-        Self {
-            id: InstrumentId::new(id.into()),
-            cash_amount,
-            collateral,
-            repo_rate,
-            start_date,
-            maturity,
-            haircut: 0.02, // Default 2% haircut
-            repo_type: RepoType::Term,
-            triparty: false,
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::Following,
-            calendar_id: Some("target2"),
-            disc_id,
-            attributes: Attributes::default(),
-        }
+        RepoBuilder::new()
+            .id(id.into().into())
+            .cash_amount(cash_amount)
+            .collateral(collateral)
+            .repo_rate(repo_rate)
+            .start_date(start_date)
+            .maturity(maturity)
+            .haircut(0.02)
+            .repo_type(RepoType::Term)
+            .triparty(false)
+            .day_count(DayCount::Act360)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(Some("target2"))
+            .disc_id(disc_id)
+            .attributes(Attributes::default())
+            .build()
+            .expect("term repo default construction should not fail")
+    }
+
+    /// Create an open repo with an initial maturity (can be rolled/terminated later).
+    pub fn open(
+        id: impl Into<String>,
+        cash_amount: Money,
+        collateral: CollateralSpec,
+        repo_rate: F,
+        start_date: Date,
+        initial_maturity: Date,
+        disc_id: &'static str,
+    ) -> Self {
+        RepoBuilder::new()
+            .id(id.into().into())
+            .cash_amount(cash_amount)
+            .collateral(collateral)
+            .repo_rate(repo_rate)
+            .start_date(start_date)
+            .maturity(initial_maturity)
+            .haircut(0.02)
+            .repo_type(RepoType::Open)
+            .triparty(false)
+            .day_count(DayCount::Act360)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(Some("target2"))
+            .disc_id(disc_id)
+            .attributes(Attributes::default())
+            .build()
+            .expect("open repo default construction should not fail")
     }
 
     /// Calculate the effective repo rate considering special collateral adjustments.
