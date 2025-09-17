@@ -9,7 +9,7 @@ use finstack_core::money::Money;
 use time::Month;
 
 use finstack_valuations::instruments::common::{
-    EquityUnderlyingParams, MarketRefs, OptionParams, PricingOverrides,
+    EquityUnderlyingParams, MarketRefs, PricingOverrides,
 };
 use finstack_valuations::instruments::fixed_income::{
     cds::PayReceive as CdsPayReceive,
@@ -141,8 +141,8 @@ fn main() -> finstack_core::Result<()> {
         .with_dividend_yield("TSLA-DIVYIELD")
         .with_contract_size(100.0);
 
-    let option_params =
-        OptionParams::european_call(200.0, expiry_1y).with_exercise_style(ExerciseStyle::American);
+    // Inline option params
+    let option_type = ExerciseStyle::American;
 
     let _market_refs = MarketRefs::option("USD-OIS", "TSLA-VOL");
 
@@ -152,12 +152,12 @@ fn main() -> finstack_core::Result<()> {
         .id("TSLA-CALL-CUSTOM".into())
         .underlying_ticker(underlying_params.ticker)
         .strike(Money::new(200.0, Currency::USD))
-        .option_type(option_params.option_type)
-        .exercise_style(option_params.exercise_style)
+        .option_type(finstack_valuations::instruments::OptionType::Call)
+        .exercise_style(option_type)
         .expiry(expiry_1y)
         .contract_size(underlying_params.contract_size)
         .day_count(finstack_core::dates::DayCount::Act365F)
-        .settlement(option_params.settlement)
+        .settlement(finstack_valuations::instruments::SettlementType::Cash)
         .disc_id(MarketRefs::option("USD-OIS", "TSLA-VOL").disc_id)
         .spot_id(underlying_params.spot_id)
         .vol_id(MarketRefs::option("USD-OIS", "TSLA-VOL").vol_id.unwrap())

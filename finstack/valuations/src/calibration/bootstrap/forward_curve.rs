@@ -18,10 +18,10 @@ use finstack_core::{
     currency::Currency,
     dates::{add_months, BusinessDayConvention, Date, DayCount, DayCountCtx, Frequency, StubKind},
     market_data::{
-        context::MarketContext, interp::types::InterpStyle,
+        context::MarketContext,
         term_structures::forward_curve::ForwardCurve,
     },
-    math::Solver,
+    math::{interp::InterpStyle, Solver},
     money::Money,
     Result, F,
 };

@@ -6,11 +6,11 @@
 pub mod parameter_groups;
 
 pub use parameter_groups::{
-    validate_currency_consistency, BinomialTreeParams, CDSConstructionParams,
+    validate_currency_consistency, CDSConstructionParams,
     CDSIndexConstructionParams, CDSIndexParams, CDSTrancheParams, CreditOptionParams,
     CreditParams, EquityOptionParams, EquityUnderlyingParams,
     FxOptionParams, FxSwapParams, FxUnderlyingParams, IndexUnderlyingParams,
     InflationLinkedBondParams, InstrumentScheduleParams, InterestRateOptionParams,
-    LoanFacilityParams, LoanFeeParams, MarketRefs, OptionMarketParams,
-    OptionParams, PricingOverrides, SABRModelParams, SwaptionParams,
+    MarketRefs, OptionMarketParams,
+    PricingOverrides, SABRModelParams, SwaptionParams,
 };

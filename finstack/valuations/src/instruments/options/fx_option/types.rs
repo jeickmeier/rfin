@@ -41,7 +41,7 @@ impl FxOption {
         expiry: Date,
         notional: Money,
     ) -> Self {
-        use crate::instruments::common::{FxUnderlyingParams, OptionParams};
+        use crate::instruments::common::FxUnderlyingParams;
 
         let fx_underlying = if quote_currency == Currency::USD && base_currency == Currency::EUR {
             FxUnderlyingParams::usd_eur()
@@ -51,19 +51,17 @@ impl FxOption {
             // Fallback for other pairs - use USD for both curves
             FxUnderlyingParams::new(base_currency, quote_currency, "USD-OIS", "USD-OIS")
         };
-        let option_params = OptionParams::european_call(strike, expiry);
-
         Self::builder()
             .id(id.into())
             .base_currency(fx_underlying.base_currency)
             .quote_currency(fx_underlying.quote_currency)
-            .strike(option_params.strike)
-            .option_type(option_params.option_type)
-            .exercise_style(option_params.exercise_style)
-            .expiry(option_params.expiry)
+            .strike(strike)
+            .option_type(OptionType::Call)
+            .exercise_style(ExerciseStyle::European)
+            .expiry(expiry)
             .day_count(finstack_core::dates::DayCount::Act365F)
             .notional(notional)
-            .settlement(option_params.settlement)
+            .settlement(SettlementType::Cash)
             .domestic_disc_id(fx_underlying.domestic_disc_id)
             .foreign_disc_id(fx_underlying.foreign_disc_id)
             .vol_id("FX-VOL")
@@ -82,7 +80,7 @@ impl FxOption {
         expiry: Date,
         notional: Money,
     ) -> Self {
-        use crate::instruments::common::{FxUnderlyingParams, OptionParams};
+        use crate::instruments::common::FxUnderlyingParams;
 
         let fx_underlying = if quote_currency == Currency::USD && base_currency == Currency::EUR {
             FxUnderlyingParams::usd_eur()
@@ -92,19 +90,17 @@ impl FxOption {
             // Fallback for other pairs - use USD for both curves
             FxUnderlyingParams::new(base_currency, quote_currency, "USD-OIS", "USD-OIS")
         };
-        let option_params = OptionParams::european_put(strike, expiry);
-
         Self::builder()
             .id(id.into())
             .base_currency(fx_underlying.base_currency)
             .quote_currency(fx_underlying.quote_currency)
-            .strike(option_params.strike)
-            .option_type(option_params.option_type)
-            .exercise_style(option_params.exercise_style)
-            .expiry(option_params.expiry)
+            .strike(strike)
+            .option_type(OptionType::Put)
+            .exercise_style(ExerciseStyle::European)
+            .expiry(expiry)
             .day_count(finstack_core::dates::DayCount::Act365F)
             .notional(notional)
-            .settlement(option_params.settlement)
+            .settlement(SettlementType::Cash)
             .domestic_disc_id(fx_underlying.domestic_disc_id)
             .foreign_disc_id(fx_underlying.foreign_disc_id)
             .vol_id("FX-VOL")

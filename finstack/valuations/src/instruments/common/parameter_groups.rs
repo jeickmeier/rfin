@@ -176,71 +176,7 @@ impl InstrumentScheduleParams {
     }
 }
 
-/// Option-specific parameters.
-///
-/// Groups parameters common to all option instruments.
-#[derive(Clone, Debug)]
-pub struct OptionParams {
-    /// Strike price/rate
-    pub strike: F,
-    /// Option expiry date
-    pub expiry: Date,
-    /// Option type (Call/Put)
-    pub option_type: crate::instruments::options::OptionType,
-    /// Exercise style (European/American/Bermudan)
-    pub exercise_style: crate::instruments::options::ExerciseStyle,
-    /// Settlement type (Cash/Physical)
-    pub settlement: crate::instruments::options::SettlementType,
-}
-
-impl OptionParams {
-    /// Create new option parameters
-    pub fn new(
-        strike: F,
-        expiry: Date,
-        option_type: crate::instruments::options::OptionType,
-    ) -> Self {
-        Self {
-            strike,
-            expiry,
-            option_type,
-            exercise_style: crate::instruments::options::ExerciseStyle::European,
-            settlement: crate::instruments::options::SettlementType::Cash,
-        }
-    }
-
-    /// Create European call option parameters
-    pub fn european_call(strike: F, expiry: Date) -> Self {
-        Self::new(
-            strike,
-            expiry,
-            crate::instruments::options::OptionType::Call,
-        )
-    }
-
-    /// Create European put option parameters
-    pub fn european_put(strike: F, expiry: Date) -> Self {
-        Self::new(strike, expiry, crate::instruments::options::OptionType::Put)
-    }
-
-    /// Set exercise style
-    pub fn with_exercise_style(
-        mut self,
-        style: crate::instruments::options::ExerciseStyle,
-    ) -> Self {
-        self.exercise_style = style;
-        self
-    }
-
-    /// Set settlement type
-    pub fn with_settlement(
-        mut self,
-        settlement: crate::instruments::options::SettlementType,
-    ) -> Self {
-        self.settlement = settlement;
-        self
-    }
-}
+// OptionParams removed: inlined in option constructors.
 
 /// Equity underlying parameters for options.
 ///
@@ -414,108 +350,9 @@ impl PricingOverrides {
     }
 }
 
-/// Loan facility parameters for various loan types.
-///
-/// Groups parameters common to all loan facilities.
-#[derive(Clone, Debug)]
-pub struct LoanFacilityParams {
-    /// Total facility/commitment amount
-    pub commitment: Money,
-    /// Currently drawn amount
-    pub drawn_amount: Option<Money>,
-    /// Facility expiry date (when draws are no longer allowed)
-    pub facility_expiry: Date,
-    /// Final maturity date
-    pub maturity: Date,
-    /// Borrower entity identifier
-    pub borrower: Option<String>,
-}
+// LoanFacilityParams removed: not used.
 
-impl LoanFacilityParams {
-    /// Create loan facility parameters
-    pub fn new(commitment: Money, facility_expiry: Date, maturity: Date) -> Self {
-        Self {
-            commitment,
-            drawn_amount: None,
-            facility_expiry,
-            maturity,
-            borrower: None,
-        }
-    }
-
-    /// Set initial drawn amount
-    pub fn with_drawn_amount(mut self, amount: Money) -> Self {
-        self.drawn_amount = Some(amount);
-        self
-    }
-
-    /// Set borrower entity
-    pub fn with_borrower(mut self, borrower: impl Into<String>) -> Self {
-        self.borrower = Some(borrower.into());
-        self
-    }
-
-    /// Create a fully drawn term loan (commitment = drawn)
-    pub fn term_loan(amount: Money, maturity: Date) -> Self {
-        Self {
-            commitment: amount,
-            drawn_amount: Some(amount),
-            facility_expiry: maturity, // No additional draws
-            maturity,
-            borrower: None,
-        }
-    }
-
-    /// Create an undrawn revolving facility
-    pub fn revolver(commitment: Money, facility_expiry: Date, maturity: Date) -> Self {
-        Self {
-            commitment,
-            drawn_amount: None, // Starts undrawn
-            facility_expiry,
-            maturity,
-            borrower: None,
-        }
-    }
-}
-
-/// Fee structure parameters for loans.
-///
-/// Groups fee-related parameters that many loan types share.
-#[derive(Clone, Debug, Default)]
-pub struct LoanFeeParams {
-    /// Commitment fee rate (annual) on undrawn amounts
-    pub commitment_fee_rate: F,
-    /// Optional ticking fee rate (annual) on undrawn amounts
-    pub ticking_fee_rate: Option<F>,
-    /// Optional origination fee (one-time)
-    pub origination_fee: Option<Money>,
-    /// Optional amendment/modification fees
-    pub amendment_fees: Vec<(Date, Money)>,
-}
-
-impl LoanFeeParams {
-    /// Create standard fee parameters with commitment fee
-    pub fn standard(commitment_fee_rate: F) -> Self {
-        Self {
-            commitment_fee_rate,
-            ticking_fee_rate: None,
-            origination_fee: None,
-            amendment_fees: Vec::new(),
-        }
-    }
-
-    /// Add ticking fee
-    pub fn with_ticking_fee(mut self, rate: F) -> Self {
-        self.ticking_fee_rate = Some(rate);
-        self
-    }
-
-    /// Add origination fee
-    pub fn with_origination_fee(mut self, fee: Money) -> Self {
-        self.origination_fee = Some(fee);
-        self
-    }
-}
+// LoanFeeParams removed: not used.
 
 /// Parameters for fixed income index underlying (for TRS and similar instruments)
 #[derive(Clone, Debug)]
@@ -758,32 +595,7 @@ impl SwaptionParams {
     }
 }
 
-/// Binomial tree configuration parameters.
-///
-/// Groups parameters for configuring binomial tree option pricing models.
-#[derive(Clone, Debug)]
-pub struct BinomialTreeParams {
-    /// Number of time steps
-    pub steps: usize,
-    /// Optional early exercise steps for Bermudan options
-    pub exercise_steps: Option<Vec<usize>>,
-}
-
-impl BinomialTreeParams {
-    /// Create binomial tree parameters
-    pub fn new(steps: usize) -> Self {
-        Self {
-            steps,
-            exercise_steps: None,
-        }
-    }
-
-    /// Add specific exercise steps for Bermudan options
-    pub fn with_exercise_steps(mut self, exercise_steps: Vec<usize>) -> Self {
-        self.exercise_steps = Some(exercise_steps);
-        self
-    }
-}
+// BinomialTreeParams removed: not used.
 
 /// Equity option specific parameters.
 ///

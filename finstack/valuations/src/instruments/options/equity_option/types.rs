@@ -42,26 +42,25 @@ impl EquityOption {
         notional: Money,
         contract_size: F,
     ) -> Self {
-        use crate::instruments::common::{EquityUnderlyingParams, MarketRefs, OptionParams};
+        use crate::instruments::common::{EquityUnderlyingParams, MarketRefs};
 
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT")
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
 
-        let option_params = OptionParams::european_call(strike, expiry);
         let market_refs = MarketRefs::option("USD-OIS", "EQUITY-VOL");
 
         // Build directly using derive-generated builder setters
         Self::builder()
             .id(InstrumentId::new(id.into()))
             .underlying_ticker(underlying.ticker)
-            .strike(Money::new(option_params.strike, notional.currency()))
-            .option_type(option_params.option_type)
-            .exercise_style(option_params.exercise_style)
-            .expiry(option_params.expiry)
+            .strike(Money::new(strike, notional.currency()))
+            .option_type(OptionType::Call)
+            .exercise_style(ExerciseStyle::European)
+            .expiry(expiry)
             .contract_size(underlying.contract_size)
             .day_count(finstack_core::dates::DayCount::Act365F)
-            .settlement(option_params.settlement)
+            .settlement(SettlementType::Cash)
             .disc_id(market_refs.disc_id)
             .spot_id(underlying.spot_id)
             .vol_id(market_refs.vol_id.expect("vol surface id required"))
@@ -81,25 +80,24 @@ impl EquityOption {
         notional: Money,
         contract_size: F,
     ) -> Self {
-        use crate::instruments::common::{EquityUnderlyingParams, MarketRefs, OptionParams};
+        use crate::instruments::common::{EquityUnderlyingParams, MarketRefs};
 
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT")
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
 
-        let option_params = OptionParams::european_put(strike, expiry);
         let market_refs = MarketRefs::option("USD-OIS", "EQUITY-VOL");
 
         Self::builder()
             .id(InstrumentId::new(id.into()))
             .underlying_ticker(underlying.ticker)
-            .strike(Money::new(option_params.strike, notional.currency()))
-            .option_type(option_params.option_type)
-            .exercise_style(option_params.exercise_style)
-            .expiry(option_params.expiry)
+            .strike(Money::new(strike, notional.currency()))
+            .option_type(OptionType::Put)
+            .exercise_style(ExerciseStyle::European)
+            .expiry(expiry)
             .contract_size(underlying.contract_size)
             .day_count(finstack_core::dates::DayCount::Act365F)
-            .settlement(option_params.settlement)
+            .settlement(SettlementType::Cash)
             .disc_id(market_refs.disc_id)
             .spot_id(underlying.spot_id)
             .vol_id(market_refs.vol_id.expect("vol surface id required"))
@@ -119,26 +117,24 @@ impl EquityOption {
         notional: Money,
         contract_size: F,
     ) -> Self {
-        use crate::instruments::common::{EquityUnderlyingParams, MarketRefs, OptionParams};
+        use crate::instruments::common::{EquityUnderlyingParams, MarketRefs};
 
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT")
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
 
-        let option_params = OptionParams::european_call(strike, expiry)
-            .with_exercise_style(ExerciseStyle::American);
         let market_refs = MarketRefs::option("USD-OIS", "EQUITY-VOL");
 
         Self::builder()
             .id(InstrumentId::new(id.into()))
             .underlying_ticker(underlying.ticker)
-            .strike(Money::new(option_params.strike, notional.currency()))
-            .option_type(option_params.option_type)
-            .exercise_style(option_params.exercise_style)
-            .expiry(option_params.expiry)
+            .strike(Money::new(strike, notional.currency()))
+            .option_type(OptionType::Call)
+            .exercise_style(ExerciseStyle::American)
+            .expiry(expiry)
             .contract_size(underlying.contract_size)
             .day_count(finstack_core::dates::DayCount::Act365F)
-            .settlement(option_params.settlement)
+            .settlement(SettlementType::Cash)
             .disc_id(market_refs.disc_id)
             .spot_id(underlying.spot_id)
             .vol_id(market_refs.vol_id.expect("vol surface id required"))
