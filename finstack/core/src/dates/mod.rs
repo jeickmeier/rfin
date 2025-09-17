@@ -23,9 +23,6 @@
 
 pub use time::{Date, OffsetDateTime, PrimitiveDateTime};
 
-// In the future we might expose the `time::macros` helpers behind a feature flag.  Until
-// then consumers can `use time::macros::*` directly if needed.
-
 mod date_extensions;
 
 // Publicly re-export the extension traits so downstream crates can `use finstack_core::dates::DateExt`.

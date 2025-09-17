@@ -8,9 +8,6 @@
 //!
 //! # Sub-modules
 //! * [`crate::types::CurveId`] – type-safe identifiers for market data.
-//! * [`interp`] – Deprecated re-export; use [`crate::math::interp`] as the
-//!   canonical module. Types like [`crate::math::interp::InterpFn`] and
-//!   [`crate::math::interp::InterpStyle`] live under `math::interp`.
 //! * [`term_structures`] – one-dimensional term structures such as
 //!   [`term_structures::discount_curve::DiscountCurve`],
 //!   [`term_structures::forward_curve::ForwardCurve`],
@@ -47,9 +44,6 @@
 pub mod context;
 /// Bump functionality for scenario analysis and stress testing.
 pub mod bumps;
-/// Interpolation framework and concrete algorithms (deprecated re-export).
-#[deprecated(since = "0.1.0", note = "Use crate::math::interp as the canonical module")]
-pub use crate::math::interp;
 /// Scalar market data types and time series (including primitives)
 pub mod scalars;
 /// Two-dimensional surfaces (e.g. volatility).
@@ -60,21 +54,8 @@ pub mod term_structures;
 pub mod traits;
 // Re-export selected helpers for convenience at `market_data::*` level.
 pub use crate::math::interp::utils::validate_knots;
-
-// Re-export common term structures at the market_data::* level for backwards compatibility.
-#[deprecated(since = "0.1.0", note = "Import via market_data::term_structures::{discount_curve, forward_curve, hazard_curve, inflation}")]
-pub use term_structures::{discount_curve, forward_curve, hazard_curve, inflation};
-// Re-export volatility surface from the new module for unchanged public path `market_data::vol_surface`.
-#[deprecated(since = "0.1.0", note = "Import via market_data::surfaces::vol_surface")]
-pub use surfaces::vol_surface;
-// Also re-export the concrete VolSurface type for a shorter import path.
-#[deprecated(since = "0.1.0", note = "Use market_data::surfaces::vol_surface::VolSurface")]
-pub use surfaces::vol_surface::VolSurface;
 // Re-export MarketContext at the top level for backward compatibility
 pub use context::MarketContext;
-// Also re-export bump types for convenience
-#[deprecated(since = "0.1.0", note = "Use market_data::context::{BumpSpec,BumpMode,BumpUnits}")]
-pub use bumps::{BumpMode, BumpSpec, BumpUnits};
 
 /// Numeric precision alias re-exported from the surrounding crate so that
 /// downstream code can simply `use finstack_core::market_data::F`.

@@ -19,7 +19,6 @@ use crate::Result;
 use super::{
     scalars::inflation_index::InflationIndex,
     term_structures::credit_index::CreditIndexData,
-    inflation::InflationCurve,
     scalars::{MarketScalar, ScalarTimeSeries},
     surfaces::vol_surface::VolSurface,
     term_structures::{
@@ -27,6 +26,7 @@ use super::{
         discount_curve::DiscountCurve,
         forward_curve::ForwardCurve,
         hazard_curve::HazardCurve,
+        inflation::InflationCurve,
     },
     traits::Discounting,
 };

@@ -48,11 +48,11 @@ pub use crate::market_data::{
     scalars::inflation_index::{
         InflationIndex, InflationIndexBuilder, InflationInterpolation, InflationLag,
     },
-    interp::{InterpFn, InterpStyle},
     scalars::{MarketScalar, ScalarTimeSeries, SeriesInterpolation},
     traits::Discounting,
     MarketContext,
 };
+pub use crate::math::interp::{InterpFn, InterpStyle};
 pub use crate::money::{
     fx::{FxConversionPolicy, FxMatrix, FxProvider, FxQuery, FxRate, FxRateResult},
     Money,
