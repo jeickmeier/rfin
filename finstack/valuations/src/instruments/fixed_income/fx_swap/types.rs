@@ -1,10 +1,12 @@
 //! FX Swap types and implementations.
 
-use crate::instruments::common::{FxSwapParams, FxUnderlyingParams};
+use crate::instruments::common::FxUnderlyingParams;
 use crate::instruments::traits::Attributes;
 use finstack_core::money::fx::FxConversionPolicy;
 use finstack_core::prelude::*;
 use finstack_core::F;
+
+use super::parameters::FxSwapParams;
 
 /// FX Swap instrument definition
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]

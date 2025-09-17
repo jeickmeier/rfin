@@ -1,6 +1,6 @@
 //! Equity option instrument implementation using Black-Scholes model.
 
-use crate::instruments::common::{EquityOptionParams, EquityUnderlyingParams, MarketRefs, PricingOverrides};
+use crate::instruments::common::{EquityUnderlyingParams, MarketRefs, PricingOverrides};
 use crate::instruments::options::models::{d1, d2};
 use crate::instruments::options::{ExerciseStyle, OptionType, SettlementType};
 use crate::instruments::traits::Attributes;
@@ -9,6 +9,8 @@ use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
 use finstack_core::F;
 use finstack_core::types::{CurveId, InstrumentId};
+
+use super::parameters::EquityOptionParams;
 
 /// Equity option instrument
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]

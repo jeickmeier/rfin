@@ -847,6 +847,7 @@ mod tests {
     use finstack_core::money::Money;
     use std::sync::Arc;
     use time::Month;
+    use super::super::parameters::CDSTrancheParams;
 
     fn sample_market_context() -> MarketContext {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -899,7 +900,7 @@ mod tests {
         let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
         {
-            let tranche_params = crate::instruments::common::CDSTrancheParams::new(
+            let tranche_params = CDSTrancheParams::new(
                 "CDX.NA.IG.42",                                     // index_name
                 42,                                                 // series
                 3.0,                                                // attach_pct (3%)

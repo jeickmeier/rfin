@@ -9,6 +9,7 @@ use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::fixed_income::cds::{
     cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap,
 };
+use crate::instruments::fixed_income::cds::parameters::CDSConstructionParams;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::{
     HazardCurve, ParInterp, Seniority,
@@ -184,7 +185,7 @@ impl HazardCurveCalibrator {
                 CurveId::new(CALIB_DISC_ID),
             ).with_credit(CurveId::new(CALIB_HAZARD_ID));
 
-            let construction_params = crate::instruments::common::CDSConstructionParams::buy_protection(
+            let construction_params = CDSConstructionParams::buy_protection(
                 Money::new(10_000_000.0, self.currency),
                 *market_spread_bp,
             );
@@ -407,7 +408,7 @@ mod tests {
                     CurveId::new("USD-OIS"),
                 ).with_credit(CurveId::new("AAPL-Senior"));
                 
-                let construction_params = crate::instruments::common::CDSConstructionParams::buy_protection(
+                let construction_params = CDSConstructionParams::buy_protection(
                     Money::new(1_000_000.0, Currency::USD),
                     spread_bp,
                 );

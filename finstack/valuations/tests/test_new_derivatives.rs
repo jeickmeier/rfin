@@ -4,6 +4,12 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::cds::CDSConvention;
+use finstack_valuations::instruments::fixed_income::cds::parameters::CDSConstructionParams;
+use finstack_valuations::instruments::options::equity_option::parameters::EquityOptionParams;
+use finstack_valuations::instruments::options::fx_option::parameters::FxOptionParams;
+use finstack_valuations::instruments::options::cap_floor::parameters::InterestRateOptionParams;
+use finstack_valuations::instruments::options::credit_option::parameters::CreditOptionParams;
+use finstack_valuations::instruments::fixed_income::inflation_linked_bond::parameters::InflationLinkedBondParams;
 use finstack_valuations::instruments::fixed_income::inflation_linked_bond::IndexationMethod;
 use finstack_valuations::instruments::options::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::{
@@ -20,7 +26,7 @@ fn test_cds_creation_and_basic_pricing() {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
-    let construction_params = finstack_valuations::instruments::common::CDSConstructionParams::buy_protection(
+    let construction_params = CDSConstructionParams::buy_protection(
         notional,
         100.0, // 100bp spread
     );
@@ -55,7 +61,7 @@ fn test_equity_option_creation() {
     let strike = Money::new(100.0, Currency::USD);
     let expiry = Date::from_calendar_date(2025, Month::December, 31).unwrap();
 
-    let option_params = finstack_valuations::instruments::common::EquityOptionParams::european_call(
+    let option_params = EquityOptionParams::european_call(
         strike,
         expiry,
         100.0, // Contract size
@@ -105,7 +111,7 @@ fn test_fx_option_creation() {
     let notional = Money::new(1_000_000.0, Currency::EUR);
     let expiry = Date::from_calendar_date(2025, Month::December, 31).unwrap();
 
-    let option_params = finstack_valuations::instruments::common::FxOptionParams::european_call(
+    let option_params = FxOptionParams::european_call(
         1.20,
         expiry,
         notional,
@@ -150,7 +156,7 @@ fn test_interest_rate_option_creation() {
     let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
     let mr = MarketRefs::rates("USD-OIS", "USD-LIBOR-3M").with_volatility("USD-CAP-VOL");
-    let params = finstack_valuations::instruments::common::InterestRateOptionParams::cap(
+    let params = InterestRateOptionParams::cap(
         notional,
         0.03,
         Frequency::quarterly(),
@@ -169,7 +175,7 @@ fn test_credit_option_creation() {
     let expiry = Date::from_calendar_date(2025, Month::June, 30).unwrap();
     let cds_maturity = Date::from_calendar_date(2030, Month::June, 30).unwrap();
 
-    let option_params = finstack_valuations::instruments::common::CreditOptionParams::call(
+    let option_params = CreditOptionParams::call(
         200.0, // 200bp strike
         expiry,
         cds_maturity,
@@ -204,7 +210,7 @@ fn test_inflation_linked_bond_creation() {
     let issue = Date::from_calendar_date(2020, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
 
-    let bond_params = finstack_valuations::instruments::common::InflationLinkedBondParams::tips(
+    let bond_params = InflationLinkedBondParams::tips(
         notional,
         0.0125, // 1.25% real coupon
         issue,
@@ -228,7 +234,7 @@ fn test_inflation_linked_bond_creation() {
     let gbp_notional = Money::new(1_000_000.0, Currency::GBP);
     let base_date = Date::from_calendar_date(2019, Month::November, 1).unwrap();
 
-    let uk_bond_params = finstack_valuations::instruments::common::InflationLinkedBondParams::uk_linker(
+    let uk_bond_params = InflationLinkedBondParams::uk_linker(
         gbp_notional,
         0.00625, // 0.625% real coupon
         issue,

@@ -1,7 +1,7 @@
 //! Credit Default Swap (CDS) types and implementations.
 use finstack_core::market_data::traits::Survival;
 use crate::cashflow::traits::DatedFlows;
-use crate::instruments::common::{CDSConstructionParams, CreditParams, MarketRefs, PricingOverrides};
+use crate::instruments::common::{CreditParams, MarketRefs, PricingOverrides};
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::traits::{Discounting};
@@ -10,6 +10,7 @@ use finstack_core::money::Money;
 use finstack_core::F;
 
 pub use super::cds_pricer;
+use super::parameters::CDSConstructionParams;
 
 /// CDS payment types
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

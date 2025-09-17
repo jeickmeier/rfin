@@ -1,6 +1,6 @@
 //! FX option instrument implementation using Garman-Kohlhagen model.
 
-use crate::instruments::common::{FxOptionParams, FxUnderlyingParams, PricingOverrides};
+use crate::instruments::common::{FxUnderlyingParams, PricingOverrides};
 use crate::instruments::options::models::{d1, d2};
 use crate::instruments::options::{ExerciseStyle, OptionType, SettlementType};
 use crate::instruments::traits::Attributes;
@@ -10,6 +10,8 @@ use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
 use finstack_core::F;
 use num_traits::ToPrimitive;
+
+use super::parameters::FxOptionParams;
 
 /// FX option instrument (Garman-Kohlhagen model)
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]

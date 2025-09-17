@@ -21,6 +21,11 @@ use finstack_valuations::instruments::common::MarketRefs;
 use finstack_valuations::instruments::options::{
     CreditOption, EquityOption, FxOption,
 };
+use finstack_valuations::instruments::options::equity_option::parameters::EquityOptionParams;
+use finstack_valuations::instruments::options::fx_option::parameters::FxOptionParams;
+use finstack_valuations::instruments::options::cap_floor::parameters::InterestRateOptionParams;
+use finstack_valuations::instruments::options::credit_option::parameters::CreditOptionParams;
+use finstack_valuations::instruments::options::swaption::parameters::SwaptionParams;
 use finstack_valuations::instruments::traits::{Instrument, Priceable};
 use finstack_valuations::metrics::{MetricContext, MetricId, MetricRegistry};
 use std::sync::Arc;
@@ -199,7 +204,7 @@ fn test_equity_option_full_integration() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // Create AAPL call option
-    let option_params = finstack_valuations::instruments::common::EquityOptionParams::european_call(
+    let option_params = EquityOptionParams::european_call(
         Money::new(100.0, Currency::USD),
         Date::from_calendar_date(2025, Month::December, 31).unwrap(),
         100.0, // 100 shares
@@ -251,7 +256,7 @@ fn test_fx_option_full_integration() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // Create EUR/USD call option
-    let option_params = finstack_valuations::instruments::common::FxOptionParams::european_call(
+    let option_params = FxOptionParams::european_call(
         1.20,
         Date::from_calendar_date(2025, Month::June, 30).unwrap(),
         Money::new(1_000_000.0, Currency::EUR),
@@ -306,7 +311,7 @@ fn test_interest_rate_option_full_integration() {
     let cap_mr = MarketRefs::rates("USD-OIS", "USD-SOFR-3M").with_volatility("USD-CAP-VOL");
     let start = Date::from_calendar_date(2025, Month::March, 1).unwrap();
     let end = Date::from_calendar_date(2027, Month::March, 1).unwrap();
-    let cap_params = finstack_valuations::instruments::common::InterestRateOptionParams::cap(
+    let cap_params = InterestRateOptionParams::cap(
         Money::new(10_000_000.0, Currency::USD),
         0.03,
         Frequency::quarterly(),
@@ -347,7 +352,7 @@ fn test_credit_option_full_integration() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // Create credit option
-    let option_params = finstack_valuations::instruments::common::CreditOptionParams::call(
+    let option_params = CreditOptionParams::call(
         200.0, // 200bp strike
         Date::from_calendar_date(2025, Month::June, 30).unwrap(),
         Date::from_calendar_date(2030, Month::June, 30).unwrap(),
@@ -402,7 +407,7 @@ fn test_swaption_full_integration() {
     let swap_end = Date::from_calendar_date(2031, Month::January, 1).unwrap();
 
     let sw_mr = MarketRefs::rates("USD-OIS", "USD-SOFR-3M").with_volatility("USD-SWAPTION-VOL");
-    let sw_params = finstack_valuations::instruments::common::SwaptionParams::payer(
+    let sw_params = SwaptionParams::payer(
         Money::new(10_000_000.0, Currency::USD),
         0.035,
         expiry,
@@ -443,12 +448,12 @@ fn test_options_pricing_consistency() {
     let strike = Money::new(100.0, Currency::USD);
     let expiry = Date::from_calendar_date(2025, Month::June, 30).unwrap();
 
-    let call_params = finstack_valuations::instruments::common::EquityOptionParams::european_call(
+    let call_params = EquityOptionParams::european_call(
         strike,
         expiry,
         1.0, // 1 share
     );
-    let put_params = finstack_valuations::instruments::common::EquityOptionParams::european_put(
+    let put_params = EquityOptionParams::european_put(
         strike,
         expiry,
         1.0, // 1 share
@@ -493,7 +498,7 @@ fn test_market_data_override_behavior() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // Create option with implied vol override
-    let option_params = finstack_valuations::instruments::common::EquityOptionParams::european_call(
+    let option_params = EquityOptionParams::european_call(
         Money::new(100.0, Currency::USD),
         Date::from_calendar_date(2025, Month::June, 30).unwrap(),
         1.0,

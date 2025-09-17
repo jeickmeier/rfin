@@ -9,5 +9,6 @@
 pub mod metrics;
 pub mod model;
 mod types;
+pub mod parameters;
 
 pub use types::{CdsTranche, TrancheSide};

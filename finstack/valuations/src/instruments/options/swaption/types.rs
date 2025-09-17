@@ -1,6 +1,6 @@
 //! Swaption (option on interest rate swap) implementation with SABR volatility.
 
-use crate::instruments::common::{MarketRefs, PricingOverrides, SwaptionParams};
+use crate::instruments::common::{MarketRefs, PricingOverrides};
 use crate::instruments::options::models::{SABRModel, SABRParameters};
 use crate::instruments::options::OptionType;
 use crate::instruments::traits::Attributes;
@@ -9,6 +9,8 @@ use finstack_core::market_data::traits::Discounting;
 use finstack_core::math::norm_cdf;
 use finstack_core::money::Money;
 use finstack_core::{Error, Result, F};
+
+use super::parameters::SwaptionParams;
 
 /// Swaption settlement type
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

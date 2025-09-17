@@ -1,0 +1,69 @@
+//! CDS Tranche specific parameters.
+
+use finstack_core::{dates::Date, money::Money, F};
+
+/// CDS Tranche specific parameters.
+///
+/// Groups parameters specific to CDS tranches.
+#[derive(Clone, Debug)]
+pub struct CDSTrancheParams {
+    /// Index name (e.g., "CDX.NA.IG", "iTraxx Europe")
+    pub index_name: String,
+    /// Index series
+    pub series: u16,
+    /// Attachment point as percentage
+    pub attach_pct: F,
+    /// Detachment point as percentage
+    pub detach_pct: F,
+    /// Notional amount
+    pub notional: Money,
+    /// Maturity date
+    pub maturity: Date,
+    /// Running coupon in basis points
+    pub running_coupon_bp: F,
+}
+
+impl CDSTrancheParams {
+    /// Create new CDS tranche parameters
+    pub fn new(
+        index_name: impl Into<String>,
+        series: u16,
+        attach_pct: F,
+        detach_pct: F,
+        notional: Money,
+        maturity: Date,
+        running_coupon_bp: F,
+    ) -> Self {
+        Self {
+            index_name: index_name.into(),
+            series,
+            attach_pct,
+            detach_pct,
+            notional,
+            maturity,
+            running_coupon_bp,
+        }
+    }
+
+    /// Create equity tranche parameters (0-3% typically)
+    pub fn equity_tranche(
+        index_name: impl Into<String>,
+        series: u16,
+        notional: Money,
+        maturity: Date,
+        running_coupon_bp: F,
+    ) -> Self {
+        Self::new(index_name, series, 0.0, 0.03, notional, maturity, running_coupon_bp)
+    }
+
+    /// Create mezzanine tranche parameters (3-7% typically)
+    pub fn mezzanine_tranche(
+        index_name: impl Into<String>,
+        series: u16,
+        notional: Money,
+        maturity: Date,
+        running_coupon_bp: F,
+    ) -> Self {
+        Self::new(index_name, series, 0.03, 0.07, notional, maturity, running_coupon_bp)
+    }
+}

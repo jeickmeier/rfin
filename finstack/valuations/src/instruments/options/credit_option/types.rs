@@ -1,12 +1,14 @@
 //! Credit option instrument implementation for options on credit default swaps.
 
-use crate::instruments::common::{CreditOptionParams, CreditParams, MarketRefs, PricingOverrides};
+use crate::instruments::common::{CreditParams, MarketRefs, PricingOverrides};
 use crate::instruments::options::{ExerciseStyle, OptionType, SettlementType};
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
 use finstack_core::F;
+
+use super::parameters::CreditOptionParams;
 
 /// Credit option instrument (option on CDS spread)
 #[derive(Clone, Debug)]

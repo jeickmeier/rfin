@@ -3,6 +3,7 @@
 pub mod cds_pricer;
 pub mod metrics;
 mod types;
+pub mod parameters;
 
 pub use types::CDSConvention;
 pub use types::CreditDefaultSwap;

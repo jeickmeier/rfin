@@ -7,6 +7,7 @@ mod equity;
 mod fixed_income_index;
 pub mod metrics;
 mod types;
+pub mod parameters;
 
 // Re-export main types
 pub use equity::EquityTotalReturnSwap;

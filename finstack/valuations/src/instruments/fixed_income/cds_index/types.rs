@@ -1,6 +1,6 @@
 //! CDS Index types and implementations.
 
-use crate::instruments::common::{CDSIndexConstructionParams, CDSIndexParams, CreditParams, MarketRefs, PricingOverrides};
+use crate::instruments::common::{CreditParams, MarketRefs, PricingOverrides};
 use crate::instruments::traits::Attributes;
 use finstack_core::money::Money;
 
@@ -9,6 +9,8 @@ use crate::instruments::fixed_income::cds::{
     CDSConvention, CreditDefaultSwap, PayReceive as CdsPayReceive, PremiumLegSpec,
     ProtectionLegSpec, SettlementType,
 };
+
+use super::parameters::{CDSIndexConstructionParams, CDSIndexParams};
 
 /// CDS Index instrument definition
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]

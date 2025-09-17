@@ -1,6 +1,6 @@
 //! Interest rate option instrument types and implementation using Black model.
 
-use crate::instruments::common::{InterestRateOptionParams, MarketRefs, PricingOverrides};
+use crate::instruments::common::{MarketRefs, PricingOverrides};
 use crate::instruments::options::{ExerciseStyle, SettlementType};
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount, Frequency};
@@ -8,6 +8,8 @@ use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
 use finstack_core::F;
 // Forward trait removed - use direct method calls on curve types
+
+use super::parameters::InterestRateOptionParams;
 
 /// Type of interest rate option
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

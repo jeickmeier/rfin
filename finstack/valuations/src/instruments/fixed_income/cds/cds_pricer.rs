@@ -16,6 +16,7 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::{Error, Result, F};
+use crate::instruments::fixed_income::cds::parameters::CDSConstructionParams;
 
 /// Helper function to create test CDS with standard parameters
 #[cfg(test)]
@@ -26,7 +27,7 @@ fn create_test_cds(
     spread_bp: F,
     recovery_rate: F,
 ) -> CreditDefaultSwap {
-    let construction_params = crate::instruments::common::CDSConstructionParams::buy_protection(
+    let construction_params = CDSConstructionParams::buy_protection(
         Money::new(10_000_000.0, Currency::USD),
         spread_bp,
     );
@@ -832,7 +833,7 @@ impl CDSBootstrapper {
             CurveId::new("DISC"),
         ).with_credit(CurveId::new("CREDIT"));
 
-        let construction_params = crate::instruments::common::CDSConstructionParams::buy_protection(
+        let construction_params = CDSConstructionParams::buy_protection(
             Money::new(1_000_000.0, Currency::USD),
             spread_bps,
         );

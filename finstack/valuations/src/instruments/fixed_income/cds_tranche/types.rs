@@ -1,7 +1,7 @@
 //! CDS Tranche types, builder entrypoint, and pricing impl.
 
 use crate::instruments::build_with_metrics_dyn;
-use crate::instruments::common::{CDSTrancheParams, InstrumentScheduleParams, MarketRefs};
+use crate::instruments::common::{InstrumentScheduleParams, MarketRefs};
 use crate::instruments::traits::{Attributes, Attributable, Instrument, Priceable};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
@@ -11,6 +11,7 @@ use finstack_core::money::Money;
 use finstack_core::F;
 
 use super::model;
+use super::parameters::CDSTrancheParams;
 
 /// Buyer/seller perspective for CDS tranche premium/protection
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

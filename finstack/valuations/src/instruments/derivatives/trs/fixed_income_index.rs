@@ -1,6 +1,9 @@
 //! Fixed Income Index Total Return Swap implementation.
 
-use super::types::{FinancingLegSpec, TotalReturnLegParams, TrsEngine, TrsScheduleSpec, TrsSide};
+use super::{
+    parameters::IndexUnderlyingParams,
+    types::{FinancingLegSpec, TotalReturnLegParams, TrsEngine, TrsScheduleSpec, TrsSide},
+};
 use crate::instruments::traits::{Attributable, Instrument};
 use crate::{
     cashflow::{
@@ -8,9 +11,7 @@ use crate::{
         traits::{CashflowProvider, DatedFlows},
     },
     instruments::{
-        common::parameter_groups::{
-            validate_currency_consistency, IndexUnderlyingParams,
-        },
+        common::parameter_groups::validate_currency_consistency,
         traits::{Attributes, Priceable},
     },
     metrics::MetricId,

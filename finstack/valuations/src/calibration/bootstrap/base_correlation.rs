@@ -643,7 +643,7 @@ mod tests {
 
         for (detach_pct, _corr) in &known_correlations {
             // Create synthetic equity tranche [0, detach_pct]
-            let tranche_params = crate::instruments::common::CDSTrancheParams::new(
+            let tranche_params = crate::instruments::fixed_income::cds_tranche::parameters::CDSTrancheParams::new(
                 "CDX.NA.IG.42",
                 42,
                 0.0,         // attachment

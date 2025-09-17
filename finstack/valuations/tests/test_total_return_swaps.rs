@@ -12,11 +12,12 @@ use finstack_core::{
 };
 use finstack_valuations::instruments::{
     common::parameter_groups::{
-        EquityUnderlyingParams, IndexUnderlyingParams, InstrumentScheduleParams,
+        EquityUnderlyingParams, InstrumentScheduleParams,
     },
     derivatives::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap, TrsSide},
     traits::Priceable,
 };
+use finstack_valuations::instruments::derivatives::trs::parameters::IndexUnderlyingParams;
 use time::Month;
 
 fn create_test_market_context() -> MarketContext {

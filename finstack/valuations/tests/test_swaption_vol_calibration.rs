@@ -10,6 +10,7 @@ use finstack_valuations::calibration::bootstrap::swaption_vol::{
 };
 use finstack_valuations::calibration::{CalibrationConfig, Calibrator, VolQuote};
 use finstack_valuations::instruments::options::swaption::Swaption;
+use finstack_valuations::instruments::options::swaption::parameters::SwaptionParams;
 use finstack_valuations::instruments::common::MarketRefs;
 use finstack_valuations::instruments::traits::Priceable;
 use time::Month;
@@ -243,7 +244,7 @@ fn test_swaption_pricing_with_calibrated_surface() {
 
     // Create and price a swaption
     let mr = MarketRefs::rates("USD-OIS", "USD-OIS").with_volatility("SWAPTION-VOL");
-    let params = finstack_valuations::instruments::common::SwaptionParams::payer(
+    let params = SwaptionParams::payer(
         Money::new(1_000_000.0, Currency::USD),
         0.04,
         Date::from_calendar_date(2026, Month::January, 1).unwrap(),
