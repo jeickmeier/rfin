@@ -1,7 +1,7 @@
 //! Credit Default Swap (CDS) types and implementations.
 use finstack_core::market_data::traits::Survival;
 use crate::cashflow::traits::DatedFlows;
-use crate::instruments::common::{CDSConstructionParams, CreditParams, DateRange, MarketRefs, PricingOverrides};
+use crate::instruments::common::{CDSConstructionParams, CreditParams, MarketRefs, PricingOverrides};
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::traits::{Discounting};
@@ -140,10 +140,9 @@ impl CreditDefaultSwap {
         start: Date,
         maturity: Date,
     ) -> Self {
-        use crate::instruments::common::{CreditParams, DateRange, MarketRefs};
+        use crate::instruments::common::{CreditParams, MarketRefs};
 
         let credit_params = CreditParams::investment_grade(reference_entity, "CREDIT-CURVE");
-        let date_range = DateRange::new(start, maturity);
         let market_refs = MarketRefs::credit("USD-OIS", "CREDIT-CURVE");
 
         let dc = CDSConvention::IsdaNa.day_count();
@@ -168,8 +167,8 @@ impl CreditDefaultSwap {
             .side(PayReceive::PayProtection)
             .convention(CDSConvention::IsdaNa)
             .premium(PremiumLegSpec {
-                start: date_range.start,
-                end: date_range.end,
+                start,
+                end: maturity,
                 freq,
                 stub,
                 bdc,
@@ -199,10 +198,9 @@ impl CreditDefaultSwap {
         start: Date,
         maturity: Date,
     ) -> Self {
-        use crate::instruments::common::{CreditParams, DateRange, MarketRefs};
+        use crate::instruments::common::{CreditParams, MarketRefs};
 
         let credit_params = CreditParams::investment_grade(reference_entity, "CREDIT-CURVE");
-        let date_range = DateRange::new(start, maturity);
         let market_refs = MarketRefs::credit("USD-OIS", "CREDIT-CURVE");
 
         let dc = CDSConvention::IsdaNa.day_count();
@@ -227,8 +225,8 @@ impl CreditDefaultSwap {
             .side(PayReceive::ReceiveProtection)
             .convention(CDSConvention::IsdaNa)
             .premium(PremiumLegSpec {
-                start: date_range.start,
-                end: date_range.end,
+                start,
+                end: maturity,
                 freq,
                 stub,
                 bdc,
@@ -259,10 +257,9 @@ impl CreditDefaultSwap {
         maturity: Date,
         side: PayReceive,
     ) -> Self {
-        use crate::instruments::common::{CreditParams, DateRange, MarketRefs};
+        use crate::instruments::common::{CreditParams, MarketRefs};
 
         let credit_params = CreditParams::high_yield(reference_entity, "CREDIT-CURVE");
-        let date_range = DateRange::new(start, maturity);
         let market_refs = MarketRefs::credit("USD-OIS", "CREDIT-CURVE");
 
         let dc = CDSConvention::IsdaNa.day_count();
@@ -287,8 +284,8 @@ impl CreditDefaultSwap {
             .side(side)
             .convention(CDSConvention::IsdaNa)
             .premium(PremiumLegSpec {
-                start: date_range.start,
-                end: date_range.end,
+                start,
+                end: maturity,
                 freq,
                 stub,
                 bdc,
@@ -313,7 +310,8 @@ impl CreditDefaultSwap {
     pub fn new_isda(
         id: impl Into<String>,
         construction_params: &CDSConstructionParams,
-        date_range: &DateRange,
+        start: finstack_core::dates::Date,
+        end: finstack_core::dates::Date,
         credit_params: &CreditParams,
         market_refs: &MarketRefs,
     ) -> Self {
@@ -334,8 +332,8 @@ impl CreditDefaultSwap {
             side: construction_params.side,
             convention: construction_params.convention,
             premium: PremiumLegSpec {
-                start: date_range.start,
-                end: date_range.end,
+                start,
+                end,
                 freq,
                 stub,
                 bdc,

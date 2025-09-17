@@ -304,10 +304,8 @@ fn test_interest_rate_option_full_integration() {
 
     // Create USD cap using parameter structs
     let cap_mr = MarketRefs::rates("USD-OIS", "USD-SOFR-3M").with_volatility("USD-CAP-VOL");
-    let date_range = finstack_valuations::instruments::common::DateRange::new(
-        Date::from_calendar_date(2025, Month::March, 1).unwrap(),
-        Date::from_calendar_date(2027, Month::March, 1).unwrap(),
-    );
+    let start = Date::from_calendar_date(2025, Month::March, 1).unwrap();
+    let end = Date::from_calendar_date(2027, Month::March, 1).unwrap();
     let cap_params = finstack_valuations::instruments::common::InterestRateOptionParams::cap(
         Money::new(10_000_000.0, Currency::USD),
         0.03,
@@ -317,7 +315,8 @@ fn test_interest_rate_option_full_integration() {
     let cap = finstack_valuations::instruments::options::cap_floor::InterestRateOption::new(
         "USD_CAP_3%",
         &cap_params,
-        &date_range,
+        start,
+        end,
         &cap_mr,
     );
 

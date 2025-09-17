@@ -271,7 +271,7 @@ mod tests {
 
         // Demonstrate parameter group reuse across instruments
         let usd_schedule = InstrumentScheduleParams::usd_standard();
-        let date_range = DateRange::new(issue, maturity);
+        // DateRange deprecated; use explicit start/end in instrument builders
         let usd_market_refs = MarketRefs::rates("USD-OIS", "USD-SOFR-3M");
 
         // Use same parameter groups for multiple instruments

@@ -1,7 +1,7 @@
 //! Forward Rate Agreement (FRA) instrument types and implementation.
 use finstack_core::market_data::traits::Forward;
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::{DateRange, FRAParams, MarketRefs};
+// Removed params-based constructors; build FRAs via the generated builder instead.
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::traits::{Discounting};
@@ -43,33 +43,7 @@ pub struct ForwardRateAgreement {
 }
 
 impl ForwardRateAgreement {
-    /// Create a new FRA using parameter structs.
-    pub fn new(
-        id: impl Into<String>,
-        fra_params: &FRAParams,
-        date_range: &DateRange,
-        market_refs: &MarketRefs,
-    ) -> Self {
-        let forward_id = market_refs
-            .fwd_id
-            .as_ref()
-            .expect("Forward curve required for FRA");
-
-        Self {
-            id: id.into(),
-            notional: fra_params.notional,
-            fixing_date: fra_params.fixing_date,
-            start_date: date_range.start,
-            end_date: date_range.end,
-            fixed_rate: fra_params.fixed_rate,
-            day_count: fra_params.day_count,
-            reset_lag: 2, // Standard T+2 settlement
-            disc_id: Box::leak(market_refs.disc_id.to_string().into_boxed_str()),
-            forward_id: Box::leak(forward_id.to_string().into_boxed_str()),
-            pay_fixed: false, // Default to receive fixed
-            attributes: Attributes::new(),
-        }
-    }
+    // Note: use the builder (FinancialBuilder) for construction.
 
     /// Set pay/receive direction.
     pub fn with_pay_fixed(mut self, pay_fixed: bool) -> Self {

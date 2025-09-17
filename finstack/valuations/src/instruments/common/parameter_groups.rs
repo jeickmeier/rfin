@@ -9,73 +9,9 @@ use finstack_core::prelude::*;
 use finstack_core::types::{id::IndexId, CurveId};
 use finstack_core::F;
 
-/// FRA-specific parameters.
-///
-/// Groups parameters specific to Forward Rate Agreements.
-#[derive(Clone, Debug)]
-pub struct FRAParams {
-    /// Notional amount
-    pub notional: Money,
-    /// Rate fixing date
-    pub fixing_date: Date,
-    /// Fixed rate for comparison
-    pub fixed_rate: F,
-    /// Day count convention
-    pub day_count: DayCount,
-}
+// FRAParams removed: use instrument builder directly.
 
-impl FRAParams {
-    /// Create new FRA parameters
-    pub fn new(
-        notional: Money,
-        fixing_date: Date,
-        fixed_rate: F,
-        day_count: DayCount,
-    ) -> Self {
-        Self {
-            notional,
-            fixing_date,
-            fixed_rate,
-            day_count,
-        }
-    }
-}
-
-/// Interest Rate Future specific parameters.
-///
-/// Groups parameters specific to IR futures.
-#[derive(Clone, Debug)]
-pub struct IRFutureParams {
-    /// Notional amount
-    pub notional: Money,
-    /// Expiry/delivery date
-    pub expiry_date: Date,
-    /// Rate fixing date
-    pub fixing_date: Date,
-    /// Quoted price (100 - implied rate)
-    pub quoted_price: F,
-    /// Day count convention
-    pub day_count: DayCount,
-}
-
-impl IRFutureParams {
-    /// Create new IR future parameters
-    pub fn new(
-        notional: Money,
-        expiry_date: Date,
-        fixing_date: Date,
-        quoted_price: F,
-        day_count: DayCount,
-    ) -> Self {
-        Self {
-            notional,
-            expiry_date,
-            fixing_date,
-            quoted_price,
-            day_count,
-        }
-    }
-}
+// IRFutureParams removed: use instrument builder directly.
 
 /// Market data references for instrument pricing.
 ///
@@ -237,49 +173,6 @@ impl InstrumentScheduleParams {
             calendar_id: self.calendar_id,
             stub: self.stub,
         }
-    }
-}
-
-/// Date range specification for instruments.
-///
-/// Simplifies specifying start and end dates for legs, periods, and option terms.
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
-pub struct DateRange {
-    /// Start date
-    pub start: Date,
-    /// End date
-    pub end: Date,
-}
-
-impl DateRange {
-    /// Create a new date range
-    pub fn new(start: Date, end: Date) -> Self {
-        Self { start, end }
-    }
-
-    /// Create date range from start date and tenor in years
-    pub fn from_tenor(start: Date, tenor_years: F) -> Self {
-        let end = start + time::Duration::days((tenor_years * 365.25) as i64);
-        Self { start, end }
-    }
-
-    /// Create date range from start date and number of months
-    pub fn from_months(start: Date, months: i32) -> Self {
-        let end = finstack_core::dates::add_months(start, months);
-        Self { start, end }
-    }
-
-    /// Duration in years using Act/365F
-    pub fn years(&self) -> F {
-        DayCount::Act365F
-            .year_fraction(
-                self.start,
-                self.end,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0)
     }
 }
 

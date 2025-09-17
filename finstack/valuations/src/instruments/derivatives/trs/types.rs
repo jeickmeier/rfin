@@ -1,7 +1,7 @@
 //! Core types and common engine for Total Return Swaps.
 
 use crate::cashflow::builder::schedule_utils::build_dates;
-use crate::instruments::common::parameter_groups::{DateRange, InstrumentScheduleParams};
+use crate::instruments::common::parameter_groups::InstrumentScheduleParams;
 use finstack_core::{
     dates::{Date, DayCount, DayCountCtx},
     market_data::MarketContext,
@@ -81,16 +81,18 @@ pub struct TotalReturnLegSpec {
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct TrsScheduleSpec {
-    /// Date range for the TRS leg
-    pub dates: DateRange,
+    /// Start date for the TRS leg
+    pub start: Date,
+    /// End date for the TRS leg
+    pub end: Date,
     /// Schedule parameters (frequency, day count, bdc, calendar, stub)
     pub params: InstrumentScheduleParams,
 }
 
 impl TrsScheduleSpec {
-    /// Create from DateRange and InstrumentScheduleParams
-    pub fn from_params(dates: DateRange, schedule: InstrumentScheduleParams) -> Self {
-        Self { dates, params: schedule }
+    /// Create from start/end and InstrumentScheduleParams
+    pub fn from_params(start: Date, end: Date, schedule: InstrumentScheduleParams) -> Self {
+        Self { start, end, params: schedule }
     }
 }
 
@@ -130,8 +132,8 @@ impl TrsEngine {
 
         // Build schedule
         let period_schedule = build_dates(
-            params.schedule.dates.start,
-            params.schedule.dates.end,
+            params.schedule.start,
+            params.schedule.end,
             params.schedule.params.frequency,
             params.schedule.params.stub,
             params.schedule.params.bdc,
@@ -203,8 +205,8 @@ impl TrsEngine {
 
         // Build schedule
         let period_schedule = build_dates(
-            schedule.dates.start,
-            schedule.dates.end,
+            schedule.start,
+            schedule.end,
             schedule.params.frequency,
             schedule.params.stub,
             schedule.params.bdc,
@@ -268,8 +270,8 @@ impl TrsEngine {
 
         // Build schedule
         let period_schedule = build_dates(
-            schedule.dates.start,
-            schedule.dates.end,
+            schedule.start,
+            schedule.end,
             schedule.params.frequency,
             schedule.params.stub,
             schedule.params.bdc,

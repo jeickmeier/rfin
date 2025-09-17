@@ -175,7 +175,6 @@ impl HazardCurveCalibrator {
             const CALIB_HAZARD_ID: &str = "CALIB_HAZARD";
             const CALIB_DISC_ID: &str = "CALIB_DISC";
 
-            let date_range = crate::instruments::common::DateRange::new(self.base_date, *maturity);
             let credit_params = crate::instruments::common::CreditParams::new(
                 &self.entity,
                 self.recovery_rate,
@@ -192,7 +191,8 @@ impl HazardCurveCalibrator {
             let cds = CreditDefaultSwap::new_isda(
                 format!("CALIB_CDS_{}", maturity),
                 &construction_params,
-                &date_range,
+                self.base_date,
+                *maturity,
                 &credit_params,
                 &market_refs,
             );
@@ -398,7 +398,6 @@ mod tests {
                 ..
             } = q
             {
-                let date_range = crate::instruments::common::DateRange::new(base_date, maturity);
                 let credit_params = crate::instruments::common::CreditParams::new(
                     "AAPL",
                     0.40,
@@ -415,7 +414,8 @@ mod tests {
                 let cds = CreditDefaultSwap::new_isda(
                     format!("CDS-{}", maturity),
                     &construction_params,
-                    &date_range,
+                    base_date,
+                    maturity,
                     &credit_params,
                     &market_refs,
                 );

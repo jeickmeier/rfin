@@ -216,8 +216,8 @@ impl CashflowProvider for FIIndexTotalReturnSwap {
         // For TRS, we'll return the expected payment dates
         // Actual amounts depend on realized returns
         let period_schedule = build_dates(
-            self.schedule.dates.start,
-            self.schedule.dates.end,
+            self.schedule.start,
+            self.schedule.end,
             self.schedule.params.frequency,
             self.schedule.params.stub,
             self.schedule.params.bdc,

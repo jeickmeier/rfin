@@ -1,7 +1,7 @@
 //! Interest Rate Future types and implementation.
 use finstack_core::market_data::traits::Forward;
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::{DateRange, IRFutureParams, MarketRefs};
+// Params-based constructor removed; build via builder instead.
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::traits::{Discounting};
@@ -66,33 +66,7 @@ impl Default for FutureContractSpecs {
 }
 
 impl InterestRateFuture {
-    /// Create a new interest rate future using parameter structs.
-    pub fn new(
-        id: impl Into<String>,
-        future_params: &IRFutureParams,
-        period_range: &DateRange,
-        market_refs: &MarketRefs,
-    ) -> Self {
-        let forward_id = market_refs
-            .fwd_id
-            .as_ref()
-            .expect("Forward curve required for IR futures");
-
-        Self {
-            id: id.into(),
-            notional: future_params.notional,
-            expiry_date: future_params.expiry_date,
-            fixing_date: future_params.fixing_date,
-            period_start: period_range.start,
-            period_end: period_range.end,
-            quoted_price: future_params.quoted_price,
-            day_count: future_params.day_count,
-            contract_specs: FutureContractSpecs::default(),
-            disc_id: Box::leak(market_refs.disc_id.to_string().into_boxed_str()),
-            forward_id: Box::leak(forward_id.to_string().into_boxed_str()),
-            attributes: Attributes::new(),
-        }
-    }
+    // Note: use the builder (FinancialBuilder) for construction.
 
     /// Set contract specifications.
     pub fn with_contract_specs(mut self, specs: FutureContractSpecs) -> Self {

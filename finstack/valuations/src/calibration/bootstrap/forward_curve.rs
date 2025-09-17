@@ -23,7 +23,6 @@ use finstack_core::{
     },
     math::Solver,
     money::Money,
-    types::CurveId,
     Result, F,
 };
 use std::collections::BTreeMap;
@@ -244,23 +243,19 @@ impl ForwardCurveCalibrator {
                 rate,
                 day_count,
             } => {
-                let fra_params = crate::instruments::common::FRAParams::new(
-                    Money::new(1_000_000.0, self.currency),
-                    *start, // Using start as fixing date
-                    *rate,
-                    *day_count,
-                );
-                let date_range = crate::instruments::common::DateRange::new(*start, *end);
-                let market_refs = crate::instruments::common::MarketRefs::rates(
-                    CurveId::new(self.discount_curve_id),
-                    CurveId::new(self.fwd_curve_id),
-                );
-                let fra = ForwardRateAgreement::new(
-                    format!("CALIB_FRA_{}_{}", start, end),
-                    &fra_params,
-                    &date_range,
-                    &market_refs,
-                );
+                let fra = ForwardRateAgreement::builder()
+                    .id(format!("CALIB_FRA_{}_{}", start, end))
+                    .notional(Money::new(1_000_000.0, self.currency))
+                    .fixing_date(*start)
+                    .start_date(*start)
+                    .end_date(*end)
+                    .fixed_rate(*rate)
+                    .day_count(*day_count)
+                    .reset_lag(2)
+                    .disc_id(self.discount_curve_id)
+                    .forward_id(self.fwd_curve_id)
+                    .build()
+                    .unwrap();
 
                 let pv = fra.value(context, self.base_date)?;
                 Ok(pv.amount() / fra.notional.amount())
@@ -275,24 +270,20 @@ impl ForwardCurveCalibrator {
                 let period_end = add_months(*expiry, specs.delivery_months as i32);
                 let fixing_date = *expiry; // Typically same as expiry for futures
 
-                let future_params = crate::instruments::common::IRFutureParams::new(
-                    Money::new(specs.face_value, self.currency),
-                    *expiry,
-                    fixing_date,
-                    *price,
-                    specs.day_count,
-                );
-                let period_range = crate::instruments::common::DateRange::new(period_start, period_end);
-                let market_refs = crate::instruments::common::MarketRefs::rates(
-                    CurveId::new(self.discount_curve_id),
-                    CurveId::new(self.fwd_curve_id),
-                );
-                let future = InterestRateFuture::new(
-                    format!("CALIB_FUT_{}", expiry),
-                    &future_params,
-                    &period_range,
-                    &market_refs,
-                );
+                let future = InterestRateFuture::builder()
+                    .id(format!("CALIB_FUT_{}", expiry))
+                    .notional(Money::new(specs.face_value, self.currency))
+                    .expiry_date(*expiry)
+                    .fixing_date(fixing_date)
+                    .period_start(period_start)
+                    .period_end(period_end)
+                    .quoted_price(*price)
+                    .day_count(specs.day_count)
+                    .contract_specs(crate::instruments::fixed_income::ir_future::FutureContractSpecs::default())
+                    .disc_id(self.discount_curve_id)
+                    .forward_id(self.fwd_curve_id)
+                    .build()
+                    .unwrap();
 
                 let pv = future.value(context, self.base_date)?;
                 Ok(pv.amount())

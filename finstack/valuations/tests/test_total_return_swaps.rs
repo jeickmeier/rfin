@@ -79,7 +79,8 @@ fn test_equity_trs_creation() {
         .underlying(underlying)
         .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 25.0, DayCount::Act360))
         .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
-            finstack_valuations::instruments::common::parameter_groups::DateRange::new(as_of, Date::from_calendar_date(2026, Month::January, 2).unwrap()),
+            as_of,
+            Date::from_calendar_date(2026, Month::January, 2).unwrap(),
             sched,
         ))
         .side(TrsSide::ReceiveTotalReturn)
@@ -109,7 +110,8 @@ fn test_equity_trs_pricing() {
         .underlying(underlying)
         .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 50.0, DayCount::Act360))
         .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
-            finstack_valuations::instruments::common::parameter_groups::DateRange::new(as_of, Date::from_calendar_date(2026, Month::January, 2).unwrap()),
+            as_of,
+            Date::from_calendar_date(2026, Month::January, 2).unwrap(),
             sched,
         ))
         .side(TrsSide::ReceiveTotalReturn)
@@ -142,7 +144,8 @@ fn test_equity_trs_delta() {
         .underlying(underlying)
         .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 25.0, DayCount::Act360))
         .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
-            finstack_valuations::instruments::common::parameter_groups::DateRange::new(as_of, Date::from_calendar_date(2026, Month::January, 2).unwrap()),
+            as_of,
+            Date::from_calendar_date(2026, Month::January, 2).unwrap(),
             InstrumentScheduleParams::quarterly_act360(),
         ))
         .side(TrsSide::ReceiveTotalReturn)
@@ -174,7 +177,8 @@ fn test_fi_index_trs_creation() {
         .underlying(underlying)
         .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 100.0, DayCount::Act360))
         .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
-            finstack_valuations::instruments::common::parameter_groups::DateRange::new(as_of, Date::from_calendar_date(2026, Month::January, 2).unwrap()),
+            as_of,
+            Date::from_calendar_date(2026, Month::January, 2).unwrap(),
             sched,
         ))
         .side(TrsSide::ReceiveTotalReturn)
@@ -203,7 +207,8 @@ fn test_fi_index_trs_par_spread() {
         .underlying(underlying)
         .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 0.0, DayCount::Act360))
         .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
-            finstack_valuations::instruments::common::parameter_groups::DateRange::new(as_of, Date::from_calendar_date(2026, Month::January, 2).unwrap()),
+            as_of,
+            Date::from_calendar_date(2026, Month::January, 2).unwrap(),
             InstrumentScheduleParams::quarterly_act360(),
         ))
         .side(TrsSide::ReceiveTotalReturn)
@@ -233,7 +238,8 @@ fn test_currency_safety() {
         .underlying(underlying) // EUR index
         .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 0.0, DayCount::Act360))
         .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
-            finstack_valuations::instruments::common::parameter_groups::DateRange::new(as_of, Date::from_calendar_date(2026, Month::January, 2).unwrap()),
+            as_of,
+            Date::from_calendar_date(2026, Month::January, 2).unwrap(),
             InstrumentScheduleParams::quarterly_act360(),
         ))
         .build();
@@ -256,7 +262,8 @@ fn test_trs_cashflow_schedule() {
         .underlying(underlying)
         .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 0.0, DayCount::Act360))
         .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
-            finstack_valuations::instruments::common::parameter_groups::DateRange::new(as_of, Date::from_calendar_date(2026, Month::January, 2).unwrap()),
+            as_of,
+            Date::from_calendar_date(2026, Month::January, 2).unwrap(),
             InstrumentScheduleParams::quarterly_act360(),
         ))
         .side(TrsSide::ReceiveTotalReturn)
@@ -291,7 +298,8 @@ fn test_pay_vs_receive_total_return() {
         .underlying(underlying.clone())
         .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 50.0, DayCount::Act360))
         .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
-            finstack_valuations::instruments::common::parameter_groups::DateRange::new(as_of, Date::from_calendar_date(2026, Month::January, 2).unwrap()),
+            as_of,
+            Date::from_calendar_date(2026, Month::January, 2).unwrap(),
             InstrumentScheduleParams::quarterly_act360(),
         ))
         .side(TrsSide::ReceiveTotalReturn)
@@ -305,7 +313,8 @@ fn test_pay_vs_receive_total_return() {
         .underlying(underlying)
         .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 50.0, DayCount::Act360))
         .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
-            finstack_valuations::instruments::common::parameter_groups::DateRange::new(as_of, Date::from_calendar_date(2026, Month::January, 2).unwrap()),
+            as_of,
+            Date::from_calendar_date(2026, Month::January, 2).unwrap(),
             InstrumentScheduleParams::quarterly_act360(),
         ))
         .side(TrsSide::PayTotalReturn)

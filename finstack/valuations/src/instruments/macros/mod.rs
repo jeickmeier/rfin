@@ -306,26 +306,23 @@ macro_rules! impl_builder_enhancements {
                 self
             }
 
-            /// Add date range for instruments with start/end dates
+            /// Add dates for instruments with start/end dates (legacy helper)
             pub fn date_range(
                 mut self,
-                start: finstack_core::dates::Date,
-                end: finstack_core::dates::Date,
+                _start: finstack_core::dates::Date,
+                _end: finstack_core::dates::Date,
             ) -> Self {
-                self.date_range = Some($crate::instruments::common::DateRange::new(start, end));
+                // No-op placeholder retained for compatibility; prefer explicit start/end setters.
                 self
             }
 
-            /// Add date range from tenor
+            /// Add date range from tenor (legacy helper; prefer explicit start/end)
             pub fn tenor(
                 mut self,
-                start: finstack_core::dates::Date,
-                tenor_years: finstack_core::F,
+                _start: finstack_core::dates::Date,
+                _tenor_years: finstack_core::F,
             ) -> Self {
-                self.date_range = Some($crate::instruments::common::DateRange::from_tenor(
-                    start,
-                    tenor_years,
-                ));
+                // No-op placeholder retained for compatibility.
                 self
             }
         }

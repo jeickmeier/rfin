@@ -1,6 +1,6 @@
 //! CDS Index types and implementations.
 
-use crate::instruments::common::{CDSIndexConstructionParams, CDSIndexParams, CreditParams, DateRange, MarketRefs, PricingOverrides};
+use crate::instruments::common::{CDSIndexConstructionParams, CDSIndexParams, CreditParams, MarketRefs, PricingOverrides};
 use crate::instruments::traits::Attributes;
 use finstack_core::money::Money;
 
@@ -44,7 +44,8 @@ impl CDSIndex {
         id: impl Into<String>,
         index_params: &CDSIndexParams,
         construction_params: &CDSIndexConstructionParams,
-        date_range: &DateRange,
+        start: finstack_core::dates::Date,
+        end: finstack_core::dates::Date,
         credit_params: &CreditParams,
         market_refs: &MarketRefs,
     ) -> Self {
@@ -67,8 +68,8 @@ impl CDSIndex {
             side: construction_params.side,
             convention: construction_params.convention,
             premium: PremiumLegSpec {
-                start: date_range.start,
-                end: date_range.end,
+                start,
+                end,
                 freq,
                 stub,
                 bdc,

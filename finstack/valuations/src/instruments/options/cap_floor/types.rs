@@ -1,6 +1,6 @@
 //! Interest rate option instrument types and implementation using Black model.
 
-use crate::instruments::common::{DateRange, InterestRateOptionParams, MarketRefs, PricingOverrides};
+use crate::instruments::common::{InterestRateOptionParams, MarketRefs, PricingOverrides};
 use crate::instruments::options::{ExerciseStyle, SettlementType};
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount, Frequency};
@@ -62,7 +62,8 @@ impl InterestRateOption {
     pub fn new(
         id: impl Into<String>,
         option_params: &InterestRateOptionParams,
-        date_range: &DateRange,
+        start_date: Date,
+        end_date: Date,
         market_refs: &MarketRefs,
     ) -> Self {
         let forward_id = market_refs
@@ -79,8 +80,8 @@ impl InterestRateOption {
             rate_option_type: option_params.rate_option_type,
             notional: option_params.notional,
             strike_rate: option_params.strike_rate,
-            start_date: date_range.start,
-            end_date: date_range.end,
+            start_date,
+            end_date,
             frequency: option_params.frequency,
             day_count: option_params.day_count,
             exercise_style: ExerciseStyle::European,
@@ -94,31 +95,35 @@ impl InterestRateOption {
     }
 
     /// Create a cap instrument using parameter structs
+    #[allow(clippy::too_many_arguments)]
     pub fn new_cap(
         id: impl Into<String>,
         notional: Money,
         strike_rate: F,
-        date_range: &DateRange,
+        start_date: Date,
+        end_date: Date,
         frequency: Frequency,
         day_count: DayCount,
         market_refs: &MarketRefs,
     ) -> Self {
         let option_params = InterestRateOptionParams::cap(notional, strike_rate, frequency, day_count);
-        Self::new(id, &option_params, date_range, market_refs)
+        Self::new(id, &option_params, start_date, end_date, market_refs)
     }
 
     /// Create a floor instrument using parameter structs
+    #[allow(clippy::too_many_arguments)]
     pub fn new_floor(
         id: impl Into<String>,
         notional: Money,
         strike_rate: F,
-        date_range: &DateRange,
+        start_date: Date,
+        end_date: Date,
         frequency: Frequency,
         day_count: DayCount,
         market_refs: &MarketRefs,
     ) -> Self {
         let option_params = InterestRateOptionParams::floor(notional, strike_rate, frequency, day_count);
-        Self::new(id, &option_params, date_range, market_refs)
+        Self::new(id, &option_params, start_date, end_date, market_refs)
     }
 
     /// Calculate caplet/floorlet price using Black's model

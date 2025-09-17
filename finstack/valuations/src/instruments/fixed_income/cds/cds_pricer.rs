@@ -30,7 +30,6 @@ fn create_test_cds(
         Money::new(10_000_000.0, Currency::USD),
         spread_bp,
     );
-    let date_range = crate::instruments::common::DateRange::new(start_date, end_date);
     let credit_params = crate::instruments::common::CreditParams::new(
         "TEST-CORP",
         recovery_rate,
@@ -43,7 +42,8 @@ fn create_test_cds(
     CreditDefaultSwap::new_isda(
         id,
         &construction_params,
-        &date_range,
+        start_date,
+        end_date,
         &credit_params,
         &market_refs,
     )
@@ -823,7 +823,6 @@ impl CDSBootstrapper {
     ) -> Result<CreditDefaultSwap> {
         let end_date = base_date + time::Duration::days((tenor_years * 365.25) as i64);
 
-        let date_range = crate::instruments::common::DateRange::new(base_date, end_date);
         let credit_params = crate::instruments::common::CreditParams::new(
             "SYNTHETIC",
             recovery_rate,
@@ -841,7 +840,8 @@ impl CDSBootstrapper {
         Ok(CreditDefaultSwap::new_isda(
             format!("SYNTHETIC_{:.1}Y", tenor_years),
             &construction_params,
-            &date_range,
+            base_date,
+            end_date,
             &credit_params,
             &market_refs,
         ))

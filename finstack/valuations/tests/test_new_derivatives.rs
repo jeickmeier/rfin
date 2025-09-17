@@ -24,7 +24,7 @@ fn test_cds_creation_and_basic_pricing() {
         notional,
         100.0, // 100bp spread
     );
-    let date_range = finstack_valuations::instruments::common::DateRange::new(start, end);
+    // DateRange inlined; start/end passed directly to constructor
     let credit_params = finstack_valuations::instruments::common::CreditParams::new(
         "ABC Corp",
         0.4, // 40% recovery
@@ -37,7 +37,8 @@ fn test_cds_creation_and_basic_pricing() {
     let cds = CreditDefaultSwap::new_isda(
         "CDS_TEST",
         &construction_params,
-        &date_range,
+        start,
+        end,
         &credit_params,
         &market_refs,
     );
@@ -149,14 +150,13 @@ fn test_interest_rate_option_creation() {
     let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
     let mr = MarketRefs::rates("USD-OIS", "USD-LIBOR-3M").with_volatility("USD-CAP-VOL");
-    let dr = finstack_valuations::instruments::common::DateRange::new(start, end);
     let params = finstack_valuations::instruments::common::InterestRateOptionParams::cap(
         notional,
         0.03,
         Frequency::quarterly(),
         DayCount::Act360,
     );
-    let cap = InterestRateOption::new("USD_CAP_3%", &params, &dr, &mr);
+    let cap = InterestRateOption::new("USD_CAP_3%", &params, start, end, &mr);
 
     assert_eq!(cap.id, "USD_CAP_3%");
     assert_eq!(cap.strike_rate, 0.03);
