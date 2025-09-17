@@ -289,18 +289,16 @@ macro_rules! impl_builder_enhancements {
     ($builder:ident) => {
         impl $builder {
             /// Quick setup for USD market standard parameters
-            pub fn usd_standard(mut self, disc_id: impl Into<finstack_core::types::CurveId>) -> Self {
-                self.market_refs = Some($crate::instruments::common::MarketRefs::discount_only(disc_id));
+            pub fn usd_standard(mut self, _disc_id: impl Into<finstack_core::types::CurveId>) -> Self {
                 self.schedule_params =
-                    Some($crate::instruments::common::InstrumentScheduleParams::usd_standard());
+                    Some($crate::cashflow::builder::ScheduleParams::usd_standard());
                 self
             }
 
             /// Quick setup for EUR market standard parameters
-            pub fn eur_standard(mut self, disc_id: impl Into<finstack_core::types::CurveId>) -> Self {
-                self.market_refs = Some($crate::instruments::common::MarketRefs::discount_only(disc_id));
+            pub fn eur_standard(mut self, _disc_id: impl Into<finstack_core::types::CurveId>) -> Self {
                 self.schedule_params =
-                    Some($crate::instruments::common::InstrumentScheduleParams::eur_standard());
+                    Some($crate::cashflow::builder::ScheduleParams::eur_standard());
                 self
             }
 

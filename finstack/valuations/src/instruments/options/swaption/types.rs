@@ -1,6 +1,6 @@
 //! Swaption (option on interest rate swap) implementation with SABR volatility.
 
-use crate::instruments::common::{MarketRefs, PricingOverrides};
+use crate::instruments::PricingOverrides;
 use crate::instruments::options::models::{SABRModel, SABRParameters};
 use crate::instruments::options::OptionType;
 use crate::instruments::traits::Attributes;
@@ -55,17 +55,10 @@ impl Swaption {
     pub fn new_payer(
         id: impl Into<String>,
         params: &SwaptionParams,
-        market_refs: &MarketRefs,
+        disc_id: &'static str,
+        forward_id: &'static str,
+        vol_id: &'static str,
     ) -> Self {
-        let forward_id = market_refs
-            .fwd_id
-            .as_ref()
-            .expect("Forward curve required for swaptions");
-        let vol_id = market_refs
-            .vol_id
-            .as_ref()
-            .expect("Volatility surface required for swaptions");
-
         Self {
             id: id.into(),
             option_type: OptionType::Call,
@@ -79,9 +72,9 @@ impl Swaption {
             day_count: DayCount::Thirty360,
             exercise: SwaptionExercise::European,
             settlement: SwaptionSettlement::Physical,
-            disc_id: Box::leak(market_refs.disc_id.to_string().into_boxed_str()),
-            forward_id: Box::leak(forward_id.to_string().into_boxed_str()),
-            vol_id: Box::leak(vol_id.to_string().into_boxed_str()),
+            disc_id,
+            forward_id,
+            vol_id,
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::default(),
@@ -92,17 +85,10 @@ impl Swaption {
     pub fn new_receiver(
         id: impl Into<String>,
         params: &SwaptionParams,
-        market_refs: &MarketRefs,
+        disc_id: &'static str,
+        forward_id: &'static str,
+        vol_id: &'static str,
     ) -> Self {
-        let forward_id = market_refs
-            .fwd_id
-            .as_ref()
-            .expect("Forward curve required for swaptions");
-        let vol_id = market_refs
-            .vol_id
-            .as_ref()
-            .expect("Volatility surface required for swaptions");
-
         Self {
             id: id.into(),
             option_type: OptionType::Put,
@@ -116,9 +102,9 @@ impl Swaption {
             day_count: DayCount::Thirty360,
             exercise: SwaptionExercise::European,
             settlement: SwaptionSettlement::Physical,
-            disc_id: Box::leak(market_refs.disc_id.to_string().into_boxed_str()),
-            forward_id: Box::leak(forward_id.to_string().into_boxed_str()),
-            vol_id: Box::leak(vol_id.to_string().into_boxed_str()),
+            disc_id,
+            forward_id,
+            vol_id,
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::default(),

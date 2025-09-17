@@ -2,21 +2,23 @@
 //!
 //! The surface is defined on a rectangular grid of *option expiry* × *strike*
 //! nodes.  Values between nodes are obtained via **bilinear interpolation**
-//! which is sufficiently smooth and very fast for typical risk calculations.
+//! which is smooth enough for risk engines while staying computationally cheap.
 //!
-//! ## Construction Example
+//! # Examples
 //! ```rust
 //! use finstack_core::market_data::surfaces::vol_surface::VolSurface;
-//! let vs = VolSurface::builder("EQ-FLAT")
+//! use finstack_core::types::CurveId;
+//!
+//! let surface = VolSurface::builder("EQ-FLAT")
 //!     .expiries(&[1.0, 2.0])
 //!     .strikes(&[90.0, 100.0, 110.0])
-//!     .row(&[0.2, 0.2, 0.2])
-//!     .row(&[0.2, 0.2, 0.2])
+//!     .row(&[0.2, 0.21, 0.22])
+//!     .row(&[0.19, 0.2, 0.21])
 //!     .build()
 //!     .unwrap();
-//! assert!((vs.value(1.5, 95.0) - 0.2).abs() < 1e-12);
-//! assert!((vs.value_checked(1.5, 95.0).unwrap() - 0.2).abs() < 1e-12);
-//! assert!((vs.value_clamped(0.5, 80.0) - 0.2).abs() < 1e-12);
+//! assert_eq!(surface.id(), &CurveId::from("EQ-FLAT"));
+//! let v = surface.value_checked(1.5, 100.0).unwrap();
+//! assert!(v > 0.2);
 //! ```
 
 // Box and Vec are available from the standard prelude; no explicit alloc import needed.
@@ -57,6 +59,20 @@ pub struct VolSurfaceState {
 
 impl VolSurface {
     /// Start building a new volatility surface with identifier `id`.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::market_data::surfaces::vol_surface::VolSurface;
+    ///
+    /// let surface = VolSurface::builder("IR-SWAPTION")
+    ///     .expiries(&[1.0, 2.0])
+    ///     .strikes(&[0.01, 0.02])
+    ///     .row(&[0.25, 0.24])
+    ///     .row(&[0.23, 0.22])
+    ///     .build()
+    ///     .unwrap();
+    /// assert!(surface.value(1.5, 0.015) > 0.22);
+    /// ```
     pub fn builder(id: impl Into<CurveId>) -> VolSurfaceBuilder {
         VolSurfaceBuilder {
             id: id.into(),
@@ -106,7 +122,7 @@ impl VolSurface {
         Self::bilinear(q11, q21, q12, q22, t, u)
     }
 
-    /// Safe evaluation: returns Err if either coordinate is out of bounds.
+    /// Safe evaluation: returns `Err` if either coordinate is out of bounds.
     pub fn value_checked(&self, expiry: F, strike: F) -> crate::Result<F> {
         let (ie0, exact_e) = self.value_indices(self.expiries.as_ref(), expiry)?;
         let (is0, exact_s) = self.value_indices(self.strikes.as_ref(), strike)?;

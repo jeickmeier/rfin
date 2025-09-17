@@ -6,7 +6,7 @@
 //! - Putable bonds (lower OAS due to positive option value)
 //! - Convergence properties and edge cases
 
-use finstack_valuations::instruments::common::PricingOverrides;
+use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::instruments::fixed_income::bond::{
     oas_pricer::{calculate_oas, OASCalculator, OASPricerConfig},
     Bond, CallPut, CallPutSchedule,

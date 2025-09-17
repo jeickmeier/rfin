@@ -15,7 +15,7 @@
 //!
 //! ```rust
 //! use finstack_valuations::instruments::{Bond, InterestRateSwap, Deposit};
-//! use finstack_valuations::instruments::common::PricingOverrides;
+//! use finstack_valuations::instruments::PricingOverrides;
 //! use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention, StubKind};
 //! use finstack_core::money::Money;
 //! use finstack_core::currency::Currency;
@@ -93,12 +93,58 @@
 //! }
 //! ```
 
+use finstack_core::money::Money;
+use finstack_core::F;
+
+/// Pricing overrides for market-quoted instruments.
+///
+/// Optional parameters that override model pricing with market quotes.
+#[derive(Clone, Debug, Default)]
+pub struct PricingOverrides {
+    /// Quoted clean price (for bonds)
+    pub quoted_clean_price: Option<F>,
+    /// Implied volatility (overrides vol surface)
+    pub implied_volatility: Option<F>,
+    /// Quoted spread (for credit instruments)
+    pub quoted_spread_bp: Option<F>,
+    /// Upfront payment (for CDS, convertibles)
+    pub upfront_payment: Option<Money>,
+}
+
+impl PricingOverrides {
+    /// Create empty pricing overrides
+    pub fn none() -> Self {
+        Self::default()
+    }
+
+    /// Set quoted clean price
+    pub fn with_clean_price(mut self, price: F) -> Self {
+        self.quoted_clean_price = Some(price);
+        self
+    }
+
+    /// Set implied volatility
+    pub fn with_implied_vol(mut self, vol: F) -> Self {
+        self.implied_volatility = Some(vol);
+        self
+    }
+
+    /// Set quoted spread
+    pub fn with_spread_bp(mut self, spread_bp: F) -> Self {
+        self.quoted_spread_bp = Some(spread_bp);
+        self
+    }
+
+    /// Set upfront payment
+    pub fn with_upfront(mut self, upfront: Money) -> Self {
+        self.upfront_payment = Some(upfront);
+        self
+    }
+}
+
 // Macro infrastructure for reducing boilerplate
 #[macro_use]
 pub mod macros;
-
-// Common parameter grouping structures
-pub mod common;
 
 // Instrument-level traits and metadata
 pub mod traits;
@@ -107,6 +153,7 @@ pub mod traits;
 pub mod derivatives;
 pub mod equity;
 pub mod fixed_income;
+pub mod fx;
 // fx_spot moved under fixed_income
 pub mod options;
 pub mod structured_credit;
@@ -125,6 +172,8 @@ pub use options::{
     BinomialTree, CreditOption, EquityOption, ExerciseStyle, FxOption, InterestRateOption,
     OptionType, RateOptionType, SettlementType, Swaption, TreeType,
 };
+pub use fx::FxUnderlyingParams;
+pub use fixed_income::cds::CreditParams;
 
 pub use crate::metrics::{RiskMeasurable, RiskReport};
 pub use traits::{Attributes, Instrument};

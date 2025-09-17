@@ -1,13 +1,48 @@
 //! Foreign-exchange interfaces and a simplified FX matrix.
 //!
 //! Design goals:
-//! - Store raw FX quotes for currency pairs
-//! - Compute reciprocal and triangulated rates on demand
-//! - Provide simple, deterministic lookups with bounded LRU caching
+//! - store raw FX quotes for currency pairs
+//! - compute reciprocal and triangulated rates on demand
+//! - provide deterministic lookups with bounded LRU caching
 //!
 //! The public surface remains stable:
-//! - `FxProvider` trait for on-demand quotes
-//! - `FxMatrix` offering `rate(FxQuery)` for consumers and `MarketContext`
+//! - [`FxProvider`] trait for on-demand quotes
+//! - [`FxMatrix`] offering [`FxMatrix::rate`] for consumers and [`crate::market_data::context::MarketContext`]
+//!
+//! # Examples
+//! ```rust
+//! use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxQuery};
+//! use finstack_core::currency::Currency;
+//! use finstack_core::dates::Date;
+//! use std::sync::Arc;
+//! use time::Month;
+//!
+//! struct StaticFx;
+//! impl FxProvider for StaticFx {
+//!     fn rate(&self, from: Currency, to: Currency, _on: Date, _policy: FxConversionPolicy)
+//!         -> finstack_core::Result<f64>
+//!     {
+//!         let rate = match (from, to) {
+//!             (Currency::EUR, Currency::USD) => 1.1,
+//!             (Currency::USD, Currency::EUR) => 0.9,
+//!             _ => 1.0,
+//!         };
+//!         Ok(rate)
+//!     }
+//! }
+//!
+//! let matrix = FxMatrix::new(Arc::new(StaticFx));
+//! let date = Date::from_calendar_date(2024, Month::January, 5).unwrap();
+//! let res = matrix.rate(FxQuery {
+//!     from: Currency::EUR,
+//!     to: Currency::USD,
+//!     on: date,
+//!     policy: FxConversionPolicy::CashflowDate,
+//!     closure_check: None,
+//!     want_meta: false,
+//! }).unwrap();
+//! assert_eq!(res.rate, 1.1);
+//! ```
 
 
 use crate::currency::Currency;
@@ -24,7 +59,18 @@ use serde::{Deserialize, Serialize};
 /// Provider FX rate type alias - always f64.
 pub type FxRate = f64;
 
-/// Standard FX conversion strategies. These are metadata hints for providers.
+/// Standard FX conversion strategies used to hint FX providers.
+///
+/// The policy tells a provider *how* the rate will be applied so it can decide
+/// between spot, forward, or averaged sources.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::money::fx::FxConversionPolicy;
+///
+/// let policy = FxConversionPolicy::PeriodEnd;
+/// assert!(matches!(policy, FxConversionPolicy::PeriodEnd));
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
@@ -40,7 +86,28 @@ pub enum FxConversionPolicy {
     Custom,
 }
 
-/// FX rate lookup query
+/// FX rate lookup query used by [`FxMatrix::rate`].
+///
+/// Populate the struct manually or build bespoke helpers in downstream crates
+/// to capture portfolio-specific metadata.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::money::fx::{FxConversionPolicy, FxQuery};
+/// use finstack_core::currency::Currency;
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// let query = FxQuery {
+///     from: Currency::EUR,
+///     to: Currency::USD,
+///     on: Date::from_calendar_date(2024, Month::June, 3).unwrap(),
+///     policy: FxConversionPolicy::CashflowDate,
+///     closure_check: None,
+///     want_meta: true,
+/// };
+/// assert_eq!(query.from, Currency::EUR);
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -60,6 +127,21 @@ pub struct FxQuery {
 }
 
 /// Metadata describing the policy applied by the provider.
+///
+/// Attach [`FxPolicyMeta`] to valuation results so auditors can understand how
+/// FX conversions were sourced.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::money::fx::{FxConversionPolicy, FxPolicyMeta};
+///
+/// let meta = FxPolicyMeta {
+///     strategy: FxConversionPolicy::PeriodAverage,
+///     target_ccy: None,
+///     notes: "Calibrated on PME curve".to_string(),
+/// };
+/// assert!(meta.notes.contains("PME"));
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -86,7 +168,20 @@ impl Default for FxPolicyMeta {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct Pair(Currency, Currency);
 
-/// Configuration for FX matrix behavior
+/// Configuration for [`FxMatrix`] behaviour.
+///
+/// Controls cache sizing, triangulation pivot, and closure checks.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::money::fx::{FxConfig, FxConversionPolicy};
+/// use finstack_core::currency::Currency;
+///
+/// let mut cfg = FxConfig::default();
+/// cfg.pivot_currency = Currency::EUR;
+/// cfg.enable_triangulation = false;
+/// assert!(!cfg.enable_triangulation);
+/// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -134,10 +229,24 @@ pub enum ClosureCheckResult {
     },
 }
 
-/// Result of an FX rate lookup with triangulation metadata
+/// Result of an FX rate lookup with triangulation metadata.
 ///
 /// Serialization is available when the crate is built with the `serde` feature.
 /// The shape is stable and suitable for logs and result envelopes.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::money::fx::{FxRateResult, ClosureCheckResult};
+/// use finstack_core::currency::Currency;
+///
+/// let result = FxRateResult {
+///     rate: 1.0,
+///     triangulated: false,
+///     pivot_currency: Some(Currency::USD),
+///     closure: Some(ClosureCheckResult::Pass),
+/// };
+/// assert!(result.closure.is_some());
+/// ```
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -153,6 +262,40 @@ pub struct FxRateResult {
 }
 
 /// Trait for obtaining FX rates.
+///
+/// Implementations can be as simple as hard-coded tables or as complex as
+/// feed handlers. Providers should respect the supplied
+/// [`FxConversionPolicy`].
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::money::fx::{FxConversionPolicy, FxProvider};
+/// use finstack_core::currency::Currency;
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// struct StaticFx;
+/// impl FxProvider for StaticFx {
+///     fn rate(
+///         &self,
+///         _from: Currency,
+///         _to: Currency,
+///         _on: Date,
+///         _policy: FxConversionPolicy,
+///     ) -> finstack_core::Result<f64> {
+///         Ok(1.25)
+///     }
+/// }
+///
+/// let trade_date = Date::from_calendar_date(2024, Month::January, 10).unwrap();
+/// let quote = StaticFx.rate(
+///     Currency::EUR,
+///     Currency::USD,
+///     trade_date,
+///     FxConversionPolicy::CashflowDate,
+/// ).unwrap();
+/// assert_eq!(quote, 1.25);
+/// ```
 pub trait FxProvider: Send + Sync {
     /// Return a rate to convert `from` → `to` applicable on `on` per `policy`.
     fn rate(
@@ -166,9 +309,10 @@ pub trait FxProvider: Send + Sync {
 
 /// Simplified FX matrix that stores quotes and computes cross rates on demand.
 ///
-/// Note: `FxMatrix` cannot be directly serialized due to the trait object `Arc<dyn FxProvider>`.
-/// To persist FX state, use `get_serializable_state()` to extract the config and quotes,
-/// then recreate the matrix with `FxMatrix::with_config()` and `load_from_state()`.
+/// Note: `FxMatrix` cannot be directly serialized due to the trait object
+/// `Arc<dyn FxProvider>`. To persist FX state, use
+/// [`FxMatrix::get_serializable_state`] to extract the config and quotes, then
+/// recreate the matrix with [`FxMatrix::with_config`] and [`FxMatrix::load_from_state`].
 pub struct FxMatrix {
     provider: Arc<dyn FxProvider>,
     /// Explicit quotes inserted or observed from provider
@@ -188,19 +332,115 @@ pub struct FxMatrixState {
 }
 
 impl FxMatrix {
-    /// Create a new `FxMatrix` wrapping the given provider with default configuration
+    /// Create a new [`FxMatrix`] wrapping the given provider with the default configuration.
+    ///
+    /// # Parameters
+    /// - `provider`: FX quote source implementing [`FxProvider`]
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::money::fx::{FxMatrix, FxProvider, FxConversionPolicy};
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::Date;
+    /// use std::sync::Arc;
+    /// use time::Month;
+    ///
+    /// struct StaticFx;
+    /// impl FxProvider for StaticFx {
+    ///     fn rate(
+    ///         &self,
+    ///         _from: Currency,
+    ///         _to: Currency,
+    ///         _on: Date,
+    ///         _policy: FxConversionPolicy,
+    ///     ) -> finstack_core::Result<f64> {
+    ///         Ok(1.0)
+    ///     }
+    /// }
+    ///
+    /// let matrix = FxMatrix::new(Arc::new(StaticFx));
+    /// assert_eq!(matrix.cache_stats().0, 0);
+    /// ```
     pub fn new(provider: Arc<dyn FxProvider>) -> Self {
         Self::with_config(provider, FxConfig::default())
     }
 
-    /// Create a new `FxMatrix` with custom configuration
+    /// Create a new [`FxMatrix`] with custom configuration.
+    ///
+    /// # Parameters
+    /// - `provider`: FX quote source implementing [`FxProvider`]
+    /// - `config`: tuning knobs controlling cache size and triangulation behaviour
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::money::fx::{FxConfig, FxMatrix, FxProvider, FxConversionPolicy};
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::Date;
+    /// use std::sync::Arc;
+    /// use time::Month;
+    ///
+    /// struct StaticFx;
+    /// impl FxProvider for StaticFx {
+    ///     fn rate(
+    ///         &self,
+    ///         _from: Currency,
+    ///         _to: Currency,
+    ///         _on: Date,
+    ///         _policy: FxConversionPolicy,
+    ///     ) -> finstack_core::Result<f64> {
+    ///         Ok(1.0)
+    ///     }
+    /// }
+    ///
+    /// let mut cfg = FxConfig::default();
+    /// cfg.cache_capacity = 128;
+    /// let matrix = FxMatrix::with_config(Arc::new(StaticFx), cfg);
+    /// assert_eq!(matrix.cache_stats().0, 0);
+    /// ```
     pub fn with_config(provider: Arc<dyn FxProvider>, config: FxConfig) -> Self {
         let capacity = if config.cache_capacity == 0 { 1 } else { config.cache_capacity };
         let quotes = LruCache::new(NonZeroUsize::new(capacity).expect("non-zero capacity"));
         Self { provider, quotes: Mutex::new(quotes), config }
     }
 
-    /// Direct lookup from the implied matrix. Falls back to provider/triangulation if missing.
+    /// Look up an FX rate (with metadata) using caching and triangulation fallbacks.
+    ///
+    /// # Parameters
+    /// - `query`: [`FxQuery`] describing the desired conversion
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::money::fx::{FxMatrix, FxProvider, FxConversionPolicy, FxQuery};
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::Date;
+    /// use std::sync::Arc;
+    /// use time::Month;
+    ///
+    /// struct StaticFx;
+    /// impl FxProvider for StaticFx {
+    ///     fn rate(
+    ///         &self,
+    ///         _from: Currency,
+    ///         _to: Currency,
+    ///         _on: Date,
+    ///         _policy: FxConversionPolicy,
+    ///     ) -> finstack_core::Result<f64> {
+    ///         Ok(1.1)
+    ///     }
+    /// }
+    ///
+    /// let matrix = FxMatrix::new(Arc::new(StaticFx));
+    /// let query = FxQuery {
+    ///     from: Currency::EUR,
+    ///     to: Currency::USD,
+    ///     on: Date::from_calendar_date(2024, Month::March, 1).unwrap(),
+    ///     policy: FxConversionPolicy::CashflowDate,
+    ///     closure_check: None,
+    ///     want_meta: false,
+    /// };
+    /// let result = matrix.rate(query).unwrap();
+    /// assert!(result.rate > 1.0);
+    /// ```
     pub fn rate(&self, query: FxQuery) -> crate::Result<FxRateResult> {
         let from = query.from;
         let to = query.to;
@@ -287,11 +527,53 @@ impl FxMatrix {
     ///
     /// Note: This does not automatically insert a reciprocal. Lookups will use
     /// the reciprocal on demand if the opposite direction is requested.
+    ///
+    /// # Parameters
+    /// - `from`: base currency for the quote
+    /// - `to`: quote currency
+    /// - `rate`: raw FX rate (`from → to`)
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::money::fx::{FxMatrix, FxProvider, FxConversionPolicy, FxQuery};
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::Date;
+    /// use std::sync::Arc;
+    /// use time::Month;
+    ///
+    /// struct StaticFx;
+    /// impl FxProvider for StaticFx {
+    ///     fn rate(
+    ///         &self,
+    ///         _from: Currency,
+    ///         _to: Currency,
+    ///         _on: Date,
+    ///         _policy: FxConversionPolicy,
+    ///     ) -> finstack_core::Result<f64> {
+    ///         Ok(1.2)
+    ///     }
+    /// }
+    ///
+    /// let matrix = FxMatrix::new(Arc::new(StaticFx));
+    /// matrix.set_quote(Currency::GBP, Currency::USD, 1.3);
+    /// let res = matrix.rate(FxQuery {
+    ///     from: Currency::GBP,
+    ///     to: Currency::USD,
+    ///     on: Date::from_calendar_date(2024, Month::April, 1).unwrap(),
+    ///     policy: FxConversionPolicy::CashflowDate,
+    ///     closure_check: None,
+    ///     want_meta: false,
+    /// }).unwrap();
+    /// assert_eq!(res.rate, 1.3);
+    /// ```
     pub fn set_quote(&self, from: Currency, to: Currency, rate: FxRate) {
         self.insert_quote(from, to, rate);
     }
 
     /// Seed multiple quotes at once.
+    ///
+    /// # Parameters
+    /// - `quotes`: slice of `(from, to, rate)` tuples
     pub fn set_quotes(&self, quotes: &[(Currency, Currency, FxRate)]) {
         let mut map = self.quotes.lock();
         for &(from, to, rate) in quotes {
@@ -303,24 +585,93 @@ impl FxMatrix {
     ///
     /// Note: Quotes in this matrix are not timestamped, so we conservatively
     /// clear the entire cache. Callers that need finer-grained control should
-    /// seed quotes explicitly via `set_quote(s)`.
+    /// seed quotes explicitly via [`FxMatrix::set_quote`].
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
+    /// # use finstack_core::currency::Currency;
+    /// # use finstack_core::dates::Date;
+    /// # use std::sync::Arc;
+    /// # use time::Month;
+    /// # struct StaticFx;
+    /// # impl FxProvider for StaticFx {
+    /// #     fn rate(&self, _from: Currency, _to: Currency, _on: Date, _policy: FxConversionPolicy)
+    /// #         -> finstack_core::Result<f64> { Ok(1.0) }
+    /// # }
+    /// let matrix = FxMatrix::new(Arc::new(StaticFx));
+    /// matrix.clear_expired();
+    /// ```
     pub fn clear_expired(&self) {
         self.clear_cache();
     }
 
-    /// Clear all stored quotes
+    /// Clear all stored quotes.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
+    /// # use finstack_core::currency::Currency;
+    /// # use finstack_core::dates::Date;
+    /// # use std::sync::Arc;
+    /// # use time::Month;
+    /// # struct StaticFx;
+    /// # impl FxProvider for StaticFx {
+    /// #     fn rate(&self, _from: Currency, _to: Currency, _on: Date, _policy: FxConversionPolicy)
+    /// #         -> finstack_core::Result<f64> { Ok(1.0) }
+    /// # }
+    /// let matrix = FxMatrix::new(Arc::new(StaticFx));
+    /// matrix.clear_cache();
+    /// ```
     pub fn clear_cache(&self) {
         self.quotes.lock().clear();
     }
 
-    /// Get simple statistics: (num_quotes, 0)
+    /// Return `(cached_quotes, reserved)` stats for quick diagnostics.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
+    /// # use finstack_core::currency::Currency;
+    /// # use finstack_core::dates::Date;
+    /// # use std::sync::Arc;
+    /// # use time::Month;
+    /// # struct StaticFx;
+    /// # impl FxProvider for StaticFx {
+    /// #     fn rate(&self, _from: Currency, _to: Currency, _on: Date, _policy: FxConversionPolicy)
+    /// #         -> finstack_core::Result<f64> { Ok(1.0) }
+    /// # }
+    /// let matrix = FxMatrix::new(Arc::new(StaticFx));
+    /// assert_eq!(matrix.cache_stats().0, 0);
+    /// ```
     pub fn cache_stats(&self) -> (usize, usize) {
         let quotes = self.quotes.lock();
         (quotes.len(), 0)
     }
 
-    /// Extract serializable state from the FxMatrix.
+    /// Extract serializable state from the matrix.
+    ///
     /// Returns the configuration and current quotes that can be persisted.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use finstack_core::money::fx::{FxMatrix, FxProvider, FxConversionPolicy};
+    /// # use finstack_core::currency::Currency;
+    /// # use finstack_core::dates::Date;
+    /// # use std::sync::Arc;
+    /// # use time::Month;
+    /// # struct StaticFx;
+    /// # impl FxProvider for StaticFx {
+    /// #     fn rate(&self, _from: Currency, _to: Currency, _on: Date, _policy: FxConversionPolicy)
+    /// #         -> finstack_core::Result<f64> { Ok(1.0) }
+    /// # }
+    /// let matrix = FxMatrix::new(Arc::new(StaticFx));
+    /// # #[cfg(feature = "serde")]
+    /// # {
+    /// let state = matrix.get_serializable_state();
+    /// assert!(state.quotes.is_empty());
+    /// # }
+    /// ```
     #[cfg(feature = "serde")]
     pub fn get_serializable_state(&self) -> FxMatrixState {
         let quotes = self.quotes.lock();
@@ -335,7 +686,28 @@ impl FxMatrix {
     }
 
     /// Load quotes from a serialized state.
+    ///
     /// This allows restoring cached quotes after deserialization.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use finstack_core::money::fx::{FxMatrix, FxProvider, FxConversionPolicy, FxMatrixState};
+    /// # use finstack_core::currency::Currency;
+    /// # use finstack_core::dates::Date;
+    /// # use std::sync::Arc;
+    /// # use time::Month;
+    /// # struct StaticFx;
+    /// # impl FxProvider for StaticFx {
+    /// #     fn rate(&self, _from: Currency, _to: Currency, _on: Date, _policy: FxConversionPolicy)
+    /// #         -> finstack_core::Result<f64> { Ok(1.0) }
+    /// # }
+    /// # #[cfg(feature = "serde")]
+    /// # {
+    /// let matrix = FxMatrix::new(Arc::new(StaticFx));
+    /// let state = FxMatrixState { config: matrix.get_serializable_state().config, quotes: vec![] };
+    /// matrix.load_from_state(&state);
+    /// # }
+    /// ```
     #[cfg(feature = "serde")]
     pub fn load_from_state(&self, state: &FxMatrixState) {
         self.set_quotes(&state.quotes);

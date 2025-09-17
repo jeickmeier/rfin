@@ -1,6 +1,7 @@
 //! Equity option instrument implementation using Black-Scholes model.
 
-use crate::instruments::common::{EquityUnderlyingParams, MarketRefs, PricingOverrides};
+use crate::instruments::PricingOverrides;
+use crate::instruments::equity::EquityUnderlyingParams;
 use crate::instruments::options::models::{d1, d2};
 use crate::instruments::options::{ExerciseStyle, OptionType, SettlementType};
 use crate::instruments::traits::Attributes;
@@ -44,13 +45,10 @@ impl EquityOption {
         notional: Money,
         contract_size: F,
     ) -> Self {
-        use crate::instruments::common::{EquityUnderlyingParams, MarketRefs};
 
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT")
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
-
-        let market_refs = MarketRefs::option("USD-OIS", "EQUITY-VOL");
 
         // Build directly using derive-generated builder setters
         Self::builder()
@@ -63,9 +61,9 @@ impl EquityOption {
             .contract_size(underlying.contract_size)
             .day_count(finstack_core::dates::DayCount::Act365F)
             .settlement(SettlementType::Cash)
-            .disc_id(market_refs.disc_id)
+            .disc_id(CurveId::new("USD-OIS"))
             .spot_id(underlying.spot_id)
-            .vol_id(market_refs.vol_id.expect("vol surface id required"))
+            .vol_id(CurveId::new("EQUITY-VOL"))
             .div_yield_id_opt(underlying.dividend_yield_id)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -82,13 +80,10 @@ impl EquityOption {
         notional: Money,
         contract_size: F,
     ) -> Self {
-        use crate::instruments::common::{EquityUnderlyingParams, MarketRefs};
 
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT")
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
-
-        let market_refs = MarketRefs::option("USD-OIS", "EQUITY-VOL");
 
         Self::builder()
             .id(InstrumentId::new(id.into()))
@@ -100,9 +95,9 @@ impl EquityOption {
             .contract_size(underlying.contract_size)
             .day_count(finstack_core::dates::DayCount::Act365F)
             .settlement(SettlementType::Cash)
-            .disc_id(market_refs.disc_id)
+            .disc_id(CurveId::new("USD-OIS"))
             .spot_id(underlying.spot_id)
-            .vol_id(market_refs.vol_id.expect("vol surface id required"))
+            .vol_id(CurveId::new("EQUITY-VOL"))
             .div_yield_id_opt(underlying.dividend_yield_id)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -119,13 +114,10 @@ impl EquityOption {
         notional: Money,
         contract_size: F,
     ) -> Self {
-        use crate::instruments::common::{EquityUnderlyingParams, MarketRefs};
 
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT")
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
-
-        let market_refs = MarketRefs::option("USD-OIS", "EQUITY-VOL");
 
         Self::builder()
             .id(InstrumentId::new(id.into()))
@@ -137,9 +129,9 @@ impl EquityOption {
             .contract_size(underlying.contract_size)
             .day_count(finstack_core::dates::DayCount::Act365F)
             .settlement(SettlementType::Cash)
-            .disc_id(market_refs.disc_id)
+            .disc_id(CurveId::new("USD-OIS"))
             .spot_id(underlying.spot_id)
-            .vol_id(market_refs.vol_id.expect("vol surface id required"))
+            .vol_id(CurveId::new("EQUITY-VOL"))
             .div_yield_id_opt(underlying.dividend_yield_id)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -152,13 +144,9 @@ impl EquityOption {
         id: impl Into<String>,
         option_params: &EquityOptionParams,
         underlying_params: &EquityUnderlyingParams,
-        market_refs: &MarketRefs,
+        disc_id: CurveId,
+        vol_id: CurveId,
     ) -> Self {
-        let vol_id = market_refs
-            .vol_id
-            .as_ref()
-            .expect("Volatility surface required for equity options");
-
         Self {
             id: InstrumentId::new(id.into()),
             underlying_ticker: underlying_params.ticker.clone(),
@@ -169,9 +157,9 @@ impl EquityOption {
             contract_size: option_params.contract_size,
             day_count: finstack_core::dates::DayCount::Act365F,
             settlement: option_params.settlement,
-            disc_id: market_refs.disc_id.clone(),
+            disc_id,
             spot_id: underlying_params.spot_id.clone(),
-            vol_id: vol_id.clone(),
+            vol_id,
             div_yield_id: underlying_params.dividend_yield_id.clone(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),

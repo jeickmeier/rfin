@@ -8,7 +8,7 @@ use finstack_core::prelude::*;
 use finstack_core::F;
 
 use crate::cashflow::builder::{
-    cf, CouponType, FixedCouponSpec, FloatingCouponSpec as BuilderFloat,
+    cf, CouponType, FixedCouponSpec, FloatingCouponSpec as BuilderFloat, ScheduleParams,
 };
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::fixed_income::discountable::Discountable;
@@ -105,13 +105,12 @@ impl InterestRateSwap {
         start: Date,
         end: Date,
     ) -> Self {
-        use crate::instruments::common::InstrumentScheduleParams;
-        let sched = InstrumentScheduleParams::usd_standard();
+        let sched = ScheduleParams::usd_standard();
         let fixed = FixedLegSpec {
             disc_id: "USD-OIS",
             rate: fixed_rate,
-            freq: sched.frequency,
-            dc: sched.day_count,
+            freq: sched.freq,
+            dc: sched.dc,
             bdc: sched.bdc,
             calendar_id: sched.calendar_id,
             stub: sched.stub,
@@ -122,8 +121,8 @@ impl InterestRateSwap {
             disc_id: "USD-OIS",
             fwd_id: "USD-SOFR-3M",
             spread_bp: 0.0,
-            freq: sched.frequency,
-            dc: sched.day_count,
+            freq: sched.freq,
+            dc: sched.dc,
             bdc: sched.bdc,
             calendar_id: sched.calendar_id,
             stub: sched.stub,
@@ -148,14 +147,13 @@ impl InterestRateSwap {
         start: Date,
         end: Date,
     ) -> Self {
-        use crate::instruments::common::InstrumentScheduleParams;
 
-        let sched = InstrumentScheduleParams::usd_standard();
+        let sched = ScheduleParams::usd_standard();
         let fixed = FixedLegSpec {
             disc_id: "USD-OIS",
             rate: fixed_rate,
-            freq: sched.frequency,
-            dc: sched.day_count,
+            freq: sched.freq,
+            dc: sched.dc,
             bdc: sched.bdc,
             calendar_id: sched.calendar_id,
             stub: sched.stub,
@@ -166,8 +164,8 @@ impl InterestRateSwap {
             disc_id: "USD-OIS",
             fwd_id: "USD-SOFR-3M",
             spread_bp: 0.0,
-            freq: sched.frequency,
-            dc: sched.day_count,
+            freq: sched.freq,
+            dc: sched.dc,
             bdc: sched.bdc,
             calendar_id: sched.calendar_id,
             stub: sched.stub,
@@ -193,15 +191,14 @@ impl InterestRateSwap {
         primary_spread_bp: F,   // Spread on the "fixed" leg (really floating)
         reference_spread_bp: F, // Spread on the "float" leg
     ) -> Self {
-        use crate::instruments::common::InstrumentScheduleParams;
 
         // Approximate basis swap by using fixed leg to carry the primary spread as a fixed coupon
-        let sched = InstrumentScheduleParams::usd_standard();
+        let sched = ScheduleParams::usd_standard();
         let fixed = FixedLegSpec {
             disc_id: "USD-OIS",
             rate: primary_spread_bp * 1e-4,
-            freq: sched.frequency,
-            dc: sched.day_count,
+            freq: sched.freq,
+            dc: sched.dc,
             bdc: sched.bdc,
             calendar_id: sched.calendar_id,
             stub: sched.stub,
@@ -212,8 +209,8 @@ impl InterestRateSwap {
             disc_id: "USD-OIS",
             fwd_id: "USD-SOFR-6M",
             spread_bp: reference_spread_bp,
-            freq: sched.frequency,
-            dc: sched.day_count,
+            freq: sched.freq,
+            dc: sched.dc,
             bdc: sched.bdc,
             calendar_id: sched.calendar_id,
             stub: sched.stub,

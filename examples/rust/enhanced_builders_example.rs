@@ -8,9 +8,8 @@ use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use time::Month;
 
-use finstack_valuations::instruments::common::{
-    EquityUnderlyingParams, MarketRefs, PricingOverrides,
-};
+use finstack_valuations::instruments::PricingOverrides;
+use finstack_valuations::instruments::equity::EquityUnderlyingParams;
 use finstack_valuations::instruments::fixed_income::{
     cds::PayReceive as CdsPayReceive,
     irs::PayReceive,
@@ -76,6 +75,8 @@ fn main() -> finstack_core::Result<()> {
         150.0, // 150bp spread
         issue,
         maturity_5y,
+        "USD-OIS",
+        "AAPL-CREDIT",
     );
     println!("✓ CDS created: {} spread bp", cds.premium.spread_bp);
 
@@ -144,7 +145,8 @@ fn main() -> finstack_core::Result<()> {
     // Inline option params
     let option_type = ExerciseStyle::American;
 
-    let _market_refs = MarketRefs::option("USD-OIS", "TSLA-VOL");
+    let _disc_id = "USD-OIS";
+    let _vol_id = "TSLA-VOL";
 
     let pricing_overrides = PricingOverrides::none().with_implied_vol(0.45); // 45% implied vol override
 
@@ -158,9 +160,9 @@ fn main() -> finstack_core::Result<()> {
         .contract_size(underlying_params.contract_size)
         .day_count(finstack_core::dates::DayCount::Act365F)
         .settlement(finstack_valuations::instruments::SettlementType::Cash)
-        .disc_id(MarketRefs::option("USD-OIS", "TSLA-VOL").disc_id)
+        .disc_id("USD-OIS".into())
         .spot_id(underlying_params.spot_id)
-        .vol_id(MarketRefs::option("USD-OIS", "TSLA-VOL").vol_id.unwrap())
+        .vol_id("TSLA-VOL".into())
         .div_yield_id_opt(underlying_params.dividend_yield_id)
         .pricing_overrides(pricing_overrides)
         .attributes(finstack_valuations::instruments::traits::Attributes::new())
@@ -183,6 +185,8 @@ fn main() -> finstack_core::Result<()> {
         issue,
         maturity_5y,
         CdsPayReceive::PayProtection,
+        "USD-OIS",
+        "HY-CREDIT",
     );
     println!(
         "✓ High-yield CDS created: {}% recovery",
@@ -257,6 +261,7 @@ fn main() -> finstack_core::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use finstack_valuations::cashflow::builder::ScheduleParams;
 
     #[test]
     fn test_enhanced_builders_compile() {
@@ -270,18 +275,15 @@ mod tests {
         let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
 
         // Demonstrate parameter group reuse across instruments
-        let usd_schedule = InstrumentScheduleParams::usd_standard();
-        // DateRange deprecated; use explicit start/end in instrument builders
-        let usd_market_refs = MarketRefs::rates("USD-OIS", "USD-SOFR-3M");
+        let usd_schedule = ScheduleParams::usd_standard();
 
         // Use same parameter groups for multiple instruments
         let swap1 = InterestRateSwap::builder()
             .id("IRS-001")
             .notional(Money::new(10_000_000.0, Currency::USD))
             .side(PayReceive::PayFixed)
-            .date_range(date_range.clone())
-            .standard_fixed_leg("USD-OIS", 0.05, usd_schedule.clone())
-            .standard_float_leg("USD-OIS", "USD-SOFR-3M", 0.0, usd_schedule.clone())
+            .standard_fixed_leg("USD-OIS", 0.05, usd_schedule)
+            .standard_float_leg("USD-OIS", "USD-SOFR-3M", 0.0, usd_schedule)
             .build()
             .unwrap();
 
@@ -289,8 +291,7 @@ mod tests {
             .id("IRS-002")
             .notional(Money::new(5_000_000.0, Currency::USD))
             .side(PayReceive::ReceiveFixed)
-            .date_range(date_range)
-            .standard_fixed_leg("USD-OIS", 0.0475, usd_schedule.clone())
+            .standard_fixed_leg("USD-OIS", 0.0475, usd_schedule)
             .standard_float_leg("USD-OIS", "USD-SOFR-3M", 50.0, usd_schedule)
             .build()
             .unwrap();

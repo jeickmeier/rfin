@@ -8,10 +8,9 @@ use crate::{
         traits::{CashflowProvider, DatedFlows},
     },
     instruments::{
-        common::parameter_groups::{
-            validate_currency_consistency, EquityUnderlyingParams,
-        },
+        equity::EquityUnderlyingParams,
         traits::{Attributes, Priceable},
+        utils::validate_currency_consistency,
     },
     metrics::MetricId,
     results::ValuationResult,
@@ -198,7 +197,7 @@ impl CashflowProvider for EquityTotalReturnSwap {
         let period_schedule = build_dates(
             self.schedule.start,
             self.schedule.end,
-            self.schedule.params.frequency,
+            self.schedule.params.freq,
             self.schedule.params.stub,
             self.schedule.params.bdc,
             self.schedule.params.calendar_id,

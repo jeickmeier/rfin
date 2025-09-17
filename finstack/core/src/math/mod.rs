@@ -1,8 +1,24 @@
 //! Numerical helpers: root finding, summation, statistics, distributions, and mathematical functions.
 //!
-//! The implementations avoid heap allocation. When the
+//! The implementations avoid heap allocation where possible. When the
 //! `deterministic` feature is enabled, functions prefer numerically stable,
 //! order-preserving algorithms.
+//!
+//! # Examples
+//! ```rust
+//! use finstack_core::math::{Solver, mean, variance};
+//! use finstack_core::math::solver::NewtonSolver;
+//!
+//! // Root finding with Brent's method
+//! let solver = NewtonSolver::new();
+//! let root = solver.solve(|x| x * x - 2.0, 1.0).unwrap();
+//! assert!((root - 2f64.sqrt()).abs() < 1e-9);
+//!
+//! // Basic statistics helpers
+//! let data = [1.0, 2.0, 3.0, 4.0];
+//! assert_eq!(mean(&data), 2.5);
+//! assert_eq!(variance(&data), 1.25);
+//! ```
 
 pub mod distributions;
 pub mod integration;

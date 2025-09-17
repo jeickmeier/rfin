@@ -8,7 +8,7 @@ use finstack_core::prelude::*;
 use finstack_core::F;
 use finstack_valuations as _; // ensure crate is linked
 use finstack_valuations::cashflow::aggregation::aggregate_by_period;
-use finstack_valuations::instruments::common::PricingOverrides;
+use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::instruments::fixed_income::{bond, deposit, irs};
 use finstack_valuations::instruments::traits::Priceable;
 use finstack_valuations::metrics::{standard_registry, MetricContext};

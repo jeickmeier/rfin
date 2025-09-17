@@ -46,6 +46,18 @@ pub enum BumpUnits {
 }
 
 /// Unified bump specification capturing mode, units, and value.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::market_data::bumps::{BumpSpec, BumpMode, BumpUnits};
+///
+/// let additive = BumpSpec { mode: BumpMode::Additive, units: BumpUnits::RateBp, value: 15.0 };
+/// assert_eq!(additive.mode, BumpMode::Additive);
+/// assert_eq!(additive.units, BumpUnits::RateBp);
+///
+/// let multiplicative = BumpSpec::multiplier(1.05);
+/// assert_eq!(multiplicative.mode, BumpMode::Multiplicative);
+/// ```
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -145,7 +157,26 @@ pub trait Bumpable: Sized {
     fn apply_bump(&self, spec: BumpSpec) -> Option<Self>;
 }
 
-/// Generic function to bump any curve that implements Bumpable.
+/// Generic function to bump any curve that implements [`Bumpable`].
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::market_data::bumps::{bump_curve, BumpSpec};
+/// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+/// use finstack_core::market_data::term_structures::CurveBuilder;
+/// use finstack_core::math::interp::InterpStyle;
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// let curve = DiscountCurve::builder("USD-OIS")
+///     .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
+///    .knots([(0.0, 1.0), (1.0, 0.99)])
+///     .set_interp(InterpStyle::Linear)
+///     .build()
+///     .unwrap();
+/// let bumped = bump_curve(&curve, BumpSpec::parallel_bp(25.0)).unwrap();
+/// assert!(bumped.df(1.0) < curve.df(1.0));
+/// ```
 pub fn bump_curve<T: Bumpable>(curve: &T, spec: BumpSpec) -> Option<T> {
     curve.apply_bump(spec)
 }

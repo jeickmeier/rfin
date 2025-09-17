@@ -1,7 +1,8 @@
 //! Credit Default Swap (CDS) types and implementations.
 use finstack_core::market_data::traits::Survival;
 use crate::cashflow::traits::DatedFlows;
-use crate::instruments::common::{CreditParams, MarketRefs, PricingOverrides};
+use crate::instruments::PricingOverrides;
+use crate::instruments::fixed_income::cds::CreditParams;
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::traits::{Discounting};
@@ -133,6 +134,7 @@ pub struct CreditDefaultSwap {
 impl CreditDefaultSwap {
 
     /// Create a standard CDS with ISDA conventions (buy protection).
+    #[allow(clippy::too_many_arguments)]
     pub fn buy_protection(
         id: impl Into<String>,
         reference_entity: impl Into<String>,
@@ -140,26 +142,15 @@ impl CreditDefaultSwap {
         spread_bp: F,
         start: Date,
         maturity: Date,
+        disc_id: &'static str,
+        credit_id: &'static str,
     ) -> Self {
-        use crate::instruments::common::{CreditParams, MarketRefs};
-
-        let credit_params = CreditParams::investment_grade(reference_entity, "CREDIT-CURVE");
-        let market_refs = MarketRefs::credit("USD-OIS", "CREDIT-CURVE");
+        let credit_params = CreditParams::investment_grade(reference_entity, credit_id);
 
         let dc = CDSConvention::IsdaNa.day_count();
         let freq = CDSConvention::IsdaNa.frequency();
         let bdc = CDSConvention::IsdaNa.business_day_convention();
         let stub = CDSConvention::IsdaNa.stub_convention();
-
-        let disc_id = Box::leak(market_refs.disc_id.to_string().into_boxed_str());
-        let credit_id = Box::leak(
-            market_refs
-                .credit_id
-                .as_ref()
-                .expect("Credit curve required")
-                .to_string()
-                .into_boxed_str(),
-        );
 
         CreditDefaultSwapBuilder::new()
             .id(id.into())
@@ -191,6 +182,7 @@ impl CreditDefaultSwap {
     }
 
     /// Create a standard CDS with ISDA conventions (sell protection).
+    #[allow(clippy::too_many_arguments)]
     pub fn sell_protection(
         id: impl Into<String>,
         reference_entity: impl Into<String>,
@@ -198,26 +190,15 @@ impl CreditDefaultSwap {
         spread_bp: F,
         start: Date,
         maturity: Date,
+        disc_id: &'static str,
+        credit_id: &'static str,
     ) -> Self {
-        use crate::instruments::common::{CreditParams, MarketRefs};
-
-        let credit_params = CreditParams::investment_grade(reference_entity, "CREDIT-CURVE");
-        let market_refs = MarketRefs::credit("USD-OIS", "CREDIT-CURVE");
+        let credit_params = CreditParams::investment_grade(reference_entity, credit_id);
 
         let dc = CDSConvention::IsdaNa.day_count();
         let freq = CDSConvention::IsdaNa.frequency();
         let bdc = CDSConvention::IsdaNa.business_day_convention();
         let stub = CDSConvention::IsdaNa.stub_convention();
-
-        let disc_id = Box::leak(market_refs.disc_id.to_string().into_boxed_str());
-        let credit_id = Box::leak(
-            market_refs
-                .credit_id
-                .as_ref()
-                .expect("Credit curve required")
-                .to_string()
-                .into_boxed_str(),
-        );
 
         CreditDefaultSwapBuilder::new()
             .id(id.into())
@@ -249,6 +230,7 @@ impl CreditDefaultSwap {
     }
 
     /// Create a high-yield CDS with tighter recovery assumptions.
+    #[allow(clippy::too_many_arguments)]
     pub fn high_yield(
         id: impl Into<String>,
         reference_entity: impl Into<String>,
@@ -257,26 +239,15 @@ impl CreditDefaultSwap {
         start: Date,
         maturity: Date,
         side: PayReceive,
+        disc_id: &'static str,
+        credit_id: &'static str,
     ) -> Self {
-        use crate::instruments::common::{CreditParams, MarketRefs};
-
-        let credit_params = CreditParams::high_yield(reference_entity, "CREDIT-CURVE");
-        let market_refs = MarketRefs::credit("USD-OIS", "CREDIT-CURVE");
+        let credit_params = CreditParams::high_yield(reference_entity, credit_id);
 
         let dc = CDSConvention::IsdaNa.day_count();
         let freq = CDSConvention::IsdaNa.frequency();
         let bdc = CDSConvention::IsdaNa.business_day_convention();
         let stub = CDSConvention::IsdaNa.stub_convention();
-
-        let disc_id = Box::leak(market_refs.disc_id.to_string().into_boxed_str());
-        let credit_id = Box::leak(
-            market_refs
-                .credit_id
-                .as_ref()
-                .expect("Credit curve required")
-                .to_string()
-                .into_boxed_str(),
-        );
 
         CreditDefaultSwapBuilder::new()
             .id(id.into())
@@ -314,17 +285,13 @@ impl CreditDefaultSwap {
         start: finstack_core::dates::Date,
         end: finstack_core::dates::Date,
         credit_params: &CreditParams,
-        market_refs: &MarketRefs,
+        disc_id: &'static str,
+        credit_id: &'static str,
     ) -> Self {
         let dc = construction_params.convention.day_count();
         let freq = construction_params.convention.frequency();
         let bdc = construction_params.convention.business_day_convention();
         let stub = construction_params.convention.stub_convention();
-
-        let credit_id = market_refs
-            .credit_id
-            .as_ref()
-            .expect("Credit curve required for CDS");
 
         Self {
             id: id.into(),
@@ -341,10 +308,10 @@ impl CreditDefaultSwap {
                 calendar_id: None,
                 dc,
                 spread_bp: construction_params.spread_bp,
-                disc_id: Box::leak(market_refs.disc_id.to_string().into_boxed_str()),
+                disc_id,
             },
             protection: ProtectionLegSpec {
-                credit_id: Box::leak(credit_id.to_string().into_boxed_str()),
+                credit_id,
                 recovery_rate: credit_params.recovery_rate,
                 settlement: SettlementType::Cash,
                 settlement_delay: 3,

@@ -13,8 +13,39 @@ use crate::F;
 
 /// Minimal trait for discount curve polymorphism.
 /// Only implement this where you need to accept different discount curve types.
-/// 
-/// Most code should call methods directly on `DiscountCurve` for better discoverability.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::market_data::traits::{Discounting, TermStructure};
+/// use finstack_core::types::CurveId;
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// struct FlatCurve {
+///     id: CurveId,
+///     df_const: f64,
+/// }
+///
+/// impl FlatCurve {
+///     fn new(id: &str, df_const: f64) -> Self {
+///         Self { id: CurveId::from(id), df_const }
+///     }
+/// }
+///
+/// impl TermStructure for FlatCurve {
+///     fn id(&self) -> &CurveId { &self.id }
+/// }
+///
+/// impl Discounting for FlatCurve {
+///     fn base_date(&self) -> Date {
+///         Date::from_calendar_date(2025, Month::January, 1).unwrap()
+///     }
+///     fn df(&self, _t: f64) -> f64 { self.df_const }
+/// }
+///
+/// let curve = FlatCurve::new("USD", 0.97);
+/// assert!(curve.df(1.0) < 1.0);
+/// ```
 pub trait Discounting: TermStructure {
     /// Base (valuation) date of the curve.
     fn base_date(&self) -> Date;
@@ -44,7 +75,21 @@ pub trait Survival: TermStructure {
 }
 
 /// Minimal trait for term structure polymorphism where needed.
-/// Most code should call methods directly on concrete curve types.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::market_data::traits::TermStructure;
+/// use finstack_core::types::CurveId;
+///
+/// struct DummyCurve { id: CurveId }
+///
+/// impl TermStructure for DummyCurve {
+///     fn id(&self) -> &CurveId { &self.id }
+/// }
+///
+/// let curve = DummyCurve { id: CurveId::from("DUMMY") };
+/// assert_eq!(curve.id().as_str(), "DUMMY");
+/// ```
 pub trait TermStructure {
     /// Unique identifier of the term structure.
     fn id(&self) -> &crate::types::CurveId;

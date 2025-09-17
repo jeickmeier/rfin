@@ -46,12 +46,11 @@ use finstack_core::math::{
     norm_cdf as standard_normal_cdf, standard_normal_inv_cdf, GaussHermiteQuadrature,
 };
 use finstack_core::prelude::*;
+use finstack_core::F;
 
 #[cfg(test)]
 use finstack_core::math::log_factorial;
-#[cfg(test)]
-use finstack_core::types::CurveId;
-use finstack_core::F;
+// use finstack_core::types::CurveId;
 
 /// Parameters for the Gaussian Copula pricing model.
 #[derive(Clone, Debug)]
@@ -355,7 +354,8 @@ impl GaussianCopulaModel {
         market_factor: F,
     ) -> F {
         let sqrt_rho = correlation.sqrt();
-        let sqrt_one_minus_rho = (1.0 - correlation).sqrt();
+        let one_minus_rho: F = 1.0 - correlation;
+        let sqrt_one_minus_rho = one_minus_rho.sqrt();
 
         let conditional_threshold =
             (default_threshold - sqrt_rho * market_factor) / sqrt_one_minus_rho;
@@ -396,6 +396,7 @@ impl GaussianCopulaModel {
         let sqrt_one_minus_rho = if one_minus_rho < 1e-15 {
             1e-7 // Minimum practical value to avoid division by zero
         } else {
+            let one_minus_rho: F = 1.0 - correlation;
             one_minus_rho.sqrt()
         };
 
@@ -909,22 +910,13 @@ mod tests {
                 maturity,                                           // maturity
                 500.0,                                              // running_coupon_bp (5%)
             );
-            let schedule_params = crate::instruments::common::InstrumentScheduleParams {
-                frequency: finstack_core::dates::Frequency::quarterly(),
-                day_count: finstack_core::dates::DayCount::Act360,
-                bdc: finstack_core::dates::BusinessDayConvention::Following,
-                calendar_id: None,
-                stub: finstack_core::dates::StubKind::None,
-            };
-            let market_refs = crate::instruments::common::MarketRefs::discount_only(
-                CurveId::new("USD-OIS"),
-            ).with_credit(CurveId::new("CDX.NA.IG.42"));
-
+            let schedule_params = crate::cashflow::builder::ScheduleParams::quarterly_act360();
             CdsTranche::new(
                 "CDX_IG42_3_7_5Y",
                 &tranche_params,
                 &schedule_params,
-                &market_refs,
+                "USD-OIS",
+                "CDX.NA.IG.42",
                 TrancheSide::SellProtection,
             )
         }

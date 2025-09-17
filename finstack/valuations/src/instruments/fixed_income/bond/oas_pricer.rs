@@ -9,7 +9,7 @@ use super::Bond;
 use super::CallPut;
 use crate::cashflow::traits::CashflowProvider;
 #[cfg(test)]
-use crate::instruments::common::PricingOverrides;
+use crate::instruments::PricingOverrides;
 use crate::instruments::options::models::{
     short_rate_keys, NodeState, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
     TreeValuator,

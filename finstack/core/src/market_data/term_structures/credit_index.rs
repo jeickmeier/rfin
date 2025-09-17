@@ -72,6 +72,45 @@ impl CreditIndexData {
 }
 
 /// Builder for creating credit index data.
+///
+/// The builder collects index-wide metadata (constituent count, recovery) and
+/// attaches the market curves required for tranche pricing.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::market_data::term_structures::{
+///     credit_index::CreditIndexData,
+///     hazard_curve::HazardCurve,
+///     base_correlation::BaseCorrelationCurve,
+///     CurveBuilder,
+/// };
+/// use finstack_core::dates::Date;
+/// use std::sync::Arc;
+/// use time::Month;
+///
+/// let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+/// let hazard = Arc::new(
+///     HazardCurve::builder("CDX")
+///         .base_date(base)
+///         .knots([(0.0, 0.01), (5.0, 0.015)])
+///         .build()
+///         .unwrap(),
+/// );
+/// let base_corr = Arc::new(
+///     BaseCorrelationCurve::builder("CDX")
+///         .points([(3.0, 0.25), (10.0, 0.55)])
+///         .build()
+///         .unwrap(),
+/// );
+/// let index = CreditIndexData::builder()
+///     .num_constituents(125)
+///     .recovery_rate(0.4)
+///     .index_credit_curve(hazard)
+///     .base_correlation_curve(base_corr)
+///     .build()
+///     .unwrap();
+/// assert_eq!(index.num_constituents, 125);
+/// ```
 #[derive(Default)]
 pub struct CreditIndexDataBuilder {
     num_constituents: Option<u16>,

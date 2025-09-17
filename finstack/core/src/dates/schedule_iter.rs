@@ -7,9 +7,12 @@
 //! --------
 //! Plain monthly schedule:
 //! ```
-//! use finstack_core::dates::{ScheduleBuilder, Frequency};
-//! # use time::macros::date;
-//! let sched = ScheduleBuilder::new(date!(2025-01-15), date!(2025-04-15))
+//! use finstack_core::dates::{ScheduleBuilder, Frequency, Date};
+//! use time::Month;
+//!
+//! let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+//! let end = Date::from_calendar_date(2025, Month::April, 15).unwrap();
+//! let sched = ScheduleBuilder::new(start, end)
 //!     .frequency(Frequency::monthly())
 //!     .build()
 //!     .unwrap();
@@ -20,9 +23,12 @@
 //! CDS IMM schedule (quarterly on 20-Mar/Jun/Sep/Dec), start auto-adjusts to next
 //! roll if needed:
 //! ```
-//! use finstack_core::dates::ScheduleBuilder;
-//! # use time::macros::date;
-//! let sched = ScheduleBuilder::new(date!(2025-01-15), date!(2025-12-20))
+//! use finstack_core::dates::{ScheduleBuilder, Date};
+//! use time::Month;
+//!
+//! let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+//! let end = Date::from_calendar_date(2025, Month::December, 20).unwrap();
+//! let sched = ScheduleBuilder::new(start, end)
 //!     .cds_imm()
 //!     .build()
 //!     .unwrap();

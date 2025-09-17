@@ -7,7 +7,13 @@
 //! ## Example
 //! ```rust
 //! use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+//! use finstack_core::market_data::term_structures::CurveBuilder;
+//! use finstack_core::dates::Date;
+//! use time::Month;
+//!
+//! let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 //! let hc = HazardCurve::builder("USD-CRED")
+//!     .base_date(base)
 //!     .knots([(0.0, 0.01), (10.0, 0.015)])
 //!     .build()
 //!     .unwrap();

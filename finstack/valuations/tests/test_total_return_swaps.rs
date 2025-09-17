@@ -10,11 +10,10 @@ use finstack_core::{
     math::interp::InterpStyle,
     money::Money,
 };
+use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::{
-    common::parameter_groups::{
-        EquityUnderlyingParams, InstrumentScheduleParams,
-    },
     derivatives::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap, TrsSide},
+    equity::EquityUnderlyingParams,
     traits::Priceable,
 };
 use finstack_valuations::instruments::derivatives::trs::parameters::IndexUnderlyingParams;
@@ -72,7 +71,7 @@ fn test_equity_trs_creation() {
         .with_dividend_yield("SPX-DIV-YIELD")
         .with_contract_size(1.0);
 
-    let sched = InstrumentScheduleParams::quarterly_act360();
+    let sched = ScheduleParams::quarterly_act360();
 
     let trs = EquityTotalReturnSwap::builder()
         .id("TRS-SPX-001".into())
@@ -103,7 +102,7 @@ fn test_equity_trs_pricing() {
         .with_dividend_yield("SPX-DIV-YIELD")
         .with_contract_size(1.0);
 
-    let sched = InstrumentScheduleParams::quarterly_act360();
+    let sched = ScheduleParams::quarterly_act360();
 
     let trs = EquityTotalReturnSwap::builder()
         .id("TRS-SPX-001".into())
@@ -147,7 +146,7 @@ fn test_equity_trs_delta() {
         .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
             as_of,
             Date::from_calendar_date(2026, Month::January, 2).unwrap(),
-            InstrumentScheduleParams::quarterly_act360(),
+            ScheduleParams::quarterly_act360(),
         ))
         .side(TrsSide::ReceiveTotalReturn)
         .build()
@@ -170,7 +169,7 @@ fn test_fi_index_trs_creation() {
         .with_duration("HY-INDEX-DURATION")
         .with_contract_size(1.0);
 
-    let sched = InstrumentScheduleParams::quarterly_act360();
+    let sched = ScheduleParams::quarterly_act360();
 
     let trs = FIIndexTotalReturnSwap::builder()
         .id("TRS-HY-001".into())
@@ -210,7 +209,7 @@ fn test_fi_index_trs_par_spread() {
         .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
             as_of,
             Date::from_calendar_date(2026, Month::January, 2).unwrap(),
-            InstrumentScheduleParams::quarterly_act360(),
+            ScheduleParams::quarterly_act360(),
         ))
         .side(TrsSide::ReceiveTotalReturn)
         .build()
@@ -241,7 +240,7 @@ fn test_currency_safety() {
         .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
             as_of,
             Date::from_calendar_date(2026, Month::January, 2).unwrap(),
-            InstrumentScheduleParams::quarterly_act360(),
+            ScheduleParams::quarterly_act360(),
         ))
         .build();
 
@@ -265,7 +264,7 @@ fn test_trs_cashflow_schedule() {
         .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
             as_of,
             Date::from_calendar_date(2026, Month::January, 2).unwrap(),
-            InstrumentScheduleParams::quarterly_act360(),
+            ScheduleParams::quarterly_act360(),
         ))
         .side(TrsSide::ReceiveTotalReturn)
         .build()
@@ -301,7 +300,7 @@ fn test_pay_vs_receive_total_return() {
         .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
             as_of,
             Date::from_calendar_date(2026, Month::January, 2).unwrap(),
-            InstrumentScheduleParams::quarterly_act360(),
+            ScheduleParams::quarterly_act360(),
         ))
         .side(TrsSide::ReceiveTotalReturn)
         .build()
@@ -316,7 +315,7 @@ fn test_pay_vs_receive_total_return() {
         .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
             as_of,
             Date::from_calendar_date(2026, Month::January, 2).unwrap(),
-            InstrumentScheduleParams::quarterly_act360(),
+            ScheduleParams::quarterly_act360(),
         ))
         .side(TrsSide::PayTotalReturn)
         .build()

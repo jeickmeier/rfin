@@ -3,7 +3,7 @@
 //! Provides a straightforward approach to calibrate complete market environments
 //! from instrument quotes without over-engineering.
 
-use crate::calibration::bootstrap::{
+use crate::calibration::methods::{
     BaseCorrelationCalibrator, DiscountCurveCalibrator, ForwardCurveCalibrator,
     HazardCurveCalibrator, InflationCurveCalibrator, VolSurfaceCalibrator,
 };
@@ -481,7 +481,7 @@ impl SimpleCalibration {
 
         // Handle swaption quotes if present
         if !swaption_quotes.is_empty() {
-            use crate::calibration::bootstrap::swaption_vol::{
+            use crate::calibration::methods::swaption_vol::{
                 AtmStrikeConvention, SwaptionVolCalibrator, SwaptionVolConvention,
             };
 

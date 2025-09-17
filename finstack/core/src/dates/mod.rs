@@ -1,21 +1,38 @@
-//! Finance date helpers – facade over the `time` crate
+//! Date utilities: business-day adjustments, day-counts, schedules, IMM helpers.
 //!
-//! The `finstack_core::dates` module deliberately keeps its public surface **very small**:
-//! it only re-exports the most commonly used value types from the [`time`](https://docs.rs/time)
-//! crate so that downstream code does not have to depend on it directly.  This allows
-//! the RustFin project to absorb upstream `time` version bumps behind a stable façade.
+//! This module wraps the [`time`](https://docs.rs/time) crate and exposes
+//! domain-specific helpers commonly needed by pricing engines. Everything is
+//! available through [`finstack_core::dates`], keeping downstream dependencies
+//! small and version-stable.
 //!
-//! We compile the `time` crate with `default-features = false` to keep dependencies
-//! lean while still providing the core value types we need.
+//! # Highlights
+//! - ergonomic re-exports of `time` primitives (`Date`, `OffsetDateTime`, …)
+//! - holiday calendars and business-day conventions (`adjust`, `HolidayCalendar`)
+//! - schedule generation utilities (`ScheduleBuilder`)
+//! - IMM/third-Wednesday helpers for derivatives roll dates
 //!
-//! # Re-exported items
-//! * [`Date`]
-//! * [`PrimitiveDateTime`]
-//! * [`OffsetDateTime`]
+//! # Examples
+//! ```rust
+//! use finstack_core::dates::{
+//!     adjust, build_periods, BusinessDayConvention, Date, Frequency, ScheduleBuilder,
+//! };
+//! use finstack_core::dates::calendar::Target2;
+//! use time::{Duration, Month};
 //!
-//! More specialised helpers (day-count, business-day logic, schedule builder, …) will
-//! be introduced in follow-up pull-requests.  For now this module is intentionally
-//! lightweight and free of additional abstractions.
+//! let trade_date = Date::from_calendar_date(2024, Month::March, 29).unwrap();
+//! let adjusted = adjust(trade_date, BusinessDayConvention::Following, &Target2).unwrap();
+//! assert!(adjusted >= trade_date);
+//!
+//! let end = trade_date + Duration::days(365);
+//! let schedule = ScheduleBuilder::new(trade_date, end)
+//!     .frequency(Frequency::quarterly())
+//!     .build()
+//!     .unwrap();
+//! assert!(schedule.dates.len() >= 4);
+//!
+//! let periods = build_periods("2024Q1..Q4", None).unwrap();
+//! assert_eq!(periods.periods.len(), 4);
+//! ```
 
 // ----------------------------------------------------------------------------------
 // Re-exports – keep list short & focused

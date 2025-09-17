@@ -15,8 +15,9 @@ use finstack_valuations::instruments::options::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::{
     CreditDefaultSwap, CreditOption, EquityOption, FxOption, InflationLinkedBond,
 };
+#[allow(unused_imports)]
 use finstack_valuations::instruments::options::cap_floor::InterestRateOption;
-use finstack_valuations::instruments::common::MarketRefs;
+use finstack_core::types::CurveId;
 use time::Month;
 
 #[test]
@@ -31,22 +32,19 @@ fn test_cds_creation_and_basic_pricing() {
         100.0, // 100bp spread
     );
     // DateRange inlined; start/end passed directly to constructor
-    let credit_params = finstack_valuations::instruments::common::CreditParams::new(
+    let credit_params = finstack_valuations::instruments::CreditParams::new(
         "ABC Corp",
         0.4, // 40% recovery
         "ABC-SENIOR",
     );
-    let market_refs = finstack_valuations::instruments::common::MarketRefs::discount_only(
-        finstack_core::types::CurveId::new("USD-OIS"),
-    ).with_credit(finstack_core::types::CurveId::new("ABC-SENIOR"));
-
     let cds = CreditDefaultSwap::new_isda(
         "CDS_TEST",
         &construction_params,
         start,
         end,
         &credit_params,
-        &market_refs,
+        "USD-OIS",
+        "ABC-SENIOR",
     );
 
     assert_eq!(cds.id, "CDS_TEST");
@@ -66,20 +64,16 @@ fn test_equity_option_creation() {
         expiry,
         100.0, // Contract size
     );
-    let underlying_params = finstack_valuations::instruments::common::EquityUnderlyingParams::new(
+    let underlying_params = finstack_valuations::instruments::equity::EquityUnderlyingParams::new(
         "AAPL",
         "AAPL-SPOT",
     );
-    let market_refs = finstack_valuations::instruments::common::MarketRefs::option(
-        finstack_core::types::CurveId::new("USD-OIS"),
-        finstack_core::types::CurveId::new("AAPL-VOL"),
-    );
-
     let option = EquityOption::new(
         "AAPL_CALL_100",
         &option_params,
         &underlying_params,
-        &market_refs,
+        CurveId::new("USD-OIS"),
+        CurveId::new("AAPL-VOL"),
     );
 
     assert_eq!(option.id, "AAPL_CALL_100".into());
@@ -116,7 +110,7 @@ fn test_fx_option_creation() {
         expiry,
         notional,
     );
-    let underlying_params = finstack_valuations::instruments::common::FxUnderlyingParams::new(
+    let underlying_params = finstack_valuations::instruments::fx::FxUnderlyingParams::new(
         Currency::EUR,
         Currency::USD,
         "USD-OIS",
@@ -155,14 +149,14 @@ fn test_interest_rate_option_creation() {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
-    let mr = MarketRefs::rates("USD-OIS", "USD-LIBOR-3M").with_volatility("USD-CAP-VOL");
+    use finstack_valuations::instruments::options::cap_floor::InterestRateOption;
     let params = InterestRateOptionParams::cap(
         notional,
         0.03,
         Frequency::quarterly(),
         DayCount::Act360,
     );
-    let cap = InterestRateOption::new("USD_CAP_3%", &params, start, end, &mr);
+    let cap = InterestRateOption::new("USD_CAP_3%", &params, start, end, "USD-OIS", "USD-LIBOR-3M", "USD-CAP-VOL");
 
     assert_eq!(cap.id, "USD_CAP_3%");
     assert_eq!(cap.strike_rate, 0.03);
@@ -181,21 +175,18 @@ fn test_credit_option_creation() {
         cds_maturity,
         notional,
     );
-    let credit_params = finstack_valuations::instruments::common::CreditParams::new(
+    let credit_params = finstack_valuations::instruments::CreditParams::new(
         "ABC Corp",
         0.4, // 40% recovery
         "ABC-SENIOR",
     );
-    let market_refs = finstack_valuations::instruments::common::MarketRefs::discount_only(
-        finstack_core::types::CurveId::new("USD-OIS"),
-    ).with_credit(finstack_core::types::CurveId::new("ABC-SENIOR"))
-        .with_volatility(finstack_core::types::CurveId::new("ABC-CDS-VOL"));
-
     let option = CreditOption::new(
         "ABC_CDS_CALL_200",
         &option_params,
         &credit_params,
-        &market_refs,
+        "USD-OIS",
+        "ABC-SENIOR",
+        "ABC-CDS-VOL",
     );
 
     assert_eq!(option.id, "ABC_CDS_CALL_200");

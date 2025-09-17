@@ -1,7 +1,31 @@
-//! Inflation indices (CPI/RPI) – wrapper over ScalarTimeSeries with optional seasonality
+//! Inflation indices (CPI/RPI) with lagging and optional seasonality.
 //!
-//! This module wraps [`ScalarTimeSeries`] to provide an inflation index surface with
-//! lag handling and optional monthly seasonality, avoiding duplicate interpolation code.
+//! Wraps [`ScalarTimeSeries`] so that consumer-price indices can be queried with
+//! lag policies and monthly seasonality adjustments. Values can be retrieved as
+//! actual index levels or converted to ratios for inflation-linked contracts.
+//!
+//! # Examples
+//! ```rust
+//! use finstack_core::market_data::scalars::inflation_index::{
+//!     InflationIndex, InflationInterpolation, InflationLag,
+//! };
+//! use finstack_core::currency::Currency;
+//! use finstack_core::dates::Date;
+//! use time::Month;
+//!
+//! let observations = vec![
+//!     (Date::from_calendar_date(2024, Month::January, 31).unwrap(), 300.0),
+//!     (Date::from_calendar_date(2024, Month::February, 29).unwrap(), 302.0),
+//! ];
+//! let index = InflationIndex::new("US-CPI", observations, Currency::USD)
+//!     .unwrap()
+//!     .with_interpolation(InflationInterpolation::Linear)
+//!     .with_lag(InflationLag::Months(3));
+//! let settle = Date::from_calendar_date(2024, Month::June, 30).unwrap();
+//! let base = Date::from_calendar_date(2024, Month::March, 31).unwrap();
+//! let ratio = index.ratio(base, settle).unwrap();
+//! assert!(ratio > 1.0);
+//! ```
 
 use crate::currency::Currency;
 use crate::dates::Date;
@@ -50,13 +74,11 @@ impl Default for InflationLag {
     }
 }
 
-/// Inflation index provider using Polars DataFrames
+/// Inflation index provider using Polars DataFrames.
 ///
-/// Stores economic index observations (CPI/RPI) in a Polars DataFrame
-/// with columns: date, value, and optional seasonality factors.
-///
-/// Note: This struct cannot be directly serialized due to the internal DataFrame.
-/// Use the builder pattern to reconstruct from observations after deserialization.
+/// Stores CPI/RPI observations, applies lagging, and optionally injects
+/// monthly seasonality factors. The underlying [`ScalarTimeSeries`] is kept
+/// private so callers use high-level APIs (`value_on`, `ratio`).
 #[derive(Clone, Debug)]
 pub struct InflationIndex {
     /// Unique identifier for this index (e.g., "US-CPI-U", "UK-RPI")
@@ -74,12 +96,12 @@ pub struct InflationIndex {
 }
 
 impl InflationIndex {
-    /// Create a new inflation index from observations
+    /// Create a new inflation index from observations.
     ///
-    /// # Arguments
-    /// * `id` - Unique identifier (e.g., "US-CPI-U")
-    /// * `observations` - Vector of (date, value) tuples
-    /// * `currency` - Currency of the index
+    /// # Parameters
+    /// - `id`: stable identifier, e.g. `"US-CPI-U"`
+    /// - `observations`: `(Date, value)` pairs in chronological order
+    /// - `currency`: reporting currency
     pub fn new(
         id: impl Into<String>,
         observations: Vec<(Date, f64)>,
@@ -102,25 +124,25 @@ impl InflationIndex {
         })
     }
 
-    /// Set the interpolation method
+    /// Set the interpolation method between observations.
     pub fn with_interpolation(mut self, interpolation: InflationInterpolation) -> Self {
         self.interpolation = interpolation;
         self
     }
 
-    /// Set the lag policy
+    /// Set the lag policy applied before lookups.
     pub fn with_lag(mut self, lag: InflationLag) -> Self {
         self.lag = lag;
         self
     }
 
-    /// Add seasonal adjustment factors (12 monthly factors)
+    /// Add seasonal adjustment factors (one per calendar month).
     pub fn with_seasonality(mut self, factors: [f64; 12]) -> Result<Self> {
         self.seasonality = Some(factors);
         Ok(self)
     }
 
-    /// Get the index value on a given date with interpolation and adjustments
+    /// Get the index value on a given date with interpolation and adjustments.
     pub fn value_on(&self, date: Date) -> Result<f64> {
         // Apply lag to get the effective date
         let effective_date = self.apply_lag(date)?;
@@ -138,7 +160,7 @@ impl InflationIndex {
         Ok(adjusted_value)
     }
 
-    /// Calculate index ratio I(settle_date)/I(base_date)
+    /// Calculate the index ratio `I(settle_date) / I(base_date)`.
     pub fn ratio(&self, base_date: Date, settle_date: Date) -> Result<f64> {
         let base_value = self.value_on(base_date)?;
         let settle_value = self.value_on(settle_date)?;

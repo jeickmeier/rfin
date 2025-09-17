@@ -11,8 +11,8 @@ use crate::{
         traits::{CashflowProvider, DatedFlows},
     },
     instruments::{
-        common::parameter_groups::validate_currency_consistency,
         traits::{Attributes, Priceable},
+        utils::validate_currency_consistency,
     },
     metrics::MetricId,
     results::ValuationResult,
@@ -109,8 +109,7 @@ impl FIIndexTotalReturnSwap {
                 let ctx = DayCountCtx::default();
                 let yf = self
                     .schedule
-                    .params
-                    .day_count
+                    .params.dc
                     .year_fraction(period_start, period_end, ctx)?;
 
                 // Carry component: yield * time
@@ -219,7 +218,7 @@ impl CashflowProvider for FIIndexTotalReturnSwap {
         let period_schedule = build_dates(
             self.schedule.start,
             self.schedule.end,
-            self.schedule.params.frequency,
+            self.schedule.params.freq,
             self.schedule.params.stub,
             self.schedule.params.bdc,
             self.schedule.params.calendar_id,

@@ -20,28 +20,34 @@
 //! [`crate::math::interp::InterpStyle`] via a single `set_interp(...)`
 //! method on their builders.
 //!
-//! ## Example – building three curves and bundling them in a `MarketContext`
-//! ```no_run
-//! use finstack_core::market_data::term_structures::*;
+//! ## Example – assembling curves inside a `MarketContext`
+//! ```rust
+//! use finstack_core::market_data::term_structures::{
+//!     discount_curve::DiscountCurve,
+//!     forward_curve::ForwardCurve,
+//!     hazard_curve::HazardCurve,
+//!     CurveBuilder,
+//! };
 //! use finstack_core::market_data::MarketContext;
+//! use finstack_core::math::interp::InterpStyle;
 //! use finstack_core::dates::Date;
 //! use time::Month;
-//! # use finstack_core::math::interp::InterpStyle;
 //!
+//! let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 //! let disc = DiscountCurve::builder("USD-OIS")
-//!     .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
+//!     .base_date(base)
 //!     .knots([(0.0, 1.0), (5.0, 0.88)])
 //!     .set_interp(InterpStyle::MonotoneConvex)
 //!     .build()
 //!     .unwrap();
-//!
 //! let fwd3m = ForwardCurve::builder("USD-SOFR3M", 0.25)
+//!     .base_date(base)
 //!     .knots([(0.0, 0.03), (5.0, 0.04)])
 //!     .set_interp(InterpStyle::Linear)
 //!     .build()
 //!     .unwrap();
-//!
 //! let hazard = HazardCurve::builder("USD-CRED")
+//!     .base_date(base)
 //!     .knots([(0.0, 0.01), (10.0, 0.015)])
 //!     .build()
 //!     .unwrap();
@@ -50,7 +56,6 @@
 //!     .insert_discount(disc)
 //!     .insert_forward(fwd3m)
 //!     .insert_hazard(hazard);
-//! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 //! assert!(curves.get::<DiscountCurve>("USD-OIS").is_ok());
 //! ```
 

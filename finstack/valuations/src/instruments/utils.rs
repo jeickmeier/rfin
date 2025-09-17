@@ -50,3 +50,21 @@ pub fn build_with_metrics_dyn(
     result.measures = measures;
     Ok(result)
 }
+
+/// Ensure all money amounts in a collection share the same currency.
+pub fn validate_currency_consistency(amounts: &[Money]) -> finstack_core::Result<()> {
+    if amounts.is_empty() {
+        return Ok(());
+    }
+
+    let expected_currency = amounts[0].currency();
+    for amount in amounts.iter().skip(1) {
+        if amount.currency() != expected_currency {
+            return Err(finstack_core::Error::CurrencyMismatch {
+                expected: expected_currency,
+                actual: amount.currency(),
+            });
+        }
+    }
+    Ok(())
+}

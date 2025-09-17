@@ -102,6 +102,7 @@ pub enum FeeBase {
     Undrawn { facility_limit: Money },
 }
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Debug, Clone, Copy)]
 pub struct ScheduleParams {
     pub freq: Frequency,
@@ -109,6 +110,63 @@ pub struct ScheduleParams {
     pub bdc: BusinessDayConvention,
     pub calendar_id: Option<&'static str>,
     pub stub: StubKind,
+}
+
+impl ScheduleParams {
+    /// Quarterly payments with Act/360 day count and Following BDC
+    pub fn quarterly_act360() -> Self {
+        Self {
+            freq: Frequency::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
+        }
+    }
+
+    /// Semi-annual payments with 30/360 day count and Modified Following BDC
+    pub fn semiannual_30360() -> Self {
+        Self {
+            freq: Frequency::semi_annual(),
+            dc: DayCount::Thirty360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::None,
+        }
+    }
+
+    /// Annual payments with Act/Act day count and Following BDC
+    pub fn annual_actact() -> Self {
+        Self {
+            freq: Frequency::annual(),
+            dc: DayCount::ActAct,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
+        }
+    }
+
+    /// USD market standard (quarterly, Act/360, Modified Following, USD calendar)
+    pub fn usd_standard() -> Self {
+        Self {
+            freq: Frequency::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("USD"),
+            stub: StubKind::None,
+        }
+    }
+
+    /// EUR market standard (semi-annual, 30/360, Modified Following, EUR calendar)
+    pub fn eur_standard() -> Self {
+        Self {
+            freq: Frequency::semi_annual(),
+            dc: DayCount::Thirty360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("EUR"),
+            stub: StubKind::None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

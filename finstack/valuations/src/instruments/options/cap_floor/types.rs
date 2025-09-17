@@ -1,6 +1,6 @@
 //! Interest rate option instrument types and implementation using Black model.
 
-use crate::instruments::common::{MarketRefs, PricingOverrides};
+use crate::instruments::PricingOverrides;
 use crate::instruments::options::{ExerciseStyle, SettlementType};
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount, Frequency};
@@ -66,17 +66,10 @@ impl InterestRateOption {
         option_params: &InterestRateOptionParams,
         start_date: Date,
         end_date: Date,
-        market_refs: &MarketRefs,
+        disc_id: &'static str,
+        forward_id: &'static str,
+        vol_id: &'static str,
     ) -> Self {
-        let forward_id = market_refs
-            .fwd_id
-            .as_ref()
-            .expect("Forward curve required for interest rate options");
-        let vol_id = market_refs
-            .vol_id
-            .as_ref()
-            .expect("Volatility surface required for interest rate options");
-
         Self {
             id: id.into(),
             rate_option_type: option_params.rate_option_type,
@@ -88,9 +81,9 @@ impl InterestRateOption {
             day_count: option_params.day_count,
             exercise_style: ExerciseStyle::European,
             settlement: SettlementType::Cash,
-            disc_id: Box::leak(market_refs.disc_id.to_string().into_boxed_str()),
-            forward_id: Box::leak(forward_id.to_string().into_boxed_str()),
-            vol_id: Box::leak(vol_id.to_string().into_boxed_str()),
+            disc_id,
+            forward_id,
+            vol_id,
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
@@ -106,10 +99,12 @@ impl InterestRateOption {
         end_date: Date,
         frequency: Frequency,
         day_count: DayCount,
-        market_refs: &MarketRefs,
+        disc_id: &'static str,
+        forward_id: &'static str,
+        vol_id: &'static str,
     ) -> Self {
         let option_params = InterestRateOptionParams::cap(notional, strike_rate, frequency, day_count);
-        Self::new(id, &option_params, start_date, end_date, market_refs)
+        Self::new(id, &option_params, start_date, end_date, disc_id, forward_id, vol_id)
     }
 
     /// Create a floor instrument using parameter structs
@@ -122,10 +117,12 @@ impl InterestRateOption {
         end_date: Date,
         frequency: Frequency,
         day_count: DayCount,
-        market_refs: &MarketRefs,
+        disc_id: &'static str,
+        forward_id: &'static str,
+        vol_id: &'static str,
     ) -> Self {
         let option_params = InterestRateOptionParams::floor(notional, strike_rate, frequency, day_count);
-        Self::new(id, &option_params, start_date, end_date, market_refs)
+        Self::new(id, &option_params, start_date, end_date, disc_id, forward_id, vol_id)
     }
 
     /// Calculate caplet/floorlet price using Black's model

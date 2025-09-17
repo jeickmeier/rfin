@@ -17,7 +17,7 @@ use finstack_core::market_data::term_structures::hazard_curve::{
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
-use finstack_core::types::CurveId;
+// use finstack_core::types::CurveId;
 use finstack_core::F;
 use std::collections::BTreeMap;
 
@@ -176,14 +176,11 @@ impl HazardCurveCalibrator {
             const CALIB_HAZARD_ID: &str = "CALIB_HAZARD";
             const CALIB_DISC_ID: &str = "CALIB_DISC";
 
-            let credit_params = crate::instruments::common::CreditParams::new(
+            let credit_params = crate::instruments::CreditParams::new(
                 &self.entity,
                 self.recovery_rate,
                 CALIB_HAZARD_ID,
             );
-            let market_refs = crate::instruments::common::MarketRefs::discount_only(
-                CurveId::new(CALIB_DISC_ID),
-            ).with_credit(CurveId::new(CALIB_HAZARD_ID));
 
             let construction_params = CDSConstructionParams::buy_protection(
                 Money::new(10_000_000.0, self.currency),
@@ -195,7 +192,8 @@ impl HazardCurveCalibrator {
                 self.base_date,
                 *maturity,
                 &credit_params,
-                &market_refs,
+                CALIB_DISC_ID,
+                CALIB_HAZARD_ID,
             );
 
             let pricer = CDSPricer::new();
@@ -399,15 +397,11 @@ mod tests {
                 ..
             } = q
             {
-                let credit_params = crate::instruments::common::CreditParams::new(
+                let credit_params = crate::instruments::CreditParams::new(
                     "AAPL",
                     0.40,
                     "AAPL-Senior",
                 );
-                let market_refs = crate::instruments::common::MarketRefs::discount_only(
-                    CurveId::new("USD-OIS"),
-                ).with_credit(CurveId::new("AAPL-Senior"));
-                
                 let construction_params = CDSConstructionParams::buy_protection(
                     Money::new(1_000_000.0, Currency::USD),
                     spread_bp,
@@ -418,7 +412,8 @@ mod tests {
                     base_date,
                     maturity,
                     &credit_params,
-                    &market_refs,
+                    "USD-OIS",
+                    "AAPL-Senior",
                 );
 
                 let pv = pricer

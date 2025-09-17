@@ -5,7 +5,7 @@
 //! - Separate forward curves per tenor (1M, 3M, 6M)
 
 use finstack::calibration::{
-    bootstrap::{DiscountCurveCalibrator, ForwardCurveCalibrator},
+    methods::{DiscountCurveCalibrator, ForwardCurveCalibrator},
     quote::{FutureSpecs, RatesQuote},
     CalibrationConfig, Calibrator,
 };

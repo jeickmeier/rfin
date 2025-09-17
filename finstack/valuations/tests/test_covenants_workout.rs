@@ -6,7 +6,7 @@ use finstack_core::F;
 use finstack_valuations::covenants::{
     CovenantBreach, CovenantEngine, CovenantSpec, CovenantWindow, InstrumentMutator,
 };
-use finstack_valuations::instruments::common::PricingOverrides;
+use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::instruments::fixed_income::loan::covenants::{
     Covenant, CovenantConsequence, CovenantType, ThresholdTest,
 };

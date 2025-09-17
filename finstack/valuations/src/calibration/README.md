@@ -69,7 +69,7 @@ let (market_context, report) = orchestrator.calibrate_market(&quotes)?;
 ### Individual Curve Calibration
 
 ```rust
-use finstack_valuations::calibration::bootstrap::DiscountCurveCalibrator;
+use finstack_valuations::calibration::methods::DiscountCurveCalibrator;
 
 // Calibrate discount curve only
 let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
@@ -81,7 +81,7 @@ let (discount_curve, report) = calibrator.calibrate(&quotes, &base_context)?;
 ### Volatility Surface Calibration
 
 ```rust
-use finstack_valuations::calibration::bootstrap::sabr_surface::VolSurfaceCalibrator;
+use finstack_valuations::calibration::methods::sabr_surface::VolSurfaceCalibrator;
 
 // Set up SABR calibration for equity volatility
 let calibrator = VolSurfaceCalibrator::new(

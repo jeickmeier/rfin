@@ -124,10 +124,10 @@ impl PyBond {
             maturity: maturity.inner(),
             disc_id: disc_id.into(),
             pricing_overrides: if let Some(price) = quoted_clean_price {
-                finstack_valuations::instruments::common::PricingOverrides::default()
+                finstack_valuations::instruments::PricingOverrides::default()
                     .with_clean_price(price)
             } else {
-                finstack_valuations::instruments::common::PricingOverrides::default()
+                finstack_valuations::instruments::PricingOverrides::default()
             },
             call_put: None,
             amortization: None,

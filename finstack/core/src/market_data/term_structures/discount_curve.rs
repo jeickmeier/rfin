@@ -379,6 +379,28 @@ impl DiscountCurve {
 }
 
 /// Fluent builder for [`DiscountCurve`].
+///
+/// Typical usage chains `base_date`, `knots`, and `set_interp` (optional)
+/// before calling [`DiscountCurveBuilder::build`]. The builder implements the
+/// shared [`super::CurveBuilder`] trait, so it can participate in generic
+/// helper code.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::market_data::term_structures::{discount_curve::DiscountCurve, CurveBuilder};
+/// use finstack_core::math::interp::InterpStyle;
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+/// let curve = DiscountCurve::builder("USD-OIS")
+///     .base_date(base)
+///     .knots([(0.0, 1.0), (5.0, 0.9)])
+///     .set_interp(InterpStyle::Linear)
+///     .build()
+///     .unwrap();
+/// assert!(curve.df(2.0) < 1.0);
+/// ```
 pub struct DiscountCurveBuilder {
     id: CurveId,
     base: Date,

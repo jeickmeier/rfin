@@ -57,7 +57,21 @@ pub struct InflationCurveState {
 }
 
 impl InflationCurve {
-    /// Start building an inflation curve with identifier `id`.
+/// Start building an inflation curve with identifier `id`.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::market_data::term_structures::{inflation::InflationCurve, CurveBuilder};
+/// use finstack_core::math::interp::InterpStyle;
+///
+/// let curve = InflationCurve::builder("US-CPI")
+///     .base_cpi(300.0)
+///     .knots([(0.0, 300.0), (5.0, 325.0)])
+///     .set_interp(InterpStyle::LogLinear)
+///     .build()
+///     .unwrap();
+/// assert!(curve.inflation_rate(0.0, 5.0) > 0.0);
+/// ```
     pub fn builder(id: impl Into<CurveId>) -> InflationCurveBuilder {
         InflationCurveBuilder {
             id: id.into(),

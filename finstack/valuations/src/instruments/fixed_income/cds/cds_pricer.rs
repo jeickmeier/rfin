@@ -14,7 +14,7 @@ use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::traits::{Discounting};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::types::CurveId;
+// use finstack_core::types::CurveId;
 use finstack_core::{Error, Result, F};
 use crate::instruments::fixed_income::cds::parameters::CDSConstructionParams;
 
@@ -31,14 +31,12 @@ fn create_test_cds(
         Money::new(10_000_000.0, Currency::USD),
         spread_bp,
     );
-    let credit_params = crate::instruments::common::CreditParams::new(
+    let credit_params = crate::instruments::CreditParams::new(
         "TEST-CORP",
         recovery_rate,
         "TEST-CREDIT",
     );
-    let market_refs = crate::instruments::common::MarketRefs::discount_only(
-        CurveId::new("USD-OIS"),
-    ).with_credit(CurveId::new("TEST-CREDIT"));
+    // market refs inlined via explicit ids
 
     CreditDefaultSwap::new_isda(
         id,
@@ -46,7 +44,8 @@ fn create_test_cds(
         start_date,
         end_date,
         &credit_params,
-        &market_refs,
+        "USD-OIS",
+        "TEST-CREDIT",
     )
 }
 
@@ -824,14 +823,11 @@ impl CDSBootstrapper {
     ) -> Result<CreditDefaultSwap> {
         let end_date = base_date + time::Duration::days((tenor_years * 365.25) as i64);
 
-        let credit_params = crate::instruments::common::CreditParams::new(
+        let credit_params = crate::instruments::CreditParams::new(
             "SYNTHETIC",
             recovery_rate,
             "CREDIT",
         );
-        let market_refs = crate::instruments::common::MarketRefs::discount_only(
-            CurveId::new("DISC"),
-        ).with_credit(CurveId::new("CREDIT"));
 
         let construction_params = CDSConstructionParams::buy_protection(
             Money::new(1_000_000.0, Currency::USD),
@@ -844,7 +840,8 @@ impl CDSBootstrapper {
             base_date,
             end_date,
             &credit_params,
-            &market_refs,
+            "DISC",
+            "CREDIT",
         ))
     }
 

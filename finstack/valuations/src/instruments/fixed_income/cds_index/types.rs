@@ -1,6 +1,7 @@
 //! CDS Index types and implementations.
 
-use crate::instruments::common::{CreditParams, MarketRefs, PricingOverrides};
+use crate::instruments::PricingOverrides;
+use crate::instruments::fixed_income::cds::CreditParams;
 use crate::instruments::traits::Attributes;
 use finstack_core::money::Money;
 
@@ -42,6 +43,7 @@ pub struct CDSIndex {
 impl CDSIndex {
 
     /// Create a new CDS Index with standard ISDA conventions using parameter structs
+    #[allow(clippy::too_many_arguments)]
     pub fn new_standard(
         id: impl Into<String>,
         index_params: &CDSIndexParams,
@@ -49,17 +51,13 @@ impl CDSIndex {
         start: finstack_core::dates::Date,
         end: finstack_core::dates::Date,
         credit_params: &CreditParams,
-        market_refs: &MarketRefs,
+        disc_id: &'static str,
+        credit_id: &'static str,
     ) -> Self {
         let dc = construction_params.convention.day_count();
         let freq = construction_params.convention.frequency();
         let bdc = construction_params.convention.business_day_convention();
         let stub = construction_params.convention.stub_convention();
-
-        let credit_id = market_refs
-            .credit_id
-            .as_ref()
-            .expect("Credit curve required for CDS index");
 
         Self {
             id: id.into(),
@@ -78,10 +76,10 @@ impl CDSIndex {
                 calendar_id: None,
                 dc,
                 spread_bp: index_params.fixed_coupon_bp,
-                disc_id: Box::leak(market_refs.disc_id.to_string().into_boxed_str()),
+                disc_id,
             },
             protection: ProtectionLegSpec {
-                credit_id: Box::leak(credit_id.to_string().into_boxed_str()),
+                credit_id,
                 recovery_rate: credit_params.recovery_rate,
                 settlement: SettlementType::Cash,
                 settlement_delay: 3,

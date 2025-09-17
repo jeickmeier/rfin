@@ -11,9 +11,6 @@ use ordered_float::OrderedFloat;
 
 use finstack_core::dates::utils::add_months;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
-
-#[cfg(test)]
-use finstack_core::dates::StubKind;
 use finstack_core::market_data::MarketContext;
 // use finstack_core::market_data::context::MarketContext; // use re-export above
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
@@ -21,8 +18,6 @@ use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::F;
 
-#[cfg(test)]
-use finstack_core::types::CurveId;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -652,22 +647,13 @@ mod tests {
                 maturity,
                 500.0, // running spread
             );
-            let schedule_params = crate::instruments::common::InstrumentScheduleParams {
-                frequency: Frequency::quarterly(),
-                day_count: DayCount::Act360,
-                bdc: BusinessDayConvention::Following,
-                calendar_id: None,
-                stub: StubKind::None,
-            };
-            let market_refs = crate::instruments::common::MarketRefs::discount_only(
-                CurveId::new("USD-OIS"),
-            ).with_credit(CurveId::new("CDX.NA.IG.42"));
-
+            let schedule_params = crate::cashflow::builder::ScheduleParams::quarterly_act360();
             let tranche = CdsTranche::new(
                 format!("EQUITY_0_{}", detach_pct),
                 &tranche_params,
                 &schedule_params,
-                &market_refs,
+                "USD-OIS",
+                "CDX.NA.IG.42",
                 TrancheSide::SellProtection,
             );
 

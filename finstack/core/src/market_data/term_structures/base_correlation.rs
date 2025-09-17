@@ -140,6 +140,17 @@ impl BaseCorrelationCurve {
 }
 
 /// Builder for creating base correlation curves.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
+///
+/// let curve = BaseCorrelationCurve::builder("CDX")
+///     .points([(3.0, 0.25), (7.0, 0.45)])
+///     .build()
+///     .unwrap();
+/// assert!(curve.correlation(5.0) > 0.25);
+/// ```
 pub struct BaseCorrelationCurveBuilder {
     id: CurveId,
     points: Vec<(F, F)>, // (detachment_pct, correlation)

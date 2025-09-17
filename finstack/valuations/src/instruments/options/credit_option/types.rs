@@ -1,6 +1,7 @@
 //! Credit option instrument implementation for options on credit default swaps.
 
-use crate::instruments::common::{CreditParams, MarketRefs, PricingOverrides};
+use crate::instruments::PricingOverrides;
+use crate::instruments::fixed_income::cds::CreditParams;
 use crate::instruments::options::{ExerciseStyle, OptionType, SettlementType};
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
@@ -53,17 +54,10 @@ impl CreditOption {
         id: impl Into<String>,
         option_params: &CreditOptionParams,
         credit_params: &CreditParams,
-        market_refs: &MarketRefs,
+        disc_id: &'static str,
+        credit_id: &'static str,
+        vol_id: &'static str,
     ) -> Self {
-        let credit_id = market_refs
-            .credit_id
-            .as_ref()
-            .expect("Credit curve required for credit options");
-        let vol_id = market_refs
-            .vol_id
-            .as_ref()
-            .expect("Volatility surface required for credit options");
-
         Self {
             id: id.into(),
             reference_entity: credit_params.reference_entity.clone(),
@@ -76,9 +70,9 @@ impl CreditOption {
             notional: option_params.notional,
             settlement: SettlementType::Cash,
             recovery_rate: credit_params.recovery_rate,
-            disc_id: Box::leak(market_refs.disc_id.to_string().into_boxed_str()),
-            credit_id: Box::leak(credit_id.to_string().into_boxed_str()),
-            vol_id: Box::leak(vol_id.to_string().into_boxed_str()),
+            disc_id,
+            credit_id,
+            vol_id,
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }

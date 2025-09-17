@@ -7,10 +7,14 @@
 //!
 //! ## Example
 //! ```rust
-//! use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-//! // 3-month tenor expressed in years
-//! # use finstack_core::math::interp::InterpStyle;
+//! use finstack_core::market_data::term_structures::{forward_curve::ForwardCurve, CurveBuilder};
+//! use finstack_core::math::interp::InterpStyle;
+//! use finstack_core::dates::Date;
+//! use time::Month;
+//!
+//! let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 //! let fc = ForwardCurve::builder("USD-SOFR3M", 0.25)
+//!     .base_date(base)
 //!     .knots([(0.0, 0.03), (5.0, 0.04)])
 //!     .set_interp(InterpStyle::Linear)
 //!     .build()

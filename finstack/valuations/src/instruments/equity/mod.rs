@@ -7,8 +7,10 @@ pub mod basket;
 pub mod spot;
 pub mod metrics;
 pub mod private_equity;
+pub mod underlying;
 
 // Re-export equity types
 pub use basket::Basket;
 pub use spot::Equity;
 pub use private_equity::PrivateEquityInvestment;
+pub use underlying::EquityUnderlyingParams;

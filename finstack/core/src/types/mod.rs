@@ -1,9 +1,20 @@
-//! Core type definitions for the finstack ecosystem
+//! Core type definitions for the FinStack ecosystem.
 //!
-//! This module provides fundamental types used throughout finstack:
-//! - Phantom-typed identifiers for type safety
-//! - Rate and percentage types with conversions
-//! - Re-exports of commonly used types from other modules
+//! This module collects phantom-typed identifiers (`CurveId`, `TradeId`, …),
+//! rate helpers (`Rate`, `Bps`), and convenient aliases used throughout the
+//! platform. Import via `finstack_core::types` or the [`prelude`](crate::prelude).
+//!
+//! # Examples
+//! ```rust
+//! use finstack_core::types::{CurveId, Rate, Percentage};
+//!
+//! let curve_id = CurveId::from("USD-OIS");
+//! let rate = Rate::from_percent(5.0);
+//! let pct = Percentage::new(25.0);
+//! assert_eq!(curve_id.as_str(), "USD-OIS");
+//! assert_eq!(rate.as_decimal(), 0.05);
+//! assert_eq!(pct.as_percent(), 25.0);
+//! ```
 
 pub mod id;
 pub mod rates;

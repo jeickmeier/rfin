@@ -13,10 +13,7 @@ use finstack_core::{
     prelude::*,
 };
 use finstack_valuations::{
-    calibration::{
-        bootstrap::DiscountCurveCalibrator, MarketQuote, MultiCurveConfig, RatesQuote,
-        SimpleCalibration,
-    },
+    calibration::{methods::DiscountCurveCalibrator, MarketQuote, MultiCurveConfig, RatesQuote, SimpleCalibration},
     instruments::fixed_income::{BasisSwap, BasisSwapLeg},
 };
 use time::Month;

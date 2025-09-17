@@ -1,6 +1,6 @@
 //! FX Swap types and implementations.
 
-use crate::instruments::common::FxUnderlyingParams;
+use crate::instruments::fx::FxUnderlyingParams;
 use crate::instruments::traits::Attributes;
 use finstack_core::money::fx::FxConversionPolicy;
 use finstack_core::prelude::*;

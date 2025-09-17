@@ -8,7 +8,7 @@ use finstack_core::F;
 use crate::cashflow::builder::{cf, CashFlowSchedule, CouponType, FixedCouponSpec};
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::common::PricingOverrides;
+use crate::instruments::PricingOverrides;
 use crate::instruments::traits::{Attributes, Priceable};
 use crate::metrics::{RiskBucket, RiskMeasurable, RiskReport};
 use finstack_core::types::{CurveId, InstrumentId};

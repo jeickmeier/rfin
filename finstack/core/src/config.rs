@@ -1,9 +1,33 @@
-//! Numeric/rounding configuration for finstack-core.
+//! Numeric precision, rounding rules, and IO metadata for `finstack-core`.
 //!
-//! This module defines configuration types and helper functions that operate on
-//! an explicit `FinstackConfig` passed by the caller. There is no global
-//! configuration state; call sites must provide the configuration they wish to
-//! apply.
+//! FinStack opts into *explicit* configuration: there is no global state and all
+//! helpers in this module expect a [`FinstackConfig`] supplied by the caller. The
+//! config captures per-currency rounding scales, the active numeric engine, and
+//! helper utilities for stamping outputs.
+//!
+//! # When to use
+//! - to determine ingest/output decimal scales for [`crate::money::Money`]
+//! - to stamp result envelopes with the numeric configuration via [`results_meta`]
+//! - to snapshot the rounding policy that produced an output
+//!
+//! # Examples
+//! ```rust
+//! use finstack_core::config::{
+//!     ingest_scale_for, output_scale_for, FinstackConfig, RoundingMode,
+//! };
+//! use finstack_core::currency::Currency;
+//!
+//! let mut cfg = FinstackConfig::default();
+//! cfg.rounding.mode = RoundingMode::AwayFromZero;
+//! cfg.rounding.output_scale.overrides.insert(Currency::JPY, 0);
+//! cfg.rounding.ingest_scale.overrides.insert(Currency::JPY, 0);
+//!
+//! let usd_scale = output_scale_for(&cfg, Currency::USD);
+//! let jpy_ingest = ingest_scale_for(&cfg, Currency::JPY);
+//!
+//! assert_eq!(usd_scale, 2);
+//! assert_eq!(jpy_ingest, 0);
+//! ```
 //!
 //! ## Numeric mode
 //!
@@ -20,6 +44,17 @@ use hashbrown::HashMap;
 // IndexMap no longer needed here
 
 /// Rounding modes supported by the library.
+///
+/// The variants mirror the most common conventions found in pricing engines.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::config::{FinstackConfig, RoundingMode};
+///
+/// let mut cfg = FinstackConfig::default();
+/// cfg.rounding.mode = RoundingMode::TowardZero;
+/// assert!(matches!(cfg.rounding.mode, RoundingMode::TowardZero));
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[non_exhaustive]
@@ -36,7 +71,22 @@ pub enum RoundingMode {
     Ceil,
 }
 
-/// Configuration container. Extend as needed.
+/// Global numeric configuration supplied to valuation components.
+///
+/// The configuration owns two [`CurrencyScalePolicy`] maps (ingest/output) and
+/// the active [`RoundingMode`]. It can be customised at startup and threaded
+/// through pricing calculations.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::config::{FinstackConfig, RoundingMode};
+/// use finstack_core::currency::Currency;
+///
+/// let mut cfg = FinstackConfig::default();
+/// cfg.rounding.mode = RoundingMode::Bankers;
+/// cfg.rounding.output_scale.overrides.insert(Currency::CHF, 2);
+/// assert_eq!(cfg.rounding.output_scale.default_scale, 2);
+/// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FinstackConfig {
@@ -55,7 +105,25 @@ impl Default for FinstackConfig {
     }
 }
 
-/// Policy mapping to determine decimal places for each currency at ingest/output.
+/// Policy mapping that determines decimal places for each currency at ingest/output.
+///
+/// The policy falls back to [`default_scale`] when no override exists.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::config::{CurrencyScalePolicy, FinstackConfig};
+/// use finstack_core::currency::Currency;
+/// use hashbrown::HashMap;
+///
+/// let mut cfg = FinstackConfig::default();
+/// cfg.rounding.output_scale = CurrencyScalePolicy {
+///     default_scale: 2,
+///     overrides: HashMap::from([(Currency::KWD, 3)]),
+/// };
+///
+/// assert_eq!(cfg.rounding.output_scale.default_scale, 2);
+/// assert_eq!(cfg.rounding.output_scale.overrides.get(&Currency::KWD), Some(&3));
+/// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct CurrencyScalePolicy {
@@ -96,7 +164,10 @@ impl Default for RoundingPolicy {
     }
 }
 
-/// Snapshot of active rounding settings for stamping in results.
+/// Snapshot of active rounding settings used for result stamping.
+///
+/// Instances are typically produced via [`rounding_context_from`] and persisted
+/// alongside valuation results.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RoundingContext {
@@ -110,7 +181,7 @@ pub struct RoundingContext {
     pub version: u32,
 }
 
-/// Numeric engine mode.
+/// Numeric engine mode compiled into the crate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[non_exhaustive]
@@ -119,7 +190,18 @@ pub enum NumericMode {
     F64,
 }
 
-/// Result metadata stamped only at IO boundaries. Minimal shape.
+/// Metadata bundle that accompanies valuation outputs.
+///
+/// The metadata is intentionally small so it can be attached to reports and
+/// downstream data stores.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::config::{results_meta, FinstackConfig, NumericMode};
+///
+/// let meta = results_meta(&FinstackConfig::default());
+/// assert_eq!(meta.numeric_mode, NumericMode::F64);
+/// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ResultsMeta {
@@ -132,7 +214,20 @@ pub struct ResultsMeta {
     pub fx_policy_applied: Option<String>,
 }
 
-/// Compute the effective output scale for a currency.
+/// Compute the effective **output** scale for a currency.
+///
+/// # Parameters
+/// - `cfg`: active configuration snapshot
+/// - `ccy`: currency whose scale should be looked up
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::config::{output_scale_for, FinstackConfig};
+/// use finstack_core::currency::Currency;
+///
+/// let cfg = FinstackConfig::default();
+/// assert_eq!(output_scale_for(&cfg, Currency::USD), 2);
+/// ```
 pub fn output_scale_for(cfg: &FinstackConfig, ccy: crate::currency::Currency) -> u32 {
     if let Some(&s) = cfg.rounding.output_scale.overrides.get(&ccy) {
         return s;
@@ -140,7 +235,19 @@ pub fn output_scale_for(cfg: &FinstackConfig, ccy: crate::currency::Currency) ->
     cfg.rounding.output_scale.default_scale
 }
 
-/// Compute the effective ingest scale for a currency.
+/// Compute the effective **ingest** scale for a currency.
+///
+/// This is used when normalising inbound floating-point amounts.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::config::{ingest_scale_for, FinstackConfig};
+/// use finstack_core::currency::Currency;
+///
+/// let mut cfg = FinstackConfig::default();
+/// cfg.rounding.ingest_scale.overrides.insert(Currency::JPY, 0);
+/// assert_eq!(ingest_scale_for(&cfg, Currency::JPY), 0);
+/// ```
 pub fn ingest_scale_for(cfg: &FinstackConfig, ccy: crate::currency::Currency) -> u32 {
     if let Some(&s) = cfg.rounding.ingest_scale.overrides.get(&ccy) {
         return s;
@@ -149,6 +256,17 @@ pub fn ingest_scale_for(cfg: &FinstackConfig, ccy: crate::currency::Currency) ->
 }
 
 /// Build a snapshot of the current rounding context from a config.
+///
+/// The snapshot captures the concrete overrides used during valuation and can
+/// later be embedded in [`ResultsMeta`].
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::config::{rounding_context_from, FinstackConfig};
+///
+/// let ctx = rounding_context_from(&FinstackConfig::default());
+/// assert_eq!(ctx.version, 1);
+/// ```
 pub fn rounding_context_from(cfg: &FinstackConfig) -> RoundingContext {
     RoundingContext {
         mode: cfg.rounding.mode,
@@ -161,7 +279,19 @@ pub fn rounding_context_from(cfg: &FinstackConfig) -> RoundingContext {
 /// Active numeric mode used by the engine.
 pub const NUMERIC_MODE: NumericMode = NumericMode::F64;
 
-/// Construct a `ResultsMeta` snapshot for stamping into result envelopes.
+/// Construct a [`ResultsMeta`] snapshot for stamping into result envelopes.
+///
+/// Convenience wrapper that combines [`NUMERIC_MODE`] and
+/// [`rounding_context_from`].
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::config::{results_meta, FinstackConfig, NumericMode};
+///
+/// let cfg = FinstackConfig::default();
+/// let meta = results_meta(&cfg);
+/// assert_eq!(meta.numeric_mode, NumericMode::F64);
+/// ```
 pub fn results_meta(cfg: &FinstackConfig) -> ResultsMeta {
     ResultsMeta {
         numeric_mode: NUMERIC_MODE,

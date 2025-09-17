@@ -1,7 +1,7 @@
 //! Core types and common engine for Total Return Swaps.
 
 use crate::cashflow::builder::schedule_utils::build_dates;
-use crate::instruments::common::parameter_groups::InstrumentScheduleParams;
+use crate::cashflow::builder::ScheduleParams;
 use finstack_core::{
     dates::{Date, DayCount, DayCountCtx},
     market_data::MarketContext,
@@ -86,12 +86,12 @@ pub struct TrsScheduleSpec {
     /// End date for the TRS leg
     pub end: Date,
     /// Schedule parameters (frequency, day count, bdc, calendar, stub)
-    pub params: InstrumentScheduleParams,
+    pub params: ScheduleParams,
 }
 
 impl TrsScheduleSpec {
-    /// Create from start/end and InstrumentScheduleParams
-    pub fn from_params(start: Date, end: Date, schedule: InstrumentScheduleParams) -> Self {
+    /// Create from start/end and ScheduleParams
+    pub fn from_params(start: Date, end: Date, schedule: ScheduleParams) -> Self {
         Self { start, end, params: schedule }
     }
 }
@@ -134,7 +134,7 @@ impl TrsEngine {
         let period_schedule = build_dates(
             params.schedule.start,
             params.schedule.end,
-            params.schedule.params.frequency,
+            params.schedule.params.freq,
             params.schedule.params.stub,
             params.schedule.params.bdc,
             params.schedule.params.calendar_id,
@@ -152,13 +152,11 @@ impl TrsEngine {
             // Time fractions
             let t_start = params
                 .schedule
-                .params
-                .day_count
+                .params.dc
                 .year_fraction(as_of, period_start, ctx)?;
             let t_end = params
                 .schedule
-                .params
-                .day_count
+                .params.dc
                 .year_fraction(as_of, period_end, ctx)?;
 
             // Calculate underlying return for this period (delegated to underlying-specific logic)
@@ -207,7 +205,7 @@ impl TrsEngine {
         let period_schedule = build_dates(
             schedule.start,
             schedule.end,
-            schedule.params.frequency,
+            schedule.params.freq,
             schedule.params.stub,
             schedule.params.bdc,
             schedule.params.calendar_id,
@@ -224,18 +222,15 @@ impl TrsEngine {
 
             // Year fraction for accrual
             let yf = schedule
-                .params
-                .day_count
+                .params.dc
                 .year_fraction(period_start, period_end, ctx)?;
 
             // Forward rate for the period
             let t_start = schedule
-                .params
-                .day_count
+                .params.dc
                 .year_fraction(as_of, period_start, ctx)?;
             let t_end = schedule
-                .params
-                .day_count
+                .params.dc
                 .year_fraction(as_of, period_end, ctx)?;
             let fwd_rate = fwd.rate_period(t_start, t_end);
 
@@ -272,7 +267,7 @@ impl TrsEngine {
         let period_schedule = build_dates(
             schedule.start,
             schedule.end,
-            schedule.params.frequency,
+            schedule.params.freq,
             schedule.params.stub,
             schedule.params.bdc,
             schedule.params.calendar_id,
@@ -288,14 +283,12 @@ impl TrsEngine {
 
             // Year fraction for accrual
             let yf = schedule
-                .params
-                .day_count
+                .params.dc
                 .year_fraction(period_start, period_end, ctx)?;
 
             // Discount factor to payment date
             let t_pay = schedule
-                .params
-                .day_count
+                .params.dc
                 .year_fraction(as_of, period_end, ctx)?;
             let df = disc.df(t_pay);
 

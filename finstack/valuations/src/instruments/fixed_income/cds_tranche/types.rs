@@ -1,7 +1,7 @@
 //! CDS Tranche types, builder entrypoint, and pricing impl.
 
+use crate::cashflow::builder::ScheduleParams;
 use crate::instruments::build_with_metrics_dyn;
-use crate::instruments::common::{InstrumentScheduleParams, MarketRefs};
 use crate::instruments::traits::{Attributes, Attributable, Instrument, Priceable};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
@@ -66,15 +66,11 @@ impl CdsTranche {
     pub fn new(
         id: impl Into<String>,
         tranche_params: &CDSTrancheParams,
-        schedule_params: &InstrumentScheduleParams,
-        market_refs: &MarketRefs,
+        schedule_params: &ScheduleParams,
+        disc_id: &'static str,
+        credit_index_id: &'static str,
         side: TrancheSide,
     ) -> Self {
-        let credit_index_id = market_refs
-            .credit_id
-            .as_ref()
-            .expect("Credit index curve required for CDS tranches");
-
         Self {
             id: id.into(),
             index_name: tranche_params.index_name.clone(),
@@ -84,12 +80,12 @@ impl CdsTranche {
             notional: tranche_params.notional,
             maturity: tranche_params.maturity,
             running_coupon_bp: tranche_params.running_coupon_bp,
-            payment_frequency: schedule_params.frequency,
-            day_count: schedule_params.day_count,
+            payment_frequency: schedule_params.freq,
+            day_count: schedule_params.dc,
             business_day_convention: schedule_params.bdc,
             calendar_id: schedule_params.calendar_id,
-            disc_id: Box::leak(market_refs.disc_id.to_string().into_boxed_str()),
-            credit_index_id: Box::leak(credit_index_id.to_string().into_boxed_str()),
+            disc_id,
+            credit_index_id,
             side,
             effective_date: None,
             attributes: Attributes::new(),

@@ -1,6 +1,7 @@
 //! FX option instrument implementation using Garman-Kohlhagen model.
 
-use crate::instruments::common::{FxUnderlyingParams, PricingOverrides};
+use crate::instruments::PricingOverrides;
+use crate::instruments::fx::FxUnderlyingParams;
 use crate::instruments::options::models::{d1, d2};
 use crate::instruments::options::{ExerciseStyle, OptionType, SettlementType};
 use crate::instruments::traits::Attributes;
@@ -43,7 +44,6 @@ impl FxOption {
         expiry: Date,
         notional: Money,
     ) -> Self {
-        use crate::instruments::common::FxUnderlyingParams;
 
         let fx_underlying = if quote_currency == Currency::USD && base_currency == Currency::EUR {
             FxUnderlyingParams::usd_eur()
@@ -82,7 +82,6 @@ impl FxOption {
         expiry: Date,
         notional: Money,
     ) -> Self {
-        use crate::instruments::common::FxUnderlyingParams;
 
         let fx_underlying = if quote_currency == Currency::USD && base_currency == Currency::EUR {
             FxUnderlyingParams::usd_eur()

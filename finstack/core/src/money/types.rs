@@ -1,4 +1,19 @@
 //! Money type, conversions, formatting, and arithmetic operations.
+//!
+//! [`Money`] stores amounts as scaled integers to avoid cumulative rounding
+//! error while retaining ergonomic APIs for arithmetic and formatting.
+//! Instances retain their [`Currency`] tag and refuse to mix currencies unless
+//! explicitly converted via [`super::fx::FxProvider`].
+//!
+//! # Examples
+//! ```rust
+//! use finstack_core::money::Money;
+//! use finstack_core::currency::Currency;
+//!
+//! let amt = Money::new(12.349, Currency::USD);
+//! assert_eq!(amt.currency(), Currency::USD);
+//! assert_eq!(format!("{}", amt), "USD 12.35");
+//! ```
 
 use crate::config::{FinstackConfig, RoundingMode};
 use crate::currency::Currency;
@@ -11,7 +26,21 @@ use super::rounding::{
     amount_from_repr, repr_add, repr_div_f64, repr_mul_f64, repr_sub, round_f64, AmountRepr,
 };
 
-/// Monetary amount tagged with a [`Currency`].
+/// Currency-tagged monetary amount with safe arithmetic.
+///
+/// Values are stored using a fixed-point representation derived from ISO 4217
+/// decimal places. Use [`Money::new_with_config`] when you need configurable
+/// rounding during ingestion.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::money::Money;
+/// use finstack_core::currency::Currency;
+///
+/// let notional = Money::new(1_000_000.0, Currency::EUR);
+/// assert_eq!(notional.currency(), Currency::EUR);
+/// assert_eq!(notional.amount(), 1_000_000.0);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -25,7 +54,20 @@ impl Money {
     // Constructors & accessors
     // ---------------------------------------------------------------------
 
-    /// Create a new `Money` value from an `f64` amount.
+    /// Create a new [`Money`] value using ISO 4217 minor units.
+    ///
+    /// # Parameters
+    /// - `amount`: monetary amount expressed as an `f64`
+    /// - `currency`: target [`Currency`]
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    ///
+    /// let amt = Money::new(10.005, Currency::USD);
+    /// assert_eq!(format!("{}", amt), "USD 10.01");
+    /// ```
     #[must_use]
     #[inline]
     pub fn new(amount: f64, currency: Currency) -> Self {
@@ -39,7 +81,24 @@ impl Money {
         }
     }
 
-    /// Create a new `Money` value using an explicit configuration.
+    /// Create a new [`Money`] value using an explicit configuration.
+    ///
+    /// # Parameters
+    /// - `amount`: monetary amount expressed as an `f64`
+    /// - `currency`: target [`Currency`]
+    /// - `cfg`: rounding configuration to apply during ingestion
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::config::FinstackConfig;
+    ///
+    /// let mut cfg = FinstackConfig::default();
+    /// cfg.rounding.ingest_scale.default_scale = 3;
+    /// let amt = Money::new_with_config(1.2345, Currency::USD, &cfg);
+    /// assert!((amt.amount() - 1.234).abs() < 1e-9);
+    /// ```
     #[must_use]
     #[inline]
     pub fn new_with_config(amount: f64, currency: Currency, cfg: &FinstackConfig) -> Self {
@@ -80,7 +139,18 @@ impl Money {
     // Checked arithmetic
     // ---------------------------------------------------------------------
 
-    /// Add two amounts, returning an `Error::CurrencyMismatch` if the currencies differ.
+    /// Add two amounts, returning an error when currencies do not match.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    ///
+    /// let lhs = Money::new(50.0, Currency::USD);
+    /// let rhs = Money::new(25.0, Currency::USD);
+    /// let sum = lhs.checked_add(rhs).unwrap();
+    /// assert_eq!(sum.amount(), 75.0);
+    /// ```
     #[must_use = "returns new Money if currencies match"]
     #[inline]
     pub fn checked_add(self, rhs: Self) -> Result<Self, Error> {
@@ -91,7 +161,18 @@ impl Money {
         })
     }
 
-    /// Subtract two amounts, returning an `Error::CurrencyMismatch` if the currencies differ.
+    /// Subtract two amounts, returning an error when currencies do not match.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    ///
+    /// let lhs = Money::new(50.0, Currency::USD);
+    /// let rhs = Money::new(25.0, Currency::USD);
+    /// let diff = lhs.checked_sub(rhs).unwrap();
+    /// assert_eq!(diff.amount(), 25.0);
+    /// ```
     #[must_use = "returns new Money if currencies match"]
     #[inline]
     pub fn checked_sub(self, rhs: Self) -> Result<Self, Error> {
@@ -102,7 +183,46 @@ impl Money {
         })
     }
 
-    /// Convert this `Money` into another currency using an [`fx::FxProvider`].
+    /// Convert this [`Money`] into another currency using an [`fx::FxProvider`].
+    ///
+    /// # Parameters
+    /// - `to`: target [`Currency`]
+    /// - `on`: valuation date used for the FX lookup
+    /// - `provider`: FX source implementing [`fx::FxProvider`]
+    /// - `policy`: lookup policy hint passed to the provider
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::money::fx::{FxConversionPolicy, FxProvider};
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::Date;
+    /// use time::Month;
+    ///
+    /// struct StaticFx;
+    /// impl FxProvider for StaticFx {
+    ///     fn rate(
+    ///         &self,
+    ///         _from: Currency,
+    ///         _to: Currency,
+    ///         _on: Date,
+    ///         _policy: FxConversionPolicy,
+    ///     ) -> finstack_core::Result<f64> {
+    ///         Ok(1.2)
+    ///     }
+    /// }
+    ///
+    /// let eur = Money::new(100.0, Currency::EUR);
+    /// let trade_date = Date::from_calendar_date(2024, Month::January, 2).unwrap();
+    /// let usd = eur.convert(
+    ///     Currency::USD,
+    ///     trade_date,
+    ///     &StaticFx,
+    ///     FxConversionPolicy::CashflowDate,
+    /// ).unwrap();
+    /// assert_eq!(usd.amount(), 120.0);
+    /// assert_eq!(usd.currency(), Currency::USD);
+    /// ```
     pub fn convert(
         self,
         to: Currency,
@@ -143,6 +263,18 @@ impl fmt::Display for Money {
 
 impl Money {
     /// Format this money using an explicit configuration (rounding mode and per-currency scales).
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::config::FinstackConfig;
+    ///
+    /// let amt = Money::new(10.0, Currency::USD);
+    /// let mut cfg = FinstackConfig::default();
+    /// cfg.rounding.output_scale.default_scale = 4;
+    /// assert_eq!(amt.format_with_config(&cfg), "USD 10.0000");
+    /// ```
     pub fn format_with_config(&self, cfg: &FinstackConfig) -> String {
         let dp = crate::config::output_scale_for(cfg, self.currency) as usize;
         format!(

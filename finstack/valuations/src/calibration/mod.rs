@@ -20,7 +20,7 @@
 //!
 //! ```ignore
 //! use finstack_valuations::calibration::{CalibrationConfig, MultiCurveConfig};
-//! use finstack_valuations::calibration::bootstrap::DiscountCurveCalibrator;
+//! use finstack_valuations::calibration::methodså::DiscountCurveCalibrator;
 //!
 //! let config = CalibrationConfig::default()
 //!     .with_multi_curve(MultiCurveConfig::single_curve(0.25)); // 3M tenor
@@ -36,7 +36,7 @@
 //!
 //! ```ignore
 //! use finstack_valuations::calibration::{CalibrationConfig, MultiCurveConfig};
-//! use finstack_valuations::calibration::bootstrap::{
+//! use finstack_valuations::calibration::methods::{
 //!     DiscountCurveCalibrator, ForwardCurveCalibrator
 //! };
 //!
@@ -76,11 +76,9 @@
 use finstack_core::F;
 
 // Submodules
-pub mod bootstrap;
+pub mod methods;
 pub mod derivatives;
 pub mod simple_calibration;
-
-// Internal modules
 mod config;
 mod constraints;
 mod macros;

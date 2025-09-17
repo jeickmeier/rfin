@@ -5,13 +5,12 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::prelude::Currency;
-use finstack_valuations::calibration::bootstrap::swaption_vol::{
+use finstack_valuations::calibration::methods::swaption_vol::{
     AtmStrikeConvention, SwaptionVolCalibrator, SwaptionVolConvention,
 };
 use finstack_valuations::calibration::{CalibrationConfig, Calibrator, VolQuote};
 use finstack_valuations::instruments::options::swaption::Swaption;
 use finstack_valuations::instruments::options::swaption::parameters::SwaptionParams;
-use finstack_valuations::instruments::common::MarketRefs;
 use finstack_valuations::instruments::traits::Priceable;
 use time::Month;
 
@@ -243,7 +242,9 @@ fn test_swaption_pricing_with_calibrated_surface() {
     context = context.insert_surface(surface);
 
     // Create and price a swaption
-    let mr = MarketRefs::rates("USD-OIS", "USD-OIS").with_volatility("SWAPTION-VOL");
+    let disc_id: &'static str = "USD-OIS";
+    let fwd_id: &'static str = "USD-OIS";
+    let vol_id: &'static str = "SWAPTION-VOL";
     let params = SwaptionParams::payer(
         Money::new(1_000_000.0, Currency::USD),
         0.04,
@@ -251,7 +252,7 @@ fn test_swaption_pricing_with_calibrated_surface() {
         Date::from_calendar_date(2026, Month::January, 1).unwrap(),
         Date::from_calendar_date(2027, Month::January, 1).unwrap(),
     );
-    let swaption = Swaption::new_payer("TEST-SWAPTION", &params, &mr);
+    let swaption = Swaption::new_payer("TEST-SWAPTION", &params, disc_id, fwd_id, vol_id);
 
     // Price should work with calibrated surface
     let price_result = swaption.value(&context, base_date);

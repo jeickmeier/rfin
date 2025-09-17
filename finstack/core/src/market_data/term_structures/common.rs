@@ -1,8 +1,8 @@
-//! Internal helpers for 1D term structures (knots + values + Interp).
+//! Internal helpers shared by one-dimensional term-structure builders.
 //!
-//! This DRYs common builder and serde plumbing across Discount/Forward/Inflation
-//! curves while keeping wire formats stable. Hazard curves intentionally do not
-//! use the `Interp` engine and are excluded.
+//! The module keeps curve builders small by extracting common logic for
+//! interpolation setup, knot splitting, and serde state. Hazard curves do not
+//! rely on the interpolation engine and therefore only reuse the serde helpers.
 
 use crate::math::interp::types::Interp;
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};

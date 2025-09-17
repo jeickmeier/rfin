@@ -241,7 +241,7 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
         issue,
         maturity,
         disc_id: "USD-OIS".into(),
-        pricing_overrides: finstack_valuations::instruments::common::PricingOverrides::default(),
+        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         call_put: None,
         amortization: None,
         custom_cashflows: None,

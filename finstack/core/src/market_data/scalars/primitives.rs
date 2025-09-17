@@ -17,7 +17,27 @@ use polars::prelude::*;
 #[cfg(test)]
 use time::Duration as TimeDuration;
 
-/// Interpolation method for generic scalar time series
+/// Interpolation strategy for [`ScalarTimeSeries`].
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::market_data::scalars::{ScalarTimeSeries, SeriesInterpolation};
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// let series = ScalarTimeSeries::new(
+///     "TS",
+///     vec![
+///         (Date::from_calendar_date(2024, Month::January, 1).unwrap(), 100.0),
+///         (Date::from_calendar_date(2024, Month::February, 1).unwrap(), 105.0),
+///     ],
+///     None,
+/// )
+/// .unwrap();
+/// let stepped = series.clone().with_interpolation(SeriesInterpolation::Step);
+/// let mid_date = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+/// assert_eq!(stepped.value_on(mid_date).unwrap(), 100.0);
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
@@ -35,6 +55,24 @@ impl Default for SeriesInterpolation {
 }
 
 /// A single market scalar which can be unitless or a price in a currency.
+///
+/// Scalars are frequently used for simple quotes (spots, spreads, recovery
+/// assumptions) that do not warrant a full term structure.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::market_data::scalars::MarketScalar;
+/// use finstack_core::money::Money;
+/// use finstack_core::currency::Currency;
+///
+/// let unitless = MarketScalar::Unitless(0.75);
+/// let priced = MarketScalar::Price(Money::new(99.5, Currency::USD));
+///
+/// assert!(matches!(unitless, MarketScalar::Unitless(_)));
+/// if let MarketScalar::Price(m) = priced {
+///     assert_eq!(m.currency(), Currency::USD);
+/// }
+/// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
@@ -45,10 +83,31 @@ pub enum MarketScalar {
     Price(crate::money::Money),
 }
 
-/// Generic date-indexed time series with simple interpolation.
+/// Generic date-indexed time series with configurable interpolation.
 ///
 /// Note: This struct cannot be directly serialized due to the internal DataFrame.
 /// Use `to_state()` and `from_state()` for serialization.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::market_data::scalars::{ScalarTimeSeries, SeriesInterpolation};
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// let series = ScalarTimeSeries::new(
+///     "US CPI",
+///     vec![
+///         (Date::from_calendar_date(2024, Month::January, 31).unwrap(), 100.0),
+///         (Date::from_calendar_date(2024, Month::February, 29).unwrap(), 101.2),
+///     ],
+///     None,
+/// )
+/// .unwrap()
+/// .with_interpolation(SeriesInterpolation::Linear);
+/// let mid = Date::from_calendar_date(2024, Month::February, 14).unwrap();
+/// let interpolated = series.value_on(mid).unwrap();
+/// assert!(interpolated > 100.0);
+/// ```
 #[derive(Clone, Debug)]
 pub struct ScalarTimeSeries {
     id: CurveId,
@@ -59,7 +118,30 @@ pub struct ScalarTimeSeries {
 }
 
 impl ScalarTimeSeries {
-    /// Create a new time series from observations.
+    /// Create a new time series from `(Date, value)` observations.
+    ///
+    /// # Parameters
+    /// - `id`: identifier used when storing the series inside [`MarketContext`](crate::market_data::context::MarketContext)
+    /// - `observations`: sorted or unsorted list of observations (duplicates not allowed)
+    /// - `currency`: optional currency tag when the series represents a monetary amount
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::market_data::scalars::ScalarTimeSeries;
+    /// use finstack_core::dates::Date;
+    /// use time::Month;
+    ///
+    /// let series = ScalarTimeSeries::new(
+    ///     "TREASURY",
+    ///     vec![
+    ///         (Date::from_calendar_date(2024, Month::January, 1).unwrap(), 4.5),
+    ///         (Date::from_calendar_date(2024, Month::February, 1).unwrap(), 4.7),
+    ///     ],
+    ///     None,
+    /// )
+    /// .unwrap();
+    /// assert_eq!(series.id().as_str(), "TREASURY");
+    /// ```
     pub fn new(
         id: impl AsRef<str>,
         observations: Vec<(Date, crate::F)>,
@@ -104,7 +186,26 @@ impl ScalarTimeSeries {
         })
     }
 
-    /// Override interpolation method.
+    /// Override the interpolation method used for lookups.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::market_data::scalars::{ScalarTimeSeries, SeriesInterpolation};
+    /// use finstack_core::dates::Date;
+    /// use time::Month;
+    ///
+    /// let series = ScalarTimeSeries::new(
+    ///     "TS",
+    ///     vec![
+    ///         (Date::from_calendar_date(2024, Month::January, 1).unwrap(), 10.0),
+    ///         (Date::from_calendar_date(2024, Month::February, 1).unwrap(), 20.0),
+    ///     ],
+    ///     None,
+    /// )
+    /// .unwrap()
+    /// .with_interpolation(SeriesInterpolation::Linear);
+    /// assert!(matches!(series.interpolation(), SeriesInterpolation::Linear));
+    /// ```
     pub fn with_interpolation(mut self, interpolation: SeriesInterpolation) -> Self {
         self.interpolation = interpolation;
         self
@@ -125,14 +226,39 @@ impl ScalarTimeSeries {
         self.interpolation
     }
 
-    /// Retrieve value on a given date according to the selected interpolation.
+    /// Retrieve the value on a given date according to the active interpolation.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::market_data::scalars::{ScalarTimeSeries, SeriesInterpolation};
+    /// use finstack_core::dates::Date;
+    /// use time::Month;
+    ///
+    /// let series = ScalarTimeSeries::new(
+    ///     "TS",
+    ///     vec![
+    ///         (Date::from_calendar_date(2024, Month::January, 1).unwrap(), 10.0),
+    ///         (Date::from_calendar_date(2024, Month::February, 1).unwrap(), 20.0),
+    ///     ],
+    ///     None,
+    /// )
+    /// .unwrap();
+    /// let jan = Date::from_calendar_date(2024, Month::January, 15).unwrap();
+    /// assert_eq!(series.value_on(jan).unwrap(), 10.0);
+    ///
+    /// let linear = series.clone().with_interpolation(SeriesInterpolation::Linear);
+    /// assert!(linear.value_on(jan).unwrap() > 10.0);
+    /// ```
     pub fn value_on(&self, date: Date) -> Result<crate::F> {
         let days = crate::dates::utils::date_to_days_since_epoch(date);
         self.values_on_days(&[days]).map(|v| v[0])
     }
 
-    /// Vectorized retrieval for many dates. Returns values aligned to input dates.
-    /// Step uses last observation carried forward; Linear blends neighboring points.
+    /// Retrieve values for multiple dates at once.
+    ///
+    /// The returned vector is aligned with the input order. Step interpolation
+    /// carries the last observation forward while Linear blends between
+    /// neighboring observations.
     pub fn values_on(&self, dates: &[Date]) -> Result<Vec<crate::F>> {
         let query_days: Vec<i32> = dates
             .iter()
