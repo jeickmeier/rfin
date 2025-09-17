@@ -1,6 +1,22 @@
+//! Internal rounding helpers backing `Money` arithmetic.
+//!
+//! Amounts are stored as scaled `f64` values (`AmountRepr`).  The routines here
+//! provide fast arithmetic on that representation and expose a single
+//! [`round_f64`] helper that honours [`RoundingMode`](crate::config::RoundingMode).
+//!
+//! # Examples
+//! ```ignore
+//! use finstack_core::config::RoundingMode;
+//! use finstack_core::money::rounding::round_f64;
+//!
+//! assert_eq!(round_f64(1.2345, 2, RoundingMode::Bankers), 1.23);
+//! assert_eq!(round_f64(1.2355, 2, RoundingMode::Bankers), 1.24);
+//! assert_eq!(round_f64(-1.2345, 2, RoundingMode::AwayFromZero), -1.24);
+//! ```
+
 use crate::config::RoundingMode;
 
-// Internal numeric representation for Money amounts
+/// Internal numeric representation for `Money` amounts.
 pub(crate) type AmountRepr = f64;
 
 #[inline]
@@ -28,6 +44,7 @@ pub(crate) fn repr_div_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
     a / rhs
 }
 
+/// Round `x` to `dp` decimal places using the supplied [`RoundingMode`].
 #[inline]
 pub(crate) fn round_f64(x: f64, dp: i32, mode: RoundingMode) -> f64 {
     let factor = 10f64.powi(dp);
