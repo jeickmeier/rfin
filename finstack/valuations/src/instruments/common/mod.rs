@@ -9,6 +9,6 @@ pub use parameter_groups::{
     validate_currency_consistency,CreditParams, EquityUnderlyingParams,
     FxUnderlyingParams, 
     InstrumentScheduleParams, 
-    MarketRefs, OptionMarketParams,
-    PricingOverrides, SABRModelParams
+    MarketRefs,
+    PricingOverrides,
 };

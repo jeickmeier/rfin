@@ -3,8 +3,6 @@
 //! This module provides derive-like macros for reducing boilerplate
 //! in instrument implementations.
 
-//! Note: The legacy `impl_priceable!` macro has been removed.
-
 /// Generate standard Attributable implementation.
 ///
 /// Requirements:

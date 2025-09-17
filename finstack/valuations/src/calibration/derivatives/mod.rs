@@ -5,5 +5,7 @@
 //! convergence speed and accuracy compared to finite differences.
 
 pub mod sabr_derivatives;
+pub mod sabr_model_params;
 
 pub use sabr_derivatives::SABRCalibrationDerivatives;
+pub use sabr_model_params::SABRModelParams;

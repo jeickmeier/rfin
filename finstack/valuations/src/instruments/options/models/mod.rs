@@ -6,6 +6,7 @@ pub mod sabr;
 pub mod short_rate_tree;
 pub mod tree_framework;
 pub mod trinomial_tree;
+pub mod option_market_params;
 
 pub use binomial_tree::{BinomialTree, TreeType};
 pub use black::{d1, d2};
@@ -17,3 +18,4 @@ pub use tree_framework::{
     NodeState, StateVariables, TreeBranching, TreeGreeks, TreeModel, TreeParameters, TreeValuator,
 };
 pub use trinomial_tree::{TrinomialTree, TrinomialTreeType};
+pub use option_market_params::OptionMarketParams;

@@ -5,7 +5,7 @@
 //!
 //! Now includes generic TreeModel implementation for pricing arbitrary instruments.
 
-use crate::instruments::common::OptionMarketParams;
+use crate::instruments::options::models::OptionMarketParams;
 use crate::instruments::options::models::NodeState;
 use crate::instruments::options::{ExerciseStyle, OptionType};
 use finstack_core::market_data::context::MarketContext;
