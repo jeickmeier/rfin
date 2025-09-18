@@ -5,8 +5,8 @@
 //! These metrics are essential for bond valuation, risk management, and
 //! portfolio analysis.
 
-use super::helpers::{df_from_yield, periods_per_year, YieldCompounding};
-use super::oas_pricer::OASCalculator;
+use super::pricing::helpers::{df_from_yield, periods_per_year, YieldCompounding};
+use super::pricing::oas_pricer::OASCalculator;
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::Bond;
@@ -221,11 +221,11 @@ impl MetricCalculator for YtmCalculator {
         };
 
         // Solve for YTM using shared solver with Street compounding (default)
-        let ytm = super::ytm_solver::solve_ytm(
+        let ytm = super::pricing::ytm_solver::solve_ytm(
             &flows,
             context.as_of,
             dirty,
-            super::ytm_solver::YtmPricingSpec {
+            super::pricing::ytm_solver::YtmPricingSpec {
                 day_count: dc,
                 notional,
                 coupon_rate: coupon,
@@ -274,9 +274,9 @@ impl MetricCalculator for MacaulayDurationCalculator {
         };
 
         // Calculate price from flows to ensure consistency
-        let price = {
+            let price = {
             let bond: &Bond = context.instrument_as()?;
-            super::helpers::price_from_ytm(bond, &flows, context.as_of, ytm)?
+            super::pricing::helpers::price_from_ytm(bond, &flows, context.as_of, ytm)?
         };
         if price == 0.0 {
             return Ok(0.0);
@@ -386,9 +386,9 @@ impl MetricCalculator for ConvexityCalculator {
         // Calculate prices with yield bumps for numerical convexity
         let (p0, p_up, p_dn) = {
             let bond: &Bond = context.instrument_as()?;
-            let p0 = super::helpers::price_from_ytm(bond, &flows, context.as_of, ytm)?;
-            let p_up = super::helpers::price_from_ytm(bond, &flows, context.as_of, ytm + dy)?;
-            let p_dn = super::helpers::price_from_ytm(bond, &flows, context.as_of, ytm - dy)?;
+            let p0 = super::pricing::helpers::price_from_ytm(bond, &flows, context.as_of, ytm)?;
+            let p_up = super::pricing::helpers::price_from_ytm(bond, &flows, context.as_of, ytm + dy)?;
+            let p_dn = super::pricing::helpers::price_from_ytm(bond, &flows, context.as_of, ytm - dy)?;
             (p0, p_up, p_dn)
         };
 
@@ -498,11 +498,11 @@ impl YtwCalculator {
         }
         ex_flows.push((exercise_date, redemption));
 
-        super::ytm_solver::solve_ytm(
+        super::pricing::ytm_solver::solve_ytm(
             &ex_flows,
             as_of,
             target_price,
-            super::ytm_solver::YtmPricingSpec {
+            super::pricing::ytm_solver::YtmPricingSpec {
                 day_count: bond.dc,
                 notional: bond.notional,
                 coupon_rate: bond.coupon,

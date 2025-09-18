@@ -1,0 +1,145 @@
+//! Enhanced YTM solver with FinancePy-inspired improvements.
+//!
+//! Provides a robust yield-to-maturity solver using Newton-Raphson with
+//! intelligent initial guesses and automatic fallback to Brent's method.
+
+use finstack_core::dates::Frequency;
+use finstack_core::dates::{Date, DayCount};
+use finstack_core::math::solver::{BrentSolver, HybridSolver, Solver};
+use finstack_core::money::Money;
+use finstack_core::{Result, F};
+
+use super::helpers::{df_from_yield, YieldCompounding};
+
+#[derive(Clone, Copy, Debug)]
+pub struct YtmPricingSpec {
+    pub day_count: DayCount,
+    pub notional: Money,
+    pub coupon_rate: F,
+    pub compounding: YieldCompounding,
+    pub frequency: Frequency,
+}
+
+#[derive(Clone, Debug)]
+pub struct YtmSolverConfig {
+    pub tolerance: F,
+    pub max_iterations: usize,
+    pub use_smart_guess: bool,
+    pub use_newton: bool,
+}
+
+impl Default for YtmSolverConfig {
+    fn default() -> Self {
+        Self { tolerance: 1e-12, max_iterations: 50, use_smart_guess: true, use_newton: true }
+    }
+}
+
+pub struct YtmSolver {
+    config: YtmSolverConfig,
+}
+
+impl Default for YtmSolver { fn default() -> Self { Self::new() } }
+
+impl YtmSolver {
+    pub fn new() -> Self { Self { config: YtmSolverConfig::default() } }
+    pub fn with_config(config: YtmSolverConfig) -> Self { Self { config } }
+
+    pub fn solve(
+        &self,
+        cashflows: &[(Date, Money)],
+        as_of: Date,
+        target_price: Money,
+        spec: YtmPricingSpec,
+    ) -> Result<F> {
+        let target = target_price.amount();
+        if target <= 0.0 { return Err(finstack_core::Error::from(finstack_core::error::InputError::Invalid)); }
+        if cashflows.is_empty() { return Err(finstack_core::Error::from(finstack_core::error::InputError::TooFewPoints)); }
+
+        let initial_guess = if self.config.use_smart_guess {
+            self.calculate_initial_guess(cashflows, as_of, target_price, spec.day_count, spec.notional, spec.coupon_rate)?
+        } else { spec.coupon_rate };
+
+        let price_fn = |y: f64| -> f64 {
+            self.calculate_price(cashflows, as_of, y, spec.day_count, spec.compounding, spec.frequency) - target
+        };
+
+        if self.config.use_newton {
+            let solver = HybridSolver::new().with_tolerance(self.config.tolerance).with_max_iterations(self.config.max_iterations);
+            solver.solve(price_fn, initial_guess)
+        } else {
+            let solver = BrentSolver::new().with_tolerance(self.config.tolerance);
+            solver.solve(price_fn, initial_guess)
+        }
+    }
+
+    fn calculate_price(
+        &self,
+        cashflows: &[(Date, Money)],
+        as_of: Date,
+        yield_rate: F,
+        day_count: DayCount,
+        comp: YieldCompounding,
+        freq: Frequency,
+    ) -> F {
+        let mut price = 0.0;
+        for &(date, amount) in cashflows {
+            if date <= as_of { continue; }
+            let t = day_count.year_fraction(as_of, date, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+            if t > 0.0 { let df = df_from_yield(yield_rate, t, comp, freq).unwrap_or(0.0); price += amount.amount() * df; }
+        }
+        price
+    }
+
+    fn calculate_initial_guess(
+        &self,
+        cashflows: &[(Date, Money)],
+        as_of: Date,
+        target_price: Money,
+        day_count: DayCount,
+        notional: Money,
+        coupon_rate: F,
+    ) -> Result<F> {
+        let current_yield = coupon_rate * notional.amount() / target_price.amount();
+        let maturity = cashflows.last().map(|(date, _)| *date).ok_or(finstack_core::error::InputError::TooFewPoints)?;
+        let years_to_maturity = day_count.year_fraction(as_of, maturity, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        if years_to_maturity <= 0.0 { return Ok(current_yield); }
+        let price_pct = target_price.amount() / notional.amount();
+        let pull_to_par = (1.0 / price_pct - 1.0) / years_to_maturity;
+        let initial_guess = current_yield + 0.5 * pull_to_par;
+        Ok(initial_guess.clamp(-0.5, 0.5))
+    }
+}
+
+pub fn solve_ytm(
+    cashflows: &[(Date, Money)],
+    as_of: Date,
+    target_price: Money,
+    spec: YtmPricingSpec,
+) -> Result<F> {
+    let solver = YtmSolver::new();
+    solver.solve(cashflows, as_of, target_price, spec)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use time::Month;
+    #[test]
+    fn test_ytm_solver_par_bond() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let _maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
+        let notional = Money::new(1000.0, Currency::USD);
+        let coupon_rate = 0.05;
+        let mut cashflows = vec![];
+        for year in 1..=5 {
+            let date = Date::from_calendar_date(2025 + year, Month::January, 1).unwrap();
+            if year < 5 { cashflows.push((date, Money::new(50.0, Currency::USD))); } else { cashflows.push((date, Money::new(1050.0, Currency::USD))); }
+        }
+        let solver = YtmSolver::new();
+        let ytm = solver.solve(&cashflows, as_of, notional, YtmPricingSpec { day_count: DayCount::Act365F, notional, coupon_rate, compounding: YieldCompounding::Street, frequency: Frequency::annual() }).unwrap();
+        assert!((ytm - coupon_rate).abs() < 1e-4);
+    }
+}
+
+
