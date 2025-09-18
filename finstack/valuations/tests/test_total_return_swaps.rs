@@ -16,7 +16,7 @@ use finstack_valuations::instruments::{
     equity::EquityUnderlyingParams,
     traits::Priceable,
 };
-use finstack_valuations::instruments::derivatives::trs::parameters::IndexUnderlyingParams;
+use finstack_valuations::instruments::derivatives::trs::IndexUnderlyingParams;
 use time::Month;
 
 fn create_test_market_context() -> MarketContext {

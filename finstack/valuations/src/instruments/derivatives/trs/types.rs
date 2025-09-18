@@ -1,28 +1,39 @@
 //! Core types and common engine for Total Return Swaps.
 
-use crate::cashflow::builder::schedule_utils::build_dates;
 use crate::cashflow::builder::ScheduleParams;
+use crate::cashflow::builder::schedule_utils::build_dates;
 use finstack_core::{
-    dates::{Date, DayCount, DayCountCtx},
-    market_data::MarketContext,
-    money::Money,
+    dates::{Date, DayCount},
     types::CurveId,
-    Result, F,
+    F,
 };
+use finstack_core::types::id::IndexId;
+use finstack_core::types::Currency;
 // Forward trait removed - use direct method calls on curve types
 
-/// Side of the TRS trade (perspective of the party)
+/// Side of the TRS trade from the party's perspective.
+///
+/// # Examples
+/// ```rust
+/// use finstack_valuations::instruments::derivatives::trs::TrsSide;
+///
+/// let receive_side = TrsSide::ReceiveTotalReturn;
+/// let pay_side = TrsSide::PayTotalReturn;
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TrsSide {
-    /// Receive total return, pay financing
+    /// Receive total return, pay financing.
     ReceiveTotalReturn,
-    /// Pay total return, receive financing
+    /// Pay total return, receive financing.
     PayTotalReturn,
 }
 
 impl TrsSide {
-    /// Get the sign multiplier for PV calculation
+    /// Gets the sign multiplier for present value calculation.
+    ///
+    /// # Returns
+    /// 1.0 for ReceiveTotalReturn, -1.0 for PayTotalReturn.
     pub fn sign(&self) -> F {
         match self {
             TrsSide::ReceiveTotalReturn => 1.0,
@@ -31,23 +42,47 @@ impl TrsSide {
     }
 }
 
-/// Specification for the financing leg of a TRS
+/// Specification for the financing leg of a TRS.
+///
+/// Defines the floating rate leg that pays/receives a spread over a reference rate.
+///
+/// # Examples
+/// ```rust
+/// use finstack_valuations::instruments::derivatives::trs::FinancingLegSpec;
+/// use finstack_core::dates::DayCount;
+///
+/// let financing = FinancingLegSpec::new(
+///     "USD-OIS",
+///     "USD-SOFR-3M", 
+///     25.0, // 25bp spread
+///     DayCount::Act365F
+/// );
+/// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct FinancingLegSpec {
-    /// Discount curve identifier
+    /// Discount curve identifier for present value calculations.
     pub disc_id: CurveId,
-    /// Forward curve identifier (e.g., USD-SOFR-3M)
+    /// Forward curve identifier (e.g., USD-SOFR-3M).
     pub fwd_id: CurveId,
-    /// Spread in basis points over the floating rate
+    /// Spread in basis points over the floating rate.
     pub spread_bp: F,
-    /// Day count convention for accrual
+    /// Day count convention for accrual calculations.
     pub day_count: DayCount,
 }
 
 impl FinancingLegSpec {
-    /// Create a new financing leg specification
+    /// Creates a new financing leg specification.
+    ///
+    /// # Arguments
+    /// * `disc_id` — Discount curve identifier
+    /// * `fwd_id` — Forward curve identifier
+    /// * `spread_bp` — Spread in basis points over the floating rate
+    /// * `day_count` — Day count convention for accrual
+    ///
+    /// # Returns
+    /// New FinancingLegSpec instance.
     pub fn new(
         disc_id: impl Into<String>,
         fwd_id: impl Into<String>,
@@ -63,238 +98,161 @@ impl FinancingLegSpec {
     }
 }
 
-/// Specification for the total return leg of a TRS
+/// Specification for the total return leg of a TRS.
+///
+/// Defines the leg that pays/receives the total return of the underlying asset.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct TotalReturnLegSpec {
-    /// Reference index or asset identifier
+    /// Reference index or asset identifier.
     pub reference_id: String,
-    /// Initial price/level (if known, otherwise fetched from market)
+    /// Initial price/level (if known, otherwise fetched from market).
     pub initial_level: Option<F>,
-    /// Whether to include dividends/distributions
+    /// Whether to include dividends/distributions in the return calculation.
     pub include_distributions: bool,
 }
 
-/// Schedule specification for TRS
+/// Schedule specification for TRS payment periods.
+///
+/// Defines the payment schedule and frequency for both legs of the TRS.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct TrsScheduleSpec {
-    /// Start date for the TRS leg
+    /// Start date for the TRS leg.
     pub start: Date,
-    /// End date for the TRS leg
+    /// End date for the TRS leg.
     pub end: Date,
-    /// Schedule parameters (frequency, day count, bdc, calendar, stub)
+    /// Schedule parameters (frequency, day count, bdc, calendar, stub).
     pub params: ScheduleParams,
 }
 
 impl TrsScheduleSpec {
-    /// Create from start/end and ScheduleParams
+    /// Creates a schedule specification from start/end dates and schedule parameters.
+    ///
+    /// # Arguments
+    /// * `start` — Start date for the TRS leg
+    /// * `end` — End date for the TRS leg
+    /// * `schedule` — Schedule parameters (frequency, day count, etc.)
+    ///
+    /// # Returns
+    /// New TrsScheduleSpec instance.
     pub fn from_params(start: Date, end: Date, schedule: ScheduleParams) -> Self {
         Self { start, end, params: schedule }
     }
+
+    /// Builds the period date schedule in a canonical way.
+    ///
+    /// # Returns
+    /// PeriodSchedule containing all payment dates for the TRS.
+    pub fn period_schedule(&self) -> crate::cashflow::builder::schedule_utils::PeriodSchedule {
+        build_dates(
+            self.start,
+            self.end,
+            self.params.freq,
+            self.params.stub,
+            self.params.bdc,
+            self.params.calendar_id,
+        )
+    }
 }
 
-/// Common TRS pricing engine
-pub struct TrsEngine;
-
-/// Parameters for total return leg calculation
-#[derive(Debug, Clone)]
-pub struct TotalReturnLegParams<'a> {
-    pub schedule: &'a TrsScheduleSpec,
-    pub notional: Money,
-    pub disc_id: &'a str,
+/// Parameters for fixed income index underlying (for TRS and similar instruments).
+///
+/// Defines the underlying fixed income index and its associated market data identifiers.
+///
+/// # Examples
+/// ```rust
+/// use finstack_valuations::instruments::derivatives::trs::IndexUnderlyingParams;
+/// use finstack_core::currency::Currency;
+///
+/// let params = IndexUnderlyingParams::new("CDX.IG", Currency::USD)
+///     .with_yield("CDX.IG.YIELD")
+///     .with_duration("CDX.IG.DURATION");
+/// ```
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct IndexUnderlyingParams {
+    /// Index identifier (e.g., "CDX.IG", "HY.BOND.INDEX").
+    pub index_id: IndexId,
+    /// Base currency of the index.
+    pub base_currency: Currency,
+    /// Optional yield curve/scalar identifier for carry calculation.
+    pub yield_id: Option<String>,
+    /// Optional duration identifier for risk calculations.
+    pub duration_id: Option<String>,
+    /// Optional convexity identifier for risk calculations.
+    pub convexity_id: Option<String>,
+    /// Contract size (index units per contract, defaults to 1.0).
     pub contract_size: F,
-    pub initial_level: Option<F>,
 }
 
-impl TrsEngine {
-    /// Calculate PV of total return leg using shared logic
-    /// 
-    /// This method contains the common period iteration and discounting logic,
-    /// while delegating underlying-specific return calculations to the closure.
-    #[allow(clippy::too_many_arguments)]
-    pub fn pv_total_return_leg_common<FReturn>(
-        params: TotalReturnLegParams,
-        context: &MarketContext,
-        as_of: Date,
-        calculate_period_return: FReturn,
-    ) -> Result<Money>
-    where
-        FReturn: Fn(Date, Date, F, F, F, &MarketContext) -> Result<F>,
-    {
-        // Get discount curve
-        let disc = context
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                params.disc_id,
-            )?;
-
-        // Build schedule
-        let period_schedule = build_dates(
-            params.schedule.start,
-            params.schedule.end,
-            params.schedule.params.freq,
-            params.schedule.params.stub,
-            params.schedule.params.bdc,
-            params.schedule.params.calendar_id,
-        );
-
-        let mut total_pv = 0.0;
-        let currency = params.notional.currency();
-        let ctx = DayCountCtx::default();
-
-        // Iterate through periods
-        for i in 1..period_schedule.dates.len() {
-            let period_start = period_schedule.dates[i - 1];
-            let period_end = period_schedule.dates[i];
-
-            // Time fractions
-            let t_start = params
-                .schedule
-                .params.dc
-                .year_fraction(as_of, period_start, ctx)?;
-            let t_end = params
-                .schedule
-                .params.dc
-                .year_fraction(as_of, period_end, ctx)?;
-
-            // Calculate underlying return for this period (delegated to underlying-specific logic)
-            let total_return = calculate_period_return(
-                period_start, 
-                period_end, 
-                t_start, 
-                t_end, 
-                params.initial_level.unwrap_or(1.0), 
-                context
-            )?;
-
-            // Payment amount
-            let payment = params.notional.amount() * total_return * params.contract_size;
-
-            // Discount to present
-            let df = disc.df(t_end);
-            total_pv += payment * df;
+impl IndexUnderlyingParams {
+    /// Creates index underlying parameters.
+    ///
+    /// # Arguments
+    /// * `index_id` — Index identifier
+    /// * `base_currency` — Base currency of the index
+    ///
+    /// # Returns
+    /// New IndexUnderlyingParams with default values.
+    pub fn new(index_id: impl Into<String>, base_currency: Currency) -> Self {
+        Self {
+            index_id: IndexId::new(index_id),
+            base_currency,
+            yield_id: None,
+            duration_id: None,
+            convexity_id: None,
+            contract_size: 1.0,
         }
-
-        Ok(Money::new(total_pv, currency))
     }
 
-    /// Calculate PV of financing leg
-    pub fn pv_financing_leg(
-        financing: &FinancingLegSpec,
-        schedule: &TrsScheduleSpec,
-        notional: Money,
-        context: &MarketContext,
-        as_of: Date,
-    ) -> Result<Money> {
-        // Get curves
-        let disc_curve_id = financing.disc_id.as_str();
-        let fwd_curve_id = financing.fwd_id.as_str();
-
-        let disc = context
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                disc_curve_id,
-            )?;
-        let fwd = context
-            .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-                fwd_curve_id,
-            )?;
-
-        // Build schedule
-        let period_schedule = build_dates(
-            schedule.start,
-            schedule.end,
-            schedule.params.freq,
-            schedule.params.stub,
-            schedule.params.bdc,
-            schedule.params.calendar_id,
-        );
-
-        let mut total_pv = 0.0;
-        let currency = notional.currency();
-        let ctx = DayCountCtx::default();
-
-        // Iterate through periods
-        for i in 1..period_schedule.dates.len() {
-            let period_start = period_schedule.dates[i - 1];
-            let period_end = period_schedule.dates[i];
-
-            // Year fraction for accrual
-            let yf = schedule
-                .params.dc
-                .year_fraction(period_start, period_end, ctx)?;
-
-            // Forward rate for the period
-            let t_start = schedule
-                .params.dc
-                .year_fraction(as_of, period_start, ctx)?;
-            let t_end = schedule
-                .params.dc
-                .year_fraction(as_of, period_end, ctx)?;
-            let fwd_rate = fwd.rate_period(t_start, t_end);
-
-            // Add spread
-            let total_rate = fwd_rate + financing.spread_bp / 10000.0;
-
-            // Payment amount
-            let payment = notional.amount() * total_rate * yf;
-
-            // Discount to present
-            let df = disc.df(t_end);
-            total_pv += payment * df;
-        }
-
-        Ok(Money::new(total_pv, currency))
+    /// Sets the yield identifier for carry calculation.
+    ///
+    /// # Arguments
+    /// * `yield_id` — Yield curve or scalar identifier
+    ///
+    /// # Returns
+    /// Self for method chaining.
+    pub fn with_yield(mut self, yield_id: impl Into<String>) -> Self {
+        self.yield_id = Some(yield_id.into());
+        self
     }
 
-    /// Calculate financing annuity (for par spread calculation)
-    pub fn financing_annuity(
-        financing: &FinancingLegSpec,
-        schedule: &TrsScheduleSpec,
-        notional: Money,
-        context: &MarketContext,
-        as_of: Date,
-    ) -> Result<F> {
-        // Get discount curve
-        let disc_curve_id = financing.disc_id.as_str();
-        let disc = context
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                disc_curve_id,
-            )?;
+    /// Sets the duration identifier for risk calculations.
+    ///
+    /// # Arguments
+    /// * `duration_id` — Duration scalar identifier
+    ///
+    /// # Returns
+    /// Self for method chaining.
+    pub fn with_duration(mut self, duration_id: impl Into<String>) -> Self {
+        self.duration_id = Some(duration_id.into());
+        self
+    }
 
-        // Build schedule
-        let period_schedule = build_dates(
-            schedule.start,
-            schedule.end,
-            schedule.params.freq,
-            schedule.params.stub,
-            schedule.params.bdc,
-            schedule.params.calendar_id,
-        );
+    /// Sets the convexity identifier for risk calculations.
+    ///
+    /// # Arguments
+    /// * `convexity_id` — Convexity scalar identifier
+    ///
+    /// # Returns
+    /// Self for method chaining.
+    pub fn with_convexity(mut self, convexity_id: impl Into<String>) -> Self {
+        self.convexity_id = Some(convexity_id.into());
+        self
+    }
 
-        let mut annuity = 0.0;
-        let ctx = DayCountCtx::default();
-
-        // Iterate through periods
-        for i in 1..period_schedule.dates.len() {
-            let period_start = period_schedule.dates[i - 1];
-            let period_end = period_schedule.dates[i];
-
-            // Year fraction for accrual
-            let yf = schedule
-                .params.dc
-                .year_fraction(period_start, period_end, ctx)?;
-
-            // Discount factor to payment date
-            let t_pay = schedule
-                .params.dc
-                .year_fraction(as_of, period_end, ctx)?;
-            let df = disc.df(t_pay);
-
-            annuity += df * yf;
-        }
-
-        Ok(annuity * notional.amount())
+    /// Sets the contract size multiplier.
+    ///
+    /// # Arguments
+    /// * `size` — Contract size (index units per contract)
+    ///
+    /// # Returns
+    /// Self for method chaining.
+    pub fn with_contract_size(mut self, size: F) -> Self {
+        self.contract_size = size;
+        self
     }
 }

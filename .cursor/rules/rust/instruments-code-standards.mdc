@@ -1,0 +1,1133 @@
+---
+alwaysApply: false
+---
+# Rust Instruments Code Standards
+
+## Quick Checklist
+
+- Module layout mirrors TRS:
+  - Root: instrument variant files, `types.rs`, `mod.rs` with re-exports.
+  - `pricing/`: `mod.rs`, `engine.rs` (shared), per-variant pricers.
+  - `metrics/`: `mod.rs` (registration), one file per metric calculator.
+  - `mod.rs` may contain inline `mod helpers` for small, shared functions.
+- Traits and placement:
+  - Implement `Attributable`, `Instrument`, `CashflowProvider` in the variant file.
+  - Implement `Priceable` in `pricing/mod.rs` (not in the variant file).
+- Currency safety:
+  - Use `crate::instruments::utils::validate_currency_consistency(&[money])` for generic checks.
+  - Add instrument-specific validation in `mod helpers` (e.g., validate base currency).
+- Scheduling:
+  - Expose `ScheduleSpec::period_schedule()`; do not call `build_dates` outside `types.rs`.
+  - Use `DayCountCtx::default()` and `dc.year_fraction(...)` consistently.
+- Engine pattern:
+  - Shared engine with a params struct and a model trait for underlying-specific logic.
+  - Keep iteration/discounting in the engine; defer return/value calc to the model.
+- Metrics:
+  - One calculator per file; declare `dependencies()` explicitly.
+  - Central registration function in `metrics/mod.rs` registering applicable variants.
+- Results assembly:
+  - In `price_with_metrics`, use `crate::instruments::utils::build_with_metrics_dyn`.
+- Docs:
+  - Module-level docs; struct and field docs; function docs with arguments/returns; examples for public items.
+- Naming:
+  - Use `pv_*` for present value functions; `with_*` for fluent builders; suffix `Engine`/`Calculator`.
+- Invariants:
+  - Deterministic, currency-safe, strict serde names, no new date logic (use core/dates), newtype IDs.
+
+## Module Structure
+
+### Directory Organization
+```
+instruments/
+│   └── {instrument_type}/
+│       ├── mod.rs              # Main module file
+│       ├── {variant}.rs        # Instrument variants (e.g., equity.rs, fixed_income_index.rs)
+│       ├── types.rs            # Core types, enums, and specifications
+│       ├── pricing/            # Pricing logic subdirectory
+│       │   ├── mod.rs          # Pricing module exports
+│       │   ├── engine.rs       # Common pricing engine
+│       │   └── {variant}.rs    # Variant-specific pricing (e.g., equity.rs, fixed_income_index.rs)
+│       ├── metrics/            # Risk metrics subdirectory
+│       │   ├── mod.rs          # Metrics module exports and registration
+│       │   └── {metric}.rs     # Individual metric calculators (e.g., par_spread.rs, annuity.rs)
+│       └── helpers.rs          # Shared utility functions (optional; prefer inline `mod helpers` in mod.rs until large)
+```
+
+### Module File Structure (`mod.rs`)
+```rust
+//! Brief description of the instrument module.
+//!
+//! Extended description explaining the instrument's purpose,
+//! variants, and key features.
+
+mod {variant1};
+mod {variant2};
+pub mod metrics;
+mod types;
+pub mod pricing;
+
+// Re-export main types
+pub use {variant1}::{Variant1Instrument};
+pub use {variant2}::{Variant2Instrument};
+pub use types::{CoreType1, CoreType2, SpecificationType};
+pub use pricing::engine::{EngineName};
+
+ /// Shared helpers for this instrument type
+pub(crate) mod helpers {
+    // Helper functions specific to this instrument
+}
+```
+
+## Type Definitions
+
+### Core Types (`types.rs`)
+- **Enums**: Document with examples and variant descriptions
+- **Structs**: Document all fields with brief descriptions
+- **Implementations**: Document all public methods with arguments and returns
+- **Builder Methods**: Use fluent interface pattern with `with_*` methods
+
+```rust
+/// Short description of the type.
+///
+/// Extended description explaining purpose and usage.
+///
+/// # Examples
+/// ```rust
+/// use crate::module::TypeName;
+/// let instance = TypeName::new();
+/// ```
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TypeName {
+    /// Brief description of the field.
+    pub field: FieldType,
+}
+
+impl TypeName {
+    /// Creates a new instance with default values.
+    ///
+    /// # Arguments
+    /// * `param` — Description of parameter
+    ///
+    /// # Returns
+    /// New instance with default values.
+    pub fn new(param: impl Into<String>) -> Self {
+        // Implementation
+    }
+
+    /// Sets optional field using fluent interface.
+    ///
+    /// # Arguments
+    /// * `value` — Description of value
+    ///
+    /// # Returns
+    /// Self for method chaining.
+    pub fn with_field(mut self, value: impl Into<String>) -> Self {
+        self.field = Some(value.into());
+        self
+    }
+}
+```
+
+## Instrument Variants
+
+### Instrument Definition Files (`{variant}.rs`)
+```rust
+//! {Variant} {InstrumentType} instrument definitions and helpers.
+
+use super::types::{Type1, Type2, Type3};
+use crate::instruments::traits::{Attributable, Instrument};
+use crate::{
+    cashflow::{
+        traits::{CashflowProvider, DatedFlows},
+    },
+    instruments::{
+        traits::Attributes,
+    },
+};
+use finstack_core::{
+    dates::Date,
+    market_data::MarketContext,
+    money::Money,
+    types::InstrumentId,
+    Result, F,
+};
+use std::any::Any;
+
+/// {Variant} {InstrumentType} instrument.
+///
+/// Brief description of what this variant represents.
+/// Extended description explaining the variant's specific characteristics.
+///
+/// # Examples
+/// ```rust
+/// use finstack_valuations::instruments::derivatives::{instrument}::{VariantInstrument};
+/// use finstack_core::{money::Money, currency::Currency};
+///
+/// let instrument = VariantInstrument::builder()
+///     .id("INSTRUMENT_001")
+///     .notional(Money::new(1_000_000.0, Currency::USD))
+///     .build();
+/// ```
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+pub struct VariantInstrument {
+    /// Unique instrument identifier.
+    pub id: InstrumentId,
+    /// Notional amount for the instrument.
+    pub notional: Money,
+    /// {Variant}-specific parameters.
+    pub underlying: UnderlyingParams,
+    /// Common specification shared across variants.
+    pub specification: CommonSpec,
+    /// Trade side or direction.
+    pub side: SideEnum,
+    /// Optional initial level (if known).
+    pub initial_level: Option<F>,
+    /// Attributes for scenario selection and tagging.
+    pub attributes: Attributes,
+}
+
+impl VariantInstrument {}
+
+// Implement required traits
+impl Attributable for VariantInstrument { /* ... */ }
+impl Instrument for VariantInstrument { /* ... */ }
+impl CashflowProvider for VariantInstrument { /* ... */ }
+```
+
+## Pricing Module
+
+### Pricing Structure (`pricing/mod.rs`)
+```rust
+//! {InstrumentType} pricing entrypoints and pricers.
+
+pub mod engine;
+pub mod {variant1};
+pub mod {variant2};
+
+use crate::instruments::traits::Priceable;
+use crate::metrics::MetricId;
+use crate::results::ValuationResult;
+use finstack_core::dates::Date;
+use finstack_core::market_data::MarketContext;
+use finstack_core::money::Money;
+use finstack_core::Result;
+
+impl Priceable for Variant1Instrument {
+    fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
+        // Currency validation (generic + instrument-specific when applicable)
+        super::helpers::validate_currencies(self.notional, None)?;
+        
+        // Calculate legs
+        let leg1_pv = {variant1}::pv_leg1(self, context, as_of)?;
+        let leg2_pv = engine::EngineName::pv_leg2(
+            &self.specification,
+            &self.schedule,
+            self.notional,
+            context,
+            as_of,
+        )?;
+
+        // Net PV based on side
+        let net_pv = match self.side {
+            SideEnum::ReceiveLeg1 => leg1_pv - leg2_pv,
+            SideEnum::PayLeg1 => leg2_pv - leg1_pv,
+        }?;
+
+        Ok(net_pv)
+    }
+
+    fn price_with_metrics(
+        &self,
+        context: &MarketContext,
+        as_of: Date,
+        metrics: &[MetricId],
+    ) -> Result<ValuationResult> {
+        let base = <Self as Priceable>::value(self, context, as_of)?;
+        // Use shared builder to assemble ValuationResult with metrics
+        crate::instruments::utils::build_with_metrics_dyn(self, context, as_of, base, metrics)
+    }
+}
+```
+
+### Pricing Engine (`pricing/engine.rs`)
+```rust
+//! Core {InstrumentType} pricing engine and shared helpers.
+
+use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::market_data::MarketContext;
+use finstack_core::money::Money;
+use finstack_core::Result;
+use finstack_core::F;
+
+use super::super::types::{SpecificationType, ScheduleType};
+
+/// Common {InstrumentType} pricing engine.
+///
+/// Provides utility functions for calculating present values of instrument legs
+/// and other common pricing operations.
+pub struct EngineName;
+
+/// Parameters for leg calculation.
+#[derive(Debug, Clone)]
+pub struct LegParams<'a> {
+    /// Schedule specification for payment periods.
+    pub schedule: &'a ScheduleType,
+    /// Notional amount for the leg.
+    pub notional: Money,
+    /// Curve identifier.
+    pub curve_id: &'a str,
+    /// Additional parameters.
+    pub additional_param: F,
+}
+
+/// Trait for underlying-specific calculation models.
+///
+/// Implementations of this trait provide the logic for calculating
+/// returns or values over a period for different underlying types.
+pub trait CalculationModel {
+    /// Computes value over a period given parameters.
+    ///
+    /// # Arguments
+    /// * `period_start` — Start date of the period
+    /// * `period_end` — End date of the period
+    /// * `t_start` — Time from as_of to period start
+    /// * `t_end` — Time from as_of to period end
+    /// * `initial_value` — Initial value of the underlying
+    /// * `context` — Market context for data access
+    ///
+    /// # Returns
+    /// Calculated value as a decimal.
+    fn calculate_value(
+        &self,
+        period_start: Date,
+        period_end: Date,
+        t_start: F,
+        t_end: F,
+        initial_value: F,
+        context: &MarketContext,
+    ) -> Result<F>;
+}
+
+impl EngineName {
+    /// Calculates the present value of a leg using shared logic.
+    ///
+    /// This method contains the common period iteration and discounting logic,
+    /// while delegating underlying-specific calculations to the model.
+    ///
+    /// # Arguments
+    /// * `params` — Parameters for the leg calculation
+    /// * `context` — Market context containing curves and market data
+    /// * `as_of` — Valuation date
+    /// * `model` — Model implementing CalculationModel for underlying-specific logic
+    ///
+    /// # Returns
+    /// Present value of the leg in the instrument's currency.
+    pub fn pv_leg_with_model(
+        params: LegParams,
+        context: &MarketContext,
+        as_of: Date,
+        model: &impl CalculationModel,
+    ) -> Result<Money> {
+        // Implementation
+    }
+
+    /// Calculates the present value of another leg.
+    ///
+    /// # Arguments
+    /// * `specification` — Leg specification
+    /// * `schedule` — Schedule specification for payment periods
+    /// * `notional` — Notional amount for the leg
+    /// * `context` — Market context containing curves and market data
+    /// * `as_of` — Valuation date
+    ///
+    /// # Returns
+    /// Present value of the leg in the instrument's currency.
+    pub fn pv_other_leg(
+        specification: &SpecificationType,
+        schedule: &ScheduleType,
+        notional: Money,
+        context: &MarketContext,
+        as_of: Date,
+    ) -> Result<Money> {
+        // Implementation
+    }
+}
+```
+
+### Variant-Specific Pricing (`pricing/{variant}.rs`)
+```rust
+//! {Variant} {InstrumentType} pricing utilities.
+
+use super::engine::{LegParams, EngineName, CalculationModel};
+use crate::instruments::derivatives::{instrument}::{VariantInstrument};
+use finstack_core::dates::Date;
+use finstack_core::market_data::MarketContext;
+use finstack_core::money::Money;
+use finstack_core::Result;
+
+fn extract_underlying_data(
+    instrument: &VariantInstrument, 
+    context: &MarketContext
+) -> Result<(f64, f64)> {
+    // Extract market data specific to this variant
+}
+
+struct VariantCalculationModel<'a> {
+    instrument: &'a VariantInstrument,
+    param1: f64,
+    param2: f64,
+}
+
+impl<'a> CalculationModel for VariantCalculationModel<'a> {
+    fn calculate_value(
+        &self,
+        _period_start: finstack_core::dates::Date,
+        _period_end: finstack_core::dates::Date,
+        t_start: f64,
+        t_end: f64,
+        initial_value: f64,
+        context: &MarketContext,
+    ) -> Result<f64> {
+        // Variant-specific calculation logic
+    }
+}
+
+/// Calculates the present value of the leg for {Variant} {InstrumentType}.
+///
+/// # Arguments
+/// * `instrument` — The {variant} instrument
+/// * `context` — Market context containing curves and market data
+/// * `as_of` — Valuation date
+///
+/// # Returns
+/// Present value of the leg in the instrument's currency.
+pub fn pv_leg(instrument: &VariantInstrument, context: &MarketContext, as_of: Date) -> Result<Money> {
+    let (param1, param2) = extract_underlying_data(instrument, context)?;
+    let initial = instrument.initial_level.unwrap_or(param1);
+
+    let params = LegParams {
+        schedule: &instrument.schedule,
+        notional: instrument.notional,
+        curve_id: instrument.specification.curve_id.as_str(),
+        additional_param: instrument.underlying.param,
+        initial_value: Some(initial),
+    };
+
+    let model = VariantCalculationModel { 
+        instrument, 
+        param1, 
+        param2 
+    };
+    
+    EngineName::pv_leg_with_model(params, context, as_of, &model)
+}
+```
+
+## Metrics Module
+
+### Metrics Structure (`metrics/mod.rs`)
+```rust
+//! Risk metrics for {InstrumentType}.
+
+mod {metric1};
+mod {metric2};
+mod {metric3};
+mod {metric4};
+
+pub use {metric1}::{Metric1Calculator};
+pub use {metric2}::{Metric2Calculator};
+pub use {metric3}::{Metric3Calculator};
+pub use {metric4}::{Metric4Calculator};
+
+use crate::metrics::{MetricId, MetricRegistry};
+
+/// Registers all {InstrumentType} metrics with the metric registry.
+///
+/// This function adds all instrument-specific metrics to the provided metric registry.
+/// Each metric is registered for all applicable instrument variants.
+///
+/// # Arguments
+/// * `registry` — Metric registry to add metrics to
+pub fn register_{instrument}_metrics(registry: &mut MetricRegistry) {
+    use std::sync::Arc;
+
+    registry.register_metric(
+        MetricId::{Metric1},
+        Arc::new({Metric1Calculator}),
+        &["{Variant1Instrument}", "{Variant2Instrument}"],
+    );
+    // ... other metrics
+}
+```
+
+### Individual Metric Files (`metrics/{metric}.rs`)
+```rust
+use crate::metrics::{MetricCalculator, MetricContext};
+use finstack_core::{Error, Result, F};
+use crate::instruments::derivatives::{instrument}::{Variant1Instrument, Variant2Instrument};
+use crate::instruments::derivatives::{instrument}::pricing::engine::EngineName;
+
+/// Calculates the {metric name} for a {InstrumentType}.
+///
+/// Brief description of what this metric measures.
+/// Extended description explaining the calculation method and use cases.
+pub struct {MetricName}Calculator;
+
+impl MetricCalculator for {MetricName}Calculator {
+    fn dependencies(&self) -> &[MetricId] { 
+        &[MetricId::{DependencyMetric}] 
+    }
+
+    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+        // Metric calculation logic
+        if let Some(variant1) = context.instrument.as_any().downcast_ref::<Variant1Instrument>() {
+            // Variant1-specific calculation
+        } else if let Some(variant2) = context.instrument.as_any().downcast_ref::<Variant2Instrument>() {
+            // Variant2-specific calculation
+        } else {
+            Err(Error::Input(finstack_core::error::InputError::Invalid))
+        }
+    }
+}
+```
+
+## Documentation Standards
+
+### Required Documentation
+- **Module-level**: Brief description + extended description + examples for main types
+- **Structs**: One-sentence description + field documentation + examples if public-facing
+- **Enums**: One-sentence description + variant descriptions + examples
+- **Functions**: One-sentence description + arguments + returns + examples if public-facing
+- **Methods**: One-sentence description + arguments + returns
+
+### Documentation Style
+- Use present tense and active voice
+- Keep descriptions short and clear (3-5 lines per section)
+- Use fenced `rust` blocks for examples that compile
+- No advanced sections (panics, safety, performance, concurrency)
+- Document all public fields with `///` above each field
+
+### Example Documentation Template
+```rust
+/// Brief description of the item.
+///
+/// Extended description explaining purpose, usage, and key characteristics.
+/// This can span multiple lines if needed.
+///
+/// # Arguments
+/// * `param1` — Description of first parameter
+/// * `param2` — Description of second parameter
+///
+/// # Returns
+/// Description of return value.
+///
+/// # Examples
+/// ```rust
+/// use crate::module::ItemName;
+/// let item = ItemName::new("param1", 42);
+/// assert_eq!(item.value(), 42);
+/// ```
+```
+
+## Code Organization Principles
+
+### Separation of Concerns
+- **Instrument definitions**: Pure data structures and trait implementations
+- **Pricing logic**: All calculation and valuation logic
+- **Metrics**: Risk and performance calculations
+- **Types**: Core data types and specifications
+- **Helpers**: Shared utility functions
+
+### Reusability
+- Extract common logic into engine modules
+- Use traits for underlying-specific calculations
+- Centralize validation in helper modules
+- Share types across variants when possible
+
+### Maintainability
+- Keep modules focused and cohesive
+- Use clear, descriptive names
+- Document all public APIs
+- Follow consistent patterns across similar instruments
+
+### Testing
+- Unit tests for individual components
+- Integration tests for full instrument workflows
+- Property-based tests for complex calculations
+- Examples in documentation should be testable
+
+## Naming Conventions
+
+### Files and Modules
+- Use snake_case for file names
+- Use descriptive names that indicate purpose
+- Group related functionality in subdirectories
+
+### Types and Structs
+- Use PascalCase for type names
+- Use descriptive names that indicate purpose
+- Suffix calculators with `Calculator`
+- Suffix engines with `Engine`
+
+### Functions and Methods
+- Use snake_case for function names
+- Use descriptive names that indicate action
+- Use `with_*` for builder methods
+- Use `pv_*` for present value calculations
+
+### Constants and Enums
+- Use PascalCase for enum variants
+- Use SCREAMING_SNAKE_CASE for constants
+- Use descriptive names that indicate meaning# Rust Instruments Code Standards
+
+## Module Structure
+
+### Directory Organization
+```
+instruments/
+├── derivatives/
+│   └── {instrument_type}/
+│       ├── mod.rs              # Main module file
+│       ├── {variant}.rs        # Instrument variants (e.g., equity.rs, fixed_income_index.rs)
+│       ├── types.rs            # Core types, enums, and specifications
+│       ├── pricing/            # Pricing logic subdirectory
+│       │   ├── mod.rs          # Pricing module exports
+│       │   ├── engine.rs       # Common pricing engine
+│       │   └── {variant}.rs    # Variant-specific pricing (e.g., equity.rs, fixed_income_index.rs)
+│       ├── metrics/            # Risk metrics subdirectory
+│       │   ├── mod.rs          # Metrics module exports and registration
+│       │   └── {metric}.rs     # Individual metric calculators (e.g., par_spread.rs, annuity.rs)
+│       └── helpers.rs          # Shared utility functions (optional)
+```
+
+### Module File Structure (`mod.rs`)
+```rust
+//! Brief description of the instrument module.
+//!
+//! Extended description explaining the instrument's purpose,
+//! variants, and key features.
+
+mod {variant1};
+mod {variant2};
+pub mod metrics;
+mod types;
+pub mod pricing;
+
+// Re-export main types
+pub use {variant1}::{Variant1Instrument};
+pub use {variant2}::{Variant2Instrument};
+pub use types::{CoreType1, CoreType2, SpecificationType};
+pub use pricing::engine::{EngineName};
+
+/// Shared helpers for this instrument type
+pub(crate) mod helpers {
+    // Helper functions specific to this instrument
+}
+```
+
+## Type Definitions
+
+### Core Types (`types.rs`)
+- **Enums**: Document with examples and variant descriptions
+- **Structs**: Document all fields with brief descriptions
+- **Implementations**: Document all public methods with arguments and returns
+- **Builder Methods**: Use fluent interface pattern with `with_*` methods
+
+```rust
+/// Short description of the type.
+///
+/// Extended description explaining purpose and usage.
+///
+/// # Examples
+/// ```rust
+/// use crate::module::TypeName;
+/// let instance = TypeName::new();
+/// ```
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TypeName {
+    /// Brief description of the field.
+    pub field: FieldType,
+}
+
+impl TypeName {
+    /// Creates a new instance with default values.
+    ///
+    /// # Arguments
+    /// * `param` — Description of parameter
+    ///
+    /// # Returns
+    /// New instance with default values.
+    pub fn new(param: impl Into<String>) -> Self {
+        // Implementation
+    }
+
+    /// Sets optional field using fluent interface.
+    ///
+    /// # Arguments
+    /// * `value` — Description of value
+    ///
+    /// # Returns
+    /// Self for method chaining.
+    pub fn with_field(mut self, value: impl Into<String>) -> Self {
+        self.field = Some(value.into());
+        self
+    }
+}
+```
+
+## Instrument Variants
+
+### Instrument Definition Files (`{variant}.rs`)
+```rust
+//! {Variant} {InstrumentType} instrument definitions and helpers.
+
+use super::types::{Type1, Type2, Type3};
+use crate::instruments::traits::{Attributable, Instrument};
+use crate::{
+    cashflow::{
+        traits::{CashflowProvider, DatedFlows},
+    },
+    instruments::{
+        traits::Attributes,
+    },
+};
+use finstack_core::{
+    dates::Date,
+    market_data::MarketContext,
+    money::Money,
+    types::InstrumentId,
+    Result, F,
+};
+use std::any::Any;
+
+/// {Variant} {InstrumentType} instrument.
+///
+/// Brief description of what this variant represents.
+/// Extended description explaining the variant's specific characteristics.
+///
+/// # Examples
+/// ```rust
+/// use finstack_valuations::instruments::derivatives::{instrument}::{VariantInstrument};
+/// use finstack_core::{money::Money, currency::Currency};
+///
+/// let instrument = VariantInstrument::builder()
+///     .id("INSTRUMENT_001")
+///     .notional(Money::new(1_000_000.0, Currency::USD))
+///     .build();
+/// ```
+#[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+pub struct VariantInstrument {
+    /// Unique instrument identifier.
+    pub id: InstrumentId,
+    /// Notional amount for the instrument.
+    pub notional: Money,
+    /// {Variant}-specific parameters.
+    pub underlying: UnderlyingParams,
+    /// Common specification shared across variants.
+    pub specification: CommonSpec,
+    /// Trade side or direction.
+    pub side: SideEnum,
+    /// Optional initial level (if known).
+    pub initial_level: Option<F>,
+    /// Attributes for scenario selection and tagging.
+    pub attributes: Attributes,
+}
+
+impl VariantInstrument {}
+
+// Implement required traits
+impl Attributable for VariantInstrument { /* ... */ }
+impl Instrument for VariantInstrument { /* ... */ }
+impl CashflowProvider for VariantInstrument { /* ... */ }
+```
+
+## Pricing Module
+
+### Pricing Structure (`pricing/mod.rs`)
+```rust
+//! {InstrumentType} pricing entrypoints and pricers.
+
+pub mod engine;
+pub mod {variant1};
+pub mod {variant2};
+
+use crate::instruments::traits::Priceable;
+use crate::metrics::MetricId;
+use crate::results::ValuationResult;
+use finstack_core::dates::Date;
+use finstack_core::market_data::MarketContext;
+use finstack_core::money::Money;
+use finstack_core::Result;
+
+impl Priceable for Variant1Instrument {
+    fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
+        // Currency validation
+        super::helpers::validate_currencies(self.notional, None)?;
+        
+        // Calculate legs
+        let leg1_pv = {variant1}::pv_leg1(self, context, as_of)?;
+        let leg2_pv = engine::EngineName::pv_leg2(
+            &self.specification,
+            &self.schedule,
+            self.notional,
+            context,
+            as_of,
+        )?;
+
+        // Net PV based on side
+        let net_pv = match self.side {
+            SideEnum::ReceiveLeg1 => leg1_pv - leg2_pv,
+            SideEnum::PayLeg1 => leg2_pv - leg1_pv,
+        }?;
+
+        Ok(net_pv)
+    }
+
+    fn price_with_metrics(
+        &self,
+        context: &MarketContext,
+        as_of: Date,
+        _metrics: &[MetricId],
+    ) -> Result<ValuationResult> {
+        let npv = <Self as Priceable>::value(self, context, as_of)?;
+        Ok(ValuationResult::stamped(self.id.as_str(), as_of, npv))
+    }
+}
+```
+
+### Pricing Engine (`pricing/engine.rs`)
+```rust
+//! Core {InstrumentType} pricing engine and shared helpers.
+
+use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::market_data::MarketContext;
+use finstack_core::money::Money;
+use finstack_core::Result;
+use finstack_core::F;
+
+use super::super::types::{SpecificationType, ScheduleType};
+
+/// Common {InstrumentType} pricing engine.
+///
+/// Provides utility functions for calculating present values of instrument legs
+/// and other common pricing operations.
+pub struct EngineName;
+
+/// Parameters for leg calculation.
+#[derive(Debug, Clone)]
+pub struct LegParams<'a> {
+    /// Schedule specification for payment periods.
+    pub schedule: &'a ScheduleType,
+    /// Notional amount for the leg.
+    pub notional: Money,
+    /// Curve identifier.
+    pub curve_id: &'a str,
+    /// Additional parameters.
+    pub additional_param: F,
+}
+
+/// Trait for underlying-specific calculation models.
+///
+/// Implementations of this trait provide the logic for calculating
+/// returns or values over a period for different underlying types.
+pub trait CalculationModel {
+    /// Computes value over a period given parameters.
+    ///
+    /// # Arguments
+    /// * `period_start` — Start date of the period
+    /// * `period_end` — End date of the period
+    /// * `t_start` — Time from as_of to period start
+    /// * `t_end` — Time from as_of to period end
+    /// * `initial_value` — Initial value of the underlying
+    /// * `context` — Market context for data access
+    ///
+    /// # Returns
+    /// Calculated value as a decimal.
+    fn calculate_value(
+        &self,
+        period_start: Date,
+        period_end: Date,
+        t_start: F,
+        t_end: F,
+        initial_value: F,
+        context: &MarketContext,
+    ) -> Result<F>;
+}
+
+impl EngineName {
+    /// Calculates the present value of a leg using shared logic.
+    ///
+    /// This method contains the common period iteration and discounting logic,
+    /// while delegating underlying-specific calculations to the model.
+    ///
+    /// # Arguments
+    /// * `params` — Parameters for the leg calculation
+    /// * `context` — Market context containing curves and market data
+    /// * `as_of` — Valuation date
+    /// * `model` — Model implementing CalculationModel for underlying-specific logic
+    ///
+    /// # Returns
+    /// Present value of the leg in the instrument's currency.
+    pub fn pv_leg_with_model(
+        params: LegParams,
+        context: &MarketContext,
+        as_of: Date,
+        model: &impl CalculationModel,
+    ) -> Result<Money> {
+        // Implementation
+    }
+
+    /// Calculates the present value of another leg.
+    ///
+    /// # Arguments
+    /// * `specification` — Leg specification
+    /// * `schedule` — Schedule specification for payment periods
+    /// * `notional` — Notional amount for the leg
+    /// * `context` — Market context containing curves and market data
+    /// * `as_of` — Valuation date
+    ///
+    /// # Returns
+    /// Present value of the leg in the instrument's currency.
+    pub fn pv_other_leg(
+        specification: &SpecificationType,
+        schedule: &ScheduleType,
+        notional: Money,
+        context: &MarketContext,
+        as_of: Date,
+    ) -> Result<Money> {
+        // Implementation
+    }
+}
+```
+
+### Variant-Specific Pricing (`pricing/{variant}.rs`)
+```rust
+//! {Variant} {InstrumentType} pricing utilities.
+
+use super::engine::{LegParams, EngineName, CalculationModel};
+use crate::instruments::derivatives::{instrument}::{VariantInstrument};
+use finstack_core::dates::Date;
+use finstack_core::market_data::MarketContext;
+use finstack_core::money::Money;
+use finstack_core::Result;
+
+fn extract_underlying_data(
+    instrument: &VariantInstrument, 
+    context: &MarketContext
+) -> Result<(f64, f64)> {
+    // Extract market data specific to this variant
+}
+
+struct VariantCalculationModel<'a> {
+    instrument: &'a VariantInstrument,
+    param1: f64,
+    param2: f64,
+}
+
+impl<'a> CalculationModel for VariantCalculationModel<'a> {
+    fn calculate_value(
+        &self,
+        _period_start: finstack_core::dates::Date,
+        _period_end: finstack_core::dates::Date,
+        t_start: f64,
+        t_end: f64,
+        initial_value: f64,
+        context: &MarketContext,
+    ) -> Result<f64> {
+        // Variant-specific calculation logic
+    }
+}
+
+/// Calculates the present value of the leg for {Variant} {InstrumentType}.
+///
+/// # Arguments
+/// * `instrument` — The {variant} instrument
+/// * `context` — Market context containing curves and market data
+/// * `as_of` — Valuation date
+///
+/// # Returns
+/// Present value of the leg in the instrument's currency.
+pub fn pv_leg(instrument: &VariantInstrument, context: &MarketContext, as_of: Date) -> Result<Money> {
+    let (param1, param2) = extract_underlying_data(instrument, context)?;
+    let initial = instrument.initial_level.unwrap_or(param1);
+
+    let params = LegParams {
+        schedule: &instrument.schedule,
+        notional: instrument.notional,
+        curve_id: instrument.specification.curve_id.as_str(),
+        additional_param: instrument.underlying.param,
+        initial_value: Some(initial),
+    };
+
+    let model = VariantCalculationModel { 
+        instrument, 
+        param1, 
+        param2 
+    };
+    
+    EngineName::pv_leg_with_model(params, context, as_of, &model)
+}
+```
+
+## Metrics Module
+
+### Metrics Structure (`metrics/mod.rs`)
+```rust
+//! Risk metrics for {InstrumentType}.
+
+mod {metric1};
+mod {metric2};
+mod {metric3};
+mod {metric4};
+
+pub use {metric1}::{Metric1Calculator};
+pub use {metric2}::{Metric2Calculator};
+pub use {metric3}::{Metric3Calculator};
+pub use {metric4}::{Metric4Calculator};
+
+use crate::metrics::{MetricId, MetricRegistry};
+
+/// Registers all {InstrumentType} metrics with the metric registry.
+///
+/// This function adds all instrument-specific metrics to the provided metric registry.
+/// Each metric is registered for all applicable instrument variants.
+///
+/// # Arguments
+/// * `registry` — Metric registry to add metrics to
+pub fn register_{instrument}_metrics(registry: &mut MetricRegistry) {
+    use std::sync::Arc;
+
+    registry.register_metric(
+        MetricId::{Metric1},
+        Arc::new({Metric1Calculator}),
+        &["{Variant1Instrument}", "{Variant2Instrument}"],
+    );
+    // ... other metrics
+}
+```
+
+### Individual Metric Files (`metrics/{metric}.rs`)
+```rust
+use crate::metrics::{MetricCalculator, MetricContext};
+use finstack_core::{Error, Result, F};
+use crate::instruments::derivatives::{instrument}::{Variant1Instrument, Variant2Instrument};
+use crate::instruments::derivatives::{instrument}::pricing::engine::EngineName;
+
+/// Calculates the {metric name} for a {InstrumentType}.
+///
+/// Brief description of what this metric measures.
+/// Extended description explaining the calculation method and use cases.
+pub struct {MetricName}Calculator;
+
+impl MetricCalculator for {MetricName}Calculator {
+    fn dependencies(&self) -> &[MetricId] { 
+        &[MetricId::{DependencyMetric}] 
+    }
+
+    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+        // Metric calculation logic
+        if let Some(variant1) = context.instrument.as_any().downcast_ref::<Variant1Instrument>() {
+            // Variant1-specific calculation
+        } else if let Some(variant2) = context.instrument.as_any().downcast_ref::<Variant2Instrument>() {
+            // Variant2-specific calculation
+        } else {
+            Err(Error::Input(finstack_core::error::InputError::Invalid))
+        }
+    }
+}
+```
+
+## Documentation Standards
+
+### Required Documentation
+- **Module-level**: Brief description + extended description + examples for main types
+- **Structs**: One-sentence description + field documentation + examples if public-facing
+- **Enums**: One-sentence description + variant descriptions + examples
+- **Functions**: One-sentence description + arguments + returns + examples if public-facing
+- **Methods**: One-sentence description + arguments + returns
+
+### Documentation Style
+- Use present tense and active voice
+- Keep descriptions short and clear (3-5 lines per section)
+- Use fenced `rust` blocks for examples that compile
+- No advanced sections (panics, safety, performance, concurrency)
+- Document all public fields with `///` above each field
+
+### Example Documentation Template
+```rust
+/// Brief description of the item.
+///
+/// Extended description explaining purpose, usage, and key characteristics.
+/// This can span multiple lines if needed.
+///
+/// # Arguments
+/// * `param1` — Description of first parameter
+/// * `param2` — Description of second parameter
+///
+/// # Returns
+/// Description of return value.
+///
+/// # Examples
+/// ```rust
+/// use crate::module::ItemName;
+/// let item = ItemName::new("param1", 42);
+/// assert_eq!(item.value(), 42);
+/// ```
+```
+
+## Code Organization Principles
+
+### Separation of Concerns
+- **Instrument definitions**: Pure data structures and trait implementations
+- **Pricing logic**: All calculation and valuation logic
+- **Metrics**: Risk and performance calculations
+- **Types**: Core data types and specifications
+- **Helpers**: Shared utility functions
+
+### Reusability
+- Extract common logic into engine modules
+- Use traits for underlying-specific calculations
+- Centralize validation in helper modules
+- Share types across variants when possible
+
+### Maintainability
+- Keep modules focused and cohesive
+- Use clear, descriptive names
+- Document all public APIs
+- Follow consistent patterns across similar instruments
+
+### Testing
+- Unit tests for individual components
+- Integration tests for full instrument workflows
+- Property-based tests for complex calculations
+- Examples in documentation should be testable
+
+## Naming Conventions
+
+### Files and Modules
+- Use snake_case for file names
+- Use descriptive names that indicate purpose
+- Group related functionality in subdirectories
+
+### Types and Structs
+- Use PascalCase for type names
+- Use descriptive names that indicate purpose
+- Suffix calculators with `Calculator`
+- Suffix engines with `Engine`
+
+### Functions and Methods
+- Use snake_case for function names
+- Use descriptive names that indicate action
+- Use `with_*` for builder methods
+- Use `pv_*` for present value calculations
+
+### Constants and Enums
+- Use PascalCase for enum variants
+- Use SCREAMING_SNAKE_CASE for constants
+- Use descriptive names that indicate meaning

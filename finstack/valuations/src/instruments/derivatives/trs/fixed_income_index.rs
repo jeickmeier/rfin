@@ -1,188 +1,61 @@
-//! Fixed Income Index Total Return Swap implementation.
+//! Fixed Income Index Total Return Swap instrument definitions and helpers.
 
-use super::{
-    parameters::IndexUnderlyingParams,
-    types::{FinancingLegSpec, TotalReturnLegParams, TrsEngine, TrsScheduleSpec, TrsSide},
-};
+use super::types::{IndexUnderlyingParams, FinancingLegSpec, TrsScheduleSpec, TrsSide};
 use crate::instruments::traits::{Attributable, Instrument};
 use crate::{
     cashflow::{
-        builder::schedule_utils::build_dates,
         traits::{CashflowProvider, DatedFlows},
     },
-    instruments::{
-        traits::{Attributes, Priceable},
-        utils::validate_currency_consistency,
-    },
-    metrics::MetricId,
-    results::ValuationResult,
+    instruments::traits::Attributes,
 };
 use finstack_core::{
-    dates::{Date, DayCountCtx},
+    dates::Date,
     market_data::MarketContext,
     money::Money,
     types::InstrumentId,
-    Error, Result, F,
+    Result, F,
 };
 use std::any::Any;
 
-/// Fixed Income Index Total Return Swap instrument
+/// Fixed Income Index Total Return Swap instrument.
+///
+/// A TRS where the total return leg is based on a fixed income index (e.g., corporate bond index).
+/// The holder receives the total return (carry + roll) of the underlying index in exchange
+/// for paying a floating rate plus spread on the notional amount.
+///
+/// # Examples
+/// ```rust
+/// use finstack_valuations::instruments::derivatives::trs::FIIndexTotalReturnSwap;
+/// use finstack_core::{money::Money, currency::Currency, types::id::IndexId};
+///
+/// let trs = FIIndexTotalReturnSwap::builder()
+///     .id("FI_TRS_001".into())
+///     .notional(Money::new(1_000_000.0, Currency::USD))
+///     .build();
+/// ```
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct FIIndexTotalReturnSwap {
-    /// Unique instrument identifier
+    /// Unique instrument identifier.
     pub id: InstrumentId,
-    /// Notional amount
+    /// Notional amount for the swap.
     pub notional: Money,
-    /// Underlying index parameters
+    /// Underlying index parameters (index ID, yield, duration, base currency).
     pub underlying: IndexUnderlyingParams,
-    /// Financing leg specification
+    /// Financing leg specification (curves, spread, day count).
     pub financing: FinancingLegSpec,
-    /// Schedule specification
+    /// Schedule specification (payment dates and frequency).
     pub schedule: TrsScheduleSpec,
-    /// Trade side (receive/pay total return)
+    /// Trade side (receive/pay total return).
     pub side: TrsSide,
-    /// Initial index level (if known)
+    /// Initial index level (if known, otherwise fetched from market).
     pub initial_level: Option<F>,
-    /// Attributes for scenario selection
+    /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,
 }
 
-impl FIIndexTotalReturnSwap {
-
-    /// Extract underlying data for return calculation
-    fn extract_underlying_data(&self, context: &MarketContext) -> Result<(F, F)> {
-        // Get index yield if available (for carry calculation)
-        let index_yield = self
-            .underlying
-            .yield_id
-            .as_ref()
-            .and_then(|id| {
-                context.price(id.as_str()).ok().map(|s| match s {
-                    finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-                    finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
-                })
-            })
-            .unwrap_or(0.0);
-
-        // Get duration if available (for roll-down approximation)
-        let duration = self
-            .underlying
-            .duration_id
-            .as_ref()
-            .and_then(|id| {
-                context.price(id.as_str()).ok().map(|s| match s {
-                    finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-                    finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
-                })
-            })
-            .unwrap_or(0.0);
-
-        Ok((index_yield, duration))
-    }
-
-    /// Calculate PV of the total return leg using carry-only approximation
-    pub(super) fn pv_total_return_leg(
-        &self,
-        context: &MarketContext,
-        as_of: Date,
-    ) -> Result<Money> {
-        // Extract underlying data
-        let (index_yield, duration) = self.extract_underlying_data(context)?;
-
-        // Use shared implementation with fixed income-specific return calculation
-        let params = TotalReturnLegParams {
-            schedule: &self.schedule,
-            notional: self.notional,
-            disc_id: self.financing.disc_id.as_str(),
-            contract_size: self.underlying.contract_size,
-            initial_level: self.initial_level,
-        };
-
-        TrsEngine::pv_total_return_leg_common(
-            params,
-            context,
-            as_of,
-            |period_start, period_end, _t_start, _t_end, _initial_level, _context| {
-                // Calculate year fraction for the period
-                let ctx = DayCountCtx::default();
-                let yf = self
-                    .schedule
-                    .params.dc
-                    .year_fraction(period_start, period_end, ctx)?;
-
-                // Carry component: yield * time
-                let carry_return = index_yield * yf;
-
-                // Optional roll-down component (simplified)
-                // In a more sophisticated model, we'd look at the forward curve slope
-                let roll_return = if duration > 0.0 {
-                    // Approximate roll-down as duration * yield change
-                    // This is a placeholder - real implementation would use forward curve
-                    let yield_change_estimate = -0.0001 * yf; // -1bp per year estimate
-                    duration * yield_change_estimate
-                } else {
-                    0.0
-                };
-
-                // Total return for the period
-                let total_return = carry_return + roll_return;
-
-                Ok(total_return)
-            },
-        )
-    }
-}
-
-impl Priceable for FIIndexTotalReturnSwap {
-    fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
-        // Validate currency consistency
-        validate_currency_consistency(&[self.notional])?;
-
-        // Ensure notional currency matches index base currency
-        if self.notional.currency() != self.underlying.base_currency {
-            return Err(Error::CurrencyMismatch {
-                expected: self.underlying.base_currency,
-                actual: self.notional.currency(),
-            });
-        }
-
-        // Calculate leg PVs
-        let tr_pv = self.pv_total_return_leg(context, as_of)?;
-        let fin_pv = TrsEngine::pv_financing_leg(
-            &self.financing,
-            &self.schedule,
-            self.notional,
-            context,
-            as_of,
-        )?;
-
-        // Net PV based on side
-        let net_pv = match self.side {
-            TrsSide::ReceiveTotalReturn => tr_pv - fin_pv,
-            TrsSide::PayTotalReturn => fin_pv - tr_pv,
-        }?;
-
-        Ok(net_pv)
-    }
-
-    fn price_with_metrics(
-        &self,
-        context: &MarketContext,
-        as_of: Date,
-        _metrics: &[MetricId],
-    ) -> Result<ValuationResult> {
-        let npv = <Self as Priceable>::value(self, context, as_of)?;
-
-        let result = ValuationResult::stamped(self.id.as_str(), as_of, npv);
-
-        // TODO: Add metrics if requested
-        // This would require access to the MetricRegistry to calculate metrics
-
-        Ok(result)
-    }
-}
+impl FIIndexTotalReturnSwap {}
 
 impl Attributable for FIIndexTotalReturnSwap {
     fn attributes(&self) -> &crate::instruments::traits::Attributes {
@@ -209,20 +82,11 @@ impl Instrument for FIIndexTotalReturnSwap {
     fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
 }
 
-// Do not add explicit Instrument impl; provided by blanket impl.
-
 impl CashflowProvider for FIIndexTotalReturnSwap {
     fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
         // For TRS, we'll return the expected payment dates
         // Actual amounts depend on realized returns
-        let period_schedule = build_dates(
-            self.schedule.start,
-            self.schedule.end,
-            self.schedule.params.freq,
-            self.schedule.params.stub,
-            self.schedule.params.bdc,
-            self.schedule.params.calendar_id,
-        );
+        let period_schedule = self.schedule.period_schedule();
 
         let mut flows = Vec::new();
         for date in period_schedule.dates.iter().skip(1) {
@@ -233,5 +97,3 @@ impl CashflowProvider for FIIndexTotalReturnSwap {
         Ok(flows)
     }
 }
-
-// Manual builder removed; derive-based builder is used.
