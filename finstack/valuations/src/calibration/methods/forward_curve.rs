@@ -239,7 +239,7 @@ impl ForwardCurveCalibrator {
                 day_count,
             } => {
                 let fra = ForwardRateAgreement::builder()
-                    .id(format!("CALIB_FRA_{}_{}", start, end))
+                    .id(format!("CALIB_FRA_{}_{}", start, end).into())
                     .notional(Money::new(1_000_000.0, self.currency))
                     .fixing_date(*start)
                     .start_date(*start)
@@ -247,8 +247,8 @@ impl ForwardCurveCalibrator {
                     .fixed_rate(*rate)
                     .day_count(*day_count)
                     .reset_lag(2)
-                    .disc_id(self.discount_curve_id)
-                    .forward_id(self.fwd_curve_id)
+                    .disc_id(self.discount_curve_id.into())
+                    .forward_id(self.fwd_curve_id.into())
                     .build()
                     .unwrap();
 

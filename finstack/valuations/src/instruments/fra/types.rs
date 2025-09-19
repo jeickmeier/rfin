@@ -1,13 +1,17 @@
-//! Forward Rate Agreement (FRA) instrument types and implementation.
-use crate::cashflow::traits::CashflowProvider;
-use finstack_core::market_data::traits::Forward;
-// Removed params-based constructors; build FRAs via the generated builder instead.
-use crate::instruments::traits::Attributes;
+//! Forward Rate Agreement (FRA) instrument types and trait implementations.
+//!
+//! Defines the `ForwardRateAgreement` instrument in the modern instrument style
+//! used across valuations. Core PV logic is delegated to the pricing engine in
+//! `pricing::engine`, and metrics are provided in the `metrics` submodule.
+
+use crate::cashflow::traits::{CashflowProvider, DatedFlows};
+use crate::instruments::traits::{Attributes, Attributable, Instrument};
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::F;
+use std::any::Any;
 
 /// Forward Rate Agreement instrument.
 ///
@@ -17,7 +21,7 @@ use finstack_core::F;
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct ForwardRateAgreement {
     /// Unique identifier
-    pub id: String,
+    pub id: InstrumentId,
     /// Notional amount
     pub notional: Money,
     /// Rate fixing date (start of interest period)
@@ -33,139 +37,41 @@ pub struct ForwardRateAgreement {
     /// Reset lag in business days (fixing to value date)
     pub reset_lag: i32,
     /// Discount curve identifier
-    pub disc_id: &'static str,
+    pub disc_id: CurveId,
     /// Forward curve identifier
-    pub forward_id: &'static str,
+    pub forward_id: CurveId,
     /// Pay/receive flag (true = receive fixed, pay floating)
     pub pay_fixed: bool,
     /// Attributes for scenario selection
     pub attributes: Attributes,
 }
 
-impl ForwardRateAgreement {
-    // Note: use the builder (FinancialBuilder) for construction.
-
-    /// Set pay/receive direction.
-    pub fn with_pay_fixed(mut self, pay_fixed: bool) -> Self {
-        self.pay_fixed = pay_fixed;
-        self
-    }
-
-    /// Set reset lag.
-    pub fn with_reset_lag(mut self, reset_lag: i32) -> Self {
-        self.reset_lag = reset_lag;
-        self
-    }
-
-    /// Calculate FRA value using market curves.
-    pub fn fra_value(
-        &self,
-        discount_curve: &dyn Discounting,
-        forward_curve: &dyn Forward,
-        _as_of: Date,
-    ) -> finstack_core::Result<Money> {
-        // Calculate time fractions
-        let base_date = discount_curve.base_date();
-        let t_fixing = self
-            .day_count
-            .year_fraction(
-                base_date,
-                self.fixing_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let t_start = self
-            .day_count
-            .year_fraction(
-                base_date,
-                self.start_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let t_end = self
-            .day_count
-            .year_fraction(
-                base_date,
-                self.end_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-
-        // Interest period length
-        let tau = self
-            .day_count
-            .year_fraction(
-                self.start_date,
-                self.end_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-
-        if tau <= 0.0 || t_fixing < 0.0 {
-            return Ok(Money::new(0.0, self.notional.currency()));
-        }
-
-        // Get forward rate for the period
-        let forward_rate = forward_curve.rate_period(t_start, t_end);
-
-        // Get discount factor to settlement date (start of interest period for FRAs)
-        let df_settlement = discount_curve.df(t_start);
-
-        // FRA payoff: (Forward - Fixed) * tau * Notional * DF
-        // Discounted to start of period (FRA convention)
-        let rate_diff = forward_rate - self.fixed_rate;
-        let pv = self.notional.amount() * rate_diff * tau * df_settlement;
-
-        // Apply pay/receive direction
-        let signed_pv = if self.pay_fixed { -pv } else { pv };
-
-        Ok(Money::new(signed_pv, self.notional.currency()))
-    }
+impl Attributable for ForwardRateAgreement {
+    fn attributes(&self) -> &Attributes { &self.attributes }
+    fn attributes_mut(&mut self) -> &mut Attributes { &mut self.attributes }
 }
 
-impl_instrument!(
-    ForwardRateAgreement,
-    "FRA",
-    pv =
-        |s, curves, as_of| {
-            let discount_curve = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                s.disc_id,
-            )?;
-            let forward_curve = curves
-            .get::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-                s.forward_id,
-            )?;
-            s.fra_value(discount_curve.as_ref(), forward_curve.as_ref(), as_of)
-        }
-);
+impl Instrument for ForwardRateAgreement {
+    fn id(&self) -> &str { self.id.as_str() }
+    fn instrument_type(&self) -> &'static str { "FRA" }
+    fn as_any(&self) -> &dyn Any { self }
+    fn attributes(&self) -> &Attributes { <Self as Attributable>::attributes(self) }
+    fn attributes_mut(&mut self) -> &mut Attributes { <Self as Attributable>::attributes_mut(self) }
+    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
+}
 
 impl CashflowProvider for ForwardRateAgreement {
     fn build_schedule(
         &self,
         curves: &MarketContext,
         as_of: Date,
-    ) -> finstack_core::Result<Vec<(Date, Money)>> {
-        // FRA settlement is at start of interest period
+    ) -> finstack_core::Result<DatedFlows> {
+        // Settlement at start of accrual period; if already settled, no flows
         if self.start_date <= as_of {
-            return Ok(vec![]); // Already settled
+            return Ok(vec![]);
         }
 
-        // Calculate the FRA settlement amount
-        let pv = self.fra_value(
-            curves
-                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                    self.disc_id,
-                )?
-                .as_ref(),
-            curves
-                .get::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-                    self.forward_id,
-                )?
-                .as_ref(),
-            as_of,
-        )?;
-
+        let pv = crate::instruments::fra::pricing::engine::FraEngine::pv(self, curves)?;
         Ok(vec![(self.start_date, pv)])
     }
 }

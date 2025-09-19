@@ -402,7 +402,7 @@ impl DiscountCurveCalibrator {
             } => {
                 // Create FRA instrument via builder
                 let fra = ForwardRateAgreement::builder()
-                    .id(format!("CALIB_FRA_{}_{}", start, end))
+                    .id(format!("CALIB_FRA_{}_{}", start, end).into())
                     .notional(Money::new(1_000_000.0, self.currency))
                     .fixing_date(*start - time::Duration::days(2))
                     .start_date(*start)
@@ -410,8 +410,8 @@ impl DiscountCurveCalibrator {
                     .fixed_rate(*rate)
                     .day_count(*day_count)
                     .reset_lag(2)
-                    .disc_id("CALIB_CURVE")
-                    .forward_id("CALIB_FWD")
+                    .disc_id("CALIB_CURVE".into())
+                    .forward_id("CALIB_FWD".into())
                     .build()
                     .unwrap();
 
@@ -1038,7 +1038,7 @@ mod tests {
 
         // Construct FRA matching the quote, notional $1,000,000
         let fra = ForwardRateAgreement::builder()
-            .id("FRA-3x6".to_string())
+            .id("FRA-3x6".to_string().into())
             .notional(Money::new(1_000_000.0, Currency::USD))
             .fixing_date(base_date + time::Duration::days(88))
             .start_date(base_date + time::Duration::days(90))
@@ -1046,8 +1046,8 @@ mod tests {
             .fixed_rate(0.0470)
             .day_count(DayCount::Act360)
             .reset_lag(2)
-            .disc_id("USD-OIS")
-            .forward_id("USD-SOFR")
+            .disc_id("USD-OIS".into())
+            .forward_id("USD-SOFR".into())
             .build()
             .unwrap();
 
