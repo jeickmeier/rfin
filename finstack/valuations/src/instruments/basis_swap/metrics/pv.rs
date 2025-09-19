@@ -47,7 +47,6 @@ impl MetricCalculator for PvCalculator {
             fwd_id: leg.forward_curve_id.as_str(),
             accrual_dc: leg.day_count,
             spread: leg.spread,
-            base_date: swap.start_date,
         };
         let pv = BasisEngine::pv_float_leg(params, curves.as_ref(), as_of)?;
         Ok(pv.amount())

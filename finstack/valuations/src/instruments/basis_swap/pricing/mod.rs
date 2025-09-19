@@ -33,7 +33,6 @@ fn pv_leg(swap: &BasisSwap, leg: &BasisSwapLeg, context: &MarketContext, as_of: 
         fwd_id: leg.forward_curve_id.as_str(),
         accrual_dc: leg.day_count,
         spread: leg.spread,
-        base_date: swap.start_date,
     };
     BasisEngine::pv_float_leg(params, context, as_of)
 }

@@ -36,7 +36,6 @@ pub struct BasisEngine;
     ///     fwd_id: "3M-SOFR",
     ///     accrual_dc: DayCount::Act360,
     ///     spread: 0.0005,
-    ///     base_date: Date::from_calendar_date(2024, Month::January, 1).unwrap(),
     /// };
     /// ```
 #[derive(Debug, Clone)]
@@ -53,8 +52,6 @@ pub struct FloatLegParams<'a> {
     pub accrual_dc: DayCount,
     /// Spread in decimal form (e.g., 0.0005 for 5 basis points).
     pub spread: F,
-    /// Base date for forward/discount time conversion.
-    pub base_date: Date,
 }
 
 impl BasisEngine {
@@ -87,7 +84,6 @@ impl BasisEngine {
     ///     fwd_id: "3M-SOFR",
     ///     accrual_dc: DayCount::Act360,
     ///     spread: 0.0005,
-    ///     base_date: Date::from_calendar_date(2024, Month::January, 1).unwrap(),
     /// };
     /// // Note: Requires proper MarketContext setup for actual usage
     /// ```
@@ -118,9 +114,11 @@ impl BasisEngine {
                 continue;
             }
 
-            // Forward rate for the accrual period using Act/360 time from base date
-            let t_start = DayCount::Act360.year_fraction(params.base_date, period_start, dc_ctx)?;
-            let t_end = DayCount::Act360.year_fraction(params.base_date, period_end, dc_ctx)?;
+            // Forward rate for the accrual period using the forward curve's own time basis
+            let fwd_dc = fwd.day_count();
+            let fwd_base = fwd.base_date();
+            let t_start = fwd_dc.year_fraction(fwd_base, period_start, dc_ctx)?;
+            let t_end = fwd_dc.year_fraction(fwd_base, period_end, dc_ctx)?;
             let forward_rate = fwd.rate_period(t_start, t_end);
 
             // Total rate (add spread)
@@ -134,8 +132,8 @@ impl BasisEngine {
             // Payment
             let payment = params.notional.amount() * total_rate * year_frac;
 
-            // Discount factor to payment date (t_end consistent with fwd time base)
-            let df = disc.df(t_end);
+            // Discount factor to payment date using the curve's own day-count basis
+            let df = disc.df_on_date_curve(period_end);
             pv += payment * df;
         }
 
@@ -178,14 +176,12 @@ impl BasisEngine {
         let disc = curves.get_ref::<
             finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
         >(disc_curve_id)?;
-        let base = disc.base_date();
-
         let mut annuity = 0.0;
         let mut prev = schedule.dates[0];
         for &d in &schedule.dates[1..] {
             let yf = accrual_dc.year_fraction(prev, d, DayCountCtx::default())?;
-            let t_pay = accrual_dc.year_fraction(base, d, DayCountCtx::default())?;
-            let df = disc.df(t_pay);
+            // Discount using the curve's own day-count basis
+            let df = disc.df_on_date_curve(d);
             annuity += yf * df;
             prev = d;
         }

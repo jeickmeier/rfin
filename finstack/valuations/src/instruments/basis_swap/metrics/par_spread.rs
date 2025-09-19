@@ -46,7 +46,6 @@ impl MetricCalculator for ParSpreadCalculator {
             fwd_id: leg_ref.forward_curve_id.as_str(),
             accrual_dc: leg_ref.day_count,
             spread: leg_ref.spread,
-            base_date: swap.start_date,
         };
         let pv_ref = BasisEngine::pv_float_leg(params_ref, curves.as_ref(), as_of)?.amount();
 
@@ -60,7 +59,6 @@ impl MetricCalculator for ParSpreadCalculator {
             fwd_id: leg.forward_curve_id.as_str(),
             accrual_dc: leg.day_count,
             spread: 0.0,
-            base_date: swap.start_date,
         };
         let pv_primary_no_spread = BasisEngine::pv_float_leg(params, curves.as_ref(), as_of)?.amount();
 

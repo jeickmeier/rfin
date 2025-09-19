@@ -25,7 +25,7 @@
 use super::common::{build_interp_curve_error, split_points, OneDGrid};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
-    dates::{Date, DayCountCtx},
+    dates::{Date, DayCount, DayCountCtx},
     market_data::traits::{Discounting, TermStructure},
     math::interp::types::Interp,
     types::CurveId,
@@ -37,6 +37,8 @@ use crate::{
 pub struct DiscountCurve {
     id: CurveId,
     base: Date,
+    /// Day-count basis used to convert dates → time for discounting.
+    day_count: DayCount,
     /// Knot times in **years**.
     knots: Box<[F]>,
     /// Discount factors (unitless).
@@ -57,6 +59,9 @@ pub struct DiscountCurveState {
     common_id: super::common::StateId,
     /// Base date
     pub base: Date,
+    /// Day count convention for discount time basis
+    #[cfg_attr(feature = "serde", serde(default = "default_discount_day_count"))]
+    pub day_count: DayCount,
     #[cfg_attr(feature = "serde", serde(flatten))]
     points: super::common::StateKnotPoints,
     #[cfg_attr(feature = "serde", serde(flatten))]
@@ -64,6 +69,9 @@ pub struct DiscountCurveState {
     /// Whether monotonic discount factors were required
     pub require_monotonic: bool,
 }
+
+#[inline]
+fn default_discount_day_count() -> DayCount { DayCount::Act365F }
 
 impl DiscountCurve {
     /// Unique identifier of the curve.
@@ -77,6 +85,10 @@ impl DiscountCurve {
     pub fn base_date(&self) -> Date {
         self.base
     }
+
+    /// Day-count basis used for discount time mapping.
+    #[inline]
+    pub fn day_count(&self) -> DayCount { self.day_count }
 
     /// Continuously-compounded zero rate.
     #[inline]
@@ -124,6 +136,13 @@ impl DiscountCurve {
             dc.year_fraction(self.base, date, DayCountCtx::default())
                 .unwrap_or(0.0)
         };
+        self.df(t)
+    }
+
+    /// Convenience: discount factor on a specific date using the curve's own day-count.
+    #[inline]
+    pub fn df_on_date_curve(&self, date: Date) -> F {
+        let t = if date == self.base { 0.0 } else { self.day_count.year_fraction(self.base, date, DayCountCtx::default()).unwrap_or(0.0) };
         self.df(t)
     }
 
@@ -187,6 +206,7 @@ impl DiscountCurve {
         DiscountCurveBuilder {
             id: id.into(),
             base: Date::from_calendar_date(1970, time::Month::January, 1).unwrap(),
+            day_count: DayCount::Act365F,
             points: Vec::new(),
             style: InterpStyle::Linear,
             extrapolation: ExtrapolationPolicy::default(),
@@ -353,6 +373,7 @@ impl DiscountCurve {
                 id: self.id.to_string(),
             },
             base: self.base,
+            day_count: self.day_count,
             points: super::common::StateKnotPoints { knot_points },
             interp: super::common::StateInterp {
                 interp_style: self.style,
@@ -367,6 +388,7 @@ impl DiscountCurve {
     pub fn from_state(state: DiscountCurveState) -> core::result::Result<Self, super::CurveError> {
         let mut builder = DiscountCurve::builder(state.common_id.id)
             .base_date(state.base)
+            .day_count(state.day_count)
             .knots(state.points.knot_points)
             .set_interp(state.interp.interp_style)
             .extrapolation(state.interp.extrapolation);
@@ -405,6 +427,7 @@ impl DiscountCurve {
 pub struct DiscountCurveBuilder {
     id: CurveId,
     base: Date,
+    day_count: DayCount,
     points: Vec<(F, F)>, // (t, df)
     style: InterpStyle,
     extrapolation: ExtrapolationPolicy,
@@ -415,6 +438,11 @@ impl DiscountCurveBuilder {
     /// Override the default **base date** (valuation date).
     pub fn base_date(mut self, d: Date) -> Self {
         self.base = d;
+        self
+    }
+    /// Choose the day-count basis for discount time mapping.
+    pub fn day_count(mut self, dc: DayCount) -> Self {
+        self.day_count = dc;
         self
     }
     /// Supply knot points `(t, df)` where *t* is the year fraction and *df*
@@ -473,6 +501,7 @@ impl DiscountCurveBuilder {
         Ok(DiscountCurve {
             id: self.id,
             base: self.base,
+            day_count: self.day_count,
             knots,
             dfs,
             interp,
