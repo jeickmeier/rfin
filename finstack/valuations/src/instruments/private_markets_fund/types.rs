@@ -1,7 +1,7 @@
-//! Private equity investment instrument type and implementations.
+//! Private markets fund investment instrument type and implementations.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::private_equity::waterfall::{
+use crate::instruments::private_markets_fund::waterfall::{
     AllocationLedger, EquityWaterfallEngine, FundEvent, WaterfallSpec,
 };
 use crate::instruments::traits::{Attributable, Attributes, Instrument};
@@ -9,11 +9,11 @@ use crate::metrics::MetricRegistry;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 
-/// Private equity fund investment instrument.
+/// Private markets fund investment instrument.
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
-pub struct PrivateEquityInvestment {
+pub struct PrivateMarketsFund {
     pub id: String,
     pub currency: Currency,
     pub spec: WaterfallSpec,
@@ -22,7 +22,7 @@ pub struct PrivateEquityInvestment {
     pub attributes: Attributes,
 }
 
-impl PrivateEquityInvestment {
+impl PrivateMarketsFund {
     pub fn new(
         id: impl Into<String>,
         currency: Currency,
@@ -63,14 +63,14 @@ impl PrivateEquityInvestment {
     }
 }
 
-crate::impl_attributable!(PrivateEquityInvestment);
+crate::impl_attributable!(PrivateMarketsFund);
 
-impl Instrument for PrivateEquityInvestment {
+impl Instrument for PrivateMarketsFund {
     fn id(&self) -> &str {
         &self.id
     }
     fn instrument_type(&self) -> &'static str {
-        "PrivateEquityInvestment"
+        "PrivateMarketsFund"
     }
     fn as_any(&self) -> &dyn std::any::Any {
         self
@@ -86,7 +86,7 @@ impl Instrument for PrivateEquityInvestment {
     }
 }
 
-impl crate::instruments::traits::Priceable for PrivateEquityInvestment {
+impl crate::instruments::traits::Priceable for PrivateMarketsFund {
     fn value(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
         if let Some(disc_id) = self.disc_id {
             use crate::instruments::discountable::Discountable;
@@ -118,7 +118,7 @@ impl crate::instruments::traits::Priceable for PrivateEquityInvestment {
     }
 }
 
-impl CashflowProvider for PrivateEquityInvestment {
+impl CashflowProvider for PrivateMarketsFund {
     fn build_schedule(
         &self,
         _curves: &MarketContext,
@@ -128,7 +128,7 @@ impl CashflowProvider for PrivateEquityInvestment {
     }
 }
 
-/// Re-export registration so callers can `use ...::register_private_equity_metrics` unchanged
-pub fn register_private_equity_metrics(registry: &mut MetricRegistry) {
-    super::metrics::register_private_equity_metrics(registry);
+/// Re-export registration so callers can `use ...::register_private_markets_fund_metrics` unchanged
+pub fn register_private_markets_fund_metrics(registry: &mut MetricRegistry) {
+    super::metrics::register_private_markets_fund_metrics(registry);
 }

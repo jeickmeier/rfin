@@ -1,8 +1,8 @@
-//! Comprehensive tests for private equity waterfall functionality.
+//! Comprehensive tests for private markets fund waterfall functionality.
 
 use finstack_core::prelude::*;
 use finstack_core::F;
-use finstack_valuations::instruments::private_equity::*;
+use finstack_valuations::instruments::private_markets_fund::*;
 use time::Month;
 
 fn test_currency() -> Currency {
@@ -145,7 +145,7 @@ fn test_currency_mismatch_error() {
         FundEvent::distribution(test_date(2025, 1, 1), Money::new(1500000.0, Currency::EUR)), // Different currency
     ];
 
-    let pe = PrivateEquityInvestment::new("TEST", Currency::USD, spec, mixed_currency_events);
+    let pe = PrivateMarketsFund::new("TEST", Currency::USD, spec, mixed_currency_events);
     let result = pe.run_waterfall();
 
     assert!(result.is_err(), "Should error on currency mismatch");
@@ -307,9 +307,9 @@ fn test_ledger_export_formats() {
 }
 
 #[test]
-fn test_private_equity_investment_creation() {
+fn test_private_markets_fund_creation() {
     let (spec, events) = simple_2x_scenario();
-    let pe = PrivateEquityInvestment::new("TEST_FUND", test_currency(), spec, events);
+    let pe = PrivateMarketsFund::new("TEST_FUND", test_currency(), spec, events);
 
     assert_eq!(pe.id, "TEST_FUND");
     assert_eq!(pe.currency, test_currency());
@@ -317,9 +317,9 @@ fn test_private_equity_investment_creation() {
 }
 
 #[test]
-fn test_private_equity_investment_with_discount_curve() {
+fn test_private_markets_fund_with_discount_curve() {
     let (spec, events) = simple_2x_scenario();
-    let pe = PrivateEquityInvestment::new("TEST_FUND", test_currency(), spec, events)
+    let pe = PrivateMarketsFund::new("TEST_FUND", test_currency(), spec, events)
         .with_discount_curve("USD-OIS");
 
     assert_eq!(pe.disc_id, Some("USD-OIS"));
@@ -328,7 +328,7 @@ fn test_private_equity_investment_with_discount_curve() {
 #[test]
 fn test_lp_cashflows_via_ledger() {
     let (spec, events) = simple_2x_scenario();
-    let pe = PrivateEquityInvestment::new("TEST_FUND", test_currency(), spec, events);
+    let pe = PrivateMarketsFund::new("TEST_FUND", test_currency(), spec, events);
 
     let ledger = pe.run_waterfall().unwrap();
     let lp_flows = ledger.lp_cashflows();
@@ -437,7 +437,7 @@ fn test_irr_calculation_accuracy() {
         ), // Distribution
     ];
 
-    let irr = finstack_valuations::instruments::private_equity::metrics::calculate_irr(
+    let irr = finstack_valuations::instruments::private_markets_fund::metrics::calculate_irr(
         &flows,
         DayCount::Act365F,
     )

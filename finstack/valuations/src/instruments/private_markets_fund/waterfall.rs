@@ -1,7 +1,7 @@
-//! Equity waterfall engine for private equity distribution calculations.
+//! Equity waterfall engine for private markets fund distribution calculations.
 //!
 //! This module implements the core waterfall allocation logic used in private
-//! equity funds, including return of capital, preferred IRR hurdles, catch-up
+//! markets funds, including return of capital, preferred IRR hurdles, catch-up
 //! provisions, promote splits, and clawback mechanisms.
 
 use finstack_core::config::{results_meta, FinstackConfig, ResultsMeta};

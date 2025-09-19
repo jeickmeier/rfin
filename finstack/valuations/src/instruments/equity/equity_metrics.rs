@@ -56,6 +56,4 @@ pub fn register_equity_metrics(registry: &mut MetricRegistry) {
         &["Equity"],
     );
 
-    // Register private equity metrics
-    crate::instruments::private_equity::register_private_equity_metrics(registry);
 }

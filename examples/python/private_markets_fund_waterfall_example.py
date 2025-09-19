@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-Private Equity Waterfall Engine Example
+Private Markets Fund Waterfall Engine Example
 
-Demonstrates the equity waterfall functionality for private equity fund analysis.
+Demonstrates the equity waterfall functionality for private markets fund analysis.
 Shows how to:
-1. Create a waterfall specification with standard PE terms
+1. Create a waterfall specification with standard private markets fund terms
 2. Model fund events (contributions and distributions)
 3. Run waterfall allocation calculations
-4. Compute standard PE performance metrics (IRR, MOIC, DPI, TVPI)
+4. Compute standard private markets fund performance metrics (IRR, MOIC, DPI, TVPI)
 5. Export results for analysis
 
-This example models a typical private equity fund with:
+This example models a typical private markets fund with:
 - Return of capital first
 - 8% preferred return to LPs
 - 100% catch-up to GP
@@ -35,7 +35,7 @@ except ImportError as e:
 
 
 def main():
-    print("Private Equity Waterfall Engine Example")
+    print("Private Markets Fund Waterfall Engine Example")
     print("=" * 50)
 
     # Example 1: Simple 2x return scenario
@@ -60,8 +60,8 @@ def main():
             finstack.FundEvent.distribution(date(2025, 1, 1), 2_000_000.0, "USD"),
         ]
 
-        # Create private equity investment
-        pe_investment = finstack.PrivateEquityInvestment("FUND_A", "USD", spec, events)
+        # Create private markets fund investment
+        pe_investment = finstack.PrivateMarketsFund("FUND_A", "USD", spec, events)
 
         # Run waterfall allocation
         ledger = pe_investment.run_waterfall()

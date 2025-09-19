@@ -32,7 +32,7 @@ pub mod irs;
 pub mod loan;
 pub mod models;
 pub mod pricing_overrides;
-pub mod private_equity;
+pub mod private_markets_fund;
 pub mod repo;
 // Preserve public path for equity underlying params after move
 pub use equity::underlying;
@@ -68,7 +68,7 @@ pub use ir_future::InterestRateFuture;
 pub use irs::InterestRateSwap;
 pub use loan::Loan;
 pub use pricing_overrides::PricingOverrides;
-pub use private_equity::PrivateEquityInvestment;
+pub use private_markets_fund::PrivateMarketsFund;
 pub use repo::{CollateralSpec, CollateralType, Repo, RepoType};
 pub use structured_credit::{Abs, Clo, StructuredCredit};
 pub use swaption::Swaption;

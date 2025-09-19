@@ -1,6 +1,6 @@
-//! Private equity metrics: IRR, MOIC, DPI, TVPI, and carry calculations.
+//! Private markets fund metrics: IRR, MOIC, DPI, TVPI, and carry calculations.
 
-use crate::instruments::private_equity::PrivateEquityInvestment;
+use crate::instruments::private_markets_fund::PrivateMarketsFund;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::solver::{BrentSolver, Solver};
@@ -12,7 +12,7 @@ pub struct LpIrrCalculator;
 
 impl MetricCalculator for LpIrrCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let pe: &PrivateEquityInvestment = context.instrument_as()?;
+        let pe: &PrivateMarketsFund = context.instrument_as()?;
         let ledger = pe.run_waterfall()?;
         let lp_flows = ledger.lp_cashflows();
 
@@ -29,7 +29,7 @@ pub struct GpIrrCalculator;
 
 impl MetricCalculator for GpIrrCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let pe: &PrivateEquityInvestment = context.instrument_as()?;
+        let pe: &PrivateMarketsFund = context.instrument_as()?;
         let ledger = pe.run_waterfall()?;
 
         // Extract GP cashflows (carry distributions)
@@ -70,12 +70,12 @@ pub struct MoicLpCalculator;
 
 impl MetricCalculator for MoicLpCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let pe: &PrivateEquityInvestment = context.instrument_as()?;
+        let pe: &PrivateMarketsFund = context.instrument_as()?;
 
         let total_contributions: F = pe
             .events
             .iter()
-            .filter(|e| e.kind == crate::instruments::private_equity::FundEventKind::Contribution)
+            .filter(|e| e.kind == crate::instruments::private_markets_fund::FundEventKind::Contribution)
             .map(|e| e.amount.amount())
             .sum();
 
@@ -85,8 +85,8 @@ impl MetricCalculator for MoicLpCalculator {
             .filter(|e| {
                 matches!(
                     e.kind,
-                    crate::instruments::private_equity::FundEventKind::Distribution
-                        | crate::instruments::private_equity::FundEventKind::Proceeds
+                    crate::instruments::private_markets_fund::FundEventKind::Distribution
+                        | crate::instruments::private_markets_fund::FundEventKind::Proceeds
                 )
             })
             .map(|e| e.amount.amount())
@@ -105,13 +105,13 @@ pub struct DpiLpCalculator;
 
 impl MetricCalculator for DpiLpCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let pe: &PrivateEquityInvestment = context.instrument_as()?;
+        let pe: &PrivateMarketsFund = context.instrument_as()?;
         let ledger = pe.run_waterfall()?;
 
         let total_contributions: F = pe
             .events
             .iter()
-            .filter(|e| e.kind == crate::instruments::private_equity::FundEventKind::Contribution)
+            .filter(|e| e.kind == crate::instruments::private_markets_fund::FundEventKind::Contribution)
             .map(|e| e.amount.amount())
             .sum();
 
@@ -130,13 +130,13 @@ pub struct TvpiLpCalculator;
 
 impl MetricCalculator for TvpiLpCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let pe: &PrivateEquityInvestment = context.instrument_as()?;
+        let pe: &PrivateMarketsFund = context.instrument_as()?;
         let ledger = pe.run_waterfall()?;
 
         let total_contributions: F = pe
             .events
             .iter()
-            .filter(|e| e.kind == crate::instruments::private_equity::FundEventKind::Contribution)
+            .filter(|e| e.kind == crate::instruments::private_markets_fund::FundEventKind::Contribution)
             .map(|e| e.amount.amount())
             .sum();
 
@@ -163,7 +163,7 @@ pub struct CarryAccruedCalculator;
 
 impl MetricCalculator for CarryAccruedCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let pe: &PrivateEquityInvestment = context.instrument_as()?;
+        let pe: &PrivateMarketsFund = context.instrument_as()?;
         let ledger = pe.run_waterfall()?;
 
         // Return final GP carry cumulative amount
@@ -213,51 +213,51 @@ pub fn calculate_irr(flows: &[(Date, Money)], day_count: DayCount) -> finstack_c
         .map_err(|_| finstack_core::error::InputError::Invalid.into())
 }
 
-/// Register all private equity metrics.
-pub fn register_private_equity_metrics(registry: &mut MetricRegistry) {
+/// Register all private markets fund metrics.
+pub fn register_private_markets_fund_metrics(registry: &mut MetricRegistry) {
     use std::sync::Arc;
 
     registry.register_metric(
         MetricId::custom("lp_irr"),
         Arc::new(LpIrrCalculator),
-        &["PrivateEquityInvestment"],
+        &["PrivateMarketsFund"],
     );
 
     registry.register_metric(
         MetricId::custom("gp_irr"),
         Arc::new(GpIrrCalculator),
-        &["PrivateEquityInvestment"],
+        &["PrivateMarketsFund"],
     );
 
     registry.register_metric(
         MetricId::custom("moic_lp"),
         Arc::new(MoicLpCalculator),
-        &["PrivateEquityInvestment"],
+        &["PrivateMarketsFund"],
     );
 
     registry.register_metric(
         MetricId::custom("dpi_lp"),
         Arc::new(DpiLpCalculator),
-        &["PrivateEquityInvestment"],
+        &["PrivateMarketsFund"],
     );
 
     registry.register_metric(
         MetricId::custom("tvpi_lp"),
         Arc::new(TvpiLpCalculator),
-        &["PrivateEquityInvestment"],
+        &["PrivateMarketsFund"],
     );
 
     registry.register_metric(
         MetricId::custom("carry_accrued"),
         Arc::new(CarryAccruedCalculator),
-        &["PrivateEquityInvestment"],
+        &["PrivateMarketsFund"],
     );
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::private_equity::{FundEvent, WaterfallSpec};
+    use crate::instruments::private_markets_fund::{FundEvent, WaterfallSpec};
     use time::Month;
 
     fn test_currency() -> finstack_core::currency::Currency {
@@ -310,7 +310,7 @@ mod tests {
             ),
         ];
 
-        let pe = PrivateEquityInvestment::new("TEST", test_currency(), spec, events);
+        let pe = PrivateMarketsFund::new("TEST", test_currency(), spec, events);
 
         let curves = finstack_core::market_data::MarketContext::new();
         let base_value = Money::new(2000000.0, test_currency());
