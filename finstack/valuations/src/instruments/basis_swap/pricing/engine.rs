@@ -6,10 +6,39 @@ use finstack_core::money::Money;
 use finstack_core::Result;
 use finstack_core::F;
 
-/// Common basis swap pricing engine.
+/// Common basis swap pricing engine providing core calculation methods.
+///
+/// This engine contains the fundamental pricing logic for basis swap legs,
+/// including present value calculations and annuity computations.
 pub struct BasisEngine;
 
-/// Parameters for floating leg PV calculation.
+/// Parameters for floating leg present value calculation.
+///
+/// Contains all the necessary parameters to calculate the present value
+/// of a floating rate leg in a basis swap.
+///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::{dates::*, money::Money, currency::Currency};
+    /// use finstack_valuations::instruments::basis_swap::pricing::engine::FloatLegParams;
+    /// use finstack_valuations::cashflow::builder::schedule_utils::PeriodSchedule;
+    /// use time::Month;
+    ///
+    /// let schedule = PeriodSchedule { 
+    ///     dates: vec![], 
+    ///     first_or_last: hashbrown::HashSet::new(), 
+    ///     prev: hashbrown::HashMap::new() 
+    /// };
+    /// let params = FloatLegParams {
+    ///     schedule: &schedule,
+    ///     notional: Money::new(1_000_000.0, Currency::USD),
+    ///     disc_id: "OIS",
+    ///     fwd_id: "3M-SOFR",
+    ///     accrual_dc: DayCount::Act360,
+    ///     spread: 0.0005,
+    ///     base_date: Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+    /// };
+    /// ```
 #[derive(Debug, Clone)]
 pub struct FloatLegParams<'a> {
     /// Period schedule for this leg.
@@ -20,16 +49,48 @@ pub struct FloatLegParams<'a> {
     pub disc_id: &'a str,
     /// Forward curve identifier.
     pub fwd_id: &'a str,
-    /// Day count for accrual.
+    /// Day count for accrual calculations.
     pub accrual_dc: DayCount,
-    /// Spread in decimal (e.g., 0.0005 for 5 bp).
+    /// Spread in decimal form (e.g., 0.0005 for 5 basis points).
     pub spread: F,
     /// Base date for forward/discount time conversion.
     pub base_date: Date,
 }
 
 impl BasisEngine {
-    /// Present value of a generic floating leg.
+    /// Calculates the present value of a floating rate leg.
+    ///
+    /// # Arguments
+    /// * `params` — Parameters defining the leg characteristics
+    /// * `context` — Market context containing curves and rates
+    /// * `valuation_date` — Date for present value calculation
+    ///
+    /// # Returns
+    /// The present value of the floating leg as a `Money` amount.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::{dates::*, money::Money, currency::Currency};
+    /// use finstack_valuations::instruments::basis_swap::pricing::engine::{BasisEngine, FloatLegParams};
+    /// use finstack_valuations::cashflow::builder::schedule_utils::PeriodSchedule;
+    /// use time::Month;
+    ///
+    /// let schedule = PeriodSchedule { 
+    ///     dates: vec![], 
+    ///     first_or_last: hashbrown::HashSet::new(), 
+    ///     prev: hashbrown::HashMap::new() 
+    /// };
+    /// let params = FloatLegParams {
+    ///     schedule: &schedule,
+    ///     notional: Money::new(1_000_000.0, Currency::USD),
+    ///     disc_id: "OIS",
+    ///     fwd_id: "3M-SOFR",
+    ///     accrual_dc: DayCount::Act360,
+    ///     spread: 0.0005,
+    ///     base_date: Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+    /// };
+    /// // Note: Requires proper MarketContext setup for actual usage
+    /// ```
     pub fn pv_float_leg(
         params: FloatLegParams,
         context: &MarketContext,
@@ -81,7 +142,33 @@ impl BasisEngine {
         Ok(Money::new(pv, currency))
     }
 
-    /// Discounted accrual sum for a leg (no notional multiplier)
+    /// Calculates the discounted accrual sum (annuity) for a leg.
+    ///
+    /// This method computes the sum of discounted year fractions for a leg,
+    /// which is useful for DV01 calculations and par spread computations.
+    ///
+    /// # Arguments
+    /// * `schedule` — Period schedule for the leg
+    /// * `accrual_dc` — Day count convention for accrual calculations
+    /// * `disc_curve_id` — Discount curve identifier
+    /// * `curves` — Market context containing the discount curve
+    ///
+    /// # Returns
+    /// The discounted accrual sum as a floating point value.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::dates::DayCount;
+    /// use finstack_valuations::instruments::basis_swap::pricing::engine::BasisEngine;
+    /// use finstack_valuations::cashflow::builder::schedule_utils::PeriodSchedule;
+    ///
+    /// let schedule = PeriodSchedule { 
+    ///     dates: vec![], 
+    ///     first_or_last: hashbrown::HashSet::new(), 
+    ///     prev: hashbrown::HashMap::new() 
+    /// };
+    /// // Note: Requires proper MarketContext setup for actual usage
+    /// ```
     pub fn annuity_for_leg(
         schedule: &crate::cashflow::builder::schedule_utils::PeriodSchedule,
         accrual_dc: DayCount,

@@ -3,13 +3,28 @@ use crate::instruments::basis_swap::types::BasisSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::{Error, Result, F};
 
-/// PV amount calculator for a leg
+/// Calculator for the present value of a basis swap leg.
+///
+/// This calculator computes the present value of either the primary or reference
+/// leg of a basis swap, including the spread and forward rate components.
+///
+/// # Examples
+/// ```rust
+/// use finstack_valuations::instruments::basis_swap::metrics::PvCalculator;
+///
+/// let primary_calc = PvCalculator::primary();
+/// let reference_calc = PvCalculator::reference();
+/// ```
 pub struct PvCalculator {
+    /// Whether this calculator is for the primary leg (true) or reference leg (false).
     pub is_primary: bool,
 }
 
 impl PvCalculator {
+    /// Creates a calculator for the primary leg.
     pub const fn primary() -> Self { Self { is_primary: true } }
+    
+    /// Creates a calculator for the reference leg.
     pub const fn reference() -> Self { Self { is_primary: false } }
 }
 

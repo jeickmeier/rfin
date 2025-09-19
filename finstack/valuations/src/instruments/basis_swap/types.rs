@@ -13,51 +13,115 @@ use finstack_core::{
 use crate::instruments::traits::{Attributable, Instrument};
 use std::any::Any;
 
-/// Basis swap specification for one leg
+/// Specification for one leg of a basis swap.
+///
+/// Each leg defines the floating rate characteristics including the forward curve,
+/// payment frequency, day count convention, and optional spread.
+///
+/// # Examples
+/// ```rust
+/// use finstack_core::dates::{DayCount, Frequency, BusinessDayConvention};
+/// use finstack_core::types::CurveId;
+/// use finstack_valuations::instruments::basis_swap::BasisSwapLeg;
+///
+/// let leg = BasisSwapLeg {
+///     forward_curve_id: CurveId::new("3M-SOFR"),
+///     frequency: Frequency::quarterly(),
+///     day_count: DayCount::Act360,
+///     bdc: BusinessDayConvention::ModifiedFollowing,
+///     spread: 0.0005, // 5 basis points
+/// };
+/// ```
 #[derive(Clone, Debug)]
 pub struct BasisSwapLeg {
-    /// Forward curve identifier for this leg
+    /// Forward curve identifier for this leg.
     pub forward_curve_id: CurveId,
-    /// Payment frequency
+    /// Payment frequency for the leg.
     pub frequency: Frequency,
-    /// Day count convention
+    /// Day count convention for accrual calculations.
     pub day_count: DayCount,
-    /// Business day convention
+    /// Business day convention for date adjustments.
     pub bdc: BusinessDayConvention,
-    /// Optional spread (in decimal, not basis points)
+    /// Optional spread in decimal form (e.g., 0.0005 for 5 basis points).
     pub spread: F,
 }
 
-/// Basis swap instrument (float vs float).
+/// Basis swap instrument that exchanges two floating rate payments with different tenors.
 ///
-/// Exchanges two floating rate payments with different tenors,
-/// plus an optional spread on one leg.
+/// A basis swap allows parties to exchange floating rate payments based on different
+/// reference rates (e.g., 3M SOFR vs 6M SOFR) plus an optional spread on one leg.
+/// The primary leg typically receives the spread, while the reference leg pays flat.
+///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::{dates::*, money::Money, currency::Currency, types::CurveId};
+    /// use finstack_valuations::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
+    /// use time::Month;
+    ///
+    /// let primary_leg = BasisSwapLeg {
+    ///     forward_curve_id: CurveId::new("3M-SOFR"),
+    ///     frequency: Frequency::quarterly(),
+    ///     day_count: DayCount::Act360,
+    ///     bdc: BusinessDayConvention::ModifiedFollowing,
+    ///     spread: 0.0005,
+    /// };
+    ///
+    /// let reference_leg = BasisSwapLeg {
+    ///     forward_curve_id: CurveId::new("6M-SOFR"),
+    ///     frequency: Frequency::semi_annual(),
+    ///     day_count: DayCount::Act360,
+    ///     bdc: BusinessDayConvention::ModifiedFollowing,
+    ///     spread: 0.0,
+    /// };
+    ///
+    /// let swap = BasisSwap::new(
+    ///     "BASIS_SWAP_001",
+    ///     Money::new(1_000_000.0, Currency::USD),
+    ///     Date::from_calendar_date(2024, Month::January, 3).unwrap(),
+    ///     Date::from_calendar_date(2025, Month::January, 3).unwrap(),
+    ///     primary_leg,
+    ///     reference_leg,
+    ///     CurveId::new("OIS"),
+    /// );
+    /// ```
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct BasisSwap {
-    /// Instrument identifier
+    /// Unique identifier for this instrument.
     pub id: InstrumentId,
-    /// Notional amount
+    /// Notional amount for both legs.
     pub notional: Money,
-    /// Start date
+    /// Start date of the swap.
     pub start_date: Date,
-    /// Maturity date
+    /// Maturity date of the swap.
     pub maturity_date: Date,
-    /// Primary leg (receives spread)
+    /// Primary leg that typically receives the spread.
     pub primary_leg: BasisSwapLeg,
-    /// Reference leg (pays flat)
+    /// Reference leg that typically pays flat.
     pub reference_leg: BasisSwapLeg,
-    /// Discount curve identifier
+    /// Discount curve identifier for present value calculations.
     pub discount_curve_id: CurveId,
-    /// Calendar identifier for date adjustments
+    /// Optional calendar identifier for business day adjustments.
     pub calendar_id: Option<&'static str>,
-    /// Stub handling
+    /// Stub handling convention for irregular periods.
     pub stub_kind: StubKind,
-    /// Attributes for selection and tagging
+    /// Attributes for instrument selection and tagging.
     pub attributes: crate::instruments::traits::Attributes,
 }
 
 impl BasisSwap {
-    /// Create a new basis swap.
+    /// Creates a new basis swap with the specified parameters.
+    ///
+    /// # Arguments
+    /// * `id` — Unique identifier for the swap
+    /// * `notional` — Notional amount for both legs
+    /// * `start_date` — Start date of the swap
+    /// * `maturity_date` — Maturity date of the swap
+    /// * `primary_leg` — Primary leg specification (typically receives spread)
+    /// * `reference_leg` — Reference leg specification (typically pays flat)
+    /// * `discount_curve_id` — Discount curve identifier for present value calculations
+    ///
+    /// # Returns
+    /// A new `BasisSwap` instance with default calendar and stub settings.
     pub fn new(
         id: impl Into<String>,
         notional: Money,
@@ -81,19 +145,37 @@ impl BasisSwap {
         }
     }
 
-    /// Set calendar for date adjustments.
+    /// Sets the calendar for business day adjustments.
+    ///
+    /// # Arguments
+    /// * `calendar_id` — Calendar identifier for date adjustments
+    ///
+    /// # Returns
+    /// Self for method chaining.
     pub fn with_calendar(mut self, calendar_id: &'static str) -> Self {
         self.calendar_id = Some(calendar_id);
         self
     }
 
-    /// Set stub handling.
+    /// Sets the stub handling convention for irregular periods.
+    ///
+    /// # Arguments
+    /// * `stub_kind` — Stub handling convention
+    ///
+    /// # Returns
+    /// Self for method chaining.
     pub fn with_stub(mut self, stub_kind: StubKind) -> Self {
         self.stub_kind = stub_kind;
         self
     }
 
-    /// Build a canonical period schedule for a given leg using shared schedule utils.
+    /// Builds a period schedule for the specified leg using shared schedule utilities.
+    ///
+    /// # Arguments
+    /// * `leg` — The leg to build a schedule for
+    ///
+    /// # Returns
+    /// A `PeriodSchedule` containing the payment dates for the leg.
     pub fn leg_schedule(&self, leg: &BasisSwapLeg) -> PeriodSchedule {
         build_dates(
             self.start_date,

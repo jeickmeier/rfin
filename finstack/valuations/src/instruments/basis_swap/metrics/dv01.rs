@@ -2,13 +2,28 @@ use crate::instruments::basis_swap::types::BasisSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::{Error, Result, F};
 
-/// DV01 calculator for a leg (annuity * notional * 1bp)
+/// Calculator for the DV01 (dollar value of 1 basis point) of a basis swap leg.
+///
+/// DV01 represents the change in present value for a 1 basis point change in rates.
+/// It is calculated as the product of the annuity, notional amount, and 1 basis point.
+///
+/// # Examples
+/// ```rust
+/// use finstack_valuations::instruments::basis_swap::metrics::Dv01Calculator;
+///
+/// let primary_calc = Dv01Calculator::primary();
+/// let reference_calc = Dv01Calculator::reference();
+/// ```
 pub struct Dv01Calculator {
+    /// Whether this calculator is for the primary leg (true) or reference leg (false).
     pub is_primary: bool,
 }
 
 impl Dv01Calculator {
+    /// Creates a calculator for the primary leg.
     pub const fn primary() -> Self { Self { is_primary: true } }
+    
+    /// Creates a calculator for the reference leg.
     pub const fn reference() -> Self { Self { is_primary: false } }
 }
 

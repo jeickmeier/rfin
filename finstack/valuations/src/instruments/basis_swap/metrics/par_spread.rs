@@ -3,7 +3,17 @@ use crate::instruments::basis_swap::types::BasisSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::{Error, Result, F};
 
-/// Par spread (bp) on the primary leg that sets NPV to zero
+/// Calculator for the par spread on the primary leg that sets NPV to zero.
+///
+/// The par spread is the spread that would make the basis swap have zero net present value,
+/// calculated by solving for the spread that equates the present values of both legs.
+///
+/// # Examples
+/// ```rust
+/// use finstack_valuations::instruments::basis_swap::metrics::ParSpreadCalculator;
+///
+/// let calc = ParSpreadCalculator;
+/// ```
 pub struct ParSpreadCalculator;
 
 impl MetricCalculator for ParSpreadCalculator {

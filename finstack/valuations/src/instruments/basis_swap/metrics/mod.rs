@@ -1,7 +1,7 @@
 //! Basis swap specific metrics.
 //!
-//! Provides calculators for leg PVs, discounted accrual sums (annuities), DV01s,
-//! and par spread on the primary leg.
+//! Provides calculators for leg present values, discounted accrual sums (annuities),
+//! DV01s, and par spread calculations for basis swap instruments.
 
 pub mod annuity;
 pub mod dv01;
@@ -16,7 +16,13 @@ pub use par_spread::ParSpreadCalculator;
 use crate::metrics::{MetricId, MetricRegistry};
 use std::sync::Arc;
 
-/// Register basis swap metrics in the standard registry.
+/// Registers all basis swap metrics in the standard metric registry.
+///
+/// This function adds the basis swap specific metric calculators to the provided
+/// registry, making them available for use in valuation calculations.
+///
+/// # Arguments
+/// * `registry` — The metric registry to register the calculators with
 pub fn register_basis_swap_metrics(registry: &mut MetricRegistry) {
     registry
         .register_metric(MetricId::BasisAnnuityPrimary, Arc::new(AnnuityCalculator::primary()), &["BasisSwap"]) // discounted accrual sum
