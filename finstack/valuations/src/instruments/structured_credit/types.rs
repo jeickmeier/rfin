@@ -460,7 +460,7 @@ impl Priceable for StructuredCredit {
         let flows = self.build_schedule(context, as_of)?;
         
         // Discount to present value
-        use crate::instruments::fixed_income::discountable::Discountable;
+        use crate::instruments::discountable::Discountable;
         flows.npv(disc, as_of, finstack_core::dates::DayCount::Act360)
     }
     

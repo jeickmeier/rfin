@@ -9,11 +9,11 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::primitives::AmortizationSpec;
 use finstack_valuations::cashflow::traits::CashflowProvider;
-use finstack_valuations::instruments::fixed_income::loan::ddtl::ExpectedFundingCurve;
-use finstack_valuations::instruments::fixed_income::loan::revolver::{
+use finstack_valuations::instruments::loan::ddtl::ExpectedFundingCurve;
+use finstack_valuations::instruments::loan::revolver::{
     DrawRepayEvent, RevolverFundingCurve,
 };
-use finstack_valuations::instruments::fixed_income::loan::{
+use finstack_valuations::instruments::loan::{
     Covenant, CovenantType, DelayedDrawTermLoan, DrawEvent, InterestSpec, Loan, PenaltyType,
     PrepaymentPenalty, PrepaymentSchedule, PrepaymentType, RevolvingCreditFacility,
     UtilizationFeeSchedule,

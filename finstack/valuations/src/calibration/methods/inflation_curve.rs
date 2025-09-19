@@ -5,7 +5,7 @@
 
 use crate::calibration::quote::InflationQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
-use crate::instruments::fixed_income::inflation_swap::{InflationSwap, PayReceiveInflation};
+use crate::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
 use crate::instruments::traits::Priceable;
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
@@ -388,7 +388,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::fixed_income::inflation_swap::PayReceiveInflation;
+    use crate::instruments::inflation_swap::PayReceiveInflation;
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
     use finstack_core::market_data::scalars::inflation_index::InflationIndex;

@@ -3,7 +3,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::fixed_income::loan::Loan;
+use finstack_valuations::instruments::loan::Loan;
 use finstack_valuations::instruments::structured_credit::*;
 use time::Month;
 

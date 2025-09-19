@@ -8,7 +8,7 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
 // trait alias no longer exists; use concrete methods
 use finstack_valuations::cashflow::builder::{cf, CashFlowSchedule, CouponType, FixedCouponSpec};
-use finstack_valuations::instruments::fixed_income::discountable::Discountable;
+use finstack_valuations::instruments::discountable::Discountable;
 
 use crate::currency::Currency;
 use crate::dates::{Date, DayCount};

@@ -5,7 +5,7 @@ use crate::core::{
     money::PyMoney,
 };
 use crate::valuations::cashflow::PyCashFlowSchedule;
-use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::bond::Bond;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use std::str::FromStr;

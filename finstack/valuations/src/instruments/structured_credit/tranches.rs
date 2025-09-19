@@ -1,6 +1,6 @@
 //! Tranche structures for structured credit instruments.
 
-use crate::instruments::fixed_income::loan::InterestSpec;
+use crate::instruments::loan::InterestSpec;
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;

@@ -12,7 +12,7 @@ use finstack_core::{
 };
 
 use finstack_valuations::instruments::{
-    derivatives::variance_swap::{PayReceive, VarianceSwap},
+    variance_swap::{PayReceive, VarianceSwap},
     traits::Priceable,
 };
 

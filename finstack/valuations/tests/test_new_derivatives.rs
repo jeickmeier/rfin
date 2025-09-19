@@ -3,20 +3,20 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::fixed_income::cds::CDSConvention;
-use finstack_valuations::instruments::fixed_income::cds::parameters::CDSConstructionParams;
-use finstack_valuations::instruments::options::equity_option::parameters::EquityOptionParams;
-use finstack_valuations::instruments::options::fx_option::parameters::FxOptionParams;
-use finstack_valuations::instruments::options::cap_floor::parameters::InterestRateOptionParams;
-use finstack_valuations::instruments::options::credit_option::parameters::CreditOptionParams;
-use finstack_valuations::instruments::fixed_income::inflation_linked_bond::parameters::InflationLinkedBondParams;
-use finstack_valuations::instruments::fixed_income::inflation_linked_bond::IndexationMethod;
-use finstack_valuations::instruments::options::{ExerciseStyle, OptionType};
+use finstack_valuations::instruments::cds::CDSConvention;
+use finstack_valuations::instruments::cds::parameters::CDSConstructionParams;
+use finstack_valuations::instruments::equity_option::parameters::EquityOptionParams;
+use finstack_valuations::instruments::fx_option::parameters::FxOptionParams;
+use finstack_valuations::instruments::cap_floor::parameters::InterestRateOptionParams;
+use finstack_valuations::instruments::credit_option::parameters::CreditOptionParams;
+use finstack_valuations::instruments::inflation_linked_bond::parameters::InflationLinkedBondParams;
+use finstack_valuations::instruments::inflation_linked_bond::IndexationMethod;
+use finstack_valuations::instruments::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::{
     CreditDefaultSwap, CreditOption, EquityOption, FxOption, InflationLinkedBond,
 };
 #[allow(unused_imports)]
-use finstack_valuations::instruments::options::cap_floor::InterestRateOption;
+use finstack_valuations::instruments::cap_floor::InterestRateOption;
 use finstack_core::types::CurveId;
 use time::Month;
 
@@ -64,7 +64,7 @@ fn test_equity_option_creation() {
         expiry,
         100.0, // Contract size
     );
-    let underlying_params = finstack_valuations::instruments::equity::EquityUnderlyingParams::new(
+    let underlying_params = finstack_valuations::instruments::underlying::EquityUnderlyingParams::new(
         "AAPL",
         "AAPL-SPOT",
     );
@@ -149,7 +149,7 @@ fn test_interest_rate_option_creation() {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
-    use finstack_valuations::instruments::options::cap_floor::InterestRateOption;
+    use finstack_valuations::instruments::cap_floor::InterestRateOption;
     let params = InterestRateOptionParams::cap(
         notional,
         0.03,

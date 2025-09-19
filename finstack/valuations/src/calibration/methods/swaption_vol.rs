@@ -10,8 +10,8 @@ use crate::calibration::methods::swaption_market_conventions::SwaptionMarketConv
 use crate::calibration::quote::VolQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
 use crate::instruments::PricingOverrides;
-use crate::instruments::options::models::{SABRCalibrator, SABRModel, SABRParameters};
-use crate::instruments::options::swaption::Swaption;
+use crate::instruments::models::{SABRCalibrator, SABRModel, SABRParameters};
+use crate::instruments::swaption::Swaption;
 use finstack_core::dates::utils::add_months;
 use finstack_core::dates::{Date, DayCountCtx, Frequency};
 use finstack_core::market_data::context::MarketContext;
@@ -233,7 +233,7 @@ impl SwaptionVolCalibrator {
 
         let swaption = Swaption {
             id: "temp".to_string(),
-            option_type: crate::instruments::options::OptionType::Call,
+            option_type: crate::instruments::OptionType::Call,
             notional: Money::new(1_000_000.0, self.currency),
             strike_rate: 0.0,
             expiry,
@@ -242,8 +242,8 @@ impl SwaptionVolCalibrator {
             fixed_freq: self.market_conventions.fixed_freq,
             float_freq: self.market_conventions.float_freq,
             day_count: self.market_conventions.day_count,
-            exercise: crate::instruments::options::swaption::SwaptionExercise::European,
-            settlement: crate::instruments::options::swaption::SwaptionSettlement::Physical,
+            exercise: crate::instruments::swaption::SwaptionExercise::European,
+            settlement: crate::instruments::swaption::SwaptionSettlement::Physical,
             disc_id: self.disc_id,
             forward_id: self.forward_id.unwrap_or(self.disc_id),
             vol_id: "dummy",

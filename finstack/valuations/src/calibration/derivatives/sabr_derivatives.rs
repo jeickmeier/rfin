@@ -4,7 +4,7 @@
 //! model parameters (alpha, nu, rho), significantly accelerating calibration.
 
 #[cfg(test)]
-use crate::instruments::options::models::SABRParameters;
+use crate::instruments::models::SABRParameters;
 use super::sabr_model_params::SABRModelParams;
 use finstack_core::math::solver_multi::AnalyticalDerivatives;
 use finstack_core::F;

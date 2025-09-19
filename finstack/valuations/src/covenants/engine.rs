@@ -7,7 +7,7 @@
 //! - Supports both financial and non-financial covenants
 
 use crate::covenants::CovenantReport;
-use crate::instruments::fixed_income::loan::covenants::{
+use crate::instruments::loan::covenants::{
     Covenant, CovenantConsequence, CovenantType, ThresholdTest,
 };
 use crate::metrics::{MetricContext, MetricId};

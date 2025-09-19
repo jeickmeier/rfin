@@ -16,16 +16,16 @@ use finstack_core::money::{
     fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate},
     Money,
 };
-// use finstack_valuations::instruments::options::swaption::Swaption;
+// use finstack_valuations::instruments::swaption::Swaption;
 use finstack_core::types::CurveId;
-use finstack_valuations::instruments::options::{
+use finstack_valuations::instruments::{
     CreditOption, EquityOption, FxOption,
 };
-use finstack_valuations::instruments::options::equity_option::parameters::EquityOptionParams;
-use finstack_valuations::instruments::options::fx_option::parameters::FxOptionParams;
-use finstack_valuations::instruments::options::cap_floor::parameters::InterestRateOptionParams;
-use finstack_valuations::instruments::options::credit_option::parameters::CreditOptionParams;
-use finstack_valuations::instruments::options::swaption::parameters::SwaptionParams;
+use finstack_valuations::instruments::equity_option::parameters::EquityOptionParams;
+use finstack_valuations::instruments::fx_option::parameters::FxOptionParams;
+use finstack_valuations::instruments::cap_floor::parameters::InterestRateOptionParams;
+use finstack_valuations::instruments::credit_option::parameters::CreditOptionParams;
+use finstack_valuations::instruments::swaption::parameters::SwaptionParams;
 use finstack_valuations::instruments::traits::{Instrument, Priceable};
 use finstack_valuations::metrics::{MetricContext, MetricId, MetricRegistry};
 use std::sync::Arc;
@@ -209,7 +209,7 @@ fn test_equity_option_full_integration() {
         Date::from_calendar_date(2025, Month::December, 31).unwrap(),
         100.0, // 100 shares
     );
-    let underlying_params = finstack_valuations::instruments::equity::EquityUnderlyingParams::new(
+    let underlying_params = finstack_valuations::instruments::underlying::EquityUnderlyingParams::new(
         "AAPL",
         "AAPL-SPOT",
     );
@@ -228,7 +228,7 @@ fn test_equity_option_full_integration() {
 
     // Test metrics calculation
     let mut registry = MetricRegistry::new();
-    finstack_valuations::instruments::options::equity_option::metrics::register_equity_option_metrics(&mut registry);
+    finstack_valuations::instruments::equity_option::metrics::register_equity_option_metrics(&mut registry);
 
     let instrument: Arc<dyn Instrument> = Arc::new(option);
     let mut context = MetricContext::new(instrument, Arc::new(market), as_of, price);
@@ -278,7 +278,7 @@ fn test_fx_option_full_integration() {
 
     // Test metrics calculation
     let mut registry = MetricRegistry::new();
-    finstack_valuations::instruments::options::fx_option::metrics::register_fx_option_metrics(
+    finstack_valuations::instruments::fx_option::metrics::register_fx_option_metrics(
         &mut registry,
     );
 
@@ -304,7 +304,7 @@ fn test_interest_rate_option_full_integration() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // Create USD cap using parameter structs
-    use finstack_valuations::instruments::options::cap_floor::InterestRateOption;
+    use finstack_valuations::instruments::cap_floor::InterestRateOption;
     let start = Date::from_calendar_date(2025, Month::March, 1).unwrap();
     let end = Date::from_calendar_date(2027, Month::March, 1).unwrap();
     let cap_params = InterestRateOptionParams::cap(
@@ -330,7 +330,7 @@ fn test_interest_rate_option_full_integration() {
 
     // Test metrics calculation
     let mut registry = MetricRegistry::new();
-    finstack_valuations::instruments::options::cap_floor::metrics::register_interest_rate_option_metrics(&mut registry);
+    finstack_valuations::instruments::cap_floor::metrics::register_interest_rate_option_metrics(&mut registry);
 
     let instrument: Arc<dyn Instrument> = Arc::new(cap);
     let mut context = MetricContext::new(instrument, Arc::new(market), as_of, price);
@@ -377,7 +377,7 @@ fn test_credit_option_full_integration() {
 
     // Test metrics calculation
     let mut registry = MetricRegistry::new();
-    finstack_valuations::instruments::options::credit_option::metrics::register_credit_option_metrics(&mut registry);
+    finstack_valuations::instruments::credit_option::metrics::register_credit_option_metrics(&mut registry);
 
     let instrument: Arc<dyn Instrument> = Arc::new(option);
     let mut context = MetricContext::new(instrument, Arc::new(market), as_of, price);
@@ -401,7 +401,7 @@ fn test_swaption_full_integration() {
     let swap_start = expiry;
     let swap_end = Date::from_calendar_date(2031, Month::January, 1).unwrap();
 
-    use finstack_valuations::instruments::options::swaption::Swaption;
+    use finstack_valuations::instruments::swaption::Swaption;
     let sw_params = SwaptionParams::payer(
         Money::new(10_000_000.0, Currency::USD),
         0.035,
@@ -418,7 +418,7 @@ fn test_swaption_full_integration() {
 
     // Test metrics calculation
     let mut registry = MetricRegistry::new();
-    finstack_valuations::instruments::options::swaption::metrics::register_swaption_metrics(
+    finstack_valuations::instruments::swaption::metrics::register_swaption_metrics(
         &mut registry,
     );
 
@@ -453,7 +453,7 @@ fn test_options_pricing_consistency() {
         expiry,
         1.0, // 1 share
     );
-    let underlying_params = finstack_valuations::instruments::equity::EquityUnderlyingParams::new(
+    let underlying_params = finstack_valuations::instruments::underlying::EquityUnderlyingParams::new(
         "AAPL",
         "AAPL-SPOT",
     );
@@ -495,7 +495,7 @@ fn test_market_data_override_behavior() {
         Date::from_calendar_date(2025, Month::June, 30).unwrap(),
         1.0,
     );
-    let underlying_params = finstack_valuations::instruments::equity::EquityUnderlyingParams::new(
+    let underlying_params = finstack_valuations::instruments::underlying::EquityUnderlyingParams::new(
         "AAPL",
         "AAPL-SPOT",
     );

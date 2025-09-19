@@ -1,7 +1,7 @@
 //! Python bindings for loan instruments - simplified implementation.
 
 use finstack_core::F;
-use finstack_valuations::instruments::fixed_income::loan::term_loan::{InterestSpec, Loan};
+use finstack_valuations::instruments::loan::term_loan::{InterestSpec, Loan};
 use pyo3::prelude::*;
 
 use crate::core::dates::PyDate;

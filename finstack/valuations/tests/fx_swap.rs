@@ -7,7 +7,7 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::fixed_income::fx_swap::FxSwap;
+use finstack_valuations::instruments::fx_swap::FxSwap;
 use finstack_valuations::instruments::traits::Priceable;
 use std::collections::HashMap;
 use std::sync::Arc;

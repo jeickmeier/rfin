@@ -1,6 +1,6 @@
 //! Asset pool structures for structured credit instruments.
 
-use crate::instruments::fixed_income::{bond::Bond, loan::Loan};
+use crate::instruments::{bond::Bond, loan::Loan};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
@@ -53,8 +53,8 @@ impl PoolAsset {
             },
             balance: loan.outstanding,
             rate: match &loan.interest {
-                crate::instruments::fixed_income::loan::InterestSpec::Fixed { rate, .. } => *rate,
-                crate::instruments::fixed_income::loan::InterestSpec::Floating { spread_bp, .. } => {
+                crate::instruments::loan::InterestSpec::Fixed { rate, .. } => *rate,
+                crate::instruments::loan::InterestSpec::Floating { spread_bp, .. } => {
                     *spread_bp / 10_000.0 // Convert bp to decimal
                 },
                 _ => 0.0, // Default for other types

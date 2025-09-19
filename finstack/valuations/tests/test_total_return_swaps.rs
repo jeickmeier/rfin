@@ -12,11 +12,11 @@ use finstack_core::{
 };
 use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::{
-    derivatives::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap, TrsSide},
-    equity::EquityUnderlyingParams,
+    trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap, TrsSide},
+    underlying::EquityUnderlyingParams,
     traits::Priceable,
 };
-use finstack_valuations::instruments::derivatives::trs::IndexUnderlyingParams;
+use finstack_valuations::instruments::trs::IndexUnderlyingParams;
 use time::Month;
 
 fn create_test_market_context() -> MarketContext {
@@ -77,8 +77,8 @@ fn test_equity_trs_creation() {
         .id("TRS-SPX-001".into())
         .notional(notional)
         .underlying(underlying)
-        .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 25.0, DayCount::Act360))
-        .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
+        .financing(finstack_valuations::instruments::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 25.0, DayCount::Act360))
+        .schedule(finstack_valuations::instruments::trs::TrsScheduleSpec::from_params(
             as_of,
             Date::from_calendar_date(2026, Month::January, 2).unwrap(),
             sched,
@@ -108,8 +108,8 @@ fn test_equity_trs_pricing() {
         .id("TRS-SPX-001".into())
         .notional(notional)
         .underlying(underlying)
-        .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 50.0, DayCount::Act360))
-        .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
+        .financing(finstack_valuations::instruments::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 50.0, DayCount::Act360))
+        .schedule(finstack_valuations::instruments::trs::TrsScheduleSpec::from_params(
             as_of,
             Date::from_calendar_date(2026, Month::January, 2).unwrap(),
             sched,
@@ -142,8 +142,8 @@ fn test_equity_trs_delta() {
         .id("TRS-SPX-001".into())
         .notional(notional)
         .underlying(underlying)
-        .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 25.0, DayCount::Act360))
-        .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
+        .financing(finstack_valuations::instruments::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 25.0, DayCount::Act360))
+        .schedule(finstack_valuations::instruments::trs::TrsScheduleSpec::from_params(
             as_of,
             Date::from_calendar_date(2026, Month::January, 2).unwrap(),
             ScheduleParams::quarterly_act360(),
@@ -175,8 +175,8 @@ fn test_fi_index_trs_creation() {
         .id("TRS-HY-001".into())
         .notional(notional)
         .underlying(underlying)
-        .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 100.0, DayCount::Act360))
-        .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
+        .financing(finstack_valuations::instruments::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 100.0, DayCount::Act360))
+        .schedule(finstack_valuations::instruments::trs::TrsScheduleSpec::from_params(
             as_of,
             Date::from_calendar_date(2026, Month::January, 2).unwrap(),
             sched,
@@ -205,8 +205,8 @@ fn test_fi_index_trs_par_spread() {
         .id("TRS-HY-001".into())
         .notional(notional)
         .underlying(underlying)
-        .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 0.0, DayCount::Act360))
-        .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
+        .financing(finstack_valuations::instruments::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 0.0, DayCount::Act360))
+        .schedule(finstack_valuations::instruments::trs::TrsScheduleSpec::from_params(
             as_of,
             Date::from_calendar_date(2026, Month::January, 2).unwrap(),
             ScheduleParams::quarterly_act360(),
@@ -236,8 +236,8 @@ fn test_currency_safety() {
         .id("TRS-EUR-001".into())
         .notional(notional) // USD notional
         .underlying(underlying) // EUR index
-        .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 0.0, DayCount::Act360))
-        .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
+        .financing(finstack_valuations::instruments::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 0.0, DayCount::Act360))
+        .schedule(finstack_valuations::instruments::trs::TrsScheduleSpec::from_params(
             as_of,
             Date::from_calendar_date(2026, Month::January, 2).unwrap(),
             ScheduleParams::quarterly_act360(),
@@ -260,8 +260,8 @@ fn test_trs_cashflow_schedule() {
         .id("TRS-SPX-001".into())
         .notional(notional)
         .underlying(underlying)
-        .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 0.0, DayCount::Act360))
-        .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
+        .financing(finstack_valuations::instruments::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 0.0, DayCount::Act360))
+        .schedule(finstack_valuations::instruments::trs::TrsScheduleSpec::from_params(
             as_of,
             Date::from_calendar_date(2026, Month::January, 2).unwrap(),
             ScheduleParams::quarterly_act360(),
@@ -296,8 +296,8 @@ fn test_pay_vs_receive_total_return() {
         .id("TRS-RECEIVE".into())
         .notional(notional)
         .underlying(underlying.clone())
-        .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 50.0, DayCount::Act360))
-        .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
+        .financing(finstack_valuations::instruments::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 50.0, DayCount::Act360))
+        .schedule(finstack_valuations::instruments::trs::TrsScheduleSpec::from_params(
             as_of,
             Date::from_calendar_date(2026, Month::January, 2).unwrap(),
             ScheduleParams::quarterly_act360(),
@@ -311,8 +311,8 @@ fn test_pay_vs_receive_total_return() {
         .id("TRS-PAY".into())
         .notional(notional)
         .underlying(underlying)
-        .financing(finstack_valuations::instruments::derivatives::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 50.0, DayCount::Act360))
-        .schedule(finstack_valuations::instruments::derivatives::trs::TrsScheduleSpec::from_params(
+        .financing(finstack_valuations::instruments::trs::FinancingLegSpec::new("USD-OIS", "USD-SOFR-3M", 50.0, DayCount::Act360))
+        .schedule(finstack_valuations::instruments::trs::TrsScheduleSpec::from_params(
             as_of,
             Date::from_calendar_date(2026, Month::January, 2).unwrap(),
             ScheduleParams::quarterly_act360(),

@@ -5,7 +5,7 @@ use crate::core::{
     money::PyMoney,
 };
 use finstack_core::dates::{BusinessDayConvention, StubKind};
-use finstack_valuations::instruments::fixed_income::irs::{
+use finstack_valuations::instruments::irs::{
     FixedLegSpec, FloatLegSpec, InterestRateSwap, PayReceive,
 };
 use pyo3::prelude::*;

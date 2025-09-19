@@ -6,10 +6,10 @@
 
 use crate::calibration::quote::CreditQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
-use crate::instruments::fixed_income::cds::{
+use crate::instruments::cds::{
     cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap,
 };
-use crate::instruments::fixed_income::cds::parameters::CDSConstructionParams;
+use crate::instruments::cds::parameters::CDSConstructionParams;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::{
     HazardCurve, ParInterp, Seniority,

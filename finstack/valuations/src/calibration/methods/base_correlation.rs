@@ -5,7 +5,7 @@
 
 use crate::calibration::quote::CreditQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
-use crate::instruments::fixed_income::cds_tranche::{CdsTranche, TrancheSide};
+use crate::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_core::math::Solver;
 use ordered_float::OrderedFloat;
 
@@ -123,7 +123,7 @@ impl BaseCorrelationCalibrator {
         solver: &S,
         market_context: &MarketContext,
     ) -> Result<(BaseCorrelationCurve, CalibrationReport)> {
-        use crate::instruments::fixed_income::cds_tranche::model::GaussianCopulaModel;
+        use crate::instruments::cds_tranche::model::GaussianCopulaModel;
 
         // Filter and extract CDS tranche quotes, keeping only the requested index
         let mut tranche_quotes: Vec<_> = quotes
@@ -603,7 +603,7 @@ mod tests {
 
     #[test]
     fn test_base_correlation_calibration_round_trip() {
-        use crate::instruments::fixed_income::cds_tranche::model::GaussianCopulaModel;
+        use crate::instruments::cds_tranche::model::GaussianCopulaModel;
 
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
@@ -638,7 +638,7 @@ mod tests {
 
         for (detach_pct, _corr) in &known_correlations {
             // Create synthetic equity tranche [0, detach_pct]
-            let tranche_params = crate::instruments::fixed_income::cds_tranche::parameters::CDSTrancheParams::new(
+            let tranche_params = crate::instruments::cds_tranche::parameters::CDSTrancheParams::new(
                 "CDX.NA.IG.42",
                 42,
                 0.0,         // attachment

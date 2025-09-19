@@ -9,10 +9,10 @@
 
 use crate::calibration::quote::RatesQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator, MultiCurveConfig};
-use crate::instruments::fixed_income::deposit::Deposit;
-use crate::instruments::fixed_income::fra::ForwardRateAgreement;
-use crate::instruments::fixed_income::ir_future::InterestRateFuture;
-use crate::instruments::fixed_income::InterestRateSwap;
+use crate::instruments::deposit::Deposit;
+use crate::instruments::fra::ForwardRateAgreement;
+use crate::instruments::ir_future::InterestRateFuture;
+use crate::instruments::InterestRateSwap;
 use crate::instruments::traits::Priceable;
 use finstack_core::dates::{add_months, Date};
 use finstack_core::market_data::context::MarketContext;
@@ -472,7 +472,7 @@ impl DiscountCurveCalibrator {
                     .period_end(period_end)
                     .quoted_price(*price)
                     .day_count(specs.day_count)
-                    .contract_specs(crate::instruments::fixed_income::ir_future::FutureContractSpecs::default())
+                    .contract_specs(crate::instruments::ir_future::FutureContractSpecs::default())
                     .disc_id("CALIB_CURVE")
                     .forward_id("CALIB_FWD")
                     .build()
@@ -480,7 +480,7 @@ impl DiscountCurveCalibrator {
 
                 // Set contract specs from the quote with calculated convexity
                 future = future.with_contract_specs(
-                    crate::instruments::fixed_income::ir_future::FutureContractSpecs {
+                    crate::instruments::ir_future::FutureContractSpecs {
                         face_value: specs.face_value,
                         tick_size: 0.0025,
                         tick_value: 25.0,
@@ -503,7 +503,7 @@ impl DiscountCurveCalibrator {
                 index: _,
             } => {
                 // Create swap instrument
-                use crate::instruments::fixed_income::irs::{
+                use crate::instruments::irs::{
                     FixedLegSpec, FloatLegSpec, PayReceive,
                 };
                 use finstack_core::dates::{BusinessDayConvention, StubKind};
@@ -558,7 +558,7 @@ impl DiscountCurveCalibrator {
                 currency: _,
             } => {
                 // Import BasisSwap types
-                use crate::instruments::fixed_income::basis_swap::{BasisSwap, BasisSwapLeg};
+                use crate::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
                 use finstack_core::dates::BusinessDayConvention;
 
                 // In multi-curve mode, basis swaps contribute to tenor basis calibration
@@ -744,7 +744,7 @@ impl RatesQuote {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::fixed_income::deposit::Deposit;
+    use crate::instruments::deposit::Deposit;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{Date, DayCount, Frequency};
     // use finstack_core::market_data::traits::TermStructure;
@@ -1000,7 +1000,7 @@ mod tests {
 
     #[test]
     fn test_fra_repricing_under_bootstrap() {
-        use crate::instruments::fixed_income::fra::ForwardRateAgreement;
+        use crate::instruments::fra::ForwardRateAgreement;
         // (no additional imports)
 
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -1063,7 +1063,7 @@ mod tests {
 
     #[test]
     fn test_future_repricing_under_bootstrap() {
-        use crate::instruments::fixed_income::ir_future::{
+        use crate::instruments::ir_future::{
             FutureContractSpecs, InterestRateFuture,
         };
 
@@ -1135,7 +1135,7 @@ mod tests {
             .period_end(period_end)
             .quoted_price(quoted_price)
             .day_count(DayCount::Act360)
-            .contract_specs(crate::instruments::fixed_income::ir_future::FutureContractSpecs::default())
+            .contract_specs(crate::instruments::ir_future::FutureContractSpecs::default())
             .disc_id("USD-OIS")
             .forward_id("USD-SOFR")
             .build()
@@ -1154,7 +1154,7 @@ mod tests {
 
     #[test]
     fn test_swap_repricing_under_bootstrap() {
-        use crate::instruments::fixed_income::irs::{InterestRateSwap, PayReceive};
+        use crate::instruments::irs::{InterestRateSwap, PayReceive};
 
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);
@@ -1200,7 +1200,7 @@ mod tests {
             .id("IRS-1Y".to_string())
             .notional(Money::new(1_000_000.0, Currency::USD))
             .side(PayReceive::ReceiveFixed)
-            .fixed(crate::instruments::fixed_income::irs::FixedLegSpec {
+            .fixed(crate::instruments::irs::FixedLegSpec {
                 disc_id: "USD-OIS",
                 rate: 0.0470,
                 freq: Frequency::semi_annual(),
@@ -1211,7 +1211,7 @@ mod tests {
                 start,
                 end,
             })
-            .float(crate::instruments::fixed_income::irs::FloatLegSpec {
+            .float(crate::instruments::irs::FloatLegSpec {
                 disc_id: "USD-OIS",
                 fwd_id: "USD-SOFR",
                 spread_bp: 0.0,

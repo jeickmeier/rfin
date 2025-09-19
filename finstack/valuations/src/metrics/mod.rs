@@ -46,39 +46,39 @@ pub use traits_ext::{RiskBucket, RiskMeasurable, RiskReport};
 pub fn standard_registry() -> MetricRegistry {
     let mut registry = MetricRegistry::new();
 
-    crate::instruments::equity::metrics::register_equity_metrics(&mut registry);
-    crate::instruments::equity::basket::metrics::register_basket_metrics(&mut registry);
-    crate::instruments::fixed_income::bond::metrics::register_bond_metrics(&mut registry);
-    crate::instruments::fixed_income::irs::metrics::register_irs_metrics(&mut registry);
-    crate::instruments::fixed_income::deposit::metrics::register_deposit_metrics(&mut registry);
-    crate::instruments::fixed_income::fra::metrics::register_fra_metrics(&mut registry);
-    crate::instruments::fixed_income::ir_future::metrics::register_ir_future_metrics(&mut registry);
-    crate::instruments::fixed_income::cds::metrics::register_cds_metrics(&mut registry);
-    crate::instruments::fixed_income::cds_index::metrics::register_cds_index_metrics(&mut registry);
-    crate::instruments::fixed_income::convertible::metrics::register_convertible_metrics(
+    crate::instruments::equity_metrics::register_equity_metrics(&mut registry);
+    crate::instruments::basket::metrics::register_basket_metrics(&mut registry);
+    crate::instruments::bond::metrics::register_bond_metrics(&mut registry);
+    crate::instruments::irs::metrics::register_irs_metrics(&mut registry);
+    crate::instruments::deposit::metrics::register_deposit_metrics(&mut registry);
+    crate::instruments::fra::metrics::register_fra_metrics(&mut registry);
+    crate::instruments::ir_future::metrics::register_ir_future_metrics(&mut registry);
+    crate::instruments::cds::metrics::register_cds_metrics(&mut registry);
+    crate::instruments::cds_index::metrics::register_cds_index_metrics(&mut registry);
+    crate::instruments::convertible::metrics::register_convertible_metrics(
         &mut registry,
     );
-    crate::instruments::fixed_income::inflation_linked_bond::metrics::register_ilb_metrics(
+    crate::instruments::inflation_linked_bond::metrics::register_ilb_metrics(
         &mut registry,
     );
-    crate::instruments::fixed_income::fx_spot::metrics::register_fx_spot_metrics(&mut registry);
-    crate::instruments::fixed_income::fx_swap::metrics::register_fx_swap_metrics(&mut registry);
-    crate::instruments::fixed_income::inflation_swap::metrics::register_inflation_swap_metrics(
+    crate::instruments::fx_spot::metrics::register_fx_spot_metrics(&mut registry);
+    crate::instruments::fx_swap::metrics::register_fx_swap_metrics(&mut registry);
+    crate::instruments::inflation_swap::metrics::register_inflation_swap_metrics(
         &mut registry,
     );
-    crate::instruments::options::equity_option::metrics::register_equity_option_metrics(
+    crate::instruments::equity_option::metrics::register_equity_option_metrics(
         &mut registry,
     );
-    crate::instruments::options::fx_option::metrics::register_fx_option_metrics(&mut registry);
-    crate::instruments::options::cap_floor::metrics::register_interest_rate_option_metrics(
+    crate::instruments::fx_option::metrics::register_fx_option_metrics(&mut registry);
+    crate::instruments::cap_floor::metrics::register_interest_rate_option_metrics(
         &mut registry,
     );
-    crate::instruments::options::credit_option::metrics::register_credit_option_metrics(
+    crate::instruments::credit_option::metrics::register_credit_option_metrics(
         &mut registry,
     );
-    crate::instruments::options::swaption::metrics::register_swaption_metrics(&mut registry);
-    crate::instruments::fixed_income::loan::metrics::register_loan_metrics(&mut registry);
-    crate::instruments::fixed_income::repo::metrics::register_repo_metrics(&mut registry);
+    crate::instruments::swaption::metrics::register_swaption_metrics(&mut registry);
+    crate::instruments::loan::metrics::register_loan_metrics(&mut registry);
+    crate::instruments::repo::metrics::register_repo_metrics(&mut registry);
     risk::register_risk_metrics(&mut registry);
     registry
 }

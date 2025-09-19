@@ -4,10 +4,10 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Frequency};
 use finstack_core::money::Money;
 use finstack_valuations::covenants::engine::{CovenantEngine, CovenantSpec, InstrumentMutator};
-use finstack_valuations::instruments::fixed_income::loan::covenants::{
+use finstack_valuations::instruments::loan::covenants::{
     Covenant, CovenantConsequence, CovenantType,
 };
-use finstack_valuations::instruments::fixed_income::loan::{InterestSpec, Loan};
+use finstack_valuations::instruments::loan::{InterestSpec, Loan};
 use finstack_valuations::metrics::{MetricContext, MetricId};
 use std::sync::Arc;
 use time::Month;
@@ -121,7 +121,7 @@ fn test_loan_cash_sweep_simulation() {
 
 #[test]
 fn test_revolver_utilization_fee_with_covenant_rate_increase() {
-    use finstack_valuations::instruments::fixed_income::loan::{
+    use finstack_valuations::instruments::loan::{
         RevolvingCreditFacility, UtilizationFeeSchedule,
     };
 

@@ -7,10 +7,10 @@
 //! - Convergence properties and edge cases
 
 use finstack_valuations::instruments::PricingOverrides;
-use finstack_valuations::instruments::fixed_income::bond::pricing::oas_pricer::{
+use finstack_valuations::instruments::bond::pricing::oas_pricer::{
     calculate_oas, OASCalculator, OASPricerConfig,
 };
-use finstack_valuations::instruments::fixed_income::bond::{Bond, CallPut, CallPutSchedule};
+use finstack_valuations::instruments::bond::{Bond, CallPut, CallPutSchedule};
 use finstack_valuations::instruments::traits::Priceable;
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 

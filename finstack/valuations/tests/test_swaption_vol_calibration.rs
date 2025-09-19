@@ -9,8 +9,8 @@ use finstack_valuations::calibration::methods::swaption_vol::{
     AtmStrikeConvention, SwaptionVolCalibrator, SwaptionVolConvention,
 };
 use finstack_valuations::calibration::{CalibrationConfig, Calibrator, VolQuote};
-use finstack_valuations::instruments::options::swaption::Swaption;
-use finstack_valuations::instruments::options::swaption::parameters::SwaptionParams;
+use finstack_valuations::instruments::swaption::Swaption;
+use finstack_valuations::instruments::swaption::parameters::SwaptionParams;
 use finstack_valuations::instruments::traits::Priceable;
 use time::Month;
 

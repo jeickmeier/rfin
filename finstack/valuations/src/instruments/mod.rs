@@ -1,146 +1,4 @@
-//! Financial instruments for valuation and risk analysis.
-//!
-//! This module provides concrete implementations of common financial instruments
-//! including bonds, interest rate swaps, and deposits. Each instrument type
-//! implements the necessary traits for pricing, cashflow generation, and
-//! metric calculation.
-//!
-//! # Supported Instruments
-//!
-//! - **Bonds**: Fixed-rate bonds with configurable coupon schedules and day counts
-//! - **Interest Rate Swaps**: Fixed-for-floating interest rate swaps
-//! - **Deposits**: Simple interest-bearing deposits with various day count conventions
-//!
-//! # Quick Start
-//!
-//! ```rust
-//! use finstack_valuations::instruments::{Bond, InterestRateSwap, Deposit};
-//! use finstack_valuations::instruments::PricingOverrides;
-//! use finstack_core::dates::{Date, Frequency, DayCount, BusinessDayConvention, StubKind};
-//! use finstack_core::money::Money;
-//! use finstack_core::currency::Currency;
-//! use time::Month;
-//!
-//! // Create instruments with proper constructors
-//! let bond = Bond {
-//!     id: "BOND001".to_string().into(),
-//!     notional: Money::new(1000.0, Currency::USD),
-//!     coupon: 0.05,
-//!     freq: Frequency::semi_annual(),
-//!     dc: DayCount::Act365F,
-//!     issue: Date::from_calendar_date(2025, Month::January, 15).unwrap(),
-//!     maturity: Date::from_calendar_date(2026, Month::January, 15).unwrap(),
-//!     disc_id: "USD-OIS".into(),
-//!     pricing_overrides: PricingOverrides::default(),
-//!     call_put: None,
-//!     amortization: None,
-//!     custom_cashflows: None,
-//!     attributes: finstack_valuations::instruments::traits::Attributes::new(),
-//! };
-//!
-//! let irs = InterestRateSwap {
-//!     id: "IRS001".to_string(),
-//!     notional: Money::new(1000.0, Currency::USD),
-//!     side: finstack_valuations::instruments::fixed_income::irs::PayReceive::PayFixed,
-//!     fixed: finstack_valuations::instruments::fixed_income::irs::FixedLegSpec {
-//!         start: Date::from_calendar_date(2025, Month::January, 15).unwrap(),
-//!         end: Date::from_calendar_date(2030, Month::January, 15).unwrap(),
-//!         freq: Frequency::semi_annual(),
-//!         stub: StubKind::None,
-//!         bdc: BusinessDayConvention::Following,
-//!         calendar_id: None,
-//!         dc: DayCount::Act365F,
-//!         rate: 0.05,
-//!         disc_id: "USD-OIS",
-//!     },
-//!     float: finstack_valuations::instruments::fixed_income::irs::FloatLegSpec {
-//!         start: Date::from_calendar_date(2025, Month::January, 15).unwrap(),
-//!         end: Date::from_calendar_date(2030, Month::January, 15).unwrap(),
-//!         freq: Frequency::semi_annual(),
-//!         stub: StubKind::None,
-//!         bdc: BusinessDayConvention::Following,
-//!         calendar_id: None,
-//!         dc: DayCount::Act365F,
-//!         disc_id: "USD-OIS",
-//!         fwd_id: "USD-LIBOR-3M",
-//!         spread_bp: 0.0,
-//!     },
-//!     attributes: finstack_valuations::instruments::traits::Attributes::new(),
-//! };
-//!
-//! let deposit = Deposit {
-//!     id: "DEP001".to_string().into(),
-//!     notional: Money::new(1000.0, Currency::USD),
-//!     start: Date::from_calendar_date(2025, Month::January, 15).unwrap(),
-//!     end: Date::from_calendar_date(2025, Month::July, 15).unwrap(),
-//!     day_count: DayCount::Act365F,
-//!     disc_id: "USD-OIS".into(),
-//!     quote_rate: Some(0.05),
-//!     attributes: finstack_valuations::instruments::traits::Attributes::new(),
-//! };
-//!
-//! // Use trait objects for unified handling
-//! use finstack_valuations::instruments::traits::Instrument;
-//! let instruments: Vec<Box<dyn Instrument>> = vec![
-//!     Box::new(bond),
-//!     Box::new(irs),
-//!     Box::new(deposit),
-//! ];
-//!
-//! // Check instrument types
-//! for instrument in &instruments {
-//!     println!("Instrument type: {}", instrument.instrument_type());
-//! }
-//! ```
-
-use finstack_core::money::Money;
-use finstack_core::F;
-
-/// Pricing overrides for market-quoted instruments.
-///
-/// Optional parameters that override model pricing with market quotes.
-#[derive(Clone, Debug, Default)]
-pub struct PricingOverrides {
-    /// Quoted clean price (for bonds)
-    pub quoted_clean_price: Option<F>,
-    /// Implied volatility (overrides vol surface)
-    pub implied_volatility: Option<F>,
-    /// Quoted spread (for credit instruments)
-    pub quoted_spread_bp: Option<F>,
-    /// Upfront payment (for CDS, convertibles)
-    pub upfront_payment: Option<Money>,
-}
-
-impl PricingOverrides {
-    /// Create empty pricing overrides
-    pub fn none() -> Self {
-        Self::default()
-    }
-
-    /// Set quoted clean price
-    pub fn with_clean_price(mut self, price: F) -> Self {
-        self.quoted_clean_price = Some(price);
-        self
-    }
-
-    /// Set implied volatility
-    pub fn with_implied_vol(mut self, vol: F) -> Self {
-        self.implied_volatility = Some(vol);
-        self
-    }
-
-    /// Set quoted spread
-    pub fn with_spread_bp(mut self, spread_bp: F) -> Self {
-        self.quoted_spread_bp = Some(spread_bp);
-        self
-    }
-
-    /// Set upfront payment
-    pub fn with_upfront(mut self, upfront: Money) -> Self {
-        self.upfront_payment = Some(upfront);
-        self
-    }
-}
+//! Financial instruments module: imports and re-exports only.
 
 // Macro infrastructure for reducing boilerplate
 #[macro_use]
@@ -149,32 +7,79 @@ pub mod macros;
 // Instrument-level traits and metadata
 pub mod traits;
 
-// Grouped instrument implementations
-pub mod derivatives;
-pub mod equity;
-pub mod fixed_income;
+// Flattened instrument modules
+pub mod basis_swap;
+pub mod basket;
+pub mod bond;
+pub mod cap_floor;
+pub mod cds;
+pub mod cds_index;
+pub mod cds_tranche;
+pub mod convertible;
+pub mod credit_option;
+pub mod deposit;
+pub mod discountable;
+pub mod equity_option;
+pub mod fra;
 pub mod fx;
-// fx_spot moved under fixed_income
-pub mod options;
+pub mod fx_option;
+pub mod fx_spot;
+pub mod fx_swap;
+pub mod inflation_linked_bond;
+pub mod inflation_swap;
+pub mod ir_future;
+pub mod irs;
+pub mod loan;
+pub mod models;
+pub mod pricing_overrides;
+pub mod private_equity;
+pub mod repo;
+pub mod equity;
+// Preserve public path for equity underlying params after move
+pub use equity::underlying;
+// Preserve public path for equity metrics after move
+pub use equity::equity_metrics;
 pub mod structured_credit;
-pub mod utils;
+pub mod swaption;
+pub mod trs;
+pub mod variance_swap;
+pub mod helpers;
 
 // Re-export common types for convenience (avoid glob re-exports to keep API unambiguous)
-pub use derivatives::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
-pub use equity::{Equity, PrivateEquityInvestment};
-pub use structured_credit::{Abs, Clo, StructuredCredit};
-pub use fixed_income::{
-    Bond, CDSIndex, CdsTranche, ConvertibleBond, CreditDefaultSwap, Deposit, Discountable,
-    ForwardRateAgreement, FxSpot, FxSwap, InflationLinkedBond, InflationSwap, InterestRateFuture,
-    InterestRateSwap, Loan,
-};
-pub use options::{
-    BinomialTree, CreditOption, EquityOption, ExerciseStyle, FxOption, InterestRateOption,
-    OptionType, RateOptionType, SettlementType, Swaption, TreeType,
-};
+pub use basket::Basket;
+pub use bond::Bond;
+pub use basis_swap::{BasisSwap, BasisSwapLeg};
+pub use pricing_overrides::PricingOverrides;
+pub use cds::CreditDefaultSwap;
+pub use cds::CreditParams;
+pub use cds_index::CDSIndex;
+pub use cds_tranche::CdsTranche;
+pub use convertible::ConvertibleBond;
+pub use credit_option::CreditOption;
+pub use deposit::Deposit;
+pub use discountable::Discountable;
+pub use equity_option::EquityOption;
+pub use fra::ForwardRateAgreement;
 pub use fx::FxUnderlyingParams;
-pub use fixed_income::cds::CreditParams;
+pub use fx_option::FxOption;
+pub use fx_spot::FxSpot;
+pub use fx_swap::FxSwap;
+pub use inflation_linked_bond::InflationLinkedBond;
+pub use inflation_swap::InflationSwap;
+pub use ir_future::InterestRateFuture;
+pub use irs::InterestRateSwap;
+pub use loan::Loan;
+pub use private_equity::PrivateEquityInvestment;
+pub use repo::{Repo, CollateralSpec, CollateralType, RepoType};
+pub use equity::Equity;
+pub use structured_credit::{Abs, Clo, StructuredCredit};
+pub use swaption::Swaption;
+pub use trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
+
+// Re-export option-related enums and models at top-level after flattening
+pub use cap_floor::RateOptionType;
+pub use models::{BinomialTree, ExerciseStyle, OptionType, SettlementType, TreeType};
 
 pub use crate::metrics::{RiskMeasurable, RiskReport};
 pub use traits::{Attributes, Instrument};
-pub use utils::build_with_metrics_dyn;
+pub use helpers::build_with_metrics_dyn;

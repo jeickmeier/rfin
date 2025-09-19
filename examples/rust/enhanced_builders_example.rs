@@ -9,8 +9,8 @@ use finstack_core::money::Money;
 use time::Month;
 
 use finstack_valuations::instruments::PricingOverrides;
-use finstack_valuations::instruments::equity::EquityUnderlyingParams;
-use finstack_valuations::instruments::fixed_income::{
+use finstack_valuations::instruments::underlying::EquityUnderlyingParams;
+use finstack_valuations::instruments::{
     cds::PayReceive as CdsPayReceive,
     irs::PayReceive,
     loan::{DelayedDrawTermLoan, RevolvingCreditFacility},
@@ -104,7 +104,7 @@ fn main() -> finstack_core::Result<()> {
         .id("IRS-COMPLEX".to_string())
         .notional(Money::new(25_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
-        .fixed(finstack_valuations::instruments::fixed_income::irs::FixedLegSpec {
+        .fixed(finstack_valuations::instruments::irs::FixedLegSpec {
             disc_id: "USD-OIS",
             rate: 0.0425,
             freq: finstack_core::dates::Frequency::semi_annual(),
@@ -115,7 +115,7 @@ fn main() -> finstack_core::Result<()> {
             start: issue,
             end: maturity_5y,
         })
-        .float(finstack_valuations::instruments::fixed_income::irs::FloatLegSpec {
+        .float(finstack_valuations::instruments::irs::FloatLegSpec {
             disc_id: "USD-OIS",
             fwd_id: "USD-SOFR-3M",
             spread_bp: 25.0,

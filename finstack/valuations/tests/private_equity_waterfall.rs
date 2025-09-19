@@ -2,7 +2,7 @@
 
 use finstack_core::prelude::*;
 use finstack_core::F;
-use finstack_valuations::instruments::equity::private_equity::*;
+use finstack_valuations::instruments::private_equity::*;
 use time::Month;
 
 fn test_currency() -> Currency {
@@ -437,7 +437,7 @@ fn test_irr_calculation_accuracy() {
         ), // Distribution
     ];
 
-    let irr = finstack_valuations::instruments::equity::private_equity::metrics::calculate_irr(
+    let irr = finstack_valuations::instruments::private_equity::metrics::calculate_irr(
         &flows,
         DayCount::Act365F,
     )

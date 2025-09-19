@@ -7,7 +7,7 @@ use finstack_valuations::covenants::{
     CovenantBreach, CovenantEngine, CovenantSpec, CovenantWindow, InstrumentMutator,
 };
 use finstack_valuations::instruments::PricingOverrides;
-use finstack_valuations::instruments::fixed_income::loan::covenants::{
+use finstack_valuations::instruments::loan::covenants::{
     Covenant, CovenantConsequence, CovenantType, ThresholdTest,
 };
 // Removed workout usage; keep only needed imports
@@ -86,7 +86,7 @@ fn test_covenant_evaluation() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let curves = Arc::new(MarketContext::new());
     let mut context = MetricContext::new(
-        Arc::new(finstack_valuations::instruments::fixed_income::bond::Bond {
+        Arc::new(finstack_valuations::instruments::bond::Bond {
             id: "TEST".to_string().into(),
             notional: Money::new(1_000_000.0, Currency::USD),
             coupon: 0.05,

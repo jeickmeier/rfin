@@ -8,12 +8,12 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, Stu
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::fixed_income::loan::{
+use finstack_valuations::instruments::loan::{
     DelayedDrawTermLoan, DrawEvent, ExpectedFundingCurve, 
     RevolvingCreditFacility, UtilizationFeeSchedule
 };
-use finstack_valuations::instruments::fixed_income::loan::revolver::RevolverFundingCurve;
-use finstack_valuations::instruments::fixed_income::loan::term_loan::InterestSpec;
+use finstack_valuations::instruments::loan::revolver::RevolverFundingCurve;
+use finstack_valuations::instruments::loan::term_loan::InterestSpec;
 use finstack_valuations::instruments::traits::Priceable;
 use finstack_valuations::metrics::MetricId;
 use time::Month;

@@ -4,11 +4,11 @@ use finstack_core::prelude::*;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::MarketContext;
-use finstack_valuations::instruments::equity::basket::{
+use finstack_valuations::instruments::basket::{
     AssetType, Basket, BasketConstituent, ConstituentReference, ReplicationMethod,
 };
 use finstack_core::dates::Frequency;
-use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::traits::Priceable;
 use finstack_valuations::metrics::MetricId;
 use time::Month;

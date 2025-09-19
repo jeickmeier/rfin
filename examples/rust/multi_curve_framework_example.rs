@@ -14,7 +14,7 @@ use finstack_core::{
 };
 use finstack_valuations::{
     calibration::{methods::DiscountCurveCalibrator, MarketQuote, MultiCurveConfig, RatesQuote, SimpleCalibration},
-    instruments::fixed_income::{BasisSwap, BasisSwapLeg},
+    instruments::{BasisSwap, BasisSwapLeg},
 };
 use time::Month;
 

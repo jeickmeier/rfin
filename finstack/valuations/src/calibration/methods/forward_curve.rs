@@ -7,11 +7,9 @@ use crate::calibration::{
     config::CalibrationConfig, quote::RatesQuote, report::CalibrationReport, traits::Calibrator,
 };
 use crate::instruments::{
-    fixed_income::{
-        fra::ForwardRateAgreement,
-        ir_future::InterestRateFuture,
-        irs::{FloatLegSpec, InterestRateSwap, PayReceive},
-    },
+    fra::ForwardRateAgreement,
+    ir_future::InterestRateFuture,
+    irs::{FloatLegSpec, InterestRateSwap, PayReceive},
     traits::Priceable,
 };
 use finstack_core::{
@@ -279,7 +277,7 @@ impl ForwardCurveCalibrator {
                     .period_end(period_end)
                     .quoted_price(*price)
                     .day_count(specs.day_count)
-                    .contract_specs(crate::instruments::fixed_income::ir_future::FutureContractSpecs::default())
+                    .contract_specs(crate::instruments::ir_future::FutureContractSpecs::default())
                     .disc_id(self.discount_curve_id)
                     .forward_id(self.fwd_curve_id)
                     .build()
@@ -302,7 +300,7 @@ impl ForwardCurveCalibrator {
                     return Ok(0.0); // Skip non-matching swaps
                 }
 
-                let fixed_spec = crate::instruments::fixed_income::irs::FixedLegSpec {
+                let fixed_spec = crate::instruments::irs::FixedLegSpec {
                     rate: *rate,
                     freq: *fixed_freq,
                     dc: *fixed_dc,
@@ -361,7 +359,7 @@ impl ForwardCurveCalibrator {
                 }
 
                 // Create basis swap instrument
-                use crate::instruments::fixed_income::basis_swap::{BasisSwap, BasisSwapLeg};
+                use crate::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
 
                 // Determine which leg uses our curve and which uses the reference
                 let (primary_fwd_id, reference_fwd_id) =
