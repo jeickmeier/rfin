@@ -26,12 +26,7 @@ pub struct FxOptionParams {
 
 impl FxOptionParams {
     /// Create new FX option parameters
-    pub fn new(
-        strike: F,
-        expiry: Date,
-        option_type: OptionType,
-        notional: Money,
-    ) -> Self {
+    pub fn new(strike: F, expiry: Date, option_type: OptionType, notional: Money) -> Self {
         Self {
             strike,
             expiry,
@@ -44,38 +39,22 @@ impl FxOptionParams {
 
     /// Create European call option parameters
     pub fn european_call(strike: F, expiry: Date, notional: Money) -> Self {
-        Self::new(
-            strike,
-            expiry,
-            OptionType::Call,
-            notional,
-        )
+        Self::new(strike, expiry, OptionType::Call, notional)
     }
 
     /// Create European put option parameters  
     pub fn european_put(strike: F, expiry: Date, notional: Money) -> Self {
-        Self::new(
-            strike,
-            expiry,
-            OptionType::Put,
-            notional,
-        )
+        Self::new(strike, expiry, OptionType::Put, notional)
     }
 
     /// Set exercise style
-    pub fn with_exercise_style(
-        mut self,
-        style: ExerciseStyle,
-    ) -> Self {
+    pub fn with_exercise_style(mut self, style: ExerciseStyle) -> Self {
         self.exercise_style = style;
         self
     }
 
     /// Set settlement type
-    pub fn with_settlement(
-        mut self,
-        settlement: SettlementType,
-    ) -> Self {
+    pub fn with_settlement(mut self, settlement: SettlementType) -> Self {
         self.settlement = settlement;
         self
     }

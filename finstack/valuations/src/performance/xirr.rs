@@ -73,7 +73,7 @@ pub fn xirr(cash_flows: &[(Date, F)], guess: Option<F>) -> finstack_core::Result
     let solver = HybridSolver::new()
         .with_tolerance(1e-6)
         .with_max_iterations(100);
-    
+
     solver.solve(npv, initial_guess)
 }
 

@@ -116,10 +116,7 @@ pub fn log_returns(prices: &[f64]) -> Vec<f64> {
     if prices.len() < 2 {
         return vec![];
     }
-    prices
-        .windows(2)
-        .map(|w| (w[1] / w[0]).ln())
-        .collect()
+    prices.windows(2).map(|w| (w[1] / w[0]).ln()).collect()
 }
 
 /// Calculate realized variance from price series.
@@ -145,7 +142,11 @@ pub fn realized_variance(
             variance(&returns) * annualization_factor
         }
         // Other methods can be implemented incrementally
-        _ => realized_variance(prices, RealizedVarMethod::CloseToClose, annualization_factor),
+        _ => realized_variance(
+            prices,
+            RealizedVarMethod::CloseToClose,
+            annualization_factor,
+        ),
     }
 }
 
@@ -173,11 +174,9 @@ pub fn realized_variance_ohlc(
     if n < 2 {
         return 0.0;
     }
-    
+
     match method {
-        RealizedVarMethod::CloseToClose => {
-            realized_variance(close, method, annualization_factor)
-        }
+        RealizedVarMethod::CloseToClose => realized_variance(close, method, annualization_factor),
         RealizedVarMethod::Parkinson => {
             // Parkinson estimator: uses high-low range
             let sum: f64 = (0..n)
@@ -218,12 +217,12 @@ pub fn realized_variance_ohlc(
             // Simplified version - full implementation would need opening jumps
             let mut sum_oc = 0.0;
             let mut sum_rs = 0.0;
-            
+
             for i in 1..n {
                 // Overnight component
                 let overnight = (open[i] / close[i - 1]).ln();
                 sum_oc += overnight.powi(2);
-                
+
                 // Rogers-Satchell component for intraday
                 let hc = (high[i] / close[i]).ln();
                 let ho = (high[i] / open[i]).ln();
@@ -231,11 +230,11 @@ pub fn realized_variance_ohlc(
                 let lo = (low[i] / open[i]).ln();
                 sum_rs += hc * ho + lc * lo;
             }
-            
+
             let k = 0.34 / (1.34 + (n + 1) as f64 / (n - 1) as f64);
             let var_oc = sum_oc / (n - 1) as f64;
             let var_rs = sum_rs / n as f64;
-            
+
             (k * var_oc + (1.0 - k) * var_rs) * annualization_factor
         }
     }

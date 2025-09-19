@@ -16,5 +16,3 @@ pub fn price(bond: &Bond, context: &MarketContext, as_of: Date) -> Result<Money>
         )?;
     flows.npv(&*disc, as_of, bond.dc)
 }
-
-

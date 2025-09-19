@@ -492,10 +492,10 @@ mod tests {
     #[allow(unused_imports)]
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+    use finstack_core::market_data::term_structures::CreditIndexData;
     use finstack_core::market_data::term_structures::{
         discount_curve::DiscountCurve, BaseCorrelationCurve,
     };
-    use finstack_core::market_data::term_structures::CreditIndexData;
     // use finstack_core::math::interp::InterpStyle; // not used in this test module
     use std::sync::Arc;
     use time::Month;

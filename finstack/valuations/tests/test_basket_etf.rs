@@ -1,13 +1,13 @@
 //! Integration tests for basket/ETF instruments.
 
-use finstack_core::prelude::*;
+use finstack_core::dates::Frequency;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::MarketContext;
+use finstack_core::prelude::*;
 use finstack_valuations::instruments::basket::{
     AssetType, Basket, BasketConstituent, ConstituentReference, ReplicationMethod,
 };
-use finstack_core::dates::Frequency;
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::traits::Priceable;
 use finstack_valuations::metrics::MetricId;
@@ -19,14 +19,14 @@ fn test_date(year: i32, month: u8, day: u8) -> Date {
 
 fn create_test_market_context() -> MarketContext {
     let base_date = test_date(2025, 1, 1);
-    
+
     // Create discount curve
     let discount_curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)])
         .build()
         .unwrap();
-    
+
     // Create market context with prices
     MarketContext::new()
         .insert_discount(discount_curve)
@@ -43,7 +43,7 @@ fn create_test_market_context() -> MarketContext {
 fn test_equity_etf_creation_and_pricing() {
     let context = create_test_market_context();
     let base_date = test_date(2025, 1, 1);
-    
+
     // Create equity ETF similar to SPY using market data references
     let spy_constituents = vec![
         BasketConstituent {
@@ -111,22 +111,25 @@ fn test_equity_etf_creation_and_pricing() {
         .replication(ReplicationMethod::Physical)
         .build()
         .unwrap();
-    
+
     // Verify basic properties
     assert_eq!(spy.id.as_str(), "SPY");
     assert_eq!(spy.ticker, Some("SPY".to_string()));
     assert_eq!(spy.constituents.len(), 5);
     assert_eq!(spy.expense_ratio, 0.0009); // 9 bps for equity ETF
-    
+
     // Test pricing
     let nav = spy.value(&context, base_date).unwrap();
     assert!(nav.amount() > 0.0);
     assert_eq!(nav.currency(), Currency::USD);
-    
+
     // Test validation
     assert!(spy.validate().is_ok());
-    
-    println!("SPY ETF created successfully with NAV: ${:.2}", nav.amount());
+
+    println!(
+        "SPY ETF created successfully with NAV: ${:.2}",
+        nav.amount()
+    );
 }
 
 #[test]
@@ -134,7 +137,7 @@ fn test_bond_etf_creation_and_pricing() {
     let context = create_test_market_context();
     let base_date = test_date(2025, 1, 1);
     let maturity = test_date(2030, 1, 1);
-    
+
     // Create sample bonds using the proper builder pattern
     let _aapl_bond = Bond::fixed_semiannual(
         "AAPL_4.65_2030",
@@ -144,7 +147,7 @@ fn test_bond_etf_creation_and_pricing() {
         maturity,
         "USD-OIS",
     );
-    
+
     let _msft_bond = Bond::fixed_semiannual(
         "MSFT_3.50_2030",
         Money::new(1000.0, Currency::USD),
@@ -153,7 +156,7 @@ fn test_bond_etf_creation_and_pricing() {
         maturity,
         "USD-OIS",
     );
-    
+
     // Create bond ETF similar to LQD
     let lqd_constituents = vec![
         BasketConstituent {
@@ -201,21 +204,24 @@ fn test_bond_etf_creation_and_pricing() {
         .replication(ReplicationMethod::Physical)
         .build()
         .unwrap();
-    
+
     // Verify basic properties
     assert_eq!(lqd.id.as_str(), "LQD");
     assert_eq!(lqd.constituents.len(), 3);
     assert_eq!(lqd.expense_ratio, 0.0014); // 14 bps for bond ETF
-    
+
     // Test pricing
     let nav = lqd.value(&context, base_date).unwrap();
     assert!(nav.amount() > 0.0);
     assert_eq!(nav.currency(), Currency::USD);
-    
+
     // Test validation
     assert!(lqd.validate().is_ok());
-    
-    println!("LQD Bond ETF created successfully with NAV: ${:.2}", nav.amount());
+
+    println!(
+        "LQD Bond ETF created successfully with NAV: ${:.2}",
+        nav.amount()
+    );
 }
 
 #[test]
@@ -223,7 +229,7 @@ fn test_mixed_asset_basket() {
     let context = create_test_market_context();
     let base_date = test_date(2025, 1, 1);
     let maturity = test_date(2030, 1, 1);
-    
+
     // Create a bond for the mixed basket using fixed_semiannual with available curve
     let _bond = Bond::fixed_semiannual(
         "TREASURY_2030",
@@ -231,9 +237,9 @@ fn test_mixed_asset_basket() {
         0.025,
         base_date,
         maturity,
-        "USD-OIS",  // Use the available discount curve from our context
+        "USD-OIS", // Use the available discount curve from our context
     );
-    
+
     // Create mixed asset basket
     let balanced_constituents = vec![
         BasketConstituent {
@@ -290,36 +296,45 @@ fn test_mixed_asset_basket() {
         .replication(ReplicationMethod::Physical)
         .build()
         .unwrap();
-    
+
     // Test mixed asset pricing
     let nav = balanced.value(&context, base_date).unwrap();
     assert!(nav.amount() > 0.0);
-    
+
     // Verify constituent count and allocation
     assert_eq!(balanced.constituents.len(), 4);
     let total_weight: f64 = balanced.constituents.iter().map(|c| c.weight).sum();
     assert!((total_weight - 1.0).abs() < 0.001);
-    
-    println!("Balanced ETF created successfully with NAV: ${:.2}", nav.amount());
+
+    println!(
+        "Balanced ETF created successfully with NAV: ${:.2}",
+        nav.amount()
+    );
 }
 
 #[test]
 fn test_basket_metrics_integration() {
     let context = create_test_market_context();
     let base_date = test_date(2025, 1, 1);
-    
+
     // Create simple equity basket
     let basket_consts = vec![
         BasketConstituent {
             id: "AAPL".to_string(),
-            reference: ConstituentReference::MarketData { price_id: "AAPL".to_string(), asset_type: AssetType::Equity },
+            reference: ConstituentReference::MarketData {
+                price_id: "AAPL".to_string(),
+                asset_type: AssetType::Equity,
+            },
             weight: 0.6,
             units: None,
             ticker: Some("AAPL".to_string()),
         },
         BasketConstituent {
             id: "MSFT".to_string(),
-            reference: ConstituentReference::MarketData { price_id: "MSFT".to_string(), asset_type: AssetType::Equity },
+            reference: ConstituentReference::MarketData {
+                price_id: "MSFT".to_string(),
+                asset_type: AssetType::Equity,
+            },
             weight: 0.4,
             units: None,
             ticker: Some("MSFT".to_string()),
@@ -338,7 +353,7 @@ fn test_basket_metrics_integration() {
         .replication(ReplicationMethod::Physical)
         .build()
         .unwrap();
-    
+
     // Test metrics calculation
     let metrics = vec![
         MetricId::Nav,
@@ -346,18 +361,20 @@ fn test_basket_metrics_integration() {
         MetricId::ConstituentCount,
         MetricId::ExpenseRatio,
     ];
-    
-    let result = basket.price_with_metrics(&context, base_date, &metrics).unwrap();
-    
+
+    let result = basket
+        .price_with_metrics(&context, base_date, &metrics)
+        .unwrap();
+
     // Verify metrics were calculated
     assert!(result.measures.contains_key("nav"));
     assert!(result.measures.contains_key("basket_value"));
     assert!(result.measures.contains_key("constituent_count"));
     assert!(result.measures.contains_key("expense_ratio"));
-    
+
     // Verify constituent count
     assert_eq!(result.measures["constituent_count"], 2.0);
-    
+
     println!("Basket metrics calculated successfully:");
     for (metric, value) in &result.measures {
         println!("  {}: {:.4}", metric, value);
@@ -370,14 +387,20 @@ fn test_basket_weight_validation() {
     let invalid_consts = vec![
         BasketConstituent {
             id: "AAPL".to_string(),
-            reference: ConstituentReference::MarketData { price_id: "AAPL".to_string(), asset_type: AssetType::Equity },
+            reference: ConstituentReference::MarketData {
+                price_id: "AAPL".to_string(),
+                asset_type: AssetType::Equity,
+            },
             weight: 0.5,
             units: None,
             ticker: Some("AAPL".to_string()),
         },
         BasketConstituent {
             id: "MSFT".to_string(),
-            reference: ConstituentReference::MarketData { price_id: "MSFT".to_string(), asset_type: AssetType::Equity },
+            reference: ConstituentReference::MarketData {
+                price_id: "MSFT".to_string(),
+                asset_type: AssetType::Equity,
+            },
             weight: 0.4,
             units: None,
             ticker: Some("MSFT".to_string()),
@@ -401,14 +424,20 @@ fn test_basket_weight_validation() {
     let valid_consts = vec![
         BasketConstituent {
             id: "AAPL".to_string(),
-            reference: ConstituentReference::MarketData { price_id: "AAPL".to_string(), asset_type: AssetType::Equity },
+            reference: ConstituentReference::MarketData {
+                price_id: "AAPL".to_string(),
+                asset_type: AssetType::Equity,
+            },
             weight: 0.6,
             units: None,
             ticker: Some("AAPL".to_string()),
         },
         BasketConstituent {
             id: "MSFT".to_string(),
-            reference: ConstituentReference::MarketData { price_id: "MSFT".to_string(), asset_type: AssetType::Equity },
+            reference: ConstituentReference::MarketData {
+                price_id: "MSFT".to_string(),
+                asset_type: AssetType::Equity,
+            },
             weight: 0.4,
             units: None,
             ticker: Some("MSFT".to_string()),
@@ -432,7 +461,7 @@ fn test_basket_weight_validation() {
 fn test_basket_currency_consistency() {
     let context = create_test_market_context();
     let base_date = test_date(2025, 1, 1);
-    
+
     // Create basket with USD currency
     let basket = Basket::builder()
         .id("USD_BASKET".into())
@@ -440,14 +469,20 @@ fn test_basket_currency_consistency() {
         .constituents(vec![
             BasketConstituent {
                 id: "AAPL".to_string(),
-                reference: ConstituentReference::MarketData { price_id: "AAPL".to_string(), asset_type: AssetType::Equity },
+                reference: ConstituentReference::MarketData {
+                    price_id: "AAPL".to_string(),
+                    asset_type: AssetType::Equity,
+                },
                 weight: 0.5,
                 units: None,
                 ticker: Some("AAPL".to_string()),
             },
             BasketConstituent {
                 id: "MSFT".to_string(),
-                reference: ConstituentReference::MarketData { price_id: "MSFT".to_string(), asset_type: AssetType::Equity },
+                reference: ConstituentReference::MarketData {
+                    price_id: "MSFT".to_string(),
+                    asset_type: AssetType::Equity,
+                },
                 weight: 0.5,
                 units: None,
                 ticker: Some("MSFT".to_string()),
@@ -460,7 +495,7 @@ fn test_basket_currency_consistency() {
         .replication(ReplicationMethod::Physical)
         .build()
         .unwrap();
-    
+
     // Test that pricing works with correct currency
     let nav = basket.value(&context, base_date).unwrap();
     assert_eq!(nav.currency(), Currency::USD);
@@ -470,7 +505,7 @@ fn test_basket_currency_consistency() {
 fn test_creation_unit_mechanics() {
     let _context = create_test_market_context();
     let _base_date = test_date(2025, 1, 1);
-    
+
     let spy = Basket::builder()
         .id("SPY".into())
         .ticker("SPY".to_string())
@@ -479,14 +514,20 @@ fn test_creation_unit_mechanics() {
         .constituents(vec![
             BasketConstituent {
                 id: "AAPL".to_string(),
-                reference: ConstituentReference::MarketData { price_id: "AAPL".to_string(), asset_type: AssetType::Equity },
+                reference: ConstituentReference::MarketData {
+                    price_id: "AAPL".to_string(),
+                    asset_type: AssetType::Equity,
+                },
                 weight: 0.6,
                 units: None,
                 ticker: Some("AAPL".to_string()),
             },
             BasketConstituent {
                 id: "MSFT".to_string(),
-                reference: ConstituentReference::MarketData { price_id: "MSFT".to_string(), asset_type: AssetType::Equity },
+                reference: ConstituentReference::MarketData {
+                    price_id: "MSFT".to_string(),
+                    asset_type: AssetType::Equity,
+                },
                 weight: 0.4,
                 units: None,
                 ticker: Some("MSFT".to_string()),
@@ -498,11 +539,11 @@ fn test_creation_unit_mechanics() {
         .replication(ReplicationMethod::Physical)
         .build()
         .unwrap();
-    
+
     // Test creation basket calculation
     let creation_basket = spy.creation_basket(1.0);
     assert_eq!(creation_basket.creation_basket.len(), 2);
-    
+
     // Verify transaction costs are calculated
     assert!(creation_basket.transaction_cost.amount() > 0.0);
 }
@@ -511,21 +552,27 @@ fn test_creation_unit_mechanics() {
 fn test_nav_vs_basket_value() {
     let context = create_test_market_context();
     let base_date = test_date(2025, 1, 1);
-    
+
     let basket = Basket::builder()
         .id("TEST".into())
         .name("Test Basket".to_string())
         .constituents(vec![
             BasketConstituent {
                 id: "AAPL".to_string(),
-                reference: ConstituentReference::MarketData { price_id: "AAPL".to_string(), asset_type: AssetType::Equity },
+                reference: ConstituentReference::MarketData {
+                    price_id: "AAPL".to_string(),
+                    asset_type: AssetType::Equity,
+                },
                 weight: 0.5,
                 units: None,
                 ticker: Some("AAPL".to_string()),
             },
             BasketConstituent {
                 id: "MSFT".to_string(),
-                reference: ConstituentReference::MarketData { price_id: "MSFT".to_string(), asset_type: AssetType::Equity },
+                reference: ConstituentReference::MarketData {
+                    price_id: "MSFT".to_string(),
+                    asset_type: AssetType::Equity,
+                },
                 weight: 0.5,
                 units: None,
                 ticker: Some("MSFT".to_string()),
@@ -539,10 +586,10 @@ fn test_nav_vs_basket_value() {
         .replication(ReplicationMethod::Physical)
         .build()
         .unwrap();
-    
+
     let nav = basket.nav(&context, base_date).unwrap();
     let basket_value = basket.basket_value(&context, base_date).unwrap();
-    
+
     // NAV should be basket_value / shares_outstanding
     let expected_nav = basket_value.amount() / 1_000_000.0;
     assert!((nav.amount() - expected_nav).abs() < 1e-3);

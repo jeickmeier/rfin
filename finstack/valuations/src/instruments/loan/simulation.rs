@@ -492,8 +492,8 @@ impl LoanSimulator {
         // use finstack_core::market_data::traits::Discounting;
         let disc = curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                facility.disc_id(),
-            )?;
+            facility.disc_id(),
+        )?;
         let existing_flows = facility.build_existing_flows(curves, as_of)?;
         existing_flows.npv(disc, disc.base_date(), facility.day_count())
     }
@@ -509,8 +509,8 @@ impl LoanSimulator {
         // use finstack_core::market_data::traits::Discounting;
         let disc = curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                facility.disc_id(),
-            )?;
+            facility.disc_id(),
+        )?;
 
         let mut breakdown = PVBreakdown::default();
         let mut state_path = Vec::new();
@@ -676,8 +676,8 @@ impl LoanSimulator {
         // use finstack_core::market_data::traits::Discounting;
         let disc = curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                facility.disc_id(),
-            )?;
+            facility.disc_id(),
+        )?;
         let mut breakdown = PVBreakdown::default();
         let mut state_path = Vec::new();
 
@@ -1050,10 +1050,11 @@ impl LoanSimulator {
     ) -> finstack_core::Result<Option<Date>> {
         if let Some(curve_id) = credit_curve_id {
             // Try to get hazard curve from MarketContext
-            if let Ok(hazard_curve) = curves
-                .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                    curve_id,
-                )
+            if let Ok(hazard_curve) =
+                curves
+                    .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                        curve_id,
+                    )
             {
                 // Use proper hazard curve for default simulation
                 let base_date = timeline[0];

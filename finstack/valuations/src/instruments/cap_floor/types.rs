@@ -1,8 +1,8 @@
 //! Interest rate option instrument types and implementation using Black model.
 
+use crate::instruments::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, SettlementType};
-use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
@@ -103,8 +103,17 @@ impl InterestRateOption {
         forward_id: &'static str,
         vol_id: &'static str,
     ) -> Self {
-        let option_params = InterestRateOptionParams::cap(notional, strike_rate, frequency, day_count);
-        Self::new(id, &option_params, start_date, end_date, disc_id, forward_id, vol_id)
+        let option_params =
+            InterestRateOptionParams::cap(notional, strike_rate, frequency, day_count);
+        Self::new(
+            id,
+            &option_params,
+            start_date,
+            end_date,
+            disc_id,
+            forward_id,
+            vol_id,
+        )
     }
 
     /// Create a floor instrument using parameter structs
@@ -121,8 +130,17 @@ impl InterestRateOption {
         forward_id: &'static str,
         vol_id: &'static str,
     ) -> Self {
-        let option_params = InterestRateOptionParams::floor(notional, strike_rate, frequency, day_count);
-        Self::new(id, &option_params, start_date, end_date, disc_id, forward_id, vol_id)
+        let option_params =
+            InterestRateOptionParams::floor(notional, strike_rate, frequency, day_count);
+        Self::new(
+            id,
+            &option_params,
+            start_date,
+            end_date,
+            disc_id,
+            forward_id,
+            vol_id,
+        )
     }
 
     /// Calculate caplet/floorlet price using Black's model
@@ -249,8 +267,8 @@ impl_instrument!(
             )?;
         let fwd_curve = curves
             .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-                s.forward_id,
-            )?;
+            s.forward_id,
+        )?;
         let vol_surface = if s.pricing_overrides.implied_volatility.is_none() {
             Some(curves.surface_ref(s.vol_id)?)
         } else {

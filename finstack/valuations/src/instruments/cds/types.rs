@@ -1,11 +1,11 @@
 //! Credit Default Swap (CDS) types and implementations.
-use finstack_core::market_data::traits::Survival;
 use crate::cashflow::traits::DatedFlows;
-use crate::instruments::PricingOverrides;
 use crate::instruments::cds::CreditParams;
 use crate::instruments::traits::Attributes;
+use crate::instruments::PricingOverrides;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
-use finstack_core::market_data::traits::{Discounting};
+use finstack_core::market_data::traits::Discounting;
+use finstack_core::market_data::traits::Survival;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::F;
@@ -132,7 +132,6 @@ pub struct CreditDefaultSwap {
 }
 
 impl CreditDefaultSwap {
-
     /// Create a standard CDS with ISDA conventions (buy protection).
     #[allow(clippy::too_many_arguments)]
     pub fn buy_protection(
@@ -380,7 +379,11 @@ impl CreditDefaultSwap {
     }
 
     /// Calculate par spread (spread that makes PV = 0) via enhanced pricer
-    pub fn par_spread(&self, disc: &dyn Discounting, surv: &dyn Survival) -> finstack_core::Result<F> {
+    pub fn par_spread(
+        &self,
+        disc: &dyn Discounting,
+        surv: &dyn Survival,
+    ) -> finstack_core::Result<F> {
         let pricer = cds_pricer::CDSPricer::new();
         let as_of = disc.base_date();
         pricer.par_spread(self, disc, surv, as_of)
@@ -398,7 +401,11 @@ impl CreditDefaultSwap {
     }
 
     /// Calculate risky PV01 (change in PV for 1bp spread change)
-    pub fn risky_pv01(&self, disc: &dyn Discounting, surv: &dyn Survival) -> finstack_core::Result<F> {
+    pub fn risky_pv01(
+        &self,
+        disc: &dyn Discounting,
+        surv: &dyn Survival,
+    ) -> finstack_core::Result<F> {
         let pricer = cds_pricer::CDSPricer::new();
         let as_of = disc.base_date();
         pricer.risky_pv01(self, disc, surv, as_of)
@@ -425,8 +432,8 @@ impl_instrument!(
     pv = |s, curves, _as_of| {
         let disc = curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                s.premium.disc_id,
-            )?;
+            s.premium.disc_id,
+        )?;
         let surv = curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
                 s.protection.credit_id,

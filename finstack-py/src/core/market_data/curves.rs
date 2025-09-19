@@ -237,7 +237,9 @@ impl PyDiscountCurve {
     ///
     /// Returns:
     ///     float: The zero rate at time t
-    fn zero(&self, t: F) -> F { self.inner.zero(t) }
+    fn zero(&self, t: F) -> F {
+        self.inner.zero(t)
+    }
 
     /// Forward rate between t1 and t2.
     ///

@@ -41,9 +41,15 @@ pub fn derive_financial_builder(input: TokenStream) -> TokenStream {
             let is_option_ty = matches!(ty, syn::Type::Path(ref tp) if tp.path.segments.last().map(|s| s.ident == "Option").unwrap_or(false));
 
             // Track presence of well-known fields for generic validations
-            if ident == format_ident!("start_date") { has_start_date = true; }
-            if ident == format_ident!("maturity") { has_maturity = true; }
-            if ident == format_ident!("strike_variance") { has_strike_variance = true; }
+            if ident == format_ident!("start_date") {
+                has_start_date = true;
+            }
+            if ident == format_ident!("maturity") {
+                has_maturity = true;
+            }
+            if ident == format_ident!("strike_variance") {
+                has_strike_variance = true;
+            }
 
             // Optional if Option<T> or the field is `attributes`
             if is_option_ty || ident == format_ident!("attributes") {
@@ -59,10 +65,18 @@ pub fn derive_financial_builder(input: TokenStream) -> TokenStream {
     let builder_name = format_ident!("{}Builder", struct_name);
 
     // Builder struct fields are Option<...> for required, and same type for optional if already Option<T>, else Option<T>
-    let builder_req_fields = required_fields.iter().map(|(id, ty)| quote! { #id: ::core::option::Option<#ty> });
+    let builder_req_fields = required_fields
+        .iter()
+        .map(|(id, ty)| quote! { #id: ::core::option::Option<#ty> });
     let builder_opt_fields = optional_fields.iter().map(|(id, ty)| {
         if let syn::Type::Path(ref tp) = ty {
-            if tp.path.segments.last().map(|s| s.ident == "Option").unwrap_or(false) {
+            if tp
+                .path
+                .segments
+                .last()
+                .map(|s| s.ident == "Option")
+                .unwrap_or(false)
+            {
                 // Keep Option<T> as is
                 quote! { #id: #ty }
             } else {
@@ -110,11 +124,19 @@ pub fn derive_financial_builder(input: TokenStream) -> TokenStream {
     });
 
     // Build expression: required fields unwrap, optional fields carry through (unwrap_or(None)) and initialize attributes if present
-    let assign_req = required_fields.iter().map(|(id, _)| quote! { #id: self.#id.ok_or(finstack_core::error::InputError::Invalid)? });
+    let assign_req = required_fields
+        .iter()
+        .map(|(id, _)| quote! { #id: self.#id.ok_or(finstack_core::error::InputError::Invalid)? });
 
     let assign_opt = optional_fields.iter().map(|(id, ty)| {
         if let syn::Type::Path(ref tp) = ty {
-            if tp.path.segments.last().map(|s| s.ident == "Option").unwrap_or(false) {
+            if tp
+                .path
+                .segments
+                .last()
+                .map(|s| s.ident == "Option")
+                .unwrap_or(false)
+            {
                 quote! { #id: self.#id }
             } else if id == "attributes" {
                 quote! { attributes: self.attributes.unwrap_or_default() }

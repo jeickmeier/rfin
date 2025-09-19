@@ -24,8 +24,8 @@ impl MetricCalculator for DeltaCalculator {
         let hazard_curve = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                option.credit_id,
-            )?;
+            option.credit_id,
+        )?;
         let current_tenor = option.day_count.year_fraction(
             context.as_of,
             option.cds_maturity,
@@ -76,8 +76,8 @@ impl MetricCalculator for GammaCalculator {
         let hazard_curve = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                option.credit_id,
-            )?;
+            option.credit_id,
+        )?;
         let current_tenor = option.day_count.year_fraction(
             context.as_of,
             option.cds_maturity,
@@ -127,8 +127,8 @@ impl MetricCalculator for VegaCalculator {
         let hazard_curve = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                option.credit_id,
-            )?;
+            option.credit_id,
+        )?;
         let current_tenor = option.day_count.year_fraction(
             context.as_of,
             option.cds_maturity,
@@ -185,8 +185,8 @@ impl MetricCalculator for ThetaCalculator {
         let hazard_curve = context
             .curves
             .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                option.credit_id,
-            )?;
+            option.credit_id,
+        )?;
         let current_tenor = option.day_count.year_fraction(
             context.as_of,
             option.cds_maturity,

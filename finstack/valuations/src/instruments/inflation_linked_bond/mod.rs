@@ -4,7 +4,7 @@
 //! TIPS, UK Index-Linked Gilts, and other inflation-protected securities.
 
 pub mod metrics;
-mod types;
 pub mod parameters;
+mod types;
 
 pub use types::{DeflationProtection, IndexationMethod, InflationLinkedBond};

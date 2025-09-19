@@ -2,7 +2,7 @@
 
 use crate::cashflow::builder::ScheduleParams;
 use crate::instruments::build_with_metrics_dyn;
-use crate::instruments::traits::{Attributes, Attributable, Instrument, Priceable};
+use crate::instruments::traits::{Attributable, Attributes, Instrument, Priceable};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
@@ -98,12 +98,24 @@ impl CdsTranche {
 impl_attributable!(CdsTranche);
 
 impl Instrument for CdsTranche {
-    fn id(&self) -> &str { &self.id }
-    fn instrument_type(&self) -> &'static str { "CDSTranche" }
-    fn as_any(&self) -> &dyn std::any::Any { self }
-    fn attributes(&self) -> &Attributes { <Self as Attributable>::attributes(self) }
-    fn attributes_mut(&mut self) -> &mut Attributes { <Self as Attributable>::attributes_mut(self) }
-    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
+    fn id(&self) -> &str {
+        &self.id
+    }
+    fn instrument_type(&self) -> &'static str {
+        "CDSTranche"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn attributes(&self) -> &Attributes {
+        <Self as Attributable>::attributes(self)
+    }
+    fn attributes_mut(&mut self) -> &mut Attributes {
+        <Self as Attributable>::attributes_mut(self)
+    }
+    fn clone_box(&self) -> Box<dyn Instrument> {
+        Box::new(self.clone())
+    }
 }
 
 impl Priceable for CdsTranche {

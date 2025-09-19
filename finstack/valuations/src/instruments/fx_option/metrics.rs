@@ -318,14 +318,16 @@ impl MetricCalculator for RhoDomesticCalculator {
             return Ok(0.0);
         }
 
-        let domestic_disc = context
-            .curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+        let domestic_disc =
+            context
+                .curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
                 option.domestic_disc_id,
             )?;
-        let foreign_disc = context
-            .curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+        let foreign_disc =
+            context
+                .curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
                 option.foreign_disc_id,
             )?;
         let r_d = domestic_disc.zero(time_to_expiry);
@@ -382,14 +384,16 @@ impl MetricCalculator for RhoForeignCalculator {
             return Ok(0.0);
         }
 
-        let domestic_disc = context
-            .curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+        let domestic_disc =
+            context
+                .curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
                 option.domestic_disc_id,
             )?;
-        let foreign_disc = context
-            .curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+        let foreign_disc =
+            context
+                .curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
                 option.foreign_disc_id,
             )?;
         let r_d = domestic_disc.zero(time_to_expiry);

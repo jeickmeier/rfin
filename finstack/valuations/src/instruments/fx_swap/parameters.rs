@@ -21,11 +21,7 @@ pub struct FxSwapParams {
 
 impl FxSwapParams {
     /// Create new FX swap parameters
-    pub fn new(
-        near_date: Date,
-        far_date: Date,
-        base_notional: Money,
-    ) -> Self {
+    pub fn new(near_date: Date, far_date: Date, base_notional: Money) -> Self {
         Self {
             near_date,
             far_date,

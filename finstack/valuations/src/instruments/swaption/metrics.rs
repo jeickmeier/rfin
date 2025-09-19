@@ -16,8 +16,8 @@ impl MetricCalculator for DeltaCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                option.disc_id,
-            )?;
+            option.disc_id,
+        )?;
         let t = option.year_fraction(disc.base_date(), option.expiry, option.day_count)?;
 
         if t <= 0.0 {
@@ -69,8 +69,8 @@ impl MetricCalculator for GammaCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                option.disc_id,
-            )?;
+            option.disc_id,
+        )?;
         let t = option.year_fraction(disc.base_date(), option.expiry, option.day_count)?;
 
         if t <= 0.0 {
@@ -118,8 +118,8 @@ impl MetricCalculator for VegaCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                option.disc_id,
-            )?;
+            option.disc_id,
+        )?;
         let t = option.year_fraction(disc.base_date(), option.expiry, option.day_count)?;
 
         if t <= 0.0 {
@@ -167,8 +167,8 @@ impl MetricCalculator for ThetaCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                option.disc_id,
-            )?;
+            option.disc_id,
+        )?;
         let base = disc.base_date();
         let t = option.year_fraction(base, option.expiry, option.day_count)?;
         if t <= 0.0 {
@@ -214,8 +214,8 @@ impl MetricCalculator for RhoCalculator {
         let disc = context
             .curves
             .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                option.disc_id,
-            )?;
+            option.disc_id,
+        )?;
 
         // Base price from context
         let base_price = context.base_value.amount();

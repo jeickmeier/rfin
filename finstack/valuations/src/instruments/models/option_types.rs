@@ -28,5 +28,3 @@ pub enum SettlementType {
     /// Cash settlement
     Cash,
 }
-
-

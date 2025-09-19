@@ -233,7 +233,7 @@ fn test_improved_error_messages_contain_original_date_and_correct_convention() {
     // Test Following convention error contains correct information
     let result = adjust(original_date, BusinessDayConvention::Following, &cal);
     assert!(result.is_err());
-    
+
     match result.unwrap_err() {
         finstack_core::Error::Input(InputError::AdjustmentFailed {
             date,
@@ -252,7 +252,7 @@ fn test_improved_error_messages_contain_original_date_and_correct_convention() {
     // Test Preceding convention error contains correct information
     let result = adjust(original_date, BusinessDayConvention::Preceding, &cal);
     assert!(result.is_err());
-    
+
     match result.unwrap_err() {
         finstack_core::Error::Input(InputError::AdjustmentFailed {
             date,
@@ -269,9 +269,13 @@ fn test_improved_error_messages_contain_original_date_and_correct_convention() {
     }
 
     // Test ModifiedFollowing convention error contains correct information
-    let result = adjust(original_date, BusinessDayConvention::ModifiedFollowing, &cal);
+    let result = adjust(
+        original_date,
+        BusinessDayConvention::ModifiedFollowing,
+        &cal,
+    );
     assert!(result.is_err());
-    
+
     match result.unwrap_err() {
         finstack_core::Error::Input(InputError::AdjustmentFailed {
             date,
@@ -288,9 +292,13 @@ fn test_improved_error_messages_contain_original_date_and_correct_convention() {
     }
 
     // Test ModifiedPreceding convention error contains correct information
-    let result = adjust(original_date, BusinessDayConvention::ModifiedPreceding, &cal);
+    let result = adjust(
+        original_date,
+        BusinessDayConvention::ModifiedPreceding,
+        &cal,
+    );
     assert!(result.is_err());
-    
+
     match result.unwrap_err() {
         finstack_core::Error::Input(InputError::AdjustmentFailed {
             date,

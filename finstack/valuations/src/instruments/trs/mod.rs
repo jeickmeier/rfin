@@ -6,14 +6,16 @@
 mod equity;
 mod fixed_income_index;
 pub mod metrics;
-mod types;
 pub mod pricing;
+mod types;
 
 // Re-export main types
 pub use equity::EquityTotalReturnSwap;
 pub use fixed_income_index::FIIndexTotalReturnSwap;
-pub use types::{IndexUnderlyingParams, FinancingLegSpec, TotalReturnLegSpec, TrsScheduleSpec, TrsSide};
 pub use pricing::engine::TrsEngine;
+pub use types::{
+    FinancingLegSpec, IndexUnderlyingParams, TotalReturnLegSpec, TrsScheduleSpec, TrsSide,
+};
 
 /// Shared TRS helpers
 pub(crate) mod helpers {
@@ -27,7 +29,10 @@ pub(crate) mod helpers {
         crate::instruments::helpers::validate_currency_consistency(&[notional])?;
         if let Some(base_ccy) = base {
             if base_ccy != notional.currency() {
-                return Err(finstack_core::Error::CurrencyMismatch { expected: base_ccy, actual: notional.currency() });
+                return Err(finstack_core::Error::CurrencyMismatch {
+                    expected: base_ccy,
+                    actual: notional.currency(),
+                });
             }
         }
         Ok(())

@@ -76,14 +76,14 @@
 use finstack_core::F;
 
 // Submodules
-pub mod methods;
-pub mod derivatives;
-pub mod simple_calibration;
 mod config;
 mod constraints;
+pub mod derivatives;
 mod macros;
+pub mod methods;
 mod quote;
 mod report;
+pub mod simple_calibration;
 mod traits;
 mod validation;
 

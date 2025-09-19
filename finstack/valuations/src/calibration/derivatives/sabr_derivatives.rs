@@ -3,9 +3,9 @@
 //! Provides exact gradients for SABR implied volatility with respect to
 //! model parameters (alpha, nu, rho), significantly accelerating calibration.
 
+use super::sabr_model_params::SABRModelParams;
 #[cfg(test)]
 use crate::instruments::models::SABRParameters;
-use super::sabr_model_params::SABRModelParams;
 use finstack_core::math::solver_multi::AnalyticalDerivatives;
 use finstack_core::F;
 
@@ -137,7 +137,8 @@ impl SABRCalibrationDerivatives {
         // Direct differentiation of the SABR formula
         let d_term1_d_alpha = 1.0 / f_power;
         let d_term2_d_alpha = t
-            * (((1.0 - beta).powi(2) * 2.0 * sabr_params.alpha) / (24.0 * f.powf(2.0 * (1.0 - beta)))
+            * (((1.0 - beta).powi(2) * 2.0 * sabr_params.alpha)
+                / (24.0 * f.powf(2.0 * (1.0 - beta)))
                 + (sabr_params.rho * beta * sabr_params.nu) / (4.0 * f_power));
 
         // For simplicity, assume x is approximately constant w.r.t. alpha for small changes
@@ -145,7 +146,14 @@ impl SABRCalibrationDerivatives {
     }
 
     /// Partial derivative with respect to nu (vol of vol).
-    fn d_vol_d_nu_impl(&self, _strike: F, sabr_params: &SABRModelParams, _vol: F, x: F, _term2: F) -> F {
+    fn d_vol_d_nu_impl(
+        &self,
+        _strike: F,
+        sabr_params: &SABRModelParams,
+        _vol: F,
+        x: F,
+        _term2: F,
+    ) -> F {
         let f = self.market_data.forward;
         let t = self.market_data.time_to_expiry;
         let beta = self.market_data.beta;
@@ -153,22 +161,31 @@ impl SABRCalibrationDerivatives {
         let f_power = f.powf(1.0 - beta);
 
         let d_term2_d_nu = t
-            * ((sabr_params.rho * beta * sabr_params.alpha) / (4.0 * f_power) + (2.0 - 3.0 * sabr_params.rho * sabr_params.rho) * 2.0 * sabr_params.nu / 24.0);
+            * ((sabr_params.rho * beta * sabr_params.alpha) / (4.0 * f_power)
+                + (2.0 - 3.0 * sabr_params.rho * sabr_params.rho) * 2.0 * sabr_params.nu / 24.0);
 
         // Simplified: assume x changes negligibly with nu for small perturbations
         (sabr_params.alpha / f_power) * x * d_term2_d_nu
     }
 
     /// Partial derivative with respect to rho (correlation).
-    fn d_vol_d_rho_impl(&self, _strike: F, sabr_params: &SABRModelParams, _vol: F, x: F, _term2: F) -> F {
+    fn d_vol_d_rho_impl(
+        &self,
+        _strike: F,
+        sabr_params: &SABRModelParams,
+        _vol: F,
+        x: F,
+        _term2: F,
+    ) -> F {
         let f = self.market_data.forward;
         let t = self.market_data.time_to_expiry;
         let beta = self.market_data.beta;
 
         let f_power = f.powf(1.0 - beta);
 
-        let d_term2_d_rho =
-            t * ((beta * sabr_params.nu * sabr_params.alpha) / (4.0 * f_power) - 6.0 * sabr_params.rho * sabr_params.nu * sabr_params.nu / 24.0);
+        let d_term2_d_rho = t
+            * ((beta * sabr_params.nu * sabr_params.alpha) / (4.0 * f_power)
+                - 6.0 * sabr_params.rho * sabr_params.nu * sabr_params.nu / 24.0);
 
         (sabr_params.alpha / f_power) * x * d_term2_d_rho
     }

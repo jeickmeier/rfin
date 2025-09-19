@@ -1,8 +1,8 @@
 //! Interest Rate Swap (IRS) types and implementations.
-use finstack_core::market_data::traits::Forward;
 use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::{BusinessDayConvention, Frequency, StubKind};
-use finstack_core::market_data::traits::{Discounting};
+use finstack_core::market_data::traits::Discounting;
+use finstack_core::market_data::traits::Forward;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -94,7 +94,6 @@ pub struct InterestRateSwap {
 }
 
 impl InterestRateSwap {
-
     /// Create a standard USD pay-fixed swap with common market conventions.
     ///
     /// This convenience constructor eliminates the need for a builder in the most common case.
@@ -147,7 +146,6 @@ impl InterestRateSwap {
         start: Date,
         end: Date,
     ) -> Self {
-
         let sched = ScheduleParams::usd_standard();
         let fixed = FixedLegSpec {
             disc_id: "USD-OIS",
@@ -191,7 +189,6 @@ impl InterestRateSwap {
         primary_spread_bp: F,   // Spread on the "fixed" leg (really floating)
         reference_spread_bp: F, // Spread on the "float" leg
     ) -> Self {
-
         // Approximate basis swap by using fixed leg to carry the primary spread as a fixed coupon
         let sched = ScheduleParams::usd_standard();
         let fixed = FixedLegSpec {
@@ -257,7 +254,11 @@ impl InterestRateSwap {
     }
 
     /// Compute PV of floating leg (helper for value calculation).
-    fn pv_float_leg(&self, disc: &dyn Discounting, fwd: &dyn Forward) -> finstack_core::Result<Money> {
+    fn pv_float_leg(
+        &self,
+        disc: &dyn Discounting,
+        fwd: &dyn Forward,
+    ) -> finstack_core::Result<Money> {
         let base = disc.base_date();
         let builder = finstack_core::dates::ScheduleBuilder::new(self.float.start, self.float.end)
             .frequency(self.float.freq)
@@ -316,8 +317,8 @@ impl_instrument!(
     pv = |s, curves, _as_of| {
         let disc = curves
             .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                s.fixed.disc_id,
-            )?;
+            s.fixed.disc_id,
+        )?;
         let fwd = curves
             .get::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
                 s.float.fwd_id,

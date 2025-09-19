@@ -40,8 +40,8 @@ pub(crate) fn seek_business_day<C: HolidayCalendar + ?Sized>(
     step_days: i32,
     max_days: i32,
     cal: &C,
-    conv_label: &'static str,   // NEW
-    original: Date,             // NEW
+    conv_label: &'static str, // NEW
+    original: Date,           // NEW
 ) -> Result<Date, Error> {
     let mut searched = 0;
     while !cal.is_business_day(date) {
@@ -49,8 +49,8 @@ pub(crate) fn seek_business_day<C: HolidayCalendar + ?Sized>(
         searched += 1;
         if searched > max_days {
             return Err(Error::Input(InputError::AdjustmentFailed {
-                date: original.to_string(),     // original date
-                convention: conv_label.into(),  // Following/Preceding...
+                date: original.to_string(),    // original date
+                convention: conv_label.into(), // Following/Preceding...
                 max_days,
             }));
         }
@@ -145,36 +145,78 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
             if cal.is_business_day(date) {
                 return Ok(date);
             }
-            seek_business_day(date, 1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal, "Following", date)
+            seek_business_day(
+                date,
+                1,
+                MAX_BUSINESS_DAY_SEARCH_DAYS,
+                cal,
+                "Following",
+                date,
+            )
         }
         BusinessDayConvention::ModifiedFollowing => {
             if cal.is_business_day(date) {
                 return Ok(date);
             }
             let original_month = date.month();
-            let forward = seek_business_day(date, 1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal, "ModifiedFollowing", date)?;
+            let forward = seek_business_day(
+                date,
+                1,
+                MAX_BUSINESS_DAY_SEARCH_DAYS,
+                cal,
+                "ModifiedFollowing",
+                date,
+            )?;
             if forward.month() == original_month {
                 Ok(forward)
             } else {
-                seek_business_day(date, -1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal, "ModifiedFollowing", date)
+                seek_business_day(
+                    date,
+                    -1,
+                    MAX_BUSINESS_DAY_SEARCH_DAYS,
+                    cal,
+                    "ModifiedFollowing",
+                    date,
+                )
             }
         }
         BusinessDayConvention::Preceding => {
             if cal.is_business_day(date) {
                 return Ok(date);
             }
-            seek_business_day(date, -1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal, "Preceding", date)
+            seek_business_day(
+                date,
+                -1,
+                MAX_BUSINESS_DAY_SEARCH_DAYS,
+                cal,
+                "Preceding",
+                date,
+            )
         }
         BusinessDayConvention::ModifiedPreceding => {
             if cal.is_business_day(date) {
                 return Ok(date);
             }
             let original_month = date.month();
-            let back = seek_business_day(date, -1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal, "ModifiedPreceding", date)?;
+            let back = seek_business_day(
+                date,
+                -1,
+                MAX_BUSINESS_DAY_SEARCH_DAYS,
+                cal,
+                "ModifiedPreceding",
+                date,
+            )?;
             if back.month() == original_month {
                 Ok(back)
             } else {
-                seek_business_day(date, 1, MAX_BUSINESS_DAY_SEARCH_DAYS, cal, "ModifiedPreceding", date)
+                seek_business_day(
+                    date,
+                    1,
+                    MAX_BUSINESS_DAY_SEARCH_DAYS,
+                    cal,
+                    "ModifiedPreceding",
+                    date,
+                )
             }
         }
     }

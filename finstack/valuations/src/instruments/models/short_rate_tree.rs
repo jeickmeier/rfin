@@ -95,7 +95,11 @@ impl ShortRateTree {
     }
 
     /// Calibrate the tree to match a given discount curve
-    pub fn calibrate(&mut self, discount_curve: &dyn Discounting, time_to_maturity: F) -> Result<()> {
+    pub fn calibrate(
+        &mut self,
+        discount_curve: &dyn Discounting,
+        time_to_maturity: F,
+    ) -> Result<()> {
         self.calibration_curve_id = "CALIBRATED".to_string();
 
         // Build time grid
@@ -505,8 +509,8 @@ pub mod short_rate_keys {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use finstack_core::math::interp::InterpStyle;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::math::interp::InterpStyle;
     use time::Month;
 
     fn create_test_curve() -> DiscountCurve {

@@ -7,7 +7,10 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
-fn extract_underlying_data(trs: &FIIndexTotalReturnSwap, context: &MarketContext) -> Result<(f64, f64)> {
+fn extract_underlying_data(
+    trs: &FIIndexTotalReturnSwap,
+    context: &MarketContext,
+) -> Result<(f64, f64)> {
     let index_yield = trs
         .underlying
         .yield_id
@@ -81,7 +84,11 @@ impl TrsReturnModel for FiIndexReturnModel<'_> {
 ///
 /// # Note
 /// This implementation uses a carry-only approximation for the index return calculation.
-pub fn pv_total_return_leg(trs: &FIIndexTotalReturnSwap, context: &MarketContext, as_of: Date) -> Result<Money> {
+pub fn pv_total_return_leg(
+    trs: &FIIndexTotalReturnSwap,
+    context: &MarketContext,
+    as_of: Date,
+) -> Result<Money> {
     let (index_yield, duration) = extract_underlying_data(trs, context)?;
 
     let params = TotalReturnLegParams {
@@ -92,8 +99,10 @@ pub fn pv_total_return_leg(trs: &FIIndexTotalReturnSwap, context: &MarketContext
         initial_level: trs.initial_level,
     };
 
-    let model = FiIndexReturnModel { trs, index_yield, duration };
+    let model = FiIndexReturnModel {
+        trs,
+        index_yield,
+        duration,
+    };
     TrsEngine::pv_total_return_leg_with_model(params, context, as_of, &model)
 }
-
-

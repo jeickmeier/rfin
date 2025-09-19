@@ -22,8 +22,8 @@ impl MetricCalculator for DeltaCalculator {
         let fwd_curve = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-                option.forward_id,
-            )?;
+            option.forward_id,
+        )?;
         let base_date = disc_curve.base_date();
 
         // For caps/floors, aggregate delta across all caplets/floorlets
@@ -67,7 +67,8 @@ impl MetricCalculator for DeltaCalculator {
                     let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
                     let df = disc_curve.df(time_to_payment);
 
-                    let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
+                    let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility
+                    {
                         impl_vol
                     } else {
                         context
@@ -143,8 +144,8 @@ impl MetricCalculator for GammaCalculator {
         let fwd_curve = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-                option.forward_id,
-            )?;
+            option.forward_id,
+        )?;
         let base_date = disc_curve.base_date();
 
         if matches!(
@@ -187,7 +188,8 @@ impl MetricCalculator for GammaCalculator {
                     let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
                     let df = disc_curve.df(time_to_payment);
 
-                    let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
+                    let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility
+                    {
                         impl_vol
                     } else {
                         context
@@ -260,8 +262,8 @@ impl MetricCalculator for VegaCalculator {
         let fwd_curve = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-                option.forward_id,
-            )?;
+            option.forward_id,
+        )?;
         let base_date = disc_curve.base_date();
 
         if matches!(
@@ -304,7 +306,8 @@ impl MetricCalculator for VegaCalculator {
                     let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
                     let df = disc_curve.df(time_to_payment);
 
-                    let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
+                    let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility
+                    {
                         impl_vol
                     } else {
                         context

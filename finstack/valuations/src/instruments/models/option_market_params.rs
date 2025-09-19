@@ -48,12 +48,28 @@ impl OptionMarketParams {
 
     /// Create call option market parameters
     pub fn call(spot: F, strike: F, rate: F, volatility: F, time_to_expiry: F) -> Self {
-        Self::new(spot, strike, rate, volatility, time_to_expiry, 0.0, OptionType::Call)
+        Self::new(
+            spot,
+            strike,
+            rate,
+            volatility,
+            time_to_expiry,
+            0.0,
+            OptionType::Call,
+        )
     }
 
     /// Create put option market parameters
     pub fn put(spot: F, strike: F, rate: F, volatility: F, time_to_expiry: F) -> Self {
-        Self::new(spot, strike, rate, volatility, time_to_expiry, 0.0, OptionType::Put)
+        Self::new(
+            spot,
+            strike,
+            rate,
+            volatility,
+            time_to_expiry,
+            0.0,
+            OptionType::Put,
+        )
     }
 
     /// Set dividend yield

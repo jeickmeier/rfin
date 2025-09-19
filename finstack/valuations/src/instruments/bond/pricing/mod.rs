@@ -13,8 +13,8 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
-use crate::instruments::helpers::build_with_metrics_dyn;
 use super::types::Bond;
+use crate::instruments::helpers::build_with_metrics_dyn;
 
 impl Priceable for Bond {
     fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
@@ -31,5 +31,3 @@ impl Priceable for Bond {
         build_with_metrics_dyn(self, context, as_of, base, metrics)
     }
 }
-
-

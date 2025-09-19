@@ -36,18 +36,18 @@ impl CoverageTrigger {
             consequence,
         }
     }
-    
+
     /// With cure level (typically higher than trigger)
     pub fn with_cure_level(mut self, cure_level: F) -> Self {
         self.cure_level = Some(cure_level);
         self
     }
-    
+
     /// Check if currently breached
     pub fn is_breached(&self, current_level: F) -> bool {
         current_level < self.trigger_level
     }
-    
+
     /// Check if breach is cured
     pub fn is_cured(&self, current_level: F) -> bool {
         if let Some(cure) = self.cure_level {
@@ -91,20 +91,16 @@ impl Default for CreditEnhancement {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum TrancheCoupon {
     /// Fixed rate
-    Fixed { 
-        rate: F,
-    },
+    Fixed { rate: F },
     /// Floating rate with caps/floors
-    Floating { 
+    Floating {
         index: String,
         spread_bp: F,
         floor: Option<F>,
         cap: Option<F>,
     },
     /// Step-up coupon
-    StepUp {
-        schedule: Vec<(Date, F)>,
-    },
+    StepUp { schedule: Vec<(Date, F)> },
     /// Deferrable coupon (can skip payments)
     Deferrable {
         base_rate: F,
@@ -126,7 +122,9 @@ impl TrancheCoupon {
                 rate: *rate,
                 step_ups: None,
             },
-            TrancheCoupon::Floating { index, spread_bp, .. } => {
+            TrancheCoupon::Floating {
+                index, spread_bp, ..
+            } => {
                 // Use static string for common indices
                 let index_id = match index.as_str() {
                     "SOFR-3M" => "SOFR-3M",
@@ -141,7 +139,7 @@ impl TrancheCoupon {
                     gearing: 1.0,
                     reset_lag_days: 2,
                 }
-            },
+            }
             TrancheCoupon::StepUp { schedule } => InterestSpec::Fixed {
                 rate: schedule.first().map(|(_, r)| *r).unwrap_or(0.0),
                 step_ups: Some(schedule.clone()),
@@ -157,19 +155,18 @@ impl TrancheCoupon {
             },
         }
     }
-    
+
     /// Get current rate for a given date
     pub fn current_rate(&self, date: Date) -> F {
         match self {
             TrancheCoupon::Fixed { rate } => *rate,
             TrancheCoupon::Floating { spread_bp, .. } => *spread_bp / 10_000.0, // Base spread only
-            TrancheCoupon::StepUp { schedule } => {
-                schedule.iter()
-                    .filter(|(d, _)| *d <= date)
-                    .last()
-                    .map(|(_, rate)| *rate)
-                    .unwrap_or(0.0)
-            },
+            TrancheCoupon::StepUp { schedule } => schedule
+                .iter()
+                .filter(|(d, _)| *d <= date)
+                .last()
+                .map(|(_, rate)| *rate)
+                .unwrap_or(0.0),
             TrancheCoupon::Deferrable { base_rate, .. } => *base_rate,
             TrancheCoupon::PIK { rate, .. } => *rate,
         }
@@ -192,45 +189,45 @@ pub struct CustomTrigger {
 pub struct AbsTranche {
     /// Unique tranche identifier
     pub id: InstrumentId,
-    
+
     /// Structural boundaries (as % of total capital structure)
-    pub attachment_point: F,  // Lower bound (e.g., 0.0% for equity, 10% for mezz)
-    pub detachment_point: F,  // Upper bound (e.g., 10% for equity, 15% for mezz)
-    
+    pub attachment_point: F, // Lower bound (e.g., 0.0% for equity, 10% for mezz)
+    pub detachment_point: F, // Upper bound (e.g., 10% for equity, 15% for mezz)
+
     /// Tranche characteristics
     pub seniority: TrancheSeniority,
     pub rating: Option<CreditRating>,
-    
+
     /// Size and balances
     pub original_balance: Money,
     pub current_balance: Money,
-    pub target_balance: Option<Money>,  // For revolving structures
-    
+    pub target_balance: Option<Money>, // For revolving structures
+
     /// Interest specification
     pub coupon: TrancheCoupon,
-    
+
     /// Coverage test triggers
     pub oc_trigger: Option<CoverageTrigger>,
     pub ic_trigger: Option<CoverageTrigger>,
     pub other_triggers: Vec<CustomTrigger>,
-    
+
     /// Credit enhancement details
     pub credit_enhancement: CreditEnhancement,
-    
+
     /// Payment characteristics
     pub payment_frequency: Frequency,
     pub day_count: DayCount,
     pub deferred_interest: Money,
-    
+
     /// Structural features
     pub is_revolving: bool,
     pub can_reinvest: bool,
     pub legal_maturity: Date,
     pub expected_maturity: Option<Date>,
-    
+
     /// Payment priority (1 = highest)
     pub payment_priority: u32,
-    
+
     /// Attributes for scenario selection
     pub attributes: Attributes,
 }
@@ -253,7 +250,7 @@ impl AbsTranche {
         if detachment_point > 100.0 {
             return Err(finstack_core::error::InputError::Invalid.into());
         }
-        
+
         Ok(Self {
             id: InstrumentId::new(id.into()),
             attachment_point,
@@ -284,22 +281,22 @@ impl AbsTranche {
             attributes: Attributes::new(),
         })
     }
-    
+
     /// Tranche thickness (detachment - attachment)
     pub fn thickness(&self) -> F {
         self.detachment_point - self.attachment_point
     }
-    
+
     /// Check if tranche is first loss (attachment at 0%)
     pub fn is_first_loss(&self) -> bool {
         self.attachment_point == 0.0
     }
-    
+
     /// Check if tranche is currently impaired by losses
     pub fn is_impaired(&self, cumulative_loss_pct: F) -> bool {
         cumulative_loss_pct > self.attachment_point
     }
-    
+
     /// Calculate loss allocation to this tranche
     pub fn loss_allocation(&self, cumulative_loss_pct: F, _total_pool_balance: Money) -> Money {
         if cumulative_loss_pct <= self.attachment_point {
@@ -315,38 +312,42 @@ impl AbsTranche {
             self.original_balance * loss_rate
         }
     }
-    
+
     /// Current tranche balance after losses
-    pub fn current_balance_after_losses(&self, cumulative_loss_pct: F, total_pool_balance: Money) -> Money {
+    pub fn current_balance_after_losses(
+        &self,
+        cumulative_loss_pct: F,
+        total_pool_balance: Money,
+    ) -> Money {
         let loss_amount = self.loss_allocation(cumulative_loss_pct, total_pool_balance);
         Money::new(
             (self.current_balance.amount() - loss_amount.amount()).max(0.0),
-            self.current_balance.currency()
+            self.current_balance.currency(),
         )
     }
-    
+
     /// Builder methods for fluent construction
     pub fn with_rating(mut self, rating: CreditRating) -> Self {
         self.rating = Some(rating);
         self
     }
-    
+
     pub fn with_oc_trigger(mut self, trigger: CoverageTrigger) -> Self {
         self.oc_trigger = Some(trigger);
         self
     }
-    
+
     pub fn with_ic_trigger(mut self, trigger: CoverageTrigger) -> Self {
         self.ic_trigger = Some(trigger);
         self
     }
-    
+
     pub fn revolving(mut self) -> Self {
         self.is_revolving = true;
         self.can_reinvest = true;
         self
     }
-    
+
     pub fn with_expected_maturity(mut self, date: Date) -> Self {
         self.expected_maturity = Some(date);
         self
@@ -383,62 +384,74 @@ impl TrancheBuilder {
             day_count: DayCount::Act360,
         }
     }
-    
+
     pub fn id(mut self, id: impl Into<String>) -> Self {
         self.id = Some(id.into());
         self
     }
-    
+
     pub fn attachment_detachment(mut self, attachment: F, detachment: F) -> Self {
         self.attachment_point = Some(attachment);
         self.detachment_point = Some(detachment);
         self
     }
-    
+
     pub fn seniority(mut self, seniority: TrancheSeniority) -> Self {
         self.seniority = Some(seniority);
         self
     }
-    
+
     pub fn balance(mut self, balance: Money) -> Self {
         self.original_balance = Some(balance);
         self
     }
-    
+
     pub fn coupon(mut self, coupon: TrancheCoupon) -> Self {
         self.coupon = Some(coupon);
         self
     }
-    
+
     pub fn legal_maturity(mut self, date: Date) -> Self {
         self.legal_maturity = Some(date);
         self
     }
-    
+
     pub fn rating(mut self, rating: CreditRating) -> Self {
         self.rating = Some(rating);
         self
     }
-    
+
     pub fn payment_frequency(mut self, freq: Frequency) -> Self {
         self.payment_frequency = freq;
         self
     }
-    
+
     pub fn day_count(mut self, dc: DayCount) -> Self {
         self.day_count = dc;
         self
     }
-    
+
     pub fn build(self) -> finstack_core::Result<AbsTranche> {
         let id = self.id.ok_or(finstack_core::error::InputError::Invalid)?;
-        let attachment_point = self.attachment_point.ok_or(finstack_core::error::InputError::Invalid)?;
-        let detachment_point = self.detachment_point.ok_or(finstack_core::error::InputError::Invalid)?;
-        let seniority = self.seniority.ok_or(finstack_core::error::InputError::Invalid)?;
-        let original_balance = self.original_balance.ok_or(finstack_core::error::InputError::Invalid)?;
-        let coupon = self.coupon.ok_or(finstack_core::error::InputError::Invalid)?;
-        let legal_maturity = self.legal_maturity.ok_or(finstack_core::error::InputError::Invalid)?;
-        
+        let attachment_point = self
+            .attachment_point
+            .ok_or(finstack_core::error::InputError::Invalid)?;
+        let detachment_point = self
+            .detachment_point
+            .ok_or(finstack_core::error::InputError::Invalid)?;
+        let seniority = self
+            .seniority
+            .ok_or(finstack_core::error::InputError::Invalid)?;
+        let original_balance = self
+            .original_balance
+            .ok_or(finstack_core::error::InputError::Invalid)?;
+        let coupon = self
+            .coupon
+            .ok_or(finstack_core::error::InputError::Invalid)?;
+        let legal_maturity = self
+            .legal_maturity
+            .ok_or(finstack_core::error::InputError::Invalid)?;
+
         let mut tranche = AbsTranche::new(
             id,
             attachment_point,
@@ -448,14 +461,14 @@ impl TrancheBuilder {
             coupon,
             legal_maturity,
         )?;
-        
+
         if let Some(rating) = self.rating {
             tranche = tranche.with_rating(rating);
         }
-        
+
         tranche.payment_frequency = self.payment_frequency;
         tranche.day_count = self.day_count;
-        
+
         Ok(tranche)
     }
 }
@@ -480,26 +493,29 @@ impl TrancheStructure {
         if tranches.is_empty() {
             return Err(finstack_core::error::InputError::TooFewPoints.into());
         }
-        
+
         // Validate structure
         Self::validate_structure(&tranches)?;
-        
+
         // Calculate total size
-        let total_size = tranches.iter()
-            .try_fold(
-                Money::new(0.0, tranches[0].original_balance.currency()),
-                |acc, t| acc.checked_add(t.original_balance)
-            )?;
-        
-        Ok(Self { tranches, total_size })
+        let total_size = tranches.iter().try_fold(
+            Money::new(0.0, tranches[0].original_balance.currency()),
+            |acc, t| acc.checked_add(t.original_balance),
+        )?;
+
+        Ok(Self {
+            tranches,
+            total_size,
+        })
     }
-    
+
     /// Validate tranche structure for consistency
     fn validate_structure(tranches: &[AbsTranche]) -> finstack_core::Result<()> {
         // Sort by attachment point for validation
         let mut sorted_tranches = tranches.to_vec();
-        sorted_tranches.sort_by(|a, b| a.attachment_point.partial_cmp(&b.attachment_point).unwrap());
-        
+        sorted_tranches
+            .sort_by(|a, b| a.attachment_point.partial_cmp(&b.attachment_point).unwrap());
+
         // Check for gaps or overlaps
         let mut expected_attachment = 0.0;
         for tranche in &sorted_tranches {
@@ -511,12 +527,12 @@ impl TrancheStructure {
             }
             expected_attachment = tranche.detachment_point;
         }
-        
+
         // Should reach 100%
         if (expected_attachment - 100.0).abs() > 1e-6 {
             return Err(finstack_core::error::InputError::Invalid.into());
         }
-        
+
         // Check currency consistency
         let base_currency = tranches[0].original_balance.currency();
         for tranche in tranches {
@@ -527,53 +543,53 @@ impl TrancheStructure {
                 });
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Get tranches by seniority
     pub fn by_seniority(&self, seniority: TrancheSeniority) -> Vec<&AbsTranche> {
-        self.tranches.iter()
+        self.tranches
+            .iter()
             .filter(|t| t.seniority == seniority)
             .collect()
     }
-    
+
     /// Get tranches senior to a given tranche
     pub fn senior_to(&self, tranche_id: &str) -> Vec<&AbsTranche> {
-        let target_tranche = self.tranches.iter()
-            .find(|t| t.id.as_str() == tranche_id);
-            
+        let target_tranche = self.tranches.iter().find(|t| t.id.as_str() == tranche_id);
+
         if let Some(target) = target_tranche {
-            self.tranches.iter()
+            self.tranches
+                .iter()
                 .filter(|t| t.payment_priority < target.payment_priority)
                 .collect()
         } else {
             Vec::new()
         }
     }
-    
+
     /// Get total balance of senior tranches
     pub fn senior_balance(&self, tranche_id: &str) -> Money {
-        self.senior_to(tranche_id).iter()
-            .try_fold(
-                Money::new(0.0, self.total_size.currency()),
-                |acc, t| acc.checked_add(t.current_balance)
-            )
+        self.senior_to(tranche_id)
+            .iter()
+            .try_fold(Money::new(0.0, self.total_size.currency()), |acc, t| {
+                acc.checked_add(t.current_balance)
+            })
             .unwrap_or_else(|_| Money::new(0.0, self.total_size.currency()))
     }
-    
+
     /// Calculate tranche subordination amount
     pub fn subordination_amount(&self, tranche_id: &str) -> Money {
-        let target_tranche = self.tranches.iter()
-            .find(|t| t.id.as_str() == tranche_id);
-            
+        let target_tranche = self.tranches.iter().find(|t| t.id.as_str() == tranche_id);
+
         if let Some(target) = target_tranche {
-            self.tranches.iter()
+            self.tranches
+                .iter()
                 .filter(|t| t.payment_priority > target.payment_priority)
-                .try_fold(
-                    Money::new(0.0, self.total_size.currency()),
-                    |acc, t| acc.checked_add(t.current_balance)
-                )
+                .try_fold(Money::new(0.0, self.total_size.currency()), |acc, t| {
+                    acc.checked_add(t.current_balance)
+                })
                 .unwrap_or_else(|_| Money::new(0.0, self.total_size.currency()))
         } else {
             Money::new(0.0, self.total_size.currency())
@@ -586,11 +602,11 @@ mod tests {
     use super::*;
     use finstack_core::currency::Currency;
     use time::Month;
-    
+
     fn test_date() -> Date {
         Date::from_calendar_date(2025, Month::January, 1).unwrap()
     }
-    
+
     #[test]
     fn test_tranche_creation() {
         let tranche = AbsTranche::new(
@@ -601,14 +617,15 @@ mod tests {
             Money::new(100_000_000.0, Currency::USD),
             TrancheCoupon::Fixed { rate: 0.12 },
             test_date(),
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         assert_eq!(tranche.attachment_point, 0.0);
         assert_eq!(tranche.detachment_point, 10.0);
         assert_eq!(tranche.thickness(), 10.0);
         assert!(tranche.is_first_loss());
     }
-    
+
     #[test]
     fn test_loss_allocation() {
         let tranche = AbsTranche::new(
@@ -619,24 +636,25 @@ mod tests {
             Money::new(50_000_000.0, Currency::USD),
             TrancheCoupon::Fixed { rate: 0.08 },
             test_date(),
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let pool_balance = Money::new(1_000_000_000.0, Currency::USD);
-        
+
         // No loss case
         let loss = tranche.loss_allocation(5.0, pool_balance);
         assert_eq!(loss.amount(), 0.0);
-        
+
         // Partial loss case (12% cumulative loss)
         let loss = tranche.loss_allocation(12.0, pool_balance);
         assert!(loss.amount() > 0.0);
         assert!(loss.amount() < tranche.original_balance.amount());
-        
+
         // Full loss case (20% cumulative loss)
         let loss = tranche.loss_allocation(20.0, pool_balance);
         assert_eq!(loss.amount(), tranche.original_balance.amount());
     }
-    
+
     #[test]
     fn test_tranche_structure_validation() {
         let equity = TrancheBuilder::new()
@@ -646,37 +664,39 @@ mod tests {
             .balance(Money::new(100_000_000.0, Currency::USD))
             .coupon(TrancheCoupon::Fixed { rate: 0.12 })
             .legal_maturity(test_date())
-            .build().unwrap();
-            
+            .build()
+            .unwrap();
+
         let senior = TrancheBuilder::new()
             .id("SENIOR")
             .attachment_detachment(10.0, 100.0)
             .seniority(TrancheSeniority::Senior)
             .balance(Money::new(900_000_000.0, Currency::USD))
-            .coupon(TrancheCoupon::Floating { 
+            .coupon(TrancheCoupon::Floating {
                 index: "SOFR-3M".to_string(),
                 spread_bp: 150.0,
                 floor: None,
                 cap: None,
             })
             .legal_maturity(test_date())
-            .build().unwrap();
-        
+            .build()
+            .unwrap();
+
         let structure = TrancheStructure::new(vec![equity, senior]).unwrap();
         assert_eq!(structure.tranches.len(), 2);
         assert_eq!(structure.total_size.amount(), 1_000_000_000.0);
     }
-    
+
     #[test]
     fn test_coverage_trigger() {
-        let trigger = CoverageTrigger::new(1.20, TriggerConsequence::DivertCashFlow)
-            .with_cure_level(1.25);
-        
+        let trigger =
+            CoverageTrigger::new(1.20, TriggerConsequence::DivertCashFlow).with_cure_level(1.25);
+
         // Breach scenario
         assert!(trigger.is_breached(1.15));
         assert!(!trigger.is_cured(1.22)); // Below cure level
         assert!(trigger.is_cured(1.26)); // Above cure level
-        
+
         // Not breached
         assert!(!trigger.is_breached(1.25));
     }

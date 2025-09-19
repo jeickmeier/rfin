@@ -8,15 +8,15 @@
 
 use super::{CreditDefaultSwap, PayReceive};
 use finstack_core::currency::Currency;
-use finstack_core::market_data::traits::Survival;
 use finstack_core::dates::{next_cds_date, Date, DayCount};
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-use finstack_core::market_data::traits::{Discounting};
+use finstack_core::market_data::traits::Discounting;
+use finstack_core::market_data::traits::Survival;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 // use finstack_core::types::CurveId;
-use finstack_core::{Error, Result, F};
 use crate::instruments::cds::parameters::CDSConstructionParams;
+use finstack_core::{Error, Result, F};
 
 /// Helper function to create test CDS with standard parameters
 #[cfg(test)]
@@ -27,15 +27,10 @@ fn create_test_cds(
     spread_bp: F,
     recovery_rate: F,
 ) -> CreditDefaultSwap {
-    let construction_params = CDSConstructionParams::buy_protection(
-        Money::new(10_000_000.0, Currency::USD),
-        spread_bp,
-    );
-    let credit_params = crate::instruments::CreditParams::new(
-        "TEST-CORP",
-        recovery_rate,
-        "TEST-CREDIT",
-    );
+    let construction_params =
+        CDSConstructionParams::buy_protection(Money::new(10_000_000.0, Currency::USD), spread_bp);
+    let credit_params =
+        crate::instruments::CreditParams::new("TEST-CORP", recovery_rate, "TEST-CREDIT");
     // market refs inlined via explicit ids
 
     CreditDefaultSwap::new_isda(
@@ -505,8 +500,8 @@ impl CDSPricer {
     pub fn cs01(&self, cds: &CreditDefaultSwap, curves: &MarketContext, as_of: Date) -> Result<F> {
         let disc = curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                cds.premium.disc_id,
-            )?;
+            cds.premium.disc_id,
+        )?;
         let surv = curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
                 cds.protection.credit_id,
@@ -823,11 +818,8 @@ impl CDSBootstrapper {
     ) -> Result<CreditDefaultSwap> {
         let end_date = base_date + time::Duration::days((tenor_years * 365.25) as i64);
 
-        let credit_params = crate::instruments::CreditParams::new(
-            "SYNTHETIC",
-            recovery_rate,
-            "CREDIT",
-        );
+        let credit_params =
+            crate::instruments::CreditParams::new("SYNTHETIC", recovery_rate, "CREDIT");
 
         let construction_params = CDSConstructionParams::buy_protection(
             Money::new(1_000_000.0, Currency::USD),
@@ -1075,13 +1067,7 @@ mod tests {
         let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
         let maturity = Date::from_calendar_date(2025, Month::December, 20).unwrap();
 
-        let cds = create_test_cds(
-            "TEST-ISDA-CDS",
-            as_of,
-            maturity,
-            100.0,
-            0.40,
-        );
+        let cds = create_test_cds("TEST-ISDA-CDS", as_of, maturity, 100.0, 0.40);
 
         // Test ISDA schedule generation
         let pricer_isda = CDSPricer::new(); // Default uses ISDA dates

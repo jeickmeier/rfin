@@ -285,8 +285,8 @@ fn extract_equity_state(
         .unwrap_or(0.0);
 
     // Get risk-free rate from discount curve
-    let discount_curve = ctx
-        .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+    let discount_curve =
+        ctx.get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
             disc_id,
         )?;
     let base_date = discount_curve.base_date();

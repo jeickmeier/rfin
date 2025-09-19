@@ -121,9 +121,7 @@ fn test_loan_cash_sweep_simulation() {
 
 #[test]
 fn test_revolver_utilization_fee_with_covenant_rate_increase() {
-    use finstack_valuations::instruments::loan::{
-        RevolvingCreditFacility, UtilizationFeeSchedule,
-    };
+    use finstack_valuations::instruments::loan::{RevolvingCreditFacility, UtilizationFeeSchedule};
 
     let mut revolver = RevolvingCreditFacility::new(
         "RCF-UTIL-COVENANT",

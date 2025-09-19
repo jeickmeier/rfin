@@ -2,17 +2,15 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency};
-use finstack_core::math::interp::InterpStyle;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::market_data::MarketContext;
+use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::primitives::AmortizationSpec;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::loan::ddtl::ExpectedFundingCurve;
-use finstack_valuations::instruments::loan::revolver::{
-    DrawRepayEvent, RevolverFundingCurve,
-};
+use finstack_valuations::instruments::loan::revolver::{DrawRepayEvent, RevolverFundingCurve};
 use finstack_valuations::instruments::loan::{
     Covenant, CovenantType, DelayedDrawTermLoan, DrawEvent, InterestSpec, Loan, PenaltyType,
     PrepaymentPenalty, PrepaymentSchedule, PrepaymentType, RevolvingCreditFacility,

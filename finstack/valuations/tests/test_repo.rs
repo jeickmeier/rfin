@@ -1,13 +1,13 @@
 //! Tests for Repurchase Agreement (Repo) instruments.
 
-use finstack_core::prelude::*;
-use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::MarketContext;
 use finstack_core::math::interp::InterpStyle;
-use finstack_valuations::instruments::{CollateralSpec, CollateralType, Repo, RepoType};
-use finstack_valuations::instruments::traits::*;
+use finstack_core::prelude::*;
 use finstack_valuations::cashflow::traits::CashflowProvider;
+use finstack_valuations::instruments::traits::*;
+use finstack_valuations::instruments::{CollateralSpec, CollateralType, Repo, RepoType};
 use finstack_valuations::metrics::*;
 use time::Month;
 
@@ -26,7 +26,7 @@ fn create_test_discount_curve() -> DiscountCurve {
 
 fn create_test_market_context() -> MarketContext {
     let disc_curve = create_test_discount_curve();
-    
+
     MarketContext::new()
         .insert_discount(disc_curve)
         .insert_price("TREASURY_BOND_PRICE", MarketScalar::Unitless(1.02)) // Treasury at 102%
@@ -52,7 +52,7 @@ fn create_special_collateral() -> CollateralSpec {
 fn test_overnight_repo_creation() {
     let collateral = create_general_collateral();
     let start_date = test_date(2025, 1, 15);
-    
+
     let repo = Repo::overnight(
         "REPO_OVERNIGHT_001",
         Money::new(1_000_000.0, Currency::USD),
@@ -60,8 +60,9 @@ fn test_overnight_repo_creation() {
         0.05, // 5% repo rate
         start_date,
         "USD-OIS",
-    ).unwrap();
-    
+    )
+    .unwrap();
+
     assert_eq!(repo.repo_type, RepoType::Overnight);
     assert_eq!(repo.start_date, start_date);
     // Maturity should be next business day
@@ -75,7 +76,7 @@ fn test_term_repo_creation() {
     let collateral = create_general_collateral();
     let start_date = test_date(2025, 1, 15);
     let maturity = test_date(2025, 4, 15);
-    
+
     let repo = Repo::term(
         "REPO_TERM_001",
         Money::new(2_000_000.0, Currency::USD),
@@ -85,7 +86,7 @@ fn test_term_repo_creation() {
         maturity,
         "USD-OIS",
     );
-    
+
     assert_eq!(repo.repo_type, RepoType::Term);
     assert_eq!(repo.start_date, start_date);
     assert_eq!(repo.maturity, maturity);
@@ -95,7 +96,7 @@ fn test_term_repo_creation() {
 #[test]
 fn test_repo_builder_pattern() {
     let collateral = create_general_collateral();
-    
+
     let repo = Repo::builder()
         .id("REPO_BUILDER_001".into())
         .cash_amount(Money::new(500_000.0, Currency::USD))
@@ -110,10 +111,14 @@ fn test_repo_builder_pattern() {
         .calendar_id_opt(Some("target2"))
         .triparty(true)
         .disc_id("USD-OIS")
-        .attributes(Attributes::new().with_tag("funding").with_meta("desk", "repo_trading"))
+        .attributes(
+            Attributes::new()
+                .with_tag("funding")
+                .with_meta("desk", "repo_trading"),
+        )
         .build()
         .unwrap();
-    
+
     assert_eq!(repo.id.as_str(), "REPO_BUILDER_001");
     assert_eq!(repo.cash_amount.amount(), 500_000.0);
     assert_eq!(repo.repo_rate, 0.055);
@@ -127,9 +132,9 @@ fn test_repo_builder_pattern() {
 fn test_collateral_value_calculation() {
     let context = create_test_market_context();
     let collateral = create_general_collateral();
-    
+
     let market_value = collateral.market_value(&context).unwrap();
-    
+
     // Expected: 1,000,000 * 1.02 = 1,020,000
     assert_eq!(market_value.amount(), 1_020_000.0);
     assert_eq!(market_value.currency(), Currency::USD);
@@ -138,7 +143,7 @@ fn test_collateral_value_calculation() {
 #[test]
 fn test_haircut_calculation() {
     let collateral = create_general_collateral();
-    
+
     let repo = Repo::term(
         "REPO_HAIRCUT_TEST",
         Money::new(1_000_000.0, Currency::USD),
@@ -148,9 +153,9 @@ fn test_haircut_calculation() {
         test_date(2025, 4, 15),
         "USD-OIS",
     );
-    
+
     let required_collateral = repo.required_collateral_value();
-    
+
     // Expected: 1,000,000 * (1 + 0.02) = 1,020,000
     assert_eq!(required_collateral.amount(), 1_020_000.0);
 }
@@ -159,7 +164,7 @@ fn test_haircut_calculation() {
 fn test_collateral_adequacy_check() {
     let context = create_test_market_context();
     let collateral = create_general_collateral();
-    
+
     let repo = Repo::term(
         "REPO_ADEQUACY_TEST",
         Money::new(1_000_000.0, Currency::USD),
@@ -169,9 +174,9 @@ fn test_collateral_adequacy_check() {
         test_date(2025, 4, 15),
         "USD-OIS",
     );
-    
+
     let is_adequate = repo.is_adequately_collateralized(&context).unwrap();
-    
+
     // Collateral value: 1,020,000, Required: 1,020,000 -> adequate
     assert!(is_adequate);
 }
@@ -179,10 +184,10 @@ fn test_collateral_adequacy_check() {
 #[test]
 fn test_insufficient_collateral() {
     let context = create_test_market_context();
-    
+
     // Create collateral worth less than required
     let collateral = CollateralSpec::new("CORPORATE_BOND", 1_000_000.0, "CORPORATE_BOND_PRICE");
-    
+
     let repo = Repo::term(
         "REPO_INSUFFICIENT_TEST",
         Money::new(1_000_000.0, Currency::USD),
@@ -192,9 +197,9 @@ fn test_insufficient_collateral() {
         test_date(2025, 4, 15),
         "USD-OIS",
     );
-    
+
     let is_adequate = repo.is_adequately_collateralized(&context).unwrap();
-    
+
     // Collateral value: 980,000, Required: 1,020,000 -> inadequate
     assert!(!is_adequate);
 }
@@ -202,7 +207,7 @@ fn test_insufficient_collateral() {
 #[test]
 fn test_special_collateral_rate_adjustment() {
     let special_collateral = create_special_collateral();
-    
+
     let repo = Repo::term(
         "REPO_SPECIAL_TEST",
         Money::new(1_000_000.0, Currency::USD),
@@ -212,9 +217,9 @@ fn test_special_collateral_rate_adjustment() {
         test_date(2025, 4, 15),
         "USD-OIS",
     );
-    
+
     let effective_rate = repo.effective_rate();
-    
+
     // Expected: 5% - 25bp = 4.75%
     assert!((effective_rate - 0.0475).abs() < 1e-9);
 }
@@ -222,7 +227,7 @@ fn test_special_collateral_rate_adjustment() {
 #[test]
 fn test_repo_interest_calculation() {
     let collateral = create_general_collateral();
-    
+
     let repo = Repo::term(
         "REPO_INTEREST_TEST",
         Money::new(1_000_000.0, Currency::USD),
@@ -232,9 +237,9 @@ fn test_repo_interest_calculation() {
         test_date(2025, 4, 15), // 3-month term (90 days approximately)
         "USD-OIS",
     );
-    
+
     let interest = repo.interest_amount().unwrap();
-    
+
     // Using Act/360: approximately 90/360 = 0.25 years
     // Expected interest: 1,000,000 * 0.05 * 0.25 = 12,500
     let expected = 1_000_000.0 * 0.05 * (90.0 / 360.0);
@@ -245,7 +250,7 @@ fn test_repo_interest_calculation() {
 fn test_repo_present_value() {
     let context = create_test_market_context();
     let collateral = create_general_collateral();
-    
+
     let repo = Repo::term(
         "REPO_PV_TEST",
         Money::new(1_000_000.0, Currency::USD),
@@ -255,17 +260,17 @@ fn test_repo_present_value() {
         test_date(2025, 4, 15),
         "USD-OIS",
     );
-    
+
     let valuation_date = test_date(2025, 1, 10); // Before repo start
     let pv = repo.value(&context, valuation_date).unwrap();
-    
+
     // PV calculated successfully
-    
+
     // For a repo valued before start date, the PV is the NPV of future cash flows
     // The repo involves: pay cash at start, receive principal+interest at maturity
     // Net PV should be close to the present value of the interest component
     assert_eq!(pv.currency(), Currency::USD);
-    
+
     // The PV could be negative if the discount rate exceeds the repo rate
     // Let's just verify it's a reasonable value and currency is correct
     assert!(pv.amount().abs() < 100_000.0); // Should be much less than principal
@@ -275,7 +280,7 @@ fn test_repo_present_value() {
 fn test_repo_cashflow_schedule() {
     let context = create_test_market_context();
     let collateral = create_general_collateral();
-    
+
     let repo = Repo::term(
         "REPO_CF_TEST",
         Money::new(1_000_000.0, Currency::USD),
@@ -285,16 +290,18 @@ fn test_repo_cashflow_schedule() {
         test_date(2025, 4, 15),
         "USD-OIS",
     );
-    
-    let cashflows = repo.build_schedule(&context, test_date(2025, 1, 10)).unwrap();
-    
+
+    let cashflows = repo
+        .build_schedule(&context, test_date(2025, 1, 10))
+        .unwrap();
+
     assert_eq!(cashflows.len(), 2);
-    
+
     // First cashflow: initial cash outflow
     let (start_date, cash_outflow) = &cashflows[0];
     assert_eq!(*start_date, test_date(2025, 1, 15));
     assert_eq!(cash_outflow.amount(), -1_000_000.0); // Negative for outflow
-    
+
     // Second cashflow: principal + interest inflow
     let (maturity_date, cash_inflow) = &cashflows[1];
     assert_eq!(*maturity_date, test_date(2025, 4, 15));
@@ -305,7 +312,7 @@ fn test_repo_cashflow_schedule() {
 fn test_repo_metrics_calculation() {
     let context = create_test_market_context();
     let collateral = create_general_collateral();
-    
+
     let repo = Repo::term(
         "REPO_METRICS_TEST",
         Money::new(1_000_000.0, Currency::USD),
@@ -315,7 +322,7 @@ fn test_repo_metrics_calculation() {
         test_date(2025, 4, 15),
         "USD-OIS",
     );
-    
+
     let metrics = vec![
         MetricId::CollateralValue,
         MetricId::RequiredCollateral,
@@ -323,12 +330,14 @@ fn test_repo_metrics_calculation() {
         MetricId::RepoInterest,
         MetricId::EffectiveRate,
     ];
-    
-    let result = repo.price_with_metrics(&context, test_date(2025, 1, 10), &metrics).unwrap();
-    
+
+    let result = repo
+        .price_with_metrics(&context, test_date(2025, 1, 10), &metrics)
+        .unwrap();
+
     // Verify base valuation completed
     assert!(result.value.amount() != 0.0);
-    
+
     // Check that all requested metrics are present
     assert!(result.measures.contains_key("collateral_value"));
     assert!(result.measures.contains_key("required_collateral"));
@@ -342,7 +351,7 @@ fn test_builder_validation() {
     // Test missing required fields
     let result = Repo::builder().build();
     assert!(result.is_err()); // Should fail due to missing required fields
-    
+
     // Test invalid dates
     let collateral = create_general_collateral();
     let result = Repo::builder()
@@ -355,7 +364,7 @@ fn test_builder_validation() {
         .disc_id("USD-OIS")
         .build();
     assert!(result.is_err()); // Should fail due to invalid date range
-    
+
     // Test negative repo rate
     let collateral = create_general_collateral();
     let result = Repo::builder()
@@ -373,10 +382,10 @@ fn test_builder_validation() {
 #[test]
 fn test_overnight_repo_maturity_calculation() {
     let collateral = create_general_collateral();
-    
+
     // Friday start should mature on Monday
     let friday = test_date(2025, 1, 17); // Friday
-    
+
     let repo = Repo::builder()
         .id("OVERNIGHT_WEEKEND".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
@@ -385,7 +394,11 @@ fn test_overnight_repo_maturity_calculation() {
         // simulate overnight via convenience constructor
         // leave builder path for broader coverage
         .start_date(friday)
-        .maturity(friday.add_business_days(1, &finstack_core::dates::calendar::Target2).unwrap())
+        .maturity(
+            friday
+                .add_business_days(1, &finstack_core::dates::calendar::Target2)
+                .unwrap(),
+        )
         .repo_type(RepoType::Overnight)
         .haircut(0.02)
         .day_count(DayCount::Act360)
@@ -395,7 +408,7 @@ fn test_overnight_repo_maturity_calculation() {
         .disc_id("USD-OIS")
         .build()
         .unwrap();
-    
+
     // Should mature on Monday (next business day)
     let monday = test_date(2025, 1, 20);
     assert_eq!(repo.maturity, monday);
@@ -404,7 +417,7 @@ fn test_overnight_repo_maturity_calculation() {
 #[test]
 fn test_open_repo_functionality() {
     let collateral = create_general_collateral();
-    
+
     let repo = Repo::builder()
         .id("OPEN_REPO_001".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
@@ -421,7 +434,7 @@ fn test_open_repo_functionality() {
         .disc_id("USD-OIS")
         .build()
         .unwrap();
-    
+
     assert_eq!(repo.repo_type, RepoType::Open);
     // Open repos should be priced like term repos initially
     assert_eq!(repo.maturity, test_date(2025, 12, 15));
@@ -430,7 +443,7 @@ fn test_open_repo_functionality() {
 #[test]
 fn test_triparty_repo_flag() {
     let collateral = create_general_collateral();
-    
+
     let repo = Repo::builder()
         .id("TRIPARTY_TEST".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
@@ -447,7 +460,7 @@ fn test_triparty_repo_flag() {
         .disc_id("USD-OIS")
         .build()
         .unwrap();
-    
+
     assert!(repo.triparty);
 }
 
@@ -456,7 +469,7 @@ fn test_collateral_types() {
     // Test general collateral
     let general = CollateralSpec::new("TREASURY", 1_000_000.0, "TREASURY_PRICE");
     assert!(matches!(general.collateral_type, CollateralType::General));
-    
+
     // Test special collateral
     let special = CollateralSpec::special(
         "ON_THE_RUN_10Y",
@@ -465,8 +478,12 @@ fn test_collateral_types() {
         "TREASURY_10Y_PRICE",
         Some(-15.0), // 15bp special
     );
-    
-    if let CollateralType::Special { security_id, rate_adjustment_bp } = &special.collateral_type {
+
+    if let CollateralType::Special {
+        security_id,
+        rate_adjustment_bp,
+    } = &special.collateral_type
+    {
         assert_eq!(security_id, "ON_THE_RUN_10Y");
         assert_eq!(*rate_adjustment_bp, Some(-15.0));
     } else {
@@ -477,10 +494,10 @@ fn test_collateral_types() {
 #[test]
 fn test_repo_with_different_currencies() {
     let _context = create_test_market_context();
-    
+
     // EUR cash with EUR collateral
     let eur_collateral = CollateralSpec::new("EUR_BOND", 1_000_000.0, "TREASURY_BOND_PRICE");
-    
+
     let eur_repo = Repo::term(
         "EUR_REPO_001",
         Money::new(1_000_000.0, Currency::EUR),
@@ -490,7 +507,7 @@ fn test_repo_with_different_currencies() {
         test_date(2025, 4, 15),
         "USD-OIS", // Using USD curve for simplicity in test
     );
-    
+
     // Should calculate interest in EUR
     let interest = eur_repo.interest_amount().unwrap();
     assert_eq!(interest.currency(), Currency::EUR);
@@ -500,7 +517,7 @@ fn test_repo_with_different_currencies() {
 #[test]
 fn test_different_day_count_conventions() {
     let collateral = create_general_collateral();
-    
+
     // Test with Act/365 instead of default Act/360
     let repo = Repo::builder()
         .id("DAYCOUNT_TEST".into())
@@ -518,9 +535,9 @@ fn test_different_day_count_conventions() {
         .disc_id("USD-OIS")
         .build()
         .unwrap();
-    
+
     let interest_365 = repo.interest_amount().unwrap();
-    
+
     // Create similar repo with Act/360
     let collateral2 = create_general_collateral();
     let repo_360 = Repo::builder()
@@ -539,9 +556,9 @@ fn test_different_day_count_conventions() {
         .disc_id("USD-OIS")
         .build()
         .unwrap();
-    
+
     let interest_360 = repo_360.interest_amount().unwrap();
-    
+
     // Act/360 should give slightly higher interest than Act/365 for same period
     assert!(interest_360.amount() > interest_365.amount());
 }
@@ -549,7 +566,7 @@ fn test_different_day_count_conventions() {
 #[test]
 fn test_repo_total_repayment() {
     let collateral = create_general_collateral();
-    
+
     let repo = Repo::term(
         "REPAYMENT_TEST",
         Money::new(1_000_000.0, Currency::USD),
@@ -559,13 +576,13 @@ fn test_repo_total_repayment() {
         test_date(2025, 4, 15),
         "USD-OIS",
     );
-    
+
     let total = repo.total_repayment().unwrap();
-    
+
     // Should be principal + interest
     assert!(total.amount() > 1_000_000.0);
     assert_eq!(total.currency(), Currency::USD);
-    
+
     // Verify it equals principal + interest
     let interest = repo.interest_amount().unwrap();
     let expected_total = repo.cash_amount.checked_add(interest).unwrap();
@@ -575,7 +592,7 @@ fn test_repo_total_repayment() {
 #[test]
 fn test_zero_rate_repo() {
     let collateral = create_general_collateral();
-    
+
     let repo = Repo::term(
         "ZERO_RATE_TEST",
         Money::new(1_000_000.0, Currency::USD),
@@ -585,10 +602,10 @@ fn test_zero_rate_repo() {
         test_date(2025, 4, 15),
         "USD-OIS",
     );
-    
+
     let interest = repo.interest_amount().unwrap();
     let total = repo.total_repayment().unwrap();
-    
+
     assert_eq!(interest.amount(), 0.0);
     assert_eq!(total.amount(), 1_000_000.0); // Just principal
 }
@@ -596,20 +613,20 @@ fn test_zero_rate_repo() {
 #[test]
 fn test_repo_metrics_registry_integration() {
     let _registry = MetricRegistry::new();
-    
+
     // TODO: Enable once module is fully integrated
     // Register repo metrics
     // register_repo_metrics(&mut registry);
-    
+
     // Verify metrics are registered
     // assert!(registry.has_metric(MetricId::CollateralValue));
     // assert!(registry.has_metric(MetricId::RequiredCollateral));
     // assert!(registry.has_metric(MetricId::FundingRisk));
-    
+
     // Check applicability to Repo instruments
     // assert!(registry.is_applicable(&MetricId::CollateralValue, "Repo"));
     // assert!(registry.is_applicable(&MetricId::Dv01, "Repo"));
-    
+
     // For now, just verify the test framework works
     // TODO: Uncomment metric tests once repo metrics are fully integrated
 }
@@ -617,7 +634,7 @@ fn test_repo_metrics_registry_integration() {
 #[test]
 fn test_edge_case_same_day_maturity() {
     let collateral = create_general_collateral();
-    
+
     // Same day start and maturity should fail validation
     let same_date = test_date(2025, 1, 15);
     let result = Repo::builder()
@@ -629,14 +646,14 @@ fn test_edge_case_same_day_maturity() {
         .maturity(same_date)
         .disc_id("USD-OIS")
         .build();
-    
+
     assert!(result.is_err()); // Should fail due to invalid date range
 }
 
 #[test]
 fn test_high_haircut_scenario() {
     let collateral = create_general_collateral();
-    
+
     let repo = Repo::builder()
         .id("HIGH_HAIRCUT_TEST".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
@@ -653,9 +670,9 @@ fn test_high_haircut_scenario() {
         .disc_id("USD-OIS")
         .build()
         .unwrap();
-    
+
     let required = repo.required_collateral_value();
-    
+
     // Expected: 1,000,000 * (1 + 0.20) = 1,200,000
     assert_eq!(required.amount(), 1_200_000.0);
 }
@@ -663,7 +680,7 @@ fn test_high_haircut_scenario() {
 #[test]
 fn test_repo_attributes_and_tagging() {
     let collateral = create_general_collateral();
-    
+
     let repo = Repo::builder()
         .id("TAGGED_REPO".into())
         .cash_amount(Money::new(1_000_000.0, Currency::USD))
@@ -678,16 +695,21 @@ fn test_repo_attributes_and_tagging() {
         .calendar_id_opt(Some("target2"))
         .triparty(false)
         .disc_id("USD-OIS")
-        .attributes(Attributes::new()
-            .with_tag("treasury")
-            .with_tag("short_term")
-            .with_meta("counterparty", "PRIMARY_DEALER_A")
-            .with_meta("settlement", "DVP"))
+        .attributes(
+            Attributes::new()
+                .with_tag("treasury")
+                .with_tag("short_term")
+                .with_meta("counterparty", "PRIMARY_DEALER_A")
+                .with_meta("settlement", "DVP"),
+        )
         .build()
         .unwrap();
-    
+
     assert!(repo.attributes.has_tag("treasury"));
     assert!(repo.attributes.has_tag("short_term"));
-    assert_eq!(repo.attributes.get_meta("counterparty"), Some("PRIMARY_DEALER_A"));
+    assert_eq!(
+        repo.attributes.get_meta("counterparty"),
+        Some("PRIMARY_DEALER_A")
+    );
     assert_eq!(repo.attributes.get_meta("settlement"), Some("DVP"));
 }

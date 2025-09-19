@@ -40,10 +40,10 @@
 //! assert!(df < 1.0);
 //! ```
 
-/// Market data context with enum-based storage (simplified from V2).
-pub mod context;
 /// Bump functionality for scenario analysis and stress testing.
 pub mod bumps;
+/// Market data context with enum-based storage (simplified from V2).
+pub mod context;
 /// Scalar market data types and time series (including primitives)
 pub mod scalars;
 /// Two-dimensional surfaces (e.g. volatility).

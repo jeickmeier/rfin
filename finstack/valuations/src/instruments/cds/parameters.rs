@@ -21,12 +21,7 @@ pub struct CDSConstructionParams {
 
 impl CDSConstructionParams {
     /// Create new CDS construction parameters
-    pub fn new(
-        notional: Money,
-        side: PayReceive,
-        convention: CDSConvention,
-        spread_bp: F,
-    ) -> Self {
+    pub fn new(notional: Money, side: PayReceive, convention: CDSConvention, spread_bp: F) -> Self {
         Self {
             notional,
             side,
@@ -36,10 +31,7 @@ impl CDSConstructionParams {
     }
 
     /// Create standard protection buyer parameters
-    pub fn buy_protection(
-        notional: Money,
-        spread_bp: F,
-    ) -> Self {
+    pub fn buy_protection(notional: Money, spread_bp: F) -> Self {
         Self::new(
             notional,
             PayReceive::PayProtection,
@@ -49,10 +41,7 @@ impl CDSConstructionParams {
     }
 
     /// Create standard protection seller parameters
-    pub fn sell_protection(
-        notional: Money,
-        spread_bp: F,
-    ) -> Self {
+    pub fn sell_protection(notional: Money, spread_bp: F) -> Self {
         Self::new(
             notional,
             PayReceive::ReceiveProtection,

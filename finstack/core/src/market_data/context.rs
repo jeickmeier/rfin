@@ -28,33 +28,30 @@
 //! assert_eq!(retrieved.id(), &CurveId::from("USD-OIS"));
 //! ```
 
-use std::sync::Arc;
 use hashbrown::HashMap;
+use std::sync::Arc;
 
-use crate::money::fx::FxMatrix;
 use crate::currency::Currency;
+use crate::money::fx::FxMatrix;
 use crate::types::CurveId;
-use crate::F;
 use crate::Result;
+use crate::F;
 
 use super::{
     scalars::inflation_index::InflationIndex,
-    term_structures::credit_index::CreditIndexData,
     scalars::{MarketScalar, ScalarTimeSeries},
     surfaces::vol_surface::VolSurface,
+    term_structures::credit_index::CreditIndexData,
     term_structures::{
-        base_correlation::BaseCorrelationCurve,
-        discount_curve::DiscountCurve,
-        forward_curve::ForwardCurve,
-        hazard_curve::HazardCurve,
-        inflation::InflationCurve,
+        base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve,
+        forward_curve::ForwardCurve, hazard_curve::HazardCurve, inflation::InflationCurve,
     },
     traits::Discounting,
 };
 
 // Re-export bump functionality
-pub use super::bumps::{BumpMode, BumpSpec, BumpUnits};
 use super::bumps::Bumpable;
+pub use super::bumps::{BumpMode, BumpSpec, BumpUnits};
 
 // -----------------------------------------------------------------------------
 // Curve Storage
@@ -153,18 +150,26 @@ impl CurveStorage {
         }
     }
 
-    
-
     /// Return `true` when this storage contains a discount curve.
-    pub fn is_discount(&self) -> bool { matches!(self, Self::Discount(_)) }
+    pub fn is_discount(&self) -> bool {
+        matches!(self, Self::Discount(_))
+    }
     /// Return `true` when this storage contains a forward curve.
-    pub fn is_forward(&self) -> bool { matches!(self, Self::Forward(_)) }
+    pub fn is_forward(&self) -> bool {
+        matches!(self, Self::Forward(_))
+    }
     /// Return `true` when this storage contains a hazard curve.
-    pub fn is_hazard(&self) -> bool { matches!(self, Self::Hazard(_)) }
+    pub fn is_hazard(&self) -> bool {
+        matches!(self, Self::Hazard(_))
+    }
     /// Return `true` when this storage contains an inflation curve.
-    pub fn is_inflation(&self) -> bool { matches!(self, Self::Inflation(_)) }
+    pub fn is_inflation(&self) -> bool {
+        matches!(self, Self::Inflation(_))
+    }
     /// Return `true` when this storage contains a base correlation curve.
-    pub fn is_base_correlation(&self) -> bool { matches!(self, Self::BaseCorrelation(_)) }
+    pub fn is_base_correlation(&self) -> bool {
+        matches!(self, Self::BaseCorrelation(_))
+    }
 
     /// Return a human-readable curve type (useful for diagnostics/logging).
     pub fn curve_type(&self) -> &'static str {
@@ -204,7 +209,9 @@ macro_rules! impl_storage_cast {
                 }
             }
             #[inline]
-            fn type_name() -> &'static str { $name }
+            fn type_name() -> &'static str {
+                $name
+            }
         }
     };
 }
@@ -214,7 +221,6 @@ impl_storage_cast!(ForwardCurve, Forward, "Forward");
 impl_storage_cast!(HazardCurve, Hazard, "Hazard");
 impl_storage_cast!(InflationCurve, Inflation, "Inflation");
 impl_storage_cast!(BaseCorrelationCurve, BaseCorrelation, "BaseCorrelation");
-
 
 // Convenience constructors (removed unused new_* helpers)
 
@@ -258,16 +264,16 @@ impl CurveStorage {
 
     /// Reconstruct from serializable state
     pub fn from_state(state: CurveState) -> crate::Result<Self> {
-        use std::sync::Arc;
         use crate::market_data::term_structures::{
-            discount_curve::DiscountCurve,
-            forward_curve::ForwardCurve,
-            hazard_curve::HazardCurve,
+            discount_curve::DiscountCurve, forward_curve::ForwardCurve, hazard_curve::HazardCurve,
             inflation::InflationCurve,
         };
+        use std::sync::Arc;
 
         Ok(match state {
-            CurveState::Discount(s) => Self::Discount(Arc::new(DiscountCurve::from_state(s).map_err(|_| crate::Error::Internal)?)),
+            CurveState::Discount(s) => Self::Discount(Arc::new(
+                DiscountCurve::from_state(s).map_err(|_| crate::Error::Internal)?,
+            )),
             CurveState::Forward(s) => Self::Forward(Arc::new(ForwardCurve::from_state(s)?)),
             CurveState::Hazard(s) => Self::Hazard(Arc::new(HazardCurve::from_state(s)?)),
             CurveState::Inflation(s) => Self::Inflation(Arc::new(InflationCurve::from_state(s)?)),
@@ -313,25 +319,25 @@ impl<'de> serde::Deserialize<'de> for CurveStorage {
 pub struct MarketContext {
     /// All curves stored in unified enum-based map
     pub(super) curves: HashMap<CurveId, CurveStorage>,
-    
+
     /// Foreign-exchange matrix
     pub fx: Option<Arc<FxMatrix>>,
-    
+
     /// Volatility surfaces
     pub surfaces: HashMap<CurveId, Arc<VolSurface>>,
-    
+
     /// Market scalars and prices
     pub prices: HashMap<CurveId, MarketScalar>,
-    
+
     /// Generic time series
     pub series: HashMap<CurveId, ScalarTimeSeries>,
-    
+
     /// Inflation indices
     pub(super) inflation_indices: HashMap<CurveId, Arc<InflationIndex>>,
-    
+
     /// Credit index aggregates
     pub(super) credit_indices: HashMap<CurveId, Arc<CreditIndexData>>,
-    
+
     /// Collateral CSA code mappings
     pub(super) collateral: HashMap<String, CurveId>,
 }
@@ -350,9 +356,9 @@ impl MarketContext {
         Self::default()
     }
 
-// -----------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------
     // Insert methods - builder pattern
-// -----------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------
 
     /// Insert a discount curve.
     ///
@@ -378,7 +384,8 @@ impl MarketContext {
     /// ```
     pub fn insert_discount(mut self, curve: DiscountCurve) -> Self {
         let id = curve.id().clone();
-        self.curves.insert(id, CurveStorage::Discount(Arc::new(curve)));
+        self.curves
+            .insert(id, CurveStorage::Discount(Arc::new(curve)));
         self
     }
 
@@ -406,7 +413,8 @@ impl MarketContext {
     /// ```
     pub fn insert_forward(mut self, curve: ForwardCurve) -> Self {
         let id = curve.id().clone();
-        self.curves.insert(id, CurveStorage::Forward(Arc::new(curve)));
+        self.curves
+            .insert(id, CurveStorage::Forward(Arc::new(curve)));
         self
     }
 
@@ -434,7 +442,8 @@ impl MarketContext {
     /// ```
     pub fn insert_hazard(mut self, curve: HazardCurve) -> Self {
         let id = curve.id().clone();
-        self.curves.insert(id, CurveStorage::Hazard(Arc::new(curve)));
+        self.curves
+            .insert(id, CurveStorage::Hazard(Arc::new(curve)));
         self
     }
 
@@ -462,7 +471,8 @@ impl MarketContext {
     /// ```
     pub fn insert_inflation(mut self, curve: InflationCurve) -> Self {
         let id = curve.id().clone();
-        self.curves.insert(id, CurveStorage::Inflation(Arc::new(curve)));
+        self.curves
+            .insert(id, CurveStorage::Inflation(Arc::new(curve)));
         self
     }
 
@@ -484,7 +494,8 @@ impl MarketContext {
     /// ```
     pub fn insert_base_correlation(mut self, curve: BaseCorrelationCurve) -> Self {
         let id = curve.id().clone();
-        self.curves.insert(id, CurveStorage::BaseCorrelation(Arc::new(curve)));
+        self.curves
+            .insert(id, CurveStorage::BaseCorrelation(Arc::new(curve)));
         self
     }
 
@@ -592,7 +603,8 @@ impl MarketContext {
     /// assert!(ctx.inflation_index("US-CPI").is_some());
     /// ```
     pub fn insert_inflation_index(mut self, id: impl AsRef<str>, index: InflationIndex) -> Self {
-        self.inflation_indices.insert(CurveId::from(id.as_ref()), Arc::new(index));
+        self.inflation_indices
+            .insert(CurveId::from(id.as_ref()), Arc::new(index));
         self
     }
 
@@ -635,7 +647,8 @@ impl MarketContext {
     /// assert!(ctx.credit_index("CDX-IG").is_ok());
     /// ```
     pub fn insert_credit_index(mut self, id: impl AsRef<str>, data: CreditIndexData) -> Self {
-        self.credit_indices.insert(CurveId::from(id.as_ref()), Arc::new(data));
+        self.credit_indices
+            .insert(CurveId::from(id.as_ref()), Arc::new(data));
         self
     }
 
@@ -739,10 +752,11 @@ impl MarketContext {
         CurveStorage: StorageCast<T>,
     {
         let id_str = id.as_ref();
-        let storage = self
-            .curves
-            .get(id_str)
-            .ok_or_else(|| crate::error::Error::from(crate::error::InputError::NotFound { id: id_str.to_string() }))?;
+        let storage = self.curves.get(id_str).ok_or_else(|| {
+            crate::error::Error::from(crate::error::InputError::NotFound {
+                id: id_str.to_string(),
+            })
+        })?;
         if let Some(arc) = <CurveStorage as StorageCast<T>>::as_arc(storage) {
             Ok(Arc::clone(arc))
         } else {
@@ -779,18 +793,21 @@ impl MarketContext {
         CurveStorage: StorageCast<T>,
     {
         let id_str = id.as_ref();
-        let storage = self
-            .curves
-            .get(id_str)
-            .ok_or_else(|| crate::error::Error::from(crate::error::InputError::NotFound { id: id_str.to_string() }))?;
+        let storage = self.curves.get(id_str).ok_or_else(|| {
+            crate::error::Error::from(crate::error::InputError::NotFound {
+                id: id_str.to_string(),
+            })
+        })?;
         <CurveStorage as StorageCast<T>>::as_arc(storage)
             .map(|arc| arc.as_ref())
-            .ok_or_else(|| crate::error::Error::Validation(format!(
-                "Type mismatch: curve '{}' is '{}', expected '{}'",
-                id_str,
-                storage.curve_type(),
-                <CurveStorage as StorageCast<T>>::type_name()
-            )))
+            .ok_or_else(|| {
+                crate::error::Error::Validation(format!(
+                    "Type mismatch: curve '{}' is '{}', expected '{}'",
+                    id_str,
+                    storage.curve_type(),
+                    <CurveStorage as StorageCast<T>>::type_name()
+                ))
+            })
     }
 
     /// Clone a volatility surface by identifier.
@@ -815,7 +832,8 @@ impl MarketContext {
         self.surfaces.get(id_str).cloned().ok_or(
             crate::error::InputError::NotFound {
                 id: id_str.to_string(),
-            }.into(),
+            }
+            .into(),
         )
     }
 
@@ -838,9 +856,14 @@ impl MarketContext {
     /// ```
     pub fn surface_ref(&self, id: impl AsRef<str>) -> Result<&VolSurface> {
         let id_str = id.as_ref();
-        self.surfaces.get(id_str)
+        self.surfaces
+            .get(id_str)
             .map(|arc| arc.as_ref())
-            .ok_or_else(|| crate::error::Error::from(crate::error::InputError::NotFound { id: id_str.to_string() }))
+            .ok_or_else(|| {
+                crate::error::Error::from(crate::error::InputError::NotFound {
+                    id: id_str.to_string(),
+                })
+            })
     }
 
     /// Borrow a market price/scalar by identifier.
@@ -863,7 +886,8 @@ impl MarketContext {
         self.prices.get(id_str).ok_or(
             crate::error::InputError::NotFound {
                 id: id_str.to_string(),
-            }.into(),
+            }
+            .into(),
         )
     }
 
@@ -892,7 +916,8 @@ impl MarketContext {
         self.series.get(id_str).ok_or(
             crate::error::InputError::NotFound {
                 id: id_str.to_string(),
-            }.into(),
+            }
+            .into(),
         )
     }
 
@@ -941,7 +966,9 @@ impl MarketContext {
     /// assert_eq!(idx.id, "US-CPI");
     /// ```
     pub fn inflation_index_ref(&self, id: impl AsRef<str>) -> Option<&InflationIndex> {
-        self.inflation_indices.get(id.as_ref()).map(|arc| arc.as_ref())
+        self.inflation_indices
+            .get(id.as_ref())
+            .map(|arc| arc.as_ref())
     }
 
     /// Clone a credit index aggregate by identifier.
@@ -983,7 +1010,8 @@ impl MarketContext {
         self.credit_indices.get(id_str).cloned().ok_or(
             crate::error::InputError::NotFound {
                 id: id_str.to_string(),
-            }.into(),
+            }
+            .into(),
         )
     }
 
@@ -1023,9 +1051,14 @@ impl MarketContext {
     /// ```
     pub fn credit_index_ref(&self, id: impl AsRef<str>) -> Result<&CreditIndexData> {
         let id_str = id.as_ref();
-        self.credit_indices.get(id_str)
+        self.credit_indices
+            .get(id_str)
             .map(|arc| arc.as_ref())
-            .ok_or_else(|| crate::error::Error::from(crate::error::InputError::NotFound { id: id_str.to_string() }))
+            .ok_or_else(|| {
+                crate::error::Error::from(crate::error::InputError::NotFound {
+                    id: id_str.to_string(),
+                })
+            })
     }
 
     /// Resolve a collateral discount curve for a CSA code.
@@ -1052,11 +1085,14 @@ impl MarketContext {
     /// assert!(discount.df(0.5) <= 1.0);
     /// ```
     pub fn collateral(&self, csa_code: &str) -> Result<Arc<dyn Discounting + Send + Sync>> {
-        let curve_id = self.collateral.get(csa_code)
+        let curve_id = self
+            .collateral
+            .get(csa_code)
             .ok_or(crate::error::InputError::NotFound {
-                    id: format!("collateral:{}", csa_code),
+                id: format!("collateral:{}", csa_code),
             })?;
-        self.get::<DiscountCurve>(curve_id.as_str()).map(|arc| arc as Arc<dyn Discounting + Send + Sync>)
+        self.get::<DiscountCurve>(curve_id.as_str())
+            .map(|arc| arc as Arc<dyn Discounting + Send + Sync>)
     }
 
     /// Borrow the collateral discount curve without cloning the `Arc`.
@@ -1082,9 +1118,14 @@ impl MarketContext {
     /// assert!(discount.df(0.5) <= 1.0);
     /// ```
     pub fn collateral_ref(&self, csa_code: &str) -> Result<&dyn Discounting> {
-        let curve_id = self.collateral.get(csa_code)
-            .ok_or(crate::error::InputError::NotFound { id: format!("collateral:{}", csa_code) })?;
-        self.get_ref::<DiscountCurve>(curve_id.as_str()).map(|r| r as &dyn Discounting)
+        let curve_id = self
+            .collateral
+            .get(csa_code)
+            .ok_or(crate::error::InputError::NotFound {
+                id: format!("collateral:{}", csa_code),
+            })?;
+        self.get_ref::<DiscountCurve>(curve_id.as_str())
+            .map(|r| r as &dyn Discounting)
     }
 
     // -----------------------------------------------------------------------------
@@ -1158,8 +1199,12 @@ impl MarketContext {
     /// let mut iter = ctx.curves_of_type("Discount");
     /// assert!(iter.next().is_some());
     /// ```
-    pub fn curves_of_type<'a>(&'a self, curve_type: &'a str) -> impl Iterator<Item = (&'a CurveId, &'a CurveStorage)> + 'a {
-        self.curves.iter()
+    pub fn curves_of_type<'a>(
+        &'a self,
+        curve_type: &'a str,
+    ) -> impl Iterator<Item = (&'a CurveId, &'a CurveStorage)> + 'a {
+        self.curves
+            .iter()
             .filter(move |(_, storage)| storage.curve_type() == curve_type)
     }
 
@@ -1272,7 +1317,9 @@ impl MarketContext {
             if let Ok(original) = self.get_ref::<DiscountCurve>(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = bumped.id().clone();
-                    new_context.curves.insert(bumped_id, CurveStorage::Discount(Arc::new(bumped)));
+                    new_context
+                        .curves
+                        .insert(bumped_id, CurveStorage::Discount(Arc::new(bumped)));
                     continue;
                 }
             }
@@ -1280,7 +1327,9 @@ impl MarketContext {
             if let Ok(original) = self.get_ref::<ForwardCurve>(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = bumped.id().clone();
-                    new_context.curves.insert(bumped_id, CurveStorage::Forward(Arc::new(bumped)));
+                    new_context
+                        .curves
+                        .insert(bumped_id, CurveStorage::Forward(Arc::new(bumped)));
                     continue;
                 }
             }
@@ -1288,7 +1337,9 @@ impl MarketContext {
             if let Ok(original) = self.get_ref::<HazardCurve>(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = bumped.id().clone();
-                    new_context.curves.insert(bumped_id, CurveStorage::Hazard(Arc::new(bumped)));
+                    new_context
+                        .curves
+                        .insert(bumped_id, CurveStorage::Hazard(Arc::new(bumped)));
                     continue;
                 }
             }
@@ -1296,7 +1347,9 @@ impl MarketContext {
             if let Ok(original) = self.get_ref::<InflationCurve>(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = bumped.id().clone();
-                    new_context.curves.insert(bumped_id, CurveStorage::Inflation(Arc::new(bumped)));
+                    new_context
+                        .curves
+                        .insert(bumped_id, CurveStorage::Inflation(Arc::new(bumped)));
                     continue;
                 }
             }
@@ -1304,12 +1357,17 @@ impl MarketContext {
             if let Ok(original) = self.get_ref::<BaseCorrelationCurve>(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = bumped.id().clone();
-                    new_context.curves.insert(bumped_id, CurveStorage::BaseCorrelation(Arc::new(bumped)));
+                    new_context
+                        .curves
+                        .insert(bumped_id, CurveStorage::BaseCorrelation(Arc::new(bumped)));
                     continue;
                 }
             }
 
-            return Err(crate::error::InputError::NotFound { id: cid.to_string() }.into());
+            return Err(crate::error::InputError::NotFound {
+                id: cid.to_string(),
+            }
+            .into());
         }
 
         Ok(new_context)
@@ -1334,7 +1392,8 @@ impl MarketContext {
 
         // Get dividend yield (default to 0.0 if not available)
         let div_yield_key = format!("{}-DIVYIELD", underlying);
-        let dividend_yield = self.price(&div_yield_key)
+        let dividend_yield = self
+            .price(&div_yield_key)
             .map(|scalar| match scalar {
                 MarketScalar::Unitless(yield_val) => *yield_val,
                 _ => 0.0,
@@ -1384,9 +1443,7 @@ impl MarketContext {
     /// Build forward function for interest rate underlyings: F(t) = forward_curve.rate(t)
     pub fn rates_forward<'a>(&'a self, underlying: &str) -> Result<Box<dyn Fn(F) -> F + 'a>> {
         let forward_curve = self.get_ref::<ForwardCurve>(underlying)?;
-        Ok(Box::new(move |t: F| -> F {
-            forward_curve.rate(t)
-        }))
+        Ok(Box::new(move |t: F| -> F { forward_curve.rate(t) }))
     }
 
     /// Auto-detect asset class and build appropriate forward function
@@ -1396,7 +1453,11 @@ impl MarketContext {
         base_currency: Currency,
     ) -> Result<Box<dyn Fn(F) -> F + 'a>> {
         // Detect asset class from underlying identifier
-        if underlying.contains("-") && (underlying.contains("SOFR") || underlying.contains("EURIBOR") || underlying.contains("SONIA")) {
+        if underlying.contains("-")
+            && (underlying.contains("SOFR")
+                || underlying.contains("EURIBOR")
+                || underlying.contains("SONIA"))
+        {
             self.rates_forward(underlying)
         } else if underlying.len() == 6 && underlying.chars().all(|c| c.is_ascii_alphabetic()) {
             self.fx_forward(underlying)
@@ -1455,7 +1516,11 @@ impl core::fmt::Display for ContextStats {
         writeln!(f, "  Series: {}", self.series_count)?;
         writeln!(f, "  Inflation indices: {}", self.inflation_index_count)?;
         writeln!(f, "  Credit indices: {}", self.credit_index_count)?;
-        writeln!(f, "  Collateral mappings: {}", self.collateral_mapping_count)?;
+        writeln!(
+            f,
+            "  Collateral mappings: {}",
+            self.collateral_mapping_count
+        )?;
         writeln!(f, "  Has FX: {}", self.has_fx)?;
         Ok(())
     }

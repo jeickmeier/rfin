@@ -24,11 +24,8 @@
 // Box and Vec are available from the standard prelude; no explicit alloc import needed.
 
 use crate::{
-    error::InputError,
-    math::interp::utils::locate_segment,
-    market_data::traits::TermStructure,
-    types::CurveId,
-    Error, F,
+    error::InputError, market_data::traits::TermStructure, math::interp::utils::locate_segment,
+    types::CurveId, Error, F,
 };
 use ndarray::Array2;
 

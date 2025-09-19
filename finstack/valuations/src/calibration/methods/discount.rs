@@ -12,12 +12,12 @@ use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator, Multi
 use crate::instruments::deposit::Deposit;
 use crate::instruments::fra::ForwardRateAgreement;
 use crate::instruments::ir_future::InterestRateFuture;
-use crate::instruments::InterestRateSwap;
 use crate::instruments::traits::Priceable;
+use crate::instruments::InterestRateSwap;
 use finstack_core::dates::{add_months, Date};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::math::interp::InterpStyle;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::math::interp::InterpStyle;
 use finstack_core::math::Solver;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
@@ -503,9 +503,7 @@ impl DiscountCurveCalibrator {
                 index: _,
             } => {
                 // Create swap instrument
-                use crate::instruments::irs::{
-                    FixedLegSpec, FloatLegSpec, PayReceive,
-                };
+                use crate::instruments::irs::{FixedLegSpec, FloatLegSpec, PayReceive};
                 use finstack_core::dates::{BusinessDayConvention, StubKind};
 
                 let fixed_spec = FixedLegSpec {
@@ -1063,9 +1061,7 @@ mod tests {
 
     #[test]
     fn test_future_repricing_under_bootstrap() {
-        use crate::instruments::ir_future::{
-            FutureContractSpecs, InterestRateFuture,
-        };
+        use crate::instruments::ir_future::{FutureContractSpecs, InterestRateFuture};
 
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD);

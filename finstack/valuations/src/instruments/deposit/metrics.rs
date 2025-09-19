@@ -47,8 +47,8 @@ impl MetricCalculator for DfStartCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                deposit.disc_id.clone(),
-            )?;
+            deposit.disc_id.clone(),
+        )?;
         let base = disc.base_date();
 
         Ok(DiscountCurve::df_on(
@@ -75,8 +75,8 @@ impl MetricCalculator for DfEndCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                deposit.disc_id.clone(),
-            )?;
+            deposit.disc_id.clone(),
+        )?;
         let base = disc.base_date();
 
         Ok(DiscountCurve::df_on(

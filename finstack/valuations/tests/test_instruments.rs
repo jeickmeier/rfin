@@ -8,9 +8,9 @@ use finstack_core::prelude::*;
 use finstack_core::F;
 use finstack_valuations as _; // ensure crate is linked
 use finstack_valuations::cashflow::aggregation::aggregate_by_period;
+use finstack_valuations::instruments::traits::Priceable;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::instruments::{bond, deposit, irs};
-use finstack_valuations::instruments::traits::Priceable;
 use finstack_valuations::metrics::{standard_registry, MetricContext};
 use std::sync::Arc;
 use time::Month;
@@ -187,14 +187,14 @@ fn irs_dv01_sign_and_magnitude() {
             ],
         )
         .unwrap();
-    
+
     let dv01 = res.measures.get("dv01").copied().unwrap_or(0.0);
     let ann = res.measures.get("annuity").copied().unwrap_or(0.0);
-    
+
     // Note: The DV01 metric calculation needs debugging, but annuity works correctly
     // For now, verify annuity is calculated and skip DV01 assertion if it's zero
     assert!(ann > 0.0);
-    
+
     if dv01 == 0.0 {
         // DV01 metric not calculated - this is a known issue with the current metric system
         return; // Skip rest of test until DV01 calculation is fixed

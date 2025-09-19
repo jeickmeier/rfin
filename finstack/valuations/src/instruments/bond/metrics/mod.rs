@@ -274,7 +274,7 @@ impl MetricCalculator for MacaulayDurationCalculator {
         };
 
         // Calculate price from flows to ensure consistency
-            let price = {
+        let price = {
             let bond: &Bond = context.instrument_as()?;
             super::pricing::helpers::price_from_ytm(bond, &flows, context.as_of, ytm)?
         };
@@ -387,8 +387,10 @@ impl MetricCalculator for ConvexityCalculator {
         let (p0, p_up, p_dn) = {
             let bond: &Bond = context.instrument_as()?;
             let p0 = super::pricing::helpers::price_from_ytm(bond, &flows, context.as_of, ytm)?;
-            let p_up = super::pricing::helpers::price_from_ytm(bond, &flows, context.as_of, ytm + dy)?;
-            let p_dn = super::pricing::helpers::price_from_ytm(bond, &flows, context.as_of, ytm - dy)?;
+            let p_up =
+                super::pricing::helpers::price_from_ytm(bond, &flows, context.as_of, ytm + dy)?;
+            let p_dn =
+                super::pricing::helpers::price_from_ytm(bond, &flows, context.as_of, ytm - dy)?;
             (p0, p_up, p_dn)
         };
 

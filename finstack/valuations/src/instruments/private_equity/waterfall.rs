@@ -906,8 +906,9 @@ impl<'a> EquityWaterfallEngine<'a> {
         let solver = BrentSolver::new()
             .with_tolerance(1e-12)
             .with_initial_bracket_size(Some(0.5)); // Start with reasonable IRR range
-        
-        solver.solve(npv_function, 0.1)
+
+        solver
+            .solve(npv_function, 0.1)
             .map_err(|_| finstack_core::error::InputError::Invalid.into())
     }
 

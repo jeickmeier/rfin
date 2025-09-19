@@ -57,13 +57,13 @@ pub struct TrackingErrorCalculator;
 impl MetricCalculator for TrackingErrorCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let basket = context.instrument_as::<Basket>()?;
-        
+
         // For now, return 0.0 as tracking error calculation requires historical data
         // In a full implementation, this would:
         // 1. Get benchmark returns from MarketContext time series
         // 2. Calculate basket returns over same periods
         // 3. Compute standard deviation of return differences
-        
+
         // Placeholder implementation
         if let Some(ref _index_id) = basket.tracking_index {
             // Would look up index returns and calculate tracking error
@@ -80,7 +80,7 @@ pub struct UtilizationCalculator;
 impl MetricCalculator for UtilizationCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let basket = context.instrument_as::<Basket>()?;
-        
+
         if let Some(shares) = basket.shares_outstanding {
             Ok(shares / basket.creation_unit_size)
         } else {
@@ -95,18 +95,20 @@ pub struct PremiumDiscountCalculator;
 impl MetricCalculator for PremiumDiscountCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let basket = context.instrument_as::<Basket>()?;
-        
+
         // Try to get market price from context
         if let Some(ticker) = &basket.ticker {
             if let Ok(market_scalar) = context.curves.price(ticker) {
                 let market_price = match market_scalar {
-                    finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
+                    finstack_core::market_data::scalars::MarketScalar::Price(money) => {
+                        money.amount()
+                    }
                     finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                 };
-                
+
                 let nav = basket.nav(&context.curves, context.as_of)?;
                 let premium_discount = (market_price / nav.amount() - 1.0) * 100.0; // As percentage
-                
+
                 Ok(premium_discount)
             } else {
                 Ok(0.0) // No market price available
@@ -135,7 +137,7 @@ impl AssetExposureCalculator {
 impl MetricCalculator for AssetExposureCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let basket = context.instrument_as::<Basket>()?;
-        
+
         let mut total_exposure = 0.0;
         for constituent in &basket.constituents {
             // Check if constituent matches the asset type we're looking for
@@ -146,15 +148,20 @@ impl MetricCalculator for AssetExposureCalculator {
                 (ConstituentReference::Instrument(instrument), target) => {
                     // Infer asset type from instrument type
                     let instrument_type = instrument.instrument_type();
-                    matches!((instrument_type, target), ("Bond", AssetType::Bond) | ("Equity", AssetType::Equity) | ("Basket", AssetType::ETF))
+                    matches!(
+                        (instrument_type, target),
+                        ("Bond", AssetType::Bond)
+                            | ("Equity", AssetType::Equity)
+                            | ("Basket", AssetType::ETF)
+                    )
                 }
             };
-            
+
             if matches {
                 total_exposure += constituent.weight;
             }
         }
-        
+
         Ok(total_exposure * 100.0) // Return as percentage
     }
 }
@@ -162,11 +169,7 @@ impl MetricCalculator for AssetExposureCalculator {
 /// Register basket-specific metrics
 pub fn register_basket_metrics(registry: &mut MetricRegistry) {
     registry
-        .register_metric(
-            MetricId::Nav,
-            Arc::new(NavCalculator),
-            &["Basket"],
-        )
+        .register_metric(MetricId::Nav, Arc::new(NavCalculator), &["Basket"])
         .register_metric(
             MetricId::BasketValue,
             Arc::new(BasketValueCalculator),
@@ -204,9 +207,9 @@ mod tests {
     use super::*;
     use crate::instruments::basket::ReplicationMethod;
     use crate::instruments::traits::Attributes;
+    use finstack_core::dates::Frequency;
     use finstack_core::market_data::MarketContext;
     use finstack_core::types::InstrumentId;
-    use finstack_core::dates::Frequency;
     use std::sync::Arc;
     use time::Month;
 
@@ -235,7 +238,7 @@ mod tests {
     fn test_nav_calculator() {
         let basket = create_test_basket();
         let context = MarketContext::new();
-        
+
         let mut metric_context = MetricContext::new(
             Arc::new(basket),
             Arc::new(context),
@@ -252,7 +255,7 @@ mod tests {
     fn test_constituent_count_calculator() {
         let basket = create_test_basket();
         let context = MarketContext::new();
-        
+
         let mut metric_context = MetricContext::new(
             Arc::new(basket),
             Arc::new(context),
@@ -269,7 +272,7 @@ mod tests {
     fn test_expense_ratio_calculator() {
         let basket = create_test_basket();
         let context = MarketContext::new();
-        
+
         let mut metric_context = MetricContext::new(
             Arc::new(basket),
             Arc::new(context),

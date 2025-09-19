@@ -1,11 +1,11 @@
 //! Metrics calculators for variance swaps.
 
-use finstack_core::{F, Result};
-use crate::{
-    metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry},
-    instruments::traits::Priceable,
-};
 use super::types::VarianceSwap;
+use crate::{
+    instruments::traits::Priceable,
+    metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry},
+};
+use finstack_core::{Result, F};
 
 /// Calculate variance notional.
 pub struct VarianceNotionalCalculator;
@@ -23,13 +23,16 @@ pub struct VegaCalculator;
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let swap = context.instrument_as::<VarianceSwap>()?;
-        
+
         // Vega for variance swap = 2 * Notional * σ * ∂σ
         // Where ∂σ = 0.01 for 1% vol move
         // σ is the current implied volatility
-        
+
         // Try to get current implied vol
-        let current_vol = if let Ok(scalar) = context.curves.price(format!("{}_IMPL_VOL", swap.underlying_id)) {
+        let current_vol = if let Ok(scalar) = context
+            .curves
+            .price(format!("{}_IMPL_VOL", swap.underlying_id))
+        {
             match scalar {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(vol) => *vol,
                 finstack_core::market_data::scalars::MarketScalar::Price(price) => price.amount(),
@@ -38,10 +41,10 @@ impl MetricCalculator for VegaCalculator {
             // Use strike vol as approximation
             swap.strike_variance.sqrt()
         };
-        
+
         // Vega per 1% vol move
         let vega = 2.0 * swap.notional.amount() * current_vol * 0.01;
-        
+
         // Apply side
         Ok(vega * swap.side.sign())
     }
@@ -65,12 +68,12 @@ impl MetricCalculator for RealizedVarianceCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let swap = context.instrument_as::<VarianceSwap>()?;
         let as_of = context.as_of;
-        
+
         if as_of < swap.start_date {
             // Not started yet
             return Ok(0.0);
         }
-        
+
         // Get historical prices and calculate realized variance
         // In a real implementation, this would fetch actual price data
         if let Ok(_scalar) = context.curves.price(&swap.underlying_id) {
@@ -90,20 +93,23 @@ impl MetricCalculator for ExpectedVarianceCalculator {
     fn dependencies(&self) -> &[MetricId] {
         &[] // TODO: Add RealizedVariance when metric ID is added
     }
-    
+
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let swap = context.instrument_as::<VarianceSwap>()?;
         let as_of = context.as_of;
-        
+
         if as_of >= swap.maturity {
             // Use realized variance
             // TODO: Get from metric when RealizedVariance is added
             return Ok(swap.strike_variance * 0.95);
         }
-        
+
         if as_of < swap.start_date {
             // Use forward variance (implied)
-            if let Ok(scalar) = context.curves.price(format!("{}_IMPL_VOL", swap.underlying_id)) {
+            if let Ok(scalar) = context
+                .curves
+                .price(format!("{}_IMPL_VOL", swap.underlying_id))
+            {
                 let vol = match scalar {
                     finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                     finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
@@ -112,11 +118,14 @@ impl MetricCalculator for ExpectedVarianceCalculator {
             }
             return Ok(swap.strike_variance);
         }
-        
+
         // Blend realized and forward
         // TODO: Get realized from metric when RealizedVariance is added
         let realized = swap.strike_variance * 0.95;
-        let forward = if let Ok(scalar) = context.curves.price(format!("{}_IMPL_VOL", swap.underlying_id)) {
+        let forward = if let Ok(scalar) = context
+            .curves
+            .price(format!("{}_IMPL_VOL", swap.underlying_id))
+        {
             let vol = match scalar {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                 finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
@@ -125,7 +134,7 @@ impl MetricCalculator for ExpectedVarianceCalculator {
         } else {
             swap.strike_variance
         };
-        
+
         let weight = swap.time_elapsed_fraction(as_of);
         Ok(realized * weight + forward * (1.0 - weight))
     }
@@ -138,18 +147,20 @@ impl MetricCalculator for Dv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let swap = context.instrument_as::<VarianceSwap>()?;
         let as_of = context.as_of;
-        
+
         if as_of >= swap.maturity {
             // No interest rate sensitivity after maturity
             return Ok(0.0);
         }
-        
+
         // Get current PV
         let pv = swap.value(&context.curves, as_of)?;
-        
+
         // Time to maturity
-        let ttm = swap.day_count.year_fraction(as_of, swap.maturity, Default::default())?;
-        
+        let ttm = swap
+            .day_count
+            .year_fraction(as_of, swap.maturity, Default::default())?;
+
         // DV01 approximation: PV * ttm * 0.0001
         Ok(pv.amount().abs() * ttm * 0.0001)
     }
@@ -172,46 +183,36 @@ impl MetricCalculator for TimeToMaturityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let swap = context.instrument_as::<VarianceSwap>()?;
         let as_of = context.as_of;
-        
+
         if as_of >= swap.maturity {
             return Ok(0.0);
         }
-        
-        swap.day_count.year_fraction(as_of, swap.maturity, Default::default())
+
+        swap.day_count
+            .year_fraction(as_of, swap.maturity, Default::default())
     }
 }
 
 /// Register variance swap metrics with the registry.
 pub fn register_variance_swap_metrics(registry: &mut MetricRegistry) {
     use std::sync::Arc;
-    
+
     // Note: These metric IDs would need to be added to the MetricId enum
     // For now, using existing ones as placeholders
-    registry.register_metric(
-        MetricId::Vega,
-        Arc::new(VegaCalculator),
-        &["VarianceSwap"],
-    );
-    registry.register_metric(
-        MetricId::Dv01,
-        Arc::new(Dv01Calculator),
-        &["VarianceSwap"],
-    );
+    registry.register_metric(MetricId::Vega, Arc::new(VegaCalculator), &["VarianceSwap"]);
+    registry.register_metric(MetricId::Dv01, Arc::new(Dv01Calculator), &["VarianceSwap"]);
     // Additional metrics would be registered once their IDs are added
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instruments::variance_swap::PayReceive;
     use crate::instruments::variance_swap::VarianceSwap;
     use finstack_core::dates::{DayCount, Frequency};
     use finstack_core::math::stats::RealizedVarMethod;
-    use crate::instruments::variance_swap::PayReceive;
     use finstack_core::{
-        currency::Currency,
-        dates::Date,
-        market_data::context::MarketContext,
-        money::Money,
+        currency::Currency, dates::Date, market_data::context::MarketContext, money::Money,
     };
     use std::sync::Arc;
 

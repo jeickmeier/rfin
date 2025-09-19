@@ -2,8 +2,8 @@
 
 use crate::instruments::traits::Priceable;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
-use finstack_core::prelude::*;
 use finstack_core::market_data::context::BumpSpec;
+use finstack_core::prelude::*;
 use finstack_core::F;
 use hashbrown::HashMap;
 
@@ -38,17 +38,21 @@ impl MetricCalculator for CollateralCoverageCalculator {
     }
 
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        let collateral_value = context.computed.get(&MetricId::CollateralValue)
+        let collateral_value = context
+            .computed
+            .get(&MetricId::CollateralValue)
             .copied()
             .unwrap_or(0.0);
-        let required_value = context.computed.get(&MetricId::RequiredCollateral)
+        let required_value = context
+            .computed
+            .get(&MetricId::RequiredCollateral)
             .copied()
             .unwrap_or(1.0);
-        
+
         if required_value == 0.0 {
             return Ok(F::INFINITY);
         }
-        
+
         Ok(collateral_value / required_value)
     }
 }
@@ -70,18 +74,18 @@ pub struct RepoDv01Calculator;
 impl MetricCalculator for RepoDv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let repo = context.instrument_as::<super::types::Repo>()?;
-        
+
         // Get base PV
         let base_pv = repo.value(&context.curves, context.as_of)?;
-        
+
         // Create bumped market context (1bp parallel shift)
         let disc_curve_id = finstack_core::types::CurveId::new(repo.disc_id);
         let mut bumps = HashMap::new();
         bumps.insert(disc_curve_id, BumpSpec::parallel_bp(1.0));
-        
+
         let bumped_context = context.curves.bump(bumps)?;
         let bumped_pv = repo.value(&bumped_context, context.as_of)?;
-        
+
         // DV01 = base_pv - bumped_pv (positive when rates increase, price decreases)
         let dv01 = base_pv.checked_sub(bumped_pv)?;
         Ok(dv01.amount())
@@ -94,16 +98,16 @@ pub struct FundingRiskCalculator;
 impl MetricCalculator for FundingRiskCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let repo = context.instrument_as::<super::types::Repo>()?;
-        
+
         // Calculate PV sensitivity to 1bp change in repo rate
         let base_pv = repo.value(&context.curves, context.as_of)?.amount();
-        
+
         // Create a modified repo with +1bp rate
         let mut repo_bumped = repo.clone();
         repo_bumped.repo_rate += 0.0001; // +1bp
-        
+
         let bumped_pv = repo_bumped.value(&context.curves, context.as_of)?.amount();
-        
+
         // Funding risk = sensitivity to repo rate changes
         Ok(base_pv - bumped_pv)
     }
@@ -144,24 +148,28 @@ impl MetricCalculator for ImpliedCollateralReturnCalculator {
 
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let repo = context.instrument_as::<super::types::Repo>()?;
-        let collateral_value = context.computed.get(&MetricId::CollateralValue)
+        let collateral_value = context
+            .computed
+            .get(&MetricId::CollateralValue)
             .copied()
             .unwrap_or(0.0);
-        let required_value = context.computed.get(&MetricId::RequiredCollateral)
+        let required_value = context
+            .computed
+            .get(&MetricId::RequiredCollateral)
             .copied()
             .unwrap_or(0.0);
-        
+
         // Calculate time to maturity
         let time_to_maturity = repo.day_count.year_fraction(
             context.as_of,
             repo.maturity,
             finstack_core::dates::DayCountCtx::default(),
         )?;
-        
+
         if time_to_maturity <= 0.0 || required_value == 0.0 {
             return Ok(0.0);
         }
-        
+
         // Implied return = (current_value / required_value - 1) / time_to_maturity
         let return_rate = (collateral_value / required_value - 1.0) / time_to_maturity;
         Ok(return_rate)
@@ -193,11 +201,7 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
             Arc::new(RepoInterestCalculator),
             &["Repo"],
         )
-        .register_metric(
-            MetricId::Dv01,
-            Arc::new(RepoDv01Calculator),
-            &["Repo"],
-        )
+        .register_metric(MetricId::Dv01, Arc::new(RepoDv01Calculator), &["Repo"])
         .register_metric(
             MetricId::FundingRisk,
             Arc::new(FundingRiskCalculator),
@@ -224,9 +228,9 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
 mod tests {
     use super::*;
     use crate::instruments::repo::{CollateralSpec, Repo};
-    use finstack_core::market_data::MarketContext;
-    use finstack_core::market_data::scalars::MarketScalar;
     use finstack_core::currency::Currency;
+    use finstack_core::market_data::scalars::MarketScalar;
+    use finstack_core::market_data::MarketContext;
     use time::Month;
 
     fn test_date(year: i32, month: u8, day: u8) -> Date {
@@ -235,7 +239,7 @@ mod tests {
 
     fn create_test_repo() -> Repo {
         let collateral = CollateralSpec::new("BOND_ABC", 1000.0, "BOND_ABC_PRICE");
-        
+
         Repo::term(
             "REPO_001",
             Money::new(1_000_000.0, Currency::USD),
@@ -248,8 +252,8 @@ mod tests {
     }
 
     fn create_test_context() -> MarketContext {
-        MarketContext::new()
-            .insert_price("BOND_ABC_PRICE", MarketScalar::Unitless(1.02)) // Bond trading at 102% of face
+        MarketContext::new().insert_price("BOND_ABC_PRICE", MarketScalar::Unitless(1.02))
+        // Bond trading at 102% of face
     }
 
     #[test]
@@ -265,7 +269,7 @@ mod tests {
 
         let calculator = CollateralValueCalculator;
         let value = calculator.calculate(&mut context).unwrap();
-        
+
         // Expected: 1000 * 1.02 = 1020
         assert!((value - 1020.0).abs() < 1e-6);
     }
@@ -283,7 +287,7 @@ mod tests {
 
         let calculator = RequiredCollateralCalculator;
         let value = calculator.calculate(&mut context).unwrap();
-        
+
         // Expected: 1,000,000 * (1 + 0.02) = 1,020,000
         assert!((value - 1_020_000.0).abs() < 1e-6);
     }
@@ -301,7 +305,7 @@ mod tests {
 
         let calculator = EffectiveRateCalculator;
         let rate = calculator.calculate(&mut context).unwrap();
-        
+
         // Should be base rate since it's general collateral
         assert!((rate - 0.05).abs() < 1e-9);
     }

@@ -135,19 +135,11 @@ impl GaussianCopulaModel {
 
         // Calculate present values of premium and protection legs
         // These now calculate the EL curve internally with proper time dependency
-        let pv_premium = self.calculate_premium_leg_pv(
-            tranche,
-            index_data_arc,
-            discount_curve,
-            as_of,
-        )?;
+        let pv_premium =
+            self.calculate_premium_leg_pv(tranche, index_data_arc, discount_curve, as_of)?;
 
-        let pv_protection = self.calculate_protection_leg_pv(
-            tranche,
-            index_data_arc,
-            discount_curve,
-            as_of,
-        )?;
+        let pv_protection =
+            self.calculate_protection_leg_pv(tranche, index_data_arc, discount_curve, as_of)?;
 
         // Net present value depends on the side
         let net_pv = match tranche.side {
@@ -838,17 +830,17 @@ impl GaussianCopulaModel {
 
 #[cfg(test)]
 mod tests {
+    use super::super::parameters::CDSTrancheParams;
     use super::*;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::CreditIndexData;
     use finstack_core::market_data::term_structures::{
         hazard_curve::HazardCurve, BaseCorrelationCurve,
     };
-    use finstack_core::market_data::term_structures::CreditIndexData;
     use finstack_core::money::Money;
     use std::sync::Arc;
     use time::Month;
-    use super::super::parameters::CDSTrancheParams;
 
     fn sample_market_context() -> MarketContext {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -902,13 +894,13 @@ mod tests {
 
         {
             let tranche_params = CDSTrancheParams::new(
-                "CDX.NA.IG.42",                                     // index_name
-                42,                                                 // series
-                3.0,                                                // attach_pct (3%)
-                7.0,                                                // detach_pct (7%)
-                Money::new(10_000_000.0, Currency::USD),            // $10MM notional
-                maturity,                                           // maturity
-                500.0,                                              // running_coupon_bp (5%)
+                "CDX.NA.IG.42",                          // index_name
+                42,                                      // series
+                3.0,                                     // attach_pct (3%)
+                7.0,                                     // detach_pct (7%)
+                Money::new(10_000_000.0, Currency::USD), // $10MM notional
+                maturity,                                // maturity
+                500.0,                                   // running_coupon_bp (5%)
             );
             let schedule_params = crate::cashflow::builder::ScheduleParams::quarterly_act360();
             CdsTranche::new(

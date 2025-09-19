@@ -1,10 +1,7 @@
 //! Tests for DiscountCurve extrapolation policies and monotonic validation.
 
 use finstack_core::{
-    dates::Date,
-    math::interp::ExtrapolationPolicy,
-    market_data::term_structures::DiscountCurve,
-    F,
+    dates::Date, market_data::term_structures::DiscountCurve, math::interp::ExtrapolationPolicy, F,
 };
 use time::Month;
 

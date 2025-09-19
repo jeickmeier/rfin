@@ -12,18 +12,17 @@ use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use super::types::Bond;
 
 impl CashflowProvider for Bond {
-    fn build_schedule(
-        &self,
-        _curves: &MarketContext,
-        _as_of: Date,
-    ) -> Result<DatedFlows> {
+    fn build_schedule(&self, _curves: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
         if let Some(ref custom) = self.custom_cashflows {
             let flows: Vec<(Date, Money)> = custom
                 .flows
                 .iter()
                 .filter_map(|cf| match cf.kind {
                     CFKind::Fixed | CFKind::Stub => Some((cf.date, cf.amount)),
-                    CFKind::Amortization => Some((cf.date, Money::new(-cf.amount.amount(), cf.amount.currency()))),
+                    CFKind::Amortization => Some((
+                        cf.date,
+                        Money::new(-cf.amount.amount(), cf.amount.currency()),
+                    )),
                     CFKind::Notional if cf.amount.amount() > 0.0 => Some((cf.date, cf.amount)),
                     _ => None,
                 })
@@ -52,7 +51,10 @@ impl CashflowProvider for Bond {
             .iter()
             .filter_map(|cf| match cf.kind {
                 CFKind::Fixed | CFKind::Stub => Some((cf.date, cf.amount)),
-                CFKind::Amortization => Some((cf.date, Money::new(-cf.amount.amount(), cf.amount.currency()))),
+                CFKind::Amortization => Some((
+                    cf.date,
+                    Money::new(-cf.amount.amount(), cf.amount.currency()),
+                )),
                 CFKind::Notional if cf.amount.amount() > 0.0 => Some((cf.date, cf.amount)),
                 _ => None,
             })
@@ -61,5 +63,3 @@ impl CashflowProvider for Bond {
         Ok(flows)
     }
 }
-
-

@@ -7,8 +7,8 @@ use finstack_core::F;
 use crate::cashflow::builder::CashFlowSchedule;
 #[allow(unused_imports)]
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::PricingOverrides;
 use crate::instruments::traits::{Attributes, Priceable};
+use crate::instruments::PricingOverrides;
 use crate::metrics::{RiskBucket, RiskMeasurable, RiskReport};
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -187,30 +187,46 @@ impl Bond {
 // Attributable and Instrument impls without tying pricing here
 impl crate::instruments::traits::Attributable for Bond {
     #[inline]
-    fn attributes(&self) -> &crate::instruments::traits::Attributes { &self.attributes }
+    fn attributes(&self) -> &crate::instruments::traits::Attributes {
+        &self.attributes
+    }
 
     #[inline]
-    fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes { &mut self.attributes }
+    fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes {
+        &mut self.attributes
+    }
 }
 
 impl crate::instruments::traits::Instrument for Bond {
     #[inline]
-    fn id(&self) -> &str { self.id.as_str() }
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
 
     #[inline]
-    fn instrument_type(&self) -> &'static str { "Bond" }
+    fn instrument_type(&self) -> &'static str {
+        "Bond"
+    }
 
     #[inline]
-    fn as_any(&self) -> &dyn ::std::any::Any { self }
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
+    }
 
     #[inline]
-    fn attributes(&self) -> &crate::instruments::traits::Attributes { &self.attributes }
+    fn attributes(&self) -> &crate::instruments::traits::Attributes {
+        &self.attributes
+    }
 
     #[inline]
-    fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes { &mut self.attributes }
+    fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes {
+        &mut self.attributes
+    }
 
     #[inline]
-    fn clone_box(&self) -> Box<dyn crate::instruments::traits::Instrument> { Box::new(self.clone()) }
+    fn clone_box(&self) -> Box<dyn crate::instruments::traits::Instrument> {
+        Box::new(self.clone())
+    }
 }
 
 impl RiskMeasurable for Bond {
@@ -403,17 +419,17 @@ mod tests {
 
         // The flows should match what we put in the custom schedule
         // (after conversion for holder perspective)
-            let expected_flow_count = custom_schedule
-                .flows
-                .iter()
-                .filter(|cf| {
-                    use crate::cashflow::primitives::CFKind;
-                    matches!(
-                        cf.kind,
-                        CFKind::Fixed | CFKind::Stub | CFKind::Amortization | CFKind::Notional
-                    ) && (cf.kind != CFKind::Notional || cf.amount.amount() > 0.0)
-                })
-                .count();
+        let expected_flow_count = custom_schedule
+            .flows
+            .iter()
+            .filter(|cf| {
+                use crate::cashflow::primitives::CFKind;
+                matches!(
+                    cf.kind,
+                    CFKind::Fixed | CFKind::Stub | CFKind::Amortization | CFKind::Notional
+                ) && (cf.kind != CFKind::Notional || cf.amount.amount() > 0.0)
+            })
+            .count();
         assert_eq!(flows.len(), expected_flow_count);
     }
 

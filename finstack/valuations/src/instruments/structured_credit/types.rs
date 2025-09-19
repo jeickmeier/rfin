@@ -7,7 +7,7 @@ use crate::results::ValuationResult;
 use finstack_core::dates::{Date, Frequency};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::types::{InstrumentId, CurveId};
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::F;
 use std::any::Any;
 
@@ -63,7 +63,7 @@ impl CreditRating {
     pub fn is_investment_grade(&self) -> bool {
         matches!(self, Self::AAA | Self::AA | Self::A | Self::BBB)
     }
-    
+
     /// Get rating factor for diversity score calculations
     pub fn rating_factor(&self) -> F {
         match self {
@@ -101,7 +101,7 @@ pub enum TrancheSeniority {
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum AssetType {
     /// Corporate loan (leverage existing Loan type)
-    Loan { 
+    Loan {
         loan_type: LoanType,
         industry: Option<String>,
     },
@@ -121,17 +121,11 @@ pub enum AssetType {
         ltv: Option<F>,
     },
     /// Credit card receivables
-    CreditCard {
-        portfolio_type: CardPortfolioType,
-    },
+    CreditCard { portfolio_type: CardPortfolioType },
     /// Student loan
-    StudentLoan {
-        loan_type: StudentLoanType,
-    },
+    StudentLoan { loan_type: StudentLoanType },
     /// Equipment financing
-    Equipment {
-        equipment_type: String,
-    },
+    Equipment { equipment_type: String },
     /// Generic asset
     Generic {
         description: String,
@@ -227,14 +221,12 @@ pub enum PaymentMode {
     /// Normal pro-rata payments to all tranches
     ProRata,
     /// Sequential payment (turbo) due to trigger breach
-    Sequential { 
+    Sequential {
         triggered_by: String,
         trigger_date: Date,
     },
     /// Hybrid mode with custom rules
-    Hybrid { 
-        description: String,
-    },
+    Hybrid { description: String },
 }
 
 /// Coverage test type
@@ -277,38 +269,38 @@ pub enum TriggerConsequence {
 pub struct StructuredCredit {
     /// Unique instrument identifier
     pub id: InstrumentId,
-    
+
     /// Deal classification
     pub deal_type: DealType,
-    
+
     /// Asset pool
     pub pool: AssetPool,
-    
+
     /// Tranche structure
     pub tranches: TrancheStructure,
-    
+
     /// Waterfall distribution rules
     pub waterfall: StructuredCreditWaterfall,
-    
+
     /// Coverage tests and monitoring
     pub coverage_tests: CoverageTests,
-    
+
     /// Key dates
     pub closing_date: Date,
     pub first_payment_date: Date,
     pub reinvestment_end_date: Option<Date>,
     pub legal_maturity: Date,
-    
+
     /// Payment frequency for the structure
     pub payment_frequency: Frequency,
-    
+
     /// Manager/servicer information
     pub manager_id: Option<String>,
     pub servicer_id: Option<String>,
-    
+
     /// Discount curve for valuation
     pub disc_id: CurveId,
-    
+
     /// Attributes for scenario selection
     pub attributes: Attributes,
 }
@@ -343,19 +335,21 @@ impl StructuredCredit {
             attributes: Attributes::new(),
         }
     }
-    
+
     // Derive-based builder available via StructuredCredit::builder()
-    
+
     /// Calculate current loss percentage of the pool
     pub fn current_loss_percentage(&self) -> F {
         let total_balance = self.pool.total_balance().amount();
         if total_balance == 0.0 {
             return 0.0;
         }
-        
-        (self.pool.cumulative_defaults.amount() - self.pool.cumulative_recoveries.amount()) / total_balance * 100.0
+
+        (self.pool.cumulative_defaults.amount() - self.pool.cumulative_recoveries.amount())
+            / total_balance
+            * 100.0
     }
-    
+
     /// Get cashflows for a specific tranche
     pub fn tranche_cashflows(
         &self,
@@ -366,11 +360,11 @@ impl StructuredCredit {
         // This would be implemented to extract tranche-specific flows
         // from the overall structure cashflows
         let _all_flows = self.build_schedule(context, as_of)?;
-        
+
         // Placeholder: return empty flows for now
         Ok(Vec::new())
     }
-    
+
     /// Calculate expected life of the structure
     pub fn expected_life(&self, as_of: Date) -> finstack_core::Result<F> {
         // Simplified calculation based on pool WAL
@@ -396,7 +390,7 @@ impl CashflowProvider for StructuredCredit {
     ) -> finstack_core::Result<DatedFlows> {
         // 1. Get pool cashflows by aggregating individual asset cashflows
         let mut pool_flows = Vec::new();
-        
+
         for asset in &self.pool.assets {
             // Get cashflows based on asset type
             match &asset.asset_type {
@@ -405,45 +399,46 @@ impl CashflowProvider for StructuredCredit {
                     // For now, simplified approach
                     let quarterly_interest = asset.balance.amount() * asset.rate / 4.0;
                     let interest_payment = Money::new(quarterly_interest, asset.balance.currency());
-                    
+
                     // Generate quarterly payments (simplified)
                     let mut payment_date = as_of;
-                    for _ in 0..20 { // 5 years of quarterly payments
+                    for _ in 0..20 {
+                        // 5 years of quarterly payments
                         payment_date += time::Duration::days(90);
                         if payment_date <= asset.maturity {
                             pool_flows.push((payment_date, interest_payment));
                         }
                     }
-                    
+
                     // Principal at maturity (simplified)
                     if asset.maturity > as_of {
                         pool_flows.push((asset.maturity, asset.balance));
                     }
-                },
+                }
                 AssetType::Bond { .. } => {
                     // Similar logic for bonds
                     let quarterly_interest = asset.balance.amount() * asset.rate / 4.0;
                     let interest_payment = Money::new(quarterly_interest, asset.balance.currency());
                     pool_flows.push((asset.maturity, interest_payment));
                     pool_flows.push((asset.maturity, asset.balance));
-                },
+                }
                 _ => {
                     // Generic asset - simplified cashflow
                     pool_flows.push((asset.maturity, asset.balance));
-                },
+                }
             }
         }
-        
+
         // 2. Sort pool flows by date
         pool_flows.sort_by_key(|(date, _)| *date);
-        
+
         // 3. Apply pool behavior (prepayments/defaults) - simplified
         // In a full implementation, this would use the loan simulation framework
-        
+
         // 4. Run through waterfall to get tranche-specific flows
         // For now, return aggregated pool flows
         // In full implementation, this would distribute through waterfall
-        
+
         Ok(pool_flows)
     }
 }
@@ -453,17 +448,17 @@ impl Priceable for StructuredCredit {
         // Get discount curve
         let disc = context
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                self.disc_id.as_str(),
-            )?;
-        
+            self.disc_id.as_str(),
+        )?;
+
         // Get all cashflows
         let flows = self.build_schedule(context, as_of)?;
-        
+
         // Discount to present value
         use crate::instruments::discountable::Discountable;
         flows.npv(disc, as_of, finstack_core::dates::DayCount::Act360)
     }
-    
+
     fn price_with_metrics(
         &self,
         context: &MarketContext,
@@ -471,7 +466,7 @@ impl Priceable for StructuredCredit {
         _metrics: &[MetricId],
     ) -> finstack_core::Result<ValuationResult> {
         let base_value = <Self as Priceable>::value(self, context, as_of)?;
-        
+
         // Create basic valuation result
         // In full implementation, would calculate requested metrics
         Ok(ValuationResult::stamped(
@@ -486,15 +481,17 @@ impl Attributable for StructuredCredit {
     fn attributes(&self) -> &Attributes {
         &self.attributes
     }
-    
+
     fn attributes_mut(&mut self) -> &mut Attributes {
         &mut self.attributes
     }
 }
 
 impl Instrument for StructuredCredit {
-    fn id(&self) -> &str { self.id.as_str() }
-    
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+
     fn instrument_type(&self) -> &'static str {
         match self.deal_type {
             DealType::CLO => "CLO",
@@ -506,11 +503,19 @@ impl Instrument for StructuredCredit {
             DealType::Card => "CardABS",
         }
     }
-    
-    fn as_any(&self) -> &dyn Any { self }
-    fn attributes(&self) -> &Attributes { &self.attributes }
-    fn attributes_mut(&mut self) -> &mut Attributes { &mut self.attributes }
-    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+    fn attributes_mut(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+    fn clone_box(&self) -> Box<dyn Instrument> {
+        Box::new(self.clone())
+    }
 }
 
 // Do not add explicit Instrument impl; provided by blanket impl.

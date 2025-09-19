@@ -9,9 +9,9 @@
 use crate::calibration::methods::swaption_market_conventions::SwaptionMarketConvention;
 use crate::calibration::quote::VolQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
-use crate::instruments::PricingOverrides;
 use crate::instruments::models::{SABRCalibrator, SABRModel, SABRParameters};
 use crate::instruments::swaption::Swaption;
+use crate::instruments::PricingOverrides;
 use finstack_core::dates::utils::add_months;
 use finstack_core::dates::{Date, DayCountCtx, Frequency};
 use finstack_core::market_data::context::MarketContext;
@@ -136,8 +136,8 @@ impl SwaptionVolCalibrator {
     ) -> Result<F> {
         let disc = context
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                self.disc_id,
-            )?;
+            self.disc_id,
+        )?;
         let swap_start = expiry;
         let swap_end = add_months(expiry, (tenor_years * 12.0) as i32);
 
@@ -254,8 +254,8 @@ impl SwaptionVolCalibrator {
 
         let disc = context
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                self.disc_id,
-            )?;
+            self.disc_id,
+        )?;
         swaption.swap_annuity(disc)
     }
 

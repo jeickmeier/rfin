@@ -26,8 +26,8 @@ impl MetricCalculator for AnnuityCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                irs.fixed.disc_id,
-            )?;
+            irs.fixed.disc_id,
+        )?;
         let base = disc.base_date();
 
         // Build fixed leg schedule dates using the canonical helper
@@ -82,13 +82,13 @@ impl MetricCalculator for ParRateCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                irs.fixed.disc_id,
-            )?;
+            irs.fixed.disc_id,
+        )?;
         let fwd = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-                irs.float.fwd_id,
-            )?;
+            irs.float.fwd_id,
+        )?;
         let base_d = disc.base_date();
 
         // Get annuity from computed metrics
@@ -201,8 +201,8 @@ impl MetricCalculator for FixedLegPvCalculator {
         let disc = context
             .curves
             .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                irs.fixed.disc_id,
-            )?;
+            irs.fixed.disc_id,
+        )?;
         let base = disc.base_date();
 
         // Build fixed leg schedule and compute PV
@@ -254,13 +254,13 @@ impl MetricCalculator for FloatLegPvCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                irs.float.disc_id,
-            )?;
+            irs.float.disc_id,
+        )?;
         let fwd = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-                irs.float.fwd_id,
-            )?;
+            irs.float.fwd_id,
+        )?;
         let base = disc.base_date();
 
         // Build float leg schedule and compute PV

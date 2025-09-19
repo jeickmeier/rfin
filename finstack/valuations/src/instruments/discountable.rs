@@ -1,7 +1,7 @@
 //! Interface for objects that can be present-valued against a `Discount` curve.
 
-use finstack_core::market_data::traits::Discounting;
 use finstack_core::dates::DayCountCtx;
+use finstack_core::market_data::traits::Discounting;
 use finstack_core::prelude::*;
 
 /// Objects that can be present-valued against a `Discount` curve.
@@ -53,7 +53,12 @@ fn npv(
 impl Discountable for &[(Date, Money)] {
     type PVOutput = finstack_core::Result<Money>;
 
-    fn npv(&self, disc: &dyn Discounting, base: Date, dc: DayCount) -> finstack_core::Result<Money> {
+    fn npv(
+        &self,
+        disc: &dyn Discounting,
+        base: Date,
+        dc: DayCount,
+    ) -> finstack_core::Result<Money> {
         npv(disc, base, dc, self)
     }
 }
@@ -61,7 +66,12 @@ impl Discountable for &[(Date, Money)] {
 impl Discountable for Vec<(Date, Money)> {
     type PVOutput = finstack_core::Result<Money>;
 
-    fn npv(&self, disc: &dyn Discounting, base: Date, dc: DayCount) -> finstack_core::Result<Money> {
+    fn npv(
+        &self,
+        disc: &dyn Discounting,
+        base: Date,
+        dc: DayCount,
+    ) -> finstack_core::Result<Money> {
         npv(disc, base, dc, self)
     }
 }
@@ -75,7 +85,12 @@ impl Discountable for crate::cashflow::builder::CashFlowSchedule {
     /// present value using the provided discount curve.
     ///
     /// See unit tests and `examples/` for usage.
-    fn npv(&self, disc: &dyn Discounting, base: Date, dc: DayCount) -> finstack_core::Result<Money> {
+    fn npv(
+        &self,
+        disc: &dyn Discounting,
+        base: Date,
+        dc: DayCount,
+    ) -> finstack_core::Result<Money> {
         let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
         npv(disc, base, dc, &flows)
     }

@@ -148,7 +148,14 @@ impl DateExt for Date {
         for _ in 0..n.unsigned_abs() {
             // move at least one day in the desired direction, then seek to a business day
             let start = current + Duration::days(step as i64);
-            current = seek_business_day(start, step, MAX_BUSINESS_DAY_SEARCH_DAYS, cal, "BusinessDayAddition", self)?;
+            current = seek_business_day(
+                start,
+                step,
+                MAX_BUSINESS_DAY_SEARCH_DAYS,
+                cal,
+                "BusinessDayAddition",
+                self,
+            )?;
         }
         Ok(current)
     }

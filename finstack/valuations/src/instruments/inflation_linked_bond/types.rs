@@ -98,7 +98,6 @@ pub struct InflationLinkedBond {
 }
 
 impl InflationLinkedBond {
-
     /// Create a new US TIPS bond using parameter structs
     pub fn new_tips(
         id: impl Into<String>,

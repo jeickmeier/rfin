@@ -1,14 +1,14 @@
 //! Core types and common engine for Total Return Swaps.
 
-use crate::cashflow::builder::ScheduleParams;
 use crate::cashflow::builder::schedule_utils::build_dates;
+use crate::cashflow::builder::ScheduleParams;
+use finstack_core::types::id::IndexId;
+use finstack_core::types::Currency;
 use finstack_core::{
     dates::{Date, DayCount},
     types::CurveId,
     F,
 };
-use finstack_core::types::id::IndexId;
-use finstack_core::types::Currency;
 // Forward trait removed - use direct method calls on curve types
 
 /// Side of the TRS trade from the party's perspective.
@@ -53,7 +53,7 @@ impl TrsSide {
 ///
 /// let financing = FinancingLegSpec::new(
 ///     "USD-OIS",
-///     "USD-SOFR-3M", 
+///     "USD-SOFR-3M",
 ///     25.0, // 25bp spread
 ///     DayCount::Act365F
 /// );
@@ -139,7 +139,11 @@ impl TrsScheduleSpec {
     /// # Returns
     /// New TrsScheduleSpec instance.
     pub fn from_params(start: Date, end: Date, schedule: ScheduleParams) -> Self {
-        Self { start, end, params: schedule }
+        Self {
+            start,
+            end,
+            params: schedule,
+        }
     }
 
     /// Builds the period date schedule in a canonical way.

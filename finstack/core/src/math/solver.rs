@@ -88,12 +88,7 @@ impl Solver for NewtonSolver {
 
 impl NewtonSolver {
     /// Core Newton-Raphson method implementation.
-    fn newton_method<Func, DFunc>(
-        &self,
-        f: Func,
-        f_prime: DFunc,
-        x0: F,
-    ) -> Result<F>
+    fn newton_method<Func, DFunc>(&self, f: Func, f_prime: DFunc, x0: F) -> Result<F>
     where
         Func: Fn(F) -> F,
         DFunc: Fn(F) -> F,
@@ -230,7 +225,7 @@ impl Solver for BrentSolver {
 
 impl BrentSolver {
     /// Core Brent's method implementation.
-    /// 
+    ///
     /// Requirements: `f(lo)` and `f(hi)` must have opposite signs.
     fn brent_method<Func>(&self, mut f: Func, lo: F, hi: F) -> Result<F>
     where

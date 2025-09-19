@@ -1,14 +1,14 @@
 //! Equity spot instrument implementation.
 
-pub mod underlying;
 pub mod equity_metrics;
+pub mod underlying;
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::traits::Attributes;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
-use finstack_core::F;
 use finstack_core::types::InstrumentId;
+use finstack_core::F;
 // use indexmap::IndexMap;
 
 /// Type alias for ticker symbols

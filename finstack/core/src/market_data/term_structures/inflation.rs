@@ -18,15 +18,11 @@
 //! assert!(ic.inflation_rate(0.0, 5.0) > 0.0);
 //! ```
 
-
 use super::common::{build_interp, split_points, OneDGrid};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
-    error::InputError,
-    math::interp::types::Interp,
-    market_data::traits::TermStructure,
-    types::CurveId,
-    F,
+    error::InputError, market_data::traits::TermStructure, math::interp::types::Interp,
+    types::CurveId, F,
 };
 
 /// Real or breakeven inflation curve expressed as CPI index levels.
@@ -57,21 +53,21 @@ pub struct InflationCurveState {
 }
 
 impl InflationCurve {
-/// Start building an inflation curve with identifier `id`.
-///
-/// # Examples
-/// ```rust
-/// use finstack_core::market_data::term_structures::{inflation::InflationCurve, CurveBuilder};
-/// use finstack_core::math::interp::InterpStyle;
-///
-/// let curve = InflationCurve::builder("US-CPI")
-///     .base_cpi(300.0)
-///     .knots([(0.0, 300.0), (5.0, 325.0)])
-///     .set_interp(InterpStyle::LogLinear)
-///     .build()
-///     .unwrap();
-/// assert!(curve.inflation_rate(0.0, 5.0) > 0.0);
-/// ```
+    /// Start building an inflation curve with identifier `id`.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::market_data::term_structures::{inflation::InflationCurve, CurveBuilder};
+    /// use finstack_core::math::interp::InterpStyle;
+    ///
+    /// let curve = InflationCurve::builder("US-CPI")
+    ///     .base_cpi(300.0)
+    ///     .knots([(0.0, 300.0), (5.0, 325.0)])
+    ///     .set_interp(InterpStyle::LogLinear)
+    ///     .build()
+    ///     .unwrap();
+    /// assert!(curve.inflation_rate(0.0, 5.0) > 0.0);
+    /// ```
     pub fn builder(id: impl Into<CurveId>) -> InflationCurveBuilder {
         InflationCurveBuilder {
             id: id.into(),
@@ -224,7 +220,9 @@ impl InflationCurve {
             .collect();
 
         InflationCurveState {
-            common_id: super::common::StateId { id: self.id.to_string() },
+            common_id: super::common::StateId {
+                id: self.id.to_string(),
+            },
             base_cpi: self.base_cpi,
             points: super::common::StateKnotPoints { knot_points },
             interp: super::common::StateInterp {

@@ -4,9 +4,9 @@ pub mod engine;
 pub mod equity;
 pub mod fixed_income_index;
 
-use crate::instruments::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap, TrsSide};
-use crate::instruments::trs::helpers::validate_trs_currencies;
 use crate::instruments::traits::Priceable;
+use crate::instruments::trs::helpers::validate_trs_currencies;
+use crate::instruments::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap, TrsSide};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;
@@ -83,5 +83,3 @@ impl Priceable for FIIndexTotalReturnSwap {
         Ok(ValuationResult::stamped(self.id.as_str(), as_of, npv))
     }
 }
-
-

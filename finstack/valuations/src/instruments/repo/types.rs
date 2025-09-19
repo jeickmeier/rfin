@@ -1,11 +1,11 @@
 //! Core types for Repurchase Agreement (Repo) instruments.
 
-use crate::instruments::traits::{Attributable, Attributes, Instrument, Priceable};
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
+use crate::instruments::traits::{Attributable, Attributes, Instrument, Priceable};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
-use finstack_core::prelude::*;
 use finstack_core::market_data::MarketContext;
+use finstack_core::prelude::*;
 use finstack_core::F;
 use std::any::Any;
 
@@ -103,13 +103,13 @@ impl CollateralSpec {
             finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
             finstack_core::market_data::scalars::MarketScalar::Unitless(value) => *value,
         };
-        
+
         // Get currency from price scalar
         let currency = match price_scalar {
             finstack_core::market_data::scalars::MarketScalar::Price(money) => money.currency(),
             finstack_core::market_data::scalars::MarketScalar::Unitless(_) => Currency::USD, // Default
         };
-        
+
         Ok(Money::new(unit_value * self.quantity, currency))
     }
 }
@@ -240,7 +240,9 @@ impl Repo {
     pub fn effective_rate(&self) -> F {
         match &self.collateral.collateral_type {
             CollateralType::General => self.repo_rate,
-            CollateralType::Special { rate_adjustment_bp, .. } => {
+            CollateralType::Special {
+                rate_adjustment_bp, ..
+            } => {
                 if let Some(adjustment_bp) = rate_adjustment_bp {
                     self.repo_rate + (adjustment_bp / 10_000.0) // Convert bp to decimal
                 } else {
@@ -259,7 +261,7 @@ impl Repo {
     pub fn is_adequately_collateralized(&self, context: &MarketContext) -> Result<bool> {
         let collateral_value = self.collateral.market_value(context)?;
         let required_value = self.required_collateral_value();
-        
+
         // Ensure same currency for comparison
         if collateral_value.currency() != required_value.currency() {
             return Err(Error::CurrencyMismatch {
@@ -267,7 +269,7 @@ impl Repo {
                 actual: collateral_value.currency(),
             });
         }
-        
+
         Ok(collateral_value.amount() >= required_value.amount())
     }
 
@@ -278,10 +280,10 @@ impl Repo {
             self.maturity,
             finstack_core::dates::DayCountCtx::default(),
         )?;
-        
+
         let effective_rate = self.effective_rate();
         let interest = self.cash_amount.amount() * effective_rate * year_fraction;
-        
+
         Ok(Money::new(interest, self.cash_amount.currency()))
     }
 
@@ -299,24 +301,24 @@ impl Priceable for Repo {
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
                 self.disc_id,
             )?;
-        
+
         // Calculate total repayment at maturity
         let total_repayment = self.total_repayment()?;
-        
+
         // Calculate time to maturity
         let time_to_maturity = self.day_count.year_fraction(
             as_of,
             self.maturity,
             finstack_core::dates::DayCountCtx::default(),
         )?;
-        
+
         // Discount back to valuation date
         let df = disc_curve.df(time_to_maturity);
         let pv = total_repayment * df;
-        
+
         // For repo buyer (cash lender), subtract initial cash outflow
         let net_pv = pv.checked_sub(self.cash_amount)?;
-        
+
         Ok(net_pv)
     }
 
@@ -327,7 +329,7 @@ impl Priceable for Repo {
         metrics: &[MetricId],
     ) -> Result<ValuationResult> {
         let base_value = <Self as Priceable>::value(self, context, as_of)?;
-        
+
         // Use existing utility function to build metrics
         crate::instruments::helpers::build_with_metrics_dyn(
             self as &dyn Instrument,
@@ -340,12 +342,24 @@ impl Priceable for Repo {
 }
 
 impl Instrument for Repo {
-    fn id(&self) -> &str { self.id.as_str() }
-    fn instrument_type(&self) -> &'static str { "Repo" }
-    fn as_any(&self) -> &dyn Any { self }
-    fn attributes(&self) -> &Attributes { &self.attributes }
-    fn attributes_mut(&mut self) -> &mut Attributes { &mut self.attributes }
-    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+    fn instrument_type(&self) -> &'static str {
+        "Repo"
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+    fn attributes_mut(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+    fn clone_box(&self) -> Box<dyn Instrument> {
+        Box::new(self.clone())
+    }
 }
 
 // Do not add explicit Instrument impl; provided by blanket impl.
@@ -363,15 +377,15 @@ impl Attributable for Repo {
 impl CashflowProvider for Repo {
     fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
         let mut flows = Vec::new();
-        
+
         // Initial cash outflow (lending cash) - negative amount for outflow
         let cash_outflow = Money::new(-self.cash_amount.amount(), self.cash_amount.currency());
         flows.push((self.start_date, cash_outflow));
-        
+
         // Final cash inflow (principal + interest)
         let total_repayment = self.total_repayment()?;
         flows.push((self.maturity, total_repayment));
-        
+
         Ok(flows)
     }
 }

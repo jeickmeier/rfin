@@ -68,7 +68,11 @@ pub struct AdaptiveControlParams {
 impl AdaptiveControlParams {
     /// Create new adaptive control parameters
     pub fn new(tolerance: F, depth: usize, max_depth: usize) -> Self {
-        Self { tolerance, depth, max_depth }
+        Self {
+            tolerance,
+            depth,
+            max_depth,
+        }
     }
 }
 

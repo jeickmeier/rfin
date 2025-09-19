@@ -18,13 +18,13 @@ impl MetricCalculator for ParSpreadCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                cds.premium.disc_id,
-            )?;
+            cds.premium.disc_id,
+        )?;
         let surv = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                cds.protection.credit_id,
-            )?;
+            cds.protection.credit_id,
+        )?;
         cds.par_spread(disc, surv)
     }
 
@@ -43,13 +43,13 @@ impl MetricCalculator for RiskyPv01Calculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                cds.premium.disc_id,
-            )?;
+            cds.premium.disc_id,
+        )?;
         let surv = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                cds.protection.credit_id,
-            )?;
+            cds.protection.credit_id,
+        )?;
         cds.risky_pv01(disc, surv)
     }
 
@@ -84,13 +84,13 @@ impl MetricCalculator for ProtectionLegPvCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                cds.premium.disc_id,
-            )?;
+            cds.premium.disc_id,
+        )?;
         let surv = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                cds.protection.credit_id,
-            )?;
+            cds.protection.credit_id,
+        )?;
         let pv = cds.pv_protection_leg(disc, surv)?;
         Ok(pv.amount())
     }
@@ -110,13 +110,13 @@ impl MetricCalculator for PremiumLegPvCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                cds.premium.disc_id,
-            )?;
+            cds.premium.disc_id,
+        )?;
         let surv = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                cds.protection.credit_id,
-            )?;
+            cds.protection.credit_id,
+        )?;
         let pv = cds.pv_premium_leg(disc, surv)?;
         Ok(pv.amount())
     }

@@ -27,9 +27,9 @@
 //! assert!(ratio > 1.0);
 //! ```
 
+use super::primitives::{ScalarTimeSeries, SeriesInterpolation};
 use crate::currency::Currency;
 use crate::dates::Date;
-use super::primitives::{ScalarTimeSeries, SeriesInterpolation};
 use crate::{Error, Result};
 use polars::prelude::*;
 

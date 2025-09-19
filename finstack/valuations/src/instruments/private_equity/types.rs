@@ -4,7 +4,7 @@ use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::private_equity::waterfall::{
     AllocationLedger, EquityWaterfallEngine, FundEvent, WaterfallSpec,
 };
-use crate::instruments::traits::{Attributes, Attributable, Instrument};
+use crate::instruments::traits::{Attributable, Attributes, Instrument};
 use crate::metrics::MetricRegistry;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
@@ -66,12 +66,24 @@ impl PrivateEquityInvestment {
 crate::impl_attributable!(PrivateEquityInvestment);
 
 impl Instrument for PrivateEquityInvestment {
-    fn id(&self) -> &str { &self.id }
-    fn instrument_type(&self) -> &'static str { "PrivateEquityInvestment" }
-    fn as_any(&self) -> &dyn std::any::Any { self }
-    fn attributes(&self) -> &Attributes { <Self as Attributable>::attributes(self) }
-    fn attributes_mut(&mut self) -> &mut Attributes { <Self as Attributable>::attributes_mut(self) }
-    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
+    fn id(&self) -> &str {
+        &self.id
+    }
+    fn instrument_type(&self) -> &'static str {
+        "PrivateEquityInvestment"
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    fn attributes(&self) -> &Attributes {
+        <Self as Attributable>::attributes(self)
+    }
+    fn attributes_mut(&mut self) -> &mut Attributes {
+        <Self as Attributable>::attributes_mut(self)
+    }
+    fn clone_box(&self) -> Box<dyn Instrument> {
+        Box::new(self.clone())
+    }
 }
 
 impl crate::instruments::traits::Priceable for PrivateEquityInvestment {

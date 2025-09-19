@@ -1,10 +1,10 @@
 //! Forward Rate Agreement (FRA) instrument types and implementation.
-use finstack_core::market_data::traits::Forward;
 use crate::cashflow::traits::CashflowProvider;
+use finstack_core::market_data::traits::Forward;
 // Removed params-based constructors; build FRAs via the generated builder instead.
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::traits::{Discounting};
+use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::F;
@@ -126,17 +126,18 @@ impl ForwardRateAgreement {
 impl_instrument!(
     ForwardRateAgreement,
     "FRA",
-    pv = |s, curves, as_of| {
-        let discount_curve = curves
+    pv =
+        |s, curves, as_of| {
+            let discount_curve = curves
             .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
                 s.disc_id,
             )?;
-        let forward_curve = curves
+            let forward_curve = curves
             .get::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
                 s.forward_id,
             )?;
-        s.fra_value(discount_curve.as_ref(), forward_curve.as_ref(), as_of)
-    }
+            s.fra_value(discount_curve.as_ref(), forward_curve.as_ref(), as_of)
+        }
 );
 
 impl CashflowProvider for ForwardRateAgreement {

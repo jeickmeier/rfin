@@ -286,8 +286,8 @@ impl MetricCalculator for BucketedDv01Calculator {
         let disc = context
             .curves
             .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                disc_id.as_str(),
-            )?;
+            disc_id.as_str(),
+        )?;
 
         // Get day count - try to infer or use default
         let dc = context.day_count.unwrap_or(DayCount::Act365F);
@@ -411,9 +411,7 @@ impl MetricCalculator for ThetaCalculator {
         aged_context.fx = original_curves.fx.clone();
 
         // Reprice instrument with aged market context
-        let aged_price = context
-            .instrument
-            .value_dyn(&aged_context, shifted_date)?;
+        let aged_price = context.instrument.value_dyn(&aged_context, shifted_date)?;
 
         // Theta per calendar day
         Ok((aged_price - base_price)?.amount())
@@ -431,9 +429,11 @@ impl ThetaCalculator {
         aged_curve: AgedDiscountCurve,
     ) -> finstack_core::Result<finstack_core::market_data::term_structures::DiscountCurve> {
         use finstack_core::market_data::term_structures::DiscountCurve;
-        
+
         // Sample the aged curve at standard tenor points
-        let standard_times = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0, 30.0];
+        let standard_times = [
+            0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0, 30.0,
+        ];
         let dfs: Vec<(finstack_core::F, finstack_core::F)> = standard_times
             .iter()
             .map(|&t| (t, aged_curve.df(t)))
@@ -453,17 +453,19 @@ impl ThetaCalculator {
         aged_curve: AgedForwardCurve,
     ) -> finstack_core::Result<finstack_core::market_data::term_structures::ForwardCurve> {
         use finstack_core::market_data::term_structures::ForwardCurve;
-        
-        // Sample the aged curve at standard tenor points  
-        let standard_times = [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0, 30.0];
+
+        // Sample the aged curve at standard tenor points
+        let standard_times = [
+            0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 7.0, 10.0, 15.0, 20.0, 25.0, 30.0,
+        ];
         let rates: Vec<(finstack_core::F, finstack_core::F)> = standard_times
             .iter()
             .map(|&t| (t, aged_curve.rate(t)))
             .collect();
 
         // Use standard 3M tenor and base date for forward curves (this is a limitation)
-        let base_date = finstack_core::dates::Date::from_calendar_date(2025, time::Month::January, 1)
-            .unwrap();
+        let base_date =
+            finstack_core::dates::Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
         ForwardCurve::builder(aged_curve.id().as_str(), 0.25)
             .base_date(base_date)
             .knots(rates)
@@ -646,12 +648,26 @@ mod tests {
             }
         }
         impl crate::instruments::traits::Instrument for DummyInstr {
-            fn id(&self) -> &str { "DUMMY" }
-            fn instrument_type(&self) -> &'static str { "Dummy" }
-            fn as_any(&self) -> &dyn std::any::Any { self }
-            fn attributes(&self) -> &crate::instruments::traits::Attributes { &self.attrs }
-            fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes { &mut self.attrs }
-            fn clone_box(&self) -> Box<dyn crate::instruments::traits::Instrument> { Box::new(Self { attrs: self.attrs.clone() }) }
+            fn id(&self) -> &str {
+                "DUMMY"
+            }
+            fn instrument_type(&self) -> &'static str {
+                "Dummy"
+            }
+            fn as_any(&self) -> &dyn std::any::Any {
+                self
+            }
+            fn attributes(&self) -> &crate::instruments::traits::Attributes {
+                &self.attrs
+            }
+            fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes {
+                &mut self.attrs
+            }
+            fn clone_box(&self) -> Box<dyn crate::instruments::traits::Instrument> {
+                Box::new(Self {
+                    attrs: self.attrs.clone(),
+                })
+            }
         }
 
         // Build curves and also keep a separate handle to a discount curve for later checks
@@ -659,10 +675,9 @@ mod tests {
         let curves = Arc::new(
             finstack_core::market_data::MarketContext::new().insert_discount(disc_for_ctx),
         );
-        let instrument: Arc<dyn crate::instruments::traits::Instrument> =
-            Arc::new(DummyInstr {
-                attrs: crate::instruments::traits::Attributes::new(),
-            });
+        let instrument: Arc<dyn crate::instruments::traits::Instrument> = Arc::new(DummyInstr {
+            attrs: crate::instruments::traits::Attributes::new(),
+        });
         let mut ctx = crate::metrics::traits::MetricContext::new(
             instrument,
             curves,

@@ -55,27 +55,15 @@ pub fn standard_registry() -> MetricRegistry {
     crate::instruments::ir_future::metrics::register_ir_future_metrics(&mut registry);
     crate::instruments::cds::metrics::register_cds_metrics(&mut registry);
     crate::instruments::cds_index::metrics::register_cds_index_metrics(&mut registry);
-    crate::instruments::convertible::metrics::register_convertible_metrics(
-        &mut registry,
-    );
-    crate::instruments::inflation_linked_bond::metrics::register_ilb_metrics(
-        &mut registry,
-    );
+    crate::instruments::convertible::metrics::register_convertible_metrics(&mut registry);
+    crate::instruments::inflation_linked_bond::metrics::register_ilb_metrics(&mut registry);
     crate::instruments::fx_spot::metrics::register_fx_spot_metrics(&mut registry);
     crate::instruments::fx_swap::metrics::register_fx_swap_metrics(&mut registry);
-    crate::instruments::inflation_swap::metrics::register_inflation_swap_metrics(
-        &mut registry,
-    );
-    crate::instruments::equity_option::metrics::register_equity_option_metrics(
-        &mut registry,
-    );
+    crate::instruments::inflation_swap::metrics::register_inflation_swap_metrics(&mut registry);
+    crate::instruments::equity_option::metrics::register_equity_option_metrics(&mut registry);
     crate::instruments::fx_option::metrics::register_fx_option_metrics(&mut registry);
-    crate::instruments::cap_floor::metrics::register_interest_rate_option_metrics(
-        &mut registry,
-    );
-    crate::instruments::credit_option::metrics::register_credit_option_metrics(
-        &mut registry,
-    );
+    crate::instruments::cap_floor::metrics::register_interest_rate_option_metrics(&mut registry);
+    crate::instruments::credit_option::metrics::register_credit_option_metrics(&mut registry);
     crate::instruments::swaption::metrics::register_swaption_metrics(&mut registry);
     crate::instruments::loan::metrics::register_loan_metrics(&mut registry);
     crate::instruments::repo::metrics::register_repo_metrics(&mut registry);

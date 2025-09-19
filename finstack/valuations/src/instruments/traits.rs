@@ -129,11 +129,7 @@ pub trait Instrument: Priceable + Send + Sync {
     fn clone_box(&self) -> Box<dyn Instrument>;
 
     /// Convenience: price via dyn Instrument without trait disambiguation
-    fn value_dyn(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> finstack_core::Result<Money> {
+    fn value_dyn(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         <Self as Priceable>::value(self, curves, as_of)
     }
 

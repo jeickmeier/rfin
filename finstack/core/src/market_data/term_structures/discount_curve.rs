@@ -22,13 +22,12 @@
 //! assert!(curve.df(3.0) < 1.0);
 //! ```
 
-
 use super::common::{build_interp_curve_error, split_points, OneDGrid};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     dates::{Date, DayCountCtx},
-    math::interp::types::Interp,
     market_data::traits::{Discounting, TermStructure},
+    math::interp::types::Interp,
     types::CurveId,
     F,
 };
@@ -350,7 +349,9 @@ impl DiscountCurve {
             .collect();
 
         DiscountCurveState {
-            common_id: super::common::StateId { id: self.id.to_string() },
+            common_id: super::common::StateId {
+                id: self.id.to_string(),
+            },
             base: self.base,
             points: super::common::StateKnotPoints { knot_points },
             interp: super::common::StateInterp {

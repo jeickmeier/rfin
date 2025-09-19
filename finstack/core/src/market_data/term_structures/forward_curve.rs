@@ -22,14 +22,13 @@
 //! assert!(fc.rate(1.0) > 0.0);
 //! ```
 
-
 use super::common::{build_interp, split_points, OneDGrid};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     dates::{Date, DayCount},
     error::InputError,
-    math::interp::types::Interp,
     market_data::traits::{Forward, TermStructure},
+    math::interp::types::Interp,
     types::CurveId,
     F,
 };
@@ -152,7 +151,9 @@ impl ForwardCurve {
             .collect();
 
         ForwardCurveState {
-            common_id: super::common::StateId { id: self.id.to_string() },
+            common_id: super::common::StateId {
+                id: self.id.to_string(),
+            },
             base: self.base,
             reset_lag: self.reset_lag,
             day_count: self.day_count,

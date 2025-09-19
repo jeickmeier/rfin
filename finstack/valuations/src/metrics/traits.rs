@@ -52,8 +52,7 @@ pub trait MetricCalculator: Send + Sync {
 /// Allows callers to customize how per-bucket metrics are keyed.
 /// Given a base metric ID (e.g., `MetricId::BucketedDv01`), a bucket label
 /// (e.g., "1y"), and the instrument, return the final `MetricId` to store.
-pub type BucketKeyResolverFn =
-    dyn Fn(&MetricId, &str, &dyn Instrument) -> MetricId + Send + Sync;
+pub type BucketKeyResolverFn = dyn Fn(&MetricId, &str, &dyn Instrument) -> MetricId + Send + Sync;
 
 /// Context containing all data needed for metric calculations.
 ///

@@ -44,13 +44,12 @@
 //! assert_eq!(res.rate, 1.1);
 //! ```
 
-
 use crate::currency::Currency;
 use crate::dates::Date;
-use std::sync::Arc;
 use lru::LruCache;
 use parking_lot::Mutex;
 use std::num::NonZeroUsize;
+use std::sync::Arc;
 // no duration needed in the simplified config
 
 #[cfg(feature = "serde")]
@@ -398,9 +397,17 @@ impl FxMatrix {
     /// assert_eq!(matrix.cache_stats().0, 0);
     /// ```
     pub fn with_config(provider: Arc<dyn FxProvider>, config: FxConfig) -> Self {
-        let capacity = if config.cache_capacity == 0 { 1 } else { config.cache_capacity };
+        let capacity = if config.cache_capacity == 0 {
+            1
+        } else {
+            config.cache_capacity
+        };
         let quotes = LruCache::new(NonZeroUsize::new(capacity).expect("non-zero capacity"));
-        Self { provider, quotes: Mutex::new(quotes), config }
+        Self {
+            provider,
+            quotes: Mutex::new(quotes),
+            config,
+        }
     }
 
     /// Look up an FX rate (with metadata) using caching and triangulation fallbacks.
@@ -508,7 +515,12 @@ impl FxMatrix {
             Err(e) => return Err(e),
         };
 
-        let mut result = FxRateResult { rate, triangulated, pivot_currency, closure: None };
+        let mut result = FxRateResult {
+            rate,
+            triangulated,
+            pivot_currency,
+            closure: None,
+        };
         if query.want_meta {
             let closure = self.compute_closure_result(&query, result.rate)?;
             if self.config.strict_closure {
@@ -521,7 +533,6 @@ impl FxMatrix {
 
         Ok(result)
     }
-
 
     /// Seed or update a single quote directly inside the matrix.
     ///

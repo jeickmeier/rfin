@@ -20,7 +20,6 @@
 //! assert!(hc.sp(5.0) < 1.0);
 //! ```
 
-
 use crate::{
     currency::Currency,
     dates::{Date, DayCount},
@@ -285,7 +284,9 @@ impl HazardCurve {
             .collect();
 
         HazardCurveState {
-            common_id: super::common::StateId { id: self.id.to_string() },
+            common_id: super::common::StateId {
+                id: self.id.to_string(),
+            },
             base: self.base,
             points: super::common::StateKnotPoints { knot_points },
             recovery_rate: self.recovery_rate,

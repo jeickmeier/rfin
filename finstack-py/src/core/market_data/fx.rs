@@ -3,7 +3,8 @@
 use finstack_core::currency::Currency as CoreCurrency;
 use finstack_core::dates::Date;
 use finstack_core::money::fx::{
-    FxConversionPolicy as CorePolicy, FxMatrix as CoreMatrix, FxProvider as CoreProvider, FxQuery as CoreFxQuery, FxRate,
+    FxConversionPolicy as CorePolicy, FxMatrix as CoreMatrix, FxProvider as CoreProvider,
+    FxQuery as CoreFxQuery, FxRate,
 };
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;

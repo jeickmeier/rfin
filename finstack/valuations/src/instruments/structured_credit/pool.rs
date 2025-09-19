@@ -47,7 +47,7 @@ impl PoolAsset {
     pub fn from_loan(loan: &Loan, industry: Option<String>) -> Self {
         Self {
             id: loan.id.clone(),
-            asset_type: AssetType::Loan { 
+            asset_type: AssetType::Loan {
                 loan_type: LoanType::FirstLien, // Default assumption
                 industry: industry.clone(),
             },
@@ -56,7 +56,7 @@ impl PoolAsset {
                 crate::instruments::loan::InterestSpec::Fixed { rate, .. } => *rate,
                 crate::instruments::loan::InterestSpec::Floating { spread_bp, .. } => {
                     *spread_bp / 10_000.0 // Convert bp to decimal
-                },
+                }
                 _ => 0.0, // Default for other types
             },
             maturity: loan.maturity_date,
@@ -69,12 +69,12 @@ impl PoolAsset {
             acquisition_date: None,
         }
     }
-    
+
     /// Create new pool asset from existing bond
     pub fn from_bond(bond: &Bond, industry: Option<String>) -> Self {
         Self {
             id: bond.id.to_string(),
-            asset_type: AssetType::Bond { 
+            asset_type: AssetType::Bond {
                 bond_type: super::types::BondType::HighYield, // Default assumption
                 industry: industry.clone(),
             },
@@ -86,21 +86,28 @@ impl PoolAsset {
             obligor_id: None,
             is_defaulted: false,
             recovery_amount: None,
-            purchase_price: bond.pricing_overrides.quoted_clean_price.map(|p| bond.notional * p),
+            purchase_price: bond
+                .pricing_overrides
+                .quoted_clean_price
+                .map(|p| bond.notional * p),
             acquisition_date: Some(bond.issue),
         }
     }
-    
+
     /// Current yield of the asset
     pub fn current_yield(&self) -> F {
         self.rate
     }
-    
+
     /// Remaining term to maturity in years
     pub fn remaining_term(&self, as_of: Date, day_count: DayCount) -> finstack_core::Result<F> {
-        day_count.year_fraction(as_of, self.maturity, finstack_core::dates::DayCountCtx::default())
+        day_count.year_fraction(
+            as_of,
+            self.maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )
     }
-    
+
     /// Mark asset as defaulted with recovery
     pub fn default_with_recovery(&mut self, recovery_amount: Money, _default_date: Date) {
         self.is_defaulted = true;
@@ -164,10 +171,10 @@ pub struct ConcentrationLimits {
 impl Default for ConcentrationLimits {
     fn default() -> Self {
         Self {
-            max_obligor_concentration: 2.0,  // 2%
+            max_obligor_concentration: 2.0,   // 2%
             max_industry_concentration: 15.0, // 15%
-            max_ccc_assets: 7.5,             // 7.5%
-            min_diversity_score: Some(30.0), // Moody's diversity score
+            max_ccc_assets: 7.5,              // 7.5%
+            min_diversity_score: Some(30.0),  // Moody's diversity score
             max_weighted_avg_life: Some(7.0), // 7 years
             max_single_asset_pct: 1.0,        // 1%
         }
@@ -263,41 +270,37 @@ impl Default for PoolStats {
 pub struct AssetPool {
     /// Pool identifier
     pub id: String,
-    
+
     /// Deal type classification
     pub deal_type: DealType,
-    
+
     /// Underlying assets
     pub assets: Vec<PoolAsset>,
-    
+
     /// Pool governance
     pub eligibility_criteria: EligibilityCriteria,
     pub concentration_limits: ConcentrationLimits,
-    
+
     /// Performance tracking
     pub cumulative_defaults: Money,
     pub cumulative_recoveries: Money,
     pub cumulative_prepayments: Money,
-    
+
     /// Reinvestment management
     pub reinvestment_period: Option<ReinvestmentPeriod>,
-    
+
     /// Pool-level accounts
     pub collection_account: Money,
     pub reserve_account: Money,
     pub excess_spread_account: Money,
-    
+
     /// Cached statistics (updated periodically)
     pub stats: PoolStats,
 }
 
 impl AssetPool {
     /// Create new asset pool
-    pub fn new(
-        id: impl Into<String>, 
-        deal_type: DealType, 
-        base_currency: Currency
-    ) -> Self {
+    pub fn new(id: impl Into<String>, deal_type: DealType, base_currency: Currency) -> Self {
         let zero_money = Money::new(0.0, base_currency);
         Self {
             id: id.into(),
@@ -315,159 +318,168 @@ impl AssetPool {
             stats: PoolStats::default(),
         }
     }
-    
+
     /// Add asset from existing loan
     pub fn add_loan(&mut self, loan: &Loan, industry: Option<String>) -> &mut Self {
         let asset = PoolAsset::from_loan(loan, industry);
         self.assets.push(asset);
         self
     }
-    
+
     /// Add asset from existing bond
     pub fn add_bond(&mut self, bond: &Bond, industry: Option<String>) -> &mut Self {
         let asset = PoolAsset::from_bond(bond, industry);
         self.assets.push(asset);
         self
     }
-    
+
     /// Total pool balance
     pub fn total_balance(&self) -> Money {
-        self.assets.iter()
-            .try_fold(
-                Money::new(0.0, self.base_currency()),
-                |acc, asset| acc.checked_add(asset.balance)
-            )
+        self.assets
+            .iter()
+            .try_fold(Money::new(0.0, self.base_currency()), |acc, asset| {
+                acc.checked_add(asset.balance)
+            })
             .unwrap_or_else(|_| Money::new(0.0, self.base_currency()))
     }
-    
+
     /// Total pool balance excluding defaulted assets
     pub fn performing_balance(&self) -> Money {
-        self.assets.iter()
+        self.assets
+            .iter()
             .filter(|a| !a.is_defaulted)
-            .try_fold(
-                Money::new(0.0, self.base_currency()),
-                |acc, asset| acc.checked_add(asset.balance)
-            )
+            .try_fold(Money::new(0.0, self.base_currency()), |acc, asset| {
+                acc.checked_add(asset.balance)
+            })
             .unwrap_or_else(|_| Money::new(0.0, self.base_currency()))
     }
-    
+
     /// Calculate weighted average coupon
     pub fn weighted_avg_coupon(&self) -> F {
         let total_balance = self.total_balance().amount();
         if total_balance == 0.0 {
             return 0.0;
         }
-        
-        let weighted_sum = self.assets.iter()
+
+        let weighted_sum = self
+            .assets
+            .iter()
             .map(|a| a.rate * a.balance.amount())
             .sum::<F>();
-            
+
         weighted_sum / total_balance
     }
-    
+
     /// Calculate weighted average life (simplified)
     pub fn weighted_avg_life(&self, as_of: Date) -> F {
         let total_balance = self.total_balance().amount();
         if total_balance == 0.0 {
             return 0.0;
         }
-        
-        let weighted_sum = self.assets.iter()
+
+        let weighted_sum = self
+            .assets
+            .iter()
             .filter_map(|a| {
                 a.remaining_term(as_of, DayCount::Act365F)
                     .ok()
                     .map(|term| term * a.balance.amount())
             })
             .sum::<F>();
-            
+
         weighted_sum / total_balance
     }
-    
+
     /// Calculate diversity score (simplified Moody's approach)
     pub fn diversity_score(&self) -> F {
         let mut obligor_balances: HashMap<String, F> = HashMap::new();
         let total_balance = self.total_balance().amount();
-        
+
         if total_balance == 0.0 {
             return 0.0;
         }
-        
+
         // Group by obligor
         for asset in &self.assets {
             if let Some(ref obligor) = asset.obligor_id {
                 *obligor_balances.entry(obligor.clone()).or_insert(0.0) += asset.balance.amount();
             }
         }
-        
+
         // Calculate diversity score = (sum of balances)^2 / sum of (balance^2)
         let sum_balances: F = obligor_balances.values().sum();
         let sum_squares: F = obligor_balances.values().map(|b| b * b).sum();
-        
+
         if sum_squares > 0.0 {
             (sum_balances * sum_balances) / sum_squares
         } else {
             0.0
         }
     }
-    
+
     /// Check eligibility of an asset for the pool
     pub fn is_eligible(&self, asset: &PoolAsset, _as_of: Date) -> bool {
         let criteria = &self.eligibility_criteria;
-        
+
         // Check credit rating
-        if let (Some(min_rating), Some(asset_rating)) = (criteria.min_credit_rating, asset.credit_quality) {
+        if let (Some(min_rating), Some(asset_rating)) =
+            (criteria.min_credit_rating, asset.credit_quality)
+        {
             if asset_rating < min_rating {
                 return false;
             }
         }
-        
+
         // Check maturity
         if let Some(max_maturity) = criteria.max_maturity {
             if asset.maturity > max_maturity {
                 return false;
             }
         }
-        
+
         // Check currency
-        if !criteria.eligible_currencies.contains(&asset.balance.currency()) {
+        if !criteria
+            .eligible_currencies
+            .contains(&asset.balance.currency())
+        {
             return false;
         }
-        
+
         // Check excluded industries
         if let Some(ref industry) = asset.industry {
             if criteria.excluded_industries.contains(industry) {
                 return false;
             }
         }
-        
+
         // Check minimum spread (simplified)
         if let Some(min_spread) = criteria.min_spread_bp {
             if asset.rate * 10_000.0 < min_spread {
                 return false;
             }
         }
-        
+
         true
     }
-    
+
     /// Check concentration limits compliance
     pub fn check_concentration_limits(&self) -> ConcentrationCheckResult {
         let mut violations = Vec::new();
         let total_balance = self.total_balance().amount();
-        
+
         if total_balance == 0.0 {
             return ConcentrationCheckResult { violations };
         }
-        
+
         // Check obligor concentration
         let mut obligor_concentrations: HashMap<String, F> = HashMap::new();
         for asset in &self.assets {
             if let Some(ref obligor) = asset.obligor_id {
-                *obligor_concentrations.entry(obligor.clone()).or_insert(0.0) += 
+                *obligor_concentrations.entry(obligor.clone()).or_insert(0.0) +=
                     asset.balance.amount() / total_balance * 100.0;
             }
         }
-        
+
         for (obligor, concentration) in &obligor_concentrations {
             if *concentration > self.concentration_limits.max_obligor_concentration {
                 violations.push(ConcentrationViolation {
@@ -478,16 +490,17 @@ impl AssetPool {
                 });
             }
         }
-        
+
         // Check industry concentration
         let mut industry_concentrations: HashMap<String, F> = HashMap::new();
         for asset in &self.assets {
             if let Some(ref industry) = asset.industry {
-                *industry_concentrations.entry(industry.clone()).or_insert(0.0) += 
-                    asset.balance.amount() / total_balance * 100.0;
+                *industry_concentrations
+                    .entry(industry.clone())
+                    .or_insert(0.0) += asset.balance.amount() / total_balance * 100.0;
             }
         }
-        
+
         for (industry, concentration) in &industry_concentrations {
             if *concentration > self.concentration_limits.max_industry_concentration {
                 violations.push(ConcentrationViolation {
@@ -498,14 +511,21 @@ impl AssetPool {
                 });
             }
         }
-        
+
         // Check CCC asset concentration
-        let ccc_balance: F = self.assets.iter()
-            .filter(|a| matches!(a.credit_quality, Some(CreditRating::CCC | CreditRating::CC | CreditRating::C)))
+        let ccc_balance: F = self
+            .assets
+            .iter()
+            .filter(|a| {
+                matches!(
+                    a.credit_quality,
+                    Some(CreditRating::CCC | CreditRating::CC | CreditRating::C)
+                )
+            })
             .map(|a| a.balance.amount())
             .sum();
         let ccc_concentration = ccc_balance / total_balance * 100.0;
-        
+
         if ccc_concentration > self.concentration_limits.max_ccc_assets {
             violations.push(ConcentrationViolation {
                 violation_type: "ccc_concentration".to_string(),
@@ -514,20 +534,20 @@ impl AssetPool {
                 limit: self.concentration_limits.max_ccc_assets,
             });
         }
-        
+
         ConcentrationCheckResult { violations }
     }
-    
+
     /// Update pool statistics
     pub fn update_stats(&mut self, as_of: Date) {
         self.stats.weighted_avg_coupon = self.weighted_avg_coupon();
         self.stats.weighted_avg_life = self.weighted_avg_life(as_of);
         self.stats.diversity_score = self.diversity_score();
-        
+
         // Count unique obligors and industries
         let mut obligors = std::collections::HashSet::new();
         let mut industries = std::collections::HashSet::new();
-        
+
         for asset in &self.assets {
             if let Some(ref obligor) = asset.obligor_id {
                 obligors.insert(obligor.clone());
@@ -536,35 +556,41 @@ impl AssetPool {
                 industries.insert(industry.clone());
             }
         }
-        
+
         self.stats.num_obligors = obligors.len();
         self.stats.num_industries = industries.len();
-        
+
         // Calculate default rate
-        let defaulted_balance: F = self.assets.iter()
+        let defaulted_balance: F = self
+            .assets
+            .iter()
             .filter(|a| a.is_defaulted)
             .map(|a| a.balance.amount())
             .sum();
-        self.stats.cumulative_default_rate = defaulted_balance / self.total_balance().amount() * 100.0;
+        self.stats.cumulative_default_rate =
+            defaulted_balance / self.total_balance().amount() * 100.0;
     }
-    
+
     /// Base currency of the pool (from first asset)
     pub fn base_currency(&self) -> Currency {
-        self.assets.first()
+        self.assets
+            .first()
             .map(|a| a.balance.currency())
             .unwrap_or(Currency::USD)
     }
-    
+
     /// Get assets by industry
     pub fn assets_by_industry(&self, industry: &str) -> Vec<&PoolAsset> {
-        self.assets.iter()
+        self.assets
+            .iter()
             .filter(|a| a.industry.as_deref() == Some(industry))
             .collect()
     }
-    
+
     /// Get assets by obligor
     pub fn assets_by_obligor(&self, obligor_id: &str) -> Vec<&PoolAsset> {
-        self.assets.iter()
+        self.assets
+            .iter()
             .filter(|a| a.obligor_id.as_deref() == Some(obligor_id))
             .collect()
     }
@@ -597,11 +623,11 @@ mod tests {
     use super::*;
     use finstack_core::currency::Currency;
     use time::Month;
-    
+
     fn test_date() -> Date {
         Date::from_calendar_date(2025, Month::January, 1).unwrap()
     }
-    
+
     #[test]
     fn test_pool_creation() {
         let pool = AssetPool::new("TEST_POOL", DealType::CLO, Currency::USD);
@@ -609,15 +635,15 @@ mod tests {
         assert_eq!(pool.deal_type, DealType::CLO);
         assert_eq!(pool.base_currency(), Currency::USD);
     }
-    
+
     #[test]
     fn test_pool_stats_calculation() {
         let mut pool = AssetPool::new("TEST_POOL", DealType::CLO, Currency::USD);
-        
+
         // Add test assets
         let asset1 = PoolAsset {
             id: "ASSET1".to_string(),
-            asset_type: AssetType::Loan { 
+            asset_type: AssetType::Loan {
                 loan_type: LoanType::FirstLien,
                 industry: Some("Technology".to_string()),
             },
@@ -632,23 +658,23 @@ mod tests {
             purchase_price: None,
             acquisition_date: None,
         };
-        
+
         pool.assets.push(asset1);
         pool.update_stats(test_date());
-        
+
         assert_eq!(pool.stats.weighted_avg_coupon, 0.08);
         assert_eq!(pool.stats.num_obligors, 1);
         assert_eq!(pool.stats.num_industries, 1);
     }
-    
+
     #[test]
     fn test_concentration_limits() {
         let mut pool = AssetPool::new("TEST_POOL", DealType::CLO, Currency::USD);
-        
+
         // Add asset that violates obligor concentration
         let large_asset = PoolAsset {
             id: "LARGE_ASSET".to_string(),
-            asset_type: AssetType::Loan { 
+            asset_type: AssetType::Loan {
                 loan_type: LoanType::FirstLien,
                 industry: Some("Technology".to_string()),
             },
@@ -663,12 +689,12 @@ mod tests {
             purchase_price: None,
             acquisition_date: None,
         };
-        
+
         pool.assets.push(large_asset);
-        
+
         // Set strict limit for testing
         pool.concentration_limits.max_obligor_concentration = 50.0; // 50%
-        
+
         let result = pool.check_concentration_limits();
         assert!(result.has_violations());
     }

@@ -17,7 +17,7 @@
 //! use finstack_valuations::instruments::structured_credit::*;
 //! use finstack_core::money::Money;
 //! use finstack_core::currency::Currency;
-//! 
+//!
 //! // Create a simple CLO with equity and senior tranches
 //! # fn example() -> finstack_core::Result<()> {
 //! # let pool = AssetPool::new("TEST_POOL", DealType::CLO, Currency::USD);
@@ -62,8 +62,8 @@ pub mod types;
 pub mod waterfall;
 
 // Re-export main types for convenience
-pub use types::*;
+pub use coverage_tests::*;
 pub use pool::*;
 pub use tranches::*;
+pub use types::*;
 pub use waterfall::*;
-pub use coverage_tests::*;

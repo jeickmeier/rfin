@@ -1,8 +1,8 @@
 //! CDS Index types and implementations.
 
-use crate::instruments::PricingOverrides;
 use crate::instruments::cds::CreditParams;
 use crate::instruments::traits::Attributes;
+use crate::instruments::PricingOverrides;
 use finstack_core::money::Money;
 
 // Reuse CDS components for conventions and legs
@@ -41,7 +41,6 @@ pub struct CDSIndex {
 }
 
 impl CDSIndex {
-
     /// Create a new CDS Index with standard ISDA conventions using parameter structs
     #[allow(clippy::too_many_arguments)]
     pub fn new_standard(

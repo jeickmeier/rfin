@@ -22,7 +22,6 @@ macro_rules! impl_attributable {
     };
 }
 
-
 /// Generate a full instrument implementation:
 /// - Attributable
 /// - Instrument
@@ -39,22 +38,34 @@ macro_rules! impl_instrument {
         // Unified Instrument implementation
         impl $crate::instruments::traits::Instrument for $type {
             #[inline]
-            fn id(&self) -> &str { self.id.as_str() }
+            fn id(&self) -> &str {
+                self.id.as_str()
+            }
 
             #[inline]
-            fn instrument_type(&self) -> &'static str { $type_name }
+            fn instrument_type(&self) -> &'static str {
+                $type_name
+            }
 
             #[inline]
-            fn as_any(&self) -> &dyn ::std::any::Any { self }
+            fn as_any(&self) -> &dyn ::std::any::Any {
+                self
+            }
 
             #[inline]
-            fn attributes(&self) -> &$crate::instruments::traits::Attributes { &self.attributes }
+            fn attributes(&self) -> &$crate::instruments::traits::Attributes {
+                &self.attributes
+            }
 
             #[inline]
-            fn attributes_mut(&mut self) -> &mut $crate::instruments::traits::Attributes { &mut self.attributes }
+            fn attributes_mut(&mut self) -> &mut $crate::instruments::traits::Attributes {
+                &mut self.attributes
+            }
 
             #[inline]
-            fn clone_box(&self) -> Box<dyn $crate::instruments::traits::Instrument> { Box::new(self.clone()) }
+            fn clone_box(&self) -> Box<dyn $crate::instruments::traits::Instrument> {
+                Box::new(self.clone())
+            }
         }
 
         // Pricing surface (PV + metrics)
@@ -82,7 +93,6 @@ macro_rules! impl_instrument {
                 )
             }
         }
-
     };
 }
 
@@ -289,14 +299,20 @@ macro_rules! impl_builder_enhancements {
     ($builder:ident) => {
         impl $builder {
             /// Quick setup for USD market standard parameters
-            pub fn usd_standard(mut self, _disc_id: impl Into<finstack_core::types::CurveId>) -> Self {
+            pub fn usd_standard(
+                mut self,
+                _disc_id: impl Into<finstack_core::types::CurveId>,
+            ) -> Self {
                 self.schedule_params =
                     Some($crate::cashflow::builder::ScheduleParams::usd_standard());
                 self
             }
 
             /// Quick setup for EUR market standard parameters
-            pub fn eur_standard(mut self, _disc_id: impl Into<finstack_core::types::CurveId>) -> Self {
+            pub fn eur_standard(
+                mut self,
+                _disc_id: impl Into<finstack_core::types::CurveId>,
+            ) -> Self {
                 self.schedule_params =
                     Some($crate::cashflow::builder::ScheduleParams::eur_standard());
                 self

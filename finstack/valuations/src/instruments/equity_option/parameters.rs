@@ -26,12 +26,7 @@ pub struct EquityOptionParams {
 
 impl EquityOptionParams {
     /// Create new equity option parameters
-    pub fn new(
-        strike: Money,
-        expiry: Date,
-        option_type: OptionType,
-        contract_size: F,
-    ) -> Self {
+    pub fn new(strike: Money, expiry: Date, option_type: OptionType, contract_size: F) -> Self {
         Self {
             strike,
             expiry,
@@ -44,38 +39,22 @@ impl EquityOptionParams {
 
     /// Create European call option parameters
     pub fn european_call(strike: Money, expiry: Date, contract_size: F) -> Self {
-        Self::new(
-            strike,
-            expiry,
-            OptionType::Call,
-            contract_size,
-        )
+        Self::new(strike, expiry, OptionType::Call, contract_size)
     }
 
     /// Create European put option parameters  
     pub fn european_put(strike: Money, expiry: Date, contract_size: F) -> Self {
-        Self::new(
-            strike,
-            expiry,
-            OptionType::Put,
-            contract_size,
-        )
+        Self::new(strike, expiry, OptionType::Put, contract_size)
     }
 
     /// Set exercise style
-    pub fn with_exercise_style(
-        mut self,
-        style: ExerciseStyle,
-    ) -> Self {
+    pub fn with_exercise_style(mut self, style: ExerciseStyle) -> Self {
         self.exercise_style = style;
         self
     }
 
     /// Set settlement type
-    pub fn with_settlement(
-        mut self,
-        settlement: SettlementType,
-    ) -> Self {
+    pub fn with_settlement(mut self, settlement: SettlementType) -> Self {
         self.settlement = settlement;
         self
     }

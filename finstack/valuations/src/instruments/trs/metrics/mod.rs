@@ -1,9 +1,9 @@
 //! Risk metrics for Total Return Swaps.
 
 mod annuity;
-mod par_spread;
-mod ir01;
 mod delta;
+mod ir01;
+mod par_spread;
 
 pub use annuity::FinancingAnnuityCalculator;
 pub use delta::IndexDeltaCalculator;

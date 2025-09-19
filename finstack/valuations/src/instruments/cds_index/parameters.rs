@@ -66,11 +66,7 @@ pub struct CDSIndexConstructionParams {
 
 impl CDSIndexConstructionParams {
     /// Create new CDS index construction parameters
-    pub fn new(
-        notional: Money,
-        side: PayReceive,
-        convention: CDSConvention,
-    ) -> Self {
+    pub fn new(notional: Money, side: PayReceive, convention: CDSConvention) -> Self {
         Self {
             notional,
             side,
@@ -80,10 +76,6 @@ impl CDSIndexConstructionParams {
 
     /// Create standard protection buyer parameters
     pub fn buy_protection(notional: Money) -> Self {
-        Self::new(
-            notional,
-            PayReceive::PayProtection,
-            CDSConvention::IsdaNa,
-        )
+        Self::new(notional, PayReceive::PayProtection, CDSConvention::IsdaNa)
     }
 }

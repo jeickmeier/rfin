@@ -6,10 +6,8 @@
 
 use crate::calibration::quote::CreditQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
-use crate::instruments::cds::{
-    cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap,
-};
 use crate::instruments::cds::parameters::CDSConstructionParams;
+use crate::instruments::cds::{cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::{
     HazardCurve, ParInterp, Seniority,
@@ -304,8 +302,8 @@ impl Calibrator<CreditQuote, HazardCurve> for HazardCurveCalibrator {
     ) -> Result<(HazardCurve, CalibrationReport)> {
         let disc = base_context
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                &self.discount_curve_id,
-            )?;
+            &self.discount_curve_id,
+        )?;
         crate::with_solver!(&self.config, |solver| {
             self.bootstrap_internal(instruments, &solver, Some(disc))
         })
@@ -397,11 +395,8 @@ mod tests {
                 ..
             } = q
             {
-                let credit_params = crate::instruments::CreditParams::new(
-                    "AAPL",
-                    0.40,
-                    "AAPL-Senior",
-                );
+                let credit_params =
+                    crate::instruments::CreditParams::new("AAPL", 0.40, "AAPL-Senior");
                 let construction_params = CDSConstructionParams::buy_protection(
                     Money::new(1_000_000.0, Currency::USD),
                     spread_bp,

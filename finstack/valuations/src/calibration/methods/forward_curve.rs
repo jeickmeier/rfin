@@ -15,10 +15,7 @@ use crate::instruments::{
 use finstack_core::{
     currency::Currency,
     dates::{add_months, BusinessDayConvention, Date, DayCount, DayCountCtx, Frequency, StubKind},
-    market_data::{
-        context::MarketContext,
-        term_structures::forward_curve::ForwardCurve,
-    },
+    market_data::{context::MarketContext, term_structures::forward_curve::ForwardCurve},
     math::{interp::InterpStyle, Solver},
     money::Money,
     Result, F,

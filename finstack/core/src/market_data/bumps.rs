@@ -3,15 +3,12 @@
 //! This module provides functionality to apply parallel shocks and bumps
 //! to market data curves, surfaces, and scalars.
 
+use super::term_structures::{
+    base_correlation::BaseCorrelationCurve, discount_curve::DiscountCurve,
+    forward_curve::ForwardCurve, hazard_curve::HazardCurve, inflation::InflationCurve,
+};
 use crate::types::CurveId;
 use crate::F;
-use super::term_structures::{
-    discount_curve::DiscountCurve,
-    forward_curve::ForwardCurve,
-    hazard_curve::HazardCurve,
-    inflation::InflationCurve,
-    base_correlation::BaseCorrelationCurve,
-};
 
 // -----------------------------------------------------------------------------
 // Bump Specification Types
@@ -127,7 +124,6 @@ impl BumpSpec {
     }
 }
 
-
 // -----------------------------------------------------------------------------
 // ID formatting helpers
 // -----------------------------------------------------------------------------
@@ -218,10 +214,16 @@ impl Bumpable for ForwardCurve {
             BumpMode::Additive => match spec.units {
                 BumpUnits::RateBp => id_bump_bp(self.id().as_str(), spec.value),
                 BumpUnits::Percent => id_bump_pct(self.id().as_str(), spec.value),
-                BumpUnits::Fraction => CurveId::new(format!("{}_bump_frac_{:.4}", self.id(), spec.value)),
-                BumpUnits::Factor => CurveId::new(format!("{}_bump_factor_{:.4}", self.id(), spec.value)),
+                BumpUnits::Fraction => {
+                    CurveId::new(format!("{}_bump_frac_{:.4}", self.id(), spec.value))
+                }
+                BumpUnits::Factor => {
+                    CurveId::new(format!("{}_bump_factor_{:.4}", self.id(), spec.value))
+                }
             },
-            BumpMode::Multiplicative => CurveId::new(format!("{}_bump_factor_{:.4}", self.id(), spec.value)),
+            BumpMode::Multiplicative => {
+                CurveId::new(format!("{}_bump_factor_{:.4}", self.id(), spec.value))
+            }
         };
 
         let bumped_rates: Vec<(F, F)> = self
@@ -257,7 +259,9 @@ impl Bumpable for HazardCurve {
             BumpUnits::RateBp => id_spread_bp(self.id().as_str(), spec.value),
             BumpUnits::Percent => id_bump_pct(self.id().as_str(), spec.value),
             BumpUnits::Fraction => CurveId::new(format!("{}_shift_{:.4}", self.id(), spec.value)),
-            BumpUnits::Factor => CurveId::new(format!("{}_shift_factor_{:.4}", self.id(), spec.value)),
+            BumpUnits::Factor => {
+                CurveId::new(format!("{}_shift_factor_{:.4}", self.id(), spec.value))
+            }
         };
 
         let shifted_points: Vec<(F, F)> = self
@@ -280,7 +284,9 @@ impl Bumpable for HazardCurve {
 impl Bumpable for InflationCurve {
     fn apply_bump(&self, spec: BumpSpec) -> Option<Self> {
         let factor = match (spec.mode, spec.units) {
-            (BumpMode::Additive, BumpUnits::Percent | BumpUnits::Fraction) => 1.0 + spec.additive_fraction()?,
+            (BumpMode::Additive, BumpUnits::Percent | BumpUnits::Fraction) => {
+                1.0 + spec.additive_fraction()?
+            }
             (BumpMode::Multiplicative, BumpUnits::Factor) => spec.value,
             _ => return None,
         };
@@ -288,11 +294,17 @@ impl Bumpable for InflationCurve {
         let bumped_id = match spec.mode {
             BumpMode::Additive => match spec.units {
                 BumpUnits::Percent => id_bump_pct(self.id().as_str(), spec.value),
-                BumpUnits::Fraction => CurveId::new(format!("{}_bump_frac_{:.4}", self.id(), spec.value)),
+                BumpUnits::Fraction => {
+                    CurveId::new(format!("{}_bump_frac_{:.4}", self.id(), spec.value))
+                }
                 BumpUnits::RateBp => id_bump_bp(self.id().as_str(), spec.value),
-                BumpUnits::Factor => CurveId::new(format!("{}_bump_factor_{:.4}", self.id(), spec.value)),
+                BumpUnits::Factor => {
+                    CurveId::new(format!("{}_bump_factor_{:.4}", self.id(), spec.value))
+                }
             },
-            BumpMode::Multiplicative => CurveId::new(format!("{}_bump_factor_{:.4}", self.id(), spec.value)),
+            BumpMode::Multiplicative => {
+                CurveId::new(format!("{}_bump_factor_{:.4}", self.id(), spec.value))
+            }
         };
 
         let bumped_points: Vec<(F, F)> = self
@@ -314,7 +326,9 @@ impl Bumpable for InflationCurve {
 impl Bumpable for BaseCorrelationCurve {
     fn apply_bump(&self, spec: BumpSpec) -> Option<Self> {
         let (add, mul) = match (spec.mode, spec.units) {
-            (BumpMode::Additive, BumpUnits::Percent | BumpUnits::Fraction) => (spec.additive_fraction()?, 1.0),
+            (BumpMode::Additive, BumpUnits::Percent | BumpUnits::Fraction) => {
+                (spec.additive_fraction()?, 1.0)
+            }
             (BumpMode::Multiplicative, BumpUnits::Factor) => (0.0, spec.value),
             _ => return None,
         };
@@ -322,11 +336,17 @@ impl Bumpable for BaseCorrelationCurve {
         let bumped_id = match spec.mode {
             BumpMode::Additive => match spec.units {
                 BumpUnits::Percent => id_bump_pct(self.id().as_str(), spec.value),
-                BumpUnits::Fraction => CurveId::new(format!("{}_bump_frac_{:.4}", self.id(), spec.value)),
+                BumpUnits::Fraction => {
+                    CurveId::new(format!("{}_bump_frac_{:.4}", self.id(), spec.value))
+                }
                 BumpUnits::RateBp => id_bump_bp(self.id().as_str(), spec.value),
-                BumpUnits::Factor => CurveId::new(format!("{}_bump_factor_{:.4}", self.id(), spec.value)),
+                BumpUnits::Factor => {
+                    CurveId::new(format!("{}_bump_factor_{:.4}", self.id(), spec.value))
+                }
             },
-            BumpMode::Multiplicative => CurveId::new(format!("{}_bump_factor_{:.4}", self.id(), spec.value)),
+            BumpMode::Multiplicative => {
+                CurveId::new(format!("{}_bump_factor_{:.4}", self.id(), spec.value))
+            }
         };
 
         let bumped_points: Vec<(F, F)> = self

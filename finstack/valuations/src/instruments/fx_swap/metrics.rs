@@ -23,14 +23,16 @@ impl MetricCalculator for ForwardPoints {
             )
             .unwrap_or(0.0);
 
-        let domestic_disc = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                fx_swap.domestic_disc_id,
-            )?;
-        let foreign_disc = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                fx_swap.foreign_disc_id,
-            )?;
+        let domestic_disc =
+            curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    fx_swap.domestic_disc_id,
+                )?;
+        let foreign_disc =
+            curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    fx_swap.foreign_disc_id,
+                )?;
 
         let df_dom_far = domestic_disc.df(t_far);
         let df_for_far = foreign_disc.df(t_far);
@@ -76,14 +78,16 @@ impl MetricCalculator for DomesticIR01 {
         let original_pv = fx_swap.value(&curves, as_of)?;
 
         // Manually re-calculate PV with bumped domestic curve
-        let domestic_disc = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                fx_swap.domestic_disc_id,
-            )?;
-        let foreign_disc = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                fx_swap.foreign_disc_id,
-            )?;
+        let domestic_disc =
+            curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    fx_swap.domestic_disc_id,
+                )?;
+        let foreign_disc =
+            curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    fx_swap.foreign_disc_id,
+                )?;
 
         let dc = finstack_core::dates::DayCount::Act365F;
         let t_near = dc
@@ -168,14 +172,16 @@ impl MetricCalculator for ForeignIR01 {
         let original_pv = fx_swap.value(&curves, as_of)?;
 
         // Manually re-calculate PV with bumped foreign curve
-        let domestic_disc = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                fx_swap.domestic_disc_id,
-            )?;
-        let foreign_disc = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                fx_swap.foreign_disc_id,
-            )?;
+        let domestic_disc =
+            curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    fx_swap.domestic_disc_id,
+                )?;
+        let foreign_disc =
+            curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    fx_swap.foreign_disc_id,
+                )?;
 
         let dc = finstack_core::dates::DayCount::Act365F;
         let t_near = dc
@@ -261,14 +267,16 @@ impl MetricCalculator for FX01 {
         let original_pv = fx_swap.value(&curves, as_of)?;
 
         // Manually recalculate PV with bumped spot rate
-        let domestic_disc = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                fx_swap.domestic_disc_id,
-            )?;
-        let foreign_disc = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                fx_swap.foreign_disc_id,
-            )?;
+        let domestic_disc =
+            curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    fx_swap.domestic_disc_id,
+                )?;
+        let foreign_disc =
+            curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    fx_swap.foreign_disc_id,
+                )?;
 
         let dc = finstack_core::dates::DayCount::Act365F;
         let t_near = dc

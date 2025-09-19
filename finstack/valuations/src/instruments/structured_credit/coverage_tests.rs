@@ -69,26 +69,24 @@ pub enum NumeratorDefinition {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum DenominatorDefinition {
     /// Sum of senior tranches (for subordinate OC test)
-    SeniorTranches { 
+    SeniorTranches {
         /// Include tranches up to this seniority level
         up_to_seniority: super::types::TrancheSeniority,
     },
     /// Specific tranche balance
-    TrancheBalance { 
+    TrancheBalance {
         /// Tranche identifier
         tranche_id: String,
     },
     /// Sum of interest due to specified tranches
-    InterestDue { 
+    InterestDue {
         /// Tranche identifiers
         tranches: Vec<String>,
         /// Annualization factor
         annualization_factor: F,
     },
     /// Custom calculation
-    Custom {
-        description: String,
-    },
+    Custom { description: String },
 }
 
 /// Results of coverage test calculations
@@ -174,7 +172,7 @@ impl CoverageTests {
             historical_results: Vec::new(),
         }
     }
-    
+
     /// Add standard OC test for a tranche
     pub fn add_oc_test(
         &mut self,
@@ -196,11 +194,11 @@ impl CoverageTests {
             trigger_level,
             cure_level,
         };
-        
+
         self.test_definitions.insert(test_name, test_def);
         self
     }
-    
+
     /// Add standard IC test for a tranche
     pub fn add_ic_test(
         &mut self,
@@ -223,11 +221,11 @@ impl CoverageTests {
             trigger_level,
             cure_level,
         };
-        
+
         self.test_definitions.insert(test_name, test_def);
         self
     }
-    
+
     /// Run all coverage tests
     pub fn run_tests(
         &mut self,
@@ -243,33 +241,37 @@ impl CoverageTests {
             breached_tests: Vec::new(),
             payment_diversion: PaymentDiversion::default(),
         };
-        
+
         // Run each defined test
         for (test_name, test_def) in &self.test_definitions {
             let ratio = self.calculate_test_ratio(test_def, pool, tranches)?;
-            
+
             // Store result by type
             match test_def.test_type {
                 CoverageTestType::OC => {
-                    if let DenominatorDefinition::TrancheBalance { ref tranche_id } = test_def.denominator {
+                    if let DenominatorDefinition::TrancheBalance { ref tranche_id } =
+                        test_def.denominator
+                    {
                         new_results.oc_ratios.insert(tranche_id.clone(), ratio);
                     }
-                },
+                }
                 CoverageTestType::IC => {
-                    if let DenominatorDefinition::InterestDue { ref tranches, .. } = test_def.denominator {
+                    if let DenominatorDefinition::InterestDue { ref tranches, .. } =
+                        test_def.denominator
+                    {
                         if let Some(first_tranche) = tranches.first() {
                             new_results.ic_ratios.insert(first_tranche.clone(), ratio);
                         }
                     }
-                },
+                }
                 CoverageTestType::ParValue => {
                     new_results.par_value_ratio = Some(ratio);
-                },
+                }
                 CoverageTestType::Custom(_) => {
                     new_results.custom_results.insert(test_name.clone(), ratio);
-                },
+                }
             }
-            
+
             // Check for breach
             if ratio < test_def.trigger_level {
                 let breach = BreachedTest {
@@ -283,14 +285,15 @@ impl CoverageTests {
                 new_results.breached_tests.push(breach);
             }
         }
-        
+
         // Store historical results
-        self.historical_results.push((test_date, self.current_results.clone()));
+        self.historical_results
+            .push((test_date, self.current_results.clone()));
         self.current_results = new_results;
-        
+
         Ok(&self.current_results)
     }
-    
+
     /// Calculate ratio for a specific test definition
     fn calculate_test_ratio(
         &self,
@@ -300,21 +303,25 @@ impl CoverageTests {
     ) -> finstack_core::Result<F> {
         let numerator = self.calculate_numerator(&test_def.numerator, pool)?;
         let denominator = self.calculate_denominator(&test_def.denominator, pool, tranches)?;
-        
+
         if denominator == 0.0 {
             Ok(F::INFINITY) // Perfect coverage when denominator is zero
         } else {
             Ok(numerator / denominator)
         }
     }
-    
+
     /// Calculate numerator value
-    fn calculate_numerator(&self, def: &NumeratorDefinition, pool: &AssetPool) -> finstack_core::Result<F> {
+    fn calculate_numerator(
+        &self,
+        def: &NumeratorDefinition,
+        pool: &AssetPool,
+    ) -> finstack_core::Result<F> {
         match def {
-            NumeratorDefinition::AdjustedPoolPrincipal { 
-                haircuts, 
-                exclude_defaulted, 
-                apply_recovery 
+            NumeratorDefinition::AdjustedPoolPrincipal {
+                haircuts,
+                exclude_defaulted,
+                apply_recovery,
             } => {
                 let mut total = 0.0;
                 for asset in &pool.assets {
@@ -326,99 +333,113 @@ impl CoverageTests {
                         }
                         continue;
                     }
-                    
+
                     let mut asset_value = asset.balance.amount();
-                    
+
                     // Apply haircuts based on rating
                     if let Some(rating) = asset.credit_quality {
                         if let Some(&haircut) = haircuts.get(&rating) {
                             asset_value *= 1.0 - haircut;
                         }
                     }
-                    
+
                     total += asset_value;
                 }
                 Ok(total)
-            },
-            NumeratorDefinition::PoolInterest { 
-                include_scheduled, 
-                include_recoveries, 
-                annualization_factor 
+            }
+            NumeratorDefinition::PoolInterest {
+                include_scheduled,
+                include_recoveries,
+                annualization_factor,
             } => {
                 let mut total = 0.0;
-                
+
                 if *include_scheduled {
                     // Simplified: use current pool WAC
                     total += pool.weighted_avg_coupon() * pool.performing_balance().amount();
                 }
-                
+
                 if *include_recoveries {
                     // Add interest from recoveries (simplified)
                     total += pool.cumulative_recoveries.amount() * 0.05; // Assume 5% on recoveries
                 }
-                
+
                 Ok(total * annualization_factor)
-            },
+            }
             NumeratorDefinition::ParValue { performing_only } => {
                 if *performing_only {
                     Ok(pool.performing_balance().amount())
                 } else {
                     Ok(pool.total_balance().amount())
                 }
-            },
+            }
         }
     }
-    
+
     /// Calculate denominator value
     fn calculate_denominator(
-        &self, 
-        def: &DenominatorDefinition, 
+        &self,
+        def: &DenominatorDefinition,
         _pool: &AssetPool,
         tranches: &TrancheStructure,
     ) -> finstack_core::Result<F> {
         match def {
             DenominatorDefinition::SeniorTranches { up_to_seniority } => {
-                let total = tranches.tranches.iter()
+                let total = tranches
+                    .tranches
+                    .iter()
                     .filter(|t| t.seniority <= *up_to_seniority)
                     .map(|t| t.current_balance.amount())
                     .sum();
                 Ok(total)
-            },
+            }
             DenominatorDefinition::TrancheBalance { tranche_id } => {
-                let balance = tranches.tranches.iter()
+                let balance = tranches
+                    .tranches
+                    .iter()
                     .find(|t| t.id.as_str() == tranche_id)
                     .map(|t| t.current_balance.amount())
                     .unwrap_or(0.0);
                 Ok(balance)
-            },
-            DenominatorDefinition::InterestDue { tranches: tranche_ids, annualization_factor } => {
+            }
+            DenominatorDefinition::InterestDue {
+                tranches: tranche_ids,
+                annualization_factor,
+            } => {
                 let mut total = 0.0;
                 for tranche_id in tranche_ids {
-                    if let Some(tranche) = tranches.tranches.iter().find(|t| t.id.as_str() == tranche_id) {
-                        let current_rate = tranche.coupon.current_rate(Date::from_calendar_date(2025, time::Month::January, 1).unwrap());
+                    if let Some(tranche) = tranches
+                        .tranches
+                        .iter()
+                        .find(|t| t.id.as_str() == tranche_id)
+                    {
+                        let current_rate = tranche.coupon.current_rate(
+                            Date::from_calendar_date(2025, time::Month::January, 1).unwrap(),
+                        );
                         total += tranche.current_balance.amount() * current_rate;
                     }
                 }
                 Ok(total * annualization_factor)
-            },
+            }
             DenominatorDefinition::Custom { .. } => {
                 // Placeholder for custom calculations
                 Ok(1.0)
-            },
+            }
         }
     }
-    
+
     /// Extract tranche ID from test definition (helper)
     fn extract_tranche_id_from_test(&self, test_def: &TestDefinition) -> String {
         match &test_def.denominator {
             DenominatorDefinition::TrancheBalance { tranche_id } => tranche_id.clone(),
-            DenominatorDefinition::InterestDue { tranches, .. } => {
-                tranches.first().cloned().unwrap_or_else(|| "UNKNOWN".to_string())
-            },
+            DenominatorDefinition::InterestDue { tranches, .. } => tranches
+                .first()
+                .cloned()
+                .unwrap_or_else(|| "UNKNOWN".to_string()),
             _ => "UNKNOWN".to_string(),
         }
     }
-    
+
     /// Default haircuts by credit rating
     fn default_haircuts() -> HashMap<CreditRating, F> {
         let mut haircuts = HashMap::new();
@@ -464,7 +485,7 @@ impl CoverageTestEngine {
                 }
             } else {
                 let mut asset_value = asset.balance.amount();
-                
+
                 // Apply haircut based on rating
                 if let Some(rating) = asset.credit_quality {
                     if let Some(&haircut) = haircuts.get(&rating) {
@@ -474,18 +495,18 @@ impl CoverageTestEngine {
                 pool_value += asset_value;
             }
         }
-        
+
         // Denominator: Tranche balance + senior tranches
         let senior_balance = tranches.senior_balance(tranche.id.as_str()).amount();
         let denominator = senior_balance + tranche.current_balance.amount();
-        
+
         if denominator == 0.0 {
             F::INFINITY
         } else {
             pool_value / denominator
         }
     }
-    
+
     /// Calculate IC ratio for a tranche
     pub fn calculate_ic_ratio(
         pool: &AssetPool,
@@ -494,33 +515,38 @@ impl CoverageTestEngine {
         annualization_factor: F,
     ) -> F {
         // Numerator: Pool interest (annualized)
-        let pool_interest = pool.weighted_avg_coupon() * pool.performing_balance().amount() * annualization_factor;
-        
+        let pool_interest =
+            pool.weighted_avg_coupon() * pool.performing_balance().amount() * annualization_factor;
+
         // Denominator: Interest due to this tranche and senior tranches (annualized)
         let mut interest_due = 0.0;
-        
+
         // Add senior tranche interest
         for senior_tranche in tranches.senior_to(tranche.id.as_str()) {
-            let rate = senior_tranche.coupon.current_rate(Date::from_calendar_date(2025, time::Month::January, 1).unwrap());
+            let rate = senior_tranche
+                .coupon
+                .current_rate(Date::from_calendar_date(2025, time::Month::January, 1).unwrap());
             interest_due += senior_tranche.current_balance.amount() * rate * annualization_factor;
         }
-        
+
         // Add this tranche's interest
-        let rate = tranche.coupon.current_rate(Date::from_calendar_date(2025, time::Month::January, 1).unwrap());
+        let rate = tranche
+            .coupon
+            .current_rate(Date::from_calendar_date(2025, time::Month::January, 1).unwrap());
         interest_due += tranche.current_balance.amount() * rate * annualization_factor;
-        
+
         if interest_due == 0.0 {
             F::INFINITY
         } else {
             pool_interest / interest_due
         }
     }
-    
+
     /// Calculate par value test ratio
     pub fn calculate_par_value_ratio(pool: &AssetPool, tranches: &TrancheStructure) -> F {
         let par_value = pool.performing_balance().amount();
         let aggregate_tranche_balance = tranches.total_size.amount();
-        
+
         if aggregate_tranche_balance == 0.0 {
             F::INFINITY
         } else {
@@ -534,30 +560,30 @@ mod tests {
     use super::*;
     use finstack_core::currency::Currency;
     use time::Month;
-    
+
     fn test_date() -> Date {
         Date::from_calendar_date(2025, Month::January, 1).unwrap()
     }
-    
+
     #[test]
     fn test_coverage_test_creation() {
         let mut tests = CoverageTests::new();
         tests.add_oc_test("SENIOR_A".to_string(), 1.15, Some(1.20));
-        
+
         assert!(tests.test_definitions.contains_key("SENIOR_A_OC"));
-        
+
         let test_def = &tests.test_definitions["SENIOR_A_OC"];
         assert_eq!(test_def.trigger_level, 1.15);
         assert_eq!(test_def.cure_level, Some(1.20));
     }
-    
+
     #[test]
     fn test_oc_ratio_calculation() {
         // Create simple pool with one asset
         let mut pool = AssetPool::new("TEST", DealType::CLO, Currency::USD);
         pool.assets.push(PoolAsset {
             id: "ASSET1".to_string(),
-            asset_type: AssetType::Loan { 
+            asset_type: AssetType::Loan {
                 loan_type: LoanType::FirstLien,
                 industry: None,
             },
@@ -572,7 +598,7 @@ mod tests {
             purchase_price: None,
             acquisition_date: None,
         });
-        
+
         // Create complete tranche structure (equity + senior)
         let equity_tranche = AbsTranche::new(
             "EQUITY",
@@ -582,8 +608,9 @@ mod tests {
             Money::new(100_000.0, Currency::USD),
             TrancheCoupon::Fixed { rate: 0.12 },
             test_date(),
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let senior_tranche = AbsTranche::new(
             "SENIOR",
             10.0,
@@ -592,13 +619,15 @@ mod tests {
             Money::new(900_000.0, Currency::USD),
             TrancheCoupon::Fixed { rate: 0.05 },
             test_date(),
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let tranches = TrancheStructure::new(vec![equity_tranche, senior_tranche.clone()]).unwrap();
-        
+
         let haircuts = CoverageTests::default_haircuts();
-        let oc_ratio = CoverageTestEngine::calculate_oc_ratio(&pool, &senior_tranche, &tranches, &haircuts);
-        
+        let oc_ratio =
+            CoverageTestEngine::calculate_oc_ratio(&pool, &senior_tranche, &tranches, &haircuts);
+
         // Should be pool value / tranche balance = (1M * 0.9) / 900K = 1.0
         assert!((oc_ratio - 1.0).abs() < 0.01);
     }

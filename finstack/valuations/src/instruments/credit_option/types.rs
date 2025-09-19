@@ -1,9 +1,9 @@
 //! Credit option instrument implementation for options on credit default swaps.
 
-use crate::instruments::PricingOverrides;
 use crate::instruments::cds::CreditParams;
-use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use crate::instruments::traits::Attributes;
+use crate::instruments::PricingOverrides;
+use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
@@ -249,8 +249,8 @@ impl_instrument!(
             )?;
         let hazard_curve = curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                s.credit_id,
-            )?;
+            s.credit_id,
+        )?;
 
         // Calculate risky annuity (RPV01) of the underlying CDS (simplified quarterly)
         let cds_tenor = s.day_count.year_fraction(

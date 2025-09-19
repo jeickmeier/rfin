@@ -1,15 +1,15 @@
 //! Equity option instrument implementation using Black-Scholes model.
 
-use crate::instruments::PricingOverrides;
-use crate::instruments::underlying::EquityUnderlyingParams;
 use crate::instruments::models::{d1, d2};
-use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use crate::instruments::traits::Attributes;
+use crate::instruments::underlying::EquityUnderlyingParams;
+use crate::instruments::PricingOverrides;
+use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::dates::Date;
 use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
-use finstack_core::F;
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::F;
 
 use super::parameters::EquityOptionParams;
 
@@ -45,7 +45,6 @@ impl EquityOption {
         notional: Money,
         contract_size: F,
     ) -> Self {
-
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT")
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
@@ -80,7 +79,6 @@ impl EquityOption {
         notional: Money,
         contract_size: F,
     ) -> Self {
-
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT")
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
@@ -114,7 +112,6 @@ impl EquityOption {
         notional: Money,
         contract_size: F,
     ) -> Self {
-
         let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT")
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
@@ -296,9 +293,7 @@ impl_instrument!(
             let spot_scalar = curves.price(&s.spot_id)?;
             let spot = match spot_scalar {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
-                finstack_core::market_data::scalars::MarketScalar::Price(money) => {
-                    money.amount()
-                }
+                finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
             };
             let intrinsic = match s.option_type {
                 OptionType::Call => (spot - s.strike.amount()).max(0.0),

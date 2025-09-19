@@ -1,7 +1,5 @@
 //! Interpolation types, enums, and factory.
 
-
-
 use crate::F;
 
 use super::traits::InterpFn;

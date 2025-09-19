@@ -38,7 +38,7 @@
 //!
 //! let issue_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 //! let maturity_date = Date::from_calendar_date(2030, Month::January, 1).unwrap();
-//! let bond = Bond::fixed_semiannual("AAPL_BOND", Money::new(1000.0, Currency::USD), 
+//! let bond = Bond::fixed_semiannual("AAPL_BOND", Money::new(1000.0, Currency::USD),
 //!                                   0.025, issue_date, maturity_date, "USD-OIS");
 //!
 //! let lqd = Basket::builder()

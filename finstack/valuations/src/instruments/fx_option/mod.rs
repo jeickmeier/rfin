@@ -1,7 +1,7 @@
 //! FX option instrument implementation using Garman-Kohlhagen model.
 
 pub mod metrics;
-mod types;
 pub mod parameters;
+mod types;
 
-pub use types::FxOption;
+pub use types::{FxOption, FxUnderlyingParams};

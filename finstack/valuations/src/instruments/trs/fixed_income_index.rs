@@ -1,19 +1,13 @@
 //! Fixed Income Index Total Return Swap instrument definitions and helpers.
 
-use super::types::{IndexUnderlyingParams, FinancingLegSpec, TrsScheduleSpec, TrsSide};
+use super::types::{FinancingLegSpec, IndexUnderlyingParams, TrsScheduleSpec, TrsSide};
 use crate::instruments::traits::{Attributable, Instrument};
 use crate::{
-    cashflow::{
-        traits::{CashflowProvider, DatedFlows},
-    },
+    cashflow::traits::{CashflowProvider, DatedFlows},
     instruments::traits::Attributes,
 };
 use finstack_core::{
-    dates::Date,
-    market_data::MarketContext,
-    money::Money,
-    types::InstrumentId,
-    Result, F,
+    dates::Date, market_data::MarketContext, money::Money, types::InstrumentId, Result, F,
 };
 use std::any::Any;
 
@@ -74,12 +68,24 @@ impl Attributable for FIIndexTotalReturnSwap {
 }
 
 impl Instrument for FIIndexTotalReturnSwap {
-    fn id(&self) -> &str { self.id.as_str() }
-    fn instrument_type(&self) -> &'static str { "FIIndexTotalReturnSwap" }
-    fn as_any(&self) -> &dyn Any { self }
-    fn attributes(&self) -> &crate::instruments::traits::Attributes { <Self as Attributable>::attributes(self) }
-    fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes { <Self as Attributable>::attributes_mut(self) }
-    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+    fn instrument_type(&self) -> &'static str {
+        "FIIndexTotalReturnSwap"
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn attributes(&self) -> &crate::instruments::traits::Attributes {
+        <Self as Attributable>::attributes(self)
+    }
+    fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes {
+        <Self as Attributable>::attributes_mut(self)
+    }
+    fn clone_box(&self) -> Box<dyn Instrument> {
+        Box::new(self.clone())
+    }
 }
 
 impl CashflowProvider for FIIndexTotalReturnSwap {

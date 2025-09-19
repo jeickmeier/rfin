@@ -25,9 +25,7 @@ impl MetricCalculator for DeltaCalculator {
             let spot_scalar = context.curves.price(&option.spot_id)?;
             let spot = match spot_scalar {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(val) => *val,
-                finstack_core::market_data::scalars::MarketScalar::Price(money) => {
-                    money.amount()
-                }
+                finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
             };
 
             return Ok(match option.option_type {
@@ -341,9 +339,10 @@ impl MetricCalculator for ImpliedVolCalculator {
         }
 
         // Gather market inputs
-        let disc_curve = context
-            .curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+        let disc_curve =
+            context
+                .curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
                 &option.disc_id,
             )?;
         let r = disc_curve.zero(t);

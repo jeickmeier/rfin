@@ -3,21 +3,21 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::cds::CDSConvention;
+use finstack_core::types::CurveId;
+use finstack_valuations::instruments::cap_floor::parameters::InterestRateOptionParams;
+#[allow(unused_imports)]
+use finstack_valuations::instruments::cap_floor::InterestRateOption;
 use finstack_valuations::instruments::cds::parameters::CDSConstructionParams;
+use finstack_valuations::instruments::cds::CDSConvention;
+use finstack_valuations::instruments::credit_option::parameters::CreditOptionParams;
 use finstack_valuations::instruments::equity_option::parameters::EquityOptionParams;
 use finstack_valuations::instruments::fx_option::parameters::FxOptionParams;
-use finstack_valuations::instruments::cap_floor::parameters::InterestRateOptionParams;
-use finstack_valuations::instruments::credit_option::parameters::CreditOptionParams;
 use finstack_valuations::instruments::inflation_linked_bond::parameters::InflationLinkedBondParams;
 use finstack_valuations::instruments::inflation_linked_bond::IndexationMethod;
-use finstack_valuations::instruments::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::{
     CreditDefaultSwap, CreditOption, EquityOption, FxOption, InflationLinkedBond,
 };
-#[allow(unused_imports)]
-use finstack_valuations::instruments::cap_floor::InterestRateOption;
-use finstack_core::types::CurveId;
+use finstack_valuations::instruments::{ExerciseStyle, OptionType};
 use time::Month;
 
 #[test]
@@ -28,8 +28,7 @@ fn test_cds_creation_and_basic_pricing() {
     let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
     let construction_params = CDSConstructionParams::buy_protection(
-        notional,
-        100.0, // 100bp spread
+        notional, 100.0, // 100bp spread
     );
     // DateRange inlined; start/end passed directly to constructor
     let credit_params = finstack_valuations::instruments::CreditParams::new(
@@ -60,14 +59,13 @@ fn test_equity_option_creation() {
     let expiry = Date::from_calendar_date(2025, Month::December, 31).unwrap();
 
     let option_params = EquityOptionParams::european_call(
-        strike,
-        expiry,
-        100.0, // Contract size
+        strike, expiry, 100.0, // Contract size
     );
-    let underlying_params = finstack_valuations::instruments::underlying::EquityUnderlyingParams::new(
-        "AAPL",
-        "AAPL-SPOT",
-    );
+    let underlying_params =
+        finstack_valuations::instruments::underlying::EquityUnderlyingParams::new(
+            "AAPL",
+            "AAPL-SPOT",
+        );
     let option = EquityOption::new(
         "AAPL_CALL_100",
         &option_params,
@@ -105,12 +103,8 @@ fn test_fx_option_creation() {
     let notional = Money::new(1_000_000.0, Currency::EUR);
     let expiry = Date::from_calendar_date(2025, Month::December, 31).unwrap();
 
-    let option_params = FxOptionParams::european_call(
-        1.20,
-        expiry,
-        notional,
-    );
-    let underlying_params = finstack_valuations::instruments::fx::FxUnderlyingParams::new(
+    let option_params = FxOptionParams::european_call(1.20, expiry, notional);
+    let underlying_params = finstack_valuations::instruments::fx_option::FxUnderlyingParams::new(
         Currency::EUR,
         Currency::USD,
         "USD-OIS",
@@ -150,13 +144,17 @@ fn test_interest_rate_option_creation() {
     let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
     use finstack_valuations::instruments::cap_floor::InterestRateOption;
-    let params = InterestRateOptionParams::cap(
-        notional,
-        0.03,
-        Frequency::quarterly(),
-        DayCount::Act360,
+    let params =
+        InterestRateOptionParams::cap(notional, 0.03, Frequency::quarterly(), DayCount::Act360);
+    let cap = InterestRateOption::new(
+        "USD_CAP_3%",
+        &params,
+        start,
+        end,
+        "USD-OIS",
+        "USD-LIBOR-3M",
+        "USD-CAP-VOL",
     );
-    let cap = InterestRateOption::new("USD_CAP_3%", &params, start, end, "USD-OIS", "USD-LIBOR-3M", "USD-CAP-VOL");
 
     assert_eq!(cap.id, "USD_CAP_3%");
     assert_eq!(cap.strike_rate, 0.03);
@@ -202,19 +200,11 @@ fn test_inflation_linked_bond_creation() {
     let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
 
     let bond_params = InflationLinkedBondParams::tips(
-        notional,
-        0.0125, // 1.25% real coupon
-        issue,
-        maturity,
-        250.0, // Base CPI
+        notional, 0.0125, // 1.25% real coupon
+        issue, maturity, 250.0, // Base CPI
     );
 
-    let tips = InflationLinkedBond::new_tips(
-        "US_TIPS_2030",
-        &bond_params,
-        "USD-REAL",
-        "US-CPI-U",
-    );
+    let tips = InflationLinkedBond::new_tips("US_TIPS_2030", &bond_params, "USD-REAL", "US-CPI-U");
 
     assert_eq!(tips.id, "US_TIPS_2030");
     assert_eq!(tips.indexation_method, IndexationMethod::TIPS);

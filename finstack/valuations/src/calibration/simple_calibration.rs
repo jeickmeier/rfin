@@ -639,9 +639,8 @@ impl SimpleCalibration {
         // Try inflation curve
         if let Ok(curve) = context
             .get_ref::<finstack_core::market_data::term_structures::inflation::InflationCurve>(
-                index,
-            )
-        {
+            index,
+        ) {
             return Some(curve.cpi(0.0));
         }
 

@@ -1,9 +1,9 @@
 //! Swaption (option on interest rate swap) implementation with SABR volatility.
 
-use crate::instruments::PricingOverrides;
 use crate::instruments::models::{SABRModel, SABRParameters};
-use crate::instruments::OptionType;
 use crate::instruments::traits::Attributes;
+use crate::instruments::OptionType;
+use crate::instruments::PricingOverrides;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::math::norm_cdf;
@@ -201,8 +201,8 @@ impl_instrument!(
     pv = |s, curves, _as_of| {
         let disc = curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                s.disc_id,
-            )?;
+            s.disc_id,
+        )?;
         if s.sabr_params.is_some() {
             s.sabr_price(disc)
         } else {

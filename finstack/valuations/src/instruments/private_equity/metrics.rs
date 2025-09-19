@@ -75,9 +75,7 @@ impl MetricCalculator for MoicLpCalculator {
         let total_contributions: F = pe
             .events
             .iter()
-            .filter(|e| {
-                e.kind == crate::instruments::private_equity::FundEventKind::Contribution
-            })
+            .filter(|e| e.kind == crate::instruments::private_equity::FundEventKind::Contribution)
             .map(|e| e.amount.amount())
             .sum();
 
@@ -113,9 +111,7 @@ impl MetricCalculator for DpiLpCalculator {
         let total_contributions: F = pe
             .events
             .iter()
-            .filter(|e| {
-                e.kind == crate::instruments::private_equity::FundEventKind::Contribution
-            })
+            .filter(|e| e.kind == crate::instruments::private_equity::FundEventKind::Contribution)
             .map(|e| e.amount.amount())
             .sum();
 
@@ -140,9 +136,7 @@ impl MetricCalculator for TvpiLpCalculator {
         let total_contributions: F = pe
             .events
             .iter()
-            .filter(|e| {
-                e.kind == crate::instruments::private_equity::FundEventKind::Contribution
-            })
+            .filter(|e| e.kind == crate::instruments::private_equity::FundEventKind::Contribution)
             .map(|e| e.amount.amount())
             .sum();
 
@@ -213,8 +207,9 @@ pub fn calculate_irr(flows: &[(Date, Money)], day_count: DayCount) -> finstack_c
     let solver = BrentSolver::new()
         .with_tolerance(1e-12)
         .with_initial_bracket_size(Some(1.0)); // Start with reasonable IRR range
-    
-    solver.solve(npv_function, 0.15) // Start with 15% initial guess for PE returns
+
+    solver
+        .solve(npv_function, 0.15) // Start with 15% initial guess for PE returns
         .map_err(|_| finstack_core::error::InputError::Invalid.into())
 }
 

@@ -43,12 +43,7 @@ impl InterestRateOptionParams {
     }
 
     /// Create cap parameters
-    pub fn cap(
-        notional: Money,
-        strike_rate: F,
-        frequency: Frequency,
-        day_count: DayCount,
-    ) -> Self {
+    pub fn cap(notional: Money, strike_rate: F, frequency: Frequency, day_count: DayCount) -> Self {
         Self::new(
             RateOptionType::Cap,
             notional,

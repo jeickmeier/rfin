@@ -6,7 +6,9 @@
 pub mod metrics;
 pub mod types;
 
-pub use types::{VarianceSwap, PayReceive};
+pub use types::{PayReceive, VarianceSwap};
 
 // Re-export from core
-pub use finstack_core::math::stats::{RealizedVarMethod, realized_variance, realized_variance_ohlc};
+pub use finstack_core::math::stats::{
+    realized_variance, realized_variance_ohlc, RealizedVarMethod,
+};

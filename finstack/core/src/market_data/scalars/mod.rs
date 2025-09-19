@@ -40,5 +40,5 @@ pub mod primitives;
 pub mod inflation_index;
 
 // Re-export for ergonomic access
-pub use primitives::*;
 pub use inflation_index::*;
+pub use primitives::*;

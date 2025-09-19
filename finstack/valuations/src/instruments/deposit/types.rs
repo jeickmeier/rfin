@@ -3,8 +3,8 @@
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::F;
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_core::F;
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::traits::Attributes;
@@ -25,7 +25,7 @@ pub struct Deposit {
     pub end: Date,
     /// Day count convention for interest accrual.
     pub day_count: DayCount,
-    
+
     /// Optional quoted simple rate r (annualised) for the deposit.
     #[builder(optional)]
     pub quote_rate: Option<F>,

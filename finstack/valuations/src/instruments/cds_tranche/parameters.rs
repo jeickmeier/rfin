@@ -53,7 +53,15 @@ impl CDSTrancheParams {
         maturity: Date,
         running_coupon_bp: F,
     ) -> Self {
-        Self::new(index_name, series, 0.0, 0.03, notional, maturity, running_coupon_bp)
+        Self::new(
+            index_name,
+            series,
+            0.0,
+            0.03,
+            notional,
+            maturity,
+            running_coupon_bp,
+        )
     }
 
     /// Create mezzanine tranche parameters (3-7% typically)
@@ -64,6 +72,14 @@ impl CDSTrancheParams {
         maturity: Date,
         running_coupon_bp: F,
     ) -> Self {
-        Self::new(index_name, series, 0.03, 0.07, notional, maturity, running_coupon_bp)
+        Self::new(
+            index_name,
+            series,
+            0.03,
+            0.07,
+            notional,
+            maturity,
+            running_coupon_bp,
+        )
     }
 }

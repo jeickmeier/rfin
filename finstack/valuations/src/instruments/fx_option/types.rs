@@ -1,10 +1,9 @@
 //! FX option instrument implementation using Garman-Kohlhagen model.
 
-use crate::instruments::PricingOverrides;
-use crate::instruments::fx::FxUnderlyingParams;
 use crate::instruments::models::{d1, d2};
-use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use crate::instruments::traits::Attributes;
+use crate::instruments::PricingOverrides;
+use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::math::{norm_cdf, norm_pdf};
@@ -13,6 +12,46 @@ use finstack_core::F;
 use num_traits::ToPrimitive;
 
 use super::parameters::FxOptionParams;
+
+/// FX option underlying parameters used when constructing the instrument.
+#[derive(Clone, Debug)]
+pub struct FxUnderlyingParams {
+    /// Base currency (being priced)
+    pub base_currency: Currency,
+    /// Quote currency (pricing currency)
+    pub quote_currency: Currency,
+    /// Domestic discount curve ID (quote currency)
+    pub domestic_disc_id: &'static str,
+    /// Foreign discount curve ID (base currency)
+    pub foreign_disc_id: &'static str,
+}
+
+impl FxUnderlyingParams {
+    /// Create FX underlying parameters
+    pub fn new(
+        base_currency: Currency,
+        quote_currency: Currency,
+        domestic_disc_id: &'static str,
+        foreign_disc_id: &'static str,
+    ) -> Self {
+        Self {
+            base_currency,
+            quote_currency,
+            domestic_disc_id,
+            foreign_disc_id,
+        }
+    }
+
+    /// Standard USD/EUR pair
+    pub fn usd_eur() -> Self {
+        Self::new(Currency::EUR, Currency::USD, "USD-OIS", "EUR-OIS")
+    }
+
+    /// Standard GBP/USD pair
+    pub fn gbp_usd() -> Self {
+        Self::new(Currency::GBP, Currency::USD, "USD-OIS", "GBP-OIS")
+    }
+}
 
 /// FX option instrument (Garman-Kohlhagen model)
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
@@ -44,7 +83,6 @@ impl FxOption {
         expiry: Date,
         notional: Money,
     ) -> Self {
-
         let fx_underlying = if quote_currency == Currency::USD && base_currency == Currency::EUR {
             FxUnderlyingParams::usd_eur()
         } else if quote_currency == Currency::USD && base_currency == Currency::GBP {
@@ -82,7 +120,6 @@ impl FxOption {
         expiry: Date,
         notional: Money,
     ) -> Self {
-
         let fx_underlying = if quote_currency == Currency::USD && base_currency == Currency::EUR {
             FxUnderlyingParams::usd_eur()
         } else if quote_currency == Currency::USD && base_currency == Currency::GBP {

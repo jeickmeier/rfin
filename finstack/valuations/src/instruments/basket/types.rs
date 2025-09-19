@@ -50,18 +50,19 @@ pub enum ConstituentReference {
 impl std::fmt::Debug for ConstituentReference {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ConstituentReference::Instrument(instrument) => {
-                f.debug_struct("Instrument")
-                    .field("type", &instrument.instrument_type())
-                    .field("id", &instrument.id())
-                    .finish()
-            }
-            ConstituentReference::MarketData { price_id, asset_type } => {
-                f.debug_struct("MarketData")
-                    .field("price_id", price_id)
-                    .field("asset_type", asset_type)
-                    .finish()
-            }
+            ConstituentReference::Instrument(instrument) => f
+                .debug_struct("Instrument")
+                .field("type", &instrument.instrument_type())
+                .field("id", &instrument.id())
+                .finish(),
+            ConstituentReference::MarketData {
+                price_id,
+                asset_type,
+            } => f
+                .debug_struct("MarketData")
+                .field("price_id", price_id)
+                .field("asset_type", asset_type)
+                .finish(),
         }
     }
 }
@@ -84,7 +85,10 @@ impl Serialize for ConstituentReference {
                 };
                 placeholder.serialize(serializer)
             }
-            ConstituentReference::MarketData { price_id, asset_type } => {
+            ConstituentReference::MarketData {
+                price_id,
+                asset_type,
+            } => {
                 #[derive(Serialize)]
                 struct MarketDataRef<'a> {
                     price_id: &'a str,
@@ -183,17 +187,17 @@ impl Basket {
     /// Calculate Net Asset Value per share
     pub fn nav(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
         let mut total_value = 0.0;
-        
+
         // Sum constituent values using their respective pricing methods
         for constituent in &self.constituents {
             let constituent_value = self.value_constituent(constituent, context, as_of)?;
             total_value += constituent_value.amount();
         }
-        
+
         // Apply expense ratio drag (annualized)
         let expense_drag = self.calculate_expense_drag(total_value, as_of)?;
         total_value -= expense_drag;
-        
+
         // Calculate per-share NAV
         let nav_value = if let Some(shares) = self.shares_outstanding {
             if shares > 0.0 {
@@ -204,26 +208,26 @@ impl Basket {
         } else {
             total_value
         };
-        
+
         Ok(Money::new(nav_value, self.currency))
     }
-    
+
     /// Calculate total basket value (without per-share division)
     pub fn basket_value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
         let mut total_value = 0.0;
-        
+
         for constituent in &self.constituents {
             let constituent_value = self.value_constituent(constituent, context, as_of)?;
             total_value += constituent_value.amount();
         }
-        
+
         // Apply expense ratio drag
         let expense_drag = self.calculate_expense_drag(total_value, as_of)?;
         total_value -= expense_drag;
-        
+
         Ok(Money::new(total_value, self.currency))
     }
-    
+
     /// Value a single constituent using existing pricing infrastructure
     fn value_constituent(
         &self,
@@ -248,7 +252,7 @@ impl Basket {
                 }
             }
         };
-        
+
         // Apply weight or units to get position size
         let position_value = if let Some(units) = constituent.units {
             // Physical replication: value = price * units
@@ -259,10 +263,10 @@ impl Basket {
             let fund_size = self.shares_outstanding.unwrap_or(1_000_000.0);
             base_value * constituent.weight * fund_size
         };
-        
+
         Ok(position_value)
     }
-    
+
     /// Calculate expense ratio drag for a given period
     fn calculate_expense_drag(&self, portfolio_value: F, _as_of: Date) -> Result<F> {
         // For simplicity, assume annual expense ratio applied daily
@@ -271,7 +275,7 @@ impl Basket {
         let daily_expense_rate = self.expense_ratio / days_in_year;
         Ok(portfolio_value * daily_expense_rate)
     }
-    
+
     /// Calculate tracking error vs benchmark index
     pub fn tracking_error(
         &self,
@@ -282,46 +286,48 @@ impl Basket {
         // Calculate basket returns over the same periods
         let mut basket_returns = Vec::new();
         let mut prev_nav = None;
-        
+
         for &(date, _) in benchmark_returns {
             let nav = self.nav(context, date)?;
-            
+
             if let Some(prev) = prev_nav {
                 let return_rate = (nav.amount() / prev - 1.0) as F;
                 basket_returns.push(return_rate);
             }
             prev_nav = Some(nav.amount());
         }
-        
+
         if basket_returns.len() != benchmark_returns.len() - 1 {
-            return Err(Error::Input(finstack_core::error::InputError::DimensionMismatch));
+            return Err(Error::Input(
+                finstack_core::error::InputError::DimensionMismatch,
+            ));
         }
-        
+
         // Calculate tracking error as standard deviation of return differences
         let mut sum_sq_diff = 0.0;
         let n = basket_returns.len() as F;
-        
+
         for i in 1..benchmark_returns.len() {
             let bench_return = benchmark_returns[i].1;
             let basket_return = basket_returns[i - 1];
             let diff = basket_return - bench_return;
             sum_sq_diff += diff * diff;
         }
-        
+
         let tracking_error = (sum_sq_diff / (n - 1.0)).sqrt();
         Ok(tracking_error)
     }
-    
+
     /// Get constituent by ID
     pub fn get_constituent(&self, id: &str) -> Option<&BasketConstituent> {
         self.constituents.iter().find(|c| c.id == id)
     }
-    
+
     /// Get total number of constituents
     pub fn constituent_count(&self) -> usize {
         self.constituents.len()
     }
-    
+
     /// Validate basket consistency (weights sum to ~1.0, currency consistency, etc.)
     pub fn validate(&self) -> Result<()> {
         // Check weight sum
@@ -329,10 +335,10 @@ impl Basket {
         if (total_weight - 1.0).abs() > 0.01 {
             return Err(Error::Input(finstack_core::error::InputError::Invalid));
         }
-        
+
         // Validate each constituent's currency compatibility would happen
         // during pricing through the existing instrument validation
-        
+
         Ok(())
     }
 
@@ -379,12 +385,24 @@ impl Priceable for Basket {
 }
 
 impl Instrument for Basket {
-    fn id(&self) -> &str { self.id.as_str() }
-    fn instrument_type(&self) -> &'static str { "Basket" }
-    fn as_any(&self) -> &dyn ::std::any::Any { self }
-    fn attributes(&self) -> &Attributes { &self.attributes }
-    fn attributes_mut(&mut self) -> &mut Attributes { &mut self.attributes }
-    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+    fn instrument_type(&self) -> &'static str {
+        "Basket"
+    }
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
+    }
+    fn attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+    fn attributes_mut(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+    fn clone_box(&self) -> Box<dyn Instrument> {
+        Box::new(self.clone())
+    }
 }
 
 impl Attributable for Basket {
@@ -400,7 +418,6 @@ impl Attributable for Basket {
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_basket_creation() {
@@ -418,7 +435,7 @@ mod tests {
             replication: ReplicationMethod::Physical,
             attributes: Attributes::new(),
         };
-        
+
         assert_eq!(basket.id.as_str(), "TEST_BASKET");
         assert_eq!(basket.ticker, Some("TEST".to_string()));
         assert_eq!(basket.expense_ratio, 0.001);
@@ -461,10 +478,10 @@ mod tests {
             replication: ReplicationMethod::Physical,
             attributes: Attributes::new(),
         };
-        
+
         // Should pass with weights summing to 1.0
         assert!(basket.validate().is_ok());
-        
+
         // Should fail with weights not summing to 1.0
         basket.constituents[0].weight = 0.8;
         assert!(basket.validate().is_err());

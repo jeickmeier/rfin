@@ -7,7 +7,10 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
-fn extract_underlying_data(trs: &EquityTotalReturnSwap, context: &MarketContext) -> Result<(f64, f64)> {
+fn extract_underlying_data(
+    trs: &EquityTotalReturnSwap,
+    context: &MarketContext,
+) -> Result<(f64, f64)> {
     let spot = match context.price(&trs.underlying.spot_id)? {
         finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
         finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
@@ -45,8 +48,8 @@ impl TrsReturnModel for EquityReturnModel<'_> {
     ) -> Result<f64> {
         let disc = context
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                self.trs.financing.disc_id.as_str(),
-            )?;
+            self.trs.financing.disc_id.as_str(),
+        )?;
         let df_start = disc.df(t_start);
         let df_end = disc.df(t_end);
         let fwd_start = initial_level * df_start.recip() * (-self.div_yield * t_start).exp();
@@ -64,7 +67,11 @@ impl TrsReturnModel for EquityReturnModel<'_> {
 ///
 /// # Returns
 /// Present value of the total return leg in the instrument's currency.
-pub fn pv_total_return_leg(trs: &EquityTotalReturnSwap, context: &MarketContext, as_of: Date) -> Result<Money> {
+pub fn pv_total_return_leg(
+    trs: &EquityTotalReturnSwap,
+    context: &MarketContext,
+    as_of: Date,
+) -> Result<Money> {
     let (spot, div_yield) = extract_underlying_data(trs, context)?;
     let initial = trs.initial_level.unwrap_or(spot);
 
@@ -79,5 +86,3 @@ pub fn pv_total_return_leg(trs: &EquityTotalReturnSwap, context: &MarketContext,
     let model = EquityReturnModel { trs, div_yield };
     TrsEngine::pv_total_return_leg_with_model(params, context, as_of, &model)
 }
-
-

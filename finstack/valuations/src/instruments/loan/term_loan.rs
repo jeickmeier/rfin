@@ -111,7 +111,6 @@ pub struct Loan {
 }
 
 impl Loan {
-
     /// Create a fixed-rate term loan with standard conventions.
     pub fn fixed_rate(
         id: impl Into<String>,
@@ -127,7 +126,10 @@ impl Loan {
             .outstanding(amount)
             .issue_date(issue_date)
             .maturity_date(maturity_date)
-            .interest(InterestSpec::Fixed { rate: fixed_rate, step_ups: None })
+            .interest(InterestSpec::Fixed {
+                rate: fixed_rate,
+                step_ups: None,
+            })
             .frequency(Frequency::quarterly())
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::ModifiedFollowing)

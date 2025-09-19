@@ -5,8 +5,8 @@
 //!
 //! Now includes generic TreeModel implementation for pricing arbitrary instruments.
 
-use crate::instruments::models::OptionMarketParams;
 use crate::instruments::models::NodeState;
+use crate::instruments::models::OptionMarketParams;
 use crate::instruments::{ExerciseStyle, OptionType};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::{Error, Result, F};
@@ -287,11 +287,8 @@ impl BinomialTree {
         market_params: &OptionMarketParams,
         exercise_dates: &[F], // Times when exercise is allowed
     ) -> Result<F> {
-        let mut steps = map_exercise_dates_to_steps(
-            exercise_dates,
-            market_params.time_to_expiry,
-            self.steps,
-        );
+        let mut steps =
+            map_exercise_dates_to_steps(exercise_dates, market_params.time_to_expiry, self.steps);
         steps.sort();
         steps.dedup();
         self.price_with_exercise(market_params, Some(&steps))
@@ -580,7 +577,10 @@ mod tests {
 
         // BS call value known; derive put via parity: P = C - S e^{-qT} + K e^{-rT}
         let bs_call = 10.4506;
-        let bs_put = bs_call - market_params.spot * (-market_params.dividend_yield * market_params.time_to_expiry).exp() + market_params.strike * (-market_params.rate * market_params.time_to_expiry).exp();
+        let bs_put = bs_call
+            - market_params.spot
+                * (-market_params.dividend_yield * market_params.time_to_expiry).exp()
+            + market_params.strike * (-market_params.rate * market_params.time_to_expiry).exp();
 
         assert!(
             (lr_put - bs_put).abs() < 0.05,

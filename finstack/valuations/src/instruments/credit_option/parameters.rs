@@ -39,12 +39,7 @@ impl CreditOptionParams {
     }
 
     /// Create credit call option parameters (option to buy protection)
-    pub fn call(
-        strike_spread_bp: F,
-        expiry: Date,
-        cds_maturity: Date,
-        notional: Money,
-    ) -> Self {
+    pub fn call(strike_spread_bp: F, expiry: Date, cds_maturity: Date, notional: Money) -> Self {
         Self::new(
             strike_spread_bp,
             expiry,
@@ -55,12 +50,7 @@ impl CreditOptionParams {
     }
 
     /// Create credit put option parameters (option to sell protection)
-    pub fn put(
-        strike_spread_bp: F,
-        expiry: Date,
-        cds_maturity: Date,
-        notional: Money,
-    ) -> Self {
+    pub fn put(strike_spread_bp: F, expiry: Date, cds_maturity: Date, notional: Money) -> Self {
         Self::new(
             strike_spread_bp,
             expiry,

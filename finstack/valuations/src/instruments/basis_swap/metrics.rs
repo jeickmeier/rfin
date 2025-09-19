@@ -9,5 +9,3 @@ use crate::metrics::MetricRegistry;
 pub fn register_basis_swap_metrics(_registry: &mut MetricRegistry) {
     // No-op for now. Add specific metrics when needed.
 }
-
-

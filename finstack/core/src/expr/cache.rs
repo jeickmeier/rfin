@@ -280,7 +280,7 @@ mod tests {
         // Each large_data item is ~80KB (10000 * 8 bytes), so only one will fit
         let mut cache = ExpressionCache {
             cache: LruCache::new(NonZeroUsize::new(10).unwrap()), // Small capacity for testing
-            max_memory: 65536, // 64KB in bytes
+            max_memory: 65536,                                    // 64KB in bytes
             current_memory: 0,
             stats: CacheStats {
                 hits: 0,

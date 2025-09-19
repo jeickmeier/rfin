@@ -81,8 +81,8 @@ impl TrsEngine {
         // Get discount curve
         let disc = context
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                params.disc_id,
-            )?;
+            params.disc_id,
+        )?;
 
         // Build schedule
         let period_schedule = params.schedule.period_schedule();
@@ -110,7 +110,12 @@ impl TrsEngine {
 
             // Calculate underlying return for this period (delegated to underlying-specific logic)
             let total_return = model.period_return(
-                period_start, period_end, t_start, t_end, params.initial_level.unwrap_or(1.0), context,
+                period_start,
+                period_end,
+                t_start,
+                t_end,
+                params.initial_level.unwrap_or(1.0),
+                context,
             )?;
 
             // Payment amount
@@ -148,12 +153,12 @@ impl TrsEngine {
 
         let disc = context
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                disc_curve_id,
-            )?;
+            disc_curve_id,
+        )?;
         let fwd = context
             .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-                fwd_curve_id,
-            )?;
+            fwd_curve_id,
+        )?;
 
         // Build schedule
         let period_schedule = schedule.period_schedule();
@@ -174,14 +179,8 @@ impl TrsEngine {
                 .year_fraction(period_start, period_end, ctx)?;
 
             // Forward rate for the period
-            let t_start = schedule
-                .params
-                .dc
-                .year_fraction(as_of, period_start, ctx)?;
-            let t_end = schedule
-                .params
-                .dc
-                .year_fraction(as_of, period_end, ctx)?;
+            let t_start = schedule.params.dc.year_fraction(as_of, period_start, ctx)?;
+            let t_end = schedule.params.dc.year_fraction(as_of, period_end, ctx)?;
             let fwd_rate = fwd.rate_period(t_start, t_end);
 
             // Add spread
@@ -220,8 +219,8 @@ impl TrsEngine {
         let disc_curve_id = financing.disc_id.as_str();
         let disc = context
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                disc_curve_id,
-            )?;
+            disc_curve_id,
+        )?;
 
         // Build schedule
         let period_schedule = schedule.period_schedule();
@@ -241,10 +240,7 @@ impl TrsEngine {
                 .year_fraction(period_start, period_end, ctx)?;
 
             // Discount factor to payment date
-            let t_pay = schedule
-                .params
-                .dc
-                .year_fraction(as_of, period_end, ctx)?;
+            let t_pay = schedule.params.dc.year_fraction(as_of, period_end, ctx)?;
             let df = disc.df(t_pay);
 
             annuity += df * yf;
@@ -253,5 +249,3 @@ impl TrsEngine {
         Ok(annuity * notional.amount())
     }
 }
-
-

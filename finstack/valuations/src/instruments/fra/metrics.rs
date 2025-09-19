@@ -30,8 +30,8 @@ impl MetricCalculator for FraDv01Calculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                fra.disc_id,
-            )?;
+            fra.disc_id,
+        )?;
         let base = disc.base_date();
 
         // Settlement at start of period
