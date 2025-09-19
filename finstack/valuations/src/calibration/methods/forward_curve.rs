@@ -305,6 +305,8 @@ impl ForwardCurveCalibrator {
                     bdc: BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
                     stub: StubKind::None,
+                    par_method: None,
+                    compounding_simple: true,
                     start: self.base_date,
                     end: *maturity,
                 };
@@ -318,12 +320,13 @@ impl ForwardCurveCalibrator {
                     bdc: BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
                     stub: StubKind::None,
+                    reset_lag_days: 2,
                     start: self.base_date,
                     end: *maturity,
                 };
 
                 let swap = InterestRateSwap {
-                    id: format!("CALIB_SWAP_{}", maturity),
+                    id: format!("CALIB_SWAP_{}", maturity).into(),
                     notional: Money::new(1_000_000.0, self.currency),
                     side: PayReceive::ReceiveFixed,
                     fixed: fixed_spec,

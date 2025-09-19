@@ -209,8 +209,8 @@ impl MetricRegistry {
                 })
             })?;
 
-            // Check if applicable to this instrument
-            if !self.is_applicable(&metric_id, instrument_type) {
+            // Check applicability. If metric was explicitly requested by caller, always compute.
+            if !self.is_applicable(&metric_id, instrument_type) && !metric_ids.contains(&metric_id) {
                 continue;
             }
 

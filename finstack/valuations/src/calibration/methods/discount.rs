@@ -514,6 +514,8 @@ impl DiscountCurveCalibrator {
                     bdc: BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
                     stub: StubKind::None,
+                    par_method: None,
+                    compounding_simple: true,
                     start: self.base_date,
                     end: *maturity,
                 };
@@ -527,12 +529,13 @@ impl DiscountCurveCalibrator {
                     bdc: BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
                     stub: StubKind::None,
+                    reset_lag_days: 2,
                     start: self.base_date,
                     end: *maturity,
                 };
 
                 let swap = InterestRateSwap {
-                    id: format!("CALIB_SWAP_{}", maturity),
+                    id: format!("CALIB_SWAP_{}", maturity).into(),
                     notional: Money::new(1_000_000.0, self.currency),
                     side: PayReceive::ReceiveFixed,
                     fixed: fixed_spec,
@@ -1193,7 +1196,7 @@ mod tests {
         let start = base_date;
         let end = base_date + time::Duration::days(365);
         let irs = InterestRateSwap::builder()
-            .id("IRS-1Y".to_string())
+            .id("IRS-1Y".to_string().into())
             .notional(Money::new(1_000_000.0, Currency::USD))
             .side(PayReceive::ReceiveFixed)
             .fixed(crate::instruments::irs::FixedLegSpec {
@@ -1203,7 +1206,9 @@ mod tests {
                 dc: DayCount::Thirty360,
                 bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
-                stub: finstack_core::dates::StubKind::None,
+                stub: StubKind::None,
+                par_method: None,
+                compounding_simple: true,
                 start,
                 end,
             })
@@ -1215,7 +1220,8 @@ mod tests {
                 dc: DayCount::Act360,
                 bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
-                stub: finstack_core::dates::StubKind::None,
+                stub: StubKind::None,
+                reset_lag_days: 2,
                 start,
                 end,
             })

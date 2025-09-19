@@ -1,20 +1,28 @@
-//! Interest Rate Swap (IRS) types and implementations.
+//! Interest Rate Swap (IRS) types and instrument trait implementations.
+//!
+//! Defines the `InterestRateSwap` instrument following the modern instrument
+//! standards used across valuations: types live here; pricing is delegated to
+//! `pricing::engine`; and metrics are split under `metrics/`.
+//!
+//! Public fields use strong newtype identifiers for safety: `InstrumentId` and
+//! `CurveId`. Calendar identifiers remain `Option<&'static str>` for stable
+//! serde and lookups.
 use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::{BusinessDayConvention, Frequency, StubKind};
-use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::traits::Forward;
 use finstack_core::market_data::MarketContext;
-use finstack_core::prelude::*;
-use finstack_core::F;
+use finstack_core::money::Money;
+use finstack_core::types::InstrumentId;
+use finstack_core::{dates::Date, dates::DayCount, F};
 
 use crate::cashflow::builder::{
-    cf, CouponType, FixedCouponSpec, FloatingCouponSpec as BuilderFloat, ScheduleParams,
+    cf, CouponType, FixedCouponSpec, ScheduleParams,
 };
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::discountable::Discountable;
-use crate::instruments::traits::Attributes;
-use crate::instruments::traits::Priceable;
-use crate::metrics::{RiskBucket, RiskMeasurable, RiskReport};
+// discountable helpers not used after switching to curve-based df_on_date_curve
+use crate::instruments::traits::{Attributes, Attributable, Instrument};
+// Risk types used in risk.rs
+use std::any::Any;
 
 /// Direction of the swap from the perspective of the fixed rate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -23,6 +31,15 @@ pub enum PayReceive {
     PayFixed,
     /// Receive fixed rate, pay floating rate.
     ReceiveFixed,
+}
+
+/// Par rate calculation method for IRS quotes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ParRateMethod {
+    /// Use forward-curve based float PV over the schedule (market standard when forward curve is available).
+    ForwardBased,
+    /// Use discount-curve ratio: (P(0,T0) - P(0,Tn)) / Sum_i alpha_i P(0,Ti) (bootstrapping alternative).
+    DiscountRatio,
 }
 
 /// Specification for the fixed leg of an interest rate swap.
@@ -46,6 +63,10 @@ pub struct FixedLegSpec {
     pub start: Date,
     /// End date of the fixed leg.
     pub end: Date,
+    /// Optional par-rate calculation method override.
+    pub par_method: Option<ParRateMethod>,
+    /// If true, use simple interest on accrual fraction; if false, use per-period compound accumulation when deriving annuity for par.
+    pub compounding_simple: bool,
 }
 
 /// Specification for the floating leg of an interest rate swap.
@@ -67,6 +88,8 @@ pub struct FloatLegSpec {
     pub calendar_id: Option<&'static str>,
     /// Stub period handling rule.
     pub stub: StubKind,
+    /// Reset lag in business days for floating rate (fixing to value date).
+    pub reset_lag_days: i32,
     /// Start date of the floating leg.
     pub start: Date,
     /// End date of the floating leg.
@@ -80,7 +103,7 @@ pub struct FloatLegSpec {
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct InterestRateSwap {
     /// Unique identifier for the swap.
-    pub id: String,
+    pub id: InstrumentId,
     /// Notional amount for both legs.
     pub notional: Money,
     /// Direction of the swap (PayFixed or ReceiveFixed).
@@ -98,7 +121,7 @@ impl InterestRateSwap {
     ///
     /// This convenience constructor eliminates the need for a builder in the most common case.
     pub fn usd_pay_fixed(
-        id: impl Into<String>,
+        id: InstrumentId,
         notional: Money,
         fixed_rate: F,
         start: Date,
@@ -115,6 +138,8 @@ impl InterestRateSwap {
             stub: sched.stub,
             start,
             end,
+            par_method: None,
+            compounding_simple: true,
         };
         let float = FloatLegSpec {
             disc_id: "USD-OIS",
@@ -125,11 +150,12 @@ impl InterestRateSwap {
             bdc: sched.bdc,
             calendar_id: sched.calendar_id,
             stub: sched.stub,
+            reset_lag_days: 2,
             start,
             end,
         };
         Self::builder()
-            .id(id.into())
+            .id(id)
             .notional(notional)
             .side(PayReceive::PayFixed)
             .fixed(fixed)
@@ -140,7 +166,7 @@ impl InterestRateSwap {
 
     /// Create a standard USD receive-fixed swap with common market conventions.
     pub fn usd_receive_fixed(
-        id: impl Into<String>,
+        id: InstrumentId,
         notional: Money,
         fixed_rate: F,
         start: Date,
@@ -157,6 +183,8 @@ impl InterestRateSwap {
             stub: sched.stub,
             start,
             end,
+            par_method: None,
+            compounding_simple: true,
         };
         let float = FloatLegSpec {
             disc_id: "USD-OIS",
@@ -167,11 +195,12 @@ impl InterestRateSwap {
             bdc: sched.bdc,
             calendar_id: sched.calendar_id,
             stub: sched.stub,
+            reset_lag_days: 2,
             start,
             end,
         };
         Self::builder()
-            .id(id.into())
+            .id(id)
             .notional(notional)
             .side(PayReceive::ReceiveFixed)
             .fixed(fixed)
@@ -182,7 +211,7 @@ impl InterestRateSwap {
 
     /// Create a basis swap (float vs float with different indices/spreads).
     pub fn usd_basis_swap(
-        id: impl Into<String>,
+        id: InstrumentId,
         notional: Money,
         start: Date,
         end: Date,
@@ -201,6 +230,8 @@ impl InterestRateSwap {
             stub: sched.stub,
             start,
             end,
+            par_method: None,
+            compounding_simple: true,
         };
         let float = FloatLegSpec {
             disc_id: "USD-OIS",
@@ -211,11 +242,12 @@ impl InterestRateSwap {
             bdc: sched.bdc,
             calendar_id: sched.calendar_id,
             stub: sched.stub,
+            reset_lag_days: 2,
             start,
             end,
         };
         Self::builder()
-            .id(id.into())
+            .id(id)
             .notional(notional)
             .side(PayReceive::PayFixed)
             .fixed(fixed)
@@ -225,8 +257,10 @@ impl InterestRateSwap {
     }
 
     /// Compute PV of fixed leg (helper for value calculation).
-    fn pv_fixed_leg(&self, disc: &dyn Discounting) -> finstack_core::Result<Money> {
-        let base = disc.base_date();
+    pub(crate) fn pv_fixed_leg(
+        &self,
+        disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
+    ) -> finstack_core::Result<Money> {
         let mut b = cf();
         b.principal(self.notional, self.fixed.start, self.fixed.end)
             .fixed_cf(FixedCouponSpec {
@@ -240,26 +274,27 @@ impl InterestRateSwap {
             });
         let sched = b.build()?;
 
-        // Discount coupon flows only
-        let flows: Vec<(Date, Money)> = sched
-            .flows
-            .iter()
-            .filter(|cf| {
-                cf.kind == crate::cashflow::primitives::CFKind::Fixed
-                    || cf.kind == crate::cashflow::primitives::CFKind::Stub
-            })
-            .map(|cf| (cf.date, cf.amount))
-            .collect();
-        flows.npv(disc, base, sched.day_count)
+        // Sum discounted coupon flows using the curve's own day-count via df_on_date_curve
+        let mut total = Money::new(0.0, self.notional.currency());
+        for cf in &sched.flows {
+            if cf.kind == crate::cashflow::primitives::CFKind::Fixed
+                || cf.kind == crate::cashflow::primitives::CFKind::Stub
+            {
+                // Use curve policy for discounting
+                let df = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on_date_curve(disc, cf.date);
+                let disc_amt = cf.amount * df;
+                total = (total + disc_amt)?;
+            }
+        }
+        Ok(total)
     }
 
     /// Compute PV of floating leg (helper for value calculation).
-    fn pv_float_leg(
+    pub(crate) fn pv_float_leg(
         &self,
-        disc: &dyn Discounting,
+        disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
         fwd: &dyn Forward,
     ) -> finstack_core::Result<Money> {
-        let base = disc.base_date();
         let builder = finstack_core::dates::ScheduleBuilder::new(self.float.start, self.float.end)
             .frequency(self.float.freq)
             .stub_rule(self.float.stub);
@@ -284,8 +319,9 @@ impl InterestRateSwap {
         }
 
         let mut prev = sched_dates[0];
-        let mut flows: Vec<(Date, Money)> = Vec::with_capacity(sched_dates.len().saturating_sub(1));
+        let mut total = Money::new(0.0, self.notional.currency());
         for &d in &sched_dates[1..] {
+            let base = disc.base_date();
             let t1 = self
                 .float
                 .dc
@@ -304,151 +340,32 @@ impl InterestRateSwap {
             let f = fwd.rate_period(t1, t2);
             let rate = f + (self.float.spread_bp * 1e-4);
             let coupon = self.notional * (rate * yf);
-            flows.push((d, coupon));
+            // Discount using curve's own day-count
+            let df = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on_date_curve(disc, d);
+            let disc_amt = coupon * df;
+            total = (total + disc_amt)?;
             prev = d;
         }
-        flows.npv(disc, base, self.float.dc)
+        Ok(total)
     }
 }
 
-impl_instrument!(
-    InterestRateSwap,
-    "InterestRateSwap",
-    pv = |s, curves, _as_of| {
-        let disc = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            s.fixed.disc_id,
-        )?;
-        let fwd = curves
-            .get::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-                s.float.fwd_id,
-            )?;
-        let pv_fixed = s.pv_fixed_leg(&*disc)?;
-        let pv_float = s.pv_float_leg(&*disc, &*fwd)?;
-        match s.side {
-            PayReceive::PayFixed => pv_float - pv_fixed,
-            PayReceive::ReceiveFixed => pv_fixed - pv_float,
-        }
-    }
-);
-
-impl RiskMeasurable for InterestRateSwap {
-    fn risk_report(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-        _bucket_spec: Option<&[RiskBucket]>,
-    ) -> finstack_core::Result<RiskReport> {
-        use crate::metrics::MetricContext;
-        use crate::metrics::{standard_registry, MetricId};
-        use std::sync::Arc;
-
-        // Create risk report
-        let mut report = RiskReport::new(&self.id, self.notional.currency());
-
-        // Compute base value
-        let base_value = self.value(curves, as_of)?;
-
-        // Create metric context
-        let mut context = MetricContext::new(
-            Arc::new(self.clone()),
-            Arc::new(curves.clone()),
-            as_of,
-            base_value,
-        );
-
-        // Compute key risk metrics for swaps
-        let registry = standard_registry();
-        let risk_metrics = [MetricId::Dv01, MetricId::Annuity, MetricId::ParRate];
-
-        // Compute available metrics
-        for metric_id in &risk_metrics {
-            if let Ok(metrics) = registry.compute(&[metric_id.clone()], &mut context) {
-                if let Some(value) = metrics.get(metric_id) {
-                    report = report.with_metric(metric_id.as_str(), *value);
-                }
-            }
-        }
-
-        // Add maturity bucket
-        let years_to_maturity = self
-            .fixed
-            .dc
-            .year_fraction(
-                as_of,
-                self.fixed.end,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-
-        let bucket = if years_to_maturity <= 2.0 {
-            RiskBucket {
-                id: "2Y".to_string(),
-                tenor_years: Some(years_to_maturity),
-                classification: Some("Short".to_string()),
-            }
-        } else if years_to_maturity <= 5.0 {
-            RiskBucket {
-                id: "5Y".to_string(),
-                tenor_years: Some(years_to_maturity),
-                classification: Some("Medium".to_string()),
-            }
-        } else if years_to_maturity <= 10.0 {
-            RiskBucket {
-                id: "10Y".to_string(),
-                tenor_years: Some(years_to_maturity),
-                classification: Some("Long".to_string()),
-            }
-        } else {
-            RiskBucket {
-                id: "30Y".to_string(),
-                tenor_years: Some(years_to_maturity),
-                classification: Some("Ultra-Long".to_string()),
-            }
-        };
-
-        report = report.with_bucket(bucket);
-
-        // Add side information
-        report
-            .meta
-            .insert("side".to_string(), format!("{:?}", self.side));
-        report
-            .meta
-            .insert("fixed_rate".to_string(), format!("{:.4}", self.fixed.rate));
-        report.meta.insert(
-            "float_spread_bp".to_string(),
-            format!("{:.1}", self.float.spread_bp),
-        );
-
-        Ok(report)
-    }
-
-    fn default_risk_buckets(&self) -> Option<Vec<RiskBucket>> {
-        Some(vec![
-            RiskBucket {
-                id: "2Y".to_string(),
-                tenor_years: Some(2.0),
-                classification: Some("Short".to_string()),
-            },
-            RiskBucket {
-                id: "5Y".to_string(),
-                tenor_years: Some(5.0),
-                classification: Some("Medium".to_string()),
-            },
-            RiskBucket {
-                id: "10Y".to_string(),
-                tenor_years: Some(10.0),
-                classification: Some("Long".to_string()),
-            },
-            RiskBucket {
-                id: "30Y".to_string(),
-                tenor_years: Some(30.0),
-                classification: Some("Ultra-Long".to_string()),
-            },
-        ])
-    }
+// Explicit trait implementations for modern instrument style
+impl Attributable for InterestRateSwap {
+    fn attributes(&self) -> &Attributes { &self.attributes }
+    fn attributes_mut(&mut self) -> &mut Attributes { &mut self.attributes }
 }
+
+impl Instrument for InterestRateSwap {
+    fn id(&self) -> &str { self.id.as_str() }
+    fn instrument_type(&self) -> &'static str { "InterestRateSwap" }
+    fn as_any(&self) -> &dyn Any { self }
+    fn attributes(&self) -> &Attributes { <Self as Attributable>::attributes(self) }
+    fn attributes_mut(&mut self) -> &mut Attributes { <Self as Attributable>::attributes_mut(self) }
+    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
+}
+
+// RiskMeasurable impl moved to `risk.rs`
 
 impl CashflowProvider for InterestRateSwap {
     fn build_schedule(
@@ -474,7 +391,7 @@ impl CashflowProvider for InterestRateSwap {
         let mut float_b = cf();
         float_b
             .principal(self.notional, self.float.start, self.float.end)
-            .floating_cf(BuilderFloat {
+            .floating_cf(crate::cashflow::builder::FloatingCouponSpec {
                 index_id: self.float.fwd_id,
                 margin_bp: self.float.spread_bp,
                 gearing: 1.0,
@@ -484,7 +401,7 @@ impl CashflowProvider for InterestRateSwap {
                 bdc: self.float.bdc,
                 calendar_id: self.float.calendar_id,
                 stub: self.float.stub,
-                reset_lag_days: 2,
+                reset_lag_days: self.float.reset_lag_days,
             });
         let float_sched = float_b.build()?;
 

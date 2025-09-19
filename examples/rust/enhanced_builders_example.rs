@@ -35,7 +35,7 @@ fn main() -> finstack_core::Result<()> {
 
     // Interest Rate Swap - ONE LINE!
     let swap = InterestRateSwap::usd_pay_fixed(
-        "IRS-001",
+        "IRS-001".into(),
         Money::new(10_000_000.0, Currency::USD),
         0.045, // 4.5% fixed rate
         issue,
@@ -101,7 +101,7 @@ fn main() -> finstack_core::Result<()> {
 
     // Complex Interest Rate Swap with custom schedules
     let complex_swap = InterestRateSwap::builder()
-        .id("IRS-COMPLEX".to_string())
+        .id("IRS-COMPLEX".to_string().into())
         .notional(Money::new(25_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
         .fixed(finstack_valuations::instruments::irs::FixedLegSpec {
@@ -114,6 +114,8 @@ fn main() -> finstack_core::Result<()> {
             stub: finstack_core::dates::StubKind::None,
             start: issue,
             end: maturity_5y,
+            par_method: None,
+            compounding_simple: true,
         })
         .float(finstack_valuations::instruments::irs::FloatLegSpec {
             disc_id: "USD-OIS",
@@ -126,6 +128,7 @@ fn main() -> finstack_core::Result<()> {
             stub: finstack_core::dates::StubKind::None,
             start: issue,
             end: maturity_5y,
+            reset_lag_days: 2,
         })
         .build()?;
     println!(
@@ -279,7 +282,7 @@ mod tests {
 
         // Use same parameter groups for multiple instruments
         let swap1 = InterestRateSwap::builder()
-            .id("IRS-001")
+            .id("IRS-001".into())
             .notional(Money::new(10_000_000.0, Currency::USD))
             .side(PayReceive::PayFixed)
             .standard_fixed_leg("USD-OIS", 0.05, usd_schedule)
@@ -288,7 +291,7 @@ mod tests {
             .unwrap();
 
         let swap2 = InterestRateSwap::builder()
-            .id("IRS-002")
+            .id("IRS-002".into())
             .notional(Money::new(5_000_000.0, Currency::USD))
             .side(PayReceive::ReceiveFixed)
             .standard_fixed_leg("USD-OIS", 0.0475, usd_schedule)

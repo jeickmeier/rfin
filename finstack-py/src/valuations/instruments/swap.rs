@@ -113,6 +113,8 @@ impl PyFixedLeg {
                 stub: stub_kind,
                 start: start_date.inner(),
                 end: end_date.inner(),
+                par_method: None,
+                compounding_simple: true,
             },
         })
     }
@@ -231,6 +233,7 @@ impl PyFloatLeg {
                 bdc,
                 calendar_id: cal_id,
                 stub: stub_kind,
+                reset_lag_days: 2,
                 start: start_date.inner(),
                 end: end_date.inner(),
             },
@@ -350,7 +353,7 @@ impl PyInterestRateSwap {
     ) -> PyResult<Self> {
         Ok(Self {
             inner: Arc::new(InterestRateSwap {
-                id,
+                id: id.into(),
                 notional: notional.inner(),
                 side: side.into(),
                 fixed: fixed_leg.inner.clone(),
@@ -362,7 +365,7 @@ impl PyInterestRateSwap {
 
     #[getter]
     fn id(&self) -> String {
-        self.inner.id.clone()
+        self.inner.id.to_string()
     }
 
     #[getter]
