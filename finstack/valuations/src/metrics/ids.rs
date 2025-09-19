@@ -222,6 +222,22 @@ define_metrics! {
     /// Index delta for TRS
     IndexDelta => "index_delta",
 
+    // Basis swap metrics
+    /// PV of primary floating leg (includes spread)
+    BasisPvPrimary => "basis_pv_primary",
+    /// PV of reference floating leg
+    BasisPvReference => "basis_pv_reference",
+    /// Discounted accrual sum for primary leg (no notional multiplier)
+    BasisAnnuityPrimary => "basis_annuity_primary",
+    /// Discounted accrual sum for reference leg (no notional multiplier)
+    BasisAnnuityReference => "basis_annuity_reference",
+    /// DV01 (per 1bp) for primary leg (annuity * notional * 1bp)
+    BasisDv01Primary => "basis_dv01_primary",
+    /// DV01 (per 1bp) for reference leg (annuity * notional * 1bp)
+    BasisDv01Reference => "basis_dv01_reference",
+    /// Par spread (bp) on primary leg that makes NPV zero
+    BasisParSpread => "basis_par_spread",
+
     // Repo metrics
     /// Market value of collateral
     CollateralValue => "collateral_value",

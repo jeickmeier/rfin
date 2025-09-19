@@ -3,17 +3,15 @@
 //! A basis swap exchanges two floating rate payments with different tenors,
 //! capturing the basis spread between them (e.g., 3M vs 6M).
 
-use crate::instruments::traits::Priceable;
-use crate::metrics::MetricId;
-use crate::results::ValuationResult;
+use crate::cashflow::builder::schedule_utils::{build_dates, PeriodSchedule};
 use finstack_core::{
-    dates::{BusinessDayConvention, Date, DayCount, DayCountCtx, Frequency, StubKind},
-    market_data::context::MarketContext,
+    dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind},
     money::Money,
-    prelude::*,
     types::{CurveId, InstrumentId},
     F,
 };
+use crate::instruments::traits::{Attributable, Instrument};
+use std::any::Any;
 
 /// Basis swap specification for one leg
 #[derive(Clone, Debug)]
@@ -54,6 +52,8 @@ pub struct BasisSwap {
     pub calendar_id: Option<&'static str>,
     /// Stub handling
     pub stub_kind: StubKind,
+    /// Attributes for selection and tagging
+    pub attributes: crate::instruments::traits::Attributes,
 }
 
 impl BasisSwap {
@@ -77,6 +77,7 @@ impl BasisSwap {
             discount_curve_id: discount_curve_id.into(),
             calendar_id: None,
             stub_kind: StubKind::None,
+            attributes: crate::instruments::traits::Attributes::default(),
         }
     }
 
@@ -92,125 +93,35 @@ impl BasisSwap {
         self
     }
 
-    /// Calculate the present value of a floating leg.
-    fn price_float_leg(
-        &self,
-        leg: &BasisSwapLeg,
-        context: &MarketContext,
-        valuation_date: Date,
-    ) -> Result<Money> {
-        // Get curves
-        let discount_curve =
-            context
-                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                    self.discount_curve_id.as_str(),
-                )?;
-        let forward_curve =
-            context
-                .get::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-                    leg.forward_curve_id.as_str(),
-                )?;
-
-        // Generate payment schedule using simple date logic
-        let mut schedule = Vec::new();
-        let mut current = self.start_date;
-
-        schedule.push(current);
-
-        // Add regular periods based on frequency
-        while current < self.maturity_date {
-            current = match leg.frequency.months() {
-                Some(months) => finstack_core::dates::add_months(current, months as i32),
-                None => match leg.frequency.days() {
-                    Some(days) => current + time::Duration::days(days as i64),
-                    None => break,
-                },
-            };
-
-            if current <= self.maturity_date {
-                schedule.push(current);
-            }
-        }
-
-        // Ensure maturity is included
-        if schedule.last() != Some(&self.maturity_date) {
-            schedule.push(self.maturity_date);
-        }
-
-        let mut pv = 0.0;
-        let dc_ctx = DayCountCtx::default();
-
-        for i in 0..schedule.len() - 1 {
-            let period_start = schedule[i];
-            let period_end = schedule[i + 1];
-
-            // Skip past periods
-            if period_end <= valuation_date {
-                continue;
-            }
-
-            // Calculate forward rate for the period
-            // Need to convert dates to time fractions from base date
-            let dc_ctx_for_time = DayCountCtx::default();
-            let t1 =
-                DayCount::Act360.year_fraction(self.start_date, period_start, dc_ctx_for_time)?;
-            let t2 =
-                DayCount::Act360.year_fraction(self.start_date, period_end, dc_ctx_for_time)?;
-            let forward_rate = forward_curve.rate_period(t1, t2);
-
-            // Add spread if applicable
-            let total_rate = forward_rate + leg.spread;
-
-            // Calculate year fraction
-            let year_frac = leg
-                .day_count
-                .year_fraction(period_start, period_end, dc_ctx)?;
-
-            // Calculate payment amount
-            let payment = self.notional.amount() * total_rate * year_frac;
-
-            // Discount to present value
-            let dc_ctx_for_df = DayCountCtx::default();
-            let t_end =
-                DayCount::Act360.year_fraction(self.start_date, period_end, dc_ctx_for_df)?;
-            let df = discount_curve.df(t_end);
-            pv += payment * df;
-        }
-
-        Ok(Money::new(pv, self.notional.currency()))
+    /// Build a canonical period schedule for a given leg using shared schedule utils.
+    pub fn leg_schedule(&self, leg: &BasisSwapLeg) -> PeriodSchedule {
+        build_dates(
+            self.start_date,
+            self.maturity_date,
+            leg.frequency,
+            self.stub_kind,
+            leg.bdc,
+            self.calendar_id,
+        )
     }
 }
 
-impl Priceable for BasisSwap {
-    fn value(&self, context: &MarketContext, valuation_date: Date) -> Result<Money> {
-        // Price both legs
-        let primary_pv = self.price_float_leg(&self.primary_leg, context, valuation_date)?;
-        let reference_pv = self.price_float_leg(&self.reference_leg, context, valuation_date)?;
-
-        // Net present value (primary receives, reference pays)
-        Ok(Money::new(
-            primary_pv.amount() - reference_pv.amount(),
-            primary_pv.currency(),
-        ))
+impl Attributable for BasisSwap {
+    fn attributes(&self) -> &crate::instruments::traits::Attributes {
+        &self.attributes
     }
-
-    fn price_with_metrics(
-        &self,
-        context: &MarketContext,
-        as_of: Date,
-        _metrics: &[MetricId],
-    ) -> Result<ValuationResult> {
-        // For now, just compute PV
-        let pv = self.value(context, as_of)?;
-
-        // Create result with basic metric
-        let mut measures = indexmap::IndexMap::new();
-        measures.insert("pv".to_string(), pv.amount());
-
-        let result = ValuationResult::stamped(self.id.as_str(), as_of, pv).with_measures(measures);
-
-        Ok(result)
+    fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes {
+        &mut self.attributes
     }
+}
+
+impl Instrument for BasisSwap {
+    fn id(&self) -> &str { self.id.as_str() }
+    fn instrument_type(&self) -> &'static str { "BasisSwap" }
+    fn as_any(&self) -> &dyn Any { self }
+    fn attributes(&self) -> &crate::instruments::traits::Attributes { <Self as Attributable>::attributes(self) }
+    fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes { <Self as Attributable>::attributes_mut(self) }
+    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
 }
 
 #[cfg(test)]
@@ -219,6 +130,9 @@ mod tests {
     use finstack_core::market_data::term_structures::{
         discount_curve::DiscountCurve, forward_curve::ForwardCurve,
     };
+    use finstack_core::market_data::MarketContext;
+    use finstack_core::currency::Currency;
+    use crate::instruments::traits::Priceable;
     use time::Month;
 
     // Helper function for tests
