@@ -306,27 +306,19 @@ impl GaussHermiteQuadrature {
     where
         F2: Fn(F) -> F + Copy,
     {
-        // Start with base quadrature
-        let base_result = self.integrate(f);
-
-        // Check if we need higher precision by comparing with next order
-        let higher_order_quad = match self.points.len() {
-            5 => GaussHermiteQuadrature::order_7(),
-            7 => GaussHermiteQuadrature::order_10(),
-            _ => return base_result, // Already at highest order
-        };
-
-        let refined_result = higher_order_quad.integrate(f);
-        let error_estimate = (refined_result - base_result).abs();
-
-        if error_estimate <= tolerance {
-            refined_result
-        } else if self.points.len() < 10 {
-            // Use highest order available for maximum precision
-            let highest_quad = GaussHermiteQuadrature::order_10();
-            highest_quad.integrate(f)
-        } else {
-            refined_result
+        let base = self.integrate(f);
+        match self.points.len() {
+            10 => base,
+            7 => GaussHermiteQuadrature::order_10().integrate(f),
+            5 => {
+                let v7 = GaussHermiteQuadrature::order_7().integrate(f);
+                if (v7 - base).abs() <= tolerance {
+                    v7
+                } else {
+                    GaussHermiteQuadrature::order_10().integrate(f)
+                }
+            }
+            _ => base,
         }
     }
 }
@@ -393,7 +385,8 @@ where
         F2: Fn(F) -> F + Copy,
     {
         if params.control.depth >= params.control.max_depth {
-            return Err(InputError::Invalid.into());
+            // At recursion limit, return the current best composite estimate
+            return Ok(params.evaluations.whole);
         }
 
         let c = (params.interval.a + params.interval.b) / 2.0;
@@ -560,7 +553,8 @@ pub fn gauss_legendre_integrate<F2>(f: F2, a: F, b: F, order: usize) -> Result<F
 where
     F2: Fn(F) -> F,
 {
-    if !(a.is_finite() && b.is_finite()) || a == b { return Err(InputError::Invalid.into()); }
+    if !(a.is_finite() && b.is_finite()) { return Err(InputError::Invalid.into()); }
+    if a == b { return Ok(0.0); }
     let (xs, ws) = gl_nodes_weights(order)?;
     let half = 0.5 * (b - a);
     let mid = 0.5 * (b + a);
@@ -738,7 +732,7 @@ mod tests {
         // Test adaptive integration on oscillatory function
         let f = |x: F| (10.0 * x).sin();
         let result = adaptive_quadrature(f, 0.0, std::f64::consts::PI, 1e-6, 1000).unwrap();
-        // Exact integral = (1 - cos(10π))/10 ≈ 0.2
-        assert!((result.abs()).abs() < 0.5); // Allow for oscillatory function tolerance
+        // Exact integral = (1 - cos(10π))/10 = 0
+        assert!(result.abs() < 1e-2);
     }
 }
