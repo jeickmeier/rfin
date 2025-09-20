@@ -31,8 +31,8 @@ impl MetricCalculator for DirtyPriceCalculator {
                 })
             })?;
 
-        // Dirty price = clean price + accrued interest
-        Ok(clean_px + accrued)
+        // Dirty price in currency = (clean % of par) * notional + accrued (currency)
+        Ok(clean_px * bond.notional.amount() / 100.0 + accrued)
     }
 }
 
@@ -47,12 +47,12 @@ impl MetricCalculator for CleanPriceCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let bond: &Bond = context.instrument_as()?;
 
-        // If we have quoted clean price, just return it
+        // If we have quoted clean price, return currency value
         if let Some(clean_px) = bond.pricing_overrides.quoted_clean_price {
-            return Ok(clean_px);
+            return Ok(clean_px * bond.notional.amount() / 100.0);
         }
 
-        // Otherwise calculate from base value (which should be dirty price)
+        // Otherwise calculate from base value (which should be dirty price in currency)
         let dirty_px = context.base_value.amount();
         let accrued = context
             .computed
@@ -64,7 +64,7 @@ impl MetricCalculator for CleanPriceCalculator {
                 })
             })?;
 
-        // Clean price = dirty price - accrued interest
+        // Clean price in currency
         Ok(dirty_px - accrued)
     }
 }

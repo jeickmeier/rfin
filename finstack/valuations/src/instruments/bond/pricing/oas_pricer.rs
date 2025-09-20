@@ -180,12 +180,12 @@ impl OASCalculator {
         bond: &Bond,
         market_context: &MarketContext,
         as_of: Date,
-        market_price: F,
+        clean_price_pct_of_par: F,
     ) -> Result<F> {
-        // market_price is expected to be the CLEAN price quoted in percent of par.
+        // clean_price_pct_of_par is expected to be the CLEAN price quoted in percent of par.
         // Convert to currency and add accrued interest (currency) to form the dirty target.
         let accrued_ccy = self.calculate_accrued_interest(bond, market_context, as_of)?;
-        let dirty_target = (market_price * bond.notional.amount() / 100.0) + accrued_ccy;
+        let dirty_target = (clean_price_pct_of_par * bond.notional.amount() / 100.0) + accrued_ccy;
         let time_to_maturity = bond
             .dc
             .year_fraction(

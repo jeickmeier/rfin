@@ -57,11 +57,15 @@ impl MetricCalculator for Cs01Calculator {
             }
         }
 
-        // CS01 = (price with spread down - price with spread up) / 2
-        // Scaled to per unit notional
-        let cs01 = (npv_down - npv_up) / 2.0 / bond.notional.amount();
+        // CS01 (per 100 par price points): delta price currency per 1bp, scaled by notional and x100
+        let delta_ccy = (npv_down - npv_up) / 2.0;
+        let cs01_per100 = if bond.notional.amount() != 0.0 {
+            (delta_ccy / bond.notional.amount()) * 100.0
+        } else {
+            0.0
+        };
 
-        Ok(cs01 * 10000.0) // Return in price per 100 notional terms
+        Ok(cs01_per100)
     }
 }
 

@@ -60,8 +60,8 @@ impl MetricCalculator for YtmCalculator {
                 })
             })?;
 
-        // Compute dirty price
-        let dirty_amt = clean_px + ai;
+        // Compute dirty price in currency: clean is quoted % of par
+        let dirty_amt = (clean_px * notional.amount() / 100.0) + ai;
         let dirty = Money::new(dirty_amt, currency);
 
         // Cache flows and hints if we built them
