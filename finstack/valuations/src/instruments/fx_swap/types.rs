@@ -1,9 +1,15 @@
-//! FX Swap types and implementations.
+//! FX Swap types and instrument integration.
+//!
+//! This file defines the `FxSwap` instrument shape and provides the
+//! integration with the shared instrument trait via the `impl_instrument!`
+//! macro. Core PV logic is delegated to `pricing::engine` to follow the
+//! repository standards. Metrics live under `metrics/` and are registered
+//! via the instrument metrics module.
 
 use crate::instruments::traits::Attributes;
-use finstack_core::money::fx::FxConversionPolicy;
 use finstack_core::prelude::*;
 use finstack_core::F;
+use finstack_core::types::InstrumentId;
 
 use super::parameters::FxSwapParams;
 
@@ -41,7 +47,7 @@ impl FxUnderlyingParams {
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct FxSwap {
     /// Unique instrument identifier
-    pub id: String,
+    pub id: InstrumentId,
     /// Base currency (foreign)
     pub base_currency: Currency,
     /// Quote currency (domestic)
@@ -69,12 +75,12 @@ pub struct FxSwap {
 impl FxSwap {
     /// Create a new FX swap using parameter structs
     pub fn new(
-        id: impl Into<String>,
+        id: InstrumentId,
         swap_params: &FxSwapParams,
         underlying_params: &FxUnderlyingParams,
     ) -> Self {
         Self {
-            id: id.into(),
+            id,
             base_currency: underlying_params.base_currency,
             quote_currency: underlying_params.quote_currency,
             near_date: swap_params.near_date,
@@ -94,101 +100,8 @@ impl FxSwap {
 impl_instrument!(
     FxSwap,
     "FxSwap",
-    pv =
-        |s, curves, as_of| {
-            // 1. Get discount curves
-            let domestic_disc = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                s.domestic_disc_id,
-            )?;
-            let foreign_disc = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                s.foreign_disc_id,
-            )?;
-
-            // 2. Get year fractions
-            let dc = finstack_core::dates::DayCount::Act365F;
-            let t_near = dc
-                .year_fraction(
-                    as_of,
-                    s.near_date,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
-                .unwrap_or(0.0);
-            let t_far = dc
-                .year_fraction(
-                    as_of,
-                    s.far_date,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
-                .unwrap_or(0.0);
-
-            // 3. Get discount factors
-            let df_dom_near = domestic_disc.df(t_near);
-            let df_dom_far = domestic_disc.df(t_far);
-            let df_for_near = foreign_disc.df(t_near);
-            let df_for_far = foreign_disc.df(t_far);
-
-            // 4. Resolve near_rate (spot)
-            let fx_matrix = curves.fx.as_ref().ok_or(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound {
-                    id: "fx_matrix".to_string(),
-                },
-            ))?;
-            let near_rate = match s.near_rate {
-                Some(rate) => rate,
-                None => {
-                    (**fx_matrix)
-                        .rate(finstack_core::money::fx::FxQuery {
-                            from: s.base_currency,
-                            to: s.quote_currency,
-                            on: as_of,
-                            policy: FxConversionPolicy::CashflowDate,
-                            closure_check: None,
-                            want_meta: false,
-                        })?
-                        .rate
-                }
-            };
-
-            // 5. Resolve far_rate (forward)
-            let far_rate = match s.far_rate {
-                Some(rate) => rate,
-                None => {
-                    // Forward rate F = S * df_foreign / df_domestic
-                    near_rate * df_for_far / df_dom_far
-                }
-            };
-
-            // 6. Calculate PV of each leg
-            if s.base_notional.currency() != s.base_currency {
-                return Err(finstack_core::Error::from(
-                    finstack_core::error::InputError::Invalid,
-                ));
-            }
-            let base_amt = s.base_notional.amount();
-
-            // PV of foreign leg in foreign currency: (+CF at near_date, -CF at far_date)
-            let pv_for_leg = base_amt * df_for_near - base_amt * df_for_far;
-
-            // PV of domestic leg in domestic currency: (-CF at near_date, +CF at far_date)
-            let pv_dom_leg = -base_amt * near_rate * df_dom_near + base_amt * far_rate * df_dom_far;
-
-            // 7. Convert foreign leg PV to domestic currency and sum
-            let spot_rate_val = (**fx_matrix)
-                .rate(finstack_core::money::fx::FxQuery {
-                    from: s.base_currency,
-                    to: s.quote_currency,
-                    on: as_of,
-                    policy: FxConversionPolicy::CashflowDate,
-                    closure_check: None,
-                    want_meta: false,
-                })?
-                .rate;
-            let spot_rate = spot_rate_val;
-
-            let total_pv = pv_for_leg * spot_rate + pv_dom_leg;
-
-            Ok(Money::new(total_pv, s.quote_currency))
-        }
+    pv = |s, curves, as_of| {
+        // Delegate PV to the pricing engine to centralize pricing logic
+        crate::instruments::fx_swap::pricing::engine::FxSwapPricer::pv(s, curves, as_of)
+    }
 );
