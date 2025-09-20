@@ -1,9 +1,13 @@
-//! CDS instrument module: submodules and type re-export.
+//! CDS instrument module: structure, pricing, and metrics.
+//!
+//! Follows the standard instrument layout used across valuations:
+//! - `types`: instrument data structures and trait impls
+//! - `pricing`: pricing facade and engine implementation
+//! - `metrics`: metric calculators and registry hook
 
-pub mod cds_pricer;
+pub mod pricing;
 pub mod credit;
 pub mod metrics;
-pub mod parameters;
 mod types;
 
 pub use credit::CreditParams;
@@ -13,3 +17,7 @@ pub use types::PayReceive;
 pub use types::PremiumLegSpec;
 pub use types::ProtectionLegSpec;
 pub use types::SettlementType;
+
+// Back-compat: re-export pricing engine types at the same path names used previously.
+// External code that referenced `cds_pricer::CDSPricer` will continue to work via this alias.
+pub use pricing::engine as cds_pricer;

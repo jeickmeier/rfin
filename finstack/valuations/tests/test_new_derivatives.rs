@@ -7,7 +7,6 @@ use finstack_core::types::CurveId;
 use finstack_valuations::instruments::cap_floor::parameters::InterestRateOptionParams;
 #[allow(unused_imports)]
 use finstack_valuations::instruments::cap_floor::InterestRateOption;
-use finstack_valuations::instruments::cds::parameters::CDSConstructionParams;
 use finstack_valuations::instruments::cds::CDSConvention;
 use finstack_valuations::instruments::credit_option::parameters::CreditOptionParams;
 use finstack_valuations::instruments::equity_option::parameters::EquityOptionParams;
@@ -27,21 +26,18 @@ fn test_cds_creation_and_basic_pricing() {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
-    let construction_params = CDSConstructionParams::buy_protection(
-        notional, 100.0, // 100bp spread
-    );
+    let spread_bp = 100.0; // 100bp
     // DateRange inlined; start/end passed directly to constructor
-    let credit_params = finstack_valuations::instruments::CreditParams::new(
-        "ABC Corp",
-        0.4, // 40% recovery
-        "ABC-SENIOR",
-    );
     let cds = CreditDefaultSwap::new_isda(
         "CDS_TEST",
-        &construction_params,
+        notional,
+        finstack_valuations::instruments::cds::PayReceive::PayProtection,
+        finstack_valuations::instruments::cds::CDSConvention::IsdaNa,
+        spread_bp,
         start,
         end,
-        &credit_params,
+        "ABC Corp",
+        0.4,
         "USD-OIS",
         "ABC-SENIOR",
     );

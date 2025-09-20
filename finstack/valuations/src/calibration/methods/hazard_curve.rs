@@ -6,8 +6,7 @@
 
 use crate::calibration::quote::CreditQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
-use crate::instruments::cds::parameters::CDSConstructionParams;
-use crate::instruments::cds::{cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap};
+use crate::instruments::cds::{cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap, PayReceive};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::{
     HazardCurve, ParInterp, Seniority,
@@ -174,22 +173,17 @@ impl HazardCurveCalibrator {
             const CALIB_HAZARD_ID: &str = "CALIB_HAZARD";
             const CALIB_DISC_ID: &str = "CALIB_DISC";
 
-            let credit_params = crate::instruments::CreditParams::new(
-                &self.entity,
-                self.recovery_rate,
-                CALIB_HAZARD_ID,
-            );
 
-            let construction_params = CDSConstructionParams::buy_protection(
-                Money::new(10_000_000.0, self.currency),
-                *market_spread_bp,
-            );
             let cds = CreditDefaultSwap::new_isda(
                 format!("CALIB_CDS_{}", maturity),
-                &construction_params,
+                Money::new(10_000_000.0, self.currency),
+                PayReceive::PayProtection,
+                CDSConvention::IsdaNa,
+                *market_spread_bp,
                 self.base_date,
                 *maturity,
-                &credit_params,
+                &self.entity,
+                self.recovery_rate,
                 CALIB_DISC_ID,
                 CALIB_HAZARD_ID,
             );
@@ -395,18 +389,16 @@ mod tests {
                 ..
             } = q
             {
-                let credit_params =
-                    crate::instruments::CreditParams::new("AAPL", 0.40, "AAPL-Senior");
-                let construction_params = CDSConstructionParams::buy_protection(
-                    Money::new(1_000_000.0, Currency::USD),
-                    spread_bp,
-                );
                 let cds = CreditDefaultSwap::new_isda(
                     format!("CDS-{}", maturity),
-                    &construction_params,
+                    Money::new(1_000_000.0, Currency::USD),
+                    PayReceive::PayProtection,
+                    CDSConvention::IsdaNa,
+                    spread_bp,
                     base_date,
                     maturity,
-                    &credit_params,
+                    "AAPL",
+                    0.40,
                     "USD-OIS",
                     "AAPL-Senior",
                 );

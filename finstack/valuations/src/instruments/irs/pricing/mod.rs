@@ -48,7 +48,7 @@ impl Priceable for InterestRateSwap {
                 let disc = context.get_ref::<DiscountCurve>(self.fixed.disc_id)?;
 
                 // Helper: compute fixed-leg annuity (discounted accrual sum)
-                let mut compute_annuity = || -> finstack_core::F {
+                let compute_annuity = || -> finstack_core::F {
                     let sched = crate::cashflow::builder::build_dates(
                         self.fixed.start,
                         self.fixed.end,

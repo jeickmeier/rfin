@@ -454,6 +454,179 @@ where
     adaptive_simpson(f, &params)
 }
 
+/// Convenience alias: Adaptive Simpson integration with error control.
+///
+/// This forwards to `adaptive_quadrature`, clarifying the Simpson basis.
+pub fn adaptive_simpson<F2>(f: F2, a: F, b: F, tol: F, max_depth: usize) -> Result<F, Error>
+where
+    F2: Fn(F) -> F + Copy,
+{
+    adaptive_quadrature(f, a, b, tol, max_depth)
+}
+
+// -----------------------------------------------------------------------------
+// Gauss–Legendre Quadrature (finite intervals)
+// -----------------------------------------------------------------------------
+
+/// Return Gauss–Legendre nodes and weights for supported orders.
+fn gl_nodes_weights(order: usize) -> Result<(&'static [F], &'static [F]), Error> {
+    // Nodes/weights for symmetric [-1,1] intervals
+    // Orders supported: 2, 4, 8, 16
+    match order {
+        2 => Ok((
+            &[-0.577_350_269_189_625_7, 0.577_350_269_189_625_7],
+            &[1.0, 1.0],
+        )),
+        4 => Ok((
+            &[
+                -0.861_136_311_594_052_6,
+                -0.339_981_043_584_856_3,
+                0.339_981_043_584_856_3,
+                0.861_136_311_594_052_6,
+            ],
+            &[
+                0.347_854_845_137_453_85,
+                0.652_145_154_862_546_1,
+                0.652_145_154_862_546_1,
+                0.347_854_845_137_453_85,
+            ],
+        )),
+        8 => Ok((
+            &[
+                -0.960_289_856_497_536_3,
+                -0.796_666_477_413_626_7,
+                -0.525_532_409_916_329,
+                -0.183_434_642_495_649_8,
+                0.183_434_642_495_649_8,
+                0.525_532_409_916_329,
+                0.796_666_477_413_626_7,
+                0.960_289_856_497_536_3,
+            ],
+            &[
+                0.101_228_536_290_376_26,
+                0.222_381_034_453_374_48,
+                0.313_706_645_877_887_27,
+                0.362_683_783_378_361_96,
+                0.362_683_783_378_361_96,
+                0.313_706_645_877_887_27,
+                0.222_381_034_453_374_48,
+                0.101_228_536_290_376_26,
+            ],
+        )),
+        16 => Ok((
+            &[
+                -0.989_400_934_991_649_9,
+                -0.944_575_023_073_232_6,
+                -0.865_631_202_387_831_8,
+                -0.755_404_408_355_003,
+                -0.617_876_244_402_643_8,
+                -0.458_016_777_657_227_37,
+                -0.281_603_550_779_258_9,
+                -0.095_012_509_837_637_44,
+                0.095_012_509_837_637_44,
+                0.281_603_550_779_258_9,
+                0.458_016_777_657_227_37,
+                0.617_876_244_402_643_8,
+                0.755_404_408_355_003,
+                0.865_631_202_387_831_8,
+                0.944_575_023_073_232_6,
+                0.989_400_934_991_649_9,
+            ],
+            &[
+                0.027_152_459_411_754_095,
+                0.062_253_523_938_647_894,
+                0.095_158_511_682_492_78,
+                0.124_628_971_255_533_88,
+                0.149_595_988_816_576_73,
+                0.169_156_519_395_002_54,
+                0.182_603_415_044_923_58,
+                0.189_450_610_455_068_5,
+                0.189_450_610_455_068_5,
+                0.182_603_415_044_923_58,
+                0.169_156_519_395_002_54,
+                0.149_595_988_816_576_73,
+                0.124_628_971_255_533_88,
+                0.095_158_511_682_492_78,
+                0.062_253_523_938_647_894,
+                0.027_152_459_411_754_095,
+            ],
+        )),
+        _ => Err(InputError::Invalid.into()),
+    }
+}
+
+/// Gauss–Legendre quadrature over finite interval [a,b].
+pub fn gauss_legendre_integrate<F2>(f: F2, a: F, b: F, order: usize) -> Result<F, Error>
+where
+    F2: Fn(F) -> F,
+{
+    if !(a.is_finite() && b.is_finite()) || a == b { return Err(InputError::Invalid.into()); }
+    let (xs, ws) = gl_nodes_weights(order)?;
+    let half = 0.5 * (b - a);
+    let mid = 0.5 * (b + a);
+    let mut acc = 0.0;
+    for i in 0..xs.len() {
+        let x = mid + half * xs[i];
+        acc += ws[i] * f(x);
+    }
+    Ok(acc * half)
+}
+
+/// Composite Gauss–Legendre over [a,b] using `panels` sub-intervals.
+pub fn gauss_legendre_integrate_composite<F2>(
+    f: F2,
+    a: F,
+    b: F,
+    order: usize,
+    panels: usize,
+) -> Result<F, Error>
+where
+    F2: Fn(F) -> F,
+{
+    if panels == 0 { return Err(InputError::Invalid.into()); }
+    let h = (b - a) / panels as F;
+    let mut sum = 0.0;
+    for k in 0..panels {
+        let ak = a + k as F * h;
+        let bk = ak + h;
+        sum += gauss_legendre_integrate(&f, ak, bk, order)?;
+    }
+    Ok(sum)
+}
+
+/// Adaptive Gauss–Legendre based on panel refinement until tolerance is met.
+pub fn gauss_legendre_integrate_adaptive<F2>(
+    f: F2,
+    a: F,
+    b: F,
+    order: usize,
+    tol: F,
+    max_depth: usize,
+) -> Result<F, Error>
+where
+    F2: Fn(F) -> F + Copy,
+{
+    fn recurse<F2>(f: F2, a: F, b: F, order: usize, tol: F, depth: usize, max_depth: usize) -> Result<F, Error>
+    where
+        F2: Fn(F) -> F + Copy,
+    {
+        let i1 = gauss_legendre_integrate(f, a, b, order)?;
+        let mid = 0.5 * (a + b);
+        let i2_left = gauss_legendre_integrate(f, a, mid, order)?;
+        let i2_right = gauss_legendre_integrate(f, mid, b, order)?;
+        let i2 = i2_left + i2_right;
+        let err = (i2 - i1).abs();
+        if err <= tol || depth >= max_depth {
+            return Ok(i2);
+        }
+        let left = recurse(f, a, mid, order, tol * 0.5, depth + 1, max_depth)?;
+        let right = recurse(f, mid, b, order, tol * 0.5, depth + 1, max_depth)?;
+        Ok(left + right)
+    }
+
+    recurse(f, a, b, order, tol, 0, max_depth)
+}
+
 /// Trapezoidal rule for numerical integration.
 ///
 /// Simple and robust integration method. Less accurate than Simpson's rule

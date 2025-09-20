@@ -1,6 +1,5 @@
 //! Credit Default Swap (CDS) types and implementations.
 use crate::cashflow::traits::DatedFlows;
-use crate::instruments::cds::CreditParams;
 use crate::instruments::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
@@ -11,7 +10,6 @@ use finstack_core::money::Money;
 use finstack_core::F;
 
 pub use super::cds_pricer;
-use super::parameters::CDSConstructionParams;
 
 /// CDS payment types
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -144,7 +142,7 @@ impl CreditDefaultSwap {
         disc_id: &'static str,
         credit_id: &'static str,
     ) -> Self {
-        let credit_params = CreditParams::investment_grade(reference_entity, credit_id);
+        let reference_entity: String = reference_entity.into();
 
         let dc = CDSConvention::IsdaNa.day_count();
         let freq = CDSConvention::IsdaNa.frequency();
@@ -154,7 +152,7 @@ impl CreditDefaultSwap {
         CreditDefaultSwapBuilder::new()
             .id(id.into())
             .notional(notional)
-            .reference_entity(credit_params.reference_entity.clone())
+            .reference_entity(reference_entity)
             .side(PayReceive::PayProtection)
             .convention(CDSConvention::IsdaNa)
             .premium(PremiumLegSpec {
@@ -170,7 +168,7 @@ impl CreditDefaultSwap {
             })
             .protection(ProtectionLegSpec {
                 credit_id,
-                recovery_rate: credit_params.recovery_rate,
+                recovery_rate: crate::instruments::cds::credit::RECOVERY_SENIOR_UNSECURED,
                 settlement: SettlementType::Cash,
                 settlement_delay: 3,
             })
@@ -192,7 +190,7 @@ impl CreditDefaultSwap {
         disc_id: &'static str,
         credit_id: &'static str,
     ) -> Self {
-        let credit_params = CreditParams::investment_grade(reference_entity, credit_id);
+        let reference_entity: String = reference_entity.into();
 
         let dc = CDSConvention::IsdaNa.day_count();
         let freq = CDSConvention::IsdaNa.frequency();
@@ -202,7 +200,7 @@ impl CreditDefaultSwap {
         CreditDefaultSwapBuilder::new()
             .id(id.into())
             .notional(notional)
-            .reference_entity(credit_params.reference_entity.clone())
+            .reference_entity(reference_entity)
             .side(PayReceive::ReceiveProtection)
             .convention(CDSConvention::IsdaNa)
             .premium(PremiumLegSpec {
@@ -218,7 +216,7 @@ impl CreditDefaultSwap {
             })
             .protection(ProtectionLegSpec {
                 credit_id,
-                recovery_rate: credit_params.recovery_rate,
+                recovery_rate: crate::instruments::cds::credit::RECOVERY_SENIOR_UNSECURED,
                 settlement: SettlementType::Cash,
                 settlement_delay: 3,
             })
@@ -241,7 +239,7 @@ impl CreditDefaultSwap {
         disc_id: &'static str,
         credit_id: &'static str,
     ) -> Self {
-        let credit_params = CreditParams::high_yield(reference_entity, credit_id);
+        let reference_entity: String = reference_entity.into();
 
         let dc = CDSConvention::IsdaNa.day_count();
         let freq = CDSConvention::IsdaNa.frequency();
@@ -251,7 +249,7 @@ impl CreditDefaultSwap {
         CreditDefaultSwapBuilder::new()
             .id(id.into())
             .notional(notional)
-            .reference_entity(credit_params.reference_entity.clone())
+            .reference_entity(reference_entity)
             .side(side)
             .convention(CDSConvention::IsdaNa)
             .premium(PremiumLegSpec {
@@ -267,7 +265,7 @@ impl CreditDefaultSwap {
             })
             .protection(ProtectionLegSpec {
                 credit_id,
-                recovery_rate: credit_params.recovery_rate,
+                recovery_rate: crate::instruments::cds::credit::RECOVERY_HIGH_YIELD_DEFAULT,
                 settlement: SettlementType::Cash,
                 settlement_delay: 3,
             })
@@ -277,27 +275,33 @@ impl CreditDefaultSwap {
             .expect("High yield CDS construction should not fail")
     }
 
-    /// Create a new CDS with standard ISDA conventions using parameter structs
+    /// Create a new CDS with standard ISDA conventions using explicit inputs.
+    #[allow(clippy::too_many_arguments)]
     pub fn new_isda(
         id: impl Into<String>,
-        construction_params: &CDSConstructionParams,
+        notional: Money,
+        side: PayReceive,
+        convention: CDSConvention,
+        spread_bp: F,
         start: finstack_core::dates::Date,
         end: finstack_core::dates::Date,
-        credit_params: &CreditParams,
+        reference_entity: impl Into<String>,
+        recovery_rate: F,
         disc_id: &'static str,
         credit_id: &'static str,
     ) -> Self {
-        let dc = construction_params.convention.day_count();
-        let freq = construction_params.convention.frequency();
-        let bdc = construction_params.convention.business_day_convention();
-        let stub = construction_params.convention.stub_convention();
+        let reference_entity: String = reference_entity.into();
+        let dc = convention.day_count();
+        let freq = convention.frequency();
+        let bdc = convention.business_day_convention();
+        let stub = convention.stub_convention();
 
         Self {
             id: id.into(),
-            notional: construction_params.notional,
-            reference_entity: credit_params.reference_entity.clone(),
-            side: construction_params.side,
-            convention: construction_params.convention,
+            notional,
+            reference_entity,
+            side,
+            convention,
             premium: PremiumLegSpec {
                 start,
                 end,
@@ -306,12 +310,12 @@ impl CreditDefaultSwap {
                 bdc,
                 calendar_id: None,
                 dc,
-                spread_bp: construction_params.spread_bp,
+                spread_bp,
                 disc_id,
             },
             protection: ProtectionLegSpec {
                 credit_id,
-                recovery_rate: credit_params.recovery_rate,
+                recovery_rate,
                 settlement: SettlementType::Cash,
                 settlement_delay: 3,
             },

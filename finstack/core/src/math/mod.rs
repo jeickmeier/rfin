@@ -37,6 +37,8 @@ pub use distributions::{
 };
 pub use integration::{
     adaptive_quadrature, simpson_rule, trapezoidal_rule, GaussHermiteQuadrature,
+    gauss_legendre_integrate, gauss_legendre_integrate_adaptive, gauss_legendre_integrate_composite,
+    adaptive_simpson,
 };
 pub use interp::{
     CubicHermite, ExtrapolationPolicy, FlatFwd, InterpFn, LinearDf, LogLinearDf, MonotoneConvex,

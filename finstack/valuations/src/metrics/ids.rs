@@ -207,6 +207,8 @@ define_metrics! {
     // Risk metrics
     /// Credit spread sensitivity (CS01) - Parallel shift in credit spread
     Cs01 => "cs01",
+    /// Hazard curve sensitivity (CS01) - Parallel additive hazard rate bump
+    HazardCs01 => "hazard_cs01",
     /// IR01 - Parallel shift in yield curve
     Ir01 => "ir01",
     /// Bucketed DV01 risk - Pointwise sensitivity to yield curve
