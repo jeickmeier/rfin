@@ -179,7 +179,6 @@ fn test_credit_option_creation() {
         &option_params,
         &credit_params,
         "USD-OIS",
-        "ABC-SENIOR",
         "ABC-CDS-VOL",
     );
 

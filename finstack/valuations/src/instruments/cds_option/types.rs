@@ -1,11 +1,14 @@
-//! Credit option instrument implementation for options on credit default swaps.
+//! CdsOption instrument: option on a CDS spread.
+//!
+//! This module defines the `CdsOption` data structure and integrates with the
+//! common instrument trait via `impl_instrument!`. All pricing math and metrics
+//! are implemented in the `pricing/` and `metrics/` submodules.
 
 use crate::instruments::cds::CreditParams;
 use crate::instruments::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
 use finstack_core::F;
 
@@ -46,16 +49,29 @@ pub struct CdsOption {
     pub pricing_overrides: PricingOverrides,
     /// Additional attributes
     pub attributes: Attributes,
+    /// If true, the underlying is a CDS index; else single-name CDS
+    pub underlying_is_index: bool,
+    /// Optional index factor scaling for index underlying
+    pub index_factor: Option<F>,
+    /// Forward spread adjustment (bp) to apply for forward computation
+    pub forward_spread_adjust_bp: F,
 }
 
 impl CdsOption {
-    /// Create a new credit option using parameter structs
+    /// Create a new credit option using parameter structs.
+    ///
+    /// Inputs separation:
+    /// - `option_params`: deal-level fields (strike in bp, expiry, CDS maturity, notional, option type)
+    /// - `credit_params`: reference entity, recovery rate, and the hazard `credit_id`
+    /// - `disc_id`: discount curve identifier for discounting cashflows
+    /// - `vol_id`: volatility surface identifier for the CDS option
+    ///
+    /// Note: `credit_id` is sourced from `credit_params` to avoid duplication.
     pub fn new(
         id: impl Into<String>,
         option_params: &CdsOptionParams,
         credit_params: &CreditParams,
         disc_id: &'static str,
-        credit_id: &'static str,
         vol_id: &'static str,
     ) -> Self {
         Self {
@@ -71,162 +87,13 @@ impl CdsOption {
             settlement: SettlementType::Cash,
             recovery_rate: credit_params.recovery_rate,
             disc_id,
-            credit_id,
+            credit_id: credit_params.credit_id,
             vol_id,
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
-        }
-    }
-
-    /// Calculate option price using modified Black model for credit spreads
-    ///
-    /// # Arguments
-    /// * `forward_spread_bp` - Forward CDS spread in basis points
-    /// * `df` - Discount factor to option expiry
-    /// * `risky_annuity` - Risky annuity of underlying CDS
-    /// * `sigma` - Implied volatility of credit spread
-    /// * `t` - Time to option expiry in years
-    pub fn credit_option_price(
-        &self,
-        forward_spread_bp: F,
-        df: F,
-        risky_annuity: F,
-        sigma: F,
-        t: F,
-    ) -> finstack_core::Result<Money> {
-        if t <= 0.0 {
-            // Option expired
-            let intrinsic = match self.option_type {
-                OptionType::Call => (forward_spread_bp - self.strike_spread_bp).max(0.0),
-                OptionType::Put => (self.strike_spread_bp - forward_spread_bp).max(0.0),
-            };
-            return Ok(Money::new(
-                intrinsic * risky_annuity * self.notional.amount() / 10000.0,
-                self.notional.currency(),
-            ));
-        }
-
-        // Use Black's formula with spreads
-        let forward = forward_spread_bp / 10000.0; // Convert to decimal
-        let strike = self.strike_spread_bp / 10000.0; // Convert to decimal
-
-        if forward <= 0.0 || strike <= 0.0 {
-            return Ok(Money::new(0.0, self.notional.currency()));
-        }
-
-        let d1 = ((forward / strike).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
-        let d2 = d1 - sigma * t.sqrt();
-
-        let option_value = match self.option_type {
-            OptionType::Call => {
-                // Call option on CDS spread (right to buy protection at strike spread)
-                df * risky_annuity
-                    * self.notional.amount()
-                    * (forward * norm_cdf(d1) - strike * norm_cdf(d2))
-            }
-            OptionType::Put => {
-                // Put option on CDS spread (right to sell protection at strike spread)
-                df * risky_annuity
-                    * self.notional.amount()
-                    * (strike * norm_cdf(-d2) - forward * norm_cdf(-d1))
-            }
-        };
-
-        Ok(Money::new(option_value, self.notional.currency()))
-    }
-
-    /// Calculate option delta (sensitivity to credit spread)
-    pub fn delta(&self, forward_spread_bp: F, sigma: F, t: F) -> F {
-        if t <= 0.0 || sigma <= 0.0 {
-            return match self.option_type {
-                OptionType::Call => {
-                    if forward_spread_bp > self.strike_spread_bp {
-                        1.0
-                    } else {
-                        0.0
-                    }
-                }
-                OptionType::Put => {
-                    if forward_spread_bp < self.strike_spread_bp {
-                        -1.0
-                    } else {
-                        0.0
-                    }
-                }
-            };
-        }
-
-        let forward = forward_spread_bp / 10000.0;
-        let strike = self.strike_spread_bp / 10000.0;
-
-        if forward <= 0.0 || strike <= 0.0 {
-            return 0.0;
-        }
-
-        let d1 = ((forward / strike).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
-
-        match self.option_type {
-            OptionType::Call => norm_cdf(d1),
-            OptionType::Put => -norm_cdf(-d1),
-        }
-    }
-
-    /// Calculate option gamma
-    pub fn gamma(&self, forward_spread_bp: F, sigma: F, t: F) -> F {
-        if t <= 0.0 || sigma <= 0.0 {
-            return 0.0;
-        }
-        let forward = forward_spread_bp / 10000.0;
-        let strike = self.strike_spread_bp / 10000.0;
-        if forward <= 0.0 || strike <= 0.0 {
-            return 0.0;
-        }
-        let d1 = ((forward / strike).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
-        norm_pdf(d1) / (forward * 10000.0 * sigma * t.sqrt())
-    }
-
-    /// Calculate option vega (sensitivity to credit spread volatility)
-    pub fn vega(&self, forward_spread_bp: F, sigma: F, t: F) -> F {
-        if t <= 0.0 {
-            return 0.0;
-        }
-        let forward = forward_spread_bp / 10000.0;
-        let strike = self.strike_spread_bp / 10000.0;
-        if forward <= 0.0 || strike <= 0.0 {
-            return 0.0;
-        }
-        let d1 = if sigma > 0.0 {
-            ((forward / strike).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt())
-        } else {
-            0.0
-        };
-        forward * 10000.0 * norm_pdf(d1) * t.sqrt() / 100.0
-    }
-
-    /// Calculate option theta (time decay)
-    pub fn theta(&self, forward_spread_bp: F, r: F, sigma: F, t: F) -> F {
-        if t <= 0.0 {
-            return 0.0;
-        }
-        let forward = forward_spread_bp / 10000.0;
-        let strike = self.strike_spread_bp / 10000.0;
-        if forward <= 0.0 || strike <= 0.0 {
-            return 0.0;
-        }
-        let d1 = ((forward / strike).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
-        let d2 = d1 - sigma * t.sqrt();
-        let sqrt_t = t.sqrt();
-        match self.option_type {
-            OptionType::Call => {
-                let term1 = -forward * norm_pdf(d1) * sigma / (2.0 * sqrt_t);
-                let term2 = -r * strike * (-r * t).exp() * norm_cdf(d2);
-                (term1 + term2) * 10000.0 / 365.0
-            }
-            OptionType::Put => {
-                let term1 = -forward * norm_pdf(d1) * sigma / (2.0 * sqrt_t);
-                let term2 = r * strike * (-r * t).exp() * norm_cdf(-d2);
-                (term1 + term2) * 10000.0 / 365.0
-            }
+            underlying_is_index: option_params.underlying_is_index,
+            index_factor: option_params.index_factor,
+            forward_spread_adjust_bp: option_params.forward_spread_adjust_bp,
         }
     }
 }
@@ -235,69 +102,8 @@ impl_instrument!(
     CdsOption,
     "CdsOption",
     pv = |s, curves, as_of| {
-        // Calculate time to expiry in years
-        let time_to_expiry = s.day_count.year_fraction(
-            as_of,
-            s.expiry,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-
-        // Get market curves
-        let disc_curve = curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                s.disc_id,
-            )?;
-        let hazard_curve = curves
-            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-            s.credit_id,
-        )?;
-
-        // Calculate risky annuity (RPV01) of the underlying CDS (simplified quarterly)
-        let cds_tenor = s.day_count.year_fraction(
-            s.expiry,
-            s.cds_maturity,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        let mut risky_annuity = 0.0;
-        let num_payments = (cds_tenor * 4.0).ceil() as usize;
-        for i in 1..=num_payments {
-            let t = cds_tenor * (i as f64) / (num_payments as f64);
-            let df = disc_curve.df(time_to_expiry + t);
-            let survival = hazard_curve.sp(time_to_expiry + t);
-            risky_annuity += 0.25 * df * survival;
-        }
-
-        // Forward CDS spread for reporting: interpolate stored par spreads on hazard curve
-        let current_tenor = s.day_count.year_fraction(
-            as_of,
-            s.cds_maturity,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        let forward_spread_bp = if current_tenor > 0.0 {
-            use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
-            hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
-        } else {
-            s.strike_spread_bp
-        };
-
-        // Get discount factor to option expiry
-        let df_expiry = disc_curve.df(time_to_expiry);
-
-        // Get volatility (use implied_vol if set, otherwise fetch from surface)
-        let sigma = if let Some(impl_vol) = s.pricing_overrides.implied_volatility {
-            impl_vol
-        } else {
-            let vol_surface = curves.surface_ref(s.vol_id)?;
-            vol_surface.value_clamped(time_to_expiry, s.strike_spread_bp)
-        };
-
-        // Price using Black model on credit spreads
-        s.credit_option_price(
-            forward_spread_bp,
-            df_expiry,
-            risky_annuity,
-            sigma,
-            time_to_expiry,
-        )
+        // Delegate PV to the pricing engine to keep instrument types slim
+        let pricer = crate::instruments::cds_option::pricing::engine::CdsOptionPricer::default();
+        pricer.npv(s, curves, as_of)
     }
 );
