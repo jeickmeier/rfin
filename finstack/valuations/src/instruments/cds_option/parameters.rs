@@ -7,7 +7,7 @@ use finstack_core::{dates::Date, money::Money, F};
 ///
 /// Groups parameters specific to credit options (options on CDS).
 #[derive(Clone, Debug)]
-pub struct CreditOptionParams {
+pub struct CdsOptionParams {
     /// Strike spread in basis points
     pub strike_spread_bp: F,
     /// Option expiry date
@@ -20,7 +20,7 @@ pub struct CreditOptionParams {
     pub option_type: OptionType,
 }
 
-impl CreditOptionParams {
+impl CdsOptionParams {
     /// Create new credit option parameters
     pub fn new(
         strike_spread_bp: F,

@@ -4,4 +4,4 @@ pub mod metrics;
 pub mod parameters;
 mod types;
 
-pub use types::CreditOption;
+pub use types::CdsOption;

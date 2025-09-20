@@ -9,11 +9,11 @@ use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
 use finstack_core::F;
 
-use super::parameters::CreditOptionParams;
+use super::parameters::CdsOptionParams;
 
 /// Credit option instrument (option on CDS spread)
 #[derive(Clone, Debug)]
-pub struct CreditOption {
+pub struct CdsOption {
     /// Unique instrument identifier
     pub id: String,
     /// Reference entity (underlying credit)
@@ -48,11 +48,11 @@ pub struct CreditOption {
     pub attributes: Attributes,
 }
 
-impl CreditOption {
+impl CdsOption {
     /// Create a new credit option using parameter structs
     pub fn new(
         id: impl Into<String>,
-        option_params: &CreditOptionParams,
+        option_params: &CdsOptionParams,
         credit_params: &CreditParams,
         disc_id: &'static str,
         credit_id: &'static str,
@@ -232,8 +232,8 @@ impl CreditOption {
 }
 
 impl_instrument!(
-    CreditOption,
-    "CreditOption",
+    CdsOption,
+    "CdsOption",
     pv = |s, curves, as_of| {
         // Calculate time to expiry in years
         let time_to_expiry = s.day_count.year_fraction(

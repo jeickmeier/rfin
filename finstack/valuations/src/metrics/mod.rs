@@ -63,7 +63,7 @@ pub fn standard_registry() -> MetricRegistry {
     crate::instruments::equity_option::metrics::register_equity_option_metrics(&mut registry);
     crate::instruments::fx_option::metrics::register_fx_option_metrics(&mut registry);
     crate::instruments::cap_floor::metrics::register_interest_rate_option_metrics(&mut registry);
-    crate::instruments::credit_option::metrics::register_credit_option_metrics(&mut registry);
+    crate::instruments::cds_option::metrics::register_cds_option_metrics(&mut registry);
     crate::instruments::swaption::metrics::register_swaption_metrics(&mut registry);
     crate::instruments::loan::metrics::register_loan_metrics(&mut registry);
     crate::instruments::repo::metrics::register_repo_metrics(&mut registry);

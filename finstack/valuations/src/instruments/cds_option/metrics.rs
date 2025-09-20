@@ -1,6 +1,6 @@
 //! Credit option specific metrics calculators
 
-use crate::instruments::credit_option::CreditOption;
+use crate::instruments::cds_option::CdsOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId, MetricRegistry};
 use finstack_core::{Result, F};
 use std::sync::Arc;
@@ -10,7 +10,7 @@ pub struct DeltaCalculator;
 
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        let option: &CreditOption = context.instrument_as()?;
+        let option: &CdsOption = context.instrument_as()?;
         let time_to_expiry = option.day_count.year_fraction(
             context.as_of,
             option.expiry,
@@ -62,7 +62,7 @@ pub struct GammaCalculator;
 
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        let option: &CreditOption = context.instrument_as()?;
+        let option: &CdsOption = context.instrument_as()?;
         let time_to_expiry = option.day_count.year_fraction(
             context.as_of,
             option.expiry,
@@ -113,7 +113,7 @@ pub struct VegaCalculator;
 
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        let option: &CreditOption = context.instrument_as()?;
+        let option: &CdsOption = context.instrument_as()?;
         let time_to_expiry = option.day_count.year_fraction(
             context.as_of,
             option.expiry,
@@ -164,7 +164,7 @@ pub struct ThetaCalculator;
 
 impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        let option: &CreditOption = context.instrument_as()?;
+        let option: &CdsOption = context.instrument_as()?;
         let time_to_expiry = option.day_count.year_fraction(
             context.as_of,
             option.expiry,
@@ -222,7 +222,7 @@ pub struct RhoCalculator;
 
 impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        let option: &CreditOption = context.instrument_as()?;
+        let option: &CdsOption = context.instrument_as()?;
         let time_to_expiry = option.day_count.year_fraction(
             context.as_of,
             option.expiry,
@@ -249,7 +249,7 @@ pub struct ImpliedVolCalculator;
 
 impl MetricCalculator for ImpliedVolCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
-        let _option: &CreditOption = context.instrument_as()?;
+        let _option: &CdsOption = context.instrument_as()?;
         Ok(0.0)
     }
 
@@ -259,32 +259,32 @@ impl MetricCalculator for ImpliedVolCalculator {
 }
 
 /// Register credit option metrics with the registry
-pub fn register_credit_option_metrics(registry: &mut MetricRegistry) {
+pub fn register_cds_option_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::Delta,
         Arc::new(DeltaCalculator),
-        &["CreditOption"],
+        &["CdsOption"],
     );
 
     registry.register_metric(
         MetricId::Gamma,
         Arc::new(GammaCalculator),
-        &["CreditOption"],
+        &["CdsOption"],
     );
 
-    registry.register_metric(MetricId::Vega, Arc::new(VegaCalculator), &["CreditOption"]);
+    registry.register_metric(MetricId::Vega, Arc::new(VegaCalculator), &["CdsOption"]);
 
     registry.register_metric(
         MetricId::Theta,
         Arc::new(ThetaCalculator),
-        &["CreditOption"],
+        &["CdsOption"],
     );
 
-    registry.register_metric(MetricId::Rho, Arc::new(RhoCalculator), &["CreditOption"]);
+    registry.register_metric(MetricId::Rho, Arc::new(RhoCalculator), &["CdsOption"]);
 
     registry.register_metric(
         MetricId::ImpliedVol,
         Arc::new(ImpliedVolCalculator),
-        &["CreditOption"],
+        &["CdsOption"],
     );
 }

@@ -8,13 +8,13 @@ use finstack_valuations::instruments::cap_floor::parameters::InterestRateOptionP
 #[allow(unused_imports)]
 use finstack_valuations::instruments::cap_floor::InterestRateOption;
 use finstack_valuations::instruments::cds::CDSConvention;
-use finstack_valuations::instruments::credit_option::parameters::CreditOptionParams;
+use finstack_valuations::instruments::cds_option::parameters::CdsOptionParams;
 use finstack_valuations::instruments::equity_option::parameters::EquityOptionParams;
 use finstack_valuations::instruments::fx_option::parameters::FxOptionParams;
 use finstack_valuations::instruments::inflation_linked_bond::parameters::InflationLinkedBondParams;
 use finstack_valuations::instruments::inflation_linked_bond::IndexationMethod;
 use finstack_valuations::instruments::{
-    CreditDefaultSwap, CreditOption, EquityOption, FxOption, InflationLinkedBond,
+    CreditDefaultSwap, CdsOption, EquityOption, FxOption, InflationLinkedBond,
 };
 use finstack_valuations::instruments::{ExerciseStyle, OptionType};
 use time::Month;
@@ -163,7 +163,7 @@ fn test_credit_option_creation() {
     let expiry = Date::from_calendar_date(2025, Month::June, 30).unwrap();
     let cds_maturity = Date::from_calendar_date(2030, Month::June, 30).unwrap();
 
-    let option_params = CreditOptionParams::call(
+    let option_params = CdsOptionParams::call(
         200.0, // 200bp strike
         expiry,
         cds_maturity,
@@ -174,7 +174,7 @@ fn test_credit_option_creation() {
         0.4, // 40% recovery
         "ABC-SENIOR",
     );
-    let option = CreditOption::new(
+    let option = CdsOption::new(
         "ABC_CDS_CALL_200",
         &option_params,
         &credit_params,
