@@ -50,9 +50,11 @@
 //! ```
 
 pub mod metrics;
+pub mod pricing;
 pub mod types;
 
 // Re-export main types for convenience
 // Builder is generated via derive on `Basket`.
 pub use metrics::register_basket_metrics;
+pub use pricing::engine::BasketPricer;
 pub use types::{AssetType, Basket, BasketConstituent, ConstituentReference, ReplicationMethod};

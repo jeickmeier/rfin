@@ -106,13 +106,31 @@ let balanced = Basket::builder()
     .build()?;
 ```
 
+### AUM‑Aware Valuation (weights without shares)
+
+When constituents are defined by weights and `shares_outstanding` is not available, value the basket using an explicit AUM. All contributions are computed as `weight × AUM` in the basket currency (with FX conversion applied as needed).
+
+```rust
+use finstack_valuations::instruments::basket::Basket;
+use finstack_core::prelude::*;
+
+let aum = Money::new(1_000_000_000.0, Currency::USD); // 1B USD AUM
+let basket_value = basket.basket_value_with_aum(&market_context, valuation_date, aum)?;
+let nav = basket.nav_with_aum(&market_context, valuation_date, aum)?; // If shares_outstanding is set, returns per‑share NAV
+```
+
+Notes:
+- If a constituent specifies `units`, those take precedence over weights (price × units).
+- If only `weight` is provided and neither `shares_outstanding` nor AUM is given, valuation fails with an input error (no hardcoded proxies).
+
 ## Technical Implementation Details
 
 ### Pricing Strategy
 1. **Instrument References**: Call `instrument.value(context, as_of)` for full instrument models
 2. **Market Data References**: Lookup prices from `context.price(price_id)` for simple cases
-3. **Weight/Units Application**: Apply position sizing based on weight or unit count
-4. **Expense Ratio**: Deduct management fees from total portfolio value
+3. **FX Conversion (currency safety)**: Constituent values are converted to the basket currency via `MarketContext.fx` and `FxMatrix::rate`, using a configurable `FxConversionPolicy`.
+4. **Weight/Units Application**: Units → price × units; Weights → require `shares_outstanding` or AUM
+5. **Expense Ratio**: Apply daily accrual using configurable `BasketPricerConfig.days_in_year`
 
 ### Currency Handling
 - All constituents must be compatible with the basket's base currency
@@ -128,6 +146,23 @@ let balanced = Basket::builder()
 - Supports serde serialization for basket metadata
 - Handles trait object serialization limitations gracefully
 - Market data references serialize fully; instrument references use placeholders
+
+### Configuration
+
+- **BasketPricerConfig**: Controls time basis and FX policy.
+  - `days_in_year`: e.g., 365.0 or 365.25 (default 365.25)
+  - `fx_policy`: `FxConversionPolicy` for conversion lookups (default `CashflowDate`)
+
+Example (custom configuration):
+```rust
+use finstack_valuations::instruments::basket::pricing::engine::{BasketPricer, BasketPricerConfig};
+use finstack_core::money::fx::FxConversionPolicy;
+
+let pricer = BasketPricer::with_config(BasketPricerConfig {
+    days_in_year: 365.0,
+    fx_policy: FxConversionPolicy::PeriodEnd,
+});
+```
 
 ## Integration with Existing Systems
 

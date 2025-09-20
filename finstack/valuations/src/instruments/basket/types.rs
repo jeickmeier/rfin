@@ -186,94 +186,30 @@ impl Basket {
 
     /// Calculate Net Asset Value per share
     pub fn nav(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
-        let mut total_value = 0.0;
-
-        // Sum constituent values using their respective pricing methods
-        for constituent in &self.constituents {
-            let constituent_value = self.value_constituent(constituent, context, as_of)?;
-            total_value += constituent_value.amount();
-        }
-
-        // Apply expense ratio drag (annualized)
-        let expense_drag = self.calculate_expense_drag(total_value, as_of)?;
-        total_value -= expense_drag;
-
-        // Calculate per-share NAV
-        let nav_value = if let Some(shares) = self.shares_outstanding {
-            if shares > 0.0 {
-                total_value / shares
-            } else {
-                total_value
-            }
-        } else {
-            total_value
-        };
-
-        Ok(Money::new(nav_value, self.currency))
+        crate::instruments::basket::pricing::engine::BasketPricer::new().nav(self, context, as_of)
     }
 
     /// Calculate total basket value (without per-share division)
     pub fn basket_value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
-        let mut total_value = 0.0;
-
-        for constituent in &self.constituents {
-            let constituent_value = self.value_constituent(constituent, context, as_of)?;
-            total_value += constituent_value.amount();
-        }
-
-        // Apply expense ratio drag
-        let expense_drag = self.calculate_expense_drag(total_value, as_of)?;
-        total_value -= expense_drag;
-
-        Ok(Money::new(total_value, self.currency))
+        crate::instruments::basket::pricing::engine::BasketPricer::new().basket_value(self, context, as_of)
     }
 
-    /// Value a single constituent using existing pricing infrastructure
-    fn value_constituent(
+    /// Calculate Net Asset Value per share using an explicit AUM.
+    ///
+    /// When constituents lack `units`, contributions are computed as
+    /// `weight × AUM (in basket currency)`.
+    pub fn nav_with_aum(&self, context: &MarketContext, as_of: Date, aum: Money) -> Result<Money> {
+        crate::instruments::basket::pricing::engine::BasketPricer::new().nav_with_aum(self, context, as_of, aum)
+    }
+
+    /// Calculate total basket value using an explicit AUM for weight-based constituents.
+    pub fn basket_value_with_aum(
         &self,
-        constituent: &BasketConstituent,
         context: &MarketContext,
         as_of: Date,
+        aum: Money,
     ) -> Result<Money> {
-        let base_value = match &constituent.reference {
-            ConstituentReference::Instrument(instrument) => {
-                // Use the existing instrument's value() method - this leverages
-                // all existing pricing logic for bonds, equities, etc.
-                instrument.value_dyn(context, as_of)?
-            }
-            ConstituentReference::MarketData { price_id, .. } => {
-                // For simple market data lookups when no instrument model exists
-                let scalar = context.price(price_id)?;
-                match scalar {
-                    finstack_core::market_data::scalars::MarketScalar::Price(money) => *money,
-                    finstack_core::market_data::scalars::MarketScalar::Unitless(v) => {
-                        Money::new(*v, self.currency)
-                    }
-                }
-            }
-        };
-
-        // Apply weight or units to get position size
-        let position_value = if let Some(units) = constituent.units {
-            // Physical replication: value = price * units
-            base_value * units
-        } else {
-            // Synthetic/sampling: value = weight * total_fund_nav
-            // For NAV calculation, we use weight * shares_outstanding as proxy
-            let fund_size = self.shares_outstanding.unwrap_or(1_000_000.0);
-            base_value * constituent.weight * fund_size
-        };
-
-        Ok(position_value)
-    }
-
-    /// Calculate expense ratio drag for a given period
-    fn calculate_expense_drag(&self, portfolio_value: F, _as_of: Date) -> Result<F> {
-        // For simplicity, assume annual expense ratio applied daily
-        // In practice, this would be more sophisticated
-        let days_in_year = 365.25;
-        let daily_expense_rate = self.expense_ratio / days_in_year;
-        Ok(portfolio_value * daily_expense_rate)
+        crate::instruments::basket::pricing::engine::BasketPricer::new().basket_value_with_aum(self, context, as_of, aum)
     }
 
     /// Calculate tracking error vs benchmark index
@@ -283,39 +219,8 @@ impl Basket {
         benchmark_returns: &[(Date, F)],
         _as_of: Date,
     ) -> Result<F> {
-        // Calculate basket returns over the same periods
-        let mut basket_returns = Vec::new();
-        let mut prev_nav = None;
-
-        for &(date, _) in benchmark_returns {
-            let nav = self.nav(context, date)?;
-
-            if let Some(prev) = prev_nav {
-                let return_rate = (nav.amount() / prev - 1.0) as F;
-                basket_returns.push(return_rate);
-            }
-            prev_nav = Some(nav.amount());
-        }
-
-        if basket_returns.len() != benchmark_returns.len() - 1 {
-            return Err(Error::Input(
-                finstack_core::error::InputError::DimensionMismatch,
-            ));
-        }
-
-        // Calculate tracking error as standard deviation of return differences
-        let mut sum_sq_diff = 0.0;
-        let n = basket_returns.len() as F;
-
-        for i in 1..benchmark_returns.len() {
-            let bench_return = benchmark_returns[i].1;
-            let basket_return = basket_returns[i - 1];
-            let diff = basket_return - bench_return;
-            sum_sq_diff += diff * diff;
-        }
-
-        let tracking_error = (sum_sq_diff / (n - 1.0)).sqrt();
-        Ok(tracking_error)
+        crate::instruments::basket::pricing::engine::BasketPricer::new()
+            .tracking_error(self, context, benchmark_returns, _as_of)
     }
 
     /// Get constituent by ID
