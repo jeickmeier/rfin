@@ -6,11 +6,11 @@
 //! - `metrics`: metric calculators and registry hook
 
 pub mod pricing;
-pub mod credit;
+pub mod parameters;
 pub mod metrics;
 mod types;
 
-pub use credit::CreditParams;
+pub use parameters::CreditParams;
 pub use types::CDSConvention;
 pub use types::CreditDefaultSwap;
 pub use types::PayReceive;

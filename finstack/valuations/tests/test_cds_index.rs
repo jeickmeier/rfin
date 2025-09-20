@@ -7,7 +7,7 @@ use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::F;
-use finstack_valuations::instruments::cds::credit::RECOVERY_SENIOR_UNSECURED;
+use finstack_valuations::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED;
 use finstack_valuations::instruments::cds::CreditParams;
 use finstack_valuations::instruments::cds_index::parameters::{CDSIndexConstituentParam, CDSIndexConstructionParams, CDSIndexParams};
 use finstack_valuations::instruments::cds_index::{CDSIndex, IndexPricing};

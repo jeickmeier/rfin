@@ -168,7 +168,7 @@ impl CreditDefaultSwap {
             })
             .protection(ProtectionLegSpec {
                 credit_id,
-                recovery_rate: crate::instruments::cds::credit::RECOVERY_SENIOR_UNSECURED,
+                recovery_rate: crate::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED,
                 settlement: SettlementType::Cash,
                 settlement_delay: 3,
             })
@@ -216,7 +216,7 @@ impl CreditDefaultSwap {
             })
             .protection(ProtectionLegSpec {
                 credit_id,
-                recovery_rate: crate::instruments::cds::credit::RECOVERY_SENIOR_UNSECURED,
+                recovery_rate: crate::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED,
                 settlement: SettlementType::Cash,
                 settlement_delay: 3,
             })
@@ -265,7 +265,7 @@ impl CreditDefaultSwap {
             })
             .protection(ProtectionLegSpec {
                 credit_id,
-                recovery_rate: crate::instruments::cds::credit::RECOVERY_HIGH_YIELD_DEFAULT,
+                recovery_rate: crate::instruments::cds::parameters::RECOVERY_HIGH_YIELD_DEFAULT,
                 settlement: SettlementType::Cash,
                 settlement_delay: 3,
             })
