@@ -52,6 +52,8 @@ pub struct CDSIndex {
     pub version: u16,
     /// Notional amount of the index
     pub notional: Money,
+    /// Index factor (fraction of surviving notional since series inception)
+    pub index_factor: finstack_core::F,
     /// Protection buyer/seller perspective
     pub side: CdsPayReceive,
     /// Regional ISDA convention
@@ -94,6 +96,7 @@ impl CDSIndex {
             series: index_params.series,
             version: index_params.version,
             notional: construction_params.notional,
+            index_factor: index_params.index_factor.unwrap_or(1.0),
             side: construction_params.side,
             convention: construction_params.convention,
             premium: PremiumLegSpec {

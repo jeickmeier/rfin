@@ -16,6 +16,7 @@ mod risky_pv01;
 mod cs01;
 mod pv_protection;
 mod pv_premium;
+mod hazard_cs01;
 
 use crate::metrics::MetricRegistry;
 
@@ -29,6 +30,7 @@ pub fn register_cds_index_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(MetricId::Cs01, Arc::new(cs01::Cs01Calculator), &["CDSIndex"]);
     registry.register_metric(MetricId::ProtectionLegPv, Arc::new(pv_protection::ProtectionLegPvCalculator), &["CDSIndex"]);
     registry.register_metric(MetricId::PremiumLegPv, Arc::new(pv_premium::PremiumLegPvCalculator), &["CDSIndex"]);
+    registry.register_metric(MetricId::HazardCs01, Arc::new(hazard_cs01::HazardCs01Calculator), &["CDSIndex"]);
 }
 
 

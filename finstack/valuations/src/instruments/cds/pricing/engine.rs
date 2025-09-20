@@ -442,6 +442,28 @@ impl CDSPricer {
         Ok(protection_pv.amount() / (denom * cds.notional.amount()) * 10000.0)
     }
 
+    /// Premium leg PV per 1 bp of spread, including accrual-on-default if configured.
+    pub fn premium_leg_pv_per_bp(&self, cds: &CreditDefaultSwap, disc: &dyn Discounting, surv: &dyn Survival, as_of: Date) -> Result<F> {
+        let base_date = disc.base_date();
+        let schedule = self.generate_schedule(cds, as_of)?;
+        let mut per_bp_pv = 0.0;
+        for i in 0..schedule.len() - 1 {
+            let start_date = schedule[i];
+            let end_date = schedule[i + 1];
+            let t_start = self.year_fraction(base_date, start_date, cds.premium.dc)?;
+            let t_end = self.year_fraction(base_date, end_date, cds.premium.dc)?;
+            let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
+            let sp = surv.sp(t_end);
+            let df = disc.df(t_end);
+            let per_bp = 1e-4;
+            per_bp_pv += per_bp * accrual * sp * df;
+            if self.config.include_accrual {
+                per_bp_pv += self.calculate_accrual_on_default(per_bp, t_start, t_end, disc, surv)?;
+            }
+        }
+        Ok(per_bp_pv)
+    }
+
     /// Risky annuity: PV of $1 paid on premium leg (per bp)
     pub fn risky_annuity(&self, cds: &CreditDefaultSwap, disc: &dyn Discounting, surv: &dyn Survival, as_of: Date) -> Result<F> {
         let base_date = disc.base_date();

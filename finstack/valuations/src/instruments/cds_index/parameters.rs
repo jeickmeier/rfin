@@ -29,6 +29,8 @@ pub struct CDSIndexParams {
     pub fixed_coupon_bp: F,
     /// Optional basket of underlying issuers (credit params + weights)
     pub constituents: Option<Vec<CDSIndexConstituentParam>>,
+    /// Index factor (fraction of surviving notional since series inception)
+    pub index_factor: Option<F>,
 }
 
 impl CDSIndexParams {
@@ -45,6 +47,7 @@ impl CDSIndexParams {
             version,
             fixed_coupon_bp,
             constituents: None,
+            index_factor: None,
         }
     }
 
@@ -85,6 +88,12 @@ impl CDSIndexParams {
             .map(|credit| CDSIndexConstituentParam { credit, weight: w })
             .collect();
         self.constituents = Some(cons);
+        self
+    }
+
+    /// Set an explicit index factor (0..=1). If omitted, defaults to 1.0.
+    pub fn with_index_factor(mut self, factor: F) -> Self {
+        self.index_factor = Some(factor);
         self
     }
 }
