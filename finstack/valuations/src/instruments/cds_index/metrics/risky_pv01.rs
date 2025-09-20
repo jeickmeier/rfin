@@ -1,0 +1,22 @@
+//! CDS Index risky PV01 metric calculator.
+//!
+//! Computes the change in present value for a one basis point change in the
+//! premium spread. Delegates to `CDSIndexPricer` which aggregates by mode.
+
+use crate::instruments::cds_index::CDSIndex;
+use crate::instruments::cds_index::pricing::CDSIndexPricer;
+use crate::metrics::{MetricCalculator, MetricContext};
+use finstack_core::{Result, F};
+
+/// Risky PV01 calculator for CDS Index
+pub struct RiskyPv01Calculator;
+
+impl MetricCalculator for RiskyPv01Calculator {
+    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+        let idx: &CDSIndex = context.instrument_as()?;
+        let pricer = CDSIndexPricer::new();
+        pricer.risky_pv01(idx, &context.curves, context.as_of)
+    }
+}
+
+

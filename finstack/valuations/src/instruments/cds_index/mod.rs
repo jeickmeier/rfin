@@ -1,7 +1,15 @@
-//! CDS Index module: submodules and type re-export.
+//! CDS Index module: structure, pricing, and metrics.
+//!
+//! Layout mirrors other instruments (e.g., `cds`, `irs`):
+//! - `types`: instrument data structures and trait impls
+//! - `pricing`: pricing facade and engine implementation
+//! - `metrics`: metric calculators and registry hook
 
+pub mod pricing;
 pub mod metrics;
 pub mod parameters;
 mod types;
 
 pub use types::CDSIndex;
+pub use types::IndexPricing;
+pub use types::CDSIndexConstituent;
