@@ -1,0 +1,20 @@
+//! Required collateral metric for `Repo`.
+//!
+//! Computes the required collateral value including haircut for a repo.
+
+use crate::metrics::{MetricCalculator, MetricContext};
+use finstack_core::prelude::*;
+use finstack_core::F;
+
+/// Calculate required collateral value including haircut.
+pub struct RequiredCollateralCalculator;
+
+impl MetricCalculator for RequiredCollateralCalculator {
+    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+        let repo = context.instrument_as::<crate::instruments::repo::Repo>()?;
+        let required_value = repo.required_collateral_value();
+        Ok(required_value.amount())
+    }
+}
+
+

@@ -104,10 +104,12 @@ impl CollateralSpec {
             finstack_core::market_data::scalars::MarketScalar::Unitless(value) => *value,
         };
 
-        // Get currency from price scalar
+        // Derive currency from price scalar; error on unitless to enforce currency safety
         let currency = match price_scalar {
             finstack_core::market_data::scalars::MarketScalar::Price(money) => money.currency(),
-            finstack_core::market_data::scalars::MarketScalar::Unitless(_) => Currency::USD, // Default
+            finstack_core::market_data::scalars::MarketScalar::Unitless(_) => {
+                return Err(Error::Input(finstack_core::error::InputError::Invalid));
+            }
         };
 
         Ok(Money::new(unit_value * self.quantity, currency))
@@ -244,7 +246,8 @@ impl Repo {
                 rate_adjustment_bp, ..
             } => {
                 if let Some(adjustment_bp) = rate_adjustment_bp {
-                    self.repo_rate + (adjustment_bp / 10_000.0) // Convert bp to decimal
+                    const ONE_BP: F = 1e-4;
+                    self.repo_rate + (adjustment_bp * ONE_BP) // Convert bp to decimal
                 } else {
                     self.repo_rate
                 }
@@ -296,30 +299,8 @@ impl Repo {
 
 impl Priceable for Repo {
     fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
-        // Get discount curve
-        let disc_curve = context
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                self.disc_id,
-            )?;
-
-        // Calculate total repayment at maturity
-        let total_repayment = self.total_repayment()?;
-
-        // Calculate time to maturity
-        let time_to_maturity = self.day_count.year_fraction(
-            as_of,
-            self.maturity,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-
-        // Discount back to valuation date
-        let df = disc_curve.df(time_to_maturity);
-        let pv = total_repayment * df;
-
-        // For repo buyer (cash lender), subtract initial cash outflow
-        let net_pv = pv.checked_sub(self.cash_amount)?;
-
-        Ok(net_pv)
+        // Delegate to pricing engine to keep pricing logic centralized
+        crate::instruments::repo::pricing::RepoPricer::new().pv(self, context, as_of)
     }
 
     fn price_with_metrics(
@@ -387,5 +368,71 @@ impl CashflowProvider for Repo {
         flows.push((self.maturity, total_repayment));
 
         Ok(flows)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::MarketContext;
+    use finstack_core::money::Money;
+    use time::Month;
+
+    fn date(y: i32, m: u8, d: u8) -> Date {
+        Date::from_calendar_date(y, Month::try_from(m).unwrap(), d).unwrap()
+    }
+
+    #[test]
+    fn required_collateral_includes_haircut() {
+        let collateral = CollateralSpec::new("BOND", 100.0, "BOND_PX");
+        let repo = Repo::term(
+            "R",
+            Money::new(1_000_000.0, Currency::USD),
+            collateral,
+            0.05,
+            date(2025, 1, 1),
+            date(2025, 2, 1),
+            "USD-OIS",
+        );
+        let req = repo.required_collateral_value();
+        assert!((req.amount() - 1_020_000.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn interest_amount_respects_daycount_and_rate() {
+        let collateral = CollateralSpec::new("BOND", 100.0, "BOND_PX");
+        let repo = Repo::term(
+            "R",
+            Money::new(1_000_000.0, Currency::USD),
+            collateral,
+            0.12, // 12%
+            date(2025, 1, 1),
+            date(2025, 4, 1), // ~0.25 years Act/360 ≈ 0.25
+            "USD-OIS",
+        );
+        let interest = repo.interest_amount().unwrap();
+        // Rough check near 1_000_000 * 0.12 * 0.25 = 30_000
+        assert!((interest.amount() - 30_000.0).abs() < 100.0);
+    }
+
+    #[test]
+    fn collateral_value_requires_currency_price() {
+        let collateral = CollateralSpec::new("BOND", 100.0, "BOND_PX");
+        let repo = Repo::term(
+            "R",
+            Money::new(1_000_000.0, Currency::USD),
+            collateral,
+            0.05,
+            date(2025, 1, 1),
+            date(2025, 2, 1),
+            "USD-OIS",
+        );
+        let ctx = MarketContext::new().insert_price(
+            "BOND_PX",
+            finstack_core::market_data::scalars::MarketScalar::Unitless(1.0),
+        );
+        // Should error due to currency safety enforcement
+        assert!(repo.collateral.market_value(&ctx).is_err());
     }
 }
