@@ -131,10 +131,16 @@ define_metrics! {
     ZSpread => "z_spread",
     /// OAS - Option-adjusted spread
     Oas => "oas",
+    /// I-spread - Yield over interpolated swap curve
+    ISpread => "i_spread",
     /// G-spread - Govvie spread
     GSpread => "g_spread",
-    /// ASW-spread - Asset swap spread
+    /// ASW-spread - Asset swap spread (par)
     ASWSpread => "asw_spread",
+    /// Par asset swap spread
+    ASWPar => "asw_par",
+    /// Market (price) asset swap spread
+    ASWMarket => "asw_market",
 
     // IRS metrics
     /// Annuity factor for fixed leg

@@ -1,0 +1,76 @@
+use crate::cashflow::traits::CashflowProvider;
+use crate::instruments::Bond;
+use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use finstack_core::money::Money;
+use finstack_core::prelude::*;
+use finstack_core::F;
+
+/// Calculates convexity for bonds.
+pub struct ConvexityCalculator;
+
+impl MetricCalculator for ConvexityCalculator {
+    fn dependencies(&self) -> &[MetricId] {
+        &[MetricId::Ytm]
+    }
+
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+        let ytm = context
+            .computed
+            .get(&MetricId::Ytm)
+            .copied()
+            .ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: "metric:Ytm".to_string(),
+                })
+            })?;
+
+        // Build or reuse flows
+        let flows: Vec<(Date, Money)> = if let Some(f) = &context.cashflows {
+            f.clone()
+        } else {
+            let bond: &Bond = context.instrument_as()?;
+            let disc_id = bond.disc_id.clone();
+            let dc = bond.dc;
+            let built = bond.build_schedule(&context.curves, context.as_of)?;
+            context.discount_curve_id = Some(disc_id);
+            context.day_count = Some(dc);
+            context.cashflows = Some(built.clone());
+            built
+        };
+
+        let dy = 1e-4; // 1 basis point for numerical differentiation
+
+        // Calculate prices with yield bumps for numerical convexity
+        let (p0, p_up, p_dn) = {
+            let bond: &Bond = context.instrument_as()?;
+            let p0 = crate::instruments::bond::pricing::helpers::price_from_ytm(
+                bond,
+                &flows,
+                context.as_of,
+                ytm,
+            )?;
+            let p_up = crate::instruments::bond::pricing::helpers::price_from_ytm(
+                bond,
+                &flows,
+                context.as_of,
+                ytm + dy,
+            )?;
+            let p_dn = crate::instruments::bond::pricing::helpers::price_from_ytm(
+                bond,
+                &flows,
+                context.as_of,
+                ytm - dy,
+            )?;
+            (p0, p_up, p_dn)
+        };
+
+        if p0 == 0.0 || dy == 0.0 {
+            return Ok(0.0);
+        }
+
+        // Convexity = (P+ + P- - 2*P0) / (P0 * dy^2)
+        Ok((p_up + p_dn - 2.0 * p0) / (p0 * dy * dy))
+    }
+}
+
+

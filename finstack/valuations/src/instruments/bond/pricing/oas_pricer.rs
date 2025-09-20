@@ -43,6 +43,7 @@ impl Default for OASPricerConfig {
 }
 
 pub struct BondValuator {
+    #[allow(dead_code)]
     bond: Bond,
     coupon_map: HashMap<usize, F>,
     call_map: HashMap<usize, F>,
@@ -138,9 +139,12 @@ impl BondValuator {
 impl TreeValuator for BondValuator {
     fn value_at_maturity(&self, _state: &NodeState) -> Result<F> {
         let final_step = self.time_steps.len() - 1;
-        let coupon = self.coupon_map.get(&final_step).copied().unwrap_or(0.0);
-        let face_value = self.bond.notional.amount();
-        Ok(face_value + coupon)
+        let cashflow = self
+            .coupon_map
+            .get(&final_step)
+            .copied()
+            .unwrap_or(0.0);
+        Ok(cashflow)
     }
 
     fn value_at_node(&self, state: &NodeState, continuation_value: F) -> Result<F> {
@@ -178,9 +182,10 @@ impl OASCalculator {
         as_of: Date,
         market_price: F,
     ) -> Result<F> {
-        let accrued = self.calculate_accrued_interest(bond, market_context, as_of)?;
-        let dirty_price_pct = market_price + accrued;
-        let dirty_target = dirty_price_pct * bond.notional.amount() / 100.0;
+        // market_price is expected to be the CLEAN price quoted in percent of par.
+        // Convert to currency and add accrued interest (currency) to form the dirty target.
+        let accrued_ccy = self.calculate_accrued_interest(bond, market_context, as_of)?;
+        let dirty_target = (market_price * bond.notional.amount() / 100.0) + accrued_ccy;
         let time_to_maturity = bond
             .dc
             .year_fraction(

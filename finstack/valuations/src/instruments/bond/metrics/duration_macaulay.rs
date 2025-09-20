@@ -1,0 +1,88 @@
+use crate::cashflow::traits::CashflowProvider;
+use crate::instruments::Bond;
+use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use finstack_core::dates::Date;
+use finstack_core::money::Money;
+use finstack_core::F;
+
+/// Calculates Macaulay duration for bonds.
+pub struct MacaulayDurationCalculator;
+
+impl MetricCalculator for MacaulayDurationCalculator {
+    fn dependencies(&self) -> &[MetricId] {
+        &[MetricId::Ytm]
+    }
+
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+        let ytm = context
+            .computed
+            .get(&MetricId::Ytm)
+            .copied()
+            .ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: "metric:Ytm".to_string(),
+                })
+            })?;
+
+        // Build or reuse flows without cloning the instrument
+        let flows: Vec<(Date, Money)> = if let Some(f) = &context.cashflows {
+            f.clone()
+        } else {
+            let bond: &Bond = context.instrument_as()?;
+            let disc_id = bond.disc_id.clone();
+            let dc = bond.dc;
+            let built_flows = bond.build_schedule(&context.curves, context.as_of)?;
+            context.discount_curve_id = Some(disc_id);
+            context.day_count = Some(dc);
+            context.cashflows = Some(built_flows.clone());
+            built_flows
+        };
+
+        // Calculate price from flows to ensure consistency
+        let price = {
+            let bond: &Bond = context.instrument_as()?;
+            crate::instruments::bond::pricing::helpers::price_from_ytm(
+                bond,
+                &flows,
+                context.as_of,
+                ytm,
+            )?
+        };
+        if price == 0.0 {
+            return Ok(0.0);
+        }
+
+        // Calculate Macaulay duration
+        let mut weighted_time = 0.0;
+
+        {
+            let bond: &Bond = context.instrument_as()?;
+            for &(date, amount) in &flows {
+                if date <= context.as_of {
+                    continue;
+                }
+                let t = bond
+                    .dc
+                    .year_fraction(
+                        context.as_of,
+                        date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0)
+                    .max(0.0);
+                let df = crate::instruments::bond::pricing::helpers::df_from_yield(
+                    ytm,
+                    t,
+                    crate::instruments::bond::pricing::helpers::YieldCompounding::Street,
+                    bond.freq,
+                )
+                .unwrap_or(0.0);
+                weighted_time += t * amount.amount() * df;
+            }
+        }
+
+        Ok(weighted_time / price)
+    }
+}
+
+
