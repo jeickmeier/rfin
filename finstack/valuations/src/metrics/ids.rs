@@ -189,6 +189,8 @@ define_metrics! {
     Vega => "vega",
     /// Rho (price sensitivity to interest rates)
     Rho => "rho",
+    /// Forward curve PV01 (price sensitivity to a 1bp forward curve bump)
+    ForwardPv01 => "forward_pv01",
     /// Vanna (delta sensitivity to volatility)
     Vanna => "vanna",
     /// Volga (vega sensitivity to volatility)

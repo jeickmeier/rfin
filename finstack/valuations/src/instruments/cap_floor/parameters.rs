@@ -1,8 +1,11 @@
 //! Interest rate option specific parameters.
+//!
+//! This module groups parameters used to construct cap/floor instruments.
+//! It mirrors the structure used across other instruments (e.g., `cds`).
 
 use super::types::RateOptionType;
 use finstack_core::{
-    dates::{DayCount, Frequency},
+    dates::{BusinessDayConvention, DayCount, Frequency, StubKind},
     money::Money,
     F,
 };
@@ -22,35 +25,27 @@ pub struct InterestRateOptionParams {
     pub frequency: Frequency,
     /// Day count convention
     pub day_count: DayCount,
+    /// Stub convention for schedule generation
+    pub stub_kind: StubKind,
+    /// Business day convention for schedule generation
+    pub bdc: BusinessDayConvention,
+    /// Optional holiday calendar identifier for schedule generation
+    pub calendar_id: Option<&'static str>,
 }
 
 impl InterestRateOptionParams {
-    /// Create new interest rate option parameters
-    pub fn new(
-        rate_option_type: RateOptionType,
-        notional: Money,
-        strike_rate: F,
-        frequency: Frequency,
-        day_count: DayCount,
-    ) -> Self {
-        Self {
-            rate_option_type,
-            notional,
-            strike_rate,
-            frequency,
-            day_count,
-        }
-    }
-
     /// Create cap parameters
     pub fn cap(notional: Money, strike_rate: F, frequency: Frequency, day_count: DayCount) -> Self {
-        Self::new(
-            RateOptionType::Cap,
+        Self {
+            rate_option_type: RateOptionType::Cap,
             notional,
             strike_rate,
             frequency,
             day_count,
-        )
+            stub_kind: StubKind::None,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+        }
     }
 
     /// Create floor parameters
@@ -60,12 +55,15 @@ impl InterestRateOptionParams {
         frequency: Frequency,
         day_count: DayCount,
     ) -> Self {
-        Self::new(
-            RateOptionType::Floor,
+        Self {
+            rate_option_type: RateOptionType::Floor,
             notional,
             strike_rate,
             frequency,
             day_count,
-        )
+            stub_kind: StubKind::None,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+        }
     }
 }

@@ -14,9 +14,3 @@ pub use finstack_portfolio as portfolio;
 
 #[cfg(feature = "io")]
 pub use finstack_io as io;
-
-#[cfg(feature = "analysis")]
-pub use finstack_analysis as analysis;
-
-#[cfg(feature = "scenarios")]
-pub use finstack_scenarios as scenarios;

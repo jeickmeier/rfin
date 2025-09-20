@@ -1,13 +1,11 @@
-//! Interest rate option instrument types and implementation using Black model.
+//! Interest rate option instrument types and Black model greeks.
 
 use crate::instruments::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, SettlementType};
-use finstack_core::dates::{Date, DayCount, Frequency};
-use finstack_core::math::{norm_cdf, norm_pdf};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::money::Money;
 use finstack_core::F;
-// Forward trait removed - use direct method calls on curve types
 
 use super::parameters::InterestRateOptionParams;
 
@@ -24,7 +22,7 @@ pub enum RateOptionType {
     Floorlet,
 }
 
-/// Interest rate option instrument (Black model)
+/// Interest rate option instrument
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct InterestRateOption {
     /// Unique instrument identifier
@@ -43,6 +41,12 @@ pub struct InterestRateOption {
     pub frequency: Frequency,
     /// Day count convention
     pub day_count: DayCount,
+    /// Schedule stub convention
+    pub stub_kind: StubKind,
+    /// Schedule business day convention
+    pub bdc: BusinessDayConvention,
+    /// Optional holiday calendar identifier for schedule and roll conventions
+    pub calendar_id: Option<&'static str>,
     /// Exercise style
     pub exercise_style: ExerciseStyle,
     /// Settlement type
@@ -79,6 +83,9 @@ impl InterestRateOption {
             end_date,
             frequency: option_params.frequency,
             day_count: option_params.day_count,
+            stub_kind: option_params.stub_kind,
+            bdc: option_params.bdc,
+            calendar_id: option_params.calendar_id,
             exercise_style: ExerciseStyle::European,
             settlement: SettlementType::Cash,
             disc_id,
@@ -142,263 +149,14 @@ impl InterestRateOption {
             vol_id,
         )
     }
-
-    /// Calculate caplet/floorlet price using Black's model
-    ///
-    /// # Arguments
-    /// * `forward_rate` - Forward rate for the period
-    /// * `df` - Discount factor to payment date
-    /// * `sigma` - Black implied volatility
-    /// * `t` - Time to option expiry in years
-    /// * `tau` - Year fraction for the payment period
-    pub fn black_price_caplet_floorlet(
-        &self,
-        forward_rate: F,
-        df: F,
-        sigma: F,
-        t: F,
-        tau: F,
-    ) -> finstack_core::Result<Money> {
-        if t <= 0.0 {
-            // Option expired
-            let payoff = match self.rate_option_type {
-                RateOptionType::Caplet | RateOptionType::Cap => {
-                    (forward_rate - self.strike_rate).max(0.0)
-                }
-                RateOptionType::Floorlet | RateOptionType::Floor => {
-                    (self.strike_rate - forward_rate).max(0.0)
-                }
-            };
-            return Ok(Money::new(
-                payoff * tau * self.notional.amount() * df,
-                self.notional.currency(),
-            ));
-        }
-
-        // Black's formula for caplet/floorlet
-        let d1 = if sigma > 0.0 && t > 0.0 {
-            ((forward_rate / self.strike_rate).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt())
-        } else {
-            0.0
-        };
-        let d2 = d1 - sigma * t.sqrt();
-
-        let price = match self.rate_option_type {
-            RateOptionType::Caplet | RateOptionType::Cap => {
-                df * tau
-                    * self.notional.amount()
-                    * (forward_rate * norm_cdf(d1) - self.strike_rate * norm_cdf(d2))
-            }
-            RateOptionType::Floorlet | RateOptionType::Floor => {
-                df * tau
-                    * self.notional.amount()
-                    * (self.strike_rate * norm_cdf(-d2) - forward_rate * norm_cdf(-d1))
-            }
-        };
-
-        Ok(Money::new(price, self.notional.currency()))
-    }
-
-    /// Calculate option delta
-    pub fn delta(&self, forward_rate: F, sigma: F, t: F) -> F {
-        if t <= 0.0 || sigma <= 0.0 {
-            return match self.rate_option_type {
-                RateOptionType::Caplet | RateOptionType::Cap => {
-                    if forward_rate > self.strike_rate {
-                        1.0
-                    } else {
-                        0.0
-                    }
-                }
-                RateOptionType::Floorlet | RateOptionType::Floor => {
-                    if forward_rate < self.strike_rate {
-                        -1.0
-                    } else {
-                        0.0
-                    }
-                }
-            };
-        }
-
-        let d1 =
-            ((forward_rate / self.strike_rate).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
-
-        match self.rate_option_type {
-            RateOptionType::Caplet | RateOptionType::Cap => norm_cdf(d1),
-            RateOptionType::Floorlet | RateOptionType::Floor => -norm_cdf(-d1),
-        }
-    }
-
-    /// Calculate option gamma
-    pub fn gamma(&self, forward_rate: F, sigma: F, t: F) -> F {
-        if t <= 0.0 || sigma <= 0.0 || forward_rate <= 0.0 {
-            return 0.0;
-        }
-        let d1 =
-            ((forward_rate / self.strike_rate).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt());
-        norm_pdf(d1) / (forward_rate * sigma * t.sqrt())
-    }
-
-    /// Calculate option vega
-    pub fn vega(&self, forward_rate: F, sigma: F, t: F) -> F {
-        if t <= 0.0 || forward_rate <= 0.0 {
-            return 0.0;
-        }
-        let d1 = if sigma > 0.0 {
-            ((forward_rate / self.strike_rate).ln() + 0.5 * sigma * sigma * t) / (sigma * t.sqrt())
-        } else {
-            0.0
-        };
-        forward_rate * norm_pdf(d1) * t.sqrt() / 100.0 // Per 1% vega
-    }
 }
 
 impl_instrument!(
     InterestRateOption,
     "InterestRateOption",
     pv = |s, curves, as_of| {
-        use crate::cashflow::builder::schedule_utils::build_dates;
-        use finstack_core::dates::{BusinessDayConvention, StubKind};
-
-        // Get market curves
-        let disc_curve = curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                s.disc_id,
-            )?;
-        let fwd_curve = curves
-            .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-            s.forward_id,
-        )?;
-        let vol_surface = if s.pricing_overrides.implied_volatility.is_none() {
-            Some(curves.surface_ref(s.vol_id)?)
-        } else {
-            None
-        };
-
-        let mut total_pv = finstack_core::money::Money::new(0.0, s.notional.currency());
-
-        // For single caplet/floorlet, price directly
-        if matches!(
-            s.rate_option_type,
-            RateOptionType::Caplet | RateOptionType::Floorlet
-        ) {
-            let time_to_fixing = s.day_count.year_fraction(
-                as_of,
-                s.start_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-            let time_to_payment = s.day_count.year_fraction(
-                as_of,
-                s.end_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-            let period_length = s.day_count.year_fraction(
-                s.start_date,
-                s.end_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-
-            if time_to_fixing <= 0.0 {
-                // Option expired - intrinsic value only
-                let forward_rate = fwd_curve.rate(time_to_fixing.max(0.0));
-                let intrinsic = match s.rate_option_type {
-                    RateOptionType::Caplet => (forward_rate - s.strike_rate).max(0.0),
-                    RateOptionType::Floorlet => (s.strike_rate - forward_rate).max(0.0),
-                    _ => 0.0,
-                };
-                let df = disc_curve.df(time_to_payment);
-                return Ok(finstack_core::money::Money::new(
-                    intrinsic * period_length * s.notional.amount() * df,
-                    s.notional.currency(),
-                ));
-            }
-
-            let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
-            let df = disc_curve.df(time_to_payment);
-
-            let sigma = if let Some(impl_vol) = s.pricing_overrides.implied_volatility {
-                impl_vol
-            } else if let Some(vol_surf) = &vol_surface {
-                vol_surf.value_clamped(time_to_fixing, s.strike_rate)
-            } else {
-                return Err(finstack_core::error::InputError::NotFound {
-                    id: "cap_floor_rate_index".to_string(),
-                }
-                .into());
-            };
-
-            return s.black_price_caplet_floorlet(
-                forward_rate,
-                df,
-                sigma,
-                time_to_fixing,
-                period_length,
-            );
-        }
-
-        // For cap/floor, price as portfolio of caplets/floorlets
-        let schedule = build_dates(
-            s.start_date,
-            s.end_date,
-            s.frequency,
-            StubKind::None,
-            BusinessDayConvention::Following,
-            None,
-        );
-
-        if schedule.dates.len() < 2 {
-            return Ok(total_pv);
-        }
-
-        // Price each caplet/floorlet
-        let mut prev_date = schedule.dates[0];
-        for &payment_date in &schedule.dates[1..] {
-            let fixing_date = prev_date; // Simplified: fixing at period start
-            let time_to_fixing = s.day_count.year_fraction(
-                as_of,
-                fixing_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-            let time_to_payment = s.day_count.year_fraction(
-                as_of,
-                payment_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-            let period_length = s.day_count.year_fraction(
-                fixing_date,
-                payment_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-
-            if time_to_fixing > 0.0 {
-                // Only price future caplets/floorlets
-                let forward_rate = fwd_curve.rate_period(time_to_fixing, time_to_payment);
-                let df = disc_curve.df(time_to_payment);
-
-                let sigma = if let Some(impl_vol) = s.pricing_overrides.implied_volatility {
-                    impl_vol
-                } else if let Some(vol_surf) = &vol_surface {
-                    vol_surf.value_clamped(time_to_fixing, s.strike_rate)
-                } else {
-                    return Err(finstack_core::error::InputError::NotFound {
-                        id: "cap_floor_rate_index".to_string(),
-                    }
-                    .into());
-                };
-
-                let caplet_price = s.black_price_caplet_floorlet(
-                    forward_rate,
-                    df,
-                    sigma,
-                    time_to_fixing,
-                    period_length,
-                )?;
-                total_pv = (total_pv + caplet_price)?;
-            }
-
-            prev_date = payment_date;
-        }
-
-        Ok(total_pv)
+        // Delegate PV to pricing engine for structure parity with other instruments
+        let pricer = crate::instruments::cap_floor::pricing::engine::IrOptionPricer::new();
+        pricer.price(s, curves, as_of)
     }
 );
