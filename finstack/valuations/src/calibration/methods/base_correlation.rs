@@ -123,7 +123,7 @@ impl BaseCorrelationCalibrator {
         solver: &S,
         market_context: &MarketContext,
     ) -> Result<(BaseCorrelationCurve, CalibrationReport)> {
-        use crate::instruments::cds_tranche::model::GaussianCopulaModel;
+        use crate::instruments::cds_tranche::pricing::engine::CDSTranchePricer;
 
         // Filter and extract CDS tranche quotes, keeping only the requested index
         let mut tranche_quotes: Vec<_> = quotes
@@ -183,7 +183,7 @@ impl BaseCorrelationCalibrator {
         let mut solved_correlations: Vec<(F, F)> = Vec::new();
         let mut residuals = BTreeMap::new();
         let mut total_iterations = 0;
-        let pricing_model = GaussianCopulaModel::new();
+        let pricing_model = CDSTranchePricer::new();
         let num_tranche_quotes = tranche_quotes.len(); // Store length before moving
 
         // Sequential bootstrap from equity to senior tranches
@@ -603,7 +603,7 @@ mod tests {
 
     #[test]
     fn test_base_correlation_calibration_round_trip() {
-        use crate::instruments::cds_tranche::model::GaussianCopulaModel;
+        use crate::instruments::cds_tranche::pricing::engine::CDSTranchePricer;
 
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
@@ -633,7 +633,7 @@ mod tests {
             .insert_credit_index("CDX.NA.IG.42", test_index);
 
         // Generate synthetic market quotes using known correlations
-        let pricing_model = GaussianCopulaModel::new();
+        let pricing_model = CDSTranchePricer::new();
         let mut synthetic_quotes = Vec::new();
 
         for (detach_pct, _corr) in &known_correlations {

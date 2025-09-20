@@ -1,13 +1,12 @@
-//! CDS Tranche instrument (boilerplate implementation).
+//! CDS Tranche instrument module: structure, pricing, and metrics.
 //!
-//! A CDS tranche references a standardized credit index (e.g., CDX IG/HY, iTraxx)
-//! and a loss layer defined by attachment/detachment points. This module provides
-//! a minimal scaffold for the instrument type and wiring to the pricing/metrics
-//! framework. Valuation logic is intentionally minimal and returns zero PV in the
-//! instrument currency until tranche pricing models are implemented.
+//! Follows the standard instrument layout used across valuations:
+//! - `types`: instrument data structures and trait impls
+//! - `pricing`: pricing facade and engine implementation
+//! - `metrics`: metric calculators and registry hook
 
+pub mod pricing;
 pub mod metrics;
-pub mod model;
 pub mod parameters;
 mod types;
 

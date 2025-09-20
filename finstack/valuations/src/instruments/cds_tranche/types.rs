@@ -10,7 +10,7 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::F;
 
-use super::model;
+use super::pricing;
 use super::parameters::CDSTrancheParams;
 
 /// Buyer/seller perspective for CDS tranche premium/protection
@@ -120,14 +120,14 @@ impl Instrument for CdsTranche {
 
 impl Priceable for CdsTranche {
     fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        // Try to use the Gaussian Copula model if credit index data is available
+        // Try to use the Gaussian Copula pricer if credit index data is available
         // Otherwise, fall back to zero PV for backward compatibility
 
         // Check if credit index data is available in core context
         if curves.credit_index(self.credit_index_id).is_ok() {
-            // Use the Gaussian Copula model
-            let model = model::GaussianCopulaModel::new();
-            model.price_tranche(self, curves, as_of)
+            // Use the Gaussian Copula pricer
+            let pricer = pricing::engine::CDSTranchePricer::new();
+            pricer.price_tranche(self, curves, as_of)
         } else {
             // Fallback to zero PV when credit index data is not available
             Ok(Money::new(0.0, self.notional.currency()))
