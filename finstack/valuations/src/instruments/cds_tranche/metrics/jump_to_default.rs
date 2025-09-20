@@ -12,7 +12,12 @@ pub struct JumpToDefaultCalculator;
 impl MetricCalculator for JumpToDefaultCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let tranche: &CdsTranche = context.instrument_as()?;
-        if context.curves.as_ref().credit_index(tranche.credit_index_id).is_ok() {
+        if context
+            .curves
+            .as_ref()
+            .credit_index(tranche.credit_index_id)
+            .is_ok()
+        {
             let pricer = crate::instruments::cds_tranche::pricing::engine::CDSTranchePricer::new();
             pricer.calculate_jump_to_default(tranche, context.curves.as_ref(), context.as_of)
         } else {
@@ -20,5 +25,3 @@ impl MetricCalculator for JumpToDefaultCalculator {
         }
     }
 }
-
-

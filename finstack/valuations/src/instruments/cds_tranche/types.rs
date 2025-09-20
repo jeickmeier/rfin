@@ -10,8 +10,8 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::F;
 
-use super::pricing;
 use super::parameters::CDSTrancheParams;
+use super::pricing;
 
 /// Buyer/seller perspective for CDS tranche premium/protection
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

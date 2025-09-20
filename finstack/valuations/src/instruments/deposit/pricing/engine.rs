@@ -38,9 +38,9 @@
 //! ```
 
 use crate::instruments::deposit::types::Deposit;
-use finstack_core::dates::{DayCountCtx};
-use finstack_core::market_data::MarketContext;
+use finstack_core::dates::DayCountCtx;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
@@ -85,5 +85,3 @@ impl DepositEngine {
         Ok(Money::new(pv, currency))
     }
 }
-
-

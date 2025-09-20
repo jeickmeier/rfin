@@ -33,5 +33,3 @@ impl MetricCalculator for CollateralCoverageCalculator {
         Ok(collateral_value / required_value)
     }
 }
-
-

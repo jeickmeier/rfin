@@ -11,7 +11,10 @@ impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &InterestRateOption = context.instrument_as()?;
         super::common::aggregate_over_caplets(option, context, |forward, sigma, t_fix| {
-            let is_cap = matches!(option.rate_option_type, RateOptionType::Caplet | RateOptionType::Cap);
+            let is_cap = matches!(
+                option.rate_option_type,
+                RateOptionType::Caplet | RateOptionType::Cap
+            );
             crate::instruments::cap_floor::pricing::black::delta(
                 is_cap,
                 option.strike_rate,
@@ -22,7 +25,7 @@ impl MetricCalculator for DeltaCalculator {
         })
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
-
-

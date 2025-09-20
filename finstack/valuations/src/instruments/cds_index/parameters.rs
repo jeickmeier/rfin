@@ -1,7 +1,7 @@
 //! CDS Index specific parameters.
 
-use crate::instruments::cds::{CDSConvention, PayReceive};
 use crate::instruments::cds::CreditParams;
+use crate::instruments::cds::{CDSConvention, PayReceive};
 use finstack_core::money::Money;
 use finstack_core::F;
 
@@ -68,7 +68,11 @@ impl CDSIndexParams {
 
     /// Attach explicit constituents to these params.
     pub fn with_constituents(mut self, constituents: Vec<CDSIndexConstituentParam>) -> Self {
-        self.constituents = if constituents.is_empty() { None } else { Some(constituents) };
+        self.constituents = if constituents.is_empty() {
+            None
+        } else {
+            Some(constituents)
+        };
         self
     }
 

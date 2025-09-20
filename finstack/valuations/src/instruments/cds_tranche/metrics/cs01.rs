@@ -17,5 +17,3 @@ impl MetricCalculator for Cs01Calculator {
         pricer.calculate_cs01(tranche, context.curves.as_ref(), context.as_of)
     }
 }
-
-

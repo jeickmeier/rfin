@@ -20,7 +20,7 @@ impl MetricCalculator for VegaCalculator {
         })
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
-
-

@@ -553,8 +553,12 @@ pub fn gauss_legendre_integrate<F2>(f: F2, a: F, b: F, order: usize) -> Result<F
 where
     F2: Fn(F) -> F,
 {
-    if !(a.is_finite() && b.is_finite()) { return Err(InputError::Invalid.into()); }
-    if a == b { return Ok(0.0); }
+    if !(a.is_finite() && b.is_finite()) {
+        return Err(InputError::Invalid.into());
+    }
+    if a == b {
+        return Ok(0.0);
+    }
     let (xs, ws) = gl_nodes_weights(order)?;
     let half = 0.5 * (b - a);
     let mid = 0.5 * (b + a);
@@ -577,7 +581,9 @@ pub fn gauss_legendre_integrate_composite<F2>(
 where
     F2: Fn(F) -> F,
 {
-    if panels == 0 { return Err(InputError::Invalid.into()); }
+    if panels == 0 {
+        return Err(InputError::Invalid.into());
+    }
     let h = (b - a) / panels as F;
     let mut sum = 0.0;
     for k in 0..panels {
@@ -600,7 +606,15 @@ pub fn gauss_legendre_integrate_adaptive<F2>(
 where
     F2: Fn(F) -> F + Copy,
 {
-    fn recurse<F2>(f: F2, a: F, b: F, order: usize, tol: F, depth: usize, max_depth: usize) -> Result<F, Error>
+    fn recurse<F2>(
+        f: F2,
+        a: F,
+        b: F,
+        order: usize,
+        tol: F,
+        depth: usize,
+        max_depth: usize,
+    ) -> Result<F, Error>
     where
         F2: Fn(F) -> F + Copy,
     {

@@ -14,9 +14,7 @@ pub struct FixedLegPvCalculator;
 impl MetricCalculator for FixedLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs: &InterestRateSwap = context.instrument_as()?;
-        let disc = context
-            .curves
-            .get::<DiscountCurve>(irs.fixed.disc_id)?;
+        let disc = context.curves.get::<DiscountCurve>(irs.fixed.disc_id)?;
 
         let sched = crate::cashflow::builder::build_dates(
             irs.fixed.start,
@@ -27,12 +25,18 @@ impl MetricCalculator for FixedLegPvCalculator {
             irs.fixed.calendar_id,
         );
         let dates: Vec<Date> = sched.dates;
-        if dates.len() < 2 { return Ok(0.0); }
+        if dates.len() < 2 {
+            return Ok(0.0);
+        }
 
         let mut pv = 0.0;
         let mut prev = dates[0];
         for &d in &dates[1..] {
-            let yf = irs.fixed.dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+            let yf = irs
+                .fixed
+                .dc
+                .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
+                .unwrap_or(0.0);
             let coupon = irs.notional.amount() * irs.fixed.rate * yf;
             let df = disc.df_on_date_curve(d);
             pv += coupon * df;
@@ -41,5 +45,3 @@ impl MetricCalculator for FixedLegPvCalculator {
         Ok(pv)
     }
 }
-
-

@@ -13,8 +13,10 @@ pub struct UtilizationCalculator;
 impl MetricCalculator for UtilizationCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let basket = context.instrument_as::<Basket>()?;
-        if let Some(shares) = basket.shares_outstanding { Ok(shares / basket.creation_unit_size) } else { Ok(0.0) }
+        if let Some(shares) = basket.shares_outstanding {
+            Ok(shares / basket.creation_unit_size)
+        } else {
+            Ok(0.0)
+        }
     }
 }
-
-

@@ -8,10 +8,10 @@
 //! PV = sign × (PV_fixed − PV_float) with sign determined by `PayReceive`.
 
 use crate::instruments::irs::types::{InterestRateSwap, PayReceive};
-use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::{
     discount_curve::DiscountCurve, forward_curve::ForwardCurve,
 };
+use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
@@ -34,5 +34,3 @@ impl IrsEngine {
         Ok(npv)
     }
 }
-
-

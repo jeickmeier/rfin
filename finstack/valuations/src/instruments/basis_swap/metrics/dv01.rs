@@ -21,10 +21,14 @@ pub struct Dv01Calculator {
 
 impl Dv01Calculator {
     /// Creates a calculator for the primary leg.
-    pub const fn primary() -> Self { Self { is_primary: true } }
-    
+    pub const fn primary() -> Self {
+        Self { is_primary: true }
+    }
+
     /// Creates a calculator for the reference leg.
-    pub const fn reference() -> Self { Self { is_primary: false } }
+    pub const fn reference() -> Self {
+        Self { is_primary: false }
+    }
 }
 
 impl MetricCalculator for Dv01Calculator {
@@ -38,9 +42,17 @@ impl MetricCalculator for Dv01Calculator {
 
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let annuity = if self.is_primary {
-            context.computed.get(&MetricId::BasisAnnuityPrimary).copied().unwrap_or(0.0)
+            context
+                .computed
+                .get(&MetricId::BasisAnnuityPrimary)
+                .copied()
+                .unwrap_or(0.0)
         } else {
-            context.computed.get(&MetricId::BasisAnnuityReference).copied().unwrap_or(0.0)
+            context
+                .computed
+                .get(&MetricId::BasisAnnuityReference)
+                .copied()
+                .unwrap_or(0.0)
         };
 
         let instrument = context.instrument.clone();
@@ -51,5 +63,3 @@ impl MetricCalculator for Dv01Calculator {
         Ok(annuity * swap.notional.amount() * 1e-4)
     }
 }
-
-

@@ -20,7 +20,7 @@ impl MetricCalculator for GammaCalculator {
         })
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
-
-

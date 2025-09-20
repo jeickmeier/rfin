@@ -10,19 +10,19 @@
 //!
 //! See unit tests and `examples/` for usage.
 
-mod year_fraction;
-mod df_start;
 mod df_end;
-mod par_rate;
 mod df_end_from_quote;
+mod df_start;
+mod par_rate;
 mod quote_rate;
+mod year_fraction;
 
-pub use year_fraction::YearFractionCalculator;
-pub use df_start::DfStartCalculator;
 pub use df_end::DfEndCalculator;
-pub use par_rate::DepositParRateCalculator;
 pub use df_end_from_quote::DfEndFromQuoteCalculator;
+pub use df_start::DfStartCalculator;
+pub use par_rate::DepositParRateCalculator;
 pub use quote_rate::QuoteRateCalculator;
+pub use year_fraction::YearFractionCalculator;
 
 use crate::metrics::{MetricId, MetricRegistry};
 use std::sync::Arc;
@@ -52,5 +52,3 @@ pub fn register_deposit_metrics(registry: &mut MetricRegistry) {
             &["Deposit"],
         ); // quoted rate passthrough
 }
-
-

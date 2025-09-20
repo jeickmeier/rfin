@@ -14,14 +14,14 @@
 //! - Premium/Discount vs market price
 //! - Asset exposure by `AssetType`
 
-mod nav;
+mod asset_exposure;
 mod basket_value;
 mod constituent_count;
 mod expense_ratio;
+mod nav;
+mod premium_discount;
 mod tracking_error;
 mod utilization;
-mod premium_discount;
-mod asset_exposure;
 
 use crate::metrics::MetricRegistry;
 
@@ -40,13 +40,35 @@ pub fn register_basket_metrics(registry: &mut MetricRegistry) {
     use std::sync::Arc;
 
     registry
-        .register_metric(MetricId::Nav, Arc::new(NavCalculator), &["Basket"]) 
-        .register_metric(MetricId::BasketValue, Arc::new(BasketValueCalculator), &["Basket"]) 
-        .register_metric(MetricId::ConstituentCount, Arc::new(ConstituentCountCalculator), &["Basket"]) 
-        .register_metric(MetricId::ExpenseRatio, Arc::new(ExpenseRatioCalculator), &["Basket"]) 
-        .register_metric(MetricId::TrackingError, Arc::new(TrackingErrorCalculator), &["Basket"]) 
-        .register_metric(MetricId::Utilization, Arc::new(UtilizationCalculator), &["Basket"]) 
-        .register_metric(MetricId::PremiumDiscount, Arc::new(PremiumDiscountCalculator), &["Basket"]);
+        .register_metric(MetricId::Nav, Arc::new(NavCalculator), &["Basket"])
+        .register_metric(
+            MetricId::BasketValue,
+            Arc::new(BasketValueCalculator),
+            &["Basket"],
+        )
+        .register_metric(
+            MetricId::ConstituentCount,
+            Arc::new(ConstituentCountCalculator),
+            &["Basket"],
+        )
+        .register_metric(
+            MetricId::ExpenseRatio,
+            Arc::new(ExpenseRatioCalculator),
+            &["Basket"],
+        )
+        .register_metric(
+            MetricId::TrackingError,
+            Arc::new(TrackingErrorCalculator),
+            &["Basket"],
+        )
+        .register_metric(
+            MetricId::Utilization,
+            Arc::new(UtilizationCalculator),
+            &["Basket"],
+        )
+        .register_metric(
+            MetricId::PremiumDiscount,
+            Arc::new(PremiumDiscountCalculator),
+            &["Basket"],
+        );
 }
-
-

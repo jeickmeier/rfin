@@ -3,8 +3,8 @@
 //! Approximates the sensitivity of the repo PV to a +1bp change in the
 //! instrument's repo rate parameter.
 
-use crate::metrics::{MetricCalculator, MetricContext};
 use crate::instruments::traits::Priceable;
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::prelude::*;
 use finstack_core::F;
 
@@ -22,5 +22,3 @@ impl MetricCalculator for FundingRiskCalculator {
         Ok(base_pv - bumped_pv)
     }
 }
-
-

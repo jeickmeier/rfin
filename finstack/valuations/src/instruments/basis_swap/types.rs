@@ -4,13 +4,13 @@
 //! capturing the basis spread between them (e.g., 3M vs 6M).
 
 use crate::cashflow::builder::schedule_utils::{build_dates, PeriodSchedule};
+use crate::instruments::traits::{Attributable, Instrument};
 use finstack_core::{
     dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind},
     money::Money,
     types::{CurveId, InstrumentId},
     F,
 };
-use crate::instruments::traits::{Attributable, Instrument};
 use std::any::Any;
 
 /// Specification for one leg of a basis swap.
@@ -52,38 +52,38 @@ pub struct BasisSwapLeg {
 /// reference rates (e.g., 3M SOFR vs 6M SOFR) plus an optional spread on one leg.
 /// The primary leg typically receives the spread, while the reference leg pays flat.
 ///
-    /// # Examples
-    /// ```rust
-    /// use finstack_core::{dates::*, money::Money, currency::Currency, types::CurveId};
-    /// use finstack_valuations::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
-    /// use time::Month;
-    ///
-    /// let primary_leg = BasisSwapLeg {
-    ///     forward_curve_id: CurveId::new("3M-SOFR"),
-    ///     frequency: Frequency::quarterly(),
-    ///     day_count: DayCount::Act360,
-    ///     bdc: BusinessDayConvention::ModifiedFollowing,
-    ///     spread: 0.0005,
-    /// };
-    ///
-    /// let reference_leg = BasisSwapLeg {
-    ///     forward_curve_id: CurveId::new("6M-SOFR"),
-    ///     frequency: Frequency::semi_annual(),
-    ///     day_count: DayCount::Act360,
-    ///     bdc: BusinessDayConvention::ModifiedFollowing,
-    ///     spread: 0.0,
-    /// };
-    ///
-    /// let swap = BasisSwap::new(
-    ///     "BASIS_SWAP_001",
-    ///     Money::new(1_000_000.0, Currency::USD),
-    ///     Date::from_calendar_date(2024, Month::January, 3).unwrap(),
-    ///     Date::from_calendar_date(2025, Month::January, 3).unwrap(),
-    ///     primary_leg,
-    ///     reference_leg,
-    ///     CurveId::new("OIS"),
-    /// );
-    /// ```
+/// # Examples
+/// ```rust
+/// use finstack_core::{dates::*, money::Money, currency::Currency, types::CurveId};
+/// use finstack_valuations::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
+/// use time::Month;
+///
+/// let primary_leg = BasisSwapLeg {
+///     forward_curve_id: CurveId::new("3M-SOFR"),
+///     frequency: Frequency::quarterly(),
+///     day_count: DayCount::Act360,
+///     bdc: BusinessDayConvention::ModifiedFollowing,
+///     spread: 0.0005,
+/// };
+///
+/// let reference_leg = BasisSwapLeg {
+///     forward_curve_id: CurveId::new("6M-SOFR"),
+///     frequency: Frequency::semi_annual(),
+///     day_count: DayCount::Act360,
+///     bdc: BusinessDayConvention::ModifiedFollowing,
+///     spread: 0.0,
+/// };
+///
+/// let swap = BasisSwap::new(
+///     "BASIS_SWAP_001",
+///     Money::new(1_000_000.0, Currency::USD),
+///     Date::from_calendar_date(2024, Month::January, 3).unwrap(),
+///     Date::from_calendar_date(2025, Month::January, 3).unwrap(),
+///     primary_leg,
+///     reference_leg,
+///     CurveId::new("OIS"),
+/// );
+/// ```
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct BasisSwap {
     /// Unique identifier for this instrument.
@@ -198,23 +198,35 @@ impl Attributable for BasisSwap {
 }
 
 impl Instrument for BasisSwap {
-    fn id(&self) -> &str { self.id.as_str() }
-    fn instrument_type(&self) -> &'static str { "BasisSwap" }
-    fn as_any(&self) -> &dyn Any { self }
-    fn attributes(&self) -> &crate::instruments::traits::Attributes { <Self as Attributable>::attributes(self) }
-    fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes { <Self as Attributable>::attributes_mut(self) }
-    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+    fn instrument_type(&self) -> &'static str {
+        "BasisSwap"
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn attributes(&self) -> &crate::instruments::traits::Attributes {
+        <Self as Attributable>::attributes(self)
+    }
+    fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes {
+        <Self as Attributable>::attributes_mut(self)
+    }
+    fn clone_box(&self) -> Box<dyn Instrument> {
+        Box::new(self.clone())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instruments::traits::Priceable;
+    use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::{
         discount_curve::DiscountCurve, forward_curve::ForwardCurve,
     };
     use finstack_core::market_data::MarketContext;
-    use finstack_core::currency::Currency;
-    use crate::instruments::traits::Priceable;
     use time::Month;
 
     // Helper function for tests

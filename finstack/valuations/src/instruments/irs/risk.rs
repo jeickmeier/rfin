@@ -123,5 +123,3 @@ impl RiskMeasurable for InterestRateSwap {
         ])
     }
 }
-
-

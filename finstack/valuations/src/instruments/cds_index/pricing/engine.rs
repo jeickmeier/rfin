@@ -27,7 +27,10 @@ const WEIGHT_SUM_TOL: F = 1e-8;
 
 /// Par spread denominator method for indices in constituents mode.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ParSpreadMethod { RiskyAnnuity, FullPremiumAoD }
+pub enum ParSpreadMethod {
+    RiskyAnnuity,
+    FullPremiumAoD,
+}
 
 /// Configuration for CDS Index pricing. Wraps the underlying CDS config and adds
 /// index-specific policy controls.
@@ -63,14 +66,24 @@ pub struct CDSIndexPricer {
     config: CDSIndexPricerConfig,
 }
 
-impl Default for CDSIndexPricer { fn default() -> Self { Self::new() } }
+impl Default for CDSIndexPricer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl CDSIndexPricer {
     /// Create a new CDS Index pricer
-    pub fn new() -> Self { Self { config: CDSIndexPricerConfig::default() } }
+    pub fn new() -> Self {
+        Self {
+            config: CDSIndexPricerConfig::default(),
+        }
+    }
 
     /// Create a pricer with custom configuration
-    pub fn with_config(config: CDSIndexPricerConfig) -> Self { Self { config } }
+    pub fn with_config(config: CDSIndexPricerConfig) -> Self {
+        Self { config }
+    }
 
     /// Compute instrument NPV from the perspective of `PayReceive`
     pub fn npv(&self, index: &CDSIndex, curves: &MarketContext, as_of: Date) -> Result<Money> {
@@ -86,13 +99,23 @@ impl CDSIndexPricer {
     }
 
     /// Present value of the protection leg (aggregated by pricing mode)
-    pub fn pv_protection_leg(&self, index: &CDSIndex, curves: &MarketContext, as_of: Date) -> Result<Money> {
+    pub fn pv_protection_leg(
+        &self,
+        index: &CDSIndex,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<Money> {
         let (pv_protection, _) = self.pv_legs(index, curves, as_of)?;
         Ok(pv_protection)
     }
 
     /// Present value of the premium leg (aggregated by pricing mode)
-    pub fn pv_premium_leg(&self, index: &CDSIndex, curves: &MarketContext, as_of: Date) -> Result<Money> {
+    pub fn pv_premium_leg(
+        &self,
+        index: &CDSIndex,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<Money> {
         let (_, pv_premium) = self.pv_legs(index, curves, as_of)?;
         Ok(pv_premium)
     }
@@ -116,12 +139,18 @@ impl CDSIndexPricer {
                     let surv = curves.get_ref::<HazardCurve>(cds.protection.credit_id)?;
                     prot_sum = (prot_sum + pricer.pv_protection_leg(&cds, disc, surv, as_of)?)?;
                     let denom_per_unit = match self.config.par_spread_method {
-                        ParSpreadMethod::RiskyAnnuity => pricer.risky_annuity(&cds, disc, surv, as_of)?,
-                        ParSpreadMethod::FullPremiumAoD => pricer.premium_leg_pv_per_bp(&cds, disc, surv, as_of)?,
+                        ParSpreadMethod::RiskyAnnuity => {
+                            pricer.risky_annuity(&cds, disc, surv, as_of)?
+                        }
+                        ParSpreadMethod::FullPremiumAoD => {
+                            pricer.premium_leg_pv_per_bp(&cds, disc, surv, as_of)?
+                        }
                     };
                     denom_sum += denom_per_unit * cds.notional.amount();
                 }
-                if denom_sum.abs() < 1e-12 { return Err(Error::Internal); }
+                if denom_sum.abs() < 1e-12 {
+                    return Err(Error::Internal);
+                }
                 Ok(prot_sum.amount() / denom_sum * 10000.0)
             }
         }
@@ -169,7 +198,12 @@ impl CDSIndexPricer {
 
     // ----- internals -----
 
-    fn pv_legs(&self, index: &CDSIndex, curves: &MarketContext, as_of: Date) -> Result<(Money, Money)> {
+    fn pv_legs(
+        &self,
+        index: &CDSIndex,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<(Money, Money)> {
         let pricer = CDSPricer::with_config(self.config.cds_config.clone());
         match index.pricing {
             super::super::types::IndexPricing::SingleCurve => {
@@ -217,12 +251,23 @@ impl CDSIndexPricer {
                 return Err(finstack_core::error::InputError::Invalid.into());
             }
         }
-        let norm = if self.config.normalize_weights && sum_w > 0.0 { sum_w } else { 1.0 };
+        let norm = if self.config.normalize_weights && sum_w > 0.0 {
+            sum_w
+        } else {
+            1.0
+        };
         let mut out = Vec::with_capacity(index.constituents.len());
-        let scale = if self.config.use_index_factor { index.index_factor } else { 1.0 };
+        let scale = if self.config.use_index_factor {
+            index.index_factor
+        } else {
+            1.0
+        };
         for (i, con) in index.constituents.iter().enumerate() {
             let eff_w = con.weight / norm;
-            let notional = Money::new(index.notional.amount() * scale * eff_w, index.notional.currency());
+            let notional = Money::new(
+                index.notional.amount() * scale * eff_w,
+                index.notional.currency(),
+            );
             let id = format!("{}-{:03}", index.id, i + 1);
             out.push(CreditDefaultSwap::new_isda(
                 id,
@@ -241,5 +286,3 @@ impl CDSIndexPricer {
         Ok(out)
     }
 }
-
-

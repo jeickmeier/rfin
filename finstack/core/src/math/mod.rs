@@ -36,9 +36,9 @@ pub use distributions::{
     binomial_probability, log_binomial_coefficient, log_factorial, sample_beta,
 };
 pub use integration::{
-    adaptive_quadrature, simpson_rule, trapezoidal_rule, GaussHermiteQuadrature,
-    gauss_legendre_integrate, gauss_legendre_integrate_adaptive, gauss_legendre_integrate_composite,
-    adaptive_simpson,
+    adaptive_quadrature, adaptive_simpson, gauss_legendre_integrate,
+    gauss_legendre_integrate_adaptive, gauss_legendre_integrate_composite, simpson_rule,
+    trapezoidal_rule, GaussHermiteQuadrature,
 };
 pub use interp::{
     CubicHermite, ExtrapolationPolicy, FlatFwd, InterpFn, LinearDf, LogLinearDf, MonotoneConvex,

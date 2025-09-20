@@ -17,5 +17,3 @@ impl MetricCalculator for RepoInterestCalculator {
         Ok(interest.amount())
     }
 }
-
-

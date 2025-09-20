@@ -6,8 +6,4 @@
 
 pub mod engine;
 
-pub use engine::{
-    CDSPricer, CDSPricerConfig, CDSBootstrapper, IntegrationMethod, isda_constants,
-};
-
-
+pub use engine::{isda_constants, CDSBootstrapper, CDSPricer, CDSPricerConfig, IntegrationMethod};

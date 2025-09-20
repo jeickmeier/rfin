@@ -5,9 +5,9 @@
 
 use crate::instruments::cap_floor::InterestRateOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::{Result, F};
 use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::types::CurveId;
+use finstack_core::{Result, F};
 
 /// Rho calculator (per 1%)
 pub struct RhoCalculator;
@@ -36,7 +36,7 @@ impl MetricCalculator for RhoCalculator {
         Ok(dv01 * 100.0) // per 1%
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
-
-

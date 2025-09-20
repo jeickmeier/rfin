@@ -9,8 +9,8 @@
 //! repurchase agreements, including collateral valuation, haircut calculations,
 //! and term structure modeling.
 
-pub mod pricing;
 pub mod metrics;
+pub mod pricing;
 mod types;
 
 // Re-export main types

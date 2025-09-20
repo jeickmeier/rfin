@@ -22,10 +22,14 @@ pub struct AnnuityCalculator {
 
 impl AnnuityCalculator {
     /// Creates a calculator for the primary leg.
-    pub const fn primary() -> Self { Self { is_primary: true } }
-    
+    pub const fn primary() -> Self {
+        Self { is_primary: true }
+    }
+
     /// Creates a calculator for the reference leg.
-    pub const fn reference() -> Self { Self { is_primary: false } }
+    pub const fn reference() -> Self {
+        Self { is_primary: false }
+    }
 }
 
 impl MetricCalculator for AnnuityCalculator {
@@ -37,10 +41,17 @@ impl MetricCalculator for AnnuityCalculator {
             .ok_or(Error::Input(finstack_core::error::InputError::Invalid))?;
         let curves = context.curves.clone();
 
-        let leg = if self.is_primary { &swap.primary_leg } else { &swap.reference_leg };
+        let leg = if self.is_primary {
+            &swap.primary_leg
+        } else {
+            &swap.reference_leg
+        };
         let schedule = swap.leg_schedule(leg);
-        BasisEngine::annuity_for_leg(&schedule, leg.day_count, swap.discount_curve_id.as_str(), curves.as_ref())
+        BasisEngine::annuity_for_leg(
+            &schedule,
+            leg.day_count,
+            swap.discount_curve_id.as_str(),
+            curves.as_ref(),
+        )
     }
 }
-
-

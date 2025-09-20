@@ -18,8 +18,8 @@ use crate::instruments::cds::{
     ProtectionLegSpec, SettlementType,
 };
 
-use super::parameters::{CDSIndexConstructionParams, CDSIndexParams};
 use super::parameters::CDSIndexConstituentParam;
+use super::parameters::{CDSIndexConstructionParams, CDSIndexParams};
 
 /// Pricing mode for CDS indices.
 #[derive(Clone, Debug, PartialEq, Eq)]

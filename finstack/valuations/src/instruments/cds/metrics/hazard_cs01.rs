@@ -20,13 +20,13 @@ impl MetricCalculator for HazardCs01Calculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                cds.premium.disc_id,
-            )?;
+            cds.premium.disc_id,
+        )?;
         let surv = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                cds.protection.credit_id,
-            )?;
+            cds.protection.credit_id,
+        )?;
 
         // Base PV
         let base = (cds.pv_protection_leg(disc, surv)? - cds.pv_premium_leg(disc, surv)?)?;
@@ -40,10 +40,9 @@ impl MetricCalculator for HazardCs01Calculator {
         let bumped_surv = Bumpable::apply_bump(surv, spec).ok_or(finstack_core::Error::Internal)?;
 
         // PV with bumped hazard
-        let bumped = (cds.pv_protection_leg(disc, &bumped_surv)? - cds.pv_premium_leg(disc, &bumped_surv)?)?;
+        let bumped = (cds.pv_protection_leg(disc, &bumped_surv)?
+            - cds.pv_premium_leg(disc, &bumped_surv)?)?;
 
         Ok((bumped.amount() - base.amount()).abs())
     }
 }
-
-

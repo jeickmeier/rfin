@@ -9,5 +9,5 @@ pub mod pricing;
 mod risk;
 mod types;
 
-pub use types::{FixedLegSpec, FloatLegSpec, InterestRateSwap, PayReceive};
 pub use pricing::engine::IrsEngine;
+pub use types::{FixedLegSpec, FloatLegSpec, InterestRateSwap, PayReceive};

@@ -16,5 +16,3 @@ impl MetricCalculator for CorrelationDeltaCalculator {
         pricer.calculate_correlation_delta(tranche, context.curves.as_ref(), context.as_of)
     }
 }
-
-

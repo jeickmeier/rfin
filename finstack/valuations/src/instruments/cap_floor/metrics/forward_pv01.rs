@@ -2,9 +2,9 @@
 
 use crate::instruments::cap_floor::InterestRateOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::{Result, F};
 use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::types::CurveId;
+use finstack_core::{Result, F};
 
 /// Forward PV01 calculator (per 1bp parallel forward curve bump)
 pub struct ForwardPv01Calculator;
@@ -28,7 +28,7 @@ impl MetricCalculator for ForwardPv01Calculator {
         Ok(bumped.amount() - base)
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
-
-

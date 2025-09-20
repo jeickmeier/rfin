@@ -5,7 +5,7 @@
 //! `pricing::engine`, and metrics are provided in the `metrics` submodule.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::traits::{Attributes, Attributable, Instrument};
+use crate::instruments::traits::{Attributable, Attributes, Instrument};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
@@ -47,17 +47,33 @@ pub struct ForwardRateAgreement {
 }
 
 impl Attributable for ForwardRateAgreement {
-    fn attributes(&self) -> &Attributes { &self.attributes }
-    fn attributes_mut(&mut self) -> &mut Attributes { &mut self.attributes }
+    fn attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+    fn attributes_mut(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
 }
 
 impl Instrument for ForwardRateAgreement {
-    fn id(&self) -> &str { self.id.as_str() }
-    fn instrument_type(&self) -> &'static str { "FRA" }
-    fn as_any(&self) -> &dyn Any { self }
-    fn attributes(&self) -> &Attributes { <Self as Attributable>::attributes(self) }
-    fn attributes_mut(&mut self) -> &mut Attributes { <Self as Attributable>::attributes_mut(self) }
-    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+    fn instrument_type(&self) -> &'static str {
+        "FRA"
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn attributes(&self) -> &Attributes {
+        <Self as Attributable>::attributes(self)
+    }
+    fn attributes_mut(&mut self) -> &mut Attributes {
+        <Self as Attributable>::attributes_mut(self)
+    }
+    fn clone_box(&self) -> Box<dyn Instrument> {
+        Box::new(self.clone())
+    }
 }
 
 impl CashflowProvider for ForwardRateAgreement {

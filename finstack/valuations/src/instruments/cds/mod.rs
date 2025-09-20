@@ -5,9 +5,9 @@
 //! - `pricing`: pricing facade and engine implementation
 //! - `metrics`: metric calculators and registry hook
 
-pub mod pricing;
-pub mod parameters;
 pub mod metrics;
+pub mod parameters;
+pub mod pricing;
 mod types;
 
 pub use parameters::CreditParams;

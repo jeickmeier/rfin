@@ -51,5 +51,3 @@ impl MetricCalculator for DepositParRateCalculator {
         Ok((df_s / df_e - 1.0) / yf)
     }
 }
-
-

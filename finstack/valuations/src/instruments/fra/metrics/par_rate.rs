@@ -24,18 +24,26 @@ impl MetricCalculator for FraParRateCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                fra.disc_id.as_str(),
-            )?;
+            fra.disc_id.as_str(),
+        )?;
         let base = disc.base_date();
 
         // Compute start/end times and guard zero-length periods
         let t_start = fra
             .day_count
-            .year_fraction(base, fra.start_date, finstack_core::dates::DayCountCtx::default())?
+            .year_fraction(
+                base,
+                fra.start_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?
             .max(0.0);
         let t_end = fra
             .day_count
-            .year_fraction(base, fra.end_date, finstack_core::dates::DayCountCtx::default())?
+            .year_fraction(
+                base,
+                fra.end_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?
             .max(t_start);
 
         let tau = fra
@@ -54,10 +62,8 @@ impl MetricCalculator for FraParRateCalculator {
         let fwd = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-                fra.forward_id.as_str(),
-            )?;
+            fra.forward_id.as_str(),
+        )?;
         Ok(fwd.rate_period(t_start, t_end))
     }
 }
-
-

@@ -16,7 +16,9 @@ impl MetricCalculator for PremiumDiscountCalculator {
         if let Some(ticker) = &basket.ticker {
             if let Ok(market_scalar) = context.curves.price(ticker) {
                 let market_price = match market_scalar {
-                    finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
+                    finstack_core::market_data::scalars::MarketScalar::Price(money) => {
+                        money.amount()
+                    }
                     finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                 };
                 let nav = basket.nav(&context.curves, context.as_of)?;
@@ -27,7 +29,7 @@ impl MetricCalculator for PremiumDiscountCalculator {
         Ok(0.0)
     }
 
-    fn dependencies(&self) -> &[crate::metrics::MetricId] { &[crate::metrics::MetricId::Nav] }
+    fn dependencies(&self) -> &[crate::metrics::MetricId] {
+        &[crate::metrics::MetricId::Nav]
+    }
 }
-
-

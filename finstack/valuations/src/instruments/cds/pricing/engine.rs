@@ -15,9 +15,9 @@ use finstack_core::dates::{next_cds_date, Date, DayCount};
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::traits::{Discounting, Survival};
 use finstack_core::market_data::MarketContext;
+use finstack_core::math::{adaptive_simpson, gauss_legendre_integrate};
 use finstack_core::money::Money;
 use finstack_core::{Error, Result, F};
-use finstack_core::math::{gauss_legendre_integrate, adaptive_simpson};
 
 // Named approximation constant to avoid magic numbers
 const BUSINESS_DAYS_PER_YEAR_APPROX: F = 252.0;
@@ -80,7 +80,9 @@ pub struct CDSPricerConfig {
 }
 
 impl Default for CDSPricerConfig {
-    fn default() -> Self { Self::isda_standard() }
+    fn default() -> Self {
+        Self::isda_standard()
+    }
 }
 
 impl CDSPricerConfig {
@@ -121,15 +123,23 @@ pub struct CDSPricer {
 }
 
 impl Default for CDSPricer {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CDSPricer {
     /// Create new pricer with default ISDA-compliant config
-    pub fn new() -> Self { Self { config: CDSPricerConfig::default() } }
+    pub fn new() -> Self {
+        Self {
+            config: CDSPricerConfig::default(),
+        }
+    }
 
     /// Create pricer with custom config
-    pub fn with_config(config: CDSPricerConfig) -> Self { Self { config } }
+    pub fn with_config(config: CDSPricerConfig) -> Self {
+        Self { config }
+    }
 
     /// Calculate PV of protection leg with numerical integration
     pub fn pv_protection_leg(
@@ -146,19 +156,44 @@ impl CDSPricer {
         let delay_years = (cds.protection.settlement_delay as F) / BUSINESS_DAYS_PER_YEAR_APPROX;
 
         let protection_pv = match self.config.integration_method {
-            IntegrationMethod::Midpoint => self.protection_leg_midpoint(t_start, t_end, recovery, delay_years, disc, surv)?,
-            IntegrationMethod::GaussianQuadrature => match self.protection_leg_gaussian_quadrature(t_start, t_end, recovery, delay_years, disc, surv) {
+            IntegrationMethod::Midpoint => {
+                self.protection_leg_midpoint(t_start, t_end, recovery, delay_years, disc, surv)?
+            }
+            IntegrationMethod::GaussianQuadrature => match self.protection_leg_gaussian_quadrature(
+                t_start,
+                t_end,
+                recovery,
+                delay_years,
+                disc,
+                surv,
+            ) {
                 Ok(pv) => pv,
-                Err(_) => self.protection_leg_midpoint(t_start, t_end, recovery, delay_years, disc, surv)?,
+                Err(_) => {
+                    self.protection_leg_midpoint(t_start, t_end, recovery, delay_years, disc, surv)?
+                }
             },
-            IntegrationMethod::AdaptiveSimpson => match self.protection_leg_adaptive_simpson(t_start, t_end, recovery, delay_years, disc, surv) {
+            IntegrationMethod::AdaptiveSimpson => match self.protection_leg_adaptive_simpson(
+                t_start,
+                t_end,
+                recovery,
+                delay_years,
+                disc,
+                surv,
+            ) {
                 Ok(pv) => pv,
-                Err(_) => self.protection_leg_midpoint(t_start, t_end, recovery, delay_years, disc, surv)?,
+                Err(_) => {
+                    self.protection_leg_midpoint(t_start, t_end, recovery, delay_years, disc, surv)?
+                }
             },
-            IntegrationMethod::IsdaExact => self.protection_leg_isda_exact(t_start, t_end, recovery, delay_years, disc, surv)?,
+            IntegrationMethod::IsdaExact => {
+                self.protection_leg_isda_exact(t_start, t_end, recovery, delay_years, disc, surv)?
+            }
         };
 
-        Ok(Money::new(protection_pv * cds.notional.amount(), cds.notional.currency()))
+        Ok(Money::new(
+            protection_pv * cds.notional.amount(),
+            cds.notional.currency(),
+        ))
     }
 
     /// Calculate PV of premium leg with optional accrual-on-default
@@ -188,11 +223,20 @@ impl CDSPricer {
             premium_pv += spread * accrual * sp * df;
 
             if self.config.include_accrual {
-                premium_pv += self.calculate_accrual_on_default(spread, self.year_fraction(base_date, start_date, cds.premium.dc)?, t_end, disc, surv)?;
+                premium_pv += self.calculate_accrual_on_default(
+                    spread,
+                    self.year_fraction(base_date, start_date, cds.premium.dc)?,
+                    t_end,
+                    disc,
+                    surv,
+                )?;
             }
         }
 
-        Ok(Money::new(premium_pv * cds.notional.amount(), cds.notional.currency()))
+        Ok(Money::new(
+            premium_pv * cds.notional.amount(),
+            cds.notional.currency(),
+        ))
     }
 
     /// Calculate accrual-on-default for a period using configured method
@@ -206,12 +250,37 @@ impl CDSPricer {
     ) -> Result<F> {
         let period_length = t_end - t_start;
         match self.config.integration_method {
-            IntegrationMethod::Midpoint => self.accrual_on_default_midpoint(spread, t_start, t_end, period_length, disc, surv),
-            IntegrationMethod::GaussianQuadrature | IntegrationMethod::AdaptiveSimpson => match self.accrual_on_default_adaptive(spread, t_start, t_end, period_length, disc, surv) {
-                Ok(aod) => Ok(aod),
-                Err(_) => self.accrual_on_default_midpoint(spread, t_start, t_end, period_length, disc, surv),
-            },
-            IntegrationMethod::IsdaExact => self.accrual_on_default_isda_exact(spread, t_start, t_end, period_length, disc, surv),
+            IntegrationMethod::Midpoint => {
+                self.accrual_on_default_midpoint(spread, t_start, t_end, period_length, disc, surv)
+            }
+            IntegrationMethod::GaussianQuadrature | IntegrationMethod::AdaptiveSimpson => {
+                match self.accrual_on_default_adaptive(
+                    spread,
+                    t_start,
+                    t_end,
+                    period_length,
+                    disc,
+                    surv,
+                ) {
+                    Ok(aod) => Ok(aod),
+                    Err(_) => self.accrual_on_default_midpoint(
+                        spread,
+                        t_start,
+                        t_end,
+                        period_length,
+                        disc,
+                        surv,
+                    ),
+                }
+            }
+            IntegrationMethod::IsdaExact => self.accrual_on_default_isda_exact(
+                spread,
+                t_start,
+                t_end,
+                period_length,
+                disc,
+                surv,
+            ),
         }
     }
 
@@ -249,7 +318,9 @@ impl CDSPricer {
         disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> Result<F> {
-        if t_start >= t_end || spread < 0.0 { return Err(Error::Internal); }
+        if t_start >= t_end || spread < 0.0 {
+            return Err(Error::Internal);
+        }
         let h = (t_end - t_start) * 1e-4;
         let integrand = |t: F| {
             let density = approx_default_density(surv, t, h, t_start, t_end);
@@ -257,7 +328,13 @@ impl CDSPricer {
             let df = disc.df(t);
             spread * accrued_time * density * df
         };
-        adaptive_simpson(integrand, t_start, t_end, self.config.tolerance, self.config.adaptive_max_depth)
+        adaptive_simpson(
+            integrand,
+            t_start,
+            t_end,
+            self.config.tolerance,
+            self.config.adaptive_max_depth,
+        )
     }
 
     fn accrual_on_default_isda_exact(
@@ -279,7 +356,11 @@ impl CDSPricer {
             let t2 = t + dt * 0.5;
             let sp1 = if t1 >= 0.0 { surv.sp(t1) } else { 1.0 };
             let sp2 = surv.sp(t2);
-            let default_prob = if sp1 > 0.0 && sp2 < sp1 { (sp1 - sp2) / dt } else { 0.0 };
+            let default_prob = if sp1 > 0.0 && sp2 < sp1 {
+                (sp1 - sp2) / dt
+            } else {
+                0.0
+            };
             let df = disc.df(t);
             accrual_pv += spread * accrual_fraction * default_prob * df * dt;
         }
@@ -318,7 +399,9 @@ impl CDSPricer {
         disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> Result<F> {
-        if t_start >= t_end || !(0.0..=1.0).contains(&recovery) { return Err(Error::Internal); }
+        if t_start >= t_end || !(0.0..=1.0).contains(&recovery) {
+            return Err(Error::Internal);
+        }
         let h = (t_end - t_start) * 1e-4;
         let lgd = 1.0 - recovery;
         let integrand = |t: F| {
@@ -338,7 +421,9 @@ impl CDSPricer {
         disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> Result<F> {
-        if t_start >= t_end || !(0.0..=1.0).contains(&recovery) { return Err(Error::Internal); }
+        if t_start >= t_end || !(0.0..=1.0).contains(&recovery) {
+            return Err(Error::Internal);
+        }
         let h = (t_end - t_start) * 1e-4;
         let lgd = 1.0 - recovery;
         let integrand = |t: F| {
@@ -346,7 +431,13 @@ impl CDSPricer {
             let df = disc.df(t + delay_years);
             lgd * density * df
         };
-        adaptive_simpson(integrand, t_start, t_end, self.config.tolerance, self.config.adaptive_max_depth)
+        adaptive_simpson(
+            integrand,
+            t_start,
+            t_end,
+            self.config.tolerance,
+            self.config.adaptive_max_depth,
+        )
     }
 
     fn protection_leg_isda_exact(
@@ -358,7 +449,9 @@ impl CDSPricer {
         disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> Result<F> {
-        if t_start >= t_end || !(0.0..=1.0).contains(&recovery) { return Err(Error::Internal); }
+        if t_start >= t_end || !(0.0..=1.0).contains(&recovery) {
+            return Err(Error::Internal);
+        }
         let lgd = 1.0 - recovery;
         let steps_per_period = isda_constants::STANDARD_INTEGRATION_POINTS;
         let dt = (t_end - t_start) / steps_per_period as F;
@@ -406,14 +499,24 @@ impl CDSPricer {
         let mut current = cds.premium.start;
         while current < cds.premium.end {
             current = next_cds_date(current);
-            if current <= cds.premium.end { schedule.push(current); }
+            if current <= cds.premium.end {
+                schedule.push(current);
+            }
         }
-        if schedule.last() != Some(&cds.premium.end) { schedule.push(cds.premium.end); }
+        if schedule.last() != Some(&cds.premium.end) {
+            schedule.push(cds.premium.end);
+        }
         Ok(schedule)
     }
 
     /// Calculate par spread (bps) that sets NPV to zero
-    pub fn par_spread(&self, cds: &CreditDefaultSwap, disc: &dyn Discounting, surv: &dyn Survival, as_of: Date) -> Result<F> {
+    pub fn par_spread(
+        &self,
+        cds: &CreditDefaultSwap,
+        disc: &dyn Discounting,
+        surv: &dyn Survival,
+        as_of: Date,
+    ) -> Result<F> {
         let protection_pv = self.pv_protection_leg(cds, disc, surv, as_of)?;
         let denom = if self.config.par_spread_uses_full_premium {
             // Compute premium PV per 1bp including AoD
@@ -438,12 +541,20 @@ impl CDSPricer {
         } else {
             self.risky_annuity(cds, disc, surv, as_of)?
         };
-        if denom.abs() < 1e-12 { return Err(crate::Error::Internal); }
+        if denom.abs() < 1e-12 {
+            return Err(crate::Error::Internal);
+        }
         Ok(protection_pv.amount() / (denom * cds.notional.amount()) * 10000.0)
     }
 
     /// Premium leg PV per 1 bp of spread, including accrual-on-default if configured.
-    pub fn premium_leg_pv_per_bp(&self, cds: &CreditDefaultSwap, disc: &dyn Discounting, surv: &dyn Survival, as_of: Date) -> Result<F> {
+    pub fn premium_leg_pv_per_bp(
+        &self,
+        cds: &CreditDefaultSwap,
+        disc: &dyn Discounting,
+        surv: &dyn Survival,
+        as_of: Date,
+    ) -> Result<F> {
         let base_date = disc.base_date();
         let schedule = self.generate_schedule(cds, as_of)?;
         let mut per_bp_pv = 0.0;
@@ -458,14 +569,21 @@ impl CDSPricer {
             let per_bp = 1e-4;
             per_bp_pv += per_bp * accrual * sp * df;
             if self.config.include_accrual {
-                per_bp_pv += self.calculate_accrual_on_default(per_bp, t_start, t_end, disc, surv)?;
+                per_bp_pv +=
+                    self.calculate_accrual_on_default(per_bp, t_start, t_end, disc, surv)?;
             }
         }
         Ok(per_bp_pv)
     }
 
     /// Risky annuity: PV of $1 paid on premium leg (per bp)
-    pub fn risky_annuity(&self, cds: &CreditDefaultSwap, disc: &dyn Discounting, surv: &dyn Survival, as_of: Date) -> Result<F> {
+    pub fn risky_annuity(
+        &self,
+        cds: &CreditDefaultSwap,
+        disc: &dyn Discounting,
+        surv: &dyn Survival,
+        as_of: Date,
+    ) -> Result<F> {
         let base_date = disc.base_date();
         let schedule = self.generate_schedule(cds, as_of)?;
         let mut annuity = 0.0;
@@ -482,15 +600,27 @@ impl CDSPricer {
     }
 
     /// Risky PV01: change in PV for 1bp change in spread
-    pub fn risky_pv01(&self, cds: &CreditDefaultSwap, disc: &dyn Discounting, surv: &dyn Survival, as_of: Date) -> Result<F> {
+    pub fn risky_pv01(
+        &self,
+        cds: &CreditDefaultSwap,
+        disc: &dyn Discounting,
+        surv: &dyn Survival,
+        as_of: Date,
+    ) -> Result<F> {
         let risky_annuity = self.risky_annuity(cds, disc, surv, as_of)?;
         Ok(risky_annuity * cds.notional.amount() / 10000.0)
     }
 
     /// CS01 via risky PV01 approximation
     pub fn cs01(&self, cds: &CreditDefaultSwap, curves: &MarketContext, as_of: Date) -> Result<F> {
-        let disc = curves.get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(cds.premium.disc_id)?;
-        let surv = curves.get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(cds.protection.credit_id)?;
+        let disc = curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            cds.premium.disc_id,
+        )?;
+        let surv = curves
+            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                cds.protection.credit_id,
+            )?;
         let base_npv = self.npv(cds, disc, surv, as_of)?;
         let risky_pv01 = self.risky_pv01(cds, disc, surv, as_of)?;
         let bumped_npv = Money::new(risky_pv01, cds.notional.currency());
@@ -498,7 +628,13 @@ impl CDSPricer {
     }
 
     /// Instrument NPV from the perspective of `PayReceive`
-    pub fn npv(&self, cds: &CreditDefaultSwap, disc: &dyn Discounting, surv: &dyn Survival, as_of: Date) -> Result<Money> {
+    pub fn npv(
+        &self,
+        cds: &CreditDefaultSwap,
+        disc: &dyn Discounting,
+        surv: &dyn Survival,
+        as_of: Date,
+    ) -> Result<Money> {
         let protection_pv = self.pv_protection_leg(cds, disc, surv, as_of)?;
         let premium_pv = self.pv_premium_leg(cds, disc, surv, as_of)?;
         match cds.side {
@@ -522,7 +658,11 @@ impl CDSPricer {
 #[inline]
 fn approx_default_density(surv: &dyn Survival, t: F, h: F, t_start: F, t_end: F) -> F {
     // Finite-difference approximation of -dS/dt, clipped to [t_start, t_end]
-    let hh = if h <= 0.0 { (t_end - t_start) * 1e-4 } else { h };
+    let hh = if h <= 0.0 {
+        (t_end - t_start) * 1e-4
+    } else {
+        h
+    };
     let (s_left, s_right, denom) = if t <= t_start + hh {
         (surv.sp(t), surv.sp((t + hh).min(t_end)), hh)
     } else if t >= t_end - hh {
@@ -539,11 +679,19 @@ pub struct CDSBootstrapper {
     config: CDSPricerConfig,
 }
 
-impl Default for CDSBootstrapper { fn default() -> Self { Self::new() } }
+impl Default for CDSBootstrapper {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl CDSBootstrapper {
     /// Create new bootstrapper with default config
-    pub fn new() -> Self { Self { config: CDSPricerConfig::default() } }
+    pub fn new() -> Self {
+        Self {
+            config: CDSPricerConfig::default(),
+        }
+    }
 
     /// Bootstrap hazard curve from CDS spreads (tenor years, spread bps)
     pub fn bootstrap_hazard_curve(
@@ -607,19 +755,27 @@ impl CDSBootstrapper {
             let surv = self.create_flat_hazard_curve(hazard_rate, cds)?;
             let calculated_spread = pricer.par_spread(cds, disc, &surv, disc.base_date())?;
             let error = calculated_spread - target_spread_bps;
-            if error.abs() < self.config.tolerance { return Ok(hazard_rate); }
+            if error.abs() < self.config.tolerance {
+                return Ok(hazard_rate);
+            }
             let bump = 0.0001;
             let surv_bumped = self.create_flat_hazard_curve(hazard_rate + bump, cds)?;
             let spread_bumped = pricer.par_spread(cds, disc, &surv_bumped, disc.base_date())?;
             let derivative = (spread_bumped - calculated_spread) / bump;
-            if derivative.abs() < 1e-10 { return Err(Error::Internal); }
+            if derivative.abs() < 1e-10 {
+                return Err(Error::Internal);
+            }
             hazard_rate -= error / derivative;
             hazard_rate = hazard_rate.clamp(0.0001, 0.5);
         }
         Err(Error::Internal)
     }
 
-    fn create_flat_hazard_curve(&self, hazard_rate: F, cds: &CreditDefaultSwap) -> Result<HazardCurve> {
+    fn create_flat_hazard_curve(
+        &self,
+        hazard_rate: F,
+        cds: &CreditDefaultSwap,
+    ) -> Result<HazardCurve> {
         HazardCurve::builder("TEMP")
             .base_date(cds.premium.start)
             .recovery_rate(cds.protection.recovery_rate)
@@ -667,7 +823,12 @@ mod tests {
             .base_date(Date::from_calendar_date(2025, time::Month::January, 1).unwrap())
             .recovery_rate(0.40)
             .knots(vec![(1.0, 0.02), (3.0, 0.03), (5.0, 0.04), (10.0, 0.05)])
-            .par_spreads(vec![(1.0, 100.0), (3.0, 150.0), (5.0, 200.0), (10.0, 250.0)])
+            .par_spreads(vec![
+                (1.0, 100.0),
+                (3.0, 150.0),
+                (5.0, 200.0),
+                (10.0, 250.0),
+            ])
             .build()
             .unwrap();
 
@@ -686,7 +847,9 @@ mod tests {
             0.40,
         );
         let pricer = CDSPricer::new();
-        let protection_pv = pricer.pv_protection_leg(&cds, &disc, &credit, as_of).unwrap();
+        let protection_pv = pricer
+            .pv_protection_leg(&cds, &disc, &credit, as_of)
+            .unwrap();
         assert!(protection_pv.amount() > 0.0);
     }
 
@@ -702,9 +865,17 @@ mod tests {
             0.40,
         );
         let pricer_with = CDSPricer::new();
-        let pricer_without = CDSPricer::with_config(CDSPricerConfig { include_accrual: false, integration_method: IntegrationMethod::Midpoint, ..Default::default() });
-        let pv_with = pricer_with.pv_premium_leg(&cds, &disc, &credit, as_of).unwrap();
-        let pv_without = pricer_without.pv_premium_leg(&cds, &disc, &credit, as_of).unwrap();
+        let pricer_without = CDSPricer::with_config(CDSPricerConfig {
+            include_accrual: false,
+            integration_method: IntegrationMethod::Midpoint,
+            ..Default::default()
+        });
+        let pv_with = pricer_with
+            .pv_premium_leg(&cds, &disc, &credit, as_of)
+            .unwrap();
+        let pv_without = pricer_without
+            .pv_premium_leg(&cds, &disc, &credit, as_of)
+            .unwrap();
         assert!(pv_with.amount() > pv_without.amount());
     }
 
@@ -732,13 +903,28 @@ mod tests {
     fn test_settlement_delay_reduces_protection_pv() {
         let (disc, credit) = create_test_curves();
         let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-        let mut cds0 = create_test_cds("CDS-0D", as_of, as_of + time::Duration::days(5 * 365), 100.0, 0.40);
+        let mut cds0 = create_test_cds(
+            "CDS-0D",
+            as_of,
+            as_of + time::Duration::days(5 * 365),
+            100.0,
+            0.40,
+        );
         let mut cds20 = cds0.clone();
         cds0.protection.settlement_delay = 0;
         cds20.protection.settlement_delay = 20;
-        let pricer = CDSPricer::with_config(CDSPricerConfig { integration_method: IntegrationMethod::GaussianQuadrature, ..Default::default() });
-        let pv0 = pricer.pv_protection_leg(&cds0, &disc, &credit, as_of).unwrap().amount();
-        let pv20 = pricer.pv_protection_leg(&cds20, &disc, &credit, as_of).unwrap().amount();
+        let pricer = CDSPricer::with_config(CDSPricerConfig {
+            integration_method: IntegrationMethod::GaussianQuadrature,
+            ..Default::default()
+        });
+        let pv0 = pricer
+            .pv_protection_leg(&cds0, &disc, &credit, as_of)
+            .unwrap()
+            .amount();
+        let pv20 = pricer
+            .pv_protection_leg(&cds20, &disc, &credit, as_of)
+            .unwrap()
+            .amount();
         assert!(pv20 < pv0);
     }
 
@@ -746,13 +932,20 @@ mod tests {
     fn test_par_spread_full_premium_option_runs() {
         let (disc, credit) = create_test_curves();
         let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
-        let cds = create_test_cds("CDS-PAR", as_of, as_of + time::Duration::days(5 * 365), 0.0, 0.40);
+        let cds = create_test_cds(
+            "CDS-PAR",
+            as_of,
+            as_of + time::Duration::days(5 * 365),
+            0.0,
+            0.40,
+        );
         let pricer_ra = CDSPricer::new();
-        let pricer_full = CDSPricer::with_config(CDSPricerConfig { par_spread_uses_full_premium: true, ..Default::default() });
+        let pricer_full = CDSPricer::with_config(CDSPricerConfig {
+            par_spread_uses_full_premium: true,
+            ..Default::default()
+        });
         let s1 = pricer_ra.par_spread(&cds, &disc, &credit, as_of).unwrap();
         let s2 = pricer_full.par_spread(&cds, &disc, &credit, as_of).unwrap();
         assert!(s1.is_finite() && s2.is_finite());
     }
 }
-
-

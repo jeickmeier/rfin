@@ -8,15 +8,15 @@
 //! forward spread, risky annuity, and discount factor into the option
 //! PV via the modified Black formula implemented on the instrument.
 
-use crate::instruments::cds_option::CdsOption;
-use crate::instruments::cds::{CreditDefaultSwap, CDSConvention, PayReceive};
 use crate::instruments::cds::pricing::engine::CDSPricer;
-use finstack_core::market_data::MarketContext;
-use finstack_core::{Result, F};
-use finstack_core::money::Money;
+use crate::instruments::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
+use crate::instruments::cds_option::CdsOption;
 use crate::instruments::models::{d1, d2, norm_cdf, norm_pdf};
-use finstack_core::math::solver::{HybridSolver, Solver};
 use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
+use finstack_core::market_data::MarketContext;
+use finstack_core::math::solver::{HybridSolver, Solver};
+use finstack_core::money::Money;
+use finstack_core::{Result, F};
 
 /// Pricing engine for `CdsOption`.
 ///
@@ -50,11 +50,18 @@ pub struct CdsOptionPricer {
 
 impl CdsOptionPricer {
     /// Price the CDS option and return its present value as of the discount curve base date.
-    pub fn npv(&self, option: &CdsOption, curves: &MarketContext, as_of: finstack_core::dates::Date) -> Result<Money> {
+    pub fn npv(
+        &self,
+        option: &CdsOption,
+        curves: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<Money> {
         // Time to expiry
-        let t = option
-            .day_count
-            .year_fraction(as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let t = option.day_count.year_fraction(
+            as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
 
         if t <= 0.0 {
             // Expired: intrinsic payoff approximation using forward = strike
@@ -64,17 +71,19 @@ impl CdsOptionPricer {
         // Market curves
         let disc = curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                option.disc_id,
-            )?;
+            option.disc_id,
+        )?;
         let hazard = curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                option.credit_id,
-            )?;
+            option.credit_id,
+        )?;
 
         // Forward spread at CDS maturity (bp)
-        let current_tenor = option
-            .day_count
-            .year_fraction(as_of, option.cds_maturity, finstack_core::dates::DayCountCtx::default())?;
+        let current_tenor = option.day_count.year_fraction(
+            as_of,
+            option.cds_maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         let forward_spread_bp = self.compute_forward_bp(option, current_tenor, hazard);
 
         // Risky annuity (RPV01) from option expiry to CDS maturity via CDS pricer
@@ -93,18 +102,32 @@ impl CdsOptionPricer {
         };
 
         // Price using Black-style on spreads
-        self.credit_option_price(option, forward_spread_bp, df_expiry, risky_annuity, sigma, t)
+        self.credit_option_price(
+            option,
+            forward_spread_bp,
+            df_expiry,
+            risky_annuity,
+            sigma,
+            t,
+        )
     }
 
     /// Convenience method: compute the forward spread in bp at the underlying CDS maturity.
-    pub fn forward_spread_bp(&self, option: &CdsOption, curves: &MarketContext, as_of: finstack_core::dates::Date) -> Result<F> {
+    pub fn forward_spread_bp(
+        &self,
+        option: &CdsOption,
+        curves: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<F> {
         let hazard = curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                option.credit_id,
-            )?;
-        let t = option
-            .day_count
-            .year_fraction(as_of, option.cds_maturity, finstack_core::dates::DayCountCtx::default())?;
+            option.credit_id,
+        )?;
+        let t = option.day_count.year_fraction(
+            as_of,
+            option.cds_maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         Ok(self.compute_forward_bp(option, t, hazard))
     }
 }
@@ -139,29 +162,52 @@ impl CdsOptionPricer {
         t: F,
     ) -> Result<Money> {
         // Apply index-factor scale when underlying is an index (market convention)
-        let scale = if option.underlying_is_index { option.index_factor.unwrap_or(1.0) } else { 1.0 };
+        let scale = if option.underlying_is_index {
+            option.index_factor.unwrap_or(1.0)
+        } else {
+            1.0
+        };
         if t <= 0.0 {
             let intrinsic = match option.option_type {
-                crate::instruments::OptionType::Call => (forward_spread_bp - option.strike_spread_bp).max(0.0),
-                crate::instruments::OptionType::Put => (option.strike_spread_bp - forward_spread_bp).max(0.0),
+                crate::instruments::OptionType::Call => {
+                    (forward_spread_bp - option.strike_spread_bp).max(0.0)
+                }
+                crate::instruments::OptionType::Put => {
+                    (option.strike_spread_bp - forward_spread_bp).max(0.0)
+                }
             };
             return Ok(Money::new(
-                scale * intrinsic * risky_annuity * option.notional.amount() / self.config.bp_per_unit,
+                scale * intrinsic * risky_annuity * option.notional.amount()
+                    / self.config.bp_per_unit,
                 option.notional.currency(),
             ));
         }
 
         let forward = forward_spread_bp / self.config.bp_per_unit;
         let strike = option.strike_spread_bp / self.config.bp_per_unit;
-        if forward <= 0.0 || strike <= 0.0 { return Ok(Money::new(0.0, option.notional.currency())); }
+        if forward <= 0.0 || strike <= 0.0 {
+            return Ok(Money::new(0.0, option.notional.currency()));
+        }
 
         // Use models::black helpers with forward-style inputs (r=q=0)
         let d1 = d1(forward, strike, 0.0, sigma, t, 0.0);
         let d2 = d2(forward, strike, 0.0, sigma, t, 0.0);
 
         let value = match option.option_type {
-            crate::instruments::OptionType::Call => scale * df * risky_annuity * option.notional.amount() * (forward * norm_cdf(d1) - strike * norm_cdf(d2)),
-            crate::instruments::OptionType::Put => scale * df * risky_annuity * option.notional.amount() * (strike * norm_cdf(-d2) - forward * norm_cdf(-d1)),
+            crate::instruments::OptionType::Call => {
+                scale
+                    * df
+                    * risky_annuity
+                    * option.notional.amount()
+                    * (forward * norm_cdf(d1) - strike * norm_cdf(d2))
+            }
+            crate::instruments::OptionType::Put => {
+                scale
+                    * df
+                    * risky_annuity
+                    * option.notional.amount()
+                    * (strike * norm_cdf(-d2) - forward * norm_cdf(-d1))
+            }
         };
 
         Ok(Money::new(value, option.notional.currency()))
@@ -169,16 +215,34 @@ impl CdsOptionPricer {
 
     /// Delta for CDS option w.r.t. forward spread (per unit notional and bp basis handled by caller).
     pub fn delta(&self, option: &CdsOption, forward_spread_bp: F, sigma: F, t: F) -> F {
-        let scale = if option.underlying_is_index { option.index_factor.unwrap_or(1.0) } else { 1.0 };
+        let scale = if option.underlying_is_index {
+            option.index_factor.unwrap_or(1.0)
+        } else {
+            1.0
+        };
         if t <= 0.0 || sigma <= 0.0 {
             return match option.option_type {
-                crate::instruments::OptionType::Call => if forward_spread_bp > option.strike_spread_bp { scale } else { 0.0 },
-                crate::instruments::OptionType::Put => if forward_spread_bp < option.strike_spread_bp { -scale } else { 0.0 },
+                crate::instruments::OptionType::Call => {
+                    if forward_spread_bp > option.strike_spread_bp {
+                        scale
+                    } else {
+                        0.0
+                    }
+                }
+                crate::instruments::OptionType::Put => {
+                    if forward_spread_bp < option.strike_spread_bp {
+                        -scale
+                    } else {
+                        0.0
+                    }
+                }
             };
         }
         let forward = forward_spread_bp / self.config.bp_per_unit;
         let strike = option.strike_spread_bp / self.config.bp_per_unit;
-        if forward <= 0.0 || strike <= 0.0 { return 0.0; }
+        if forward <= 0.0 || strike <= 0.0 {
+            return 0.0;
+        }
         let d1 = d1(forward, strike, 0.0, sigma, t, 0.0);
         match option.option_type {
             crate::instruments::OptionType::Call => scale * norm_cdf(d1),
@@ -188,33 +252,61 @@ impl CdsOptionPricer {
 
     /// Gamma per bp of spread.
     pub fn gamma(&self, option: &CdsOption, forward_spread_bp: F, sigma: F, t: F) -> F {
-        let scale = if option.underlying_is_index { option.index_factor.unwrap_or(1.0) } else { 1.0 };
-        if t <= 0.0 || sigma <= 0.0 { return 0.0; }
+        let scale = if option.underlying_is_index {
+            option.index_factor.unwrap_or(1.0)
+        } else {
+            1.0
+        };
+        if t <= 0.0 || sigma <= 0.0 {
+            return 0.0;
+        }
         let forward = forward_spread_bp / self.config.bp_per_unit;
         let strike = option.strike_spread_bp / self.config.bp_per_unit;
-        if forward <= 0.0 || strike <= 0.0 { return 0.0; }
+        if forward <= 0.0 || strike <= 0.0 {
+            return 0.0;
+        }
         let d1 = d1(forward, strike, 0.0, sigma, t, 0.0);
         scale * norm_pdf(d1) / (forward * self.config.bp_per_unit * sigma * t.sqrt())
     }
 
     /// Vega per 1% vol change.
     pub fn vega(&self, option: &CdsOption, forward_spread_bp: F, sigma: F, t: F) -> F {
-        let scale = if option.underlying_is_index { option.index_factor.unwrap_or(1.0) } else { 1.0 };
-        if t <= 0.0 { return 0.0; }
+        let scale = if option.underlying_is_index {
+            option.index_factor.unwrap_or(1.0)
+        } else {
+            1.0
+        };
+        if t <= 0.0 {
+            return 0.0;
+        }
         let forward = forward_spread_bp / self.config.bp_per_unit;
         let strike = option.strike_spread_bp / self.config.bp_per_unit;
-        if forward <= 0.0 || strike <= 0.0 { return 0.0; }
-        let d1 = if sigma > 0.0 { d1(forward, strike, 0.0, sigma, t, 0.0) } else { 0.0 };
+        if forward <= 0.0 || strike <= 0.0 {
+            return 0.0;
+        }
+        let d1 = if sigma > 0.0 {
+            d1(forward, strike, 0.0, sigma, t, 0.0)
+        } else {
+            0.0
+        };
         scale * forward * self.config.bp_per_unit * norm_pdf(d1) * t.sqrt() / 100.0
     }
 
     /// Theta per year, rate-sensitive term uses r provided by caller.
     pub fn theta(&self, option: &CdsOption, forward_spread_bp: F, r: F, sigma: F, t: F) -> F {
-        let scale = if option.underlying_is_index { option.index_factor.unwrap_or(1.0) } else { 1.0 };
-        if t <= 0.0 { return 0.0; }
+        let scale = if option.underlying_is_index {
+            option.index_factor.unwrap_or(1.0)
+        } else {
+            1.0
+        };
+        if t <= 0.0 {
+            return 0.0;
+        }
         let forward = forward_spread_bp / self.config.bp_per_unit;
         let strike = option.strike_spread_bp / self.config.bp_per_unit;
-        if forward <= 0.0 || strike <= 0.0 { return 0.0; }
+        if forward <= 0.0 || strike <= 0.0 {
+            return 0.0;
+        }
         let d1 = d1(forward, strike, 0.0, sigma, t, 0.0);
         let d2 = d2(forward, strike, 0.0, sigma, t, 0.0);
         let sqrt_t = t.sqrt();
@@ -242,12 +334,16 @@ impl CdsOptionPricer {
     ) -> Result<F> {
         if !self.config.use_isda_schedule_rpv01 {
             // Fallback to simple approximation if ever disabled
-            let cds_tenor = option
-                .day_count
-                .year_fraction(option.expiry, option.cds_maturity, finstack_core::dates::DayCountCtx::default())?;
-            let t0 = option
-                .day_count
-                .year_fraction(as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+            let cds_tenor = option.day_count.year_fraction(
+                option.expiry,
+                option.cds_maturity,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
+            let t0 = option.day_count.year_fraction(
+                as_of,
+                option.expiry,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
             let mut ann = 0.0;
             let n = (cds_tenor * 4.0).ceil() as usize;
             for i in 1..=n {
@@ -287,26 +383,30 @@ impl CdsOptionPricer {
         initial_guess: Option<F>,
     ) -> Result<F> {
         // Pre-compute market inputs independent of σ
-        let t = option
-            .day_count
-            .year_fraction(as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let t = option.day_count.year_fraction(
+            as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         if t <= 0.0 {
             return Ok(0.0);
         }
 
         let disc = curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                option.disc_id,
-            )?;
+            option.disc_id,
+        )?;
         let hazard = curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                option.credit_id,
-            )?;
+            option.credit_id,
+        )?;
 
         // Forward spread at CDS maturity (bp)
-        let tenor = option
-            .day_count
-            .year_fraction(as_of, option.cds_maturity, finstack_core::dates::DayCountCtx::default())?;
+        let tenor = option.day_count.year_fraction(
+            as_of,
+            option.cds_maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         let fwd_bp = self.compute_forward_bp(option, tenor, hazard);
 
         // Risky annuity from expiry to maturity
@@ -339,10 +439,10 @@ impl CdsOptionPricer {
         };
         let x0 = (initial_guess.unwrap_or(sigma0.max(1e-6))).ln();
 
-        let solver = HybridSolver::new().with_tolerance(1e-10).with_max_iterations(100);
+        let solver = HybridSolver::new()
+            .with_tolerance(1e-10)
+            .with_max_iterations(100);
         let root = solver.solve(f, x0)?;
         Ok(root.exp())
     }
 }
-
-

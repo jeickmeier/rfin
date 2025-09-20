@@ -24,12 +24,12 @@ where
     let disc_curve = context
         .curves
         .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            option.disc_id,
-        )?;
+        option.disc_id,
+    )?;
     let fwd_curve = context
         .curves
         .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-            option.forward_id,
+        option.forward_id,
     )?;
     let base_date = disc_curve.base_date();
 
@@ -102,5 +102,3 @@ where
     }
     Ok(sum)
 }
-
-

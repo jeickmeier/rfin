@@ -17,5 +17,3 @@ impl MetricCalculator for CollateralValueCalculator {
         Ok(collateral_value.amount())
     }
 }
-
-

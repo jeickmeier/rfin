@@ -11,8 +11,8 @@
 //! performed off the configured discount curve.
 
 use crate::instruments::repo::Repo;
-use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 
 /// Pricing facade for `Repo` instruments.
@@ -21,7 +21,9 @@ pub struct RepoPricer;
 
 impl RepoPricer {
     /// Create a new repo pricer with default configuration.
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 
     /// Compute present value of the repo at `as_of` using curves in `context`.
     ///
@@ -63,7 +65,10 @@ mod tests {
         Date::from_calendar_date(y, Month::try_from(m).unwrap(), d).unwrap()
     }
 
-    fn flat_discount(id: &'static str, base: Date) -> finstack_core::market_data::term_structures::discount_curve::DiscountCurve {
+    fn flat_discount(
+        id: &'static str,
+        base: Date,
+    ) -> finstack_core::market_data::term_structures::discount_curve::DiscountCurve {
         finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(id)
             .base_date(base)
             .knots(vec![(0.0, 1.0), (10.0, 1.0)])
@@ -93,9 +98,13 @@ mod tests {
 
         // Flat DF=1 curve → PV should equal interest amount
         let disc = flat_discount("USD-OIS", base);
-        let ctx = MarketContext::new()
-            .insert_discount(disc)
-            .insert_price("BOND_X_PX", finstack_core::market_data::scalars::MarketScalar::Price(Money::new(1.0, Currency::USD)));
+        let ctx = MarketContext::new().insert_discount(disc).insert_price(
+            "BOND_X_PX",
+            finstack_core::market_data::scalars::MarketScalar::Price(Money::new(
+                1.0,
+                Currency::USD,
+            )),
+        );
 
         let pv = repo.value(&ctx, base).unwrap();
         let interest = repo.interest_amount().unwrap();
@@ -103,5 +112,3 @@ mod tests {
         assert_eq!(pv.currency(), Currency::USD);
     }
 }
-
-

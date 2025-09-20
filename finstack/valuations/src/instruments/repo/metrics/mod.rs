@@ -14,15 +14,15 @@
 //! - Time to maturity (years)
 //! - Implied collateral return
 
-pub mod collateral_value;
-pub mod required_collateral;
 pub mod collateral_coverage;
-pub mod repo_interest;
+pub mod collateral_value;
 pub mod dv01;
-pub mod funding_risk;
 pub mod effective_rate;
-pub mod time_to_maturity;
+pub mod funding_risk;
 pub mod implied_collateral_return;
+pub mod repo_interest;
+pub mod required_collateral;
+pub mod time_to_maturity;
 
 use crate::metrics::MetricRegistry;
 
@@ -52,7 +52,11 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
             Arc::new(repo_interest::RepoInterestCalculator),
             &["Repo"],
         )
-        .register_metric(MetricId::Dv01, Arc::new(dv01::RepoDv01Calculator), &["Repo"]) 
+        .register_metric(
+            MetricId::Dv01,
+            Arc::new(dv01::RepoDv01Calculator),
+            &["Repo"],
+        )
         .register_metric(
             MetricId::FundingRisk,
             Arc::new(funding_risk::FundingRiskCalculator),
@@ -106,17 +110,18 @@ mod tests {
 
     fn create_test_context() -> MarketContext {
         let as_of = test_date(2025, 1, 10);
-        let disc = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder("USD-OIS")
+        let disc =
+            finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+                "USD-OIS",
+            )
             .base_date(as_of)
             .knots(vec![(0.0, 1.0), (10.0, 1.0)])
             .build()
             .unwrap();
-        MarketContext::new()
-            .insert_discount(disc)
-            .insert_price(
-                "BOND_ABC_PRICE",
-                MarketScalar::Price(Money::new(1.02, Currency::USD)),
-            )
+        MarketContext::new().insert_discount(disc).insert_price(
+            "BOND_ABC_PRICE",
+            MarketScalar::Price(Money::new(1.02, Currency::USD)),
+        )
     }
 
     #[test]
@@ -169,7 +174,7 @@ mod tests {
 
     #[test]
     fn test_dv01_positive_when_rates_rise_price_falls() {
-        use crate::metrics::{MetricId, standard_registry};
+        use crate::metrics::{standard_registry, MetricId};
         use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
         let as_of = test_date(2025, 1, 10);
         let disc = DiscountCurve::builder("USD-OIS")
@@ -194,7 +199,7 @@ mod tests {
 
     #[test]
     fn test_repo_interest_metric_matches_direct_interest() {
-        use crate::metrics::{MetricId, standard_registry};
+        use crate::metrics::{standard_registry, MetricId};
         let as_of = test_date(2025, 1, 10);
         let repo = create_test_repo();
         let ctx = create_test_context();
@@ -214,7 +219,7 @@ mod tests {
 
     #[test]
     fn test_collateral_coverage_ratio_reasonable() {
-        use crate::metrics::{MetricId, standard_registry};
+        use crate::metrics::{standard_registry, MetricId};
         let as_of = test_date(2025, 1, 10);
         let repo = create_test_repo();
         let ctx = create_test_context();
@@ -226,7 +231,9 @@ mod tests {
             pv,
         );
         let reg = standard_registry();
-        let res = reg.compute(&[MetricId::CollateralCoverage], &mut mctx).unwrap();
+        let res = reg
+            .compute(&[MetricId::CollateralCoverage], &mut mctx)
+            .unwrap();
         let cov = *res.get(&MetricId::CollateralCoverage).unwrap();
         // 1020 / 1,020,000 = 0.001
         assert!((cov - 0.001).abs() < 1e-6);
@@ -234,7 +241,7 @@ mod tests {
 
     #[test]
     fn test_time_to_maturity_and_implied_collateral_return() {
-        use crate::metrics::{MetricId, standard_registry};
+        use crate::metrics::{standard_registry, MetricId};
         let as_of = test_date(2025, 1, 10);
         let repo = create_test_repo();
         let ctx = create_test_context();
@@ -248,7 +255,12 @@ mod tests {
         let reg = standard_registry();
         let res = reg
             .compute(
-                &[MetricId::TimeToMaturity, MetricId::CollateralValue, MetricId::RequiredCollateral, MetricId::ImpliedCollateralReturn],
+                &[
+                    MetricId::TimeToMaturity,
+                    MetricId::CollateralValue,
+                    MetricId::RequiredCollateral,
+                    MetricId::ImpliedCollateralReturn,
+                ],
                 &mut mctx,
             )
             .unwrap();
@@ -257,13 +269,17 @@ mod tests {
         let cv = *res.get(&MetricId::CollateralValue).unwrap();
         let req = *res.get(&MetricId::RequiredCollateral).unwrap();
         let implied = *res.get(&MetricId::ImpliedCollateralReturn).unwrap();
-        let expected = if req == 0.0 || ttm <= 0.0 { 0.0 } else { (cv / req - 1.0) / ttm };
+        let expected = if req == 0.0 || ttm <= 0.0 {
+            0.0
+        } else {
+            (cv / req - 1.0) / ttm
+        };
         assert!((implied - expected).abs() < 1e-9);
     }
 
     #[test]
     fn test_funding_risk_sign() {
-        use crate::metrics::{MetricId, standard_registry};
+        use crate::metrics::{standard_registry, MetricId};
         let as_of = test_date(2025, 1, 10);
         let repo = create_test_repo();
         let ctx = create_test_context();
@@ -281,5 +297,3 @@ mod tests {
         assert!(fr <= 0.0);
     }
 }
-
-

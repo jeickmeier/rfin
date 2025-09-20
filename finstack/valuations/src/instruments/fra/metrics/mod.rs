@@ -7,13 +7,13 @@
 //!
 //! See unit tests and `examples/` for usage.
 
-mod pv;
 mod dv01;
 mod par_rate;
+mod pv;
 
-pub use pv::FraPvCalculator;
 pub use dv01::FraDv01Calculator;
 pub use par_rate::FraParRateCalculator;
+pub use pv::FraPvCalculator;
 
 use crate::metrics::{MetricId, MetricRegistry};
 use std::sync::Arc;
@@ -24,9 +24,11 @@ use std::sync::Arc;
 /// proper applicability filtering.
 pub fn register_fra_metrics(registry: &mut MetricRegistry) {
     registry
-        .register_metric(MetricId::custom("fra_pv"), Arc::new(FraPvCalculator), &["FRA"]) // PV passthrough
+        .register_metric(
+            MetricId::custom("fra_pv"),
+            Arc::new(FraPvCalculator),
+            &["FRA"],
+        ) // PV passthrough
         .register_metric(MetricId::Dv01, Arc::new(FraDv01Calculator), &["FRA"]) // Standard DV01 id
         .register_metric(MetricId::ParRate, Arc::new(FraParRateCalculator), &["FRA"]);
 }
-
-

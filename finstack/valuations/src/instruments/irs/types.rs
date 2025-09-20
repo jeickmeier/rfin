@@ -15,12 +15,10 @@ use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
 use finstack_core::{dates::Date, dates::DayCount, F};
 
-use crate::cashflow::builder::{
-    cf, CouponType, FixedCouponSpec, ScheduleParams,
-};
+use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 // discountable helpers not used after switching to curve-based df_on_date_curve
-use crate::instruments::traits::{Attributes, Attributable, Instrument};
+use crate::instruments::traits::{Attributable, Attributes, Instrument};
 // Risk types used in risk.rs
 use std::any::Any;
 
@@ -352,17 +350,33 @@ impl InterestRateSwap {
 
 // Explicit trait implementations for modern instrument style
 impl Attributable for InterestRateSwap {
-    fn attributes(&self) -> &Attributes { &self.attributes }
-    fn attributes_mut(&mut self) -> &mut Attributes { &mut self.attributes }
+    fn attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+    fn attributes_mut(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
 }
 
 impl Instrument for InterestRateSwap {
-    fn id(&self) -> &str { self.id.as_str() }
-    fn instrument_type(&self) -> &'static str { "InterestRateSwap" }
-    fn as_any(&self) -> &dyn Any { self }
-    fn attributes(&self) -> &Attributes { <Self as Attributable>::attributes(self) }
-    fn attributes_mut(&mut self) -> &mut Attributes { <Self as Attributable>::attributes_mut(self) }
-    fn clone_box(&self) -> Box<dyn Instrument> { Box::new(self.clone()) }
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+    fn instrument_type(&self) -> &'static str {
+        "InterestRateSwap"
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn attributes(&self) -> &Attributes {
+        <Self as Attributable>::attributes(self)
+    }
+    fn attributes_mut(&mut self) -> &mut Attributes {
+        <Self as Attributable>::attributes_mut(self)
+    }
+    fn clone_box(&self) -> Box<dyn Instrument> {
+        Box::new(self.clone())
+    }
 }
 
 // RiskMeasurable impl moved to `risk.rs`

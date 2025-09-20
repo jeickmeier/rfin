@@ -42,5 +42,3 @@ impl MetricCalculator for ImpliedCollateralReturnCalculator {
         Ok(return_rate)
     }
 }
-
-

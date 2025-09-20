@@ -256,7 +256,8 @@ impl SwaptionVolCalibrator {
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
             self.disc_id,
         )?;
-        swaption.swap_annuity(disc)
+        crate::instruments::swaption::pricing::SwaptionPricer
+            .swap_annuity(&swaption, disc, self.base_date)
     }
 
     /// Convert volatility between conventions.

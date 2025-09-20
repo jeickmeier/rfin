@@ -17,5 +17,3 @@ impl MetricCalculator for BasketValueCalculator {
         Ok(value.amount())
     }
 }
-
-

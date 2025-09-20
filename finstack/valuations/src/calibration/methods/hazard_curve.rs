@@ -6,7 +6,9 @@
 
 use crate::calibration::quote::CreditQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
-use crate::instruments::cds::{cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap, PayReceive};
+use crate::instruments::cds::{
+    cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap, PayReceive,
+};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::hazard_curve::{
     HazardCurve, ParInterp, Seniority,
@@ -172,7 +174,6 @@ impl HazardCurveCalibrator {
             // Create CDS constants for static lifetime requirements
             const CALIB_HAZARD_ID: &str = "CALIB_HAZARD";
             const CALIB_DISC_ID: &str = "CALIB_DISC";
-
 
             let cds = CreditDefaultSwap::new_isda(
                 format!("CALIB_CDS_{}", maturity),

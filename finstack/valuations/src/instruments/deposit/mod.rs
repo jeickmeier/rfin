@@ -9,7 +9,7 @@ pub mod metrics;
 pub mod pricing;
 mod types;
 
-pub use types::Deposit;
 pub use pricing::engine::DepositEngine;
+pub use types::Deposit;
 
 // Builder provided by FinancialBuilder derive

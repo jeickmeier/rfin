@@ -17,5 +17,3 @@ impl MetricCalculator for QuoteRateCalculator {
         })
     }
 }
-
-

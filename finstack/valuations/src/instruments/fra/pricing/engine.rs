@@ -13,10 +13,10 @@
 
 use crate::instruments::fra::types::ForwardRateAgreement;
 use finstack_core::dates::DayCountCtx;
-use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::{
     discount_curve::DiscountCurve, forward_curve::ForwardCurve,
 };
+use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
@@ -72,5 +72,3 @@ impl FraEngine {
         Ok(Money::new(signed_pv, fra.notional.currency()))
     }
 }
-
-

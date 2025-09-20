@@ -191,7 +191,8 @@ impl Basket {
 
     /// Calculate total basket value (without per-share division)
     pub fn basket_value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
-        crate::instruments::basket::pricing::engine::BasketPricer::new().basket_value(self, context, as_of)
+        crate::instruments::basket::pricing::engine::BasketPricer::new()
+            .basket_value(self, context, as_of)
     }
 
     /// Calculate Net Asset Value per share using an explicit AUM.
@@ -199,7 +200,8 @@ impl Basket {
     /// When constituents lack `units`, contributions are computed as
     /// `weight × AUM (in basket currency)`.
     pub fn nav_with_aum(&self, context: &MarketContext, as_of: Date, aum: Money) -> Result<Money> {
-        crate::instruments::basket::pricing::engine::BasketPricer::new().nav_with_aum(self, context, as_of, aum)
+        crate::instruments::basket::pricing::engine::BasketPricer::new()
+            .nav_with_aum(self, context, as_of, aum)
     }
 
     /// Calculate total basket value using an explicit AUM for weight-based constituents.
@@ -209,7 +211,8 @@ impl Basket {
         as_of: Date,
         aum: Money,
     ) -> Result<Money> {
-        crate::instruments::basket::pricing::engine::BasketPricer::new().basket_value_with_aum(self, context, as_of, aum)
+        crate::instruments::basket::pricing::engine::BasketPricer::new()
+            .basket_value_with_aum(self, context, as_of, aum)
     }
 
     /// Calculate tracking error vs benchmark index
@@ -219,8 +222,12 @@ impl Basket {
         benchmark_returns: &[(Date, F)],
         _as_of: Date,
     ) -> Result<F> {
-        crate::instruments::basket::pricing::engine::BasketPricer::new()
-            .tracking_error(self, context, benchmark_returns, _as_of)
+        crate::instruments::basket::pricing::engine::BasketPricer::new().tracking_error(
+            self,
+            context,
+            benchmark_returns,
+            _as_of,
+        )
     }
 
     /// Get constituent by ID

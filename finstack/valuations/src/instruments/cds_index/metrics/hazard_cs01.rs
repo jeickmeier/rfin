@@ -4,10 +4,10 @@
 //! across all relevant hazard curves.
 
 use crate::instruments::cds_index::CDSIndex;
+use crate::instruments::traits::Priceable;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpUnits};
 use finstack_core::Result;
-use crate::instruments::traits::Priceable;
 
 /// Hazard CS01 calculator for CDS Index (parallel hazard bump)
 pub struct HazardCs01Calculator;
@@ -29,8 +29,21 @@ impl MetricCalculator for HazardCs01Calculator {
         // Here we bump ALL hazard curves present in MarketContext by probing ids.
         // We cannot access private fields; iterate over curve_ids and try get_ref::<HazardCurve>.
         for cid in context.curves.curve_ids() {
-            if context.curves.get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(cid.as_str()).is_ok() {
-                bumps.insert(cid.clone(), BumpSpec { mode: BumpMode::Additive, units: BumpUnits::RateBp, value: 1.0 });
+            if context
+                .curves
+                .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                    cid.as_str(),
+                )
+                .is_ok()
+            {
+                bumps.insert(
+                    cid.clone(),
+                    BumpSpec {
+                        mode: BumpMode::Additive,
+                        units: BumpUnits::RateBp,
+                        value: 1.0,
+                    },
+                );
             }
         }
         let bumped_ctx = context.curves.bump(bumps)?;
@@ -39,5 +52,3 @@ impl MetricCalculator for HazardCs01Calculator {
         Ok((bumped.amount() - base.amount()).abs())
     }
 }
-
-

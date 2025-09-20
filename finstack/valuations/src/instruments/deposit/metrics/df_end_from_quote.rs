@@ -12,7 +12,9 @@ use finstack_core::F;
 pub struct DfEndFromQuoteCalculator;
 
 impl MetricCalculator for DfEndFromQuoteCalculator {
-    fn dependencies(&self) -> &[MetricId] { &[MetricId::DfStart, MetricId::Yf] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[MetricId::DfStart, MetricId::Yf]
+    }
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let deposit: &Deposit = context.instrument_as()?;
@@ -45,5 +47,3 @@ impl MetricCalculator for DfEndFromQuoteCalculator {
         Ok(df_s / (1.0 + r * yf))
     }
 }
-
-

@@ -17,7 +17,9 @@ use finstack_core::{Error, Result, F};
 pub struct ParSpreadCalculator;
 
 impl MetricCalculator for ParSpreadCalculator {
-    fn dependencies(&self) -> &[MetricId] { &[MetricId::BasisAnnuityPrimary] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[MetricId::BasisAnnuityPrimary]
+    }
 
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         // Use dependency and drop borrow
@@ -26,7 +28,9 @@ impl MetricCalculator for ParSpreadCalculator {
             .get(&MetricId::BasisAnnuityPrimary)
             .copied()
             .unwrap_or(0.0);
-        if annuity == 0.0 { return Ok(0.0); }
+        if annuity == 0.0 {
+            return Ok(0.0);
+        }
 
         let instrument = context.instrument.clone();
         let swap = instrument
@@ -60,12 +64,11 @@ impl MetricCalculator for ParSpreadCalculator {
             accrual_dc: leg.day_count,
             spread: 0.0,
         };
-        let pv_primary_no_spread = BasisEngine::pv_float_leg(params, curves.as_ref(), as_of)?.amount();
+        let pv_primary_no_spread =
+            BasisEngine::pv_float_leg(params, curves.as_ref(), as_of)?.amount();
 
         // Solve for s (decimal). Convert to bp.
         let s_decimal = (pv_ref - pv_primary_no_spread) / (swap.notional.amount() * annuity);
         Ok(s_decimal * 1e4)
     }
 }
-
-

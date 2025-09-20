@@ -16,5 +16,3 @@ impl MetricCalculator for NavCalculator {
         Ok(nav.amount())
     }
 }
-
-

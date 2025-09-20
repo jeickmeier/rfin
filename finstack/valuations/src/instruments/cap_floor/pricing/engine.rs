@@ -14,7 +14,9 @@ pub struct IrOptionPricer;
 
 impl IrOptionPricer {
     /// Create a new interest rate option pricer
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 
     /// Price an `InterestRateOption` to present value using market curves.
     pub fn price(
@@ -33,7 +35,7 @@ impl IrOptionPricer {
             )?;
         let fwd_curve = curves
             .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-                s.forward_id,
+            s.forward_id,
         )?;
         let vol_surface = if s.pricing_overrides.implied_volatility.is_none() {
             Some(curves.surface_ref(s.vol_id)?)
@@ -44,7 +46,10 @@ impl IrOptionPricer {
         let mut total_pv = Money::new(0.0, s.notional.currency());
 
         // Single caplet/floorlet
-        if matches!(s.rate_option_type, RateOptionType::Caplet | RateOptionType::Floorlet) {
+        if matches!(
+            s.rate_option_type,
+            RateOptionType::Caplet | RateOptionType::Floorlet
+        ) {
             let t_fix = s.day_count.year_fraction(
                 as_of,
                 s.start_date,
@@ -74,7 +79,10 @@ impl IrOptionPricer {
                 .into());
             };
 
-            let is_cap = matches!(s.rate_option_type, RateOptionType::Caplet | RateOptionType::Cap);
+            let is_cap = matches!(
+                s.rate_option_type,
+                RateOptionType::Caplet | RateOptionType::Cap
+            );
             return black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
                 is_cap,
                 notional: s.notional.amount(),
@@ -102,7 +110,10 @@ impl IrOptionPricer {
             return Ok(total_pv);
         }
 
-        let is_cap = matches!(s.rate_option_type, RateOptionType::Caplet | RateOptionType::Cap);
+        let is_cap = matches!(
+            s.rate_option_type,
+            RateOptionType::Caplet | RateOptionType::Cap
+        );
         let mut prev = schedule.dates[0];
         for &pay in &schedule.dates[1..] {
             let t_fix = s.day_count.year_fraction(
@@ -154,5 +165,3 @@ impl IrOptionPricer {
         Ok(total_pv)
     }
 }
-
-

@@ -22,10 +22,14 @@ pub struct PvCalculator {
 
 impl PvCalculator {
     /// Creates a calculator for the primary leg.
-    pub const fn primary() -> Self { Self { is_primary: true } }
-    
+    pub const fn primary() -> Self {
+        Self { is_primary: true }
+    }
+
     /// Creates a calculator for the reference leg.
-    pub const fn reference() -> Self { Self { is_primary: false } }
+    pub const fn reference() -> Self {
+        Self { is_primary: false }
+    }
 }
 
 impl MetricCalculator for PvCalculator {
@@ -38,7 +42,11 @@ impl MetricCalculator for PvCalculator {
         let curves = context.curves.clone();
         let as_of = context.as_of;
 
-        let leg = if self.is_primary { &swap.primary_leg } else { &swap.reference_leg };
+        let leg = if self.is_primary {
+            &swap.primary_leg
+        } else {
+            &swap.reference_leg
+        };
         let schedule = swap.leg_schedule(leg);
         let params = FloatLegParams {
             schedule: &schedule,
@@ -52,5 +60,3 @@ impl MetricCalculator for PvCalculator {
         Ok(pv.amount())
     }
 }
-
-

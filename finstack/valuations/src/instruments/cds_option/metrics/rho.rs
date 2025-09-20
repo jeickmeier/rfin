@@ -12,18 +12,22 @@ impl MetricCalculator for RhoCalculator {
         let _option: &CdsOption = context.instrument_as()?;
         let t = {
             let option: &CdsOption = context.instrument_as()?;
-            option
-                .day_count
-                .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?
+            option.day_count.year_fraction(
+                context.as_of,
+                option.expiry,
+                finstack_core::dates::DayCountCtx::default(),
+            )?
         };
-        if t <= 0.0 { return Ok(0.0); }
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
 
         // Black-76 property: dPrice/dr = -t * Price, report per 1% change in rates
         let base_price = context.base_value.amount();
         Ok(-0.01 * t * base_price)
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
-
-

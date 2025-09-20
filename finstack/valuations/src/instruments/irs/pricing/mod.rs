@@ -58,7 +58,9 @@ impl Priceable for InterestRateSwap {
                         self.fixed.calendar_id,
                     );
                     let dates = sched.dates;
-                    if dates.len() < 2 { return 0.0; }
+                    if dates.len() < 2 {
+                        return 0.0;
+                    }
                     let mut ann = 0.0;
                     let mut prev = dates[0];
                     for &d in &dates[1..] {
@@ -110,19 +112,32 @@ impl Priceable for InterestRateSwap {
                                     let t1 = self
                                         .float
                                         .dc
-                                        .year_fraction(base_date, prev, finstack_core::dates::DayCountCtx::default())
+                                        .year_fraction(
+                                            base_date,
+                                            prev,
+                                            finstack_core::dates::DayCountCtx::default(),
+                                        )
                                         .unwrap_or(0.0);
                                     let t2 = self
                                         .float
                                         .dc
-                                        .year_fraction(base_date, d, finstack_core::dates::DayCountCtx::default())
+                                        .year_fraction(
+                                            base_date,
+                                            d,
+                                            finstack_core::dates::DayCountCtx::default(),
+                                        )
                                         .unwrap_or(0.0);
                                     let yf = self
                                         .float
                                         .dc
-                                        .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
+                                        .year_fraction(
+                                            prev,
+                                            d,
+                                            finstack_core::dates::DayCountCtx::default(),
+                                        )
                                         .unwrap_or(0.0);
-                                    let rate = fwd.rate_period(t1, t2) + self.float.spread_bp * 1e-4;
+                                    let rate =
+                                        fwd.rate_period(t1, t2) + self.float.spread_bp * 1e-4;
                                     let coupon = self.notional.amount() * rate * yf;
                                     let df = disc.df_on_date_curve(d);
                                     pv += coupon * df;
@@ -152,23 +167,27 @@ impl Priceable for InterestRateSwap {
                         }
                         MetricId::PvFixed => {
                             let pv_fixed = self.pv_fixed_leg(disc)?;
-                            measures.insert(MetricId::PvFixed.as_str().to_string(), pv_fixed.amount());
+                            measures
+                                .insert(MetricId::PvFixed.as_str().to_string(), pv_fixed.amount());
                         }
                         MetricId::PvFloat => {
                             let fwd = context.get_ref::<ForwardCurve>(self.float.fwd_id)?;
                             let pv_float = self.pv_float_leg(disc, fwd)?;
-                            measures.insert(MetricId::PvFloat.as_str().to_string(), pv_float.amount());
+                            measures
+                                .insert(MetricId::PvFloat.as_str().to_string(), pv_float.amount());
                         }
                         _ => {}
                     }
                 }
 
-                let mut result = ValuationResult::stamped(<InterestRateSwap as crate::instruments::traits::Instrument>::id(self), as_of, base);
+                let mut result = ValuationResult::stamped(
+                    <InterestRateSwap as crate::instruments::traits::Instrument>::id(self),
+                    as_of,
+                    base,
+                );
                 result.measures = measures;
                 Ok(result)
             }
         }
     }
 }
-
-

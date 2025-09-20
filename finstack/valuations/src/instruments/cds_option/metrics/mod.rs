@@ -10,10 +10,10 @@
 
 mod delta;
 mod gamma;
-mod vega;
-mod theta;
-mod rho;
 mod implied_vol;
+mod rho;
+mod theta;
+mod vega;
 
 use crate::metrics::MetricRegistry;
 
@@ -22,10 +22,26 @@ pub fn register_cds_option_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
     use std::sync::Arc;
 
-    registry.register_metric(MetricId::Delta, Arc::new(delta::DeltaCalculator), &["CdsOption"]);
-    registry.register_metric(MetricId::Gamma, Arc::new(gamma::GammaCalculator), &["CdsOption"]);
-    registry.register_metric(MetricId::Vega, Arc::new(vega::VegaCalculator), &["CdsOption"]);
-    registry.register_metric(MetricId::Theta, Arc::new(theta::ThetaCalculator), &["CdsOption"]);
+    registry.register_metric(
+        MetricId::Delta,
+        Arc::new(delta::DeltaCalculator),
+        &["CdsOption"],
+    );
+    registry.register_metric(
+        MetricId::Gamma,
+        Arc::new(gamma::GammaCalculator),
+        &["CdsOption"],
+    );
+    registry.register_metric(
+        MetricId::Vega,
+        Arc::new(vega::VegaCalculator),
+        &["CdsOption"],
+    );
+    registry.register_metric(
+        MetricId::Theta,
+        Arc::new(theta::ThetaCalculator),
+        &["CdsOption"],
+    );
     registry.register_metric(MetricId::Rho, Arc::new(rho::RhoCalculator), &["CdsOption"]);
     registry.register_metric(
         MetricId::ImpliedVol,
@@ -33,5 +49,3 @@ pub fn register_cds_option_metrics(registry: &mut MetricRegistry) {
         &["CdsOption"],
     );
 }
-
-

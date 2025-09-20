@@ -38,8 +38,8 @@
 
 use crate::cashflow::builder::schedule_utils::build_dates;
 use crate::instruments::cds_tranche::{CdsTranche, TrancheSide};
-use finstack_core::dates::{Date, StubKind};
 use finstack_core::dates::next_cds_date;
+use finstack_core::dates::{Date, StubKind};
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::{term_structures::CreditIndexData, MarketContext};
 use finstack_core::math::binomial_probability;
@@ -109,11 +109,11 @@ pub struct CDSTranchePricerConfig {
 impl Default for CDSTranchePricerConfig {
     fn default() -> Self {
         Self {
-            quadrature_order: 7,          // Good balance of accuracy and performance
-            use_issuer_curves: true,      // Use heterogeneous modeling when available
-            min_correlation: 0.01,        // Numerical stability floor
-            max_correlation: 0.99,        // Numerical stability ceiling
-            cs01_bump_size: 1.0,          // 1 bp by default
+            quadrature_order: 7,     // Good balance of accuracy and performance
+            use_issuer_curves: true, // Use heterogeneous modeling when available
+            min_correlation: 0.01,   // Numerical stability floor
+            max_correlation: 0.99,   // Numerical stability ceiling
+            cs01_bump_size: 1.0,     // 1 bp by default
             cs01_bump_units: Cs01BumpUnits::HazardRateBp,
             corr_bump_abs: 0.01,          // 1% absolute correlation bump
             mid_period_protection: false, // End-of-period discounting by default
@@ -139,11 +139,17 @@ impl Default for CDSTranchePricerConfig {
 
 /// Units for CS01 bumping in tranche pricer
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Cs01BumpUnits { HazardRateBp, SpreadBpAdditive }
+pub enum Cs01BumpUnits {
+    HazardRateBp,
+    SpreadBpAdditive,
+}
 
 /// Heterogeneous expected loss evaluation method
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum HeteroMethod { Spa, ExactConvolution }
+pub enum HeteroMethod {
+    Spa,
+    ExactConvolution,
+}
 
 /// Gaussian Copula pricing engine for CDS tranches.
 pub struct CDSTranchePricer {
@@ -167,7 +173,11 @@ impl CDSTranchePricer {
         }
     }
     /// Create a new Gaussian Copula model with default parameters.
-    pub fn new() -> Self { Self { params: CDSTranchePricerConfig::default() } }
+    pub fn new() -> Self {
+        Self {
+            params: CDSTranchePricerConfig::default(),
+        }
+    }
 
     /// Create a new model with custom parameters.
     pub fn with_params(params: CDSTranchePricerConfig) -> Self {
@@ -350,7 +360,12 @@ impl CDSTranchePricer {
     ) -> Result<F> {
         // Heterogeneous path if enabled and issuer curves present
         if self.params.use_issuer_curves && index_data.has_issuer_curves() {
-            self.calculate_equity_tranche_loss_hetero(detachment_pct, correlation, index_data, maturity)
+            self.calculate_equity_tranche_loss_hetero(
+                detachment_pct,
+                correlation,
+                index_data,
+                maturity,
+            )
         } else {
             // Homogeneous: use index marginals
             let num_constituents = index_data.num_constituents as usize;
@@ -362,10 +377,26 @@ impl CDSTranchePricer {
             let default_prob = self.get_default_probability(index_data, maturity_years)?;
             let default_threshold = standard_normal_inv_cdf(default_prob);
             let integrand = |z: F| {
-                let p = self.conditional_default_probability_enhanced(default_threshold, correlation, z);
-                self.conditional_equity_tranche_loss(num_constituents, detachment_notional, p, recovery_rate)
+                let p = self.conditional_default_probability_enhanced(
+                    default_threshold,
+                    correlation,
+                    z,
+                );
+                self.conditional_equity_tranche_loss(
+                    num_constituents,
+                    detachment_notional,
+                    p,
+                    recovery_rate,
+                )
             };
-            let expected_loss = if !(self.params.adaptive_integration_low..=self.params.adaptive_integration_high).contains(&correlation) { quad.integrate_adaptive(integrand, self.params.numerical_tolerance) } else { quad.integrate(integrand) };
+            let expected_loss = if !(self.params.adaptive_integration_low
+                ..=self.params.adaptive_integration_high)
+                .contains(&correlation)
+            {
+                quad.integrate_adaptive(integrand, self.params.numerical_tolerance)
+            } else {
+                quad.integrate(integrand)
+            };
             Ok(expected_loss)
         }
     }
@@ -386,7 +417,7 @@ impl CDSTranchePricer {
         let tranche_width = detachment_pct / 100.0;
 
         // Quadrature setup
-            let quad = self.select_quadrature();
+        let quad = self.select_quadrature();
 
         // Build unconditional PD_i and their probit thresholds
         let mut pd_i: Vec<F> = Vec::with_capacity(index_data.num_constituents as usize);
@@ -414,8 +445,11 @@ impl CDSTranchePricer {
                 let default_prob = self.get_default_probability(index_data, maturity_years)?;
                 let default_threshold = standard_normal_inv_cdf(default_prob);
                 let integrand = |z: F| {
-                    let p = self
-                        .conditional_default_probability_enhanced(default_threshold, correlation, z);
+                    let p = self.conditional_default_probability_enhanced(
+                        default_threshold,
+                        correlation,
+                        z,
+                    );
                     self.conditional_equity_tranche_loss(
                         num_constituents,
                         detachment_notional,
@@ -475,7 +509,8 @@ impl CDSTranchePricer {
         } else {
             match self.params.hetero_method {
                 HeteroMethod::Spa => {
-                    if !(self.params.adaptive_integration_low..=self.params.adaptive_integration_high)
+                    if !(self.params.adaptive_integration_low
+                        ..=self.params.adaptive_integration_high)
                         .contains(&correlation)
                     {
                         quad.integrate_adaptive(integrand, self.params.numerical_tolerance)
@@ -485,7 +520,13 @@ impl CDSTranchePricer {
                 }
                 HeteroMethod::ExactConvolution => {
                     // Simple exact convolution fallback via discretization and convolution
-                    self.hetero_exact_convolution(detachment_pct, correlation, &probit_i, lgd, weights)
+                    self.hetero_exact_convolution(
+                        detachment_pct,
+                        correlation,
+                        &probit_i,
+                        lgd,
+                        weights,
+                    )
                 }
             }
         };
@@ -514,12 +555,16 @@ impl CDSTranchePricer {
                 mean += w * p;
                 var += w * w * p * (1.0 - p);
             }
-            if var <= self.params.spa_variance_floor { return mean.min(k); }
+            if var <= self.params.spa_variance_floor {
+                return mean.min(k);
+            }
             let s = var.sqrt();
             let a = (k - mean) / s;
             mean * standard_normal_cdf(a) + s * norm_pdf(a) + k * (1.0 - standard_normal_cdf(a))
         };
-        if !(self.params.adaptive_integration_low..=self.params.adaptive_integration_high).contains(&correlation) {
+        if !(self.params.adaptive_integration_low..=self.params.adaptive_integration_high)
+            .contains(&correlation)
+        {
             quad.integrate_adaptive(integrand, self.params.numerical_tolerance)
         } else {
             quad.integrate(integrand)
@@ -541,7 +586,13 @@ impl CDSTranchePricer {
         let max_points = (k / grid_step).ceil() as usize + 1;
         if max_points > self.params.max_grid_points {
             // Performance guard: fall back to SPA approximation
-            return self.calculate_equity_tranche_loss_hetero_spa_only(probit_i, correlation, k, lgd, weight);
+            return self.calculate_equity_tranche_loss_hetero_spa_only(
+                probit_i,
+                correlation,
+                k,
+                lgd,
+                weight,
+            );
         }
 
         // Gauss–Hermite integrate conditional min(L, K) exactly via convolution
@@ -568,7 +619,9 @@ impl CDSTranchePricer {
                     next[j] += mass * p;
                 }
                 pmf = next;
-                if pmf.len() > max_points { pmf.truncate(max_points); }
+                if pmf.len() > max_points {
+                    pmf.truncate(max_points);
+                }
             }
 
             // Compute E[min(L, K)] from pmf over grid
@@ -581,7 +634,9 @@ impl CDSTranchePricer {
             finstack_core::math::stable_sum(&terms)
         };
 
-        if !(self.params.adaptive_integration_low..=self.params.adaptive_integration_high).contains(&correlation) {
+        if !(self.params.adaptive_integration_low..=self.params.adaptive_integration_high)
+            .contains(&correlation)
+        {
             quad.integrate_adaptive(integrand, self.params.numerical_tolerance)
         } else {
             quad.integrate(integrand)
@@ -654,7 +709,8 @@ impl CDSTranchePricer {
         let conditional_threshold = numerator / sqrt_one_minus_rho;
 
         // Clamp to reasonable range to prevent CDF overflow
-        let conditional_threshold = conditional_threshold.clamp(-self.params.cdf_clip, self.params.cdf_clip);
+        let conditional_threshold =
+            conditional_threshold.clamp(-self.params.cdf_clip, self.params.cdf_clip);
 
         standard_normal_cdf(conditional_threshold)
     }
@@ -771,11 +827,14 @@ impl CDSTranchePricer {
                     finstack_core::dates::DayCountCtx::default(),
                 )
                 .unwrap_or(0.0);
-            if accrual_period <= 0.0 { continue; }
+            if accrual_period <= 0.0 {
+                continue;
+            }
 
             // Accrual-on-default: reduce accrual by configured fraction of incremental loss (if enabled)
             let effective_notional = if self.params.accrual_on_default_enabled {
-                let aod_adjustment = self.params.aod_allocation_fraction * tranche_notional * delta_el_fraction;
+                let aod_adjustment =
+                    self.params.aod_allocation_fraction * tranche_notional * delta_el_fraction;
                 (outstanding_notional - aod_adjustment).max(0.0)
             } else {
                 outstanding_notional
@@ -944,10 +1003,7 @@ impl CDSTranchePricer {
         };
 
         // Filter out dates before as_of (in case effective_date < as_of)
-        let payment_dates: Vec<Date> = dates
-            .into_iter()
-            .filter(|&date| date > as_of)
-            .collect();
+        let payment_dates: Vec<Date> = dates.into_iter().filter(|&date| date > as_of).collect();
 
         Ok(payment_dates)
     }
@@ -1120,8 +1176,8 @@ impl CDSTranchePricer {
 
 #[cfg(test)]
 mod tests {
-    use crate::instruments::cds_tranche::parameters::CDSTrancheParams;
     use super::*;
+    use crate::instruments::cds_tranche::parameters::CDSTrancheParams;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::CreditIndexData;
@@ -1190,13 +1246,24 @@ mod tests {
         let index_curve = HazardCurve::builder("CDX.NA.IG.42")
             .base_date(base_date)
             .recovery_rate(0.40)
-            .knots(vec![(1.0, 0.012), (3.0, 0.017), (5.0, 0.022), (10.0, 0.028)])
+            .knots(vec![
+                (1.0, 0.012),
+                (3.0, 0.017),
+                (5.0, 0.022),
+                (10.0, 0.028),
+            ])
             .par_spreads(vec![(1.0, 65.0), (3.0, 85.0), (5.0, 105.0), (10.0, 145.0)])
             .build()
             .unwrap();
 
         let base_corr_curve = BaseCorrelationCurve::builder("CDX.NA.IG.42_5Y")
-            .points(vec![(3.0, 0.25), (7.0, 0.45), (10.0, 0.60), (15.0, 0.75), (30.0, 0.85)])
+            .points(vec![
+                (3.0, 0.25),
+                (7.0, 0.45),
+                (10.0, 0.60),
+                (15.0, 0.75),
+                (30.0, 0.85),
+            ])
             .build()
             .unwrap();
 
@@ -1355,7 +1422,9 @@ mod tests {
             .with_issuer_curves(issuer_curves)
             .build()
             .unwrap();
-        let ctx = ctx_base.clone().insert_credit_index("CDX.NA.IG.42", hetero_index);
+        let ctx = ctx_base
+            .clone()
+            .insert_credit_index("CDX.NA.IG.42", hetero_index);
 
         let mut homo = CDSTranchePricer::new();
         homo.params.use_issuer_curves = false;
@@ -1364,7 +1433,10 @@ mod tests {
         hetero.params.hetero_method = HeteroMethod::Spa;
 
         let pv_homo = homo.price_tranche(&tranche, &ctx, as_of).unwrap().amount();
-        let pv_hetero = hetero.price_tranche(&tranche, &ctx, as_of).unwrap().amount();
+        let pv_hetero = hetero
+            .price_tranche(&tranche, &ctx, as_of)
+            .unwrap()
+            .amount();
         assert!((pv_homo - pv_hetero).abs() < 1e-2 * pv_homo.abs().max(1.0));
     }
 
@@ -1436,8 +1508,14 @@ mod tests {
         exact_fine.params = exact_coarse.params.clone();
         exact_fine.params.grid_step = 0.001;
 
-        let p_coarse = exact_coarse.price_tranche(&tranche, &ctx, as_of).unwrap().amount();
-        let p_fine = exact_fine.price_tranche(&tranche, &ctx, as_of).unwrap().amount();
+        let p_coarse = exact_coarse
+            .price_tranche(&tranche, &ctx, as_of)
+            .unwrap()
+            .amount();
+        let p_fine = exact_fine
+            .price_tranche(&tranche, &ctx, as_of)
+            .unwrap()
+            .amount();
         assert!((p_coarse - p_fine).abs() < 0.02 * p_fine.abs().max(1.0));
     }
 

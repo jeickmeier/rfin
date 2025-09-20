@@ -16,5 +16,3 @@ impl MetricCalculator for RequiredCollateralCalculator {
         Ok(required_value.amount())
     }
 }
-
-

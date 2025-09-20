@@ -1,0 +1,60 @@
+//! Gamma calculator for swaptions.
+//!
+//! Computes cash gamma using Black model gamma with forward swap rate and
+//! underlying swap annuity. Uses SABR-implied vol if parameters are set,
+//! otherwise uses the volatility surface or an override from `PricingOverrides`.
+
+use crate::instruments::swaption::Swaption;
+use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use finstack_core::prelude::Result;
+use finstack_core::F;
+
+/// Gamma calculator for swaptions
+pub struct GammaCalculator;
+
+impl MetricCalculator for GammaCalculator {
+    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+        let option: &Swaption = context.instrument_as()?;
+        let disc = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                option.disc_id,
+            )?;
+        let pricer = crate::instruments::swaption::pricing::SwaptionPricer;
+        let t = pricer.year_fraction(context.as_of, option.expiry, option.day_count)?;
+
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let forward = pricer.forward_swap_rate(option, disc, context.as_of)?;
+        let annuity = pricer.swap_annuity(option, disc, context.as_of)?;
+
+        let sigma = if let Some(sabr) = &option.sabr_params {
+            let model = crate::instruments::models::SABRModel::new(sabr.clone());
+            model.implied_volatility(forward, option.strike_rate, t)?
+        } else if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
+            impl_vol
+        } else {
+            context
+                .curves
+                .surface_ref(option.vol_id)?
+                .value_clamped(t, option.strike_rate)
+        };
+
+        if sigma <= 0.0 || forward <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let variance = sigma * sigma * t;
+        let d1 = ((forward / option.strike_rate).ln() + 0.5 * variance) / variance.sqrt();
+        let gamma = finstack_core::math::norm_pdf(d1) / (forward * sigma * t.sqrt());
+
+        // Scale by notional and annuity for cash gamma
+        Ok(gamma * option.notional.amount() * annuity)
+    }
+
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
+}

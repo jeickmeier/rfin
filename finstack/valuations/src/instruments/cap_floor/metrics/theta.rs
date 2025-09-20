@@ -5,9 +5,9 @@
 
 use crate::instruments::cap_floor::InterestRateOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::{Result, F};
-use finstack_core::dates::DateExt;
 use finstack_core::dates::calendar::registry::CalendarRegistry;
+use finstack_core::dates::DateExt;
+use finstack_core::{Result, F};
 
 /// Theta calculator (daily bump-and-reprice)
 pub struct ThetaCalculator;
@@ -44,7 +44,7 @@ impl MetricCalculator for ThetaCalculator {
         Ok(bumped.amount() - base_pv)
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
-
-

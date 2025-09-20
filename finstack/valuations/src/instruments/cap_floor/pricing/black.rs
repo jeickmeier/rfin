@@ -2,11 +2,11 @@
 //!
 //! Exposes pure functions for price and greeks to keep `types.rs` free of pricing logic.
 
+use crate::instruments::models::{d1 as bs_d1, d2 as bs_d2};
+use finstack_core::currency::Currency;
 use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
-use finstack_core::currency::Currency;
 use finstack_core::F;
-use crate::instruments::models::{d1 as bs_d1, d2 as bs_d2};
 
 /// Inputs for Black caplet/floorlet pricing
 #[derive(Clone, Copy, Debug)]
@@ -66,21 +66,31 @@ pub fn delta(is_cap: bool, strike: F, forward: F, sigma: F, t_fix: F) -> F {
         }
     }
     let d1 = bs_d1(forward, strike, 0.0, sigma, t_fix, 0.0);
-    if is_cap { norm_cdf(d1) } else { -norm_cdf(-d1) }
+    if is_cap {
+        norm_cdf(d1)
+    } else {
+        -norm_cdf(-d1)
+    }
 }
 
 /// Black forward gamma (per unit forward).
 pub fn gamma(strike: F, forward: F, sigma: F, t_fix: F) -> F {
-    if t_fix <= 0.0 || sigma <= 0.0 || forward <= 0.0 { return 0.0; }
+    if t_fix <= 0.0 || sigma <= 0.0 || forward <= 0.0 {
+        return 0.0;
+    }
     let d1 = bs_d1(forward, strike, 0.0, sigma, t_fix, 0.0);
     norm_pdf(d1) / (forward * sigma * t_fix.sqrt())
 }
 
 /// Black vega per 1% vol.
 pub fn vega_per_pct(strike: F, forward: F, sigma: F, t_fix: F) -> F {
-    if t_fix <= 0.0 || forward <= 0.0 { return 0.0; }
-    let d1 = if sigma > 0.0 { bs_d1(forward, strike, 0.0, sigma, t_fix, 0.0) } else { 0.0 };
+    if t_fix <= 0.0 || forward <= 0.0 {
+        return 0.0;
+    }
+    let d1 = if sigma > 0.0 {
+        bs_d1(forward, strike, 0.0, sigma, t_fix, 0.0)
+    } else {
+        0.0
+    };
     forward * norm_pdf(d1) * t_fix.sqrt() / 100.0
 }
-
-

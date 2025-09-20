@@ -21,5 +21,3 @@ impl MetricCalculator for TimeToMaturityCalculator {
         Ok(ttm)
     }
 }
-
-

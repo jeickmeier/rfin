@@ -11,10 +11,8 @@ use finstack_core::{Result, F};
 pub struct TrackingErrorCalculator;
 
 impl MetricCalculator for TrackingErrorCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<F> { 
-        let _basket = context.instrument_as::<Basket>()?; 
-        Ok(0.0) 
+    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+        let _basket = context.instrument_as::<Basket>()?;
+        Ok(0.0)
     }
 }
-
-

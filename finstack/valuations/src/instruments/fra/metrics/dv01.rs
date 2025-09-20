@@ -19,8 +19,8 @@ impl MetricCalculator for FraDv01Calculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                fra.disc_id.as_str(),
-            )?;
+            fra.disc_id.as_str(),
+        )?;
         let base = disc.base_date();
 
         // Accrual over the FRA period (instrument basis)
@@ -43,5 +43,3 @@ impl MetricCalculator for FraDv01Calculator {
         Ok(if fra.pay_fixed { -dv01 } else { dv01 })
     }
 }
-
-

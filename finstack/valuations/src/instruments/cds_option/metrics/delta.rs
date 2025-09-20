@@ -10,21 +10,27 @@ pub struct DeltaCalculator;
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &CdsOption = context.instrument_as()?;
-        let t = option
-            .day_count
-            .year_fraction(context.as_of, option.expiry, finstack_core::dates::DayCountCtx::default())?;
+        let t = option.day_count.year_fraction(
+            context.as_of,
+            option.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
 
-        if t <= 0.0 { return Ok(0.0); }
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
 
         // Forward spread in bp
         let hazard_curve = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                option.credit_id,
-            )?;
-        let current_tenor = option
-            .day_count
-            .year_fraction(context.as_of, option.cds_maturity, finstack_core::dates::DayCountCtx::default())?;
+            option.credit_id,
+        )?;
+        let current_tenor = option.day_count.year_fraction(
+            context.as_of,
+            option.cds_maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         let fwd_bp = if current_tenor > 0.0 {
             use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
             hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
@@ -35,7 +41,10 @@ impl MetricCalculator for DeltaCalculator {
         let sigma = if let Some(v) = option.pricing_overrides.implied_volatility {
             v
         } else {
-            context.curves.surface_ref(option.vol_id)?.value_clamped(t, option.strike_spread_bp)
+            context
+                .curves
+                .surface_ref(option.vol_id)?
+                .value_clamped(t, option.strike_spread_bp)
         };
 
         let pricer = crate::instruments::cds_option::pricing::engine::CdsOptionPricer::default();
@@ -43,7 +52,7 @@ impl MetricCalculator for DeltaCalculator {
         Ok(delta * option.notional.amount())
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
-
-

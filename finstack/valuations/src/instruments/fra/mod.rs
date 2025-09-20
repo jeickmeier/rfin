@@ -9,5 +9,5 @@ pub mod metrics;
 pub mod pricing;
 mod types;
 
-pub use types::ForwardRateAgreement;
 pub use pricing::engine::FraEngine;
+pub use types::ForwardRateAgreement;

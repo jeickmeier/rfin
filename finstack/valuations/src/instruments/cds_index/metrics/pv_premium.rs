@@ -2,8 +2,8 @@
 //!
 //! Computes present value of the premium leg using the index pricer.
 
-use crate::instruments::cds_index::CDSIndex;
 use crate::instruments::cds_index::pricing::CDSIndexPricer;
+use crate::instruments::cds_index::CDSIndex;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -18,5 +18,3 @@ impl MetricCalculator for PremiumLegPvCalculator {
         Ok(pv.amount())
     }
 }
-
-

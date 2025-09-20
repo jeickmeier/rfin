@@ -21,7 +21,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         Ok(iv)
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
-
-

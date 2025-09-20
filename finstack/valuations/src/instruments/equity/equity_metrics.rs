@@ -55,5 +55,4 @@ pub fn register_equity_metrics(registry: &mut MetricRegistry) {
         Arc::new(MarketValueCalculator),
         &["Equity"],
     );
-
 }

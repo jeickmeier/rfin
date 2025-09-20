@@ -15,14 +15,10 @@ pub struct YearFractionCalculator;
 impl MetricCalculator for YearFractionCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let deposit: &Deposit = context.instrument_as()?;
-        deposit
-            .day_count
-            .year_fraction(
-                deposit.start,
-                deposit.end,
-                finstack_core::dates::DayCountCtx::default(),
-            )
+        deposit.day_count.year_fraction(
+            deposit.start,
+            deposit.end,
+            finstack_core::dates::DayCountCtx::default(),
+        )
     }
 }
-
-

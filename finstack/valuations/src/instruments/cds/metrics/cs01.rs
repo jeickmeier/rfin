@@ -16,5 +16,3 @@ impl MetricCalculator for Cs01Calculator {
         cds.cs01(&context.curves)
     }
 }
-
-

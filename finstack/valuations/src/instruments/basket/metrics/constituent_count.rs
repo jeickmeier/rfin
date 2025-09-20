@@ -15,5 +15,3 @@ impl MetricCalculator for ConstituentCountCalculator {
         Ok(basket.constituent_count() as F)
     }
 }
-
-

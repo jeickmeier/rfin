@@ -2,9 +2,9 @@
 
 pub mod engine;
 
+use crate::instruments::basis_swap::types::{BasisSwap, BasisSwapLeg};
 use crate::instruments::helpers::build_with_metrics_dyn;
 use crate::instruments::traits::Priceable;
-use crate::instruments::basis_swap::types::{BasisSwap, BasisSwapLeg};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;
@@ -24,7 +24,12 @@ use engine::{BasisEngine, FloatLegParams};
 ///
 /// # Returns
 /// The present value of the leg as a `Money` amount.
-fn pv_leg(swap: &BasisSwap, leg: &BasisSwapLeg, context: &MarketContext, as_of: Date) -> Result<Money> {
+fn pv_leg(
+    swap: &BasisSwap,
+    leg: &BasisSwapLeg,
+    context: &MarketContext,
+    as_of: Date,
+) -> Result<Money> {
     let schedule = swap.leg_schedule(leg);
     let params = FloatLegParams {
         schedule: &schedule,
@@ -77,5 +82,3 @@ impl Priceable for BasisSwap {
         build_with_metrics_dyn(self, context, as_of, base, metrics)
     }
 }
-
-

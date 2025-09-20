@@ -39,5 +39,3 @@ impl Priceable for Deposit {
         build_with_metrics_dyn(self, context, as_of, base, metrics)
     }
 }
-
-

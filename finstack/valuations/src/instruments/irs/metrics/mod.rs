@@ -5,8 +5,8 @@
 //! stable while enabling maintainable growth of metrics.
 
 pub mod annuity;
-pub mod par_rate;
 pub mod dv01;
+pub mod par_rate;
 pub mod pv_fixed;
 pub mod pv_float;
 

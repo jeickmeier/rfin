@@ -75,7 +75,9 @@ impl MetricCalculator for MoicLpCalculator {
         let total_contributions: F = pe
             .events
             .iter()
-            .filter(|e| e.kind == crate::instruments::private_markets_fund::FundEventKind::Contribution)
+            .filter(|e| {
+                e.kind == crate::instruments::private_markets_fund::FundEventKind::Contribution
+            })
             .map(|e| e.amount.amount())
             .sum();
 
@@ -111,7 +113,9 @@ impl MetricCalculator for DpiLpCalculator {
         let total_contributions: F = pe
             .events
             .iter()
-            .filter(|e| e.kind == crate::instruments::private_markets_fund::FundEventKind::Contribution)
+            .filter(|e| {
+                e.kind == crate::instruments::private_markets_fund::FundEventKind::Contribution
+            })
             .map(|e| e.amount.amount())
             .sum();
 
@@ -136,7 +140,9 @@ impl MetricCalculator for TvpiLpCalculator {
         let total_contributions: F = pe
             .events
             .iter()
-            .filter(|e| e.kind == crate::instruments::private_markets_fund::FundEventKind::Contribution)
+            .filter(|e| {
+                e.kind == crate::instruments::private_markets_fund::FundEventKind::Contribution
+            })
             .map(|e| e.amount.amount())
             .sum();
 

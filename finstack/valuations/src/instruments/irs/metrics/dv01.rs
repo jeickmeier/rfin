@@ -11,15 +11,22 @@ use finstack_core::F;
 pub struct Dv01Calculator;
 
 impl MetricCalculator for Dv01Calculator {
-    fn dependencies(&self) -> &[MetricId] { &[MetricId::Annuity] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[MetricId::Annuity]
+    }
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs: &InterestRateSwap = context.instrument_as()?;
-        let annuity = context.computed.get(&MetricId::Annuity).copied().unwrap_or(0.0);
+        let annuity = context
+            .computed
+            .get(&MetricId::Annuity)
+            .copied()
+            .unwrap_or(0.0);
         let dv01_mag = annuity * irs.notional.amount() * 1e-4;
-        let dv01 = match irs.side { PayReceive::ReceiveFixed => dv01_mag, PayReceive::PayFixed => -dv01_mag };
+        let dv01 = match irs.side {
+            PayReceive::ReceiveFixed => dv01_mag,
+            PayReceive::PayFixed => -dv01_mag,
+        };
         Ok(dv01)
     }
 }
-
-

@@ -16,5 +16,3 @@ impl MetricCalculator for EffectiveRateCalculator {
         Ok(repo.effective_rate())
     }
 }
-
-

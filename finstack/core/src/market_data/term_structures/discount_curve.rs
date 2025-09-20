@@ -71,7 +71,9 @@ pub struct DiscountCurveState {
 }
 
 #[inline]
-fn default_discount_day_count() -> DayCount { DayCount::Act365F }
+fn default_discount_day_count() -> DayCount {
+    DayCount::Act365F
+}
 
 impl DiscountCurve {
     /// Unique identifier of the curve.
@@ -88,7 +90,9 @@ impl DiscountCurve {
 
     /// Day-count basis used for discount time mapping.
     #[inline]
-    pub fn day_count(&self) -> DayCount { self.day_count }
+    pub fn day_count(&self) -> DayCount {
+        self.day_count
+    }
 
     /// Continuously-compounded zero rate.
     #[inline]
@@ -142,7 +146,13 @@ impl DiscountCurve {
     /// Convenience: discount factor on a specific date using the curve's own day-count.
     #[inline]
     pub fn df_on_date_curve(&self, date: Date) -> F {
-        let t = if date == self.base { 0.0 } else { self.day_count.year_fraction(self.base, date, DayCountCtx::default()).unwrap_or(0.0) };
+        let t = if date == self.base {
+            0.0
+        } else {
+            self.day_count
+                .year_fraction(self.base, date, DayCountCtx::default())
+                .unwrap_or(0.0)
+        };
         self.df(t)
     }
 

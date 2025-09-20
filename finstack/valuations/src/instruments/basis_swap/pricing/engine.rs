@@ -17,27 +17,27 @@ pub struct BasisEngine;
 /// Contains all the necessary parameters to calculate the present value
 /// of a floating rate leg in a basis swap.
 ///
-    /// # Examples
-    /// ```rust
-    /// use finstack_core::{dates::*, money::Money, currency::Currency};
-    /// use finstack_valuations::instruments::basis_swap::pricing::engine::FloatLegParams;
-    /// use finstack_valuations::cashflow::builder::schedule_utils::PeriodSchedule;
-    /// use time::Month;
-    ///
-    /// let schedule = PeriodSchedule { 
-    ///     dates: vec![], 
-    ///     first_or_last: hashbrown::HashSet::new(), 
-    ///     prev: hashbrown::HashMap::new() 
-    /// };
-    /// let params = FloatLegParams {
-    ///     schedule: &schedule,
-    ///     notional: Money::new(1_000_000.0, Currency::USD),
-    ///     disc_id: "OIS",
-    ///     fwd_id: "3M-SOFR",
-    ///     accrual_dc: DayCount::Act360,
-    ///     spread: 0.0005,
-    /// };
-    /// ```
+/// # Examples
+/// ```rust
+/// use finstack_core::{dates::*, money::Money, currency::Currency};
+/// use finstack_valuations::instruments::basis_swap::pricing::engine::FloatLegParams;
+/// use finstack_valuations::cashflow::builder::schedule_utils::PeriodSchedule;
+/// use time::Month;
+///
+/// let schedule = PeriodSchedule {
+///     dates: vec![],
+///     first_or_last: hashbrown::HashSet::new(),
+///     prev: hashbrown::HashMap::new()
+/// };
+/// let params = FloatLegParams {
+///     schedule: &schedule,
+///     notional: Money::new(1_000_000.0, Currency::USD),
+///     disc_id: "OIS",
+///     fwd_id: "3M-SOFR",
+///     accrual_dc: DayCount::Act360,
+///     spread: 0.0005,
+/// };
+/// ```
 #[derive(Debug, Clone)]
 pub struct FloatLegParams<'a> {
     /// Period schedule for this leg.
@@ -72,10 +72,10 @@ impl BasisEngine {
     /// use finstack_valuations::cashflow::builder::schedule_utils::PeriodSchedule;
     /// use time::Month;
     ///
-    /// let schedule = PeriodSchedule { 
-    ///     dates: vec![], 
-    ///     first_or_last: hashbrown::HashSet::new(), 
-    ///     prev: hashbrown::HashMap::new() 
+    /// let schedule = PeriodSchedule {
+    ///     dates: vec![],
+    ///     first_or_last: hashbrown::HashSet::new(),
+    ///     prev: hashbrown::HashMap::new()
     /// };
     /// let params = FloatLegParams {
     ///     schedule: &schedule,
@@ -93,12 +93,14 @@ impl BasisEngine {
         valuation_date: Date,
     ) -> Result<Money> {
         // Curves
-        let disc = context.get_ref::<
-            finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
-        >(params.disc_id)?;
-        let fwd = context.get_ref::<
-            finstack_core::market_data::term_structures::forward_curve::ForwardCurve,
-        >(params.fwd_id)?;
+        let disc = context
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            params.disc_id,
+        )?;
+        let fwd = context
+            .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
+            params.fwd_id,
+        )?;
 
         let mut pv = 0.0;
         let currency = params.notional.currency();
@@ -160,10 +162,10 @@ impl BasisEngine {
     /// use finstack_valuations::instruments::basis_swap::pricing::engine::BasisEngine;
     /// use finstack_valuations::cashflow::builder::schedule_utils::PeriodSchedule;
     ///
-    /// let schedule = PeriodSchedule { 
-    ///     dates: vec![], 
-    ///     first_or_last: hashbrown::HashSet::new(), 
-    ///     prev: hashbrown::HashMap::new() 
+    /// let schedule = PeriodSchedule {
+    ///     dates: vec![],
+    ///     first_or_last: hashbrown::HashSet::new(),
+    ///     prev: hashbrown::HashMap::new()
     /// };
     /// // Note: Requires proper MarketContext setup for actual usage
     /// ```
@@ -173,9 +175,10 @@ impl BasisEngine {
         disc_curve_id: &str,
         curves: &MarketContext,
     ) -> Result<F> {
-        let disc = curves.get_ref::<
-            finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
-        >(disc_curve_id)?;
+        let disc = curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            disc_curve_id,
+        )?;
         let mut annuity = 0.0;
         let mut prev = schedule.dates[0];
         for &d in &schedule.dates[1..] {
@@ -188,5 +191,3 @@ impl BasisEngine {
         Ok(annuity)
     }
 }
-
-

@@ -10,8 +10,8 @@ use super::super::types::{Basket, BasketConstituent, ConstituentReference};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
-use finstack_core::money::Money;
 use finstack_core::money::fx::{FxConversionPolicy, FxQuery};
+use finstack_core::money::Money;
 use finstack_core::{Result, F};
 
 /// Internal valuation mode used to interpret weights/units per call site.
@@ -46,15 +46,23 @@ pub struct BasketPricer {
 }
 
 impl Default for BasketPricer {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl BasketPricer {
     /// Create a new basket pricer with default configuration.
-    pub fn new() -> Self { Self { config: BasketPricerConfig::default() } }
+    pub fn new() -> Self {
+        Self {
+            config: BasketPricerConfig::default(),
+        }
+    }
 
     /// Create a basket pricer with a specific configuration.
-    pub fn with_config(config: BasketPricerConfig) -> Self { Self { config } }
+    pub fn with_config(config: BasketPricerConfig) -> Self {
+        Self { config }
+    }
 
     /// Calculate Net Asset Value per share.
     pub fn nav(&self, basket: &Basket, context: &MarketContext, as_of: Date) -> Result<Money> {
@@ -65,7 +73,9 @@ impl BasketPricer {
                 constituent,
                 context,
                 as_of,
-                ValueMode::PerShare { shares: basket.shares_outstanding },
+                ValueMode::PerShare {
+                    shares: basket.shares_outstanding,
+                },
             )?;
             per_share += c.amount();
         }
@@ -90,7 +100,10 @@ impl BasketPricer {
                 constituent,
                 context,
                 as_of,
-                ValueMode::Total { shares: basket.shares_outstanding, aum: None },
+                ValueMode::Total {
+                    shares: basket.shares_outstanding,
+                    aum: None,
+                },
             )?;
             total += c.amount();
         }
@@ -112,7 +125,11 @@ impl BasketPricer {
         let aum_basket = self.to_basket_currency(aum, basket.currency, context, as_of)?;
         let total = self.basket_value_with_aum(basket, context, as_of, aum_basket)?;
         let nav_value = if let Some(shares) = basket.shares_outstanding {
-            if shares > 0.0 { total.amount() / shares } else { total.amount() }
+            if shares > 0.0 {
+                total.amount() / shares
+            } else {
+                total.amount()
+            }
         } else {
             total.amount()
         };
@@ -135,7 +152,10 @@ impl BasketPricer {
                 constituent,
                 context,
                 as_of,
-                ValueMode::Total { shares: None, aum: Some(aum_amount) },
+                ValueMode::Total {
+                    shares: None,
+                    aum: Some(aum_amount),
+                },
             )?;
             total += c.amount();
         }
@@ -215,7 +235,11 @@ impl BasketPricer {
                     let s = shares.ok_or(finstack_core::Error::Input(
                         finstack_core::error::InputError::Invalid,
                     ))?;
-                    if s <= 0.0 { return Err(finstack_core::Error::Input(finstack_core::error::InputError::Invalid)); }
+                    if s <= 0.0 {
+                        return Err(finstack_core::Error::Input(
+                            finstack_core::error::InputError::Invalid,
+                        ));
+                    }
                     (base_value * units) / s
                 } else {
                     base_value * constituent.weight
@@ -238,7 +262,12 @@ impl BasketPricer {
         Ok(out)
     }
 
-    fn calculate_expense_drag(&self, basket: &Basket, portfolio_value: F, _as_of: Date) -> Result<F> {
+    fn calculate_expense_drag(
+        &self,
+        basket: &Basket,
+        portfolio_value: F,
+        _as_of: Date,
+    ) -> Result<F> {
         // Simple daily accrual of expense ratio
         let daily_expense_rate = basket.expense_ratio / self.config.days_in_year;
         Ok(portfolio_value * daily_expense_rate)
@@ -256,12 +285,11 @@ impl BasketPricer {
             return Ok(money);
         }
 
-        let fx = context
-            .fx
-            .as_ref()
-            .ok_or(finstack_core::Error::Input(
-                finstack_core::error::InputError::NotFound { id: "fx".to_string() },
-            ))?;
+        let fx = context.fx.as_ref().ok_or(finstack_core::Error::Input(
+            finstack_core::error::InputError::NotFound {
+                id: "fx".to_string(),
+            },
+        ))?;
 
         let rate = fx
             .rate(FxQuery {
@@ -277,5 +305,3 @@ impl BasketPricer {
         Ok(Money::new(money.amount() * rate, target))
     }
 }
-
-

@@ -15,5 +15,3 @@ impl MetricCalculator for ExpenseRatioCalculator {
         Ok(basket.expense_ratio * 100.0)
     }
 }
-
-

@@ -15,5 +15,3 @@ impl MetricCalculator for FraPvCalculator {
         Ok(context.base_value.amount())
     }
 }
-
-

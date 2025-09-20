@@ -13,5 +13,3 @@ pub mod engine;
 // Stable re-export aligned with other instruments (e.g., `CDSPricer` / `CDSIndexPricer`).
 pub use engine::CDSTranchePricer;
 pub use engine::CDSTranchePricerConfig;
-
-
