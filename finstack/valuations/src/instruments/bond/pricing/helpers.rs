@@ -7,6 +7,11 @@ use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::adjust;
 use time::Duration;
 use finstack_core::F;
+use finstack_core::dates::Date;
+use finstack_core::money::Money;
+use crate::cashflow::traits::CashflowProvider;
+use crate::instruments::traits::Priceable;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -107,6 +112,191 @@ pub fn price_from_ytm_compounded(
     comp: YieldCompounding,
 ) -> finstack_core::Result<finstack_core::F> {
     price_from_ytm_compounded_params(bond.dc, bond.freq, flows, as_of, ytm, comp)
+}
+
+/// Price from Yield-To-Worst by scanning call/put candidates and selecting the lowest yield path
+pub fn price_from_ytw(
+    bond: &Bond,
+    curves: &MarketContext,
+    as_of: Date,
+    dirty_price_target: Money,
+) -> finstack_core::Result<F> {
+    // Build or reuse flows
+    let flows = bond.build_schedule(curves, as_of)?;
+
+    // Generate call/put candidates + maturity
+    let mut candidates: Vec<(Date, Money)> = Vec::new();
+    if let Some(cp) = &bond.call_put {
+        for c in &cp.calls {
+            if c.date >= as_of && c.date <= bond.maturity {
+                candidates.push((c.date, bond.notional * (c.price_pct_of_par / 100.0)));
+            }
+        }
+        for p in &cp.puts {
+            if p.date >= as_of && p.date <= bond.maturity {
+                candidates.push((p.date, bond.notional * (p.price_pct_of_par / 100.0)));
+            }
+        }
+    }
+    candidates.push((bond.maturity, bond.notional));
+
+    // Solve YTM for each candidate and pick the smallest
+    let mut best_price = 0.0;
+    let mut best_yield = f64::INFINITY;
+    for (exercise_date, redemption) in candidates {
+        // Truncate flows to exercise and add redemption
+        let mut ex_flows: Vec<(Date, Money)> = Vec::new();
+        for &(d, a) in &flows {
+            if d > as_of && d <= exercise_date { ex_flows.push((d, a)); }
+        }
+        ex_flows.push((exercise_date, redemption));
+        // Solve yield that matches target dirty price, then compute price from that yield
+        let y = crate::instruments::bond::pricing::ytm_solver::solve_ytm(
+            &ex_flows,
+            as_of,
+            dirty_price_target,
+            crate::instruments::bond::pricing::ytm_solver::YtmPricingSpec {
+                day_count: bond.dc,
+                notional: bond.notional,
+                coupon_rate: bond.coupon,
+                compounding: YieldCompounding::Street,
+                frequency: bond.freq,
+            },
+        )?;
+        if y < best_yield {
+            best_yield = y;
+            best_price = price_from_ytm_compounded(bond, &ex_flows, as_of, y, YieldCompounding::Street)?;
+        }
+    }
+    Ok(best_price)
+}
+
+/// Price from Z-spread applied exponentially to base discount curve
+pub fn price_from_z_spread(
+    bond: &Bond,
+    curves: &MarketContext,
+    as_of: Date,
+    z: F,
+) -> finstack_core::Result<F> {
+    let flows = bond.build_schedule(curves, as_of)?;
+    let disc = curves.get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
+    let base_date = disc.base_date();
+    let mut pv = 0.0;
+    for (d, a) in &flows {
+        if *d <= as_of { continue; }
+        let t = bond.dc.year_fraction(base_date, *d, DayCountCtx::default()).unwrap_or(0.0);
+        let df = disc.df_on_date_curve(*d);
+        let df_z = df * (-z * t).exp();
+        pv += a.amount() * df_z;
+    }
+    Ok(pv)
+}
+
+/// Price from Option-Adjusted Spread using the short-rate tree pricer (expects bp input)
+pub fn price_from_oas(
+    bond: &Bond,
+    curves: &MarketContext,
+    as_of: Date,
+    oas_bp: F,
+) -> finstack_core::Result<F> {
+    // Use the short-rate tree directly to price at a given OAS
+    use crate::instruments::models::{short_rate_keys, StateVariables, ShortRateTree, ShortRateTreeConfig, TreeModel};
+    use crate::instruments::bond::pricing::tree_pricer::BondValuator;
+    let time_to_maturity = bond.dc.year_fraction(as_of, bond.maturity, DayCountCtx::default()).unwrap_or(0.0);
+    if time_to_maturity <= 0.0 { return Ok(0.0); }
+    let discount_curve = curves.get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
+    let mut short_rate_tree = ShortRateTree::new(ShortRateTreeConfig::default());
+    short_rate_tree.calibrate(discount_curve, time_to_maturity)?;
+    let valuator = BondValuator::new(bond.clone(), curves, time_to_maturity, 100)?;
+    let mut vars = StateVariables::new();
+    vars.insert(short_rate_keys::OAS, oas_bp);
+    let price = short_rate_tree.price(vars, time_to_maturity, curves, &valuator)?;
+    Ok(price)
+}
+
+/// Price from I-spread (approximate) by discount-ratio with annual schedule
+pub fn price_from_i_spread(
+    bond: &Bond,
+    curves: &MarketContext,
+    as_of: Date,
+    i_spread: F,
+) -> finstack_core::Result<F> {
+    // Compute par swap rate approximation and convert to an equivalent coupon,
+    // then price fixed leg using that coupon uplift. For simplicity, reuse built flows and scale fixed coupons.
+    let flows = bond.build_schedule(curves, as_of)?;
+    let disc = curves.get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
+    let mut pv = 0.0;
+    for (d, a) in &flows {
+        if *d <= as_of { continue; }
+        let df = disc.df_on_date_curve(*d);
+        pv += a.amount() * df;
+    }
+    // As an approximation path, add the spread annuity contribution
+    // Build a simple annual schedule
+    let mut dates: Vec<Date> = vec![as_of];
+    let mut y = as_of.year();
+    while y < bond.maturity.year() {
+        let next = Date::from_calendar_date(y + 1, as_of.month(), as_of.day()).unwrap_or(bond.maturity);
+        dates.push(next);
+        y += 1;
+        if next >= bond.maturity { break; }
+    }
+    if *dates.last().unwrap() < bond.maturity { dates.push(bond.maturity); }
+    let mut ann = 0.0;
+    for w in dates.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        let alpha = bond.dc.year_fraction(a, b, DayCountCtx::default()).unwrap_or(0.0);
+        let p = disc.df_on_date_curve(b);
+        ann += alpha * p;
+    }
+    let notional = bond.notional.amount();
+    Ok(pv + notional * i_spread * ann)
+}
+
+/// Price from Asset Swap Spread (par/market agnostic) using annuity approximation
+pub fn price_from_asw_spread(
+    bond: &Bond,
+    curves: &MarketContext,
+    as_of: Date,
+    asw_spread: F,
+) -> finstack_core::Result<F> {
+    let flows = bond.build_schedule(curves, as_of)?;
+    let disc = curves.get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
+    // Fixed PV baseline
+    let mut pv_fixed = 0.0;
+    for (d, a) in &flows { if *d > as_of { pv_fixed += a.amount() * disc.df_on_date_curve(*d); } }
+    // Annuity on annual schedule
+    let mut dates: Vec<Date> = vec![as_of];
+    let mut y = as_of.year();
+    while y < bond.maturity.year() {
+        let next = Date::from_calendar_date(y + 1, as_of.month(), as_of.day()).unwrap_or(bond.maturity);
+        dates.push(next); y += 1; if next >= bond.maturity { break; }
+    }
+    if *dates.last().unwrap() < bond.maturity { dates.push(bond.maturity); }
+    let mut ann = 0.0;
+    for w in dates.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        let alpha = bond.dc.year_fraction(a, b, DayCountCtx::default()).unwrap_or(0.0);
+        let p = disc.df_on_date_curve(b);
+        ann += alpha * p;
+    }
+    let notional = bond.notional.amount();
+    Ok(pv_fixed + notional * asw_spread * ann)
+}
+
+/// Price from Discount Margin for FRNs by adding DM (decimal) to float margin and delegating to pricer
+pub fn price_from_dm(
+    bond: &Bond,
+    curves: &MarketContext,
+    as_of: Date,
+    dm: F,
+) -> finstack_core::Result<F> {
+    if bond.float.is_none() {
+        return Ok(bond.value(curves, as_of)?.amount());
+    }
+    let mut b = bond.clone();
+    if let Some(ref mut fl) = b.float { fl.margin_bp += dm * 1e4; }
+    Ok(b.value(curves, as_of)?.amount())
 }
 
 /// Returns the default schedule parameters used across accrual/pricers to avoid duplication.

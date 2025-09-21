@@ -6,6 +6,7 @@ pub mod cs01;
 pub mod duration_macaulay;
 pub mod duration_modified;
 pub mod i_spread;
+pub mod dm;
 pub mod asw;
 pub mod oas;
 pub mod prices;
@@ -19,6 +20,7 @@ pub use cs01::Cs01Calculator;
 pub use duration_macaulay::MacaulayDurationCalculator;
 pub use duration_modified::ModifiedDurationCalculator;
 pub use i_spread::ISpreadCalculator;
+pub use dm::DiscountMarginCalculator;
 pub use asw::{AssetSwapParCalculator, AssetSwapMarketCalculator};
 pub use oas::OasCalculator;
 pub use prices::{CleanPriceCalculator, DirtyPriceCalculator};
@@ -67,6 +69,7 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
         .register_metric(MetricId::Oas, Arc::new(OasCalculator), &["Bond"])
         .register_metric(MetricId::ZSpread, Arc::new(ZSpreadCalculator), &["Bond"])
         .register_metric(MetricId::ISpread, Arc::new(ISpreadCalculator), &["Bond"])
+        .register_metric(MetricId::DiscountMargin, Arc::new(DiscountMarginCalculator), &["Bond"])
         .register_metric(MetricId::ASWPar, Arc::new(AssetSwapParCalculator), &["Bond"])
         .register_metric(MetricId::ASWMarket, Arc::new(AssetSwapMarketCalculator), &["Bond"])
         .register_metric(MetricId::Cs01, Arc::new(Cs01Calculator), &["Bond"]);

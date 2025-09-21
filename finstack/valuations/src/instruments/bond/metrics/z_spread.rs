@@ -1,7 +1,5 @@
-use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::Date;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::F;
 
@@ -22,20 +20,6 @@ impl MetricCalculator for ZSpreadCalculator {
     }
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        // Build or reuse holder cashflows (avoid holding `bond` borrow across mutations)
-        let flows: Vec<(Date, finstack_core::money::Money)> = if let Some(f) = &context.cashflows {
-            f.clone()
-        } else {
-            let bond: &Bond = context.instrument_as()?;
-            let disc_id = bond.disc_id.clone();
-            let dc = bond.dc;
-            let built = bond.build_schedule(&context.curves, context.as_of)?;
-            context.cashflows = Some(built.clone());
-            context.discount_curve_id = Some(disc_id);
-            context.day_count = Some(dc);
-            built
-        };
-
         // Determine dirty market value in currency
         let bond: &Bond = context.instrument_as()?;
         let target_value_ccy: F = if let Some(clean_px) = bond.pricing_overrides.quoted_clean_price {
@@ -56,46 +40,19 @@ impl MetricCalculator for ZSpreadCalculator {
             context.base_value.amount()
         };
 
-        // Fetch base discount curve
-        let disc_curve = context
-            .curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                bond.disc_id.as_ref(),
-            )?;
-        let base_date = disc_curve.base_date();
-
-        // Precompute (t, amount) for cashflows strictly after as_of
-        let mut times_and_amounts: Vec<(F, F)> = Vec::with_capacity(flows.len());
-        for (date, amt) in &flows {
-            if *date <= context.as_of {
-                continue;
-            }
-            let t = bond
-                .dc
-                .year_fraction(
-                    base_date,
-                    *date,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
-                .unwrap_or(0.0);
-            if t > 0.0 {
-                times_and_amounts.push((t, amt.amount()));
-            }
-        }
-
-        if times_and_amounts.is_empty() {
-            return Ok(0.0);
-        }
-
         // Objective: PV_z(z) - target_value_ccy = 0
+        let curves = context.curves.as_ref().clone();
+        let as_of = context.as_of;
         let objective = |z: F| -> F {
-            let mut pv = 0.0;
-            for (t, amount) in &times_and_amounts {
-                let df = disc_curve.df(*t);
-                let df_z = df * (-z * *t).exp();
-                pv += *amount * df_z;
+            match crate::instruments::bond::pricing::helpers::price_from_z_spread(
+                bond,
+                &curves,
+                as_of,
+                z,
+            ) {
+                Ok(pv) => pv - target_value_ccy,
+                Err(_) => 1e12 * z.signum(),
             }
-            pv - target_value_ccy
         };
 
         // Solve using Brent with a reasonable bracket

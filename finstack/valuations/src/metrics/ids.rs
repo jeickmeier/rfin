@@ -133,6 +133,8 @@ define_metrics! {
     Oas => "oas",
     /// I-spread - Yield over interpolated swap curve
     ISpread => "i_spread",
+    /// Discount margin for floating-rate bonds (decimal; 0.01 = 100 bps)
+    DiscountMargin => "discount_margin",
     /// G-spread - Govvie spread
     GSpread => "g_spread",
     /// ASW-spread - Asset swap spread (par)
