@@ -79,3 +79,4 @@ pub use models::{BinomialTree, ExerciseStyle, OptionType, SettlementType, TreeTy
 pub use crate::metrics::{RiskMeasurable, RiskReport};
 pub use helpers::build_with_metrics_dyn;
 pub use traits::{Attributes, Instrument};
+

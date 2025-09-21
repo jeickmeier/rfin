@@ -1,6 +1,5 @@
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::F;
 
@@ -34,20 +33,10 @@ impl MetricCalculator for ISpreadCalculator {
         let disc = context.curves.get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
 
         // Build simple annual schedule from as_of to maturity for par rate approximation
-        let mut dates: Vec<Date> = Vec::new();
-        dates.push(context.as_of);
-        let mut y = context.as_of.year();
-        while y < bond.maturity.year() {
-            // increment by 1Y on the same day/month if possible
-            let next = Date::from_calendar_date(y + 1, context.as_of.month(), context.as_of.day())
-                .unwrap_or(bond.maturity);
-            dates.push(next);
-            y += 1;
-            if next >= bond.maturity { break; }
-        }
-        if *dates.last().unwrap() < bond.maturity {
-            dates.push(bond.maturity);
-        }
+        let dates = crate::instruments::bond::pricing::schedule_helpers::build_annual_schedule(
+            context.as_of,
+            bond.maturity,
+        );
         if dates.len() < 2 { return Ok(0.0); }
 
         // Par rate approx: (P(0,T0) - P(0,Tn)) / Sum alpha_i P(0,Ti)

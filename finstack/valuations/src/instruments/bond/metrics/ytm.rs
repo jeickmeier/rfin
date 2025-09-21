@@ -1,7 +1,6 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::F;
 
@@ -23,29 +22,20 @@ impl MetricCalculator for YtmCalculator {
     }
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        // Extract fields we need from the bond without cloning it
-        let (clean_px, currency, dc, disc_id, notional, coupon, freq, built_flows) = {
+        // Extract fields we need from the bond
+        let (clean_px, notional, dc, disc_id, coupon, freq) = {
             let bond: &Bond = context.instrument_as()?;
-
-            let built_flows = if context.cashflows.is_none() {
-                Some(bond.build_schedule(&context.curves, context.as_of)?)
-            } else {
-                None
-            };
-
             (
                 bond.pricing_overrides.quoted_clean_price.ok_or_else(|| {
                     finstack_core::Error::from(finstack_core::error::InputError::NotFound {
                         id: "bond.pricing_overrides.quoted_clean_price".to_string(),
                     })
                 })?,
-                bond.notional.currency(),
+                bond.notional,
                 bond.dc,
                 bond.disc_id.clone(),
-                bond.notional,
                 bond.coupon,
                 bond.freq,
-                built_flows,
             )
         };
 
@@ -62,27 +52,21 @@ impl MetricCalculator for YtmCalculator {
 
         // Compute dirty price in currency: clean is quoted % of par
         let dirty_amt = (clean_px * notional.amount() / 100.0) + ai;
-        let dirty = Money::new(dirty_amt, currency);
+        let dirty = Money::new(dirty_amt, notional.currency());
 
-        // Cache flows and hints if we built them
+        // Build and cache flows and hints if not already present
         if context.cashflows.is_none() {
-            if let Some(flows) = &built_flows {
-                context.cashflows = Some(flows.clone());
-            }
-            context.discount_curve_id = Some(disc_id.clone());
+            let bond: &Bond = context.instrument_as()?;
+            let flows = bond.build_schedule(&context.curves, context.as_of)?;
+            context.cashflows = Some(flows);
+            context.discount_curve_id = Some(disc_id);
             context.day_count = Some(dc);
         }
-
-        let flows: Vec<(Date, Money)> = if let Some(f) = &context.cashflows {
-            f.clone()
-        } else {
-            // Should not happen, but fallback to empty
-            built_flows.unwrap_or_default()
-        };
+        let flows = context.cashflows.as_ref().unwrap();
 
         // Solve for YTM using shared solver with Street compounding (default)
         let ytm = crate::instruments::bond::pricing::ytm_solver::solve_ytm(
-            &flows,
+            flows,
             context.as_of,
             dirty,
             crate::instruments::bond::pricing::ytm_solver::YtmPricingSpec {

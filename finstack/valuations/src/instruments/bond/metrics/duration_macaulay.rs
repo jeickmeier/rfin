@@ -1,4 +1,3 @@
-use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
@@ -24,26 +23,19 @@ impl MetricCalculator for MacaulayDurationCalculator {
                 })
             })?;
 
-        // Build or reuse flows without cloning the instrument
-        let flows: Vec<(Date, Money)> = if let Some(f) = &context.cashflows {
-            f.clone()
-        } else {
-            let bond: &Bond = context.instrument_as()?;
-            let disc_id = bond.disc_id.clone();
-            let dc = bond.dc;
-            let built_flows = bond.build_schedule(&context.curves, context.as_of)?;
-            context.discount_curve_id = Some(disc_id);
-            context.day_count = Some(dc);
-            context.cashflows = Some(built_flows.clone());
-            built_flows
-        };
+        // YTM dependency ensures cashflows are already built and cached
+        let flows: &Vec<(Date, Money)> = context.cashflows.as_ref().ok_or_else(|| {
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "context.cashflows".to_string(),
+            })
+        })?;
 
         // Calculate price from flows to ensure consistency
         let price = {
             let bond: &Bond = context.instrument_as()?;
             crate::instruments::bond::pricing::helpers::price_from_ytm(
                 bond,
-                &flows,
+                flows,
                 context.as_of,
                 ytm,
             )?
@@ -57,7 +49,7 @@ impl MetricCalculator for MacaulayDurationCalculator {
 
         {
             let bond: &Bond = context.instrument_as()?;
-            for &(date, amount) in &flows {
+            for &(date, amount) in flows {
                 if date <= context.as_of {
                     continue;
                 }

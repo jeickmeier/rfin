@@ -214,15 +214,13 @@ pub fn price_from_oas(
     Ok(price)
 }
 
-/// Price from I-spread (approximate) by discount-ratio with annual schedule
-pub fn price_from_i_spread(
+/// Price from a spread applied to an annuity approximation.
+fn price_from_annuity_spread(
     bond: &Bond,
     curves: &MarketContext,
     as_of: Date,
-    i_spread: F,
+    spread: F,
 ) -> finstack_core::Result<F> {
-    // Compute par swap rate approximation and convert to an equivalent coupon,
-    // then price fixed leg using that coupon uplift. For simplicity, reuse built flows and scale fixed coupons.
     let flows = bond.build_schedule(curves, as_of)?;
     let disc = curves.get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
     let mut pv = 0.0;
@@ -233,15 +231,7 @@ pub fn price_from_i_spread(
     }
     // As an approximation path, add the spread annuity contribution
     // Build a simple annual schedule
-    let mut dates: Vec<Date> = vec![as_of];
-    let mut y = as_of.year();
-    while y < bond.maturity.year() {
-        let next = Date::from_calendar_date(y + 1, as_of.month(), as_of.day()).unwrap_or(bond.maturity);
-        dates.push(next);
-        y += 1;
-        if next >= bond.maturity { break; }
-    }
-    if *dates.last().unwrap() < bond.maturity { dates.push(bond.maturity); }
+    let dates = super::schedule_helpers::build_annual_schedule(as_of, bond.maturity);
     let mut ann = 0.0;
     for w in dates.windows(2) {
         let (a, b) = (w[0], w[1]);
@@ -250,7 +240,17 @@ pub fn price_from_i_spread(
         ann += alpha * p;
     }
     let notional = bond.notional.amount();
-    Ok(pv + notional * i_spread * ann)
+    Ok(pv + notional * spread * ann)
+}
+
+/// Price from I-spread (approximate) by discount-ratio with annual schedule
+pub fn price_from_i_spread(
+    bond: &Bond,
+    curves: &MarketContext,
+    as_of: Date,
+    i_spread: F,
+) -> finstack_core::Result<F> {
+    price_from_annuity_spread(bond, curves, as_of, i_spread)
 }
 
 /// Price from Asset Swap Spread (par/market agnostic) using annuity approximation
@@ -260,28 +260,7 @@ pub fn price_from_asw_spread(
     as_of: Date,
     asw_spread: F,
 ) -> finstack_core::Result<F> {
-    let flows = bond.build_schedule(curves, as_of)?;
-    let disc = curves.get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
-    // Fixed PV baseline
-    let mut pv_fixed = 0.0;
-    for (d, a) in &flows { if *d > as_of { pv_fixed += a.amount() * disc.df_on_date_curve(*d); } }
-    // Annuity on annual schedule
-    let mut dates: Vec<Date> = vec![as_of];
-    let mut y = as_of.year();
-    while y < bond.maturity.year() {
-        let next = Date::from_calendar_date(y + 1, as_of.month(), as_of.day()).unwrap_or(bond.maturity);
-        dates.push(next); y += 1; if next >= bond.maturity { break; }
-    }
-    if *dates.last().unwrap() < bond.maturity { dates.push(bond.maturity); }
-    let mut ann = 0.0;
-    for w in dates.windows(2) {
-        let (a, b) = (w[0], w[1]);
-        let alpha = bond.dc.year_fraction(a, b, DayCountCtx::default()).unwrap_or(0.0);
-        let p = disc.df_on_date_curve(b);
-        ann += alpha * p;
-    }
-    let notional = bond.notional.amount();
-    Ok(pv_fixed + notional * asw_spread * ann)
+    price_from_annuity_spread(bond, curves, as_of, asw_spread)
 }
 
 /// Price from Discount Margin for FRNs by adding DM (decimal) to float margin and delegating to pricer

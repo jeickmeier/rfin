@@ -1,4 +1,7 @@
 //! Convertible bond instrument types and implementation.
+//!
+//! Data model for `ConvertibleBond` and related enums used by pricing and
+//! metrics modules. Pricing logic is intentionally kept out of this file.
 
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
@@ -8,7 +11,7 @@ use crate::cashflow::builder::types::{FixedCouponSpec, FloatingCouponSpec};
 use crate::instruments::bond::CallPutSchedule;
 use crate::instruments::traits::Attributes;
 
-use super::model;
+use super::pricing;
 
 /// Convertible bond instrument with embedded equity conversion option.
 ///
@@ -106,6 +109,6 @@ impl_instrument!(
     "ConvertibleBond",
     pv = |s, curves, _as_of| {
         // Use the new tree-based pricing model
-        model::price_convertible_bond(s, curves, model::ConvertibleTreeType::default())
+        pricing::price_convertible_bond(s, curves, pricing::ConvertibleTreeType::default())
     }
 );

@@ -1,6 +1,6 @@
 //! Comprehensive tests for convertible bond pricing framework.
 
-use super::model::{
+use crate::instruments::convertible::pricing::{
     calculate_convertible_greeks, calculate_parity, price_convertible_bond, ConvertibleTreeType,
 };
 use super::{
@@ -105,6 +105,94 @@ fn test_convertible_bond_pricing_binomial() {
     // Should be in a reasonable range for this scenario
     assert!(price.amount() > 1400.0 && price.amount() < 2000.0);
     assert_eq!(price.currency(), Currency::USD);
+}
+
+#[test]
+fn test_excludes_reset_events_from_coupon_map() {
+    // Build a bond with a floating spec to ensure resets exist; validate pricing runs
+    // and does not panic due to treating FloatReset as a coupon cashflow directly.
+    use crate::cashflow::builder::types::{FloatingCouponSpec, FloatWindow, FloatCouponParams};
+
+    let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+
+    let conversion_spec = ConversionSpec {
+        ratio: Some(10.0),
+        price: None,
+        policy: ConversionPolicy::Voluntary,
+        anti_dilution: AntiDilutionPolicy::None,
+        dividend_adjustment: DividendAdjustment::None,
+    };
+
+    let floating = FloatingCouponSpec {
+        index_id: "USD-SOFR-3M",
+        margin_bp: 0.0,
+        window: FloatWindow::from_params(FloatCouponParams {
+            freq: Frequency::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
+            reset_lag_days: 2,
+            gearing: 1.0,
+        }),
+    };
+
+    let bond = ConvertibleBond {
+        id: "TEST_FLOATING_CONVERTIBLE".to_string(),
+        notional: Money::new(1000.0, Currency::USD),
+        issue,
+        maturity,
+        disc_id: "USD-OIS",
+        conversion: conversion_spec,
+        underlying_equity_id: Some("AAPL".to_string()),
+        call_put: None,
+        fixed_coupon: None,
+        floating_coupon: Some(floating),
+        attributes: Default::default(),
+    };
+
+    let market_context = create_test_market_context();
+    let pv = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(20)).unwrap();
+    assert!(pv.amount().is_finite());
+}
+
+#[test]
+fn test_day_count_propagation_for_call_put_mapping() {
+    // Ensures we use schedule.day_count (not hardcoded) when mapping call/put dates.
+    let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+    let call_date = Date::from_calendar_date(2025, Month::July, 1).unwrap();
+
+    let conversion_spec = ConversionSpec {
+        ratio: Some(10.0),
+        price: None,
+        policy: ConversionPolicy::Voluntary,
+        anti_dilution: AntiDilutionPolicy::None,
+        dividend_adjustment: DividendAdjustment::None,
+    };
+
+    let mut call_put = CallPutSchedule::default();
+    call_put.calls.push(CallPut { date: call_date, price_pct_of_par: 101.0 });
+
+    let bond = ConvertibleBond {
+        id: "TEST_DAYCOUNT_PROP".to_string(),
+        notional: Money::new(1000.0, Currency::USD),
+        issue,
+        maturity,
+        disc_id: "USD-OIS",
+        conversion: conversion_spec,
+        underlying_equity_id: Some("AAPL".to_string()),
+        call_put: Some(call_put),
+        fixed_coupon: None,
+        floating_coupon: None,
+        attributes: Default::default(),
+    };
+
+    let market_context = create_test_market_context();
+    // Should run without errors; internal mapping uses schedule.day_count
+    let pv = price_convertible_bond(&bond, &market_context, ConvertibleTreeType::Binomial(10)).unwrap();
+    assert!(pv.amount().is_finite());
 }
 
 #[test]

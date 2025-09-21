@@ -4,6 +4,19 @@
 //! 1. Uses CashflowBuilder to generate the bond's coupon schedule
 //! 2. Applies tree-based pricing to capture the equity conversion option
 //! 3. Handles call/put provisions and various conversion policies
+//!
+//! Public API:
+//! - `price_convertible_bond`: Present value using selected tree type
+//! - `calculate_convertible_greeks`: Tree-based Greeks and price
+//! - `calculate_parity`: Equity parity ratio
+//! - `calculate_conversion_premium`: Conversion premium versus equity value
+//!
+//! Future enhancements
+//! - Tsiveriotis–Fernandes-style split of cash-only vs equity components, with
+//!   cash flows discounted at risk-free plus issuer credit spread and equity flows
+//!   at risk-free, to better reflect credit risk in the lattice framework.
+//! - Optional credit-spread factor (or curve) integration to align with market
+//!   practice when valuing credit-sensitive convertibles.
 
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::prelude::*;
@@ -11,14 +24,13 @@ use finstack_core::{Error, Result, F};
 use std::collections::HashMap;
 
 use crate::cashflow::builder::{cf, CashFlowSchedule};
-use crate::cashflow::primitives::CFKind;
 use crate::instruments::models::tree_framework::map_date_to_step;
 use crate::instruments::models::{
     single_factor_equity_state, BinomialTree, NodeState, TreeGreeks, TreeModel, TreeValuator,
     TrinomialTree,
 };
 
-use super::{ConversionPolicy, ConvertibleBond};
+use crate::instruments::convertible::{ConversionPolicy, ConvertibleBond};
 
 /// Tree model type selection for convertible bond pricing
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -84,19 +96,17 @@ impl ConvertibleBondValuator {
             time_steps.push(i as F * dt);
         }
 
-        // Process coupon and principal cashflows using shared date->step mapping
+        // Process coupon cashflows (exclude reset-only events) using schedule day count
         let mut coupon_map = HashMap::new();
-        for cf in &cashflow_schedule.flows {
-            if matches!(cf.kind, CFKind::Fixed | CFKind::Stub | CFKind::FloatReset) {
-                let bounded_step = map_date_to_step(
-                    base_date,
-                    cf.date,
-                    bond.maturity,
-                    steps,
-                    finstack_core::dates::DayCount::Act365F,
-                );
-                *coupon_map.entry(bounded_step).or_insert(0.0) += cf.amount.amount();
-            }
+        for cf in cashflow_schedule.coupons() {
+            let bounded_step = map_date_to_step(
+                base_date,
+                cf.date,
+                bond.maturity,
+                steps,
+                cashflow_schedule.day_count,
+            );
+            *coupon_map.entry(bounded_step).or_insert(0.0) += cf.amount.amount();
         }
 
         // Map call/put schedules to tree steps
@@ -112,7 +122,7 @@ impl ConvertibleBondValuator {
                         call.date,
                         bond.maturity,
                         steps,
-                        finstack_core::dates::DayCount::Act365F,
+                        cashflow_schedule.day_count,
                     );
                     let call_price = bond.notional.amount() * (call.price_pct_of_par / 100.0);
                     call_map.insert(bounded_step, call_price);
@@ -127,7 +137,7 @@ impl ConvertibleBondValuator {
                         put.date,
                         bond.maturity,
                         steps,
-                        finstack_core::dates::DayCount::Act365F,
+                        cashflow_schedule.day_count,
                     );
                     let put_price = bond.notional.amount() * (put.price_pct_of_par / 100.0);
                     put_map.insert(bounded_step, put_price);
@@ -300,11 +310,12 @@ fn extract_equity_state(
         )
         .unwrap_or(0.0);
 
-    // Extract risk-free rate (approximate from maturity point)
+    // Extract instantaneous-equivalent risk-free rate from discount factor at maturity.
+    // If time_to_maturity is zero (already matured), return zero to avoid division by zero.
     let risk_free_rate = if time_to_maturity > 0.0 {
         -discount_curve.df(time_to_maturity).ln() / time_to_maturity
     } else {
-        0.05 // Fallback rate
+        0.0
     };
 
     Ok((
@@ -323,20 +334,7 @@ pub fn price_convertible_bond(
     tree_type: ConvertibleTreeType,
 ) -> Result<Money> {
     // Step 1: Generate cashflow schedule using CashflowBuilder
-    let mut builder = cf();
-    builder.principal(bond.notional, bond.issue, bond.maturity);
-
-    // Add fixed coupon if specified
-    if let Some(fixed_spec) = bond.fixed_coupon {
-        builder.fixed_cf(fixed_spec);
-    }
-
-    // Add floating coupon if specified
-    if let Some(floating_spec) = bond.floating_coupon {
-        builder.floating_cf(floating_spec);
-    }
-
-    let cashflow_schedule = builder.build()?;
+    let cashflow_schedule = build_convertible_schedule(bond)?;
 
     // Step 2: Extract market data using helper
     let underlying_id = bond.underlying_equity_id.as_ref().ok_or(Error::Internal)?;
@@ -393,18 +391,7 @@ pub fn calculate_convertible_greeks(
     bump_size: Option<F>,
 ) -> Result<TreeGreeks> {
     // Generate cashflow schedule
-    let mut builder = cf();
-    builder.principal(bond.notional, bond.issue, bond.maturity);
-
-    if let Some(fixed_spec) = bond.fixed_coupon {
-        builder.fixed_cf(fixed_spec);
-    }
-
-    if let Some(floating_spec) = bond.floating_coupon {
-        builder.floating_cf(floating_spec);
-    }
-
-    let cashflow_schedule = builder.build()?;
+    let cashflow_schedule = build_convertible_schedule(bond)?;
 
     // Extract market data using helper
     let underlying_id = bond.underlying_equity_id.as_ref().ok_or(Error::Internal)?;
@@ -458,6 +445,19 @@ pub fn calculate_convertible_greeks(
             )
         }
     }
+}
+
+/// Build the convertible bond cashflow schedule using common builder flow.
+fn build_convertible_schedule(bond: &ConvertibleBond) -> Result<CashFlowSchedule> {
+    let mut builder = cf();
+    builder.principal(bond.notional, bond.issue, bond.maturity);
+    if let Some(fixed_spec) = bond.fixed_coupon {
+        builder.fixed_cf(fixed_spec);
+    }
+    if let Some(floating_spec) = bond.floating_coupon {
+        builder.floating_cf(floating_spec);
+    }
+    builder.build()
 }
 
 /// Calculate convertible bond parity
