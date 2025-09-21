@@ -1,0 +1,34 @@
+//! Equity metric: forward price per share.
+//!
+//! Uses the standard approximation F(t) = S0 * exp((r - q) * t).
+
+use crate::instruments::equity::Equity;
+use crate::metrics::{MetricCalculator, MetricContext};
+use finstack_core::F;
+
+/// Computes the forward price per share over a horizon in years.
+///
+/// Horizon resolution order:
+/// 1) Try `MarketContext::price("{ticker}-FWD_T")` as a unitless scalar (years)
+/// 2) Fallback to 0.0 (spot)
+pub struct ForwardPricePerShareCalculator;
+
+impl MetricCalculator for ForwardPricePerShareCalculator {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+        let equity: &Equity = context.instrument_as()?;
+        let pricer = crate::instruments::equity::pricing::EquityPricer;
+        let key = format!("{}-FWD_T", equity.ticker);
+        let t = context
+            .curves
+            .price(&key)
+            .map(|s| match s {
+                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+                finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
+            })
+            .unwrap_or(0.0);
+        let money = pricer.forward_price_per_share(equity, &context.curves, context.as_of, t)?;
+        Ok(money.amount())
+    }
+}
+
+

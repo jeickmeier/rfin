@@ -121,7 +121,7 @@ impl InflationLinkedBondEngine {
         let base_date = disc.base_date();
         // Use curve basis for time mapping
         let dc = disc.day_count();
-        flows.npv(&*disc, base_date, dc)
+        flows.npv(disc, base_date, dc)
     }
 
     /// Solve real yield by matching the real dirty price to cashflows discounted by the yield.

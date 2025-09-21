@@ -36,7 +36,7 @@ pub mod repo;
 // Preserve public path for equity underlying params after move
 pub use equity::underlying;
 // Preserve public path for equity metrics after move
-pub use equity::equity_metrics;
+pub use equity::metrics as equity_metrics;
 pub mod helpers;
 pub mod structured_credit;
 pub mod swaption;
