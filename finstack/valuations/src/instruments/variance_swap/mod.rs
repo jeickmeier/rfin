@@ -4,6 +4,7 @@
 //! direct exposure to volatility without delta hedging.
 
 pub mod metrics;
+pub mod pricing;
 pub mod types;
 
 pub use types::{PayReceive, VarianceSwap};

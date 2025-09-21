@@ -1,0 +1,25 @@
+//! Time-to-maturity metric.
+
+use super::super::types::VarianceSwap;
+use crate::metrics::{MetricCalculator, MetricContext};
+use finstack_core::{Result, F};
+
+/// Calculate time to maturity in years.
+pub struct TimeToMaturityCalculator;
+
+impl MetricCalculator for TimeToMaturityCalculator {
+    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+        let swap = context.instrument_as::<VarianceSwap>()?;
+        let as_of = context.as_of;
+
+        if as_of >= swap.maturity {
+            return Ok(0.0);
+        }
+
+        swap
+            .day_count
+            .year_fraction(as_of, swap.maturity, Default::default())
+    }
+}
+
+

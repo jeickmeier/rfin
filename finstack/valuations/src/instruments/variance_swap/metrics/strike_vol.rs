@@ -1,0 +1,17 @@
+//! Strike volatility metric.
+
+use super::super::types::VarianceSwap;
+use crate::metrics::{MetricCalculator, MetricContext};
+use finstack_core::{Result, F};
+
+/// Calculate strike in volatility terms.
+pub struct StrikeVolCalculator;
+
+impl MetricCalculator for StrikeVolCalculator {
+    fn calculate(&self, context: &mut MetricContext) -> Result<F> {
+        let swap = context.instrument_as::<VarianceSwap>()?;
+        Ok(swap.strike_variance.sqrt())
+    }
+}
+
+

@@ -1,0 +1,36 @@
+//! Variance swap metrics module.
+//!
+//! Split into focused calculators similar to other instruments. This `mod.rs`
+//! re-exports the calculators and provides a registry hookup.
+
+pub mod notional;
+pub mod vega;
+pub mod variance_vega;
+pub mod realized_variance;
+pub mod expected_variance;
+pub mod dv01;
+pub mod strike_vol;
+pub mod time_to_maturity;
+
+pub use dv01::Dv01Calculator;
+pub use expected_variance::ExpectedVarianceCalculator;
+pub use notional::VarianceNotionalCalculator;
+pub use realized_variance::RealizedVarianceCalculator;
+pub use strike_vol::StrikeVolCalculator;
+pub use time_to_maturity::TimeToMaturityCalculator;
+pub use vega::VegaCalculator;
+pub use variance_vega::VarianceVegaCalculator;
+
+use crate::metrics::{MetricId, MetricRegistry};
+use std::sync::Arc;
+
+/// Register variance swap metrics with the registry.
+pub fn register_variance_swap_metrics(registry: &mut MetricRegistry) {
+    // Note: Currently uses generic MetricId placeholders where specific IDs
+    // are not yet defined.
+    registry
+        .register_metric(MetricId::Vega, Arc::new(VegaCalculator), &["VarianceSwap"]) // vega per 1% vol
+        .register_metric(MetricId::Dv01, Arc::new(Dv01Calculator), &["VarianceSwap"]); // IR DV01
+}
+
+
