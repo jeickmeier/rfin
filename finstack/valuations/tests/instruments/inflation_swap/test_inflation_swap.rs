@@ -152,4 +152,135 @@ fn breakeven_parity_near_zero_with_correct_k() {
     assert!(pv.abs() < 1e-4 * notional.amount());
 }
 
+#[test]
+fn ir01_fd_matches_metric_sign() {
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
+    let notional = Money::new(1_000_000.0, Currency::USD);
+
+    let disc = flat_discount("USD-OIS", as_of);
+    let infl_curve = simple_inflation_curve("US-CPI-U", 300.0);
+    let index = simple_index(as_of, 300.0, Currency::USD).with_lag(InflationLag::Months(3));
+
+    let ctx = MarketContext::new()
+        .insert_discount(disc)
+        .insert_inflation(infl_curve)
+        .insert_inflation_index("US-CPI-U", index);
+
+    let swap = InflationSwapBuilder::new()
+        .id("ZCINF-IR01")
+        .notional(notional)
+        .start(as_of)
+        .maturity(maturity)
+        .fixed_rate(0.01) // 1%
+        .inflation_id("US-CPI-U")
+        .disc_id("USD-OIS")
+        .dc(finstack_core::dates::DayCount::Act365F)
+        .side(PayReceiveInflation::PayFixed)
+        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .build()
+        .unwrap();
+
+    // Base PV
+    let pv0 = swap.value(&ctx, as_of).unwrap().amount();
+
+    // Bump discount curve by 1bp in DF space: df_bumped(t) = df(t) * exp(-bp * t)
+    let disc_base = ctx
+        .get_ref::<DiscountCurve>("USD-OIS")
+        .unwrap();
+    let base_date = disc_base.base_date();
+
+    // Build bumped curve by transforming knot dfs
+    let mut bumped_points: Vec<(F, F)> = Vec::new();
+    for &t in disc_base.knots() {
+        let df = disc_base.df(t);
+        let df_b = df * (-0.0001 * t).exp();
+        bumped_points.push((t, df_b));
+    }
+    let bumped_disc = DiscountCurve::builder("USD-OIS")
+        .base_date(base_date)
+        .knots(bumped_points)
+        .build()
+        .unwrap();
+
+    let ctx_b = ctx.clone().insert_discount(bumped_disc);
+    let pv1 = swap.value(&ctx_b, as_of).unwrap().amount();
+
+    let ir01_fd = pv1 - pv0; // per 1bp
+
+    // Metric IR01
+    let reg = finstack_valuations::metrics::standard_registry();
+    let mut mctx = finstack_valuations::metrics::MetricContext::new(&ctx, &swap, as_of, &reg);
+    let ir01 = reg
+        .get(&finstack_valuations::metrics::MetricId::custom("ir01"))
+        .unwrap()
+        .calculate(&mut mctx)
+        .unwrap();
+
+    // Directional consistency check; allow factor differences due to approximation
+    assert!(ir01.signum() == ir01_fd.signum());
+}
+
+#[test]
+fn inflation01_fd_matches_metric_direction() {
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
+    let notional = Money::new(1_000_000.0, Currency::USD);
+
+    let disc = flat_discount("USD-OIS", as_of);
+    let infl_curve = simple_inflation_curve("US-CPI-U", 300.0);
+    let index = simple_index(as_of, 300.0, Currency::USD).with_lag(InflationLag::Months(3));
+
+    let ctx = MarketContext::new()
+        .insert_discount(disc)
+        .insert_inflation(infl_curve)
+        .insert_inflation_index("US-CPI-U", index);
+
+    let swap = InflationSwapBuilder::new()
+        .id("ZCINF-INFL01")
+        .notional(notional)
+        .start(as_of)
+        .maturity(maturity)
+        .fixed_rate(0.0)
+        .inflation_id("US-CPI-U")
+        .disc_id("USD-OIS")
+        .dc(finstack_core::dates::DayCount::Act365F)
+        .side(PayReceiveInflation::PayFixed)
+        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .build()
+        .unwrap();
+
+    let pv0 = swap.value(&ctx, as_of).unwrap().amount();
+
+    // Bump inflation curve CPI levels up by 1bp multiplicatively
+    let ic = ctx
+        .get_ref::<InflationCurve>("US-CPI-U")
+        .unwrap();
+    let mut bumped_knots: Vec<(F, F)> = Vec::new();
+    for (&t, &cpi) in ic.knots().iter().zip(ic.cpi_levels().iter()) {
+        bumped_knots.push((t, cpi * 1.0001));
+    }
+    let bumped_ic = InflationCurve::builder("US-CPI-U")
+        .base_cpi(ic.base_cpi())
+        .knots(bumped_knots)
+        .build()
+        .unwrap();
+
+    let ctx_b = ctx.clone().insert_inflation(bumped_ic);
+    let pv1 = swap.value(&ctx_b, as_of).unwrap().amount();
+
+    let infl01_fd = pv1 - pv0; // per 1bp CPI level bump (approx)
+
+    // Metric Inflation01
+    let reg = finstack_valuations::metrics::standard_registry();
+    let mut mctx = finstack_valuations::metrics::MetricContext::new(&ctx, &swap, as_of, &reg);
+    let infl01 = reg
+        .get(&finstack_valuations::metrics::MetricId::custom("inflation01"))
+        .unwrap()
+        .calculate(&mut mctx)
+        .unwrap();
+
+    assert!(infl01.signum() == infl01_fd.signum());
+}
+
 
