@@ -10,5 +10,3 @@ pub use engine::{
     calculate_conversion_premium, calculate_convertible_greeks, calculate_parity,
     price_convertible_bond, ConvertibleTreeType,
 };
-
-

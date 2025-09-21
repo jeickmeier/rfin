@@ -14,5 +14,3 @@ impl MetricCalculator for IrFuturePvCalculator {
         Ok(context.base_value.amount())
     }
 }
-
-

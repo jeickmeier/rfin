@@ -178,5 +178,7 @@ impl FxOption {
 impl_instrument!(
     FxOption,
     "FxOption",
-    pv = |s, curves, as_of| crate::instruments::fx_option::pricing::FxOptionPricer::npv(s, curves, as_of)
+    pv = |s, curves, as_of| crate::instruments::fx_option::pricing::FxOptionPricer::npv(
+        s, curves, as_of
+    )
 );

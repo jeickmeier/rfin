@@ -54,5 +54,3 @@ impl MetricCalculator for ExpectedVarianceCalculator {
         Ok(realized * w + forward * (1.0 - w))
     }
 }
-
-

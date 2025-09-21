@@ -81,5 +81,3 @@ impl MetricCalculator for YtmCalculator {
         Ok(ytm)
     }
 }
-
-

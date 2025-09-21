@@ -1,10 +1,10 @@
 //! Zero-coupon Inflation Swap types and pricing implementation.
 
 use crate::instruments::common::traits::Attributes;
+use finstack_core::market_data::scalars::inflation_index::InflationLag;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::F;
-use finstack_core::market_data::scalars::inflation_index::InflationLag;
 
 /// Direction from the perspective of paying fixed real vs receiving inflation
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

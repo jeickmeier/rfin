@@ -6,14 +6,14 @@
 //! heavy numerics out of the instrument type and allows metrics to reuse
 //! consistent logic.
 
-use crate::instruments::fx_option::types::FxOption;
 use crate::instruments::common::models::{d1, d2};
+use crate::instruments::fx_option::types::FxOption;
 use crate::instruments::OptionType;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
+use finstack_core::math::solver::{HybridSolver, Solver};
 use finstack_core::money::fx::{FxConversionPolicy, FxQuery};
 use finstack_core::money::Money;
-use finstack_core::math::solver::{HybridSolver, Solver};
 use finstack_core::{Result, F};
 
 /// Configuration for the FX option pricer.
@@ -49,7 +49,12 @@ impl FxOptionPricer {
     }
 
     /// Compute present value using Garman–Kohlhagen with pricer configuration.
-    pub fn npv_with_config(&self, inst: &FxOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
+    pub fn npv_with_config(
+        &self,
+        inst: &FxOption,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<Money> {
         self.validate_currency(inst)?;
         let (spot, r_d, r_f, sigma, t) = Self::collect_inputs(inst, curves, as_of)?;
 
@@ -94,11 +99,11 @@ impl FxOptionPricer {
         let r_f = foreign_disc.zero(t);
 
         // Spot from FX matrix
-        let fx_matrix = curves.fx.as_ref().ok_or(
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+        let fx_matrix = curves.fx.as_ref().ok_or(finstack_core::Error::from(
+            finstack_core::error::InputError::NotFound {
                 id: "fx_matrix".to_string(),
-            }),
-        )?;
+            },
+        ))?;
         let spot = fx_matrix
             .rate(FxQuery {
                 from: inst.base_currency,
@@ -140,11 +145,11 @@ impl FxOptionPricer {
         let r_d = domestic_disc.zero(t);
         let r_f = foreign_disc.zero(t);
 
-        let fx_matrix = curves.fx.as_ref().ok_or(
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+        let fx_matrix = curves.fx.as_ref().ok_or(finstack_core::Error::from(
+            finstack_core::error::InputError::NotFound {
                 id: "fx_matrix".to_string(),
-            }),
-        )?;
+            },
+        ))?;
         let spot = fx_matrix
             .rate(FxQuery {
                 from: inst.base_currency,
@@ -185,7 +190,10 @@ impl FxOptionPricer {
             ));
         }
         let price = price_gk_core(spot, inst.strike, r_d, r_f, sigma, t, inst.option_type);
-        Ok(Money::new(price * inst.notional.amount(), inst.quote_currency))
+        Ok(Money::new(
+            price * inst.notional.amount(),
+            inst.quote_currency,
+        ))
     }
 
     /// Solve for implied volatility σ such that model price(σ) = target_price.
@@ -230,7 +238,9 @@ impl FxOptionPricer {
         };
         let x0 = (initial_guess.unwrap_or(sigma0.max(1e-6))).ln();
 
-        let solver = HybridSolver::new().with_tolerance(1e-10).with_max_iterations(100);
+        let solver = HybridSolver::new()
+            .with_tolerance(1e-10)
+            .with_max_iterations(100);
         let root = solver.solve(f, x0)?;
         Ok(root.exp())
     }
@@ -258,83 +268,107 @@ pub struct FxOptionGreeks {
 }
 
 /// Compute cash greeks using the same inputs as PV.
-pub fn compute_greeks(inst: &FxOption, curves: &MarketContext, as_of: Date) -> Result<FxOptionGreeks> {
+pub fn compute_greeks(
+    inst: &FxOption,
+    curves: &MarketContext,
+    as_of: Date,
+) -> Result<FxOptionGreeks> {
     FxOptionPricer::default().compute_greeks_with_config(inst, curves, as_of)
 }
 
 impl FxOptionPricer {
     /// Compute greeks with pricer configuration.
-    pub fn compute_greeks_with_config(&self, inst: &FxOption, curves: &MarketContext, as_of: Date) -> Result<FxOptionGreeks> {
+    pub fn compute_greeks_with_config(
+        &self,
+        inst: &FxOption,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<FxOptionGreeks> {
         self.validate_currency(inst)?;
         let (spot, r_d, r_f, sigma, t) = FxOptionPricer::collect_inputs(inst, curves, as_of)?;
 
-    // Expired handling
-    if t <= 0.0 {
-        let spot_gt_strike = spot > inst.strike;
+        // Expired handling
+        if t <= 0.0 {
+            let spot_gt_strike = spot > inst.strike;
+            let delta_unit = match inst.option_type {
+                crate::instruments::OptionType::Call => {
+                    if spot_gt_strike {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                crate::instruments::OptionType::Put => {
+                    if !spot_gt_strike {
+                        -1.0
+                    } else {
+                        0.0
+                    }
+                }
+            };
+            let scale = inst.notional.amount();
+            return Ok(FxOptionGreeks {
+                delta: delta_unit * scale,
+                ..Default::default()
+            });
+        }
+
+        // Continuous-carried d1/d2
+        let d1 = d1(spot, inst.strike, r_d, sigma, t, r_f);
+        let d2 = d2(spot, inst.strike, r_d, sigma, t, r_f);
+        let exp_rf_t = (-r_f * t).exp();
+        let exp_rd_t = (-r_d * t).exp();
+        let sqrt_t = t.sqrt();
+        let pdf_d1 = finstack_core::math::norm_pdf(d1);
+        let cdf_d1 = finstack_core::math::norm_cdf(d1);
+        let cdf_m_d1 = finstack_core::math::norm_cdf(-d1);
+        let cdf_d2 = finstack_core::math::norm_cdf(d2);
+        let cdf_m_d2 = finstack_core::math::norm_cdf(-d2);
+
+        // Unit greeks
         let delta_unit = match inst.option_type {
-            crate::instruments::OptionType::Call => if spot_gt_strike { 1.0 } else { 0.0 },
-            crate::instruments::OptionType::Put => if !spot_gt_strike { -1.0 } else { 0.0 },
+            crate::instruments::OptionType::Call => exp_rf_t * cdf_d1,
+            crate::instruments::OptionType::Put => -exp_rf_t * cdf_m_d1,
         };
+        let gamma_unit = if sigma <= 0.0 {
+            0.0
+        } else {
+            exp_rf_t * pdf_d1 / (spot * sigma * sqrt_t)
+        };
+        let vega_unit = spot * exp_rf_t * pdf_d1 * sqrt_t / 100.0; // per 1% vol
+        let theta_unit = match inst.option_type {
+            crate::instruments::OptionType::Call => {
+                let term1 = -spot * pdf_d1 * sigma * exp_rf_t / (2.0 * sqrt_t);
+                let term2 = r_f * spot * cdf_d1 * exp_rf_t;
+                let term3 = -r_d * inst.strike * exp_rd_t * cdf_d2;
+                (term1 + term2 + term3) / self.config.theta_days_per_year
+            }
+            crate::instruments::OptionType::Put => {
+                let term1 = -spot * pdf_d1 * sigma * exp_rf_t / (2.0 * sqrt_t);
+                let term2 = -r_f * spot * cdf_m_d1 * exp_rf_t;
+                let term3 = r_d * inst.strike * exp_rd_t * cdf_m_d2;
+                (term1 + term2 + term3) / self.config.theta_days_per_year
+            }
+        };
+        let rho_domestic_unit = match inst.option_type {
+            crate::instruments::OptionType::Call => inst.strike * t * exp_rd_t * cdf_d2 / 100.0,
+            crate::instruments::OptionType::Put => -inst.strike * t * exp_rd_t * cdf_m_d2 / 100.0,
+        };
+        let rho_foreign_unit = match inst.option_type {
+            crate::instruments::OptionType::Call => -spot * t * exp_rf_t * cdf_d1 / 100.0,
+            crate::instruments::OptionType::Put => spot * t * exp_rf_t * cdf_m_d1 / 100.0,
+        };
+
         let scale = inst.notional.amount();
-        return Ok(FxOptionGreeks {
+        Ok(FxOptionGreeks {
             delta: delta_unit * scale,
-            ..Default::default()
-        });
+            gamma: gamma_unit * scale,
+            vega: vega_unit * scale,
+            theta: theta_unit * scale,
+            rho_domestic: rho_domestic_unit * scale,
+            rho_foreign: rho_foreign_unit * scale,
+        })
     }
-
-    // Continuous-carried d1/d2
-    let d1 = d1(spot, inst.strike, r_d, sigma, t, r_f);
-    let d2 = d2(spot, inst.strike, r_d, sigma, t, r_f);
-    let exp_rf_t = (-r_f * t).exp();
-    let exp_rd_t = (-r_d * t).exp();
-    let sqrt_t = t.sqrt();
-    let pdf_d1 = finstack_core::math::norm_pdf(d1);
-    let cdf_d1 = finstack_core::math::norm_cdf(d1);
-    let cdf_m_d1 = finstack_core::math::norm_cdf(-d1);
-    let cdf_d2 = finstack_core::math::norm_cdf(d2);
-    let cdf_m_d2 = finstack_core::math::norm_cdf(-d2);
-
-    // Unit greeks
-    let delta_unit = match inst.option_type {
-        crate::instruments::OptionType::Call => exp_rf_t * cdf_d1,
-        crate::instruments::OptionType::Put => -exp_rf_t * cdf_m_d1,
-    };
-    let gamma_unit = if sigma <= 0.0 { 0.0 } else { exp_rf_t * pdf_d1 / (spot * sigma * sqrt_t) };
-    let vega_unit = spot * exp_rf_t * pdf_d1 * sqrt_t / 100.0; // per 1% vol
-    let theta_unit = match inst.option_type {
-        crate::instruments::OptionType::Call => {
-            let term1 = -spot * pdf_d1 * sigma * exp_rf_t / (2.0 * sqrt_t);
-            let term2 = r_f * spot * cdf_d1 * exp_rf_t;
-            let term3 = -r_d * inst.strike * exp_rd_t * cdf_d2;
-            (term1 + term2 + term3) / self.config.theta_days_per_year
-        }
-        crate::instruments::OptionType::Put => {
-            let term1 = -spot * pdf_d1 * sigma * exp_rf_t / (2.0 * sqrt_t);
-            let term2 = -r_f * spot * cdf_m_d1 * exp_rf_t;
-            let term3 = r_d * inst.strike * exp_rd_t * cdf_m_d2;
-            (term1 + term2 + term3) / self.config.theta_days_per_year
-        }
-    };
-    let rho_domestic_unit = match inst.option_type {
-        crate::instruments::OptionType::Call => inst.strike * t * exp_rd_t * cdf_d2 / 100.0,
-        crate::instruments::OptionType::Put => -inst.strike * t * exp_rd_t * cdf_m_d2 / 100.0,
-    };
-    let rho_foreign_unit = match inst.option_type {
-        crate::instruments::OptionType::Call => -spot * t * exp_rf_t * cdf_d1 / 100.0,
-        crate::instruments::OptionType::Put => spot * t * exp_rf_t * cdf_m_d1 / 100.0,
-    };
-
-    let scale = inst.notional.amount();
-    Ok(FxOptionGreeks {
-        delta: delta_unit * scale,
-        gamma: gamma_unit * scale,
-        vega: vega_unit * scale,
-        theta: theta_unit * scale,
-        rho_domestic: rho_domestic_unit * scale,
-        rho_foreign: rho_foreign_unit * scale,
-    })
-}
-
 }
 
 #[inline]
@@ -352,5 +386,3 @@ fn price_gk_core(spot: F, strike: F, r_d: F, r_f: F, sigma: F, t: F, option_type
         }
     }
 }
-
-

@@ -71,5 +71,3 @@ impl FxSpotPricer {
             .convert(inst.quote, as_of, &provider, policy)
     }
 }
-
-

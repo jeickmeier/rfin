@@ -17,7 +17,7 @@ impl MetricCalculator for GammaCalculator {
         Ok(greeks.gamma)
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
-
-

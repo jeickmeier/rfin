@@ -22,7 +22,8 @@ impl MetricCalculator for ZSpreadCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         // Determine dirty market value in currency
         let bond: &Bond = context.instrument_as()?;
-        let target_value_ccy: F = if let Some(clean_px) = bond.pricing_overrides.quoted_clean_price {
+        let target_value_ccy: F = if let Some(clean_px) = bond.pricing_overrides.quoted_clean_price
+        {
             // Accrued from computed metrics (currency amount)
             let accrued_ccy = context
                 .computed
@@ -45,10 +46,7 @@ impl MetricCalculator for ZSpreadCalculator {
         let as_of = context.as_of;
         let objective = |z: F| -> F {
             match crate::instruments::bond::pricing::helpers::price_from_z_spread(
-                bond,
-                &curves,
-                as_of,
-                z,
+                bond, &curves, as_of, z,
             ) {
                 Ok(pv) => pv - target_value_ccy,
                 Err(_) => 1e12 * z.signum(),
@@ -63,5 +61,3 @@ impl MetricCalculator for ZSpreadCalculator {
         Ok(z)
     }
 }
-
-

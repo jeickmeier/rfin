@@ -1,10 +1,10 @@
 //! Private markets fund investment instrument type and implementations.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
+use crate::instruments::common::traits::{Attributable, Attributes, Instrument};
 use crate::instruments::private_markets_fund::waterfall::{
     AllocationLedger, EquityWaterfallEngine, FundEvent, WaterfallSpec,
 };
-use crate::instruments::common::traits::{Attributable, Attributes, Instrument};
 use crate::metrics::MetricRegistry;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;

@@ -131,7 +131,8 @@ impl CashflowProvider for InterestRateFuture {
             return Ok(vec![]); // Already expired
         }
 
-        let settlement_pv = crate::instruments::ir_future::pricing::engine::IrFutureEngine::pv(self, curves)?;
+        let settlement_pv =
+            crate::instruments::ir_future::pricing::engine::IrFutureEngine::pv(self, curves)?;
 
         Ok(vec![(self.expiry_date, settlement_pv)])
     }

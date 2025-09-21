@@ -30,14 +30,16 @@ impl FxSwapPricer {
     /// Compute present value in quote currency.
     pub fn pv(inst: &FxSwap, curves: &MarketContext, as_of: Date) -> Result<Money> {
         // Curves
-        let domestic_disc = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                inst.domestic_disc_id,
-            )?;
-        let foreign_disc = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                inst.foreign_disc_id,
-            )?;
+        let domestic_disc =
+            curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    inst.domestic_disc_id,
+                )?;
+        let foreign_disc =
+            curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    inst.foreign_disc_id,
+                )?;
 
         // Discount factors using curve's own day-count for stability
         let df_dom_near = domestic_disc.df_on_date_curve(inst.near_date);
@@ -49,11 +51,9 @@ impl FxSwapPricer {
             Some(rate) => rate,
             None => {
                 let fx_matrix = curves.fx.as_ref().ok_or_else(|| {
-                    finstack_core::Error::from(
-                        finstack_core::error::InputError::NotFound {
-                            id: "fx_matrix".to_string(),
-                        },
-                    )
+                    finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                        id: "fx_matrix".to_string(),
+                    })
                 })?;
                 (**fx_matrix)
                     .rate(FxQuery {
@@ -91,5 +91,3 @@ impl FxSwapPricer {
         Ok(Money::new(total_pv, inst.quote_currency))
     }
 }
-
-

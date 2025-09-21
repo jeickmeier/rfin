@@ -20,7 +20,9 @@ fn fixed_leg_annuity(
     dc: finstack_core::dates::DayCount,
     schedule: &[finstack_core::dates::Date],
 ) -> F {
-    if schedule.len() < 2 { return 0.0; }
+    if schedule.len() < 2 {
+        return 0.0;
+    }
     let mut ann = 0.0;
     let mut prev = schedule[0];
     for &d in &schedule[1..] {
@@ -59,7 +61,9 @@ fn pv_fixed_from_flows(
 ) -> F {
     let mut pv = 0.0;
     for (date, amt) in flows {
-        if *date <= as_of { continue; }
+        if *date <= as_of {
+            continue;
+        }
         let df = disc.df_on_date_curve(*date);
         pv += amt.amount() * df;
     }
@@ -80,10 +84,14 @@ pub fn asw_par_with_forward(
     // Mirror the bond schedule via holder flows
     let flows = bond.build_schedule(curves, as_of)?;
     let sched = build_future_dates_from_flows(&flows, as_of);
-    if sched.len() < 2 { return Ok(0.0); }
+    if sched.len() < 2 {
+        return Ok(0.0);
+    }
 
     let ann = fixed_leg_annuity(disc, bond.dc, &sched);
-    if ann == 0.0 || bond.notional.amount() == 0.0 { return Ok(0.0); }
+    if ann == 0.0 || bond.notional.amount() == 0.0 {
+        return Ok(0.0);
+    }
 
     let f_base = fwd.base_date();
     let f_dc = fwd.day_count();
@@ -91,9 +99,15 @@ pub fn asw_par_with_forward(
     let mut pv_float = 0.0;
     let mut prev = sched[0];
     for &d in &sched[1..] {
-        let t1 = f_dc.year_fraction(f_base, prev, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
-        let t2 = f_dc.year_fraction(f_base, d, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
-        let yf = f_dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default()).unwrap_or(0.0);
+        let t1 = f_dc
+            .year_fraction(f_base, prev, finstack_core::dates::DayCountCtx::default())
+            .unwrap_or(0.0);
+        let t2 = f_dc
+            .year_fraction(f_base, d, finstack_core::dates::DayCountCtx::default())
+            .unwrap_or(0.0);
+        let yf = f_dc
+            .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
+            .unwrap_or(0.0);
         let rate = fwd.rate_period(t1, t2) + spread;
         let coupon_flt = bond.notional.amount() * rate * yf;
         let df = disc.df_on_date_curve(d);
@@ -119,19 +133,29 @@ pub fn asw_market_with_forward(
     let disc = curves.get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
     let flows = bond.build_schedule(curves, as_of)?;
     let sched = build_future_dates_from_flows(&flows, as_of);
-    if sched.len() < 2 { return Ok(0.0); }
+    if sched.len() < 2 {
+        return Ok(0.0);
+    }
     let ann = fixed_leg_annuity(disc, bond.dc, &sched);
-    if ann == 0.0 || bond.notional.amount() == 0.0 { return Ok(0.0); }
+    if ann == 0.0 || bond.notional.amount() == 0.0 {
+        return Ok(0.0);
+    }
 
     let par_asw = asw_par_with_forward(bond, curves, as_of, fwd_curve_id, float_spread_bp)?;
     let pv_fixed = pv_fixed_from_flows(disc, &flows, as_of);
     let notional = bond.notional.amount();
-    let price_pct = if let Some(dirty) = dirty_price_ccy { dirty / notional } else { 1.0 * (pv_fixed / notional) };
+    let price_pct = if let Some(dirty) = dirty_price_ccy {
+        dirty / notional
+    } else {
+        1.0 * (pv_fixed / notional)
+    };
     Ok(par_asw + (price_pct - pv_fixed / notional) / ann)
 }
 
 impl MetricCalculator for AssetSwapParCalculator {
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let bond: &Bond = context.instrument_as()?;
@@ -150,19 +174,25 @@ impl MetricCalculator for AssetSwapParCalculator {
             context.as_of,
             maturity,
         );
-        if sched.len() < 2 { return Ok(0.0); }
+        if sched.len() < 2 {
+            return Ok(0.0);
+        }
         let p0 = disc.df_on_date_curve(sched[0]);
         let pn = disc.df_on_date_curve(*sched.last().unwrap());
         let num = p0 - pn;
         let ann = fixed_leg_annuity(disc, dc, &sched);
-        if ann == 0.0 { return Ok(0.0); }
+        if ann == 0.0 {
+            return Ok(0.0);
+        }
         let par_rate = num / ann;
         Ok(coupon - par_rate)
     }
 }
 
 impl MetricCalculator for AssetSwapMarketCalculator {
-    fn dependencies(&self) -> &[MetricId] { &[MetricId::Accrued] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[MetricId::Accrued]
+    }
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let (disc_id, maturity, dc, coupon, notional_amt, quoted_clean) = {
@@ -194,7 +224,11 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         if context.cashflows.is_none() {
             let (disc_id_capture, dc_capture, built) = {
                 let b: &Bond = context.instrument_as()?;
-                (b.disc_id.clone(), b.dc, b.build_schedule(&context.curves, context.as_of)?)
+                (
+                    b.disc_id.clone(),
+                    b.dc,
+                    b.build_schedule(&context.curves, context.as_of)?,
+                )
             };
             context.cashflows = Some(built);
             context.discount_curve_id = Some(disc_id_capture);
@@ -206,7 +240,9 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         let base_date = disc.base_date();
         let mut pv_fixed = 0.0;
         for (date, amt) in flows {
-            if *date <= context.as_of { continue; }
+            if *date <= context.as_of {
+                continue;
+            }
             let p = disc.df_on_date_curve(*date);
             pv_fixed += amt.amount() * p;
         }
@@ -215,10 +251,14 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         // Forward-based is available via asw_market_with_forward helper; here we keep fallback-only
 
         // Fallback: discount-ratio
-        let sched =
-            crate::instruments::bond::pricing::schedule_helpers::build_annual_schedule(context.as_of, maturity);
+        let sched = crate::instruments::bond::pricing::schedule_helpers::build_annual_schedule(
+            context.as_of,
+            maturity,
+        );
         let ann = fixed_leg_annuity(disc, dc, &sched);
-        if ann == 0.0 || notional_amt == 0.0 { return Ok(0.0); }
+        if ann == 0.0 || notional_amt == 0.0 {
+            return Ok(0.0);
+        }
         let p0 = disc.df_on_date_curve(sched[0]);
         let pn = disc.df_on_date_curve(*sched.last().unwrap());
         let par_rate = (p0 - pn) / ann;
@@ -227,5 +267,3 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         Ok(asw_mkt)
     }
 }
-
-

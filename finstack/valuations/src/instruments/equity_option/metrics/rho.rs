@@ -17,7 +17,7 @@ impl MetricCalculator for RhoCalculator {
         Ok(greeks.rho)
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
-
-

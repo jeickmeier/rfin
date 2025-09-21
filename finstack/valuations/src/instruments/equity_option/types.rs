@@ -180,7 +180,10 @@ impl EquityOption {
             t,
             self.option_type,
         );
-        Ok(Money::new(unit_price * self.contract_size, self.strike.currency()))
+        Ok(Money::new(
+            unit_price * self.contract_size,
+            self.strike.currency(),
+        ))
     }
 
     pub fn delta(&self, spot: F, r: F, sigma: F, t: F, q: F) -> F {

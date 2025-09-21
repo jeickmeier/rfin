@@ -5,8 +5,8 @@
 
 use crate::calibration::quote::InflationQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
-use crate::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
 use crate::instruments::common::traits::Priceable;
+use crate::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::inflation_index::{InflationInterpolation, InflationLag};

@@ -14,5 +14,3 @@ impl MetricCalculator for DividendYieldCalculator {
         pricer.dividend_yield(equity, &context.curves)
     }
 }
-
-

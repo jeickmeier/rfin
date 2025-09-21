@@ -34,7 +34,9 @@ pub fn price(bond: &Bond, context: &MarketContext, as_of: Date) -> Result<Money>
         as_of
     };
     for (d, amt) in &flows {
-        if *d <= settle_date { continue; }
+        if *d <= settle_date {
+            continue;
+        }
         let df = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on_date_curve(&disc, *d);
         total = (total + (*amt * df))?;
     }

@@ -31,5 +31,3 @@ pub fn register_ir_future_metrics(registry: &mut MetricRegistry) {
             &["InterestRateFuture"],
         );
 }
-
-

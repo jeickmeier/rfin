@@ -1,12 +1,12 @@
 //! Cashflow construction for bonds (deterministic schedules only).
 
-use finstack_core::dates::{BusinessDayConvention, Date, DayCountCtx, StubKind};
-use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::adjust;
-use time::Duration;
+use finstack_core::dates::calendar::calendar_by_id;
+use finstack_core::dates::{BusinessDayConvention, Date, DayCountCtx, StubKind};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
+use time::Duration;
 
 use crate::cashflow::builder::{cf, FixedCouponSpec};
 use crate::cashflow::primitives::CFKind;
@@ -43,7 +43,9 @@ impl CashflowProvider for Bond {
             // 1) Build amortization-only schedule using builder (dedup amort logic)
             let mut b_am = cf();
             b_am.principal(self.notional, self.issue, self.maturity);
-            if let Some(am) = &self.amortization { b_am.amortization(am.clone()); }
+            if let Some(am) = &self.amortization {
+                b_am.amortization(am.clone());
+            }
             let amort_sched = b_am.build()?;
 
             // Map amortization and redemption flows from builder schedule
@@ -51,7 +53,10 @@ impl CashflowProvider for Bond {
                 .flows
                 .iter()
                 .filter_map(|cf| match cf.kind {
-                    CFKind::Amortization => Some((cf.date, Money::new(-cf.amount.amount(), cf.amount.currency()))),
+                    CFKind::Amortization => Some((
+                        cf.date,
+                        Money::new(-cf.amount.amount(), cf.amount.currency()),
+                    )),
                     CFKind::Notional if cf.amount.amount() > 0.0 => Some((cf.date, cf.amount)),
                     _ => None,
                 })
@@ -67,12 +72,17 @@ impl CashflowProvider for Bond {
                 self.calendar_id,
             );
             let periods = schedule.dates;
-            if periods.len() < 2 { return Ok(flows); }
+            if periods.len() < 2 {
+                return Ok(flows);
+            }
 
             // Prepare outstanding at end of each unique date from amortization schedule
             let out_by_date = amort_sched.outstanding_by_date();
-            let mut out_map: hashbrown::HashMap<Date, f64> = hashbrown::HashMap::with_capacity(out_by_date.len());
-            for (d, m) in out_by_date { out_map.insert(d, m.amount()); }
+            let mut out_map: hashbrown::HashMap<Date, f64> =
+                hashbrown::HashMap::with_capacity(out_by_date.len());
+            for (d, m) in out_by_date {
+                out_map.insert(d, m.amount());
+            }
 
             // 3) Compute coupons using outstanding BEFORE amortization on the period end (use previous date's outstanding)
             let f_dc = fwd.day_count();
@@ -83,17 +93,28 @@ impl CashflowProvider for Bond {
 
                 // Reset date adjusted by reset lag and calendar
                 let mut reset_date = start - Duration::days(fl.reset_lag_days as i64);
-                if let Some(id) = self.calendar_id { if let Some(cal) = calendar_by_id(id) { reset_date = adjust(reset_date, self.bdc, cal)?; } }
+                if let Some(id) = self.calendar_id {
+                    if let Some(cal) = calendar_by_id(id) {
+                        reset_date = adjust(reset_date, self.bdc, cal)?;
+                    }
+                }
 
-                let t_reset = f_dc.year_fraction(fwd.base_date(), reset_date, DayCountCtx::default()).unwrap_or(0.0);
-                let yf = self.dc.year_fraction(start, end, DayCountCtx::default()).unwrap_or(0.0);
+                let t_reset = f_dc
+                    .year_fraction(fwd.base_date(), reset_date, DayCountCtx::default())
+                    .unwrap_or(0.0);
+                let yf = self
+                    .dc
+                    .year_fraction(start, end, DayCountCtx::default())
+                    .unwrap_or(0.0);
                 if yf > 0.0 {
                     // Outstanding base is outstanding at the end of previous date (start)
                     let base_out = *out_map.get(&start).unwrap_or(&self.notional.amount());
                     let f = fwd.rate(t_reset);
                     let rate = fl.gearing * f + fl.margin_bp * 1e-4;
                     let coupon = base_out * rate * yf;
-                    if coupon != 0.0 { flows.push((end, Money::new(coupon, ccy))); }
+                    if coupon != 0.0 {
+                        flows.push((end, Money::new(coupon, ccy)));
+                    }
                 }
             }
 

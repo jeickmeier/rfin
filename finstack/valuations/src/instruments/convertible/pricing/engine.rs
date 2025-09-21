@@ -344,13 +344,14 @@ fn prepare_for_pricing(
 ) -> Result<PricingInputs> {
     let cashflow_schedule = build_convertible_schedule(bond)?;
     let underlying_id = bond.underlying_equity_id.as_ref().ok_or(Error::Internal)?;
-    let (spot, volatility, dividend_yield, risk_free_rate, time_to_maturity) = extract_equity_state(
-        market_context,
-        underlying_id,
-        bond.disc_id,
-        bond.maturity,
-        bond.notional.currency(),
-    )?;
+    let (spot, volatility, dividend_yield, risk_free_rate, time_to_maturity) =
+        extract_equity_state(
+            market_context,
+            underlying_id,
+            bond.disc_id,
+            bond.maturity,
+            bond.notional.currency(),
+        )?;
 
     Ok(PricingInputs {
         cashflow_schedule,

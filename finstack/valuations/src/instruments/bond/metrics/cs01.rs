@@ -74,5 +74,3 @@ impl MetricCalculator for Cs01Calculator {
         Ok(cs01_per100)
     }
 }
-
-

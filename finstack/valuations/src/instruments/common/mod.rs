@@ -29,13 +29,11 @@ pub mod models;
 pub use discountable::Discountable;
 pub use helpers::{build_with_metrics_dyn, validate_currency_consistency};
 pub use models::{
-    BinomialTree, ExerciseStyle, OptionType, SettlementType, TreeType,
-    SABRCalibrator, SABRModel, SABRParameters, SABRSmile,
-    d1, d2, norm_cdf, norm_pdf,
-    short_rate_keys, ShortRateModel, ShortRateTree, ShortRateTreeConfig,
-    single_factor_equity_state, state_keys, two_factor_equity_rates_state, 
-    EvolutionParams, NodeState, StateVariables, TreeBranching, TreeGreeks, 
-    TreeModel, TreeParameters, TreeValuator,
-    TrinomialTree, TrinomialTreeType, OptionMarketParams
+    d1, d2, norm_cdf, norm_pdf, short_rate_keys, single_factor_equity_state, state_keys,
+    two_factor_equity_rates_state, BinomialTree, EvolutionParams, ExerciseStyle, NodeState,
+    OptionMarketParams, OptionType, SABRCalibrator, SABRModel, SABRParameters, SABRSmile,
+    SettlementType, ShortRateModel, ShortRateTree, ShortRateTreeConfig, StateVariables,
+    TreeBranching, TreeGreeks, TreeModel, TreeParameters, TreeType, TreeValuator, TrinomialTree,
+    TrinomialTreeType,
 };
 pub use traits::{Attributable, Attributes, Instrument, Priceable};

@@ -18,19 +18,46 @@ pub struct Covenant {
 }
 
 impl Covenant {
-    pub fn new(covenant_type: CovenantType, test_frequency: finstack_core::dates::Frequency) -> Self {
-        Self { covenant_type, test_frequency, cure_period_days: Some(30), consequences: Vec::new(), is_active: true }
+    pub fn new(
+        covenant_type: CovenantType,
+        test_frequency: finstack_core::dates::Frequency,
+    ) -> Self {
+        Self {
+            covenant_type,
+            test_frequency,
+            cure_period_days: Some(30),
+            consequences: Vec::new(),
+            is_active: true,
+        }
     }
-    pub fn with_cure_period(mut self, days: Option<i32>) -> Self { self.cure_period_days = days; self }
-    pub fn with_consequence(mut self, consequence: CovenantConsequence) -> Self { self.consequences.push(consequence); self }
+    pub fn with_cure_period(mut self, days: Option<i32>) -> Self {
+        self.cure_period_days = days;
+        self
+    }
+    pub fn with_consequence(mut self, consequence: CovenantConsequence) -> Self {
+        self.consequences.push(consequence);
+        self
+    }
     pub fn description(&self) -> String {
         match &self.covenant_type {
-            CovenantType::MaxDebtToEBITDA { threshold } => format!("Debt/EBITDA ≤ {:.2}x", threshold),
-            CovenantType::MinInterestCoverage { threshold } => format!("Interest Coverage ≥ {:.2}x", threshold),
-            CovenantType::MinFixedChargeCoverage { threshold } => format!("Fixed Charge Coverage ≥ {:.2}x", threshold),
-            CovenantType::MaxTotalLeverage { threshold } => format!("Total Leverage ≤ {:.2}x", threshold),
-            CovenantType::MaxSeniorLeverage { threshold } => format!("Senior Leverage ≤ {:.2}x", threshold),
-            CovenantType::MinAssetCoverage { threshold } => format!("Asset Coverage ≥ {:.2}x", threshold),
+            CovenantType::MaxDebtToEBITDA { threshold } => {
+                format!("Debt/EBITDA ≤ {:.2}x", threshold)
+            }
+            CovenantType::MinInterestCoverage { threshold } => {
+                format!("Interest Coverage ≥ {:.2}x", threshold)
+            }
+            CovenantType::MinFixedChargeCoverage { threshold } => {
+                format!("Fixed Charge Coverage ≥ {:.2}x", threshold)
+            }
+            CovenantType::MaxTotalLeverage { threshold } => {
+                format!("Total Leverage ≤ {:.2}x", threshold)
+            }
+            CovenantType::MaxSeniorLeverage { threshold } => {
+                format!("Senior Leverage ≤ {:.2}x", threshold)
+            }
+            CovenantType::MinAssetCoverage { threshold } => {
+                format!("Asset Coverage ≥ {:.2}x", threshold)
+            }
             CovenantType::Negative { restriction } => format!("Negative: {}", restriction),
             CovenantType::Affirmative { requirement } => format!("Affirmative: {}", requirement),
             CovenantType::Custom { metric, test } => match test {
@@ -55,7 +82,10 @@ pub enum CovenantType {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub enum ThresholdTest { Maximum(F), Minimum(F) }
+pub enum ThresholdTest {
+    Maximum(F),
+    Minimum(F),
+}
 
 #[derive(Clone, Debug)]
 pub enum CovenantConsequence {

@@ -25,5 +25,3 @@ impl MetricCalculator for InverseRateCalculator {
         }
     }
 }
-
-

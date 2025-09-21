@@ -21,5 +21,3 @@ impl MetricCalculator for SpotRateCalculator {
         Ok(context.base_value.amount() / base_amt)
     }
 }
-
-

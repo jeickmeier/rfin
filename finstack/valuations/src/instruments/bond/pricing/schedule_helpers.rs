@@ -11,11 +11,12 @@ pub fn build_annual_schedule(as_of: Date, maturity: Date) -> Vec<Date> {
     let mut y = as_of.year();
     while y < maturity.year() {
         // increment by 1Y on the same day/month if possible
-        let next = Date::from_calendar_date(y + 1, as_of.month(), as_of.day())
-            .unwrap_or(maturity);
+        let next = Date::from_calendar_date(y + 1, as_of.month(), as_of.day()).unwrap_or(maturity);
         dates.push(next);
         y += 1;
-        if next >= maturity { break; }
+        if next >= maturity {
+            break;
+        }
     }
     if !dates.is_empty() && *dates.last().unwrap() < maturity {
         dates.push(maturity);

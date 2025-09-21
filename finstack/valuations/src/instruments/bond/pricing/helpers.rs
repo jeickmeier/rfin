@@ -1,18 +1,17 @@
 //! Bond pricing helpers (moved from bond/helpers.rs)
 
 use super::super::types::Bond;
-use finstack_core::dates::{BusinessDayConvention, DayCountCtx, StubKind};
-use finstack_core::market_data::MarketContext;
-use finstack_core::dates::calendar::calendar_by_id;
-use finstack_core::dates::adjust;
-use time::Duration;
-use finstack_core::F;
-use finstack_core::dates::Date;
-use finstack_core::money::Money;
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::Priceable;
+use finstack_core::dates::adjust;
+use finstack_core::dates::calendar::calendar_by_id;
+use finstack_core::dates::Date;
+use finstack_core::dates::{BusinessDayConvention, DayCountCtx, StubKind};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-
+use finstack_core::market_data::MarketContext;
+use finstack_core::money::Money;
+use finstack_core::F;
+use time::Duration;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum YieldCompounding {
@@ -147,7 +146,9 @@ pub fn price_from_ytw(
         // Truncate flows to exercise and add redemption
         let mut ex_flows: Vec<(Date, Money)> = Vec::new();
         for &(d, a) in &flows {
-            if d > as_of && d <= exercise_date { ex_flows.push((d, a)); }
+            if d > as_of && d <= exercise_date {
+                ex_flows.push((d, a));
+            }
         }
         ex_flows.push((exercise_date, redemption));
         // Solve yield that matches target dirty price, then compute price from that yield
@@ -165,7 +166,8 @@ pub fn price_from_ytw(
         )?;
         if y < best_yield {
             best_yield = y;
-            best_price = price_from_ytm_compounded(bond, &ex_flows, as_of, y, YieldCompounding::Street)?;
+            best_price =
+                price_from_ytm_compounded(bond, &ex_flows, as_of, y, YieldCompounding::Street)?;
         }
     }
     Ok(best_price)
@@ -183,8 +185,13 @@ pub fn price_from_z_spread(
     let base_date = disc.base_date();
     let mut pv = 0.0;
     for (d, a) in &flows {
-        if *d <= as_of { continue; }
-        let t = bond.dc.year_fraction(base_date, *d, DayCountCtx::default()).unwrap_or(0.0);
+        if *d <= as_of {
+            continue;
+        }
+        let t = bond
+            .dc
+            .year_fraction(base_date, *d, DayCountCtx::default())
+            .unwrap_or(0.0);
         let df = disc.df_on_date_curve(*d);
         let df_z = df * (-z * t).exp();
         pv += a.amount() * df_z;
@@ -200,10 +207,17 @@ pub fn price_from_oas(
     oas_bp: F,
 ) -> finstack_core::Result<F> {
     // Use the short-rate tree directly to price at a given OAS
-    use crate::instruments::common::models::{short_rate_keys, StateVariables, ShortRateTree, ShortRateTreeConfig, TreeModel};
     use crate::instruments::bond::pricing::tree_pricer::BondValuator;
-    let time_to_maturity = bond.dc.year_fraction(as_of, bond.maturity, DayCountCtx::default()).unwrap_or(0.0);
-    if time_to_maturity <= 0.0 { return Ok(0.0); }
+    use crate::instruments::common::models::{
+        short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
+    };
+    let time_to_maturity = bond
+        .dc
+        .year_fraction(as_of, bond.maturity, DayCountCtx::default())
+        .unwrap_or(0.0);
+    if time_to_maturity <= 0.0 {
+        return Ok(0.0);
+    }
     let discount_curve = curves.get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
     let mut short_rate_tree = ShortRateTree::new(ShortRateTreeConfig::default());
     short_rate_tree.calibrate(discount_curve, time_to_maturity)?;
@@ -225,7 +239,9 @@ fn price_from_annuity_spread(
     let disc = curves.get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
     let mut pv = 0.0;
     for (d, a) in &flows {
-        if *d <= as_of { continue; }
+        if *d <= as_of {
+            continue;
+        }
         let df = disc.df_on_date_curve(*d);
         pv += a.amount() * df;
     }
@@ -235,7 +251,10 @@ fn price_from_annuity_spread(
     let mut ann = 0.0;
     for w in dates.windows(2) {
         let (a, b) = (w[0], w[1]);
-        let alpha = bond.dc.year_fraction(a, b, DayCountCtx::default()).unwrap_or(0.0);
+        let alpha = bond
+            .dc
+            .year_fraction(a, b, DayCountCtx::default())
+            .unwrap_or(0.0);
         let p = disc.df_on_date_curve(b);
         ann += alpha * p;
     }
@@ -274,7 +293,9 @@ pub fn price_from_dm(
         return Ok(bond.value(curves, as_of)?.amount());
     }
     let mut b = bond.clone();
-    if let Some(ref mut fl) = b.float { fl.margin_bp += dm * 1e4; }
+    if let Some(ref mut fl) = b.float {
+        fl.margin_bp += dm * 1e4;
+    }
     Ok(b.value(curves, as_of)?.amount())
 }
 
@@ -378,10 +399,20 @@ pub fn compute_accrued_interest_with_context(
 
     // FRN path: approximate accrual using forward rate fixed at last reset
     let fl = bond.float.as_ref().unwrap();
-    let fwd = curves.get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(fl.fwd_id.as_str())?;
+    let fwd = curves
+        .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
+            fl.fwd_id.as_str(),
+        )?;
 
     // Build schedule with instrument conventions to locate current coupon window
-    let sched = crate::cashflow::builder::build_dates(bond.issue, bond.maturity, bond.freq, bond.stub, bond.bdc, bond.calendar_id);
+    let sched = crate::cashflow::builder::build_dates(
+        bond.issue,
+        bond.maturity,
+        bond.freq,
+        bond.stub,
+        bond.bdc,
+        bond.calendar_id,
+    );
     let dates = sched.dates;
     for w in dates.windows(2) {
         let start = w[0];

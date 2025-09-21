@@ -31,5 +31,3 @@ impl MetricCalculator for OasCalculator {
         oas_calculator.calculate_oas(bond, &market_context, context.as_of, clean_price)
     }
 }
-
-

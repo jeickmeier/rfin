@@ -31,13 +31,6 @@ test:
 
 fmt:
 	cargo fmt --all
-	@if command -v uv >/dev/null 2>&1; then \
-		if [ -f .venv/bin/activate ]; then \
-			. .venv/bin/activate && black . && ruff format .; \
-		else \
-			uv run black . && uv run ruff format .; \
-		fi \
-	fi
 
 lint:
 	cargo clippy --workspace --all-targets --all-features -- -D warnings

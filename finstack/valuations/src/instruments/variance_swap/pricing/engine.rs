@@ -58,5 +58,3 @@ pub fn price(inst: &VarianceSwap, context: &MarketContext, as_of: Date) -> Resul
     let df = disc.df(t);
     Ok(undiscounted * df)
 }
-
-

@@ -6,8 +6,8 @@
 //! structure used by `fx_option` and keeps pricing logic separate from
 //! instrument definitions.
 
-use crate::instruments::equity_option::types::EquityOption;
 use crate::instruments::common::models::{d1, d2};
+use crate::instruments::equity_option::types::EquityOption;
 use crate::instruments::OptionType;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
@@ -27,22 +27,32 @@ pub fn npv(inst: &EquityOption, curves: &MarketContext, as_of: Date) -> Result<M
             OptionType::Call => (spot - inst.strike.amount()).max(0.0),
             OptionType::Put => (inst.strike.amount() - spot).max(0.0),
         };
-        return Ok(Money::new(intrinsic * inst.contract_size, inst.strike.currency()));
+        return Ok(Money::new(
+            intrinsic * inst.contract_size,
+            inst.strike.currency(),
+        ));
     }
 
     let unit_price = price_bs_unit(spot, inst.strike.amount(), r, q, sigma, t, inst.option_type);
-    Ok(Money::new(unit_price * inst.contract_size, inst.strike.currency()))
+    Ok(Money::new(
+        unit_price * inst.contract_size,
+        inst.strike.currency(),
+    ))
 }
 
 /// Collect standard inputs (spot, risk-free, dividend yield, vol, time to expiry).
-pub fn collect_inputs(inst: &EquityOption, curves: &MarketContext, as_of: Date) -> Result<(F, F, F, F, F)> {
+pub fn collect_inputs(
+    inst: &EquityOption,
+    curves: &MarketContext,
+    as_of: Date,
+) -> Result<(F, F, F, F, F)> {
     let t = year_fraction(as_of, inst.expiry, inst.day_count)?;
 
     // Discount curve -> zero rate
     let disc_curve = curves
         .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            inst.disc_id.as_str(),
-        )?;
+        inst.disc_id.as_str(),
+    )?;
     let r = disc_curve.zero(t);
 
     // Spot from scalar id (unitless or price)
@@ -94,10 +104,14 @@ pub fn price_bs_unit(spot: F, strike: F, r: F, q: F, sigma: F, t: F, option_type
     let d1 = d1(spot, strike, r, sigma, t, q);
     let d2 = d2(spot, strike, r, sigma, t, q);
     match option_type {
-        OptionType::Call => spot * (-q * t).exp() * finstack_core::math::norm_cdf(d1)
-            - strike * (-r * t).exp() * finstack_core::math::norm_cdf(d2),
-        OptionType::Put => strike * (-r * t).exp() * finstack_core::math::norm_cdf(-d2)
-            - spot * (-q * t).exp() * finstack_core::math::norm_cdf(-d1),
+        OptionType::Call => {
+            spot * (-q * t).exp() * finstack_core::math::norm_cdf(d1)
+                - strike * (-r * t).exp() * finstack_core::math::norm_cdf(d2)
+        }
+        OptionType::Put => {
+            strike * (-r * t).exp() * finstack_core::math::norm_cdf(-d2)
+                - spot * (-q * t).exp() * finstack_core::math::norm_cdf(-d1)
+        }
     }
 }
 
@@ -112,17 +126,36 @@ pub struct EquityOptionGreeks {
 }
 
 /// Compute greeks consistent with the pricing inputs.
-pub fn compute_greeks(inst: &EquityOption, curves: &MarketContext, as_of: Date) -> Result<EquityOptionGreeks> {
+pub fn compute_greeks(
+    inst: &EquityOption,
+    curves: &MarketContext,
+    as_of: Date,
+) -> Result<EquityOptionGreeks> {
     let (spot, r, q, sigma, t) = collect_inputs(inst, curves, as_of)?;
 
     if t <= 0.0 {
         let spot_gt_strike = spot > inst.strike.amount();
         let delta_unit = match inst.option_type {
-            OptionType::Call => if spot_gt_strike { 1.0 } else { 0.0 },
-            OptionType::Put => if !spot_gt_strike { -1.0 } else { 0.0 },
+            OptionType::Call => {
+                if spot_gt_strike {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
+            OptionType::Put => {
+                if !spot_gt_strike {
+                    -1.0
+                } else {
+                    0.0
+                }
+            }
         };
         let scale = inst.contract_size;
-        return Ok(EquityOptionGreeks { delta: delta_unit * scale, ..Default::default() });
+        return Ok(EquityOptionGreeks {
+            delta: delta_unit * scale,
+            ..Default::default()
+        });
     }
 
     let d1 = d1(spot, inst.strike.amount(), r, sigma, t, q);
@@ -140,7 +173,11 @@ pub fn compute_greeks(inst: &EquityOption, curves: &MarketContext, as_of: Date) 
         OptionType::Call => exp_q_t * cdf_d1,
         OptionType::Put => -exp_q_t * cdf_m_d1,
     };
-    let gamma_unit = if sigma <= 0.0 { 0.0 } else { exp_q_t * pdf_d1 / (spot * sigma * sqrt_t) };
+    let gamma_unit = if sigma <= 0.0 {
+        0.0
+    } else {
+        exp_q_t * pdf_d1 / (spot * sigma * sqrt_t)
+    };
     let vega_unit = spot * exp_q_t * pdf_d1 * sqrt_t / ONE_PERCENT; // per 1% vol
     let theta_unit = match inst.option_type {
         OptionType::Call => {
@@ -183,13 +220,36 @@ pub struct UnitGreeks {
 
 /// Compute unit greeks from explicit inputs (no market lookups).
 #[inline]
-pub fn greeks_unit(spot: F, strike: F, r: F, q: F, sigma: F, t: F, option_type: OptionType) -> UnitGreeks {
+pub fn greeks_unit(
+    spot: F,
+    strike: F,
+    r: F,
+    q: F,
+    sigma: F,
+    t: F,
+    option_type: OptionType,
+) -> UnitGreeks {
     if t <= 0.0 {
         let delta = match option_type {
-            OptionType::Call => if spot > strike { 1.0 } else { 0.0 },
-            OptionType::Put => if spot < strike { -1.0 } else { 0.0 },
+            OptionType::Call => {
+                if spot > strike {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
+            OptionType::Put => {
+                if spot < strike {
+                    -1.0
+                } else {
+                    0.0
+                }
+            }
         };
-        return UnitGreeks { delta, ..Default::default() };
+        return UnitGreeks {
+            delta,
+            ..Default::default()
+        };
     }
 
     let d1 = d1(spot, strike, r, sigma, t, q);
@@ -207,7 +267,11 @@ pub fn greeks_unit(spot: F, strike: F, r: F, q: F, sigma: F, t: F, option_type: 
         OptionType::Call => exp_q_t * cdf_d1,
         OptionType::Put => -exp_q_t * cdf_m_d1,
     };
-    let gamma = if sigma <= 0.0 { 0.0 } else { exp_q_t * pdf_d1 / (spot * sigma * sqrt_t) };
+    let gamma = if sigma <= 0.0 {
+        0.0
+    } else {
+        exp_q_t * pdf_d1 / (spot * sigma * sqrt_t)
+    };
     let vega = spot * exp_q_t * pdf_d1 * sqrt_t / ONE_PERCENT; // per 1% vol
     let theta = match option_type {
         OptionType::Call => {
@@ -228,7 +292,11 @@ pub fn greeks_unit(spot: F, strike: F, r: F, q: F, sigma: F, t: F, option_type: 
         OptionType::Put => -strike * t * exp_r_t * cdf_m_d2 / ONE_PERCENT,
     };
 
-    UnitGreeks { delta, gamma, vega, theta, rho }
+    UnitGreeks {
+        delta,
+        gamma,
+        vega,
+        theta,
+        rho,
+    }
 }
-
-

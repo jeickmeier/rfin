@@ -3,8 +3,8 @@
 //! Computes sensitivity to a 1bp bump in the spot FX rate by revaluing with
 //! a bumped spot while respecting instrument overrides for near/far rates.
 
-use crate::instruments::fx_swap::FxSwap;
 use crate::instruments::common::traits::Priceable;
+use crate::instruments::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::fx::{FxConversionPolicy, FxQuery};
 use finstack_core::F;
@@ -20,14 +20,16 @@ impl MetricCalculator for FX01 {
 
         let original_pv = fx_swap.value(&curves, as_of)?;
 
-        let domestic_disc = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                fx_swap.domestic_disc_id,
-            )?;
-        let foreign_disc = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                fx_swap.foreign_disc_id,
-            )?;
+        let domestic_disc =
+            curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    fx_swap.domestic_disc_id,
+                )?;
+        let foreign_disc =
+            curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    fx_swap.foreign_disc_id,
+                )?;
 
         let df_dom_near = domestic_disc.df_on_date_curve(fx_swap.near_date);
         let df_dom_far = domestic_disc.df_on_date_curve(fx_swap.far_date);
@@ -70,5 +72,3 @@ impl MetricCalculator for FX01 {
         Ok(bumped_pv - original_pv.amount())
     }
 }
-
-

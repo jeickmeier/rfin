@@ -73,11 +73,10 @@ pub use crate::metrics::{RiskMeasurable, RiskReport};
 pub use common::build_with_metrics_dyn;
 
 // Backward compatibility re-exports
-pub use common::traits::{Attributes, Instrument, Priceable, Attributable};
 pub use common::discountable::Discountable;
+pub use common::traits::{Attributable, Attributes, Instrument, Priceable};
 
 // Keep direct trait access for compatibility
-pub use common::traits;
 pub use common::discountable;
 pub use common::macros;
-
+pub use common::traits;

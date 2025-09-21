@@ -3,10 +3,10 @@
 //! Splits ILB-specific metric calculators into focused files and
 //! registers them with the shared metrics framework.
 
-mod real_yield;
+mod breakeven_inflation;
 mod index_ratio;
 mod real_duration;
-mod breakeven_inflation;
+mod real_yield;
 
 pub use breakeven_inflation::BreakevenInflationCalculator;
 pub use index_ratio::IndexRatioCalculator;
@@ -40,5 +40,3 @@ pub fn register_ilb_metrics(registry: &mut MetricRegistry) {
             &["ILB"],
         );
 }
-
-

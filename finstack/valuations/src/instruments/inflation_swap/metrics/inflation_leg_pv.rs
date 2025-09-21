@@ -14,5 +14,3 @@ impl MetricCalculator for InflationLegPvCalculator {
         Ok(pv_inflation.amount())
     }
 }
-
-

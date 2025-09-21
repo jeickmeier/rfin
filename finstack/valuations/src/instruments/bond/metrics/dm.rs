@@ -1,5 +1,5 @@
-use crate::instruments::Bond;
 use crate::instruments::bond::pricing::helpers as price_helpers;
+use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::math::solver::{BrentSolver, Solver};
@@ -30,7 +30,9 @@ impl DiscountMarginCalculator {
 }
 
 impl MetricCalculator for DiscountMarginCalculator {
-    fn dependencies(&self) -> &[MetricId] { &[MetricId::Accrued] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[MetricId::Accrued]
+    }
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let bond: &Bond = context.instrument_as()?;
@@ -60,11 +62,11 @@ impl MetricCalculator for DiscountMarginCalculator {
             }
         };
 
-        let solver = BrentSolver::new().with_tolerance(1e-12).with_initial_bracket_size(Some(0.05));
+        let solver = BrentSolver::new()
+            .with_tolerance(1e-12)
+            .with_initial_bracket_size(Some(0.05));
         // Initial guess 0.0 (0 bp). DM returned in decimal (e.g., 0.01 = 100bp)
         let dm = solver.solve(objective, 0.0)?;
         Ok(dm)
     }
 }
-
-

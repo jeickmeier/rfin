@@ -9,8 +9,8 @@ use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::prelude::*;
-use finstack_core::F;
 use finstack_core::types::InstrumentId;
+use finstack_core::F;
 
 /// FX Spot instrument (1 unit of `base` priced in `quote`).
 ///
@@ -177,9 +177,9 @@ impl CashflowProvider for FxSpot {
             } else {
                 // Try market context FX matrix
                 let matrix = _curves.fx.as_ref().ok_or_else(|| {
-                    finstack_core::Error::from(
-                        finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() },
-                    )
+                    finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                        id: "fx_matrix".to_string(),
+                    })
                 })?;
                 let q = finstack_core::money::fx::FxQuery {
                     from: self.base,

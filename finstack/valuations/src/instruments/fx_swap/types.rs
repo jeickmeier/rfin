@@ -8,8 +8,8 @@
 
 use crate::instruments::common::traits::Attributes;
 use finstack_core::prelude::*;
-use finstack_core::F;
 use finstack_core::types::InstrumentId;
+use finstack_core::F;
 
 use super::parameters::FxSwapParams;
 

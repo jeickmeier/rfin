@@ -19,11 +19,12 @@ impl MetricCalculator for AccruedInterestCalculator {
             let bond: &Bond = context.instrument_as()?;
 
             // Use context-aware helper (supports FRNs); falls back to fixed/custom path
-            let accrued_amt = crate::instruments::bond::pricing::helpers::compute_accrued_interest_with_context(
-                bond,
-                &context.curves,
-                context.as_of,
-            )?;
+            let accrued_amt =
+                crate::instruments::bond::pricing::helpers::compute_accrued_interest_with_context(
+                    bond,
+                    &context.curves,
+                    context.as_of,
+                )?;
 
             // Prepare potential flows for caching (build now, assign later)
             let maybe_flows = if context.cashflows.is_none() {
@@ -48,5 +49,3 @@ impl MetricCalculator for AccruedInterestCalculator {
         Ok(accrued_amt)
     }
 }
-
-

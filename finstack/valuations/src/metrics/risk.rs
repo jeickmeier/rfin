@@ -675,9 +675,10 @@ mod tests {
         let curves = Arc::new(
             finstack_core::market_data::MarketContext::new().insert_discount(disc_for_ctx),
         );
-        let instrument: Arc<dyn crate::instruments::common::traits::Instrument> = Arc::new(DummyInstr {
-            attrs: crate::instruments::common::traits::Attributes::new(),
-        });
+        let instrument: Arc<dyn crate::instruments::common::traits::Instrument> =
+            Arc::new(DummyInstr {
+                attrs: crate::instruments::common::traits::Attributes::new(),
+            });
         let mut ctx = crate::metrics::traits::MetricContext::new(
             instrument,
             curves,

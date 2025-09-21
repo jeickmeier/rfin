@@ -10,4 +10,3 @@ pub mod pricing;
 mod types;
 
 pub use types::FxSpot;
-

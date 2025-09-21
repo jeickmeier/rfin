@@ -6,8 +6,10 @@
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::{Result, F};
 
+use crate::instruments::convertible::pricing::engine::{
+    calculate_convertible_greeks, ConvertibleTreeType,
+};
 use crate::instruments::convertible::types::ConvertibleBond;
-use crate::instruments::convertible::pricing::engine::{calculate_convertible_greeks, ConvertibleTreeType};
 
 /// Internal enum to tag the greek type
 #[derive(Clone, Copy)]
@@ -25,7 +27,9 @@ struct GreeksCalculator {
 }
 
 impl GreeksCalculator {
-    fn new(greek_type: GreekType) -> Self { Self { greek_type } }
+    fn new(greek_type: GreekType) -> Self {
+        Self { greek_type }
+    }
 }
 
 impl MetricCalculator for GreeksCalculator {
@@ -82,5 +86,3 @@ impl MetricCalculator for ThetaCalculator {
         GreeksCalculator::new(GreekType::Theta).calculate(context)
     }
 }
-
-

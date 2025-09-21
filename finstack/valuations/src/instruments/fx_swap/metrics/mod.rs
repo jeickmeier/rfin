@@ -27,7 +27,7 @@ pub fn register_fx_swap_metrics(registry: &mut MetricRegistry) {
             Arc::new(forward_points::ForwardPoints),
             &["FxSwap"],
         )
-        .register_metric(MetricId::custom("fx01"), Arc::new(fx01::FX01), &["FxSwap"]) 
+        .register_metric(MetricId::custom("fx01"), Arc::new(fx01::FX01), &["FxSwap"])
         .register_metric(
             MetricId::custom("ir01_domestic"),
             Arc::new(ir01_domestic::DomesticIR01),
@@ -39,5 +39,3 @@ pub fn register_fx_swap_metrics(registry: &mut MetricRegistry) {
             &["FxSwap"],
         );
 }
-
-

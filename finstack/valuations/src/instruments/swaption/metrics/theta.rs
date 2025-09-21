@@ -5,10 +5,10 @@
 
 use crate::instruments::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::prelude::Result;
-use finstack_core::F;
 use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::DateExt;
+use finstack_core::prelude::Result;
+use finstack_core::F;
 
 /// Theta calculator for swaptions (daily)
 pub struct ThetaCalculator;
@@ -45,8 +45,8 @@ impl MetricCalculator for ThetaCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                option.disc_id,
-            )?;
+            option.disc_id,
+        )?;
         let pricer = crate::instruments::swaption::pricing::SwaptionPricer;
         let bumped = if option.sabr_params.is_some() {
             pricer.price_sabr(option, disc, as_of_plus_1bd)?
@@ -59,7 +59,10 @@ impl MetricCalculator for ThetaCalculator {
             let vol = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
                 impl_vol
             } else {
-                context.curves.surface_ref(option.vol_id)?.value_clamped(t, option.strike_rate)
+                context
+                    .curves
+                    .surface_ref(option.vol_id)?
+                    .value_clamped(t, option.strike_rate)
             };
             pricer.price_black(option, disc, vol, as_of_plus_1bd)?
         };

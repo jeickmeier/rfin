@@ -18,5 +18,3 @@ impl MetricCalculator for RealYieldCalculator {
         ilb.real_yield(clean_price, &context.curves, context.as_of)
     }
 }
-
-

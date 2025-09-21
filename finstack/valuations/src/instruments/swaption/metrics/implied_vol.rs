@@ -7,9 +7,9 @@
 
 use crate::instruments::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use finstack_core::math::solver::{HybridSolver, Solver};
 use finstack_core::prelude::Result;
 use finstack_core::F;
-use finstack_core::math::solver::{HybridSolver, Solver};
 
 /// Implied Volatility calculator for swaptions
 pub struct ImpliedVolCalculator;
@@ -22,8 +22,8 @@ impl MetricCalculator for ImpliedVolCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                option.disc_id,
-            )?;
+            option.disc_id,
+        )?;
 
         // Time to expiry from as_of
         let pricer = crate::instruments::swaption::pricing::SwaptionPricer;
@@ -52,7 +52,9 @@ impl MetricCalculator for ImpliedVolCalculator {
             ov
         } else if let Some(sabr) = &option.sabr_params {
             let model = crate::instruments::common::models::SABRModel::new(sabr.clone());
-            model.implied_volatility(forward, option.strike_rate, t).unwrap_or(0.2)
+            model
+                .implied_volatility(forward, option.strike_rate, t)
+                .unwrap_or(0.2)
         } else {
             context
                 .curves
@@ -65,7 +67,9 @@ impl MetricCalculator for ImpliedVolCalculator {
         let x0 = (initial_sigma.max(eps)).ln();
 
         // Try hybrid solver (Newton with Brent fallback)
-        let solver = HybridSolver::new().with_tolerance(1e-10).with_max_iterations(100);
+        let solver = HybridSolver::new()
+            .with_tolerance(1e-10)
+            .with_max_iterations(100);
         let implied_x = match solver.solve(f, x0) {
             Ok(root) => root,
             Err(_) => {
@@ -74,7 +78,11 @@ impl MetricCalculator for ImpliedVolCalculator {
                 let x_hi = (3.0_f64).ln();
                 let flo = f(x_lo).abs();
                 let fhi = f(x_hi).abs();
-                if flo <= fhi { x_lo } else { x_hi }
+                if flo <= fhi {
+                    x_lo
+                } else {
+                    x_hi
+                }
             }
         };
 

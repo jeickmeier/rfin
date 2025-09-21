@@ -9,11 +9,11 @@
 //! - shares
 //! - market value
 
-mod price_per_share;
-mod shares;
-mod market_value;
 mod dividend_yield;
 mod forward_price;
+mod market_value;
+mod price_per_share;
+mod shares;
 
 use crate::metrics::MetricRegistry;
 
@@ -48,5 +48,3 @@ pub fn register_equity_metrics(registry: &mut MetricRegistry) {
         &["Equity"],
     );
 }
-
-

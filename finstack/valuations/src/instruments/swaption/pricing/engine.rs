@@ -17,15 +17,19 @@ use finstack_core::{Error, Result, F};
 /// Swaption pricing engine. Stateless wrapper.
 pub struct SwaptionPricer;
 
-impl Default for SwaptionPricer { fn default() -> Self { Self } }
+impl Default for SwaptionPricer {
+    fn default() -> Self {
+        Self
+    }
+}
 
 impl SwaptionPricer {
     /// Compute instrument NPV dispatching to SABR or Black as configured on the instrument.
     pub fn npv(&self, s: &Swaption, curves: &MarketContext, as_of: Date) -> Result<Money> {
         let disc = curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                s.disc_id,
-            )?;
+            s.disc_id,
+        )?;
         if s.sabr_params.is_some() {
             return self.price_sabr(s, disc, as_of);
         }
@@ -40,7 +44,13 @@ impl SwaptionPricer {
     }
 
     /// Black (lognormal) model PV using forward swap rate and annuity.
-    pub fn price_black(&self, s: &Swaption, disc: &dyn Discounting, volatility: F, as_of: Date) -> Result<Money> {
+    pub fn price_black(
+        &self,
+        s: &Swaption,
+        disc: &dyn Discounting,
+        volatility: F,
+        as_of: Date,
+    ) -> Result<Money> {
         let time_to_expiry = self.year_fraction(as_of, s.expiry, s.day_count)?;
         if time_to_expiry <= 0.0 {
             return Ok(Money::new(0.0, s.notional.currency()));
@@ -48,7 +58,7 @@ impl SwaptionPricer {
         let forward_rate = self.forward_swap_rate(s, disc, as_of)?;
         let annuity = self.swap_annuity(s, disc, as_of)?;
         let variance = volatility.powi(2) * time_to_expiry;
-      
+
         // Use stable handling if variance is near zero
         if variance <= 0.0 || !variance.is_finite() {
             return Ok(Money::new(0.0, s.notional.currency()));
@@ -58,13 +68,20 @@ impl SwaptionPricer {
         let d2 = d1 - sqrt_var;
         let value = match s.option_type {
             crate::instruments::OptionType::Call => {
-                annuity * (forward_rate * finstack_core::math::norm_cdf(d1) - s.strike_rate * finstack_core::math::norm_cdf(d2))
+                annuity
+                    * (forward_rate * finstack_core::math::norm_cdf(d1)
+                        - s.strike_rate * finstack_core::math::norm_cdf(d2))
             }
             crate::instruments::OptionType::Put => {
-                annuity * (s.strike_rate * finstack_core::math::norm_cdf(-d2) - forward_rate * finstack_core::math::norm_cdf(-d1))
+                annuity
+                    * (s.strike_rate * finstack_core::math::norm_cdf(-d2)
+                        - forward_rate * finstack_core::math::norm_cdf(-d1))
             }
         };
-        Ok(Money::new(value * s.notional.amount(), s.notional.currency()))
+        Ok(Money::new(
+            value * s.notional.amount(),
+            s.notional.currency(),
+        ))
     }
 
     /// SABR-implied volatility PV via Black price.
@@ -113,7 +130,12 @@ impl SwaptionPricer {
     }
 
     /// Forward par swap rate implied by discount factors and annuity.
-    pub fn forward_swap_rate(&self, s: &Swaption, disc: &dyn Discounting, as_of: Date) -> Result<F> {
+    pub fn forward_swap_rate(
+        &self,
+        s: &Swaption,
+        disc: &dyn Discounting,
+        as_of: Date,
+    ) -> Result<F> {
         let t_start = self.year_fraction(as_of, s.swap_start, s.day_count)?;
         let t_end = self.year_fraction(as_of, s.swap_end, s.day_count)?;
         let df_start = disc.df(t_start);

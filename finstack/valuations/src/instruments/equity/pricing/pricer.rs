@@ -46,9 +46,9 @@ impl EquityPricer {
                 } else {
                     // Convert via FX matrix provider
                     let matrix = curves.fx.as_ref().ok_or_else(|| {
-                        finstack_core::Error::from(
-                            finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() },
-                        )
+                        finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                            id: "fx_matrix".to_string(),
+                        })
                     })?;
 
                     struct MatrixProvider<'a> {
@@ -61,7 +61,8 @@ impl EquityPricer {
                             to: finstack_core::currency::Currency,
                             on: Date,
                             policy: finstack_core::money::fx::FxConversionPolicy,
-                        ) -> finstack_core::Result<finstack_core::money::fx::FxRate> {
+                        ) -> finstack_core::Result<finstack_core::money::fx::FxRate>
+                        {
                             let r = self.m.rate(finstack_core::money::fx::FxQuery {
                                 from,
                                 to,
@@ -75,7 +76,12 @@ impl EquityPricer {
                     }
 
                     let provider = MatrixProvider { m: matrix };
-                    m.convert(inst.currency, as_of, &provider, FxConversionPolicy::CashflowDate)
+                    m.convert(
+                        inst.currency,
+                        as_of,
+                        &provider,
+                        FxConversionPolicy::CashflowDate,
+                    )
                 }
             }
             MarketScalar::Unitless(v) => Ok(Money::new(*v, inst.currency)),
@@ -90,7 +96,10 @@ impl EquityPricer {
     /// - `as_of`: valuation date (unused currently)
     pub fn pv(&self, inst: &Equity, curves: &MarketContext, as_of: Date) -> Result<Money> {
         let px = self.price_per_share(inst, curves, as_of)?;
-        Ok(Money::new(px.amount() * inst.effective_shares(), inst.currency))
+        Ok(Money::new(
+            px.amount() * inst.effective_shares(),
+            inst.currency,
+        ))
     }
 
     /// Resolve dividend yield (annualized, decimal) for the equity.
@@ -140,8 +149,9 @@ impl EquityPricer {
         t: F,
     ) -> Result<Money> {
         let per_share = self.forward_price_per_share(inst, curves, as_of, t)?;
-        Ok(Money::new(per_share.amount() * inst.effective_shares(), inst.currency))
+        Ok(Money::new(
+            per_share.amount() * inst.effective_shares(),
+            inst.currency,
+        ))
     }
 }
-
-

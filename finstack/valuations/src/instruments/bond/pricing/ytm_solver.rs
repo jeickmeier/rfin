@@ -123,12 +123,7 @@ impl YtmSolver {
         freq: Frequency,
     ) -> F {
         super::helpers::price_from_ytm_compounded_params(
-            day_count,
-            freq,
-            cashflows,
-            as_of,
-            yield_rate,
-            comp,
+            day_count, freq, cashflows, as_of, yield_rate, comp,
         )
         .unwrap_or(0.0)
     }

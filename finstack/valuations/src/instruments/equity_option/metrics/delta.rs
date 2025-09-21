@@ -19,7 +19,7 @@ impl MetricCalculator for DeltaCalculator {
         Ok(greeks.delta)
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
-
-

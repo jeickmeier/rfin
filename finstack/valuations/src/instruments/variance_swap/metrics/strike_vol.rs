@@ -13,5 +13,3 @@ impl MetricCalculator for StrikeVolCalculator {
         Ok(swap.strike_variance.sqrt())
     }
 }
-
-

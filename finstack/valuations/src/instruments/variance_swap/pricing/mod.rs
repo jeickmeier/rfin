@@ -34,5 +34,3 @@ impl Priceable for VarianceSwap {
         build_with_metrics_dyn(self, context, as_of, base, metrics)
     }
 }
-
-

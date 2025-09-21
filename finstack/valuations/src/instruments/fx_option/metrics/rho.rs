@@ -17,7 +17,9 @@ impl MetricCalculator for RhoDomesticCalculator {
         Ok(greeks.rho_domestic)
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
 
 pub struct RhoForeignCalculator;
@@ -33,7 +35,7 @@ impl MetricCalculator for RhoForeignCalculator {
         Ok(greeks.rho_foreign)
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
-
-

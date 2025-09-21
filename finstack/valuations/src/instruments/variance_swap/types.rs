@@ -165,10 +165,13 @@ impl VarianceSwap {
                 _ => None,
             })
             .or_else(|| {
-                context.price("TRADING_DAYS_PER_YEAR").ok().and_then(|s| match s {
-                    finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
-                    _ => None,
-                })
+                context
+                    .price("TRADING_DAYS_PER_YEAR")
+                    .ok()
+                    .and_then(|s| match s {
+                        finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
+                        _ => None,
+                    })
             })
             .unwrap_or(252.0);
 

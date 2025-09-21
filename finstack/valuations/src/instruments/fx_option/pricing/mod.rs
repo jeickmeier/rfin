@@ -7,5 +7,3 @@
 pub mod engine;
 
 pub use engine::{compute_greeks, FxOptionGreeks, FxOptionPricer};
-
-

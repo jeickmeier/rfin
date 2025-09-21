@@ -18,11 +18,9 @@ impl MetricCalculator for VarianceVegaCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                swap.disc_id.as_str(),
-            )?;
+            swap.disc_id.as_str(),
+        )?;
         let df = disc.df(t);
         Ok(df * swap.notional.amount() * remaining_fraction * swap.side.sign())
     }
 }
-
-

@@ -15,5 +15,3 @@ impl MetricCalculator for MarketValueCalculator {
         Ok(m.amount() * equity.effective_shares())
     }
 }
-
-

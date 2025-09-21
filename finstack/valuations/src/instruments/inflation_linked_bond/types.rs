@@ -5,8 +5,8 @@ use crate::instruments::common::traits::Attributes;
 use finstack_core::market_data::scalars::inflation_index::{InflationIndex, InflationLag};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::F;
 use finstack_core::types::CurveId;
+use finstack_core::F;
 
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 
@@ -174,7 +174,11 @@ impl InflationLinkedBond {
     }
 
     /// Build inflation-adjusted cashflow schedule
-    pub fn build_schedule(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<DatedFlows> {
+    pub fn build_schedule(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<DatedFlows> {
         crate::instruments::inflation_linked_bond::pricing::InflationLinkedBondEngine::build_schedule(
             self,
             curves,

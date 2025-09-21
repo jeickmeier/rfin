@@ -25,15 +25,18 @@ impl MetricCalculator for ImpliedVolCalculator {
             option.expiry,
             finstack_core::dates::DayCountCtx::default(),
         )?;
-        if t <= 0.0 { return Ok(0.0); }
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
 
         // Collect inputs except vol
         let (spot, r, q, _sigma, _t) = {
-            let (spot, r, q, sigma, t) = crate::instruments::equity_option::pricing::engine::collect_inputs(
-                option,
-                &context.curves,
-                context.as_of,
-            )?;
+            let (spot, r, q, sigma, t) =
+                crate::instruments::equity_option::pricing::engine::collect_inputs(
+                    option,
+                    &context.curves,
+                    context.as_of,
+                )?;
             (spot, r, q, sigma, t)
         };
 
@@ -48,16 +51,28 @@ impl MetricCalculator for ImpliedVolCalculator {
                 },
                 Err(_) => 0.0,
             }
-        } else { 0.0 };
+        } else {
+            0.0
+        };
 
-        if market_price <= 0.0 { return Ok(0.0); }
+        if market_price <= 0.0 {
+            return Ok(0.0);
+        }
 
         // Solve for sigma using bracketed bisection with guarded Newton improvement
         let k = option.strike.amount();
         let price_at = |sigma: F| -> F {
-            if sigma <= 0.0 { return 0.0; }
+            if sigma <= 0.0 {
+                return 0.0;
+            }
             crate::instruments::equity_option::pricing::engine::price_bs_unit(
-                spot, k, r, q, sigma, t, option.option_type,
+                spot,
+                k,
+                r,
+                q,
+                sigma,
+                t,
+                option.option_type,
             ) * option.contract_size
         };
 
@@ -75,14 +90,18 @@ impl MetricCalculator for ImpliedVolCalculator {
                 f_hi = price_at(hi) - market_price;
                 tries += 1;
             }
-            if f_lo * f_hi > 0.0 { return Ok(0.0); }
+            if f_lo * f_hi > 0.0 {
+                return Ok(0.0);
+            }
         }
 
         let mut mid = 0.5 * (lo + hi);
         for _ in 0..max_iter {
             mid = 0.5 * (lo + hi);
             let f_mid = price_at(mid) - market_price;
-            if f_mid.abs() < tol || (hi - lo) < tol { return Ok(mid); }
+            if f_mid.abs() < tol || (hi - lo) < tol {
+                return Ok(mid);
+            }
 
             // Guarded Newton step using closed-form vega
             let vega_per_1pct = {
@@ -97,18 +116,28 @@ impl MetricCalculator for ImpliedVolCalculator {
                 if newton.is_finite() && newton > lo && newton < hi {
                     mid = newton;
                     let f_new = price_at(mid) - market_price;
-                    if f_lo * f_new <= 0.0 { hi = mid; } else { lo = mid; f_lo = f_new; }
+                    if f_lo * f_new <= 0.0 {
+                        hi = mid;
+                    } else {
+                        lo = mid;
+                        f_lo = f_new;
+                    }
                     continue;
                 }
             }
 
-            if f_lo * f_mid <= 0.0 { hi = mid; } else { lo = mid; f_lo = f_mid; }
+            if f_lo * f_mid <= 0.0 {
+                hi = mid;
+            } else {
+                lo = mid;
+                f_lo = f_mid;
+            }
         }
 
         Ok(mid)
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
-
-

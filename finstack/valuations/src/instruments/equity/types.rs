@@ -166,5 +166,3 @@ mod tests {
         assert_eq!(result.measures.get("equity_market_value"), Some(&10_000.0));
     }
 }
-
-

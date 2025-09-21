@@ -17,7 +17,7 @@ impl MetricCalculator for VegaCalculator {
         Ok(greeks.vega)
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
-
-

@@ -16,7 +16,11 @@ impl MetricCalculator for YtwCalculator {
         } else {
             let (disc_id, dc, built) = {
                 let bond: &Bond = context.instrument_as()?;
-                (bond.disc_id.clone(), bond.dc, bond.build_schedule(&context.curves, context.as_of)?)
+                (
+                    bond.disc_id.clone(),
+                    bond.dc,
+                    bond.build_schedule(&context.curves, context.as_of)?,
+                )
             };
             context.cashflows = Some(built);
             context.discount_curve_id = Some(disc_id);
@@ -108,5 +112,3 @@ impl YtwCalculator {
         )
     }
 }
-
-

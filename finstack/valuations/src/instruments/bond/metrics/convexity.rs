@@ -69,5 +69,3 @@ impl MetricCalculator for ConvexityCalculator {
         Ok((p_up + p_dn - 2.0 * p0) / (p0 * dy * dy))
     }
 }
-
-

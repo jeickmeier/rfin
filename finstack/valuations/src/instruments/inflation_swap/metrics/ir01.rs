@@ -12,9 +12,11 @@ impl MetricCalculator for Ir01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let s: &InflationSwap = context.instrument_as()?;
 
-        let disc = context.curves.get_ref::<
-            finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
-        >(s.disc_id)?;
+        let disc = context
+            .curves
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            s.disc_id,
+        )?;
         let base = disc.base_date();
 
         let t_maturity = DayCount::Act365F
@@ -43,5 +45,3 @@ impl MetricCalculator for Ir01Calculator {
         Ok(ir01)
     }
 }
-
-

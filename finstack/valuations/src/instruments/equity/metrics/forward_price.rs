@@ -30,5 +30,3 @@ impl MetricCalculator for ForwardPricePerShareCalculator {
         Ok(money.amount())
     }
 }
-
-

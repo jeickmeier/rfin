@@ -101,5 +101,3 @@ impl IrFutureEngine {
         Ok(Money::new(pv_total, fut.notional.currency()))
     }
 }
-
-

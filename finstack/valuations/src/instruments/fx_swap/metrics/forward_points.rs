@@ -19,14 +19,16 @@ impl MetricCalculator for ForwardPoints {
         let curves = context.curves.clone();
         let as_of = context.as_of;
 
-        let domestic_disc = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                fx_swap.domestic_disc_id,
-            )?;
-        let foreign_disc = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                fx_swap.foreign_disc_id,
-            )?;
+        let domestic_disc =
+            curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    fx_swap.domestic_disc_id,
+                )?;
+        let foreign_disc =
+            curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    fx_swap.foreign_disc_id,
+                )?;
 
         // Use curve-consistent discount factors on dates
         let df_dom_far = domestic_disc.df_on_date_curve(fx_swap.far_date);
@@ -37,11 +39,9 @@ impl MetricCalculator for ForwardPoints {
             Some(rate) => rate,
             None => {
                 let fx_matrix = curves.fx.as_ref().ok_or_else(|| {
-                    finstack_core::Error::from(
-                        finstack_core::error::InputError::NotFound {
-                            id: "fx_matrix".to_string(),
-                        },
-                    )
+                    finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                        id: "fx_matrix".to_string(),
+                    })
                 })?;
                 (**fx_matrix)
                     .rate(FxQuery {
@@ -65,5 +65,3 @@ impl MetricCalculator for ForwardPoints {
         Ok(far_rate - near_rate)
     }
 }
-
-

@@ -15,5 +15,3 @@ impl MetricCalculator for BaseAmountCalculator {
         Ok(fx.effective_notional().amount())
     }
 }
-
-

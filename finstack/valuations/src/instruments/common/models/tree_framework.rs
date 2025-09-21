@@ -372,8 +372,12 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                 let time_t = inputs.time_to_maturity;
                 node_vars.insert(state_keys::SPOT, terminal_spot);
 
-                let terminal_state =
-                    NodeState::new(inputs.steps, time_t, node_vars.clone(), inputs.market_context);
+                let terminal_state = NodeState::new(
+                    inputs.steps,
+                    time_t,
+                    node_vars.clone(),
+                    inputs.market_context,
+                );
                 let payoff = inputs.valuator.value_at_maturity(&terminal_state)?;
                 values.push(payoff);
                 terminal_spot *= spot_multiplier;
@@ -389,7 +393,8 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
 
                     let time_t = step as F * dt;
                     node_vars.insert(state_keys::SPOT, spot_t);
-                    let node_state = NodeState::new(step, time_t, node_vars.clone(), inputs.market_context);
+                    let node_state =
+                        NodeState::new(step, time_t, node_vars.clone(), inputs.market_context);
 
                     values[i] = inputs.valuator.value_at_node(&node_state, continuation)?;
                     spot_t *= spot_multiplier;
@@ -424,8 +429,12 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
 
                     node_vars.insert(state_keys::SPOT, spot_t);
 
-                    let terminal_state =
-                        NodeState::new(inputs.steps, time_t, node_vars.clone(), inputs.market_context);
+                    let terminal_state = NodeState::new(
+                        inputs.steps,
+                        time_t,
+                        node_vars.clone(),
+                        inputs.market_context,
+                    );
                     let payoff = inputs.valuator.value_at_maturity(&terminal_state)?;
                     values[inputs.steps][j] = payoff;
                 }
@@ -452,7 +461,8 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                             + inputs.prob_down * values[step + 1][down_idx]);
 
                     node_vars.insert(state_keys::SPOT, spot_t);
-                    let node_state = NodeState::new(step, time_t, node_vars.clone(), inputs.market_context);
+                    let node_state =
+                        NodeState::new(step, time_t, node_vars.clone(), inputs.market_context);
                     values[step][j] = inputs.valuator.value_at_node(&node_state, continuation)?;
                 }
             }

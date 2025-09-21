@@ -13,8 +13,8 @@
 
 mod breakeven;
 mod fixed_leg_pv;
-mod inflation_leg_pv;
 mod inflation01;
+mod inflation_leg_pv;
 mod ir01;
 
 use crate::metrics::MetricRegistry;
@@ -51,5 +51,3 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
             &["InflationSwap"],
         );
 }
-
-

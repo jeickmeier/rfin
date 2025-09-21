@@ -159,11 +159,7 @@ impl BondValuator {
 impl TreeValuator for BondValuator {
     fn value_at_maturity(&self, _state: &NodeState) -> Result<F> {
         let final_step = self.time_steps.len() - 1;
-        let cashflow = self
-            .coupon_map
-            .get(&final_step)
-            .copied()
-            .unwrap_or(0.0);
+        let cashflow = self.coupon_map.get(&final_step).copied().unwrap_or(0.0);
         Ok(cashflow)
     }
 

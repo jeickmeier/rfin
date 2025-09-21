@@ -14,5 +14,3 @@ impl MetricCalculator for FixedLegPvCalculator {
         Ok(pv_fixed.amount())
     }
 }
-
-

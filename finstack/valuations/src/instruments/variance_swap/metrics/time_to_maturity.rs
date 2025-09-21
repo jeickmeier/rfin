@@ -16,10 +16,7 @@ impl MetricCalculator for TimeToMaturityCalculator {
             return Ok(0.0);
         }
 
-        swap
-            .day_count
+        swap.day_count
             .year_fraction(as_of, swap.maturity, Default::default())
     }
 }
-
-

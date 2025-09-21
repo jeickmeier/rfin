@@ -6,8 +6,8 @@
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::{Result, F};
 
-use crate::instruments::convertible::types::ConvertibleBond;
 use crate::instruments::convertible::pricing::engine::calculate_parity;
+use crate::instruments::convertible::types::ConvertibleBond;
 
 /// Calculator for convertible bond parity.
 pub struct ParityCalculator;
@@ -30,5 +30,3 @@ impl MetricCalculator for ParityCalculator {
         Ok(calculate_parity(bond, spot))
     }
 }
-
-

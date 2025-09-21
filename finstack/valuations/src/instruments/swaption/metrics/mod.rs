@@ -6,17 +6,17 @@
 
 mod delta;
 mod gamma;
-mod vega;
-mod theta;
-mod rho;
 mod implied_vol;
+mod rho;
+mod theta;
+mod vega;
 
 pub use delta::DeltaCalculator;
 pub use gamma::GammaCalculator;
-pub use vega::VegaCalculator;
-pub use theta::ThetaCalculator;
-pub use rho::RhoCalculator;
 pub use implied_vol::ImpliedVolCalculator;
+pub use rho::RhoCalculator;
+pub use theta::ThetaCalculator;
+pub use vega::VegaCalculator;
 
 use crate::metrics::{MetricId, MetricRegistry};
 use finstack_core::F;
@@ -29,7 +29,11 @@ pub fn register_swaption_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(MetricId::Vega, Arc::new(VegaCalculator), &["Swaption"]);
     registry.register_metric(MetricId::Theta, Arc::new(ThetaCalculator), &["Swaption"]);
     registry.register_metric(MetricId::Rho, Arc::new(RhoCalculator), &["Swaption"]);
-    registry.register_metric(MetricId::ImpliedVol, Arc::new(ImpliedVolCalculator), &["Swaption"]);
+    registry.register_metric(
+        MetricId::ImpliedVol,
+        Arc::new(ImpliedVolCalculator),
+        &["Swaption"],
+    );
 }
 
 /// Swaption metrics configuration constants.

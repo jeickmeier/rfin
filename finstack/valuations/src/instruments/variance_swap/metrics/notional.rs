@@ -13,5 +13,3 @@ impl MetricCalculator for VarianceNotionalCalculator {
         Ok(swap.notional.amount())
     }
 }
-
-

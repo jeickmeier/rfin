@@ -30,14 +30,18 @@ impl MetricCalculator for ISpreadCalculator {
             })?;
 
         // Use the bond's discount curve as proxy for swap discounting (OIS collateral)
-        let disc = context.curves.get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
+        let disc = context
+            .curves
+            .get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
 
         // Build simple annual schedule from as_of to maturity for par rate approximation
         let dates = crate::instruments::bond::pricing::schedule_helpers::build_annual_schedule(
             context.as_of,
             bond.maturity,
         );
-        if dates.len() < 2 { return Ok(0.0); }
+        if dates.len() < 2 {
+            return Ok(0.0);
+        }
 
         // Par rate approx: (P(0,T0) - P(0,Tn)) / Sum alpha_i P(0,Ti)
         let p0 = disc.df_on_date_curve(dates[0]);
@@ -52,11 +56,11 @@ impl MetricCalculator for ISpreadCalculator {
             let p = disc.df_on_date_curve(b);
             den += alpha * p;
         }
-        if den == 0.0 { return Ok(0.0); }
+        if den == 0.0 {
+            return Ok(0.0);
+        }
         let par_swap_rate = num / den;
 
         Ok(ytm - par_swap_rate)
     }
 }
-
-

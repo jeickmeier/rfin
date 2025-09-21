@@ -15,5 +15,3 @@ impl MetricCalculator for PricePerShareCalculator {
         Ok(m.amount())
     }
 }
-
-

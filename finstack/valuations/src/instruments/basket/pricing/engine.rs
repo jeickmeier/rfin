@@ -224,18 +224,23 @@ impl BasketPricer {
             ValueMode::PerShare { shares } => {
                 // Resolve price then allocate per share
                 let raw_value = match &constituent.reference {
-                    ConstituentReference::Instrument(instrument) => instrument.value_dyn(context, as_of)?,
+                    ConstituentReference::Instrument(instrument) => {
+                        instrument.value_dyn(context, as_of)?
+                    }
                     ConstituentReference::MarketData { price_id, .. } => {
                         let scalar = context.price(price_id)?;
                         match scalar {
-                            finstack_core::market_data::scalars::MarketScalar::Price(money) => *money,
+                            finstack_core::market_data::scalars::MarketScalar::Price(money) => {
+                                *money
+                            }
                             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => {
                                 Money::new(*v, basket.currency)
                             }
                         }
                     }
                 };
-                let base_value = self.to_basket_currency(raw_value, basket.currency, context, as_of)?;
+                let base_value =
+                    self.to_basket_currency(raw_value, basket.currency, context, as_of)?;
                 if let Some(units) = constituent.units {
                     let s = shares.ok_or(finstack_core::Error::Input(
                         finstack_core::error::InputError::Invalid,
@@ -254,36 +259,46 @@ impl BasketPricer {
                 if let Some(units) = constituent.units {
                     // Price × units (convert to basket currency first)
                     let raw_value = match &constituent.reference {
-                        ConstituentReference::Instrument(instrument) => instrument.value_dyn(context, as_of)?,
+                        ConstituentReference::Instrument(instrument) => {
+                            instrument.value_dyn(context, as_of)?
+                        }
                         ConstituentReference::MarketData { price_id, .. } => {
                             let scalar = context.price(price_id)?;
                             match scalar {
-                                finstack_core::market_data::scalars::MarketScalar::Price(money) => *money,
+                                finstack_core::market_data::scalars::MarketScalar::Price(money) => {
+                                    *money
+                                }
                                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => {
                                     Money::new(*v, basket.currency)
                                 }
                             }
                         }
                     };
-                    let base_value = self.to_basket_currency(raw_value, basket.currency, context, as_of)?;
+                    let base_value =
+                        self.to_basket_currency(raw_value, basket.currency, context, as_of)?;
                     base_value * units
                 } else if let Some(a) = aum {
                     Money::new(a * constituent.weight, basket.currency)
                 } else if let Some(s) = shares {
                     // Weight-only contribution scaled by shares × price
                     let raw_value = match &constituent.reference {
-                        ConstituentReference::Instrument(instrument) => instrument.value_dyn(context, as_of)?,
+                        ConstituentReference::Instrument(instrument) => {
+                            instrument.value_dyn(context, as_of)?
+                        }
                         ConstituentReference::MarketData { price_id, .. } => {
                             let scalar = context.price(price_id)?;
                             match scalar {
-                                finstack_core::market_data::scalars::MarketScalar::Price(money) => *money,
+                                finstack_core::market_data::scalars::MarketScalar::Price(money) => {
+                                    *money
+                                }
                                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => {
                                     Money::new(*v, basket.currency)
                                 }
                             }
                         }
                     };
-                    let base_value = self.to_basket_currency(raw_value, basket.currency, context, as_of)?;
+                    let base_value =
+                        self.to_basket_currency(raw_value, basket.currency, context, as_of)?;
                     base_value * constituent.weight * s
                 } else {
                     return Err(finstack_core::Error::Input(
@@ -429,7 +444,10 @@ mod tests {
 
         let ctx = ctx_with_prices(
             &[
-                ("AAPL", MarketScalar::Price(Money::new(100.0, Currency::USD))),
+                (
+                    "AAPL",
+                    MarketScalar::Price(Money::new(100.0, Currency::USD)),
+                ),
                 ("MSFT", MarketScalar::Price(Money::new(50.0, Currency::USD))),
             ],
             false,
@@ -467,7 +485,13 @@ mod tests {
             attributes: Attributes::new(),
         };
 
-        let ctx = ctx_with_prices(&[("XPRICE", MarketScalar::Price(Money::new(200.0, Currency::USD)))], false);
+        let ctx = ctx_with_prices(
+            &[(
+                "XPRICE",
+                MarketScalar::Price(Money::new(200.0, Currency::USD)),
+            )],
+            false,
+        );
         let res = BasketPricer::new().nav(&basket, &ctx, as_of);
         assert!(res.is_err());
     }
@@ -499,7 +523,10 @@ mod tests {
             attributes: Attributes::new(),
         };
 
-        let ctx = ctx_with_prices(&[("PX", MarketScalar::Price(Money::new(200.0, Currency::USD)))], false);
+        let ctx = ctx_with_prices(
+            &[("PX", MarketScalar::Price(Money::new(200.0, Currency::USD)))],
+            false,
+        );
         let nav = BasketPricer::new().nav(&basket, &ctx, as_of).unwrap();
         // 200 * 10 / 100 = 20
         assert!((nav.amount() - 20.0).abs() < 1e-12);
@@ -551,7 +578,9 @@ mod tests {
             ],
             false,
         );
-        let total = BasketPricer::new().basket_value(&basket, &ctx, as_of).unwrap();
+        let total = BasketPricer::new()
+            .basket_value(&basket, &ctx, as_of)
+            .unwrap();
         // Weight-only total: 100 * 0.7 * 1000 = 70,000; Units total: 50 * 20 = 1,000; Sum = 71,000
         assert!((total.amount() - 71_000.0).abs() < 1e-9);
     }
@@ -604,7 +633,9 @@ mod tests {
         let expected = gross - expected_drag;
         eprintln!(
             "debug basket_value_with_aum: total={} expected={} drag={}",
-            total.amount(), expected, expected_drag
+            total.amount(),
+            expected,
+            expected_drag
         );
         assert!((total.amount() - expected).abs() < 1e-2);
     }
@@ -637,7 +668,10 @@ mod tests {
         };
 
         let ctx = ctx_with_prices(
-            &[("EURSEC", MarketScalar::Price(Money::new(100.0, Currency::EUR)))],
+            &[(
+                "EURSEC",
+                MarketScalar::Price(Money::new(100.0, Currency::EUR)),
+            )],
             true,
         );
         let nav = BasketPricer::new().nav(&basket, &ctx, as_of).unwrap();
@@ -709,7 +743,13 @@ mod tests {
             attributes: Attributes::new(),
         };
         // Constant price -> zero basket returns
-        let ctx = ctx_with_prices(&[("SPOT", MarketScalar::Price(Money::new(100.0, Currency::USD)))], false);
+        let ctx = ctx_with_prices(
+            &[(
+                "SPOT",
+                MarketScalar::Price(Money::new(100.0, Currency::USD)),
+            )],
+            false,
+        );
         let bench = vec![(dates[0], 0.01), (dates[1], -0.005), (dates[2], 0.0)];
         let te = BasketPricer::new()
             .tracking_error(&basket, &ctx, &bench, dates[2])

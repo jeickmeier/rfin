@@ -34,8 +34,8 @@ impl MetricCalculator for VegaCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                swap.disc_id.as_str(),
-            )?;
+            swap.disc_id.as_str(),
+        )?;
         let df = disc.df(t);
 
         // Vega per 1% vol move: DF * 2 * Notional * sigma * 0.01 * remaining_fraction
@@ -43,5 +43,3 @@ impl MetricCalculator for VegaCalculator {
         Ok(vega * swap.side.sign())
     }
 }
-
-

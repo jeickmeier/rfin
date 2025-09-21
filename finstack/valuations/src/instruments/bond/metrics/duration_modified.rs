@@ -40,5 +40,3 @@ impl MetricCalculator for ModifiedDurationCalculator {
         Ok(d_mac / (1.0 + ytm / m))
     }
 }
-
-

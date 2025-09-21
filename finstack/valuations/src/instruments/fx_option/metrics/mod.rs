@@ -58,5 +58,3 @@ pub fn register_fx_option_metrics(registry: &mut MetricRegistry) {
         &["FxOption"],
     );
 }
-
-

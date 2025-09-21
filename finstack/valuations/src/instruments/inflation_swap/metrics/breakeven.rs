@@ -24,9 +24,12 @@ impl MetricCalculator for BreakevenCalculator {
                 })
             })?;
 
-        let inflation_curve = context.curves.get_ref::<
-            finstack_core::market_data::term_structures::inflation::InflationCurve,
-        >(s.inflation_id)?;
+        let inflation_curve =
+            context
+                .curves
+                .get_ref::<finstack_core::market_data::term_structures::inflation::InflationCurve>(
+                    s.inflation_id,
+                )?;
 
         let i_start = inflation_index.value_on(s.start)?;
 
@@ -34,8 +37,8 @@ impl MetricCalculator for BreakevenCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                s.disc_id,
-            )?;
+            s.disc_id,
+        )?;
         let base = disc.base_date();
 
         let lag_policy = s.lag_override.unwrap_or(inflation_index.lag());
@@ -75,5 +78,3 @@ impl MetricCalculator for BreakevenCalculator {
         Ok(breakeven)
     }
 }
-
-

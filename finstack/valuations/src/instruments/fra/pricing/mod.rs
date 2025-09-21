@@ -6,9 +6,9 @@
 
 pub mod engine;
 
-use crate::instruments::fra::types::ForwardRateAgreement;
 use crate::instruments::common::helpers::build_with_metrics_dyn;
 use crate::instruments::common::traits::Priceable;
+use crate::instruments::fra::types::ForwardRateAgreement;
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;

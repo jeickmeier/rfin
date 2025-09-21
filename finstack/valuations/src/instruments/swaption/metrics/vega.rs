@@ -18,8 +18,8 @@ impl MetricCalculator for VegaCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                option.disc_id,
-            )?;
+            option.disc_id,
+        )?;
         let pricer = crate::instruments::swaption::pricing::SwaptionPricer;
         let t = pricer.year_fraction(context.as_of, option.expiry, option.day_count)?;
 
@@ -49,10 +49,8 @@ impl MetricCalculator for VegaCalculator {
             0.0
         };
 
-        let vega = forward
-            * finstack_core::math::norm_pdf(d1)
-            * t.sqrt()
-            / super::config::VOL_PCT_SCALE;
+        let vega =
+            forward * finstack_core::math::norm_pdf(d1) * t.sqrt() / super::config::VOL_PCT_SCALE;
         // Scale by notional and annuity for cash vega
         Ok(vega * option.notional.amount() * annuity)
     }

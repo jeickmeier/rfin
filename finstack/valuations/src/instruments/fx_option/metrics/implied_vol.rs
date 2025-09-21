@@ -19,7 +19,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         pricer.implied_vol(option, &context.curves, context.as_of, target, None)
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
-
-

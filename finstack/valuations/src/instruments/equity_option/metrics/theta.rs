@@ -17,7 +17,7 @@ impl MetricCalculator for ThetaCalculator {
         Ok(greeks.theta)
     }
 
-    fn dependencies(&self) -> &[MetricId] { &[] }
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
 }
-
-

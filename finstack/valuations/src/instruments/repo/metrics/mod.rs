@@ -82,8 +82,8 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::repo::{CollateralSpec, Repo};
     use crate::instruments::common::traits::Priceable;
+    use crate::instruments::repo::{CollateralSpec, Repo};
     use crate::metrics::{MetricCalculator, MetricContext};
     use finstack_core::currency::Currency;
     use finstack_core::market_data::scalars::MarketScalar;

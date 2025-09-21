@@ -32,8 +32,8 @@ impl InflationSwapPricer {
     ) -> finstack_core::Result<Money> {
         let disc = curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                s.disc_id,
-            )?;
+            s.disc_id,
+        )?;
         let base = disc.base_date();
 
         let tau_accrual = s.dc.year_fraction(
@@ -65,23 +65,21 @@ impl InflationSwapPricer {
     ) -> finstack_core::Result<Money> {
         let disc = curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                s.disc_id,
-            )?;
+            s.disc_id,
+        )?;
         let base = disc.base_date();
 
-        let inflation_index = curves
-            .inflation_index_ref(s.inflation_id)
-            .ok_or_else(|| {
-                finstack_core::Error::from(
-                    finstack_core::error::InputError::NotFound {
-                        id: "inflation_index".to_string(),
-                    },
-                )
-            })?;
+        let inflation_index = curves.inflation_index_ref(s.inflation_id).ok_or_else(|| {
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "inflation_index".to_string(),
+            })
+        })?;
 
-        let inflation_curve = curves.get_ref::<
-            finstack_core::market_data::term_structures::inflation::InflationCurve,
-        >(s.inflation_id)?;
+        let inflation_curve =
+            curves
+                .get_ref::<finstack_core::market_data::term_structures::inflation::InflationCurve>(
+                    s.inflation_id,
+                )?;
 
         let i_start = inflation_index.value_on(s.start)?;
 
@@ -123,5 +121,3 @@ impl InflationSwapPricer {
         Ok(inflation_payment * df)
     }
 }
-
-

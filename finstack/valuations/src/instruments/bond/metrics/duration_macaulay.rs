@@ -76,5 +76,3 @@ impl MetricCalculator for MacaulayDurationCalculator {
         Ok(weighted_time / price)
     }
 }
-
-

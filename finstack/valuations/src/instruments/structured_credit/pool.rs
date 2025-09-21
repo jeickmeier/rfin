@@ -669,5 +669,4 @@ mod tests {
     //     let result = pool.check_concentration_limits();
     //     assert!(result.has_violations());
     // }
-
 }

@@ -13,5 +13,3 @@ impl MetricCalculator for RealDurationCalculator {
         ilb.real_duration(&context.curves, context.as_of)
     }
 }
-
-

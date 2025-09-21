@@ -5,8 +5,8 @@
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::{Result, F};
 
-use crate::instruments::convertible::types::ConvertibleBond;
 use crate::instruments::convertible::pricing::engine::calculate_conversion_premium;
+use crate::instruments::convertible::types::ConvertibleBond;
 
 /// Calculator for conversion premium.
 pub struct ConversionPremiumCalculator;
@@ -39,8 +39,10 @@ impl MetricCalculator for ConversionPremiumCalculator {
             return Err(finstack_core::Error::Internal);
         };
 
-        Ok(calculate_conversion_premium(bond_price, spot, conversion_ratio))
+        Ok(calculate_conversion_premium(
+            bond_price,
+            spot,
+            conversion_ratio,
+        ))
     }
 }
-
-

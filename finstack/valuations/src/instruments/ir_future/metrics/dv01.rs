@@ -42,5 +42,3 @@ impl MetricCalculator for IrFutureDv01Calculator {
         Ok(sign * contracts_scale * dv01_per_contract)
     }
 }
-
-

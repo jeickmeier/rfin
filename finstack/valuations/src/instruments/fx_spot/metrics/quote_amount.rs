@@ -13,5 +13,3 @@ impl MetricCalculator for QuoteAmountCalculator {
         Ok(context.base_value.amount())
     }
 }
-
-

@@ -1,32 +1,32 @@
 //! Bond-specific metric calculators split into per-metric modules.
 
 pub mod accrued;
+pub mod asw;
 pub mod convexity;
 pub mod cs01;
+pub mod dm;
 pub mod duration_macaulay;
 pub mod duration_modified;
 pub mod i_spread;
-pub mod dm;
-pub mod asw;
 pub mod oas;
 pub mod prices;
-pub mod z_spread;
 pub mod ytm;
 pub mod ytw;
+pub mod z_spread;
 
 pub use accrued::AccruedInterestCalculator;
+pub use asw::{AssetSwapMarketCalculator, AssetSwapParCalculator};
 pub use convexity::ConvexityCalculator;
 pub use cs01::Cs01Calculator;
+pub use dm::DiscountMarginCalculator;
 pub use duration_macaulay::MacaulayDurationCalculator;
 pub use duration_modified::ModifiedDurationCalculator;
 pub use i_spread::ISpreadCalculator;
-pub use dm::DiscountMarginCalculator;
-pub use asw::{AssetSwapParCalculator, AssetSwapMarketCalculator};
 pub use oas::OasCalculator;
 pub use prices::{CleanPriceCalculator, DirtyPriceCalculator};
-pub use z_spread::ZSpreadCalculator;
 pub use ytm::YtmCalculator;
 pub use ytw::YtwCalculator;
+pub use z_spread::ZSpreadCalculator;
 
 /// Registers all bond metrics to a registry.
 pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
@@ -69,10 +69,20 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
         .register_metric(MetricId::Oas, Arc::new(OasCalculator), &["Bond"])
         .register_metric(MetricId::ZSpread, Arc::new(ZSpreadCalculator), &["Bond"])
         .register_metric(MetricId::ISpread, Arc::new(ISpreadCalculator), &["Bond"])
-        .register_metric(MetricId::DiscountMargin, Arc::new(DiscountMarginCalculator), &["Bond"])
-        .register_metric(MetricId::ASWPar, Arc::new(AssetSwapParCalculator), &["Bond"])
-        .register_metric(MetricId::ASWMarket, Arc::new(AssetSwapMarketCalculator), &["Bond"])
+        .register_metric(
+            MetricId::DiscountMargin,
+            Arc::new(DiscountMarginCalculator),
+            &["Bond"],
+        )
+        .register_metric(
+            MetricId::ASWPar,
+            Arc::new(AssetSwapParCalculator),
+            &["Bond"],
+        )
+        .register_metric(
+            MetricId::ASWMarket,
+            Arc::new(AssetSwapMarketCalculator),
+            &["Bond"],
+        )
         .register_metric(MetricId::Cs01, Arc::new(Cs01Calculator), &["Bond"]);
 }
-
-

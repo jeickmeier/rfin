@@ -52,5 +52,3 @@ pub fn register_equity_option_metrics(registry: &mut MetricRegistry) {
         &["EquityOption"],
     );
 }
-
-

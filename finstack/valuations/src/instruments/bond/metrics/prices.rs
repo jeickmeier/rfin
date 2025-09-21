@@ -68,5 +68,3 @@ impl MetricCalculator for CleanPriceCalculator {
         Ok(dirty_px - accrued)
     }
 }
-
-

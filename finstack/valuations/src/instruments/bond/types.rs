@@ -1,13 +1,13 @@
 //! Bond instrument types and implementations.
 
-use finstack_core::prelude::*;
 use finstack_core::dates::{BusinessDayConvention, StubKind};
+use finstack_core::prelude::*;
 use finstack_core::F;
 
 use crate::cashflow::builder::CashFlowSchedule;
 #[allow(unused_imports)]
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::traits::{Attributes};
+use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -307,7 +307,6 @@ impl crate::instruments::common::traits::Instrument for Bond {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -578,7 +577,9 @@ mod tests {
             .set_interp(InterpStyle::Linear)
             .build()
             .unwrap();
-        let ctx = MarketContext::new().insert_discount(disc).insert_forward(fwd);
+        let ctx = MarketContext::new()
+            .insert_discount(disc)
+            .insert_forward(fwd);
 
         let bond = Bond::floating(
             "FRN-TEST",

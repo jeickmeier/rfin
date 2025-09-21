@@ -9,9 +9,9 @@
 //! - Conversion premium
 //! - Greeks: Delta, Gamma, Vega, Rho, Theta
 
-mod parity;
 mod conversion_premium;
 mod greeks;
+mod parity;
 
 use crate::metrics::MetricRegistry;
 
@@ -32,10 +32,29 @@ pub fn register_convertible_metrics(registry: &mut MetricRegistry) {
         &["ConvertibleBond"],
     );
 
-    registry.register_metric(MetricId::Delta, Arc::new(greeks::DeltaCalculator), &["ConvertibleBond"]);
-    registry.register_metric(MetricId::Gamma, Arc::new(greeks::GammaCalculator), &["ConvertibleBond"]);
-    registry.register_metric(MetricId::Vega, Arc::new(greeks::VegaCalculator), &["ConvertibleBond"]);
-    registry.register_metric(MetricId::Rho, Arc::new(greeks::RhoCalculator), &["ConvertibleBond"]);
-    registry.register_metric(MetricId::Theta, Arc::new(greeks::ThetaCalculator), &["ConvertibleBond"]);
+    registry.register_metric(
+        MetricId::Delta,
+        Arc::new(greeks::DeltaCalculator),
+        &["ConvertibleBond"],
+    );
+    registry.register_metric(
+        MetricId::Gamma,
+        Arc::new(greeks::GammaCalculator),
+        &["ConvertibleBond"],
+    );
+    registry.register_metric(
+        MetricId::Vega,
+        Arc::new(greeks::VegaCalculator),
+        &["ConvertibleBond"],
+    );
+    registry.register_metric(
+        MetricId::Rho,
+        Arc::new(greeks::RhoCalculator),
+        &["ConvertibleBond"],
+    );
+    registry.register_metric(
+        MetricId::Theta,
+        Arc::new(greeks::ThetaCalculator),
+        &["ConvertibleBond"],
+    );
 }
-

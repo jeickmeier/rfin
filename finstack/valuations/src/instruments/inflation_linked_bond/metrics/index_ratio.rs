@@ -22,5 +22,3 @@ impl MetricCalculator for IndexRatioCalculator {
         ilb.index_ratio(context.as_of, &inflation_index)
     }
 }
-
-

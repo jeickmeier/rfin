@@ -13,5 +13,3 @@ impl MetricCalculator for SharesCalculator {
         Ok(equity.effective_shares())
     }
 }
-
-

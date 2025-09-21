@@ -3,8 +3,8 @@
 //! Computes sensitivity to a 1bp parallel bump in the domestic (quote) discount curve
 //! by revaluing with bumped domestic discount factors.
 
-use crate::instruments::fx_swap::FxSwap;
 use crate::instruments::common::traits::Priceable;
+use crate::instruments::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::fx::{FxConversionPolicy, FxQuery};
 use finstack_core::F;
@@ -19,14 +19,16 @@ impl MetricCalculator for DomesticIR01 {
         let as_of = context.as_of;
         let original_pv = fx_swap.value(&curves, as_of)?;
 
-        let domestic_disc = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                fx_swap.domestic_disc_id,
-            )?;
-        let foreign_disc = curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                fx_swap.foreign_disc_id,
-            )?;
+        let domestic_disc =
+            curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    fx_swap.domestic_disc_id,
+                )?;
+        let foreign_disc =
+            curves
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    fx_swap.foreign_disc_id,
+                )?;
 
         // Bump domestic curve by 1bp: df_bumped(t) = df(t) * exp(-bp * t)
         let bump = 0.0001;
@@ -34,7 +36,11 @@ impl MetricCalculator for DomesticIR01 {
             let base = domestic_disc.base_date();
             let t = domestic_disc
                 .day_count()
-                .year_fraction(base, fx_swap.near_date, finstack_core::dates::DayCountCtx::default())
+                .year_fraction(
+                    base,
+                    fx_swap.near_date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
                 .unwrap_or(0.0);
             domestic_disc.df_on_date_curve(fx_swap.near_date) * (-bump * t).exp()
         };
@@ -42,7 +48,11 @@ impl MetricCalculator for DomesticIR01 {
             let base = domestic_disc.base_date();
             let t = domestic_disc
                 .day_count()
-                .year_fraction(base, fx_swap.far_date, finstack_core::dates::DayCountCtx::default())
+                .year_fraction(
+                    base,
+                    fx_swap.far_date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
                 .unwrap_or(0.0);
             domestic_disc.df_on_date_curve(fx_swap.far_date) * (-bump * t).exp()
         };
@@ -98,5 +108,3 @@ impl MetricCalculator for DomesticIR01 {
         Ok(bumped_pv - original_pv.amount())
     }
 }
-
-
