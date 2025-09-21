@@ -13,27 +13,12 @@ use finstack_core::{
 };
 use std::any::Any;
 
+// Re-export from common parameters
+pub use crate::instruments::common::parameters::legs::BasisSwapLeg;
+
 /// Specification for one leg of a basis swap.
-///
-/// Each leg defines the floating rate characteristics including the forward curve,
-/// payment frequency, day count convention, and optional spread.
-///
-/// # Examples
-/// ```rust
-/// use finstack_core::dates::{DayCount, Frequency, BusinessDayConvention};
-/// use finstack_core::types::CurveId;
-/// use finstack_valuations::instruments::basis_swap::BasisSwapLeg;
-///
-/// let leg = BasisSwapLeg {
-///     forward_curve_id: CurveId::new("3M-SOFR"),
-///     frequency: Frequency::quarterly(),
-///     day_count: DayCount::Act360,
-///     bdc: BusinessDayConvention::ModifiedFollowing,
-///     spread: 0.0005, // 5 basis points
-/// };
-/// ```
 #[derive(Clone, Debug)]
-pub struct BasisSwapLeg {
+struct _RemovedBasisSwapLeg {
     /// Forward curve identifier for this leg.
     pub forward_curve_id: CurveId,
     /// Payment frequency for the leg.

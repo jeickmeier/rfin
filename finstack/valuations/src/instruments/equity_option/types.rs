@@ -2,6 +2,7 @@
 
 // pricing formulas are implemented in the pricing engine; keep this module free of direct math imports
 use crate::instruments::common::traits::Attributes;
+use finstack_core::currency::Currency;
 use crate::instruments::underlying::EquityUnderlyingParams;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
@@ -45,7 +46,7 @@ impl EquityOption {
         notional: Money,
         contract_size: F,
     ) -> Self {
-        let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT")
+        let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT", Currency::USD)
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
 
@@ -79,7 +80,7 @@ impl EquityOption {
         notional: Money,
         contract_size: F,
     ) -> Self {
-        let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT")
+        let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT", Currency::USD)
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
 
@@ -112,7 +113,7 @@ impl EquityOption {
         notional: Money,
         contract_size: F,
     ) -> Self {
-        let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT")
+        let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT", Currency::USD)
             .with_dividend_yield("EQUITY-DIVYIELD")
             .with_contract_size(contract_size);
 

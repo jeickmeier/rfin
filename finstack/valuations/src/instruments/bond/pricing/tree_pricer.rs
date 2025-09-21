@@ -12,6 +12,10 @@ use crate::instruments::common::models::{
     short_rate_keys, NodeState, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
     TreeValuator,
 };
+use crate::instruments::common::models::two_factor_rates_credit::{
+    RatesCreditConfig, RatesCreditTree,
+};
+use crate::instruments::common::models::tree_framework::state_keys as tf_keys;
 #[cfg(test)]
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::Date;
@@ -53,6 +57,8 @@ pub struct BondValuator {
     call_map: HashMap<usize, F>,
     put_map: HashMap<usize, F>,
     time_steps: Vec<F>,
+    /// Optional recovery rate sourced from a hazard curve in MarketContext
+    recovery_rate: Option<F>,
 }
 
 impl BondValuator {
@@ -146,13 +152,25 @@ impl BondValuator {
             }
         }
 
-        Ok(Self {
-            bond,
-            coupon_map,
-            call_map,
-            put_map,
-            time_steps,
-        })
+        // Try to source recovery rate from a hazard curve whose ID matches the bond's credit curve ID.
+        // Convention: credit (hazard) curve ID == hazard curve ID. For compatibility, we also try a
+        // fallback suffix of "-CREDIT".
+        let mut recovery_rate: Option<F> = None;
+        if let Ok(hc) = market_context
+            .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                bond.disc_id.as_str(),
+            )
+        {
+            recovery_rate = Some(hc.recovery_rate());
+        } else if let Ok(hc) = market_context
+            .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                &format!("{}-CREDIT", bond.disc_id.as_str()),
+            )
+        {
+            recovery_rate = Some(hc.recovery_rate());
+        }
+
+        Ok(Self { bond, coupon_map, call_map, put_map, time_steps, recovery_rate })
     }
 }
 
@@ -166,14 +184,34 @@ impl TreeValuator for BondValuator {
     fn value_at_node(&self, state: &NodeState, continuation_value: F) -> Result<F> {
         let step = state.step;
         let coupon = self.coupon_map.get(&step).copied().unwrap_or(0.0);
-        let mut value = continuation_value + coupon;
+
+        // Alive (no default) value at end of the step including coupon, with call/put decisions
+        let mut alive_value = continuation_value + coupon;
         if let Some(&put_price) = self.put_map.get(&step) {
-            value = value.max(put_price);
+            alive_value = alive_value.max(put_price);
         }
         if let Some(&call_price) = self.call_map.get(&step) {
-            value = value.min(call_price);
+            alive_value = alive_value.min(call_price);
         }
-        Ok(value)
+
+        // Default handling: if hazard and dt are present, compute survival/default weighting
+        if let (Some(hazard), Some(dt)) = (
+            state.get_var(super::super::super::common::models::tree_framework::state_keys::HAZARD_RATE),
+            state.get_var("dt"),
+        ) {
+            let df = state.get_var("df").unwrap_or(1.0);
+            let p_surv = (-hazard.max(0.0) * dt).exp();
+            let default_prob = (1.0 - p_surv).clamp(0.0, 1.0);
+            let recovery = self
+                .recovery_rate
+                .map(|rr| rr.clamp(0.0, 1.0) * self.bond.notional.amount())
+                .unwrap_or(0.0);
+            let node_value = p_surv * alive_value + default_prob * df * recovery;
+            Ok(node_value)
+        } else {
+            // No hazard info at this node; return alive path value
+            Ok(alive_value)
+        }
     }
 }
 
@@ -214,18 +252,54 @@ impl TreePricer {
             return Ok(0.0);
         }
 
-        let tree_config = ShortRateTreeConfig {
-            steps: self.config.tree_steps,
-            volatility: self.config.volatility,
-            ..Default::default()
-        };
-        let mut tree = ShortRateTree::new(tree_config);
-        let discount_curve =
-            market_context
-                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+        // Choose model: if a hazard curve is present in MarketContext whose ID matches the bond's
+        // discount ID (preferred) or the fallback pattern "{disc_id}-CREDIT", use the rates+credit
+        // two-factor tree; otherwise, fall back to short-rate.
+        let mut use_rates_credit = false;
+        let mut rc_tree: Option<RatesCreditTree> = None;
+        let discount_curve = market_context
+            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
                 bond.disc_id.clone(),
             )?;
-        tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
+        let hazard_curve = if let Some(hid) = bond.hazard_id.as_ref() {
+            market_context
+                .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                    hid.as_str(),
+                )
+                .ok()
+        } else {
+            market_context
+                .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                    bond.disc_id.as_str(),
+                )
+                .ok()
+                .or_else(|| {
+                    market_context
+                        .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                            &format!("{}-CREDIT", bond.disc_id.as_str()),
+                        )
+                        .ok()
+                })
+        };
+        if let Some(hc) = hazard_curve.as_ref() {
+            let cfg = RatesCreditConfig { steps: self.config.tree_steps, ..Default::default() };
+            let mut tree = RatesCreditTree::new(cfg);
+            let _recovery = tree.align_hazard_from_curve(hc);
+            rc_tree = Some(tree);
+            use_rates_credit = true;
+        }
+
+        let mut sr_tree: Option<ShortRateTree> = None;
+        if !use_rates_credit {
+            let tree_config = ShortRateTreeConfig {
+                steps: self.config.tree_steps,
+                volatility: self.config.volatility,
+                ..Default::default()
+            };
+            let mut tree = ShortRateTree::new(tree_config);
+            tree.calibrate(discount_curve.as_ref(), time_to_maturity)?;
+            sr_tree = Some(tree);
+        }
 
         let valuator = BondValuator::new(
             bond.clone(),
@@ -236,15 +310,38 @@ impl TreePricer {
 
         let objective_fn = |oas: F| -> F {
             let mut vars = StateVariables::new();
-            vars.insert(short_rate_keys::OAS, oas);
-            match tree.price(vars, time_to_maturity, market_context, &valuator) {
-                Ok(model_price) => model_price - dirty_target,
-                Err(_) => {
-                    if oas > 0.0 {
-                        1000000.0
+            if use_rates_credit {
+                vars.insert(tf_keys::INTEREST_RATE, discount_curve.zero(0.0));
+                if let Some(hc) = hazard_curve.as_ref() {
+                    // Use first knot hazard as base
+                    if let Some((_, lambda0)) = hc.knot_points().next() {
+                        vars.insert(tf_keys::HAZARD_RATE, lambda0.max(0.0));
                     } else {
-                        -1000000.0
+                        vars.insert(tf_keys::HAZARD_RATE, 0.01);
                     }
+                } else {
+                    vars.insert(tf_keys::HAZARD_RATE, 0.01);
+                }
+                // Let valuator handle call/put; OAS is not used here (credit spread embedded via hazard)
+                if let Some(tree) = rc_tree.as_ref() {
+                    match tree.price(vars, time_to_maturity, market_context, &valuator) {
+                        Ok(model_price) => model_price - dirty_target,
+                        Err(_) => 1.0e6,
+                    }
+                } else {
+                    1.0e6
+                }
+            } else {
+                vars.insert(short_rate_keys::OAS, oas);
+                if let Some(tree) = sr_tree.as_ref() {
+                    match tree.price(vars, time_to_maturity, market_context, &valuator) {
+                        Ok(model_price) => model_price - dirty_target,
+                        Err(_) => {
+                            if oas > 0.0 { 1.0e6 } else { -1.0e6 }
+                        }
+                    }
+                } else {
+                    1.0e6
                 }
             }
         };
@@ -288,6 +385,10 @@ pub fn calculate_oas(
 mod tests {
     use super::*;
     use crate::instruments::bond::CallPutSchedule;
+    use crate::instruments::common::models::tree_framework::state_keys as tf_keys;
+    use crate::instruments::common::models::two_factor_rates_credit::{
+        RatesCreditConfig, RatesCreditTree,
+    };
     use finstack_core::math::interp::InterpStyle;
     use time::Month;
     fn create_test_bond() -> Bond {
@@ -307,6 +408,7 @@ mod tests {
             settlement_days: Some(2),
             ex_coupon_days: Some(0),
             disc_id: "USD-OIS".into(),
+            hazard_id: None,
             pricing_overrides: PricingOverrides::default().with_clean_price(98.5),
             call_put: None,
             amortization: None,
@@ -383,6 +485,116 @@ mod tests {
         let valuator = BondValuator::new(bond, &market_context, 5.0, 50).unwrap();
         assert!(!valuator.call_map.is_empty());
         assert!(valuator.put_map.is_empty());
+    }
+
+    #[test]
+    fn test_rates_credit_default_lowers_price() {
+        use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+
+        let bond = create_test_bond();
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+        // Curves: discount + two hazard scenarios
+        let discount_curve =
+            finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+                "USD-OIS",
+            )
+            .base_date(base_date)
+            .knots([(0.0, 1.0), (5.0, 0.85)])
+            .set_interp(InterpStyle::LogLinear)
+            .build()
+            .unwrap();
+
+        let low_hazard = HazardCurve::builder("HAZ-LOW")
+            .base_date(base_date)
+            .recovery_rate(0.4)
+            .knots([(0.0, 0.01), (5.0, 0.01)])
+            .build()
+            .unwrap();
+        let _high_hazard = HazardCurve::builder("HAZ-HIGH")
+            .base_date(base_date)
+            .recovery_rate(0.4)
+            .knots([(0.0, 0.05), (5.0, 0.05)])
+            .build()
+            .unwrap();
+
+        let ctx_low = MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_hazard(low_hazard);
+        // Recreate for high scenario to avoid cloning requirements
+        let discount_curve2 =
+            finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder(
+                "USD-OIS",
+            )
+            .base_date(base_date)
+            .knots([(0.0, 1.0), (5.0, 0.85)])
+            .set_interp(InterpStyle::LogLinear)
+            .build()
+            .unwrap();
+        let high_hazard2 = finstack_core::market_data::term_structures::hazard_curve::HazardCurve::builder("HAZ-HIGH")
+            .base_date(base_date)
+            .recovery_rate(0.4)
+            .knots([(0.0, 0.05), (5.0, 0.05)])
+            .build()
+            .unwrap();
+        let ctx_high = MarketContext::new()
+            .insert_discount(discount_curve2)
+            .insert_hazard(high_hazard2);
+
+        // Time grid
+        let as_of = base_date;
+        let time_to_maturity = bond
+            .dc
+            .year_fraction(
+                as_of,
+                bond.maturity,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+        let steps = 40usize;
+
+        // Valuator
+        let valuator_low = BondValuator::new(bond.clone(), &ctx_low, time_to_maturity, steps)
+            .expect("valuator");
+        let valuator_high = BondValuator::new(bond.clone(), &ctx_high, time_to_maturity, steps)
+            .expect("valuator");
+
+        // Two-factor rates+credit trees aligned to each hazard curve
+        let mut tree_low = RatesCreditTree::new(RatesCreditConfig { steps, ..Default::default() });
+        // Align to the hazard curve stored in the context
+        let low_hc_ref = ctx_low
+            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                "HAZ-LOW",
+            )
+            .unwrap();
+        tree_low.align_hazard_from_curve(low_hc_ref);
+        let mut tree_high =
+            RatesCreditTree::new(RatesCreditConfig { steps, ..Default::default() });
+        let high_hc_ref = ctx_high
+            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                "HAZ-HIGH",
+            )
+            .unwrap();
+        tree_high.align_hazard_from_curve(high_hc_ref);
+
+        // Initial state
+        let mut vars = StateVariables::new();
+        vars.insert(tf_keys::INTEREST_RATE, 0.03);
+        vars.insert(tf_keys::HAZARD_RATE, 0.01);
+
+        let pv_low = tree_low
+            .price(vars.clone(), time_to_maturity, &ctx_low, &valuator_low)
+            .expect("price low");
+
+        // Use higher base hazard for the high scenario
+        let mut vars_high = vars.clone();
+        vars_high.insert(tf_keys::HAZARD_RATE, 0.05);
+        let pv_high = tree_high
+            .price(vars_high, time_to_maturity, &ctx_high, &valuator_high)
+            .expect("price high");
+
+        // With higher hazard, price should be lower (all else equal)
+        assert!(pv_high < pv_low, "pv_high={} pv_low={}", pv_high, pv_low);
     }
     #[test]
     fn test_accrued_interest_calculation() {

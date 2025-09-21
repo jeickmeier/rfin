@@ -128,6 +128,7 @@ impl PyBond {
             settlement_days: Some(2),
             ex_coupon_days: Some(0),
             disc_id: disc_id.into(),
+            hazard_id: None,
             pricing_overrides: if let Some(price) = quoted_clean_price {
                 finstack_valuations::instruments::PricingOverrides::default()
                     .with_clean_price(price)

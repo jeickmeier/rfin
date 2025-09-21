@@ -42,6 +42,9 @@ pub struct Bond {
     pub maturity: Date,
     /// Discount curve identifier for pricing.
     pub disc_id: CurveId,
+    /// Optional hazard curve identifier (default intensity). When present,
+    /// hazard-rate pricing is enabled.
+    pub hazard_id: Option<CurveId>,
     /// Pricing overrides (including quoted clean price)
     pub pricing_overrides: PricingOverrides,
     /// Optional call/put schedule (dates and redemption prices as % of par amount).
@@ -115,6 +118,7 @@ impl Bond {
             .calendar_id_opt(None)
             .stub(StubKind::None)
             .disc_id(disc_id.into())
+            .hazard_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -141,6 +145,7 @@ impl Bond {
             .calendar_id_opt(None)
             .stub(StubKind::None)
             .disc_id(CurveId::new("USD-TREASURY"))
+            .hazard_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
@@ -183,6 +188,7 @@ impl Bond {
             issue,
             maturity,
             disc_id: disc_id.into(),
+            hazard_id: None,
             pricing_overrides: PricingOverrides::default(),
             call_put: None,
             amortization: None,
@@ -237,6 +243,7 @@ impl Bond {
             issue,
             maturity,
             disc_id: disc_id.into(),
+            hazard_id: None,
             pricing_overrides: if let Some(price) = quoted_clean {
                 PricingOverrides::default().with_clean_price(price)
             } else {
@@ -460,6 +467,7 @@ mod tests {
             issue,
             maturity,
             disc_id: CurveId::new("USD-OIS"),
+            hazard_id: None,
             pricing_overrides: PricingOverrides::default(),
             call_put: None,
             amortization: None,
@@ -511,6 +519,7 @@ mod tests {
             issue,
             maturity,
             disc_id: CurveId::new("USD-OIS"),
+            hazard_id: None,
             pricing_overrides: PricingOverrides::default(),
             call_put: None,
             amortization: None,

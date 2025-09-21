@@ -246,6 +246,7 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
         settlement_days: Some(2),
         ex_coupon_days: Some(0),
         disc_id: "USD-OIS".into(),
+        hazard_id: None,
         pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
         call_put: None,
         amortization: None,

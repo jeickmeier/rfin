@@ -6,7 +6,7 @@
 //! Now includes generic TreeModel implementation for pricing arbitrary instruments.
 
 use crate::instruments::common::models::NodeState;
-use crate::instruments::common::models::OptionMarketParams;
+use crate::instruments::common::parameters::OptionMarketParams;
 use crate::instruments::{ExerciseStyle, OptionType};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::{Error, Result, F};
@@ -38,8 +38,6 @@ pub struct BinomialTree {
     pub steps: usize,
     /// Tree type
     pub tree_type: TreeType,
-    /// Cache tree nodes for efficiency
-    pub use_cache: bool,
 }
 
 impl BinomialTree {
@@ -48,7 +46,6 @@ impl BinomialTree {
         Self {
             steps,
             tree_type,
-            use_cache: true,
         }
     }
 

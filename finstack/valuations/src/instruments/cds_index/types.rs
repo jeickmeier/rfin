@@ -15,7 +15,7 @@ use finstack_core::money::Money;
 // Reuse CDS components for conventions and legs
 use crate::instruments::cds::{
     CDSConvention, CreditDefaultSwap, PayReceive as CdsPayReceive, PremiumLegSpec,
-    ProtectionLegSpec, SettlementType,
+    ProtectionLegSpec, CdsSettlementType,
 };
 
 use super::parameters::CDSIndexConstituentParam;
@@ -113,7 +113,7 @@ impl CDSIndex {
             protection: ProtectionLegSpec {
                 credit_id,
                 recovery_rate: credit_params.recovery_rate,
-                settlement: SettlementType::Cash,
+                settlement: CdsSettlementType::Cash,
                 settlement_delay: 3,
             },
             pricing: IndexPricing::SingleCurve,

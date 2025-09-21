@@ -6,42 +6,13 @@
 //! repository standards. Metrics live under `metrics/` and are registered
 //! via the instrument metrics module.
 
+use crate::instruments::common::parameters::FxUnderlyingParams;
 use crate::instruments::common::traits::Attributes;
 use finstack_core::prelude::*;
 use finstack_core::types::InstrumentId;
 use finstack_core::F;
 
 use super::parameters::FxSwapParams;
-
-/// FX swap underlying parameters used when constructing the instrument.
-#[derive(Clone, Debug)]
-pub struct FxUnderlyingParams {
-    /// Base currency (being priced)
-    pub base_currency: Currency,
-    /// Quote currency (pricing currency)
-    pub quote_currency: Currency,
-    /// Domestic discount curve ID (quote currency)
-    pub domestic_disc_id: &'static str,
-    /// Foreign discount curve ID (base currency)
-    pub foreign_disc_id: &'static str,
-}
-
-impl FxUnderlyingParams {
-    /// Create FX underlying parameters
-    pub fn new(
-        base_currency: Currency,
-        quote_currency: Currency,
-        domestic_disc_id: &'static str,
-        foreign_disc_id: &'static str,
-    ) -> Self {
-        Self {
-            base_currency,
-            quote_currency,
-            domestic_disc_id,
-            foreign_disc_id,
-        }
-    }
-}
 
 /// FX Swap instrument definition
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]

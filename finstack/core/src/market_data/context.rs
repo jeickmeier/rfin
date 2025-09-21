@@ -38,6 +38,7 @@ use crate::Result;
 use crate::F;
 
 use super::{
+    dividends::DividendSchedule,
     scalars::inflation_index::InflationIndex,
     scalars::{MarketScalar, ScalarTimeSeries},
     surfaces::vol_surface::VolSurface,
@@ -338,6 +339,9 @@ pub struct MarketContext {
     /// Credit index aggregates
     pub(super) credit_indices: HashMap<CurveId, Arc<CreditIndexData>>,
 
+    /// Shared dividend schedules keyed by `CurveId` (e.g., "AAPL-DIVS")
+    pub(super) dividends: HashMap<CurveId, Arc<DividendSchedule>>,
+
     /// Collateral CSA code mappings
     pub(super) collateral: HashMap<String, CurveId>,
 }
@@ -521,6 +525,16 @@ impl MarketContext {
     pub fn insert_surface(mut self, surface: VolSurface) -> Self {
         let id = surface.id().clone();
         self.surfaces.insert(id, Arc::new(surface));
+        self
+    }
+
+    /// Insert a shared dividend schedule.
+    ///
+    /// # Parameters
+    /// - `schedule`: a [`DividendSchedule`] built via its builder
+    pub fn insert_dividends(mut self, schedule: DividendSchedule) -> Self {
+        let id = schedule.id.clone();
+        self.dividends.insert(id, Arc::new(schedule));
         self
     }
 
@@ -971,6 +985,16 @@ impl MarketContext {
             .map(|arc| arc.as_ref())
     }
 
+    /// Clone a dividend schedule by identifier.
+    pub fn dividend_schedule(&self, id: impl AsRef<str>) -> Option<Arc<DividendSchedule>> {
+        self.dividends.get(id.as_ref()).cloned()
+    }
+
+    /// Borrow a dividend schedule by identifier.
+    pub fn dividend_schedule_ref(&self, id: impl AsRef<str>) -> Option<&DividendSchedule> {
+        self.dividends.get(id.as_ref()).map(|arc| arc.as_ref())
+    }
+
     /// Clone a credit index aggregate by identifier.
     ///
     /// # Examples
@@ -1253,6 +1277,7 @@ impl MarketContext {
             series_count: self.series.len(),
             inflation_index_count: self.inflation_indices.len(),
             credit_index_count: self.credit_indices.len(),
+            dividend_schedule_count: self.dividends.len(),
             collateral_mapping_count: self.collateral.len(),
         }
     }
@@ -1500,6 +1525,8 @@ pub struct ContextStats {
     pub inflation_index_count: usize,
     /// Number of credit indices
     pub credit_index_count: usize,
+    /// Number of dividend schedules
+    pub dividend_schedule_count: usize,
     /// Number of collateral mappings
     pub collateral_mapping_count: usize,
 }
@@ -1516,6 +1543,7 @@ impl core::fmt::Display for ContextStats {
         writeln!(f, "  Series: {}", self.series_count)?;
         writeln!(f, "  Inflation indices: {}", self.inflation_index_count)?;
         writeln!(f, "  Credit indices: {}", self.credit_index_count)?;
+        writeln!(f, "  Dividend schedules: {}", self.dividend_schedule_count)?;
         writeln!(
             f,
             "  Collateral mappings: {}",

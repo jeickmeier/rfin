@@ -126,7 +126,7 @@ fn main() -> finstack_core::Result<()> {
     );
 
     // Equity Option with Custom Parameters
-    let underlying_params = EquityUnderlyingParams::new("TSLA", "TSLA-SPOT")
+    let underlying_params = EquityUnderlyingParams::new("TSLA", "TSLA-SPOT", Currency::USD)
         .with_dividend_yield("TSLA-DIVYIELD")
         .with_contract_size(100.0);
 

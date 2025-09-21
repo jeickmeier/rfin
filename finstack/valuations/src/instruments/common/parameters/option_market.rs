@@ -1,6 +1,6 @@
 //! Option market parameters used by pricing models.
 
-use crate::instruments::OptionType;
+use super::market::OptionType;
 use finstack_core::F;
 
 /// Option market parameters for pricing models.

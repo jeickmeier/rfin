@@ -59,20 +59,13 @@ impl CDSConvention {
     }
 }
 
-/// Settlement type for CDS protection payment
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum SettlementType {
-    /// Physical delivery of defaulted bonds
-    Physical,
-    /// Cash settlement based on recovery rate
-    Cash,
-    /// Auction-based settlement
-    Auction,
-}
+
+// Re-export from common parameters
+pub use crate::instruments::common::parameters::legs::{PremiumLegSpec, ProtectionLegSpec, CdsSettlementType};
 
 /// Premium leg specification
-#[derive(Clone, Debug)]
-pub struct PremiumLegSpec {
+#[derive(Clone, Debug)]  
+struct _RemovedPremiumLegSpec {
     /// Start date of protection
     pub start: Date,
     /// End date of protection
@@ -95,13 +88,13 @@ pub struct PremiumLegSpec {
 
 /// Protection leg specification
 #[derive(Clone, Debug)]
-pub struct ProtectionLegSpec {
+struct _RemovedProtectionLegSpec {
     /// Credit curve identifier for default probabilities
     pub credit_id: &'static str,
     /// Recovery rate (0.0 to 1.0)
     pub recovery_rate: F,
     /// Settlement type on default
-    pub settlement: SettlementType,
+    pub settlement: CdsSettlementType,
     /// Settlement delay in business days
     pub settlement_delay: u16,
 }
@@ -169,7 +162,7 @@ impl CreditDefaultSwap {
             .protection(ProtectionLegSpec {
                 credit_id,
                 recovery_rate: crate::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED,
-                settlement: SettlementType::Cash,
+                settlement: CdsSettlementType::Cash,
                 settlement_delay: 3,
             })
             .pricing_overrides(PricingOverrides::default())
@@ -217,7 +210,7 @@ impl CreditDefaultSwap {
             .protection(ProtectionLegSpec {
                 credit_id,
                 recovery_rate: crate::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED,
-                settlement: SettlementType::Cash,
+                settlement: CdsSettlementType::Cash,
                 settlement_delay: 3,
             })
             .pricing_overrides(PricingOverrides::default())
@@ -266,7 +259,7 @@ impl CreditDefaultSwap {
             .protection(ProtectionLegSpec {
                 credit_id,
                 recovery_rate: crate::instruments::cds::parameters::RECOVERY_HIGH_YIELD_DEFAULT,
-                settlement: SettlementType::Cash,
+                settlement: CdsSettlementType::Cash,
                 settlement_delay: 3,
             })
             .pricing_overrides(PricingOverrides::default())
@@ -316,7 +309,7 @@ impl CreditDefaultSwap {
             protection: ProtectionLegSpec {
                 credit_id,
                 recovery_rate,
-                settlement: SettlementType::Cash,
+                settlement: CdsSettlementType::Cash,
                 settlement_delay: 3,
             },
             pricing_overrides: PricingOverrides::default(),

@@ -38,11 +38,10 @@ pub mod trs;
 pub mod variance_swap;
 
 // Re-export common types for convenience (avoid glob re-exports to keep API unambiguous)
-pub use basis_swap::{BasisSwap, BasisSwapLeg};
+pub use basis_swap::BasisSwap;
 pub use basket::Basket;
 pub use bond::Bond;
 pub use cds::CreditDefaultSwap;
-pub use cds::CreditParams;
 pub use cds_index::CDSIndex;
 pub use cds_option::CdsOption;
 pub use cds_tranche::CdsTranche;
@@ -67,16 +66,32 @@ pub use trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
 
 // Re-export option-related enums and models at top-level after flattening
 pub use cap_floor::RateOptionType;
-pub use common::{BinomialTree, ExerciseStyle, OptionType, SettlementType, TreeType};
+pub use common::{BinomialTree, TreeType};
 
 pub use crate::metrics::{RiskMeasurable, RiskReport};
 pub use common::build_with_metrics_dyn;
 
-// Backward compatibility re-exports
+// Backward compatibility re-exports  
 pub use common::discountable::Discountable;
 pub use common::traits::{Attributable, Attributes, Instrument, Priceable};
 
-// Keep direct trait access for compatibility
+// Parameter type re-exports for backward compatibility
+pub use common::parameters::{
+    // Underlying parameters
+    EquityUnderlyingParams, FxUnderlyingParams, IndexUnderlyingParams, UnderlyingParams,
+    // Leg specifications  
+    BasisSwapLeg, FinancingLegSpec, FixedLegSpec, FloatLegSpec, ParRateMethod, PayReceive,
+    PremiumLegSpec, ProtectionLegSpec, TotalReturnLegSpec, CdsSettlementType,
+    // Market parameters
+    CreditParams, EquityOptionParams, FxOptionParams, InterestRateOptionParams, OptionMarketParams,
+    // Contract specifications
+    ContractSpec, ScheduleSpec,
+    // Option types (clean versions from parameters, not models)
+    ExerciseStyle, OptionType, SettlementType,
+};
+
+// Keep direct module access for compatibility
 pub use common::discountable;
 pub use common::macros;
+pub use common::parameters;
 pub use common::traits;

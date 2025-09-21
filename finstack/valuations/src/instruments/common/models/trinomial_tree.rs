@@ -30,8 +30,6 @@ pub struct TrinomialTree {
     pub steps: usize,
     /// Tree type
     pub tree_type: TrinomialTreeType,
-    /// Cache tree nodes for efficiency
-    pub use_cache: bool,
 }
 
 impl TrinomialTree {
@@ -40,7 +38,6 @@ impl TrinomialTree {
         Self {
             steps,
             tree_type,
-            use_cache: true,
         }
     }
 

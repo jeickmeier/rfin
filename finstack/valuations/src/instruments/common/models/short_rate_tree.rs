@@ -30,8 +30,6 @@ pub struct ShortRateTreeConfig {
     pub volatility: F,
     /// Mean reversion parameter (for mean-reverting models)
     pub mean_reversion: Option<F>,
-    /// Whether to use caching for performance
-    pub use_cache: bool,
 }
 
 impl Default for ShortRateTreeConfig {
@@ -41,7 +39,6 @@ impl Default for ShortRateTreeConfig {
             model: ShortRateModel::HoLee,
             volatility: 0.01, // 1% default volatility
             mean_reversion: None,
-            use_cache: true,
         }
     }
 }
@@ -79,7 +76,6 @@ impl ShortRateTree {
             model: ShortRateModel::HoLee,
             volatility,
             mean_reversion: None,
-            use_cache: true,
         })
     }
 
@@ -90,7 +86,6 @@ impl ShortRateTree {
             model: ShortRateModel::BlackDermanToy,
             volatility,
             mean_reversion: Some(mean_reversion),
-            use_cache: true,
         })
     }
 

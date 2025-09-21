@@ -4,6 +4,13 @@
 //! various tree types (binomial, trinomial) and multiple state variables
 //! (equity + rates, equity + credit spread, etc.) without requiring code changes
 //! to the core pricing logic.
+//!
+//! TODO: Barrier option support (up/down, in/out) with rebates should be added
+//!       by augmenting `NodeState` with path flags or by tracking barrier state
+//!       externally per path level.
+//! TODO: Performance enhancements (parallel Greeks, caching of node values,
+//!       and optional SIMD) are intentionally deferred to keep the initial
+//!       implementation simple and deterministic.
 
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
@@ -18,6 +25,8 @@ pub mod state_keys {
     pub const INTEREST_RATE: &str = "interest_rate";
     /// Credit spread
     pub const CREDIT_SPREAD: &str = "credit_spread";
+    /// Hazard rate (default intensity) for credit modeling
+    pub const HAZARD_RATE: &str = "hazard_rate";
     /// Dividend yield
     pub const DIVIDEND_YIELD: &str = "dividend_yield";
     /// Volatility

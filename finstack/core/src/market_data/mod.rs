@@ -44,6 +44,8 @@
 pub mod bumps;
 /// Market data context with enum-based storage (simplified from V2).
 pub mod context;
+/// Shared dividend schedules (cash/yield/stock) for equities/ETFs.
+pub mod dividends;
 /// Scalar market data types and time series (including primitives)
 pub mod scalars;
 /// Two-dimensional surfaces (e.g. volatility).
@@ -56,6 +58,8 @@ pub mod traits;
 pub use crate::math::interp::utils::validate_knots;
 // Re-export MarketContext at the top level for backward compatibility
 pub use context::MarketContext;
+// Re-export dividend schedule types for convenience
+pub use dividends::*;
 
 /// Numeric precision alias re-exported from the surrounding crate so that
 /// downstream code can simply `use finstack_core::market_data::F`.

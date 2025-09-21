@@ -22,27 +22,15 @@ use crate::instruments::common::traits::{Attributable, Attributes, Instrument};
 // Risk types used in risk.rs
 use std::any::Any;
 
-/// Direction of the swap from the perspective of the fixed rate.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PayReceive {
-    /// Pay fixed rate, receive floating rate.
-    PayFixed,
-    /// Receive fixed rate, pay floating rate.
-    ReceiveFixed,
-}
+// Re-export common enums from parameters
+pub use crate::instruments::common::parameters::legs::{PayReceive, ParRateMethod};
 
-/// Par rate calculation method for IRS quotes.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ParRateMethod {
-    /// Use forward-curve based float PV over the schedule (market standard when forward curve is available).
-    ForwardBased,
-    /// Use discount-curve ratio: (P(0,T0) - P(0,Tn)) / Sum_i alpha_i P(0,Ti) (bootstrapping alternative).
-    DiscountRatio,
-}
+// Re-export from common parameters
+pub use crate::instruments::common::parameters::legs::FixedLegSpec;
 
 /// Specification for the fixed leg of an interest rate swap.
 #[derive(Clone, Debug)]
-pub struct FixedLegSpec {
+struct _RemovedFixedLegSpec {
     /// Discount curve identifier for pricing.
     pub disc_id: &'static str,
     /// Fixed rate (e.g., 0.05 for 5%).
@@ -67,9 +55,12 @@ pub struct FixedLegSpec {
     pub compounding_simple: bool,
 }
 
+// Re-export from common parameters  
+pub use crate::instruments::common::parameters::legs::FloatLegSpec;
+
 /// Specification for the floating leg of an interest rate swap.
 #[derive(Clone, Debug)]
-pub struct FloatLegSpec {
+struct _RemovedFloatLegSpec {
     /// Discount curve identifier for pricing.
     pub disc_id: &'static str,
     /// Forward curve identifier for rate projections.
