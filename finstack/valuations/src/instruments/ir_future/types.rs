@@ -1,20 +1,21 @@
 //! Interest Rate Future types and implementation.
 use crate::cashflow::traits::CashflowProvider;
-use finstack_core::market_data::traits::Forward;
 // Params-based constructor removed; build via builder instead.
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::F;
 
 /// Interest Rate Future instrument.
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct InterestRateFuture {
     /// Unique identifier
-    pub id: String,
-    /// Contract notional amount
+    pub id: InstrumentId,
+    /// Exposure size expressed in currency units. PV is scaled by
+    /// `notional.amount() / contract_specs.face_value` to support
+    /// multiples of the standard contract.
     pub notional: Money,
     /// Future expiry/delivery date
     pub expiry_date: Date,
@@ -28,12 +29,14 @@ pub struct InterestRateFuture {
     pub quoted_price: F,
     /// Day count convention
     pub day_count: DayCount,
+    /// Position side (Long or Short)
+    pub position: Position,
     /// Contract specifications
     pub contract_specs: FutureContractSpecs,
     /// Discount curve identifier
-    pub disc_id: &'static str,
+    pub disc_id: CurveId,
     /// Forward curve identifier
-    pub forward_id: &'static str,
+    pub forward_id: CurveId,
     /// Attributes
     pub attributes: Attributes,
 }
@@ -57,12 +60,22 @@ impl Default for FutureContractSpecs {
     fn default() -> Self {
         Self {
             face_value: 1_000_000.0,
-            tick_size: 0.0025, // 0.25 bp
-            tick_value: 25.0,  // $25 per tick for $1MM
+            tick_size: 0.0025, // 0.25 bp (in price points)
+            // Default tick value for a 3M contract on a $1MM face: $6.25 per tick
+            // (Face × 0.25y × 1bp × 0.25bp-per-tick / 1bp = $6.25). For
+            // other accrual lengths, prefer `InterestRateFuture::derived_tick_value`.
+            tick_value: 6.25,
             delivery_months: 3,
             convexity_adjustment: None,
         }
     }
+}
+
+/// Position side for futures.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Position {
+    Long,
+    Short,
 }
 
 impl InterestRateFuture {
@@ -79,84 +92,21 @@ impl InterestRateFuture {
         (100.0 - self.quoted_price) / 100.0
     }
 
-    /// Calculate future value with convexity adjustment.
-    pub fn future_value(
-        &self,
-        discount_curve: &dyn Discounting,
-        forward_curve: &dyn Forward,
-        _as_of: Date,
-    ) -> finstack_core::Result<Money> {
-        let base_date = discount_curve.base_date();
+    // Pricing moved to `pricing::engine::IrFutureEngine`.
 
-        // Time to fixing and rate period
-        let t_fixing = self
-            .day_count
-            .year_fraction(
-                base_date,
-                self.fixing_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let t_start = self
-            .day_count
-            .year_fraction(
-                base_date,
-                self.period_start,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let t_end = self
-            .day_count
-            .year_fraction(
-                base_date,
-                self.period_end,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-
-        // Get forward rate for the underlying period
-        let forward_rate = forward_curve.rate_period(t_start, t_end);
-
-        // Apply convexity adjustment - market practice applies to all futures
-        let adjusted_rate = if let Some(convexity_adj) = self.contract_specs.convexity_adjustment {
-            forward_rate + convexity_adj
-        } else {
-            // Calculate convexity adjustment for all futures
-            // Use more sophisticated volatility estimate based on time to expiry
-            let vol_estimate = if t_fixing <= 0.25 {
-                0.008 // 80bp for very short-dated futures
-            } else if t_fixing <= 0.5 {
-                0.0085 // 85bp for 3-6 month futures
-            } else if t_fixing <= 1.0 {
-                0.009 // 90bp for 6-12 month futures
-            } else if t_fixing <= 2.0 {
-                0.0095 // 95bp for 1-2 year futures
-            } else {
-                0.01 // 100bp for longer-dated futures
-            };
-
-            // Hull-White approximation: CA = 0.5 * σ² * T₁ * T₂
-            // where T₁ is time to expiry and T₂ is typically close to T₁ for futures
-            let tau = t_end - t_start; // Length of underlying rate period
-            let convexity = 0.5 * vol_estimate * vol_estimate * t_fixing * (t_fixing + tau);
-            forward_rate + convexity
-        };
-
-        // Future value = (Model Rate - Implied Rate) × Face Value × Period Length
-        let implied_rate = self.implied_rate();
+    /// Derive contract tick value for the instrument accrual.
+    ///
+    /// tick_value ≈ Face × tau(period_start, period_end) × 1bp × (tick_size / 1bp)
+    pub fn derived_tick_value(&self) -> finstack_core::Result<F> {
         let tau = self
             .day_count
             .year_fraction(
                 self.period_start,
                 self.period_end,
                 finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let rate_diff = adjusted_rate - implied_rate;
-
-        let pv = rate_diff * self.contract_specs.face_value * tau;
-
-        Ok(Money::new(pv, self.notional.currency()))
+            )?
+            .max(0.0);
+        Ok(self.contract_specs.face_value * tau * 1e-4 * (self.contract_specs.tick_size / 1e-4))
     }
 }
 
@@ -164,15 +114,8 @@ impl_instrument!(
     InterestRateFuture,
     "InterestRateFuture",
     pv = |s, curves, as_of| {
-        let discount_curve = curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                s.disc_id,
-            )?;
-        let forward_curve = curves
-            .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-                s.forward_id,
-            )?;
-        s.future_value(discount_curve, forward_curve, as_of)
+        let _ = as_of; // PV does not depend on `as_of`; uses curve base dates
+        crate::instruments::ir_future::pricing::engine::IrFutureEngine::pv(s, curves)
     }
 );
 
@@ -188,15 +131,7 @@ impl CashflowProvider for InterestRateFuture {
             return Ok(vec![]); // Already expired
         }
 
-        let settlement_pv = self.future_value(
-            curves.get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                self.disc_id,
-            )?,
-            curves.get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-                self.forward_id,
-            )?,
-            as_of,
-        )?;
+        let settlement_pv = crate::instruments::ir_future::pricing::engine::IrFutureEngine::pv(self, curves)?;
 
         Ok(vec![(self.expiry_date, settlement_pv)])
     }

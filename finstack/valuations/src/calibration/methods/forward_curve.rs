@@ -266,7 +266,7 @@ impl ForwardCurveCalibrator {
                 let fixing_date = *expiry; // Typically same as expiry for futures
 
                 let future = InterestRateFuture::builder()
-                    .id(format!("CALIB_FUT_{}", expiry))
+                    .id(format!("CALIB_FUT_{}", expiry).into())
                     .notional(Money::new(specs.face_value, self.currency))
                     .expiry_date(*expiry)
                     .fixing_date(fixing_date)
@@ -274,9 +274,10 @@ impl ForwardCurveCalibrator {
                     .period_end(period_end)
                     .quoted_price(*price)
                     .day_count(specs.day_count)
+                    .position(crate::instruments::ir_future::Position::Long)
                     .contract_specs(crate::instruments::ir_future::FutureContractSpecs::default())
-                    .disc_id(self.discount_curve_id)
-                    .forward_id(self.fwd_curve_id)
+                    .disc_id(self.discount_curve_id.into())
+                    .forward_id(self.fwd_curve_id.into())
                     .build()
                     .unwrap();
 

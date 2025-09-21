@@ -464,7 +464,7 @@ impl DiscountCurveCalibrator {
                 };
 
                 let mut future = InterestRateFuture::builder()
-                    .id(format!("CALIB_FUT_{}", expiry))
+                    .id(format!("CALIB_FUT_{}", expiry).into())
                     .notional(Money::new(1_000_000.0, self.currency))
                     .expiry_date(*expiry)
                     .fixing_date(*expiry - time::Duration::days(2))
@@ -472,9 +472,10 @@ impl DiscountCurveCalibrator {
                     .period_end(period_end)
                     .quoted_price(*price)
                     .day_count(specs.day_count)
+                    .position(crate::instruments::ir_future::Position::Long)
                     .contract_specs(crate::instruments::ir_future::FutureContractSpecs::default())
-                    .disc_id("CALIB_CURVE")
-                    .forward_id("CALIB_FWD")
+                    .disc_id(finstack_core::types::CurveId::new("CALIB_CURVE"))
+                    .forward_id(finstack_core::types::CurveId::new("CALIB_FWD"))
                     .build()
                     .unwrap();
 
@@ -483,7 +484,7 @@ impl DiscountCurveCalibrator {
                     crate::instruments::ir_future::FutureContractSpecs {
                         face_value: specs.face_value,
                         tick_size: 0.0025,
-                        tick_value: 25.0,
+                        tick_value: 6.25,
                         delivery_months: specs.delivery_months,
                         convexity_adjustment: convexity_adj,
                     },
@@ -1126,7 +1127,7 @@ mod tests {
             .rate_period(t1, t2);
         let quoted_price = 100.0 * (1.0 - implied_rate);
         let mut fut = InterestRateFuture::builder()
-            .id("SOFR-MAR25".to_string())
+            .id("SOFR-MAR25".to_string().into())
             .notional(Money::new(1_000_000.0, Currency::USD))
             .expiry_date(expiry)
             .fixing_date(expiry - time::Duration::days(2))
@@ -1134,9 +1135,10 @@ mod tests {
             .period_end(period_end)
             .quoted_price(quoted_price)
             .day_count(DayCount::Act360)
+            .position(crate::instruments::ir_future::Position::Long)
             .contract_specs(crate::instruments::ir_future::FutureContractSpecs::default())
-            .disc_id("USD-OIS")
-            .forward_id("USD-SOFR")
+            .disc_id("USD-OIS".into())
+            .forward_id("USD-SOFR".into())
             .build()
             .unwrap();
         fut = fut.with_contract_specs(FutureContractSpecs {

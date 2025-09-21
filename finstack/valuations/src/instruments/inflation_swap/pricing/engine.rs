@@ -20,7 +20,7 @@ pub struct InflationSwapPricer;
 impl InflationSwapPricer {
     /// Create a new inflation swap pricer.
     pub fn new() -> Self {
-        Self::default()
+        Self
     }
 
     /// Present value of the fixed (real) leg.
