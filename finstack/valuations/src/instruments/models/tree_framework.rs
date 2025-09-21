@@ -362,38 +362,37 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                 .ok_or(finstack_core::Error::Internal)?;
 
             let mut values = Vec::with_capacity(inputs.steps + 1);
-            for i in 0..=inputs.steps {
-                let spot_t = spot0
-                    * inputs.up_factor.powi(i as i32)
-                    * inputs.down_factor.powi((inputs.steps - i) as i32);
-                let time_t = inputs.time_to_maturity;
+            let mut node_vars = inputs.initial_vars.clone(); // Clone once outside loops
 
-                let mut terminal_vars = inputs.initial_vars.clone();
-                terminal_vars.insert(state_keys::SPOT, spot_t);
+            // Calculate terminal spot prices iteratively to avoid repeated powi
+            let mut terminal_spot = spot0 * inputs.down_factor.powi(inputs.steps as i32);
+            let spot_multiplier = inputs.up_factor / inputs.down_factor;
+
+            for _ in 0..=inputs.steps {
+                let time_t = inputs.time_to_maturity;
+                node_vars.insert(state_keys::SPOT, terminal_spot);
 
                 let terminal_state =
-                    NodeState::new(inputs.steps, time_t, terminal_vars, inputs.market_context);
+                    NodeState::new(inputs.steps, time_t, node_vars.clone(), inputs.market_context);
                 let payoff = inputs.valuator.value_at_maturity(&terminal_state)?;
                 values.push(payoff);
+                terminal_spot *= spot_multiplier;
             }
 
             // Backward induction
             for step in (0..inputs.steps).rev() {
+                let mut spot_t = spot0 * inputs.down_factor.powi(step as i32);
                 for i in 0..=step {
                     // Discounted expected continuation value
                     let continuation =
                         df * (inputs.prob_up * values[i + 1] + inputs.prob_down * values[i]);
 
-                    let spot_t = spot0
-                        * inputs.up_factor.powi(i as i32)
-                        * inputs.down_factor.powi((step - i) as i32);
                     let time_t = step as F * dt;
-
-                    let mut node_vars = inputs.initial_vars.clone();
                     node_vars.insert(state_keys::SPOT, spot_t);
-                    let node_state = NodeState::new(step, time_t, node_vars, inputs.market_context);
+                    let node_state = NodeState::new(step, time_t, node_vars.clone(), inputs.market_context);
 
                     values[i] = inputs.valuator.value_at_node(&node_state, continuation)?;
+                    spot_t *= spot_multiplier;
                 }
                 values.pop();
             }
@@ -412,6 +411,7 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
 
             let max_nodes = 2 * inputs.steps + 1;
             let mut values = vec![vec![0.0; max_nodes]; inputs.steps + 1];
+            let mut node_vars = inputs.initial_vars.clone(); // Clone once
 
             // Terminal values
             for j in 0..max_nodes {
@@ -422,11 +422,10 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                         * inputs.down_factor.powi((-net_moves).max(0));
                     let time_t = inputs.time_to_maturity;
 
-                    let mut terminal_vars = inputs.initial_vars.clone();
-                    terminal_vars.insert(state_keys::SPOT, spot_t);
+                    node_vars.insert(state_keys::SPOT, spot_t);
 
                     let terminal_state =
-                        NodeState::new(inputs.steps, time_t, terminal_vars, inputs.market_context);
+                        NodeState::new(inputs.steps, time_t, node_vars.clone(), inputs.market_context);
                     let payoff = inputs.valuator.value_at_maturity(&terminal_state)?;
                     values[inputs.steps][j] = payoff;
                 }
@@ -452,9 +451,8 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                             + p_m * values[step + 1][mid_idx]
                             + inputs.prob_down * values[step + 1][down_idx]);
 
-                    let mut node_vars = inputs.initial_vars.clone();
                     node_vars.insert(state_keys::SPOT, spot_t);
-                    let node_state = NodeState::new(step, time_t, node_vars, inputs.market_context);
+                    let node_state = NodeState::new(step, time_t, node_vars.clone(), inputs.market_context);
                     values[step][j] = inputs.valuator.value_at_node(&node_state, continuation)?;
                 }
             }

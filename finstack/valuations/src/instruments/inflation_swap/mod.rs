@@ -1,10 +1,12 @@
-//! Zero-coupon Inflation Swap (boilerplate implementation).
+//! Zero-coupon Inflation Swap module.
 //!
-//! This module adds a minimal scaffold for an inflation swap instrument so it
-//! can participate in the unified pricing and metrics framework. Valuation
-//! logic is intentionally minimal (returns zero) until completed.
+//! Structure follows the standard instrument layout across valuations:
+//! - `types`: instrument data structures and trait impls
+//! - `pricing`: pricing facade and engine implementation
+//! - `metrics`: metric calculators and registry hook
 
 pub mod metrics;
+pub mod pricing;
 mod types;
 
 pub use types::{InflationSwap, PayReceiveInflation};

@@ -327,31 +327,55 @@ fn extract_equity_state(
     ))
 }
 
+/// Aggregated data required for tree pricing, prepared once to avoid duplication.
+struct PricingInputs {
+    cashflow_schedule: CashFlowSchedule,
+    spot: F,
+    volatility: F,
+    dividend_yield: F,
+    risk_free_rate: F,
+    time_to_maturity: F,
+}
+
+/// Prepare all necessary inputs for pricing and greeks calculation.
+fn prepare_for_pricing(
+    bond: &ConvertibleBond,
+    market_context: &MarketContext,
+) -> Result<PricingInputs> {
+    let cashflow_schedule = build_convertible_schedule(bond)?;
+    let underlying_id = bond.underlying_equity_id.as_ref().ok_or(Error::Internal)?;
+    let (spot, volatility, dividend_yield, risk_free_rate, time_to_maturity) = extract_equity_state(
+        market_context,
+        underlying_id,
+        bond.disc_id,
+        bond.maturity,
+        bond.notional.currency(),
+    )?;
+
+    Ok(PricingInputs {
+        cashflow_schedule,
+        spot,
+        volatility,
+        dividend_yield,
+        risk_free_rate,
+        time_to_maturity,
+    })
+}
+
 /// Main pricing function for convertible bonds
 pub fn price_convertible_bond(
     bond: &ConvertibleBond,
     market_context: &MarketContext,
     tree_type: ConvertibleTreeType,
 ) -> Result<Money> {
-    // Step 1: Generate cashflow schedule using CashflowBuilder
-    let cashflow_schedule = build_convertible_schedule(bond)?;
+    // Step 1: Prepare all inputs
+    let inputs = prepare_for_pricing(bond, market_context)?;
 
-    // Step 2: Extract market data using helper
-    let underlying_id = bond.underlying_equity_id.as_ref().ok_or(Error::Internal)?;
-    let (spot, volatility, dividend_yield, risk_free_rate, time_to_maturity) =
-        extract_equity_state(
-            market_context,
-            underlying_id,
-            bond.disc_id,
-            bond.maturity,
-            bond.notional.currency(),
-        )?;
-
-    if time_to_maturity <= 0.0 {
+    if inputs.time_to_maturity <= 0.0 {
         return Ok(Money::new(0.0, bond.notional.currency()));
     }
 
-    // Step 3: Create valuator
+    // Step 2: Create valuator
     let steps = match tree_type {
         ConvertibleTreeType::Binomial(n) => n,
         ConvertibleTreeType::Trinomial(n) => n,
@@ -362,21 +386,41 @@ pub fn price_convertible_bond(
             bond.disc_id,
         )?
         .base_date();
-    let valuator =
-        ConvertibleBondValuator::new(bond, &cashflow_schedule, time_to_maturity, steps, base_date)?;
+    let valuator = ConvertibleBondValuator::new(
+        bond,
+        &inputs.cashflow_schedule,
+        inputs.time_to_maturity,
+        steps,
+        base_date,
+    )?;
 
-    // Step 4: Create initial state variables
-    let initial_vars = single_factor_equity_state(spot, risk_free_rate, dividend_yield, volatility);
+    // Step 3: Create initial state variables
+    let initial_vars = single_factor_equity_state(
+        inputs.spot,
+        inputs.risk_free_rate,
+        inputs.dividend_yield,
+        inputs.volatility,
+    );
 
-    // Step 5: Price using selected tree model
+    // Step 4: Price using selected tree model
     let pv_amount = match tree_type {
         ConvertibleTreeType::Binomial(steps) => {
             let tree = BinomialTree::crr(steps);
-            tree.price(initial_vars, time_to_maturity, market_context, &valuator)?
+            tree.price(
+                initial_vars,
+                inputs.time_to_maturity,
+                market_context,
+                &valuator,
+            )?
         }
         ConvertibleTreeType::Trinomial(steps) => {
             let tree = TrinomialTree::standard(steps);
-            tree.price(initial_vars, time_to_maturity, market_context, &valuator)?
+            tree.price(
+                initial_vars,
+                inputs.time_to_maturity,
+                market_context,
+                &valuator,
+            )?
         }
     };
 
@@ -390,19 +434,8 @@ pub fn calculate_convertible_greeks(
     tree_type: ConvertibleTreeType,
     bump_size: Option<F>,
 ) -> Result<TreeGreeks> {
-    // Generate cashflow schedule
-    let cashflow_schedule = build_convertible_schedule(bond)?;
-
-    // Extract market data using helper
-    let underlying_id = bond.underlying_equity_id.as_ref().ok_or(Error::Internal)?;
-    let (spot, volatility, dividend_yield, risk_free_rate, time_to_maturity) =
-        extract_equity_state(
-            market_context,
-            underlying_id,
-            bond.disc_id,
-            bond.maturity,
-            bond.notional.currency(),
-        )?;
+    // Prepare all inputs
+    let inputs = prepare_for_pricing(bond, market_context)?;
 
     // Create valuator and initial state
     let steps = match tree_type {
@@ -415,10 +448,20 @@ pub fn calculate_convertible_greeks(
             bond.disc_id,
         )?
         .base_date();
-    let valuator =
-        ConvertibleBondValuator::new(bond, &cashflow_schedule, time_to_maturity, steps, base_date)?;
+    let valuator = ConvertibleBondValuator::new(
+        bond,
+        &inputs.cashflow_schedule,
+        inputs.time_to_maturity,
+        steps,
+        base_date,
+    )?;
 
-    let initial_vars = single_factor_equity_state(spot, risk_free_rate, dividend_yield, volatility);
+    let initial_vars = single_factor_equity_state(
+        inputs.spot,
+        inputs.risk_free_rate,
+        inputs.dividend_yield,
+        inputs.volatility,
+    );
 
     // Calculate Greeks using selected tree model
     match tree_type {
@@ -427,7 +470,7 @@ pub fn calculate_convertible_greeks(
             TreeModel::calculate_greeks(
                 &tree,
                 initial_vars,
-                time_to_maturity,
+                inputs.time_to_maturity,
                 market_context,
                 &valuator,
                 bump_size,
@@ -438,7 +481,7 @@ pub fn calculate_convertible_greeks(
             TreeModel::calculate_greeks(
                 &tree,
                 initial_vars,
-                time_to_maturity,
+                inputs.time_to_maturity,
                 market_context,
                 &valuator,
                 bump_size,

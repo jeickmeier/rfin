@@ -4,6 +4,7 @@ use crate::instruments::traits::Attributes;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::F;
+use finstack_core::market_data::scalars::inflation_index::InflationLag;
 
 /// Direction from the perspective of paying fixed real vs receiving inflation
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,6 +39,9 @@ pub struct InflationSwap {
     pub dc: DayCount,
     /// Trade side
     pub side: PayReceiveInflation,
+    /// Optional contract-level lag override (if set, overrides index lag)
+    #[builder(optional)]
+    pub lag_override: Option<InflationLag>,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
@@ -49,35 +53,10 @@ impl InflationSwap {
     pub fn pv_fixed_leg(
         &self,
         curves: &MarketContext,
-        _as_of: Date,
+        as_of: Date,
     ) -> finstack_core::Result<Money> {
-        let disc = curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            self.disc_id,
-        )?;
-        let base = disc.base_date();
-
-        // Year fraction for the full term of the swap
-        let tau_accrual = self.dc.year_fraction(
-            self.start,
-            self.maturity,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-
-        // Fixed payment at maturity: N * ((1 + K)^tau - 1)
-        let fixed_payment = self.notional * ((1.0 + self.fixed_rate).powf(tau_accrual) - 1.0);
-
-        // Discount factor from as_of to maturity
-        let t_discount = DayCount::Act365F
-            .year_fraction(
-                base,
-                self.maturity,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let df = disc.df(t_discount);
-
-        Ok(fixed_payment * df)
+        let pricer = crate::instruments::inflation_swap::pricing::InflationSwapPricer::new();
+        pricer.pv_fixed_leg(self, curves, as_of)
     }
 
     /// Calculate PV of the inflation leg
@@ -86,55 +65,8 @@ impl InflationSwap {
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
-        let disc = curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            self.disc_id,
-        )?;
-        let base = disc.base_date();
-
-        // Get inflation index for historical reference value
-        let inflation_index = curves
-            .inflation_index_ref(self.inflation_id)
-            .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                    id: "inflation_index".to_string(),
-                })
-            })?;
-
-        // Get inflation curve for forward projection
-        let inflation_curve =
-            curves
-                .get_ref::<finstack_core::market_data::term_structures::inflation::InflationCurve>(
-                    self.inflation_id,
-                )?;
-
-        // Historical index value at start (with any lag applied by the index)
-        let i_start = inflation_index.value_on(self.start)?;
-
-        // Project inflation index value at maturity
-        let t_maturity = DayCount::Act365F
-            .year_fraction(
-                as_of,
-                self.maturity,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let i_maturity_projected = inflation_curve.cpi(t_maturity);
-
-        // Inflation payment at maturity: N * (I(T_mat)/I(T_start) - 1)
-        let inflation_payment = self.notional * (i_maturity_projected / i_start - 1.0);
-
-        // Discount factor from as_of to maturity
-        let t_discount = DayCount::Act365F
-            .year_fraction(
-                base,
-                self.maturity,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let df = disc.df(t_discount);
-
-        Ok(inflation_payment * df)
+        let pricer = crate::instruments::inflation_swap::pricing::InflationSwapPricer::new();
+        pricer.pv_inflation_leg(self, curves, as_of)
     }
 }
 

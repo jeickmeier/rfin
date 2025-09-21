@@ -1,0 +1,18 @@
+//! Inflation leg PV metric for `InflationSwap`.
+
+use crate::instruments::inflation_swap::InflationSwap;
+use crate::metrics::{MetricCalculator, MetricContext};
+use finstack_core::F;
+
+/// Calculates PV of inflation leg for inflation swaps.
+pub struct InflationLegPvCalculator;
+
+impl MetricCalculator for InflationLegPvCalculator {
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+        let s: &InflationSwap = context.instrument_as()?;
+        let pv_inflation = s.pv_inflation_leg(&context.curves, context.as_of)?;
+        Ok(pv_inflation.amount())
+    }
+}
+
+
