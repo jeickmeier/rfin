@@ -32,16 +32,17 @@ fn test_fx_option_creation() {
     assert_eq!(option.quote_currency, Currency::USD);
     assert_eq!(option.strike, 1.20);
 
-    // Test Garman-Kohlhagen pricing
+    // Test Garman-Kohlhagen pricing via pricer helper
     let spot = 1.25;
     let r_d = 0.05; // USD rate
     let r_f = 0.03; // EUR rate
     let sigma = 0.10;
     let t = 1.0;
 
-    let price = option
-        .garman_kohlhagen_price(spot, r_d, r_f, sigma, t)
-        .unwrap();
+    let price = finstack_valuations::instruments::fx_option::pricing::FxOptionPricer::price_gk_with_inputs(
+        &option, spot, r_d, r_f, sigma, t,
+    )
+    .unwrap();
     assert!(price.amount() > 0.0); // Call should have positive value when spot > strike
     assert_eq!(price.currency(), Currency::USD);
 }
