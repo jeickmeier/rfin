@@ -26,8 +26,8 @@ impl MetricCalculator for OasCalculator {
         // Use MarketContext directly (no conversion needed)
         let market_context = context.curves.as_ref().clone();
 
-        // Use OAS calculator to solve for OAS
-        let oas_calculator = crate::instruments::bond::pricing::oas_pricer::OASCalculator::new();
+        // Use Tree pricer to solve for OAS
+        let oas_calculator = crate::instruments::bond::pricing::tree_pricer::TreePricer::new();
         oas_calculator.calculate_oas(bond, &market_context, context.as_of, clean_price)
     }
 }

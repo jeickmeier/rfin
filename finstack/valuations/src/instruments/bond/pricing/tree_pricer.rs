@@ -24,20 +24,24 @@ use std::collections::HashMap;
 use finstack_core::money::Money;
 
 #[derive(Clone, Debug)]
-pub struct OASPricerConfig {
+pub struct TreePricerConfig {
     pub tree_steps: usize,
     pub volatility: F,
     pub tolerance: F,
     pub max_iterations: usize,
+    /// Optional initial bracket size (in basis points) for the root solver.
+    /// Defaults to 1000 bps when `None`.
+    pub initial_bracket_size_bp: Option<F>,
 }
 
-impl Default for OASPricerConfig {
+impl Default for TreePricerConfig {
     fn default() -> Self {
         Self {
             tree_steps: 100,
             volatility: 0.01,
             tolerance: 1e-6,
             max_iterations: 50,
+            initial_bracket_size_bp: Some(1000.0),
         }
     }
 }
@@ -80,10 +84,16 @@ impl BondValuator {
                         finstack_core::dates::DayCountCtx::default(),
                     )
                     .unwrap_or(0.0);
-                let step = ((time_frac / time_to_maturity) * tree_steps as F).round() as usize;
-                if step <= tree_steps {
-                    *coupon_map.entry(step).or_insert(0.0) += amount.amount();
+                // Map to the nearest forward step using ceil and clamp to [1, tree_steps]
+                let raw = (time_frac / time_to_maturity) * tree_steps as F;
+                let mut step = raw.ceil() as usize;
+                if step == 0 {
+                    step = 1;
                 }
+                if step > tree_steps {
+                    step = tree_steps;
+                }
+                *coupon_map.entry(step).or_insert(0.0) += amount.amount();
             }
         }
 
@@ -100,11 +110,16 @@ impl BondValuator {
                             finstack_core::dates::DayCountCtx::default(),
                         )
                         .unwrap_or(0.0);
-                    let step = ((time_frac / time_to_maturity) * tree_steps as F).round() as usize;
-                    if step <= tree_steps {
-                        let call_price = bond.notional.amount() * (call.price_pct_of_par / 100.0);
-                        call_map.insert(step, call_price);
+                    let raw = (time_frac / time_to_maturity) * tree_steps as F;
+                    let mut step = raw.ceil() as usize;
+                    if step == 0 {
+                        step = 1;
                     }
+                    if step > tree_steps {
+                        step = tree_steps;
+                    }
+                    let call_price = bond.notional.amount() * (call.price_pct_of_par / 100.0);
+                    call_map.insert(step, call_price);
                 }
             }
             for put in &call_put.puts {
@@ -117,11 +132,16 @@ impl BondValuator {
                             finstack_core::dates::DayCountCtx::default(),
                         )
                         .unwrap_or(0.0);
-                    let step = ((time_frac / time_to_maturity) * tree_steps as F).round() as usize;
-                    if step <= tree_steps {
-                        let put_price = bond.notional.amount() * (put.price_pct_of_par / 100.0);
-                        put_map.insert(step, put_price);
+                    let raw = (time_frac / time_to_maturity) * tree_steps as F;
+                    let mut step = raw.ceil() as usize;
+                    if step == 0 {
+                        step = 1;
                     }
+                    if step > tree_steps {
+                        step = tree_steps;
+                    }
+                    let put_price = bond.notional.amount() * (put.price_pct_of_par / 100.0);
+                    put_map.insert(step, put_price);
                 }
             }
         }
@@ -161,17 +181,17 @@ impl TreeValuator for BondValuator {
     }
 }
 
-pub struct OASCalculator {
-    config: OASPricerConfig,
+pub struct TreePricer {
+    config: TreePricerConfig,
 }
 
-impl OASCalculator {
+impl TreePricer {
     pub fn new() -> Self {
         Self {
-            config: OASPricerConfig::default(),
+            config: TreePricerConfig::default(),
         }
     }
-    pub fn with_config(config: OASPricerConfig) -> Self {
+    pub fn with_config(config: TreePricerConfig) -> Self {
         Self { config }
     }
 
@@ -235,7 +255,7 @@ impl OASCalculator {
 
         let solver = BrentSolver::new()
             .with_tolerance(self.config.tolerance)
-            .with_initial_bracket_size(Some(1000.0));
+            .with_initial_bracket_size(self.config.initial_bracket_size_bp);
         let initial_guess = 0.0;
         let oas_bp = solver.solve(objective_fn, initial_guess)?;
         Ok(oas_bp)
@@ -247,88 +267,12 @@ impl OASCalculator {
         _market_context: &MarketContext,
         as_of: Date,
     ) -> Result<F> {
-        if let Some(ref custom) = bond.custom_cashflows {
-            let mut coupon_dates = Vec::new();
-            for cf in &custom.flows {
-                if matches!(
-                    cf.kind,
-                    crate::cashflow::primitives::CFKind::Fixed
-                        | crate::cashflow::primitives::CFKind::Stub
-                ) {
-                    coupon_dates.push((cf.date, cf.amount));
-                }
-            }
-            if coupon_dates.len() < 2 {
-                return Ok(0.0);
-            }
-            for window in coupon_dates.windows(2) {
-                let (start_date, _) = window[0];
-                let (end_date, coupon_amount) = window[1];
-                if start_date <= as_of && as_of < end_date {
-                    let total_period = bond
-                        .dc
-                        .year_fraction(
-                            start_date,
-                            end_date,
-                            finstack_core::dates::DayCountCtx::default(),
-                        )
-                        .unwrap_or(0.0);
-                    let elapsed = bond
-                        .dc
-                        .year_fraction(
-                            start_date,
-                            as_of,
-                            finstack_core::dates::DayCountCtx::default(),
-                        )
-                        .unwrap_or(0.0)
-                        .max(0.0);
-                    if total_period > 0.0 {
-                        return Ok(coupon_amount.amount() * (elapsed / total_period));
-                    }
-                }
-            }
-        } else {
-            let sched = crate::cashflow::builder::build_dates(
-                bond.issue,
-                bond.maturity,
-                bond.freq,
-                finstack_core::dates::StubKind::None,
-                finstack_core::dates::BusinessDayConvention::Following,
-                None,
-            );
-            for window in sched.dates.windows(2) {
-                let start_date = window[0];
-                let end_date = window[1];
-                if start_date <= as_of && as_of < end_date {
-                    let yf = bond
-                        .dc
-                        .year_fraction(
-                            start_date,
-                            end_date,
-                            finstack_core::dates::DayCountCtx::default(),
-                        )
-                        .unwrap_or(0.0);
-                    let period_coupon = bond.notional.amount() * bond.coupon * yf;
-                    let elapsed = bond
-                        .dc
-                        .year_fraction(
-                            start_date,
-                            as_of,
-                            finstack_core::dates::DayCountCtx::default(),
-                        )
-                        .unwrap_or(0.0)
-                        .max(0.0);
-                    if yf > 0.0 {
-                        return Ok(period_coupon * (elapsed / yf));
-                    }
-                }
-            }
-        }
-        Ok(0.0)
+        // Prefer context-aware helper for FRNs; MarketContext available here
+        super::helpers::compute_accrued_interest_with_context(bond, _market_context, as_of)
     }
 }
 
-impl Default for OASCalculator {
+impl Default for TreePricer {
     fn default() -> Self {
         Self::new()
     }
@@ -340,7 +284,7 @@ pub fn calculate_oas(
     as_of: Date,
     clean_price: F,
 ) -> Result<F> {
-    let calculator = OASCalculator::new();
+    let calculator = TreePricer::new();
     calculator.calculate_oas(bond, market_context, as_of, clean_price)
 }
 
@@ -359,13 +303,19 @@ mod tests {
             coupon: 0.05,
             freq: finstack_core::dates::Frequency::semi_annual(),
             dc: finstack_core::dates::DayCount::Act365F,
+            bdc: finstack_core::dates::BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: finstack_core::dates::StubKind::None,
             issue,
             maturity,
+            settlement_days: Some(2),
+            ex_coupon_days: Some(0),
             disc_id: "USD-OIS".into(),
             pricing_overrides: PricingOverrides::default().with_clean_price(98.5),
             call_put: None,
             amortization: None,
             custom_cashflows: None,
+            float: None,
             attributes: Default::default(),
         }
     }
@@ -412,7 +362,7 @@ mod tests {
         let bond = create_test_bond();
         let market_context = create_test_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let calculator = OASCalculator::new();
+        let calculator = TreePricer::new();
         let oas = calculator.calculate_oas(&bond, &market_context, as_of, 98.5);
         assert!(oas.is_ok());
         let oas_bp = oas.unwrap();
@@ -424,7 +374,7 @@ mod tests {
         let bond = create_callable_bond();
         let market_context = create_test_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let calculator = OASCalculator::new();
+        let calculator = TreePricer::new();
         let oas = calculator.calculate_oas(&bond, &market_context, as_of, 98.5);
         assert!(oas.is_ok());
         let oas_bp = oas.unwrap();
@@ -442,7 +392,7 @@ mod tests {
     fn test_accrued_interest_calculation() {
         let bond = create_test_bond();
         let market_context = create_test_market_context();
-        let calculator = OASCalculator::new();
+        let calculator = TreePricer::new();
         let coupon_date = Date::from_calendar_date(2025, Month::July, 1).unwrap();
         let accrued = calculator
             .calculate_accrued_interest(&bond, &market_context, coupon_date)

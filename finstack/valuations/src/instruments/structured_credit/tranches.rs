@@ -1,6 +1,6 @@
 //! Tranche structures for structured credit instruments.
 
-use crate::instruments::loan::InterestSpec;
+// InterestSpec removed with loan; retain coupon for metadata only
 use crate::instruments::traits::Attributes;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
@@ -115,47 +115,6 @@ pub enum TrancheCoupon {
 }
 
 impl TrancheCoupon {
-    /// Convert to InterestSpec for cashflow generation
-    pub fn to_interest_spec(&self) -> InterestSpec {
-        match self {
-            TrancheCoupon::Fixed { rate } => InterestSpec::Fixed {
-                rate: *rate,
-                step_ups: None,
-            },
-            TrancheCoupon::Floating {
-                index, spread_bp, ..
-            } => {
-                // Use static string for common indices
-                let index_id = match index.as_str() {
-                    "SOFR-3M" => "SOFR-3M",
-                    "LIBOR-3M" => "LIBOR-3M",
-                    "EURIBOR-3M" => "EURIBOR-3M",
-                    _ => "SOFR-3M", // Default fallback
-                };
-                InterestSpec::Floating {
-                    index_id,
-                    spread_bp: *spread_bp,
-                    spread_step_ups: None,
-                    gearing: 1.0,
-                    reset_lag_days: 2,
-                }
-            }
-            TrancheCoupon::StepUp { schedule } => InterestSpec::Fixed {
-                rate: schedule.first().map(|(_, r)| *r).unwrap_or(0.0),
-                step_ups: Some(schedule.clone()),
-            },
-            TrancheCoupon::PIK { rate, toggle_dates } => InterestSpec::PIKToggle {
-                cash_rate: 0.0,
-                pik_rate: *rate,
-                toggle_schedule: toggle_dates.clone(),
-            },
-            TrancheCoupon::Deferrable { base_rate, .. } => InterestSpec::Fixed {
-                rate: *base_rate,
-                step_ups: None,
-            },
-        }
-    }
-
     /// Get current rate for a given date
     pub fn current_rate(&self, date: Date) -> F {
         match self {

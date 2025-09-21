@@ -13,6 +13,8 @@ pub struct PricingOverrides {
     pub quoted_spread_bp: Option<F>,
     /// Upfront payment (for CDS, convertibles)
     pub upfront_payment: Option<Money>,
+    /// Optional YTM bump size for numerical metrics (e.g., convexity/duration), in decimal (1 bp = 1e-4)
+    pub ytm_bump_bp: Option<F>,
 }
 
 impl PricingOverrides {
@@ -42,6 +44,12 @@ impl PricingOverrides {
     /// Set upfront payment
     pub fn with_upfront(mut self, upfront: Money) -> Self {
         self.upfront_payment = Some(upfront);
+        self
+    }
+
+    /// Set custom YTM bump size (decimal). For 1 bp, pass 1e-4.
+    pub fn with_ytm_bump(mut self, bump: F) -> Self {
+        self.ytm_bump_bp = Some(bump);
         self
     }
 }

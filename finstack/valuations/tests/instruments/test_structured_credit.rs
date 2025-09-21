@@ -3,7 +3,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::loan::Loan;
+// loan removed
 use finstack_valuations::instruments::structured_credit::*;
 use time::Month;
 
@@ -11,47 +11,20 @@ fn test_date() -> Date {
     Date::from_calendar_date(2025, Month::January, 15).unwrap()
 }
 
-fn create_sample_loans() -> Vec<Loan> {
+fn create_sample_loans() -> Vec<()> {
     let base_date = test_date();
     let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
 
-    vec![
-        Loan::fixed_rate(
-            "LOAN_1",
-            Money::new(100_000_000.0, Currency::USD),
-            0.08,
-            base_date,
-            maturity,
-        )
-        .with_borrower("TechCorp1"),
-        Loan::fixed_rate(
-            "LOAN_2",
-            Money::new(75_000_000.0, Currency::USD),
-            0.09,
-            base_date,
-            maturity,
-        )
-        .with_borrower("HealthCorp1"),
-        Loan::fixed_rate(
-            "LOAN_3",
-            Money::new(125_000_000.0, Currency::USD),
-            0.12,
-            base_date,
-            maturity,
-        )
-        .with_borrower("EnergyCorp1"),
-    ]
+    vec![(), (), ()]
 }
 
 #[test]
 fn test_clo_creation() {
-    let loans = create_sample_loans();
+    let _loans = create_sample_loans();
 
     // Create asset pool
     let mut pool = AssetPool::new("TEST_POOL", DealType::CLO, Currency::USD);
-    for loan in &loans {
-        pool.add_loan(loan, Some("Technology".to_string()));
-    }
+    // loan add removed
 
     // Create tranches
     let equity_tranche = AbsTranche::new(

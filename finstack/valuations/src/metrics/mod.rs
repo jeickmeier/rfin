@@ -65,7 +65,7 @@ pub fn standard_registry() -> MetricRegistry {
     crate::instruments::cap_floor::metrics::register_interest_rate_option_metrics(&mut registry);
     crate::instruments::cds_option::metrics::register_cds_option_metrics(&mut registry);
     crate::instruments::swaption::metrics::register_swaption_metrics(&mut registry);
-    crate::instruments::loan::metrics::register_loan_metrics(&mut registry);
+    // loan and revolver metrics removed
     crate::instruments::repo::metrics::register_repo_metrics(&mut registry);
     crate::instruments::basis_swap::metrics::register_basis_swap_metrics(&mut registry);
     risk::register_risk_metrics(&mut registry);

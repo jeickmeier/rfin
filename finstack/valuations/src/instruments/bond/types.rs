@@ -1,15 +1,14 @@
 //! Bond instrument types and implementations.
 
-use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
+use finstack_core::dates::{BusinessDayConvention, StubKind};
 use finstack_core::F;
 
 use crate::cashflow::builder::CashFlowSchedule;
 #[allow(unused_imports)]
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::traits::{Attributes, Priceable};
+use crate::instruments::traits::{Attributes};
 use crate::instruments::PricingOverrides;
-use crate::metrics::{RiskBucket, RiskMeasurable, RiskReport};
 use finstack_core::types::{CurveId, InstrumentId};
 
 // Re-export for compatibility in tests and external users referencing bond::AmortizationSpec
@@ -31,6 +30,12 @@ pub struct Bond {
     pub freq: finstack_core::dates::Frequency,
     /// Day count convention for accrual.
     pub dc: DayCount,
+    /// Business day convention for schedule/payment adjustments.
+    pub bdc: BusinessDayConvention,
+    /// Optional calendar identifier for schedule adjustments.
+    pub calendar_id: Option<&'static str>,
+    /// Stub handling rule for the schedule.
+    pub stub: StubKind,
     /// Issue date of the bond.
     pub issue: Date,
     /// Maturity date of the bond.
@@ -46,8 +51,15 @@ pub struct Bond {
     /// Optional pre-built cashflow schedule. If provided, this will be used instead of
     /// generating cashflows from coupon/amortization specifications.
     pub custom_cashflows: Option<CashFlowSchedule>,
+    /// Optional floating-rate specification (FRN). When present, coupons are
+    /// projected off a forward index with margin and gearing.
+    pub float: Option<BondFloatSpec>,
     /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,
+    /// Settlement convention: number of settlement days after trade date.
+    pub settlement_days: Option<u32>,
+    /// Ex-coupon convention: number of days before coupon date that go ex.
+    pub ex_coupon_days: Option<u32>,
 }
 
 /// Call or put option on a bond.
@@ -68,6 +80,19 @@ pub struct CallPutSchedule {
     pub puts: Vec<CallPut>,
 }
 
+/// Floating-rate parameters for FRN-style bonds.
+#[derive(Clone, Debug)]
+pub struct BondFloatSpec {
+    /// Forward curve identifier for the floating index (e.g., USD-SOFR-3M).
+    pub fwd_id: CurveId,
+    /// Margin over the index in basis points.
+    pub margin_bp: F,
+    /// Gearing multiplier on the index rate.
+    pub gearing: F,
+    /// Reset lag in days applied to the fixing date (business-day adjusted Following).
+    pub reset_lag_days: i32,
+}
+
 impl Bond {
     /// Create a standard fixed-rate bond with semi-annual coupons.
     pub fn fixed_semiannual(
@@ -86,6 +111,9 @@ impl Bond {
             .maturity(maturity)
             .freq(finstack_core::dates::Frequency::semi_annual())
             .dc(DayCount::Thirty360)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
             .disc_id(disc_id.into())
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -109,6 +137,9 @@ impl Bond {
             .maturity(maturity)
             .freq(finstack_core::dates::Frequency::annual())
             .dc(DayCount::ActActIsma)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
             .disc_id(CurveId::new("USD-TREASURY"))
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -125,6 +156,47 @@ impl Bond {
         disc_id: impl Into<CurveId>,
     ) -> Self {
         Self::fixed_semiannual(id, notional, 0.0, issue, maturity, disc_id)
+    }
+
+    /// Create a simple floating-rate note (FRN) with typical conventions.
+    ///
+    /// Defaults:
+    /// - Frequency: quarterly; DayCount: Act/360; Reset lag: 2 days; Gearing: 1.0
+    pub fn floating(
+        id: impl Into<String>,
+        notional: Money,
+        issue: Date,
+        maturity: Date,
+        disc_id: impl Into<CurveId>,
+        fwd_id: impl Into<CurveId>,
+        margin_bp: F,
+    ) -> Self {
+        Self {
+            id: InstrumentId::new(id.into()),
+            notional,
+            coupon: 0.0,
+            freq: finstack_core::dates::Frequency::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
+            issue,
+            maturity,
+            disc_id: disc_id.into(),
+            pricing_overrides: PricingOverrides::default(),
+            call_put: None,
+            amortization: None,
+            custom_cashflows: None,
+            float: Some(BondFloatSpec {
+                fwd_id: fwd_id.into(),
+                margin_bp,
+                gearing: 1.0,
+                reset_lag_days: 2,
+            }),
+            attributes: Attributes::new(),
+            settlement_days: None,
+            ex_coupon_days: None,
+        }
     }
 
     /// Create a bond from a pre-built cashflow schedule.
@@ -159,6 +231,9 @@ impl Bond {
             coupon,
             freq,
             dc,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
             issue,
             maturity,
             disc_id: disc_id.into(),
@@ -170,7 +245,10 @@ impl Bond {
             call_put: None,
             amortization: None,
             custom_cashflows: Some(schedule),
+            float: None,
             attributes: Attributes::new(),
+            settlement_days: None,
+            ex_coupon_days: None,
         })
     }
 
@@ -229,135 +307,18 @@ impl crate::instruments::traits::Instrument for Bond {
     }
 }
 
-impl RiskMeasurable for Bond {
-    fn risk_report(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-        _bucket_spec: Option<&[RiskBucket]>,
-    ) -> finstack_core::Result<RiskReport> {
-        use crate::metrics::MetricContext;
-        use crate::metrics::{standard_registry, MetricId};
-        use std::sync::Arc;
-
-        // Create risk report
-        let mut report = RiskReport::new(self.id.as_str(), self.notional.currency());
-
-        // Compute base value
-        let base_value = self.value(curves, as_of)?;
-
-        // Create metric context
-        let mut context = MetricContext::new(
-            Arc::new(self.clone()),
-            Arc::new(curves.clone()),
-            as_of,
-            base_value,
-        );
-
-        // Compute key risk metrics
-        let registry = standard_registry();
-        let risk_metrics = [
-            MetricId::DurationMod,
-            MetricId::Convexity,
-            MetricId::Dv01,
-            MetricId::Cs01,
-        ];
-
-        // Compute available metrics (some may not be applicable)
-        for metric_id in &risk_metrics {
-            if let Ok(metrics) = registry.compute(&[metric_id.clone()], &mut context) {
-                if let Some(value) = metrics.get(metric_id) {
-                    report = report.with_metric(metric_id.as_str(), *value);
-                }
-            }
-        }
-
-        // Add maturity bucket
-        let years_to_maturity = self
-            .dc
-            .year_fraction(
-                as_of,
-                self.maturity,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-
-        let bucket = if years_to_maturity <= 1.0 {
-            RiskBucket {
-                id: "1Y".to_string(),
-                tenor_years: Some(years_to_maturity),
-                classification: Some("Short".to_string()),
-            }
-        } else if years_to_maturity <= 5.0 {
-            RiskBucket {
-                id: "5Y".to_string(),
-                tenor_years: Some(years_to_maturity),
-                classification: Some("Medium".to_string()),
-            }
-        } else if years_to_maturity <= 10.0 {
-            RiskBucket {
-                id: "10Y".to_string(),
-                tenor_years: Some(years_to_maturity),
-                classification: Some("Long".to_string()),
-            }
-        } else {
-            RiskBucket {
-                id: "30Y".to_string(),
-                tenor_years: Some(years_to_maturity),
-                classification: Some("Ultra-Long".to_string()),
-            }
-        };
-
-        report = report.with_bucket(bucket);
-
-        // If bucketed DV01 is computed, add it
-        if let Some(_bucketed_dv01) = context.computed.get(&MetricId::BucketedDv01) {
-            // Note: This would need custom handling for the bucketed structure
-            // For now, we'll just note it's available
-            report
-                .meta
-                .insert("bucketed_dv01_available".to_string(), "true".to_string());
-        }
-
-        Ok(report)
-    }
-
-    fn default_risk_buckets(&self) -> Option<Vec<RiskBucket>> {
-        Some(vec![
-            RiskBucket {
-                id: "1Y".to_string(),
-                tenor_years: Some(1.0),
-                classification: Some("Short".to_string()),
-            },
-            RiskBucket {
-                id: "5Y".to_string(),
-                tenor_years: Some(5.0),
-                classification: Some("Medium".to_string()),
-            },
-            RiskBucket {
-                id: "10Y".to_string(),
-                tenor_years: Some(10.0),
-                classification: Some("Long".to_string()),
-            },
-            RiskBucket {
-                id: "30Y".to_string(),
-                tenor_years: Some(30.0),
-                classification: Some("Ultra-Long".to_string()),
-            },
-        ])
-    }
-}
-
-// CashflowProvider implementation moved to cashflows.rs
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
+    use crate::instruments::traits::Priceable;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
     use finstack_core::market_data::MarketContext;
+    use finstack_core::math::interp::InterpStyle;
     use time::Month;
 
     #[test]
@@ -465,6 +426,9 @@ mod tests {
             .maturity(maturity)
             .freq(Frequency::quarterly())
             .dc(DayCount::Thirty360)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
             .custom_cashflows_opt(Some(custom_schedule))
             .disc_id(CurveId::new("USD-OIS"))
             .pricing_overrides(PricingOverrides::default().with_clean_price(99.0))
@@ -491,6 +455,9 @@ mod tests {
             coupon: 0.04,
             freq: Frequency::semi_annual(),
             dc: DayCount::Act365F,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
             issue,
             maturity,
             disc_id: CurveId::new("USD-OIS"),
@@ -498,7 +465,10 @@ mod tests {
             call_put: None,
             amortization: None,
             custom_cashflows: None,
+            float: None,
             attributes: Attributes::new(),
+            settlement_days: None,
+            ex_coupon_days: None,
         };
 
         // Build a custom schedule separately
@@ -536,6 +506,9 @@ mod tests {
             coupon: 0.03,
             freq: Frequency::annual(),
             dc: DayCount::Act365F,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
             issue,
             maturity,
             disc_id: CurveId::new("USD-OIS"),
@@ -543,7 +516,10 @@ mod tests {
             call_put: None,
             amortization: None,
             custom_cashflows: None,
+            float: None,
             attributes: Attributes::new(),
+            settlement_days: None,
+            ex_coupon_days: None,
         };
 
         // Same bond with custom cashflows
@@ -581,5 +557,41 @@ mod tests {
 
         // Custom bond should have semi-annual flows (more flows)
         assert!(custom_flows.len() > regular_flows.len());
+    }
+
+    #[test]
+    fn test_bond_floating_value() {
+        let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let maturity = Date::from_calendar_date(2027, Month::January, 1).unwrap();
+        let notional = Money::new(1_000_000.0, Currency::USD);
+
+        // Curves
+        let disc = DiscountCurve::builder("USD-OIS")
+            .base_date(issue)
+            .knots([(0.0, 1.0), (2.0, 0.95)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap();
+        let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+            .base_date(issue)
+            .knots([(0.0, 0.05), (2.0, 0.055)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap();
+        let ctx = MarketContext::new().insert_discount(disc).insert_forward(fwd);
+
+        let bond = Bond::floating(
+            "FRN-TEST",
+            notional,
+            issue,
+            maturity,
+            CurveId::new("USD-OIS"),
+            CurveId::new("USD-SOFR-3M"),
+            150.0,
+        );
+
+        // Price should be finite and positive under positive forwards
+        let pv = bond.value(&ctx, issue).unwrap();
+        assert!(pv.amount().is_finite());
     }
 }

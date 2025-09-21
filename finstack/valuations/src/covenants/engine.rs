@@ -7,9 +7,65 @@
 //! - Supports both financial and non-financial covenants
 
 use crate::covenants::CovenantReport;
-use crate::instruments::loan::covenants::{
-    Covenant, CovenantConsequence, CovenantType, ThresholdTest,
-};
+// Covenant type definitions were previously under loan; re-introduce minimal versions locally
+#[derive(Clone, Debug)]
+pub struct Covenant {
+    pub covenant_type: CovenantType,
+    pub test_frequency: finstack_core::dates::Frequency,
+    pub cure_period_days: Option<i32>,
+    pub consequences: Vec<CovenantConsequence>,
+    pub is_active: bool,
+}
+
+impl Covenant {
+    pub fn new(covenant_type: CovenantType, test_frequency: finstack_core::dates::Frequency) -> Self {
+        Self { covenant_type, test_frequency, cure_period_days: Some(30), consequences: Vec::new(), is_active: true }
+    }
+    pub fn with_cure_period(mut self, days: Option<i32>) -> Self { self.cure_period_days = days; self }
+    pub fn with_consequence(mut self, consequence: CovenantConsequence) -> Self { self.consequences.push(consequence); self }
+    pub fn description(&self) -> String {
+        match &self.covenant_type {
+            CovenantType::MaxDebtToEBITDA { threshold } => format!("Debt/EBITDA ≤ {:.2}x", threshold),
+            CovenantType::MinInterestCoverage { threshold } => format!("Interest Coverage ≥ {:.2}x", threshold),
+            CovenantType::MinFixedChargeCoverage { threshold } => format!("Fixed Charge Coverage ≥ {:.2}x", threshold),
+            CovenantType::MaxTotalLeverage { threshold } => format!("Total Leverage ≤ {:.2}x", threshold),
+            CovenantType::MaxSeniorLeverage { threshold } => format!("Senior Leverage ≤ {:.2}x", threshold),
+            CovenantType::MinAssetCoverage { threshold } => format!("Asset Coverage ≥ {:.2}x", threshold),
+            CovenantType::Negative { restriction } => format!("Negative: {}", restriction),
+            CovenantType::Affirmative { requirement } => format!("Affirmative: {}", requirement),
+            CovenantType::Custom { metric, test } => match test {
+                ThresholdTest::Maximum(v) => format!("{} ≤ {:.2}", metric, v),
+                ThresholdTest::Minimum(v) => format!("{} ≥ {:.2}", metric, v),
+            },
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum CovenantType {
+    MaxDebtToEBITDA { threshold: F },
+    MinInterestCoverage { threshold: F },
+    MinFixedChargeCoverage { threshold: F },
+    MaxTotalLeverage { threshold: F },
+    MaxSeniorLeverage { threshold: F },
+    MinAssetCoverage { threshold: F },
+    Negative { restriction: String },
+    Affirmative { requirement: String },
+    Custom { metric: String, test: ThresholdTest },
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum ThresholdTest { Maximum(F), Minimum(F) }
+
+#[derive(Clone, Debug)]
+pub enum CovenantConsequence {
+    Default,
+    RateIncrease { bp_increase: F },
+    CashSweep { sweep_percentage: F },
+    BlockDistributions,
+    RequireCollateral { description: String },
+    AccelerateMaturity { new_maturity: Date },
+}
 use crate::metrics::{MetricContext, MetricId};
 use finstack_core::prelude::*;
 use finstack_core::F;

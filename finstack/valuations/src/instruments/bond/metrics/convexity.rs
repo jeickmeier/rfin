@@ -38,7 +38,12 @@ impl MetricCalculator for ConvexityCalculator {
             built
         };
 
-        let dy = 1e-4; // 1 basis point for numerical differentiation
+        // Bump size: configurable via context overrides, default 1 bp
+        let dy = context
+            .pricing_overrides
+            .as_ref()
+            .and_then(|po| po.ytm_bump_bp)
+            .unwrap_or(1e-4);
 
         // Calculate prices with yield bumps for numerical convexity
         let (p0, p_up, p_dn) = {

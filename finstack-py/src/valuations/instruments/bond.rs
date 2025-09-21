@@ -120,8 +120,13 @@ impl PyBond {
             coupon,
             freq: frequency.inner(),
             dc: day_count.inner(),
+            bdc: finstack_core::dates::BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: finstack_core::dates::StubKind::None,
             issue: issue_date.inner(),
             maturity: maturity.inner(),
+            settlement_days: Some(2),
+            ex_coupon_days: Some(0),
             disc_id: disc_id.into(),
             pricing_overrides: if let Some(price) = quoted_clean_price {
                 finstack_valuations::instruments::PricingOverrides::default()
@@ -132,6 +137,7 @@ impl PyBond {
             call_put: None,
             amortization: None,
             custom_cashflows: custom_cashflows.map(|cf| cf.inner()),
+            float: None,
             attributes: finstack_valuations::instruments::traits::Attributes::new(),
         };
 
@@ -544,38 +550,23 @@ impl PyBond {
     ///     ...         print(f"{bucket}: {value}")
     fn risk_report(
         &self,
-        market_context: &crate::core::market_data::context::PyMarketContext,
-        as_of: &PyDate,
+        _market_context: &crate::core::market_data::context::PyMarketContext,
+        _as_of: &PyDate,
         bucket_spec: Option<Vec<crate::valuations::risk::PyRiskBucket>>,
     ) -> PyResult<crate::valuations::risk::PyRiskReport> {
-        use finstack_valuations::metrics::RiskMeasurable;
+        // Temporary implementation: construct a minimal RiskReport until
+        // Bond implements RiskMeasurable in the Rust core.
+        let mut report = finstack_valuations::metrics::RiskReport::new(
+            self.inner.id.as_str(),
+            self.inner.notional.currency(),
+        );
 
-        let curves = market_context.inner();
-        let as_of_date = as_of.inner();
-
-        // Convert Python bucket spec to Rust if provided
-        let rust_buckets = bucket_spec.map(|buckets| {
-            buckets
-                .into_iter()
-                .map(|b| finstack_valuations::metrics::RiskBucket {
-                    id: b.inner.id,
-                    tenor_years: b.inner.tenor_years,
-                    classification: b.inner.classification,
-                })
-                .collect::<Vec<_>>()
-        });
-
-        let bucket_spec_ref = rust_buckets.as_deref();
-
-        let report = self
-            .inner
-            .risk_report(&curves, as_of_date, bucket_spec_ref)
-            .map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                    "Failed to generate risk report: {:?}",
-                    e
-                ))
-            })?;
+        // Convert Python bucket spec to Rust and attach to report if provided
+        if let Some(buckets) = bucket_spec {
+            for b in buckets.into_iter().map(|pb| pb.inner) {
+                report = report.with_bucket(b);
+            }
+        }
 
         Ok(crate::valuations::risk::PyRiskReport::from_inner(report))
     }

@@ -6,8 +6,8 @@
 //! - Putable bonds (lower OAS due to positive option value)
 //! - Convergence properties and edge cases
 
-use finstack_valuations::instruments::bond::pricing::oas_pricer::{
-    calculate_oas, OASCalculator, OASPricerConfig,
+use finstack_valuations::instruments::bond::pricing::tree_pricer::{
+    calculate_oas, TreePricer, TreePricerConfig,
 };
 use finstack_valuations::instruments::bond::{Bond, CallPut, CallPutSchedule};
 use finstack_valuations::instruments::traits::Priceable;
@@ -15,7 +15,7 @@ use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{Date, DayCount, Frequency, BusinessDayConvention, StubKind};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
@@ -61,6 +61,9 @@ fn create_plain_bond(quoted_clean: Option<F>) -> Bond {
         coupon: 0.05, // 5% coupon
         freq: Frequency::semi_annual(),
         dc: DayCount::Act365F,
+        bdc: BusinessDayConvention::Following,
+        calendar_id: None,
+        stub: StubKind::None,
         issue,
         maturity,
         disc_id: "USD-OIS".into(),
@@ -238,14 +241,15 @@ fn test_oas_convergence_with_tree_steps() {
     let mut oas_values = Vec::new();
 
     for &step_count in &steps {
-        let config = OASPricerConfig {
+        let config = TreePricerConfig {
             tree_steps: step_count,
             volatility: 0.01,
             tolerance: 1e-6,
             max_iterations: 50,
+            ..Default::default()
         };
 
-        let calculator = OASCalculator::with_config(config);
+        let calculator = TreePricer::with_config(config);
         let oas = calculator
             .calculate_oas(&bond, &market_context, as_of, 97.5)
             .unwrap();
@@ -273,14 +277,15 @@ fn test_oas_volatility_sensitivity() {
     let mut oas_values = Vec::new();
 
     for &vol in &volatilities {
-        let config = OASPricerConfig {
+        let config = TreePricerConfig {
             tree_steps: 50,
             volatility: vol,
             tolerance: 1e-6,
             max_iterations: 50,
+            ..Default::default()
         };
 
-        let calculator = OASCalculator::with_config(config);
+        let calculator = TreePricer::with_config(config);
         let oas = calculator
             .calculate_oas(&bond, &market_context, as_of, 98.0)
             .unwrap();
@@ -305,14 +310,15 @@ fn test_oas_zero_volatility_limit() {
 
     // With zero volatility, call option has no time value
     // OAS should approach Z-spread
-    let config = OASPricerConfig {
+    let config = TreePricerConfig {
         tree_steps: 50,
         volatility: 0.001, // Very low volatility
         tolerance: 1e-6,
         max_iterations: 50,
+        ..Default::default()
     };
 
-    let calculator = OASCalculator::with_config(config);
+    let calculator = TreePricer::with_config(config);
     let low_vol_oas = calculator
         .calculate_oas(&bond, &market_context, as_of, 99.0)
         .unwrap();
@@ -417,8 +423,8 @@ fn test_oas_consistency_with_model_price() {
     let oas_bp = calculate_oas(&bond, &market_context, as_of, 98.5).unwrap();
 
     // Now verify that pricing with this OAS gives back the market price
-    let config = OASPricerConfig::default();
-    let _calculator = OASCalculator::with_config(config);
+    let config = TreePricerConfig::default();
+    let _calculator = TreePricer::with_config(config);
 
     // This would require exposing the internal pricing method, so for now
     // just verify OAS is reasonable
@@ -426,7 +432,7 @@ fn test_oas_consistency_with_model_price() {
     assert!(oas_bp.is_finite());
 
     // Verify calculator was created properly (config is private, so just test creation)
-    let _another_calculator = OASCalculator::new();
+    let _another_calculator = TreePricer::new();
 }
 
 #[test]
@@ -435,18 +441,18 @@ fn test_oas_different_volatilities() {
     let market_context = create_market_context();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
-    let low_vol_config = OASPricerConfig {
+    let low_vol_config = TreePricerConfig {
         volatility: 0.005, // 0.5%
         ..Default::default()
     };
 
-    let high_vol_config = OASPricerConfig {
+    let high_vol_config = TreePricerConfig {
         volatility: 0.02, // 2%
         ..Default::default()
     };
 
-    let low_vol_calculator = OASCalculator::with_config(low_vol_config);
-    let high_vol_calculator = OASCalculator::with_config(high_vol_config);
+    let low_vol_calculator = TreePricer::with_config(low_vol_config);
+    let high_vol_calculator = TreePricer::with_config(high_vol_config);
 
     let low_vol_oas = low_vol_calculator
         .calculate_oas(&bond, &market_context, as_of, 97.0)
@@ -466,14 +472,15 @@ fn test_oas_different_volatilities() {
 
 #[test]
 fn test_oas_calculator_config() {
-    let config = OASPricerConfig {
+    let config = TreePricerConfig {
         tree_steps: 75,
         volatility: 0.015,
         tolerance: 1e-8,
         max_iterations: 100,
+        ..Default::default()
     };
 
-    let _calculator = OASCalculator::with_config(config.clone());
+    let _calculator = TreePricer::with_config(config.clone());
 
     // Verify config can be created and cloned
     assert_eq!(config.tree_steps, 75);
@@ -507,20 +514,20 @@ fn test_oas_tolerance_convergence() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // Test different tolerance levels
-    let tight_config = OASPricerConfig {
+    let tight_config = TreePricerConfig {
         tolerance: 1e-8,
         max_iterations: 100,
         ..Default::default()
     };
 
-    let loose_config = OASPricerConfig {
+    let loose_config = TreePricerConfig {
         tolerance: 1e-4,
         max_iterations: 20,
         ..Default::default()
     };
 
-    let tight_calculator = OASCalculator::with_config(tight_config);
-    let loose_calculator = OASCalculator::with_config(loose_config);
+    let tight_calculator = TreePricer::with_config(tight_config);
+    let loose_calculator = TreePricer::with_config(loose_config);
 
     let tight_oas = tight_calculator
         .calculate_oas(&bond, &market_context, as_of, 98.0)

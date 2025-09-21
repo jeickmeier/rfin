@@ -9,7 +9,7 @@ use finstack_core::money::Money;
 use finstack_core::F;
 use finstack_valuations::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
 use finstack_valuations::cashflow::primitives::AmortizationSpec;
-use finstack_valuations::instruments::bond::pricing::oas_pricer::OASCalculator;
+use finstack_valuations::instruments::bond::pricing::tree_pricer::TreePricer;
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::PricingOverrides;
 use time::Month;
@@ -68,11 +68,12 @@ fn test_oas_stability_amortizing_bond() {
     for as_of in &as_ofs {
         let mut values: Vec<F> = Vec::new();
         for &n in &steps {
-            let calc = OASCalculator::with_config(finstack_valuations::instruments::bond::pricing::oas_pricer::OASPricerConfig {
+            let calc = TreePricer::with_config(finstack_valuations::instruments::bond::pricing::tree_pricer::TreePricerConfig {
                 tree_steps: n,
                 volatility: 0.01,
                 tolerance: 1e-6,
                 max_iterations: 50,
+                ..Default::default()
             });
             let oas = calc.calculate_oas(&bond, &curves, *as_of, 99.0).unwrap();
             assert!(oas.is_finite());
@@ -129,11 +130,12 @@ fn test_oas_stability_pik_bond() {
     let steps = [25, 50, 100];
     let mut oas_values: Vec<F> = Vec::new();
     for &n in &steps {
-        let calc = OASCalculator::with_config(finstack_valuations::instruments::bond::pricing::oas_pricer::OASPricerConfig {
+        let calc = TreePricer::with_config(finstack_valuations::instruments::bond::pricing::tree_pricer::TreePricerConfig {
             tree_steps: n,
             volatility: 0.01,
             tolerance: 1e-6,
             max_iterations: 50,
+            ..Default::default()
         });
         let oas = calc.calculate_oas(&bond, &curves, as_of, 98.0).unwrap();
         assert!(oas.is_finite());

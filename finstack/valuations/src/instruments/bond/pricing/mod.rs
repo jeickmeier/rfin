@@ -2,7 +2,7 @@
 
 mod discount;
 pub mod helpers;
-pub mod oas_pricer;
+pub mod tree_pricer;
 pub mod ytm_solver;
 
 use crate::instruments::traits::Priceable;
@@ -18,6 +18,8 @@ use crate::instruments::helpers::build_with_metrics_dyn;
 
 impl Priceable for Bond {
     fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
+        // Both fixed and floating bonds build appropriate cashflow schedules via
+        // `Bond::build_schedule`. Pricing then discounts those deterministic flows.
         discount::price(self, context, as_of)
     }
 

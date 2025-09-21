@@ -9,7 +9,7 @@ use finstack_core::math::solver::{BrentSolver, HybridSolver, Solver};
 use finstack_core::money::Money;
 use finstack_core::{Result, F};
 
-use super::helpers::{df_from_yield, YieldCompounding};
+use super::helpers::YieldCompounding;
 
 #[derive(Clone, Copy, Debug)]
 pub struct YtmPricingSpec {
@@ -122,20 +122,15 @@ impl YtmSolver {
         comp: YieldCompounding,
         freq: Frequency,
     ) -> F {
-        let mut price = 0.0;
-        for &(date, amount) in cashflows {
-            if date <= as_of {
-                continue;
-            }
-            let t = day_count
-                .year_fraction(as_of, date, finstack_core::dates::DayCountCtx::default())
-                .unwrap_or(0.0);
-            if t > 0.0 {
-                let df = df_from_yield(yield_rate, t, comp, freq).unwrap_or(0.0);
-                price += amount.amount() * df;
-            }
-        }
-        price
+        super::helpers::price_from_ytm_compounded_params(
+            day_count,
+            freq,
+            cashflows,
+            as_of,
+            yield_rate,
+            comp,
+        )
+        .unwrap_or(0.0)
     }
 
     fn calculate_initial_guess(

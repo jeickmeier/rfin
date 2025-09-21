@@ -10,13 +10,9 @@ use time::Month;
 
 use finstack_valuations::instruments::underlying::EquityUnderlyingParams;
 use finstack_valuations::instruments::PricingOverrides;
+use finstack_valuations::instruments::{cds::PayReceive as CdsPayReceive, irs::PayReceive};
 use finstack_valuations::instruments::{
-    cds::PayReceive as CdsPayReceive,
-    irs::PayReceive,
-    loan::{DelayedDrawTermLoan, RevolvingCreditFacility},
-};
-use finstack_valuations::instruments::{
-    Bond, CreditDefaultSwap, EquityOption, ExerciseStyle, InterestRateSwap, Loan,
+    Bond, CreditDefaultSwap, EquityOption, ExerciseStyle, InterestRateSwap,
 };
 
 fn main() -> finstack_core::Result<()> {
@@ -54,18 +50,7 @@ fn main() -> finstack_core::Result<()> {
     );
     println!("✓ Bond created: {} coupon", bond.coupon);
 
-    // Fixed-Rate Term Loan - ONE LINE!
-    let loan = Loan::fixed_rate(
-        "LOAN-001",
-        Money::new(5_000_000.0, Currency::USD),
-        0.075, // 7.5% rate
-        issue,
-        maturity_5y,
-    );
-    println!(
-        "✓ Term loan created: {} outstanding",
-        loan.outstanding.amount()
-    );
+    // Loan and revolver examples removed
 
     // Credit Default Swap - ONE LINE!
     let cds = CreditDefaultSwap::buy_protection(
@@ -196,62 +181,7 @@ fn main() -> finstack_core::Result<()> {
         hy_cds.protection.recovery_rate
     );
 
-    // ==========================================
-    // PRIVATE CREDIT FACILITIES
-    // ==========================================
-    println!("\n3. Private Credit Facilities");
-    println!("-----------------------------");
-
-    // Delayed-Draw Term Loan - Floating SOFR + 350bp
-    let ddtl = DelayedDrawTermLoan::floating_sofr(
-        "DDTL-001",
-        Money::new(50_000_000.0, Currency::USD),
-        350.0,                                                       // 350bp over SOFR
-        Date::from_calendar_date(2026, Month::January, 15).unwrap(), // Draw expiry
-        Date::from_calendar_date(2031, Month::January, 15).unwrap(), // Final maturity
-    );
-    println!("✓ DDTL created: {} commitment", ddtl.commitment.amount());
-
-    // Revolving Credit Facility - Fixed 6.5%
-    let revolver = RevolvingCreditFacility::fixed_rate(
-        "RCF-001",
-        Money::new(25_000_000.0, Currency::USD),
-        0.065, // 6.5% fixed rate
-        issue,
-        Date::from_calendar_date(2028, Month::January, 15).unwrap(), // Availability end
-        Date::from_calendar_date(2030, Month::January, 15).unwrap(), // Final maturity
-    );
-    println!(
-        "✓ Revolver created: {} commitment",
-        revolver.commitment.amount()
-    );
-
-    // PIK Loan
-    let pik_loan = Loan::pik(
-        "PIK-001",
-        Money::new(15_000_000.0, Currency::USD),
-        0.12, // 12% PIK rate
-        issue,
-        maturity_5y,
-    );
-    println!(
-        "✓ PIK loan created: {} outstanding",
-        pik_loan.outstanding.amount()
-    );
-
-    // Cash + PIK Loan
-    let cash_pik_loan = Loan::cash_plus_pik(
-        "CASH-PIK-001",
-        Money::new(20_000_000.0, Currency::USD),
-        0.08, // 8% cash rate
-        0.04, // 4% PIK rate
-        issue,
-        maturity_5y,
-    );
-    println!(
-        "✓ Cash + PIK loan created: {} outstanding",
-        cash_pik_loan.outstanding.amount()
-    );
+    // Private credit facilities removed
 
     println!("\n=== Summary ===");
     println!("✅ All instruments created successfully with new enhanced builders!");

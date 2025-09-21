@@ -97,6 +97,8 @@ pub struct MetricContext {
     /// When set, bucketed metrics (e.g., DV01 by tenor) will use this resolver
     /// to produce `MetricId`s instead of default static keys.
     pub bucket_key_resolver: Option<Arc<BucketKeyResolverFn>>,
+    /// Optional pricing overrides to control metric calculations (e.g., bumps)
+    pub pricing_overrides: Option<crate::instruments::PricingOverrides>,
 }
 
 impl MetricContext {
@@ -125,6 +127,7 @@ impl MetricContext {
             discount_curve_id: None,
             day_count: None,
             bucket_key_resolver: None,
+            pricing_overrides: None,
         }
     }
 

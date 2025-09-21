@@ -87,8 +87,8 @@ def create_bond_portfolio():
     )
     portfolio.add_position(hy_bond, 5)  # $5mm position
 
-    # Amortizing loan
-    print("\nCreating amortizing loan structure...")
+    # Amortizing cashflow leg (loan-like) using cashflow builder
+    print("\nCreating amortizing cashflow structure...")
     builder = CashflowBuilder()
     builder.principal(
         Money(10_000_000, Currency("USD")), Date(2024, 1, 1), Date(2029, 1, 1)
@@ -103,9 +103,9 @@ def create_bond_portfolio():
         stub=None,
     )
     builder.with_amortization(Amortization.linear_to_zero(Currency("USD")))
-    loan_schedule = builder.build()
-    print(f"  Amortizing loan: {len(loan_schedule.flows)} cashflows")
-    print(f"  Total interest: ${loan_schedule.total_interest():,.2f}")
+    leg_schedule = builder.build()
+    print(f"  Amortizing cashflows: {len(leg_schedule.flows)} cashflows")
+    print(f"  Total interest: ${leg_schedule.total_interest():,.2f}")
 
     # PIK toggle bond
     print("\nCreating PIK toggle structure...")

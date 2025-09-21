@@ -141,6 +141,32 @@ fn bond_pv_with_unit_df_is_sum_of_cashflows() {
 }
 
 #[test]
+fn bond_floating_constructor_and_pricing() {
+    let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+    let notional = Money::new(1_000_000.0, Currency::USD);
+
+    let disc = flat_df_curve("USD-OIS", issue, 1.0);
+    let fwd = flat_fwd_curve("USD-SOFR-3M", issue, 0.05);
+    let curves = MarketContext::new()
+        .insert_discount(disc)
+        .insert_forward(fwd);
+
+    let bond = bond::Bond::floating(
+        "FRN-UNIT",
+        notional,
+        issue,
+        maturity,
+        finstack_core::types::CurveId::new("USD-OIS"),
+        finstack_core::types::CurveId::new("USD-SOFR-3M"),
+        100.0,
+    );
+
+    let pv = bond.value(&curves, issue).unwrap();
+    assert!(pv.amount().is_finite());
+}
+
+#[test]
 fn irs_dv01_sign_and_magnitude() {
     let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let disc = flat_df_curve("USD-OIS", base, 1.0);

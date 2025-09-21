@@ -60,49 +60,7 @@ impl PyValuationResult {
         Ok(dict.into())
     }
 
-    /// Get covenant check results if available.
-    ///
-    /// Returns:
-    ///     dict or None: Dictionary mapping covenant names to their check results
-    ///
-    /// Each covenant result contains:
-    /// - 'covenant_type': Type of covenant
-    /// - 'passed': Whether the covenant passed
-    /// - 'actual_value': Actual value if applicable
-    /// - 'threshold': Required threshold if applicable
-    /// - 'details': Additional details if available
-    ///
-    /// Examples:
-    ///     >>> covenants = result.covenants
-    ///     >>> if covenants:
-    ///     ...     for name, report in covenants.items():
-    ///     ...         if not report['passed']:
-    ///     ...             print(f"Failed: {name}")
-    #[getter]
-    fn covenants(&self, py: Python) -> PyResult<Option<Py<PyDict>>> {
-        match &self.inner.covenants {
-            Some(covenants) => {
-                let dict = PyDict::new(py);
-                for (key, report) in covenants {
-                    let report_dict = PyDict::new(py);
-                    report_dict.set_item("covenant_type", &report.covenant_type)?;
-                    report_dict.set_item("passed", report.passed)?;
-                    if let Some(actual) = report.actual_value {
-                        report_dict.set_item("actual_value", actual)?;
-                    }
-                    if let Some(threshold) = report.threshold {
-                        report_dict.set_item("threshold", threshold)?;
-                    }
-                    if let Some(ref details) = report.details {
-                        report_dict.set_item("details", details)?;
-                    }
-                    dict.set_item(key, report_dict)?;
-                }
-                Ok(Some(dict.into()))
-            }
-            None => Ok(None),
-        }
-    }
+    // covenants removed from bindings surface
 
     /// Get FX policy metadata if available.
     ///
