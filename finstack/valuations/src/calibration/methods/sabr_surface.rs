@@ -5,7 +5,7 @@
 
 use crate::calibration::quote::VolQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
-use crate::instruments::models::{SABRCalibrator, SABRModel, SABRParameters};
+use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParameters};
 use finstack_core::dates::Date;
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;

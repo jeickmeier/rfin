@@ -53,7 +53,7 @@ fn test_variance_swap_creation() {
         .side(PayReceive::Receive)
         .disc_id("USD_OIS".into())
         .day_count(finstack_core::dates::DayCount::Act365F)
-        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -78,7 +78,7 @@ fn test_variance_swap_payoff() {
         .side(PayReceive::Receive)
         .disc_id("USD_OIS".into())
         .day_count(finstack_core::dates::DayCount::Act365F)
-        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -117,7 +117,7 @@ fn test_variance_swap_pay_receive() {
         .side(PayReceive::Receive)
         .disc_id("USD_OIS".into())
         .day_count(finstack_core::dates::DayCount::Act365F)
-        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -137,7 +137,7 @@ fn test_variance_swap_pay_receive() {
         .side(PayReceive::Pay)
         .disc_id("USD_OIS".into())
         .day_count(finstack_core::dates::DayCount::Act365F)
-        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -159,7 +159,7 @@ fn test_variance_swap_pricing_before_start() {
         .side(PayReceive::Receive)
         .disc_id("USD_OIS".into())
         .day_count(finstack_core::dates::DayCount::Act365F)
-        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -188,7 +188,7 @@ fn test_variance_swap_pricing_at_maturity() {
         .side(PayReceive::Receive)
         .disc_id("USD_OIS".into())
         .day_count(finstack_core::dates::DayCount::Act365F)
-        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -217,7 +217,7 @@ fn test_annualization_factor() {
         .side(PayReceive::Receive)
         .disc_id("USD_OIS".into())
         .day_count(finstack_core::dates::DayCount::Act365F)
-        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -235,7 +235,7 @@ fn test_annualization_factor() {
         .side(PayReceive::Receive)
         .disc_id("USD_OIS".into())
         .day_count(finstack_core::dates::DayCount::Act365F)
-        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -256,7 +256,7 @@ fn test_time_elapsed_fraction() {
         .side(PayReceive::Receive)
         .disc_id("USD_OIS".into())
         .day_count(finstack_core::dates::DayCount::Act365F)
-        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -307,7 +307,7 @@ fn test_observation_dates() {
         .side(PayReceive::Receive)
         .disc_id("USD_OIS".into())
         .day_count(finstack_core::dates::DayCount::Act365F)
-        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -344,7 +344,7 @@ fn test_builder_validation() {
         .side(PayReceive::Receive)
         .disc_id("USD_OIS".into())
         .day_count(finstack_core::dates::DayCount::Act365F)
-        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
         .build();
     assert!(result.is_err());
 
@@ -361,7 +361,7 @@ fn test_builder_validation() {
         .side(PayReceive::Receive)
         .disc_id("USD_OIS".into())
         .day_count(finstack_core::dates::DayCount::Act365F)
-        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
         .build();
     assert!(result.is_err());
 }

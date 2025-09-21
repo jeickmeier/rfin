@@ -24,8 +24,8 @@ use finstack_core::{Error, Result, F};
 use std::collections::HashMap;
 
 use crate::cashflow::builder::{cf, CashFlowSchedule};
-use crate::instruments::models::tree_framework::map_date_to_step;
-use crate::instruments::models::{
+use crate::instruments::common::models::tree_framework::map_date_to_step;
+use crate::instruments::common::models::{
     single_factor_equity_state, BinomialTree, NodeState, TreeGreeks, TreeModel, TreeValuator,
     TrinomialTree,
 };

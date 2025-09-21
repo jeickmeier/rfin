@@ -12,7 +12,7 @@ use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator, Multi
 use crate::instruments::deposit::Deposit;
 use crate::instruments::fra::ForwardRateAgreement;
 use crate::instruments::ir_future::InterestRateFuture;
-use crate::instruments::traits::Priceable;
+use crate::instruments::common::traits::Priceable;
 use crate::instruments::InterestRateSwap;
 use finstack_core::dates::{add_months, Date};
 use finstack_core::market_data::context::MarketContext;

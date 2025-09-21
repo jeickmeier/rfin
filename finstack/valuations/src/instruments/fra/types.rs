@@ -5,7 +5,7 @@
 //! `pricing::engine`, and metrics are provided in the `metrics` submodule.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::traits::{Attributable, Attributes, Instrument};
+use crate::instruments::common::traits::{Attributable, Attributes, Instrument};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;

@@ -7,7 +7,7 @@ use finstack_core::F;
 use crate::cashflow::builder::CashFlowSchedule;
 #[allow(unused_imports)]
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::traits::{Attributes};
+use crate::instruments::common::traits::{Attributes};
 use crate::instruments::PricingOverrides;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -263,19 +263,19 @@ impl Bond {
 }
 
 // Attributable and Instrument impls without tying pricing here
-impl crate::instruments::traits::Attributable for Bond {
+impl crate::instruments::common::traits::Attributable for Bond {
     #[inline]
-    fn attributes(&self) -> &crate::instruments::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
         &self.attributes
     }
 
     #[inline]
-    fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
         &mut self.attributes
     }
 }
 
-impl crate::instruments::traits::Instrument for Bond {
+impl crate::instruments::common::traits::Instrument for Bond {
     #[inline]
     fn id(&self) -> &str {
         self.id.as_str()
@@ -292,17 +292,17 @@ impl crate::instruments::traits::Instrument for Bond {
     }
 
     #[inline]
-    fn attributes(&self) -> &crate::instruments::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
         &self.attributes
     }
 
     #[inline]
-    fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
         &mut self.attributes
     }
 
     #[inline]
-    fn clone_box(&self) -> Box<dyn crate::instruments::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
         Box::new(self.clone())
     }
 }
@@ -312,7 +312,7 @@ impl crate::instruments::traits::Instrument for Bond {
 mod tests {
     use super::*;
     use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
-    use crate::instruments::traits::Priceable;
+    use crate::instruments::common::traits::Priceable;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;

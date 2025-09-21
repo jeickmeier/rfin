@@ -11,7 +11,7 @@
 use crate::instruments::cds::pricing::engine::CDSPricer;
 use crate::instruments::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
 use crate::instruments::cds_option::CdsOption;
-use crate::instruments::models::{d1, d2, norm_cdf, norm_pdf};
+use crate::instruments::common::models::{d1, d2, norm_cdf, norm_pdf};
 use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
 use finstack_core::market_data::MarketContext;
 use finstack_core::math::solver::{HybridSolver, Solver};

@@ -56,7 +56,7 @@ fn test_oas_stability_amortizing_bond() {
             final_notional: Money::new(400.0, Currency::USD),
         }),
         custom_cashflows: None,
-        attributes: finstack_valuations::instruments::traits::Attributes::new(),
+        attributes: finstack_valuations::instruments::common::traits::Attributes::new(),
     };
 
     let as_ofs = [

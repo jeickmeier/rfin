@@ -2,7 +2,7 @@
 
 use crate::cashflow::builder::ScheduleParams;
 use crate::instruments::build_with_metrics_dyn;
-use crate::instruments::traits::{Attributable, Attributes, Instrument, Priceable};
+use crate::instruments::common::traits::{Attributable, Attributes, Instrument, Priceable};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
@@ -140,7 +140,7 @@ impl Priceable for CdsTranche {
         as_of: Date,
         metrics: &[MetricId],
     ) -> finstack_core::Result<ValuationResult> {
-        let base_value = crate::instruments::traits::Priceable::value(self, curves, as_of)?;
+        let base_value = crate::instruments::common::traits::Priceable::value(self, curves, as_of)?;
         build_with_metrics_dyn(self, curves, as_of, base_value, metrics)
     }
 }

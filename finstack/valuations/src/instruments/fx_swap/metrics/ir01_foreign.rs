@@ -4,7 +4,7 @@
 //! by revaluing with bumped foreign discount factors.
 
 use crate::instruments::fx_swap::FxSwap;
-use crate::instruments::traits::Priceable;
+use crate::instruments::common::traits::Priceable;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::fx::{FxConversionPolicy, FxQuery};
 use finstack_core::F;

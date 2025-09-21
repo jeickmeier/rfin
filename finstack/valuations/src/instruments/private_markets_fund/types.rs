@@ -4,7 +4,7 @@ use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::private_markets_fund::waterfall::{
     AllocationLedger, EquityWaterfallEngine, FundEvent, WaterfallSpec,
 };
-use crate::instruments::traits::{Attributable, Attributes, Instrument};
+use crate::instruments::common::traits::{Attributable, Attributes, Instrument};
 use crate::metrics::MetricRegistry;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
@@ -86,10 +86,10 @@ impl Instrument for PrivateMarketsFund {
     }
 }
 
-impl crate::instruments::traits::Priceable for PrivateMarketsFund {
+impl crate::instruments::common::traits::Priceable for PrivateMarketsFund {
     fn value(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
         if let Some(disc_id) = self.disc_id {
-            use crate::instruments::discountable::Discountable;
+            use crate::instruments::common::discountable::Discountable;
             let flows = self.lp_cashflows()?;
             let disc = curves
                 .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
@@ -113,7 +113,7 @@ impl crate::instruments::traits::Priceable for PrivateMarketsFund {
         as_of: Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = crate::instruments::traits::Priceable::value(self, curves, as_of)?;
+        let base_value = crate::instruments::common::traits::Priceable::value(self, curves, as_of)?;
         crate::instruments::build_with_metrics_dyn(self, curves, as_of, base_value, metrics)
     }
 }

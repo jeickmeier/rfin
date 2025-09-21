@@ -8,7 +8,7 @@
 //!   aggregate results across names.
 
 use crate::instruments::cds::CreditParams;
-use crate::instruments::traits::Attributes;
+use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::money::Money;
 

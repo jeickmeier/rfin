@@ -2,7 +2,7 @@
 //!
 //! Exposes pure functions for price and greeks to keep `types.rs` free of pricing logic.
 
-use crate::instruments::models::{d1 as bs_d1, d2 as bs_d2};
+use crate::instruments::common::models::{d1 as bs_d1, d2 as bs_d2};
 use finstack_core::currency::Currency;
 use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;

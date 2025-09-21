@@ -1,7 +1,7 @@
 //! Core types for Repurchase Agreement (Repo) instruments.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::traits::{Attributable, Attributes, Instrument, Priceable};
+use crate::instruments::common::traits::{Attributable, Attributes, Instrument, Priceable};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::market_data::MarketContext;
@@ -312,7 +312,7 @@ impl Priceable for Repo {
         let base_value = <Self as Priceable>::value(self, context, as_of)?;
 
         // Use existing utility function to build metrics
-        crate::instruments::helpers::build_with_metrics_dyn(
+        crate::instruments::common::helpers::build_with_metrics_dyn(
             self as &dyn Instrument,
             context,
             as_of,

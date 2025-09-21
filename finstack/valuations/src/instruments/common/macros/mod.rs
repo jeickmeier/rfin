@@ -10,12 +10,12 @@
 #[macro_export]
 macro_rules! impl_attributable {
     ($type:ident) => {
-        impl $crate::instruments::traits::Attributable for $type {
-            fn attributes(&self) -> &$crate::instruments::traits::Attributes {
+        impl $crate::instruments::common::traits::Attributable for $type {
+            fn attributes(&self) -> &$crate::instruments::common::traits::Attributes {
                 &self.attributes
             }
 
-            fn attributes_mut(&mut self) -> &mut $crate::instruments::traits::Attributes {
+            fn attributes_mut(&mut self) -> &mut $crate::instruments::common::traits::Attributes {
                 &mut self.attributes
             }
         }
@@ -36,7 +36,7 @@ macro_rules! impl_instrument {
         impl_attributable!($type);
 
         // Unified Instrument implementation
-        impl $crate::instruments::traits::Instrument for $type {
+        impl $crate::instruments::common::traits::Instrument for $type {
             #[inline]
             fn id(&self) -> &str {
                 self.id.as_str()
@@ -53,23 +53,23 @@ macro_rules! impl_instrument {
             }
 
             #[inline]
-            fn attributes(&self) -> &$crate::instruments::traits::Attributes {
+            fn attributes(&self) -> &$crate::instruments::common::traits::Attributes {
                 &self.attributes
             }
 
             #[inline]
-            fn attributes_mut(&mut self) -> &mut $crate::instruments::traits::Attributes {
+            fn attributes_mut(&mut self) -> &mut $crate::instruments::common::traits::Attributes {
                 &mut self.attributes
             }
 
             #[inline]
-            fn clone_box(&self) -> Box<dyn $crate::instruments::traits::Instrument> {
+            fn clone_box(&self) -> Box<dyn $crate::instruments::common::traits::Instrument> {
                 Box::new(self.clone())
             }
         }
 
         // Pricing surface (PV + metrics)
-        impl $crate::instruments::traits::Priceable for $type {
+        impl $crate::instruments::common::traits::Priceable for $type {
             fn value(
                 &self,
                 curves: &finstack_core::market_data::MarketContext,
@@ -113,7 +113,7 @@ macro_rules! impl_instrument_schedule_pv {
             $type_name,
             pv = |s, curves, as_of| {
                 use $crate::cashflow::traits::CashflowProvider;
-                use $crate::instruments::discountable::Discountable;
+                use $crate::instruments::common::discountable::Discountable;
                 // Use trait object to avoid monomorphization
                 let flows = CashflowProvider::build_schedule(s, curves, as_of)?;
                 let disc = curves.get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(<str as ::core::convert::AsRef<str>>::as_ref(s.$disc.as_ref()))?;
@@ -172,7 +172,7 @@ macro_rules! impl_builder {
                     $(
                         $opt_field: self.$opt_field,
                     )*
-                    attributes: $crate::instruments::traits::Attributes::default(),
+                    attributes: $crate::instruments::common::traits::Attributes::default(),
                 })
             }
         }

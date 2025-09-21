@@ -1,7 +1,7 @@
 //! Tranche structures for structured credit instruments.
 
 // InterestSpec removed with loan; retain coupon for metadata only
-use crate::instruments::traits::Attributes;
+use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;

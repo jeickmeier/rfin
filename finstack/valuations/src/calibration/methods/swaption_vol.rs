@@ -9,7 +9,7 @@
 use crate::calibration::methods::swaption_market_conventions::SwaptionMarketConvention;
 use crate::calibration::quote::VolQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
-use crate::instruments::models::{SABRCalibrator, SABRModel, SABRParameters};
+use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParameters};
 use crate::instruments::swaption::Swaption;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::utils::add_months;

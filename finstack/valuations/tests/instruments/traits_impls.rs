@@ -10,7 +10,7 @@ use finstack_core::{
 };
 use finstack_valuations::{
     cashflow::traits::{CashflowProvider, DatedFlows},
-    instruments::traits::Priceable,
+    instruments::common::traits::Priceable,
     metrics::MetricId,
     results::ValuationResult,
 };

@@ -4,7 +4,7 @@
 //! capturing the basis spread between them (e.g., 3M vs 6M).
 
 use crate::cashflow::builder::schedule_utils::{build_dates, PeriodSchedule};
-use crate::instruments::traits::{Attributable, Instrument};
+use crate::instruments::common::traits::{Attributable, Instrument};
 use finstack_core::{
     dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind},
     money::Money,
@@ -105,7 +105,7 @@ pub struct BasisSwap {
     /// Stub handling convention for irregular periods.
     pub stub_kind: StubKind,
     /// Attributes for instrument selection and tagging.
-    pub attributes: crate::instruments::traits::Attributes,
+    pub attributes: crate::instruments::common::traits::Attributes,
 }
 
 impl BasisSwap {
@@ -141,7 +141,7 @@ impl BasisSwap {
             discount_curve_id: discount_curve_id.into(),
             calendar_id: None,
             stub_kind: StubKind::None,
-            attributes: crate::instruments::traits::Attributes::default(),
+            attributes: crate::instruments::common::traits::Attributes::default(),
         }
     }
 
@@ -189,10 +189,10 @@ impl BasisSwap {
 }
 
 impl Attributable for BasisSwap {
-    fn attributes(&self) -> &crate::instruments::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
         &self.attributes
     }
-    fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
         &mut self.attributes
     }
 }
@@ -207,10 +207,10 @@ impl Instrument for BasisSwap {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn attributes(&self) -> &crate::instruments::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
         <Self as Attributable>::attributes(self)
     }
-    fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
         <Self as Attributable>::attributes_mut(self)
     }
     fn clone_box(&self) -> Box<dyn Instrument> {
@@ -221,7 +221,7 @@ impl Instrument for BasisSwap {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::traits::Priceable;
+    use crate::instruments::common::traits::Priceable;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::{
         discount_curve::DiscountCurve, forward_curve::ForwardCurve,

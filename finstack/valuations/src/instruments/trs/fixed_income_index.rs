@@ -1,10 +1,10 @@
 //! Fixed Income Index Total Return Swap instrument definitions and helpers.
 
 use super::types::{FinancingLegSpec, IndexUnderlyingParams, TrsScheduleSpec, TrsSide};
-use crate::instruments::traits::{Attributable, Instrument};
+use crate::instruments::common::traits::{Attributable, Instrument};
 use crate::{
     cashflow::traits::{CashflowProvider, DatedFlows},
-    instruments::traits::Attributes,
+    instruments::common::traits::Attributes,
 };
 use finstack_core::{
     dates::Date, market_data::MarketContext, money::Money, types::InstrumentId, Result, F,
@@ -52,15 +52,15 @@ pub struct FIIndexTotalReturnSwap {
 impl FIIndexTotalReturnSwap {}
 
 impl Attributable for FIIndexTotalReturnSwap {
-    fn attributes(&self) -> &crate::instruments::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
         // For now, return a static empty attributes
         // In a real implementation, this would be a field in the struct
-        static EMPTY: once_cell::sync::Lazy<crate::instruments::traits::Attributes> =
-            once_cell::sync::Lazy::new(crate::instruments::traits::Attributes::default);
+        static EMPTY: once_cell::sync::Lazy<crate::instruments::common::traits::Attributes> =
+            once_cell::sync::Lazy::new(crate::instruments::common::traits::Attributes::default);
         &EMPTY
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
         // This would normally return a mutable reference to an attributes field
         // For now, we'll panic as this is not properly implemented
         unimplemented!("Mutable attributes not yet implemented for FIIndexTotalReturnSwap")
@@ -77,10 +77,10 @@ impl Instrument for FIIndexTotalReturnSwap {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn attributes(&self) -> &crate::instruments::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
         <Self as Attributable>::attributes(self)
     }
-    fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
         <Self as Attributable>::attributes_mut(self)
     }
     fn clone_box(&self) -> Box<dyn Instrument> {

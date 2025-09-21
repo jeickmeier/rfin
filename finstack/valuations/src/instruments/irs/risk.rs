@@ -22,7 +22,7 @@ impl RiskMeasurable for InterestRateSwap {
         let mut report = RiskReport::new(self.id.as_str(), self.notional.currency());
 
         // Base PV
-        use crate::instruments::traits::Priceable;
+        use crate::instruments::common::traits::Priceable;
         let base_value = Priceable::value(self, curves, as_of)?;
 
         // Metric context

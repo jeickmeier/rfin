@@ -986,7 +986,7 @@ mod tests {
     use super::*;
     use crate::cashflow::builder::cf;
     use crate::cashflow::builder::schedule::kind_rank;
-    use crate::instruments::discountable::Discountable;
+    use crate::instruments::common::discountable::Discountable;
     use finstack_core::currency::Currency;
     use finstack_core::dates::ScheduleBuilder;
     use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};

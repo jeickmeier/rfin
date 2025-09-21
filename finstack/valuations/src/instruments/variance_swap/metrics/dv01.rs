@@ -2,7 +2,7 @@
 
 use super::super::types::VarianceSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use crate::instruments::traits::Priceable;
+use crate::instruments::common::traits::Priceable;
 use finstack_core::{Result, F};
 
 /// Calculate DV01 (sensitivity to 1bp move in interest rates).

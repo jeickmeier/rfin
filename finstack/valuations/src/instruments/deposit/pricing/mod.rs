@@ -7,8 +7,8 @@
 pub mod engine;
 
 use crate::instruments::deposit::types::Deposit;
-use crate::instruments::helpers::build_with_metrics_dyn;
-use crate::instruments::traits::Priceable;
+use crate::instruments::common::helpers::build_with_metrics_dyn;
+use crate::instruments::common::traits::Priceable;
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;

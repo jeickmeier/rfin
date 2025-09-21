@@ -65,7 +65,7 @@ fn pv_uses_lag_override_when_present() {
         .dc(finstack_core::dates::DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
         .lag_override(InflationLag::None)
-        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -80,7 +80,7 @@ fn pv_uses_lag_override_when_present() {
         .disc_id("USD-OIS")
         .dc(finstack_core::dates::DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
-        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -121,7 +121,7 @@ fn breakeven_parity_near_zero_with_correct_k() {
             .disc_id("USD-OIS")
             .dc(finstack_core::dates::DayCount::Act365F)
             .side(PayReceiveInflation::PayFixed)
-            .attributes(finstack_valuations::instruments::traits::Attributes::new())
+            .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
             .build()
             .unwrap(),
         as_of,
@@ -144,7 +144,7 @@ fn breakeven_parity_near_zero_with_correct_k() {
         .disc_id("USD-OIS")
         .dc(finstack_core::dates::DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
-        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -177,7 +177,7 @@ fn ir01_fd_matches_metric_sign() {
         .disc_id("USD-OIS")
         .dc(finstack_core::dates::DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
-        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
         .build()
         .unwrap();
 
@@ -246,7 +246,7 @@ fn inflation01_fd_matches_metric_direction() {
         .disc_id("USD-OIS")
         .dc(finstack_core::dates::DayCount::Act365F)
         .side(PayReceiveInflation::PayFixed)
-        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
         .build()
         .unwrap();
 

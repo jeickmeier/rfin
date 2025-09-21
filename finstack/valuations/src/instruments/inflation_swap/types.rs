@@ -1,6 +1,6 @@
 //! Zero-coupon Inflation Swap types and pricing implementation.
 
-use crate::instruments::traits::Attributes;
+use crate::instruments::common::traits::Attributes;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::F;

@@ -1,6 +1,6 @@
 //! Credit Default Swap (CDS) types and implementations.
 use crate::cashflow::traits::DatedFlows;
-use crate::instruments::traits::Attributes;
+use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::market_data::traits::Discounting;

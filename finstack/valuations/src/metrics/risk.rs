@@ -620,9 +620,9 @@ mod tests {
         ];
 
         struct DummyInstr {
-            attrs: crate::instruments::traits::Attributes,
+            attrs: crate::instruments::common::traits::Attributes,
         }
-        impl crate::instruments::traits::Priceable for DummyInstr {
+        impl crate::instruments::common::traits::Priceable for DummyInstr {
             fn value(
                 &self,
                 _curves: &finstack_core::market_data::MarketContext,
@@ -639,15 +639,15 @@ mod tests {
                 Err(finstack_core::error::InputError::Invalid.into())
             }
         }
-        impl crate::instruments::traits::Attributable for DummyInstr {
-            fn attributes(&self) -> &crate::instruments::traits::Attributes {
+        impl crate::instruments::common::traits::Attributable for DummyInstr {
+            fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
                 &self.attrs
             }
-            fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes {
+            fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
                 &mut self.attrs
             }
         }
-        impl crate::instruments::traits::Instrument for DummyInstr {
+        impl crate::instruments::common::traits::Instrument for DummyInstr {
             fn id(&self) -> &str {
                 "DUMMY"
             }
@@ -657,13 +657,13 @@ mod tests {
             fn as_any(&self) -> &dyn std::any::Any {
                 self
             }
-            fn attributes(&self) -> &crate::instruments::traits::Attributes {
+            fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
                 &self.attrs
             }
-            fn attributes_mut(&mut self) -> &mut crate::instruments::traits::Attributes {
+            fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
                 &mut self.attrs
             }
-            fn clone_box(&self) -> Box<dyn crate::instruments::traits::Instrument> {
+            fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
                 Box::new(Self {
                     attrs: self.attrs.clone(),
                 })
@@ -675,8 +675,8 @@ mod tests {
         let curves = Arc::new(
             finstack_core::market_data::MarketContext::new().insert_discount(disc_for_ctx),
         );
-        let instrument: Arc<dyn crate::instruments::traits::Instrument> = Arc::new(DummyInstr {
-            attrs: crate::instruments::traits::Attributes::new(),
+        let instrument: Arc<dyn crate::instruments::common::traits::Instrument> = Arc::new(DummyInstr {
+            attrs: crate::instruments::common::traits::Attributes::new(),
         });
         let mut ctx = crate::metrics::traits::MetricContext::new(
             instrument,

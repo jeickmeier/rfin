@@ -4,7 +4,7 @@ pub mod engine;
 pub mod equity;
 pub mod fixed_income_index;
 
-use crate::instruments::traits::Priceable;
+use crate::instruments::common::traits::Priceable;
 use crate::instruments::trs::helpers::validate_trs_currencies;
 use crate::instruments::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap, TrsSide};
 use crate::metrics::MetricId;

@@ -1,7 +1,7 @@
 //! Core types for structured credit instruments.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::traits::{Attributable, Attributes, Instrument, Priceable};
+use crate::instruments::common::traits::{Attributable, Attributes, Instrument, Priceable};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, Frequency};
@@ -455,7 +455,7 @@ impl Priceable for StructuredCredit {
         let flows = self.build_schedule(context, as_of)?;
 
         // Discount to present value
-        use crate::instruments::discountable::Discountable;
+        use crate::instruments::common::discountable::Discountable;
         flows.npv(disc, as_of, finstack_core::dates::DayCount::Act360)
     }
 

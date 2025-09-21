@@ -26,7 +26,7 @@ pub(crate) mod helpers {
     /// Validate TRS notional currency against optional base currency
     pub fn validate_trs_currencies(notional: Money, base: Option<Currency>) -> Result<()> {
         // Ensure same-currency amounts
-        crate::instruments::helpers::validate_currency_consistency(&[notional])?;
+        crate::instruments::common::helpers::validate_currency_consistency(&[notional])?;
         if let Some(base_ccy) = base {
             if base_ccy != notional.currency() {
                 return Err(finstack_core::Error::CurrencyMismatch {

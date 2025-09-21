@@ -86,7 +86,7 @@ impl MetricCalculator for ImpliedVolCalculator {
 
             // Guarded Newton step using closed-form vega
             let vega_per_1pct = {
-                let d1 = crate::instruments::models::d1(spot, k, r, mid, t, q);
+                let d1 = crate::instruments::common::models::d1(spot, k, r, mid, t, q);
                 let exp_q_t = (-q * t).exp();
                 let sqrt_t = t.sqrt();
                 spot * exp_q_t * finstack_core::math::norm_pdf(d1) * sqrt_t / 100.0

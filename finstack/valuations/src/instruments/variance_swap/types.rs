@@ -11,7 +11,7 @@ use finstack_core::{
 
 use crate::{
     cashflow::traits::{CashflowProvider, DatedFlows},
-    instruments::traits::{Attributable, Attributes, Instrument},
+    instruments::common::traits::{Attributable, Attributes, Instrument},
 };
 
 use std::any::Any;

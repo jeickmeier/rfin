@@ -4,7 +4,7 @@
 //! a bumped spot while respecting instrument overrides for near/far rates.
 
 use crate::instruments::fx_swap::FxSwap;
-use crate::instruments::traits::Priceable;
+use crate::instruments::common::traits::Priceable;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::fx::{FxConversionPolicy, FxQuery};
 use finstack_core::F;

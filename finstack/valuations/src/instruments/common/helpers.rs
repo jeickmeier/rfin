@@ -18,7 +18,7 @@ use std::sync::Arc;
 /// This function uses trait objects to avoid generic monomorphization across
 /// compilation units, which can cause coverage metadata mismatches.
 pub fn build_with_metrics_dyn(
-    instrument: &dyn crate::instruments::traits::Instrument,
+    instrument: &dyn crate::instruments::common::traits::Instrument,
     curves: &MarketContext,
     as_of: Date,
     base_value: Money,
@@ -26,7 +26,7 @@ pub fn build_with_metrics_dyn(
 ) -> finstack_core::Result<crate::results::ValuationResult> {
     // Create an owned clone for the Arc to avoid lifetime issues
     // This approach reduces generic monomorphization across compilation units
-    let instrument_clone: Box<dyn crate::instruments::traits::Instrument> = instrument.clone_box();
+    let instrument_clone: Box<dyn crate::instruments::common::traits::Instrument> = instrument.clone_box();
 
     let mut context = MetricContext::new(
         Arc::from(instrument_clone),

@@ -345,7 +345,7 @@ mod tests {
     use crate::instruments::basket::types::{
         AssetType, Basket, BasketConstituent, ConstituentReference, ReplicationMethod,
     };
-    use crate::instruments::traits::Attributes;
+    use crate::instruments::common::traits::Attributes;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::scalars::MarketScalar;
     use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};

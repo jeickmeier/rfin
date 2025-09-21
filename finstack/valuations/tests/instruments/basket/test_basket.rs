@@ -31,7 +31,7 @@ fn simple_basket_base() -> Basket {
         currency: Currency::USD,
         shares_outstanding: Some(100.0),
         replication: ReplicationMethod::Physical,
-        attributes: finstack_valuations::instruments::traits::Attributes::new(),
+        attributes: finstack_valuations::instruments::common::traits::Attributes::new(),
     }
 }
 
@@ -222,7 +222,7 @@ fn basket_metrics_register_and_compute() {
     let mut registry = MetricRegistry::new();
     register_basket_metrics(&mut registry);
 
-    let inst: Arc<dyn finstack_valuations::instruments::traits::Instrument> = Arc::new(basket.clone());
+    let inst: Arc<dyn finstack_valuations::instruments::common::traits::Instrument> = Arc::new(basket.clone());
     let mut mctx = MetricContext::new(inst, Arc::new(ctx), d(), usd(0.0));
 
     // NAV: (5*10 + 10*20) / 100 shares = (50 + 200)/100 = 2.5

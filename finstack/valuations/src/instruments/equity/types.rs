@@ -5,7 +5,7 @@
 //! metrics live under `metrics/`.
 
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::traits::Attributes;
+use crate::instruments::common::traits::Attributes;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::types::InstrumentId;
@@ -123,7 +123,7 @@ mod tests {
         let curves = MarketContext::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
-        use crate::instruments::traits::Priceable;
+        use crate::instruments::common::traits::Priceable;
         let value = Priceable::value(&equity, &curves, as_of).unwrap();
         assert_eq!(value.amount(), 15_000.0);
         assert_eq!(value.currency(), Currency::USD);
@@ -148,7 +148,7 @@ mod tests {
         let curves = MarketContext::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
-        use crate::instruments::traits::Priceable;
+        use crate::instruments::common::traits::Priceable;
         let result = equity
             .price_with_metrics(
                 &curves,

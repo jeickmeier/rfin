@@ -31,7 +31,7 @@ impl MetricCalculator for VegaCalculator {
         let annuity = pricer.swap_annuity(option, disc, context.as_of)?;
 
         let sigma = if let Some(sabr) = &option.sabr_params {
-            let model = crate::instruments::models::SABRModel::new(sabr.clone());
+            let model = crate::instruments::common::models::SABRModel::new(sabr.clone());
             model.implied_volatility(forward, option.strike_rate, t)?
         } else if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol

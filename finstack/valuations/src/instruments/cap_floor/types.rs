@@ -1,6 +1,6 @@
 //! Interest rate option instrument types and Black model greeks.
 
-use crate::instruments::traits::Attributes;
+use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, SettlementType};
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};

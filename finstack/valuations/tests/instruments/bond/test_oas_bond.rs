@@ -10,7 +10,7 @@ use finstack_valuations::instruments::bond::pricing::tree_pricer::{
     calculate_oas, TreePricer, TreePricerConfig,
 };
 use finstack_valuations::instruments::bond::{Bond, CallPut, CallPutSchedule};
-use finstack_valuations::instruments::traits::Priceable;
+use finstack_valuations::instruments::common::traits::Priceable;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 

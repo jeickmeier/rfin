@@ -1,11 +1,8 @@
 //! Financial instruments module: imports and re-exports only.
 
-// Macro infrastructure for reducing boilerplate
+// Common functionality (traits, macros, models, helpers)
 #[macro_use]
-pub mod macros;
-
-// Instrument-level traits and metadata
-pub mod traits;
+pub mod common;
 
 // Flattened instrument modules
 pub mod basis_swap;
@@ -18,7 +15,6 @@ pub mod cds_option;
 pub mod cds_tranche;
 pub mod convertible;
 pub mod deposit;
-pub mod discountable;
 pub mod equity;
 pub mod equity_option;
 pub mod fra;
@@ -29,7 +25,6 @@ pub mod inflation_linked_bond;
 pub mod inflation_swap;
 pub mod ir_future;
 pub mod irs;
-pub mod models;
 pub mod pricing_overrides;
 pub mod private_markets_fund;
 pub mod repo;
@@ -37,7 +32,6 @@ pub mod repo;
 pub use equity::underlying;
 // Preserve public path for equity metrics after move
 pub use equity::metrics as equity_metrics;
-pub mod helpers;
 pub mod structured_credit;
 pub mod swaption;
 pub mod trs;
@@ -54,7 +48,6 @@ pub use cds_option::CdsOption;
 pub use cds_tranche::CdsTranche;
 pub use convertible::ConvertibleBond;
 pub use deposit::Deposit;
-pub use discountable::Discountable;
 pub use equity::Equity;
 pub use equity_option::EquityOption;
 pub use fra::ForwardRateAgreement;
@@ -74,9 +67,17 @@ pub use trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
 
 // Re-export option-related enums and models at top-level after flattening
 pub use cap_floor::RateOptionType;
-pub use models::{BinomialTree, ExerciseStyle, OptionType, SettlementType, TreeType};
+pub use common::{BinomialTree, ExerciseStyle, OptionType, SettlementType, TreeType};
 
 pub use crate::metrics::{RiskMeasurable, RiskReport};
-pub use helpers::build_with_metrics_dyn;
-pub use traits::{Attributes, Instrument};
+pub use common::build_with_metrics_dyn;
+
+// Backward compatibility re-exports
+pub use common::traits::{Attributes, Instrument, Priceable, Attributable};
+pub use common::discountable::Discountable;
+
+// Keep direct trait access for compatibility
+pub use common::traits;
+pub use common::discountable;
+pub use common::macros;
 

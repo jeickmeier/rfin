@@ -18,7 +18,7 @@ use finstack_core::money::Money;
 
 use crate::cashflow::builder::types::{CouponType, FixedCouponSpec};
 use crate::instruments::bond::{CallPut, CallPutSchedule};
-use crate::instruments::models::{
+use crate::instruments::common::models::{
     single_factor_equity_state, BinomialTree, NodeState, TreeModel, TreeValuator, TrinomialTree,
 };
 

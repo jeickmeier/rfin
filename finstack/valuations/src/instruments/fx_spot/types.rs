@@ -6,7 +6,7 @@
 //! metrics live under `metrics/`.
 
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::traits::Attributes;
+use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::prelude::*;
 use finstack_core::F;

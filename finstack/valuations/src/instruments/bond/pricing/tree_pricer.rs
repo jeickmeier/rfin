@@ -8,7 +8,7 @@ use super::super::types::Bond;
 #[cfg(test)]
 use super::super::types::CallPut;
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::models::{
+use crate::instruments::common::models::{
     short_rate_keys, NodeState, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
     TreeValuator,
 };

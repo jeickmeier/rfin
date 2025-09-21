@@ -6,7 +6,7 @@
 //! repository standards. Metrics live under `metrics/` and are registered
 //! via the instrument metrics module.
 
-use crate::instruments::traits::Attributes;
+use crate::instruments::common::traits::Attributes;
 use finstack_core::prelude::*;
 use finstack_core::F;
 use finstack_core::types::InstrumentId;

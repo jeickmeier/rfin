@@ -7,7 +7,7 @@
 //! instrument definitions.
 
 use crate::instruments::equity_option::types::EquityOption;
-use crate::instruments::models::{d1, d2};
+use crate::instruments::common::models::{d1, d2};
 use crate::instruments::OptionType;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;

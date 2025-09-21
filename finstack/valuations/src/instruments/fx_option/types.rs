@@ -1,6 +1,6 @@
 //! FX option instrument implementation using Garman–Kohlhagen model.
 
-use crate::instruments::traits::Attributes;
+use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::currency::Currency;

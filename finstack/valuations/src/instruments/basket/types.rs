@@ -4,7 +4,7 @@
 //! including equities, bonds, ETFs, and other instruments by leveraging existing
 //! pricing infrastructure.
 
-use crate::instruments::traits::{Attributable, Attributes, Instrument, Priceable};
+use crate::instruments::common::traits::{Attributable, Attributes, Instrument, Priceable};
 use finstack_core::prelude::*;
 use finstack_core::types::{id::IndexId, InstrumentId};
 use finstack_core::{dates::Frequency, F};
@@ -290,7 +290,7 @@ impl Priceable for Basket {
         metrics: &[crate::metrics::MetricId],
     ) -> Result<crate::results::ValuationResult> {
         let base_value = Priceable::value(self, curves, as_of)?;
-        crate::instruments::helpers::build_with_metrics_dyn(
+        crate::instruments::common::helpers::build_with_metrics_dyn(
             self, curves, as_of, base_value, metrics,
         )
     }

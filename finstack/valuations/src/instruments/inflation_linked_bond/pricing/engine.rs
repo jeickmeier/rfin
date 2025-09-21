@@ -9,7 +9,7 @@
 //! declarative.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::discountable::Discountable;
+use crate::instruments::common::discountable::Discountable;
 use crate::instruments::inflation_linked_bond::types::{DeflationProtection, InflationLinkedBond};
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::scalars::inflation_index::{InflationIndex, InflationInterpolation, InflationLag};

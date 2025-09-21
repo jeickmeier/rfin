@@ -18,7 +18,7 @@ use finstack_core::{dates::Date, dates::DayCount, F};
 use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 // discountable helpers not used after switching to curve-based df_on_date_curve
-use crate::instruments::traits::{Attributable, Attributes, Instrument};
+use crate::instruments::common::traits::{Attributable, Attributes, Instrument};
 // Risk types used in risk.rs
 use std::any::Any;
 

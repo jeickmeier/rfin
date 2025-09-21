@@ -9,7 +9,7 @@ use finstack_core::F;
 
 use crate::cashflow::builder::types::{FixedCouponSpec, FloatingCouponSpec};
 use crate::instruments::bond::CallPutSchedule;
-use crate::instruments::traits::Attributes;
+use crate::instruments::common::traits::Attributes;
 
 use super::pricing;
 

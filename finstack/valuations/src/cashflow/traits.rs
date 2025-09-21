@@ -1,6 +1,6 @@
 //! Cashflow-related traits and aliases.
 
-use crate::instruments::discountable::Discountable;
+use crate::instruments::common::discountable::Discountable;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;

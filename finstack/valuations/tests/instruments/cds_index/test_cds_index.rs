@@ -11,7 +11,7 @@ use finstack_valuations::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED
 use finstack_valuations::instruments::cds::CreditParams;
 use finstack_valuations::instruments::cds_index::parameters::{CDSIndexConstituentParam, CDSIndexConstructionParams, CDSIndexParams};
 use finstack_valuations::instruments::cds_index::{CDSIndex, IndexPricing};
-use finstack_valuations::instruments::traits::Priceable;
+use finstack_valuations::instruments::common::traits::Priceable;
 use finstack_valuations::metrics::{standard_registry, MetricId, MetricContext};
 use std::sync::Arc;
 use time::Month;

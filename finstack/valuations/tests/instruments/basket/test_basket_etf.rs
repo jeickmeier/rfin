@@ -9,7 +9,7 @@ use finstack_valuations::instruments::basket::{
     AssetType, Basket, BasketConstituent, ConstituentReference, ReplicationMethod,
 };
 use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::traits::Priceable;
+use finstack_valuations::instruments::common::traits::Priceable;
 use finstack_valuations::metrics::MetricId;
 use time::Month;
 

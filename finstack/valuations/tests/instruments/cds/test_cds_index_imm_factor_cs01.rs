@@ -11,7 +11,7 @@ use finstack_valuations::instruments::cds::pricing::engine::CDSPricer;
 use finstack_valuations::instruments::cds::CreditParams;
 use finstack_valuations::instruments::cds_index::parameters::{CDSIndexConstituentParam, CDSIndexConstructionParams, CDSIndexParams};
 use finstack_valuations::instruments::cds_index::CDSIndex;
-use finstack_valuations::instruments::traits::Priceable;
+use finstack_valuations::instruments::common::traits::Priceable;
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use std::sync::Arc;
 use time::Month;

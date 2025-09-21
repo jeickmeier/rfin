@@ -6,9 +6,9 @@
 
 pub mod engine;
 
-use crate::instruments::helpers::build_with_metrics_dyn;
+use crate::instruments::common::helpers::build_with_metrics_dyn;
 use crate::instruments::irs::types::InterestRateSwap;
-use crate::instruments::traits::Priceable;
+use crate::instruments::common::traits::Priceable;
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;
@@ -181,7 +181,7 @@ impl Priceable for InterestRateSwap {
                 }
 
                 let mut result = ValuationResult::stamped(
-                    <InterestRateSwap as crate::instruments::traits::Instrument>::id(self),
+                    <InterestRateSwap as crate::instruments::common::traits::Instrument>::id(self),
                     as_of,
                     base,
                 );

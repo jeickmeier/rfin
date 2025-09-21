@@ -10,7 +10,7 @@ use finstack_core::F;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::traits::Priceable;
+use crate::instruments::common::traits::Priceable;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 
@@ -200,7 +200,7 @@ pub fn price_from_oas(
     oas_bp: F,
 ) -> finstack_core::Result<F> {
     // Use the short-rate tree directly to price at a given OAS
-    use crate::instruments::models::{short_rate_keys, StateVariables, ShortRateTree, ShortRateTreeConfig, TreeModel};
+    use crate::instruments::common::models::{short_rate_keys, StateVariables, ShortRateTree, ShortRateTreeConfig, TreeModel};
     use crate::instruments::bond::pricing::tree_pricer::BondValuator;
     let time_to_maturity = bond.dc.year_fraction(as_of, bond.maturity, DayCountCtx::default()).unwrap_or(0.0);
     if time_to_maturity <= 0.0 { return Ok(0.0); }

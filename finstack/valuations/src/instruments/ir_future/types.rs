@@ -1,7 +1,7 @@
 //! Interest Rate Future types and implementation.
 use crate::cashflow::traits::CashflowProvider;
 // Params-based constructor removed; build via builder instead.
-use crate::instruments::traits::Attributes;
+use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;

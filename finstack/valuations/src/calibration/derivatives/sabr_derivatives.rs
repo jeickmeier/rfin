@@ -5,7 +5,7 @@
 
 use super::sabr_model_params::SABRModelParams;
 #[cfg(test)]
-use crate::instruments::models::SABRParameters;
+use crate::instruments::common::models::SABRParameters;
 use finstack_core::math::solver_multi::AnalyticalDerivatives;
 use finstack_core::F;
 

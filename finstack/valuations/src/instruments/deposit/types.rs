@@ -12,7 +12,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::F;
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::traits::{Attributable, Attributes, Instrument};
+use crate::instruments::common::traits::{Attributable, Attributes, Instrument};
 use std::any::Any;
 
 /// Simple deposit instrument with optional quoted rate.

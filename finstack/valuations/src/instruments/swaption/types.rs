@@ -7,8 +7,8 @@
 //! rate, annuity, and day-count based year fractions that reuse core library
 //! functionality.
 
-use crate::instruments::models::SABRParameters;
-use crate::instruments::traits::Attributes;
+use crate::instruments::common::models::SABRParameters;
+use crate::instruments::common::traits::Attributes;
 use crate::instruments::OptionType;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::{Date, DayCount, Frequency};

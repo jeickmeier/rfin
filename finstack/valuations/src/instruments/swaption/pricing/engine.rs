@@ -6,7 +6,7 @@
 //!
 //! Heavy numerics are kept here to isolate pricing policy from instrument data shapes.
 
-use crate::instruments::models::{SABRModel, SABRParameters};
+use crate::instruments::common::models::{SABRModel, SABRParameters};
 use crate::instruments::swaption::types::Swaption;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind};
 use finstack_core::market_data::traits::Discounting;
