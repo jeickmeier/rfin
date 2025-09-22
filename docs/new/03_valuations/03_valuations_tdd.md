@@ -47,7 +47,7 @@ finstack/
 ├─ valuations/         # THIS CRATE
 │  ├─ src/
 │  │  ├─ lib.rs
-│  │  ├─ traits.rs           # Core traits (CashflowProvider, Priceable, RiskMeasurable)
+│  │  ├─ traits.rs           # Core traits (CashflowProvider, Instrument)
 │  │  ├─ cashflow/           # Cash flow types and generation
 │  │  ├─ instruments/        # Instrument implementations
 │  │  ├─ market/            # Market data structures and curves
@@ -144,10 +144,10 @@ pub trait CashflowProvider: Send + Sync {
 * FX conversion happens only in `aggregate_to_model_ccy` with explicit provider
 * Tags allow filtering by cash flow type (interest, principal, fees, etc.)
 
-### 3.2 Priceable Trait
+### 3.2 Instrument Trait
 
 ```rust
-pub trait Priceable: Send + Sync {
+pub trait Instrument: Send + Sync {
     fn price(
         &self,
         market: &MarketData,
@@ -156,18 +156,24 @@ pub trait Priceable: Send + Sync {
 }
 ```
 
-### 3.3 RiskMeasurable Trait
+### 3.3 Metrics Framework
+
+Use the metrics registry to compute risk measures (e.g., DV01, duration, par rate) directly, instead of a dedicated RiskMeasurable trait.
 
 ```rust
-pub trait RiskMeasurable: Priceable {
-    fn risk_report(
-        &self,
-        market: &MarketData,
-        as_of: time::Date,
-        buckets: Option<&[Bucket]>,
-    ) -> Result<RiskReport, FinstackError>;
+use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
+use std::sync::Arc;
+
+fn compute_metrics<I: Instrument + Clone + 'static>(
+    instrument: &I,
+    market: &MarketData,
+    as_of: time::Date,
+) -> Result<std::collections::HashMap<MetricId, F>, FinstackError> {
+    let base_value = instrument.value(market, as_of)?.value;
+    let mut ctx = MetricContext::new(Arc::new(instrument.clone()), Arc::new(market.clone()), as_of, base_value);
+    let registry = standard_registry();
+    registry.compute(&[MetricId::Dv01, MetricId::DurationMod, MetricId::ParRate], &mut ctx)
 }
-pub enum Bucket { Tenor(String), Curve(CurveId), Issuer(IssuerId) }
 ```
 
 ### 3.4 Attributes & Metadata (NEW)
@@ -450,7 +456,7 @@ pub enum EquityReference {
     Entity { entity_id: EntityId, node_id: Option<String> },
 }
 
-impl Priceable for Equity {
+impl Instrument for Equity {
     fn price(&self, market: &MarketData, as_of: time::Date)
         -> Result<ValuationResult, ValuationError>
     {
@@ -482,7 +488,7 @@ pub struct FxSpot {
     pub settlement: Option<time::Date>,
 }
 
-impl Priceable for FxSpot {
+impl Instrument for FxSpot {
     fn price(&self, market: &MarketData, as_of: time::Date)
         -> Result<ValuationResult, ValuationError>
     {
@@ -527,19 +533,14 @@ impl CashflowProvider for Bond {
     }
 }
 
-impl Priceable for Bond {
+impl Instrument for Bond {
     fn price(&self, market: &MarketData, as_of: time::Date) 
         -> Result<ValuationResult, ValuationError> {
         // Discount cash flows using appropriate curve
     }
 }
 
-impl RiskMeasurable for Bond {
-    fn risk_report(&self, market: &MarketData, as_of: time::Date, buckets: Option<&[RiskBucket]>) 
-        -> Result<RiskReport, ValuationError> {
-        // Calculate duration, convexity, DV01
-    }
-}
+// RiskMeasurable removed; compute required measures via metrics registry.
 ```
 
 #### 6.1.1 Inflation-Linked Bonds (TIPS/ILBs)
@@ -577,7 +578,7 @@ impl CashflowProvider for InflationLinkedBond {
     }
 }
 
-impl Priceable for InflationLinkedBond {
+impl Instrument for InflationLinkedBond {
     fn price(&self, market: &MarketData, as_of: time::Date)
         -> Result<ValuationResult, ValuationError>
     {
@@ -960,7 +961,7 @@ pub struct CreditDefaultSwap {
     pub imm_dates: bool,
 }
 
-impl Priceable for CreditDefaultSwap {
+impl Instrument for CreditDefaultSwap {
     fn price(&self, market: &MarketData, as_of: time::Date) 
         -> Result<ValuationResult, ValuationError> {
         // Price using ISDA standard model
@@ -1001,7 +1002,7 @@ pub enum ExerciseType {
     Bermudan(Vec<time::Date>),
 }
 
-impl Priceable for VanillaOption {
+impl Instrument for VanillaOption {
     fn price(&self, market: &MarketData, as_of: time::Date) 
         -> Result<ValuationResult, ValuationError> {
         // Black-Scholes for European equity
@@ -1010,12 +1011,7 @@ impl Priceable for VanillaOption {
     }
 }
 
-impl RiskMeasurable for VanillaOption {
-    fn risk_report(&self, market: &MarketData, as_of: time::Date, buckets: Option<&[RiskBucket]>) 
-        -> Result<RiskReport, ValuationError> {
-        // Calculate Greeks: delta, gamma, vega, theta, rho
-    }
-}
+// RiskMeasurable removed; use metrics registry for greeks.
 ```
 
 ### 6.6 Structured Credit Products (CLO/ABS)
@@ -1224,7 +1220,7 @@ impl CovenantEngine {
     }
 
     /// Apply consequences deterministically to an instrument's forward cashflows/terms
-    pub fn apply_consequences<I: CashflowProvider + Priceable>(
+    pub fn apply_consequences<I: CashflowProvider + Instrument>(
         instrument: &mut I,
         report: &CovenantReport,
         periods: &[Period],
@@ -1545,7 +1541,7 @@ use finstack_core::prelude::*;
 
 pub struct ValuationContext {
     market: MarketData,
-    instrument: Box<dyn Priceable>,
+    instrument: Box<dyn Instrument>,
     overrides: indexmap::IndexMap<String, Decimal>,
 }
 
@@ -1574,7 +1570,7 @@ impl ExpressionContext for ValuationContext {
 pub fn evaluate_custom_pricing(
     formula: &str,
     market: &MarketData,
-    instrument: Box<dyn Priceable>,
+    instrument: Box<dyn Instrument>,
 ) -> Result<Decimal, ValuationError> {
     let expr = Expr::parse(formula)?;
     let compiled = expr.compile()?;
@@ -1687,7 +1683,7 @@ Testing:
 pub use finstack_core::prelude::*;
 
 // Traits
-pub use traits::{CashflowProvider, Priceable, RiskMeasurable};
+pub use traits::{CashflowProvider, Instrument};
 
 // Cash flows
 pub use cashflow::{Cashflow, CashflowType, CashflowSchedule, TagSet};
@@ -1726,8 +1722,8 @@ pub use performance::{xirr};
 // Aggregation
 pub use aggregation::{aggregate_cashflows_by_period, aggregate_to_base_currency};
 
-// Risk
-pub use risk::{RiskReport, Sensitivities, calculate_dv01, calculate_cs01};
+// Risk helpers
+pub use risk::{Sensitivities, calculate_dv01, calculate_cs01};
 
 // Builder pattern for complex instruments
 pub struct InstrumentBuilder<T> {
@@ -1934,7 +1930,7 @@ pub fn price_portfolio_parallel<I>(
     as_of: time::Date,
 ) -> Vec<Result<ValuationResult, ValuationError>>
 where
-    I: Priceable + Sync,
+    I: Instrument + Sync,
 {
     use rayon::prelude::*;
     
@@ -2027,7 +2023,7 @@ fn value_portfolio(
 
 ## 17) Acceptance Criteria
 
-- [ ] All core traits (`CashflowProvider`, `Priceable`, `RiskMeasurable`) implemented
+- [ ] All core traits (`CashflowProvider`, `Instrument`) implemented
 - [ ] Currency-preserving aggregation with property tests
 - [ ] XIRR calculations match Excel/QuantLib within 1bp
 - [ ] Bond pricing matches Bloomberg/QuantLib within 0.01%
@@ -2058,3 +2054,46 @@ fn value_portfolio(
 ---
 
 **This document defines the complete technical specification for the finstack valuations crate, building on core's infrastructure while providing comprehensive quantitative finance capabilities.**
+
+### Pricer registry and per-instrument model selection
+
+- Default and keyed pricing models can be registered per instrument type via the pricer registry in `valuations::instruments::common`.
+- The `Instrument::value` implementation first checks the instrument's `attributes.meta` for a key (`pricer`, `model`, or `pricing_model`), and delegates to a matching registered pricer; otherwise it falls back to the default pricer for that instrument type (or the inline PV expression).
+
+Example:
+
+```rust
+use finstack_valuations::{install_pricers, instruments::Bond};
+use finstack_valuations::instruments::common::{register_pricer_for_key, Pricer};
+use finstack_core::dates::Date;
+use time::Month;
+
+// 1) Install built-in defaults
+install_pricers();
+
+// 2) Add a custom keyed model
+struct HazardPricer;
+impl Pricer<Bond> for HazardPricer {
+    fn price(
+        &self,
+        bond: &Bond,
+        ctx: &finstack_core::market_data::MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        finstack_valuations::instruments::bond::pricing::engine::BondEngine::price(bond, ctx, as_of)
+    }
+}
+register_pricer_for_key::<Bond, _>("hazard", HazardPricer);
+
+// 3) Toggle per instrument instance
+let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+let mut bond = Bond::treasury(
+    "UST-1",
+    finstack_core::money::Money::new(1_000_000.0, finstack_core::currency::Currency::USD),
+    0.03,
+    as_of,
+    as_of,
+);
+bond.attributes_mut().with_meta("pricer", "hazard");
+// let pv = bond.value(&ctx, as_of)?; // delegates to HazardPricer
+```

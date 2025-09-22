@@ -9,7 +9,7 @@ use finstack_valuations::instruments::basket::{
     AssetType, Basket, BasketConstituent, ConstituentReference, ReplicationMethod,
 };
 use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::common::traits::Priceable;
+use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::Month;
 
@@ -156,6 +156,9 @@ fn test_bond_etf_creation_and_pricing() {
         maturity,
         "USD-OIS",
     );
+
+    // Create a mock bond for the underlying of the ETF
+    // In a real scenario, this would be fetched from a security master
 
     // Create bond ETF similar to LQD
     let lqd_constituents = vec![

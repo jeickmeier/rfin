@@ -8,7 +8,7 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fx_swap::FxSwap;
-use finstack_valuations::instruments::common::traits::Priceable;
+use finstack_valuations::instruments::common::traits::Instrument;
 use std::collections::HashMap;
 use std::sync::Arc;
 use time::Month;

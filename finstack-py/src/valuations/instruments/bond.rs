@@ -118,11 +118,13 @@ impl PyBond {
             id: id.clone().into(),
             notional: notional.inner(),
             coupon,
-            freq: frequency.inner(),
-            dc: day_count.inner(),
-            bdc: finstack_core::dates::BusinessDayConvention::Following,
-            calendar_id: None,
-            stub: finstack_core::dates::StubKind::None,
+            schedule: finstack_valuations::cashflow::builder::ScheduleParams {
+                freq: frequency.inner(),
+                dc: day_count.inner(),
+                bdc: finstack_core::dates::BusinessDayConvention::Following,
+                calendar_id: None,
+                stub: finstack_core::dates::StubKind::None,
+            },
             issue: issue_date.inner(),
             maturity: maturity.inner(),
             settlement_days: Some(2),
@@ -196,7 +198,7 @@ impl PyBond {
     ///     Frequency.SemiAnnual
     #[getter]
     fn frequency(&self) -> PyFrequency {
-        PyFrequency::from_inner(self.inner.freq)
+        PyFrequency::from_inner(self.inner.schedule.freq)
     }
 
     /// The day count convention.
@@ -209,7 +211,7 @@ impl PyBond {
     ///     DayCount.Thirty360
     #[getter]
     fn day_count(&self) -> PyDayCount {
-        PyDayCount::from_inner(self.inner.dc)
+        PyDayCount::from_inner(self.inner.schedule.dc)
     }
 
     /// The issue date of the bond.
@@ -286,7 +288,7 @@ impl PyBond {
             // Full term remaining
             let years = self
                 .inner
-                .dc
+                .schedule.dc
                 .year_fraction(
                     self.inner.issue,
                     self.inner.maturity,
@@ -299,7 +301,7 @@ impl PyBond {
                     ))
                 })?;
 
-            let payments_per_year = match self.inner.freq.months() {
+            let payments_per_year = match self.inner.schedule.freq.months() {
                 Some(12) => 1.0,
                 Some(6) => 2.0,
                 Some(3) => 4.0,
@@ -316,7 +318,7 @@ impl PyBond {
             // Calculate based on remaining time
             let years_remaining = self
                 .inner
-                .dc
+                .schedule.dc
                 .year_fraction(
                     as_of_inner,
                     self.inner.maturity,
@@ -329,7 +331,7 @@ impl PyBond {
                     ))
                 })?;
 
-            let payments_per_year = match self.inner.freq.months() {
+            let payments_per_year = match self.inner.schedule.freq.months() {
                 Some(12) => 1.0,
                 Some(6) => 2.0,
                 Some(3) => 4.0,
@@ -365,7 +367,7 @@ impl PyBond {
 
         let years = self
             .inner
-            .dc
+            .schedule.dc
             .year_fraction(
                 as_of_inner,
                 self.inner.maturity,
@@ -390,7 +392,7 @@ impl PyBond {
     ///     >>> str(bond)
     ///     "Bond('CORP-5Y', 5.00% Semi-Annual, Matures 2029-01-01)"
     fn __repr__(&self) -> String {
-        let freq_str = match self.inner.freq.months() {
+        let freq_str = match self.inner.schedule.freq.months() {
             Some(12) => "Annual",
             Some(6) => "Semi-Annual",
             Some(3) => "Quarterly",
@@ -526,51 +528,7 @@ impl PyBond {
         self.inner.matches_selector(selector)
     }
 
-    /// Generate a comprehensive risk report for the bond.
-    ///
-    /// Calculates key risk metrics, bucketed sensitivities, and categorizes
-    /// the bond into risk buckets based on its characteristics.
-    ///
-    /// Args:
-    ///     market_context: Market data including curves
-    ///     as_of: Valuation date
-    ///     bucket_spec: Optional list of risk buckets for categorization
-    ///
-    /// Returns:
-    ///     RiskReport: Comprehensive risk report
-    ///
-    /// Examples:
-    ///     >>> report = bond.risk_report(context, Date(2024, 1, 1))
-    ///     >>> print(f"DV01: {report.get_metric('Dv01', 0)}")
-    ///     >>> print(f"Duration: {report.get_metric('DurationMod', 0)}")
-    ///     >>>
-    ///     >>> # Check bucketed sensitivities
-    ///     >>> dv01_buckets = report.get_bucketed_risk("DV01")
-    ///     >>> if dv01_buckets:
-    ///     ...     for bucket, value in dv01_buckets.items():
-    ///     ...         print(f"{bucket}: {value}")
-    fn risk_report(
-        &self,
-        _market_context: &crate::core::market_data::context::PyMarketContext,
-        _as_of: &PyDate,
-        bucket_spec: Option<Vec<crate::valuations::risk::PyRiskBucket>>,
-    ) -> PyResult<crate::valuations::risk::PyRiskReport> {
-        // Temporary implementation: construct a minimal RiskReport until
-        // Bond implements RiskMeasurable in the Rust core.
-        let mut report = finstack_valuations::metrics::RiskReport::new(
-            self.inner.id.as_str(),
-            self.inner.notional.currency(),
-        );
-
-        // Convert Python bucket spec to Rust and attach to report if provided
-        if let Some(buckets) = bucket_spec {
-            for b in buckets.into_iter().map(|pb| pb.inner) {
-                report = report.with_bucket(b);
-            }
-        }
-
-        Ok(crate::valuations::risk::PyRiskReport::from_inner(report))
-    }
+    
 
     /// Price the bond with selected metrics.
     ///

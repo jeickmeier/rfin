@@ -83,7 +83,7 @@ impl BondValuator {
         for (date, amount) in &flows {
             if *date > base_date {
                 let time_frac = bond
-                    .dc
+                    .schedule.dc
                     .year_fraction(
                         base_date,
                         *date,
@@ -109,7 +109,7 @@ impl BondValuator {
             for call in &call_put.calls {
                 if call.date > base_date && call.date <= bond.maturity {
                     let time_frac = bond
-                        .dc
+                        .schedule.dc
                         .year_fraction(
                             base_date,
                             call.date,
@@ -131,7 +131,7 @@ impl BondValuator {
             for put in &call_put.puts {
                 if put.date > base_date && put.date <= bond.maturity {
                     let time_frac = bond
-                        .dc
+                        .schedule.dc
                         .year_fraction(
                             base_date,
                             put.date,
@@ -250,7 +250,7 @@ impl TreePricer {
         let accrued_ccy = self.calculate_accrued_interest(bond, market_context, as_of)?;
         let dirty_target = (clean_price_pct_of_par * bond.notional.amount() / 100.0) + accrued_ccy;
         let time_to_maturity = bond
-            .dc
+            .schedule.dc
             .year_fraction(
                 as_of,
                 bond.maturity,
@@ -415,11 +415,13 @@ mod tests {
             id: "TEST_BOND".to_string().into(),
             notional: Money::new(1000.0, finstack_core::currency::Currency::USD),
             coupon: 0.05,
-            freq: finstack_core::dates::Frequency::semi_annual(),
-            dc: finstack_core::dates::DayCount::Act365F,
-            bdc: finstack_core::dates::BusinessDayConvention::Following,
-            calendar_id: None,
-            stub: finstack_core::dates::StubKind::None,
+            schedule: crate::cashflow::builder::ScheduleParams {
+                freq: finstack_core::dates::Frequency::semi_annual(),
+                dc: finstack_core::dates::DayCount::Act365F,
+                bdc: finstack_core::dates::BusinessDayConvention::Following,
+                calendar_id: None,
+                stub: finstack_core::dates::StubKind::None,
+            },
             issue,
             maturity,
             settlement_days: Some(2),
@@ -564,7 +566,7 @@ mod tests {
         // Time grid
         let as_of = base_date;
         let time_to_maturity = bond
-            .dc
+            .schedule.dc
             .year_fraction(
                 as_of,
                 bond.maturity,

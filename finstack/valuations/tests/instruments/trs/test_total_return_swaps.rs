@@ -13,7 +13,7 @@ use finstack_core::{
 use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::trs::IndexUnderlyingParams;
 use finstack_valuations::instruments::{
-    traits::Priceable,
+    common::traits::Instrument,
     trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap, TrsSide},
     underlying::EquityUnderlyingParams,
 };

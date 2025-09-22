@@ -110,7 +110,7 @@ pub fn price_from_ytm_compounded(
     ytm: finstack_core::F,
     comp: YieldCompounding,
 ) -> finstack_core::Result<finstack_core::F> {
-    price_from_ytm_compounded_params(bond.dc, bond.freq, flows, as_of, ytm, comp)
+    price_from_ytm_compounded_params(bond.schedule.dc, bond.schedule.freq, flows, as_of, ytm, comp)
 }
 
 /// Price from Yield-To-Worst by scanning call/put candidates and selecting the lowest yield path
@@ -157,11 +157,11 @@ pub fn price_from_ytw(
             as_of,
             dirty_price_target,
             crate::instruments::bond::pricing::ytm_solver::YtmPricingSpec {
-                day_count: bond.dc,
+                day_count: bond.schedule.dc,
                 notional: bond.notional,
                 coupon_rate: bond.coupon,
                 compounding: YieldCompounding::Street,
-                frequency: bond.freq,
+                frequency: bond.schedule.freq,
             },
         )?;
         if y < best_yield {
@@ -189,6 +189,7 @@ pub fn price_from_z_spread(
             continue;
         }
         let t = bond
+            .schedule
             .dc
             .year_fraction(base_date, *d, DayCountCtx::default())
             .unwrap_or(0.0);
@@ -212,6 +213,7 @@ pub fn price_from_oas(
         short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
     };
     let time_to_maturity = bond
+        .schedule
         .dc
         .year_fraction(as_of, bond.maturity, DayCountCtx::default())
         .unwrap_or(0.0);
@@ -252,6 +254,7 @@ fn price_from_annuity_spread(
     for w in dates.windows(2) {
         let (a, b) = (w[0], w[1]);
         let alpha = bond
+            .schedule
             .dc
             .year_fraction(a, b, DayCountCtx::default())
             .unwrap_or(0.0);
@@ -330,10 +333,12 @@ pub fn compute_accrued_interest(
             let (end_date, coupon_amount) = window[1];
             if start_date <= as_of && as_of < end_date {
                 let total_period = bond
+                    .schedule
                     .dc
                     .year_fraction(start_date, end_date, DayCountCtx::default())
                     .unwrap_or(0.0);
                 let elapsed = bond
+                    .schedule
                     .dc
                     .year_fraction(start_date, as_of, DayCountCtx::default())
                     .unwrap_or(0.0)
@@ -351,10 +356,10 @@ pub fn compute_accrued_interest(
     let sched = crate::cashflow::builder::build_dates(
         bond.issue,
         bond.maturity,
-        bond.freq,
-        bond.stub,
-        bond.bdc,
-        bond.calendar_id,
+        bond.schedule.freq,
+        bond.schedule.stub,
+        bond.schedule.bdc,
+        bond.schedule.calendar_id,
     );
     for window in sched.dates.windows(2) {
         let start_date = window[0];
@@ -368,11 +373,13 @@ pub fn compute_accrued_interest(
         }
         if start_date <= as_of && as_of < end_date {
             let yf = bond
+                .schedule
                 .dc
                 .year_fraction(start_date, end_date, DayCountCtx::default())
                 .unwrap_or(0.0);
             let period_coupon = bond.notional.amount() * bond.coupon * yf;
             let elapsed = bond
+                .schedule
                 .dc
                 .year_fraction(start_date, as_of, DayCountCtx::default())
                 .unwrap_or(0.0)
@@ -408,10 +415,10 @@ pub fn compute_accrued_interest_with_context(
     let sched = crate::cashflow::builder::build_dates(
         bond.issue,
         bond.maturity,
-        bond.freq,
-        bond.stub,
-        bond.bdc,
-        bond.calendar_id,
+        bond.schedule.freq,
+        bond.schedule.stub,
+        bond.schedule.bdc,
+        bond.schedule.calendar_id,
     );
     let dates = sched.dates;
     for w in dates.windows(2) {
@@ -420,9 +427,9 @@ pub fn compute_accrued_interest_with_context(
         if start <= as_of && as_of < end {
             // Determine reset date and forward time
             let mut reset_date = start - Duration::days(fl.reset_lag_days as i64);
-            if let Some(id) = bond.calendar_id {
+            if let Some(id) = bond.schedule.calendar_id {
                 if let Some(cal) = calendar_by_id(id) {
-                    reset_date = adjust(reset_date, bond.bdc, cal)?;
+                    reset_date = adjust(reset_date, bond.schedule.bdc, cal)?;
                 }
             }
             let t_reset = fwd
@@ -430,10 +437,12 @@ pub fn compute_accrued_interest_with_context(
                 .year_fraction(fwd.base_date(), reset_date, DayCountCtx::default())
                 .unwrap_or(0.0);
             let yf_total = bond
+                .schedule
                 .dc
                 .year_fraction(start, end, DayCountCtx::default())
                 .unwrap_or(0.0);
             let yf_elapsed = bond
+                .schedule
                 .dc
                 .year_fraction(start, as_of, DayCountCtx::default())
                 .unwrap_or(0.0)

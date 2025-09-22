@@ -6,11 +6,12 @@ use finstack_core::{
     dates::{Date, DayCount},
     market_data::{term_structures::discount_curve::DiscountCurve, MarketContext},
     money::Money,
+    types::id::InstrumentId,
     F,
 };
 use finstack_valuations::{
     cashflow::traits::{CashflowProvider, DatedFlows},
-    instruments::common::traits::Priceable,
+    instruments::common::traits::{Instrument, Attributable, Attributes},
     metrics::MetricId,
     results::ValuationResult,
 };
@@ -38,25 +39,50 @@ impl CashflowProvider for TestCashflowProvider {
     }
 }
 
-// Dummy priceable instrument for testing
+// Dummy instrument for testing
 #[derive(Debug, Clone)]
-struct TestPriceable {
+struct TestInstrument {
+    id: InstrumentId,
     value: Money,
     #[allow(dead_code)]
     measures: HashMap<String, F>,
+    attributes: Attributes,
 }
 
-impl TestPriceable {
+impl TestInstrument {
     fn new(value: Money) -> Self {
         let mut measures = HashMap::new();
         measures.insert("duration".to_string(), 2.5);
         measures.insert("convexity".to_string(), 0.1);
 
-        Self { value, measures }
+        Self {
+            id: "TEST_INSTRUMENT".into(),
+            value,
+            measures,
+            attributes: Attributes::default(),
+        }
     }
 }
 
-impl Priceable for TestPriceable {
+impl Attributable for TestInstrument {
+    fn attributes(&self) -> &Attributes {
+        &self.attributes
+    }
+
+    fn attributes_mut(&mut self) -> &mut Attributes {
+        &mut self.attributes
+    }
+}
+
+impl Instrument for TestInstrument {
+    fn id(&self) -> &InstrumentId {
+        &self.id
+    }
+
+    fn currency(&self) -> Currency {
+        self.value.currency()
+    }
+    
     fn value(&self, _curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
         Ok(self.value)
     }
@@ -130,9 +156,9 @@ fn test_cashflow_provider_npv_with() {
 }
 
 #[test]
-fn test_priceable_price_with_metrics_basic() {
+fn test_instrument_price_with_metrics_basic() {
     let value = Money::new(1000.0, Currency::USD);
-    let instrument = TestPriceable::new(value);
+    let instrument = TestInstrument::new(value);
     let curves = MarketContext::new();
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
@@ -144,9 +170,9 @@ fn test_priceable_price_with_metrics_basic() {
 }
 
 #[test]
-fn test_priceable_value() {
+fn test_instrument_value() {
     let value = Money::new(1500.0, Currency::EUR);
-    let instrument = TestPriceable::new(value);
+    let instrument = TestInstrument::new(value);
     let curves = MarketContext::new();
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
@@ -155,9 +181,9 @@ fn test_priceable_value() {
 }
 
 #[test]
-fn test_priceable_price_with_metrics() {
+fn test_instrument_price_with_metrics() {
     let value = Money::new(2000.0, Currency::GBP);
-    let instrument = TestPriceable::new(value);
+    let instrument = TestInstrument::new(value);
     let curves = MarketContext::new();
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
@@ -174,9 +200,9 @@ fn test_priceable_price_with_metrics() {
 }
 
 #[test]
-fn test_priceable_price_with_no_metrics() {
+fn test_instrument_price_with_no_metrics() {
     let value = Money::new(500.0, Currency::JPY);
-    let instrument = TestPriceable::new(value);
+    let instrument = TestInstrument::new(value);
     let curves = MarketContext::new();
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 

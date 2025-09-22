@@ -237,9 +237,9 @@ def analyze_portfolio_risk(portfolio):
 
 
 def create_risk_report():
-    """Create a comprehensive risk report."""
+    """Create a sample bucketed DV01 table using computed metrics."""
     print("\n" + "=" * 60)
-    print("Risk Report Generation")
+    print("Risk Report (Sample Bucketed DV01)")
     print("=" * 60)
 
     # Sample data for risk report

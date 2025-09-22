@@ -41,11 +41,11 @@ This roadmap converts the **Risk Metrics** Detailed Design into focused pull-req
 
 ---
 
-## PR #3 — `RiskReport` struct & serialization
+## PR #3 — Remove legacy RiskReport; metrics-based risk surfaces
 
 **Goals**
-* Define `RiskReport` with sparse parallel-vector layout and cross-gamma store.
-* Derive Serde when `serde` flag enabled; ensure versioned representation.
+* Remove legacy `RiskReport` shape from valuations.
+* Standardize on metrics registry outputs and per-factor vectors.
 
 **Key changes**
 1. `report.rs` — struct, `Default` impl (pv=0).
@@ -53,8 +53,8 @@ This roadmap converts the **Risk Metrics** Detailed Design into focused pull-req
 3. Docs example building a mini report.
 
 **Acceptance criteria**
-* JSON round-trip equals original under `serde` feature.
-* `RiskReport::factors.len()` always equals `delta.len()`, etc. (assert in ctor).
+* No references to `RiskReport` remain in valuations or bindings.
+* Docs/examples use metrics APIs for risk.
 
 ---
 
@@ -161,8 +161,8 @@ This roadmap converts the **Risk Metrics** Detailed Design into focused pull-req
 ## PR #10 — Portfolio aggregation & cross-gamma support
 
 **Goals**
-* Add `aggregate.rs` functions merging `RiskReport`s across trades, summing buckets and currencies.
-* **Persist, store, and aggregate** sparse upper-triangular cross-gamma matrices.
+* Add aggregation helpers that sum key-rate DV01 buckets across positions.
+* Cross-gamma and advanced risk aggregation deferred to analysis crate.
 
 **Key changes**
 1. `aggregate.rs` reduce by `RiskFactor` hashing.

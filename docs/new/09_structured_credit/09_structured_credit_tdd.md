@@ -65,7 +65,7 @@ Meta-crate features and re-exports:
 
 Reuse-first:
 - Types, `Decimal`, `Currency`, `Amount`, time/day-count, calendars: from `core`
-- Cashflow primitives, traits (`CashflowProvider`, `Priceable`, `RiskMeasurable`), `MarketData`: from `valuations`
+- Cashflow primitives, traits (`CashflowProvider`, `Instrument`), `MarketData`: from `valuations`
 - No additional time-series engine beyond what core re-exports (Polars optional via callers)
 
 ---
@@ -240,7 +240,7 @@ pub struct ProjectedCashflows { pub periods: Vec<Period>, pub tranche_cashflows:
 ## 6) Traits & Integration
 
 - Implements `CashflowProvider` for `StructuredProduct` to generate tranche-level flows
-- Provides `Priceable` for `Tranche` to value from projected flows
+- Provides `Instrument` for `Tranche` to value from projected flows
 - Risk extensions (e.g., DV01, CS01) may be added as feature-gated modules
 
 ---

@@ -106,7 +106,7 @@ Out‑of‑Scope (for now):
 - Preview and execution behave deterministically; cache invalidation aligns with overall scenario phases.
 
 ### 6.7 Interoperability & Schema
-- Reuse Core types (Amount, Currency, calendars, day‑count) and Valuations traits (CashflowProvider, Priceable) to ensure parity.
+- Reuse Core types (Amount, Currency, calendars, day‑count) and Valuations traits (CashflowProvider, Instrument) to ensure parity.
 - All public types are serde‑stable and versioned; unknown fields are rejected by default.
 
 ---

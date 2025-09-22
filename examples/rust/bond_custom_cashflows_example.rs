@@ -232,28 +232,30 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
     let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
 
     // Create regular bond
-    let regular_bond = Bond {
-        id: "REGULAR_BOND".to_string().into(),
-        notional: Money::new(1_000_000.0, Currency::USD),
-        coupon: 0.05,
-        freq: Frequency::annual(),
-        dc: DayCount::Act365F,
-        bdc: BusinessDayConvention::Following,
-        calendar_id: None,
-        stub: StubKind::None,
-        issue,
-        maturity,
-        settlement_days: Some(2),
-        ex_coupon_days: Some(0),
-        disc_id: "USD-OIS".into(),
-        hazard_id: None,
-        pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
-        call_put: None,
-        amortization: None,
-        custom_cashflows: None,
-        float: None,
-        attributes: finstack_valuations::instruments::traits::Attributes::new(),
-    };
+    let regular_bond = Bond::builder()
+        .id("REGULAR_BOND".to_string().into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .coupon(0.05)
+        .schedule(ScheduleParams {
+            freq: Frequency::annual(),
+            dc: DayCount::Act365F,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
+        })
+        .issue(issue)
+        .maturity(maturity)
+        .settlement_days_opt(Some(2))
+        .ex_coupon_days_opt(Some(0))
+        .disc_id("USD-OIS".into())
+        .hazard_id_opt(None)
+        .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
+        .call_put_opt(None)
+        .amortization_opt(None)
+        .custom_cashflows_opt(None)
+        .float_opt(None)
+        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .build()?;
 
     // Create custom bond with higher frequency
     let custom_schedule = cf()
