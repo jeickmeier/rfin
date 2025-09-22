@@ -10,7 +10,7 @@ use crate::instruments::{
     fra::ForwardRateAgreement,
     ir_future::InterestRateFuture,
     irs::{FloatLegSpec, InterestRateSwap, PayReceive},
-    traits::Priceable,
+    traits::Instrument,
 };
 use finstack_core::{
     currency::Currency,

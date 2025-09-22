@@ -581,7 +581,7 @@ impl PyBond {
         as_of: &PyDate,
         metrics: Vec<String>,
     ) -> PyResult<crate::valuations::results::PyValuationResult> {
-        use finstack_valuations::instruments::traits::Priceable;
+        use finstack_valuations::instruments::traits::Instrument;
 
         let curves = market_context.inner();
         let as_of_date = as_of.inner();
@@ -633,7 +633,7 @@ impl PyBond {
         market_context: &crate::core::market_data::context::PyMarketContext,
         as_of: &PyDate,
     ) -> PyResult<PyMoney> {
-        use finstack_valuations::instruments::traits::Priceable;
+        use finstack_valuations::instruments::traits::Instrument;
 
         let curves = market_context.inner();
         let as_of_date = as_of.inner();

@@ -1,7 +1,7 @@
 //! Core types for Repurchase Agreement (Repo) instruments.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::common::traits::{Attributable, Attributes, Instrument, Priceable};
+use crate::instruments::common::traits::{Attributable, Attributes, Instrument};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::market_data::MarketContext;
@@ -297,31 +297,6 @@ impl Repo {
     }
 }
 
-impl Priceable for Repo {
-    fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
-        // Delegate to pricing engine to keep pricing logic centralized
-        crate::instruments::repo::pricing::RepoPricer::new().pv(self, context, as_of)
-    }
-
-    fn price_with_metrics(
-        &self,
-        context: &MarketContext,
-        as_of: Date,
-        metrics: &[MetricId],
-    ) -> Result<ValuationResult> {
-        let base_value = <Self as Priceable>::value(self, context, as_of)?;
-
-        // Use existing utility function to build metrics
-        crate::instruments::common::helpers::build_with_metrics_dyn(
-            self as &dyn Instrument,
-            context,
-            as_of,
-            base_value,
-            metrics,
-        )
-    }
-}
-
 impl Instrument for Repo {
     fn id(&self) -> &str {
         self.id.as_str()
@@ -340,6 +315,31 @@ impl Instrument for Repo {
     }
     fn clone_box(&self) -> Box<dyn Instrument> {
         Box::new(self.clone())
+    }
+
+    // === Pricing Methods ===
+
+    fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
+        // Delegate to pricing engine to keep pricing logic centralized
+        crate::instruments::repo::pricing::RepoPricer::new().pv(self, context, as_of)
+    }
+
+    fn price_with_metrics(
+        &self,
+        context: &MarketContext,
+        as_of: Date,
+        metrics: &[MetricId],
+    ) -> Result<ValuationResult> {
+        let base_value = self.value(context, as_of)?;
+
+        // Use existing utility function to build metrics
+        crate::instruments::common::helpers::build_with_metrics_dyn(
+            self as &dyn Instrument,
+            context,
+            as_of,
+            base_value,
+            metrics,
+        )
     }
 }
 

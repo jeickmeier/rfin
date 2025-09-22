@@ -2,7 +2,7 @@
 
 use super::super::types::Bond;
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::traits::Priceable;
+use crate::instruments::common::traits::Instrument;
 use finstack_core::dates::adjust;
 use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::dates::Date;

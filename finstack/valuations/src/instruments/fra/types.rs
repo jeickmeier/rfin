@@ -5,13 +5,12 @@
 //! `pricing::engine`, and metrics are provided in the `metrics` submodule.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::common::traits::{Attributable, Attributes, Instrument};
+use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::F;
-use std::any::Any;
 
 /// Forward Rate Agreement instrument.
 ///
@@ -46,35 +45,13 @@ pub struct ForwardRateAgreement {
     pub attributes: Attributes,
 }
 
-impl Attributable for ForwardRateAgreement {
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
-    }
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
-    }
-}
-
-impl Instrument for ForwardRateAgreement {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-    fn instrument_type(&self) -> &'static str {
-        "FRA"
-    }
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-    fn attributes(&self) -> &Attributes {
-        <Self as Attributable>::attributes(self)
-    }
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        <Self as Attributable>::attributes_mut(self)
-    }
-    fn clone_box(&self) -> Box<dyn Instrument> {
-        Box::new(self.clone())
-    }
-}
+// Use the macro to implement Attributable and Instrument traits including pricing
+crate::impl_instrument_schedule_pv!(
+    ForwardRateAgreement, 
+    "FRA", 
+    disc_field: disc_id, 
+    dc_field: day_count
+);
 
 impl CashflowProvider for ForwardRateAgreement {
     fn build_schedule(

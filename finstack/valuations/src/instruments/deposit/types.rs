@@ -12,8 +12,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::F;
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::common::traits::{Attributable, Attributes, Instrument};
-use std::any::Any;
+use crate::instruments::common::traits::Attributes;
 
 /// Simple deposit instrument with optional quoted rate.
 ///
@@ -41,35 +40,13 @@ pub struct Deposit {
     pub attributes: Attributes,
 }
 
-impl Attributable for Deposit {
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
-    }
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
-    }
-}
-
-impl Instrument for Deposit {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-    fn instrument_type(&self) -> &'static str {
-        "Deposit"
-    }
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-    fn attributes(&self) -> &Attributes {
-        <Self as Attributable>::attributes(self)
-    }
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        <Self as Attributable>::attributes_mut(self)
-    }
-    fn clone_box(&self) -> Box<dyn Instrument> {
-        Box::new(self.clone())
-    }
-}
+// Use the macro to implement Attributable and Instrument traits including pricing
+crate::impl_instrument_schedule_pv!(
+    Deposit, 
+    "Deposit", 
+    disc_field: disc_id, 
+    dc_field: day_count
+);
 
 impl CashflowProvider for Deposit {
     fn build_schedule(

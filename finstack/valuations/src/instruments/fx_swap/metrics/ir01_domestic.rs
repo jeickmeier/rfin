@@ -3,7 +3,7 @@
 //! Computes sensitivity to a 1bp parallel bump in the domestic (quote) discount curve
 //! by revaluing with bumped domestic discount factors.
 
-use crate::instruments::common::traits::Priceable;
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::fx::{FxConversionPolicy, FxQuery};

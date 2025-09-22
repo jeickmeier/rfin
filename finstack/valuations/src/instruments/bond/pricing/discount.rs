@@ -8,6 +8,7 @@ use crate::cashflow::traits::CashflowProvider;
 
 use super::super::types::Bond;
 
+#[allow(dead_code)]
 pub fn price(bond: &Bond, context: &MarketContext, as_of: Date) -> Result<Money> {
     let flows = bond.build_schedule(context, as_of)?;
     let disc = context

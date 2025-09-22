@@ -3,7 +3,7 @@
 //! Computes sensitivity to a 1bp bump in the spot FX rate by revaluing with
 //! a bumped spot while respecting instrument overrides for near/far rates.
 
-use crate::instruments::common::traits::Priceable;
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::fx::{FxConversionPolicy, FxQuery};

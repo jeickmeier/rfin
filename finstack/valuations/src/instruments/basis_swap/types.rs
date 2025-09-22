@@ -4,14 +4,12 @@
 //! capturing the basis spread between them (e.g., 3M vs 6M).
 
 use crate::cashflow::builder::schedule_utils::{build_dates, PeriodSchedule};
-use crate::instruments::common::traits::{Attributable, Instrument};
 use finstack_core::{
     dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind},
     money::Money,
     types::{CurveId, InstrumentId},
     F,
 };
-use std::any::Any;
 
 // Re-export from common parameters
 pub use crate::instruments::common::parameters::legs::BasisSwapLeg;
@@ -173,40 +171,71 @@ impl BasisSwap {
     }
 }
 
-impl Attributable for BasisSwap {
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
-        &self.attributes
-    }
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
-        &mut self.attributes
-    }
-}
+// Attributable implementation is provided by the impl_instrument! macro
 
-impl Instrument for BasisSwap {
-    fn id(&self) -> &str {
-        self.id.as_str()
+// Use the macro to implement Instrument with pricing
+crate::impl_instrument!(
+    BasisSwap, 
+    "BasisSwap",
+    pv = |s, curves, as_of| {
+        // Basis swap PV = receive leg - pay leg
+        // For simplicity, assume primary leg is received, reference leg is paid
+        
+        use crate::instruments::basis_swap::pricing::engine::{BasisEngine, FloatLegParams};
+        use crate::cashflow::builder::schedule_utils::build_dates;
+        
+        // Build primary leg schedule
+        let primary_schedule = build_dates(
+            s.start_date, 
+            s.maturity_date,
+            s.primary_leg.frequency,
+            s.stub_kind,
+            s.primary_leg.bdc,
+            s.calendar_id
+        );
+        
+        // Build reference leg schedule  
+        let reference_schedule = build_dates(
+            s.start_date,
+            s.maturity_date, 
+            s.reference_leg.frequency,
+            s.stub_kind,
+            s.reference_leg.bdc,
+            s.calendar_id
+        );
+        
+        // Create leg parameters
+        let primary_params = FloatLegParams {
+            schedule: &primary_schedule,
+            notional: s.notional,
+            disc_id: s.discount_curve_id.as_str(),
+            fwd_id: s.primary_leg.forward_curve_id.as_str(),
+            accrual_dc: s.primary_leg.day_count,
+            spread: s.primary_leg.spread,
+        };
+        
+        let reference_params = FloatLegParams {
+            schedule: &reference_schedule, 
+            notional: s.notional,
+            disc_id: s.discount_curve_id.as_str(),
+            fwd_id: s.reference_leg.forward_curve_id.as_str(),
+            accrual_dc: s.reference_leg.day_count,
+            spread: s.reference_leg.spread,
+        };
+        
+        // Calculate leg PVs
+        let primary_pv = BasisEngine::pv_float_leg(primary_params, curves, as_of)?;
+        let reference_pv = BasisEngine::pv_float_leg(reference_params, curves, as_of)?;
+        
+        // Return net PV (primary - reference)
+        primary_pv - reference_pv
     }
-    fn instrument_type(&self) -> &'static str {
-        "BasisSwap"
-    }
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
-        <Self as Attributable>::attributes(self)
-    }
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
-        <Self as Attributable>::attributes_mut(self)
-    }
-    fn clone_box(&self) -> Box<dyn Instrument> {
-        Box::new(self.clone())
-    }
-}
+);
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::Priceable;
+        use crate::instruments::common::traits::Instrument;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::{
         discount_curve::DiscountCurve, forward_curve::ForwardCurve,

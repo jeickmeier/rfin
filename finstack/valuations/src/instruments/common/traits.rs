@@ -7,22 +7,6 @@ use hashbrown::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 
-/// Priceable instruments expose a fast present-value surface and optional metrics.
-pub trait Priceable: Send + Sync {
-    /// Compute only the base present value (fast, no metrics).
-    fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money>;
-
-    /// Compute value with a specific set of metrics.
-    ///
-    /// Implementations should build on `value()` and compute only the requested metrics.
-    fn price_with_metrics(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-        metrics: &[MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult>;
-}
-
 /// Attributes for scenario selection and tagging.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Attributes {
@@ -108,10 +92,10 @@ pub trait Attributable: Send + Sync {
 
 /// Unified instrument trait combining identity, attributes, and pricing.
 ///
-/// This is the single trait to implement and use for new code. Existing
-/// implementers that already use `impl_instrument!` will automatically
-/// implement this trait via the macro wiring.
-pub trait Instrument: Priceable + Send + Sync {
+/// This is the primary trait for all financial instruments, providing both
+/// metadata/identity methods and pricing functionality. All instruments
+/// should implement this single trait.
+pub trait Instrument: Send + Sync {
     /// Get the instrument's unique identifier.
     fn id(&self) -> &str;
 
@@ -128,18 +112,18 @@ pub trait Instrument: Priceable + Send + Sync {
     /// Clone this instrument as a boxed trait object
     fn clone_box(&self) -> Box<dyn Instrument>;
 
-    /// Convenience: price via dyn Instrument without trait disambiguation
-    fn value_dyn(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        <Self as Priceable>::value(self, curves, as_of)
-    }
+    // === Pricing Methods ===
 
-    /// Convenience: price with metrics via dyn Instrument without disambiguation
-    fn price_with_metrics_dyn(
+    /// Compute only the base present value (fast, no metrics).
+    fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money>;
+
+    /// Compute value with a specific set of metrics.
+    ///
+    /// Implementations should build on `value()` and compute only the requested metrics.
+    fn price_with_metrics(
         &self,
         curves: &MarketContext,
         as_of: Date,
         metrics: &[MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        <Self as Priceable>::price_with_metrics(self, curves, as_of, metrics)
-    }
+    ) -> finstack_core::Result<crate::results::ValuationResult>;
 }

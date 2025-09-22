@@ -225,7 +225,7 @@ impl BasketPricer {
                 // Resolve price then allocate per share
                 let raw_value = match &constituent.reference {
                     ConstituentReference::Instrument(instrument) => {
-                        instrument.value_dyn(context, as_of)?
+                        instrument.value(context, as_of)?
                     }
                     ConstituentReference::MarketData { price_id, .. } => {
                         let scalar = context.price(price_id)?;
@@ -260,7 +260,7 @@ impl BasketPricer {
                     // Price × units (convert to basket currency first)
                     let raw_value = match &constituent.reference {
                         ConstituentReference::Instrument(instrument) => {
-                            instrument.value_dyn(context, as_of)?
+                            instrument.value(context, as_of)?
                         }
                         ConstituentReference::MarketData { price_id, .. } => {
                             let scalar = context.price(price_id)?;
@@ -283,7 +283,7 @@ impl BasketPricer {
                     // Weight-only contribution scaled by shares × price
                     let raw_value = match &constituent.reference {
                         ConstituentReference::Instrument(instrument) => {
-                            instrument.value_dyn(context, as_of)?
+                            instrument.value(context, as_of)?
                         }
                         ConstituentReference::MarketData { price_id, .. } => {
                             let scalar = context.price(price_id)?;

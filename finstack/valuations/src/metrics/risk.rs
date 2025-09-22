@@ -411,7 +411,7 @@ impl MetricCalculator for ThetaCalculator {
         aged_context.fx = original_curves.fx.clone();
 
         // Reprice instrument with aged market context
-        let aged_price = context.instrument.value_dyn(&aged_context, shifted_date)?;
+        let aged_price = context.instrument.value(&aged_context, shifted_date)?;
 
         // Theta per calendar day
         Ok((aged_price - base_price)?.amount())
@@ -622,23 +622,6 @@ mod tests {
         struct DummyInstr {
             attrs: crate::instruments::common::traits::Attributes,
         }
-        impl crate::instruments::common::traits::Priceable for DummyInstr {
-            fn value(
-                &self,
-                _curves: &finstack_core::market_data::MarketContext,
-                _as_of: Date,
-            ) -> finstack_core::Result<Money> {
-                Ok(Money::new(0.0, Currency::USD))
-            }
-            fn price_with_metrics(
-                &self,
-                _curves: &finstack_core::market_data::MarketContext,
-                _as_of: Date,
-                _metrics: &[MetricId],
-            ) -> finstack_core::Result<crate::results::ValuationResult> {
-                Err(finstack_core::error::InputError::Invalid.into())
-            }
-        }
         impl crate::instruments::common::traits::Attributable for DummyInstr {
             fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
                 &self.attrs
@@ -667,6 +650,23 @@ mod tests {
                 Box::new(Self {
                     attrs: self.attrs.clone(),
                 })
+            }
+            
+            // === Pricing Methods ===
+            fn value(
+                &self,
+                _curves: &finstack_core::market_data::MarketContext,
+                _as_of: Date,
+            ) -> finstack_core::Result<Money> {
+                Ok(Money::new(0.0, Currency::USD))
+            }
+            fn price_with_metrics(
+                &self,
+                _curves: &finstack_core::market_data::MarketContext,
+                _as_of: Date,
+                _metrics: &[MetricId],
+            ) -> finstack_core::Result<crate::results::ValuationResult> {
+                Err(finstack_core::error::InputError::Invalid.into())
             }
         }
 

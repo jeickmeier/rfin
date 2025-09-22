@@ -24,6 +24,7 @@ pub(crate) mod helpers {
     use finstack_core::Result;
 
     /// Validate TRS notional currency against optional base currency
+    #[allow(dead_code)]
     pub fn validate_trs_currencies(notional: Money, base: Option<Currency>) -> Result<()> {
         // Ensure same-currency amounts
         crate::instruments::common::helpers::validate_currency_consistency(&[notional])?;

@@ -11,10 +11,9 @@ use finstack_core::{
 
 use crate::{
     cashflow::traits::{CashflowProvider, DatedFlows},
-    instruments::common::traits::{Attributable, Attributes, Instrument},
+    instruments::common::traits::Attributes,
 };
 
-use std::any::Any;
 
 /// Side of the variance swap (pay or receive variance).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -392,38 +391,16 @@ impl VarianceSwap {
     }
 }
 
-impl Instrument for VarianceSwap {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-    fn instrument_type(&self) -> &'static str {
-        "VarianceSwap"
-    }
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
-    }
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
-    }
-    fn clone_box(&self) -> Box<dyn Instrument> {
-        Box::new(self.clone())
-    }
-}
+// Use the macro to implement Instrument with pricing
+crate::impl_instrument!(
+    VarianceSwap, 
+    "VarianceSwap",
+    pv = |s, curves, as_of| crate::instruments::variance_swap::pricing::engine::price(s, curves, as_of)
+);
 
 // Do not add explicit Instrument impl; provided by blanket impl.
 
-impl Attributable for VarianceSwap {
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
-    }
-}
+// Attributable implementation is provided by the impl_instrument! macro
 
 impl CashflowProvider for VarianceSwap {
     fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {

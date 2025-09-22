@@ -1,36 +1,9 @@
 //! Bond pricing entrypoints and pricers.
+//!
+//! Bond pricing methods are now included in the Instrument trait via impl_instrument_schedule_pv! macro.
 
 mod discount;
 pub mod helpers;
 pub mod schedule_helpers;
 pub mod tree_pricer;
 pub mod ytm_solver;
-
-use crate::instruments::common::traits::Priceable;
-use crate::metrics::MetricId;
-use crate::results::ValuationResult;
-use finstack_core::dates::Date;
-use finstack_core::market_data::MarketContext;
-use finstack_core::money::Money;
-use finstack_core::Result;
-
-use super::types::Bond;
-use crate::instruments::common::helpers::build_with_metrics_dyn;
-
-impl Priceable for Bond {
-    fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
-        // Both fixed and floating bonds build appropriate cashflow schedules via
-        // `Bond::build_schedule`. Pricing then discounts those deterministic flows.
-        discount::price(self, context, as_of)
-    }
-
-    fn price_with_metrics(
-        &self,
-        context: &MarketContext,
-        as_of: Date,
-        metrics: &[MetricId],
-    ) -> Result<ValuationResult> {
-        let base = <Self as Priceable>::value(self, context, as_of)?;
-        build_with_metrics_dyn(self, context, as_of, base, metrics)
-    }
-}

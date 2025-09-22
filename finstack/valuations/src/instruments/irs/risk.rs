@@ -4,6 +4,7 @@
 //! metrics and maturity bucketing into a `RiskReport`.
 
 use crate::instruments::irs::types::InterestRateSwap;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::{RiskBucket, RiskMeasurable, RiskReport};
 use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
@@ -22,8 +23,7 @@ impl RiskMeasurable for InterestRateSwap {
         let mut report = RiskReport::new(self.id.as_str(), self.notional.currency());
 
         // Base PV
-        use crate::instruments::common::traits::Priceable;
-        let base_value = Priceable::value(self, curves, as_of)?;
+        let base_value = self.value(curves, as_of)?;
 
         // Metric context
         let mut context = MetricContext::new(

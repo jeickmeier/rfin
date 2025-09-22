@@ -4,7 +4,7 @@
 //! including equities, bonds, ETFs, and other instruments by leveraging existing
 //! pricing infrastructure.
 
-use crate::instruments::common::traits::{Attributable, Attributes, Instrument, Priceable};
+use crate::instruments::common::traits::{Attributable, Attributes, Instrument};
 use finstack_core::prelude::*;
 use finstack_core::types::{id::IndexId, InstrumentId};
 use finstack_core::{dates::Frequency, F};
@@ -278,24 +278,6 @@ pub struct CreationRedemptionBasket {
 }
 
 // Implement traits manually to handle InstrumentId properly
-impl Priceable for Basket {
-    fn value(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        self.nav(curves, as_of)
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> Result<crate::results::ValuationResult> {
-        let base_value = Priceable::value(self, curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
-            self, curves, as_of, base_value, metrics,
-        )
-    }
-}
-
 impl Instrument for Basket {
     fn id(&self) -> &str {
         self.id.as_str()
@@ -314,6 +296,24 @@ impl Instrument for Basket {
     }
     fn clone_box(&self) -> Box<dyn Instrument> {
         Box::new(self.clone())
+    }
+
+    // === Pricing Methods ===
+
+    fn value(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
+        self.nav(curves, as_of)
+    }
+
+    fn price_with_metrics(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+        metrics: &[crate::metrics::MetricId],
+    ) -> Result<crate::results::ValuationResult> {
+        let base_value = self.value(curves, as_of)?;
+        crate::instruments::common::helpers::build_with_metrics_dyn(
+            self, curves, as_of, base_value, metrics,
+        )
     }
 }
 

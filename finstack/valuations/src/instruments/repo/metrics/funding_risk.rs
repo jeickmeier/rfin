@@ -3,7 +3,7 @@
 //! Approximates the sensitivity of the repo PV to a +1bp change in the
 //! instrument's repo rate parameter.
 
-use crate::instruments::common::traits::Priceable;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::prelude::*;
 use finstack_core::F;

@@ -3,7 +3,7 @@
 //! Computes the change in PV for a +1bp parallel bump to the discount curve
 //! associated with the repo's discount id.
 
-use crate::instruments::common::traits::Priceable;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::context::BumpSpec;
 use finstack_core::prelude::*;

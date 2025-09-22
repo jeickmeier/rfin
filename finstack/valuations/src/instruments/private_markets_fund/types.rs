@@ -84,9 +84,9 @@ impl Instrument for PrivateMarketsFund {
     fn clone_box(&self) -> Box<dyn Instrument> {
         Box::new(self.clone())
     }
-}
 
-impl crate::instruments::common::traits::Priceable for PrivateMarketsFund {
+    // === Pricing Methods ===
+
     fn value(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
         if let Some(disc_id) = self.disc_id {
             use crate::instruments::common::discountable::Discountable;
@@ -113,7 +113,7 @@ impl crate::instruments::common::traits::Priceable for PrivateMarketsFund {
         as_of: Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = crate::instruments::common::traits::Priceable::value(self, curves, as_of)?;
+        let base_value = self.value(curves, as_of)?;
         crate::instruments::build_with_metrics_dyn(self, curves, as_of, base_value, metrics)
     }
 }

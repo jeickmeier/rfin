@@ -1,7 +1,6 @@
 //! Equity Total Return Swap instrument definitions and helpers.
 
 use super::types::{FinancingLegSpec, TrsScheduleSpec, TrsSide};
-use crate::instruments::common::traits::{Attributable, Instrument};
 use crate::{
     cashflow::traits::{CashflowProvider, DatedFlows},
     instruments::{traits::Attributes, underlying::EquityUnderlyingParams},
@@ -9,7 +8,6 @@ use crate::{
 use finstack_core::{
     dates::Date, market_data::MarketContext, money::Money, types::InstrumentId, Result, F,
 };
-use std::any::Any;
 
 /// Equity Total Return Swap instrument.
 ///
@@ -52,42 +50,37 @@ pub struct EquityTotalReturnSwap {
 
 impl EquityTotalReturnSwap {}
 
-impl Attributable for EquityTotalReturnSwap {
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
-        // For now, return a static empty attributes
-        // In a real implementation, this would be a field in the struct
-        static EMPTY: once_cell::sync::Lazy<crate::instruments::common::traits::Attributes> =
-            once_cell::sync::Lazy::new(crate::instruments::common::traits::Attributes::default);
-        &EMPTY
-    }
+// Attributable implementation is provided by the impl_instrument! macro
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
-        // This would normally return a mutable reference to an attributes field
-        // For now, we'll panic as this is not properly implemented
-        unimplemented!("Mutable attributes not yet implemented for EquityTotalReturnSwap")
+// Use the macro to implement Instrument with pricing
+crate::impl_instrument!(
+    EquityTotalReturnSwap, 
+    "EquityTotalReturnSwap",
+    pv = |s, curves, as_of| {
+        use crate::instruments::trs::pricing::engine::TrsEngine;
+        use crate::instruments::trs::pricing::equity;
+        
+        // Calculate total return leg PV
+        let total_return_pv = equity::pv_total_return_leg(s, curves, as_of)?;
+        
+        // Calculate financing leg PV  
+        let financing_pv = TrsEngine::pv_financing_leg(
+            &s.financing,
+            &s.schedule, 
+            s.notional,
+            curves,
+            as_of
+        )?;
+        
+        // Net PV depends on side
+        let net_pv = match s.side {
+            super::TrsSide::ReceiveTotalReturn => (total_return_pv - financing_pv)?,
+            super::TrsSide::PayTotalReturn => (financing_pv - total_return_pv)?,
+        };
+        
+        Ok(net_pv)
     }
-}
-
-impl Instrument for EquityTotalReturnSwap {
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-    fn instrument_type(&self) -> &'static str {
-        "EquityTotalReturnSwap"
-    }
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
-        <Self as Attributable>::attributes(self)
-    }
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
-        <Self as Attributable>::attributes_mut(self)
-    }
-    fn clone_box(&self) -> Box<dyn Instrument> {
-        Box::new(self.clone())
-    }
-}
+);
 
 impl CashflowProvider for EquityTotalReturnSwap {
     fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {

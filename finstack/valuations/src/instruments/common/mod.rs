@@ -47,4 +47,4 @@ pub use models::{
     TreeBranching, TreeGreeks, TreeModel, TreeParameters, TreeType, TreeValuator, TrinomialTree,
     TrinomialTreeType,
 };
-pub use traits::{Attributable, Attributes, Instrument, Priceable};
+pub use traits::{Attributable, Attributes, Instrument};

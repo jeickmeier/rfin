@@ -23,9 +23,8 @@ macro_rules! impl_attributable {
 }
 
 /// Generate a full instrument implementation:
-/// - Attributable
-/// - Instrument
-/// - Priceable: value (via pv closure), price_with_metrics
+/// - Attributable 
+/// - Instrument (including pricing methods)
 #[macro_export]
 macro_rules! impl_instrument {
     (
@@ -35,7 +34,7 @@ macro_rules! impl_instrument {
         // Attributes
         impl_attributable!($type);
 
-        // Unified Instrument implementation
+        // Unified Instrument implementation with pricing
         impl $crate::instruments::common::traits::Instrument for $type {
             #[inline]
             fn id(&self) -> &str {
@@ -66,10 +65,9 @@ macro_rules! impl_instrument {
             fn clone_box(&self) -> Box<dyn $crate::instruments::common::traits::Instrument> {
                 Box::new(self.clone())
             }
-        }
 
-        // Pricing surface (PV + metrics)
-        impl $crate::instruments::common::traits::Priceable for $type {
+            // === Pricing Methods ===
+
             fn value(
                 &self,
                 curves: &finstack_core::market_data::MarketContext,
@@ -88,7 +86,7 @@ macro_rules! impl_instrument {
                 metrics: &[$crate::metrics::MetricId],
             ) -> finstack_core::Result<$crate::results::ValuationResult> {
                 let base_value = self.value(curves, as_of)?;
-                $crate::instruments::build_with_metrics_dyn(
+                $crate::instruments::common::helpers::build_with_metrics_dyn(
                     self, curves, as_of, base_value, metrics,
                 )
             }

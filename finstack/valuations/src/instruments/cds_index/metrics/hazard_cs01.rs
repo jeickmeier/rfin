@@ -4,7 +4,7 @@
 //! across all relevant hazard curves.
 
 use crate::instruments::cds_index::CDSIndex;
-use crate::instruments::common::traits::Priceable;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpUnits};
 use finstack_core::Result;

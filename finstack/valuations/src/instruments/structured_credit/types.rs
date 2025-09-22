@@ -1,7 +1,7 @@
 //! Core types for structured credit instruments.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::common::traits::{Attributable, Attributes, Instrument, Priceable};
+use crate::instruments::common::traits::{Attributable, Attributes, Instrument};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, Frequency};
@@ -443,39 +443,7 @@ impl CashflowProvider for StructuredCredit {
     }
 }
 
-impl Priceable for StructuredCredit {
-    fn value(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        // Get discount curve
-        let disc = context
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            self.disc_id.as_str(),
-        )?;
-
-        // Get all cashflows
-        let flows = self.build_schedule(context, as_of)?;
-
-        // Discount to present value
-        use crate::instruments::common::discountable::Discountable;
-        flows.npv(disc, as_of, finstack_core::dates::DayCount::Act360)
-    }
-
-    fn price_with_metrics(
-        &self,
-        context: &MarketContext,
-        as_of: Date,
-        _metrics: &[MetricId],
-    ) -> finstack_core::Result<ValuationResult> {
-        let base_value = <Self as Priceable>::value(self, context, as_of)?;
-
-        // Create basic valuation result
-        // In full implementation, would calculate requested metrics
-        Ok(ValuationResult::stamped(
-            self.id.as_str(),
-            as_of,
-            base_value,
-        ))
-    }
-}
+// Structured credit pricing is included in the Instrument trait implementation below
 
 impl Attributable for StructuredCredit {
     fn attributes(&self) -> &Attributes {
@@ -515,6 +483,40 @@ impl Instrument for StructuredCredit {
     }
     fn clone_box(&self) -> Box<dyn Instrument> {
         Box::new(self.clone())
+    }
+
+    // === Pricing Methods ===
+
+    fn value(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+        // Get discount curve
+        let disc = context
+            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            self.disc_id.as_str(),
+        )?;
+
+        // Get all cashflows
+        let flows = self.build_schedule(context, as_of)?;
+
+        // Discount to present value
+        use crate::instruments::common::discountable::Discountable;
+        flows.npv(disc, as_of, finstack_core::dates::DayCount::Act360)
+    }
+
+    fn price_with_metrics(
+        &self,
+        context: &MarketContext,
+        as_of: Date,
+        _metrics: &[MetricId],
+    ) -> finstack_core::Result<ValuationResult> {
+        let base_value = self.value(context, as_of)?;
+
+        // Create basic valuation result
+        // In full implementation, would calculate requested metrics
+        Ok(ValuationResult::stamped(
+            self.id.as_str(),
+            as_of,
+            base_value,
+        ))
     }
 }
 

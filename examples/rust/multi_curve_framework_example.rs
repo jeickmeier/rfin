@@ -213,7 +213,7 @@ fn demo_basis_swap(base_date: Date) -> Result<()> {
     );
 
     // Price the basis swap
-    use finstack_valuations::instruments::traits::Priceable;
+    use finstack_valuations::instruments::traits::Instrument;
     let pv = basis_swap.value(&context, base_date)?;
 
     println!("Basis Swap Details:");

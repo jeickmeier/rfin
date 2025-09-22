@@ -269,56 +269,21 @@ impl Bond {
     }
 }
 
-// Attributable and Instrument impls without tying pricing here
-impl crate::instruments::common::traits::Attributable for Bond {
-    #[inline]
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
-        &self.attributes
-    }
+// Attributable implementation is provided by the impl_instrument_schedule_pv! macro
 
-    #[inline]
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
-        &mut self.attributes
-    }
-}
-
-impl crate::instruments::common::traits::Instrument for Bond {
-    #[inline]
-    fn id(&self) -> &str {
-        self.id.as_str()
-    }
-
-    #[inline]
-    fn instrument_type(&self) -> &'static str {
-        "Bond"
-    }
-
-    #[inline]
-    fn as_any(&self) -> &dyn ::std::any::Any {
-        self
-    }
-
-    #[inline]
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
-        &self.attributes
-    }
-
-    #[inline]
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
-        &mut self.attributes
-    }
-
-    #[inline]
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
-        Box::new(self.clone())
-    }
-}
+// Use the macro to implement Attributable and Instrument traits including pricing
+crate::impl_instrument_schedule_pv!(
+    Bond, 
+    "Bond", 
+    disc_field: disc_id, 
+    dc_field: dc
+);
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
-    use crate::instruments::common::traits::Priceable;
+        use crate::instruments::common::traits::Instrument;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;

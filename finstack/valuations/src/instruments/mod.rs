@@ -73,7 +73,7 @@ pub use common::build_with_metrics_dyn;
 
 // Backward compatibility re-exports  
 pub use common::discountable::Discountable;
-pub use common::traits::{Attributable, Attributes, Instrument, Priceable};
+pub use common::traits::{Attributable, Attributes, Instrument};
 
 // Parameter type re-exports for backward compatibility
 pub use common::parameters::{

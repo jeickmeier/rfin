@@ -1,7 +1,7 @@
 //! DV01 metric (PV sensitivity to a 1bp parallel rate move).
 
 use super::super::types::VarianceSwap;
-use crate::instruments::common::traits::Priceable;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::{Result, F};
 

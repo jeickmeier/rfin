@@ -54,7 +54,7 @@ impl RepoPricer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::Priceable;
+        use crate::instruments::common::traits::Instrument;
     use crate::instruments::repo::{CollateralSpec, Repo};
     use finstack_core::currency::Currency;
     use finstack_core::market_data::MarketContext;

@@ -9,7 +9,7 @@
 
 use crate::calibration::quote::RatesQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator, MultiCurveConfig};
-use crate::instruments::common::traits::Priceable;
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::deposit::Deposit;
 use crate::instruments::fra::ForwardRateAgreement;
 use crate::instruments::ir_future::InterestRateFuture;
