@@ -186,6 +186,8 @@ impl CDSTranchePricer {
 
     /// Price a CDS tranche using the Gaussian Copula model.
     ///
+    /// Falls back to zero PV when credit index data is not available for backward compatibility.
+    ///
     /// # Arguments
     /// * `tranche` - The CDS tranche to price
     /// * `market_ctx` - Market data context containing curves and credit index data
@@ -199,6 +201,11 @@ impl CDSTranchePricer {
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<Money> {
+        // Check if credit index data is available - if not, fallback to zero PV for backward compatibility
+        if market_ctx.credit_index(tranche.credit_index_id).is_err() {
+            return Ok(Money::new(0.0, tranche.notional.currency()));
+        }
+
         // Get the credit index data
         let index_data_arc = market_ctx.credit_index_ref(tranche.credit_index_id)?;
 

@@ -120,18 +120,9 @@ impl Instrument for CdsTranche {
     // === Pricing Methods ===
 
     fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        // Try to use the Gaussian Copula pricer if credit index data is available
-        // Otherwise, fall back to zero PV for backward compatibility
-
-        // Check if credit index data is available in core context
-        if curves.credit_index(self.credit_index_id).is_ok() {
-            // Use the Gaussian Copula pricer
-            let pricer = pricing::engine::CDSTranchePricer::new();
-            pricer.price_tranche(self, curves, as_of)
-        } else {
-            // Fallback to zero PV when credit index data is not available
-            Ok(Money::new(0.0, self.notional.currency()))
-        }
+        // Delegate to pricing engine - let the engine handle availability checks and fallbacks
+        let pricer = pricing::engine::CDSTranchePricer::new();
+        pricer.price_tranche(self, curves, as_of)
     }
 
     fn price_with_metrics(
