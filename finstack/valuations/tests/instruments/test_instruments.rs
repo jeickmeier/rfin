@@ -119,21 +119,22 @@ fn bond_pv_with_unit_df_is_sum_of_cashflows() {
     let disc = flat_df_curve("USD-OIS", issue, 1.0);
     let curves = MarketContext::new().insert_discount(disc);
 
-    let bond = bond::Bond {
-        id: "BOND-TEST".into(),
-        notional: Money::new(1_000.0, Currency::USD),
-        coupon: 0.10, // 10%
-        freq: finstack_core::dates::Frequency::semi_annual(),
-        dc: DayCount::Act365F,
-        issue,
-        maturity: mat,
-        disc_id: "USD-OIS".into(),
-        pricing_overrides: PricingOverrides::default(),
-        call_put: None,
-        amortization: None,
-        custom_cashflows: None,
-        attributes: finstack_valuations::instruments::common::traits::Attributes::new(),
-    };
+    let bond = bond::Bond::builder()
+        .id("BOND-TEST".into())
+        .notional(Money::new(1_000.0, Currency::USD))
+        .coupon(0.10)
+        .freq(finstack_core::dates::Frequency::semi_annual())
+        .dc(DayCount::Act365F)
+        .issue(issue)
+        .maturity(mat)
+        .disc_id("USD-OIS".into())
+        .pricing_overrides(PricingOverrides::default())
+        .call_put_opt(None)
+        .amortization_opt(None)
+        .custom_cashflows_opt(None)
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
+        .build()
+        .unwrap();
 
     let pv = bond.value(&curves, issue).unwrap();
     // Two coupons (semi-annual, approx 0.5 year fractions), plus principal, DF=1
@@ -260,27 +261,28 @@ fn bond_ytm_ytw_and_amortization() {
     let curves = MarketContext::new().insert_discount(disc);
 
     // Baseline bullet bond
-    let bullet = bond::Bond {
-        id: "BOND-BULLET".into(),
-        notional: Money::new(1_000.0, Currency::USD),
-        coupon: 0.06,
-        freq: finstack_core::dates::Frequency::semi_annual(),
-        dc: DayCount::Act365F,
-        issue,
-        maturity: mat,
-        disc_id: "USD-OIS".into(),
-        pricing_overrides: PricingOverrides::default().with_clean_price(100.0), // 100% of par (realistic price)
-        call_put: Some(bond::CallPutSchedule {
+    let bullet = bond::Bond::builder()
+        .id("BOND-BULLET".into())
+        .notional(Money::new(1_000.0, Currency::USD))
+        .coupon(0.06)
+        .freq(finstack_core::dates::Frequency::semi_annual())
+        .dc(DayCount::Act365F)
+        .issue(issue)
+        .maturity(mat)
+        .disc_id("USD-OIS".into())
+        .pricing_overrides(PricingOverrides::default().with_clean_price(100.0))
+        .call_put_opt(Some(bond::CallPutSchedule {
             calls: vec![bond::CallPut {
                 date: mat_short,
                 price_pct_of_par: 102.0,
             }],
             puts: vec![],
-        }),
-        amortization: None,
-        custom_cashflows: None,
-        attributes: finstack_valuations::instruments::common::traits::Attributes::new(),
-    };
+        }))
+        .amortization_opt(None)
+        .custom_cashflows_opt(None)
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
+        .build()
+        .unwrap();
     let res_bullet = bullet
         .price_with_metrics(
             &curves,
@@ -296,16 +298,24 @@ fn bond_ytm_ytw_and_amortization() {
     assert!(ytw <= ytm + 1e-9);
 
     // Amortizing version (linear to 800)
-    let amort = bond::Bond {
-        id: "BOND-AMORT".into(),
-        amortization: Some(bond::AmortizationSpec::LinearTo {
+    let amort = bond::Bond::builder()
+        .id("BOND-AMORT".into())
+        .notional(bullet.notional)
+        .coupon(bullet.coupon)
+        .freq(bullet.freq)
+        .dc(bullet.dc)
+        .issue(bullet.issue)
+        .maturity(bullet.maturity)
+        .disc_id(bullet.disc_id.clone())
+        .pricing_overrides(PricingOverrides::default())
+        .call_put_opt(None)
+        .amortization_opt(Some(bond::AmortizationSpec::LinearTo {
             final_notional: Money::new(800.0, Currency::USD),
-        }),
-        pricing_overrides: PricingOverrides::default(),
-        call_put: None,
-        attributes: finstack_valuations::instruments::common::traits::Attributes::new(),
-        ..bullet
-    };
+        }))
+        .custom_cashflows_opt(None)
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
+        .build()
+        .unwrap();
     let pv_amort = amort.value(&curves, issue).unwrap();
     assert!(pv_amort.amount() < res_bullet.value.amount());
 
@@ -360,21 +370,22 @@ fn dv01_bucketed_bond_simple() {
     let curves = Arc::new(MarketContext::new().insert_discount(disc));
 
     // 1Y semi-annual 5% bond, 1,000,000 notional
-    let bond = bond::Bond {
-        id: "BOND-DV01".into(),
-        notional: Money::new(1_000_000.0, Currency::USD),
-        coupon: 0.05,
-        freq: finstack_core::dates::Frequency::semi_annual(),
-        dc: DayCount::Act365F,
-        issue,
-        maturity: mat,
-        disc_id: "USD-OIS".into(),
-        pricing_overrides: PricingOverrides::default(),
-        call_put: None,
-        amortization: None,
-        custom_cashflows: None,
-        attributes: finstack_valuations::instruments::common::traits::Attributes::new(),
-    };
+    let bond = bond::Bond::builder()
+        .id("BOND-DV01".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .coupon(0.05)
+        .freq(finstack_core::dates::Frequency::semi_annual())
+        .dc(DayCount::Act365F)
+        .issue(issue)
+        .maturity(mat)
+        .disc_id("USD-OIS".into())
+        .pricing_overrides(PricingOverrides::default())
+        .call_put_opt(None)
+        .amortization_opt(None)
+        .custom_cashflows_opt(None)
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
+        .build()
+        .unwrap();
 
     // Use the metrics framework to compute bucketed DV01
     let base_value = bond.value(&curves, issue).unwrap();

@@ -411,29 +411,30 @@ mod tests {
         let issue = Date::from_calendar_date(2025, Month::March, 1).unwrap();
         let maturity = Date::from_calendar_date(2030, Month::March, 1).unwrap();
 
-        // Create a traditional bond first
-        let mut bond = Bond {
-            id: InstrumentId::new("REGULAR_BOND"),
-            notional: Money::new(1_000_000.0, Currency::USD),
-            coupon: 0.04,
-            freq: Frequency::semi_annual(),
-            dc: DayCount::Act365F,
-            bdc: BusinessDayConvention::Following,
-            calendar_id: None,
-            stub: StubKind::None,
-            issue,
-            maturity,
-            disc_id: CurveId::new("USD-OIS"),
-            hazard_id: None,
-            pricing_overrides: PricingOverrides::default(),
-            call_put: None,
-            amortization: None,
-            custom_cashflows: None,
-            float: None,
-            attributes: Attributes::new(),
-            settlement_days: None,
-            ex_coupon_days: None,
-        };
+        // Create a traditional bond first (builder)
+        let mut bond = Bond::builder()
+            .id(InstrumentId::new("REGULAR_BOND"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .coupon(0.04)
+            .freq(Frequency::semi_annual())
+            .dc(DayCount::Act365F)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
+            .issue(issue)
+            .maturity(maturity)
+            .disc_id(CurveId::new("USD-OIS"))
+            .hazard_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .call_put_opt(None)
+            .amortization_opt(None)
+            .custom_cashflows_opt(None)
+            .float_opt(None)
+            .attributes(Attributes::new())
+            .settlement_days_opt(None)
+            .ex_coupon_days_opt(None)
+            .build()
+            .unwrap();
 
         // Build a custom schedule separately
         let custom_schedule = cf()
@@ -463,29 +464,30 @@ mod tests {
         let issue = Date::from_calendar_date(2025, Month::June, 1).unwrap();
         let maturity = Date::from_calendar_date(2026, Month::June, 1).unwrap();
 
-        // Create bond with regular specs
-        let regular_bond = Bond {
-            id: InstrumentId::new("TEST"),
-            notional: Money::new(1_000_000.0, Currency::USD),
-            coupon: 0.03,
-            freq: Frequency::annual(),
-            dc: DayCount::Act365F,
-            bdc: BusinessDayConvention::Following,
-            calendar_id: None,
-            stub: StubKind::None,
-            issue,
-            maturity,
-            disc_id: CurveId::new("USD-OIS"),
-            hazard_id: None,
-            pricing_overrides: PricingOverrides::default(),
-            call_put: None,
-            amortization: None,
-            custom_cashflows: None,
-            float: None,
-            attributes: Attributes::new(),
-            settlement_days: None,
-            ex_coupon_days: None,
-        };
+        // Create bond with regular specs (builder)
+        let regular_bond = Bond::builder()
+            .id(InstrumentId::new("TEST"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .coupon(0.03)
+            .freq(Frequency::annual())
+            .dc(DayCount::Act365F)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
+            .issue(issue)
+            .maturity(maturity)
+            .disc_id(CurveId::new("USD-OIS"))
+            .hazard_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .call_put_opt(None)
+            .amortization_opt(None)
+            .custom_cashflows_opt(None)
+            .float_opt(None)
+            .attributes(Attributes::new())
+            .settlement_days_opt(None)
+            .ex_coupon_days_opt(None)
+            .build()
+            .unwrap();
 
         // Same bond with custom cashflows
         let custom_schedule = cf()

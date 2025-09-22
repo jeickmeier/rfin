@@ -55,28 +55,31 @@ fn create_plain_bond(quoted_clean: Option<F>) -> Bond {
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
-    Bond {
-        id: "PLAIN_BOND_5Y".to_string().into(),
-        notional: Money::new(1000.0, Currency::USD),
-        coupon: 0.05, // 5% coupon
-        freq: Frequency::semi_annual(),
-        dc: DayCount::Act365F,
-        bdc: BusinessDayConvention::Following,
-        calendar_id: None,
-        stub: StubKind::None,
-        issue,
-        maturity,
-        disc_id: "USD-OIS".into(),
-        pricing_overrides: if let Some(price) = quoted_clean {
-            PricingOverrides::default().with_clean_price(price)
-        } else {
-            PricingOverrides::default()
-        },
-        call_put: None,
-        amortization: None,
-        custom_cashflows: None,
-        attributes: Default::default(),
-    }
+    let pricing_overrides = if let Some(price) = quoted_clean {
+        PricingOverrides::default().with_clean_price(price)
+    } else {
+        PricingOverrides::default()
+    };
+
+    Bond::builder()
+        .id("PLAIN_BOND_5Y".into())
+        .notional(Money::new(1000.0, Currency::USD))
+        .coupon(0.05)
+        .freq(Frequency::semi_annual())
+        .dc(DayCount::Act365F)
+        .bdc(BusinessDayConvention::Following)
+        .calendar_id_opt(None)
+        .stub(StubKind::None)
+        .issue(issue)
+        .maturity(maturity)
+        .disc_id("USD-OIS".into())
+        .pricing_overrides(pricing_overrides)
+        .call_put_opt(None)
+        .amortization_opt(None)
+        .custom_cashflows_opt(None)
+        .attributes(Default::default())
+        .build()
+        .unwrap()
 }
 
 /// Create a callable bond

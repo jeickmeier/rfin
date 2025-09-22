@@ -41,23 +41,24 @@ fn test_oas_stability_amortizing_bond() {
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
     let curves = create_market_context();
 
-    let bond = Bond {
-        id: "AMORT_BOND".into(),
-        notional: Money::new(1_000.0, Currency::USD),
-        coupon: 0.06,
-        freq: Frequency::semi_annual(),
-        dc: DayCount::Act365F,
-        issue,
-        maturity,
-        disc_id: "USD-OIS".into(),
-        pricing_overrides: PricingOverrides::default().with_clean_price(99.0),
-        call_put: None,
-        amortization: Some(AmortizationSpec::LinearTo {
+    let bond = Bond::builder()
+        .id("AMORT_BOND".into())
+        .notional(Money::new(1_000.0, Currency::USD))
+        .coupon(0.06)
+        .freq(Frequency::semi_annual())
+        .dc(DayCount::Act365F)
+        .issue(issue)
+        .maturity(maturity)
+        .disc_id("USD-OIS".into())
+        .pricing_overrides(PricingOverrides::default().with_clean_price(99.0))
+        .call_put_opt(None)
+        .amortization_opt(Some(AmortizationSpec::LinearTo {
             final_notional: Money::new(400.0, Currency::USD),
-        }),
-        custom_cashflows: None,
-        attributes: finstack_valuations::instruments::common::traits::Attributes::new(),
-    };
+        }))
+        .custom_cashflows_opt(None)
+        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
+        .build()
+        .unwrap();
 
     let as_ofs = [
         Date::from_calendar_date(2025, Month::January, 1).unwrap(),
