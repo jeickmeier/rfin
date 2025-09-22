@@ -124,9 +124,7 @@ impl TreeModel for TwoFactorBinomialTree {
         let dt = time_to_maturity / steps as F;
 
         // Extract initial state
-        let spot0 = *initial_vars
-            .get(state_keys::SPOT)
-            .ok_or(Error::Internal)?;
+        let spot0 = *initial_vars.get(state_keys::SPOT).ok_or(Error::Internal)?;
         let r0 = initial_vars
             .get(state_keys::INTEREST_RATE)
             .copied()
@@ -252,5 +250,3 @@ mod tests {
         assert!((one_factor - two_factor).abs() < 0.1);
     }
 }
-
-

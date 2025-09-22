@@ -215,5 +215,3 @@ mod tests {
         assert!(price.is_finite() && price > 0.0);
     }
 }
-
-

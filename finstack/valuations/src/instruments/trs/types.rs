@@ -2,10 +2,7 @@
 
 use crate::cashflow::builder::schedule_utils::build_dates;
 use crate::cashflow::builder::ScheduleParams;
-use finstack_core::{
-    dates::Date,
-    F,
-};
+use finstack_core::{dates::Date, F};
 
 /// Side of the TRS trade from the party's perspective.
 ///

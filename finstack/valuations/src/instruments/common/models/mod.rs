@@ -13,7 +13,6 @@ pub mod multi_factor_tree;
 pub mod two_factor_binomial;
 pub mod two_factor_rates_credit;
 
-
 pub use binomial_tree::{BinomialTree, TreeType};
 pub use black::{d1, d2};
 pub use finstack_core::math::{norm_cdf, norm_pdf};

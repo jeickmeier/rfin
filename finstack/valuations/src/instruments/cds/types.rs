@@ -59,12 +59,13 @@ impl CDSConvention {
     }
 }
 
-
 // Re-export from common parameters
-pub use crate::instruments::common::parameters::legs::{PremiumLegSpec, ProtectionLegSpec, CdsSettlementType};
+pub use crate::instruments::common::parameters::legs::{
+    CdsSettlementType, PremiumLegSpec, ProtectionLegSpec,
+};
 
 /// Premium leg specification
-#[derive(Clone, Debug)]  
+#[derive(Clone, Debug)]
 struct _RemovedPremiumLegSpec {
     /// Start date of protection
     pub start: Date,

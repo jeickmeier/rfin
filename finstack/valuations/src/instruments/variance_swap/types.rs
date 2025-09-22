@@ -14,7 +14,6 @@ use crate::{
     instruments::common::traits::Attributes,
 };
 
-
 /// Side of the variance swap (pay or receive variance).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PayReceive {
@@ -393,9 +392,11 @@ impl VarianceSwap {
 
 // Use the macro to implement Instrument with pricing
 crate::impl_instrument!(
-    VarianceSwap, 
+    VarianceSwap,
     "VarianceSwap",
-    pv = |s, curves, as_of| crate::instruments::variance_swap::pricing::engine::price(s, curves, as_of)
+    pv = |s, curves, as_of| crate::instruments::variance_swap::pricing::engine::price(
+        s, curves, as_of
+    )
 );
 
 // Do not add explicit Instrument impl; provided by blanket impl.

@@ -14,8 +14,8 @@ use finstack_core::money::Money;
 
 // Reuse CDS components for conventions and legs
 use crate::instruments::cds::{
-    CDSConvention, CreditDefaultSwap, PayReceive as CdsPayReceive, PremiumLegSpec,
-    ProtectionLegSpec, CdsSettlementType,
+    CDSConvention, CdsSettlementType, CreditDefaultSwap, PayReceive as CdsPayReceive,
+    PremiumLegSpec, ProtectionLegSpec,
 };
 
 use super::parameters::CDSIndexConstituentParam;

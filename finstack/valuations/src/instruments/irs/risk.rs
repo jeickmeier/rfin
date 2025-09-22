@@ -3,8 +3,8 @@
 //! Provides `RiskMeasurable` for `InterestRateSwap`, composing standard
 //! metrics and maturity bucketing into a `RiskReport`.
 
-use crate::instruments::irs::types::InterestRateSwap;
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::irs::types::InterestRateSwap;
 use crate::metrics::{RiskBucket, RiskMeasurable, RiskReport};
 use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;

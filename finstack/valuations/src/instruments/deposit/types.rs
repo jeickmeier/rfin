@@ -42,9 +42,9 @@ pub struct Deposit {
 
 // Use the macro to implement Attributable and Instrument traits including pricing
 crate::impl_instrument_schedule_pv!(
-    Deposit, 
-    "Deposit", 
-    disc_field: disc_id, 
+    Deposit,
+    "Deposit",
+    disc_field: disc_id,
     dc_field: day_count
 );
 

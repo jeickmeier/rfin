@@ -31,20 +31,18 @@ pub mod models;
 // Re-export commonly used types for convenience
 pub use discountable::Discountable;
 pub use helpers::{build_with_metrics_dyn, validate_currency_consistency};
-pub use parameters::{
-    BasisSwapLeg, CdsSettlementType, ContractSpec, CreditParams, 
-    EquityOptionParams, EquityUnderlyingParams, ExerciseStyle, FinancingLegSpec,
-    FixedLegSpec, FloatLegSpec, FxOptionParams, FxUnderlyingParams,
-    IndexUnderlyingParams, InterestRateOptionParams, OptionMarketParams, OptionType, 
-    ParRateMethod, PayReceive, PremiumLegSpec, ProtectionLegSpec,
-    ScheduleSpec, SettlementType, TotalReturnLegSpec, UnderlyingParams,
-};
 pub use models::{
     d1, d2, norm_cdf, norm_pdf, short_rate_keys, single_factor_equity_state, state_keys,
-    two_factor_equity_rates_state, BinomialTree, EvolutionParams, NodeState,
-    SABRCalibrator, SABRModel, SABRParameters, SABRSmile,
-    ShortRateModel, ShortRateTree, ShortRateTreeConfig, StateVariables,
-    TreeBranching, TreeGreeks, TreeModel, TreeParameters, TreeType, TreeValuator, TrinomialTree,
-    TrinomialTreeType,
+    two_factor_equity_rates_state, BinomialTree, EvolutionParams, NodeState, SABRCalibrator,
+    SABRModel, SABRParameters, SABRSmile, ShortRateModel, ShortRateTree, ShortRateTreeConfig,
+    StateVariables, TreeBranching, TreeGreeks, TreeModel, TreeParameters, TreeType, TreeValuator,
+    TrinomialTree, TrinomialTreeType,
+};
+pub use parameters::{
+    BasisSwapLeg, CdsSettlementType, ContractSpec, CreditParams, EquityOptionParams,
+    EquityUnderlyingParams, ExerciseStyle, FinancingLegSpec, FixedLegSpec, FloatLegSpec,
+    FxOptionParams, FxUnderlyingParams, IndexUnderlyingParams, InterestRateOptionParams,
+    OptionMarketParams, OptionType, ParRateMethod, PayReceive, PremiumLegSpec, ProtectionLegSpec,
+    ScheduleSpec, SettlementType, TotalReturnLegSpec, UnderlyingParams,
 };
 pub use traits::{Attributable, Attributes, Instrument};

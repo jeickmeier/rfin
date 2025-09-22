@@ -62,12 +62,7 @@ pub struct EquityOptionParams {
 
 impl EquityOptionParams {
     /// Create new equity option parameters
-    pub fn new(
-        strike: F,
-        expiry: Date,
-        option_type: OptionType,
-        notional: Money,
-    ) -> Self {
+    pub fn new(strike: F, expiry: Date, option_type: OptionType, notional: Money) -> Self {
         Self {
             strike,
             expiry,
@@ -180,7 +175,7 @@ impl CreditParams {
             credit_curve_id: credit_curve_id.into(),
         }
     }
-    
+
     /// Standard corporate credit with 40% recovery
     pub fn corporate_standard(
         reference_entity: impl Into<String>,
@@ -188,7 +183,7 @@ impl CreditParams {
     ) -> Self {
         Self::new(reference_entity, 0.40, credit_curve_id)
     }
-    
+
     /// Sovereign credit with 30% recovery
     pub fn sovereign_standard(
         reference_entity: impl Into<String>,

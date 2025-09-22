@@ -10,7 +10,7 @@ pub mod parameters;
 pub mod pricing;
 mod types;
 
-pub use types::FxSwap;
 pub use crate::instruments::common::parameters::FxUnderlyingParams;
+pub use types::FxSwap;
 
 // Builder provided by FinancialBuilder derive

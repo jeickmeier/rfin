@@ -23,12 +23,12 @@ impl ContractSpec {
             multiplier: None,
         }
     }
-    
+
     /// Standard single-unit contract
     pub fn unit() -> Self {
         Self::new(1.0)
     }
-    
+
     /// Set the contract multiplier
     pub fn with_multiplier(mut self, multiplier: F) -> Self {
         self.multiplier = Some(multiplier);
@@ -62,11 +62,7 @@ pub struct ScheduleSpec {
 
 impl ScheduleSpec {
     /// Create a new schedule specification
-    pub fn new(
-        start: Date,
-        end: Date,
-        frequency: Frequency,
-    ) -> Self {
+    pub fn new(start: Date, end: Date, frequency: Frequency) -> Self {
         Self {
             start,
             end,
@@ -76,19 +72,19 @@ impl ScheduleSpec {
             calendar_id: None,
         }
     }
-    
+
     /// Set business day convention
     pub fn with_bdc(mut self, bdc: BusinessDayConvention) -> Self {
         self.bdc = bdc;
         self
     }
-    
+
     /// Set stub handling
     pub fn with_stub(mut self, stub: StubKind) -> Self {
         self.stub = stub;
         self
     }
-    
+
     /// Set calendar for adjustments
     pub fn with_calendar(mut self, calendar_id: &'static str) -> Self {
         self.calendar_id = Some(calendar_id);

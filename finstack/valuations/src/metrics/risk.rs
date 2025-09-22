@@ -651,7 +651,7 @@ mod tests {
                     attrs: self.attrs.clone(),
                 })
             }
-            
+
             // === Pricing Methods ===
             fn value(
                 &self,

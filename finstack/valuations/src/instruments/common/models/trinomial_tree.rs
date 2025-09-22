@@ -35,10 +35,7 @@ pub struct TrinomialTree {
 impl TrinomialTree {
     /// Create new trinomial tree with specified steps and type
     pub fn new(steps: usize, tree_type: TrinomialTreeType) -> Self {
-        Self {
-            steps,
-            tree_type,
-        }
+        Self { steps, tree_type }
     }
 
     /// Create a standard trinomial tree

@@ -175,35 +175,35 @@ impl BasisSwap {
 
 // Use the macro to implement Instrument with pricing
 crate::impl_instrument!(
-    BasisSwap, 
+    BasisSwap,
     "BasisSwap",
     pv = |s, curves, as_of| {
         // Basis swap PV = receive leg - pay leg
         // For simplicity, assume primary leg is received, reference leg is paid
-        
-        use crate::instruments::basis_swap::pricing::engine::{BasisEngine, FloatLegParams};
+
         use crate::cashflow::builder::schedule_utils::build_dates;
-        
+        use crate::instruments::basis_swap::pricing::engine::{BasisEngine, FloatLegParams};
+
         // Build primary leg schedule
         let primary_schedule = build_dates(
-            s.start_date, 
+            s.start_date,
             s.maturity_date,
             s.primary_leg.frequency,
             s.stub_kind,
             s.primary_leg.bdc,
-            s.calendar_id
+            s.calendar_id,
         );
-        
-        // Build reference leg schedule  
+
+        // Build reference leg schedule
         let reference_schedule = build_dates(
             s.start_date,
-            s.maturity_date, 
+            s.maturity_date,
             s.reference_leg.frequency,
             s.stub_kind,
             s.reference_leg.bdc,
-            s.calendar_id
+            s.calendar_id,
         );
-        
+
         // Create leg parameters
         let primary_params = FloatLegParams {
             schedule: &primary_schedule,
@@ -213,20 +213,20 @@ crate::impl_instrument!(
             accrual_dc: s.primary_leg.day_count,
             spread: s.primary_leg.spread,
         };
-        
+
         let reference_params = FloatLegParams {
-            schedule: &reference_schedule, 
+            schedule: &reference_schedule,
             notional: s.notional,
             disc_id: s.discount_curve_id.as_str(),
             fwd_id: s.reference_leg.forward_curve_id.as_str(),
             accrual_dc: s.reference_leg.day_count,
             spread: s.reference_leg.spread,
         };
-        
+
         // Calculate leg PVs
         let primary_pv = BasisEngine::pv_float_leg(primary_params, curves, as_of)?;
         let reference_pv = BasisEngine::pv_float_leg(reference_params, curves, as_of)?;
-        
+
         // Return net PV (primary - reference)
         primary_pv - reference_pv
     }
@@ -235,7 +235,7 @@ crate::impl_instrument!(
 #[cfg(test)]
 mod tests {
     use super::*;
-        use crate::instruments::common::traits::Instrument;
+    use crate::instruments::common::traits::Instrument;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::{
         discount_curve::DiscountCurve, forward_curve::ForwardCurve,

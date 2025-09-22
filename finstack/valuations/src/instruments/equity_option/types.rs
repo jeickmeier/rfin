@@ -2,10 +2,10 @@
 
 // pricing formulas are implemented in the pricing engine; keep this module free of direct math imports
 use crate::instruments::common::traits::Attributes;
-use finstack_core::currency::Currency;
 use crate::instruments::underlying::EquityUnderlyingParams;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
+use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 //
 use finstack_core::money::Money;

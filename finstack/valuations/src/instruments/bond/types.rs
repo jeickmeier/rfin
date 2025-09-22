@@ -5,8 +5,6 @@ use finstack_core::prelude::*;
 use finstack_core::F;
 
 use crate::cashflow::builder::CashFlowSchedule;
-#[allow(unused_imports)]
-use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -99,7 +97,7 @@ pub struct BondFloatSpec {
 impl Bond {
     /// Create a standard fixed-rate bond with semi-annual coupons.
     pub fn fixed_semiannual(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         notional: Money,
         coupon_rate: F,
         issue: Date,
@@ -107,7 +105,7 @@ impl Bond {
         disc_id: impl Into<CurveId>,
     ) -> Self {
         Self::builder()
-            .id(id.into().into())
+            .id(id.into())
             .notional(notional)
             .coupon(coupon_rate)
             .issue(issue)
@@ -127,14 +125,14 @@ impl Bond {
 
     /// Create a standard Treasury bond with ActAct day count.
     pub fn treasury(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         notional: Money,
         coupon_rate: F,
         issue: Date,
         maturity: Date,
     ) -> Self {
         Self::builder()
-            .id(id.into().into())
+            .id(id.into())
             .notional(notional)
             .coupon(coupon_rate)
             .issue(issue)
@@ -154,7 +152,7 @@ impl Bond {
 
     /// Create a zero-coupon bond.
     pub fn zero_coupon(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         notional: Money,
         issue: Date,
         maturity: Date,
@@ -168,7 +166,7 @@ impl Bond {
     /// Defaults:
     /// - Frequency: quarterly; DayCount: Act/360; Reset lag: 2 days; Gearing: 1.0
     pub fn floating(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         notional: Money,
         issue: Date,
         maturity: Date,
@@ -176,33 +174,29 @@ impl Bond {
         fwd_id: impl Into<CurveId>,
         margin_bp: F,
     ) -> Self {
-        Self {
-            id: InstrumentId::new(id.into()),
-            notional,
-            coupon: 0.0,
-            freq: finstack_core::dates::Frequency::quarterly(),
-            dc: DayCount::Act360,
-            bdc: BusinessDayConvention::Following,
-            calendar_id: None,
-            stub: StubKind::None,
-            issue,
-            maturity,
-            disc_id: disc_id.into(),
-            hazard_id: None,
-            pricing_overrides: PricingOverrides::default(),
-            call_put: None,
-            amortization: None,
-            custom_cashflows: None,
-            float: Some(BondFloatSpec {
+        Self::builder()
+            .id(id.into())
+            .notional(notional)
+            .coupon(0.0)
+            .issue(issue)
+            .maturity(maturity)
+            .freq(finstack_core::dates::Frequency::quarterly())
+            .dc(DayCount::Act360)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
+            .disc_id(disc_id.into())
+            .hazard_id_opt(None)
+            .pricing_overrides(PricingOverrides::default())
+            .float_opt(Some(BondFloatSpec {
                 fwd_id: fwd_id.into(),
                 margin_bp,
                 gearing: 1.0,
                 reset_lag_days: 2,
-            }),
-            attributes: Attributes::new(),
-            settlement_days: None,
-            ex_coupon_days: None,
-        }
+            }))
+            .attributes(Attributes::new())
+            .build()
+            .expect("Floating bond construction should not fail")
     }
 
     /// Create a bond from a pre-built cashflow schedule.
@@ -210,7 +204,7 @@ impl Bond {
     /// This extracts key bond parameters from the cashflow schedule and creates
     /// a bond that will use these custom cashflows for all calculations.
     pub fn from_cashflows(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         schedule: CashFlowSchedule,
         disc_id: impl Into<CurveId>,
         quoted_clean: Option<F>,
@@ -231,32 +225,29 @@ impl Bond {
         let freq = finstack_core::dates::Frequency::semi_annual();
         let coupon = 0.0;
 
-        Ok(Self {
-            id: InstrumentId::new(id.into()),
-            notional,
-            coupon,
-            freq,
-            dc,
-            bdc: BusinessDayConvention::Following,
-            calendar_id: None,
-            stub: StubKind::None,
-            issue,
-            maturity,
-            disc_id: disc_id.into(),
-            hazard_id: None,
-            pricing_overrides: if let Some(price) = quoted_clean {
-                PricingOverrides::default().with_clean_price(price)
-            } else {
-                PricingOverrides::default()
-            },
-            call_put: None,
-            amortization: None,
-            custom_cashflows: Some(schedule),
-            float: None,
-            attributes: Attributes::new(),
-            settlement_days: None,
-            ex_coupon_days: None,
-        })
+        let pricing_overrides = if let Some(price) = quoted_clean {
+            PricingOverrides::default().with_clean_price(price)
+        } else {
+            PricingOverrides::default()
+        };
+
+        Self::builder()
+            .id(id.into())
+            .notional(notional)
+            .coupon(coupon)
+            .issue(issue)
+            .maturity(maturity)
+            .freq(freq)
+            .dc(dc)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
+            .disc_id(disc_id.into())
+            .hazard_id_opt(None)
+            .pricing_overrides(pricing_overrides)
+            .custom_cashflows_opt(Some(schedule))
+            .attributes(Attributes::new())
+            .build()
     }
 
     /// Set custom cashflows for this bond.
@@ -273,9 +264,9 @@ impl Bond {
 
 // Use the macro to implement Attributable and Instrument traits including pricing
 crate::impl_instrument_schedule_pv!(
-    Bond, 
-    "Bond", 
-    disc_field: disc_id, 
+    Bond,
+    "Bond",
+    disc_field: disc_id,
     dc_field: dc
 );
 
@@ -283,7 +274,8 @@ crate::impl_instrument_schedule_pv!(
 mod tests {
     use super::*;
     use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
-        use crate::instruments::common::traits::Instrument;
+    use crate::cashflow::traits::CashflowProvider;
+    use crate::instruments::common::traits::Instrument;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;

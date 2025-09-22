@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 pub trait UnderlyingParams {
     /// Get the base currency for pricing
     fn base_currency(&self) -> Currency;
-    
+
     /// Get the primary curve identifier
     fn primary_curve_id(&self) -> &str;
 }
@@ -69,7 +69,7 @@ impl UnderlyingParams for FxUnderlyingParams {
     fn base_currency(&self) -> Currency {
         self.base_currency
     }
-    
+
     fn primary_curve_id(&self) -> &str {
         self.domestic_disc_id
     }
@@ -93,11 +93,7 @@ pub struct EquityUnderlyingParams {
 
 impl EquityUnderlyingParams {
     /// Create equity underlying parameters
-    pub fn new(
-        ticker: impl Into<String>, 
-        spot_id: impl Into<String>,
-        currency: Currency
-    ) -> Self {
+    pub fn new(ticker: impl Into<String>, spot_id: impl Into<String>, currency: Currency) -> Self {
         Self {
             ticker: ticker.into(),
             spot_id: spot_id.into(),
@@ -124,7 +120,7 @@ impl UnderlyingParams for EquityUnderlyingParams {
     fn base_currency(&self) -> Currency {
         self.currency
     }
-    
+
     fn primary_curve_id(&self) -> &str {
         "USD-OIS" // Default - should be enhanced to be configurable
     }
@@ -190,12 +186,12 @@ impl UnderlyingParams for IndexUnderlyingParams {
     fn base_currency(&self) -> Currency {
         self.base_currency
     }
-    
+
     fn primary_curve_id(&self) -> &str {
         // Default curve - could be enhanced to be configurable per index
         match self.base_currency {
             Currency::USD => "USD-OIS",
-            Currency::EUR => "EUR-OIS", 
+            Currency::EUR => "EUR-OIS",
             Currency::GBP => "GBP-OIS",
             Currency::JPY => "JPY-OIS",
             _ => "USD-OIS", // Fallback

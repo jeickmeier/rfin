@@ -8,14 +8,14 @@ use super::super::types::Bond;
 #[cfg(test)]
 use super::super::types::CallPut;
 use crate::cashflow::traits::CashflowProvider;
+use crate::instruments::common::models::tree_framework::state_keys as tf_keys;
+use crate::instruments::common::models::two_factor_rates_credit::{
+    RatesCreditConfig, RatesCreditTree,
+};
 use crate::instruments::common::models::{
     short_rate_keys, NodeState, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
     TreeValuator,
 };
-use crate::instruments::common::models::two_factor_rates_credit::{
-    RatesCreditConfig, RatesCreditTree,
-};
-use crate::instruments::common::models::tree_framework::state_keys as tf_keys;
 #[cfg(test)]
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::Date;
@@ -158,19 +158,26 @@ impl BondValuator {
         let mut recovery_rate: Option<F> = None;
         if let Ok(hc) = market_context
             .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                bond.disc_id.as_str(),
-            )
-        {
+            bond.disc_id.as_str(),
+        ) {
             recovery_rate = Some(hc.recovery_rate());
-        } else if let Ok(hc) = market_context
-            .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                &format!("{}-CREDIT", bond.disc_id.as_str()),
-            )
+        } else if let Ok(hc) =
+            market_context
+                .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                    &format!("{}-CREDIT", bond.disc_id.as_str()),
+                )
         {
             recovery_rate = Some(hc.recovery_rate());
         }
 
-        Ok(Self { bond, coupon_map, call_map, put_map, time_steps, recovery_rate })
+        Ok(Self {
+            bond,
+            coupon_map,
+            call_map,
+            put_map,
+            time_steps,
+            recovery_rate,
+        })
     }
 }
 
@@ -196,7 +203,9 @@ impl TreeValuator for BondValuator {
 
         // Default handling: if hazard and dt are present, compute survival/default weighting
         if let (Some(hazard), Some(dt)) = (
-            state.get_var(super::super::super::common::models::tree_framework::state_keys::HAZARD_RATE),
+            state.get_var(
+                super::super::super::common::models::tree_framework::state_keys::HAZARD_RATE,
+            ),
             state.get_var("dt"),
         ) {
             let df = state.get_var("df").unwrap_or(1.0);
@@ -257,8 +266,9 @@ impl TreePricer {
         // two-factor tree; otherwise, fall back to short-rate.
         let mut use_rates_credit = false;
         let mut rc_tree: Option<RatesCreditTree> = None;
-        let discount_curve = market_context
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+        let discount_curve =
+            market_context
+                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
                 bond.disc_id.clone(),
             )?;
         let hazard_curve = if let Some(hid) = bond.hazard_id.as_ref() {
@@ -282,7 +292,10 @@ impl TreePricer {
                 })
         };
         if let Some(hc) = hazard_curve.as_ref() {
-            let cfg = RatesCreditConfig { steps: self.config.tree_steps, ..Default::default() };
+            let cfg = RatesCreditConfig {
+                steps: self.config.tree_steps,
+                ..Default::default()
+            };
             let mut tree = RatesCreditTree::new(cfg);
             let _recovery = tree.align_hazard_from_curve(hc);
             rc_tree = Some(tree);
@@ -337,7 +350,11 @@ impl TreePricer {
                     match tree.price(vars, time_to_maturity, market_context, &valuator) {
                         Ok(model_price) => model_price - dirty_target,
                         Err(_) => {
-                            if oas > 0.0 { 1.0e6 } else { -1.0e6 }
+                            if oas > 0.0 {
+                                1.0e6
+                            } else {
+                                -1.0e6
+                            }
                         }
                     }
                 } else {
@@ -531,7 +548,10 @@ mod tests {
             .set_interp(InterpStyle::LogLinear)
             .build()
             .unwrap();
-        let high_hazard2 = finstack_core::market_data::term_structures::hazard_curve::HazardCurve::builder("HAZ-HIGH")
+        let high_hazard2 =
+            finstack_core::market_data::term_structures::hazard_curve::HazardCurve::builder(
+                "HAZ-HIGH",
+            )
             .base_date(base_date)
             .recovery_rate(0.4)
             .knots([(0.0, 0.05), (5.0, 0.05)])
@@ -554,13 +574,16 @@ mod tests {
         let steps = 40usize;
 
         // Valuator
-        let valuator_low = BondValuator::new(bond.clone(), &ctx_low, time_to_maturity, steps)
-            .expect("valuator");
-        let valuator_high = BondValuator::new(bond.clone(), &ctx_high, time_to_maturity, steps)
-            .expect("valuator");
+        let valuator_low =
+            BondValuator::new(bond.clone(), &ctx_low, time_to_maturity, steps).expect("valuator");
+        let valuator_high =
+            BondValuator::new(bond.clone(), &ctx_high, time_to_maturity, steps).expect("valuator");
 
         // Two-factor rates+credit trees aligned to each hazard curve
-        let mut tree_low = RatesCreditTree::new(RatesCreditConfig { steps, ..Default::default() });
+        let mut tree_low = RatesCreditTree::new(RatesCreditConfig {
+            steps,
+            ..Default::default()
+        });
         // Align to the hazard curve stored in the context
         let low_hc_ref = ctx_low
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
@@ -568,8 +591,10 @@ mod tests {
             )
             .unwrap();
         tree_low.align_hazard_from_curve(low_hc_ref);
-        let mut tree_high =
-            RatesCreditTree::new(RatesCreditConfig { steps, ..Default::default() });
+        let mut tree_high = RatesCreditTree::new(RatesCreditConfig {
+            steps,
+            ..Default::default()
+        });
         let high_hc_ref = ctx_high
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
                 "HAZ-HIGH",

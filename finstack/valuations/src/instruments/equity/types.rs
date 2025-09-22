@@ -123,7 +123,7 @@ mod tests {
         let curves = MarketContext::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
-            use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common::traits::Instrument;
         let value = equity.value(&curves, as_of).unwrap();
         assert_eq!(value.amount(), 15_000.0);
         assert_eq!(value.currency(), Currency::USD);
@@ -148,7 +148,7 @@ mod tests {
         let curves = MarketContext::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
-            use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common::traits::Instrument;
         let result = equity
             .price_with_metrics(
                 &curves,

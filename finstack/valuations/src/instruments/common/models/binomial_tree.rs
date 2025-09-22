@@ -43,10 +43,7 @@ pub struct BinomialTree {
 impl BinomialTree {
     /// Create new binomial tree with specified steps and type
     pub fn new(steps: usize, tree_type: TreeType) -> Self {
-        Self {
-            steps,
-            tree_type,
-        }
+        Self { steps, tree_type }
     }
 
     /// Create a Leisen-Reimer tree (recommended for accuracy)

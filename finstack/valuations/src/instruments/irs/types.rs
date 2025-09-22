@@ -8,12 +8,11 @@
 //! `CurveId`. Calendar identifiers remain `Option<&'static str>` for stable
 //! serde and lookups.
 use finstack_core::dates::calendar::calendar_by_id;
-use finstack_core::dates::{BusinessDayConvention, Frequency, StubKind};
 use finstack_core::market_data::traits::Forward;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
-use finstack_core::{dates::Date, dates::DayCount, F};
+use finstack_core::{dates::Date, F};
 
 use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
@@ -22,67 +21,11 @@ use crate::instruments::common::traits::Attributes;
 // Risk types used in risk.rs
 
 // Re-export common enums from parameters
-pub use crate::instruments::common::parameters::legs::{PayReceive, ParRateMethod};
+pub use crate::instruments::common::parameters::legs::{ParRateMethod, PayReceive};
 
 // Re-export from common parameters
 pub use crate::instruments::common::parameters::legs::FixedLegSpec;
-
-/// Specification for the fixed leg of an interest rate swap.
-#[derive(Clone, Debug)]
-struct _RemovedFixedLegSpec {
-    /// Discount curve identifier for pricing.
-    pub disc_id: &'static str,
-    /// Fixed rate (e.g., 0.05 for 5%).
-    pub rate: F,
-    /// Payment frequency.
-    pub freq: Frequency,
-    /// Day count convention for accrual.
-    pub dc: DayCount,
-    /// Business day convention for payment dates.
-    pub bdc: BusinessDayConvention,
-    /// Optional calendar for business day adjustments.
-    pub calendar_id: Option<&'static str>,
-    /// Stub period handling rule.
-    pub stub: StubKind,
-    /// Start date of the fixed leg.
-    pub start: Date,
-    /// End date of the fixed leg.
-    pub end: Date,
-    /// Optional par-rate calculation method override.
-    pub par_method: Option<ParRateMethod>,
-    /// If true, use simple interest on accrual fraction; if false, use per-period compound accumulation when deriving annuity for par.
-    pub compounding_simple: bool,
-}
-
-// Re-export from common parameters  
 pub use crate::instruments::common::parameters::legs::FloatLegSpec;
-
-/// Specification for the floating leg of an interest rate swap.
-#[derive(Clone, Debug)]
-struct _RemovedFloatLegSpec {
-    /// Discount curve identifier for pricing.
-    pub disc_id: &'static str,
-    /// Forward curve identifier for rate projections.
-    pub fwd_id: &'static str,
-    /// Spread in basis points added to the forward rate.
-    pub spread_bp: F,
-    /// Payment frequency.
-    pub freq: Frequency,
-    /// Day count convention for accrual.
-    pub dc: DayCount,
-    /// Business day convention for payment dates.
-    pub bdc: BusinessDayConvention,
-    /// Optional calendar for business day adjustments.
-    pub calendar_id: Option<&'static str>,
-    /// Stub period handling rule.
-    pub stub: StubKind,
-    /// Reset lag in business days for floating rate (fixing to value date).
-    pub reset_lag_days: i32,
-    /// Start date of the floating leg.
-    pub start: Date,
-    /// End date of the floating leg.
-    pub end: Date,
-}
 
 /// Interest rate swap with fixed and floating legs.
 ///
@@ -343,7 +286,7 @@ impl InterestRateSwap {
 
 // Use the macro to implement Instrument with pricing
 crate::impl_instrument!(
-    InterestRateSwap, 
+    InterestRateSwap,
     "InterestRateSwap",
     pv = |s, curves, _as_of| crate::instruments::irs::pricing::engine::IrsEngine::pv(s, curves)
 );

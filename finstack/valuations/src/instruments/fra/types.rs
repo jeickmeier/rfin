@@ -47,9 +47,9 @@ pub struct ForwardRateAgreement {
 
 // Use the macro to implement Attributable and Instrument traits including pricing
 crate::impl_instrument_schedule_pv!(
-    ForwardRateAgreement, 
-    "FRA", 
-    disc_field: disc_id, 
+    ForwardRateAgreement,
+    "FRA",
+    disc_field: disc_id,
     dc_field: day_count
 );
 

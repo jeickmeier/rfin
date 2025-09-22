@@ -54,30 +54,25 @@ impl EquityTotalReturnSwap {}
 
 // Use the macro to implement Instrument with pricing
 crate::impl_instrument!(
-    EquityTotalReturnSwap, 
+    EquityTotalReturnSwap,
     "EquityTotalReturnSwap",
     pv = |s, curves, as_of| {
         use crate::instruments::trs::pricing::engine::TrsEngine;
         use crate::instruments::trs::pricing::equity;
-        
+
         // Calculate total return leg PV
         let total_return_pv = equity::pv_total_return_leg(s, curves, as_of)?;
-        
-        // Calculate financing leg PV  
-        let financing_pv = TrsEngine::pv_financing_leg(
-            &s.financing,
-            &s.schedule, 
-            s.notional,
-            curves,
-            as_of
-        )?;
-        
+
+        // Calculate financing leg PV
+        let financing_pv =
+            TrsEngine::pv_financing_leg(&s.financing, &s.schedule, s.notional, curves, as_of)?;
+
         // Net PV depends on side
         let net_pv = match s.side {
             super::TrsSide::ReceiveTotalReturn => (total_return_pv - financing_pv)?,
             super::TrsSide::PayTotalReturn => (financing_pv - total_return_pv)?,
         };
-        
+
         Ok(net_pv)
     }
 );

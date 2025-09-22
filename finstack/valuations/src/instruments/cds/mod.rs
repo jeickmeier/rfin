@@ -12,11 +12,11 @@ mod types;
 
 pub use parameters::CreditParams;
 pub use types::CDSConvention;
+pub use types::CdsSettlementType;
 pub use types::CreditDefaultSwap;
 pub use types::PayReceive;
 pub use types::PremiumLegSpec;
 pub use types::ProtectionLegSpec;
-pub use types::CdsSettlementType;
 
 // Back-compat: re-export pricing engine types at the same path names used previously.
 // External code that referenced `cds_pricer::CDSPricer` will continue to work via this alias.

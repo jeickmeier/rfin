@@ -23,7 +23,7 @@ macro_rules! impl_attributable {
 }
 
 /// Generate a full instrument implementation:
-/// - Attributable 
+/// - Attributable
 /// - Instrument (including pricing methods)
 #[macro_export]
 macro_rules! impl_instrument {
