@@ -1424,7 +1424,7 @@ impl StatementScenarioApplier {
 ```rust
 pub struct ValuationScenarioApplier {
     market_data: Arc<RwLock<valuations::MarketData>>,
-    instruments: IndexMap<String, Box<dyn valuations::Instrument>>,
+    instruments: IndexMap<String, Box<dyn valuations::Priceable>>,
 }
 
 impl ValuationScenarioApplier {

@@ -4,9 +4,8 @@ use finstack_core::dates::{BusinessDayConvention, StubKind};
 use finstack_core::prelude::*;
 use finstack_core::F;
 
-use crate::cashflow::builder::{CashFlowSchedule, ScheduleParams};
+use crate::cashflow::builder::CashFlowSchedule;
 use crate::instruments::common::traits::Attributes;
-// use crate::metrics::traits::MetricContext; // not needed here; central helper provides hints
 use crate::instruments::PricingOverrides;
 use finstack_core::types::{CurveId, InstrumentId};
 
@@ -25,8 +24,16 @@ pub struct Bond {
     pub notional: Money,
     /// Annual coupon rate (e.g., 0.05 for 5%).
     pub coupon: F,
-    /// Schedule parameters.
-    pub schedule: ScheduleParams,
+    /// Coupon payment frequency.
+    pub freq: finstack_core::dates::Frequency,
+    /// Day count convention for accrual.
+    pub dc: DayCount,
+    /// Business day convention for schedule/payment adjustments.
+    pub bdc: BusinessDayConvention,
+    /// Optional calendar identifier for schedule adjustments.
+    pub calendar_id: Option<&'static str>,
+    /// Stub handling rule for the schedule.
+    pub stub: StubKind,
     /// Issue date of the bond.
     pub issue: Date,
     /// Maturity date of the bond.
@@ -97,20 +104,17 @@ impl Bond {
         maturity: Date,
         disc_id: impl Into<CurveId>,
     ) -> Self {
-        let schedule = ScheduleParams {
-            freq: finstack_core::dates::Frequency::semi_annual(),
-            dc: DayCount::Thirty360,
-            bdc: BusinessDayConvention::Following,
-            calendar_id: None,
-            stub: StubKind::None,
-        };
         Self::builder()
             .id(id.into())
             .notional(notional)
             .coupon(coupon_rate)
             .issue(issue)
             .maturity(maturity)
-            .schedule(schedule)
+            .freq(finstack_core::dates::Frequency::semi_annual())
+            .dc(DayCount::Thirty360)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
             .disc_id(disc_id.into())
             .hazard_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
@@ -127,20 +131,17 @@ impl Bond {
         issue: Date,
         maturity: Date,
     ) -> Self {
-        let schedule = ScheduleParams {
-            freq: finstack_core::dates::Frequency::annual(),
-            dc: DayCount::ActActIsma,
-            bdc: BusinessDayConvention::Following,
-            calendar_id: None,
-            stub: StubKind::None,
-        };
         Self::builder()
             .id(id.into())
             .notional(notional)
             .coupon(coupon_rate)
             .issue(issue)
             .maturity(maturity)
-            .schedule(schedule)
+            .freq(finstack_core::dates::Frequency::annual())
+            .dc(DayCount::ActActIsma)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
             .disc_id(CurveId::new("USD-TREASURY"))
             .hazard_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
@@ -173,20 +174,17 @@ impl Bond {
         fwd_id: impl Into<CurveId>,
         margin_bp: F,
     ) -> Self {
-        let schedule = ScheduleParams {
-            freq: finstack_core::dates::Frequency::quarterly(),
-            dc: DayCount::Act360,
-            bdc: BusinessDayConvention::Following,
-            calendar_id: None,
-            stub: StubKind::None,
-        };
         Self::builder()
             .id(id.into())
             .notional(notional)
             .coupon(0.0)
             .issue(issue)
             .maturity(maturity)
-            .schedule(schedule)
+            .freq(finstack_core::dates::Frequency::quarterly())
+            .dc(DayCount::Act360)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
             .disc_id(disc_id.into())
             .hazard_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
@@ -224,13 +222,7 @@ impl Bond {
         let maturity = *dates.last().unwrap();
 
         // Default frequency and coupon (these won't be used with custom cashflows)
-        let bond_schedule = ScheduleParams {
-            freq: finstack_core::dates::Frequency::semi_annual(),
-            dc,
-            bdc: BusinessDayConvention::Following,
-            calendar_id: None,
-            stub: StubKind::None,
-        };
+        let freq = finstack_core::dates::Frequency::semi_annual();
         let coupon = 0.0;
 
         let pricing_overrides = if let Some(price) = quoted_clean {
@@ -245,7 +237,11 @@ impl Bond {
             .coupon(coupon)
             .issue(issue)
             .maturity(maturity)
-            .schedule(bond_schedule)
+            .freq(freq)
+            .dc(dc)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
             .disc_id(disc_id.into())
             .hazard_id_opt(None)
             .pricing_overrides(pricing_overrides)
@@ -271,10 +267,8 @@ crate::impl_instrument_schedule_pv!(
     Bond,
     "Bond",
     disc_field: disc_id,
-    dc_field: schedule.dc
+    dc_field: dc
 );
-
-// Metrics context preparation is handled centrally in the shared helper via downcasting hints.
 
 #[cfg(test)]
 mod tests {
@@ -393,13 +387,11 @@ mod tests {
             .coupon(0.06)
             .issue(issue)
             .maturity(maturity)
-            .schedule(ScheduleParams {
-                freq: Frequency::quarterly(),
-                dc: DayCount::Thirty360,
-                bdc: BusinessDayConvention::Following,
-                calendar_id: None,
-                stub: StubKind::None,
-            })
+            .freq(Frequency::quarterly())
+            .dc(DayCount::Thirty360)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
             .custom_cashflows_opt(Some(custom_schedule))
             .disc_id(CurveId::new("USD-OIS"))
             .pricing_overrides(PricingOverrides::default().with_clean_price(99.0))
@@ -424,13 +416,11 @@ mod tests {
             .id(InstrumentId::new("REGULAR_BOND"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .coupon(0.04)
-            .schedule(ScheduleParams {
-                freq: Frequency::semi_annual(),
-                dc: DayCount::Act365F,
-                bdc: BusinessDayConvention::Following,
-                calendar_id: None,
-                stub: StubKind::None,
-            })
+            .freq(Frequency::semi_annual())
+            .dc(DayCount::Act365F)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
             .issue(issue)
             .maturity(maturity)
             .disc_id(CurveId::new("USD-OIS"))
@@ -466,7 +456,7 @@ mod tests {
 
         assert!(bond.custom_cashflows.is_some());
         assert_eq!(bond.coupon, 0.04); // Original coupon is preserved but won't be used
-        assert_eq!(bond.schedule.freq, Frequency::semi_annual()); // Original freq preserved but won't be used
+        assert_eq!(bond.freq, Frequency::semi_annual()); // Original freq preserved but won't be used
     }
 
     #[test]
@@ -479,13 +469,11 @@ mod tests {
             .id(InstrumentId::new("TEST"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .coupon(0.03)
-            .schedule(ScheduleParams {
-                freq: Frequency::annual(),
-                dc: DayCount::Act365F,
-                bdc: BusinessDayConvention::Following,
-                calendar_id: None,
-                stub: StubKind::None,
-            })
+            .freq(Frequency::annual())
+            .dc(DayCount::Act365F)
+            .bdc(BusinessDayConvention::Following)
+            .calendar_id_opt(None)
+            .stub(StubKind::None)
             .issue(issue)
             .maturity(maturity)
             .disc_id(CurveId::new("USD-OIS"))

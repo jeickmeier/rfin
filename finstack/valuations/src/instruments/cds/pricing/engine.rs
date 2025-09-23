@@ -150,8 +150,8 @@ impl CDSPricer {
         _as_of: Date,
     ) -> Result<Money> {
         let base_date = disc.base_date();
-        let t_start = self.year_fraction(base_date, cds.premium.start, cds.premium.schedule.dc)?;
-        let t_end = self.year_fraction(base_date, cds.premium.end, cds.premium.schedule.dc)?;
+        let t_start = self.year_fraction(base_date, cds.premium.start, cds.premium.dc)?;
+        let t_end = self.year_fraction(base_date, cds.premium.end, cds.premium.dc)?;
         let recovery = cds.protection.recovery_rate;
         let delay_years = (cds.protection.settlement_delay as F) / BUSINESS_DAYS_PER_YEAR_APPROX;
 
@@ -214,8 +214,8 @@ impl CDSPricer {
             let start_date = schedule[i];
             let end_date = schedule[i + 1];
 
-            let t_end = self.year_fraction(base_date, end_date, cds.premium.schedule.dc)?;
-            let accrual = self.year_fraction(start_date, end_date, cds.premium.schedule.dc)?;
+            let t_end = self.year_fraction(base_date, end_date, cds.premium.dc)?;
+            let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
 
             let sp = surv.sp(t_end);
             let df = disc.df(t_end);
@@ -225,7 +225,7 @@ impl CDSPricer {
             if self.config.include_accrual {
                 premium_pv += self.calculate_accrual_on_default(
                     spread,
-                    self.year_fraction(base_date, start_date, cds.premium.schedule.dc)?,
+                    self.year_fraction(base_date, start_date, cds.premium.dc)?,
                     t_end,
                     disc,
                     surv,
@@ -484,10 +484,10 @@ impl CDSPricer {
             let sched = crate::cashflow::builder::build_dates(
                 cds.premium.start,
                 cds.premium.end,
-                cds.premium.schedule.freq,
-                cds.premium.schedule.stub,
-                cds.premium.schedule.bdc,
-                cds.premium.schedule.calendar_id,
+                cds.premium.freq,
+                cds.premium.stub,
+                cds.premium.bdc,
+                cds.premium.calendar_id,
             );
             Ok(sched.dates)
         }
@@ -526,9 +526,9 @@ impl CDSPricer {
             for i in 0..schedule.len() - 1 {
                 let start_date = schedule[i];
                 let end_date = schedule[i + 1];
-                let t_start = self.year_fraction(base_date, start_date, cds.premium.schedule.dc)?;
-                let t_end = self.year_fraction(base_date, end_date, cds.premium.schedule.dc)?;
-                let accrual = self.year_fraction(start_date, end_date, cds.premium.schedule.dc)?;
+                let t_start = self.year_fraction(base_date, start_date, cds.premium.dc)?;
+                let t_end = self.year_fraction(base_date, end_date, cds.premium.dc)?;
+                let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
                 let sp = surv.sp(t_end);
                 let df = disc.df(t_end);
                 let per_bp = 1e-4;
@@ -561,9 +561,9 @@ impl CDSPricer {
         for i in 0..schedule.len() - 1 {
             let start_date = schedule[i];
             let end_date = schedule[i + 1];
-            let t_start = self.year_fraction(base_date, start_date, cds.premium.schedule.dc)?;
-            let t_end = self.year_fraction(base_date, end_date, cds.premium.schedule.dc)?;
-            let accrual = self.year_fraction(start_date, end_date, cds.premium.schedule.dc)?;
+            let t_start = self.year_fraction(base_date, start_date, cds.premium.dc)?;
+            let t_end = self.year_fraction(base_date, end_date, cds.premium.dc)?;
+            let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
             let sp = surv.sp(t_end);
             let df = disc.df(t_end);
             let per_bp = 1e-4;
@@ -590,8 +590,8 @@ impl CDSPricer {
         for i in 0..schedule.len() - 1 {
             let start_date = schedule[i];
             let end_date = schedule[i + 1];
-            let t_end = self.year_fraction(base_date, end_date, cds.premium.schedule.dc)?;
-            let accrual = self.year_fraction(start_date, end_date, cds.premium.schedule.dc)?;
+            let t_end = self.year_fraction(base_date, end_date, cds.premium.dc)?;
+            let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
             let sp = surv.sp(t_end);
             let df = disc.df(t_end);
             annuity += accrual * sp * df;

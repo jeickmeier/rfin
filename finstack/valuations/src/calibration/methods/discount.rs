@@ -510,13 +510,11 @@ impl DiscountCurveCalibrator {
                 let fixed_spec = FixedLegSpec {
                     disc_id: "CALIB_CURVE",
                     rate: *rate,
-                    schedule: crate::cashflow::builder::ScheduleParams {
-                        freq: *fixed_freq,
-                        dc: *fixed_dc,
-                        bdc: BusinessDayConvention::ModifiedFollowing,
-                        calendar_id: None,
-                        stub: StubKind::None,
-                    },
+                    freq: *fixed_freq,
+                    dc: *fixed_dc,
+                    bdc: BusinessDayConvention::ModifiedFollowing,
+                    calendar_id: None,
+                    stub: StubKind::None,
                     par_method: None,
                     compounding_simple: true,
                     start: self.base_date,
@@ -527,13 +525,11 @@ impl DiscountCurveCalibrator {
                     disc_id: "CALIB_CURVE",
                     fwd_id: "CALIB_FWD",
                     spread_bp: 0.0,
-                    schedule: crate::cashflow::builder::ScheduleParams {
-                        freq: *float_freq,
-                        dc: *float_dc,
-                        bdc: BusinessDayConvention::ModifiedFollowing,
-                        calendar_id: None,
-                        stub: StubKind::None,
-                    },
+                    freq: *float_freq,
+                    dc: *float_dc,
+                    bdc: BusinessDayConvention::ModifiedFollowing,
+                    calendar_id: None,
+                    stub: StubKind::None,
                     reset_lag_days: 2,
                     start: self.base_date,
                     end: *maturity,
@@ -1201,42 +1197,38 @@ mod tests {
         // Construct 1Y par swap matching quote
         let start = base_date;
         let end = base_date + time::Duration::days(365);
-        let irs = InterestRateSwap {
-            id: format!("IRS-1Y_{}", base_date).into(),
-            notional: Money::new(1_000_000.0, Currency::USD),
-            side: PayReceive::ReceiveFixed,
-            fixed: crate::instruments::irs::FixedLegSpec {
+        let irs = InterestRateSwap::builder()
+            .id("IRS-1Y".to_string().into())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .side(PayReceive::ReceiveFixed)
+            .fixed(crate::instruments::irs::FixedLegSpec {
                 disc_id: "USD-OIS",
                 rate: 0.0470,
-                schedule: crate::cashflow::builder::ScheduleParams {
-                    freq: Frequency::semi_annual(),
-                    dc: DayCount::Thirty360,
-                    bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
-                    calendar_id: None,
-                    stub: StubKind::None,
-                },
+                freq: Frequency::semi_annual(),
+                dc: DayCount::Thirty360,
+                bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: StubKind::None,
                 par_method: None,
                 compounding_simple: true,
                 start,
                 end,
-            },
-            float: crate::instruments::irs::FloatLegSpec {
+            })
+            .float(crate::instruments::irs::FloatLegSpec {
                 disc_id: "USD-OIS",
                 fwd_id: "USD-SOFR",
                 spread_bp: 0.0,
-                schedule: crate::cashflow::builder::ScheduleParams {
-                    freq: Frequency::quarterly(),
-                    dc: DayCount::Act360,
-                    bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
-                    calendar_id: None,
-                    stub: StubKind::None,
-                },
+                freq: Frequency::quarterly(),
+                dc: DayCount::Act360,
+                bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: StubKind::None,
                 reset_lag_days: 2,
                 start,
                 end,
-            },
-            attributes: Default::default(),
-        };
+            })
+            .build()
+            .unwrap();
 
         let pv = irs.value(&ctx, base_date).unwrap();
         assert!(

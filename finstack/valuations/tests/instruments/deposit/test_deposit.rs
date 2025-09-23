@@ -5,7 +5,7 @@ use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::deposit::Deposit;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::common::traits::Priceable;
 use finstack_valuations::metrics::{MetricId, MetricRegistry};
 use std::sync::Arc;
 
@@ -49,7 +49,7 @@ fn df_metrics_match_engine_basis() {
     let mut registry = MetricRegistry::new();
     finstack_valuations::instruments::deposit::metrics::register_deposit_metrics(&mut registry);
     let base_val = dep.value(&ctx, base).unwrap();
-    let instrument_arc: Arc<dyn Instrument> = Arc::new(dep.clone());
+    let instrument_arc: Arc<dyn finstack_valuations::instruments::common::traits::Instrument> = Arc::new(dep.clone());
     let mut ctx_metrics = finstack_valuations::metrics::MetricContext::new(
         instrument_arc,
         Arc::new(ctx.clone()),
@@ -74,7 +74,7 @@ fn par_rate_makes_pv_close_to_zero_when_quote_is_set() {
     let mut registry = MetricRegistry::new();
     finstack_valuations::instruments::deposit::metrics::register_deposit_metrics(&mut registry);
     let base_val = dep.value(&ctx, base).unwrap();
-    let instrument_arc: Arc<dyn Instrument> = Arc::new(dep.clone());
+    let instrument_arc: Arc<dyn finstack_valuations::instruments::common::traits::Instrument> = Arc::new(dep.clone());
     let mut ctx_metrics = finstack_valuations::metrics::MetricContext::new(
         instrument_arc,
         Arc::new(ctx.clone()),

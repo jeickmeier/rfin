@@ -9,7 +9,7 @@ use finstack_core::{
 };
 
 use finstack_valuations::instruments::{
-    common::traits::Instrument,
+    traits::Priceable,
     variance_swap::{PayReceive, VarianceSwap},
 };
 

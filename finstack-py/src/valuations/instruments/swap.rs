@@ -106,13 +106,11 @@ impl PyFixedLeg {
             inner: FixedLegSpec {
                 disc_id,
                 rate,
-                schedule: finstack_valuations::cashflow::builder::ScheduleParams {
-                    freq: frequency.inner(),
-                    dc: day_count.inner(),
-                    bdc,
-                    calendar_id: cal_id,
-                    stub: stub_kind,
-                },
+                freq: frequency.inner(),
+                dc: day_count.inner(),
+                bdc,
+                calendar_id: cal_id,
+                stub: stub_kind,
                 start: start_date.inner(),
                 end: end_date.inner(),
                 par_method: None,
@@ -133,12 +131,12 @@ impl PyFixedLeg {
 
     #[getter]
     fn frequency(&self) -> PyFrequency {
-        PyFrequency::from_inner(self.inner.schedule.freq)
+        PyFrequency::from_inner(self.inner.freq)
     }
 
     #[getter]
     fn day_count(&self) -> PyDayCount {
-        PyDayCount::from_inner(self.inner.schedule.dc)
+        PyDayCount::from_inner(self.inner.dc)
     }
 
     #[getter]
@@ -155,7 +153,7 @@ impl PyFixedLeg {
         format!(
             "FixedLeg(rate={:.2}%, freq={:?}, start={}, end={})",
             self.inner.rate * 100.0,
-            self.inner.schedule.freq,
+            self.inner.freq,
             self.inner.start,
             self.inner.end
         )
@@ -230,13 +228,11 @@ impl PyFloatLeg {
                 disc_id,
                 fwd_id,
                 spread_bp,
-                schedule: finstack_valuations::cashflow::builder::ScheduleParams {
-                    freq: frequency.inner(),
-                    dc: day_count.inner(),
-                    bdc,
-                    calendar_id: cal_id,
-                    stub: stub_kind,
-                },
+                freq: frequency.inner(),
+                dc: day_count.inner(),
+                bdc,
+                calendar_id: cal_id,
+                stub: stub_kind,
                 reset_lag_days: 2,
                 start: start_date.inner(),
                 end: end_date.inner(),
@@ -261,12 +257,12 @@ impl PyFloatLeg {
 
     #[getter]
     fn frequency(&self) -> PyFrequency {
-        PyFrequency::from_inner(self.inner.schedule.freq)
+        PyFrequency::from_inner(self.inner.freq)
     }
 
     #[getter]
     fn day_count(&self) -> PyDayCount {
-        PyDayCount::from_inner(self.inner.schedule.dc)
+        PyDayCount::from_inner(self.inner.dc)
     }
 
     #[getter]
@@ -284,7 +280,7 @@ impl PyFloatLeg {
             "FloatLeg(index={}, spread={}bp, freq={:?}, start={}, end={})",
             self.inner.fwd_id,
             self.inner.spread_bp,
-            self.inner.schedule.freq,
+            self.inner.freq,
             self.inner.start,
             self.inner.end
         )
@@ -426,6 +422,7 @@ impl PyInterestRateSwap {
         let as_of_date = as_of.inner();
 
         // Calculate base value first
+        // use already imported Priceable
         let base_value = self.inner.value(&curves, as_of_date).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
                 "Failed to calculate swap value: {:?}",
@@ -548,7 +545,60 @@ impl PyInterestRateSwap {
         self.inner.matches_selector(selector)
     }
 
-    
+    /// Generate a comprehensive risk report for the swap.
+    ///
+    /// Calculates key risk metrics, bucketed sensitivities, and categorizes
+    /// the swap into risk buckets based on its characteristics.
+    ///
+    /// Args:
+    ///     market_context: Market data including curves
+    ///     as_of: Valuation date
+    ///     bucket_spec: Optional list of risk buckets for categorization
+    ///
+    /// Returns:
+    ///     RiskReport: Comprehensive risk report
+    ///
+    /// Examples:
+    ///     >>> report = swap.risk_report(context, Date(2024, 1, 1))
+    ///     >>> print(f"DV01: {report.get_metric('Dv01', 0)}")
+    ///     >>> print(f"Par Rate: {report.get_metric('ParRate', 0)}")
+    fn risk_report(
+        &self,
+        market_context: &crate::core::market_data::context::PyMarketContext,
+        as_of: &PyDate,
+        bucket_spec: Option<Vec<crate::valuations::risk::PyRiskBucket>>,
+    ) -> PyResult<crate::valuations::risk::PyRiskReport> {
+        use finstack_valuations::metrics::RiskMeasurable;
+
+        let curves = market_context.inner();
+        let as_of_date = as_of.inner();
+
+        // Convert Python bucket spec to Rust if provided
+        let rust_buckets = bucket_spec.map(|buckets| {
+            buckets
+                .into_iter()
+                .map(|b| finstack_valuations::metrics::RiskBucket {
+                    id: b.inner.id,
+                    tenor_years: b.inner.tenor_years,
+                    classification: b.inner.classification,
+                })
+                .collect::<Vec<_>>()
+        });
+
+        let bucket_spec_ref = rust_buckets.as_deref();
+
+        let report = self
+            .inner
+            .risk_report(&curves, as_of_date, bucket_spec_ref)
+            .map_err(|e| {
+                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                    "Failed to generate risk report: {:?}",
+                    e
+                ))
+            })?;
+
+        Ok(crate::valuations::risk::PyRiskReport::from_inner(report))
+    }
 
     /// Price the swap with selected metrics.
     ///

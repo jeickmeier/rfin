@@ -73,13 +73,10 @@ macro_rules! impl_instrument {
                 curves: &finstack_core::market_data::MarketContext,
                 as_of: finstack_core::dates::Date,
             ) -> finstack_core::Result<finstack_core::money::Money> {
-                // Delegate to registered pricer if available; otherwise use inline expression.
-                $crate::instruments::common::price_with_pricer_or(self, curves, as_of, || {
-                    let $s = self;
-                    let $curves = curves;
-                    let $as_of = as_of;
-                    $pv_expr
-                })
+                let $s = self;
+                let $curves = curves;
+                let $as_of = as_of;
+                $pv_expr
             }
 
             fn price_with_metrics(
@@ -92,15 +89,6 @@ macro_rules! impl_instrument {
                 $crate::instruments::common::helpers::build_with_metrics_dyn(
                     self, curves, as_of, base_value, metrics,
                 )
-            }
-
-            #[inline]
-            fn prepare_metric_context(
-                &self,
-                context: &mut $crate::metrics::traits::MetricContext,
-            ) -> finstack_core::Result<()> {
-                let _ = context; // default no-op unless the instrument overrides this method
-                Ok(())
             }
         }
     };
@@ -116,7 +104,7 @@ macro_rules! impl_instrument_schedule_pv {
     (
         $type:ident, $type_name:literal,
         disc_field: $disc:ident,
-        dc_field: $($dc:tt)+
+        dc_field: $dc:ident
     ) => {
         $crate::impl_instrument!(
             $type,
@@ -128,7 +116,7 @@ macro_rules! impl_instrument_schedule_pv {
                 let flows = CashflowProvider::build_schedule(s, curves, as_of)?;
                 let disc = curves.get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(<str as ::core::convert::AsRef<str>>::as_ref(s.$disc.as_ref()))?;
                 // Import not needed here; types expose required methods
-                flows.npv(&*disc, disc.base_date(), s.$($dc)+)
+                flows.npv(&*disc, disc.base_date(), s.$dc)
             }
         );
     };

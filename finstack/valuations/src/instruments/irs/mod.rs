@@ -6,6 +6,7 @@
 
 pub mod metrics;
 pub mod pricing;
+mod risk;
 mod types;
 
 pub use pricing::engine::IrsEngine;

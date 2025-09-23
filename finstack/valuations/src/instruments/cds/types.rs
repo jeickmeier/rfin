@@ -152,13 +152,11 @@ impl CreditDefaultSwap {
             .premium(PremiumLegSpec {
                 start,
                 end: maturity,
-                schedule: crate::cashflow::builder::ScheduleParams {
-                    freq,
-                    stub,
-                    bdc,
-                    calendar_id: None,
-                    dc,
-                },
+                freq,
+                stub,
+                bdc,
+                calendar_id: None,
+                dc,
                 spread_bp,
                 disc_id,
             })
@@ -202,13 +200,11 @@ impl CreditDefaultSwap {
             .premium(PremiumLegSpec {
                 start,
                 end: maturity,
-                schedule: crate::cashflow::builder::ScheduleParams {
-                    freq,
-                    stub,
-                    bdc,
-                    calendar_id: None,
-                    dc,
-                },
+                freq,
+                stub,
+                bdc,
+                calendar_id: None,
+                dc,
                 spread_bp,
                 disc_id,
             })
@@ -253,13 +249,11 @@ impl CreditDefaultSwap {
             .premium(PremiumLegSpec {
                 start,
                 end: maturity,
-                schedule: crate::cashflow::builder::ScheduleParams {
-                    freq,
-                    stub,
-                    bdc,
-                    calendar_id: None,
-                    dc,
-                },
+                freq,
+                stub,
+                bdc,
+                calendar_id: None,
+                dc,
                 spread_bp,
                 disc_id,
             })
@@ -305,13 +299,11 @@ impl CreditDefaultSwap {
             premium: PremiumLegSpec {
                 start,
                 end,
-                schedule: crate::cashflow::builder::ScheduleParams {
-                    freq,
-                    stub,
-                    bdc,
-                    calendar_id: None,
-                    dc,
-                },
+                freq,
+                stub,
+                bdc,
+                calendar_id: None,
+                dc,
                 spread_bp,
                 disc_id,
             },
@@ -336,10 +328,10 @@ impl CreditDefaultSwap {
         let sched = crate::cashflow::builder::build_dates(
             self.premium.start,
             self.premium.end,
-            self.premium.schedule.freq,
-            self.premium.schedule.stub,
-            self.premium.schedule.bdc,
-            self.premium.schedule.calendar_id,
+            self.premium.freq,
+            self.premium.stub,
+            self.premium.bdc,
+            self.premium.calendar_id,
         );
         let dates = sched.dates;
         if dates.len() < 2 {
@@ -349,7 +341,7 @@ impl CreditDefaultSwap {
         let mut flows = Vec::with_capacity(dates.len() - 1);
         let mut prev = dates[0];
         for &d in &dates[1..] {
-            let year_frac = self.premium.schedule.dc.year_fraction(
+            let year_frac = self.premium.dc.year_fraction(
                 prev,
                 d,
                 finstack_core::dates::DayCountCtx::default(),

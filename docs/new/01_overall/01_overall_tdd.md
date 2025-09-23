@@ -379,11 +379,14 @@ pub trait CashflowProvider {
     ) -> Result<indexmap::IndexMap<PeriodId, Decimal>, FinstackError>;
 }
 
-pub trait Instrument {
+pub trait Priceable {
     fn price(&self, mkt:&MarketData, as_of: time::Date) -> Result<ValuationResult, FinstackError>;
 }
 
-// RiskMeasurable removed. Use the valuations metrics registry for risk measures.
+pub trait RiskMeasurable {
+    fn risk_report(&self, mkt:&MarketData, as_of: time::Date, buckets: Option<&[Bucket]>)
+        -> Result<RiskReport, FinstackError>;
+}
 ```
 
 **Requirements**
@@ -802,7 +805,7 @@ Depends on core for types; provides interchange between Polars DataFrames and ex
 
 * **Valuations**
 
-  * Instruments implement `CashflowProvider` + `Instrument`. Risk metrics via the metrics registry.
+  * Instruments implement `CashflowProvider` + `Priceable` (RiskMeasurable where meaningful).
   * Currency‑preserving period aggregation; explicit FX collapse to model/base ccy.
   * Parity tests: IRS/Options/CDS within tolerances; greeks consistent.
 
@@ -1010,10 +1013,11 @@ let out = runner.run(&portfolio, &mkt, Some(&sc))?;
 
 ```rust
 impl CashflowProvider for InterestRateSwap { /* tag coupons; build schedules */ }
-impl Instrument for InterestRateSwap { /* discount legs; par rate; PV */ }
+impl Priceable for InterestRateSwap { /* discount legs; par rate; PV */ }
+impl RiskMeasurable for InterestRateSwap { /* DV01 analytic or curve bumps */ }
 
 impl CashflowProvider for EquityOption { /* premium/settlement */ }
-impl Instrument for EquityOption { /* Black; delta/gamma/vega/theta/rho */ }
+impl Priceable for EquityOption { /* Black; delta/gamma/vega/theta/rho */ }
 ```
 
 ---

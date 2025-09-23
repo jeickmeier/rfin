@@ -1,7 +1,6 @@
 //! Instrument-level traits and metadata types.
 
 use crate::metrics::MetricId;
-use crate::metrics::traits::MetricContext;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use hashbrown::{HashMap, HashSet};
@@ -127,16 +126,4 @@ pub trait Instrument: Send + Sync {
         as_of: Date,
         metrics: &[MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult>;
-
-    /// Optional hook to prepare the metric context before calculation.
-    ///
-    /// Instruments can override this to cache cashflows, specify discount curve IDs,
-    /// set day count conventions, or attach a bucket key resolver for bucketed metrics.
-    /// The default implementation is a no-op.
-    fn prepare_metric_context(
-        &self,
-        _context: &mut MetricContext,
-    ) -> finstack_core::Result<()> {
-        Ok(())
-    }
 }

@@ -4,7 +4,6 @@
 //! function to assemble a `ValuationResult` with computed metrics.
 
 use crate::metrics::{standard_registry, MetricContext};
-use crate::cashflow::traits::CashflowProvider;
 use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
@@ -37,86 +36,14 @@ pub fn build_with_metrics_dyn(
         base_value,
     );
 
-    // Allow instrument to pre-populate context (cashflows, curve IDs, day count, resolvers)
-    // This keeps the engine generic while enabling instrument-specific caching hints.
-    let instrument_for_prepare = Arc::clone(&context.instrument);
-    instrument_for_prepare.prepare_metric_context(&mut context)?;
-
-    // Simple per-instrument context hints to improve generic engine defaults
-    // without requiring custom per-instrument assembly logic.
-    // These hints are best-effort and only fill missing fields.
-    // Bond
-    if let Some(bond) = context
-        .instrument
-        .as_any()
-        .downcast_ref::<crate::instruments::bond::Bond>()
-    {
-        if context.cashflows.is_none() {
-            if let Ok(flows) = <crate::instruments::bond::Bond as CashflowProvider>::build_schedule(
-                bond,
-                &context.curves,
-                context.as_of,
-            ) {
-                context.cashflows = Some(flows);
-            }
-        }
-        if context.discount_curve_id.is_none() {
-            context.discount_curve_id = Some(bond.disc_id.clone());
-        }
-        if context.day_count.is_none() {
-            context.day_count = Some(bond.schedule.dc);
-        }
-    }
-
-    // Interest Rate Swap
-    if let Some(irs) = context
-        .instrument
-        .as_any()
-        .downcast_ref::<crate::instruments::irs::InterestRateSwap>()
-    {
-        if context.cashflows.is_none() {
-            if let Ok(flows) = <crate::instruments::irs::InterestRateSwap as CashflowProvider>::build_schedule(
-                irs,
-                &context.curves,
-                context.as_of,
-            ) {
-                context.cashflows = Some(flows);
-            }
-        }
-        if context.discount_curve_id.is_none() {
-            context.discount_curve_id = Some(finstack_core::types::CurveId::new(irs.fixed.disc_id));
-        }
-        if context.day_count.is_none() {
-            context.day_count = Some(irs.fixed.schedule.dc);
-        }
-    }
-
     let registry = standard_registry();
-    // If no metrics explicitly requested, compute all applicable metrics for the instrument type
-    let metric_measures = if metrics.is_empty() {
-        registry.compute_all(&mut context)?
-    } else {
-        registry.compute(metrics, &mut context)?
-    };
+    let metric_measures = registry.compute(metrics, &mut context)?;
 
     // Deterministic insertion order: follow the requested metrics slice order
     let mut measures: IndexMap<String, finstack_core::F> = IndexMap::new();
-    if metrics.is_empty() {
-        // Deterministic order: sort by metric name for stability when computing all
-        let mut pairs: Vec<(String, finstack_core::F)> = metric_measures
-            .iter()
-            .map(|(k, v)| (k.as_str().to_string(), *v))
-            .collect();
-        pairs.sort_by(|a, b| a.0.cmp(&b.0));
-        for (name, value) in pairs {
-            measures.insert(name, value);
-        }
-    } else {
-        // Preserve caller-provided order
-        for metric_id in metrics {
-            if let Some(value) = metric_measures.get(metric_id) {
-                measures.insert(metric_id.as_str().to_string(), *value);
-            }
+    for metric_id in metrics {
+        if let Some(value) = metric_measures.get(metric_id) {
+            measures.insert(metric_id.as_str().to_string(), *value);
         }
     }
 

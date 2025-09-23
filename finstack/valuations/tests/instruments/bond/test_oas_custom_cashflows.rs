@@ -45,13 +45,8 @@ fn test_oas_stability_amortizing_bond() {
         .id("AMORT_BOND".into())
         .notional(Money::new(1_000.0, Currency::USD))
         .coupon(0.06)
-        .schedule(ScheduleParams {
-            freq: Frequency::semi_annual(),
-            dc: DayCount::Act365F,
-            bdc: finstack_core::dates::BusinessDayConvention::Following,
-            calendar_id: None,
-            stub: finstack_core::dates::StubKind::None,
-        })
+        .freq(Frequency::semi_annual())
+        .dc(DayCount::Act365F)
         .issue(issue)
         .maturity(maturity)
         .disc_id("USD-OIS".into())

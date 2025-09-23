@@ -7,19 +7,17 @@
 //! Public fields use strong newtype identifiers for safety: `InstrumentId` and
 //! `CurveId`. Calendar identifiers remain `Option<&'static str>` for stable
 //! serde and lookups.
-use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+use finstack_core::dates::calendar::calendar_by_id;
+use finstack_core::market_data::traits::Forward;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
 use finstack_core::{dates::Date, F};
 
-use crate::cashflow::builder::{
-    cf, schedule_utils::build_dates, CouponType, FixedCouponSpec, ScheduleParams,
-};
+use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-// discountable helpers not used after switching to curve-based df-on-date-curve
+// discountable helpers not used after switching to curve-based df_on_date_curve
 use crate::instruments::common::traits::Attributes;
-// use crate::metrics::traits::MetricContext; // not needed here; central helper provides hints
 // Risk types used in risk.rs
 
 // Re-export common enums from parameters
@@ -64,7 +62,11 @@ impl InterestRateSwap {
         let fixed = FixedLegSpec {
             disc_id: "USD-OIS",
             rate: fixed_rate,
-            schedule: sched,
+            freq: sched.freq,
+            dc: sched.dc,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id,
+            stub: sched.stub,
             start,
             end,
             par_method: None,
@@ -74,7 +76,11 @@ impl InterestRateSwap {
             disc_id: "USD-OIS",
             fwd_id: "USD-SOFR-3M",
             spread_bp: 0.0,
-            schedule: sched,
+            freq: sched.freq,
+            dc: sched.dc,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id,
+            stub: sched.stub,
             reset_lag_days: 2,
             start,
             end,
@@ -101,7 +107,11 @@ impl InterestRateSwap {
         let fixed = FixedLegSpec {
             disc_id: "USD-OIS",
             rate: fixed_rate,
-            schedule: sched,
+            freq: sched.freq,
+            dc: sched.dc,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id,
+            stub: sched.stub,
             start,
             end,
             par_method: None,
@@ -111,7 +121,11 @@ impl InterestRateSwap {
             disc_id: "USD-OIS",
             fwd_id: "USD-SOFR-3M",
             spread_bp: 0.0,
-            schedule: sched,
+            freq: sched.freq,
+            dc: sched.dc,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id,
+            stub: sched.stub,
             reset_lag_days: 2,
             start,
             end,
@@ -140,7 +154,11 @@ impl InterestRateSwap {
         let fixed = FixedLegSpec {
             disc_id: "USD-OIS",
             rate: primary_spread_bp * 1e-4,
-            schedule: sched,
+            freq: sched.freq,
+            dc: sched.dc,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id,
+            stub: sched.stub,
             start,
             end,
             par_method: None,
@@ -150,7 +168,11 @@ impl InterestRateSwap {
             disc_id: "USD-OIS",
             fwd_id: "USD-SOFR-6M",
             spread_bp: reference_spread_bp,
-            schedule: sched,
+            freq: sched.freq,
+            dc: sched.dc,
+            bdc: sched.bdc,
+            calendar_id: sched.calendar_id,
+            stub: sched.stub,
             reset_lag_days: 2,
             start,
             end,
@@ -175,11 +197,11 @@ impl InterestRateSwap {
             .fixed_cf(FixedCouponSpec {
                 coupon_type: CouponType::Cash,
                 rate: self.fixed.rate,
-                freq: self.fixed.schedule.freq,
-                dc: self.fixed.schedule.dc,
-                bdc: self.fixed.schedule.bdc,
-                calendar_id: self.fixed.schedule.calendar_id,
-                stub: self.fixed.schedule.stub,
+                freq: self.fixed.freq,
+                dc: self.fixed.dc,
+                bdc: self.fixed.bdc,
+                calendar_id: self.fixed.calendar_id,
+                stub: self.fixed.stub,
             });
         let sched = b.build()?;
 
@@ -202,43 +224,58 @@ impl InterestRateSwap {
     pub(crate) fn pv_float_leg(
         &self,
         disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
-        fwd: &ForwardCurve,
+        fwd: &dyn Forward,
     ) -> finstack_core::Result<Money> {
-        let sched = build_dates(
-            self.float.start,
-            self.float.end,
-            self.float.schedule.freq,
-            self.float.schedule.stub,
-            self.float.schedule.bdc,
-            self.float.schedule.calendar_id,
-        );
+        let builder = finstack_core::dates::ScheduleBuilder::new(self.float.start, self.float.end)
+            .frequency(self.float.freq)
+            .stub_rule(self.float.stub);
 
-        if sched.dates.len() < 2 {
+        let sched_dates: Vec<Date> = if let Some(id) = self.float.calendar_id {
+            if let Some(cal) = calendar_by_id(id) {
+                builder
+                    .adjust_with(self.float.bdc, cal)
+                    .build()
+                    .unwrap()
+                    .into_iter()
+                    .collect()
+            } else {
+                builder.build().unwrap().into_iter().collect()
+            }
+        } else {
+            builder.build().unwrap().into_iter().collect()
+        };
+
+        if sched_dates.len() < 2 {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
 
+        let mut prev = sched_dates[0];
         let mut total = Money::new(0.0, self.notional.currency());
-        let fwd_base_date = fwd.base_date();
-        let dc_ctx = finstack_core::dates::DayCountCtx::default();
-
-        for i in 1..sched.dates.len() {
-            let start = sched.dates[i - 1];
-            let end = sched.dates[i];
-
-            // Project forward rate
-            let t1 = fwd.day_count().year_fraction(fwd_base_date, start, dc_ctx)?;
-            let t2 = fwd.day_count().year_fraction(fwd_base_date, end, dc_ctx)?;
+        for &d in &sched_dates[1..] {
+            let base = disc.base_date();
+            let t1 = self
+                .float
+                .dc
+                .year_fraction(base, prev, finstack_core::dates::DayCountCtx::default())
+                .unwrap_or(0.0);
+            let t2 = self
+                .float
+                .dc
+                .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())
+                .unwrap_or(0.0);
+            let yf = self
+                .float
+                .dc
+                .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
+                .unwrap_or(0.0);
             let f = fwd.rate_period(t1, t2);
             let rate = f + (self.float.spread_bp * 1e-4);
-
-            // Accrual and coupon amount
-            let yf = self.float.schedule.dc.year_fraction(start, end, dc_ctx)?;
             let coupon = self.notional * (rate * yf);
-
-            // Discount to PV
-            let df = disc.df_on_date_curve(end);
+            // Discount using curve's own day-count
+            let df = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on_date_curve(disc, d);
             let disc_amt = coupon * df;
             total = (total + disc_amt)?;
+            prev = d;
         }
         Ok(total)
     }
@@ -253,8 +290,6 @@ crate::impl_instrument!(
     "InterestRateSwap",
     pv = |s, curves, _as_of| crate::instruments::irs::pricing::engine::IrsEngine::pv(s, curves)
 );
-
-// Metrics context preparation is handled centrally in the shared helper via downcasting hints.
 
 // RiskMeasurable impl moved to `risk.rs`
 
@@ -271,11 +306,11 @@ impl CashflowProvider for InterestRateSwap {
             .fixed_cf(FixedCouponSpec {
                 coupon_type: CouponType::Cash,
                 rate: self.fixed.rate,
-                freq: self.fixed.schedule.freq,
-                dc: self.fixed.schedule.dc,
-                bdc: self.fixed.schedule.bdc,
-                calendar_id: self.fixed.schedule.calendar_id,
-                stub: self.fixed.schedule.stub,
+                freq: self.fixed.freq,
+                dc: self.fixed.dc,
+                bdc: self.fixed.bdc,
+                calendar_id: self.fixed.calendar_id,
+                stub: self.fixed.stub,
             });
         let fixed_sched = fixed_b.build()?;
 
@@ -287,11 +322,11 @@ impl CashflowProvider for InterestRateSwap {
                 margin_bp: self.float.spread_bp,
                 gearing: 1.0,
                 coupon_type: CouponType::Cash,
-                freq: self.float.schedule.freq,
-                dc: self.float.schedule.dc,
-                bdc: self.float.schedule.bdc,
-                calendar_id: self.float.schedule.calendar_id,
-                stub: self.float.schedule.stub,
+                freq: self.float.freq,
+                dc: self.float.dc,
+                bdc: self.float.bdc,
+                calendar_id: self.float.calendar_id,
+                stub: self.float.stub,
                 reset_lag_days: self.float.reset_lag_days,
             });
         let float_sched = float_b.build()?;

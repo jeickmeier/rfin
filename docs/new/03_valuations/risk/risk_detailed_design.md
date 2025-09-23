@@ -47,7 +47,7 @@ pub enum FDStencil { OneSided, TwoSided, FourPoint }
 
 // Core engine trait
 pub trait RiskEngine {
-    type Output; // define per engine; valuations no longer exposes RiskReport
+    type Output = RiskReport;             // fixed for simplicity
     fn compute<I, C>(&self, instr: &I, curves: &C, val_date: Date) -> Result<Self::Output, RiskError>
     where
         I: Priced,
@@ -65,7 +65,19 @@ pub enum RiskMode {
 impl RiskEngine for RiskMode { /* dispatch */ }
 
 /// Aggregated sensitivity report (sparse representation)
-// Engines return factor-keyed vectors or instrument-specific outputs; RiskReport removed.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RiskReport {
+    pub pv: Money,
+    /// Parallel vectors share index: factors[i] ↔ values[i]
+    pub factors: Vec<RiskFactor>,
+    pub delta:   Vec<F>,
+    pub gamma:   Vec<F>,
+    pub vega:    Vec<F>,
+    pub theta:   Vec<F>,
+    pub dv01:    Vec<F>,
+    /// Sparse upper-triangular cross-gamma matrix as index pairs ↦ value.
+    pub cross_gamma: Vec<(usize, usize, F)>,
+}
 ```
 A **sparse parallel-vector** layout avoids repeating `RiskFactor` in every bucket and allows fast aggregation by factor hashing.
 

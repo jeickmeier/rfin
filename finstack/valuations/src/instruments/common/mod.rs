@@ -2,7 +2,7 @@
 //!
 //! This module contains utilities, models, and types that are used
 //! by multiple instrument implementations, including:
-//! - Core instrument traits (Instrument, Attributable)
+//! - Core instrument traits (Instrument, Priceable, Attributable)
 //! - Implementation macros for reducing boilerplate
 //! - NPV calculation interfaces (Discountable)
 //! - Option pricing models (Black-Scholes, binomial/trinomial trees, SABR)
@@ -31,19 +31,6 @@ pub mod models;
 // Re-export commonly used types for convenience
 pub use discountable::Discountable;
 pub use helpers::{build_with_metrics_dyn, validate_currency_consistency};
-pub use pricer::{
-    has_pricer,
-    has_pricer_for_key,
-    price_with_pricer_or,
-    push_pricer,
-    push_pricer_for_key,
-    register_pricer,
-    register_pricer_for_key,
-    set_default_pricer,
-    with_pricer,
-    with_pricer_for_key,
-    Pricer,
-};
 pub use models::{
     d1, d2, norm_cdf, norm_pdf, short_rate_keys, single_factor_equity_state, state_keys,
     two_factor_equity_rates_state, BinomialTree, EvolutionParams, NodeState, SABRCalibrator,
@@ -59,6 +46,3 @@ pub use parameters::{
     ScheduleSpec, SettlementType, TotalReturnLegSpec, UnderlyingParams,
 };
 pub use traits::{Attributable, Attributes, Instrument};
-
-// Centralized pricer trait and registry
-mod pricer;

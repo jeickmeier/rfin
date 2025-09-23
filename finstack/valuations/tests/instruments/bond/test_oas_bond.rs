@@ -10,7 +10,7 @@ use finstack_valuations::instruments::bond::pricing::tree_pricer::{
     calculate_oas, TreePricer, TreePricerConfig,
 };
 use finstack_valuations::instruments::bond::{Bond, CallPut, CallPutSchedule};
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::common::traits::Priceable;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 
@@ -65,19 +65,15 @@ fn create_plain_bond(quoted_clean: Option<F>) -> Bond {
         .id("PLAIN_BOND_5Y".into())
         .notional(Money::new(1000.0, Currency::USD))
         .coupon(0.05)
-        .schedule(ScheduleParams {
-            freq: Frequency::semi_annual(),
-            dc: DayCount::Act365F,
-            bdc: BusinessDayConvention::Following,
-            calendar_id: None,
-            stub: StubKind::None,
-        })
+        .freq(Frequency::semi_annual())
+        .dc(DayCount::Act365F)
+        .bdc(BusinessDayConvention::Following)
+        .calendar_id_opt(None)
+        .stub(StubKind::None)
         .issue(issue)
         .maturity(maturity)
         .disc_id("USD-OIS".into())
-        .pricing_overrides(
-            PricingOverrides::default().with_oas_bp(Some(spread_oas_bp)),
-        )
+        .pricing_overrides(pricing_overrides)
         .call_put_opt(None)
         .amortization_opt(None)
         .custom_cashflows_opt(None)

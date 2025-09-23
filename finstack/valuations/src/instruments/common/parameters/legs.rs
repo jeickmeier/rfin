@@ -1,10 +1,8 @@
 //! Common leg specification types for interest rate and credit instruments.
 
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::types::CurveId;
 use finstack_core::F;
-
-use crate::cashflow::builder::ScheduleParams;
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -39,8 +37,16 @@ pub struct FixedLegSpec {
     pub disc_id: &'static str,
     /// Fixed rate (e.g., 0.05 for 5%)
     pub rate: F,
-    /// Schedule parameters
-    pub schedule: ScheduleParams,
+    /// Payment frequency
+    pub freq: Frequency,
+    /// Day count convention for accrual
+    pub dc: DayCount,
+    /// Business day convention for payment dates
+    pub bdc: BusinessDayConvention,
+    /// Optional calendar for business day adjustments
+    pub calendar_id: Option<&'static str>,
+    /// Stub period handling rule
+    pub stub: StubKind,
     /// Start date of the fixed leg
     pub start: Date,
     /// End date of the fixed leg
@@ -61,8 +67,16 @@ pub struct FloatLegSpec {
     pub fwd_id: &'static str,
     /// Spread in basis points added to the forward rate
     pub spread_bp: F,
-    /// Schedule parameters
-    pub schedule: ScheduleParams,
+    /// Payment frequency
+    pub freq: Frequency,
+    /// Day count convention for accrual
+    pub dc: DayCount,
+    /// Business day convention for payment dates
+    pub bdc: BusinessDayConvention,
+    /// Optional calendar for business day adjustments
+    pub calendar_id: Option<&'static str>,
+    /// Stub period handling rule
+    pub stub: StubKind,
     /// Reset lag in business days for floating rate
     pub reset_lag_days: i32,
     /// Start date of the floating leg
@@ -95,8 +109,16 @@ pub struct PremiumLegSpec {
     pub start: Date,
     /// End date of protection
     pub end: Date,
-    /// Schedule parameters
-    pub schedule: ScheduleParams,
+    /// Payment frequency
+    pub freq: Frequency,
+    /// Stub convention
+    pub stub: StubKind,
+    /// Business day convention
+    pub bdc: BusinessDayConvention,
+    /// Holiday calendar identifier
+    pub calendar_id: Option<&'static str>,
+    /// Day count convention
+    pub dc: DayCount,
     /// Fixed spread in basis points
     pub spread_bp: F,
     /// Discount curve identifier

@@ -19,10 +19,10 @@ impl MetricCalculator for FixedLegPvCalculator {
         let sched = crate::cashflow::builder::build_dates(
             irs.fixed.start,
             irs.fixed.end,
-            irs.fixed.schedule.freq,
-            irs.fixed.schedule.stub,
-            irs.fixed.schedule.bdc,
-            irs.fixed.schedule.calendar_id,
+            irs.fixed.freq,
+            irs.fixed.stub,
+            irs.fixed.bdc,
+            irs.fixed.calendar_id,
         );
         let dates: Vec<Date> = sched.dates;
         if dates.len() < 2 {
@@ -34,7 +34,6 @@ impl MetricCalculator for FixedLegPvCalculator {
         for &d in &dates[1..] {
             let yf = irs
                 .fixed
-                .schedule
                 .dc
                 .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
                 .unwrap_or(0.0);

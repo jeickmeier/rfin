@@ -68,6 +68,7 @@ pub use trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
 pub use cap_floor::RateOptionType;
 pub use common::{BinomialTree, TreeType};
 
+pub use crate::metrics::{RiskMeasurable, RiskReport};
 pub use common::build_with_metrics_dyn;
 
 // ==============================================================================
@@ -131,12 +132,3 @@ pub use common::discountable;
 pub use common::macros;
 pub use common::parameters;
 pub use common::traits;
-
-/// Install default pricers for core instruments so that `Instrument::value` delegates
-/// to registered pricing engines out of the box.
-pub fn install_default_pricers() {
-    // Bond discounting pricer
-    crate::instruments::bond::pricing::register_default_bond_pricers();
-    // IRS discounting pricer
-    crate::instruments::irs::pricing::register_default_irs_pricers();
-}

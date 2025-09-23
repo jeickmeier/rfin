@@ -29,22 +29,4 @@ pub mod covenants;
 pub mod metrics;
 pub mod performance;
 
-// Optional: allow enabling pricer registration behind a non-default feature flag.
-// Disabled by default to avoid unexpected-cfg lints.
-// When enabled, this runs at crate init to register default pricers.
-#[allow(unused)]
-fn __maybe_register_default_pricers() {
-    #[cfg(any())]
-    {
-        crate::instruments::bond::pricing::register_default_bond_pricers();
-    }
-}
-
 pub use finstack_core::prelude::*;
-
-// Optional: callers may invoke this to install default pricers for instruments.
-// We avoid automatic registration to keep binary init predictable and reduce
-// surprising global state.
-pub use crate::instruments::install_default_pricers as install_pricers;
-
-// Example usage (pseudo-code): register default pricers and toggle models by key.

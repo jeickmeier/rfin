@@ -2,13 +2,13 @@
 
 use finstack_core::dates::adjust;
 use finstack_core::dates::calendar::calendar_by_id;
-use finstack_core::dates::{Date, DayCountCtx};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCountCtx, StubKind};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 use time::Duration;
 
-use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec, FloatingCouponSpec};
+use crate::cashflow::builder::{cf, FixedCouponSpec};
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 
@@ -66,10 +66,10 @@ impl CashflowProvider for Bond {
             let schedule = build_periods(
                 self.issue,
                 self.maturity,
-                self.schedule.freq,
-                self.schedule.stub,
-                self.schedule.bdc,
-                self.schedule.calendar_id,
+                self.freq,
+                self.stub,
+                self.bdc,
+                self.calendar_id,
             );
             let periods = schedule.dates;
             if periods.len() < 2 {
@@ -93,9 +93,9 @@ impl CashflowProvider for Bond {
 
                 // Reset date adjusted by reset lag and calendar
                 let mut reset_date = start - Duration::days(fl.reset_lag_days as i64);
-                if let Some(id) = self.schedule.calendar_id {
+                if let Some(id) = self.calendar_id {
                     if let Some(cal) = calendar_by_id(id) {
-                        reset_date = adjust(reset_date, self.schedule.bdc, cal)?;
+                        reset_date = adjust(reset_date, self.bdc, cal)?;
                     }
                 }
 
@@ -103,7 +103,6 @@ impl CashflowProvider for Bond {
                     .year_fraction(fwd.base_date(), reset_date, DayCountCtx::default())
                     .unwrap_or(0.0);
                 let yf = self
-                    .schedule
                     .dc
                     .year_fraction(start, end, DayCountCtx::default())
                     .unwrap_or(0.0);
@@ -126,36 +125,18 @@ impl CashflowProvider for Bond {
 
         let mut b = cf();
         b.principal(self.notional, self.issue, self.maturity);
-
-        if let Some(float_spec) = &self.float {
-            let index_id: &'static str = Box::leak(float_spec.fwd_id.as_ref().to_string().into_boxed_str());
-            b.floating_cf(FloatingCouponSpec {
-                index_id,
-                margin_bp: float_spec.margin_bp,
-                gearing: float_spec.gearing,
-                coupon_type: CouponType::Cash,
-                freq: self.schedule.freq,
-                dc: self.schedule.dc,
-                bdc: self.schedule.bdc,
-                calendar_id: self.schedule.calendar_id,
-                stub: self.schedule.stub,
-                reset_lag_days: float_spec.reset_lag_days,
-            });
-        } else {
-            b.fixed_cf(FixedCouponSpec {
-                coupon_type: CouponType::Cash,
-                rate: self.coupon,
-                freq: self.schedule.freq,
-                dc: self.schedule.dc,
-                bdc: self.schedule.bdc,
-                calendar_id: self.schedule.calendar_id,
-                stub: self.schedule.stub,
-            });
+        if let Some(am) = &self.amortization {
+            b.amortization(am.clone());
         }
-
-        if let Some(amort) = &self.amortization {
-            b.amortization(amort.clone());
-        }
+        b.fixed_cf(FixedCouponSpec {
+            coupon_type: crate::cashflow::builder::CouponType::Cash,
+            rate: self.coupon,
+            freq: self.freq,
+            dc: self.dc,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
+        });
         let sched = b.build()?;
 
         let flows: Vec<(Date, Money)> = sched

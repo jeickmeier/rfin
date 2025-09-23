@@ -174,7 +174,7 @@ let pricer = BasketPricer::with_config(BasketPricerConfig {
 - **Risk framework**: Compatible with existing risk measurement systems
 
 ### Follows Library Patterns
-- **Trait implementations**: Implements `Instrument`, `Attributable`
+- **Trait implementations**: Implements `Priceable`, `Instrument`, `Attributable`
 - **Builder pattern**: Consistent with other instrument builders
 - **Error handling**: Uses library's unified error types
 - **Currency safety**: Follows existing currency validation patterns

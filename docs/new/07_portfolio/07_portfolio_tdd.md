@@ -483,7 +483,7 @@ impl Portfolio {
 ### 4.1 Valuation Aggregation
 
 ```rust
-use finstack_valuations::{MarketData, ValuationResult, Instrument};
+use finstack_valuations::{MarketData, ValuationResult, Priceable};
 use finstack_core::money::{Currency, FxProvider};
 use finstack_core::prelude::Decimal;
 
@@ -741,7 +741,7 @@ impl PortfolioStatements {
 ### 4.3 Risk Aggregation
 
 ```rust
-// RiskReport removed; use metrics-based per-position measures instead.
+use finstack_valuations::{RiskReport};
 use finstack_core::prelude::Decimal;
 
 /// Portfolio risk aggregation
@@ -751,13 +751,14 @@ pub struct RiskAggregator<'a> {
 }
 
 impl<'a> RiskAggregator<'a> {
-    pub fn aggregate_key_rate_dv01(
+    pub fn aggregate(
         &self,
-        position_keyrate_dv01: &IndexMap<PositionId, IndexMap<String, Decimal>>,
+        position_risks: &IndexMap<PositionId, RiskReport>,
     ) -> Result<PortfolioRiskReport, PortfolioError> {
+        // Reduce into a flat by-bucket map (e.g., curve_key -> DV01), deterministically
         let mut by_bucket: IndexMap<String, Decimal> = IndexMap::new();
-        for buckets in position_keyrate_dv01.values() {
-            for (bucket, value) in buckets {
+        for report in position_risks.values() {
+            for (bucket, value) in report.by_bucket.iter() {
                 *by_bucket.entry(bucket.clone()).or_insert(Decimal::ZERO) += *value;
             }
         }
@@ -899,8 +900,8 @@ pub struct PortfolioRunner {
     /// Cache for instrument valuations
     valuation_cache: RefCell<LruCache<(String, u64), Arc<ValuationResult>>>,
     
-    /// Cache for per-position risk vectors (e.g., key-rate DV01)
-    risk_cache: RefCell<LruCache<(String, u64), Arc<IndexMap<String, Decimal>>>>,
+    /// Cache for risk reports
+    risk_cache: RefCell<LruCache<(String, u64), Arc<RiskReport>>>,
     
     /// Parallel execution flag
     parallel: bool,
@@ -1115,7 +1116,7 @@ pub struct PortfolioRiskReport {
     pub cs01_by_issuer: IndexMap<IssuerId, Amount>,
     pub fx_delta_by_pair: IndexMap<CurrencyPair, Amount>,
     pub total_var: Option<Amount>,
-    // position_risks removed (legacy RiskReport)
+    pub position_risks: IndexMap<PositionId, RiskReport>,
     pub as_of: time::Date,
 }
 

@@ -88,7 +88,7 @@ pub fn asw_par_with_forward(
         return Ok(0.0);
     }
 
-    let ann = fixed_leg_annuity(disc, bond.schedule.dc, &sched);
+    let ann = fixed_leg_annuity(disc, bond.dc, &sched);
     if ann == 0.0 || bond.notional.amount() == 0.0 {
         return Ok(0.0);
     }
@@ -136,7 +136,7 @@ pub fn asw_market_with_forward(
     if sched.len() < 2 {
         return Ok(0.0);
     }
-    let ann = fixed_leg_annuity(disc, bond.schedule.dc, &sched);
+    let ann = fixed_leg_annuity(disc, bond.dc, &sched);
     if ann == 0.0 || bond.notional.amount() == 0.0 {
         return Ok(0.0);
     }
@@ -161,7 +161,7 @@ impl MetricCalculator for AssetSwapParCalculator {
         let bond: &Bond = context.instrument_as()?;
         let disc_id = bond.disc_id.clone();
         let maturity = bond.maturity;
-        let dc = bond.schedule.dc;
+        let dc = bond.dc;
         let coupon = bond.coupon;
         #[allow(unused_variables)]
         let notional_amt = bond.notional.amount();
@@ -200,7 +200,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
             (
                 b.disc_id.clone(),
                 b.maturity,
-                b.schedule.dc,
+                b.dc,
                 b.coupon,
                 b.notional.amount(),
                 b.pricing_overrides.quoted_clean_price,
@@ -226,7 +226,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 let b: &Bond = context.instrument_as()?;
                 (
                     b.disc_id.clone(),
-                    b.schedule.dc,
+                    b.dc,
                     b.build_schedule(&context.curves, context.as_of)?,
                 )
             };

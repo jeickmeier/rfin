@@ -102,13 +102,11 @@ impl CDSIndex {
             premium: PremiumLegSpec {
                 start,
                 end,
-                schedule: crate::cashflow::builder::ScheduleParams {
-                    freq,
-                    stub,
-                    bdc,
-                    calendar_id: None,
-                    dc,
-                },
+                freq,
+                stub,
+                bdc,
+                calendar_id: None,
+                dc,
                 spread_bp: index_params.fixed_coupon_bp,
                 disc_id,
             },

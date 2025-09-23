@@ -25,10 +25,10 @@ impl MetricCalculator for FloatLegPvCalculator {
         let sched = crate::cashflow::builder::build_dates(
             irs.float.start,
             irs.float.end,
-            irs.float.schedule.freq,
-            irs.float.schedule.stub,
-            irs.float.schedule.bdc,
-            irs.float.schedule.calendar_id,
+            irs.float.freq,
+            irs.float.stub,
+            irs.float.bdc,
+            irs.float.calendar_id,
         );
         let dates: Vec<Date> = sched.dates;
         if dates.len() < 2 {
@@ -40,19 +40,16 @@ impl MetricCalculator for FloatLegPvCalculator {
         for &d in &dates[1..] {
             let t1 = irs
                 .float
-                .schedule
                 .dc
                 .year_fraction(base, prev, finstack_core::dates::DayCountCtx::default())
                 .unwrap_or(0.0);
             let t2 = irs
                 .float
-                .schedule
                 .dc
                 .year_fraction(base, d, finstack_core::dates::DayCountCtx::default())
                 .unwrap_or(0.0);
             let yf = irs
                 .float
-                .schedule
                 .dc
                 .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
                 .unwrap_or(0.0);
