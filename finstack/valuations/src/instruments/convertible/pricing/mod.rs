@@ -5,6 +5,7 @@
 //! module rather than private files to keep the public API stable.
 
 pub mod engine;
+pub mod pricer;
 
 pub use engine::{
     calculate_conversion_premium, calculate_convertible_greeks, calculate_parity,

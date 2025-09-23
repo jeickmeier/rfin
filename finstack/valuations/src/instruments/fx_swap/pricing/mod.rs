@@ -5,3 +5,4 @@
 //! other instruments (e.g., CDS, IRS).
 
 pub mod engine;
+pub mod pricer;

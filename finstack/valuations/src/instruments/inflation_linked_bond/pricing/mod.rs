@@ -5,5 +5,6 @@
 //! under this module to keep `types.rs` focused on data and API surface.
 
 mod engine;
+pub mod pricer;
 
 pub use engine::InflationLinkedBondEngine;

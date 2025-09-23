@@ -5,3 +5,4 @@
 pub mod engine;
 pub mod equity;
 pub mod fixed_income_index;
+pub mod pricer;

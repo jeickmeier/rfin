@@ -21,6 +21,7 @@
 pub mod calibration;
 pub mod cashflow;
 pub mod results;
+pub mod pricer;
 
 // Export macros before instruments module
 #[macro_use]

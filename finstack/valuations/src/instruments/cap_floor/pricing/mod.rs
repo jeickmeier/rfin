@@ -6,5 +6,6 @@
 
 pub mod black;
 pub mod engine;
+pub mod pricer;
 
 pub use engine::IrOptionPricer;

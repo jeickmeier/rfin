@@ -12,5 +12,6 @@
 //! and uses `Money::convert` to enforce currency safety and rounding policy.
 
 mod engine;
+pub mod pricer;
 
 pub use engine::FxSpotPricer;

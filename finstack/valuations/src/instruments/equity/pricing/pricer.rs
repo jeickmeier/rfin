@@ -7,6 +7,7 @@
 //! currency safety requirements.
 
 use crate::instruments::equity::Equity;
+// (no pricer registry integration here)
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
@@ -155,3 +156,5 @@ impl EquityPricer {
         ))
     }
 }
+
+// Note: EquityPricer is an internal engine; no registry integration required here.

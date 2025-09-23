@@ -9,6 +9,7 @@
 //! - `CDSTranchePricerConfig` – configuration for numerical/policy options
 
 pub mod engine;
+pub mod pricer;
 
 // Stable re-export aligned with other instruments (e.g., `CDSPricer` / `CDSIndexPricer`).
 pub use engine::CDSTranchePricer;

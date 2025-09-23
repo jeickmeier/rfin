@@ -5,5 +5,6 @@
 //! module rather than private files to keep the public API stable.
 
 pub mod engine;
+pub mod pricer;
 
 pub use engine::{isda_constants, CDSBootstrapper, CDSPricer, CDSPricerConfig, IntegrationMethod};

@@ -10,5 +10,6 @@
 //! - `InflationSwapPricer`: pricing engine with leg PV methods
 
 pub mod engine;
+pub mod pricer;
 
 pub use engine::InflationSwapPricer;
