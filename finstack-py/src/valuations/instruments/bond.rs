@@ -526,51 +526,7 @@ impl PyBond {
         self.inner.matches_selector(selector)
     }
 
-    /// Generate a comprehensive risk report for the bond.
-    ///
-    /// Calculates key risk metrics, bucketed sensitivities, and categorizes
-    /// the bond into risk buckets based on its characteristics.
-    ///
-    /// Args:
-    ///     market_context: Market data including curves
-    ///     as_of: Valuation date
-    ///     bucket_spec: Optional list of risk buckets for categorization
-    ///
-    /// Returns:
-    ///     RiskReport: Comprehensive risk report
-    ///
-    /// Examples:
-    ///     >>> report = bond.risk_report(context, Date(2024, 1, 1))
-    ///     >>> print(f"DV01: {report.get_metric('Dv01', 0)}")
-    ///     >>> print(f"Duration: {report.get_metric('DurationMod', 0)}")
-    ///     >>>
-    ///     >>> # Check bucketed sensitivities
-    ///     >>> dv01_buckets = report.get_bucketed_risk("DV01")
-    ///     >>> if dv01_buckets:
-    ///     ...     for bucket, value in dv01_buckets.items():
-    ///     ...         print(f"{bucket}: {value}")
-    fn risk_report(
-        &self,
-        _market_context: &crate::core::market_data::context::PyMarketContext,
-        _as_of: &PyDate,
-        bucket_spec: Option<Vec<crate::valuations::risk::PyRiskBucket>>,
-    ) -> PyResult<crate::valuations::risk::PyRiskReport> {
-        // Temporary implementation: construct a minimal RiskReport until
-        // Bond implements RiskMeasurable in the Rust core.
-        let mut report = finstack_valuations::metrics::RiskReport::new(
-            self.inner.id.as_str(),
-            self.inner.notional.currency(),
-        );
-
-        // Convert Python bucket spec to Rust and attach to report if provided
-        if let Some(buckets) = bucket_spec {
-            for b in buckets.into_iter().map(|pb| pb.inner) {
-                report = report.with_bucket(b);
-            }
-        }
-
-        Ok(crate::valuations::risk::PyRiskReport::from_inner(report))
-    }
+    // risk_report removed; use price_with_metrics for risk metrics via registry
 
     /// Price the bond with selected metrics.
     ///

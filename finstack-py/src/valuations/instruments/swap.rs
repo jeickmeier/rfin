@@ -545,60 +545,7 @@ impl PyInterestRateSwap {
         self.inner.matches_selector(selector)
     }
 
-    /// Generate a comprehensive risk report for the swap.
-    ///
-    /// Calculates key risk metrics, bucketed sensitivities, and categorizes
-    /// the swap into risk buckets based on its characteristics.
-    ///
-    /// Args:
-    ///     market_context: Market data including curves
-    ///     as_of: Valuation date
-    ///     bucket_spec: Optional list of risk buckets for categorization
-    ///
-    /// Returns:
-    ///     RiskReport: Comprehensive risk report
-    ///
-    /// Examples:
-    ///     >>> report = swap.risk_report(context, Date(2024, 1, 1))
-    ///     >>> print(f"DV01: {report.get_metric('Dv01', 0)}")
-    ///     >>> print(f"Par Rate: {report.get_metric('ParRate', 0)}")
-    fn risk_report(
-        &self,
-        market_context: &crate::core::market_data::context::PyMarketContext,
-        as_of: &PyDate,
-        bucket_spec: Option<Vec<crate::valuations::risk::PyRiskBucket>>,
-    ) -> PyResult<crate::valuations::risk::PyRiskReport> {
-        use finstack_valuations::metrics::RiskMeasurable;
-
-        let curves = market_context.inner();
-        let as_of_date = as_of.inner();
-
-        // Convert Python bucket spec to Rust if provided
-        let rust_buckets = bucket_spec.map(|buckets| {
-            buckets
-                .into_iter()
-                .map(|b| finstack_valuations::metrics::RiskBucket {
-                    id: b.inner.id,
-                    tenor_years: b.inner.tenor_years,
-                    classification: b.inner.classification,
-                })
-                .collect::<Vec<_>>()
-        });
-
-        let bucket_spec_ref = rust_buckets.as_deref();
-
-        let report = self
-            .inner
-            .risk_report(&curves, as_of_date, bucket_spec_ref)
-            .map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                    "Failed to generate risk report: {:?}",
-                    e
-                ))
-            })?;
-
-        Ok(crate::valuations::risk::PyRiskReport::from_inner(report))
-    }
+    // risk_report removed; use price_with_metrics for risk metrics via registry
 
     /// Price the swap with selected metrics.
     ///

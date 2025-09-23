@@ -291,7 +291,7 @@ crate::impl_instrument!(
     pv = |s, curves, _as_of| crate::instruments::irs::pricing::engine::IrsEngine::pv(s, curves)
 );
 
-// RiskMeasurable impl moved to `risk.rs`
+// RiskMeasurable impl removed; risk reporting standardized via metrics registry only.
 
 impl CashflowProvider for InterestRateSwap {
     fn build_schedule(

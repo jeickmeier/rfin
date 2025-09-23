@@ -68,7 +68,6 @@ pub use trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
 pub use cap_floor::RateOptionType;
 pub use common::{BinomialTree, TreeType};
 
-pub use crate::metrics::{RiskMeasurable, RiskReport};
 pub use common::build_with_metrics_dyn;
 
 // ==============================================================================

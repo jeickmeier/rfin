@@ -147,8 +147,7 @@ fn finstack(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Register instruments submodule
     valuations::instruments::register_module(m)?;
 
-    // Register risk metrics submodule
-    valuations::risk::register_module(m)?;
+    // Risk submodule removed; use metrics via instrument price_with_metrics
 
     // Register covenants submodule
     valuations::covenants::register_module(m)?;

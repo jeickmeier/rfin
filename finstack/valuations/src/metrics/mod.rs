@@ -24,15 +24,11 @@
 
 pub mod ids;
 pub mod registry;
-pub mod risk;
 pub mod traits;
-pub mod traits_ext;
 
 pub use ids::MetricId;
 pub use registry::MetricRegistry;
-pub use risk::{BucketSpec, BucketedDv01Calculator, CashflowCaching};
 pub use traits::{MetricCalculator, MetricContext};
-pub use traits_ext::{RiskBucket, RiskMeasurable, RiskReport};
 
 /// Creates a standard metric registry with all built-in metrics.
 ///
@@ -67,6 +63,5 @@ pub fn standard_registry() -> MetricRegistry {
     crate::instruments::swaption::metrics::register_swaption_metrics(&mut registry);
     crate::instruments::repo::metrics::register_repo_metrics(&mut registry);
     crate::instruments::basis_swap::metrics::register_basis_swap_metrics(&mut registry);
-    risk::register_risk_metrics(&mut registry);
     registry
 }
