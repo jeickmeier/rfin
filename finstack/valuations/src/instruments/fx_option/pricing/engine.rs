@@ -7,8 +7,8 @@
 //! consistent logic.
 
 use crate::instruments::common::models::{d1, d2};
-use crate::instruments::fx_option::types::FxOption;
 use crate::instruments::common::parameters::OptionType;
+use crate::instruments::fx_option::types::FxOption;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::math::solver::{HybridSolver, Solver};
@@ -61,8 +61,12 @@ impl FxOptionPricer {
         if t <= 0.0 {
             // Expired: intrinsic value only
             let intrinsic = match inst.option_type {
-                crate::instruments::common::parameters::OptionType::Call => (spot - inst.strike).max(0.0),
-                crate::instruments::common::parameters::OptionType::Put => (inst.strike - spot).max(0.0),
+                crate::instruments::common::parameters::OptionType::Call => {
+                    (spot - inst.strike).max(0.0)
+                }
+                crate::instruments::common::parameters::OptionType::Put => {
+                    (inst.strike - spot).max(0.0)
+                }
             };
             return Ok(Money::new(
                 intrinsic * inst.notional.amount(),
@@ -181,8 +185,12 @@ impl FxOptionPricer {
     ) -> Result<Money> {
         if t <= 0.0 {
             let intrinsic = match inst.option_type {
-                crate::instruments::common::parameters::OptionType::Call => (spot - inst.strike).max(0.0),
-                crate::instruments::common::parameters::OptionType::Put => (inst.strike - spot).max(0.0),
+                crate::instruments::common::parameters::OptionType::Call => {
+                    (spot - inst.strike).max(0.0)
+                }
+                crate::instruments::common::parameters::OptionType::Put => {
+                    (inst.strike - spot).max(0.0)
+                }
             };
             return Ok(Money::new(
                 intrinsic * inst.notional.amount(),

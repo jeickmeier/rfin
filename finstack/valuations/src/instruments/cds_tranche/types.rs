@@ -8,6 +8,7 @@ use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
+use finstack_core::types::InstrumentId;
 use finstack_core::F;
 
 use super::parameters::CDSTrancheParams;
@@ -26,7 +27,7 @@ pub enum TrancheSide {
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct CdsTranche {
     /// Unique instrument identifier
-    pub id: String,
+    pub id: InstrumentId,
     /// Index name (e.g., "CDX.NA.IG", "CDX.NA.HY", "iTraxx EUR")
     pub index_name: String,
     /// Series number (e.g., 37)
@@ -64,7 +65,7 @@ pub struct CdsTranche {
 impl CdsTranche {
     /// Create a new CDS tranche using parameter structs
     pub fn new(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         tranche_params: &CDSTrancheParams,
         schedule_params: &ScheduleParams,
         disc_id: &'static str,
@@ -99,7 +100,7 @@ impl_attributable!(CdsTranche);
 
 impl Instrument for CdsTranche {
     fn id(&self) -> &str {
-        &self.id
+        self.id.as_str()
     }
     fn instrument_type(&self) -> &'static str {
         "CDSTranche"

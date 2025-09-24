@@ -4,6 +4,7 @@ use crate::instruments::bond::Bond;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
+use finstack_core::types::InstrumentId;
 use finstack_core::F;
 use std::collections::HashMap;
 
@@ -17,7 +18,7 @@ use super::types::{AssetType, CreditRating, DealType};
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct PoolAsset {
     /// Unique asset identifier
-    pub id: String,
+    pub id: InstrumentId,
     /// Asset classification
     pub asset_type: AssetType,
     /// Current outstanding balance
@@ -48,7 +49,7 @@ impl PoolAsset {
     /// Create new pool asset from existing bond
     pub fn from_bond(bond: &Bond, industry: Option<String>) -> Self {
         Self {
-            id: bond.id.to_string(),
+            id: bond.id.clone(),
             asset_type: AssetType::Bond {
                 bond_type: super::types::BondType::HighYield, // Default assumption
                 industry: industry.clone(),
@@ -244,7 +245,7 @@ impl Default for PoolStats {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct AssetPool {
     /// Pool identifier
-    pub id: String,
+    pub id: InstrumentId,
 
     /// Deal type classification
     pub deal_type: DealType,
@@ -275,7 +276,7 @@ pub struct AssetPool {
 
 impl AssetPool {
     /// Create new asset pool
-    pub fn new(id: impl Into<String>, deal_type: DealType, base_currency: Currency) -> Self {
+    pub fn new(id: impl Into<InstrumentId>, deal_type: DealType, base_currency: Currency) -> Self {
         let zero_money = Money::new(0.0, base_currency);
         Self {
             id: id.into(),
@@ -602,7 +603,7 @@ mod tests {
     #[test]
     fn test_pool_creation() {
         let pool = AssetPool::new("TEST_POOL", DealType::CLO, Currency::USD);
-        assert_eq!(pool.id, "TEST_POOL");
+        assert_eq!(pool.id.as_str(), "TEST_POOL");
         assert_eq!(pool.deal_type, DealType::CLO);
         assert_eq!(pool.base_currency(), Currency::USD);
     }

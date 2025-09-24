@@ -110,13 +110,10 @@ macro_rules! impl_instrument_schedule_pv {
             $type,
             $type_name,
             pv = |s, curves, as_of| {
-                use $crate::cashflow::traits::CashflowProvider;
-                use $crate::instruments::common::discountable::Discountable;
-                // Use trait object to avoid monomorphization
-                let flows = CashflowProvider::build_schedule(s, curves, as_of)?;
-                let disc = curves.get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(s.$disc.clone())?;
-                // Import not needed here; types expose required methods
-                flows.npv(&*disc, disc.base_date(), s.$dc)
+                // Route through monomorphized helper to reduce dynamic dispatch on hot path
+                $crate::instruments::common::helpers::schedule_pv_impl(
+                    s, curves, as_of, &s.$disc, s.$dc,
+                )
             }
         );
     };

@@ -42,7 +42,11 @@
 //! assert_eq!(equity_expiry, Date::from_calendar_date(2025, Month::March, 21).unwrap());
 //! ```
 
+use crate::dates::calendar::generated::nth_weekday_of_month;
 use time::{Date, Duration, Month, Weekday};
+
+// Shared quarter months used by IMM/CDS roll helpers
+const QUARTERLY_MONTHS: [Month; 4] = [Month::March, Month::June, Month::September, Month::December];
 
 /// Generic helper to find the next date strictly after `date` by scanning
 /// specific `months` within a (possibly incrementing) `year`, where candidates
@@ -66,36 +70,28 @@ where
 
 /// Return the **third Wednesday** of `month` in `year`.
 ///
-/// The algorithm is a simple deterministic scan starting at the 15th of the
-/// month (the earliest possible third Wednesday is the 15th). The loop runs at
-/// most seven iterations and is therefore O(1).
+/// Delegates to the shared `nth_weekday_of_month` helper used by calendar rules
+/// to keep all "nth weekday" logic consistent.
 ///
 /// # Panics
 /// Never panics for valid Gregorian years supported by the `time` crate.
 #[must_use]
 pub fn third_wednesday(month: Month, year: i32) -> Date {
-    // The third Wednesday is guaranteed to fall within 15..=21 of the month.
-    let mut date = Date::from_calendar_date(year, month, 15).unwrap();
-    while date.weekday() != Weekday::Wednesday {
-        date += Duration::days(1);
-    }
-    date
+    nth_weekday_of_month(year, month, Weekday::Wednesday, 3)
 }
 
 /// Return the **next IMM date** (third Wednesday of Mar/Jun/Sep/Dec) **strictly
 /// after** `date`.
 #[must_use]
 pub fn next_imm(date: Date) -> Date {
-    const IMM_MONTHS: [Month; 4] = [Month::March, Month::June, Month::September, Month::December];
-    next_date_from_months(date, &IMM_MONTHS, third_wednesday)
+    next_date_from_months(date, &QUARTERLY_MONTHS, third_wednesday)
 }
 
 /// Return the **next CDS roll date** (20-Mar/20-Jun/20-Sep/20-Dec) **strictly
 /// after** `date`.
 #[must_use]
 pub fn next_cds_date(date: Date) -> Date {
-    const CDS_MONTHS: [Month; 4] = [Month::March, Month::June, Month::September, Month::December];
-    next_date_from_months(date, &CDS_MONTHS, |m, year| {
+    next_date_from_months(date, &QUARTERLY_MONTHS, |m, year| {
         // Safe unwrap: 20th exists in every month.
         Date::from_calendar_date(year, m, 20).unwrap()
     })
@@ -119,28 +115,21 @@ pub fn imm_option_expiry(month: Month, year: i32) -> Date {
 
 /// Return the **third Friday** of `month` in `year`.
 ///
-/// The algorithm is similar to `third_wednesday`, scanning from the 15th of the
-/// month to find the third Friday. The loop runs at most seven iterations and is
-/// therefore O(1).
+/// Delegates to the shared `nth_weekday_of_month` helper used by calendar rules
+/// to keep all "nth weekday" logic consistent.
 ///
 /// # Panics
 /// Never panics for valid Gregorian years supported by the `time` crate.
 #[must_use]
 pub fn third_friday(month: Month, year: i32) -> Date {
-    // The third Friday is guaranteed to fall within 15..=21 of the month.
-    let mut date = Date::from_calendar_date(year, month, 15).unwrap();
-    while date.weekday() != Weekday::Friday {
-        date += Duration::days(1);
-    }
-    date
+    nth_weekday_of_month(year, month, Weekday::Friday, 3)
 }
 
 /// Return the **next IMM option expiry date** (Friday before third Wednesday of
 /// Mar/Jun/Sep/Dec) **strictly after** `date`.
 #[must_use]
 pub fn next_imm_option_expiry(date: Date) -> Date {
-    const IMM_MONTHS: [Month; 4] = [Month::March, Month::June, Month::September, Month::December];
-    next_date_from_months(date, &IMM_MONTHS, imm_option_expiry)
+    next_date_from_months(date, &QUARTERLY_MONTHS, imm_option_expiry)
 }
 
 /// Return the **next equity option expiry date** (third Friday of any month)
@@ -150,21 +139,22 @@ pub fn next_imm_option_expiry(date: Date) -> Date {
 /// a monthly expiration cycle for equity derivatives.
 #[must_use]
 pub fn next_equity_option_expiry(date: Date) -> Date {
-    let mut year = date.year();
-    let mut month = date.month();
+    const ALL_MONTHS: [Month; 12] = [
+        Month::January,
+        Month::February,
+        Month::March,
+        Month::April,
+        Month::May,
+        Month::June,
+        Month::July,
+        Month::August,
+        Month::September,
+        Month::October,
+        Month::November,
+        Month::December,
+    ];
 
-    loop {
-        let candidate = third_friday(month, year);
-        if candidate > date {
-            return candidate;
-        }
-
-        // Move to next month
-        month = month.next();
-        if month == Month::January {
-            year += 1;
-        }
-    }
+    next_date_from_months(date, &ALL_MONTHS, third_friday)
 }
 
 // -------------------------------------------------------------------------------------------------

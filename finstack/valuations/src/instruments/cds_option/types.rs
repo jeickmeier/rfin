@@ -10,6 +10,7 @@ use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
+use finstack_core::types::InstrumentId;
 use finstack_core::F;
 
 use super::parameters::CdsOptionParams;
@@ -18,7 +19,7 @@ use super::parameters::CdsOptionParams;
 #[derive(Clone, Debug)]
 pub struct CdsOption {
     /// Unique instrument identifier
-    pub id: String,
+    pub id: InstrumentId,
     /// Reference entity (underlying credit)
     pub reference_entity: String,
     /// Strike spread in basis points
@@ -68,7 +69,7 @@ impl CdsOption {
     ///
     /// Note: `credit_id` is sourced from `credit_params` to avoid duplication.
     pub fn new(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         option_params: &CdsOptionParams,
         credit_params: &CreditParams,
         disc_id: &'static str,

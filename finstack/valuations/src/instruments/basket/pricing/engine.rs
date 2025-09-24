@@ -228,7 +228,7 @@ impl BasketPricer {
                         instrument.value(context, as_of)?
                     }
                     ConstituentReference::MarketData { price_id, .. } => {
-                        let scalar = context.price(price_id)?;
+                        let scalar = context.price(price_id.as_ref())?;
                         match scalar {
                             finstack_core::market_data::scalars::MarketScalar::Price(money) => {
                                 *money
@@ -263,7 +263,7 @@ impl BasketPricer {
                             instrument.value(context, as_of)?
                         }
                         ConstituentReference::MarketData { price_id, .. } => {
-                            let scalar = context.price(price_id)?;
+                            let scalar = context.price(price_id.as_ref())?;
                             match scalar {
                                 finstack_core::market_data::scalars::MarketScalar::Price(money) => {
                                     *money
@@ -286,7 +286,7 @@ impl BasketPricer {
                             instrument.value(context, as_of)?
                         }
                         ConstituentReference::MarketData { price_id, .. } => {
-                            let scalar = context.price(price_id)?;
+                            let scalar = context.price(price_id.as_ref())?;
                             match scalar {
                                 finstack_core::market_data::scalars::MarketScalar::Price(money) => {
                                     *money
@@ -414,7 +414,7 @@ mod tests {
                 BasketConstituent {
                     id: "A".to_string(),
                     reference: ConstituentReference::MarketData {
-                        price_id: "AAPL".to_string(),
+                        price_id: "AAPL".to_string().into(),
                         asset_type: AssetType::Equity,
                     },
                     weight: 0.6,
@@ -424,7 +424,7 @@ mod tests {
                 BasketConstituent {
                     id: "B".to_string(),
                     reference: ConstituentReference::MarketData {
-                        price_id: "MSFT".to_string(),
+                        price_id: "MSFT".to_string().into(),
                         asset_type: AssetType::Equity,
                     },
                     weight: 0.4,
@@ -468,7 +468,7 @@ mod tests {
             constituents: vec![BasketConstituent {
                 id: "X".to_string(),
                 reference: ConstituentReference::MarketData {
-                    price_id: "XPRICE".to_string(),
+                    price_id: "XPRICE".to_string().into(),
                     asset_type: AssetType::Equity,
                 },
                 weight: 0.0,
@@ -506,7 +506,7 @@ mod tests {
             constituents: vec![BasketConstituent {
                 id: "X".to_string(),
                 reference: ConstituentReference::MarketData {
-                    price_id: "PX".to_string(),
+                    price_id: "PX".to_string().into(),
                     asset_type: AssetType::Equity,
                 },
                 weight: 0.0,
@@ -543,7 +543,7 @@ mod tests {
                 BasketConstituent {
                     id: "W".to_string(),
                     reference: ConstituentReference::MarketData {
-                        price_id: "PW".to_string(),
+                        price_id: "PW".to_string().into(),
                         asset_type: AssetType::Equity,
                     },
                     weight: 0.7,
@@ -553,7 +553,7 @@ mod tests {
                 BasketConstituent {
                     id: "U".to_string(),
                     reference: ConstituentReference::MarketData {
-                        price_id: "PU".to_string(),
+                        price_id: "PU".to_string().into(),
                         asset_type: AssetType::Equity,
                     },
                     weight: 0.3,
@@ -596,7 +596,7 @@ mod tests {
                 BasketConstituent {
                     id: "W1".to_string(),
                     reference: ConstituentReference::MarketData {
-                        price_id: "P1".to_string(),
+                        price_id: "P1".to_string().into(),
                         asset_type: AssetType::Equity,
                     },
                     weight: 0.6,
@@ -606,7 +606,7 @@ mod tests {
                 BasketConstituent {
                     id: "W2".to_string(),
                     reference: ConstituentReference::MarketData {
-                        price_id: "P2".to_string(),
+                        price_id: "P2".to_string().into(),
                         asset_type: AssetType::Equity,
                     },
                     weight: 0.4,
@@ -650,7 +650,7 @@ mod tests {
             constituents: vec![BasketConstituent {
                 id: "EURSEC".to_string(),
                 reference: ConstituentReference::MarketData {
-                    price_id: "EURSEC".to_string(),
+                    price_id: "EURSEC".to_string().into(),
                     asset_type: AssetType::Equity,
                 },
                 weight: 1.0,
@@ -690,7 +690,7 @@ mod tests {
             constituents: vec![BasketConstituent {
                 id: "UL1".to_string(),
                 reference: ConstituentReference::MarketData {
-                    price_id: "ULX".to_string(),
+                    price_id: "ULX".to_string().into(),
                     asset_type: AssetType::Equity,
                 },
                 weight: 1.0,
@@ -726,7 +726,7 @@ mod tests {
             constituents: vec![BasketConstituent {
                 id: "S".to_string(),
                 reference: ConstituentReference::MarketData {
-                    price_id: "SPOT".to_string(),
+                    price_id: "SPOT".to_string().into(),
                     asset_type: AssetType::Equity,
                 },
                 weight: 1.0,
@@ -768,7 +768,7 @@ mod tests {
             constituents: vec![BasketConstituent {
                 id: "A".to_string(),
                 reference: ConstituentReference::MarketData {
-                    price_id: "A".to_string(),
+                    price_id: "A".to_string().into(),
                     asset_type: AssetType::Equity,
                 },
                 weight: 1.0,

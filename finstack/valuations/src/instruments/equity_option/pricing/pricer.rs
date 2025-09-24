@@ -1,5 +1,5 @@
-use crate::instruments::equity_option::EquityOption;
 use crate::instruments::equity_option::pricing::engine;
+use crate::instruments::equity_option::EquityOption;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 use crate::impl_dyn_pricer;

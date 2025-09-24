@@ -8,11 +8,12 @@
 //! functionality.
 
 use crate::instruments::common::models::SABRParameters;
-use crate::instruments::common::traits::Attributes;
 use crate::instruments::common::parameters::OptionType;
+use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
+use finstack_core::types::InstrumentId;
 use finstack_core::F;
 
 use super::parameters::SwaptionParams;
@@ -35,7 +36,7 @@ pub enum SwaptionExercise {
 /// Swaption instrument
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct Swaption {
-    pub id: String,
+    pub id: InstrumentId,
     pub option_type: OptionType,
     pub notional: Money,
     pub strike_rate: F,
@@ -58,7 +59,7 @@ pub struct Swaption {
 impl Swaption {
     /// Create a new payer swaption using parameter structs.
     pub fn new_payer(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         params: &SwaptionParams,
         disc_id: &'static str,
         forward_id: &'static str,
@@ -88,7 +89,7 @@ impl Swaption {
 
     /// Create a new receiver swaption using parameter structs.
     pub fn new_receiver(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         params: &SwaptionParams,
         disc_id: &'static str,
         forward_id: &'static str,

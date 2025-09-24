@@ -7,6 +7,7 @@ use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::traits::Survival;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
+use finstack_core::types::InstrumentId;
 use finstack_core::F;
 
 pub use super::cds_pricer;
@@ -104,7 +105,7 @@ struct _RemovedProtectionLegSpec {
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct CreditDefaultSwap {
     /// Unique instrument identifier
-    pub id: String,
+    pub id: InstrumentId,
     /// Notional amount
     pub notional: Money,
     /// Reference entity (issuer being protected)
@@ -127,7 +128,7 @@ impl CreditDefaultSwap {
     /// Create a standard CDS with ISDA conventions (buy protection).
     #[allow(clippy::too_many_arguments)]
     pub fn buy_protection(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         reference_entity: impl Into<String>,
         notional: Money,
         spread_bp: F,
@@ -175,7 +176,7 @@ impl CreditDefaultSwap {
     /// Create a standard CDS with ISDA conventions (sell protection).
     #[allow(clippy::too_many_arguments)]
     pub fn sell_protection(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         reference_entity: impl Into<String>,
         notional: Money,
         spread_bp: F,
@@ -223,7 +224,7 @@ impl CreditDefaultSwap {
     /// Create a high-yield CDS with tighter recovery assumptions.
     #[allow(clippy::too_many_arguments)]
     pub fn high_yield(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         reference_entity: impl Into<String>,
         notional: Money,
         spread_bp: F,
@@ -272,7 +273,7 @@ impl CreditDefaultSwap {
     /// Create a new CDS with standard ISDA conventions using explicit inputs.
     #[allow(clippy::too_many_arguments)]
     pub fn new_isda(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         notional: Money,
         side: PayReceive,
         convention: CDSConvention,

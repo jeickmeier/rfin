@@ -5,6 +5,7 @@
 
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
+use finstack_core::types::InstrumentId;
 use finstack_core::F;
 
 use crate::cashflow::builder::types::{FixedCouponSpec, FloatingCouponSpec};
@@ -21,7 +22,7 @@ use super::pricing;
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct ConvertibleBond {
     /// Unique identifier for the instrument.
-    pub id: String,
+    pub id: InstrumentId,
     /// Principal amount.
     pub notional: Money,
     /// Issue date.

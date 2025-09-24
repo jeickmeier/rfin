@@ -1,5 +1,5 @@
-use crate::instruments::fra::ForwardRateAgreement;
 use crate::instruments::fra::pricing::engine::FraEngine;
+use crate::instruments::fra::ForwardRateAgreement;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 // use macro exported from crate::pricer

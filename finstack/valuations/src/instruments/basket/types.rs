@@ -6,7 +6,7 @@
 
 use crate::instruments::common::traits::{Attributable, Attributes, Instrument};
 use finstack_core::prelude::*;
-use finstack_core::types::{id::IndexId, InstrumentId};
+use finstack_core::types::{id::{IndexId, PriceId}, InstrumentId};
 use finstack_core::{dates::Frequency, F};
 use std::sync::Arc;
 
@@ -41,7 +41,7 @@ pub enum ConstituentReference {
     /// Market data reference for simple price lookups
     MarketData {
         /// Price identifier in MarketContext
-        price_id: String,
+        price_id: PriceId,
         /// Type of asset for validation
         asset_type: AssetType,
     },
@@ -363,7 +363,7 @@ mod tests {
                 BasketConstituent {
                     id: "CONST1".to_string(),
                     reference: ConstituentReference::MarketData {
-                        price_id: "AAPL".to_string(),
+                        price_id: "AAPL".to_string().into(),
                         asset_type: AssetType::Equity,
                     },
                     weight: 0.6,
@@ -373,7 +373,7 @@ mod tests {
                 BasketConstituent {
                     id: "CONST2".to_string(),
                     reference: ConstituentReference::MarketData {
-                        price_id: "MSFT".to_string(),
+                        price_id: "MSFT".to_string().into(),
                         asset_type: AssetType::Equity,
                     },
                     weight: 0.4,

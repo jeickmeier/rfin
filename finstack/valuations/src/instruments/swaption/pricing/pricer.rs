@@ -1,5 +1,5 @@
-use crate::instruments::swaption::Swaption;
 use crate::instruments::swaption::pricing::engine::SwaptionPricer;
+use crate::instruments::swaption::Swaption;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 use crate::impl_dyn_pricer;

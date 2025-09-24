@@ -729,7 +729,7 @@ impl CDSBootstrapper {
     ) -> Result<CreditDefaultSwap> {
         let end_date = base_date + time::Duration::days((tenor_years * 365.25) as i64);
         Ok(CreditDefaultSwap::new_isda(
-            format!("SYNTHETIC_{:.1}Y", tenor_years),
+            finstack_core::types::InstrumentId::new(format!("SYNTHETIC_{:.1}Y", tenor_years)),
             Money::new(1_000_000.0, Currency::USD),
             PayReceive::PayProtection,
             crate::instruments::cds::CDSConvention::IsdaNa,
@@ -798,7 +798,7 @@ mod tests {
         recovery_rate: F,
     ) -> CreditDefaultSwap {
         CreditDefaultSwap::new_isda(
-            id,
+            finstack_core::types::InstrumentId::new(id),
             Money::new(10_000_000.0, Currency::USD),
             PayReceive::PayProtection,
             crate::instruments::cds::CDSConvention::IsdaNa,

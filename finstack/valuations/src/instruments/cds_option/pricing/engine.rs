@@ -170,12 +170,8 @@ impl CdsOptionPricer {
         };
         if t <= 0.0 {
             let intrinsic = match option.option_type {
-                OptionType::Call => {
-                    (forward_spread_bp - option.strike_spread_bp).max(0.0)
-                }
-                OptionType::Put => {
-                    (option.strike_spread_bp - forward_spread_bp).max(0.0)
-                }
+                OptionType::Call => (forward_spread_bp - option.strike_spread_bp).max(0.0),
+                OptionType::Put => (option.strike_spread_bp - forward_spread_bp).max(0.0),
             };
             return Ok(Money::new(
                 scale * intrinsic * risky_annuity * option.notional.amount()

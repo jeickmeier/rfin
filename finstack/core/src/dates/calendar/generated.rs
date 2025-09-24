@@ -6,7 +6,6 @@
 //!   on first use, then serve O(1) lookups with no locking.
 //! - Years outside the range fall back to evaluating rules at runtime for correctness.
 
-use smallvec::SmallVec;
 use time::{Date, Duration, Month, Weekday};
 
 use crate::dates::calendar::rule::Rule;
@@ -53,7 +52,7 @@ pub fn compute_year_bits_for_rules(rules: &[Rule], year: i32) -> YearBits {
     let mut out: YearBits = [0u64; BITSET_WORDS];
 
     // Materialize rule dates for the year using the Rule DSL directly.
-    let mut dates: SmallVec<[Date; 64]> = SmallVec::new();
+    let mut dates: crate::dates::DateBuf = crate::dates::DateBuf::new();
     for r in rules.iter() {
         r.materialize_year(year, &mut dates);
     }

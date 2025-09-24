@@ -563,7 +563,7 @@ mod tests {
         };
 
         ConvertibleBond {
-            id: "TEST_CONVERTIBLE".to_string(),
+            id: "TEST_CONVERTIBLE".to_string().into(),
             notional: Money::new(1000.0, Currency::USD),
             issue,
             maturity,

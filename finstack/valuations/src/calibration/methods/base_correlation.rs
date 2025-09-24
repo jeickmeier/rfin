@@ -318,7 +318,9 @@ impl BaseCorrelationCalibrator {
         let months_to_add = (self.maturity_years * 12.0).round() as i32;
         let maturity = add_months(self.base_date, months_to_add);
 
-        let id = format!("CALIB_TRANCHE_{:.1}_{:.1}", attach_pct, detach_pct);
+        let id = finstack_core::types::InstrumentId::new(
+            format!("CALIB_TRANCHE_{:.1}_{:.1}", attach_pct, detach_pct),
+        );
         CdsTranche::builder()
             .id(id)
             .index_name(self.index_id.clone())

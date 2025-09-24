@@ -1,5 +1,5 @@
-use crate::instruments::irs::types::InterestRateSwap;
 use crate::instruments::irs::pricing::engine::IrsEngine;
+use crate::instruments::irs::types::InterestRateSwap;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 // use macro exported from crate::pricer

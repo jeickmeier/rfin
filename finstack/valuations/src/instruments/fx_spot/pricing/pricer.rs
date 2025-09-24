@@ -1,5 +1,5 @@
-use crate::instruments::fx_spot::FxSpot;
 use crate::instruments::fx_spot::pricing::engine::FxSpotPricer;
+use crate::instruments::fx_spot::FxSpot;
 use finstack_core::dates::Date;
 
 // use macro exported from crate::pricer

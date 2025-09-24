@@ -1,5 +1,5 @@
-use crate::instruments::fx_option::FxOption;
 use crate::instruments::fx_option::pricing::engine::FxOptionPricer;
+use crate::instruments::fx_option::FxOption;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 // use macro exported from crate::pricer

@@ -1,5 +1,5 @@
-use crate::instruments::cds::types::CreditDefaultSwap;
 use crate::instruments::cds::pricing::engine::CDSPricer;
+use crate::instruments::cds::types::CreditDefaultSwap;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::traits::{Discounting, Survival};

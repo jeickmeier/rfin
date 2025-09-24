@@ -17,8 +17,8 @@ impl BondEngine {
         let flows = bond.build_schedule(context, as_of)?;
         let disc = context
             .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                bond.disc_id.as_str(),
-            )?;
+            bond.disc_id.as_str(),
+        )?;
         // Discount using the curve's own day-count convention for time mapping.
         // Transform (date, amount) -> (df_on_date_curve(date) * amount) and sum.
         if flows.is_empty() {

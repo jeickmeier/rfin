@@ -1,5 +1,5 @@
-use crate::instruments::fx_swap::FxSwap;
 use crate::instruments::fx_swap::pricing::engine::FxSwapPricer;
+use crate::instruments::fx_swap::FxSwap;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 // use macro exported from crate::pricer

@@ -16,17 +16,11 @@ pub trait Discountable {
     fn npv(&self, disc: &dyn Discounting, base: Date, dc: DayCount) -> Self::PVOutput;
 }
 
-/// Compute NPV of dated `Money` flows using a `Discount` curve and `DayCount`.
+/// Compute NPV of dated `Money` flows using a `Discount` curve and `DayCount` with static dispatch.
 ///
-/// Discounts each cashflow to the base date using the provided curve.
-/// All flows must be in the same currency for the calculation to succeed.
-///
-/// # Errors
-/// Returns an error if the flows list is empty.
-///
-/// See unit tests and `examples/` for usage.
-fn npv(
-    disc: &dyn Discounting,
+/// This generic helper avoids dynamic dispatch on the discount curve in tight loops.
+pub fn npv_static<D: Discounting + ?Sized>(
+    disc: &D,
     base: Date,
     dc: DayCount,
     flows: &[(Date, Money)],
@@ -48,6 +42,24 @@ fn npv(
         total = (total + disc_amt)?;
     }
     Ok(total)
+}
+
+/// Compute NPV of dated `Money` flows using a `Discount` curve and `DayCount`.
+///
+/// Discounts each cashflow to the base date using the provided curve.
+/// All flows must be in the same currency for the calculation to succeed.
+///
+/// # Errors
+/// Returns an error if the flows list is empty.
+///
+/// See unit tests and `examples/` for usage.
+fn npv(
+    disc: &dyn Discounting,
+    base: Date,
+    dc: DayCount,
+    flows: &[(Date, Money)],
+) -> finstack_core::Result<Money> {
+    npv_static(disc, base, dc, flows)
 }
 
 impl Discountable for &[(Date, Money)] {

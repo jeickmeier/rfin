@@ -62,8 +62,14 @@ impl PricerKey {
 #[derive(Debug)]
 pub enum PricingError {
     UnknownPricer(PricerKey),
-    TypeMismatch { expected: InstrumentKey, got: InstrumentKey },
-    TypeErasedMismatch { expected: InstrumentKey, got: InstrumentKey },
+    TypeMismatch {
+        expected: InstrumentKey,
+        got: InstrumentKey,
+    },
+    TypeErasedMismatch {
+        expected: InstrumentKey,
+        got: InstrumentKey,
+    },
     ModelFailure(String),
 }
 
@@ -110,19 +116,36 @@ impl<T: Priceable + 'static> PriceableExt for T {
             _ => InstrumentKey::Deposit,
         }
     }
-    fn as_any(&self) -> &dyn core::any::Any { self }
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
+    }
 }
 
-pub fn expect_inst<T: PriceableExt + 'static>(inst: &dyn PriceableExt, expected: InstrumentKey) -> std::result::Result<&T, PricingError> {
+pub fn expect_inst<T: PriceableExt + 'static>(
+    inst: &dyn PriceableExt,
+    expected: InstrumentKey,
+) -> std::result::Result<&T, PricingError> {
     if inst.key() != expected {
-        return Err(PricingError::TypeMismatch { expected, got: inst.key() });
+        return Err(PricingError::TypeMismatch {
+            expected,
+            got: inst.key(),
+        });
     }
-    inst.as_any().downcast_ref::<T>().ok_or_else(|| PricingError::TypeErasedMismatch { expected, got: inst.key() })
+    inst.as_any()
+        .downcast_ref::<T>()
+        .ok_or_else(|| PricingError::TypeErasedMismatch {
+            expected,
+            got: inst.key(),
+        })
 }
 
 pub trait Pricer: Send + Sync {
     fn key(&self) -> PricerKey;
-    fn price_dyn(&self, instrument: &dyn PriceableExt, market: &Market) -> std::result::Result<crate::results::ValuationResult, PricingError>;
+    fn price_dyn(
+        &self,
+        instrument: &dyn PriceableExt,
+        market: &Market,
+    ) -> std::result::Result<crate::results::ValuationResult, PricingError>;
 }
 
 // ========================= REGISTRY MACRO =========================
@@ -161,11 +184,17 @@ macro_rules! pricers {
 // ========================= DIAGNOSTICS =========================
 
 // Diagnostic macro; currently a no-op to avoid feature gating warnings.
-macro_rules! trace_price { ($($t:tt)*) => {}; }
+macro_rules! trace_price {
+    ($($t:tt)*) => {};
+}
 
 // ========================= PUBLIC API =========================
 
-pub fn price(instrument: &dyn PriceableExt, model: ModelKey, market: &Market) -> std::result::Result<crate::results::ValuationResult, PricingError> {
+pub fn price(
+    instrument: &dyn PriceableExt,
+    model: ModelKey,
+    market: &Market,
+) -> std::result::Result<crate::results::ValuationResult, PricingError> {
     let key = PricerKey::new(instrument.key(), model);
     if let Some(p) = crate::instruments::registry::resolve(key) {
         trace_price!(key, instrument);
@@ -267,5 +296,3 @@ mod tests {
         assert!(set.is_empty());
     }
 }
-
-

@@ -43,7 +43,7 @@ use smallvec::SmallVec;
 use time::{Date, Duration};
 
 use super::{adjust, next_cds_date, BusinessDayConvention, HolidayCalendar};
-use crate::dates::utils::{add_months, is_leap_year};
+use crate::dates::utils::{add_months, last_day_of_month};
 
 /// Small helper alias when we need to pre-buffer (used only for `ShortFront`).
 type Buffer = SmallVec<[Date; 32]>;
@@ -148,26 +148,23 @@ impl Step {
 /// Apply End-of-Month (EOM) convention to a date.
 /// Returns the last day of the month for the given date.
 fn apply_eom(date: Date) -> Date {
-    use time::Month;
+    last_day_of_month(date)
+}
 
-    let year = date.year();
-    let month = date.month();
+#[inline]
+fn maybe_eom(eom: bool, d: Date) -> Date {
+    if eom {
+        apply_eom(d)
+    } else {
+        d
+    }
+}
 
-    // Get the last day of this month
-    let last_day = match month {
-        Month::February => {
-            // Check if it's a leap year
-            if is_leap_year(year) {
-                29
-            } else {
-                28
-            }
-        }
-        Month::April | Month::June | Month::September | Month::November => 30,
-        _ => 31,
-    };
-
-    Date::from_calendar_date(year, month, last_day).unwrap_or(date)
+#[inline]
+fn push_if_new(buf: &mut Buffer, d: Date) {
+    if buf.last().copied() != Some(d) {
+        buf.push(d)
+    }
 }
 
 /// Concrete schedule containing generated anchor dates.
@@ -358,21 +355,18 @@ impl BuilderInternal {
 
     fn gen_regular(self, step: Step) -> Vec<Date> {
         let mut buf: Buffer = Buffer::new();
-        let (mut dt, end) = if self.eom {
-            (apply_eom(self.start), apply_eom(self.end))
-        } else {
-            (self.start, self.end)
-        };
+        let (mut dt, end) = (
+            maybe_eom(self.eom, self.start),
+            maybe_eom(self.eom, self.end),
+        );
         buf.push(dt);
         while dt < end {
             let mut next = step.add(dt);
             if next > end {
                 next = end;
             }
-            dt = if self.eom { apply_eom(next) } else { next };
-            if dt != *buf.last().unwrap() {
-                buf.push(dt);
-            }
+            dt = maybe_eom(self.eom, next);
+            push_if_new(&mut buf, dt);
         }
         buf.into_vec()
     }
@@ -383,10 +377,8 @@ impl BuilderInternal {
         let mut dt = self.end;
         let target = self.start;
         loop {
-            let date_to_add = if self.eom { apply_eom(dt) } else { dt };
-            if buf.last().copied() != Some(date_to_add) {
-                buf.push(date_to_add);
-            }
+            let date_to_add = maybe_eom(self.eom, dt);
+            push_if_new(&mut buf, date_to_add);
             if dt == target {
                 break;
             }
@@ -417,16 +409,10 @@ impl BuilderInternal {
                 break;
             }
         }
-        buf.push(if self.eom {
-            apply_eom(self.start)
-        } else {
-            self.start
-        });
+        buf.push(maybe_eom(self.eom, self.start));
         for &a in anchors.iter().rev() {
-            let d = if self.eom { apply_eom(a) } else { a };
-            if d != *buf.last().unwrap() {
-                buf.push(d);
-            }
+            let d = maybe_eom(self.eom, a);
+            push_if_new(&mut buf, d);
         }
         buf.into_vec()
     }
@@ -434,25 +420,17 @@ impl BuilderInternal {
     fn gen_long_back(self, step: Step) -> Vec<Date> {
         let mut buf: Buffer = Buffer::new();
         let mut dt = self.start;
-        buf.push(if self.eom { apply_eom(dt) } else { dt });
+        buf.push(maybe_eom(self.eom, dt));
         while dt < self.end {
             let next = step.add(dt);
             let next_after = step.add(next);
             if next_after >= self.end {
-                let end_date = if self.eom {
-                    apply_eom(self.end)
-                } else {
-                    self.end
-                };
-                if end_date != *buf.last().unwrap() {
-                    buf.push(end_date);
-                }
+                let end_date = maybe_eom(self.eom, self.end);
+                push_if_new(&mut buf, end_date);
                 break;
             } else {
-                let d = if self.eom { apply_eom(next) } else { next };
-                if d != *buf.last().unwrap() {
-                    buf.push(d);
-                }
+                let d = maybe_eom(self.eom, next);
+                push_if_new(&mut buf, d);
                 dt = next;
             }
         }

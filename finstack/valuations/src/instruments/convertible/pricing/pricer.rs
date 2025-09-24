@@ -1,5 +1,7 @@
+use crate::instruments::convertible::pricing::engine::{
+    price_convertible_bond, ConvertibleTreeType,
+};
 use crate::instruments::convertible::ConvertibleBond;
-use crate::instruments::convertible::pricing::engine::{price_convertible_bond, ConvertibleTreeType};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 // use macro exported from crate::pricer

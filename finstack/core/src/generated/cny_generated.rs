@@ -200,6 +200,5 @@ pub(crate) fn cny_date_for_year(year: i32) -> Option<(u8, u8)> {
 #[inline]
 pub(crate) fn is_cny_date(year: i32, month: u8, day: u8) -> bool {
     CNY_DATES_MAP
-        .get(&year)
-        .map_or(false, |&(m, d)| m == month && d == day)
+        .get(&year).is_some_and(|&(m, d)| m == month && d == day)
 }

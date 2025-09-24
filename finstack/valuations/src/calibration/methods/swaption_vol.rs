@@ -232,7 +232,7 @@ impl SwaptionVolCalibrator {
         let swap_end = add_months(expiry, (tenor_years * 12.0) as i32);
 
         let swaption = Swaption {
-            id: "temp".to_string(),
+            id: "temp".into(),
             option_type: crate::instruments::common::parameters::OptionType::Call,
             notional: Money::new(1_000_000.0, self.currency),
             strike_rate: 0.0,

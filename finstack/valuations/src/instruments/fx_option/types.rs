@@ -8,6 +8,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 // Pricing/greeks live in pricing engine; keep types minimal.
 use finstack_core::money::Money;
+use finstack_core::types::InstrumentId;
 use finstack_core::F;
 
 use super::parameters::FxOptionParams;
@@ -15,7 +16,7 @@ use super::parameters::FxOptionParams;
 /// FX option instrument (Garman-Kohlhagen model)
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct FxOption {
-    pub id: String,
+    pub id: InstrumentId,
     pub base_currency: Currency,
     pub quote_currency: Currency,
     pub strike: F,
@@ -35,7 +36,7 @@ pub struct FxOption {
 impl FxOption {
     /// Create a European call option on an FX pair with standard conventions.
     pub fn european_call(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         base_currency: Currency,
         quote_currency: Currency,
         strike: F,
@@ -72,7 +73,7 @@ impl FxOption {
 
     /// Create a European put option on an FX pair with standard conventions.
     pub fn european_put(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         base_currency: Currency,
         quote_currency: Currency,
         strike: F,
@@ -109,7 +110,7 @@ impl FxOption {
 
     /// Create a new FX option using parameter structs
     pub fn new(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         option_params: &FxOptionParams,
         underlying_params: &FxUnderlyingParams,
         vol_id: &'static str,

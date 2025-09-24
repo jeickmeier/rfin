@@ -582,7 +582,7 @@ mod tests {
         // Create simple pool with one asset
         let mut pool = AssetPool::new("TEST", DealType::CLO, Currency::USD);
         pool.assets.push(PoolAsset {
-            id: "ASSET1".to_string(),
+            id: "ASSET1".into(),
             asset_type: AssetType::Loan {
                 loan_type: LoanType::FirstLien,
                 industry: None,

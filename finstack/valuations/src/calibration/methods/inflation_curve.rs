@@ -202,7 +202,8 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 )?;
 
             // Provide a 'static discount id for instrument builder requirements
-            let disc_id_static: &'static str = Box::leak(self.discount_id.as_str().to_string().into_boxed_str());
+            let disc_id_static: &'static str =
+                Box::leak(self.discount_id.as_str().to_string().into_boxed_str());
 
             // Note: We don't require an inflation index during calibration; the index is provided by caller when repricing.
 
@@ -273,7 +274,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
 
                     // Build synthetic ZC inflation swap matching the quote
                     let swap = match InflationSwap::builder()
-                        .id(format!("CALIB_ZCIS_{}", maturity))
+                        .id(format!("CALIB_ZCIS_{}", maturity).into())
                         .notional(notional)
                         .start(base_date)
                         .maturity(maturity)
@@ -360,7 +361,8 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 .map_err(|e| finstack_core::Error::Calibration {
                     message: format!(
                         "Calibrated inflation curve {} failed validation: {}",
-                        self.curve_id.as_str(), e
+                        self.curve_id.as_str(),
+                        e
                     ),
                     category: "inflation_curve_validation".to_string(),
                 })?;
@@ -575,8 +577,8 @@ mod tests {
         // Reprice each quoted inflation swap; PV per $1MM should be <= $1
         for q in quotes {
             if let InflationQuote::InflationSwap { maturity, rate, .. } = q {
-                let swap = InflationSwap::builder()
-                    .id(format!("ZCIS-{}", maturity))
+                    let swap = InflationSwap::builder()
+                    .id(format!("ZCIS-{}", maturity).into())
                     .notional(finstack_core::money::Money::new(1_000_000.0, Currency::USD))
                     .start(base_date)
                     .maturity(maturity)

@@ -4,8 +4,8 @@
 //! underlying swap annuity. Uses SABR-implied vol if parameters are set,
 //! otherwise uses the volatility surface or an override from `PricingOverrides`.
 
-use crate::instruments::swaption::Swaption;
 use crate::instruments::common::parameters::OptionType;
+use crate::instruments::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::prelude::Result;
 use finstack_core::F;

@@ -57,5 +57,3 @@ pub use super::common::discountable;
 pub use super::common::macros;
 pub use super::common::parameters;
 pub use super::common::traits;
-
-

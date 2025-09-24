@@ -4,6 +4,7 @@ use crate::instruments::common::traits::Attributes;
 use finstack_core::market_data::scalars::inflation_index::InflationLag;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
+use finstack_core::types::InstrumentId;
 use finstack_core::F;
 
 /// Direction from the perspective of paying fixed real vs receiving inflation
@@ -22,7 +23,7 @@ pub enum PayReceiveInflation {
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct InflationSwap {
     /// Unique instrument identifier
-    pub id: String,
+    pub id: InstrumentId,
     /// Notional in quote currency
     pub notional: Money,
     /// Start date of indexation

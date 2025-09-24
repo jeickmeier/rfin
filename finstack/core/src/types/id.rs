@@ -9,6 +9,7 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
+use std::ops::Deref;
 use std::sync::Arc;
 
 #[cfg(feature = "serde")]
@@ -137,6 +138,14 @@ impl<T: TypeTag> AsRef<str> for Id<T> {
     }
 }
 
+impl<T: TypeTag> Deref for Id<T> {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
 impl<T: TypeTag> std::borrow::Borrow<str> for Id<T> {
     fn borrow(&self) -> &str {
         &self.value
@@ -188,6 +197,10 @@ pub struct CounterpartyTag;
 #[derive(Debug, Clone, Copy, Default)]
 pub struct IndexTag;
 
+/// Marker type for price/market-scalar identifiers
+#[derive(Debug, Clone, Copy, Default)]
+pub struct PriceTag;
+
 /// Type aliases for common ID types
 /// Type-safe identifier for market data curves
 pub type CurveId = Id<CurveTag>;
@@ -205,6 +218,8 @@ pub type InstrumentId = Id<InstrumentTag>;
 pub type CounterpartyId = Id<CounterpartyTag>;
 /// Type-safe identifier for market indices
 pub type IndexId = Id<IndexTag>;
+/// Type-safe identifier for market prices/scalars
+pub type PriceId = Id<PriceTag>;
 
 #[cfg(test)]
 mod tests {

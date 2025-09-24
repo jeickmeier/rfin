@@ -20,6 +20,7 @@
 //! - Prefer `is_business_day` for scheduling and adjustment logic. Use
 //!   [`crate::dates::calendar::is_weekend`] if you need to only detect Saturday/Sunday.
 
+pub(crate) mod algo;
 pub mod composite;
 pub mod core;
 pub mod generated;

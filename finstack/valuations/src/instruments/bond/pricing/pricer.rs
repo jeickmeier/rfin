@@ -1,6 +1,6 @@
-use crate::instruments::bond::types::Bond;
 use crate::instruments::bond::pricing::tree_pricer::TreePricer;
- 
+use crate::instruments::bond::types::Bond;
+
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use indexmap::IndexMap;
 
@@ -29,11 +29,18 @@ impl OasPricer {
     }
 }
 
-impl Default for OasPricer { fn default() -> Self { Self::new() } }
+impl Default for OasPricer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl crate::pricer::Pricer for OasPricer {
     fn key(&self) -> crate::pricer::PricerKey {
-        crate::pricer::PricerKey::new(crate::pricer::InstrumentKey::Bond, crate::pricer::ModelKey::Tree)
+        crate::pricer::PricerKey::new(
+            crate::pricer::InstrumentKey::Bond,
+            crate::pricer::ModelKey::Tree,
+        )
     }
 
     fn price_dyn(
@@ -74,5 +81,3 @@ impl crate::pricer::Pricer for OasPricer {
         __OasMacroPricer::new().price_dyn(instrument, market)
     }
 }
-
-

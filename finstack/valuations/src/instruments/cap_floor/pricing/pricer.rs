@@ -1,5 +1,5 @@
-use crate::instruments::cap_floor::InterestRateOption;
 use crate::instruments::cap_floor::pricing::engine::IrOptionPricer;
+use crate::instruments::cap_floor::InterestRateOption;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 // use macro exported from crate::pricer

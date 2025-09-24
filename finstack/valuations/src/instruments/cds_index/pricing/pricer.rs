@@ -1,5 +1,5 @@
-use crate::instruments::cds_index::CDSIndex;
 use crate::instruments::cds_index::pricing::engine::CDSIndexPricer;
+use crate::instruments::cds_index::CDSIndex;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 // use macro exported from crate::pricer

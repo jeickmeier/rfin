@@ -1,5 +1,5 @@
-use crate::instruments::cds_tranche::CdsTranche;
 use crate::instruments::cds_tranche::pricing::engine::CDSTranchePricer;
+use crate::instruments::cds_tranche::CdsTranche;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 // use macro exported from crate::pricer

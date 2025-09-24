@@ -11,6 +11,7 @@ use crate::instruments::cds::CreditParams;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::money::Money;
+use finstack_core::types::InstrumentId;
 
 // Reuse CDS components for conventions and legs
 use crate::instruments::cds::{
@@ -43,7 +44,7 @@ pub struct CDSIndexConstituent {
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct CDSIndex {
     /// Unique instrument identifier
-    pub id: String,
+    pub id: InstrumentId,
     /// Index name, e.g., "CDX.NA.IG", "CDX.NA.HY", "iTraxx Europe"
     pub index_name: String,
     /// Series number (e.g., 42)
@@ -76,7 +77,7 @@ impl CDSIndex {
     /// Create a new CDS Index with standard ISDA conventions using parameter structs
     #[allow(clippy::too_many_arguments)]
     pub fn new_standard(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         index_params: &CDSIndexParams,
         construction_params: &CDSIndexConstructionParams,
         start: finstack_core::dates::Date,

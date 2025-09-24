@@ -7,6 +7,7 @@
 //! Implementing `Rule::applies(&self, date)` once keeps the codebase compact
 //! and avoids dozens of tiny helper structs.
 
+use crate::dates::calendar::algo;
 use crate::dates::calendar::core::HolidayCalendar;
 use time::{Date, Duration, Month, Weekday};
 
@@ -141,45 +142,9 @@ impl Rule {
 
 // is_leap_year and add_months provided by shared utils
 
-/// Compute Easter Monday using the algorithm from the previous `easter_offset` module.
-fn easter_monday(year: i32) -> Date {
-    let a = year % 19;
-    let b = year / 100;
-    let c = year % 100;
-    let d = b / 4;
-    let e = b % 4;
-    let f = (b + 8) / 25;
-    let g = (b - f + 1) / 3;
-    let h = (19 * a + b - d - g + 15) % 30;
-    let i = c / 4;
-    let k = c % 4;
-    let l = (32 + 2 * e + 2 * i - h - k) % 7;
-    let m = (a + 11 * h + 22 * l) / 451;
-    let month_num = (h + l - 7 * m + 114) / 31; // 3=March 4=April
-    let day = ((h + l - 7 * m + 114) % 31) + 1; // Easter Sunday
-    let month = if month_num == 3 {
-        Month::March
-    } else {
-        Month::April
-    };
-    let easter_sunday = Date::from_calendar_date(year, month, day as u8).unwrap();
-    easter_sunday + Duration::days(1) // Easter Monday = Sunday +1
-}
+// Easter Monday is now provided by calendar::algo
 
-// Chinese New Year (Spring Festival) Gregorian dates – now generated from CSV.
-// Coverage: 1970-2150 (matches holiday bitset range).
-include!(concat!(env!("OUT_DIR"), "/cny_generated.rs"));
-
-#[inline]
-fn is_cny(date: Date) -> bool {
-    is_cny_date(date.year(), date.month() as u8, date.day())
-}
-
-#[inline]
-fn cny_date(year: i32) -> Option<Date> {
-    cny_date_for_year(year)
-        .and_then(|(m, d)| Date::from_calendar_date(year, Month::try_from(m).ok()?, d).ok())
-}
+// Chinese New Year helpers now provided by calendar::algo
 
 // Add helper to compute Qing Ming day
 fn qing_ming_day(year: i32) -> u8 {
@@ -189,7 +154,7 @@ fn qing_ming_day(year: i32) -> u8 {
 
 // Helper for Buddha's Birthday approximation (CNY +95 days)
 fn buddhas_birthday_date(year: i32) -> Option<Date> {
-    cny_date(year).map(|cny| cny + Duration::days(95))
+    algo::cny_date(year).map(|cny| cny + Duration::days(95))
 }
 
 fn vernal_equinox_jp(year: i32) -> Date {
@@ -202,6 +167,65 @@ fn autumnal_equinox_jp(year: i32) -> Date {
     let y = year - 1980;
     let day = (23.2488 + 0.242194 * y as f64 - ((y / 4) as f64).floor()).floor() as u8;
     Date::from_calendar_date(year, Month::September, day).unwrap()
+}
+
+#[inline]
+fn apply_observed(mut base: Date, observed: Observed) -> Date {
+    match observed {
+        Observed::None => {}
+        Observed::NextMonday => {
+            if matches!(base.weekday(), Weekday::Saturday) {
+                base += Duration::days(2);
+            } else if matches!(base.weekday(), Weekday::Sunday) {
+                base += Duration::days(1);
+            }
+        }
+        Observed::FriIfSatMonIfSun => {
+            if matches!(base.weekday(), Weekday::Saturday) {
+                base -= Duration::days(1);
+            } else if matches!(base.weekday(), Weekday::Sunday) {
+                base += Duration::days(1);
+            }
+        }
+    }
+    base
+}
+
+#[inline]
+fn shift_to_weekday(mut d: Date, weekday: Weekday, dir: Direction) -> Date {
+    match dir {
+        Direction::After => {
+            while d.weekday() != weekday {
+                d += Duration::days(1);
+            }
+        }
+        Direction::Before => {
+            while d.weekday() != weekday {
+                d -= Duration::days(1);
+            }
+        }
+    }
+    d
+}
+
+// ---------------------------------------------------------------------------
+// Reusable span materialization helper
+// ---------------------------------------------------------------------------
+#[inline]
+fn push_span_range<A: smallvec::Array<Item = Date>>(
+    out: &mut smallvec::SmallVec<A>,
+    starts: &[Date],
+    len: u8,
+) {
+    if len == 0 {
+        return;
+    }
+    let span_days = len as i64;
+    for &sd in starts {
+        for k in 0..span_days {
+            out.push(sd + Duration::days(k));
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -217,24 +241,10 @@ impl Rule {
                 day,
                 observed,
             } => {
-                let mut base = Date::from_calendar_date(date.year(), *month, *day).unwrap();
-                match observed {
-                    Observed::None => { /* keep base */ }
-                    Observed::NextMonday => {
-                        if matches!(base.weekday(), Weekday::Saturday) {
-                            base += Duration::days(2);
-                        } else if matches!(base.weekday(), Weekday::Sunday) {
-                            base += Duration::days(1);
-                        }
-                    }
-                    Observed::FriIfSatMonIfSun => {
-                        if matches!(base.weekday(), Weekday::Saturday) {
-                            base -= Duration::days(1);
-                        } else if matches!(base.weekday(), Weekday::Sunday) {
-                            base += Duration::days(1);
-                        }
-                    }
-                }
+                let base = apply_observed(
+                    Date::from_calendar_date(date.year(), *month, *day).unwrap(),
+                    *observed,
+                );
                 base == date
             }
             Rule::NthWeekday { n, weekday, month } => {
@@ -252,23 +262,12 @@ impl Rule {
                 day,
                 dir,
             } => {
-                let mut d = Date::from_calendar_date(date.year(), *month, *day).unwrap();
-                match dir {
-                    Direction::After => {
-                        while d.weekday() != *weekday {
-                            d += Duration::days(1);
-                        }
-                    }
-                    Direction::Before => {
-                        while d.weekday() != *weekday {
-                            d -= Duration::days(1);
-                        }
-                    }
-                }
+                let base = Date::from_calendar_date(date.year(), *month, *day).unwrap();
+                let d = shift_to_weekday(base, *weekday, *dir);
                 d == date
             }
             Rule::EasterOffset(offset) => {
-                let easter_mon = easter_monday(date.year());
+                let easter_mon = algo::easter_monday(date.year());
                 let target = easter_mon + Duration::days(*offset as i64);
                 target == date
             }
@@ -289,7 +288,7 @@ impl Rule {
                 }
                 false
             }
-            Rule::ChineseNewYear => is_cny(date),
+            Rule::ChineseNewYear => algo::is_cny(date),
             Rule::QingMing => {
                 date.month() == Month::April && date.day() == qing_ming_day(date.year())
             }
@@ -316,24 +315,10 @@ impl Rule {
                 day,
                 observed,
             } => {
-                let mut base = Date::from_calendar_date(year, *month, *day).unwrap();
-                match observed {
-                    Observed::None => {}
-                    Observed::NextMonday => {
-                        if matches!(base.weekday(), Weekday::Saturday) {
-                            base += Duration::days(2);
-                        } else if matches!(base.weekday(), Weekday::Sunday) {
-                            base += Duration::days(1);
-                        }
-                    }
-                    Observed::FriIfSatMonIfSun => {
-                        if matches!(base.weekday(), Weekday::Saturday) {
-                            base -= Duration::days(1);
-                        } else if matches!(base.weekday(), Weekday::Sunday) {
-                            base += Duration::days(1);
-                        }
-                    }
-                }
+                let base = apply_observed(
+                    Date::from_calendar_date(year, *month, *day).unwrap(),
+                    *observed,
+                );
                 out.push(base);
             }
             Rule::NthWeekday { n, weekday, month } => {
@@ -348,23 +333,11 @@ impl Rule {
                 day,
                 dir,
             } => {
-                let mut d = Date::from_calendar_date(year, *month, *day).unwrap();
-                match dir {
-                    Direction::After => {
-                        while d.weekday() != *weekday {
-                            d += Duration::days(1);
-                        }
-                    }
-                    Direction::Before => {
-                        while d.weekday() != *weekday {
-                            d -= Duration::days(1);
-                        }
-                    }
-                }
-                out.push(d);
+                let base = Date::from_calendar_date(year, *month, *day).unwrap();
+                out.push(shift_to_weekday(base, *weekday, *dir));
             }
             Rule::EasterOffset(offset) => {
-                let em = easter_monday(year);
+                let em = algo::easter_monday(year);
                 out.push(em + Duration::days(*offset as i64));
             }
             Rule::Span { start, len } => {
@@ -374,14 +347,10 @@ impl Rule {
                 if *len > 1 {
                     start.materialize_year(year - 1, &mut tmp);
                 }
-                for sd in tmp {
-                    for k in 0..*len as i64 {
-                        out.push(sd + Duration::days(k));
-                    }
-                }
+                push_span_range(out, &tmp, *len);
             }
             Rule::ChineseNewYear => {
-                if let Some(d) = cny_date(year) {
+                if let Some(d) = algo::cny_date(year) {
                     out.push(d);
                 }
             }

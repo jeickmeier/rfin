@@ -1,7 +1,7 @@
-use crate::instruments::basket::Basket;
-use crate::instruments::basket::pricing::engine::BasketPricer;
-use finstack_core::dates::Date;
 use crate::impl_dyn_pricer;
+use crate::instruments::basket::pricing::engine::BasketPricer;
+use crate::instruments::basket::Basket;
+use finstack_core::dates::Date;
 
 impl_dyn_pricer!(
     name: DiscountingPricer,

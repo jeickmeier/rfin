@@ -40,6 +40,9 @@
 
 pub use time::{Date, OffsetDateTime, PrimitiveDateTime};
 
+// Small, stack-optimized buffer for temporary date collections used in rules/bitsets.
+pub(crate) type DateBuf = smallvec::SmallVec<[Date; 64]>;
+
 mod date_extensions;
 
 // Publicly re-export the extension traits so downstream crates can `use finstack_core::dates::DateExt`.
@@ -75,4 +78,7 @@ mod periods;
 pub use periods::{build_fiscal_periods, build_periods, FiscalConfig, Period, PeriodId, PeriodKey};
 
 pub mod utils;
-pub use utils::{add_months, date_to_days_since_epoch, days_since_epoch_to_date, is_leap_year};
+pub use utils::{
+    add_months, date_to_days_since_epoch, days_in_month, days_since_epoch_to_date, is_leap_year,
+    last_day_of_month,
+};

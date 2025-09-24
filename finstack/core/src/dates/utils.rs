@@ -45,6 +45,32 @@ pub fn add_months(date: Date, months: i32) -> Date {
     Date::from_calendar_date(new_year, new_month, new_day).unwrap()
 }
 
+/// Get the number of days in a month for a given `year` and 1-12 `month`.
+#[inline]
+pub fn days_in_month(year: i32, month: u8) -> u8 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            if is_leap_year(year) {
+                29
+            } else {
+                28
+            }
+        }
+        _ => panic!("Invalid month: {}", month),
+    }
+}
+
+/// Return the last day-of-month date for the month containing `date`.
+#[inline]
+pub fn last_day_of_month(date: Date) -> Date {
+    let y = date.year();
+    let m = date.month();
+    let d = days_in_month(y, m as u8);
+    Date::from_calendar_date(y, m, d).unwrap_or(date)
+}
+
 /// Convert a `Date` to the number of days since the Unix epoch (1970-01-01).
 #[inline]
 pub fn date_to_days_since_epoch(date: Date) -> i32 {

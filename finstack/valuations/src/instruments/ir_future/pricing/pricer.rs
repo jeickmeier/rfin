@@ -1,5 +1,5 @@
-use crate::instruments::ir_future::InterestRateFuture;
 use crate::instruments::ir_future::pricing::engine::IrFutureEngine;
+use crate::instruments::ir_future::InterestRateFuture;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 impl_dyn_pricer!(

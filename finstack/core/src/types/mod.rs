@@ -20,8 +20,8 @@ pub mod id;
 pub mod rates;
 
 pub use id::{
-    CounterpartyId, CurveId, Id, InstrumentId, PortfolioId, PositionId, ScenarioId, TradeId,
-    TypeTag,
+    CounterpartyId, CurveId, Id, InstrumentId, PortfolioId, PositionId, PriceId, ScenarioId,
+    TradeId, TypeTag,
 };
 pub use rates::{Bps, Percentage, Rate};
 

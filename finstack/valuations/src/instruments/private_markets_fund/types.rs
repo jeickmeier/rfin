@@ -8,13 +8,14 @@ use crate::instruments::private_markets_fund::waterfall::{
 use crate::metrics::MetricRegistry;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
+use finstack_core::types::InstrumentId;
 
 /// Private markets fund investment instrument.
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct PrivateMarketsFund {
-    pub id: String,
+    pub id: InstrumentId,
     pub currency: Currency,
     pub spec: WaterfallSpec,
     pub events: Vec<FundEvent>,
@@ -24,7 +25,7 @@ pub struct PrivateMarketsFund {
 
 impl PrivateMarketsFund {
     pub fn new(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         currency: Currency,
         spec: WaterfallSpec,
         events: Vec<FundEvent>,
@@ -67,7 +68,7 @@ crate::impl_attributable!(PrivateMarketsFund);
 
 impl Instrument for PrivateMarketsFund {
     fn id(&self) -> &str {
-        &self.id
+        self.id.as_str()
     }
     fn instrument_type(&self) -> &'static str {
         "PrivateMarketsFund"

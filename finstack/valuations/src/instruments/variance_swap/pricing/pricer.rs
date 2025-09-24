@@ -1,5 +1,5 @@
-use crate::instruments::variance_swap::VarianceSwap;
 use crate::instruments::variance_swap::pricing::engine;
+use crate::instruments::variance_swap::VarianceSwap;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 // use macro exported from crate::pricer

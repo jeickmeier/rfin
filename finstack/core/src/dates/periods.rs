@@ -6,7 +6,7 @@
 //! "2024Q4..2025Q2" (absolute). Tracks actual vs forecast flags per period.
 //! Note: weekly periods are non-ISO, defined as 7-day blocks anchored at Jan-01.
 
-use crate::dates::utils::add_months;
+use crate::dates::utils::{add_months, days_in_month};
 use crate::dates::Date;
 use core::fmt;
 use core::str::FromStr;
@@ -441,22 +441,7 @@ fn fiscal_year_start(fiscal_year: i32, config: FiscalConfig) -> Date {
     })
 }
 
-/// Get the number of days in a month
-pub fn days_in_month(year: i32, month: u8) -> u8 {
-    match month {
-        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-        4 | 6 | 9 | 11 => 30,
-        2 => {
-            // Check for leap year
-            if crate::dates::utils::is_leap_year(year) {
-                29
-            } else {
-                28
-            }
-        }
-        _ => panic!("Invalid month: {}", month),
-    }
-}
+// days_in_month moved to crate::dates::utils for single source of truth
 
 fn parse_range(s: &str) -> crate::Result<(PeriodId, PeriodId)> {
     let s = s.trim();

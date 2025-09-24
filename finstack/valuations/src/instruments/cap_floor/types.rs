@@ -5,6 +5,7 @@ use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, SettlementType};
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::money::Money;
+use finstack_core::types::InstrumentId;
 use finstack_core::F;
 
 use super::parameters::InterestRateOptionParams;
@@ -26,7 +27,7 @@ pub enum RateOptionType {
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct InterestRateOption {
     /// Unique instrument identifier
-    pub id: String,
+    pub id: InstrumentId,
     /// Option type
     pub rate_option_type: RateOptionType,
     /// Notional amount
@@ -66,7 +67,7 @@ pub struct InterestRateOption {
 impl InterestRateOption {
     /// Create a new interest rate option using parameter structs
     pub fn new(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         option_params: &InterestRateOptionParams,
         start_date: Date,
         end_date: Date,
@@ -99,7 +100,7 @@ impl InterestRateOption {
     /// Create a cap instrument using parameter structs
     #[allow(clippy::too_many_arguments)]
     pub fn new_cap(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         notional: Money,
         strike_rate: F,
         start_date: Date,
@@ -126,7 +127,7 @@ impl InterestRateOption {
     /// Create a floor instrument using parameter structs
     #[allow(clippy::too_many_arguments)]
     pub fn new_floor(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         notional: Money,
         strike_rate: F,
         start_date: Date,

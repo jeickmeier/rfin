@@ -1,5 +1,5 @@
-use crate::instruments::inflation_linked_bond::InflationLinkedBond;
 use crate::instruments::inflation_linked_bond::pricing::engine::InflationLinkedBondEngine;
+use crate::instruments::inflation_linked_bond::InflationLinkedBond;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 // use macro exported from crate::pricer

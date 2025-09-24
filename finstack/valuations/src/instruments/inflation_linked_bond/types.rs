@@ -6,6 +6,7 @@ use finstack_core::market_data::scalars::inflation_index::{InflationIndex, Infla
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
+use finstack_core::types::InstrumentId;
 use finstack_core::F;
 
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
@@ -59,7 +60,7 @@ pub enum DeflationProtection {
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct InflationLinkedBond {
     /// Unique instrument identifier
-    pub id: String,
+    pub id: InstrumentId,
     /// Notional amount (in real terms)
     pub notional: Money,
     /// Real coupon rate (as decimal)
@@ -101,7 +102,7 @@ pub struct InflationLinkedBond {
 impl InflationLinkedBond {
     /// Create a new US TIPS bond using parameter structs
     pub fn new_tips(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         bond_params: &InflationLinkedBondParams,
         disc_id: impl Into<CurveId>,
         inflation_id: impl Into<CurveId>,
@@ -131,7 +132,7 @@ impl InflationLinkedBond {
 
     /// Create a new UK Index-Linked Gilt using parameter structs
     pub fn new_uk_linker(
-        id: impl Into<String>,
+        id: impl Into<InstrumentId>,
         bond_params: &InflationLinkedBondParams,
         base_date: Date,
         disc_id: impl Into<CurveId>,
