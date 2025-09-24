@@ -8,7 +8,7 @@
 
 use crate::instruments::common::models::{d1, d2};
 use crate::instruments::fx_option::types::FxOption;
-use crate::instruments::OptionType;
+use crate::instruments::common::parameters::OptionType;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::math::solver::{HybridSolver, Solver};
@@ -61,8 +61,8 @@ impl FxOptionPricer {
         if t <= 0.0 {
             // Expired: intrinsic value only
             let intrinsic = match inst.option_type {
-                crate::instruments::OptionType::Call => (spot - inst.strike).max(0.0),
-                crate::instruments::OptionType::Put => (inst.strike - spot).max(0.0),
+                crate::instruments::common::parameters::OptionType::Call => (spot - inst.strike).max(0.0),
+                crate::instruments::common::parameters::OptionType::Put => (inst.strike - spot).max(0.0),
             };
             return Ok(Money::new(
                 intrinsic * inst.notional.amount(),
@@ -181,8 +181,8 @@ impl FxOptionPricer {
     ) -> Result<Money> {
         if t <= 0.0 {
             let intrinsic = match inst.option_type {
-                crate::instruments::OptionType::Call => (spot - inst.strike).max(0.0),
-                crate::instruments::OptionType::Put => (inst.strike - spot).max(0.0),
+                crate::instruments::common::parameters::OptionType::Call => (spot - inst.strike).max(0.0),
+                crate::instruments::common::parameters::OptionType::Put => (inst.strike - spot).max(0.0),
             };
             return Ok(Money::new(
                 intrinsic * inst.notional.amount(),
@@ -291,14 +291,14 @@ impl FxOptionPricer {
         if t <= 0.0 {
             let spot_gt_strike = spot > inst.strike;
             let delta_unit = match inst.option_type {
-                crate::instruments::OptionType::Call => {
+                OptionType::Call => {
                     if spot_gt_strike {
                         1.0
                     } else {
                         0.0
                     }
                 }
-                crate::instruments::OptionType::Put => {
+                OptionType::Put => {
                     if !spot_gt_strike {
                         -1.0
                     } else {
@@ -327,8 +327,8 @@ impl FxOptionPricer {
 
         // Unit greeks
         let delta_unit = match inst.option_type {
-            crate::instruments::OptionType::Call => exp_rf_t * cdf_d1,
-            crate::instruments::OptionType::Put => -exp_rf_t * cdf_m_d1,
+            OptionType::Call => exp_rf_t * cdf_d1,
+            OptionType::Put => -exp_rf_t * cdf_m_d1,
         };
         let gamma_unit = if sigma <= 0.0 {
             0.0
@@ -337,13 +337,13 @@ impl FxOptionPricer {
         };
         let vega_unit = spot * exp_rf_t * pdf_d1 * sqrt_t / 100.0; // per 1% vol
         let theta_unit = match inst.option_type {
-            crate::instruments::OptionType::Call => {
+            OptionType::Call => {
                 let term1 = -spot * pdf_d1 * sigma * exp_rf_t / (2.0 * sqrt_t);
                 let term2 = r_f * spot * cdf_d1 * exp_rf_t;
                 let term3 = -r_d * inst.strike * exp_rd_t * cdf_d2;
                 (term1 + term2 + term3) / self.config.theta_days_per_year
             }
-            crate::instruments::OptionType::Put => {
+            OptionType::Put => {
                 let term1 = -spot * pdf_d1 * sigma * exp_rf_t / (2.0 * sqrt_t);
                 let term2 = -r_f * spot * cdf_m_d1 * exp_rf_t;
                 let term3 = r_d * inst.strike * exp_rd_t * cdf_m_d2;
@@ -351,12 +351,12 @@ impl FxOptionPricer {
             }
         };
         let rho_domestic_unit = match inst.option_type {
-            crate::instruments::OptionType::Call => inst.strike * t * exp_rd_t * cdf_d2 / 100.0,
-            crate::instruments::OptionType::Put => -inst.strike * t * exp_rd_t * cdf_m_d2 / 100.0,
+            OptionType::Call => inst.strike * t * exp_rd_t * cdf_d2 / 100.0,
+            OptionType::Put => -inst.strike * t * exp_rd_t * cdf_m_d2 / 100.0,
         };
         let rho_foreign_unit = match inst.option_type {
-            crate::instruments::OptionType::Call => -spot * t * exp_rf_t * cdf_d1 / 100.0,
-            crate::instruments::OptionType::Put => spot * t * exp_rf_t * cdf_m_d1 / 100.0,
+            OptionType::Call => -spot * t * exp_rf_t * cdf_d1 / 100.0,
+            OptionType::Put => spot * t * exp_rf_t * cdf_m_d1 / 100.0,
         };
 
         let scale = inst.notional.amount();

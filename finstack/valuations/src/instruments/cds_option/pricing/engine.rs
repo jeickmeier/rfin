@@ -12,6 +12,7 @@ use crate::instruments::cds::pricing::engine::CDSPricer;
 use crate::instruments::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
 use crate::instruments::cds_option::CdsOption;
 use crate::instruments::common::models::{d1, d2, norm_cdf, norm_pdf};
+use crate::instruments::common::parameters::OptionType;
 use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
 use finstack_core::market_data::MarketContext;
 use finstack_core::math::solver::{HybridSolver, Solver};
@@ -169,10 +170,10 @@ impl CdsOptionPricer {
         };
         if t <= 0.0 {
             let intrinsic = match option.option_type {
-                crate::instruments::OptionType::Call => {
+                OptionType::Call => {
                     (forward_spread_bp - option.strike_spread_bp).max(0.0)
                 }
-                crate::instruments::OptionType::Put => {
+                OptionType::Put => {
                     (option.strike_spread_bp - forward_spread_bp).max(0.0)
                 }
             };
@@ -194,14 +195,14 @@ impl CdsOptionPricer {
         let d2 = d2(forward, strike, 0.0, sigma, t, 0.0);
 
         let value = match option.option_type {
-            crate::instruments::OptionType::Call => {
+            OptionType::Call => {
                 scale
                     * df
                     * risky_annuity
                     * option.notional.amount()
                     * (forward * norm_cdf(d1) - strike * norm_cdf(d2))
             }
-            crate::instruments::OptionType::Put => {
+            OptionType::Put => {
                 scale
                     * df
                     * risky_annuity
@@ -222,14 +223,14 @@ impl CdsOptionPricer {
         };
         if t <= 0.0 || sigma <= 0.0 {
             return match option.option_type {
-                crate::instruments::OptionType::Call => {
+                OptionType::Call => {
                     if forward_spread_bp > option.strike_spread_bp {
                         scale
                     } else {
                         0.0
                     }
                 }
-                crate::instruments::OptionType::Put => {
+                OptionType::Put => {
                     if forward_spread_bp < option.strike_spread_bp {
                         -scale
                     } else {
@@ -245,8 +246,8 @@ impl CdsOptionPricer {
         }
         let d1 = d1(forward, strike, 0.0, sigma, t, 0.0);
         match option.option_type {
-            crate::instruments::OptionType::Call => scale * norm_cdf(d1),
-            crate::instruments::OptionType::Put => -scale * norm_cdf(-d1),
+            OptionType::Call => scale * norm_cdf(d1),
+            OptionType::Put => -scale * norm_cdf(-d1),
         }
     }
 
@@ -311,12 +312,12 @@ impl CdsOptionPricer {
         let d2 = d2(forward, strike, 0.0, sigma, t, 0.0);
         let sqrt_t = t.sqrt();
         match option.option_type {
-            crate::instruments::OptionType::Call => {
+            OptionType::Call => {
                 let term1 = -forward * norm_pdf(d1) * sigma / (2.0 * sqrt_t);
                 let term2 = -r * strike * (-r * t).exp() * norm_cdf(d2);
                 scale * (term1 + term2) * self.config.bp_per_unit / self.config.theta_days_per_year
             }
-            crate::instruments::OptionType::Put => {
+            OptionType::Put => {
                 let term1 = -forward * norm_pdf(d1) * sigma / (2.0 * sqrt_t);
                 let term2 = r * strike * (-r * t).exp() * norm_cdf(-d2);
                 scale * (term1 + term2) * self.config.bp_per_unit / self.config.theta_days_per_year

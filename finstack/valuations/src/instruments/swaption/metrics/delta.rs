@@ -5,7 +5,7 @@
 //! otherwise uses the volatility surface or an override from `PricingOverrides`.
 
 use crate::instruments::swaption::Swaption;
-use crate::instruments::OptionType;
+use crate::instruments::common::parameters::OptionType;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::prelude::Result;
 use finstack_core::F;

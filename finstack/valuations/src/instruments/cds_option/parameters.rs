@@ -1,6 +1,6 @@
 //! Credit option specific parameters.
 
-use crate::instruments::OptionType;
+use crate::instruments::common::parameters::OptionType;
 use finstack_core::{dates::Date, money::Money, F};
 
 /// Credit option specific parameters.

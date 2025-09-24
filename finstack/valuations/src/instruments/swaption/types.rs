@@ -9,7 +9,7 @@
 
 use crate::instruments::common::models::SABRParameters;
 use crate::instruments::common::traits::Attributes;
-use crate::instruments::OptionType;
+use crate::instruments::common::parameters::OptionType;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;

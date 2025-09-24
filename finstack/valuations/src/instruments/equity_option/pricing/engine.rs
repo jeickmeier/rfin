@@ -8,7 +8,7 @@
 
 use crate::instruments::common::models::{d1, d2};
 use crate::instruments::equity_option::types::EquityOption;
-use crate::instruments::OptionType;
+use crate::instruments::common::parameters::OptionType;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;

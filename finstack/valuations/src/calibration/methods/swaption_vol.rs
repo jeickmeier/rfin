@@ -233,7 +233,7 @@ impl SwaptionVolCalibrator {
 
         let swaption = Swaption {
             id: "temp".to_string(),
-            option_type: crate::instruments::OptionType::Call,
+            option_type: crate::instruments::common::parameters::OptionType::Call,
             notional: Money::new(1_000_000.0, self.currency),
             strike_rate: 0.0,
             expiry,

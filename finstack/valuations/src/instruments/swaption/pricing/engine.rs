@@ -67,12 +67,12 @@ impl SwaptionPricer {
         let d1 = ((forward_rate / s.strike_rate).ln() + 0.5 * variance) / sqrt_var;
         let d2 = d1 - sqrt_var;
         let value = match s.option_type {
-            crate::instruments::OptionType::Call => {
+            crate::instruments::common::parameters::OptionType::Call => {
                 annuity
                     * (forward_rate * finstack_core::math::norm_cdf(d1)
                         - s.strike_rate * finstack_core::math::norm_cdf(d2))
             }
-            crate::instruments::OptionType::Put => {
+            crate::instruments::common::parameters::OptionType::Put => {
                 annuity
                     * (s.strike_rate * finstack_core::math::norm_cdf(-d2)
                         - forward_rate * finstack_core::math::norm_cdf(-d1))
