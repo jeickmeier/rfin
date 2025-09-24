@@ -245,15 +245,11 @@ fn test_end_of_month_convention() {
         .into_iter()
         .collect();
 
-    // Remove any duplicates for this test since we have an implementation issue
-    let mut unique_dates = dates.clone();
-    unique_dates.dedup();
-
-    assert_eq!(unique_dates.len(), 4);
-    assert_eq!(unique_dates[0], make_date(2025, 1, 31)); // Jan 15 -> Jan 31
-    assert_eq!(unique_dates[1], make_date(2025, 2, 28)); // Feb 15 -> Feb 28
-    assert_eq!(unique_dates[2], make_date(2025, 3, 31)); // Mar 15 -> Mar 31
-    assert_eq!(unique_dates[3], make_date(2025, 4, 30)); // Apr 15 -> Apr 30
+    assert_eq!(dates.len(), 4);
+    assert_eq!(dates[0], make_date(2025, 1, 31)); // Jan 15 -> Jan 31
+    assert_eq!(dates[1], make_date(2025, 2, 28)); // Feb 15 -> Feb 28
+    assert_eq!(dates[2], make_date(2025, 3, 31)); // Mar 15 -> Mar 31
+    assert_eq!(dates[3], make_date(2025, 4, 30)); // Apr 15 -> Apr 30
 }
 
 #[test]
@@ -270,14 +266,10 @@ fn test_end_of_month_with_leap_year() {
         .into_iter()
         .collect();
 
-    // Remove any duplicates for this test since we have an implementation issue
-    let mut unique_dates = dates.clone();
-    unique_dates.dedup();
-
-    assert_eq!(unique_dates.len(), 3);
-    assert_eq!(unique_dates[0], make_date(2024, 1, 31)); // Jan 31
-    assert_eq!(unique_dates[1], make_date(2024, 2, 29)); // Feb 29 (leap year)
-    assert_eq!(unique_dates[2], make_date(2024, 3, 31)); // Mar 31
+    assert_eq!(dates.len(), 3);
+    assert_eq!(dates[0], make_date(2024, 1, 31)); // Jan 31
+    assert_eq!(dates[1], make_date(2024, 2, 29)); // Feb 29 (leap year)
+    assert_eq!(dates[2], make_date(2024, 3, 31)); // Mar 31
 }
 
 #[test]

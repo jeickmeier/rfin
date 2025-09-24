@@ -318,11 +318,18 @@ impl<'a> ScheduleBuilder<'a> {
 
         let mut dates = builder.generate();
 
+        // Enforce monotonicity and remove duplicates produced by EOM/stub handling
+        enforce_monotonic_and_dedup(&mut dates);
+
         // Apply business day adjustment if configured
         if let (Some(conv), Some(cal)) = (self.conv, self.cal) {
             for d in &mut dates {
                 *d = adjust(*d, conv, cal)?;
             }
+
+            // Adjustment can create duplicates (e.g., both anchors adjust to same business day)
+            // and, in edge cases, non-monotonicities. Enforce again.
+            enforce_monotonic_and_dedup(&mut dates);
         }
 
         Ok(Schedule { dates })
@@ -377,7 +384,9 @@ impl BuilderInternal {
         let target = self.start;
         loop {
             let date_to_add = if self.eom { apply_eom(dt) } else { dt };
-            buf.push(date_to_add);
+            if buf.last().copied() != Some(date_to_add) {
+                buf.push(date_to_add);
+            }
             if dt == target {
                 break;
             }
@@ -449,6 +458,25 @@ impl BuilderInternal {
         }
         buf.into_vec()
     }
+}
+
+/// Enforce strictly increasing, duplicate-free dates while preserving original order.
+/// Drops any consecutive duplicates and any dates that would not increase.
+fn enforce_monotonic_and_dedup(dates: &mut Vec<Date>) {
+    if dates.is_empty() {
+        return;
+    }
+    let mut out: Vec<Date> = Vec::with_capacity(dates.len());
+    let mut last = dates[0];
+    out.push(last);
+    for &d in dates.iter().skip(1) {
+        if d > last {
+            out.push(d);
+            last = d;
+        }
+        // Else: skip duplicates and non-increasing values
+    }
+    *dates = out;
 }
 
 #[cfg(all(test, feature = "serde"))]
