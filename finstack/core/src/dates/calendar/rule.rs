@@ -166,8 +166,11 @@ fn easter_monday(year: i32) -> Date {
     easter_sunday + Duration::days(1) // Easter Monday = Sunday +1
 }
 
-// Chinese New Year (Spring Festival) Gregorian dates – now generated from CSV.
+// Chinese New Year (Spring Festival) Gregorian dates – generated and checked-in.
 // Coverage: 1970-2150 (matches holiday bitset range).
+#[cfg(not(feature = "use_out_dir_generated"))]
+include!("../../generated/cny_generated.rs");
+#[cfg(feature = "use_out_dir_generated")]
 include!(concat!(env!("OUT_DIR"), "/cny_generated.rs"));
 
 #[inline]

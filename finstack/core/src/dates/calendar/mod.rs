@@ -160,6 +160,9 @@ macro_rules! declare_calendar {
 pub use core::{adjust, available_calendars, BusinessDayConvention, HolidayCalendar};
 pub use rule::{Direction, Observed, Rule};
 
-// Include generated calendar types and registry helpers directly at this module root.
-// `Rule` is already in scope via `pub use rule::Rule` above.
+// Include generated calendar types and registry helpers.
+// Prefer static file; fallback to OUT_DIR when feature is enabled.
+#[cfg(not(feature = "use_out_dir_generated"))]
+include!("../../generated/calendar_generated.rs");
+#[cfg(feature = "use_out_dir_generated")]
 include!(concat!(env!("OUT_DIR"), "/generated_calendars.rs"));

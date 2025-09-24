@@ -48,16 +48,16 @@ impl HazardCurveCalibrator {
     /// Uses common market conventions for collateral.
     pub fn default_discount_curve_id(currency: Currency) -> CurveId {
         match currency {
-            Currency::USD => CurveId::from("USD-OIS"),
-            Currency::EUR => CurveId::from("EUR-OIS"),
-            Currency::GBP => CurveId::from("GBP-OIS"),
-            Currency::JPY => CurveId::from("JPY-OIS"),
-            Currency::CHF => CurveId::from("CHF-OIS"),
-            Currency::CAD => CurveId::from("CAD-OIS"),
-            Currency::AUD => CurveId::from("AUD-OIS"),
-            Currency::SEK => CurveId::from("SEK-OIS"),
-            Currency::NOK => CurveId::from("NOK-OIS"),
-            Currency::DKK => CurveId::from("DKK-OIS"),
+            Currency::USD => "USD-OIS".into(),
+            Currency::EUR => "EUR-OIS".into(),
+            Currency::GBP => "GBP-OIS".into(),
+            Currency::JPY => "JPY-OIS".into(),
+            Currency::CHF => "CHF-OIS".into(),
+            Currency::CAD => "CAD-OIS".into(),
+            Currency::AUD => "AUD-OIS".into(),
+            Currency::SEK => "SEK-OIS".into(),
+            Currency::NOK => "NOK-OIS".into(),
+            Currency::DKK => "DKK-OIS".into(),
             _ => CurveId::new(format!("{}-OIS", currency)),
         }
     }
@@ -566,6 +566,6 @@ mod tests {
             Date::from_calendar_date(2025, Month::January, 1).unwrap(),
             Currency::JPY,
         );
-        assert_eq!(calibrator.discount_curve_id, "JPY-OIS");
+        assert_eq!(calibrator.discount_curve_id, "JPY-OIS".into());
     }
 }

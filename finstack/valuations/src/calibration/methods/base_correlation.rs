@@ -57,7 +57,7 @@ pub struct BaseCorrelationCalibrator {
     /// Base date for calibration
     pub base_date: Date,
     /// Discount curve identifier used for tranche PVs
-    pub discount_curve_id: CurveId,
+    pub discount_curve_id: &'static str,
     /// Standard detachment points to calibrate
     pub detachment_points: Vec<F>,
     /// Calibration configuration
@@ -80,7 +80,7 @@ impl BaseCorrelationCalibrator {
             maturity_years,
             base_date,
             // Default to common OIS discounting for USD; configurable via with_discount_curve_id
-            discount_curve_id: CurveId::from("USD-OIS"),
+            discount_curve_id: "USD-OIS",
             // Standard market detachment points
             detachment_points: vec![3.0, 7.0, 10.0, 15.0, 30.0],
             config: CalibrationConfig::default(),
@@ -101,8 +101,8 @@ impl BaseCorrelationCalibrator {
     }
 
     /// Set the discount curve identifier used when pricing synthetic tranches.
-    pub fn with_discount_curve_id(mut self, disc_id: impl Into<CurveId>) -> Self {
-        self.discount_curve_id = disc_id.into();
+    pub fn with_discount_curve_id(mut self, disc_id: &'static str) -> Self {
+        self.discount_curve_id = disc_id;
         self
     }
 
