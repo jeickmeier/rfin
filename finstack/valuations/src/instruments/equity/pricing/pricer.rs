@@ -157,4 +157,23 @@ impl EquityPricer {
     }
 }
 
-// Note: EquityPricer is an internal engine; no registry integration required here.
+// Macro-based pricer facade for registry integration
+
+crate::impl_dyn_pricer!(
+    name: DiscountingPricer,
+    instrument: Equity,
+    instrument_key: Equity,
+    model: Discounting,
+    as_of = |inst: &Equity, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<Date> {
+        // Prefer OIS base date for the instrument currency when available; otherwise epoch
+        let disc_id = format!("{}-OIS", inst.currency);
+        if let Ok(disc) = market.get_ref::<DiscountCurve>(&disc_id) {
+            Ok(disc.base_date())
+        } else {
+            Ok(Date::from_calendar_date(1970, time::Month::January, 1).unwrap())
+        }
+    },
+    pv    = |inst: &Equity, market: &finstack_core::market_data::MarketContext, as_of: Date| -> finstack_core::Result<finstack_core::money::Money> {
+        EquityPricer.pv(inst, market, as_of)
+    },
+);

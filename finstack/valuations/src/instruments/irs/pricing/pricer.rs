@@ -1,24 +1,19 @@
 use crate::instruments::irs::types::InterestRateSwap;
 use crate::instruments::irs::pricing::engine::IrsEngine;
-use crate::pricer::{expect_inst, InstrumentKey, ModelKey, Pricer, PricerKey, PriceableExt, PricingError};
-use finstack_core::market_data::MarketContext as Market;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
-pub struct DiscountingPricer;
+// use macro exported from crate::pricer
 
-impl DiscountingPricer { pub fn new() -> Self { Self } }
-
-impl Default for DiscountingPricer { fn default() -> Self { Self::new() } }
-
-impl Pricer for DiscountingPricer {
-    fn key(&self) -> PricerKey { PricerKey::new(InstrumentKey::IRS, ModelKey::Discounting) }
-    fn price_dyn(&self, instrument: &dyn PriceableExt, market: &Market) -> std::result::Result<crate::results::ValuationResult, PricingError> {
-        let irs: &InterestRateSwap = expect_inst(instrument, InstrumentKey::IRS)?;
-        let disc = market.get_ref::<DiscountCurve>(irs.fixed.disc_id)?;
-        let as_of = disc.base_date();
-        let pv = IrsEngine::pv(irs, market)?;
-        Ok(crate::results::ValuationResult::stamped(irs.id.as_str(), as_of, pv))
-    }
-}
-
-
+crate::impl_dyn_pricer!(
+    name: DiscountingPricer,
+    instrument: InterestRateSwap,
+    instrument_key: IRS,
+    model: Discounting,
+    as_of = |inst: &InterestRateSwap, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<finstack_core::dates::Date> {
+        let disc = market.get_ref::<DiscountCurve>(inst.fixed.disc_id)?;
+        Ok(disc.base_date())
+    },
+    pv    = |inst: &InterestRateSwap, market: &finstack_core::market_data::MarketContext, _as_of: finstack_core::dates::Date| -> finstack_core::Result<finstack_core::money::Money> {
+        IrsEngine::pv(inst, market)
+    },
+);

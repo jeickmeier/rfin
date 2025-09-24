@@ -5,6 +5,7 @@
 //! are kept here to keep the instrument type focused on data shape only.
 
 pub mod engine;
+
 pub mod pricer;
 
 pub use engine::{compute_greeks, FxOptionGreeks, FxOptionPricer};

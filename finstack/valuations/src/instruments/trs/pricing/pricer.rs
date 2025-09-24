@@ -1,4 +1,5 @@
 use crate::instruments::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
+use crate::impl_dyn_pricer;
 use crate::pricer::{InstrumentKey, ModelKey, Pricer, PricerKey, PriceableExt, PricingError};
 use finstack_core::market_data::MarketContext as Market;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
@@ -32,5 +33,36 @@ impl Pricer for DiscountingPricer {
         Err(PricingError::TypeMismatch { expected: InstrumentKey::TRS, got: instrument.key() })
     }
 }
+
+// For TRS, we expose concrete pricers for each variant for registry consumption using the common macro
+impl_dyn_pricer!(
+    name: EquityTrsPricer,
+    instrument: EquityTotalReturnSwap,
+    instrument_key: TRS,
+    model: Discounting,
+    as_of = |inst: &EquityTotalReturnSwap, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<finstack_core::dates::Date> {
+        let disc = market.get_ref::<DiscountCurve>(inst.financing.disc_id.clone())?;
+        Ok(disc.base_date())
+    },
+    pv    = |inst: &EquityTotalReturnSwap, market: &finstack_core::market_data::MarketContext, as_of: finstack_core::dates::Date| -> finstack_core::Result<finstack_core::money::Money> {
+        use crate::instruments::common::traits::Instrument as _;
+        inst.value(market, as_of)
+    },
+);
+
+impl_dyn_pricer!(
+    name: FiIndexTrsPricer,
+    instrument: FIIndexTotalReturnSwap,
+    instrument_key: TRS,
+    model: Discounting,
+    as_of = |inst: &FIIndexTotalReturnSwap, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<finstack_core::dates::Date> {
+        let disc = market.get_ref::<DiscountCurve>(inst.financing.disc_id.clone())?;
+        Ok(disc.base_date())
+    },
+    pv    = |inst: &FIIndexTotalReturnSwap, market: &finstack_core::market_data::MarketContext, as_of: finstack_core::dates::Date| -> finstack_core::Result<finstack_core::money::Money> {
+        use crate::instruments::common::traits::Instrument as _;
+        inst.value(market, as_of)
+    },
+);
 
 

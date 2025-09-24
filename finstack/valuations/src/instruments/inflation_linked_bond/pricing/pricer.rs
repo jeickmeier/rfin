@@ -1,24 +1,19 @@
 use crate::instruments::inflation_linked_bond::InflationLinkedBond;
 use crate::instruments::inflation_linked_bond::pricing::engine::InflationLinkedBondEngine;
-use crate::pricer::{expect_inst, InstrumentKey, ModelKey, Pricer, PricerKey, PriceableExt, PricingError};
-use finstack_core::market_data::MarketContext as Market;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
-pub struct DiscountingPricer;
+// use macro exported from crate::pricer
 
-impl DiscountingPricer { pub fn new() -> Self { Self } }
-
-impl Default for DiscountingPricer { fn default() -> Self { Self::new() } }
-
-impl Pricer for DiscountingPricer {
-    fn key(&self) -> PricerKey { PricerKey::new(InstrumentKey::InflationLinkedBond, ModelKey::Discounting) }
-    fn price_dyn(&self, instrument: &dyn PriceableExt, market: &Market) -> std::result::Result<crate::results::ValuationResult, PricingError> {
-        let ilb: &InflationLinkedBond = expect_inst(instrument, InstrumentKey::InflationLinkedBond)?;
-        let disc = market.get_ref::<DiscountCurve>(ilb.disc_id.clone())?;
-        let as_of = disc.base_date();
-        let pv = InflationLinkedBondEngine::pv(ilb, market, as_of)?;
-        Ok(crate::results::ValuationResult::stamped(ilb.id.as_str(), as_of, pv))
-    }
-}
-
-
+crate::impl_dyn_pricer!(
+    name: DiscountingPricer,
+    instrument: InflationLinkedBond,
+    instrument_key: InflationLinkedBond,
+    model: Discounting,
+    as_of = |inst: &InflationLinkedBond, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<finstack_core::dates::Date> {
+        let disc = market.get_ref::<DiscountCurve>(inst.disc_id.clone())?;
+        Ok(disc.base_date())
+    },
+    pv    = |inst: &InflationLinkedBond, market: &finstack_core::market_data::MarketContext, as_of: finstack_core::dates::Date| -> finstack_core::Result<finstack_core::money::Money> {
+        InflationLinkedBondEngine::pv(inst, market, as_of)
+    },
+);

@@ -31,6 +31,7 @@ pub enum InstrumentKey {
     InflationSwap = 20,
     InterestRateFuture = 21,
     VarianceSwap = 22,
+    Equity = 23,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -96,6 +97,7 @@ impl<T: Priceable + 'static> PriceableExt for T {
             "Basket" => InstrumentKey::Basket,
             "ConvertibleBond" => InstrumentKey::Convertible,
             "Deposit" => InstrumentKey::Deposit,
+            "Equity" => InstrumentKey::Equity,
             "EquityOption" => InstrumentKey::EquityOption,
             "FxOption" => InstrumentKey::FxOption,
             "FxSpot" => InstrumentKey::FxSpot,
@@ -171,6 +173,75 @@ pub fn price(instrument: &dyn PriceableExt, model: ModelKey, market: &Market) ->
     } else {
         Err(PricingError::UnknownPricer(key))
     }
+}
+
+// ========================= LOCAL PRICER MACRO =========================
+
+#[macro_export]
+macro_rules! impl_dyn_pricer {
+    (
+        name: $name:ident,
+        instrument: $inst:path,
+        instrument_key: $ikey:ident,
+        model: $model:ident,
+        as_of = $as_of:expr,
+        pv = $pv:expr $(,)?
+    ) => {
+        pub struct $name;
+        impl $name { pub fn new() -> Self { Self } }
+        impl ::core::default::Default for $name { fn default() -> Self { Self::new() } }
+        impl $crate::pricer::Pricer for $name {
+            fn key(&self) -> $crate::pricer::PricerKey {
+                $crate::pricer::PricerKey::new(
+                    $crate::pricer::InstrumentKey::$ikey,
+                    $crate::pricer::ModelKey::$model
+                )
+            }
+            fn price_dyn(
+                &self,
+                instrument: &dyn $crate::pricer::PriceableExt,
+                market: &finstack_core::market_data::MarketContext
+            ) -> ::std::result::Result<$crate::results::ValuationResult, $crate::pricer::PricingError> {
+                let inst: &$inst = $crate::pricer::expect_inst(instrument, $crate::pricer::InstrumentKey::$ikey)?;
+                let as_of = ($as_of)(inst, market)?;
+                let pv = ($pv)(inst, market, as_of)?;
+                Ok($crate::results::ValuationResult::stamped(inst.id.as_str(), as_of, pv))
+            }
+        }
+    };
+    (
+        name: $name:ident,
+        instrument: $inst:path,
+        instrument_key: $ikey:ident,
+        model: $model:ident,
+        as_of = $as_of:expr,
+        pv = $pv:expr,
+        result = $result:expr $(,)?
+    ) => {
+        pub struct $name;
+        impl $name { pub fn new() -> Self { Self } }
+        impl ::core::default::Default for $name { fn default() -> Self { Self::new() } }
+        impl $crate::pricer::Pricer for $name {
+            fn key(&self) -> $crate::pricer::PricerKey {
+                $crate::pricer::PricerKey::new(
+                    $crate::pricer::InstrumentKey::$ikey,
+                    $crate::pricer::ModelKey::$model
+                )
+            }
+            fn price_dyn(
+                &self,
+                instrument: &dyn $crate::pricer::PriceableExt,
+                market: &finstack_core::market_data::MarketContext
+            ) -> ::std::result::Result<$crate::results::ValuationResult, $crate::pricer::PricingError> {
+                let inst: &$inst = $crate::pricer::expect_inst(instrument, $crate::pricer::InstrumentKey::$ikey)?;
+                let as_of = ($as_of)(inst, market)?;
+                let pv = ($pv)(inst, market, as_of)?;
+                let result = $crate::results::ValuationResult::stamped(inst.id.as_str(), as_of, pv);
+                let result = ($result)(inst, market, as_of, result)?;
+                Ok(result)
+            }
+        }
+    };
 }
 
 // ========================= TESTS =========================

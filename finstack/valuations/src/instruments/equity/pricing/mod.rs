@@ -8,6 +8,6 @@
 //! Exposed components:
 //! - `EquityPricer`: stateless pricer computing PV as `price_per_share * shares`.
 
-mod pricer;
+pub mod pricer;
 
 pub use pricer::EquityPricer;

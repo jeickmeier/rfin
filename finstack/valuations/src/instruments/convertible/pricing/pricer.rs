@@ -1,24 +1,19 @@
 use crate::instruments::convertible::ConvertibleBond;
 use crate::instruments::convertible::pricing::engine::{price_convertible_bond, ConvertibleTreeType};
-use crate::pricer::{expect_inst, InstrumentKey, ModelKey, Pricer, PricerKey, PriceableExt, PricingError};
-use finstack_core::market_data::MarketContext as Market;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
-pub struct DiscountingPricer;
+// use macro exported from crate::pricer
 
-impl DiscountingPricer { pub fn new() -> Self { Self } }
-
-impl Default for DiscountingPricer { fn default() -> Self { Self::new() } }
-
-impl Pricer for DiscountingPricer {
-    fn key(&self) -> PricerKey { PricerKey::new(InstrumentKey::Convertible, ModelKey::Discounting) }
-    fn price_dyn(&self, instrument: &dyn PriceableExt, market: &Market) -> std::result::Result<crate::results::ValuationResult, PricingError> {
-        let cb: &ConvertibleBond = expect_inst(instrument, InstrumentKey::Convertible)?;
-        let disc = market.get_ref::<DiscountCurve>(cb.disc_id)?;
-        let as_of = disc.base_date();
-        let pv = price_convertible_bond(cb, market, ConvertibleTreeType::Binomial(100))?;
-        Ok(crate::results::ValuationResult::stamped(cb.id.as_str(), as_of, pv))
-    }
-}
-
-
+crate::impl_dyn_pricer!(
+    name: DiscountingPricer,
+    instrument: ConvertibleBond,
+    instrument_key: Convertible,
+    model: Discounting,
+    as_of = |inst: &ConvertibleBond, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<finstack_core::dates::Date> {
+        let disc = market.get_ref::<DiscountCurve>(inst.disc_id)?;
+        Ok(disc.base_date())
+    },
+    pv    = |inst: &ConvertibleBond, market: &finstack_core::market_data::MarketContext, _as_of: finstack_core::dates::Date| -> finstack_core::Result<finstack_core::money::Money> {
+        price_convertible_bond(inst, market, ConvertibleTreeType::Binomial(100))
+    },
+);

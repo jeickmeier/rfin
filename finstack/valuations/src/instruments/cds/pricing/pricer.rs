@@ -1,27 +1,23 @@
 use crate::instruments::cds::types::CreditDefaultSwap;
 use crate::instruments::cds::pricing::engine::CDSPricer;
-use crate::pricer::{expect_inst, InstrumentKey, ModelKey, Pricer, PricerKey, PriceableExt, PricingError};
-use finstack_core::market_data::MarketContext as Market;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+use finstack_core::market_data::traits::{Discounting, Survival};
 
-pub struct DiscountingPricer;
+// use macro exported from crate::pricer
 
-impl DiscountingPricer { pub fn new() -> Self { Self } }
-
-impl Default for DiscountingPricer { fn default() -> Self { Self::new() } }
-
-impl Pricer for DiscountingPricer {
-    fn key(&self) -> PricerKey { PricerKey::new(InstrumentKey::CDS, ModelKey::HazardRate) }
-    fn price_dyn(&self, instrument: &dyn PriceableExt, market: &Market) -> std::result::Result<crate::results::ValuationResult, PricingError> {
-        let cds: &CreditDefaultSwap = expect_inst(instrument, InstrumentKey::CDS)?;
-        let disc = market.get_ref::<DiscountCurve>(cds.premium.disc_id)?;
-        let surv = market.get_ref::<HazardCurve>(cds.protection.credit_id)?;
-        let as_of = disc.base_date();
-        use finstack_core::market_data::traits::{Discounting, Survival};
-        let pv = CDSPricer::new().npv(cds, disc as &dyn Discounting, surv as &dyn Survival, as_of)?;
-        Ok(crate::results::ValuationResult::stamped(cds.id.as_str(), as_of, pv))
-    }
-}
-
-
+crate::impl_dyn_pricer!(
+    name: DiscountingPricer,
+    instrument: CreditDefaultSwap,
+    instrument_key: CDS,
+    model: HazardRate,
+    as_of = |inst: &CreditDefaultSwap, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<finstack_core::dates::Date> {
+        let disc = market.get_ref::<DiscountCurve>(inst.premium.disc_id)?;
+        Ok(disc.base_date())
+    },
+    pv    = |inst: &CreditDefaultSwap, market: &finstack_core::market_data::MarketContext, as_of: finstack_core::dates::Date| -> finstack_core::Result<finstack_core::money::Money> {
+        let disc = market.get_ref::<DiscountCurve>(inst.premium.disc_id)? as &dyn Discounting;
+        let surv = market.get_ref::<HazardCurve>(inst.protection.credit_id)? as &dyn Survival;
+        CDSPricer::new().npv(inst, disc, surv, as_of)
+    },
+);

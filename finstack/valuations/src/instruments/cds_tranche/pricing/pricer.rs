@@ -1,24 +1,19 @@
 use crate::instruments::cds_tranche::CdsTranche;
 use crate::instruments::cds_tranche::pricing::engine::CDSTranchePricer;
-use crate::pricer::{expect_inst, InstrumentKey, ModelKey, Pricer, PricerKey, PriceableExt, PricingError};
-use finstack_core::market_data::MarketContext as Market;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
-pub struct DiscountingPricer;
+// use macro exported from crate::pricer
 
-impl DiscountingPricer { pub fn new() -> Self { Self } }
-
-impl Default for DiscountingPricer { fn default() -> Self { Self::new() } }
-
-impl Pricer for DiscountingPricer {
-    fn key(&self) -> PricerKey { PricerKey::new(InstrumentKey::CDSTranche, ModelKey::HazardRate) }
-    fn price_dyn(&self, instrument: &dyn PriceableExt, market: &Market) -> std::result::Result<crate::results::ValuationResult, PricingError> {
-        let tr: &CdsTranche = expect_inst(instrument, InstrumentKey::CDSTranche)?;
-        let disc = market.get_ref::<DiscountCurve>(tr.disc_id)?;
-        let as_of = disc.base_date();
-        let pv = CDSTranchePricer::new().price_tranche(tr, market, as_of)?;
-        Ok(crate::results::ValuationResult::stamped(tr.id.as_str(), as_of, pv))
-    }
-}
-
-
+crate::impl_dyn_pricer!(
+    name: DiscountingPricer,
+    instrument: CdsTranche,
+    instrument_key: CDSTranche,
+    model: HazardRate,
+    as_of = |inst: &CdsTranche, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<finstack_core::dates::Date> {
+        let disc = market.get_ref::<DiscountCurve>(inst.disc_id)?;
+        Ok(disc.base_date())
+    },
+    pv    = |inst: &CdsTranche, market: &finstack_core::market_data::MarketContext, as_of: finstack_core::dates::Date| -> finstack_core::Result<finstack_core::money::Money> {
+        CDSTranchePricer::new().price_tranche(inst, market, as_of)
+    },
+);
