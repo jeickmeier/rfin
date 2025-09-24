@@ -15,7 +15,7 @@ impl MetricCalculator for JumpToDefaultCalculator {
         if context
             .curves
             .as_ref()
-            .credit_index(tranche.credit_index_id)
+            .credit_index(&tranche.credit_index_id)
             .is_ok()
         {
             let pricer = crate::instruments::cds_tranche::pricing::engine::CDSTranchePricer::new();

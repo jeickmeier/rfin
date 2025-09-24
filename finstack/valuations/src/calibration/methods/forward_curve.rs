@@ -18,6 +18,7 @@ use finstack_core::{
     market_data::{context::MarketContext, term_structures::forward_curve::ForwardCurve},
     math::{interp::InterpStyle, Solver},
     money::Money,
+    types::CurveId,
     Result, F,
 };
 use std::collections::BTreeMap;
@@ -133,9 +134,11 @@ impl ForwardCurveCalibrator {
             // Define objective function
             let objective = move |fwd_rate: F| -> F {
                 // Build temporary forward curve with new knot
-                let mut temp_knots = knots_clone.clone();
+                let mut temp_knots = Vec::with_capacity(knots_clone.len() + 1);
+                temp_knots.extend_from_slice(&knots_clone);
+                // Quotes are processed in increasing maturity; maintain sorted invariant
+                debug_assert!(knots_clone.last().map(|(t, _)| *t <= knot_time + 1e-12).unwrap_or(true));
                 temp_knots.push((knot_time, fwd_rate));
-                temp_knots.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
                 let temp_fwd_curve =
                     match ForwardCurve::builder(self_clone.fwd_curve_id, self_clone.tenor_years)
@@ -175,8 +178,8 @@ impl ForwardCurveCalibrator {
             }
 
             // Compute final residual
+            debug_assert!(knots.last().map(|(t, _)| *t <= knot_time + 1e-12).unwrap_or(true));
             knots.push((knot_time, solved_fwd));
-            knots.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
 
             let final_curve = ForwardCurve::builder(self.fwd_curve_id, self.tenor_years)
                 .base_date(self.base_date)
@@ -363,23 +366,23 @@ impl ForwardCurveCalibrator {
                 use crate::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
 
                 // Determine which leg uses our curve and which uses the reference
-                let (primary_fwd_id, reference_fwd_id) =
+                let (primary_fwd_id, reference_fwd_id): (CurveId, CurveId) =
                     if primary_index.contains(&format!("{}M", (self.tenor_years * 12.0) as i32)) {
                         // Primary leg uses our curve, reference needs to be resolved
                         (
-                            self.fwd_curve_id,
+                            CurveId::from(self.fwd_curve_id),
                             self.resolve_forward_curve_id(reference_index),
                         )
                     } else {
                         // Reference leg uses our curve, primary needs to be resolved
                         (
                             self.resolve_forward_curve_id(primary_index),
-                            self.fwd_curve_id,
+                            CurveId::from(self.fwd_curve_id),
                         )
                     };
 
                 let primary_leg = BasisSwapLeg {
-                    forward_curve_id: primary_fwd_id.into(),
+                    forward_curve_id: primary_fwd_id,
                     frequency: *primary_freq,
                     day_count: *primary_dc,
                     bdc: BusinessDayConvention::ModifiedFollowing,
@@ -387,7 +390,7 @@ impl ForwardCurveCalibrator {
                 };
 
                 let reference_leg = BasisSwapLeg {
-                    forward_curve_id: reference_fwd_id.into(),
+                    forward_curve_id: reference_fwd_id,
                     frequency: *reference_freq,
                     day_count: *reference_dc,
                     bdc: BusinessDayConvention::ModifiedFollowing,
@@ -496,47 +499,46 @@ impl ForwardCurveCalibrator {
     /// Maps index names like "3M-SOFR", "6M-LIBOR" to appropriate forward curve IDs.
     /// This follows the convention used in multi-curve frameworks where each tenor
     /// has its own forward curve.
-    fn resolve_forward_curve_id(&self, reference_index: &str) -> &'static str {
+    fn resolve_forward_curve_id(&self, reference_index: &str) -> CurveId {
         // Extract tenor from the index name
-        let curve_id = if reference_index.contains("1M") {
+        let s: String = if reference_index.contains("1M") {
             match self.currency {
-                Currency::USD => "USD-SOFR-1M-FWD",
-                Currency::EUR => "EUR-EURIBOR-1M-FWD",
-                Currency::GBP => "GBP-SONIA-1M-FWD",
-                Currency::JPY => "JPY-TIBOR-1M-FWD",
-                _ => "1M-FWD",
+                Currency::USD => "USD-SOFR-1M-FWD".to_string(),
+                Currency::EUR => "EUR-EURIBOR-1M-FWD".to_string(),
+                Currency::GBP => "GBP-SONIA-1M-FWD".to_string(),
+                Currency::JPY => "JPY-TIBOR-1M-FWD".to_string(),
+                _ => "1M-FWD".to_string(),
             }
         } else if reference_index.contains("3M") {
             match self.currency {
-                Currency::USD => "USD-SOFR-3M-FWD",
-                Currency::EUR => "EUR-EURIBOR-3M-FWD",
-                Currency::GBP => "GBP-SONIA-3M-FWD",
-                Currency::JPY => "JPY-TIBOR-3M-FWD",
-                _ => "3M-FWD",
+                Currency::USD => "USD-SOFR-3M-FWD".to_string(),
+                Currency::EUR => "EUR-EURIBOR-3M-FWD".to_string(),
+                Currency::GBP => "GBP-SONIA-3M-FWD".to_string(),
+                Currency::JPY => "JPY-TIBOR-3M-FWD".to_string(),
+                _ => "3M-FWD".to_string(),
             }
         } else if reference_index.contains("6M") {
             match self.currency {
-                Currency::USD => "USD-SOFR-6M-FWD",
-                Currency::EUR => "EUR-EURIBOR-6M-FWD",
-                Currency::GBP => "GBP-SONIA-6M-FWD",
-                Currency::JPY => "JPY-TIBOR-6M-FWD",
-                _ => "6M-FWD",
+                Currency::USD => "USD-SOFR-6M-FWD".to_string(),
+                Currency::EUR => "EUR-EURIBOR-6M-FWD".to_string(),
+                Currency::GBP => "GBP-SONIA-6M-FWD".to_string(),
+                Currency::JPY => "JPY-TIBOR-6M-FWD".to_string(),
+                _ => "6M-FWD".to_string(),
             }
         } else if reference_index.contains("12M") || reference_index.contains("1Y") {
             match self.currency {
-                Currency::USD => "USD-SOFR-12M-FWD",
-                Currency::EUR => "EUR-EURIBOR-12M-FWD",
-                Currency::GBP => "GBP-SONIA-12M-FWD",
-                Currency::JPY => "JPY-TIBOR-12M-FWD",
-                _ => "12M-FWD",
+                Currency::USD => "USD-SOFR-12M-FWD".to_string(),
+                Currency::EUR => "EUR-EURIBOR-12M-FWD".to_string(),
+                Currency::GBP => "GBP-SONIA-12M-FWD".to_string(),
+                Currency::JPY => "JPY-TIBOR-12M-FWD".to_string(),
+                _ => "12M-FWD".to_string(),
             }
         } else {
             // Fallback: generate a generic forward curve ID
-            // This uses Box::leak to create a 'static str from the formatted string
-            Box::leak(format!("FWD_{}", reference_index).into_boxed_str())
+            format!("FWD_{}", reference_index)
         };
 
-        curve_id
+        CurveId::new(s)
     }
 
     /// Validate quotes.
@@ -574,9 +576,8 @@ impl Calibrator<RatesQuote, ForwardCurve> for ForwardCurveCalibrator {
         base_context: &MarketContext,
     ) -> Result<(ForwardCurve, CalibrationReport)> {
         // Use the configured solver for calibration
-        crate::with_solver!(&self.config, |solver| {
-            self.bootstrap_curve_with_solver(instruments, &solver, base_context)
-        })
+        let solver = crate::solver_factory::make_solver(&self.config);
+        self.bootstrap_curve_with_solver(instruments, &solver, base_context)
     }
 }
 
@@ -693,23 +694,23 @@ mod tests {
 
         // Test USD curve ID resolution
         assert_eq!(
-            calibrator.resolve_forward_curve_id("1M-SOFR"),
+            calibrator.resolve_forward_curve_id("1M-SOFR").as_str(),
             "USD-SOFR-1M-FWD"
         );
         assert_eq!(
-            calibrator.resolve_forward_curve_id("3M-SOFR"),
+            calibrator.resolve_forward_curve_id("3M-SOFR").as_str(),
             "USD-SOFR-3M-FWD"
         );
         assert_eq!(
-            calibrator.resolve_forward_curve_id("6M-SOFR"),
+            calibrator.resolve_forward_curve_id("6M-SOFR").as_str(),
             "USD-SOFR-6M-FWD"
         );
         assert_eq!(
-            calibrator.resolve_forward_curve_id("12M-SOFR"),
+            calibrator.resolve_forward_curve_id("12M-SOFR").as_str(),
             "USD-SOFR-12M-FWD"
         );
         assert_eq!(
-            calibrator.resolve_forward_curve_id("1Y-SOFR"),
+            calibrator.resolve_forward_curve_id("1Y-SOFR").as_str(),
             "USD-SOFR-12M-FWD"
         );
 
@@ -722,18 +723,22 @@ mod tests {
             "EUR-OIS-DISC",
         );
         assert_eq!(
-            eur_calibrator.resolve_forward_curve_id("3M-EURIBOR"),
+            eur_calibrator
+                .resolve_forward_curve_id("3M-EURIBOR")
+                .as_str(),
             "EUR-EURIBOR-3M-FWD"
         );
         assert_eq!(
-            eur_calibrator.resolve_forward_curve_id("6M-EURIBOR"),
+            eur_calibrator
+                .resolve_forward_curve_id("6M-EURIBOR")
+                .as_str(),
             "EUR-EURIBOR-6M-FWD"
         );
 
         // Test fallback for unknown index format
         let unknown_id = calibrator.resolve_forward_curve_id("CUSTOM-INDEX");
-        assert!(unknown_id.starts_with("FWD_"));
-        assert!(unknown_id.contains("CUSTOM-INDEX"));
+        assert!(unknown_id.as_str().starts_with("FWD_"));
+        assert!(unknown_id.as_str().contains("CUSTOM-INDEX"));
     }
 
     #[test]

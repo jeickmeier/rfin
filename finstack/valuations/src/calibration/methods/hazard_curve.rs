@@ -299,9 +299,8 @@ impl Calibrator<CreditQuote, HazardCurve> for HazardCurveCalibrator {
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
             self.discount_curve_id.clone(),
         )?;
-        crate::with_solver!(&self.config, |solver| {
-            self.bootstrap_internal(instruments, &solver, Some(disc))
-        })
+        let solver = crate::solver_factory::make_solver(&self.config);
+        self.bootstrap_internal(instruments, &solver, Some(disc))
     }
 }
 

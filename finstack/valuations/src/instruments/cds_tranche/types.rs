@@ -8,7 +8,7 @@ use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::types::InstrumentId;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::F;
 
 use super::parameters::CDSTrancheParams;
@@ -53,7 +53,7 @@ pub struct CdsTranche {
     /// Discount curve identifier (by quote currency)
     pub disc_id: &'static str,
     /// Credit index identifier for survival/loss modeling (placeholder)
-    pub credit_index_id: &'static str,
+    pub credit_index_id: CurveId,
     /// Tranche side (buy/sell protection)
     pub side: TrancheSide,
     /// Optional effective date for schedule anchoring (if None, uses as_of date)
@@ -69,7 +69,7 @@ impl CdsTranche {
         tranche_params: &CDSTrancheParams,
         schedule_params: &ScheduleParams,
         disc_id: &'static str,
-        credit_index_id: &'static str,
+        credit_index_id: impl Into<CurveId>,
         side: TrancheSide,
     ) -> Self {
         Self {
@@ -86,7 +86,7 @@ impl CdsTranche {
             business_day_convention: schedule_params.bdc,
             calendar_id: schedule_params.calendar_id,
             disc_id,
-            credit_index_id,
+            credit_index_id: credit_index_id.into(),
             side,
             effective_date: None,
             attributes: Attributes::new(),

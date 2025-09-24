@@ -247,7 +247,7 @@ impl BaseCorrelationCalibrator {
                 // This only updates the correlation curve without rebuilding the entire CreditIndexData
                 let mut temp_market_ctx = template_market_ctx.clone();
                 let _ = temp_market_ctx.update_base_correlation_curve(
-                    synthetic_tranche.credit_index_id,
+                    &synthetic_tranche.credit_index_id,
                     temp_base_corr_curve,
                 );
 
@@ -335,7 +335,7 @@ impl BaseCorrelationCalibrator {
             .business_day_convention(BusinessDayConvention::Following)
             .calendar_id_opt(None)
             .disc_id(self.discount_curve_id)
-            .credit_index_id(Box::leak(self.index_id.clone().into_boxed_str()))
+            .credit_index_id(finstack_core::types::CurveId::new(self.index_id.clone()))
             .side(TrancheSide::SellProtection)
             .effective_date_opt(None)
             .build()
@@ -353,9 +353,8 @@ impl Calibrator<CreditQuote, BaseCorrelationCurve> for BaseCorrelationCalibrator
 
         // Use the configured solver for robust root-finding
         // Delegate to the implemented bootstrap
-        crate::with_solver!(&self.config, |solver| {
-            self.bootstrap_curve(instruments, &solver, &val_ctx)
-        })
+        let solver = crate::solver_factory::make_solver(&self.config);
+        self.bootstrap_curve(instruments, &solver, &val_ctx)
     }
 }
 

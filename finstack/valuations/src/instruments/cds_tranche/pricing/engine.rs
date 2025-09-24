@@ -202,12 +202,12 @@ impl CDSTranchePricer {
         as_of: Date,
     ) -> Result<Money> {
         // Check if credit index data is available - if not, fallback to zero PV for backward compatibility
-        if market_ctx.credit_index(tranche.credit_index_id).is_err() {
+        if market_ctx.credit_index(&tranche.credit_index_id).is_err() {
             return Ok(Money::new(0.0, tranche.notional.currency()));
         }
 
         // Get the credit index data
-        let index_data_arc = market_ctx.credit_index_ref(tranche.credit_index_id)?;
+        let index_data_arc = market_ctx.credit_index_ref(&tranche.credit_index_id)?;
 
         // Get the discount curve
         let discount_curve = market_ctx
@@ -1054,7 +1054,7 @@ impl CDSTranchePricer {
         tranche: &CdsTranche,
         market_ctx: &MarketContext,
     ) -> Result<F> {
-        let index_data_arc = market_ctx.credit_index_ref(tranche.credit_index_id)?;
+        let index_data_arc = market_ctx.credit_index_ref(&tranche.credit_index_id)?;
         self.calculate_expected_tranche_loss(tranche, index_data_arc, tranche.maturity)
     }
 
@@ -1069,7 +1069,7 @@ impl CDSTranchePricer {
         let base_pv = self.price_tranche(tranche, market_ctx, as_of)?.amount();
 
         // Create bumped market context using configured CS01 bump units
-        let original_index_arc = market_ctx.credit_index_ref(tranche.credit_index_id)?;
+        let original_index_arc = market_ctx.credit_index_ref(&tranche.credit_index_id)?;
         let bumped_index = match self.params.cs01_bump_units {
             Cs01BumpUnits::HazardRateBp => {
                 // 1.0 bump_size interpreted as 1 bp in hazard rate
@@ -1088,7 +1088,7 @@ impl CDSTranchePricer {
         // Create new market context with bumped credit index
         let bumped_market_ctx = market_ctx
             .clone()
-            .insert_credit_index(tranche.credit_index_id, bumped_index);
+            .insert_credit_index(&tranche.credit_index_id, bumped_index);
 
         // Calculate bumped price
         let bumped_pv = self
@@ -1111,7 +1111,7 @@ impl CDSTranchePricer {
 
         // Create bumped market context with base correlation shifted by configured amount
         let bump_abs = self.params.corr_bump_abs;
-        let original_index_arc = market_ctx.credit_index_ref(tranche.credit_index_id)?;
+        let original_index_arc = market_ctx.credit_index_ref(&tranche.credit_index_id)?;
         let bumped_corr_curve =
             self.bump_base_correlation(&original_index_arc.base_correlation_curve, bump_abs)?;
 
@@ -1126,7 +1126,7 @@ impl CDSTranchePricer {
         // Create new market context with bumped credit index
         let bumped_market_ctx = market_ctx
             .clone()
-            .insert_credit_index(tranche.credit_index_id, bumped_index);
+            .insert_credit_index(&tranche.credit_index_id, bumped_index);
 
         // Calculate bumped price
         let bumped_pv = self
@@ -1147,7 +1147,7 @@ impl CDSTranchePricer {
         market_ctx: &MarketContext,
         _as_of: Date,
     ) -> Result<F> {
-        let index_data = market_ctx.credit_index_ref(tranche.credit_index_id)?;
+        let index_data = market_ctx.credit_index_ref(&tranche.credit_index_id)?;
 
         // For homogeneous pool, one name default impact
         let individual_weight = 1.0 / (index_data.num_constituents as F); // Portfolio weight per name
@@ -1568,7 +1568,7 @@ mod tests {
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
         let schedule = model.generate_payment_schedule(&tranche, as_of).unwrap();
-        let index_data_arc = market_ctx.credit_index(tranche.credit_index_id).unwrap();
+        let index_data_arc = market_ctx.credit_index(&tranche.credit_index_id).unwrap();
         let el_curve = model.build_el_curve(&tranche, &index_data_arc, &schedule);
 
         assert!(el_curve.is_ok());
@@ -1653,7 +1653,7 @@ mod tests {
         let tranche = sample_tranche();
         let market_ctx = sample_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let index_data_arc = market_ctx.credit_index(tranche.credit_index_id).unwrap();
+        let index_data_arc = market_ctx.credit_index(&tranche.credit_index_id).unwrap();
         let discount_curve = market_ctx
             .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
                 tranche.disc_id,
