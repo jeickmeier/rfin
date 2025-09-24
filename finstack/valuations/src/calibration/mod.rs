@@ -80,6 +80,7 @@ mod config;
 mod constraints;
 pub mod derivatives;
 mod macros;
+mod solver_factory;
 pub mod methods;
 mod quote;
 mod report;
@@ -108,3 +109,6 @@ pub const PENALTY: F = 1e12;
 pub fn penalize() -> F {
     PENALTY
 }
+
+// Re-export factory for consumers that want explicit control without macros
+pub use solver_factory::{make_solver, SolverInstance};

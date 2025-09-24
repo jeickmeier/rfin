@@ -13,6 +13,7 @@ use finstack_core::market_data::scalars::inflation_index::{InflationInterpolatio
 use finstack_core::market_data::term_structures::inflation::InflationCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::math::Solver;
+use crate::calibration::make_solver;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::F;
@@ -189,8 +190,9 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
         // Start knots with CPI at base date
         let mut knots: Vec<(F, F)> = vec![(0.0, self.base_cpi)];
         let mut residuals = BTreeMap::new();
-        // Use configured solver via macro to honor tolerance and iteration settings consistently
-        crate::with_solver!(&self.config, |solver| {
+        // Use configured solver via factory to honor tolerance/iterations
+        let solver = make_solver(&self.config);
+        {
             // Internal IDs used only for solving. Final curve will use self.curve_id
             const CALIB_INDEX_ID: &str = "CALIB_INFLATION";
 
@@ -381,7 +383,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                     .with_metadata("validation", "passed");
 
             Ok((curve, report))
-        })
+        }
     }
 }
 

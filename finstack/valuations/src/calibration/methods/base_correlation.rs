@@ -5,6 +5,7 @@
 
 use crate::calibration::quote::CreditQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
+use crate::calibration::make_solver;
 use crate::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_core::math::Solver;
 use ordered_float::OrderedFloat;
@@ -350,10 +351,8 @@ impl Calibrator<CreditQuote, BaseCorrelationCurve> for BaseCorrelationCalibrator
         let val_ctx = base_context.clone();
 
         // Use the configured solver for robust root-finding
-        // Delegate to the implemented bootstrap
-        crate::with_solver!(&self.config, |solver| {
-            self.bootstrap_curve(instruments, &solver, &val_ctx)
-        })
+        let solver = make_solver(&self.config);
+        self.bootstrap_curve(instruments, &solver, &val_ctx)
     }
 }
 

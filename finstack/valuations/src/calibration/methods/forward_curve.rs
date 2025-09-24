@@ -6,6 +6,7 @@
 use crate::calibration::{
     config::CalibrationConfig, quote::RatesQuote, report::CalibrationReport, traits::Calibrator,
 };
+use crate::calibration::make_solver;
 use crate::instruments::{
     fra::ForwardRateAgreement,
     ir_future::InterestRateFuture,
@@ -27,17 +28,17 @@ use std::collections::BTreeMap;
 /// Calibrates a tenor-specific forward curve (e.g., 3M SOFR) using market instruments
 /// while discounting with a separate OIS curve.
 #[derive(Clone, Debug)]
-pub struct ForwardCurveCalibrator {
+    pub struct ForwardCurveCalibrator {
     /// Forward curve identifier
-    pub fwd_curve_id: &'static str,
+        pub fwd_curve_id: &'static str,
     /// Tenor in years (e.g., 0.25 for 3M, 0.5 for 6M)
     pub tenor_years: F,
     /// Base date for the curve
     pub base_date: Date,
     /// Currency
     pub currency: Currency,
-    /// Discount curve identifier for PV calculations
-    pub discount_curve_id: &'static str,
+        /// Discount curve identifier for PV calculations
+        pub discount_curve_id: &'static str,
     /// Day count for time axis
     pub time_dc: DayCount,
     /// Interpolation style for forward rates
@@ -218,7 +219,7 @@ impl ForwardCurveCalibrator {
             })?;
 
         // Build calibration report
-        let report = CalibrationReport::for_type("forward_curve", residuals, total_iterations)
+            let report = CalibrationReport::for_type("forward_curve", residuals, total_iterations)
             .with_metadata("curve_id", self.fwd_curve_id)
             .with_metadata("tenor_years", self.tenor_years.to_string())
             .with_metadata("interp", format!("{:?}", self.solve_interp))
@@ -401,7 +402,7 @@ impl ForwardCurveCalibrator {
                     *maturity,
                     primary_leg,
                     reference_leg,
-                    self.discount_curve_id,
+                    self.discount_curve_id.into(),
                 );
 
                 let pv = basis_swap.value(context, self.base_date)?;
@@ -573,10 +574,9 @@ impl Calibrator<RatesQuote, ForwardCurve> for ForwardCurveCalibrator {
         instruments: &[RatesQuote],
         base_context: &MarketContext,
     ) -> Result<(ForwardCurve, CalibrationReport)> {
-        // Use the configured solver for calibration
-        crate::with_solver!(&self.config, |solver| {
-            self.bootstrap_curve_with_solver(instruments, &solver, base_context)
-        })
+        // Use the configured solver for calibration without macro
+        let solver = make_solver(&self.config);
+        self.bootstrap_curve_with_solver(instruments, &solver, base_context)
     }
 }
 

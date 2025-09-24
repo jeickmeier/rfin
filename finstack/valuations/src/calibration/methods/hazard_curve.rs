@@ -6,6 +6,7 @@
 
 use crate::calibration::quote::CreditQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
+use crate::calibration::make_solver;
 use crate::instruments::cds::{
     cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap, PayReceive,
 };
@@ -299,9 +300,8 @@ impl Calibrator<CreditQuote, HazardCurve> for HazardCurveCalibrator {
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
             &self.discount_curve_id,
         )?;
-        crate::with_solver!(&self.config, |solver| {
-            self.bootstrap_internal(instruments, &solver, Some(disc))
-        })
+        let solver = make_solver(&self.config);
+        self.bootstrap_internal(instruments, &solver, Some(disc))
     }
 }
 
