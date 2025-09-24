@@ -79,7 +79,6 @@ use finstack_core::F;
 mod config;
 mod constraints;
 pub mod derivatives;
-mod macros;
 pub mod methods;
 mod quote;
 mod report;
@@ -107,4 +106,51 @@ pub const PENALTY: F = 1e12;
 
 pub fn penalize() -> F {
     PENALTY
+}
+
+// ------------------------- Solver Helper -------------------------
+use finstack_core::Result;
+
+/// Solve a 1D root-finding problem using the configured solver kind.
+///
+/// This replaces the former `with_solver!` macro with a plain helper function
+/// to make control flow explicit and IDE-friendly.
+pub fn solve_1d<Fun>(
+    kind: SolverKind,
+    tol: F,
+    iters: usize,
+    f: Fun,
+    init: F,
+) -> Result<F>
+where
+    Fun: Fn(F) -> F,
+{
+    use finstack_core::math::{BrentSolver, HybridSolver, NewtonSolver, Solver};
+
+    match kind {
+        SolverKind::Newton => {
+            let solver = NewtonSolver::new()
+                .with_tolerance(tol)
+                .with_max_iterations(iters);
+            solver.solve(f, init)
+        }
+        SolverKind::Brent => {
+            let solver = BrentSolver::new().with_tolerance(tol);
+            // BrentSolver currently does not expose a max-iteration builder; keep defaults
+            solver.solve(f, init)
+        }
+        SolverKind::Hybrid => {
+            let solver = HybridSolver::new()
+                .with_tolerance(tol)
+                .with_max_iterations(iters);
+            solver.solve(f, init)
+        }
+        // For multi-dimensional kinds, fall back to Hybrid for 1D problems
+        SolverKind::LevenbergMarquardt | SolverKind::DifferentialEvolution => {
+            let solver = HybridSolver::new()
+                .with_tolerance(tol)
+                .with_max_iterations(iters);
+            solver.solve(f, init)
+        }
+    }
 }
