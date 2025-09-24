@@ -130,7 +130,7 @@ impl InflationLinkedBondEngine {
     /// Present value using standard cashflow discounting.
     pub fn pv(ilb: &InflationLinkedBond, curves: &MarketContext, as_of: Date) -> Result<Money> {
         let flows = Self::build_schedule(ilb, curves, as_of)?;
-        let disc = curves.get_ref::<DiscountCurve>(ilb.disc_id.as_str())?;
+        let disc = curves.get_ref::<DiscountCurve>(ilb.disc_id.clone())?;
         let base_date = disc.base_date();
         // Use curve basis for time mapping
         let dc = disc.day_count();

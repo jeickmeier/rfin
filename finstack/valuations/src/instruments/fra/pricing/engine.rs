@@ -33,8 +33,8 @@ impl FraEngine {
     /// # Returns
     /// Net present value of the discounted payoff at settlement.
     pub fn pv(fra: &ForwardRateAgreement, context: &MarketContext) -> Result<Money> {
-        let disc = context.get_ref::<DiscountCurve>(fra.disc_id.as_str())?;
-        let fwd = context.get_ref::<ForwardCurve>(fra.forward_id.as_str())?;
+        let disc = context.get_ref::<DiscountCurve>(fra.disc_id.clone())?;
+        let fwd = context.get_ref::<ForwardCurve>(fra.forward_id.clone())?;
 
         // Time fractions
         let base_date = disc.base_date();

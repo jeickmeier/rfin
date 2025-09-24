@@ -14,7 +14,7 @@ impl Pricer for DiscountingPricer {
     fn price_dyn(&self, instrument: &dyn PriceableExt, market: &Market) -> std::result::Result<crate::results::ValuationResult, PricingError> {
         // Equity TRS
         if let Some(eq) = instrument.as_any().downcast_ref::<EquityTotalReturnSwap>() {
-            let disc = market.get_ref::<DiscountCurve>(eq.financing.disc_id.as_str())?;
+            let disc = market.get_ref::<DiscountCurve>(eq.financing.disc_id.clone())?;
             let as_of = disc.base_date();
             // Delegate to instrument pv implementation
             use crate::instruments::common::traits::Instrument;
@@ -23,7 +23,7 @@ impl Pricer for DiscountingPricer {
         }
         // FI Index TRS
         if let Some(fi) = instrument.as_any().downcast_ref::<FIIndexTotalReturnSwap>() {
-            let disc = market.get_ref::<DiscountCurve>(fi.financing.disc_id.as_str())?;
+            let disc = market.get_ref::<DiscountCurve>(fi.financing.disc_id.clone())?;
             let as_of = disc.base_date();
             use crate::instruments::common::traits::Instrument;
             let pv = fi.value(market, as_of)?;

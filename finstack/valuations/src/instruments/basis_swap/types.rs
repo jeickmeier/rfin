@@ -208,8 +208,8 @@ crate::impl_instrument!(
         let primary_params = FloatLegParams {
             schedule: &primary_schedule,
             notional: s.notional,
-            disc_id: s.discount_curve_id.as_str(),
-            fwd_id: s.primary_leg.forward_curve_id.as_str(),
+            disc_id: s.discount_curve_id.clone(),
+            fwd_id: s.primary_leg.forward_curve_id.clone(),
             accrual_dc: s.primary_leg.day_count,
             spread: s.primary_leg.spread,
         };
@@ -217,8 +217,8 @@ crate::impl_instrument!(
         let reference_params = FloatLegParams {
             schedule: &reference_schedule,
             notional: s.notional,
-            disc_id: s.discount_curve_id.as_str(),
-            fwd_id: s.reference_leg.forward_curve_id.as_str(),
+            disc_id: s.discount_curve_id.clone(),
+            fwd_id: s.reference_leg.forward_curve_id.clone(),
             accrual_dc: s.reference_leg.day_count,
             spread: s.reference_leg.spread,
         };

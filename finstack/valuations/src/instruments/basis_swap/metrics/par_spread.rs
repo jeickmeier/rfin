@@ -46,8 +46,8 @@ impl MetricCalculator for ParSpreadCalculator {
         let params_ref = FloatLegParams {
             schedule: &schedule_ref,
             notional: swap.notional,
-            disc_id: swap.discount_curve_id.as_str(),
-            fwd_id: leg_ref.forward_curve_id.as_str(),
+            disc_id: swap.discount_curve_id.clone(),
+            fwd_id: leg_ref.forward_curve_id.clone(),
             accrual_dc: leg_ref.day_count,
             spread: leg_ref.spread,
         };
@@ -59,8 +59,8 @@ impl MetricCalculator for ParSpreadCalculator {
         let params = FloatLegParams {
             schedule: &schedule,
             notional: swap.notional,
-            disc_id: swap.discount_curve_id.as_str(),
-            fwd_id: leg.forward_curve_id.as_str(),
+            disc_id: swap.discount_curve_id.clone(),
+            fwd_id: leg.forward_curve_id.clone(),
             accrual_dc: leg.day_count,
             spread: 0.0,
         };

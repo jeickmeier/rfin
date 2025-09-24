@@ -14,7 +14,7 @@ impl Pricer for DiscountingPricer {
     fn key(&self) -> PricerKey { PricerKey::new(InstrumentKey::IRS, ModelKey::Discounting) }
     fn price_dyn(&self, instrument: &dyn PriceableExt, market: &Market) -> std::result::Result<crate::results::ValuationResult, PricingError> {
         let fra: &ForwardRateAgreement = expect_inst(instrument, InstrumentKey::IRS)?;
-        let disc = market.get_ref::<DiscountCurve>(fra.disc_id.as_str())?;
+        let disc = market.get_ref::<DiscountCurve>(fra.disc_id.clone())?;
         let as_of = disc.base_date();
         let pv = FraEngine::pv(fra, market)?;
         Ok(crate::results::ValuationResult::stamped(fra.id.as_str(), as_of, pv))

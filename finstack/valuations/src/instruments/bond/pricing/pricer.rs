@@ -28,7 +28,7 @@ impl Pricer for DiscountingPricer {
         let bond: &Bond = expect_inst(instrument, InstrumentKey::Bond)?;
 
         // Use the discount curve base date as valuation date to match instrument PV impl
-        let disc = market.get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
+        let disc = market.get_ref::<DiscountCurve>(bond.disc_id.clone())?;
         let as_of = disc.base_date();
 
         use crate::instruments::common::traits::Instrument as _;
@@ -59,7 +59,7 @@ impl Pricer for OasPricer {
     ) -> std::result::Result<crate::results::ValuationResult, PricingError> {
         let bond: &Bond = expect_inst(instrument, InstrumentKey::Bond)?;
 
-        let disc = market.get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
+        let disc = market.get_ref::<DiscountCurve>(bond.disc_id.clone())?;
         let as_of = disc.base_date();
 
         // PV from base value implementation

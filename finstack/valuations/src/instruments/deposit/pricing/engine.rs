@@ -61,7 +61,7 @@ impl DepositEngine {
     /// - Accrual uses the instrument's `day_count`
     /// - Discounting uses the curve's own day‑count via `df_on_date_curve`
     pub fn pv(deposit: &Deposit, context: &MarketContext) -> Result<Money> {
-        let disc = context.get_ref::<DiscountCurve>(deposit.disc_id.as_str())?;
+        let disc = context.get_ref::<DiscountCurve>(deposit.disc_id.clone())?;
 
         // Accrual factor (instrument basis)
         let yf = deposit

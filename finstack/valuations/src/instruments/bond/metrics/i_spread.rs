@@ -32,7 +32,7 @@ impl MetricCalculator for ISpreadCalculator {
         // Use the bond's discount curve as proxy for swap discounting (OIS collateral)
         let disc = context
             .curves
-            .get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
+            .get_ref::<DiscountCurve>(bond.disc_id.clone())?;
 
         // Build simple annual schedule from as_of to maturity for par rate approximation
         let dates = crate::instruments::bond::pricing::schedule_helpers::build_annual_schedule(

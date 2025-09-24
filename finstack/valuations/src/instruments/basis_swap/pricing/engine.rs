@@ -4,6 +4,7 @@ use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
+use finstack_core::types::CurveId;
 use finstack_core::F;
 
 /// Common basis swap pricing engine providing core calculation methods.
@@ -45,9 +46,9 @@ pub struct FloatLegParams<'a> {
     /// Notional amount for the leg.
     pub notional: Money,
     /// Discount curve identifier.
-    pub disc_id: &'a str,
+    pub disc_id: CurveId,
     /// Forward curve identifier.
-    pub fwd_id: &'a str,
+    pub fwd_id: CurveId,
     /// Day count for accrual calculations.
     pub accrual_dc: DayCount,
     /// Spread in decimal form (e.g., 0.0005 for 5 basis points).
@@ -95,11 +96,11 @@ impl BasisEngine {
         // Curves
         let disc = context
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            params.disc_id,
+            params.disc_id.clone(),
         )?;
         let fwd = context
             .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-            params.fwd_id,
+            params.fwd_id.clone(),
         )?;
 
         let mut pv = 0.0;
@@ -177,7 +178,7 @@ impl BasisEngine {
     ) -> Result<F> {
         let disc = curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            disc_curve_id,
+            CurveId::from(disc_curve_id),
         )?;
         let mut annuity = 0.0;
         let mut prev = schedule.dates[0];

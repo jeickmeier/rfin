@@ -13,7 +13,7 @@ impl Pricer for DiscountingPricer {
     fn key(&self) -> PricerKey { PricerKey::new(InstrumentKey::Deposit, ModelKey::Discounting) }
     fn price_dyn(&self, instrument: &dyn PriceableExt, market: &Market) -> std::result::Result<crate::results::ValuationResult, PricingError> {
         let dep: &Deposit = expect_inst(instrument, InstrumentKey::Deposit)?;
-        let disc = market.get_ref::<DiscountCurve>(dep.disc_id.as_str())?;
+        let disc = market.get_ref::<DiscountCurve>(dep.disc_id.clone())?;
         let as_of = disc.base_date();
         use crate::instruments::common::traits::Instrument;
         let pv = dep.value(market, as_of)?;

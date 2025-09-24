@@ -78,7 +78,7 @@ pub fn asw_par_with_forward(
     fwd_curve_id: &str,
     float_spread_bp: F,
 ) -> finstack_core::Result<F> {
-    let disc = curves.get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
+    let disc = curves.get_ref::<DiscountCurve>(bond.disc_id.clone())?;
     let fwd = curves.get_ref::<ForwardCurve>(fwd_curve_id)?;
 
     // Mirror the bond schedule via holder flows
@@ -130,7 +130,7 @@ pub fn asw_market_with_forward(
     float_spread_bp: F,
     dirty_price_ccy: Option<F>,
 ) -> finstack_core::Result<F> {
-    let disc = curves.get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
+    let disc = curves.get_ref::<DiscountCurve>(bond.disc_id.clone())?;
     let flows = bond.build_schedule(curves, as_of)?;
     let sched = build_future_dates_from_flows(&flows, as_of);
     if sched.len() < 2 {
@@ -165,7 +165,7 @@ impl MetricCalculator for AssetSwapParCalculator {
         let coupon = bond.coupon;
         #[allow(unused_variables)]
         let notional_amt = bond.notional.amount();
-        let disc = context.curves.get_ref::<DiscountCurve>(disc_id.as_str())?;
+        let disc = context.curves.get_ref::<DiscountCurve>(disc_id.clone())?;
 
         // Forward-based path intentionally not invoked here; use the explicit helpers instead
 
@@ -206,7 +206,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 b.pricing_overrides.quoted_clean_price,
             )
         };
-        let disc = context.curves.get_ref::<DiscountCurve>(disc_id.as_str())?;
+        let disc = context.curves.get_ref::<DiscountCurve>(disc_id.clone())?;
 
         // Dirty market value in currency
         let dirty_ccy = if let Some(clean_px) = quoted_clean {

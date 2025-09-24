@@ -14,7 +14,7 @@ impl Pricer for BlackPricer {
     fn key(&self) -> PricerKey { PricerKey::new(InstrumentKey::EquityOption, ModelKey::Black76) }
     fn price_dyn(&self, instrument: &dyn PriceableExt, market: &Market) -> std::result::Result<crate::results::ValuationResult, PricingError> {
         let opt: &EquityOption = expect_inst(instrument, InstrumentKey::EquityOption)?;
-        let disc = market.get_ref::<DiscountCurve>(opt.disc_id.as_str())?;
+        let disc = market.get_ref::<DiscountCurve>(opt.disc_id.clone())?;
         let as_of = disc.base_date();
         let pv = engine::npv(opt, market, as_of)?;
         Ok(crate::results::ValuationResult::stamped(opt.id.as_str(), as_of, pv))

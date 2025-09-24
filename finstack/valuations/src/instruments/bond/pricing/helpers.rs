@@ -181,7 +181,7 @@ pub fn price_from_z_spread(
     z: F,
 ) -> finstack_core::Result<F> {
     let flows = bond.build_schedule(curves, as_of)?;
-    let disc = curves.get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
+    let disc = curves.get_ref::<DiscountCurve>(bond.disc_id.clone())?;
     let base_date = disc.base_date();
     let mut pv = 0.0;
     for (d, a) in &flows {
@@ -218,7 +218,7 @@ pub fn price_from_oas(
     if time_to_maturity <= 0.0 {
         return Ok(0.0);
     }
-    let discount_curve = curves.get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
+    let discount_curve = curves.get_ref::<DiscountCurve>(bond.disc_id.clone())?;
     let mut short_rate_tree = ShortRateTree::new(ShortRateTreeConfig::default());
     short_rate_tree.calibrate(discount_curve, time_to_maturity)?;
     let valuator = BondValuator::new(bond.clone(), curves, time_to_maturity, 100)?;
@@ -236,7 +236,7 @@ fn price_from_annuity_spread(
     spread: F,
 ) -> finstack_core::Result<F> {
     let flows = bond.build_schedule(curves, as_of)?;
-    let disc = curves.get_ref::<DiscountCurve>(bond.disc_id.as_str())?;
+    let disc = curves.get_ref::<DiscountCurve>(bond.disc_id.clone())?;
     let mut pv = 0.0;
     for (d, a) in &flows {
         if *d <= as_of {
