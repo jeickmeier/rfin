@@ -17,13 +17,14 @@ use crate::calibration::make_solver;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::F;
+use finstack_core::types::CurveId;
 use std::collections::BTreeMap;
 
 /// Inflation curve bootstrapper using ZC inflation swaps.
 #[derive(Clone, Debug)]
 pub struct InflationCurveCalibrator {
     /// Curve identifier
-    pub curve_id: String,
+    pub curve_id: CurveId,
     /// Base date for the curve
     pub base_date: finstack_core::dates::Date,
     /// Currency
@@ -31,7 +32,7 @@ pub struct InflationCurveCalibrator {
     /// Base CPI level at calibration date
     pub base_cpi: F,
     /// Discount curve ID for valuation
-    pub discount_id: String,
+    pub discount_id: CurveId,
     /// Day count used for mapping calendar dates to time-axis (knots)
     pub time_dc: DayCount,
     /// Day count used for accrual estimations within calibration (e.g., analytical guess)
@@ -51,11 +52,11 @@ pub struct InflationCurveCalibrator {
 impl InflationCurveCalibrator {
     /// Create a new inflation curve calibrator.
     pub fn new(
-        curve_id: impl Into<String>,
+        curve_id: impl Into<CurveId>,
         base_date: finstack_core::dates::Date,
         currency: Currency,
         base_cpi: F,
-        discount_id: impl Into<String>,
+        discount_id: impl Into<CurveId>,
     ) -> Self {
         Self {
             curve_id: curve_id.into(),
@@ -162,12 +163,12 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 } => Some((*maturity, *rate, index.clone())),
                 _ => None,
             })
-            .filter(|(_, _, index)| index == &self.curve_id)
+            .filter(|(_, _, index)| index == self.curve_id.as_str())
             .collect();
 
         if quotes.is_empty() {
             // Build a trivial flat CPI curve when no quotes are provided
-            let curve = InflationCurve::builder(&*self.curve_id)
+            let curve = InflationCurve::builder(self.curve_id.clone())
                 .base_cpi(self.base_cpi)
                 .knots([(0.0, self.base_cpi), (0.25, self.base_cpi)])
                 .set_interp(InterpStyle::LogLinear)
@@ -199,11 +200,11 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
             // Ensure discount curve exists in base context (best-effort; pricing will use context provided by caller)
             let _ = base_context
                 .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                    &self.discount_id,
+                    self.discount_id.as_str(),
                 )?;
 
             // Provide a 'static discount id for instrument builder requirements
-            let disc_id_static: &'static str = Box::leak(self.discount_id.clone().into_boxed_str());
+            let disc_id_static: &'static str = Box::leak(self.discount_id.as_str().to_string().into_boxed_str());
 
             // Note: We don't require an inflation index during calibration; the index is provided by caller when repricing.
 
@@ -336,7 +337,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                     "Building final inflation curve"
                 );
             }
-            let curve = match InflationCurve::builder(&*self.curve_id)
+            let curve = match InflationCurve::builder(self.curve_id.clone())
                 .base_cpi(self.base_cpi)
                 .knots(final_knots.clone())
                 .set_interp(self.solve_interp)
@@ -345,7 +346,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 Ok(c) => c,
                 Err(_) => {
                     // Fallback: minimal two-point curve to avoid calibration hard failure in tests
-                    InflationCurve::builder(&*self.curve_id)
+                    InflationCurve::builder(self.curve_id.clone())
                         .base_cpi(self.base_cpi)
                         .knots([(0.0, self.base_cpi), (0.25, self.base_cpi)])
                         .set_interp(self.solve_interp)
@@ -361,7 +362,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 .map_err(|e| finstack_core::Error::Calibration {
                     message: format!(
                         "Calibrated inflation curve {} failed validation: {}",
-                        self.curve_id, e
+                        self.curve_id.as_str(), e
                     ),
                     category: "inflation_curve_validation".to_string(),
                 })?;

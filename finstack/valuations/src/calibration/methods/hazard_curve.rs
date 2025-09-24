@@ -19,6 +19,7 @@ use finstack_core::money::Money;
 use finstack_core::prelude::*;
 // use finstack_core::types::CurveId;
 use finstack_core::F;
+use finstack_core::types::CurveId;
 use std::collections::BTreeMap;
 
 /// Hazard curve bootstrapper using CDS par spreads.
@@ -35,7 +36,7 @@ pub struct HazardCurveCalibrator {
     /// Currency (metadata)
     pub currency: Currency,
     /// Discount curve identifier for collateral discounting
-    pub discount_curve_id: String,
+    pub discount_curve_id: CurveId,
     /// Calibration configuration
     pub config: CalibrationConfig,
     /// Interpolation used when reporting quoted par spreads from the calibrated curve
@@ -45,19 +46,19 @@ pub struct HazardCurveCalibrator {
 impl HazardCurveCalibrator {
     /// Helper to determine default discount curve ID from currency.
     /// Uses common market conventions for collateral.
-    pub fn default_discount_curve_id(currency: Currency) -> String {
+    pub fn default_discount_curve_id(currency: Currency) -> CurveId {
         match currency {
-            Currency::USD => "USD-OIS".to_string(),
-            Currency::EUR => "EUR-OIS".to_string(),
-            Currency::GBP => "GBP-OIS".to_string(),
-            Currency::JPY => "JPY-OIS".to_string(),
-            Currency::CHF => "CHF-OIS".to_string(),
-            Currency::CAD => "CAD-OIS".to_string(),
-            Currency::AUD => "AUD-OIS".to_string(),
-            Currency::SEK => "SEK-OIS".to_string(),
-            Currency::NOK => "NOK-OIS".to_string(),
-            Currency::DKK => "DKK-OIS".to_string(),
-            _ => format!("{}-OIS", currency), // Keep format! here as it needs currency interpolation
+            Currency::USD => CurveId::from("USD-OIS"),
+            Currency::EUR => CurveId::from("EUR-OIS"),
+            Currency::GBP => CurveId::from("GBP-OIS"),
+            Currency::JPY => CurveId::from("JPY-OIS"),
+            Currency::CHF => CurveId::from("CHF-OIS"),
+            Currency::CAD => CurveId::from("CAD-OIS"),
+            Currency::AUD => CurveId::from("AUD-OIS"),
+            Currency::SEK => CurveId::from("SEK-OIS"),
+            Currency::NOK => CurveId::from("NOK-OIS"),
+            Currency::DKK => CurveId::from("DKK-OIS"),
+            _ => CurveId::new(format!("{}-OIS", currency)),
         }
     }
 
@@ -68,7 +69,7 @@ impl HazardCurveCalibrator {
         recovery_rate: F,
         base_date: finstack_core::dates::Date,
         currency: Currency,
-        discount_curve_id: impl Into<String>,
+        discount_curve_id: impl Into<CurveId>,
     ) -> Self {
         Self {
             entity: entity.into(),
@@ -298,7 +299,7 @@ impl Calibrator<CreditQuote, HazardCurve> for HazardCurveCalibrator {
     ) -> Result<(HazardCurve, CalibrationReport)> {
         let disc = base_context
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            &self.discount_curve_id,
+            self.discount_curve_id.as_str(),
         )?;
         let solver = make_solver(&self.config);
         self.bootstrap_internal(instruments, &solver, Some(disc))
