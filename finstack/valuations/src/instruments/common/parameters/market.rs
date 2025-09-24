@@ -2,6 +2,7 @@
 
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
+use finstack_core::types::CurveId;
 use finstack_core::F;
 
 #[cfg(feature = "serde")]
@@ -159,7 +160,7 @@ pub struct CreditParams {
     /// Recovery rate (0.0 to 1.0)
     pub recovery_rate: F,
     /// Credit curve identifier
-    pub credit_curve_id: String,
+    pub credit_curve_id: CurveId,
 }
 
 impl CreditParams {
@@ -167,7 +168,7 @@ impl CreditParams {
     pub fn new(
         reference_entity: impl Into<String>,
         recovery_rate: F,
-        credit_curve_id: impl Into<String>,
+        credit_curve_id: impl Into<CurveId>,
     ) -> Self {
         Self {
             reference_entity: reference_entity.into(),
@@ -179,7 +180,7 @@ impl CreditParams {
     /// Standard corporate credit with 40% recovery
     pub fn corporate_standard(
         reference_entity: impl Into<String>,
-        credit_curve_id: impl Into<String>,
+        credit_curve_id: impl Into<CurveId>,
     ) -> Self {
         Self::new(reference_entity, 0.40, credit_curve_id)
     }
@@ -187,7 +188,7 @@ impl CreditParams {
     /// Sovereign credit with 30% recovery
     pub fn sovereign_standard(
         reference_entity: impl Into<String>,
-        credit_curve_id: impl Into<String>,
+        credit_curve_id: impl Into<CurveId>,
     ) -> Self {
         Self::new(reference_entity, 0.30, credit_curve_id)
     }

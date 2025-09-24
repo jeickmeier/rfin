@@ -16,7 +16,7 @@ use finstack_core::market_data::term_structures::hazard_curve::{
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
-// use finstack_core::types::CurveId;
+use finstack_core::types::CurveId;
 use finstack_core::F;
 use std::collections::BTreeMap;
 
@@ -34,7 +34,7 @@ pub struct HazardCurveCalibrator {
     /// Currency (metadata)
     pub currency: Currency,
     /// Discount curve identifier for collateral discounting
-    pub discount_curve_id: String,
+    pub discount_curve_id: CurveId,
     /// Calibration configuration
     pub config: CalibrationConfig,
     /// Interpolation used when reporting quoted par spreads from the calibrated curve
@@ -44,19 +44,19 @@ pub struct HazardCurveCalibrator {
 impl HazardCurveCalibrator {
     /// Helper to determine default discount curve ID from currency.
     /// Uses common market conventions for collateral.
-    pub fn default_discount_curve_id(currency: Currency) -> String {
+    pub fn default_discount_curve_id(currency: Currency) -> CurveId {
         match currency {
-            Currency::USD => "USD-OIS".to_string(),
-            Currency::EUR => "EUR-OIS".to_string(),
-            Currency::GBP => "GBP-OIS".to_string(),
-            Currency::JPY => "JPY-OIS".to_string(),
-            Currency::CHF => "CHF-OIS".to_string(),
-            Currency::CAD => "CAD-OIS".to_string(),
-            Currency::AUD => "AUD-OIS".to_string(),
-            Currency::SEK => "SEK-OIS".to_string(),
-            Currency::NOK => "NOK-OIS".to_string(),
-            Currency::DKK => "DKK-OIS".to_string(),
-            _ => format!("{}-OIS", currency), // Keep format! here as it needs currency interpolation
+            Currency::USD => CurveId::new("USD-OIS"),
+            Currency::EUR => CurveId::new("EUR-OIS"),
+            Currency::GBP => CurveId::new("GBP-OIS"),
+            Currency::JPY => CurveId::new("JPY-OIS"),
+            Currency::CHF => CurveId::new("CHF-OIS"),
+            Currency::CAD => CurveId::new("CAD-OIS"),
+            Currency::AUD => CurveId::new("AUD-OIS"),
+            Currency::SEK => CurveId::new("SEK-OIS"),
+            Currency::NOK => CurveId::new("NOK-OIS"),
+            Currency::DKK => CurveId::new("DKK-OIS"),
+            _ => CurveId::new(format!("{}-OIS", currency)), // Keep format! here as it needs currency interpolation
         }
     }
 
@@ -67,7 +67,7 @@ impl HazardCurveCalibrator {
         recovery_rate: F,
         base_date: finstack_core::dates::Date,
         currency: Currency,
-        discount_curve_id: impl Into<String>,
+        discount_curve_id: impl Into<CurveId>,
     ) -> Self {
         Self {
             entity: entity.into(),
@@ -297,7 +297,7 @@ impl Calibrator<CreditQuote, HazardCurve> for HazardCurveCalibrator {
     ) -> Result<(HazardCurve, CalibrationReport)> {
         let disc = base_context
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            &self.discount_curve_id,
+            self.discount_curve_id.clone(),
         )?;
         crate::with_solver!(&self.config, |solver| {
             self.bootstrap_internal(instruments, &solver, Some(disc))
@@ -546,15 +546,15 @@ mod tests {
         // Test currency-based discount curve ID generation
         assert_eq!(
             HazardCurveCalibrator::default_discount_curve_id(Currency::USD),
-            "USD-OIS"
+            CurveId::new("USD-OIS")
         );
         assert_eq!(
             HazardCurveCalibrator::default_discount_curve_id(Currency::EUR),
-            "EUR-OIS"
+            CurveId::new("EUR-OIS")
         );
         assert_eq!(
             HazardCurveCalibrator::default_discount_curve_id(Currency::GBP),
-            "GBP-OIS"
+            CurveId::new("GBP-OIS")
         );
 
         // Test convenience constructor
@@ -565,6 +565,6 @@ mod tests {
             Date::from_calendar_date(2025, Month::January, 1).unwrap(),
             Currency::JPY,
         );
-        assert_eq!(calibrator.discount_curve_id, "JPY-OIS");
+        assert_eq!(calibrator.discount_curve_id, CurveId::new("JPY-OIS"));
     }
 }

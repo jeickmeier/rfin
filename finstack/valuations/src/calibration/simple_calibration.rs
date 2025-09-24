@@ -390,7 +390,7 @@ impl SimpleCalibration {
             let base_cpi = self.get_base_cpi(&updated_context, &index).unwrap_or(100.0);
 
             let calibrator = InflationCurveCalibrator::new(
-                &index,
+                index.clone(),
                 self.base_date,
                 self.base_currency,
                 base_cpi,

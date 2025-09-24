@@ -6,6 +6,7 @@
 
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::traits::Discounting;
+use finstack_core::types::CurveId;
 use finstack_core::{Error, Result, F};
 
 use super::tree_framework::{NodeState, StateVariables, TreeGreeks, TreeModel, TreeValuator};
@@ -54,7 +55,7 @@ pub struct ShortRateTree {
     /// Time steps in years
     time_steps: Vec<F>,
     /// Discount curve used for calibration
-    calibration_curve_id: String,
+    calibration_curve_id: CurveId,
 }
 
 impl ShortRateTree {
@@ -65,7 +66,7 @@ impl ShortRateTree {
             rates: Vec::new(),
             probs: Vec::new(),
             time_steps: Vec::new(),
-            calibration_curve_id: String::new(),
+            calibration_curve_id: CurveId::new(""),
         }
     }
 
@@ -95,7 +96,7 @@ impl ShortRateTree {
         discount_curve: &dyn Discounting,
         time_to_maturity: F,
     ) -> Result<()> {
-        self.calibration_curve_id = "CALIBRATED".to_string();
+        self.calibration_curve_id = CurveId::new("CALIBRATED");
 
         // Build time grid
         let dt = time_to_maturity / self.config.steps as F;

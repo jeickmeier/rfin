@@ -33,8 +33,8 @@ pub struct BasisEngine;
 /// let params = FloatLegParams {
 ///     schedule: &schedule,
 ///     notional: Money::new(1_000_000.0, Currency::USD),
-///     disc_id: "OIS",
-///     fwd_id: "3M-SOFR",
+///     disc_id: "OIS".into(),
+///     fwd_id: "3M-SOFR".into(),
 ///     accrual_dc: DayCount::Act360,
 ///     spread: 0.0005,
 /// };
@@ -81,8 +81,8 @@ impl BasisEngine {
     /// let params = FloatLegParams {
     ///     schedule: &schedule,
     ///     notional: Money::new(1_000_000.0, Currency::USD),
-    ///     disc_id: "OIS",
-    ///     fwd_id: "3M-SOFR",
+    ///     disc_id: "OIS".into(),
+    ///     fwd_id: "3M-SOFR".into(),
     ///     accrual_dc: DayCount::Act360,
     ///     spread: 0.0005,
     /// };
