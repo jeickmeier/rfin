@@ -498,8 +498,8 @@ fn build_convertible_schedule(bond: &ConvertibleBond) -> Result<CashFlowSchedule
     if let Some(fixed_spec) = bond.fixed_coupon {
         builder.fixed_cf(fixed_spec);
     }
-    if let Some(floating_spec) = bond.floating_coupon {
-        builder.floating_cf(floating_spec);
+    if let Some(floating_spec) = &bond.floating_coupon {
+        builder.floating_cf(floating_spec.clone());
     }
     builder.build()
 }

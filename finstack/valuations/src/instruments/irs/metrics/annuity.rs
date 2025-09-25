@@ -16,7 +16,7 @@ impl MetricCalculator for AnnuityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs: &InterestRateSwap = context.instrument_as()?;
 
-        let disc = context.curves.get::<DiscountCurve>(irs.fixed.disc_id)?;
+        let disc = context.curves.get::<DiscountCurve>(irs.fixed.disc_id.clone())?;
         let _ = disc.base_date();
 
         let sched = crate::cashflow::builder::build_dates(

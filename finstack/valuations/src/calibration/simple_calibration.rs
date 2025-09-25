@@ -261,11 +261,11 @@ impl SimpleCalibration {
             };
 
             let calibrator = ForwardCurveCalibrator::new(
-                fwd_curve_id,
+                finstack_core::types::CurveId::from(fwd_curve_id),
                 tenor_years,
                 self.base_date,
                 self.base_currency,
-                "USD-OIS",
+                finstack_core::types::CurveId::from("USD-OIS"),
             )
             .with_config(self.config.clone());
 

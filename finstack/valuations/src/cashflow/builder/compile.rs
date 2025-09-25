@@ -157,13 +157,13 @@ pub(super) struct DateWindow {
     pub(super) end: Date, // exclusive
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub(super) enum CouponSpec {
     Fixed {
         rate: f64,
     },
     Float {
-        index_id: &'static str,
+        index_id: finstack_core::types::CurveId,
         margin_bp: f64,
         gearing: f64,
         reset_lag_days: i32,
@@ -407,11 +407,11 @@ pub(super) fn compute_coupon_schedules(
             return Err(InputError::TooFewPoints.into());
         }
 
-        match chosen_coupon.coupon {
+        match &chosen_coupon.coupon {
             CouponSpec::Fixed { rate } => {
                 let spec = FixedCouponSpec {
                     coupon_type: split,
-                    rate,
+                    rate: *rate,
                     freq: chosen_coupon.schedule.freq,
                     dc: chosen_coupon.schedule.dc,
                     bdc: chosen_coupon.schedule.bdc,
@@ -427,19 +427,20 @@ pub(super) fn compute_coupon_schedules(
                 gearing,
                 reset_lag_days,
             } => {
+                let id_clone = index_id.clone();
                 let spec = FloatingCouponSpec {
-                    index_id,
-                    margin_bp,
-                    gearing,
+                    index_id: id_clone,
+                    margin_bp: *margin_bp,
+                    gearing: *gearing,
                     coupon_type: split,
                     freq: chosen_coupon.schedule.freq,
                     dc: chosen_coupon.schedule.dc,
                     bdc: chosen_coupon.schedule.bdc,
                     calendar_id: chosen_coupon.schedule.calendar_id,
                     stub: chosen_coupon.schedule.stub,
-                    reset_lag_days,
+                    reset_lag_days: *reset_lag_days,
                 };
-                used_float_specs.push(spec);
+                used_float_specs.push(spec.clone());
                 float_schedules.push((spec, dates, sched.prev));
             }
         }

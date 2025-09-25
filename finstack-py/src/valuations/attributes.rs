@@ -1,6 +1,6 @@
 //! Python bindings for instrument attributes and tagging.
 
-use finstack_valuations::instruments::traits::Attributes;
+use finstack_valuations::instruments::Attributes;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PySet};
 

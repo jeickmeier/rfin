@@ -6,7 +6,6 @@
 use crate::instruments::cap_floor::InterestRateOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::bumps::BumpSpec;
-use finstack_core::types::CurveId;
 use finstack_core::{Result, F};
 
 /// Rho calculator (per 1%)
@@ -22,7 +21,7 @@ impl MetricCalculator for RhoCalculator {
         // Build bumps map: parallel 1bp on the discount curve only, then scale to 1%
         let mut bumps = hashbrown::HashMap::new();
         bumps.insert(
-            CurveId::from(option.disc_id),
+            option.disc_id.clone(),
             BumpSpec::parallel_bp(1.0), // +1bp
         );
 

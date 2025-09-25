@@ -21,9 +21,6 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::{Error, Result, F};
 
-// (kept for clarity; validation uses config.weight_sum_tol)
-#[allow(dead_code)]
-const WEIGHT_SUM_TOL: F = 1e-8;
 
 /// Par spread denominator method for indices in constituents mode.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

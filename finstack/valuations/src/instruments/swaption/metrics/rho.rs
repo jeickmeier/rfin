@@ -17,8 +17,8 @@ impl MetricCalculator for RhoCalculator {
         let disc = context
             .curves
             .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            option.disc_id,
-        )?;
+                option.disc_id.clone(),
+            )?;
 
         // Base price from context
         let base_price = context.base_value.amount();

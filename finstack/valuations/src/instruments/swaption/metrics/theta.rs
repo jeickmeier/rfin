@@ -45,8 +45,8 @@ impl MetricCalculator for ThetaCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            option.disc_id,
-        )?;
+                option.disc_id.as_ref(),
+            )?;
         let pricer = crate::instruments::swaption::pricing::SwaptionPricer;
         let bumped = if option.sabr_params.is_some() {
             pricer.price_sabr(option, disc, as_of_plus_1bd)?

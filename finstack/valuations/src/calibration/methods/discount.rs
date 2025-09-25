@@ -474,8 +474,8 @@ impl DiscountCurveCalibrator {
                     .day_count(specs.day_count)
                     .position(crate::instruments::ir_future::Position::Long)
                     .contract_specs(crate::instruments::ir_future::FutureContractSpecs::default())
-                    .disc_id(finstack_core::types::CurveId::new("CALIB_CURVE"))
-                    .forward_id(finstack_core::types::CurveId::new("CALIB_FWD"))
+                    .disc_id(finstack_core::types::CurveId::from("CALIB_CURVE"))
+                    .forward_id(finstack_core::types::CurveId::from("CALIB_FWD"))
                     .build()
                     .unwrap();
 
@@ -508,7 +508,7 @@ impl DiscountCurveCalibrator {
                 use finstack_core::dates::{BusinessDayConvention, StubKind};
 
                 let fixed_spec = FixedLegSpec {
-                    disc_id: "CALIB_CURVE",
+                    disc_id: finstack_core::types::CurveId::from("CALIB_CURVE"),
                     rate: *rate,
                     freq: *fixed_freq,
                     dc: *fixed_dc,
@@ -522,8 +522,8 @@ impl DiscountCurveCalibrator {
                 };
 
                 let float_spec = FloatLegSpec {
-                    disc_id: "CALIB_CURVE",
-                    fwd_id: "CALIB_FWD",
+                    disc_id: finstack_core::types::CurveId::from("CALIB_CURVE"),
+                    fwd_id: finstack_core::types::CurveId::from("CALIB_FWD"),
                     spread_bp: 0.0,
                     freq: *float_freq,
                     dc: *float_dc,
@@ -1201,7 +1201,7 @@ mod tests {
             .notional(Money::new(1_000_000.0, Currency::USD))
             .side(PayReceive::ReceiveFixed)
             .fixed(crate::instruments::irs::FixedLegSpec {
-                disc_id: "USD-OIS",
+                disc_id: "USD-OIS".into(),
                 rate: 0.0470,
                 freq: Frequency::semi_annual(),
                 dc: DayCount::Thirty360,
@@ -1214,8 +1214,8 @@ mod tests {
                 end,
             })
             .float(crate::instruments::irs::FloatLegSpec {
-                disc_id: "USD-OIS",
-                fwd_id: "USD-SOFR",
+                disc_id: "USD-OIS".into(),
+                fwd_id: "USD-SOFR".into(),
                 spread_bp: 0.0,
                 freq: Frequency::quarterly(),
                 dc: DayCount::Act360,

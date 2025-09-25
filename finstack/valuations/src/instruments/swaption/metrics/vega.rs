@@ -18,8 +18,8 @@ impl MetricCalculator for VegaCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            option.disc_id,
-        )?;
+                option.disc_id.as_ref(),
+            )?;
         let pricer = crate::instruments::swaption::pricing::SwaptionPricer;
         let t = pricer.year_fraction(context.as_of, option.expiry, option.day_count)?;
 

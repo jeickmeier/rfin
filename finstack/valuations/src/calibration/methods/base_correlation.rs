@@ -55,7 +55,7 @@ pub struct BaseCorrelationCalibrator {
     /// Base date for calibration
     pub base_date: Date,
     /// Discount curve identifier used for tranche PVs
-    pub discount_curve_id: &'static str,
+    pub discount_curve_id: finstack_core::types::CurveId,
     /// Standard detachment points to calibrate
     pub detachment_points: Vec<F>,
     /// Calibration configuration
@@ -78,7 +78,7 @@ impl BaseCorrelationCalibrator {
             maturity_years,
             base_date,
             // Default to common OIS discounting for USD; configurable via with_discount_curve_id
-            discount_curve_id: "USD-OIS",
+            discount_curve_id: finstack_core::types::CurveId::from("USD-OIS"),
             // Standard market detachment points
             detachment_points: vec![3.0, 7.0, 10.0, 15.0, 30.0],
             config: CalibrationConfig::default(),
@@ -99,8 +99,8 @@ impl BaseCorrelationCalibrator {
     }
 
     /// Set the discount curve identifier used when pricing synthetic tranches.
-    pub fn with_discount_curve_id(mut self, disc_id: &'static str) -> Self {
-        self.discount_curve_id = disc_id;
+    pub fn with_discount_curve_id(mut self, disc_id: impl Into<finstack_core::types::CurveId>) -> Self {
+        self.discount_curve_id = disc_id.into();
         self
     }
 
@@ -334,7 +334,7 @@ impl BaseCorrelationCalibrator {
             .day_count(DayCount::Act360)
             .business_day_convention(BusinessDayConvention::Following)
             .calendar_id_opt(None)
-            .disc_id(self.discount_curve_id)
+            .disc_id(self.discount_curve_id.clone())
             .credit_index_id(finstack_core::types::CurveId::new(self.index_id.clone()))
             .side(TrancheSide::SellProtection)
             .effective_date_opt(None)
@@ -653,8 +653,8 @@ mod tests {
                 format!("EQUITY_0_{}", detach_pct),
                 &tranche_params,
                 &schedule_params,
-                "USD-OIS",
-                "CDX.NA.IG.42",
+                finstack_core::types::CurveId::from("USD-OIS"),
+                finstack_core::types::CurveId::from("CDX.NA.IG.42"),
                 TrancheSide::SellProtection,
             );
 

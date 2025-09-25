@@ -5,7 +5,7 @@ use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, SettlementType};
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::money::Money;
-use finstack_core::types::InstrumentId;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::F;
 
 use super::parameters::InterestRateOptionParams;
@@ -53,9 +53,9 @@ pub struct InterestRateOption {
     /// Settlement type
     pub settlement: SettlementType,
     /// Discount curve identifier
-    pub disc_id: &'static str,
+    pub disc_id: CurveId,
     /// Forward curve identifier
-    pub forward_id: &'static str,
+    pub forward_id: CurveId,
     /// Volatility surface identifier
     pub vol_id: &'static str,
     /// Pricing overrides (including implied volatility)
@@ -71,8 +71,8 @@ impl InterestRateOption {
         option_params: &InterestRateOptionParams,
         start_date: Date,
         end_date: Date,
-        disc_id: &'static str,
-        forward_id: &'static str,
+        disc_id: impl Into<CurveId>,
+        forward_id: impl Into<CurveId>,
         vol_id: &'static str,
     ) -> Self {
         Self {
@@ -89,8 +89,8 @@ impl InterestRateOption {
             calendar_id: option_params.calendar_id,
             exercise_style: ExerciseStyle::European,
             settlement: SettlementType::Cash,
-            disc_id,
-            forward_id,
+            disc_id: disc_id.into(),
+            forward_id: forward_id.into(),
             vol_id,
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
@@ -107,8 +107,8 @@ impl InterestRateOption {
         end_date: Date,
         frequency: Frequency,
         day_count: DayCount,
-        disc_id: &'static str,
-        forward_id: &'static str,
+        disc_id: impl Into<CurveId>,
+        forward_id: impl Into<CurveId>,
         vol_id: &'static str,
     ) -> Self {
         let option_params =
@@ -118,8 +118,8 @@ impl InterestRateOption {
             &option_params,
             start_date,
             end_date,
-            disc_id,
-            forward_id,
+            disc_id.into(),
+            forward_id.into(),
             vol_id,
         )
     }
@@ -134,8 +134,8 @@ impl InterestRateOption {
         end_date: Date,
         frequency: Frequency,
         day_count: DayCount,
-        disc_id: &'static str,
-        forward_id: &'static str,
+        disc_id: impl Into<CurveId>,
+        forward_id: impl Into<CurveId>,
         vol_id: &'static str,
     ) -> Self {
         let option_params =
@@ -145,8 +145,8 @@ impl InterestRateOption {
             &option_params,
             start_date,
             end_date,
-            disc_id,
-            forward_id,
+            disc_id.into(),
+            forward_id.into(),
             vol_id,
         )
     }

@@ -851,13 +851,13 @@ impl CashflowBuilder {
         let maturity = self.maturity.expect("maturity must be set before stepup");
         let mut prev = issue;
         for &(end, margin_bp) in steps {
-            let mut params = base_params;
+            let mut params = base_params.clone();
             params.margin_bp = margin_bp;
             self.add_float_coupon_window(prev, end, params, schedule, default_split);
             prev = end;
         }
         if prev != maturity {
-            let mut params = base_params;
+            let mut params = base_params.clone();
             if let Some(&(_, margin_bp)) = steps.last() {
                 params.margin_bp = margin_bp;
             }

@@ -593,12 +593,6 @@ pub struct ConcentrationViolation {
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;
-    use time::Month;
-
-    #[allow(dead_code)]
-    fn test_date() -> Date {
-        Date::from_calendar_date(2025, Month::January, 1).unwrap()
-    }
 
     #[test]
     fn test_pool_creation() {

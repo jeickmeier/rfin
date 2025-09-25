@@ -21,8 +21,8 @@ pub struct IrsEngine;
 impl IrsEngine {
     /// Calculates the present value of an IRS by composing leg PVs.
     pub fn pv(irs: &InterestRateSwap, context: &MarketContext) -> Result<Money> {
-        let disc = context.get_ref::<DiscountCurve>(irs.fixed.disc_id)?;
-        let fwd = context.get_ref::<ForwardCurve>(irs.float.fwd_id)?;
+        let disc = context.get_ref::<DiscountCurve>(irs.fixed.disc_id.as_ref())?;
+        let fwd = context.get_ref::<ForwardCurve>(irs.float.fwd_id.as_ref())?;
 
         let pv_fixed = irs.pv_fixed_leg(disc)?;
         let pv_float = irs.pv_float_leg(disc, fwd)?;

@@ -212,7 +212,7 @@ impl CDSTranchePricer {
         // Get the discount curve
         let discount_curve = market_ctx
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                tranche.disc_id,
+                tranche.disc_id.as_ref(),
             )?;
 
         // Calculate present values of premium and protection legs
@@ -1325,8 +1325,8 @@ mod tests {
                 "CDX_IG42_3_7_5Y",
                 &tranche_params,
                 &schedule_params,
-                "USD-OIS",
-                "CDX.NA.IG.42",
+                finstack_core::types::CurveId::from("USD-OIS"),
+                finstack_core::types::CurveId::from("CDX.NA.IG.42"),
                 TrancheSide::SellProtection,
             )
         }
@@ -1465,8 +1465,8 @@ mod tests {
             "CDX_IG42_3_7_5Y",
             &tranche_params,
             &schedule_params,
-            "USD-OIS",
-            "CDX.NA.IG.42",
+            finstack_core::types::CurveId::from("USD-OIS"),
+            finstack_core::types::CurveId::from("CDX.NA.IG.42"),
             TrancheSide::SellProtection,
         );
 
@@ -1501,8 +1501,8 @@ mod tests {
             "CDX_IG42_0_3_5Y",
             &tranche_params,
             &schedule_params,
-            "USD-OIS",
-            "CDX.NA.IG.42",
+            finstack_core::types::CurveId::from("USD-OIS"),
+            finstack_core::types::CurveId::from("CDX.NA.IG.42"),
             TrancheSide::SellProtection,
         );
 
@@ -1656,7 +1656,7 @@ mod tests {
         let index_data_arc = market_ctx.credit_index(&tranche.credit_index_id).unwrap();
         let discount_curve = market_ctx
             .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                tranche.disc_id,
+                tranche.disc_id.as_ref(),
             )
             .unwrap();
 

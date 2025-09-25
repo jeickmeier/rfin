@@ -90,7 +90,7 @@ fn main() -> finstack_core::Result<()> {
         .notional(Money::new(25_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
         .fixed(finstack_valuations::instruments::irs::FixedLegSpec {
-            disc_id: "USD-OIS",
+            disc_id: "USD-OIS".into(),
             rate: 0.0425,
             freq: finstack_core::dates::Frequency::semi_annual(),
             dc: finstack_core::dates::DayCount::Thirty360,
@@ -103,8 +103,8 @@ fn main() -> finstack_core::Result<()> {
             compounding_simple: true,
         })
         .float(finstack_valuations::instruments::irs::FloatLegSpec {
-            disc_id: "USD-OIS",
-            fwd_id: "USD-SOFR-3M",
+            disc_id: "USD-OIS".into(),
+            fwd_id: "USD-SOFR-3M".into(),
             spread_bp: 25.0,
             freq: finstack_core::dates::Frequency::quarterly(),
             dc: finstack_core::dates::DayCount::Act360,
@@ -153,7 +153,7 @@ fn main() -> finstack_core::Result<()> {
         .vol_id("TSLA-VOL".into())
         .div_yield_id_opt(underlying_params.dividend_yield_id)
         .pricing_overrides(pricing_overrides)
-        .attributes(finstack_valuations::instruments::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::Attributes::new())
         .build()?;
     println!(
         "✓ Custom equity option created: {} style",

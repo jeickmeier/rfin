@@ -60,7 +60,7 @@ impl InterestRateSwap {
     ) -> Self {
         let sched = ScheduleParams::usd_standard();
         let fixed = FixedLegSpec {
-            disc_id: "USD-OIS",
+            disc_id: finstack_core::types::CurveId::from("USD-OIS"),
             rate: fixed_rate,
             freq: sched.freq,
             dc: sched.dc,
@@ -73,8 +73,8 @@ impl InterestRateSwap {
             compounding_simple: true,
         };
         let float = FloatLegSpec {
-            disc_id: "USD-OIS",
-            fwd_id: "USD-SOFR-3M",
+            disc_id: finstack_core::types::CurveId::from("USD-OIS"),
+            fwd_id: finstack_core::types::CurveId::from("USD-SOFR-3M"),
             spread_bp: 0.0,
             freq: sched.freq,
             dc: sched.dc,
@@ -105,7 +105,7 @@ impl InterestRateSwap {
     ) -> Self {
         let sched = ScheduleParams::usd_standard();
         let fixed = FixedLegSpec {
-            disc_id: "USD-OIS",
+            disc_id: finstack_core::types::CurveId::from("USD-OIS"),
             rate: fixed_rate,
             freq: sched.freq,
             dc: sched.dc,
@@ -118,8 +118,8 @@ impl InterestRateSwap {
             compounding_simple: true,
         };
         let float = FloatLegSpec {
-            disc_id: "USD-OIS",
-            fwd_id: "USD-SOFR-3M",
+            disc_id: finstack_core::types::CurveId::from("USD-OIS"),
+            fwd_id: finstack_core::types::CurveId::from("USD-SOFR-3M"),
             spread_bp: 0.0,
             freq: sched.freq,
             dc: sched.dc,
@@ -152,7 +152,7 @@ impl InterestRateSwap {
         // Approximate basis swap by using fixed leg to carry the primary spread as a fixed coupon
         let sched = ScheduleParams::usd_standard();
         let fixed = FixedLegSpec {
-            disc_id: "USD-OIS",
+            disc_id: finstack_core::types::CurveId::from("USD-OIS"),
             rate: primary_spread_bp * 1e-4,
             freq: sched.freq,
             dc: sched.dc,
@@ -165,8 +165,8 @@ impl InterestRateSwap {
             compounding_simple: true,
         };
         let float = FloatLegSpec {
-            disc_id: "USD-OIS",
-            fwd_id: "USD-SOFR-6M",
+            disc_id: finstack_core::types::CurveId::from("USD-OIS"),
+            fwd_id: finstack_core::types::CurveId::from("USD-SOFR-6M"),
             spread_bp: reference_spread_bp,
             freq: sched.freq,
             dc: sched.dc,
@@ -318,7 +318,7 @@ impl CashflowProvider for InterestRateSwap {
         float_b
             .principal(self.notional, self.float.start, self.float.end)
             .floating_cf(crate::cashflow::builder::FloatingCouponSpec {
-                index_id: self.float.fwd_id,
+                index_id: self.float.fwd_id.clone(),
                 margin_bp: self.float.spread_bp,
                 gearing: 1.0,
                 coupon_type: CouponType::Cash,

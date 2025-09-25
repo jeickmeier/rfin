@@ -28,14 +28,16 @@ pub mod irs;
 pub mod pricing_overrides;
 pub mod private_markets_fund;
 pub mod repo;
+pub mod swaption;
+pub mod trs;
+pub mod variance_swap;
+
 // Preserve public path for equity underlying params after move
 pub use equity::underlying;
 // Preserve public path for equity metrics after move
 pub use equity::metrics as equity_metrics;
 pub mod structured_credit;
-pub mod swaption;
-pub mod trs;
-pub mod variance_swap;
+
 
 // Re-export common types for convenience (avoid glob re-exports to keep API unambiguous)
 pub use basis_swap::BasisSwap;
@@ -63,6 +65,7 @@ pub use repo::{CollateralSpec, CollateralType, Repo, RepoType};
 pub use structured_credit::{Abs, Clo, StructuredCredit};
 pub use swaption::Swaption;
 pub use trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
+pub use variance_swap::VarianceSwap;
 
 // Re-export option-related enums and models at top-level after flattening
 pub use cap_floor::RateOptionType;
@@ -70,9 +73,21 @@ pub use common::{BinomialTree, TreeType};
 
 pub use common::build_with_metrics_dyn;
 
-// Backward compatibility surface (deprecated/legacy re-exports)
-pub mod compat;
-pub use compat::*;
+// Essential parameter type re-exports (formerly in deprecated compat.rs)
+pub use common::parameters::{
+    ExerciseStyle, OptionType, SettlementType, BasisSwapLeg, CdsSettlementType,
+    ContractSpec, CreditParams, EquityOptionParams, EquityUnderlyingParams,
+    FinancingLegSpec, FixedLegSpec, FloatLegSpec, FxOptionParams, FxUnderlyingParams,
+    IndexUnderlyingParams, InterestRateOptionParams, OptionMarketParams, ParRateMethod,
+    PayReceive, PremiumLegSpec, ProtectionLegSpec, ScheduleSpec, TotalReturnLegSpec,
+    UnderlyingParams,
+};
+
+// Essential trait re-exports (formerly in deprecated compat.rs)
+pub use common::traits::{Attributable, Attributes, Instrument};
+pub use common::discountable::Discountable;
+
+// Backward compatibility surface removed - deprecated re-exports have been eliminated
 
 // Pricer registrations for instruments
 #[allow(dead_code)]

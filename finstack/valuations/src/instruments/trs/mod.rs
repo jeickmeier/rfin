@@ -17,25 +17,4 @@ pub use types::{
     FinancingLegSpec, IndexUnderlyingParams, TotalReturnLegSpec, TrsScheduleSpec, TrsSide,
 };
 
-/// Shared TRS helpers
-pub(crate) mod helpers {
-    use finstack_core::money::Money;
-    use finstack_core::types::Currency;
-    use finstack_core::Result;
-
-    /// Validate TRS notional currency against optional base currency
-    #[allow(dead_code)]
-    pub fn validate_trs_currencies(notional: Money, base: Option<Currency>) -> Result<()> {
-        // Ensure same-currency amounts
-        crate::instruments::common::helpers::validate_currency_consistency(&[notional])?;
-        if let Some(base_ccy) = base {
-            if base_ccy != notional.currency() {
-                return Err(finstack_core::Error::CurrencyMismatch {
-                    expected: base_ccy,
-                    actual: notional.currency(),
-                });
-            }
-        }
-        Ok(())
-    }
-}
+// Note: TRS helpers module removed - was empty

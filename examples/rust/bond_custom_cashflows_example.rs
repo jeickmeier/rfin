@@ -14,7 +14,7 @@ use finstack_valuations::cashflow::builder::{cf, CouponType, FixedCouponSpec, Sc
 use finstack_valuations::cashflow::primitives::AmortizationSpec;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 
 use time::Month;
 
@@ -66,7 +66,7 @@ fn example_stepup_bond() -> finstack_core::Result<()> {
     let pv = bond.value(&curves, issue)?;
     println!("Step-up bond PV: {}", pv);
     // Compute selected metrics
-    use finstack_valuations::instruments::traits::Instrument;
+    use finstack_valuations::instruments::Instrument;
     use finstack_valuations::metrics::MetricId;
     let result = bond.price_with_metrics(&curves, issue, &[MetricId::CleanPrice, MetricId::Ytm])?;
     if let Some(clean_price) = result.measures.get("clean_price") {
@@ -252,7 +252,7 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
         amortization: None,
         custom_cashflows: None,
         float: None,
-        attributes: finstack_valuations::instruments::traits::Attributes::new(),
+        attributes: finstack_valuations::instruments::Attributes::new(),
     };
 
     // Create custom bond with higher frequency

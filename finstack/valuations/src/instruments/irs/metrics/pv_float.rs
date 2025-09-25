@@ -18,8 +18,10 @@ impl MetricCalculator for FloatLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs: &InterestRateSwap = context.instrument_as()?;
 
-        let disc = context.curves.get::<DiscountCurve>(irs.float.disc_id)?;
-        let fwd = context.curves.get::<ForwardCurve>(irs.float.fwd_id)?;
+        let disc = context.curves.get::<DiscountCurve>(irs.float.disc_id.clone())?;
+        let fwd = context
+            .curves
+            .get::<ForwardCurve>(irs.float.fwd_id.clone())?;
         let base = disc.base_date();
 
         let sched = crate::cashflow::builder::build_dates(

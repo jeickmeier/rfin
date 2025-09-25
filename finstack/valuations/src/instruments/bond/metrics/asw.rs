@@ -163,8 +163,6 @@ impl MetricCalculator for AssetSwapParCalculator {
         let maturity = bond.maturity;
         let dc = bond.dc;
         let coupon = bond.coupon;
-        #[allow(unused_variables)]
-        let notional_amt = bond.notional.amount();
         let disc = context.curves.get_ref::<DiscountCurve>(disc_id.clone())?;
 
         // Forward-based path intentionally not invoked here; use the explicit helpers instead
@@ -236,8 +234,6 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         }
         let flows = context.cashflows.as_ref().unwrap();
 
-        #[allow(unused_variables)]
-        let base_date = disc.base_date();
         let mut pv_fixed = 0.0;
         for (date, amt) in flows {
             if *date <= context.as_of {

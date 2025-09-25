@@ -13,7 +13,7 @@ use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::{Date, DayCount, Frequency};
 use finstack_core::money::Money;
-use finstack_core::types::InstrumentId;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::F;
 
 use super::parameters::SwaptionParams;
@@ -48,8 +48,8 @@ pub struct Swaption {
     pub day_count: DayCount,
     pub exercise: SwaptionExercise,
     pub settlement: SwaptionSettlement,
-    pub disc_id: &'static str,
-    pub forward_id: &'static str,
+    pub disc_id: CurveId,
+    pub forward_id: CurveId,
     pub vol_id: &'static str,
     pub pricing_overrides: PricingOverrides,
     pub sabr_params: Option<SABRParameters>,
@@ -61,8 +61,8 @@ impl Swaption {
     pub fn new_payer(
         id: impl Into<InstrumentId>,
         params: &SwaptionParams,
-        disc_id: &'static str,
-        forward_id: &'static str,
+        disc_id: impl Into<CurveId>,
+        forward_id: impl Into<CurveId>,
         vol_id: &'static str,
     ) -> Self {
         Self {
@@ -78,8 +78,8 @@ impl Swaption {
             day_count: DayCount::Thirty360,
             exercise: SwaptionExercise::European,
             settlement: SwaptionSettlement::Physical,
-            disc_id,
-            forward_id,
+            disc_id: disc_id.into(),
+            forward_id: forward_id.into(),
             vol_id,
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
@@ -91,8 +91,8 @@ impl Swaption {
     pub fn new_receiver(
         id: impl Into<InstrumentId>,
         params: &SwaptionParams,
-        disc_id: &'static str,
-        forward_id: &'static str,
+        disc_id: impl Into<CurveId>,
+        forward_id: impl Into<CurveId>,
         vol_id: &'static str,
     ) -> Self {
         Self {
@@ -108,8 +108,8 @@ impl Swaption {
             day_count: DayCount::Thirty360,
             exercise: SwaptionExercise::European,
             settlement: SwaptionSettlement::Physical,
-            disc_id,
-            forward_id,
+            disc_id: disc_id.into(),
+            forward_id: forward_id.into(),
             vol_id,
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,

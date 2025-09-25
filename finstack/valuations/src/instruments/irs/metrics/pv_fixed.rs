@@ -14,7 +14,7 @@ pub struct FixedLegPvCalculator;
 impl MetricCalculator for FixedLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs: &InterestRateSwap = context.instrument_as()?;
-        let disc = context.curves.get::<DiscountCurve>(irs.fixed.disc_id)?;
+        let disc = context.curves.get::<DiscountCurve>(irs.fixed.disc_id.clone())?;
 
         let sched = crate::cashflow::builder::build_dates(
             irs.fixed.start,

@@ -3,7 +3,6 @@
 use crate::instruments::cap_floor::InterestRateOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::bumps::BumpSpec;
-use finstack_core::types::CurveId;
 use finstack_core::{Result, F};
 
 /// Forward PV01 calculator (per 1bp parallel forward curve bump)
@@ -18,7 +17,7 @@ impl MetricCalculator for ForwardPv01Calculator {
 
         // Bump the forward curve by +1bp
         let mut bumps = hashbrown::HashMap::new();
-        bumps.insert(CurveId::from(option.forward_id), BumpSpec::parallel_bp(1.0));
+        bumps.insert(option.forward_id.clone(), BumpSpec::parallel_bp(1.0));
         let bumped_ctx = context.curves.bump(bumps)?;
 
         // Reprice with bumped forward curve

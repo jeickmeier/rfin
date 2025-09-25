@@ -139,7 +139,7 @@ impl PyBond {
             amortization: None,
             custom_cashflows: custom_cashflows.map(|cf| cf.inner()),
             float: None,
-            attributes: finstack_valuations::instruments::traits::Attributes::new(),
+            attributes: finstack_valuations::instruments::Attributes::new(),
         };
 
         Ok(Self {
@@ -423,7 +423,7 @@ impl PyBond {
     ///     >>> attrs.set_meta("issuer", "Microsoft")
     #[getter]
     fn attributes(&self) -> crate::valuations::attributes::PyAttributes {
-        use finstack_valuations::instruments::traits::Attributable;
+        use finstack_valuations::instruments::Attributable;
         let attrs = self.inner.attributes().clone();
         crate::valuations::attributes::PyAttributes::from_inner(attrs)
     }
@@ -443,7 +443,7 @@ impl PyBond {
         &mut self,
         attributes: &crate::valuations::attributes::PyAttributes,
     ) -> PyResult<()> {
-        use finstack_valuations::instruments::traits::Attributable;
+        use finstack_valuations::instruments::Attributable;
         use std::sync::Arc;
 
         // We need to clone the bond to modify it since it's in an Arc
@@ -462,7 +462,7 @@ impl PyBond {
     ///     >>> bond.add_tag("corporate")
     ///     >>> bond.add_tag("investment_grade")
     fn add_tag(&mut self, tag: String) -> PyResult<()> {
-        use finstack_valuations::instruments::traits::Attributable;
+        use finstack_valuations::instruments::Attributable;
         use std::sync::Arc;
 
         let mut bond = (*self.inner).clone();
@@ -479,7 +479,7 @@ impl PyBond {
     /// Returns:
     ///     True if the tag exists
     fn has_tag(&self, tag: &str) -> bool {
-        use finstack_valuations::instruments::traits::Attributable;
+        use finstack_valuations::instruments::Attributable;
         self.inner.has_tag(tag)
     }
 
@@ -493,7 +493,7 @@ impl PyBond {
     ///     >>> bond.set_meta("rating", "AA+")
     ///     >>> bond.set_meta("sector", "Technology")
     fn set_meta(&mut self, key: String, value: String) -> PyResult<()> {
-        use finstack_valuations::instruments::traits::Attributable;
+        use finstack_valuations::instruments::Attributable;
         use std::sync::Arc;
 
         let mut bond = (*self.inner).clone();
@@ -510,7 +510,7 @@ impl PyBond {
     /// Returns:
     ///     The value if present
     fn get_meta(&self, key: &str) -> Option<String> {
-        use finstack_valuations::instruments::traits::Attributable;
+        use finstack_valuations::instruments::Attributable;
         self.inner.get_meta(key).map(|s| s.to_string())
     }
 
@@ -522,7 +522,7 @@ impl PyBond {
     /// Returns:
     ///     True if the bond matches the selector
     fn matches_selector(&self, selector: &str) -> bool {
-        use finstack_valuations::instruments::traits::Attributable;
+        use finstack_valuations::instruments::Attributable;
         self.inner.matches_selector(selector)
     }
 
@@ -537,7 +537,7 @@ impl PyBond {
         as_of: &PyDate,
         metrics: Vec<String>,
     ) -> PyResult<crate::valuations::results::PyValuationResult> {
-        use finstack_valuations::instruments::traits::Instrument;
+        use finstack_valuations::instruments::Instrument;
 
         let curves = market_context.inner();
         let as_of_date = as_of.inner();
@@ -589,7 +589,7 @@ impl PyBond {
         market_context: &crate::core::market_data::context::PyMarketContext,
         as_of: &PyDate,
     ) -> PyResult<PyMoney> {
-        use finstack_valuations::instruments::traits::Instrument;
+        use finstack_valuations::instruments::Instrument;
 
         let curves = market_context.inner();
         let as_of_date = as_of.inner();

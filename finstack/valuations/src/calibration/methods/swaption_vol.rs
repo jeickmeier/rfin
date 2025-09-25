@@ -244,8 +244,11 @@ impl SwaptionVolCalibrator {
             day_count: self.market_conventions.day_count,
             exercise: crate::instruments::swaption::SwaptionExercise::European,
             settlement: crate::instruments::swaption::SwaptionSettlement::Physical,
-            disc_id: self.disc_id,
-            forward_id: self.forward_id.unwrap_or(self.disc_id),
+            disc_id: self.disc_id.into(),
+            forward_id: self
+                .forward_id
+                .map(|v| v.into())
+                .unwrap_or_else(|| self.disc_id.into()),
             vol_id: "dummy",
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
@@ -254,8 +257,8 @@ impl SwaptionVolCalibrator {
 
         let disc = context
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            self.disc_id,
-        )?;
+                self.disc_id,
+            )?;
         crate::instruments::swaption::pricing::SwaptionPricer.swap_annuity(
             &swaption,
             disc,

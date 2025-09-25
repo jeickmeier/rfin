@@ -1,24 +1,22 @@
-#[cfg(test)]
-mod tests {
-    use crate::instruments::bond::types::Bond;
-    use crate::pricer::{price, InstrumentKey, ModelKey, PricerKey};
-    use finstack_core::currency::Currency;
-    use finstack_core::dates::Date;
-    use finstack_core::market_data::context::MarketContext;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::money::Money;
-    use finstack_core::types::{CurveId, InstrumentId};
-    use time::Month;
+use finstack_valuations::instruments::bond::types::Bond;
+use finstack_valuations::pricer::{price, InstrumentKey, ModelKey, PricerKey};
+use finstack_core::currency::Currency;
+use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::money::Money;
+use finstack_core::types::{CurveId, InstrumentId};
+use time::Month;
 
-    #[test]
-    fn registry_supports_bond_discounting() {
-        let key = PricerKey::new(InstrumentKey::Bond, ModelKey::Discounting);
-        assert!(super::registry::supports(key));
-        assert!(super::registry::models_for(InstrumentKey::Bond).any(|m| m == ModelKey::Discounting));
-    }
+#[test]
+fn registry_supports_bond_discounting() {
+    let key = PricerKey::new(InstrumentKey::Bond, ModelKey::Discounting);
+    assert!(finstack_valuations::instruments::registry::supports(key));
+    assert!(finstack_valuations::instruments::registry::models_for(InstrumentKey::Bond).any(|m| m == ModelKey::Discounting));
+}
 
-    #[test]
-    fn price_bond_discounting_works() {
+#[test]
+fn price_bond_discounting_works() {
         // Build minimal context
         let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let disc = DiscountCurve::builder("USD-OIS")
@@ -48,7 +46,6 @@ mod tests {
         let result = price(&bond, ModelKey::Discounting, &ctx).unwrap();
         assert_eq!(result.instrument_id, "BOND1");
         assert!(result.value.amount().is_finite());
-    }
 }
 
 

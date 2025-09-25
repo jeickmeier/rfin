@@ -34,7 +34,7 @@ pub enum ParRateMethod {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FixedLegSpec {
     /// Discount curve identifier for pricing
-    pub disc_id: &'static str,
+    pub disc_id: CurveId,
     /// Fixed rate (e.g., 0.05 for 5%)
     pub rate: F,
     /// Payment frequency
@@ -62,9 +62,9 @@ pub struct FixedLegSpec {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FloatLegSpec {
     /// Discount curve identifier for pricing
-    pub disc_id: &'static str,
+    pub disc_id: CurveId,
     /// Forward curve identifier for rate projections
-    pub fwd_id: &'static str,
+    pub fwd_id: CurveId,
     /// Spread in basis points added to the forward rate
     pub spread_bp: F,
     /// Payment frequency

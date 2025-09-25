@@ -28,8 +28,8 @@ impl SwaptionPricer {
     pub fn npv(&self, s: &Swaption, curves: &MarketContext, as_of: Date) -> Result<Money> {
         let disc = curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            s.disc_id,
-        )?;
+                s.disc_id.as_ref(),
+            )?;
         if s.sabr_params.is_some() {
             return self.price_sabr(s, disc, as_of);
         }

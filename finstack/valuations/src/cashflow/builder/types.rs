@@ -4,6 +4,7 @@
 //! `CashflowBuilder` to produce deterministic schedules.
 
 use finstack_core::dates::BusinessDayConvention;
+use finstack_core::types::CurveId;
 use finstack_core::dates::{Date, DayCount, Frequency, StubKind};
 use finstack_core::error::InputError;
 use finstack_core::money::Money;
@@ -61,9 +62,9 @@ pub struct FixedCouponSpec {
 }
 
 /// Floating coupon specification.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct FloatingCouponSpec {
-    pub index_id: &'static str,
+    pub index_id: CurveId,
     pub margin_bp: f64,
     pub gearing: f64,
     pub coupon_type: CouponType,
@@ -169,9 +170,9 @@ impl ScheduleParams {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct FloatCouponParams {
-    pub index_id: &'static str,
+    pub index_id: CurveId,
     pub margin_bp: f64,
     pub gearing: f64,
     pub reset_lag_days: i32,
@@ -183,7 +184,7 @@ pub struct FixedWindow {
     pub schedule: ScheduleParams,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct FloatWindow {
     pub params: FloatCouponParams,
     pub schedule: ScheduleParams,

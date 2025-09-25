@@ -10,7 +10,7 @@ use crate::instruments::{
     fra::ForwardRateAgreement,
     ir_future::InterestRateFuture,
     irs::{FloatLegSpec, InterestRateSwap, PayReceive},
-    traits::Instrument,
+    Instrument,
 };
 use finstack_core::{
     currency::Currency,
@@ -30,7 +30,7 @@ use std::collections::BTreeMap;
 #[derive(Clone, Debug)]
 pub struct ForwardCurveCalibrator {
     /// Forward curve identifier
-    pub fwd_curve_id: &'static str,
+    pub fwd_curve_id: CurveId,
     /// Tenor in years (e.g., 0.25 for 3M, 0.5 for 6M)
     pub tenor_years: F,
     /// Base date for the curve
@@ -38,7 +38,7 @@ pub struct ForwardCurveCalibrator {
     /// Currency
     pub currency: Currency,
     /// Discount curve identifier for PV calculations
-    pub discount_curve_id: &'static str,
+    pub discount_curve_id: CurveId,
     /// Day count for time axis
     pub time_dc: DayCount,
     /// Interpolation style for forward rates
@@ -50,18 +50,18 @@ pub struct ForwardCurveCalibrator {
 impl ForwardCurveCalibrator {
     /// Create a new forward curve calibrator.
     pub fn new(
-        fwd_curve_id: &'static str,
+        fwd_curve_id: impl Into<CurveId>,
         tenor_years: F,
         base_date: Date,
         currency: Currency,
-        discount_curve_id: &'static str,
+        discount_curve_id: impl Into<CurveId>,
     ) -> Self {
         Self {
-            fwd_curve_id,
+            fwd_curve_id: fwd_curve_id.into(),
             tenor_years,
             base_date,
             currency,
-            discount_curve_id,
+            discount_curve_id: discount_curve_id.into(),
             time_dc: DayCount::Act365F,
             solve_interp: InterpStyle::Linear,
             config: CalibrationConfig::default(),
@@ -99,7 +99,7 @@ impl ForwardCurveCalibrator {
         // Get discount curve
         let _discount_curve = base_context
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                self.discount_curve_id,
+                self.discount_curve_id.as_ref(),
             )?;
 
         // Filter and sort quotes by maturity
@@ -141,7 +141,7 @@ impl ForwardCurveCalibrator {
                 temp_knots.push((knot_time, fwd_rate));
 
                 let temp_fwd_curve =
-                    match ForwardCurve::builder(self_clone.fwd_curve_id, self_clone.tenor_years)
+                    match ForwardCurve::builder(self_clone.fwd_curve_id.clone(), self_clone.tenor_years)
                         .base_date(self_clone.base_date)
                         .knots(temp_knots)
                         .set_interp(self_clone.solve_interp)
@@ -171,7 +171,7 @@ impl ForwardCurveCalibrator {
                 return Err(finstack_core::Error::Calibration {
                     message: format!(
                         "Solved forward rate out of bounds for {} at t={:.6}: fwd={:.6}",
-                        self.fwd_curve_id, knot_time, solved_fwd
+                        self.fwd_curve_id.as_str(), knot_time, solved_fwd
                     ),
                     category: "forward_curve_bootstrap".to_string(),
                 });
@@ -181,7 +181,7 @@ impl ForwardCurveCalibrator {
             debug_assert!(knots.last().map(|(t, _)| *t <= knot_time + 1e-12).unwrap_or(true));
             knots.push((knot_time, solved_fwd));
 
-            let final_curve = ForwardCurve::builder(self.fwd_curve_id, self.tenor_years)
+            let final_curve = ForwardCurve::builder(self.fwd_curve_id.clone(), self.tenor_years)
                 .base_date(self.base_date)
                 .knots(knots.clone())
                 .set_interp(self.solve_interp)
@@ -201,7 +201,7 @@ impl ForwardCurveCalibrator {
         }
 
         // Build final forward curve
-        let curve = ForwardCurve::builder(self.fwd_curve_id, self.tenor_years)
+        let curve = ForwardCurve::builder(self.fwd_curve_id.clone(), self.tenor_years)
             .base_date(self.base_date)
             .knots(knots)
             .set_interp(self.solve_interp)
@@ -215,17 +215,17 @@ impl ForwardCurveCalibrator {
             .map_err(|e| finstack_core::Error::Calibration {
                 message: format!(
                     "Calibrated forward curve {} failed validation: {}",
-                    self.fwd_curve_id, e
+                    self.fwd_curve_id.as_str(), e
                 ),
                 category: "forward_curve_validation".to_string(),
             })?;
 
         // Build calibration report
         let report = CalibrationReport::for_type("forward_curve", residuals, total_iterations)
-            .with_metadata("curve_id", self.fwd_curve_id)
+            .with_metadata("curve_id", self.fwd_curve_id.to_string())
             .with_metadata("tenor_years", self.tenor_years.to_string())
             .with_metadata("interp", format!("{:?}", self.solve_interp))
-            .with_metadata("discount_curve", self.discount_curve_id)
+            .with_metadata("discount_curve", self.discount_curve_id.to_string())
             .with_metadata("time_dc", format!("{:?}", self.time_dc))
             .with_metadata("validation", "passed");
 
@@ -250,8 +250,8 @@ impl ForwardCurveCalibrator {
                     .fixed_rate(*rate)
                     .day_count(*day_count)
                     .reset_lag(2)
-                    .disc_id(self.discount_curve_id.into())
-                    .forward_id(self.fwd_curve_id.into())
+                    .disc_id(self.discount_curve_id.clone())
+                    .forward_id(self.fwd_curve_id.clone())
                     .build()
                     .unwrap();
 
@@ -279,8 +279,8 @@ impl ForwardCurveCalibrator {
                     .day_count(specs.day_count)
                     .position(crate::instruments::ir_future::Position::Long)
                     .contract_specs(crate::instruments::ir_future::FutureContractSpecs::default())
-                    .disc_id(self.discount_curve_id.into())
-                    .forward_id(self.fwd_curve_id.into())
+                    .disc_id(self.discount_curve_id.clone())
+                    .forward_id(self.fwd_curve_id.clone())
                     .build()
                     .unwrap();
 
@@ -305,7 +305,7 @@ impl ForwardCurveCalibrator {
                     rate: *rate,
                     freq: *fixed_freq,
                     dc: *fixed_dc,
-                    disc_id: self.discount_curve_id,
+                    disc_id: self.discount_curve_id.clone(),
                     bdc: BusinessDayConvention::ModifiedFollowing,
                     calendar_id: None,
                     stub: StubKind::None,
@@ -316,8 +316,8 @@ impl ForwardCurveCalibrator {
                 };
 
                 let float_spec = FloatLegSpec {
-                    disc_id: self.discount_curve_id,
-                    fwd_id: self.fwd_curve_id,
+                    disc_id: self.discount_curve_id.clone(),
+                    fwd_id: self.fwd_curve_id.clone(),
                     spread_bp: 0.0,
                     freq: *float_freq,
                     dc: *float_dc,
@@ -370,14 +370,14 @@ impl ForwardCurveCalibrator {
                     if primary_index.contains(&format!("{}M", (self.tenor_years * 12.0) as i32)) {
                         // Primary leg uses our curve, reference needs to be resolved
                         (
-                            CurveId::from(self.fwd_curve_id),
+                            self.fwd_curve_id.clone(),
                             self.resolve_forward_curve_id(reference_index),
                         )
                     } else {
                         // Reference leg uses our curve, primary needs to be resolved
                         (
                             self.resolve_forward_curve_id(primary_index),
-                            CurveId::from(self.fwd_curve_id),
+                            self.fwd_curve_id.clone(),
                         )
                     };
 
@@ -404,7 +404,7 @@ impl ForwardCurveCalibrator {
                     *maturity,
                     primary_leg,
                     reference_leg,
-                    self.discount_curve_id,
+                    self.discount_curve_id.clone(),
                 );
 
                 let pv = basis_swap.value(context, self.base_date)?;
@@ -637,11 +637,11 @@ mod tests {
         let context = MarketContext::new().insert_discount(discount_curve);
 
         let calibrator = ForwardCurveCalibrator::new(
-            "USD-SOFR-3M-FWD",
+            CurveId::from("USD-SOFR-3M-FWD"),
             0.25,
             base_date,
             Currency::USD,
-            "USD-OIS-DISC",
+            CurveId::from("USD-OIS-DISC"),
         )
         .with_solve_interp(InterpStyle::Linear);
 
@@ -669,11 +669,11 @@ mod tests {
     #[test]
     fn test_tenor_matching() {
         let calibrator = ForwardCurveCalibrator::new(
-            "USD-SOFR-3M-FWD",
+            CurveId::from("USD-SOFR-3M-FWD"),
             0.25,
             Date::from_calendar_date(2025, Month::January, 1).unwrap(),
             Currency::USD,
-            "USD-OIS-DISC",
+            CurveId::from("USD-OIS-DISC"),
         );
 
         assert!(calibrator.matches_tenor("USD-SOFR-3M", &Frequency::quarterly()));
@@ -685,11 +685,11 @@ mod tests {
     fn test_forward_curve_id_resolution() {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let calibrator = ForwardCurveCalibrator::new(
-            "USD-SOFR-3M-FWD",
+            CurveId::from("USD-SOFR-3M-FWD"),
             0.25,
             base_date,
             Currency::USD,
-            "USD-OIS-DISC",
+            CurveId::from("USD-OIS-DISC"),
         );
 
         // Test USD curve ID resolution
@@ -716,11 +716,11 @@ mod tests {
 
         // Test EUR curve ID resolution
         let eur_calibrator = ForwardCurveCalibrator::new(
-            "EUR-EURIBOR-3M-FWD",
+            CurveId::from("EUR-EURIBOR-3M-FWD"),
             0.25,
             base_date,
             Currency::EUR,
-            "EUR-OIS-DISC",
+            CurveId::from("EUR-OIS-DISC"),
         );
         assert_eq!(
             eur_calibrator

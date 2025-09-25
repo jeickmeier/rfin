@@ -51,7 +51,7 @@ pub struct CdsTranche {
     /// Optional holiday calendar id
     pub calendar_id: Option<&'static str>,
     /// Discount curve identifier (by quote currency)
-    pub disc_id: &'static str,
+    pub disc_id: CurveId,
     /// Credit index identifier for survival/loss modeling (placeholder)
     pub credit_index_id: CurveId,
     /// Tranche side (buy/sell protection)
@@ -68,7 +68,7 @@ impl CdsTranche {
         id: impl Into<InstrumentId>,
         tranche_params: &CDSTrancheParams,
         schedule_params: &ScheduleParams,
-        disc_id: &'static str,
+        disc_id: impl Into<CurveId>,
         credit_index_id: impl Into<CurveId>,
         side: TrancheSide,
     ) -> Self {
@@ -85,7 +85,7 @@ impl CdsTranche {
             day_count: schedule_params.dc,
             business_day_convention: schedule_params.bdc,
             calendar_id: schedule_params.calendar_id,
-            disc_id,
+            disc_id: disc_id.into(),
             credit_index_id: credit_index_id.into(),
             side,
             effective_date: None,

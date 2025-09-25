@@ -12,7 +12,7 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_valuations::instruments::repo::*;
-use finstack_valuations::instruments::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::metrics::{MetricId, MetricRegistry};
 use time::Month;

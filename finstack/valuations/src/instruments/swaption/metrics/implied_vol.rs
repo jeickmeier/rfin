@@ -22,8 +22,8 @@ impl MetricCalculator for ImpliedVolCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            option.disc_id,
-        )?;
+                option.disc_id.as_ref(),
+            )?;
 
         // Time to expiry from as_of
         let pricer = crate::instruments::swaption::pricing::SwaptionPricer;

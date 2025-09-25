@@ -54,7 +54,7 @@
 //! // Step 3: Calibrate forward curves using FRAs, futures, and LIBOR swaps
 //! let libor_quotes = vec![/* FRAs, futures, and LIBOR swaps */];
 //! let fwd_calibrator = ForwardCurveCalibrator::new(
-//!     "3M-LIBOR", 0.25, base_date, Currency::USD, "OIS", config
+//!     CurveId::from("3M-LIBOR"), 0.25, base_date, Currency::USD, CurveId::from("OIS"), config
 //! );
 //! let (forward_curve, _) = fwd_calibrator.calibrate(&libor_quotes, &context)?;
 //! ```
