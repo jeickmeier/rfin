@@ -32,6 +32,7 @@ pub enum InstrumentKey {
     InterestRateFuture = 21,
     VarianceSwap = 22,
     Equity = 23,
+    Repo = 24,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -112,6 +113,7 @@ impl<T: Priceable + 'static> PriceableExt for T {
             "InflationSwap" => InstrumentKey::InflationSwap,
             "InterestRateFuture" => InstrumentKey::InterestRateFuture,
             "VarianceSwap" => InstrumentKey::VarianceSwap,
+            "Repo" => InstrumentKey::Repo,
             // Extend as needed; default to Deposit for unknowns to avoid panic (explicit is better)
             _ => InstrumentKey::Deposit,
         }

@@ -10,6 +10,7 @@ mod implied_vol;
 mod rho;
 mod theta;
 mod vega;
+mod risk_bucketed_dv01;
 
 pub use delta::DeltaCalculator;
 pub use gamma::GammaCalculator;
@@ -29,6 +30,11 @@ pub fn register_swaption_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(MetricId::Vega, Arc::new(VegaCalculator), &["Swaption"]);
     registry.register_metric(MetricId::Theta, Arc::new(ThetaCalculator), &["Swaption"]);
     registry.register_metric(MetricId::Rho, Arc::new(RhoCalculator), &["Swaption"]);
+    registry.register_metric(
+        MetricId::BucketedDv01,
+        Arc::new(risk_bucketed_dv01::BucketedDv01Calculator),
+        &["Swaption"],
+    );
     registry.register_metric(
         MetricId::ImpliedVol,
         Arc::new(ImpliedVolCalculator),

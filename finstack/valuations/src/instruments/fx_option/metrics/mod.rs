@@ -10,6 +10,7 @@ mod implied_vol;
 mod rho;
 mod theta;
 mod vega;
+mod risk_bucketed_dv01;
 
 use crate::metrics::{MetricId, MetricRegistry};
 use std::sync::Arc;
@@ -55,6 +56,12 @@ pub fn register_fx_option_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::ImpliedVol,
         Arc::new(implied_vol::ImpliedVolCalculator),
+        &["FxOption"],
+    );
+
+    registry.register_metric(
+        MetricId::BucketedDv01,
+        Arc::new(risk_bucketed_dv01::BucketedDv01Calculator),
         &["FxOption"],
     );
 }

@@ -15,7 +15,8 @@ use std::collections::HashSet;
 // Import the generic tree framework
 use super::tree_framework::{
     map_exercise_dates_to_steps, price_recombining_tree, single_factor_equity_state, state_keys,
-    RecombiningInputs, StateVariables, TreeBranching, TreeGreeks, TreeModel, TreeValuator,
+    BarrierSpec, BarrierStyle, RecombiningInputs, StateVariables, TreeBranching, TreeGreeks,
+    TreeModel, TreeValuator,
 };
 
 /// Binomial tree types
@@ -261,6 +262,7 @@ impl BinomialTree {
             prob_down: 1.0 - p,
             prob_middle: None,
             interest_rate: market_params.rate,
+            barrier: None,
         })
     }
 
@@ -286,6 +288,43 @@ impl BinomialTree {
         steps.sort();
         steps.dedup();
         self.price_with_exercise(market_params, Some(&steps))
+    }
+
+    /// Convenience wrappers for standard barrier types
+    pub fn price_up_and_out(
+        &self,
+        market_params: &OptionMarketParams,
+        barrier: F,
+        rebate: F,
+    ) -> Result<F> {
+        self.price_barrier_out(market_params, Some(barrier), None, rebate)
+    }
+
+    pub fn price_down_and_out(
+        &self,
+        market_params: &OptionMarketParams,
+        barrier: F,
+        rebate: F,
+    ) -> Result<F> {
+        self.price_barrier_out(market_params, None, Some(barrier), rebate)
+    }
+
+    pub fn price_up_and_in(
+        &self,
+        market_params: &OptionMarketParams,
+        barrier: F,
+        rebate: F,
+    ) -> Result<F> {
+        self.price_barrier_in(market_params, Some(barrier), None, rebate)
+    }
+
+    pub fn price_down_and_in(
+        &self,
+        market_params: &OptionMarketParams,
+        barrier: F,
+        rebate: F,
+    ) -> Result<F> {
+        self.price_barrier_in(market_params, None, Some(barrier), rebate)
     }
 
     /// Calculate Greeks using binomial tree
@@ -345,6 +384,104 @@ impl BinomialTree {
         })
     }
 
+    /// Price barrier knock-out option (up/down) with rebate using binomial tree (discrete monitoring)
+    pub fn price_barrier_out(
+        &self,
+        market_params: &OptionMarketParams,
+        up_level: Option<F>,
+        down_level: Option<F>,
+        rebate: F,
+    ) -> Result<F> {
+        // Compute lattice parameters
+        let (u, d, p) = self.calculate_parameters(
+            market_params.spot,
+            market_params.strike,
+            market_params.rate,
+            market_params.volatility,
+            market_params.time_to_expiry,
+            market_params.dividend_yield,
+        )?;
+
+        // Use same valuator as vanilla
+        struct OptionValuator {
+            strike: F,
+            option_type: OptionType,
+        }
+
+        impl TreeValuator for OptionValuator {
+            fn value_at_maturity(&self, state: &NodeState) -> Result<F> {
+                let s = state.spot().ok_or(Error::Internal)?;
+                Ok(match self.option_type {
+                    OptionType::Call => (s - self.strike).max(0.0),
+                    OptionType::Put => (self.strike - s).max(0.0),
+                })
+            }
+            fn value_at_node(&self, _state: &NodeState, continuation_value: F) -> Result<F> {
+                Ok(continuation_value)
+            }
+        }
+
+        let valuator = OptionValuator {
+            strike: market_params.strike,
+            option_type: market_params.option_type,
+        };
+
+        let initial_vars = single_factor_equity_state(
+            market_params.spot,
+            market_params.rate,
+            market_params.dividend_yield,
+            market_params.volatility,
+        );
+
+        // Barrier configuration
+        let barrier = Some(BarrierSpec {
+            up_level,
+            down_level,
+            rebate,
+            style: BarrierStyle::KnockOut,
+        });
+
+        price_recombining_tree(RecombiningInputs {
+            branching: TreeBranching::Binomial,
+            steps: self.steps,
+            initial_vars: {
+                // Ensure spot exists (done), nothing else needed
+                initial_vars
+            },
+            time_to_maturity: market_params.time_to_expiry,
+            market_context: &MarketContext::new(),
+            valuator: &valuator,
+            up_factor: u,
+            down_factor: d,
+            middle_factor: None,
+            prob_up: p,
+            prob_down: 1.0 - p,
+            prob_middle: None,
+            interest_rate: market_params.rate,
+            barrier,
+        })
+    }
+
+    /// Price barrier knock-in option via in/out parity: vanilla = knock-in + knock-out
+    /// Only supported when exactly one of up_level/down_level is Some.
+    pub fn price_barrier_in(
+        &self,
+        market_params: &OptionMarketParams,
+        up_level: Option<F>,
+        down_level: Option<F>,
+        rebate: F,
+    ) -> Result<F> {
+        // Validate: single barrier only for parity
+        let num_barriers = up_level.is_some() as usize + down_level.is_some() as usize;
+        if num_barriers != 1 {
+            return Err(Error::Internal);
+        }
+
+        let vanilla = self.price_european(market_params)?;
+        let knock_out = self.price_barrier_out(market_params, up_level, down_level, rebate)?;
+        Ok((vanilla - knock_out).max(0.0))
+    }
+
     /// Generic pricing engine for arbitrary instruments
     ///
     /// This method implements the TreeModel trait, providing a flexible
@@ -386,6 +523,7 @@ impl BinomialTree {
             prob_down: 1.0 - p,
             prob_middle: None,
             interest_rate: r,
+            barrier: None,
         })
     }
 }

@@ -147,6 +147,7 @@ impl TrinomialTree {
             prob_down: p_d,
             prob_middle: Some(p_m),
             interest_rate: r,
+            barrier: None,
         })
     }
 }

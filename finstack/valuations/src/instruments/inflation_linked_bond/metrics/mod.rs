@@ -7,11 +7,13 @@ mod breakeven_inflation;
 mod index_ratio;
 mod real_duration;
 mod real_yield;
+mod risk_bucketed_dv01;
 
 pub use breakeven_inflation::BreakevenInflationCalculator;
 pub use index_ratio::IndexRatioCalculator;
 pub use real_duration::RealDurationCalculator;
 pub use real_yield::RealYieldCalculator;
+pub use risk_bucketed_dv01::BucketedDv01Calculator;
 
 use crate::metrics::{MetricId, MetricRegistry};
 use std::sync::Arc;
@@ -37,6 +39,11 @@ pub fn register_ilb_metrics(registry: &mut MetricRegistry) {
         .register_metric(
             MetricId::custom("breakeven_inflation"),
             Arc::new(BreakevenInflationCalculator),
+            &["ILB"],
+        )
+        .register_metric(
+            MetricId::BucketedDv01,
+            Arc::new(BucketedDv01Calculator),
             &["ILB"],
         );
 }

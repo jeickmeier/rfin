@@ -7,11 +7,13 @@ pub mod annuity;
 pub mod dv01;
 pub mod par_spread;
 pub mod pv;
+pub mod risk_bucketed_dv01;
 
 pub use annuity::AnnuityCalculator;
 pub use dv01::Dv01Calculator;
 pub use par_spread::ParSpreadCalculator;
 pub use pv::PvCalculator;
+pub use risk_bucketed_dv01::BucketedDv01Calculator;
 
 use crate::metrics::{MetricId, MetricRegistry};
 use std::sync::Arc;
@@ -58,6 +60,11 @@ pub fn register_basis_swap_metrics(registry: &mut MetricRegistry) {
         .register_metric(
             MetricId::BasisParSpread,
             Arc::new(ParSpreadCalculator),
+            &["BasisSwap"],
+        )
+        .register_metric(
+            MetricId::BucketedDv01,
+            Arc::new(BucketedDv01Calculator),
             &["BasisSwap"],
         );
 }

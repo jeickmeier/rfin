@@ -13,6 +13,7 @@
 //! evolve pricing independently of the instrument type.
 
 pub mod engine;
+pub mod pricer;
 
 /// Back-compat re-export of the main pricing facade.
 pub use engine::RepoPricer;

@@ -13,6 +13,7 @@ pub mod prices;
 pub mod ytm;
 pub mod ytw;
 pub mod z_spread;
+pub mod risk_bucketed_dv01;
 
 pub use accrued::AccruedInterestCalculator;
 pub use asw::{AssetSwapMarketCalculator, AssetSwapParCalculator};
@@ -27,6 +28,7 @@ pub use prices::{CleanPriceCalculator, DirtyPriceCalculator};
 pub use ytm::YtmCalculator;
 pub use ytw::YtwCalculator;
 pub use z_spread::ZSpreadCalculator;
+pub use risk_bucketed_dv01::BucketedDv01Calculator;
 
 /// Registers all bond metrics to a registry.
 pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
@@ -84,5 +86,10 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
             Arc::new(AssetSwapMarketCalculator),
             &["Bond"],
         )
-        .register_metric(MetricId::Cs01, Arc::new(Cs01Calculator), &["Bond"]);
+        .register_metric(MetricId::Cs01, Arc::new(Cs01Calculator), &["Bond"])
+        .register_metric(
+            MetricId::BucketedDv01,
+            Arc::new(BucketedDv01Calculator),
+            &["Bond"],
+        );
 }

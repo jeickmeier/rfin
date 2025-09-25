@@ -17,6 +17,7 @@ use finstack_valuations::instruments::{
     trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap, TrsSide},
     underlying::EquityUnderlyingParams,
 };
+use finstack_valuations::metrics::MetricId;
 use time::Month;
 
 fn create_test_market_context() -> MarketContext {
@@ -136,14 +137,30 @@ fn test_equity_trs_pricing() {
         .build()
         .unwrap();
 
-    let npv = trs.value(&context, as_of).unwrap();
+    // Compute with metrics
+    let res = trs
+        .price_with_metrics(
+            &context,
+            as_of,
+            &[
+                MetricId::ParSpread,
+                MetricId::FinancingAnnuity,
+                MetricId::Ir01,
+            ],
+        )
+        .unwrap();
 
-    // With a 50bp spread to compensate for equity risk premium, NPV should be reasonable
+    // Par spread should be in the ballpark of configured financing spread (50bp)
+    let par_spread = *res.measures.get("par_spread").unwrap();
     assert!(
-        npv.amount().abs() < 500_000.0,
-        "NPV should be reasonable but was {}",
-        npv.amount()
+        (par_spread - 50.0).abs() < 50.0,
+        "Par spread {} not near configured 50bp",
+        par_spread
     );
+
+    // Financing annuity positive; IR01 positive
+    assert!(*res.measures.get("financing_annuity").unwrap() > 0.0);
+    assert!(*res.measures.get("ir01").unwrap() > 0.0);
 }
 
 #[test]
@@ -179,11 +196,87 @@ fn test_equity_trs_delta() {
         .build()
         .unwrap();
 
-    let result = trs.price_with_metrics(&context, as_of, &[]).unwrap();
+    // Compute TRS metrics
+    let result = trs
+        .price_with_metrics(
+            &context,
+            as_of,
+            &[
+                MetricId::ParSpread,
+                MetricId::IndexDelta,
+                MetricId::FinancingAnnuity,
+                MetricId::Ir01,
+            ],
+        )
+        .unwrap();
 
-    // For now, just check that the TRS can be priced without error
-    // TODO: Add proper metric calculation when registry is integrated
+    // Basic sanity: value and metrics present
     assert!(result.value.amount().is_finite());
+    let par_spread = *result.measures.get("par_spread").unwrap();
+    let index_delta = *result.measures.get("index_delta").unwrap();
+    let annuity = *result.measures.get("financing_annuity").unwrap();
+    let ir01 = *result.measures.get("ir01").unwrap();
+
+    // Financing annuity should be positive and <= notional * years (≈1y here)
+    assert!(annuity > 0.0);
+    assert!(annuity <= notional.amount() * 1.05);
+
+    // IR01 proxy uses annuity; should be positive
+    assert!(ir01 > 0.0);
+
+    // Index delta sign sanity vs side
+    assert!(index_delta > 0.0, "Receive TR should have positive delta");
+
+    // Magnitude sanity via spot bump finite-difference: ΔPV ≈ delta * ΔS
+    let spot = match context.price("SPX-SPOT").unwrap() {
+        MarketScalar::Unitless(v) => *v,
+        MarketScalar::Price(p) => p.amount(),
+    };
+    let eps = 0.01; // 1% spot bump
+    let d_s = spot * eps;
+    let context_bumped = context.clone().insert_price("SPX-SPOT", MarketScalar::Unitless(spot * (1.0 + eps)));
+    let pv0 = trs.value(&context, as_of).unwrap().amount();
+    let pv1 = trs.value(&context_bumped, as_of).unwrap().amount();
+    let dpv_fd = pv1 - pv0;
+    let dpv_lin = index_delta * d_s;
+    // Allow some tolerance due to discounting and yield effects
+    let tol = (notional.amount() * 0.02).max(1.0); // 2% of notional or $1
+    assert!(
+        (dpv_fd - dpv_lin).abs() < tol,
+        "FD ΔPV {} vs linear {} differ by more than {}",
+        dpv_fd,
+        dpv_lin,
+        tol
+    );
+
+    // Par spread sanity check: if we set financing spread to par, PV ~ 0
+    let underlying2 = EquityUnderlyingParams::new("SPX", "SPX-SPOT")
+        .with_dividend_yield("SPX-DIV-YIELD")
+        .with_contract_size(1.0);
+    let trs_par = EquityTotalReturnSwap::builder()
+        .id("TRS-SPX-001-PAR".into())
+        .notional(notional)
+        .underlying(underlying2)
+        .financing(
+            finstack_valuations::instruments::trs::FinancingLegSpec::new(
+                "USD-OIS",
+                "USD-SOFR-3M",
+                par_spread,
+                DayCount::Act360,
+            ),
+        )
+        .schedule(
+            finstack_valuations::instruments::trs::TrsScheduleSpec::from_params(
+                as_of,
+                Date::from_calendar_date(2026, Month::January, 2).unwrap(),
+                ScheduleParams::quarterly_act360(),
+            ),
+        )
+        .side(TrsSide::ReceiveTotalReturn)
+        .build()
+        .unwrap();
+    let pv_par = trs_par.value(&context, as_of).unwrap();
+    assert!(pv_par.amount().abs() < 1.0, "PV at par should be ~0, got {}", pv_par.amount());
 }
 
 #[test]
@@ -260,11 +353,59 @@ fn test_fi_index_trs_par_spread() {
         .build()
         .unwrap();
 
-    let result = trs.price_with_metrics(&context, as_of, &[]).unwrap();
-
-    // For now, just check that the TRS can be priced without error
-    // TODO: Add proper metric calculation when registry is integrated
+    // Compute TRS metrics
+    let result = trs
+        .price_with_metrics(
+            &context,
+            as_of,
+            &[
+                MetricId::ParSpread,
+                MetricId::FinancingAnnuity,
+                MetricId::Ir01,
+            ],
+        )
+        .unwrap();
     assert!(result.value.amount().is_finite());
+
+    let par_spread = *result.measures.get("par_spread").unwrap();
+    let annuity = *result.measures.get("financing_annuity").unwrap();
+    let ir01 = *result.measures.get("ir01").unwrap();
+
+    // Financing annuity should be positive and bounded
+    assert!(annuity > 0.0);
+    assert!(annuity <= notional.amount() * 1.05);
+    // IR01 proxy is positive
+    assert!(ir01 > 0.0);
+
+    // Apply computed par spread and expect PV ~ 0
+    let underlying2 = IndexUnderlyingParams::new("HY.BOND.INDEX", USD)
+        .with_yield("HY-INDEX-YIELD")
+        .with_duration("HY-INDEX-DURATION")
+        .with_contract_size(1.0);
+    let trs_par = FIIndexTotalReturnSwap::builder()
+        .id("TRS-HY-001-PAR".into())
+        .notional(notional)
+        .underlying(underlying2)
+        .financing(
+            finstack_valuations::instruments::trs::FinancingLegSpec::new(
+                "USD-OIS",
+                "USD-SOFR-3M",
+                par_spread,
+                DayCount::Act360,
+            ),
+        )
+        .schedule(
+            finstack_valuations::instruments::trs::TrsScheduleSpec::from_params(
+                as_of,
+                Date::from_calendar_date(2026, Month::January, 2).unwrap(),
+                ScheduleParams::quarterly_act360(),
+            ),
+        )
+        .side(TrsSide::ReceiveTotalReturn)
+        .build()
+        .unwrap();
+    let pv_par = trs_par.value(&context, as_of).unwrap();
+    assert!(pv_par.amount().abs() < 1.0, "PV at par should be ~0, got {}", pv_par.amount());
 }
 
 #[test]

@@ -18,6 +18,7 @@ mod expected_loss;
 mod jump_to_default;
 mod spread_dv01;
 mod upfront;
+mod risk_bucketed_dv01;
 
 use crate::metrics::MetricRegistry;
 
@@ -55,6 +56,11 @@ pub fn register_cds_tranche_metrics(registry: &mut MetricRegistry) {
         .register_metric(
             MetricId::custom("correlation_delta"),
             Arc::new(correlation_delta::CorrelationDeltaCalculator),
+            &["CDSTranche"],
+        )
+        .register_metric(
+            MetricId::BucketedDv01,
+            Arc::new(risk_bucketed_dv01::BucketedDv01Calculator),
             &["CDSTranche"],
         );
 }

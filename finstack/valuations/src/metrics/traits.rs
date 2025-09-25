@@ -54,6 +54,73 @@ pub trait MetricCalculator: Send + Sync {
 /// (e.g., "1y"), and the instrument, return the final `MetricId` to store.
 pub type BucketKeyResolverFn = dyn Fn(&MetricId, &str, &dyn Instrument) -> MetricId + Send + Sync;
 
+/// Generic 2D structured metric container.
+///
+/// Rows and columns are labeled; values are a rectangular matrix of size
+/// `rows.len() x cols.len()`.
+#[derive(Debug, Clone)]
+pub struct Structured2D {
+    /// Row labels (e.g., expiries, tenors)
+    pub rows: Vec<String>,
+    /// Column labels (e.g., strikes, bumps)
+    pub cols: Vec<String>,
+    /// Matrix values; `values[r][c]` corresponds to `rows[r]`, `cols[c]`
+    pub values: Vec<Vec<F>>,
+}
+
+impl Structured2D {
+    /// Validates that `values` is a rectangular matrix matching label sizes.
+    pub fn validate_shape(&self) -> bool {
+        if self.rows.is_empty() || self.cols.is_empty() {
+            return false;
+        }
+        if self.values.len() != self.rows.len() {
+            return false;
+        }
+        let expected_cols = self.cols.len();
+        self.values.iter().all(|row| row.len() == expected_cols)
+    }
+}
+
+/// Generic 3D structured metric container.
+///
+/// Axes A, B, C are labeled; values form a 3D tensor with sizes
+/// `a.len() x b.len() x c.len()`.
+#[derive(Debug, Clone)]
+pub struct Structured3D {
+    /// Axis A labels (e.g., expiries)
+    pub a: Vec<String>,
+    /// Axis B labels (e.g., tenors)
+    pub b: Vec<String>,
+    /// Axis C labels (e.g., strikes or vol buckets)
+    pub c: Vec<String>,
+    /// 3D tensor values; `values[i][j][k]` corresponds to `a[i]`, `b[j]`, `c[k]`
+    pub values: Vec<Vec<Vec<F>>>,
+}
+
+impl Structured3D {
+    /// Validates that `values` matches axis sizes and is rectangular for each sub-dimension.
+    pub fn validate_shape(&self) -> bool {
+        if self.a.is_empty() || self.b.is_empty() || self.c.is_empty() {
+            return false;
+        }
+        if self.values.len() != self.a.len() {
+            return false;
+        }
+        let expected_b = self.b.len();
+        let expected_c = self.c.len();
+        for plane in &self.values {
+            if plane.len() != expected_b {
+                return false;
+            }
+            if !plane.iter().all(|row| row.len() == expected_c) {
+                return false;
+            }
+        }
+        true
+    }
+}
+
 /// Context containing all data needed for metric calculations.
 ///
 /// Provides access to the instrument, market data, base valuation,
@@ -82,6 +149,21 @@ pub struct MetricContext {
 
     /// Previously computed metrics (by ID).
     pub computed: hashbrown::HashMap<MetricId, F>,
+
+    /// Previously computed 1D bucketed metrics (by ID).
+    ///
+    /// Example: `MetricId::BucketedDv01` -> [("1m", v1), ("3m", v2), ...]
+    pub computed_series: hashbrown::HashMap<MetricId, Vec<(String, F)>>,
+
+    /// Previously computed 2D structured metrics (by ID).
+    ///
+    /// Example: vega surface with rows=expiries, cols=strikes
+    pub computed_matrix: hashbrown::HashMap<MetricId, Structured2D>,
+
+    /// Previously computed 3D structured metrics (by ID).
+    ///
+    /// Example: 3D bucketed vegas (e.g., expiry x tenor x strike)
+    pub computed_tensor3: hashbrown::HashMap<MetricId, Structured3D>,
 
     /// Cached cashflows for the instrument.
     pub cashflows: Option<Vec<(Date, Money)>>,
@@ -123,6 +205,9 @@ impl MetricContext {
             as_of,
             base_value,
             computed: hashbrown::HashMap::new(),
+            computed_series: hashbrown::HashMap::new(),
+            computed_matrix: hashbrown::HashMap::new(),
+            computed_tensor3: hashbrown::HashMap::new(),
             cashflows: None,
             discount_curve_id: None,
             day_count: None,
@@ -155,5 +240,162 @@ impl MetricContext {
             .as_any()
             .downcast_ref::<T>()
             .ok_or_else(|| finstack_core::error::InputError::Invalid.into())
+    }
+
+    /// Store a 1D bucketed series under `base_metric_id` and optionally
+    /// flatten into `computed` using a stable composite key per bucket.
+    ///
+    /// When a custom `bucket_key_resolver` is present, it is used to produce
+    /// per-bucket keys; otherwise a default `base::bucket` composite key is used.
+    pub fn store_bucketed_series<I, K>(&mut self, base_metric_id: MetricId, series: I)
+    where
+        I: IntoIterator<Item = (K, F)>,
+        K: Into<String>,
+    {
+        let collected: Vec<(String, F)> = series.into_iter().map(|(k, v)| (k.into(), v)).collect();
+        self.computed_series
+            .insert(base_metric_id.clone(), collected.clone());
+
+        for (label, value) in collected {
+            let key = if let Some(resolver) = &self.bucket_key_resolver {
+                resolver(&base_metric_id, &label, self.instrument.as_ref())
+            } else {
+                Self::default_composite_key(&base_metric_id, &[label.as_str()])
+            };
+            self.computed.insert(key, value);
+        }
+    }
+
+    /// Store a 2D structured metric (rows x cols) under `base_metric_id` and
+    /// flatten each cell into `computed` using stable composite keys
+    /// `base::row::col`.
+    pub fn store_matrix2d<I, J, RS, CS>(
+        &mut self,
+        base_metric_id: MetricId,
+        rows: I,
+        cols: J,
+        values: Vec<Vec<F>>,
+    ) -> finstack_core::Result<()>
+    where
+        I: IntoIterator<Item = RS>,
+        J: IntoIterator<Item = CS>,
+        RS: Into<String>,
+        CS: Into<String>,
+    {
+        let rows: Vec<String> = rows.into_iter().map(Into::into).collect();
+        let cols: Vec<String> = cols.into_iter().map(Into::into).collect();
+        let matrix = Structured2D { rows, cols, values };
+        if !matrix.validate_shape() {
+            return Err(finstack_core::error::InputError::Invalid.into());
+        }
+        for (r_idx, r_label) in matrix.rows.iter().enumerate() {
+            for (c_idx, c_label) in matrix.cols.iter().enumerate() {
+                let key = Self::default_composite_key(
+                    &base_metric_id,
+                    &[r_label.as_str(), c_label.as_str()],
+                );
+                self.computed.insert(key, matrix.values[r_idx][c_idx]);
+            }
+        }
+        self.computed_matrix.insert(base_metric_id, matrix);
+        Ok(())
+    }
+
+    /// Store a 3D structured metric (a x b x c) under `base_metric_id` and
+    /// flatten each cell into `computed` using stable composite keys
+    /// `base::a::b::c`.
+    pub fn store_tensor3<IA, IB, IC, SA, SB, SC>(
+        &mut self,
+        base_metric_id: MetricId,
+        a: IA,
+        b: IB,
+        c: IC,
+        values: Vec<Vec<Vec<F>>>,
+    ) -> finstack_core::Result<()>
+    where
+        IA: IntoIterator<Item = SA>,
+        IB: IntoIterator<Item = SB>,
+        IC: IntoIterator<Item = SC>,
+        SA: Into<String>,
+        SB: Into<String>,
+        SC: Into<String>,
+    {
+        let tensor = Structured3D {
+            a: a.into_iter().map(Into::into).collect(),
+            b: b.into_iter().map(Into::into).collect(),
+            c: c.into_iter().map(Into::into).collect(),
+            values,
+        };
+        if !tensor.validate_shape() {
+            return Err(finstack_core::error::InputError::Invalid.into());
+        }
+        for (i, a_label) in tensor.a.iter().enumerate() {
+            for (j, b_label) in tensor.b.iter().enumerate() {
+                for (k, c_label) in tensor.c.iter().enumerate() {
+                    let key = Self::default_composite_key(
+                        &base_metric_id,
+                        &[a_label.as_str(), b_label.as_str(), c_label.as_str()],
+                    );
+                    self.computed.insert(key, tensor.values[i][j][k]);
+                }
+            }
+        }
+        self.computed_tensor3.insert(base_metric_id, tensor);
+        Ok(())
+    }
+
+    /// Retrieves a previously stored 1D bucketed series.
+    pub fn get_series(&self, id: &MetricId) -> Option<&Vec<(String, F)>> {
+        self.computed_series.get(id)
+    }
+
+    /// Retrieves a previously stored 2D structured metric.
+    pub fn get_matrix2d(&self, id: &MetricId) -> Option<&Structured2D> {
+        self.computed_matrix.get(id)
+    }
+
+    /// Retrieves a previously stored 3D structured metric.
+    pub fn get_tensor3(&self, id: &MetricId) -> Option<&Structured3D> {
+        self.computed_tensor3.get(id)
+    }
+
+    /// Builds a default composite key like `base::p1[::p2[::p3]]...` using sanitized labels.
+    fn default_composite_key(base: &MetricId, parts: &[&str]) -> MetricId {
+        let mut key = String::with_capacity(64);
+        key.push_str(base.as_str());
+        for p in parts {
+            key.push_str("::");
+            key.push_str(&Self::sanitize_label(p));
+        }
+        MetricId::custom(key)
+    }
+
+    fn sanitize_label(label: &str) -> String {
+        let mut out = String::with_capacity(label.len());
+        for ch in label.chars() {
+            if ch.is_ascii_alphanumeric() {
+                out.push(ch.to_ascii_lowercase());
+            } else if ch == '.' || ch == '-' || ch == '+' {
+                // Preserve common numeric/tenor tokens with underscore normalization
+                out.push('_');
+            } else {
+                out.push('_');
+            }
+        }
+        // Collapse repeated underscores
+        let mut collapsed = String::with_capacity(out.len());
+        let mut last_was_us = false;
+        for ch in out.chars() {
+            if ch == '_' {
+                if !last_was_us {
+                    collapsed.push(ch);
+                }
+                last_was_us = true;
+            } else {
+                last_was_us = false;
+                collapsed.push(ch);
+            }
+        }
+        collapsed.trim_matches('_').to_string()
     }
 }

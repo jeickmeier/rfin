@@ -8,10 +8,12 @@
 //! See unit tests and `examples/` for usage.
 
 mod dv01;
+mod risk_bucketed_dv01;
 mod par_rate;
 mod pv;
 
 pub use dv01::FraDv01Calculator;
+pub use risk_bucketed_dv01::BucketedDv01Calculator;
 pub use par_rate::FraParRateCalculator;
 pub use pv::FraPvCalculator;
 
@@ -30,5 +32,10 @@ pub fn register_fra_metrics(registry: &mut MetricRegistry) {
             &["FRA"],
         ) // PV passthrough
         .register_metric(MetricId::Dv01, Arc::new(FraDv01Calculator), &["FRA"]) // Standard DV01 id
-        .register_metric(MetricId::ParRate, Arc::new(FraParRateCalculator), &["FRA"]);
+        .register_metric(MetricId::ParRate, Arc::new(FraParRateCalculator), &["FRA"]) // Par rate
+        .register_metric(
+            MetricId::BucketedDv01,
+            Arc::new(BucketedDv01Calculator),
+            &["FRA"],
+        );
 }

@@ -23,6 +23,7 @@ pub mod implied_collateral_return;
 pub mod repo_interest;
 pub mod required_collateral;
 pub mod time_to_maturity;
+pub mod risk_bucketed_dv01;
 
 use crate::metrics::MetricRegistry;
 
@@ -75,6 +76,11 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
         .register_metric(
             MetricId::ImpliedCollateralReturn,
             Arc::new(implied_collateral_return::ImpliedCollateralReturnCalculator),
+            &["Repo"],
+        )
+        .register_metric(
+            MetricId::BucketedDv01,
+            Arc::new(risk_bucketed_dv01::BucketedDv01Calculator),
             &["Repo"],
         );
 }

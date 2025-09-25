@@ -16,6 +16,7 @@ mod df_start;
 mod par_rate;
 mod quote_rate;
 mod year_fraction;
+mod risk_bucketed_dv01;
 
 pub use df_end::DfEndCalculator;
 pub use df_end_from_quote::DfEndFromQuoteCalculator;
@@ -23,6 +24,7 @@ pub use df_start::DfStartCalculator;
 pub use par_rate::DepositParRateCalculator;
 pub use quote_rate::QuoteRateCalculator;
 pub use year_fraction::YearFractionCalculator;
+pub use risk_bucketed_dv01::BucketedDv01Calculator;
 
 use crate::metrics::{MetricId, MetricRegistry};
 use std::sync::Arc;
@@ -50,5 +52,10 @@ pub fn register_deposit_metrics(registry: &mut MetricRegistry) {
             MetricId::QuoteRate,
             Arc::new(QuoteRateCalculator),
             &["Deposit"],
-        ); // quoted rate passthrough
+        ) // quoted rate passthrough
+        .register_metric(
+            MetricId::BucketedDv01,
+            Arc::new(BucketedDv01Calculator),
+            &["Deposit"],
+        );
 }

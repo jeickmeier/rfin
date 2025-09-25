@@ -612,23 +612,22 @@ fn test_zero_rate_repo() {
 
 #[test]
 fn test_repo_metrics_registry_integration() {
-    let _registry = MetricRegistry::new();
-
-    // TODO: Enable once module is fully integrated
-    // Register repo metrics
-    // register_repo_metrics(&mut registry);
-
-    // Verify metrics are registered
-    // assert!(registry.has_metric(MetricId::CollateralValue));
-    // assert!(registry.has_metric(MetricId::RequiredCollateral));
-    // assert!(registry.has_metric(MetricId::FundingRisk));
+    let registry = standard_registry();
+    // Verify key Repo metrics are available in the standard registry
+    assert!(registry.has_metric(MetricId::CollateralValue));
+    assert!(registry.has_metric(MetricId::RequiredCollateral));
+    assert!(registry.has_metric(MetricId::CollateralCoverage));
+    assert!(registry.has_metric(MetricId::RepoInterest));
+    assert!(registry.has_metric(MetricId::EffectiveRate));
+    assert!(registry.has_metric(MetricId::Dv01));
+    assert!(registry.has_metric(MetricId::FundingRisk));
+    assert!(registry.has_metric(MetricId::TimeToMaturity));
+    assert!(registry.has_metric(MetricId::ImpliedCollateralReturn));
 
     // Check applicability to Repo instruments
-    // assert!(registry.is_applicable(&MetricId::CollateralValue, "Repo"));
-    // assert!(registry.is_applicable(&MetricId::Dv01, "Repo"));
-
-    // For now, just verify the test framework works
-    // TODO: Uncomment metric tests once repo metrics are fully integrated
+    assert!(registry.is_applicable(&MetricId::CollateralValue, "Repo"));
+    assert!(registry.is_applicable(&MetricId::RequiredCollateral, "Repo"));
+    assert!(registry.is_applicable(&MetricId::Dv01, "Repo"));
 }
 
 #[test]

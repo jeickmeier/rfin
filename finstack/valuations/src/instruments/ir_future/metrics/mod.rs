@@ -10,9 +10,11 @@
 
 mod dv01;
 mod pv;
+mod risk_bucketed_dv01;
 
 pub use dv01::IrFutureDv01Calculator;
 pub use pv::IrFuturePvCalculator;
+pub use risk_bucketed_dv01::BucketedDv01Calculator;
 
 use crate::metrics::{MetricId, MetricRegistry};
 use std::sync::Arc;
@@ -28,6 +30,11 @@ pub fn register_ir_future_metrics(registry: &mut MetricRegistry) {
         .register_metric(
             MetricId::Dv01,
             Arc::new(IrFutureDv01Calculator),
+            &["InterestRateFuture"],
+        )
+        .register_metric(
+            MetricId::BucketedDv01,
+            Arc::new(BucketedDv01Calculator),
             &["InterestRateFuture"],
         );
 }

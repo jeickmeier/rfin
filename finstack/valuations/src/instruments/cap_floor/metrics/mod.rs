@@ -20,6 +20,7 @@ mod implied_vol;
 mod rho;
 mod theta;
 mod vega;
+mod risk_bucketed_dv01;
 
 use crate::metrics::{MetricId, MetricRegistry};
 use std::sync::Arc;
@@ -59,6 +60,11 @@ pub fn register_interest_rate_option_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::ForwardPv01,
         Arc::new(forward_pv01::ForwardPv01Calculator),
+        &["InterestRateOption"],
+    );
+    registry.register_metric(
+        MetricId::BucketedDv01,
+        Arc::new(risk_bucketed_dv01::BucketedDv01Calculator),
         &["InterestRateOption"],
     );
 }

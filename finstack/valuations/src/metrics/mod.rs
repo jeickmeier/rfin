@@ -25,10 +25,17 @@
 pub mod ids;
 pub mod registry;
 pub mod traits;
+pub mod bucketed;
 
 pub use ids::MetricId;
 pub use registry::MetricRegistry;
-pub use traits::{MetricCalculator, MetricContext};
+pub use traits::{MetricCalculator, MetricContext, Structured2D, Structured3D};
+pub use bucketed::{
+    compute_bucketed_dv01_series,
+    compute_bucketed_dv01_series_with_context,
+    compute_bucketed_series_with_context_for_id,
+    standard_ir_dv01_buckets,
+};
 
 /// Creates a standard metric registry with all built-in metrics.
 ///
@@ -63,5 +70,6 @@ pub fn standard_registry() -> MetricRegistry {
     crate::instruments::swaption::metrics::register_swaption_metrics(&mut registry);
     crate::instruments::repo::metrics::register_repo_metrics(&mut registry);
     crate::instruments::basis_swap::metrics::register_basis_swap_metrics(&mut registry);
+    crate::instruments::trs::metrics::register_trs_metrics(&mut registry);
     registry
 }

@@ -21,5 +21,6 @@ pub use short_rate_tree::{short_rate_keys, ShortRateModel, ShortRateTree, ShortR
 pub use tree_framework::{
     single_factor_equity_state, state_keys, two_factor_equity_rates_state, EvolutionParams,
     NodeState, StateVariables, TreeBranching, TreeGreeks, TreeModel, TreeParameters, TreeValuator,
+    BarrierSpec, BarrierStyle,
 };
 pub use trinomial_tree::{TrinomialTree, TrinomialTreeType};

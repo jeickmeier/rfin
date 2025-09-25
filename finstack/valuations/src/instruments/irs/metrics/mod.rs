@@ -6,6 +6,7 @@
 
 pub mod annuity;
 pub mod dv01;
+pub mod risk_bucketed_dv01;
 pub mod par_rate;
 pub mod pv_fixed;
 pub mod pv_float;
@@ -29,6 +30,11 @@ pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
         .register_metric(
             MetricId::Dv01,
             Arc::new(dv01::Dv01Calculator),
+            &["InterestRateSwap"],
+        )
+        .register_metric(
+            MetricId::BucketedDv01,
+            Arc::new(risk_bucketed_dv01::BucketedDv01Calculator),
             &["InterestRateSwap"],
         )
         .register_metric(

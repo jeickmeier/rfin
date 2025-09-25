@@ -31,6 +31,10 @@ pub mod state_keys {
     pub const DIVIDEND_YIELD: &str = "dividend_yield";
     /// Volatility
     pub const VOLATILITY: &str = "volatility";
+    /// Barrier touched up-flag (1.0 if touched at this node, else 0.0)
+    pub const BARRIER_TOUCHED_UP: &str = "barrier_touched_up";
+    /// Barrier touched down-flag (1.0 if touched at this node, else 0.0)
+    pub const BARRIER_TOUCHED_DOWN: &str = "barrier_touched_down";
 }
 
 /// Map of state variables for a tree node
@@ -88,6 +92,20 @@ impl<'a> NodeState<'a> {
     /// Get credit spread (convenience method)
     pub fn credit_spread(&self) -> Option<F> {
         self.get_var(state_keys::CREDIT_SPREAD)
+    }
+
+    /// Whether the up barrier was touched at this node (discrete monitoring flag)
+    pub fn barrier_touched_up(&self) -> bool {
+        self.get_var(state_keys::BARRIER_TOUCHED_UP)
+            .map(|v| v > 0.5)
+            .unwrap_or(false)
+    }
+
+    /// Whether the down barrier was touched at this node (discrete monitoring flag)
+    pub fn barrier_touched_down(&self) -> bool {
+        self.get_var(state_keys::BARRIER_TOUCHED_DOWN)
+            .map(|v| v > 0.5)
+            .unwrap_or(false)
     }
 }
 
@@ -339,6 +357,27 @@ impl EvolutionParams {
     }
 }
 
+/// Barrier option configuration for discrete monitoring.
+#[derive(Clone, Debug)]
+pub enum BarrierStyle {
+    /// Knock-out barrier: option becomes void upon breach (rebate may apply)
+    KnockOut,
+    /// Knock-in barrier: priced via parity in model-specific APIs (engine ignores directly)
+    KnockIn,
+}
+
+#[derive(Clone, Debug)]
+pub struct BarrierSpec {
+    /// Up barrier level (S >= up triggers a touch)
+    pub up_level: Option<F>,
+    /// Down barrier level (S <= down triggers a touch)
+    pub down_level: Option<F>,
+    /// Rebate amount paid immediately upon knock-out
+    pub rebate: F,
+    /// Barrier style (engine only enforces KnockOut directly)
+    pub style: BarrierStyle,
+}
+
 /// Shared recombining tree engine that performs backward induction given constant
 /// per-step evolution parameters and a branching policy.
 #[derive(Clone)]
@@ -356,11 +395,31 @@ pub struct RecombiningInputs<'a, V: TreeValuator> {
     pub prob_down: F,
     pub prob_middle: Option<F>,
     pub interest_rate: F,
+    /// Optional barrier configuration (discrete monitoring per step)
+    pub barrier: Option<BarrierSpec>,
 }
 
 pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>) -> Result<F> {
     let dt = inputs.time_to_maturity / inputs.steps as F;
     let df = (-inputs.interest_rate * dt).exp();
+
+    // Helper: evaluate barrier touch at a given spot
+    let barrier_touch = |spot: F| -> (bool, bool, bool, F) {
+        if let Some(spec) = &inputs.barrier {
+            let touched_up = spec
+                .up_level
+                .map(|lvl| spot >= lvl)
+                .unwrap_or(false);
+            let touched_down = spec
+                .down_level
+                .map(|lvl| spot <= lvl)
+                .unwrap_or(false);
+            let breached = matches!(spec.style, BarrierStyle::KnockOut) && (touched_up || touched_down);
+            (touched_up, touched_down, breached, spec.rebate)
+        } else {
+            (false, false, false, 0.0)
+        }
+    };
 
     match inputs.branching {
         TreeBranching::Binomial => {
@@ -381,13 +440,22 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                 let time_t = inputs.time_to_maturity;
                 node_vars.insert(state_keys::SPOT, terminal_spot);
 
+                // Barrier flags at terminal node (discrete monitoring)
+                let (t_up, t_dn, breached, rebate) = barrier_touch(terminal_spot);
+                node_vars.insert(state_keys::BARRIER_TOUCHED_UP, if t_up { 1.0 } else { 0.0 });
+                node_vars.insert(state_keys::BARRIER_TOUCHED_DOWN, if t_dn { 1.0 } else { 0.0 });
+
                 let terminal_state = NodeState::new(
                     inputs.steps,
                     time_t,
                     node_vars.clone(),
                     inputs.market_context,
                 );
-                let payoff = inputs.valuator.value_at_maturity(&terminal_state)?;
+                let payoff = if breached {
+                    rebate
+                } else {
+                    inputs.valuator.value_at_maturity(&terminal_state)?
+                };
                 values.push(payoff);
                 terminal_spot *= spot_multiplier;
             }
@@ -396,16 +464,25 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
             for step in (0..inputs.steps).rev() {
                 let mut spot_t = spot0 * inputs.down_factor.powi(step as i32);
                 for i in 0..=step {
+                    // Barrier handling at current node
+                    let (t_up, t_dn, breached, rebate) = barrier_touch(spot_t);
+
                     // Discounted expected continuation value
                     let continuation =
                         df * (inputs.prob_up * values[i + 1] + inputs.prob_down * values[i]);
 
                     let time_t = step as F * dt;
                     node_vars.insert(state_keys::SPOT, spot_t);
+                    node_vars.insert(state_keys::BARRIER_TOUCHED_UP, if t_up { 1.0 } else { 0.0 });
+                    node_vars.insert(state_keys::BARRIER_TOUCHED_DOWN, if t_dn { 1.0 } else { 0.0 });
                     let node_state =
                         NodeState::new(step, time_t, node_vars.clone(), inputs.market_context);
 
-                    values[i] = inputs.valuator.value_at_node(&node_state, continuation)?;
+                    values[i] = if breached {
+                        rebate
+                    } else {
+                        inputs.valuator.value_at_node(&node_state, continuation)?
+                    };
                     spot_t *= spot_multiplier;
                 }
                 values.pop();
@@ -437,6 +514,9 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                     let time_t = inputs.time_to_maturity;
 
                     node_vars.insert(state_keys::SPOT, spot_t);
+                    let (t_up, t_dn, breached, rebate) = barrier_touch(spot_t);
+                    node_vars.insert(state_keys::BARRIER_TOUCHED_UP, if t_up { 1.0 } else { 0.0 });
+                    node_vars.insert(state_keys::BARRIER_TOUCHED_DOWN, if t_dn { 1.0 } else { 0.0 });
 
                     let terminal_state = NodeState::new(
                         inputs.steps,
@@ -444,7 +524,11 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                         node_vars.clone(),
                         inputs.market_context,
                     );
-                    let payoff = inputs.valuator.value_at_maturity(&terminal_state)?;
+                    let payoff = if breached {
+                        rebate
+                    } else {
+                        inputs.valuator.value_at_maturity(&terminal_state)?
+                    };
                     values[inputs.steps][j] = payoff;
                 }
             }
@@ -470,9 +554,16 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                             + inputs.prob_down * values[step + 1][down_idx]);
 
                     node_vars.insert(state_keys::SPOT, spot_t);
+                    let (t_up, t_dn, breached, rebate) = barrier_touch(spot_t);
+                    node_vars.insert(state_keys::BARRIER_TOUCHED_UP, if t_up { 1.0 } else { 0.0 });
+                    node_vars.insert(state_keys::BARRIER_TOUCHED_DOWN, if t_dn { 1.0 } else { 0.0 });
                     let node_state =
                         NodeState::new(step, time_t, node_vars.clone(), inputs.market_context);
-                    values[step][j] = inputs.valuator.value_at_node(&node_state, continuation)?;
+                    values[step][j] = if breached {
+                        rebate
+                    } else {
+                        inputs.valuator.value_at_node(&node_state, continuation)?
+                    };
                 }
             }
 

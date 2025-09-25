@@ -4,11 +4,13 @@ mod annuity;
 mod delta;
 mod ir01;
 mod par_spread;
+mod risk_bucketed_dv01;
 
 pub use annuity::FinancingAnnuityCalculator;
 pub use delta::IndexDeltaCalculator;
 pub use ir01::TrsIR01Calculator;
 pub use par_spread::ParSpreadCalculator;
+pub use risk_bucketed_dv01::BucketedDv01Calculator;
 
 use crate::metrics::{MetricId, MetricRegistry};
 
@@ -41,6 +43,11 @@ pub fn register_trs_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::IndexDelta,
         Arc::new(IndexDeltaCalculator),
+        &["EquityTotalReturnSwap", "FIIndexTotalReturnSwap"],
+    );
+    registry.register_metric(
+        MetricId::BucketedDv01,
+        Arc::new(BucketedDv01Calculator),
         &["EquityTotalReturnSwap", "FIIndexTotalReturnSwap"],
     );
 }

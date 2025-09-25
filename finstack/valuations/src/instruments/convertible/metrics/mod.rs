@@ -12,6 +12,7 @@
 mod conversion_premium;
 mod greeks;
 mod parity;
+mod risk_bucketed_dv01;
 
 use crate::metrics::MetricRegistry;
 
@@ -55,6 +56,11 @@ pub fn register_convertible_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::Theta,
         Arc::new(greeks::ThetaCalculator),
+        &["ConvertibleBond"],
+    );
+    registry.register_metric(
+        MetricId::BucketedDv01,
+        Arc::new(risk_bucketed_dv01::BucketedDv01Calculator),
         &["ConvertibleBond"],
     );
 }
