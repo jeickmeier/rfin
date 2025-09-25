@@ -2,6 +2,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
+use finstack_core::dates::utils::add_months;
 use finstack_core::market_data::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
@@ -45,8 +46,8 @@ fn build_option_single(
     let credit_id = "HZ-SN";
     let credit = flat_hazard(credit_id, as_of, rec, hz);
 
-    let expiry = as_of + time::Duration::days((expiry_years * 365.25) as i64);
-    let cds_maturity = as_of + time::Duration::days((cds_years * 365.25) as i64);
+    let expiry = add_months(as_of, (expiry_years * 12.0).round() as i32);
+    let cds_maturity = add_months(as_of, (cds_years * 12.0).round() as i32);
 
     let option_params = CdsOptionParams::call(strike_bp, expiry, cds_maturity, Money::new(10_000_000.0, Currency::USD));
     let credit_params = CreditParams::senior_unsecured("SN", credit_id);
@@ -79,8 +80,8 @@ fn build_option_index(
     let credit_id = "HZ-IDX";
     let credit = flat_hazard(credit_id, as_of, rec, hz);
 
-    let expiry = as_of + time::Duration::days((expiry_years * 365.25) as i64);
-    let cds_maturity = as_of + time::Duration::days((cds_years * 365.25) as i64);
+    let expiry = add_months(as_of, (expiry_years * 12.0).round() as i32);
+    let cds_maturity = add_months(as_of, (cds_years * 12.0).round() as i32);
 
     let option_params = CdsOptionParams::call(strike_bp, expiry, cds_maturity, Money::new(10_000_000.0, Currency::USD))
         .as_index(index_factor)

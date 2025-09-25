@@ -1,7 +1,7 @@
 //! Private markets fund investment instrument type and implementations.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::common::traits::{Attributable, Attributes, Instrument};
+use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::instruments::private_markets_fund::waterfall::{
     AllocationLedger, EquityWaterfallEngine, FundEvent, WaterfallSpec,
 };
@@ -64,7 +64,7 @@ impl PrivateMarketsFund {
     }
 }
 
-crate::impl_attributable!(PrivateMarketsFund);
+// Attributable is provided via blanket impl for all Instrument types
 
 impl Instrument for PrivateMarketsFund {
     fn id(&self) -> &str {
@@ -77,10 +77,10 @@ impl Instrument for PrivateMarketsFund {
         self
     }
     fn attributes(&self) -> &Attributes {
-        <Self as Attributable>::attributes(self)
+        &self.attributes
     }
     fn attributes_mut(&mut self) -> &mut Attributes {
-        <Self as Attributable>::attributes_mut(self)
+        &mut self.attributes
     }
     fn clone_box(&self) -> Box<dyn Instrument> {
         Box::new(self.clone())

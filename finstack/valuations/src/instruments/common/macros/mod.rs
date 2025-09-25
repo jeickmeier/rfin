@@ -3,24 +3,7 @@
 //! This module provides derive-like macros for reducing boilerplate
 //! in instrument implementations.
 
-/// Generate standard Attributable implementation.
-///
-/// Requirements:
-/// - Struct must have an `attributes: Attributes` field
-#[macro_export]
-macro_rules! impl_attributable {
-    ($type:ident) => {
-        impl $crate::instruments::common::traits::Attributable for $type {
-            fn attributes(&self) -> &$crate::instruments::common::traits::Attributes {
-                &self.attributes
-            }
-
-            fn attributes_mut(&mut self) -> &mut $crate::instruments::common::traits::Attributes {
-                &mut self.attributes
-            }
-        }
-    };
-}
+// Removed legacy `impl_attributable!` macro; Attributable is provided via blanket impl for Instrument
 
 /// Generate a full instrument implementation:
 /// - Attributable
@@ -31,9 +14,6 @@ macro_rules! impl_instrument {
         $type:ident, $type_name:literal,
         pv = |$s:ident, $curves:ident, $as_of:ident| $pv_expr:expr $(,)?
     ) => {
-        // Attributes
-        impl_attributable!($type);
-
         // Unified Instrument implementation with pricing
         impl $crate::instruments::common::traits::Instrument for $type {
             #[inline]
@@ -119,148 +99,20 @@ macro_rules! impl_instrument_schedule_pv {
     };
 }
 
-/// Generate builder pattern for an instrument (legacy version).
-///
-/// Creates a builder struct with setter methods for all fields.
-/// This is kept for backwards compatibility - prefer `impl_enhanced_builder!` for new code.
-#[macro_export]
-macro_rules! impl_builder {
-    (
-        $type:ident,
-        $builder:ident,
-        required: [$($req_field:ident: $req_type:ty),* $(,)?],
-        optional: [$($opt_field:ident: $opt_type:ty),* $(,)?]
-    ) => {
-        #[derive(Default)]
-        pub struct $builder {
-            $($req_field: Option<$req_type>,)*
-            $($opt_field: Option<$opt_type>,)*
-        }
+// Generate builder pattern for an instrument (legacy version).
+//
+// Creates a builder struct with setter methods for all fields.
+// This is kept for backwards compatibility - prefer `impl_enhanced_builder!` for new code.
+// Removed legacy `impl_builder!` macro
 
-        impl $builder {
-            pub fn new() -> Self {
-                Self::default()
-            }
-
-            $(
-                pub fn $req_field(mut self, value: $req_type) -> Self {
-                    self.$req_field = Some(value);
-                    self
-                }
-            )*
-
-            $(
-                pub fn $opt_field(mut self, value: $opt_type) -> Self {
-                    self.$opt_field = Some(value);
-                    self
-                }
-            )*
-
-            pub fn build(self) -> finstack_core::Result<$type> {
-                Ok($type {
-                    $(
-                        $req_field: self.$req_field
-                            .ok_or_else(|| finstack_core::Error::from(
-                                finstack_core::error::InputError::Invalid
-                            ))?,
-                    )*
-                    $(
-                        $opt_field: self.$opt_field,
-                    )*
-                    attributes: $crate::instruments::common::traits::Attributes::default(),
-                })
-            }
-        }
-
-        impl $type {
-            pub fn builder() -> $builder {
-                $builder::new()
-            }
-        }
-    };
-}
-
-/// Enhanced builder macro that supports parameter groups and compile-time safety.
-///
-/// This macro generates builders with:
-/// - Required core parameters (compile-time checked)
-/// - Parameter groups for logical collections
-/// - Optional individual fields for flexibility
-/// - Convenience methods for common patterns
-#[macro_export]
-macro_rules! impl_enhanced_builder {
-    (
-        $type:ident,
-        $builder:ident,
-        core: [$($core_field:ident: $core_type:ty),* $(,)?],
-        $(groups: [$($group_field:ident: $group_type:ty),* $(,)?],)?
-        $(optional: [$($opt_field:ident: $opt_type:ty),* $(,)?])?
-    ) => {
-        /// Enhanced builder with parameter groups and compile-time safety
-        #[derive(Default)]
-        pub struct $builder {
-            // Core required fields
-            $($core_field: Option<$core_type>,)*
-            // Parameter groups (if any)
-            $($($group_field: Option<$group_type>,)*)?
-            // Optional individual fields (if any)
-            $($($opt_field: Option<$opt_type>,)*)?
-        }
-
-        impl $builder {
-            /// Create a new builder
-            pub fn new() -> Self {
-                Self::default()
-            }
-
-            // Core field setters (required)
-            $(
-                pub fn $core_field(mut self, value: $core_type) -> Self {
-                    self.$core_field = Some(value);
-                    self
-                }
-            )*
-
-            // Parameter group setters (if any)
-            $($(
-                pub fn $group_field(mut self, value: $group_type) -> Self {
-                    self.$group_field = Some(value);
-                    self
-                }
-            )*)?
-
-            // Optional field setters (if any)
-            $($(
-                pub fn $opt_field(mut self, value: $opt_type) -> Self {
-                    self.$opt_field = Some(value);
-                    self
-                }
-            )*)?
-
-            /// Validate that all required fields are present
-            ///
-            /// This method provides compile-time-like checking at runtime,
-            /// giving clear error messages about missing required fields.
-            fn validate_required(&self) -> finstack_core::Result<()> {
-                $(
-                    if self.$core_field.is_none() {
-                        return Err(finstack_core::Error::Input(
-                            finstack_core::error::InputError::Invalid
-                        ));
-                    }
-                )*
-                Ok(())
-            }
-        }
-
-        impl $type {
-            /// Create a new enhanced builder
-            pub fn builder() -> $builder {
-                $builder::new()
-            }
-        }
-    };
-}
+// Enhanced builder macro that supports parameter groups and compile-time safety.
+//
+// This macro generates builders with:
+// - Required core parameters (compile-time checked)
+// - Parameter groups for logical collections
+// - Optional individual fields for flexibility
+// - Convenience methods for common patterns
+// Removed legacy `impl_enhanced_builder!` macro
 
 /// Macro for generating convenience constructor methods.
 ///
@@ -286,52 +138,7 @@ macro_rules! impl_convenience_constructors {
     };
 }
 
-/// Macro for generating builder methods that work with parameter groups.
-///
-/// Provides commonly needed builder enhancement methods.
-#[macro_export]
-macro_rules! impl_builder_enhancements {
-    ($builder:ident) => {
-        impl $builder {
-            /// Quick setup for USD market standard parameters
-            pub fn usd_standard(
-                mut self,
-                _disc_id: impl Into<finstack_core::types::CurveId>,
-            ) -> Self {
-                self.schedule_params =
-                    Some($crate::cashflow::builder::ScheduleParams::usd_standard());
-                self
-            }
-
-            /// Quick setup for EUR market standard parameters
-            pub fn eur_standard(
-                mut self,
-                _disc_id: impl Into<finstack_core::types::CurveId>,
-            ) -> Self {
-                self.schedule_params =
-                    Some($crate::cashflow::builder::ScheduleParams::eur_standard());
-                self
-            }
-
-            /// Add dates for instruments with start/end dates (legacy helper)
-            pub fn date_range(
-                mut self,
-                _start: finstack_core::dates::Date,
-                _end: finstack_core::dates::Date,
-            ) -> Self {
-                // No-op placeholder retained for compatibility; prefer explicit start/end setters.
-                self
-            }
-
-            /// Add date range from tenor (legacy helper; prefer explicit start/end)
-            pub fn tenor(
-                mut self,
-                _start: finstack_core::dates::Date,
-                _tenor_years: finstack_core::F,
-            ) -> Self {
-                // No-op placeholder retained for compatibility.
-                self
-            }
-        }
-    };
-}
+// Macro for generating builder methods that work with parameter groups.
+//
+// Provides commonly needed builder enhancement methods.
+// Removed legacy `impl_builder_enhancements!` macro

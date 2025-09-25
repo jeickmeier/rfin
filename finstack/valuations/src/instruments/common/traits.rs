@@ -127,3 +127,16 @@ pub trait Instrument: Send + Sync {
         metrics: &[MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult>;
 }
+
+// Blanket implementation: any Instrument is Attributable via its attribute accessors
+impl<T: Instrument> Attributable for T {
+    #[inline]
+    fn attributes(&self) -> &Attributes {
+        <Self as Instrument>::attributes(self)
+    }
+
+    #[inline]
+    fn attributes_mut(&mut self) -> &mut Attributes {
+        <Self as Instrument>::attributes_mut(self)
+    }
+}

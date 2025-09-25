@@ -4,7 +4,7 @@
 //! including equities, bonds, ETFs, and other instruments by leveraging existing
 //! pricing infrastructure.
 
-use crate::instruments::common::traits::{Attributable, Attributes, Instrument};
+use crate::instruments::common::traits::{Attributes, Instrument};
 use finstack_core::prelude::*;
 use finstack_core::types::{id::{IndexId, PriceId}, InstrumentId};
 use finstack_core::{dates::Frequency, F};
@@ -317,15 +317,7 @@ impl Instrument for Basket {
     }
 }
 
-impl Attributable for Basket {
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
-    }
-}
+// Attributable is provided via blanket impl for all Instrument types
 
 #[cfg(test)]
 mod tests {

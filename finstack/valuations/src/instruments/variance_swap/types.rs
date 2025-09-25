@@ -202,9 +202,20 @@ impl VarianceSwap {
             return 1.0;
         }
 
-        let total_days = (self.maturity - self.start_date).whole_days() as F;
-        let elapsed_days = (as_of - self.start_date).whole_days() as F;
-        elapsed_days / total_days
+        // Use day-count to compute precise fractions rather than raw day counts
+        let total = self
+            .day_count
+            .year_fraction(self.start_date, self.maturity, Default::default())
+            .unwrap_or(0.0);
+        if total <= 0.0 {
+            return 0.0;
+        }
+        let elapsed = self
+            .day_count
+            .year_fraction(self.start_date, as_of, Default::default())
+            .unwrap_or(0.0)
+            .clamp(0.0, total);
+        (elapsed / total).clamp(0.0, 1.0)
     }
 
     /// Calculate realized fraction based on observation counts (sampling-based weight).

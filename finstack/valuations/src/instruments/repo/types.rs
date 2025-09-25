@@ -1,7 +1,7 @@
 //! Core types for Repurchase Agreement (Repo) instruments.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::common::traits::{Attributable, Attributes, Instrument};
+use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::market_data::MarketContext;
@@ -345,15 +345,7 @@ impl Instrument for Repo {
 
 // Do not add explicit Instrument impl; provided by blanket impl.
 
-impl Attributable for Repo {
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
-    }
-}
+// Attributable is provided via blanket impl for all Instrument types
 
 impl CashflowProvider for Repo {
     fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {

@@ -2,7 +2,7 @@
 
 use crate::cashflow::builder::ScheduleParams;
 use crate::instruments::build_with_metrics_dyn;
-use crate::instruments::common::traits::{Attributable, Attributes, Instrument};
+use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
@@ -96,7 +96,7 @@ impl CdsTranche {
     // Builder now provided by derive
 }
 
-impl_attributable!(CdsTranche);
+// Attributable is provided via blanket impl for all Instrument types
 
 impl Instrument for CdsTranche {
     fn id(&self) -> &str {
@@ -109,10 +109,10 @@ impl Instrument for CdsTranche {
         self
     }
     fn attributes(&self) -> &Attributes {
-        <Self as Attributable>::attributes(self)
+        &self.attributes
     }
     fn attributes_mut(&mut self) -> &mut Attributes {
-        <Self as Attributable>::attributes_mut(self)
+        &mut self.attributes
     }
     fn clone_box(&self) -> Box<dyn Instrument> {
         Box::new(self.clone())

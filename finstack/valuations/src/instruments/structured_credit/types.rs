@@ -1,10 +1,11 @@
 //! Core types for structured credit instruments.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::common::traits::{Attributable, Attributes, Instrument};
+use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, Frequency};
+use finstack_core::dates::utils::add_months;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -403,8 +404,8 @@ impl CashflowProvider for StructuredCredit {
                     // Generate quarterly payments (simplified)
                     let mut payment_date = as_of;
                     for _ in 0..20 {
-                        // 5 years of quarterly payments
-                        payment_date += time::Duration::days(90);
+                        // 5 years of quarterly payments using core add_months
+                        payment_date = add_months(payment_date, 3);
                         if payment_date <= asset.maturity {
                             pool_flows.push((payment_date, interest_payment));
                         }
@@ -445,15 +446,7 @@ impl CashflowProvider for StructuredCredit {
 
 // Structured credit pricing is included in the Instrument trait implementation below
 
-impl Attributable for StructuredCredit {
-    fn attributes(&self) -> &Attributes {
-        &self.attributes
-    }
-
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        &mut self.attributes
-    }
-}
+// Attributable is provided via blanket impl for all Instrument types
 
 impl Instrument for StructuredCredit {
     fn id(&self) -> &str {

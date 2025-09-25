@@ -12,6 +12,7 @@
 use crate::instruments::cds::{CreditDefaultSwap, PayReceive};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{next_cds_date, Date, DayCount};
+use finstack_core::dates::utils::add_months;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::traits::{Discounting, Survival};
 use finstack_core::market_data::MarketContext;
@@ -648,8 +649,8 @@ impl CDSPricer {
         if self.config.exact_daycount {
             dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
         } else {
-            let days = (end - start).whole_days() as f64;
-            Ok(days / 365.25)
+            // Fallback: approximate using ACT/365F to avoid local constants
+            DayCount::Act365F.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
         }
     }
 }
@@ -727,7 +728,8 @@ impl CDSBootstrapper {
         spread_bps: F,
         recovery_rate: F,
     ) -> Result<CreditDefaultSwap> {
-        let end_date = base_date + time::Duration::days((tenor_years * 365.25) as i64);
+        let months = (tenor_years * 12.0).round() as i32;
+        let end_date = add_months(base_date, months);
         Ok(CreditDefaultSwap::new_isda(
             finstack_core::types::InstrumentId::new(format!("SYNTHETIC_{:.1}Y", tenor_years)),
             Money::new(1_000_000.0, Currency::USD),
@@ -789,6 +791,7 @@ mod tests {
     use super::*;
     use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
+    use finstack_core::dates::utils::add_months;
 
     fn create_test_cds(
         id: impl Into<String>,
@@ -842,7 +845,7 @@ mod tests {
         let cds = create_test_cds(
             "TEST-CDS",
             as_of,
-            as_of + time::Duration::days(5 * 365),
+            add_months(as_of, 60),
             100.0,
             0.40,
         );
@@ -860,7 +863,7 @@ mod tests {
         let cds = create_test_cds(
             "TEST-CDS",
             as_of,
-            as_of + time::Duration::days(5 * 365),
+            add_months(as_of, 60),
             100.0,
             0.40,
         );
@@ -886,7 +889,7 @@ mod tests {
         let cds = create_test_cds(
             "TEST-CDS",
             as_of,
-            as_of + time::Duration::days(5 * 365),
+            add_months(as_of, 60),
             0.0,
             0.40,
         );
@@ -906,7 +909,7 @@ mod tests {
         let mut cds0 = create_test_cds(
             "CDS-0D",
             as_of,
-            as_of + time::Duration::days(5 * 365),
+            add_months(as_of, 60),
             100.0,
             0.40,
         );
@@ -935,7 +938,7 @@ mod tests {
         let cds = create_test_cds(
             "CDS-PAR",
             as_of,
-            as_of + time::Duration::days(5 * 365),
+            add_months(as_of, 60),
             0.0,
             0.40,
         );

@@ -2,6 +2,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
+use finstack_core::dates::DateExt;
 
 use crate::cashflow::traits::CashflowProvider;
 // Discountable trait not required after switching to curve day-count path
@@ -27,14 +28,27 @@ impl BondEngine {
         let ccy = flows[0].1.currency();
         let mut total = Money::new(0.0, ccy);
         // Settlement PV: start discounting from settlement date if provided
-        let settle_date = if let Some(sd) = bond.settlement_days {
-            let mut s = as_of + time::Duration::days(sd as i64);
+        let settle_date = if let Some(sd_u32) = bond.settlement_days {
+            let sd: i32 = sd_u32 as i32;
             if let Some(id) = bond.calendar_id {
                 if let Some(cal) = finstack_core::dates::calendar::calendar_by_id(id) {
-                    s = finstack_core::dates::adjust(s, bond.bdc, cal)?;
+                    // Walk business days using the provided calendar
+                    let mut d = as_of;
+                    let mut remaining = sd;
+                    let step = if remaining >= 0 { 1 } else { -1 };
+                    while remaining != 0 {
+                        d = d.saturating_add(time::Duration::days(step as i64));
+                        if cal.is_business_day(d) {
+                            remaining -= step;
+                        }
+                    }
+                    finstack_core::dates::adjust(d, bond.bdc, cal)?
+                } else {
+                    as_of.add_weekdays(sd)
                 }
+            } else {
+                as_of.add_weekdays(sd)
             }
-            s
         } else {
             as_of
         };
