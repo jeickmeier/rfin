@@ -41,7 +41,7 @@ pub(crate) fn easter_monday(year: i32) -> Date {
 // -------------------------------------------------------------------------------------------------
 
 // The generated table provides `cny_date_for_year` and `is_cny_date` helpers.
-include!(concat!(env!("OUT_DIR"), "/cny_generated.rs"));
+include!("../../generated/cny_generated.rs");
 
 /// Return true if `date` is Chinese New Year.
 #[inline]

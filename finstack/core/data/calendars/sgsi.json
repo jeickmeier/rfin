@@ -1,5 +1,6 @@
 {
   "id": "sgsi",
+  "name": "Singapore Holiday Calendar",
   "ignore_weekends": false,
   "rules": [
     { "type": "fixed", "name": "New Year's Day", "month": "january", "day": 1, "observed": "next_monday" },

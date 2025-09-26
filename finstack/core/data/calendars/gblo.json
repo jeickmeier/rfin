@@ -3,9 +3,9 @@
   "name": "United Kingdom (London) Holiday Calendar",
   "ignore_weekends": false,
   "rules": [
-    { "type": "fixed_next_monday", "name": "New Year's Day", "month": "january", "day": 1 },
-    { "type": "fixed_next_monday", "name": "Christmas Day", "month": "december", "day": 25 },
-    { "type": "fixed_next_monday", "name": "Boxing Day", "month": "december", "day": 26 },
+    { "type": "fixed", "name": "New Year's Day", "month": "january", "day": 1, "observed": "next_monday" },
+    { "type": "fixed", "name": "Christmas Day", "month": "december", "day": 25, "observed": "next_monday" },
+    { "type": "fixed", "name": "Boxing Day", "month": "december", "day": 26, "observed": "next_monday" },
     { "type": "easter_offset", "name": "Good Friday", "days": -3 },
     { "type": "easter_offset", "name": "Easter Monday", "days": 0 },
     { "type": "nth_weekday", "name": "Early May Bank Holiday", "n": 1, "weekday": "monday", "month": "may" },

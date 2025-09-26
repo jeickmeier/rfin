@@ -89,15 +89,11 @@
 // ---------------------------------------------------------------------------
 // Generated enum (ISO-4217)
 // ---------------------------------------------------------------------------
-// The build script now emits `core/src/generated/currency_generated.rs`, which
-// allows IDEs (`rust-analyzer`) to parse the generated code for auto-completion
-// and navigation. We load it as a regular module and publicly re-export all of
-// its items so existing `use` sites remain unchanged.
+// The build script copies the generated currency enum to OUT_DIR for inclusion.
+// This allows IDEs (`rust-analyzer`) to parse the generated code for auto-completion
+// and navigation. We load it and publicly re-export all items.
 
-#[path = "./generated/currency_generated.rs"]
-mod currency_generated;
-
-pub use currency_generated::*;
+include!(concat!(env!("OUT_DIR"), "/currency_generated.rs"));
 
 #[cfg(test)]
 mod tests {

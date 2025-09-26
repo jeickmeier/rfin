@@ -52,10 +52,10 @@ mod daycount;
 pub use daycount::{DayCount, DayCountCtx, Thirty360Convention};
 
 // Re-export new holiday calendars at the top level for convenience
-pub use calendar::core::{adjust, BusinessDayConvention, HolidayCalendar};
+pub use calendar::business_days::{adjust, BusinessDayConvention, HolidayCalendar};
 
 // The canonical public discovery helper
-pub use calendar::core::available_calendars;
+pub use calendar::business_days::available_calendars;
 
 mod schedule_iter;
 

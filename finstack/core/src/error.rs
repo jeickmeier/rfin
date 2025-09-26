@@ -4,7 +4,7 @@
 //! forward-compatible.
 
 use crate::currency::Currency;
-use crate::dates::calendar::core::BusinessDayConvention;
+use crate::dates::calendar::business_days::BusinessDayConvention;
 use time::Date;
 use thiserror::Error;
 

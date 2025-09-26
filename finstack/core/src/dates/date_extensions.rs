@@ -4,7 +4,7 @@
 
 #![allow(clippy::wrong_self_convention)]
 
-use crate::dates::calendar::core::{seek_business_day, BusinessDayConvention, MAX_BUSINESS_DAY_SEARCH_DAYS};
+use crate::dates::calendar::business_days::{seek_business_day, BusinessDayConvention, MAX_BUSINESS_DAY_SEARCH_DAYS};
 use crate::dates::periods::FiscalConfig;
 use crate::dates::utils::days_in_month;
 use time::{Date, Duration, OffsetDateTime, Weekday};

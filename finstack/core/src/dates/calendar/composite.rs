@@ -36,7 +36,7 @@
 //! assert!(!cal_inter.is_holiday(may26_2025));
 //! ```
 
-use crate::dates::calendar::core::HolidayCalendar;
+use crate::dates::calendar::business_days::HolidayCalendar;
 use time::Date;
 
 /// A lightweight view combining several holiday calendars.

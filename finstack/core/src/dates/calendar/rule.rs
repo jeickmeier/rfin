@@ -8,7 +8,7 @@
 //! and avoids dozens of tiny helper structs.
 
 use crate::dates::calendar::algo;
-use crate::dates::calendar::core::HolidayCalendar;
+use crate::dates::calendar::business_days::HolidayCalendar;
 use time::{Date, Duration, Month, Weekday};
 
 // ---------------------------------------------------------------------------
