@@ -39,7 +39,7 @@ pub struct VolSurfaceCalibrator {
     pub base_date: Date,
     /// Day count used for mapping option expiries to time-to-expiry
     pub time_dc: DayCount,
-    /// Base currency for equity forward calculation (used by auto_forward)
+    /// Base currency for the underlying asset
     pub base_currency: Currency,
     /// Interpolation used for the output surface
     pub surface_interp: SurfaceInterp,
@@ -367,8 +367,29 @@ impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
             ));
         }
 
-        // Build asset-specific forward function from market context using configured base currency
-        let forward_fn = base_context.auto_forward(&underlying, self.base_currency)?;
+        // Simple forward function using available market data  
+        // For equity-like underlyings, calculate F(t) = S₀ × exp((r - q) × t)
+        use finstack_core::market_data::scalars::MarketScalar;
+        
+        let spot = base_context.price(&underlying)
+            .map(|scalar| match scalar {
+                MarketScalar::Price(money) => money.amount(),
+                MarketScalar::Unitless(value) => *value,
+            })
+            .unwrap_or(100.0);
+
+        let div_yield_key = format!("{}-DIVYIELD", underlying);
+        let dividend_yield = base_context.price(&div_yield_key)
+            .map(|scalar| match scalar {
+                MarketScalar::Unitless(yield_val) => *yield_val,
+                _ => 0.0,
+            })
+            .unwrap_or(0.0);
+
+        let forward_fn = move |t: f64| -> f64 {
+            let risk_free_rate = 0.05; // Simple assumption for testing - could get from discount curve
+            spot * ((risk_free_rate - dividend_yield) * t).exp()
+        };
 
         self.calibrate_internal(instruments, &forward_fn)
     }

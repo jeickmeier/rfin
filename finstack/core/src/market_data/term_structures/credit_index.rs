@@ -82,7 +82,6 @@ impl CreditIndexData {
 ///     credit_index::CreditIndexData,
 ///     hazard_curve::HazardCurve,
 ///     base_correlation::BaseCorrelationCurve,
-///     CurveBuilder,
 /// };
 /// use finstack_core::dates::Date;
 /// use std::sync::Arc;

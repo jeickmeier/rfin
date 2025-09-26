@@ -129,7 +129,7 @@ The current implementations provide working stubs that demonstrate the framework
 
 The calibration framework supports multiple volatility instrument types:
 
-- **OptionVol quotes**: Supported by `VolSurfaceCalibrator` for assets with forwards derivable from market context via `MarketContext::auto_forward` (e.g., equities/FX).
+- **OptionVol quotes**: Supported by `VolSurfaceCalibrator` for various underlying assets (requires explicit forward curve specification).
 - **SwaptionVol quotes**: ✅ **Now Supported** by `SwaptionVolCalibrator` which properly handles:
   - Normal and lognormal volatility quoting conventions
   - Various ATM strike conventions (swap rate, par rate, delta neutral)

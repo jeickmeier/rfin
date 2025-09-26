@@ -264,8 +264,6 @@ impl InflationIndex {
     }
 }
 
-// (moved) date conversion helpers are centralized in crate::dates::utils
-
 /// Serializable state of an InflationIndex
 #[cfg(feature = "serde")]
 #[derive(Clone, Debug, Serialize, Deserialize)]

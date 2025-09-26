@@ -85,38 +85,10 @@ impl VolSurface {
     }
 
     /// Bilinear interpolation of vol for given expiry and strike.
+    /// Panics if coordinates are out of bounds - prefer value_checked for safety.
     pub fn value(&self, expiry: F, strike: F) -> F {
-        // Unchecked: will panic on OOB. Prefer value_checked for safety.
-        let (ie0, exact_e) = self
-            .value_indices(self.expiries.as_ref(), expiry)
-            .expect("expiry out of bounds");
-        let (is0, exact_s) = self
-            .value_indices(self.strikes.as_ref(), strike)
-            .expect("strike out of bounds");
-        if exact_e && exact_s {
-            return self.vols[[ie0, is0]];
-        }
-        let ie1 = if exact_e { ie0 } else { ie0 + 1 };
-        let is1 = if exact_s { is0 } else { is0 + 1 };
-        let e0 = self.expiries[ie0];
-        let e1 = self.expiries[ie1];
-        let s0 = self.strikes[is0];
-        let s1 = self.strikes[is1];
-        let q11 = self.vols[[ie0, is0]];
-        let q21 = self.vols[[ie1, is0]];
-        let q12 = self.vols[[ie0, is1]];
-        let q22 = self.vols[[ie1, is1]];
-        let t = if exact_e {
-            0.0
-        } else {
-            (expiry - e0) / (e1 - e0)
-        };
-        let u = if exact_s {
-            0.0
-        } else {
-            (strike - s0) / (s1 - s0)
-        };
-        Self::bilinear(q11, q21, q12, q22, t, u)
+        self.value_checked(expiry, strike)
+            .expect("expiry or strike out of bounds")
     }
 
     /// Safe evaluation: returns `Err` if either coordinate is out of bounds.

@@ -4,15 +4,9 @@
 //! provide fast arithmetic on that representation and expose a single
 //! [`round_f64`] helper that honours [`RoundingMode`](crate::config::RoundingMode).
 //!
-//! # Examples
-//! ```ignore
-//! use finstack_core::config::RoundingMode;
-//! use finstack_core::money::rounding::round_f64;
-//!
-//! assert_eq!(round_f64(1.2345, 2, RoundingMode::Bankers), 1.23);
-//! assert_eq!(round_f64(1.2355, 2, RoundingMode::Bankers), 1.24);
-//! assert_eq!(round_f64(-1.2345, 2, RoundingMode::AwayFromZero), -1.24);
-//! ```
+//! 
+//! The `round_f64` function is used internally by `Money` operations and 
+//! is not part of the public API. For rounding examples, see `Money` documentation.
 
 use crate::config::RoundingMode;
 

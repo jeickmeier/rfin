@@ -22,7 +22,7 @@
 //! assert!(curve.df(3.0) < 1.0);
 //! ```
 
-use super::common::{build_interp_curve_error, split_points, OneDGrid};
+use super::common::{build_interp_curve_error, split_points};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     dates::{Date, DayCount, DayCountCtx},
@@ -60,7 +60,7 @@ pub struct DiscountCurveState {
     /// Base date
     pub base: Date,
     /// Day count convention for discount time basis
-    #[cfg_attr(feature = "serde", serde(default = "default_discount_day_count"))]
+    #[cfg_attr(feature = "serde", serde(default = "default_day_count"))]
     pub day_count: DayCount,
     #[cfg_attr(feature = "serde", serde(flatten))]
     points: super::common::StateKnotPoints,
@@ -70,8 +70,8 @@ pub struct DiscountCurveState {
     pub require_monotonic: bool,
 }
 
-#[inline]
-fn default_discount_day_count() -> DayCount {
+#[cfg(feature = "serde")]
+fn default_day_count() -> DayCount {
     DayCount::Act365F
 }
 
@@ -414,13 +414,11 @@ impl DiscountCurve {
 /// Fluent builder for [`DiscountCurve`].
 ///
 /// Typical usage chains `base_date`, `knots`, and `set_interp` (optional)
-/// before calling [`DiscountCurveBuilder::build`]. The builder implements the
-/// shared [`super::CurveBuilder`] trait, so it can participate in generic
-/// helper code.
+/// before calling [`DiscountCurveBuilder::build`].
 ///
 /// # Examples
 /// ```rust
-/// use finstack_core::market_data::term_structures::{discount_curve::DiscountCurve, CurveBuilder};
+/// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 /// use finstack_core::math::interp::InterpStyle;
 /// use finstack_core::dates::Date;
 /// use time::Month;
@@ -505,8 +503,7 @@ impl DiscountCurveBuilder {
         let knots = knots_vec.into_boxed_slice();
         let dfs = dfs_vec.into_boxed_slice();
 
-        let grid = OneDGrid::new(knots.clone(), dfs.clone());
-        let interp = build_interp_curve_error(self.style, &grid, self.extrapolation)?;
+        let interp = build_interp_curve_error(self.style, knots.clone(), dfs.clone(), self.extrapolation)?;
 
         Ok(DiscountCurve {
             id: self.id,
@@ -521,31 +518,6 @@ impl DiscountCurveBuilder {
     }
 }
 
-// Implement unified builder trait for DiscountCurveBuilder
-impl super::common::CurveBuilder for DiscountCurveBuilder {
-    type Output = DiscountCurve;
-
-    fn base_date(self, d: Date) -> Self {
-        DiscountCurveBuilder::base_date(self, d)
-    }
-
-    fn knots<I>(self, pts: I) -> Self
-    where
-        I: IntoIterator<Item = (F, F)>,
-    {
-        DiscountCurveBuilder::knots(self, pts)
-    }
-
-    fn set_interp(self, style: InterpStyle) -> Self {
-        DiscountCurveBuilder::set_interp(self, style)
-    }
-
-    fn build(self) -> crate::Result<Self::Output> {
-        DiscountCurveBuilder::build(self).map_err(crate::error::Error::from)
-    }
-}
-
-// Interpolator helpers now centralised in InterpStyle – local factory fns removed.
 
 // -----------------------------------------------------------------------------
 // Minimal trait implementation for polymorphism where needed

@@ -159,7 +159,6 @@ pub trait Bumpable: Sized {
 /// ```rust
 /// use finstack_core::market_data::bumps::{bump_curve, BumpSpec};
 /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-/// use finstack_core::market_data::term_structures::CurveBuilder;
 /// use finstack_core::math::interp::InterpStyle;
 /// use finstack_core::dates::Date;
 /// use time::Month;

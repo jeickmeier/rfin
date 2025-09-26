@@ -26,7 +26,6 @@
 //!     discount_curve::DiscountCurve,
 //!     forward_curve::ForwardCurve,
 //!     hazard_curve::HazardCurve,
-//!     CurveBuilder,
 //! };
 //! use finstack_core::market_data::MarketContext;
 //! use finstack_core::math::interp::InterpStyle;
@@ -74,8 +73,6 @@ pub mod hazard_curve;
 /// Real/Breakeven inflation curves.
 pub mod inflation;
 
-// 2-D surfaces (volatility) now live in market_data::surfaces.
-
 // Unified error type for curve builders (type alias for now).
 pub use crate::error::InputError as CurveError;
 
@@ -86,8 +83,6 @@ pub use discount_curve::*;
 pub use forward_curve::*;
 pub use hazard_curve::*;
 pub use inflation::*;
-// Re-export the unified builder trait so callers can import it easily.
-pub use common::CurveBuilder;
 // Re-export the relocated volatility surface
 pub use crate::market_data::surfaces::vol_surface::*;
-// Interpolation helpers removed; use `set_interp(InterpStyle::...)` on builders.
+

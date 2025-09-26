@@ -9,7 +9,6 @@
 //! ```rust
 //! use finstack_core::market_data::context::MarketContext;
 //! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-//! use finstack_core::market_data::term_structures::CurveBuilder;
 //! use finstack_core::math::interp::InterpStyle;
 //! use finstack_core::types::CurveId;
 //! use finstack_core::dates::Date;
@@ -31,11 +30,11 @@
 use hashbrown::HashMap;
 use std::sync::Arc;
 
+#[allow(unused_imports)] // Used in doc examples
 use crate::currency::Currency;
 use crate::money::fx::FxMatrix;
 use crate::types::CurveId;
 use crate::Result;
-use crate::F;
 
 use super::{
     dividends::DividendSchedule,
@@ -184,46 +183,6 @@ impl CurveStorage {
     }
 }
 
-// -----------------------------------------------------------------------------
-// Generic casting from CurveStorage → concrete curve types
-// -----------------------------------------------------------------------------
-
-/// Internal helper trait used to downcast [`CurveStorage`] entries.
-///
-/// Implemented per curve type via the `impl_storage_cast!` macro. Consumers
-/// typically rely on the blanket implementation through [`MarketContext::get`].
-pub trait StorageCast<T: 'static> {
-    /// Return `&Arc<T>` when the stored variant matches `T`.
-    fn as_arc(&self) -> Option<&Arc<T>>;
-    /// Human-readable type name for diagnostics.
-    fn type_name() -> &'static str;
-}
-
-macro_rules! impl_storage_cast {
-    ($ty:ty, $variant:ident, $name:expr) => {
-        impl StorageCast<$ty> for CurveStorage {
-            #[inline]
-            fn as_arc(&self) -> Option<&Arc<$ty>> {
-                match self {
-                    CurveStorage::$variant(x) => Some(x),
-                    _ => None,
-                }
-            }
-            #[inline]
-            fn type_name() -> &'static str {
-                $name
-            }
-        }
-    };
-}
-
-impl_storage_cast!(DiscountCurve, Discount, "Discount");
-impl_storage_cast!(ForwardCurve, Forward, "Forward");
-impl_storage_cast!(HazardCurve, Hazard, "Hazard");
-impl_storage_cast!(InflationCurve, Inflation, "Inflation");
-impl_storage_cast!(BaseCorrelationCurve, BaseCorrelation, "BaseCorrelation");
-
-// Convenience constructors (removed unused new_* helpers)
 
 // -----------------------------------------------------------------------------
 // Serde: move CurveState and (De)Serialize impls here
@@ -380,7 +339,6 @@ impl MarketContext {
     /// let curve = DiscountCurve::builder("USD-OIS")
     ///     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
     ///     .knots([(0.0, 1.0), (1.0, 0.99)])
-    ///     .set_interp(InterpStyle::Linear)
     ///     .build()
     ///     .unwrap();
     /// let ctx = MarketContext::new().insert_discount(curve);
@@ -402,14 +360,12 @@ impl MarketContext {
     /// ```rust
     /// # use finstack_core::market_data::context::MarketContext;
     /// # use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-    /// # use finstack_core::market_data::term_structures::CurveBuilder;
-    /// # use finstack_core::math::interp::InterpStyle;
+    /// #     /// # use finstack_core::math::interp::InterpStyle;
     /// # use finstack_core::dates::Date;
     /// # use time::Month;
     /// # let curve = ForwardCurve::builder("USD-LIBOR", 0.25)
     /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
     /// #     .knots([(0.0, 0.02), (1.0, 0.021)])
-    /// #     .set_interp(InterpStyle::Linear)
     /// #     .build()
     /// #     .unwrap();
     /// let ctx = MarketContext::new().insert_forward(curve);
@@ -431,14 +387,12 @@ impl MarketContext {
     /// ```rust
     /// # use finstack_core::market_data::context::MarketContext;
     /// # use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-    /// # use finstack_core::market_data::term_structures::CurveBuilder;
-    /// # use finstack_core::math::interp::InterpStyle;
+    /// #     /// # use finstack_core::math::interp::InterpStyle;
     /// # use finstack_core::dates::Date;
     /// # use time::Month;
     /// # let curve = HazardCurve::builder("CDX")
     /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
     /// #     .knots([(0.0, 0.01), (5.0, 0.015)])
-    /// #     .set_interp(InterpStyle::Linear)
     /// #     .build()
     /// #     .unwrap();
     /// let ctx = MarketContext::new().insert_hazard(curve);
@@ -460,14 +414,12 @@ impl MarketContext {
     /// ```rust
     /// # use finstack_core::market_data::context::MarketContext;
     /// # use finstack_core::market_data::term_structures::inflation::InflationCurve;
-    /// # use finstack_core::market_data::term_structures::CurveBuilder;
-    /// # use finstack_core::math::interp::InterpStyle;
+    /// #     /// # use finstack_core::math::interp::InterpStyle;
     /// # use finstack_core::dates::Date;
     /// # use time::Month;
     /// # let curve = InflationCurve::builder("USD-CPI")
-    /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
-    /// #     .knots([(0.0, 0.02), (1.0, 0.03)])
-    /// #     .set_interp(InterpStyle::Linear)
+    /// #     .base_cpi(100.0)
+    /// #     .knots([(0.0, 100.0), (1.0, 103.0)])
     /// #     .build()
     /// #     .unwrap();
     /// let ctx = MarketContext::new().insert_inflation(curve);
@@ -634,8 +586,7 @@ impl MarketContext {
     /// use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
     /// use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
     /// use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
-    /// use finstack_core::market_data::term_structures::CurveBuilder;
-    /// use finstack_core::math::interp::InterpStyle;
+    ///     /// use finstack_core::math::interp::InterpStyle;
     /// use finstack_core::dates::Date;
     /// use std::sync::Arc;
     /// use time::Month;
@@ -643,7 +594,6 @@ impl MarketContext {
     /// let hazard = Arc::new(HazardCurve::builder("CDX")
     ///     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
     ///     .knots([(0.0, 0.01), (5.0, 0.015)])
-    ///     .set_interp(InterpStyle::Linear)
     ///     .build()
     ///     .unwrap());
     /// let base_corr = Arc::new(BaseCorrelationCurve::builder("CDX")
@@ -712,8 +662,7 @@ impl MarketContext {
     /// ```rust
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    /// use finstack_core::market_data::term_structures::CurveBuilder;
-    /// use finstack_core::math::interp::InterpStyle;
+    ///     /// use finstack_core::math::interp::InterpStyle;
     /// use finstack_core::dates::Date;
     /// use finstack_core::types::CurveId;
     /// use time::Month;
@@ -721,7 +670,6 @@ impl MarketContext {
     /// let curve = DiscountCurve::builder("USD-OIS")
     ///     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
     ///     .knots([(0.0, 1.0), (1.0, 0.99)])
-    ///     .set_interp(InterpStyle::Linear)
     ///     .build()
     ///     .unwrap();
     /// let ctx = MarketContext::new()
@@ -738,90 +686,186 @@ impl MarketContext {
     // Single generic typed getters for curves
     // -----------------------------------------------------------------------------
 
-    /// Get a curve by identifier as a concrete type `T`.
-    ///
-    /// # Parameters
-    /// - `id`: curve identifier
-    ///
-    /// # Examples
-    /// ```rust
-    /// use finstack_core::market_data::context::MarketContext;
-    /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    /// use finstack_core::math::interp::InterpStyle;
-    /// use finstack_core::dates::Date;
-    /// use time::Month;
-    ///
-    /// let curve = DiscountCurve::builder("USD-OIS")
-    ///     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
-    ///     .knots([(0.0, 1.0), (1.0, 0.99)])
-    ///     .set_interp(InterpStyle::Linear)
-    ///     .build()
-    ///     .unwrap();
-    /// let ctx = MarketContext::new().insert_discount(curve);
-    /// let discount = ctx.get::<DiscountCurve>("USD-OIS").unwrap();
-    /// assert_eq!(discount.id().as_str(), "USD-OIS");
-    /// ```
-    pub fn get<T: 'static>(&self, id: impl AsRef<str>) -> Result<Arc<T>>
-    where
-        CurveStorage: StorageCast<T>,
-    {
+    /// Get a discount curve by identifier.
+    pub fn get_discount(&self, id: impl AsRef<str>) -> Result<Arc<DiscountCurve>> {
         let id_str = id.as_ref();
-        let storage = self.curves.get(id_str).ok_or_else(|| {
-            crate::error::Error::from(crate::error::InputError::NotFound {
-                id: id_str.to_string(),
-            })
-        })?;
-        if let Some(arc) = <CurveStorage as StorageCast<T>>::as_arc(storage) {
-            Ok(Arc::clone(arc))
-        } else {
-            Err(crate::error::Error::Validation(format!(
-                "Type mismatch: curve '{}' is '{}', expected '{}'",
-                id_str,
-                storage.curve_type(),
-                <CurveStorage as StorageCast<T>>::type_name()
-            )))
+        match self.curves.get(id_str) {
+            Some(CurveStorage::Discount(curve)) => Ok(Arc::clone(curve)),
+            Some(storage) => Err(crate::error::Error::Validation(format!(
+                "Type mismatch: curve '{}' is '{}', expected 'Discount'", 
+                id_str, storage.curve_type()
+            ))),
+            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
         }
     }
 
-    /// Borrow a curve by ID as a concrete type `T` without cloning the `Arc`.
-    ///
-    /// # Examples
-    /// ```rust
-    /// # use finstack_core::market_data::context::MarketContext;
-    /// # use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    /// # use finstack_core::math::interp::InterpStyle;
-    /// # use finstack_core::dates::Date;
-    /// # use time::Month;
-    /// # let curve = DiscountCurve::builder("USD-OIS")
-    /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
-    /// #     .knots([(0.0, 1.0), (1.0, 0.99)])
-    /// #     .set_interp(InterpStyle::Linear)
-    /// #     .build()
-    /// #     .unwrap();
-    /// # let ctx = MarketContext::new().insert_discount(curve);
-    /// let discount = ctx.get_ref::<DiscountCurve>("USD-OIS").unwrap();
-    /// assert_eq!(discount.id().as_str(), "USD-OIS");
-    /// ```
-    pub fn get_ref<T: 'static>(&self, id: impl AsRef<str>) -> Result<&T>
-    where
-        CurveStorage: StorageCast<T>,
-    {
+    /// Get a forward curve by identifier.
+    pub fn get_forward(&self, id: impl AsRef<str>) -> Result<Arc<ForwardCurve>> {
         let id_str = id.as_ref();
-        let storage = self.curves.get(id_str).ok_or_else(|| {
-            crate::error::Error::from(crate::error::InputError::NotFound {
-                id: id_str.to_string(),
-            })
-        })?;
-        <CurveStorage as StorageCast<T>>::as_arc(storage)
-            .map(|arc| arc.as_ref())
-            .ok_or_else(|| {
-                crate::error::Error::Validation(format!(
-                    "Type mismatch: curve '{}' is '{}', expected '{}'",
-                    id_str,
-                    storage.curve_type(),
-                    <CurveStorage as StorageCast<T>>::type_name()
-                ))
-            })
+        match self.curves.get(id_str) {
+            Some(CurveStorage::Forward(curve)) => Ok(Arc::clone(curve)),
+            Some(storage) => Err(crate::error::Error::Validation(format!(
+                "Type mismatch: curve '{}' is '{}', expected 'Forward'", 
+                id_str, storage.curve_type()
+            ))),
+            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
+        }
+    }
+
+    /// Get a hazard curve by identifier.
+    pub fn get_hazard(&self, id: impl AsRef<str>) -> Result<Arc<HazardCurve>> {
+        let id_str = id.as_ref();
+        match self.curves.get(id_str) {
+            Some(CurveStorage::Hazard(curve)) => Ok(Arc::clone(curve)),
+            Some(storage) => Err(crate::error::Error::Validation(format!(
+                "Type mismatch: curve '{}' is '{}', expected 'Hazard'", 
+                id_str, storage.curve_type()
+            ))),
+            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
+        }
+    }
+
+    /// Get an inflation curve by identifier.
+    pub fn get_inflation(&self, id: impl AsRef<str>) -> Result<Arc<InflationCurve>> {
+        let id_str = id.as_ref();
+        match self.curves.get(id_str) {
+            Some(CurveStorage::Inflation(curve)) => Ok(Arc::clone(curve)),
+            Some(storage) => Err(crate::error::Error::Validation(format!(
+                "Type mismatch: curve '{}' is '{}', expected 'Inflation'", 
+                id_str, storage.curve_type()
+            ))),
+            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
+        }
+    }
+
+    /// Get a base correlation curve by identifier.
+    pub fn get_base_correlation(&self, id: impl AsRef<str>) -> Result<Arc<BaseCorrelationCurve>> {
+        let id_str = id.as_ref();
+        match self.curves.get(id_str) {
+            Some(CurveStorage::BaseCorrelation(curve)) => Ok(Arc::clone(curve)),
+            Some(storage) => Err(crate::error::Error::Validation(format!(
+                "Type mismatch: curve '{}' is '{}', expected 'BaseCorrelation'", 
+                id_str, storage.curve_type()
+            ))),
+            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
+        }
+    }
+
+    /// Borrow a discount curve by identifier.
+    pub fn get_discount_ref(&self, id: impl AsRef<str>) -> Result<&DiscountCurve> {
+        let id_str = id.as_ref();
+        match self.curves.get(id_str) {
+            Some(CurveStorage::Discount(curve)) => Ok(curve.as_ref()),
+            Some(storage) => Err(crate::error::Error::Validation(format!(
+                "Type mismatch: curve '{}' is '{}', expected 'Discount'", 
+                id_str, storage.curve_type()
+            ))),
+            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
+        }
+    }
+
+    /// Borrow a forward curve by identifier.
+    pub fn get_forward_ref(&self, id: impl AsRef<str>) -> Result<&ForwardCurve> {
+        let id_str = id.as_ref();
+        match self.curves.get(id_str) {
+            Some(CurveStorage::Forward(curve)) => Ok(curve.as_ref()),
+            Some(storage) => Err(crate::error::Error::Validation(format!(
+                "Type mismatch: curve '{}' is '{}', expected 'Forward'", 
+                id_str, storage.curve_type()
+            ))),
+            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
+        }
+    }
+
+    /// Borrow a hazard curve by identifier.
+    pub fn get_hazard_ref(&self, id: impl AsRef<str>) -> Result<&HazardCurve> {
+        let id_str = id.as_ref();
+        match self.curves.get(id_str) {
+            Some(CurveStorage::Hazard(curve)) => Ok(curve.as_ref()),
+            Some(storage) => Err(crate::error::Error::Validation(format!(
+                "Type mismatch: curve '{}' is '{}', expected 'Hazard'", 
+                id_str, storage.curve_type()
+            ))),
+            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
+        }
+    }
+
+    /// Borrow an inflation curve by identifier.
+    pub fn get_inflation_ref(&self, id: impl AsRef<str>) -> Result<&InflationCurve> {
+        let id_str = id.as_ref();
+        match self.curves.get(id_str) {
+            Some(CurveStorage::Inflation(curve)) => Ok(curve.as_ref()),
+            Some(storage) => Err(crate::error::Error::Validation(format!(
+                "Type mismatch: curve '{}' is '{}', expected 'Inflation'", 
+                id_str, storage.curve_type()
+            ))),
+            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
+        }
+    }
+
+    /// Borrow a base correlation curve by identifier.
+    pub fn get_base_correlation_ref(&self, id: impl AsRef<str>) -> Result<&BaseCorrelationCurve> {
+        let id_str = id.as_ref();
+        match self.curves.get(id_str) {
+            Some(CurveStorage::BaseCorrelation(curve)) => Ok(curve.as_ref()),
+            Some(storage) => Err(crate::error::Error::Validation(format!(
+                "Type mismatch: curve '{}' is '{}', expected 'BaseCorrelation'", 
+                id_str, storage.curve_type()
+            ))),
+            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
+        }
+    }
+
+    /// Get a curve by identifier as a concrete type `T` (backward compatibility).
+    pub fn get<T: 'static>(&self, id: impl AsRef<str>) -> Result<Arc<T>> {
+        let id_str = id.as_ref();
+        
+        // Try each curve type - this replaces the old StorageCast system
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<DiscountCurve>() {
+            return self.get_discount(id_str).map(|arc| unsafe { std::mem::transmute(arc) });
+        }
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<ForwardCurve>() {
+            return self.get_forward(id_str).map(|arc| unsafe { std::mem::transmute(arc) });
+        }
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<HazardCurve>() {
+            return self.get_hazard(id_str).map(|arc| unsafe { std::mem::transmute(arc) });
+        }
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<InflationCurve>() {
+            return self.get_inflation(id_str).map(|arc| unsafe { std::mem::transmute(arc) });
+        }
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<BaseCorrelationCurve>() {
+            return self.get_base_correlation(id_str).map(|arc| unsafe { std::mem::transmute(arc) });
+        }
+        
+        Err(crate::error::Error::Validation(format!(
+            "Unsupported curve type for curve '{}'", id_str
+        )))
+    }
+
+    /// Borrow a curve by ID as a concrete type `T` (backward compatibility).
+    pub fn get_ref<T: 'static>(&self, id: impl AsRef<str>) -> Result<&T> {
+        let id_str = id.as_ref();
+        
+        // Try each curve type - this replaces the old StorageCast system
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<DiscountCurve>() {
+            return self.get_discount_ref(id_str).map(|r| unsafe { std::mem::transmute(r) });
+        }
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<ForwardCurve>() {
+            return self.get_forward_ref(id_str).map(|r| unsafe { std::mem::transmute(r) });
+        }
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<HazardCurve>() {
+            return self.get_hazard_ref(id_str).map(|r| unsafe { std::mem::transmute(r) });
+        }
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<InflationCurve>() {
+            return self.get_inflation_ref(id_str).map(|r| unsafe { std::mem::transmute(r) });
+        }
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<BaseCorrelationCurve>() {
+            return self.get_base_correlation_ref(id_str).map(|r| unsafe { std::mem::transmute(r) });
+        }
+        
+        Err(crate::error::Error::Validation(format!(
+            "Unsupported curve type for curve '{}'", id_str
+        )))
     }
 
     /// Clone a volatility surface by identifier.
@@ -1003,15 +1047,13 @@ impl MarketContext {
     /// # use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
     /// # use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
     /// # use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
-    /// # use finstack_core::market_data::term_structures::CurveBuilder;
-    /// # use finstack_core::math::interp::InterpStyle;
+    /// #     /// # use finstack_core::math::interp::InterpStyle;
     /// # use finstack_core::dates::Date;
     /// # use std::sync::Arc;
     /// # use time::Month;
     /// # let hazard = Arc::new(HazardCurve::builder("CDX")
     /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
     /// #     .knots([(0.0, 0.01), (5.0, 0.015)])
-    /// #     .set_interp(InterpStyle::Linear)
     /// #     .build()
     /// #     .unwrap());
     /// # let base_corr = Arc::new(BaseCorrelationCurve::builder("CDX")
@@ -1047,15 +1089,13 @@ impl MarketContext {
     /// # use finstack_core::market_data::term_structures::credit_index::CreditIndexData;
     /// # use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
     /// # use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
-    /// # use finstack_core::market_data::term_structures::CurveBuilder;
-    /// # use finstack_core::math::interp::InterpStyle;
+    /// #     /// # use finstack_core::math::interp::InterpStyle;
     /// # use finstack_core::dates::Date;
     /// # use std::sync::Arc;
     /// # use time::Month;
     /// # let hazard = Arc::new(HazardCurve::builder("CDX")
     /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
     /// #     .knots([(0.0, 0.01), (5.0, 0.015)])
-    /// #     .set_interp(InterpStyle::Linear)
     /// #     .build()
     /// #     .unwrap());
     /// # let base_corr = Arc::new(BaseCorrelationCurve::builder("CDX")
@@ -1099,7 +1139,6 @@ impl MarketContext {
     /// let curve = DiscountCurve::builder("USD-OIS")
     ///     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
     ///     .knots([(0.0, 1.0), (1.0, 0.99)])
-    ///     .set_interp(InterpStyle::Linear)
     ///     .build()
     ///     .unwrap();
     /// let ctx = MarketContext::new()
@@ -1115,7 +1154,7 @@ impl MarketContext {
             .ok_or(crate::error::InputError::NotFound {
                 id: format!("collateral:{}", csa_code),
             })?;
-        self.get::<DiscountCurve>(curve_id.as_str())
+        self.get_discount(curve_id.as_str())
             .map(|arc| arc as Arc<dyn Discounting + Send + Sync>)
     }
 
@@ -1132,7 +1171,6 @@ impl MarketContext {
     /// # let curve = DiscountCurve::builder("USD-OIS")
     /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
     /// #     .knots([(0.0, 1.0), (1.0, 0.99)])
-    /// #     .set_interp(InterpStyle::Linear)
     /// #     .build()
     /// #     .unwrap();
     /// # let ctx = MarketContext::new()
@@ -1148,7 +1186,7 @@ impl MarketContext {
             .ok_or(crate::error::InputError::NotFound {
                 id: format!("collateral:{}", csa_code),
             })?;
-        self.get_ref::<DiscountCurve>(curve_id.as_str())
+        self.get_discount_ref(curve_id.as_str())
             .map(|r| r as &dyn Discounting)
     }
 
@@ -1216,7 +1254,6 @@ impl MarketContext {
     /// # let curve = DiscountCurve::builder("USD-OIS")
     /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
     /// #     .knots([(0.0, 1.0), (1.0, 0.99)])
-    /// #     .set_interp(InterpStyle::Linear)
     /// #     .build()
     /// #     .unwrap();
     /// # let ctx = MarketContext::new().insert_discount(curve);
@@ -1244,7 +1281,6 @@ impl MarketContext {
     /// # let curve = DiscountCurve::builder("USD-OIS")
     /// #     .base_date(Date::from_calendar_date(2024, Month::January, 1).unwrap())
     /// #     .knots([(0.0, 1.0), (1.0, 0.99)])
-    /// #     .set_interp(InterpStyle::Linear)
     /// #     .build()
     /// #     .unwrap();
     /// # let ctx = MarketContext::new().insert_discount(curve);
@@ -1337,159 +1373,50 @@ impl MarketContext {
 
         for (curve_id, bump_spec) in bumps {
             let cid = curve_id.as_str();
+            let mut found = false;
 
-            // Try each curve type and delegate to centralized helpers
-            if let Ok(original) = self.get_ref::<DiscountCurve>(cid) {
+            if let Ok(original) = self.get_discount_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = bumped.id().clone();
-                    new_context
-                        .curves
-                        .insert(bumped_id, CurveStorage::Discount(Arc::new(bumped)));
-                    continue;
+                    new_context.curves.insert(bumped_id, CurveStorage::Discount(Arc::new(bumped)));
+                    found = true;
+                }
+            } else if let Ok(original) = self.get_forward_ref(cid) {
+                if let Some(bumped) = original.apply_bump(bump_spec) {
+                    let bumped_id = bumped.id().clone();
+                    new_context.curves.insert(bumped_id, CurveStorage::Forward(Arc::new(bumped)));
+                    found = true;
+                }
+            } else if let Ok(original) = self.get_hazard_ref(cid) {
+                if let Some(bumped) = original.apply_bump(bump_spec) {
+                    let bumped_id = bumped.id().clone();
+                    new_context.curves.insert(bumped_id, CurveStorage::Hazard(Arc::new(bumped)));
+                    found = true;
+                }
+            } else if let Ok(original) = self.get_inflation_ref(cid) {
+                if let Some(bumped) = original.apply_bump(bump_spec) {
+                    let bumped_id = bumped.id().clone();
+                    new_context.curves.insert(bumped_id, CurveStorage::Inflation(Arc::new(bumped)));
+                    found = true;
+                }
+            } else if let Ok(original) = self.get_base_correlation_ref(cid) {
+                if let Some(bumped) = original.apply_bump(bump_spec) {
+                    let bumped_id = bumped.id().clone();
+                    new_context.curves.insert(bumped_id, CurveStorage::BaseCorrelation(Arc::new(bumped)));
+                    found = true;
                 }
             }
 
-            if let Ok(original) = self.get_ref::<ForwardCurve>(cid) {
-                if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let bumped_id = bumped.id().clone();
-                    new_context
-                        .curves
-                        .insert(bumped_id, CurveStorage::Forward(Arc::new(bumped)));
-                    continue;
-                }
+            if !found {
+                return Err(crate::error::InputError::NotFound {
+                    id: cid.to_string(),
+                }.into());
             }
-
-            if let Ok(original) = self.get_ref::<HazardCurve>(cid) {
-                if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let bumped_id = bumped.id().clone();
-                    new_context
-                        .curves
-                        .insert(bumped_id, CurveStorage::Hazard(Arc::new(bumped)));
-                    continue;
-                }
-            }
-
-            if let Ok(original) = self.get_ref::<InflationCurve>(cid) {
-                if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let bumped_id = bumped.id().clone();
-                    new_context
-                        .curves
-                        .insert(bumped_id, CurveStorage::Inflation(Arc::new(bumped)));
-                    continue;
-                }
-            }
-
-            if let Ok(original) = self.get_ref::<BaseCorrelationCurve>(cid) {
-                if let Some(bumped) = original.apply_bump(bump_spec) {
-                    let bumped_id = bumped.id().clone();
-                    new_context
-                        .curves
-                        .insert(bumped_id, CurveStorage::BaseCorrelation(Arc::new(bumped)));
-                    continue;
-                }
-            }
-
-            return Err(crate::error::InputError::NotFound {
-                id: cid.to_string(),
-            }
-            .into());
         }
 
         Ok(new_context)
     }
 
-    // -----------------------------------------------------------------------------
-    // Forward Price/Rate Calculators
-    // -----------------------------------------------------------------------------
-
-    /// Build forward function for equity underlyings: F(t) = S₀ × exp((r - q) × t)
-    pub fn equity_forward<'a>(
-        &'a self,
-        underlying: &str,
-        base_currency: Currency,
-    ) -> Result<Box<dyn Fn(F) -> F + 'a>> {
-        // Get spot price
-        let spot_scalar = self.price(underlying)?;
-        let spot = match spot_scalar {
-            MarketScalar::Price(money) => money.amount(),
-            MarketScalar::Unitless(value) => *value,
-        };
-
-        // Get dividend yield (default to 0.0 if not available)
-        let div_yield_key = format!("{}-DIVYIELD", underlying);
-        let dividend_yield = self
-            .price(&div_yield_key)
-            .map(|scalar| match scalar {
-                MarketScalar::Unitless(yield_val) => *yield_val,
-                _ => 0.0,
-            })
-            .unwrap_or(0.0);
-
-        // Get risk-free rate from discount curve
-        let discount_curve_id = format!("{}-OIS", base_currency);
-        let discount_curve = self.get_ref::<DiscountCurve>(&discount_curve_id)?;
-
-        Ok(Box::new(move |t: F| -> F {
-            let risk_free_rate = discount_curve.zero(t);
-            spot * ((risk_free_rate - dividend_yield) * t).exp()
-        }))
-    }
-
-    /// Build forward function for FX underlyings: F(t) = S₀ × exp((r_dom - r_for) × t)
-    pub fn fx_forward<'a>(&'a self, underlying: &str) -> Result<Box<dyn Fn(F) -> F + 'a>> {
-        // Parse FX pair (assume 6-char format like "EURUSD")
-        if underlying.len() != 6 {
-            return Err(crate::error::InputError::Invalid.into());
-        }
-
-        let foreign_ccy = &underlying[0..3];
-        let domestic_ccy = &underlying[3..6];
-
-        // Get spot rate
-        let spot_scalar = self.price(underlying)?;
-        let spot = match spot_scalar {
-            MarketScalar::Price(money) => money.amount(),
-            MarketScalar::Unitless(value) => *value,
-        };
-
-        // Get domestic and foreign discount curves
-        let dom_discount_id = format!("{}-OIS", domestic_ccy);
-        let for_discount_id = format!("{}-OIS", foreign_ccy);
-        let dom_curve = self.get_ref::<DiscountCurve>(&dom_discount_id)?;
-        let for_curve = self.get_ref::<DiscountCurve>(&for_discount_id)?;
-
-        Ok(Box::new(move |t: F| -> F {
-            let domestic_rate = dom_curve.zero(t);
-            let foreign_rate = for_curve.zero(t);
-            spot * ((domestic_rate - foreign_rate) * t).exp()
-        }))
-    }
-
-    /// Build forward function for interest rate underlyings: F(t) = forward_curve.rate(t)
-    pub fn rates_forward<'a>(&'a self, underlying: &str) -> Result<Box<dyn Fn(F) -> F + 'a>> {
-        let forward_curve = self.get_ref::<ForwardCurve>(underlying)?;
-        Ok(Box::new(move |t: F| -> F { forward_curve.rate(t) }))
-    }
-
-    /// Auto-detect asset class and build appropriate forward function
-    pub fn auto_forward<'a>(
-        &'a self,
-        underlying: &str,
-        base_currency: Currency,
-    ) -> Result<Box<dyn Fn(F) -> F + 'a>> {
-        // Detect asset class from underlying identifier
-        if underlying.contains("-")
-            && (underlying.contains("SOFR")
-                || underlying.contains("EURIBOR")
-                || underlying.contains("SONIA"))
-        {
-            self.rates_forward(underlying)
-        } else if underlying.len() == 6 && underlying.chars().all(|c| c.is_ascii_alphabetic()) {
-            self.fx_forward(underlying)
-        } else {
-            self.equity_forward(underlying, base_currency)
-        }
-    }
 }
 
 // -----------------------------------------------------------------------------

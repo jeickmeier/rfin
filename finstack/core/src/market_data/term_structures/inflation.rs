@@ -18,7 +18,7 @@
 //! assert!(ic.inflation_rate(0.0, 5.0) > 0.0);
 //! ```
 
-use super::common::{build_interp, split_points, OneDGrid};
+use super::common::{build_interp, split_points};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     error::InputError, market_data::traits::TermStructure, math::interp::types::Interp,
@@ -57,7 +57,7 @@ impl InflationCurve {
     ///
     /// # Examples
     /// ```rust
-    /// use finstack_core::market_data::term_structures::{inflation::InflationCurve, CurveBuilder};
+    /// use finstack_core::market_data::term_structures::inflation::InflationCurve;
     /// use finstack_core::math::interp::InterpStyle;
     ///
     /// let curve = InflationCurve::builder("US-CPI")
@@ -170,8 +170,7 @@ impl InflationCurveBuilder {
         crate::math::interp::utils::validate_knots(&kvec)?;
         let knots = kvec.into_boxed_slice();
         let cpi_levels = cvec.into_boxed_slice();
-        let grid = OneDGrid::new(knots.clone(), cpi_levels.clone());
-        let interp = build_interp(self.style, &grid, ExtrapolationPolicy::default())?;
+        let interp = build_interp(self.style, knots.clone(), cpi_levels.clone(), ExtrapolationPolicy::default())?;
         Ok(InflationCurve {
             id: self.id,
             base_cpi: self.base_cpi,
@@ -182,27 +181,6 @@ impl InflationCurveBuilder {
     }
 }
 
-// Implement unified builder trait for InflationCurveBuilder
-impl super::common::CurveBuilder for InflationCurveBuilder {
-    type Output = InflationCurve;
-
-    fn knots<I>(self, pts: I) -> Self
-    where
-        I: IntoIterator<Item = (F, F)>,
-    {
-        InflationCurveBuilder::knots(self, pts)
-    }
-
-    fn set_interp(self, style: InterpStyle) -> Self {
-        InflationCurveBuilder::set_interp(self, style)
-    }
-
-    fn build(self) -> crate::Result<Self::Output> {
-        InflationCurveBuilder::build(self)
-    }
-}
-
-// Interpolator helpers centralised in InterpStyle – local factory fns removed.
 
 // -----------------------------------------------------------------------------
 // Serialization support

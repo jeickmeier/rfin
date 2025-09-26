@@ -8,32 +8,17 @@ use crate::math::interp::types::Interp;
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{Error, Result, F};
 
-/// Simple holder for a 1D grid (times and values) used to build an `Interp`.
-#[derive(Debug, Clone)]
-pub(crate) struct OneDGrid {
-    pub knots: Box<[F]>,
-    pub values: Box<[F]>,
-}
-
-impl OneDGrid {
-    #[inline]
-    pub fn new(knots: Box<[F]>, values: Box<[F]>) -> Self {
-        Self { knots, values }
-    }
-
-    // Keep minimal API; unused helpers removed to avoid dead_code warnings.
-}
-
 /// Build an `Interp` with unified error mapping (crate::Result) for callers
 /// whose builders return `crate::Result<T>` (Forward/Inflation).
 #[inline]
 pub(crate) fn build_interp(
     style: InterpStyle,
-    grid: &OneDGrid,
+    knots: Box<[F]>,
+    values: Box<[F]>,
     extrapolation: ExtrapolationPolicy,
 ) -> Result<Interp> {
     style
-        .build_enum(grid.knots.clone(), grid.values.clone(), extrapolation)
+        .build_enum(knots, values, extrapolation)
         .map_err(|_| Error::Internal)
 }
 
@@ -42,11 +27,12 @@ pub(crate) fn build_interp(
 #[inline]
 pub(crate) fn build_interp_curve_error(
     style: InterpStyle,
-    grid: &OneDGrid,
+    knots: Box<[F]>,
+    values: Box<[F]>,
     extrapolation: ExtrapolationPolicy,
 ) -> core::result::Result<Interp, super::CurveError> {
     style
-        .build_enum(grid.knots.clone(), grid.values.clone(), extrapolation)
+        .build_enum(knots, values, extrapolation)
         .map_err(|_| super::CurveError::NonPositiveValue)
 }
 
@@ -56,37 +42,6 @@ pub(crate) fn split_points(points: Vec<(F, F)>) -> (Vec<F>, Vec<F>) {
     points.into_iter().unzip()
 }
 
-/// Unified builder trait for 1D term structures.
-///
-/// This provides a consistent surface for common builder operations used by most
-/// curves. Methods have default no-op implementations so builders that don't use
-/// a particular setting (e.g., `base_date` on inflation, `set_interp` on hazard)
-/// can still implement the trait without extra boilerplate.
-pub trait CurveBuilder: Sized {
-    /// Concrete curve type produced by this builder
-    type Output;
-
-    /// Optional valuation base date (ignored by builders that don't use dates)
-    fn base_date(self, _date: crate::dates::Date) -> Self {
-        self
-    }
-
-    /// Supply knot points `(t, value)`
-    fn knots<I>(self, _pts: I) -> Self
-    where
-        I: IntoIterator<Item = (F, F)>,
-    {
-        self
-    }
-
-    /// Select interpolation style (ignored by builders without an interpolator)
-    fn set_interp(self, _style: InterpStyle) -> Self {
-        self
-    }
-
-    /// Finalize and build the concrete curve
-    fn build(self) -> crate::Result<Self::Output>;
-}
 
 // -----------------------------------------------------------------------------
 // Shared serde state fragments to DRY curve state definitions

@@ -9,7 +9,7 @@
 //! # Examples
 //! ```rust
 //! use finstack_core::{dates::*, money::Money, currency::Currency};
-//! use finstack_core::market_data::term_structures::{discount_curve::DiscountCurve, CurveBuilder};
+//! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 //! use finstack_core::market_data::context::MarketContext;
 //! use finstack_valuations::instruments::deposit::Deposit;
 //! use finstack_valuations::instruments::deposit::pricing::engine::DepositEngine;

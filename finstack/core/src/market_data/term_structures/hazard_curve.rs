@@ -7,7 +7,6 @@
 //! ## Example
 //! ```rust
 //! use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-//! use finstack_core::market_data::term_structures::CurveBuilder;
 //! use finstack_core::dates::Date;
 //! use time::Month;
 //!
@@ -433,30 +432,6 @@ impl HazardCurveBuilder {
     }
 }
 
-// Implement unified builder trait for HazardCurveBuilder (interp operations are no-op here)
-impl super::common::CurveBuilder for HazardCurveBuilder {
-    type Output = HazardCurve;
-
-    fn base_date(self, d: Date) -> Self {
-        HazardCurveBuilder::base_date(self, d)
-    }
-
-    fn knots<I>(self, pts: I) -> Self
-    where
-        I: IntoIterator<Item = (F, F)>,
-    {
-        HazardCurveBuilder::knots(self, pts)
-    }
-
-    fn set_interp(self, _style: crate::math::interp::InterpStyle) -> Self {
-        // Hazard curve does not use Interp; ignore
-        self
-    }
-
-    fn build(self) -> crate::Result<Self::Output> {
-        HazardCurveBuilder::build(self)
-    }
-}
 
 // -----------------------------------------------------------------------------
 // Tests

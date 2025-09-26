@@ -367,8 +367,6 @@ impl ScalarTimeSeries {
     }
 }
 
-// (moved) helper centralized in crate::dates::utils
-
 /// Serializable state of a ScalarTimeSeries
 #[cfg(feature = "serde")]
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]

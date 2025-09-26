@@ -7,7 +7,7 @@
 //!
 //! ## Example
 //! ```rust
-//! use finstack_core::market_data::term_structures::{forward_curve::ForwardCurve, CurveBuilder};
+//! use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 //! use finstack_core::math::interp::InterpStyle;
 //! use finstack_core::dates::Date;
 //! use time::Month;
@@ -22,7 +22,7 @@
 //! assert!(fc.rate(1.0) > 0.0);
 //! ```
 
-use super::common::{build_interp, split_points, OneDGrid};
+use super::common::{build_interp, split_points};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     dates::{Date, DayCount},
@@ -229,8 +229,7 @@ impl ForwardCurveBuilder {
         crate::math::interp::utils::validate_knots(&kvec)?;
         let knots = kvec.into_boxed_slice();
         let forwards = fvec.into_boxed_slice();
-        let grid = OneDGrid::new(knots.clone(), forwards.clone());
-        let interp = build_interp(self.style, &grid, ExtrapolationPolicy::default())?;
+        let interp = build_interp(self.style, knots.clone(), forwards.clone(), ExtrapolationPolicy::default())?;
         Ok(ForwardCurve {
             id: self.id,
             base: self.base,
@@ -244,31 +243,6 @@ impl ForwardCurveBuilder {
     }
 }
 
-// Implement unified builder trait for ForwardCurveBuilder
-impl super::common::CurveBuilder for ForwardCurveBuilder {
-    type Output = ForwardCurve;
-
-    fn base_date(self, d: Date) -> Self {
-        ForwardCurveBuilder::base_date(self, d)
-    }
-
-    fn knots<I>(self, pts: I) -> Self
-    where
-        I: IntoIterator<Item = (F, F)>,
-    {
-        ForwardCurveBuilder::knots(self, pts)
-    }
-
-    fn set_interp(self, style: InterpStyle) -> Self {
-        ForwardCurveBuilder::set_interp(self, style)
-    }
-
-    fn build(self) -> crate::Result<Self::Output> {
-        ForwardCurveBuilder::build(self)
-    }
-}
-
-// Interpolator helpers moved to InterpStyle – factory fns removed.
 
 // -----------------------------------------------------------------------------
 // Minimal trait implementations for polymorphism where needed
