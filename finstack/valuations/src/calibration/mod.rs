@@ -11,28 +11,8 @@
 //!
 //! ## Multi-Curve Framework
 //!
-//! The calibration framework supports both single-curve and multi-curve calibration:
-//!
-//! ### Single-Curve Mode (Pre-2008 Methodology)
-//! In single-curve mode, forward curves are derived from discount curves using
-//! no-arbitrage relationships. This is suitable for markets where basis spreads
-//! are negligible.
-//!
-//! ```ignore
-//! use finstack_valuations::calibration::{CalibrationConfig, MultiCurveConfig};
-//! use finstack_valuations::calibration::methodså::DiscountCurveCalibrator;
-//!
-//! let config = CalibrationConfig::default()
-//!     .with_multi_curve(MultiCurveConfig::single_curve(0.25)); // 3M tenor
-//!
-//! // Calibrate discount curve - forward curve will be derived automatically
-//! let calibrator = DiscountCurveCalibrator::new(base_date, Currency::USD, config);
-//! let (discount_curve, _) = calibrator.calibrate(&quotes, &context)?;
-//! ```
-//!
-//! ### Multi-Curve Mode (Post-2008 Methodology)
-//! In multi-curve mode, discount and forward curves are calibrated separately
-//! to capture basis spreads and credit/liquidity effects.
+//! The calibration framework follows the post-2008 multi-curve methodology where
+//! discount and forward curves are calibrated separately to capture basis spreads.
 //!
 //! ```ignore
 //! use finstack_valuations::calibration::{CalibrationConfig, MultiCurveConfig};
@@ -41,25 +21,26 @@
 //! };
 //!
 //! let config = CalibrationConfig::default()
-//!     .with_multi_curve(MultiCurveConfig::multi_curve());
+//!     .with_multi_curve_config(MultiCurveConfig::new());
 //!
 //! // Step 1: Calibrate OIS discount curve using deposits and OIS swaps
 //! let ois_quotes = vec![/* deposits and OIS swaps */];
-//! let disc_calibrator = DiscountCurveCalibrator::new(base_date, Currency::USD, config.clone());
+//! let disc_calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
+//!     .with_config(config.clone());
 //! let (discount_curve, _) = disc_calibrator.calibrate(&ois_quotes, &context)?;
 //!
 //! // Step 2: Add discount curve to context
 //! let context = context.insert_discount(discount_curve);
 //!
-//! // Step 3: Calibrate forward curves using FRAs, futures, and LIBOR swaps
+//! // Step 3: Calibrate forward curves using FRAs, futures, and tenor-specific swaps
 //! let libor_quotes = vec![/* FRAs, futures, and LIBOR swaps */];
 //! let fwd_calibrator = ForwardCurveCalibrator::new(
-//!     CurveId::from("3M-LIBOR"), 0.25, base_date, Currency::USD, CurveId::from("OIS"), config
+//!     "USD-SOFR-3M-FWD", 0.25, base_date, Currency::USD, "USD-OIS"
 //! );
 //! let (forward_curve, _) = fwd_calibrator.calibrate(&libor_quotes, &context)?;
 //! ```
 //!
-//! ### Important Notes for Multi-Curve Calibration
+//! ### Multi-Curve Calibration Notes
 //!
 //! 1. **Instrument Selection**:
 //!    - For discount curve: Use deposits and OIS swaps (instruments that don't require forward curves)
@@ -68,10 +49,6 @@
 //! 2. **Calibration Order**:
 //!    - Always calibrate discount curve first
 //!    - Then calibrate forward curves with discount curve in context
-//!
-//! 3. **Validation**:
-//!    - The framework will warn if using forward-dependent instruments for discount curve calibration
-//!    - In multi-curve mode, forward curves won't be automatically derived
 
 use finstack_core::F;
 
@@ -87,7 +64,7 @@ mod traits;
 mod validation;
 
 // Re-exports
-pub use config::{CalibrationConfig, MultiCurveConfig, MultiCurveMode, SolverKind};
+pub use config::{CalibrationConfig, MultiCurveConfig, SolverKind};
 pub use constraints::{CalibrationConstraint, ConstraintType, InequalityDirection};
 pub use quote::{
     CreditQuote, FutureSpecs, InflationQuote, MarketQuote, QuoteWithMetadata, RatesQuote, VolQuote,
@@ -96,7 +73,7 @@ pub use report::CalibrationReport;
 pub use simple_calibration::SimpleCalibration;
 pub use traits::Calibrator;
 pub use validation::{
-    CurveValidator, MarketValidator, SurfaceValidator, ValidationConfig, ValidationError,
+    CurveValidator, SurfaceValidator, ValidationConfig, ValidationError,
 };
 
 /// Finite penalty value used in objective functions instead of infinity.
@@ -153,4 +130,22 @@ where
             solver.solve(f, init)
         }
     }
+}
+
+/// Create a simple solver wrapper for calibration methods.
+/// This avoids the duplicate SimpleSolver pattern across multiple files.
+pub fn create_simple_solver(config: &CalibrationConfig) -> impl finstack_core::math::Solver {
+    struct SimpleSolver {
+        config: CalibrationConfig,
+    }
+    
+    impl finstack_core::math::Solver for SimpleSolver {
+        fn solve<F>(&self, f: F, initial_guess: finstack_core::F) -> finstack_core::Result<finstack_core::F> 
+        where F: Fn(finstack_core::F) -> finstack_core::F 
+        {
+            solve_1d(self.config.solver_kind.clone(), self.config.tolerance, self.config.max_iterations, f, initial_guess)
+        }
+    }
+    
+    SimpleSolver { config: config.clone() }
 }

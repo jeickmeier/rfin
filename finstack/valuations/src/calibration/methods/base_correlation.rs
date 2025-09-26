@@ -207,34 +207,15 @@ impl BaseCorrelationCalibrator {
                 (last_correlation + CORRELATION_STEP).min(MAX_MONOTONIC_CORRELATION)
             };
 
-            // Pre-build references outside the objective function
-            let solved_correlations_ref = &solved_correlations;
-            let detach_pct_val = *detach_pct;
-
-            // OPTIMIZATION: Pre-clone the market context once outside the hot loop
-            // This avoids cloning the entire context on every iteration
-            let template_market_ctx = market_context.clone();
-
-            // OPTIMIZATION: Pre-allocate the correlation points vector with known capacity
-            // This reduces allocations in the hot loop
-            let base_capacity = solved_correlations_ref.len() + 2; // +2 for trial point and potential padding
-
-            // Create objective function for this tranche - now much more efficient
             let objective = |trial_correlation: F| -> F {
-                // OPTIMIZATION: Reuse pre-allocated capacity for correlation points
-                let mut temp_corr_points = Vec::with_capacity(base_capacity);
-                temp_corr_points.extend_from_slice(solved_correlations_ref);
-                temp_corr_points.push((detach_pct_val, trial_correlation));
+                let mut temp_corr_points = solved_correlations.clone();
+                temp_corr_points.push((*detach_pct, trial_correlation));
 
                 // Ensure minimum curve requirements (need at least 2 points)
                 if temp_corr_points.len() < 2 {
-                    // For first (equity) tranche, add a second point for curve building
-                    temp_corr_points.push((detach_pct_val + 10.0, trial_correlation));
+                    temp_corr_points.push((*detach_pct + 10.0, trial_correlation));
                 }
 
-                // NOTE: BaseCorrelationCurve is immutable by design, so we must create
-                // a new curve on each iteration. This is a fundamental constraint of the
-                // curve's API that prioritizes thread-safety and immutability.
                 let temp_base_corr_curve = match BaseCorrelationCurve::builder("TEMP_CALIB_CORR")
                     .knots(temp_corr_points)
                     .build()
@@ -243,15 +224,12 @@ impl BaseCorrelationCalibrator {
                     Err(_) => return crate::calibration::penalize(),
                 };
 
-                // OPTIMIZATION: Use the efficient update_base_correlation_curve method
-                // This only updates the correlation curve without rebuilding the entire CreditIndexData
-                let mut temp_market_ctx = template_market_ctx.clone();
+                let mut temp_market_ctx = market_context.clone();
                 let _ = temp_market_ctx.update_base_correlation_curve(
                     &synthetic_tranche.credit_index_id,
                     temp_base_corr_curve,
                 );
 
-                // Price the tranche and return upfront error
                 match pricing_model.price_tranche(
                     &synthetic_tranche,
                     &temp_market_ctx,
@@ -348,19 +326,7 @@ impl Calibrator<CreditQuote, BaseCorrelationCurve> for BaseCorrelationCalibrator
         instruments: &[CreditQuote],
         base_context: &MarketContext,
     ) -> Result<(BaseCorrelationCurve, CalibrationReport)> {
-        // Create a simple solver using the solve_1d helper from calibration module  
-        use crate::calibration::solve_1d;
-        struct SimpleSolver {
-            config: CalibrationConfig,
-        }
-        impl Solver for SimpleSolver {
-            fn solve<F>(&self, f: F, initial_guess: finstack_core::F) -> finstack_core::Result<finstack_core::F> 
-            where F: Fn(finstack_core::F) -> finstack_core::F 
-            {
-                solve_1d(self.config.solver_kind.clone(), self.config.tolerance, self.config.max_iterations, f, initial_guess)
-            }
-        }
-        let solver = SimpleSolver { config: self.config.clone() };
+        let solver = crate::calibration::create_simple_solver(&self.config);
         self.bootstrap_curve(instruments, &solver, base_context)
     }
 }

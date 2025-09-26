@@ -36,10 +36,10 @@ fn main() -> Result<()> {
     println!("-----------------------------------------");
     demo_multi_curve_mode(base_date)?;
 
-    // Example 2: Single-curve mode (pre-2008 legacy)
-    println!("\n2. Single-Curve Mode (Pre-2008 Legacy/Fallback)");
-    println!("------------------------------------------------");
-    demo_single_curve_mode(base_date)?;
+    // Example 2: Simple configuration
+    println!("\n2. Simple Configuration");
+    println!("------------------------");
+    demo_simple_configuration(base_date)?;
 
     // Example 3: Basis swap pricing
     println!("\n3. Basis Swap Pricing");
@@ -51,10 +51,9 @@ fn main() -> Result<()> {
 
 fn demo_multi_curve_mode(base_date: Date) -> Result<()> {
     // Create multi-curve configuration (default)
-    let multi_curve_config = MultiCurveConfig::multi_curve();
+    let multi_curve_config = MultiCurveConfig::new();
 
     println!("Configuration:");
-    println!("  Mode: {:?}", multi_curve_config.mode);
     println!("  Calibrate basis: {}", multi_curve_config.calibrate_basis);
     println!(
         "  Enforce separation: {}",
@@ -127,25 +126,21 @@ fn demo_multi_curve_mode(base_date: Date) -> Result<()> {
     Ok(())
 }
 
-fn demo_single_curve_mode(base_date: Date) -> Result<()> {
-    // Create single-curve configuration (legacy/fallback)
-    let multi_curve_config = MultiCurveConfig::single_curve(0.25); // 3M tenor
+fn demo_simple_configuration(base_date: Date) -> Result<()> {
+    // Create multi-curve configuration (standard post-2008 approach)
+    let multi_curve_config = MultiCurveConfig::new();
 
     println!("Configuration:");
-    println!("  Mode: {:?}", multi_curve_config.mode);
+    println!("  Calibrate basis: {}", multi_curve_config.calibrate_basis);
     println!(
-        "  Single curve tenor: {} years",
-        multi_curve_config.single_curve_tenor
-    );
-    println!(
-        "  Derive forward from discount: {}",
-        multi_curve_config.derive_forward_from_discount()
+        "  Enforce separation: {}",
+        multi_curve_config.enforce_separation
     );
 
-    // In single-curve mode:
-    // - The discount curve is also used as the forward curve
-    // - This is the pre-2008 methodology
-    // - Used only for special cases or simplified modeling
+    // Modern multi-curve approach:
+    // - Discount curves (OIS) for present value calculations
+    // - Forward curves calibrated independently for each tenor
+    // - Basis swaps capture tenor spreads
 
     // Create a discount curve calibrator with single-curve mode
     let _calibrator = DiscountCurveCalibrator::new("USD-LIBOR", base_date, Currency::USD)

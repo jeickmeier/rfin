@@ -658,57 +658,6 @@ impl Default for ValidationConfig {
     }
 }
 
-/// Batch validation of multiple curves
-pub struct MarketValidator {
-    #[allow(dead_code)]
-    config: ValidationConfig,
-    errors: Vec<ValidationError>,
-}
-
-impl MarketValidator {
-    pub fn new(config: ValidationConfig) -> Self {
-        Self {
-            config,
-            errors: Vec::new(),
-        }
-    }
-
-    /// Validate a complete market context
-    pub fn validate_market(
-        &mut self,
-        _context: &finstack_core::market_data::context::MarketContext,
-    ) -> Result<()> {
-        // Note: We would need to add methods to MarketContext to iterate over curves
-        // For now, this is a placeholder showing the intended pattern
-
-        // Example validation flow (would need MarketContext API updates):
-        // for curve in context.discount_curves() {
-        //     if let Err(e) = curve.validate() {
-        //         self.errors.push(ValidationError::new("discount_curve", curve.id(), e.to_string()));
-        //     }
-        // }
-
-        if !self.errors.is_empty() {
-            let error_summary = self
-                .errors
-                .iter()
-                .map(|e| format!("{}: {}", e.location, e.details))
-                .collect::<Vec<_>>()
-                .join("; ");
-            return Err(Error::Validation(format!(
-                "Market validation failed: {}",
-                error_summary
-            )));
-        }
-
-        Ok(())
-    }
-
-    /// Get validation errors
-    pub fn errors(&self) -> &[ValidationError] {
-        &self.errors
-    }
-}
 
 #[cfg(test)]
 mod tests {
