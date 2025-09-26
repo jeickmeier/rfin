@@ -142,8 +142,8 @@ fn demo_simple_configuration(base_date: Date) -> Result<()> {
     // - Forward curves calibrated independently for each tenor
     // - Basis swaps capture tenor spreads
 
-    // Create a discount curve calibrator with single-curve mode
-    let _calibrator = DiscountCurveCalibrator::new("USD-LIBOR", base_date, Currency::USD)
+    // Create a discount curve calibrator with multi-curve configuration
+    let _calibrator = DiscountCurveCalibrator::new("USD-OIS", base_date, Currency::USD)
         .with_multi_curve_config(multi_curve_config);
 
     println!("\nKey principle:");

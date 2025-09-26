@@ -742,20 +742,17 @@ mod tests {
 
         if let Err(ref e) = result {
             println!("Simple calibration failed: {:?}", e);
-            println!("This is expected during calibration development - test passes");
-            return;
+            return; // Calibration logic needs refinement; skip test for now
         }
         let (context, report) = result.unwrap();
         
-        // Verify calibration was successful
         if !report.success {
-            println!("Calibration report indicates failure - this is expected during development");
+            println!("Calibration report indicates failure; skip verification for now");
             return;
         }
         
-        // Verify we have a discount curve
         if context.get_discount("USD-OIS").is_err() {
-            println!("No discount curve found - this is expected during development");
+            println!("No discount curve found; skip verification for now");
         }
     }
 }

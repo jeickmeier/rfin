@@ -2,7 +2,7 @@
 //!
 //! This module provides unified configuration for calibration processes including:
 //! - Solver selection and numerical parameters
-//! - Multi-curve framework mode (post-2008 vs legacy single-curve)
+//! - Multi-curve framework configuration (post-2008 standard)
 //! - Entity seniority mappings for credit calibration
 
 use finstack_core::F;

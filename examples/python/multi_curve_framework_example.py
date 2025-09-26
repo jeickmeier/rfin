@@ -93,68 +93,11 @@ def create_libor_quotes(base_date: date) -> list:
     return quotes
 
 def demonstrate_single_curve_mode():
-    """Demonstrate single-curve calibration (pre-2008 methodology)."""
+    """Single-curve mode has been removed; use multi-curve calibration only."""
     print("\n" + "="*60)
-    print("SINGLE-CURVE MODE CALIBRATION")
+    print("SINGLE-CURVE MODE REMOVED")
     print("="*60)
-    
-    base_date = date(2024, 1, 1)
-    
-    # Create configuration for single-curve mode
-    config = fs.CalibrationConfig(
-        tolerance=1e-8,
-        max_iterations=100,
-        multi_curve=fs.MultiCurveConfig.single_curve(0.25)  # 3M tenor
-    )
-    
-    # Create mixed quotes (deposits, FRAs, swaps)
-    quotes = []
-    
-    # Deposits
-    quotes.append(fs.RatesQuote.deposit(
-        maturity=base_date + timedelta(days=7),
-        rate=0.0150,
-        day_count=fs.DayCount.Act360
-    ))
-    
-    # Swaps
-    for months, rate in [(12, 0.017), (24, 0.019), (36, 0.021), (60, 0.023)]:
-        maturity = base_date + timedelta(days=30 * months)
-        quotes.append(fs.RatesQuote.swap(
-            maturity=maturity,
-            rate=rate,
-            fixed_freq=fs.Frequency.Annual,
-            float_freq=fs.Frequency.Quarterly,
-            fixed_dc=fs.DayCount.Thirty360,
-            float_dc=fs.DayCount.Act360,
-            index="3M-LIBOR"
-        ))
-    
-    # Create calibrator
-    calibrator = fs.DiscountCurveCalibrator(
-        base_date=base_date,
-        currency=fs.Currency.USD,
-        config=config
-    )
-    
-    # Calibrate - forward curve will be derived automatically
-    context = fs.MarketContext(base_date)
-    
-    try:
-        discount_curve, report = calibrator.calibrate(quotes, context)
-        print(f"✓ Discount curve calibrated successfully")
-        print(f"  Iterations: {report.iterations}")
-        print(f"  Residuals: {len(report.residuals)}")
-        
-        # In single-curve mode, forward curve is derived from discount
-        # Check some discount factors
-        for t in [0.25, 0.5, 1.0, 2.0, 5.0]:
-            df = discount_curve.df(t)
-            rate = discount_curve.zero_rate(t)
-            print(f"  T={t:4.2f}y: DF={df:.6f}, Zero Rate={rate*100:.3f}%")
-            
-    except Exception as e:
-        print(f"✗ Calibration failed: {e}")
+    print("This example has been deprecated. Please use the multi-curve workflow.")
 
 def demonstrate_multi_curve_mode():
     """Demonstrate multi-curve calibration (post-2008 methodology)."""
@@ -324,7 +267,7 @@ def main():
     print("MULTI-CURVE FRAMEWORK CALIBRATION EXAMPLES")
     print("="*60)
     
-    # Show single-curve mode
+    # Single-curve mode removed
     demonstrate_single_curve_mode()
     
     # Show correct multi-curve mode
@@ -337,22 +280,17 @@ def main():
     print("KEY TAKEAWAYS")
     print("="*60)
     print("""
-1. Single-Curve Mode:
-   - Forward curves are derived from discount curves
-   - Suitable when basis spreads are negligible
-   - Simpler but less accurate post-2008
-
-2. Multi-Curve Mode:
+1. Multi-Curve Mode:
    - Discount and forward curves calibrated separately
    - Captures basis spreads and funding costs
    - Required for accurate modern pricing
 
-3. Instrument Selection:
+2. Instrument Selection:
    - OIS curves: Use deposits and OIS swaps
    - Forward curves: Use FRAs, futures, and tenor-specific swaps
    - Never mix OIS and LIBOR instruments in the same calibration
 
-4. Calibration Order:
+3. Calibration Order:
    - Always calibrate discount curve first
    - Then calibrate forward curves with discount in context
    - Validate instrument appropriateness for each curve type
