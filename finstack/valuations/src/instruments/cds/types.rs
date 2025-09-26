@@ -62,7 +62,7 @@ impl CDSConvention {
 
 // Re-export from common parameters
 pub use crate::instruments::common::parameters::legs::{
-    CdsSettlementType, PremiumLegSpec, ProtectionLegSpec,
+    PremiumLegSpec, ProtectionLegSpec,
 };
 
 /// Premium leg specification
@@ -95,8 +95,6 @@ struct _RemovedProtectionLegSpec {
     pub credit_id: &'static str,
     /// Recovery rate (0.0 to 1.0)
     pub recovery_rate: F,
-    /// Settlement type on default
-    pub settlement: CdsSettlementType,
     /// Settlement delay in business days
     pub settlement_delay: u16,
 }
@@ -108,8 +106,6 @@ pub struct CreditDefaultSwap {
     pub id: InstrumentId,
     /// Notional amount
     pub notional: Money,
-    /// Reference entity (issuer being protected)
-    pub reference_entity: String,
     /// Buyer/seller perspective
     pub side: PayReceive,
     /// ISDA convention
@@ -129,16 +125,13 @@ impl CreditDefaultSwap {
     #[allow(clippy::too_many_arguments)]
     pub fn buy_protection(
         id: impl Into<InstrumentId>,
-        reference_entity: impl Into<String>,
         notional: Money,
         spread_bp: F,
         start: Date,
         maturity: Date,
-        disc_id: &'static str,
-        credit_id: &'static str,
+        disc_id: impl Into<finstack_core::types::CurveId>,
+        credit_id: impl Into<finstack_core::types::CurveId>,
     ) -> Self {
-        let reference_entity: String = reference_entity.into();
-
         let dc = CDSConvention::IsdaNa.day_count();
         let freq = CDSConvention::IsdaNa.frequency();
         let bdc = CDSConvention::IsdaNa.business_day_convention();
@@ -147,7 +140,6 @@ impl CreditDefaultSwap {
         CreditDefaultSwapBuilder::new()
             .id(id.into())
             .notional(notional)
-            .reference_entity(reference_entity)
             .side(PayReceive::PayProtection)
             .convention(CDSConvention::IsdaNa)
             .premium(PremiumLegSpec {
@@ -159,12 +151,11 @@ impl CreditDefaultSwap {
                 calendar_id: None,
                 dc,
                 spread_bp,
-                disc_id,
+                disc_id: disc_id.into(),
             })
             .protection(ProtectionLegSpec {
-                credit_id,
+                credit_id: credit_id.into(),
                 recovery_rate: crate::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED,
-                settlement: CdsSettlementType::Cash,
                 settlement_delay: 3,
             })
             .pricing_overrides(PricingOverrides::default())
@@ -177,16 +168,13 @@ impl CreditDefaultSwap {
     #[allow(clippy::too_many_arguments)]
     pub fn sell_protection(
         id: impl Into<InstrumentId>,
-        reference_entity: impl Into<String>,
         notional: Money,
         spread_bp: F,
         start: Date,
         maturity: Date,
-        disc_id: &'static str,
-        credit_id: &'static str,
+        disc_id: impl Into<finstack_core::types::CurveId>,
+        credit_id: impl Into<finstack_core::types::CurveId>,
     ) -> Self {
-        let reference_entity: String = reference_entity.into();
-
         let dc = CDSConvention::IsdaNa.day_count();
         let freq = CDSConvention::IsdaNa.frequency();
         let bdc = CDSConvention::IsdaNa.business_day_convention();
@@ -195,7 +183,6 @@ impl CreditDefaultSwap {
         CreditDefaultSwapBuilder::new()
             .id(id.into())
             .notional(notional)
-            .reference_entity(reference_entity)
             .side(PayReceive::ReceiveProtection)
             .convention(CDSConvention::IsdaNa)
             .premium(PremiumLegSpec {
@@ -207,12 +194,11 @@ impl CreditDefaultSwap {
                 calendar_id: None,
                 dc,
                 spread_bp,
-                disc_id,
+                disc_id: disc_id.into(),
             })
             .protection(ProtectionLegSpec {
-                credit_id,
+                credit_id: credit_id.into(),
                 recovery_rate: crate::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED,
-                settlement: CdsSettlementType::Cash,
                 settlement_delay: 3,
             })
             .pricing_overrides(PricingOverrides::default())
@@ -225,17 +211,14 @@ impl CreditDefaultSwap {
     #[allow(clippy::too_many_arguments)]
     pub fn high_yield(
         id: impl Into<InstrumentId>,
-        reference_entity: impl Into<String>,
         notional: Money,
         spread_bp: F,
         start: Date,
         maturity: Date,
         side: PayReceive,
-        disc_id: &'static str,
-        credit_id: &'static str,
+        disc_id: impl Into<finstack_core::types::CurveId>,
+        credit_id: impl Into<finstack_core::types::CurveId>,
     ) -> Self {
-        let reference_entity: String = reference_entity.into();
-
         let dc = CDSConvention::IsdaNa.day_count();
         let freq = CDSConvention::IsdaNa.frequency();
         let bdc = CDSConvention::IsdaNa.business_day_convention();
@@ -244,7 +227,6 @@ impl CreditDefaultSwap {
         CreditDefaultSwapBuilder::new()
             .id(id.into())
             .notional(notional)
-            .reference_entity(reference_entity)
             .side(side)
             .convention(CDSConvention::IsdaNa)
             .premium(PremiumLegSpec {
@@ -256,12 +238,11 @@ impl CreditDefaultSwap {
                 calendar_id: None,
                 dc,
                 spread_bp,
-                disc_id,
+                disc_id: disc_id.into(),
             })
             .protection(ProtectionLegSpec {
-                credit_id,
+                credit_id: credit_id.into(),
                 recovery_rate: crate::instruments::cds::parameters::RECOVERY_HIGH_YIELD_DEFAULT,
-                settlement: CdsSettlementType::Cash,
                 settlement_delay: 3,
             })
             .pricing_overrides(PricingOverrides::default())
@@ -280,12 +261,10 @@ impl CreditDefaultSwap {
         spread_bp: F,
         start: finstack_core::dates::Date,
         end: finstack_core::dates::Date,
-        reference_entity: impl Into<String>,
         recovery_rate: F,
-        disc_id: &'static str,
-        credit_id: &'static str,
+        disc_id: impl Into<finstack_core::types::CurveId>,
+        credit_id: impl Into<finstack_core::types::CurveId>,
     ) -> Self {
-        let reference_entity: String = reference_entity.into();
         let dc = convention.day_count();
         let freq = convention.frequency();
         let bdc = convention.business_day_convention();
@@ -294,7 +273,6 @@ impl CreditDefaultSwap {
         Self {
             id: id.into(),
             notional,
-            reference_entity,
             side,
             convention,
             premium: PremiumLegSpec {
@@ -306,12 +284,11 @@ impl CreditDefaultSwap {
                 calendar_id: None,
                 dc,
                 spread_bp,
-                disc_id,
+                disc_id: disc_id.into(),
             },
             protection: ProtectionLegSpec {
-                credit_id,
+                credit_id: credit_id.into(),
                 recovery_rate,
-                settlement: CdsSettlementType::Cash,
                 settlement_delay: 3,
             },
             pricing_overrides: PricingOverrides::default(),
@@ -418,7 +395,7 @@ impl CreditDefaultSwap {
             curves,
             curves
                 .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                    self.premium.disc_id,
+                    self.premium.disc_id.clone(),
                 )?
                 .base_date(),
         )
@@ -429,24 +406,11 @@ impl_instrument!(
     CreditDefaultSwap,
     "CreditDefaultSwap",
     pv = |s, curves, _as_of| {
-        let disc = curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            s.premium.disc_id,
-        )?;
-        let surv = curves
-            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                s.protection.credit_id,
-            )?;
-        let pv_premium = s.pv_premium_leg(disc, surv)?;
-        let pv_protection = s.pv_protection_leg(disc, surv)?;
-        let pv = match s.side {
-            PayReceive::PayProtection => (pv_protection - pv_premium)?,
-            PayReceive::ReceiveProtection => (pv_premium - pv_protection)?,
-        };
-        if let Some(upfront) = s.pricing_overrides.upfront_payment {
-            pv + upfront
-        } else {
-            Ok(pv)
-        }
+        // Delegate fully to pricing engine
+        crate::instruments::cds::pricing::engine::CDSPricer::new().npv_market(
+            s,
+            curves,
+            _as_of,
+        )
     }
 );

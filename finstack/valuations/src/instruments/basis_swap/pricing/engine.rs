@@ -56,6 +56,55 @@ pub struct FloatLegParams<'a> {
 }
 
 impl BasisEngine {
+    /// Present value of the full basis swap instrument via market context.
+    pub fn npv(
+        swap: &crate::instruments::basis_swap::BasisSwap,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<Money> {
+        use crate::cashflow::builder::schedule_utils::build_dates;
+
+        // Build schedules
+        let primary_schedule = build_dates(
+            swap.start_date,
+            swap.maturity_date,
+            swap.primary_leg.frequency,
+            swap.stub_kind,
+            swap.primary_leg.bdc,
+            swap.calendar_id,
+        );
+
+        let reference_schedule = build_dates(
+            swap.start_date,
+            swap.maturity_date,
+            swap.reference_leg.frequency,
+            swap.stub_kind,
+            swap.reference_leg.bdc,
+            swap.calendar_id,
+        );
+
+        let primary_params = FloatLegParams {
+            schedule: &primary_schedule,
+            notional: swap.notional,
+            disc_id: swap.discount_curve_id.clone(),
+            fwd_id: swap.primary_leg.forward_curve_id.clone(),
+            accrual_dc: swap.primary_leg.day_count,
+            spread: swap.primary_leg.spread,
+        };
+
+        let reference_params = FloatLegParams {
+            schedule: &reference_schedule,
+            notional: swap.notional,
+            disc_id: swap.discount_curve_id.clone(),
+            fwd_id: swap.reference_leg.forward_curve_id.clone(),
+            accrual_dc: swap.reference_leg.day_count,
+            spread: swap.reference_leg.spread,
+        };
+
+        let primary_pv = Self::pv_float_leg(primary_params, curves, as_of)?;
+        let reference_pv = Self::pv_float_leg(reference_params, curves, as_of)?;
+        primary_pv - reference_pv
+    }
     /// Calculates the present value of a floating rate leg.
     ///
     /// # Arguments

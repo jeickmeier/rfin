@@ -10,9 +10,7 @@ pub mod parameters;
 pub mod pricing;
 mod types;
 
-pub use parameters::CreditParams;
 pub use types::CDSConvention;
-pub use types::CdsSettlementType;
 pub use types::CreditDefaultSwap;
 pub use types::PayReceive;
 pub use types::PremiumLegSpec;

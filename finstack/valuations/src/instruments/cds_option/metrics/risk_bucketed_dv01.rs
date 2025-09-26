@@ -10,7 +10,7 @@ impl MetricCalculator for BucketedDv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let opt_ref: &CdsOption = context.instrument_as()?;
         let opt = opt_ref.clone();
-        let disc_id = finstack_core::types::CurveId::from(opt.disc_id);
+        let disc_id = opt.disc_id.clone();
 
         let labels: Vec<String> = crate::metrics::standard_ir_dv01_buckets()
             .iter()
@@ -36,7 +36,7 @@ impl MetricCalculator for BucketedDv01Calculator {
          {
             use crate::instruments::cds_option::pricing::engine::CdsOptionPricer;
             use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-            let hazard = curves.get_ref::<HazardCurve>(opt.credit_id)?;
+            let hazard = curves.get_ref::<HazardCurve>(opt.credit_id.clone())?;
             let pricer = CdsOptionPricer::default();
             let t = opt.day_count.year_fraction(as_of, opt.expiry, finstack_core::dates::DayCountCtx::default())?;
             let forward_bp = pricer.forward_spread_bp(&opt, &curves, as_of)?;
@@ -48,10 +48,9 @@ impl MetricCalculator for BucketedDv01Calculator {
                 0.0,
                 opt.expiry,
                 opt.cds_maturity,
-                opt.reference_entity.clone(),
                 opt.recovery_rate,
-                opt.disc_id,
-                opt.credit_id,
+                opt.disc_id.clone(),
+                opt.credit_id.clone(),
             );
             let cds_pricer = crate::instruments::cds::pricing::engine::CDSPricer::new();
             let ra = cds_pricer.risky_annuity(&cds, bumped_disc, hazard, as_of)?;

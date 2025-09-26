@@ -10,7 +10,7 @@ impl MetricCalculator for BucketedDv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let cds_ref: &CreditDefaultSwap = context.instrument_as()?;
         let cds = cds_ref.clone();
-        let disc_id = finstack_core::types::CurveId::from(cds.premium.disc_id);
+        let disc_id = cds.premium.disc_id.clone();
 
         let labels: Vec<String> = crate::metrics::standard_ir_dv01_buckets()
             .iter()
@@ -39,11 +39,11 @@ impl MetricCalculator for BucketedDv01Calculator {
             move |temp_ctx| {
                 let disc = temp_ctx
                     .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                        cds.premium.disc_id,
+                        cds.premium.disc_id.clone(),
                     )?;
                 let surv = temp_ctx
                     .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                        cds.protection.credit_id,
+                        cds.protection.credit_id.clone(),
                     )?;
                 crate::instruments::cds::pricing::engine::CDSPricer::new().npv(&cds, disc, surv, as_of)
             },

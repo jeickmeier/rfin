@@ -75,14 +75,7 @@ impl_instrument!(
     InflationSwap,
     "InflationSwap",
     pv = |s, curves, as_of| {
-        // Calculate PV of both legs
-        let pv_fixed = s.pv_fixed_leg(curves, as_of)?;
-        let pv_inflation = s.pv_inflation_leg(curves, as_of)?;
-
-        // Net PV based on trade direction
-        match s.side {
-            PayReceiveInflation::ReceiveFixed => pv_fixed - pv_inflation,
-            PayReceiveInflation::PayFixed => pv_inflation - pv_fixed,
-        }
+        // Delegate to pricing engine for parity with other instruments
+        crate::instruments::inflation_swap::pricing::InflationSwapPricer::new().npv(s, curves, as_of)
     },
 );

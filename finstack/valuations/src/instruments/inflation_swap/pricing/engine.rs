@@ -120,4 +120,16 @@ impl InflationSwapPricer {
 
         Ok(inflation_payment * df)
     }
+
+    /// Net present value of the instrument via legs.
+    pub fn npv(&self, s: &InflationSwap, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+        let pv_fixed = self.pv_fixed_leg(s, curves, as_of)?;
+        let pv_inflation = self.pv_inflation_leg(s, curves, as_of)?;
+        match s.side {
+            crate::instruments::inflation_swap::types::PayReceiveInflation::ReceiveFixed =>
+                pv_fixed - pv_inflation,
+            crate::instruments::inflation_swap::types::PayReceiveInflation::PayFixed =>
+                pv_inflation - pv_fixed,
+        }
+    }
 }

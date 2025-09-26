@@ -55,13 +55,12 @@ fn main() -> finstack_core::Result<()> {
     // Credit Default Swap - ONE LINE!
     let cds = CreditDefaultSwap::buy_protection(
         "CDS-001",
-        "AAPL",
         Money::new(10_000_000.0, Currency::USD),
         150.0, // 150bp spread
         issue,
         maturity_5y,
-        "USD-OIS",
-        "AAPL-CREDIT",
+        finstack_core::types::CurveId::new("USD-OIS"),
+        finstack_core::types::CurveId::new("AAPL-CREDIT"),
     );
     println!("✓ CDS created: {} spread bp", cds.premium.spread_bp);
 
@@ -167,14 +166,13 @@ fn main() -> finstack_core::Result<()> {
     // High-Yield Credit Default Swap
     let hy_cds = CreditDefaultSwap::high_yield(
         "CDS-HY-001",
-        "DISTRESSED_CORP",
         Money::new(5_000_000.0, Currency::USD),
         800.0, // 800bp spread
         issue,
         maturity_5y,
         CdsPayReceive::PayProtection,
-        "USD-OIS",
-        "HY-CREDIT",
+        finstack_core::types::CurveId::new("USD-OIS"),
+        finstack_core::types::CurveId::new("HY-CREDIT"),
     );
     println!(
         "✓ High-yield CDS created: {}% recovery",

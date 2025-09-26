@@ -24,14 +24,12 @@ fn test_cds_creation_and_basic_pricing() {
         spread_bp,
         start,
         end,
-        "ABC Corp",
         0.4,
-        "USD-OIS",
-        "ABC-SENIOR",
+        finstack_core::types::CurveId::new("USD-OIS"),
+        finstack_core::types::CurveId::new("ABC-SENIOR"),
     );
 
     assert_eq!(cds.id, "CDS_TEST");
-    assert_eq!(cds.reference_entity, "ABC Corp");
     assert_eq!(cds.premium.spread_bp, 100.0);
     assert_eq!(cds.protection.recovery_rate, 0.4);
     assert_eq!(cds.convention, CDSConvention::IsdaNa);

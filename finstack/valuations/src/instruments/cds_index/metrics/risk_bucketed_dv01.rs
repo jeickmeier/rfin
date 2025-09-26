@@ -10,7 +10,7 @@ impl MetricCalculator for BucketedDv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let idx_ref: &CDSIndex = context.instrument_as()?;
         let index = idx_ref.clone();
-        let disc_id = finstack_core::types::CurveId::from(index.premium.disc_id);
+        let disc_id = index.premium.disc_id.clone();
 
         let labels: Vec<String> = crate::metrics::standard_ir_dv01_buckets()
             .iter()
@@ -41,7 +41,7 @@ impl MetricCalculator for BucketedDv01Calculator {
             match index.pricing {
                 crate::instruments::cds_index::types::IndexPricing::SingleCurve => {
                     let cds = index.to_synthetic_cds();
-                    let surv = curves.get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(cds.protection.credit_id)?;
+                    let surv = curves.get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(cds.protection.credit_id.clone())?;
                     let cds_pricer = crate::instruments::cds::pricing::engine::CDSPricer::new();
                     cds_pricer.npv(&cds, bumped_disc, surv, as_of)
                 }
@@ -56,15 +56,14 @@ impl MetricCalculator for BucketedDv01Calculator {
                     for cons in &index.constituents {
                         let cds = crate::instruments::cds::CreditDefaultSwap::buy_protection(
                             index.id.clone(),
-                            index.index_name.clone(),
                             finstack_core::money::Money::new(index.notional.amount() * cons.weight, index.notional.currency()),
                             index.premium.spread_bp,
                             index.premium.start,
                             index.premium.end,
-                            index.premium.disc_id,
-                            cons.credit.credit_id,
+                            index.premium.disc_id.clone(),
+                            cons.credit.credit_curve_id.clone(),
                         );
-                        let surv = curves.get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(cds.protection.credit_id)?;
+                        let surv = curves.get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(cds.protection.credit_id.clone())?;
                         sum = (sum + cds_pricer.npv(&cds, bumped_disc, surv, as_of)?)?;
                     }
                     Ok(sum)

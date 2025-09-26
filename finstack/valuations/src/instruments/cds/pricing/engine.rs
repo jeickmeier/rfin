@@ -13,6 +13,7 @@ use crate::instruments::cds::{CreditDefaultSwap, PayReceive};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{next_cds_date, Date, DayCount};
 use finstack_core::dates::utils::add_months;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::traits::{Discounting, Survival};
 use finstack_core::market_data::MarketContext;
@@ -616,11 +617,11 @@ impl CDSPricer {
     pub fn cs01(&self, cds: &CreditDefaultSwap, curves: &MarketContext, as_of: Date) -> Result<F> {
         let disc = curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            cds.premium.disc_id,
+            cds.premium.disc_id.clone(),
         )?;
         let surv = curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                cds.protection.credit_id,
+                cds.protection.credit_id.clone(),
             )?;
         let base_npv = self.npv(cds, disc, surv, as_of)?;
         let risky_pv01 = self.risky_pv01(cds, disc, surv, as_of)?;
@@ -642,6 +643,33 @@ impl CDSPricer {
             PayReceive::PayProtection => protection_pv.checked_sub(premium_pv),
             PayReceive::ReceiveProtection => premium_pv.checked_sub(protection_pv),
         }
+    }
+
+    /// Instrument NPV including upfront override when provided.
+    pub fn npv_with_upfront(
+        &self,
+        cds: &CreditDefaultSwap,
+        disc: &dyn Discounting,
+        surv: &dyn Survival,
+        as_of: Date,
+    ) -> Result<Money> {
+        let mut pv = self.npv(cds, disc, surv, as_of)?;
+        if let Some(upfront) = cds.pricing_overrides.upfront_payment {
+            pv = (pv + upfront)?;
+        }
+        Ok(pv)
+    }
+
+    /// Resolve curves from MarketContext and compute NPV with upfront.
+    pub fn npv_market(
+        &self,
+        cds: &CreditDefaultSwap,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<Money> {
+        let disc = curves.get_ref::<DiscountCurve>(cds.premium.disc_id.clone())?;
+        let surv = curves.get_ref::<HazardCurve>(cds.protection.credit_id.clone())?;
+        self.npv_with_upfront(cds, disc, surv, as_of)
     }
 
     /// Year fraction helper honoring exact day-count if configured
@@ -738,10 +766,9 @@ impl CDSBootstrapper {
             spread_bps,
             base_date,
             end_date,
-            "SYNTHETIC",
             recovery_rate,
-            "DISC",
-            "CREDIT",
+            finstack_core::types::CurveId::new("DISC"),
+            finstack_core::types::CurveId::new("CREDIT"),
         ))
     }
 
@@ -808,10 +835,9 @@ mod tests {
             spread_bp,
             start_date,
             end_date,
-            "TEST-CORP",
             recovery_rate,
-            "USD-OIS",
-            "TEST-CREDIT",
+            finstack_core::types::CurveId::new("USD-OIS"),
+            finstack_core::types::CurveId::new("TEST-CREDIT"),
         )
     }
 

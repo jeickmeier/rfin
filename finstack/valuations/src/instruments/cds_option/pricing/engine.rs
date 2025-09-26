@@ -72,11 +72,11 @@ impl CdsOptionPricer {
         // Market curves
         let disc = curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            option.disc_id,
+            option.disc_id.clone(),
         )?;
         let hazard = curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-            option.credit_id,
+            option.credit_id.clone(),
         )?;
 
         // Forward spread at CDS maturity (bp)
@@ -122,7 +122,7 @@ impl CdsOptionPricer {
     ) -> Result<F> {
         let hazard = curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-            option.credit_id,
+            option.credit_id.clone(),
         )?;
         let t = option.day_count.year_fraction(
             as_of,
@@ -359,10 +359,9 @@ impl CdsOptionPricer {
             0.0, // spread not used for risky_annuity
             option.expiry,
             option.cds_maturity,
-            option.reference_entity.clone(),
             option.recovery_rate,
-            option.disc_id,
-            option.credit_id,
+            option.disc_id.clone(),
+            option.credit_id.clone(),
         );
         let cds_pricer = CDSPricer::new();
         cds_pricer.risky_annuity(&cds, disc, surv, as_of)
@@ -391,11 +390,11 @@ impl CdsOptionPricer {
 
         let disc = curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            option.disc_id,
+            option.disc_id.clone(),
         )?;
         let hazard = curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-            option.credit_id,
+            option.credit_id.clone(),
         )?;
 
         // Forward spread at CDS maturity (bp)

@@ -4,7 +4,7 @@
 //! common instrument trait via `impl_instrument!`. All pricing math and metrics
 //! are implemented in the `pricing/` and `metrics/` submodules.
 
-use crate::instruments::cds::CreditParams;
+use crate::instruments::common::parameters::CreditParams;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
@@ -20,8 +20,6 @@ use super::parameters::CdsOptionParams;
 pub struct CdsOption {
     /// Unique instrument identifier
     pub id: InstrumentId,
-    /// Reference entity (underlying credit)
-    pub reference_entity: String,
     /// Strike spread in basis points
     pub strike_spread_bp: F,
     /// Option type (Call = right to buy protection, Put = right to sell protection)
@@ -41,9 +39,9 @@ pub struct CdsOption {
     /// Recovery rate assumption
     pub recovery_rate: F,
     /// Discount curve identifier
-    pub disc_id: &'static str,
+    pub disc_id: finstack_core::types::CurveId,
     /// Hazard curve identifier
-    pub credit_id: &'static str,
+    pub credit_id: finstack_core::types::CurveId,
     /// Volatility surface identifier
     pub vol_id: &'static str,
     /// Pricing overrides (including implied volatility)
@@ -72,12 +70,11 @@ impl CdsOption {
         id: impl Into<InstrumentId>,
         option_params: &CdsOptionParams,
         credit_params: &CreditParams,
-        disc_id: &'static str,
+        disc_id: impl Into<finstack_core::types::CurveId>,
         vol_id: &'static str,
     ) -> Self {
         Self {
             id: id.into(),
-            reference_entity: credit_params.reference_entity.clone(),
             strike_spread_bp: option_params.strike_spread_bp,
             option_type: option_params.option_type,
             exercise_style: ExerciseStyle::European,
@@ -87,8 +84,8 @@ impl CdsOption {
             notional: option_params.notional,
             settlement: SettlementType::Cash,
             recovery_rate: credit_params.recovery_rate,
-            disc_id,
-            credit_id: credit_params.credit_id,
+            disc_id: disc_id.into(),
+            credit_id: credit_params.credit_curve_id.clone(),
             vol_id,
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),

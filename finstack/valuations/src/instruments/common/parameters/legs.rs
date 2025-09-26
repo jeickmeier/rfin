@@ -122,7 +122,7 @@ pub struct PremiumLegSpec {
     /// Fixed spread in basis points
     pub spread_bp: F,
     /// Discount curve identifier
-    pub disc_id: &'static str,
+    pub disc_id: CurveId,
 }
 
 /// Specification for CDS protection legs
@@ -130,27 +130,17 @@ pub struct PremiumLegSpec {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ProtectionLegSpec {
     /// Credit curve identifier for default probabilities
-    pub credit_id: &'static str,
+    pub credit_id: CurveId,
     /// Recovery rate (0.0 to 1.0)
     pub recovery_rate: F,
-    /// Settlement type on default  
-    pub settlement: CdsSettlementType,
     /// Settlement delay in business days
     pub settlement_delay: u16,
 }
 
-/// Settlement type for CDS protection payment
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
-pub enum CdsSettlementType {
-    /// Physical delivery of defaulted bonds
-    Physical,
-    /// Cash settlement based on recovery rate
-    Cash,
-    /// Auction-based settlement
-    Auction,
-}
+// Note: Settlement type (cash/physical/auction) is descriptive-only and does not
+// impact current pricing. It has been removed from `ProtectionLegSpec` to keep
+// the pricing surface minimal and consistent. If needed, store as metadata in
+// instrument `Attributes`.
 
 /// Specification for TRS financing legs
 #[derive(Clone, Debug)]

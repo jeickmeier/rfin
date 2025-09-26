@@ -24,7 +24,7 @@ impl MetricCalculator for ThetaCalculator {
         let disc = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-            option.disc_id,
+            option.disc_id.clone(),
         )?;
         let r = disc.zero(t);
 
@@ -32,7 +32,7 @@ impl MetricCalculator for ThetaCalculator {
         let hazard_curve = context
             .curves
             .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-            option.credit_id,
+            option.credit_id.clone(),
         )?;
         let current_tenor = option.day_count.year_fraction(
             context.as_of,

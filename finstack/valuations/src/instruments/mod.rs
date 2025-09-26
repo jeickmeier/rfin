@@ -75,12 +75,11 @@ pub use common::build_with_metrics_dyn;
 
 // Essential parameter type re-exports (formerly in deprecated compat.rs)
 pub use common::parameters::{
-    ExerciseStyle, OptionType, SettlementType, BasisSwapLeg, CdsSettlementType,
-    ContractSpec, CreditParams, EquityOptionParams, EquityUnderlyingParams,
-    FinancingLegSpec, FixedLegSpec, FloatLegSpec, FxOptionParams, FxUnderlyingParams,
-    IndexUnderlyingParams, InterestRateOptionParams, OptionMarketParams, ParRateMethod,
-    PayReceive, PremiumLegSpec, ProtectionLegSpec, ScheduleSpec, TotalReturnLegSpec,
-    UnderlyingParams,
+    ExerciseStyle, OptionType, SettlementType, BasisSwapLeg, ContractSpec, CreditParams,
+    EquityOptionParams, EquityUnderlyingParams, FinancingLegSpec, FixedLegSpec, FloatLegSpec,
+    FxOptionParams, FxUnderlyingParams, IndexUnderlyingParams, InterestRateOptionParams,
+    OptionMarketParams, ParRateMethod, PayReceive, PremiumLegSpec, ProtectionLegSpec,
+    ScheduleSpec, TotalReturnLegSpec, UnderlyingParams,
 };
 
 // Essential trait re-exports (formerly in deprecated compat.rs)

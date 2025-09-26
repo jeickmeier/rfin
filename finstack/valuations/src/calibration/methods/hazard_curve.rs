@@ -183,10 +183,9 @@ impl HazardCurveCalibrator {
                 *market_spread_bp,
                 self.base_date,
                 *maturity,
-                &self.entity,
                 self.recovery_rate,
-                CALIB_DISC_ID,
-                CALIB_HAZARD_ID,
+                finstack_core::types::CurveId::new(CALIB_DISC_ID),
+                finstack_core::types::CurveId::new(CALIB_HAZARD_ID),
             );
 
             let pricer = CDSPricer::new();
@@ -397,10 +396,9 @@ mod tests {
                     spread_bp,
                     base_date,
                     maturity,
-                    "AAPL",
                     0.40,
-                    "USD-OIS",
-                    "AAPL-Senior",
+                    finstack_core::types::CurveId::new("USD-OIS"),
+                    finstack_core::types::CurveId::new("AAPL-Senior"),
                 );
 
                 let pv = pricer

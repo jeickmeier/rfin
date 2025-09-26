@@ -39,10 +39,10 @@ pub use models::{
     TrinomialTree, TrinomialTreeType,
 };
 pub use parameters::{
-    BasisSwapLeg, CdsSettlementType, ContractSpec, CreditParams, EquityOptionParams,
-    EquityUnderlyingParams, ExerciseStyle, FinancingLegSpec, FixedLegSpec, FloatLegSpec,
-    FxOptionParams, FxUnderlyingParams, IndexUnderlyingParams, InterestRateOptionParams,
-    OptionMarketParams, OptionType, ParRateMethod, PayReceive, PremiumLegSpec, ProtectionLegSpec,
-    ScheduleSpec, SettlementType, TotalReturnLegSpec, UnderlyingParams,
+    BasisSwapLeg, ContractSpec, CreditParams, EquityOptionParams, EquityUnderlyingParams,
+    ExerciseStyle, FinancingLegSpec, FixedLegSpec, FloatLegSpec, FxOptionParams, FxUnderlyingParams,
+    IndexUnderlyingParams, InterestRateOptionParams, OptionMarketParams, OptionType, ParRateMethod,
+    PayReceive, PremiumLegSpec, ProtectionLegSpec, ScheduleSpec, SettlementType, TotalReturnLegSpec,
+    UnderlyingParams,
 };
 pub use traits::{Attributable, Attributes, Instrument};

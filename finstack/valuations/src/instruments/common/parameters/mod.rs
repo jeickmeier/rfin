@@ -15,8 +15,8 @@ pub mod underlying;
 // Re-export commonly used types for convenience
 pub use contract::{ContractSpec, ScheduleSpec};
 pub use legs::{
-    BasisSwapLeg, CdsSettlementType, FinancingLegSpec, FixedLegSpec, FloatLegSpec, ParRateMethod,
-    PayReceive, PremiumLegSpec, ProtectionLegSpec, TotalReturnLegSpec,
+    BasisSwapLeg, FinancingLegSpec, FixedLegSpec, FloatLegSpec, ParRateMethod, PayReceive,
+    PremiumLegSpec, ProtectionLegSpec, TotalReturnLegSpec,
 };
 pub use market::{
     CreditParams, EquityOptionParams, ExerciseStyle, FxOptionParams, InterestRateOptionParams,

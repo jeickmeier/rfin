@@ -7,7 +7,7 @@
 //! - `Constituents`: expand into per-name CDS positions with weights and
 //!   aggregate results across names.
 
-use crate::instruments::cds::CreditParams;
+use crate::instruments::common::parameters::CreditParams;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::money::Money;
@@ -15,8 +15,8 @@ use finstack_core::types::InstrumentId;
 
 // Reuse CDS components for conventions and legs
 use crate::instruments::cds::{
-    CDSConvention, CdsSettlementType, CreditDefaultSwap, PayReceive as CdsPayReceive,
-    PremiumLegSpec, ProtectionLegSpec,
+    CDSConvention, CreditDefaultSwap, PayReceive as CdsPayReceive, PremiumLegSpec,
+    ProtectionLegSpec,
 };
 
 use super::parameters::CDSIndexConstituentParam;
@@ -109,12 +109,11 @@ impl CDSIndex {
                 calendar_id: None,
                 dc,
                 spread_bp: index_params.fixed_coupon_bp,
-                disc_id,
+                disc_id: disc_id.into(),
             },
             protection: ProtectionLegSpec {
-                credit_id,
+                credit_id: credit_id.into(),
                 recovery_rate: credit_params.recovery_rate,
-                settlement: CdsSettlementType::Cash,
                 settlement_delay: 3,
             },
             pricing: IndexPricing::SingleCurve,
@@ -144,7 +143,6 @@ impl CDSIndex {
         CreditDefaultSwap {
             id: self.id.clone(),
             notional: self.notional,
-            reference_entity: self.index_name.clone(),
             side: self.side,
             convention: self.convention,
             premium: self.premium.clone(),

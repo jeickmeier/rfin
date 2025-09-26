@@ -24,7 +24,7 @@ impl MetricCalculator for DeltaCalculator {
         let hazard_curve = context
             .curves
             .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-            option.credit_id,
+            option.credit_id.clone(),
         )?;
         let current_tenor = option.day_count.year_fraction(
             context.as_of,
