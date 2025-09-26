@@ -1,14 +1,13 @@
 //! Python bindings for bond instruments.
 
 use crate::core::{
-    dates::{PyDate, PyDayCount, PyFrequency},
+    dates::{PyBusDayConv, PyDate, PyDayCount, PyFrequency, PyStubRule},
     money::PyMoney,
 };
 use crate::valuations::cashflow::PyCashFlowSchedule;
 use finstack_valuations::instruments::bond::Bond;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use std::str::FromStr;
 use std::sync::Arc;
 
 /// Bond instrument for fixed-income valuation.
@@ -90,7 +89,22 @@ impl PyBond {
     ///     ...     discount_curve="USD-OIS"
     ///     ... )
     #[new]
-    #[pyo3(signature = (id, notional, coupon, frequency, day_count, issue_date, maturity, discount_curve, quoted_clean_price=None, custom_cashflows=None))]
+    #[pyo3(signature = (
+        id,
+        notional,
+        coupon,
+        frequency,
+        day_count,
+        issue_date,
+        maturity,
+        discount_curve,
+        quoted_clean_price=None,
+        custom_cashflows=None,
+        business_day_conv=None,
+        stub=None,
+        settlement_days=Some(2),
+        ex_coupon_days=Some(0)
+    ))]
     #[allow(clippy::too_many_arguments)] // Python API requires all these parameters
     fn new(
         id: String,
@@ -103,6 +117,10 @@ impl PyBond {
         discount_curve: &str,
         quoted_clean_price: Option<f64>,
         custom_cashflows: Option<&PyCashFlowSchedule>,
+        business_day_conv: Option<&PyBusDayConv>,
+        stub: Option<&PyStubRule>,
+        settlement_days: Option<u32>,
+        ex_coupon_days: Option<u32>,
     ) -> PyResult<Self> {
         // Validate dates
         if maturity.inner() <= issue_date.inner() {
@@ -111,8 +129,13 @@ impl PyBond {
             ));
         }
 
-        // Create static str for discount curve id
-        let disc_id: &'static str = Box::leak(discount_curve.to_string().into_boxed_str());
+        // Resolve schedule conventions
+        let bdc = business_day_conv
+            .map(|b| b.inner())
+            .unwrap_or(finstack_core::dates::BusinessDayConvention::Following);
+        let stub_kind = stub
+            .map(|s| s.inner())
+            .unwrap_or(finstack_core::dates::StubKind::None);
 
         let bond = Bond {
             id: id.clone().into(),
@@ -120,14 +143,14 @@ impl PyBond {
             coupon,
             freq: frequency.inner(),
             dc: day_count.inner(),
-            bdc: finstack_core::dates::BusinessDayConvention::Following,
+            bdc,
             calendar_id: None,
-            stub: finstack_core::dates::StubKind::None,
+            stub: stub_kind,
             issue: issue_date.inner(),
             maturity: maturity.inner(),
-            settlement_days: Some(2),
-            ex_coupon_days: Some(0),
-            disc_id: disc_id.into(),
+            settlement_days,
+            ex_coupon_days,
+            disc_id: discount_curve.into(),
             hazard_id: None,
             pricing_overrides: if let Some(price) = quoted_clean_price {
                 finstack_valuations::instruments::PricingOverrides::default()
@@ -543,16 +566,7 @@ impl PyBond {
         let as_of_date = as_of.inner();
 
         // Convert metric names to MetricId
-        let metric_ids: Vec<finstack_valuations::metrics::MetricId> = metrics
-            .iter()
-            .map(|name| finstack_valuations::metrics::MetricId::from_str(name))
-            .collect::<Result<_, _>>()
-            .unwrap_or_else(|_| {
-                metrics
-                    .iter()
-                    .map(finstack_valuations::metrics::MetricId::custom)
-                    .collect()
-            });
+        let metric_ids = crate::valuations::instruments::parse_metric_ids(&metrics);
 
         // Call the Rust price_with_metrics implementation
         let result = self
@@ -647,11 +661,8 @@ impl PyBond {
         discount_curve: &str,
         quoted_clean_price: Option<f64>,
     ) -> PyResult<Self> {
-        // Create static str for discount curve id
-        let disc_id: &'static str = Box::leak(discount_curve.to_string().into_boxed_str());
-
-        // Use the Rust from_cashflows method
-        let bond = Bond::from_cashflows(id, schedule.inner(), disc_id, quoted_clean_price)
+        // Use the Rust from_cashflows method (takes Into<CurveId>)
+        let bond = Bond::from_cashflows(id, schedule.inner(), discount_curve, quoted_clean_price)
             .map_err(|e| {
                 PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
                     "Failed to create bond from cashflows: {:?}",
@@ -755,7 +766,7 @@ impl PyBond {
     ///
     /// Examples:
     ///     >>> duration = bond.modified_duration(context, Date(2024, 1, 1))
-    ///     >>> print(f"Modified duration: {duration:.2f} years")
+///     >>> print(f"Modified duration: {duration:.2f} years")
     fn modified_duration(
         &self,
         market_context: &crate::core::market_data::context::PyMarketContext,

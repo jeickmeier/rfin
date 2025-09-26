@@ -9,7 +9,6 @@ use finstack_valuations::instruments::irs::{
     FixedLegSpec, FloatLegSpec, InterestRateSwap, PayReceive,
 };
 use pyo3::prelude::*;
-use std::str::FromStr;
 use std::sync::Arc;
 
 /// Direction of an interest rate swap from the perspective of fixed rate.
@@ -77,7 +76,7 @@ impl PyFixedLeg {
         start_date,
         end_date,
         business_day_conv = None,
-        calendar_id = None,
+        _calendar_id = None,
         stub = None
     ))]
     #[allow(clippy::too_many_arguments)]
@@ -89,7 +88,7 @@ impl PyFixedLeg {
         start_date: &PyDate,
         end_date: &PyDate,
         business_day_conv: Option<&PyBusDayConv>,
-        calendar_id: Option<&str>,
+        _calendar_id: Option<&str>,
         stub: Option<&PyStubRule>,
     ) -> PyResult<Self> {
         let bdc = business_day_conv
@@ -98,18 +97,16 @@ impl PyFixedLeg {
 
         let stub_kind = stub.map(|s| s.inner()).unwrap_or(StubKind::None);
 
-        // Convert to static string for curve ID
-        let disc_id: &'static str = Box::leak(discount_curve.to_string().into_boxed_str());
-        let cal_id = calendar_id.map(|s| Box::leak(s.to_string().into_boxed_str()) as &'static str);
+        // Calendar IDs are accepted for compatibility but not used to avoid leaked allocations
 
         Ok(Self {
             inner: FixedLegSpec {
-                disc_id: disc_id.into(),
+                disc_id: discount_curve.into(),
                 rate,
                 freq: frequency.inner(),
                 dc: day_count.inner(),
                 bdc,
-                calendar_id: cal_id,
+                calendar_id: None,
                 stub: stub_kind,
                 start: start_date.inner(),
                 end: end_date.inner(),
@@ -196,7 +193,7 @@ impl PyFloatLeg {
         start_date,
         end_date,
         business_day_conv = None,
-        calendar_id = None,
+        _calendar_id = None,
         stub = None
     ))]
     #[allow(clippy::too_many_arguments)]
@@ -209,7 +206,7 @@ impl PyFloatLeg {
         start_date: &PyDate,
         end_date: &PyDate,
         business_day_conv: Option<&PyBusDayConv>,
-        calendar_id: Option<&str>,
+        _calendar_id: Option<&str>,
         stub: Option<&PyStubRule>,
     ) -> PyResult<Self> {
         let bdc = business_day_conv
@@ -218,20 +215,17 @@ impl PyFloatLeg {
 
         let stub_kind = stub.map(|s| s.inner()).unwrap_or(StubKind::None);
 
-        // Convert to static strings for curve IDs
-        let disc_id: &'static str = Box::leak(discount_curve.to_string().into_boxed_str());
-        let fwd_id: &'static str = Box::leak(forward_curve.to_string().into_boxed_str());
-        let cal_id = calendar_id.map(|s| Box::leak(s.to_string().into_boxed_str()) as &'static str);
+        // Calendar IDs are accepted for compatibility but not used to avoid leaked allocations
 
         Ok(Self {
             inner: FloatLegSpec {
-                disc_id: disc_id.into(),
-                fwd_id: fwd_id.into(),
+                disc_id: discount_curve.into(),
+                fwd_id: forward_curve.into(),
                 spread_bp,
                 freq: frequency.inner(),
                 dc: day_count.inner(),
                 bdc,
-                calendar_id: cal_id,
+                calendar_id: None,
                 stub: stub_kind,
                 reset_lag_days: 2,
                 start: start_date.inner(),
@@ -324,7 +318,7 @@ impl PyFloatLeg {
 ///     >>> # Create the swap
 ///     >>> swap = InterestRateSwap(
 ///     ...     id="USD-5Y-SOFR",
-///     ...     notional=Money(10_000_000, Currency("USD")),
+///     ...     notional=Money(10_000_000, Currency.usd()),
 ///     ...     side=PayReceive.PayFixed,  # Pay fixed, receive floating
 ///     ...     fixed_leg=fixed,
 ///     ...     float_leg=floating
@@ -333,8 +327,8 @@ impl PyFloatLeg {
 ///     >>> # Price the swap with metrics
 ///     >>> result = swap.price_with_metrics(market_context, Date(2024, 1, 1), ["par_rate"])
 ///     >>> print(f"NPV: ${result.value.amount:,.2f}")
-///     >>> print(f"Par Rate: {result.get_metric('ParRate', 0):.4%}")
-///     >>> print(f"DV01: ${result.get_metric('Dv01', 0):,.2f}")
+///     >>> print(f"Par Rate: {result.get_metric('par_rate', 0):.4%}")
+///     >>> print(f"DV01: ${result.get_metric('dv01', 0):,.2f}")
 #[pyclass(name = "InterestRateSwap", module = "finstack.instruments")]
 #[derive(Clone)]
 pub struct PyInterestRateSwap {
@@ -561,16 +555,7 @@ impl PyInterestRateSwap {
         let curves = market_context.inner();
         let as_of_date = as_of.inner();
 
-        let metric_ids: Vec<finstack_valuations::metrics::MetricId> = metrics
-            .iter()
-            .map(|name| finstack_valuations::metrics::MetricId::from_str(name))
-            .collect::<Result<_, _>>()
-            .unwrap_or_else(|_| {
-                metrics
-                    .iter()
-                    .map(finstack_valuations::metrics::MetricId::custom)
-                    .collect()
-            });
+        let metric_ids = crate::valuations::instruments::parse_metric_ids(&metrics);
 
         let result = self
             .inner
