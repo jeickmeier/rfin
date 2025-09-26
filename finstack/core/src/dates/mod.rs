@@ -16,11 +16,11 @@
 //! use finstack_core::dates::{
 //!     adjust, build_periods, BusinessDayConvention, Date, Frequency, ScheduleBuilder,
 //! };
-//! use finstack_core::dates::calendar::Target2;
+//! use finstack_core::dates::calendar::TARGET2;
 //! use time::{Duration, Month};
 //!
 //! let trade_date = Date::from_calendar_date(2024, Month::March, 29).unwrap();
-//! let adjusted = adjust(trade_date, BusinessDayConvention::Following, &Target2).unwrap();
+//! let adjusted = adjust(trade_date, BusinessDayConvention::Following, &TARGET2).unwrap();
 //! assert!(adjusted >= trade_date);
 //!
 //! let end = trade_date + Duration::days(365);

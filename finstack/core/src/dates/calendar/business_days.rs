@@ -121,9 +121,9 @@ impl core::fmt::Display for BusinessDayConvention {
 /// Example:
 /// ```
 /// use finstack_core::dates::{Date, BusinessDayConvention, adjust};
-/// use finstack_core::dates::calendar::Target2;
+/// use finstack_core::dates::calendar::TARGET2;
 /// use time::Month;
-/// let cal = Target2;
+/// let cal = TARGET2;
 /// let sat = Date::from_calendar_date(2025, Month::January, 4).unwrap();
 /// let adj = adjust(sat, BusinessDayConvention::Following, &cal).unwrap();
 /// assert_eq!(adj, Date::from_calendar_date(2025, Month::January, 6).unwrap());

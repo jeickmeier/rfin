@@ -16,12 +16,12 @@
 //! # Examples
 //! ```
 //! use finstack_core::dates::{CompositeCalendar, HolidayCalendar};
-//! use finstack_core::dates::calendar::{Target2, Gblo};
+//! use finstack_core::dates::calendar::{TARGET2, GBLO};
 //! use finstack_core::dates::calendar::composite::CompositeMode;
 //! use time::Date;
 //!
-//! let t2 = Target2;
-//! let gb = Gblo;
+//! let t2 = TARGET2;
+//! let gb = GBLO;
 //! let calendars = [&t2 as &dyn HolidayCalendar, &gb as &dyn HolidayCalendar];
 //!
 //! // Union (default) – treat the day as a holiday if *either* market is closed.
@@ -110,13 +110,13 @@ impl HolidayCalendar for CompositeCalendar<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dates::calendar::{Gblo, Target2};
+    use crate::dates::calendar::{GBLO, TARGET2};
     use time::{Date, Month};
 
     #[test]
     fn union_vs_intersection() {
-        let t2 = Target2;
-        let gb = Gblo;
+        let t2 = TARGET2;
+        let gb = GBLO;
         let calendars = [&t2 as &dyn HolidayCalendar, &gb as &dyn HolidayCalendar];
 
         let cal_union = CompositeCalendar::new(&calendars);
@@ -129,8 +129,8 @@ mod tests {
 
         // Date that is holiday only in GBLO (Spring bank holiday 26-May-2025)
         let d2 = Date::from_calendar_date(2025, Month::May, 26).unwrap();
-        assert!(Gblo.is_holiday(d2));
-        assert!(!Target2.is_holiday(d2));
+        assert!(GBLO.is_holiday(d2));
+        assert!(!TARGET2.is_holiday(d2));
 
         assert!(cal_union.is_holiday(d2));
         assert!(!cal_inter.is_holiday(d2));

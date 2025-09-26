@@ -161,7 +161,7 @@ impl Repo {
         start_date: Date,
         disc_id: &'static str,
     ) -> Result<Self> {
-        let maturity = start_date.add_business_days(1, &finstack_core::dates::calendar::Target2)?;
+        let maturity = start_date.add_business_days(1, &finstack_core::dates::calendar::TARGET2)?;
         RepoBuilder::new()
             .id(id.into().into())
             .cash_amount(cash_amount)

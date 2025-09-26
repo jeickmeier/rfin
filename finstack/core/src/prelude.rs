@@ -22,7 +22,7 @@
 //! use finstack_core::prelude::*;
 //! use time::Month;
 //!
-//! let cal = finstack_core::dates::calendar::Target2;
+//! let cal = finstack_core::dates::calendar::TARGET2;
 //! let d = Date::from_calendar_date(2025, Month::January, 4).unwrap();
 //! let adj = adjust(d, BusinessDayConvention::Following, &cal).unwrap();
 //! let amt = Money::new(100.0, Currency::EUR);

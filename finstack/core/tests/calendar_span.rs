@@ -1,6 +1,6 @@
 //! Cross-year span rule tests
 
-use finstack_core::dates::calendar::{HolidayCalendar, Rule};
+use finstack_core::dates::calendar::{business_days::HolidayCalendar, rule::Rule};
 use finstack_core::dates::Date;
 use time::Month;
 

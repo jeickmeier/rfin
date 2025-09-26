@@ -50,8 +50,9 @@ impl CalendarRegistry<'_> {
     /// ```
     /// # use finstack_core::dates::calendar::registry::{CalendarId, CalendarRegistry};
     /// # use finstack_core::dates::calendar::composite::{CompositeCalendar, CompositeMode};
-    /// # use finstack_core::dates::calendar::{Gblo, Target2, HolidayCalendar};
-    /// let ids = [CalendarId(Target2.id()), CalendarId(Gblo.id())];
+    /// # use finstack_core::dates::calendar::{GBLO, TARGET2};
+    /// # use finstack_core::dates::HolidayCalendar;
+    /// let ids = [CalendarId(TARGET2.id()), CalendarId(GBLO.id())];
     /// let regs = CalendarRegistry::global();
     /// let mut buf = Vec::new();
     /// let composite = regs.resolve_many(&ids, CompositeMode::Union, &mut buf);
@@ -82,10 +83,11 @@ impl CalendarRegistry<'_> {
     /// ```
     /// # use finstack_core::dates::calendar::registry::{CalendarId, CalendarRegistry};
     /// # use finstack_core::dates::calendar::composite::{CompositeCalendar, CompositeMode};
-    /// # use finstack_core::dates::calendar::{Target2, Gblo, HolidayCalendar};
+    /// # use finstack_core::dates::calendar::{TARGET2, GBLO};
+    /// # use finstack_core::dates::HolidayCalendar;
     /// let ids = [
-    ///     CalendarId(Target2.id()),
-    ///     CalendarId(Gblo.id()),
+    ///     CalendarId(TARGET2.id()),
+    ///     CalendarId(GBLO.id()),
     /// ];
     /// let regs = CalendarRegistry::global();
     /// let v = regs.resolve_many_vec(&ids);
@@ -106,7 +108,7 @@ impl CalendarRegistry<'_> {
     /// Return the list of available calendar identifiers.
     #[inline]
     pub fn available_ids(&self) -> &'static [&'static str] {
-        crate::dates::calendar::available_calendars()
+        crate::dates::available_calendars()
     }
 }
 
@@ -116,12 +118,12 @@ impl CalendarRegistry<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::dates::calendar::{Gblo, Target2};
+    use crate::dates::calendar::{GBLO, TARGET2};
     use time::{Date, Month};
 
     #[test]
     fn resolve_many_vec_builds_composite_without_leak() {
-        let ids = [CalendarId(Target2.id()), CalendarId(Gblo.id())];
+        let ids = [CalendarId(TARGET2.id()), CalendarId(GBLO.id())];
         let regs = CalendarRegistry::global();
         let v = regs.resolve_many_vec(&ids);
         assert_eq!(v.len(), 2);
@@ -134,7 +136,7 @@ mod tests {
 
         // Date that is holiday in GBLO but not necessarily in Target2 (e.g., 26-May-2025)
         let d2 = Date::from_calendar_date(2025, Month::May, 26).unwrap();
-        assert!(Gblo.is_holiday(d2));
+        assert!(GBLO.is_holiday(d2));
         assert!(composite.is_holiday(d2));
     }
 }

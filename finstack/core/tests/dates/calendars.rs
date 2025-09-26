@@ -1,5 +1,10 @@
 use finstack_core::dates::{Date, HolidayCalendar};
-use finstack_core::dates::calendar::*;
+use finstack_core::dates::calendar::{
+    ASX as Asx, AUCE as Auce, BRBD as Brbd, CATO as Cato, CHZH as Chzh,
+    CME as Cme, CNBE as Cnbe, DEFR as Defr, GBLO as Gblo, HKEX as Hkex,
+    HKHK as Hkhk, NYSE as Nyse, SGSI as Sgsi, SIFMA as Sifma, SSE as Sse,
+    TARGET2 as Target2, USNY as Usny,
+};
 use time::Month;
 
 fn make_date(y: i32, m: u8, d: u8) -> Date {

@@ -24,12 +24,12 @@
 //!
 //! ```
 //! use finstack_core::dates::{Date, DayCount, DayCountCtx};
-//! use finstack_core::dates::calendar::Target2;
+//! use finstack_core::dates::calendar::TARGET2;
 //! use time::Month;
 //!
 //! let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 //! let end   = Date::from_calendar_date(2025, Month::January, 31).unwrap();
-//! let calendar = Target2;
+//! let calendar = TARGET2;
 //!
 //! // Calculate year fraction with a calendar in context
 //! let yf = DayCount::Bus252
@@ -69,7 +69,7 @@ use crate::dates::utils::add_months;
 use core::cmp::Ordering;
 use time::{Date, Duration, Month};
 
-use crate::dates::calendar::HolidayCalendar;
+use crate::dates::HolidayCalendar;
 use crate::dates::date_extensions::BusinessDayIter;
 use crate::dates::schedule_iter::Frequency;
 use crate::error::InputError;
@@ -529,7 +529,7 @@ mod tests {
     #[derive(Debug, Clone, Copy)]
     struct WeekendsOnly;
 
-    impl crate::dates::calendar::HolidayCalendar for WeekendsOnly {
+    impl crate::dates::HolidayCalendar for WeekendsOnly {
         fn is_holiday(&self, _date: Date) -> bool {
             // Return false for all dates; business day logic will still exclude weekends
             false
@@ -572,10 +572,10 @@ mod tests {
 
     #[test]
     fn bus252_with_nyse_calendar() {
-        use crate::dates::calendar::Nyse;
+        use crate::dates::calendar::NYSE;
 
         // Test with a real calendar that has holidays
-        let calendar = Nyse;
+        let calendar = NYSE;
         let start = make_date(2025, 1, 2); // Thu (after New Year holiday)
         let end = make_date(2025, 1, 6); // Mon (4 calendar days)
 

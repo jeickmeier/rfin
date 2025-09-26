@@ -30,35 +30,5 @@ pub mod registry;
 pub mod rule;
 pub mod types;
 
-// Re-export commonly used items for ergonomic imports
-pub use types::Calendar;
-pub use business_days::{adjust, available_calendars, BusinessDayConvention, HolidayCalendar};
-pub use composite::{CompositeCalendar, CompositeMode};
-pub use registry::CalendarRegistry;
-pub use rule::{Direction, Observed, Rule};
-
 // Include generated calendar implementations
 include!(concat!(env!("OUT_DIR"), "/calendars.rs"));
-
-// Re-export calendar constants with the original PascalCase names for backward compatibility
-pub use {
-    ASX as Asx,
-    AUCE as Auce, 
-    BRBD as Brbd,
-    CATO as Cato,
-    CHZH as Chzh,
-    CME as Cme,
-    CNBE as Cnbe,
-    DEFR as Defr,
-    GBLO as Gblo,
-    HKEX as Hkex,
-    HKHK as Hkhk,
-    JPTO as Jpto,
-    JPX as Jpx,
-    NYSE as Nyse,
-    SGSI as Sgsi,
-    SIFMA as Sifma,
-    SSE as Sse,
-    TARGET2 as Target2,
-    USNY as Usny,
-};

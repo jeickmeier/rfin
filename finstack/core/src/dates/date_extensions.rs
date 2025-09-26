@@ -44,14 +44,14 @@ pub trait DateExt: Sized {
     /// Example:
     /// ```
     /// use finstack_core::dates::{Date, DateExt};
-    /// use finstack_core::dates::calendar::Target2;
+    /// use finstack_core::dates::calendar::TARGET2;
     /// use time::Month;
-    /// let cal = Target2;
+    /// let cal = TARGET2;
     /// let start = Date::from_calendar_date(2025, Month::June, 27).unwrap(); // Friday
     /// let next = start.add_business_days(3, &cal).unwrap();
     /// assert_eq!(next, Date::from_calendar_date(2025, Month::July, 2).unwrap());
     /// ```
-    fn add_business_days<C: crate::dates::calendar::HolidayCalendar>(
+    fn add_business_days<C: crate::dates::HolidayCalendar>(
         self,
         n: i32,
         cal: &C,
@@ -63,7 +63,7 @@ pub trait DateExt: Sized {
     /// This is a thin convenience wrapper around
     /// [`HolidayCalendar::is_business_day`], enabling fluent method-style
     /// calls. See repository examples under `examples/` for usage.
-    fn is_business_day<C: crate::dates::calendar::HolidayCalendar>(self, cal: &C) -> bool;
+    fn is_business_day<C: crate::dates::HolidayCalendar>(self, cal: &C) -> bool;
 
     /// Returns the **next IMM date** (third Wednesday of Mar/Jun/Sep/Dec)
     /// strictly **after** `self`.
@@ -135,7 +135,7 @@ impl DateExt for Date {
         date
     }
 
-    fn add_business_days<C: crate::dates::calendar::HolidayCalendar>(
+    fn add_business_days<C: crate::dates::HolidayCalendar>(
         self,
         n: i32,
         cal: &C,
@@ -166,7 +166,7 @@ impl DateExt for Date {
         Ok(current)
     }
 
-    fn is_business_day<C: crate::dates::calendar::HolidayCalendar>(self, cal: &C) -> bool {
+    fn is_business_day<C: crate::dates::HolidayCalendar>(self, cal: &C) -> bool {
         cal.is_business_day(self)
     }
 
@@ -190,14 +190,14 @@ pub trait OffsetDateTimeExt: Sized {
     fn add_weekdays(self, n: i32) -> Self;
 
     /// See [`DateExt::add_business_days`].
-    fn add_business_days<C: crate::dates::calendar::HolidayCalendar>(
+    fn add_business_days<C: crate::dates::HolidayCalendar>(
         self,
         n: i32,
         cal: &C,
     ) -> crate::Result<Self>;
 
     /// See [`DateExt::is_business_day`].
-    fn is_business_day<C: crate::dates::calendar::HolidayCalendar>(self, cal: &C) -> bool;
+    fn is_business_day<C: crate::dates::HolidayCalendar>(self, cal: &C) -> bool;
 
     /// See [`DateExt::next_imm`].
     fn next_imm(self) -> Self;
@@ -221,7 +221,7 @@ impl OffsetDateTimeExt for OffsetDateTime {
         self.replace_date(new_date)
     }
 
-    fn add_business_days<C: crate::dates::calendar::HolidayCalendar>(
+    fn add_business_days<C: crate::dates::HolidayCalendar>(
         self,
         n: i32,
         cal: &C,
@@ -230,7 +230,7 @@ impl OffsetDateTimeExt for OffsetDateTime {
         Ok(self.replace_date(new_date))
     }
 
-    fn is_business_day<C: crate::dates::calendar::HolidayCalendar>(self, cal: &C) -> bool {
+    fn is_business_day<C: crate::dates::HolidayCalendar>(self, cal: &C) -> bool {
         self.date().is_business_day(cal)
     }
 
@@ -246,13 +246,13 @@ impl OffsetDateTimeExt for OffsetDateTime {
 /// constructing with start/end swapped and iterating forward, or add a simple
 /// `.rev()` on a collected Vec if needed.
 #[derive(Clone, Debug)]
-pub struct BusinessDayIter<'a, C: crate::dates::calendar::HolidayCalendar + ?Sized> {
+pub struct BusinessDayIter<'a, C: crate::dates::HolidayCalendar + ?Sized> {
     current: Date,
     end: Date,
     cal: &'a C,
 }
 
-impl<'a, C: crate::dates::calendar::HolidayCalendar + ?Sized> BusinessDayIter<'a, C> {
+impl<'a, C: crate::dates::HolidayCalendar + ?Sized> BusinessDayIter<'a, C> {
     /// Create a forward iterator over business days in [start, end).
     pub fn new(start: Date, end: Date, cal: &'a C) -> Self {
         Self {
@@ -263,7 +263,7 @@ impl<'a, C: crate::dates::calendar::HolidayCalendar + ?Sized> BusinessDayIter<'a
     }
 }
 
-impl<C: crate::dates::calendar::HolidayCalendar + ?Sized> Iterator for BusinessDayIter<'_, C> {
+impl<C: crate::dates::HolidayCalendar + ?Sized> Iterator for BusinessDayIter<'_, C> {
     type Item = Date;
     fn next(&mut self) -> Option<Self::Item> {
         while self.current < self.end {
@@ -362,9 +362,9 @@ mod tests {
 
     #[test]
     fn test_add_business_days_forward() {
-        use crate::dates::calendar::Target2;
+        use crate::dates::calendar::TARGET2;
 
-        let cal = Target2;
+        let cal = TARGET2;
 
         // Start on Friday, add 3 business days should land on Wednesday (skip weekend)
         let friday = make_date(2025, 6, 27);
@@ -374,9 +374,9 @@ mod tests {
 
     #[test]
     fn test_add_business_days_backward() {
-        use crate::dates::calendar::Target2;
+        use crate::dates::calendar::TARGET2;
 
-        let cal = Target2;
+        let cal = TARGET2;
 
         // Start on Monday, subtract 3 business days should land on Wednesday previous week
         let monday = make_date(2025, 6, 30);
@@ -386,9 +386,9 @@ mod tests {
 
     #[test]
     fn test_add_business_days_zero() {
-        use crate::dates::calendar::Target2;
+        use crate::dates::calendar::TARGET2;
 
-        let cal = Target2;
+        let cal = TARGET2;
         let date = make_date(2025, 6, 27);
         let result = date.add_business_days(0, &cal).unwrap();
         assert_eq!(result, date);
@@ -396,10 +396,10 @@ mod tests {
 
     #[test]
     fn test_add_business_days_with_holidays() {
-        use crate::dates::calendar::HolidayCalendar;
-        use crate::dates::calendar::Target2;
+        use crate::dates::HolidayCalendar;
+        use crate::dates::calendar::TARGET2;
 
-        let cal = Target2;
+        let cal = TARGET2;
 
         // Test around a known holiday period (Christmas/New Year)
         // December 24, 2024 is Tuesday
@@ -414,9 +414,9 @@ mod tests {
 
     #[test]
     fn test_add_business_days_offset_datetime() {
-        use crate::dates::calendar::Target2;
+        use crate::dates::calendar::TARGET2;
 
-        let cal = Target2;
+        let cal = TARGET2;
 
         // Create OffsetDateTime
         let dt = make_date(2025, 6, 27)
@@ -433,7 +433,7 @@ mod tests {
     fn test_add_business_days_error_on_all_holidays() {
         // A calendar that marks every day as a holiday to trigger bounded search failure
         struct AllHolidaysCal;
-        impl crate::dates::calendar::HolidayCalendar for AllHolidaysCal {
+        impl crate::dates::HolidayCalendar for AllHolidaysCal {
             fn is_holiday(&self, _date: Date) -> bool {
                 true
             }

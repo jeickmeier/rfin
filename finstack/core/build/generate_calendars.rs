@@ -240,7 +240,10 @@ pub fn generate() -> io::Result<()> {
     
     // Header
     output.push_str("// Auto-generated from JSON calendar definitions - DO NOT EDIT\n\n");
-    output.push_str("use time::{Month, Weekday};\n\n");
+    output.push_str("use time::{Month, Weekday};\n");
+    output.push_str("use crate::dates::calendar::rule::{Rule, Observed, Direction};\n");
+    output.push_str("use crate::dates::calendar::types::Calendar;\n");
+    output.push_str("use crate::dates::calendar::business_days::HolidayCalendar;\n\n");
     
     // Generate constants for each calendar
     let mut calendar_names = Vec::new();
