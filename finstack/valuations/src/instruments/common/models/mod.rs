@@ -6,9 +6,7 @@ pub mod sabr;
 pub mod short_rate_tree;
 pub mod tree_framework;
 pub mod trinomial_tree;
-// TODO: Introduce a generic multi-factor tree (rates/equity/credit/commodity) scaffold.
-//       This will enable pricing hybrids with correlated factors while reusing
-//       the `TreeValuator` interface.
+// Multi-factor tree scaffold is implemented in multi_factor_tree.rs
 pub mod multi_factor_tree;
 pub mod two_factor_binomial;
 pub mod two_factor_rates_credit;

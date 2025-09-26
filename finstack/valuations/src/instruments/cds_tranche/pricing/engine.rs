@@ -657,7 +657,7 @@ impl CDSTranchePricer {
     /// in production calculations for superior numerical stability.
     ///
     /// P(default | Z) = Φ((Φ⁻¹(PD) - √ρ * Z) / √(1-ρ))
-    #[allow(dead_code)]
+    #[cfg(test)]
     fn conditional_default_probability(
         &self,
         default_threshold: F,

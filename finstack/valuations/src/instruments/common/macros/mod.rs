@@ -3,7 +3,6 @@
 //! This module provides derive-like macros for reducing boilerplate
 //! in instrument implementations.
 
-// Removed legacy `impl_attributable!` macro; Attributable is provided via blanket impl for Instrument
 
 /// Generate a full instrument implementation:
 /// - Attributable
@@ -99,20 +98,6 @@ macro_rules! impl_instrument_schedule_pv {
     };
 }
 
-// Generate builder pattern for an instrument (legacy version).
-//
-// Creates a builder struct with setter methods for all fields.
-// This is kept for backwards compatibility - prefer `impl_enhanced_builder!` for new code.
-// Removed legacy `impl_builder!` macro
-
-// Enhanced builder macro that supports parameter groups and compile-time safety.
-//
-// This macro generates builders with:
-// - Required core parameters (compile-time checked)
-// - Parameter groups for logical collections
-// - Optional individual fields for flexibility
-// - Convenience methods for common patterns
-// Removed legacy `impl_enhanced_builder!` macro
 
 /// Macro for generating convenience constructor methods.
 ///
@@ -138,7 +123,3 @@ macro_rules! impl_convenience_constructors {
     };
 }
 
-// Macro for generating builder methods that work with parameter groups.
-//
-// Provides commonly needed builder enhancement methods.
-// Removed legacy `impl_builder_enhancements!` macro

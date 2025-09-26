@@ -5,10 +5,11 @@
 //! (equity + rates, equity + credit spread, etc.) without requiring code changes
 //! to the core pricing logic.
 //!
-//! TODO: Barrier option support (up/down, in/out) with rebates should be added
-//!       by augmenting `NodeState` with path flags or by tracking barrier state
-//!       externally per path level.
-//! TODO: Performance enhancements (parallel Greeks, caching of node values,
+//! Barrier option support is provided via the `BarrierState` structure in
+//! `NodeState`. Tree models can track barrier conditions and check knock-in/out
+//! status using the provided helper methods.
+//!
+//! NOTE: Performance enhancements (parallel Greeks, caching of node values,
 //!       and optional SIMD) are intentionally deferred to keep the initial
 //!       implementation simple and deterministic.
 
@@ -51,6 +52,38 @@ pub struct NodeState<'a> {
     pub vars: StateVariables,
     /// Access to market context for additional data
     pub market_context: &'a MarketContext,
+    /// Barrier state tracking (if applicable)
+    pub barrier_state: Option<BarrierState>,
+}
+
+/// Simple barrier state tracking for barrier options
+#[derive(Clone, Debug, Default)]
+pub struct BarrierState {
+    /// Whether barrier has been hit during the path
+    pub barrier_hit: bool,
+    /// Barrier level (for checking)
+    pub barrier_level: F,
+    /// Barrier type
+    pub barrier_type: BarrierType,
+}
+
+/// Types of barrier conditions
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BarrierType {
+    /// Up-and-out (option knocks out when spot > barrier)
+    UpAndOut,
+    /// Up-and-in (option knocks in when spot > barrier)
+    UpAndIn,
+    /// Down-and-out (option knocks out when spot < barrier)
+    DownAndOut,
+    /// Down-and-in (option knocks in when spot < barrier)
+    DownAndIn,
+}
+
+impl Default for BarrierType {
+    fn default() -> Self {
+        Self::UpAndOut
+    }
 }
 
 impl<'a> NodeState<'a> {
@@ -66,6 +99,24 @@ impl<'a> NodeState<'a> {
             time,
             vars,
             market_context,
+            barrier_state: None,
+        }
+    }
+
+    /// Create a new node state with barrier tracking
+    pub fn new_with_barrier(
+        step: usize,
+        time: F,
+        vars: StateVariables,
+        market_context: &'a MarketContext,
+        barrier_state: BarrierState,
+    ) -> Self {
+        Self {
+            step,
+            time,
+            vars,
+            market_context,
+            barrier_state: Some(barrier_state),
         }
     }
 
@@ -92,6 +143,54 @@ impl<'a> NodeState<'a> {
     /// Get credit spread (convenience method)
     pub fn credit_spread(&self) -> Option<F> {
         self.get_var(state_keys::CREDIT_SPREAD)
+    }
+
+    /// Check if barrier has been hit (for barrier options)
+    pub fn is_barrier_hit(&self) -> bool {
+        self.barrier_state.as_ref().is_some_and(|bs| bs.barrier_hit)
+    }
+
+    /// Update barrier state based on current spot price
+    pub fn update_barrier_state(&mut self, spot_price: F) {
+        if let Some(ref mut barrier_state) = self.barrier_state {
+            if !barrier_state.barrier_hit {
+                let hit = match barrier_state.barrier_type {
+                    BarrierType::UpAndOut | BarrierType::UpAndIn => {
+                        spot_price >= barrier_state.barrier_level
+                    }
+                    BarrierType::DownAndOut | BarrierType::DownAndIn => {
+                        spot_price <= barrier_state.barrier_level
+                    }
+                };
+                barrier_state.barrier_hit = hit;
+            }
+        }
+    }
+
+    /// Check if option should be knocked out (for barrier options)
+    pub fn is_knocked_out(&self) -> bool {
+        if let Some(ref barrier_state) = self.barrier_state {
+            barrier_state.barrier_hit
+                && matches!(
+                    barrier_state.barrier_type,
+                    BarrierType::UpAndOut | BarrierType::DownAndOut
+                )
+        } else {
+            false
+        }
+    }
+
+    /// Check if option should be knocked in (for barrier options)
+    pub fn is_knocked_in(&self) -> bool {
+        if let Some(ref barrier_state) = self.barrier_state {
+            barrier_state.barrier_hit
+                && matches!(
+                    barrier_state.barrier_type,
+                    BarrierType::UpAndIn | BarrierType::DownAndIn
+                )
+        } else {
+            true // If no barrier, always "knocked in"
+        }
     }
 
     /// Whether the up barrier was touched at this node (discrete monitoring flag)

@@ -63,9 +63,6 @@ pub struct ConvertibleBondValuator {
     conversion_policy: ConversionPolicy,
     /// Time steps for the tree (in years)
     time_steps: Vec<F>,
-    /// Currency for consistency checks
-    #[allow(dead_code)]
-    currency: Currency,
     /// Base date for time calculations
     base_date: Date,
 }
@@ -153,7 +150,6 @@ impl ConvertibleBondValuator {
             put_map,
             conversion_policy: bond.conversion.policy.clone(),
             time_steps,
-            currency: bond.notional.currency(),
             base_date,
         })
     }

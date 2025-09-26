@@ -51,7 +51,6 @@ impl Default for TreePricerConfig {
 }
 
 pub struct BondValuator {
-    #[allow(dead_code)]
     bond: Bond,
     coupon_map: HashMap<usize, F>,
     call_map: HashMap<usize, F>,

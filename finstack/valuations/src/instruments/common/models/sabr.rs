@@ -373,9 +373,6 @@ pub struct SABRCalibrator {
     tolerance: F,
     /// Maximum iterations
     max_iterations: usize,
-    /// Use ATM constraint (reserved for future)
-    #[allow(dead_code)]
-    use_atm_constraint: bool,
 }
 
 impl SABRCalibrator {
@@ -384,7 +381,6 @@ impl SABRCalibrator {
         Self {
             tolerance: 1e-6,
             max_iterations: 100,
-            use_atm_constraint: true,
         }
     }
 
