@@ -54,6 +54,8 @@ mod compile;
 pub mod schedule;
 pub mod schedule_utils;
 mod state;
+#[cfg(test)]
+mod tests;
 pub mod types;
 
 // Export the full-featured builder as CashflowBuilder
