@@ -11,7 +11,6 @@ use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::inflation_index::{InflationInterpolation, InflationLag};
 use finstack_core::math::interp::InterpStyle;
-use finstack_core::math::Solver;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::types::CurveId;
@@ -192,7 +191,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
         let mut knots: Vec<(F, F)> = vec![(0.0, self.base_cpi)];
         let mut residuals = BTreeMap::new();
         // Use configured solver via factory to honor tolerance and iteration settings consistently
-        let solver = crate::solver_factory::make_solver(&self.config);
+        // Use solve_1d helper directly
         {
             // Internal IDs used only for solving. Final curve will use self.curve_id
             const CALIB_INDEX_ID: &str = "CALIB_INFLATION";
@@ -300,7 +299,9 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                     }
                 };
 
-                let mut solved_cpi = match solver.solve(&objective, initial_guess) {
+                // Use solve_1d helper directly
+                use crate::calibration::solve_1d;
+                let mut solved_cpi = match solve_1d(self.config.solver_kind.clone(), self.config.tolerance, self.config.max_iterations, &objective, initial_guess) {
                     Ok(root) => root,
                     Err(_) => initial_guess, // Fallback to analytical breakeven CPI
                 };

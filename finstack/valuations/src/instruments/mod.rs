@@ -39,10 +39,11 @@ pub use equity::metrics as equity_metrics;
 pub mod structured_credit;
 
 
-// Re-export common types for convenience (avoid glob re-exports to keep API unambiguous)
+// === Core Instrument Types ===
 pub use basis_swap::BasisSwap;
 pub use basket::Basket;
 pub use bond::Bond;
+pub use cap_floor::RateOptionType;
 pub use cds::CreditDefaultSwap;
 pub use cds_index::CDSIndex;
 pub use cds_option::CdsOption;
@@ -67,24 +68,20 @@ pub use swaption::Swaption;
 pub use trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
 pub use variance_swap::VarianceSwap;
 
-// Re-export option-related enums and models at top-level after flattening
-pub use cap_floor::RateOptionType;
+// === Common Functionality ===
+pub use common::build_with_metrics_dyn;
+pub use common::discountable::Discountable;
+pub use common::traits::{Attributable, Attributes, Instrument};
 pub use common::{BinomialTree, TreeType};
 
-pub use common::build_with_metrics_dyn;
-
-// Essential parameter type re-exports (formerly in deprecated compat.rs)
+// === Parameter Types ===
 pub use common::parameters::{
-    ExerciseStyle, OptionType, SettlementType, BasisSwapLeg, ContractSpec, CreditParams,
-    EquityOptionParams, EquityUnderlyingParams, FinancingLegSpec, FixedLegSpec, FloatLegSpec,
-    FxOptionParams, FxUnderlyingParams, IndexUnderlyingParams, InterestRateOptionParams,
-    OptionMarketParams, ParRateMethod, PayReceive, PremiumLegSpec, ProtectionLegSpec,
-    ScheduleSpec, TotalReturnLegSpec, UnderlyingParams,
+    BasisSwapLeg, ContractSpec, CreditParams, EquityOptionParams, EquityUnderlyingParams,
+    ExerciseStyle, FinancingLegSpec, FixedLegSpec, FloatLegSpec, FxOptionParams,
+    FxUnderlyingParams, IndexUnderlyingParams, InterestRateOptionParams, OptionMarketParams,
+    OptionType, ParRateMethod, PayReceive, PremiumLegSpec, ProtectionLegSpec, ScheduleSpec,
+    SettlementType, TotalReturnLegSpec, UnderlyingParams,
 };
-
-// Essential trait re-exports (formerly in deprecated compat.rs)
-pub use common::traits::{Attributable, Attributes, Instrument};
-pub use common::discountable::Discountable;
 
 // Backward compatibility surface removed - deprecated re-exports have been eliminated
 

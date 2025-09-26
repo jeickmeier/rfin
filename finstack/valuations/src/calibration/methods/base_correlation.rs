@@ -348,13 +348,20 @@ impl Calibrator<CreditQuote, BaseCorrelationCurve> for BaseCorrelationCalibrator
         instruments: &[CreditQuote],
         base_context: &MarketContext,
     ) -> Result<(BaseCorrelationCurve, CalibrationReport)> {
-        // Convert core market context to valuation context
-        let val_ctx = base_context.clone();
-
-        // Use the configured solver for robust root-finding
-        // Delegate to the implemented bootstrap
-        let solver = crate::solver_factory::make_solver(&self.config);
-        self.bootstrap_curve(instruments, &solver, &val_ctx)
+        // Create a simple solver using the solve_1d helper from calibration module  
+        use crate::calibration::solve_1d;
+        struct SimpleSolver {
+            config: CalibrationConfig,
+        }
+        impl Solver for SimpleSolver {
+            fn solve<F>(&self, f: F, initial_guess: finstack_core::F) -> finstack_core::Result<finstack_core::F> 
+            where F: Fn(finstack_core::F) -> finstack_core::F 
+            {
+                solve_1d(self.config.solver_kind.clone(), self.config.tolerance, self.config.max_iterations, f, initial_guess)
+            }
+        }
+        let solver = SimpleSolver { config: self.config.clone() };
+        self.bootstrap_curve(instruments, &solver, base_context)
     }
 }
 
@@ -490,7 +497,6 @@ impl BaseCorrelationSurfaceCalibrator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[allow(unused_imports)]
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::CreditIndexData;
     use finstack_core::market_data::term_structures::{

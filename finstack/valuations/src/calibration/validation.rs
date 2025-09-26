@@ -21,8 +21,7 @@ pub struct ValidationError {
 }
 
 impl ValidationError {
-    #[allow(dead_code)]
-    fn new(
+    pub fn new(
         constraint: impl Into<String>,
         location: impl Into<String>,
         details: impl Into<String>,
@@ -35,8 +34,7 @@ impl ValidationError {
         }
     }
 
-    #[allow(dead_code)]
-    fn with_value(mut self, key: impl Into<String>, value: F) -> Self {
+    pub fn with_value(mut self, key: impl Into<String>, value: F) -> Self {
         self.values.insert(key.into(), value);
         self
     }

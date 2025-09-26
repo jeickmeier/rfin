@@ -576,7 +576,19 @@ impl Calibrator<RatesQuote, ForwardCurve> for ForwardCurveCalibrator {
         base_context: &MarketContext,
     ) -> Result<(ForwardCurve, CalibrationReport)> {
         // Use the configured solver for calibration
-        let solver = crate::solver_factory::make_solver(&self.config);
+        // Use solve_1d helper directly - create a simple solver wrapper
+        use crate::calibration::solve_1d;
+        struct SimpleSolver {
+            config: CalibrationConfig,
+        }
+        impl finstack_core::math::Solver for SimpleSolver {
+            fn solve<F>(&self, f: F, initial_guess: finstack_core::F) -> finstack_core::Result<finstack_core::F> 
+            where F: Fn(finstack_core::F) -> finstack_core::F 
+            {
+                solve_1d(self.config.solver_kind.clone(), self.config.tolerance, self.config.max_iterations, f, initial_guess)
+            }
+        }
+        let solver = SimpleSolver { config: self.config.clone() };
         self.bootstrap_curve_with_solver(instruments, &solver, base_context)
     }
 }

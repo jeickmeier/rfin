@@ -106,14 +106,21 @@ impl Serialize for ConstituentReference {
 
 #[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for ConstituentReference {
-    fn deserialize<D>(_deserializer: D) -> std::result::Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        // For now, trait objects can't be deserialized, so we'll return an error
-        Err(serde::de::Error::custom(
-            "ConstituentReference with Instrument cannot be deserialized. Use MarketData reference instead.",
-        ))
+        #[derive(Deserialize)]
+        struct MarketDataRef {
+            price_id: PriceId,
+            asset_type: AssetType,
+        }
+
+        let market_data = MarketDataRef::deserialize(deserializer)?;
+        Ok(ConstituentReference::MarketData {
+            price_id: market_data.price_id,
+            asset_type: market_data.asset_type,
+        })
     }
 }
 

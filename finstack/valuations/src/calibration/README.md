@@ -20,7 +20,7 @@ The calibration framework provides a unified approach to calibrating:
 2. **Solver Framework**: 1D root finding (Newton, Brent, Hybrid) and multi-dimensional optimization  
 3. **Bootstrap Modules**: Sequential bootstrapping for term structures
 4. **Surface Fitting**: SABR-based volatility surface construction
-5. **Orchestrator**: End-to-end market environment calibration
+5. **Simple Calibration**: End-to-end market environment calibration
 
 ### Market Standards Compliance
 
@@ -36,12 +36,12 @@ The calibration framework provides a unified approach to calibrating:
 
 ```rust
 use finstack_valuations::calibration::{
-    CalibrationOrchestrator, 
-    primitives::{MarketQuote, RatesQuote}
+    SimpleCalibration, 
+    MarketQuote, RatesQuote
 };
 
-// Create orchestrator
-let orchestrator = CalibrationOrchestrator::new(base_date, Currency::USD);
+// Create calibration builder
+let calibration = SimpleCalibration::new(base_date, Currency::USD);
 
 // Prepare market quotes
 let quotes = vec![
