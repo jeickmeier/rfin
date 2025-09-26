@@ -6,7 +6,7 @@
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::money::fx::{FxConversionPolicy, FxQuery};
+use finstack_core::money::fx::FxQuery;
 use finstack_core::F;
 
 /// FX01 (sensitivity to 1bp shift in spot rate).
@@ -44,14 +44,7 @@ impl MetricCalculator for FX01 {
 
         // Original spot
         let original_spot = (**fx_matrix)
-            .rate(FxQuery {
-                from: fx_swap.base_currency,
-                to: fx_swap.quote_currency,
-                on: as_of,
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: None,
-                want_meta: false,
-            })?
+            .rate(FxQuery::new(fx_swap.base_currency, fx_swap.quote_currency, as_of))?
             .rate;
 
         // 1bp bump

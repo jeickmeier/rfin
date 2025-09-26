@@ -47,14 +47,7 @@ impl MetricCalculator for BucketedDv01Calculator {
                     finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() },
                 ))?;
                 (**fx_matrix)
-                    .rate(finstack_core::money::fx::FxQuery {
-                        from: inst.base_currency,
-                        to: inst.quote_currency,
-                        on: as_of,
-                        policy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
-                        closure_check: None,
-                        want_meta: false,
-                    })?
+                    .rate(finstack_core::money::fx::FxQuery::new(inst.base_currency, inst.quote_currency, as_of))?
                     .rate
             };
             let fwd = if let Some(rate) = inst.far_rate { rate } else { spot * df_for_far / df_dom_far };

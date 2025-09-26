@@ -340,14 +340,12 @@ impl BasketPricer {
         ))?;
 
         let rate = fx
-            .rate(FxQuery {
-                from: money.currency(),
-                to: target,
-                on: as_of,
-                policy: self.config.fx_policy,
-                closure_check: None,
-                want_meta: false,
-            })?
+            .rate(FxQuery::with_policy(
+                money.currency(),
+                target,
+                as_of,
+                self.config.fx_policy,
+            ))?
             .rate;
 
         Ok(Money::new(money.amount() * rate, target))

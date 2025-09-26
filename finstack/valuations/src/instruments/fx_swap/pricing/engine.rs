@@ -18,7 +18,7 @@
 use crate::instruments::fx_swap::types::FxSwap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
-use finstack_core::money::fx::{FxConversionPolicy, FxQuery};
+use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
@@ -56,14 +56,7 @@ impl FxSwapPricer {
                     })
                 })?;
                 (**fx_matrix)
-                    .rate(FxQuery {
-                        from: inst.base_currency,
-                        to: inst.quote_currency,
-                        on: as_of,
-                        policy: FxConversionPolicy::CashflowDate,
-                        closure_check: None,
-                        want_meta: false,
-                    })?
+                    .rate(FxQuery::new(inst.base_currency, inst.quote_currency, as_of))?
                     .rate
             }
         };

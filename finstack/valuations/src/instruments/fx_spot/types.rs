@@ -181,14 +181,7 @@ impl CashflowProvider for FxSpot {
                         id: "fx_matrix".to_string(),
                     })
                 })?;
-                let q = finstack_core::money::fx::FxQuery {
-                    from: self.base,
-                    to: self.quote,
-                    on: settle_date,
-                    policy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
-                    closure_check: None,
-                    want_meta: false,
-                };
+                let q = finstack_core::money::fx::FxQuery::new(self.base, self.quote, settle_date);
                 (**matrix).rate(q)?.rate
             };
             let value = Money::new(self.effective_notional().amount() * rate, self.quote);

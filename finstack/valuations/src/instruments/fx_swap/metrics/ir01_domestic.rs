@@ -6,7 +6,7 @@
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::money::fx::{FxConversionPolicy, FxQuery};
+use finstack_core::money::fx::FxQuery;
 use finstack_core::F;
 
 /// Domestic IR01 (sensitivity to 1bp parallel shift in domestic curve).
@@ -70,14 +70,7 @@ impl MetricCalculator for DomesticIR01 {
             Some(rate) => rate,
             None => {
                 (**fx_matrix)
-                    .rate(FxQuery {
-                        from: fx_swap.base_currency,
-                        to: fx_swap.quote_currency,
-                        on: as_of,
-                        policy: FxConversionPolicy::CashflowDate,
-                        closure_check: None,
-                        want_meta: false,
-                    })?
+                    .rate(FxQuery::new(fx_swap.base_currency, fx_swap.quote_currency, as_of))?
                     .rate
             }
         };
@@ -94,14 +87,7 @@ impl MetricCalculator for DomesticIR01 {
 
         // Convert base leg to quote at spot
         let spot = (**fx_matrix)
-            .rate(FxQuery {
-                from: fx_swap.base_currency,
-                to: fx_swap.quote_currency,
-                on: as_of,
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: None,
-                want_meta: false,
-            })?
+            .rate(FxQuery::new(fx_swap.base_currency, fx_swap.quote_currency, as_of))?
             .rate;
 
         let bumped_pv = pv_for_leg * spot + pv_dom_leg;

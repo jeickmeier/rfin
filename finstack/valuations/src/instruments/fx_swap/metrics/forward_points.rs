@@ -7,7 +7,7 @@
 
 use crate::instruments::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::money::fx::{FxConversionPolicy, FxQuery};
+use finstack_core::money::fx::FxQuery;
 use finstack_core::F;
 
 /// Forward points (far rate - near rate).
@@ -44,14 +44,7 @@ impl MetricCalculator for ForwardPoints {
                     })
                 })?;
                 (**fx_matrix)
-                    .rate(FxQuery {
-                        from: fx_swap.base_currency,
-                        to: fx_swap.quote_currency,
-                        on: as_of,
-                        policy: FxConversionPolicy::CashflowDate,
-                        closure_check: None,
-                        want_meta: false,
-                    })?
+                    .rate(FxQuery::new(fx_swap.base_currency, fx_swap.quote_currency, as_of))?
                     .rate
             }
         };

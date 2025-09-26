@@ -33,14 +33,7 @@
 //!
 //! let matrix = FxMatrix::new(Arc::new(StaticFx));
 //! let date = Date::from_calendar_date(2024, Month::January, 5).unwrap();
-//! let res = matrix.rate(FxQuery {
-//!     from: Currency::EUR,
-//!     to: Currency::USD,
-//!     on: date,
-//!     policy: FxConversionPolicy::CashflowDate,
-//!     closure_check: None,
-//!     want_meta: false,
-//! }).unwrap();
+//! let res = matrix.rate(FxQuery::new(Currency::EUR, Currency::USD, date)).unwrap();
 //! assert_eq!(res.rate, 1.1);
 //! ```
 
@@ -85,10 +78,9 @@ pub enum FxConversionPolicy {
     Custom,
 }
 
-/// FX rate lookup query used by [`FxMatrix::rate`].
+/// Simple FX rate query.
 ///
-/// Populate the struct manually or build bespoke helpers in downstream crates
-/// to capture portfolio-specific metadata.
+/// Contains only the essential parameters for currency conversion.
 ///
 /// # Examples
 /// ```rust
@@ -97,14 +89,11 @@ pub enum FxConversionPolicy {
 /// use finstack_core::dates::Date;
 /// use time::Month;
 ///
-/// let query = FxQuery {
-///     from: Currency::EUR,
-///     to: Currency::USD,
-///     on: Date::from_calendar_date(2024, Month::June, 3).unwrap(),
-///     policy: FxConversionPolicy::CashflowDate,
-///     closure_check: None,
-///     want_meta: true,
-/// };
+/// let query = FxQuery::new(
+///     Currency::EUR,
+///     Currency::USD,
+///     Date::from_calendar_date(2024, Month::June, 3).unwrap(),
+/// );
 /// assert_eq!(query.from, Currency::EUR);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -117,12 +106,36 @@ pub struct FxQuery {
     pub to: Currency,
     /// Applicable date for the rate
     pub on: Date,
-    /// Conversion policy hint
+    /// Conversion policy (defaults to CashflowDate)
+    #[cfg_attr(feature = "serde", serde(default = "default_policy"))]
     pub policy: FxConversionPolicy,
-    /// Optional closure check via this intermediate currency
-    pub closure_check: Option<Currency>,
-    /// Whether the caller wants metadata (triangulation/closure)
-    pub want_meta: bool,
+}
+
+#[cfg(feature = "serde")]
+fn default_policy() -> FxConversionPolicy {
+    FxConversionPolicy::CashflowDate
+}
+
+impl FxQuery {
+    /// Create a new FX query with default policy.
+    pub fn new(from: Currency, to: Currency, on: Date) -> Self {
+        Self {
+            from,
+            to,
+            on,
+            policy: FxConversionPolicy::CashflowDate,
+        }
+    }
+
+    /// Create a new FX query with specific policy.
+    pub fn with_policy(from: Currency, to: Currency, on: Date, policy: FxConversionPolicy) -> Self {
+        Self {
+            from,
+            to,
+            on,
+            policy,
+        }
+    }
 }
 
 /// Metadata describing the policy applied by the provider.
@@ -169,11 +182,11 @@ struct Pair(Currency, Currency);
 
 /// Configuration for [`FxMatrix`] behaviour.
 ///
-/// Controls cache sizing, triangulation pivot, and closure checks.
+/// Controls triangulation and caching.
 ///
 /// # Examples
 /// ```rust
-/// use finstack_core::money::fx::{FxConfig, FxConversionPolicy};
+/// use finstack_core::money::fx::FxConfig;
 /// use finstack_core::currency::Currency;
 ///
 /// let mut cfg = FxConfig::default();
@@ -186,11 +199,7 @@ struct Pair(Currency, Currency);
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 #[cfg_attr(feature = "serde", serde(default))]
 pub struct FxConfig {
-    /// Tolerance for closure checking (e.g., 0.0001 = 1bp). Only used if metadata requested.
-    pub closure_tolerance: f64,
-    /// Whether closure violations should produce errors
-    pub strict_closure: bool,
-    /// Pivot currency for optional triangulation fallback (typically USD)
+    /// Pivot currency for triangulation fallback (typically USD)
     pub pivot_currency: Currency,
     /// Whether to enable automatic triangulation for missing rates
     pub enable_triangulation: bool,
@@ -201,8 +210,6 @@ pub struct FxConfig {
 impl Default for FxConfig {
     fn default() -> Self {
         Self {
-            closure_tolerance: 0.01,       // 1% (more relaxed)
-            strict_closure: false,
             pivot_currency: Currency::USD,
             enable_triangulation: false,   // Disabled by default - simpler
             cache_capacity: 256,           // Smaller cache - simpler
@@ -210,41 +217,19 @@ impl Default for FxConfig {
     }
 }
 
-/// Result of a closure check
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
-pub enum ClosureCheckResult {
-    /// Closure check passed within tolerance
-    Pass,
-    /// Closure check failed - provides direct rate and calculated rate for comparison
-    Fail {
-        /// The direct FX rate from the provider
-        direct_rate: FxRate,
-        /// The calculated rate via intermediate currency
-        calculated_rate: FxRate,
-        /// The absolute difference between direct and calculated rates
-        difference: FxRate,
-    },
-}
 
-/// Result of an FX rate lookup with triangulation metadata.
-///
-/// Serialization is available when the crate is built with the `serde` feature.
-/// The shape is stable and suitable for logs and result envelopes.
+/// Result of an FX rate lookup with simple triangulation info.
 ///
 /// # Examples
 /// ```rust
-/// use finstack_core::money::fx::{FxRateResult, ClosureCheckResult};
+/// use finstack_core::money::fx::FxRateResult;
 /// use finstack_core::currency::Currency;
 ///
 /// let result = FxRateResult {
 ///     rate: 1.0,
 ///     triangulated: false,
-///     pivot_currency: Some(Currency::USD),
-///     closure: Some(ClosureCheckResult::Pass),
 /// };
-/// assert!(result.closure.is_some());
+/// assert_eq!(result.rate, 1.0);
 /// ```
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -254,10 +239,6 @@ pub struct FxRateResult {
     pub rate: FxRate,
     /// Whether this rate was obtained via triangulation
     pub triangulated: bool,
-    /// The pivot currency used for triangulation (if applicable)
-    pub pivot_currency: Option<Currency>,
-    /// Optional closure check result
-    pub closure: Option<ClosureCheckResult>,
 }
 
 /// Trait for obtaining FX rates.
@@ -437,14 +418,11 @@ impl FxMatrix {
     /// }
     ///
     /// let matrix = FxMatrix::new(Arc::new(StaticFx));
-    /// let query = FxQuery {
-    ///     from: Currency::EUR,
-    ///     to: Currency::USD,
-    ///     on: Date::from_calendar_date(2024, Month::March, 1).unwrap(),
-    ///     policy: FxConversionPolicy::CashflowDate,
-    ///     closure_check: None,
-    ///     want_meta: false,
-    /// };
+    /// let query = FxQuery::new(
+    ///     Currency::EUR,
+    ///     Currency::USD,
+    ///     Date::from_calendar_date(2024, Month::March, 1).unwrap(),
+    /// );
     /// let result = matrix.rate(query).unwrap();
     /// assert!(result.rate > 1.0);
     /// ```
@@ -456,82 +434,49 @@ impl FxMatrix {
 
         // Handle identity case
         if from == to {
-            let rate = 1.0;
-
-            let mut result = FxRateResult {
-                rate,
+            return Ok(FxRateResult {
+                rate: 1.0,
                 triangulated: false,
-                pivot_currency: None,
-                closure: None,
-            };
-            // Compute optional closure metadata via helper for consistency
-            result.closure = self.compute_closure_result(&query, rate)?;
-            return Ok(result);
+            });
         }
 
-        // Prefer explicitly seeded quotes (or their reciprocal) before provider/triangulation.
-        // Read both directions under a single lock, then drop before any recursive calls.
+        // Check cache first (both directions)
         let (direct_opt, reciprocal_opt) = self.read_cached_pair_bidir(from, to);
 
         if let Some(rate) = direct_opt {
-            let mut result = FxRateResult {
+            return Ok(FxRateResult {
                 rate,
                 triangulated: false,
-                pivot_currency: None,
-                closure: None,
-            };
-            result.closure = self.compute_closure_result(&query, rate)?;
-            return Ok(result);
+            });
         }
         if let Some(r_rev) = reciprocal_opt {
             if r_rev != 0.0 {
-                let rate = 1.0 / r_rev;
-                let mut result = FxRateResult {
-                    rate,
+                return Ok(FxRateResult {
+                    rate: 1.0 / r_rev,
                     triangulated: false,
-                    pivot_currency: None,
-                    closure: None,
-                };
-                result.closure = self.compute_closure_result(&query, rate)?;
-                return Ok(result);
+                });
             }
         }
 
-        // Ask provider for a direct quote or compute via triangulation if needed
-        let mut triangulated = false;
-        let mut pivot_currency: Option<Currency> = None;
-        let rate = match self.provider.rate(from, to, on, policy) {
+        // Try provider first
+        match self.provider.rate(from, to, on, policy) {
             Ok(rate) => {
                 self.insert_quote(from, to, rate);
-                rate
+                Ok(FxRateResult {
+                    rate,
+                    triangulated: false,
+                })
             }
             Err(_) if self.config.enable_triangulation => {
-                // Try triangulation using pivot
+                // Try simple triangulation via pivot
                 let rate = self.triangulate_rate(from, to, on, policy)?;
-                triangulated = true;
-                pivot_currency = Some(self.config.pivot_currency);
-                rate
+                Ok(FxRateResult {
+                    rate,
+                    triangulated: true,
+                })
             }
-            Err(e) => return Err(e),
-        };
-
-        let mut result = FxRateResult {
-            rate,
-            triangulated,
-            pivot_currency,
-            closure: None,
-        };
-        if query.want_meta {
-            let closure = self.compute_closure_result(&query, result.rate)?;
-            if self.config.strict_closure {
-                if let Some(ClosureCheckResult::Fail { .. }) = closure {
-                    return Err(crate::Error::Input(crate::error::InputError::Invalid));
-                }
-            }
-            result.closure = closure;
+            Err(e) => Err(e),
         }
-
-        Ok(result)
     }
 
     /// Seed or update a single quote directly inside the matrix.
@@ -567,14 +512,11 @@ impl FxMatrix {
     ///
     /// let matrix = FxMatrix::new(Arc::new(StaticFx));
     /// matrix.set_quote(Currency::GBP, Currency::USD, 1.3);
-    /// let res = matrix.rate(FxQuery {
-    ///     from: Currency::GBP,
-    ///     to: Currency::USD,
-    ///     on: Date::from_calendar_date(2024, Month::April, 1).unwrap(),
-    ///     policy: FxConversionPolicy::CashflowDate,
-    ///     closure_check: None,
-    ///     want_meta: false,
-    /// }).unwrap();
+    /// let res = matrix.rate(FxQuery::new(
+    ///     Currency::GBP,
+    ///     Currency::USD,
+    ///     Date::from_calendar_date(2024, Month::April, 1).unwrap(),
+    /// )).unwrap();
     /// assert_eq!(res.rate, 1.3);
     /// ```
     pub fn set_quote(&self, from: Currency, to: Currency, rate: FxRate) {
@@ -798,65 +740,6 @@ impl FxMatrix {
         )
     }
 
-    fn check_closure(
-        &self,
-        direct_rate: FxRate,
-        via_a: FxRate,
-        via_b: FxRate,
-    ) -> crate::Result<ClosureCheckResult> {
-        let direct_f64 = direct_rate;
-        let calculated_f64 = via_a * via_b;
-        let difference = (direct_f64 - calculated_f64).abs();
-
-        if difference <= self.config.closure_tolerance {
-            Ok(ClosureCheckResult::Pass)
-        } else {
-            Ok(ClosureCheckResult::Fail {
-                direct_rate: direct_f64,
-                calculated_rate: calculated_f64,
-                difference,
-            })
-        }
-    }
-
-    /// Compute optional closure result based on query flags. Returns None when not requested.
-    fn compute_closure_result(
-        &self,
-        query: &FxQuery,
-        direct_rate: FxRate,
-    ) -> crate::Result<Option<ClosureCheckResult>> {
-        if !query.want_meta {
-            return Ok(None);
-        }
-        let mid = match query.closure_check {
-            Some(c) => c,
-            None => return Ok(None),
-        };
-
-        // Recursively compute via legs using the unified API without metadata
-        let via_a = self
-            .rate(FxQuery {
-                from: query.from,
-                to: mid,
-                on: query.on,
-                policy: query.policy,
-                closure_check: None,
-                want_meta: false,
-            })?
-            .rate;
-        let via_b = self
-            .rate(FxQuery {
-                from: mid,
-                to: query.to,
-                on: query.on,
-                policy: query.policy,
-                closure_check: None,
-                want_meta: false,
-            })?
-            .rate;
-
-        Ok(Some(self.check_closure(direct_rate, via_a, via_b)?))
-    }
 }
 
 #[cfg(test)]
@@ -931,14 +814,7 @@ mod tests {
 
         // Test basic rate retrieval
         let rate = matrix
-            .rate(FxQuery {
-                from: Currency::USD,
-                to: Currency::EUR,
-                on: test_date(),
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: None,
-                want_meta: false,
-            })
+            .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
             .unwrap()
             .rate;
 
@@ -958,14 +834,7 @@ mod tests {
         let matrix = FxMatrix::new(Arc::new(provider));
 
         let rate = matrix
-            .rate(FxQuery {
-                from: Currency::USD,
-                to: Currency::USD,
-                on: test_date(),
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: None,
-                want_meta: false,
-            })
+            .rate(FxQuery::new(Currency::USD, Currency::USD, test_date()))
             .unwrap()
             .rate;
 
@@ -975,38 +844,21 @@ mod tests {
     }
 
     #[test]
-    fn fx_closure_checking_pass() {
+    fn fx_basic_rate_lookup() {
         let provider = MockFxProvider::new();
         let config = FxConfig {
-            closure_tolerance: 0.01, // 1% tolerance for this test
             enable_triangulation: true, // Enable for this test
             ..Default::default()
         };
         let matrix = FxMatrix::with_config(Arc::new(provider), config);
 
         let result = matrix
-            .rate(FxQuery {
-                from: Currency::USD,
-                to: Currency::EUR,
-                on: test_date(),
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: Some(Currency::GBP),
-                want_meta: true,
-            })
+            .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
             .unwrap();
 
-        // Should get a rate regardless of closure result
+        // Should get a direct rate
         assert!(result.rate > 0.0);
-
-        // With our mock data, the closure might not be perfect but should be reasonable
-        match result.closure.expect("closure requested") {
-            ClosureCheckResult::Pass => {}
-            ClosureCheckResult::Fail { difference, .. } => {
-                // For this test, we'll accept larger differences since our mock data
-                // isn't perfectly consistent
-                println!("Closure check failed with difference: {}", difference);
-            }
-        }
+        assert!(!result.triangulated);
     }
 
     #[test]
@@ -1017,14 +869,7 @@ mod tests {
 
         // Get rate to populate cache
         let _rate1 = matrix
-            .rate(FxQuery {
-                from: Currency::USD,
-                to: Currency::EUR,
-                on: test_date(),
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: None,
-                want_meta: false,
-            })
+            .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
             .unwrap();
 
         // Clear implied entries
@@ -1041,14 +886,7 @@ mod tests {
 
         // Populate cache
         let _rate = matrix
-            .rate(FxQuery {
-                from: Currency::USD,
-                to: Currency::EUR,
-                on: test_date(),
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: None,
-                want_meta: false,
-            })
+            .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
             .unwrap();
 
         let (quotes, implied) = matrix.cache_stats();
@@ -1088,21 +926,13 @@ mod tests {
         let config = FxConfig {
             pivot_currency: Currency::USD,
             enable_triangulation: true,
-            closure_tolerance: 0.01, // Allow for some rounding differences
             ..Default::default()
         };
         let matrix = FxMatrix::with_config(Arc::new(provider), config);
 
         // Test EUR→GBP triangulation via USD: EUR→USD × USD→GBP
         let rate = matrix
-            .rate(FxQuery {
-                from: Currency::EUR,
-                to: Currency::GBP,
-                on: test_date(),
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: None,
-                want_meta: false,
-            })
+            .rate(FxQuery::new(Currency::EUR, Currency::GBP, test_date()))
             .unwrap()
             .rate;
 
@@ -1123,14 +953,7 @@ mod tests {
         let matrix = FxMatrix::with_config(Arc::new(provider), config);
 
         // Should fail when triangulation is disabled
-        let result = matrix.rate(FxQuery {
-            from: Currency::EUR,
-            to: Currency::GBP,
-            on: test_date(),
-            policy: FxConversionPolicy::CashflowDate,
-            closure_check: None,
-            want_meta: false,
-        });
+        let result = matrix.rate(FxQuery::new(Currency::EUR, Currency::GBP, test_date()));
 
         assert!(result.is_err());
     }
@@ -1147,27 +970,13 @@ mod tests {
 
         // First call should triangulate and cache
         let rate1 = matrix
-            .rate(FxQuery {
-                from: Currency::EUR,
-                to: Currency::GBP,
-                on: test_date(),
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: None,
-                want_meta: false,
-            })
+            .rate(FxQuery::new(Currency::EUR, Currency::GBP, test_date()))
             .unwrap()
             .rate;
 
         // Second call should hit cache
         let rate2 = matrix
-            .rate(FxQuery {
-                from: Currency::EUR,
-                to: Currency::GBP,
-                on: test_date(),
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: None,
-                want_meta: false,
-            })
+            .rate(FxQuery::new(Currency::EUR, Currency::GBP, test_date()))
             .unwrap()
             .rate;
 
@@ -1191,14 +1000,7 @@ mod tests {
 
         // USD→EUR should use direct rate, not triangulation
         let rate = matrix
-            .rate(FxQuery {
-                from: Currency::USD,
-                to: Currency::EUR,
-                on: test_date(),
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: None,
-                want_meta: false,
-            })
+            .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
             .unwrap()
             .rate;
 
@@ -1228,14 +1030,7 @@ mod tests {
         let matrix = FxMatrix::with_config(Arc::new(provider), config);
 
         // Should fail when pivot rates are missing
-        let result = matrix.rate(FxQuery {
-            from: Currency::JPY,
-            to: Currency::CAD,
-            on: test_date(),
-            policy: FxConversionPolicy::CashflowDate,
-            closure_check: None,
-            want_meta: false,
-        });
+        let result = matrix.rate(FxQuery::new(Currency::JPY, Currency::CAD, test_date()));
 
         assert!(result.is_err());
     }
@@ -1252,18 +1047,10 @@ mod tests {
 
         // Test direct rate
         let result = matrix
-            .rate(FxQuery {
-                from: Currency::USD,
-                to: Currency::EUR,
-                on: test_date(),
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: None,
-                want_meta: true,
-            })
+            .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
             .unwrap();
 
         assert!(!result.triangulated);
-        assert_eq!(result.pivot_currency, None);
 
         let expected = 0.85;
 
@@ -1271,18 +1058,10 @@ mod tests {
 
         // Test triangulated rate
         let result = matrix
-            .rate(FxQuery {
-                from: Currency::EUR,
-                to: Currency::GBP,
-                on: test_date(),
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: None,
-                want_meta: true,
-            })
+            .rate(FxQuery::new(Currency::EUR, Currency::GBP, test_date()))
             .unwrap();
 
         assert!(result.triangulated);
-        assert_eq!(result.pivot_currency, Some(Currency::USD));
 
         // Expected: 1.18 * 0.75 = 0.885
         let expected = 1.18 * 0.75;
@@ -1291,18 +1070,10 @@ mod tests {
 
         // Test identity rate
         let result = matrix
-            .rate(FxQuery {
-                from: Currency::USD,
-                to: Currency::USD,
-                on: test_date(),
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: None,
-                want_meta: true,
-            })
+            .rate(FxQuery::new(Currency::USD, Currency::USD, test_date()))
             .unwrap();
 
         assert!(!result.triangulated);
-        assert_eq!(result.pivot_currency, None);
 
         assert_eq!(result.rate, 1.0);
     }
@@ -1315,28 +1086,14 @@ mod tests {
         // Seed a direct quote and verify retrieval
         matrix.set_quote(Currency::USD, Currency::CHF, 0.90);
         let usd_chf = matrix
-            .rate(FxQuery {
-                from: Currency::USD,
-                to: Currency::CHF,
-                on: test_date(),
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: None,
-                want_meta: false,
-            })
+            .rate(FxQuery::new(Currency::USD, Currency::CHF, test_date()))
             .unwrap()
             .rate;
         assert_eq!(usd_chf, 0.90);
 
         // Opposite direction should use reciprocal on demand
         let chf_usd = matrix
-            .rate(FxQuery {
-                from: Currency::CHF,
-                to: Currency::USD,
-                on: test_date(),
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: None,
-                want_meta: false,
-            })
+            .rate(FxQuery::new(Currency::CHF, Currency::USD, test_date()))
             .unwrap()
             .rate;
         assert!((chf_usd - (1.0 / 0.90)).abs() < 1e-12);
@@ -1348,14 +1105,7 @@ mod tests {
         ]);
 
         let eur_chf = matrix
-            .rate(FxQuery {
-                from: Currency::EUR,
-                to: Currency::CHF,
-                on: test_date(),
-                policy: FxConversionPolicy::CashflowDate,
-                closure_check: None,
-                want_meta: false,
-            })
+            .rate(FxQuery::new(Currency::EUR, Currency::CHF, test_date()))
             .unwrap()
             .rate;
         assert_eq!(eur_chf, 0.95);

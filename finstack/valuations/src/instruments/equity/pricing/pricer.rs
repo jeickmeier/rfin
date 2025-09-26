@@ -63,14 +63,9 @@ impl EquityPricer {
                             policy: finstack_core::money::fx::FxConversionPolicy,
                         ) -> finstack_core::Result<finstack_core::money::fx::FxRate>
                         {
-                            let r = self.m.rate(finstack_core::money::fx::FxQuery {
-                                from,
-                                to,
-                                on,
-                                policy,
-                                closure_check: None,
-                                want_meta: false,
-                            })?;
+                            let r = self.m.rate(finstack_core::money::fx::FxQuery::with_policy(
+                                from, to, on, policy
+                            ))?;
                             Ok(r.rate)
                         }
                     }
