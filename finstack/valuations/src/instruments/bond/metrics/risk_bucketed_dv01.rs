@@ -29,19 +29,6 @@ impl MetricCalculator for BucketedDv01Calculator {
             })
             .collect();
 
-        // Map label → (t1, t2) in years; for now just center around label for MVP
-        let map_label = |label: &str| -> (F, F) {
-            if let Some(m) = label.strip_suffix('m') {
-                let months: F = m.parse::<F>().unwrap_or(0.0);
-                let y = (months / 12.0).max(0.0);
-                (y, y)
-            } else if let Some(y) = label.strip_suffix('y') {
-                let yv: F = y.parse::<F>().unwrap_or(0.0);
-                (yv, yv)
-            } else {
-                (0.0, 0.0)
-            }
-        };
 
         // Revaluation closure using original flows and bumped discount curve
         let curves = context.curves.clone();
@@ -65,7 +52,6 @@ impl MetricCalculator for BucketedDv01Calculator {
             context,
             &disc_id,
             labels,
-            map_label,
             1.0,
             reval,
         )?;

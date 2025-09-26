@@ -18,18 +18,6 @@ impl MetricCalculator for BucketedDv01Calculator {
             .map(|y| if *y < 1.0 { format!("{:.0}m", (y * 12.0).round()) } else { format!("{:.0}y", y) })
             .collect();
 
-        let map_label = |label: &str| -> (F, F) {
-            if let Some(m) = label.strip_suffix('m') {
-                let months: F = m.parse::<F>().unwrap_or(0.0);
-                let y = (months / 12.0).max(0.0);
-                (y, y)
-            } else if let Some(y) = label.strip_suffix('y') {
-                let yv: F = y.parse::<F>().unwrap_or(0.0);
-                (yv, yv)
-            } else {
-                (0.0, 0.0)
-            }
-        };
 
         // Revaluation: rebuild flows from instrument, discount with bumped curve
         let curves = context.curves.clone();
@@ -52,7 +40,6 @@ impl MetricCalculator for BucketedDv01Calculator {
             context,
             &disc_id,
             labels,
-            map_label,
             1.0,
             reval,
         )?;

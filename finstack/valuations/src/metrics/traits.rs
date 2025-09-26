@@ -371,31 +371,14 @@ impl MetricContext {
     }
 
     fn sanitize_label(label: &str) -> String {
-        let mut out = String::with_capacity(label.len());
-        for ch in label.chars() {
-            if ch.is_ascii_alphanumeric() {
-                out.push(ch.to_ascii_lowercase());
-            } else if ch == '.' || ch == '-' || ch == '+' {
-                // Preserve common numeric/tenor tokens with underscore normalization
-                out.push('_');
-            } else {
-                out.push('_');
-            }
-        }
-        // Collapse repeated underscores
-        let mut collapsed = String::with_capacity(out.len());
-        let mut last_was_us = false;
-        for ch in out.chars() {
-            if ch == '_' {
-                if !last_was_us {
-                    collapsed.push(ch);
-                }
-                last_was_us = true;
-            } else {
-                last_was_us = false;
-                collapsed.push(ch);
-            }
-        }
-        collapsed.trim_matches('_').to_string()
+        // Convert non-alphanumeric chars to underscores, lowercase, and collapse repeated underscores
+        label
+            .chars()
+            .map(|ch| if ch.is_ascii_alphanumeric() { ch.to_ascii_lowercase() } else { '_' })
+            .collect::<String>()
+            .split('_')
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<&str>>()
+            .join("_")
     }
 }
