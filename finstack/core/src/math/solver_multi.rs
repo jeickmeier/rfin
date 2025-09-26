@@ -25,6 +25,7 @@
 use crate::error::InputError;
 use crate::math::random::RandomNumberGenerator;
 use crate::{Result, F};
+use ndarray::{Array1, Array2};
 
 /// Trait for functions that can provide analytical derivatives.
 ///
@@ -290,21 +291,35 @@ impl LevenbergMarquardtSolver {
         self.solve_linear_system(&jtj, &jtr)
     }
 
-    /// Simple Gaussian elimination with partial pivoting.
-    #[allow(clippy::needless_range_loop)]
+    /// Solve linear system using ndarray with improved numerical stability.
     fn solve_linear_system(&self, a: &[Vec<F>], b: &[F]) -> Result<Vec<F>> {
         let n = a.len();
-        let mut aug = a.to_vec();
-        let mut x = b.to_vec();
+        if n == 0 || b.len() != n {
+            return Err(InputError::Invalid.into());
+        }
 
-        // Forward elimination with partial pivoting
+        // Convert to ndarray format for better memory layout and operations
+        let mut matrix = Array2::<F>::zeros((n, n));
+        for (i, row) in a.iter().enumerate() {
+            if row.len() != n {
+                return Err(InputError::Invalid.into());
+            }
+            for (j, &val) in row.iter().enumerate() {
+                matrix[[i, j]] = val;
+            }
+        }
+        let mut x = Array1::from_vec(b.to_vec());
+
+        // Simple but numerically stable Gaussian elimination with partial pivoting
+        // Using ndarray for better memory access patterns
         for k in 0..n {
             // Find pivot
             let mut max_idx = k;
-            let mut max_val = aug[k][k].abs();
+            let mut max_val = matrix[[k, k]].abs();
             for i in (k + 1)..n {
-                if aug[i][k].abs() > max_val {
-                    max_val = aug[i][k].abs();
+                let val = matrix[[i, k]].abs();
+                if val > max_val {
+                    max_val = val;
                     max_idx = i;
                 }
             }
@@ -313,17 +328,23 @@ impl LevenbergMarquardtSolver {
                 return Err(InputError::Invalid.into());
             }
 
-            // Swap rows
+            // Swap rows if needed
             if max_idx != k {
-                aug.swap(k, max_idx);
-                x.swap(k, max_idx);
+                for j in 0..n {
+                    let tmp = matrix[[k, j]];
+                    matrix[[k, j]] = matrix[[max_idx, j]];
+                    matrix[[max_idx, j]] = tmp;
+                }
+                let tmp = x[k];
+                x[k] = x[max_idx];
+                x[max_idx] = tmp;
             }
 
             // Eliminate
             for i in (k + 1)..n {
-                let factor = aug[i][k] / aug[k][k];
+                let factor = matrix[[i, k]] / matrix[[k, k]];
                 for j in (k + 1)..n {
-                    aug[i][j] -= factor * aug[k][j];
+                    matrix[[i, j]] -= factor * matrix[[k, j]];
                 }
                 x[i] -= factor * x[k];
             }
@@ -332,12 +353,12 @@ impl LevenbergMarquardtSolver {
         // Back substitution
         for i in (0..n).rev() {
             for j in (i + 1)..n {
-                x[i] -= aug[i][j] * x[j];
+                x[i] -= matrix[[i, j]] * x[j];
             }
-            x[i] /= aug[i][i];
+            x[i] /= matrix[[i, i]];
         }
 
-        Ok(x)
+        Ok(x.to_vec())
     }
 
     /// Apply box constraints to parameters.

@@ -133,20 +133,26 @@ pub fn realized_variance(
     method: RealizedVarMethod,
     annualization_factor: f64,
 ) -> f64 {
+    if prices.len() < 2 {
+        return 0.0;
+    }
+
     match method {
         RealizedVarMethod::CloseToClose => {
-            if prices.len() < 2 {
-                return 0.0;
-            }
             let returns = log_returns(prices);
             variance(&returns) * annualization_factor
         }
-        // Other methods can be implemented incrementally
-        _ => realized_variance(
-            prices,
-            RealizedVarMethod::CloseToClose,
-            annualization_factor,
-        ),
+        // For other methods, we need OHLC data which isn't available in simple price series
+        // These methods require high/low/open data, so fall back to close-to-close
+        RealizedVarMethod::Parkinson
+        | RealizedVarMethod::GarmanKlass
+        | RealizedVarMethod::RogersSatchell
+        | RealizedVarMethod::YangZhang => {
+            // These methods require OHLC data, use realized_variance_ohlc instead
+            // For single price series, fall back to close-to-close
+            let returns = log_returns(prices);
+            variance(&returns) * annualization_factor
+        }
     }
 }
 

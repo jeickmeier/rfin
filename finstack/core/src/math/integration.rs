@@ -18,111 +18,7 @@
 use crate::error::InputError;
 use crate::{Error, F};
 
-/// Integration interval bounds.
-#[derive(Clone, Debug)]
-pub struct IntegrationInterval {
-    /// Integration start
-    pub a: F,
-    /// Integration end  
-    pub b: F,
-}
-
-impl IntegrationInterval {
-    /// Create new integration interval
-    pub fn new(a: F, b: F) -> Self {
-        Self { a, b }
-    }
-}
-
-/// Function evaluations for Simpson's rule.
-#[derive(Clone, Debug)]
-pub struct SimpsonEvaluations {
-    /// Function value at left endpoint
-    pub fa: F,
-    /// Function value at right endpoint
-    pub fb: F,
-    /// Function value at midpoint
-    pub fc: F,
-    /// Approximation over whole interval
-    pub whole: F,
-}
-
-impl SimpsonEvaluations {
-    /// Create new Simpson evaluations
-    pub fn new(fa: F, fb: F, fc: F, whole: F) -> Self {
-        Self { fa, fb, fc, whole }
-    }
-}
-
-/// Control parameters for adaptive integration.
-#[derive(Clone, Debug)]
-pub struct AdaptiveControlParams {
-    /// Error tolerance
-    pub tolerance: F,
-    /// Current recursion depth
-    pub depth: usize,
-    /// Maximum recursion depth
-    pub max_depth: usize,
-}
-
-impl AdaptiveControlParams {
-    /// Create new adaptive control parameters
-    pub fn new(tolerance: F, depth: usize, max_depth: usize) -> Self {
-        Self {
-            tolerance,
-            depth,
-            max_depth,
-        }
-    }
-}
-
-/// Parameters for adaptive Simpson's rule integration.
-///
-/// Groups parameters needed for recursive Simpson's rule integration.
-#[derive(Clone, Debug)]
-pub struct AdaptiveSimpsonParams {
-    /// Integration interval
-    pub interval: IntegrationInterval,
-    /// Function evaluations
-    pub evaluations: SimpsonEvaluations,
-    /// Control parameters
-    pub control: AdaptiveControlParams,
-}
-
-impl AdaptiveSimpsonParams {
-    /// Create new adaptive Simpson parameters
-    pub fn new(
-        interval: IntegrationInterval,
-        evaluations: SimpsonEvaluations,
-        control: AdaptiveControlParams,
-    ) -> Self {
-        Self {
-            interval,
-            evaluations,
-            control,
-        }
-    }
-
-    /// Create from individual parameters (convenience method)
-    #[allow(clippy::too_many_arguments)]
-    pub fn from_values(
-        a: F,
-        b: F,
-        tolerance: F,
-        whole: F,
-        fa: F,
-        fb: F,
-        fc: F,
-        depth: usize,
-        max_depth: usize,
-    ) -> Self {
-        Self::new(
-            IntegrationInterval::new(a, b),
-            SimpsonEvaluations::new(fa, fb, fc, whole),
-            AdaptiveControlParams::new(tolerance, depth, max_depth),
-        )
-    }
-}
+// Removed over-engineered parameter bundling structs - use direct parameters instead
 
 /// Gauss-Hermite quadrature points and weights for numerical integration
 /// over the standard normal distribution.
@@ -380,57 +276,44 @@ pub fn adaptive_quadrature<F2>(f: F2, a: F, b: F, tol: F, max_depth: usize) -> R
 where
     F2: Fn(F) -> F + Copy,
 {
-    fn adaptive_simpson<F2>(f: F2, params: &AdaptiveSimpsonParams) -> Result<F, Error>
+    #[allow(clippy::too_many_arguments)]
+    fn adaptive_simpson<F2>(
+        f: F2, 
+        a: F, b: F, 
+        tol: F,
+        fa: F, fb: F, fc: F,
+        whole: F,
+        depth: usize, 
+        max_depth: usize
+    ) -> Result<F, Error>
     where
         F2: Fn(F) -> F + Copy,
     {
-        if params.control.depth >= params.control.max_depth {
+        if depth >= max_depth {
             // At recursion limit, return the current best composite estimate
-            return Ok(params.evaluations.whole);
+            return Ok(whole);
         }
 
-        let c = (params.interval.a + params.interval.b) / 2.0;
+        let c = (a + b) / 2.0;
 
-        let fd = f((params.interval.a + c) / 2.0);
-        let fe = f((c + params.interval.b) / 2.0);
+        let fd = f((a + c) / 2.0);
+        let fe = f((c + b) / 2.0);
 
-        // Fixed: Use proper Simpson's rule for each sub-interval
-        let h_left = (c - params.interval.a) / 6.0; // (c-a)/6 for left Simpson interval
-        let h_right = (params.interval.b - c) / 6.0; // (b-c)/6 for right Simpson interval
-        let left = h_left * (params.evaluations.fa + 4.0 * fd + params.evaluations.fc);
-        let right = h_right * (params.evaluations.fc + 4.0 * fe + params.evaluations.fb);
+        // Use proper Simpson's rule for each sub-interval
+        let h_left = (c - a) / 6.0; // (c-a)/6 for left Simpson interval
+        let h_right = (b - c) / 6.0; // (b-c)/6 for right Simpson interval
+        let left = h_left * (fa + 4.0 * fd + fc);
+        let right = h_right * (fc + 4.0 * fe + fb);
         let total = left + right;
 
-        let error_estimate = (total - params.evaluations.whole).abs() / 15.0;
+        let error_estimate = (total - whole).abs() / 15.0;
 
-        if error_estimate <= params.control.tolerance {
+        if error_estimate <= tol {
             Ok(total)
         } else {
-            let mid_tol = params.control.tolerance / 2.0;
-            let left_params = AdaptiveSimpsonParams::from_values(
-                params.interval.a,
-                c,
-                mid_tol,
-                left,
-                params.evaluations.fa,
-                params.evaluations.fc,
-                fd,
-                params.control.depth + 1,
-                params.control.max_depth,
-            );
-            let right_params = AdaptiveSimpsonParams::from_values(
-                c,
-                params.interval.b,
-                mid_tol,
-                right,
-                params.evaluations.fc,
-                params.evaluations.fb,
-                fe,
-                params.control.depth + 1,
-                params.control.max_depth,
-            );
-            let left_result = adaptive_simpson(f, &left_params)?;
-            let right_result = adaptive_simpson(f, &right_params)?;
+            let mid_tol = tol / 2.0;
+            let left_result = adaptive_simpson(f, a, c, mid_tol, fa, fc, fd, left, depth + 1, max_depth)?;
+            let right_result = adaptive_simpson(f, c, b, mid_tol, fc, fb, fe, right, depth + 1, max_depth)?;
             Ok(left_result + right_result)
         }
     }
@@ -443,8 +326,7 @@ where
 
     let whole = h * (fa + 4.0 * fc + fb);
 
-    let params = AdaptiveSimpsonParams::from_values(a, b, tol, whole, fa, fb, fc, 0, max_depth);
-    adaptive_simpson(f, &params)
+    adaptive_simpson(f, a, b, tol, fa, fb, fc, whole, 0, max_depth)
 }
 
 /// Convenience alias: Adaptive Simpson integration with error control.

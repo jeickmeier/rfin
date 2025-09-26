@@ -31,6 +31,7 @@ pub trait RandomNumberGenerator {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SimpleRng {
     state: u64,
+    cached_normal: Option<F>, // Instance-based cache for Box-Muller
 }
 
 impl SimpleRng {
@@ -38,6 +39,7 @@ impl SimpleRng {
     pub fn new(seed: u64) -> Self {
         Self {
             state: seed.wrapping_add(1), // Avoid zero state
+            cached_normal: None,
         }
     }
 
@@ -57,15 +59,9 @@ impl RandomNumberGenerator for SimpleRng {
     }
 
     fn normal(&mut self, mean: F, std_dev: F) -> F {
-        // Box-Muller transform
-        static mut CACHED: Option<F> = None;
-        static mut HAS_CACHED: bool = false;
-
-        unsafe {
-            if HAS_CACHED {
-                HAS_CACHED = false;
-                return mean + std_dev * CACHED.unwrap();
-            }
+        // Box-Muller transform with instance-based cache
+        if let Some(cached) = self.cached_normal.take() {
+            return mean + std_dev * cached;
         }
 
         let u1 = self.uniform();
@@ -75,11 +71,7 @@ impl RandomNumberGenerator for SimpleRng {
         let z0 = mag * (2.0 * std::f64::consts::PI * u2).cos();
         let z1 = mag * (2.0 * std::f64::consts::PI * u2).sin();
 
-        unsafe {
-            CACHED = Some(z1);
-            HAS_CACHED = true;
-        }
-
+        self.cached_normal = Some(z1);
         mean + z0
     }
 
