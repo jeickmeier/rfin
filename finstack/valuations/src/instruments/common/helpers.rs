@@ -86,22 +86,9 @@ pub fn build_with_metrics_dyn(
             // Use documented ISDA standard coupon day
             let coupon_day =
                 crate::instruments::cds::pricing::engine::isda_constants::STANDARD_COUPON_DAY;
-            result
-                .meta
-                .custom
-                .insert("step_in_date".to_string(), format!("{}", step_in));
-            result
-                .meta
-                .custom
-                .insert("effective_date".to_string(), format!("{}", effective));
-            result
-                .meta
-                .custom
-                .insert("coupon_day".to_string(), format!("{}", coupon_day));
-            result
-                .meta
-                .custom
-                .insert("use_isda_coupon_dates".to_string(), "true".to_string());
+            let _ = step_in;
+            let _ = effective;
+            let _ = coupon_day;
         }
     }
     Ok(result)

@@ -79,22 +79,9 @@ impl PyValuationResult {
     ///     ...         print(f"Key: {key}, Strategy: {policy['strategy']}")
     #[getter]
     fn fx_policies(&self, py: Python) -> PyResult<Option<Py<PyDict>>> {
-        if self.inner.meta.fx_policies.is_empty() {
-            return Ok(None);
-        }
-
-        let dict = PyDict::new(py);
-        for (key, policy) in &self.inner.meta.fx_policies {
-            let policy_dict = PyDict::new(py);
-            policy_dict.set_item("strategy", format!("{:?}", policy.strategy))?;
-            match policy.target_ccy {
-                Some(ccy) => policy_dict.set_item("target_ccy", format!("{}", ccy))?,
-                None => policy_dict.set_item("target_ccy", py.None())?,
-            }
-            policy_dict.set_item("notes", &policy.notes)?;
-            dict.set_item(key, policy_dict)?;
-        }
-        Ok(Some(dict.into()))
+        // ResultsMeta no longer carries detailed fx_policies. Expose None for now.
+        let _ = py; // suppress unused parameter warning in case of feature gating
+        Ok(None)
     }
 
     /// Check if all covenants passed.
