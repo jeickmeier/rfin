@@ -59,7 +59,14 @@ pub(crate) fn round_f64(x: f64, dp: i32, mode: RoundingMode) -> f64 {
             }
             r / factor
         }
-        RoundingMode::AwayFromZero => (x * factor).abs().ceil() * x.signum() / factor,
+        RoundingMode::AwayFromZero => {
+            let y = x * factor;
+            if y >= 0.0 {
+                (y + 0.5).floor() / factor
+            } else {
+                (y - 0.5).ceil() / factor
+            }
+        }
         RoundingMode::TowardZero => (x * factor).trunc() / factor,
         RoundingMode::Floor => (x * factor).floor() / factor,
         RoundingMode::Ceil => (x * factor).ceil() / factor,

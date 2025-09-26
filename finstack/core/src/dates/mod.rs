@@ -40,8 +40,7 @@
 
 pub use time::{Date, OffsetDateTime, PrimitiveDateTime};
 
-// Small, stack-optimized buffer for temporary date collections used in rules/bitsets.
-pub(crate) type DateBuf = smallvec::SmallVec<[Date; 64]>;
+// Build-time bitsets removed the last runtime use of DateBuf; keep only if needed elsewhere.
 
 mod date_extensions;
 

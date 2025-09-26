@@ -17,30 +17,11 @@ pub fn add_months(date: Date, months: i32) -> Date {
     let total_months = date.year() * 12 + (date.month() as i32 - 1) + months;
     let new_year = total_months.div_euclid(12);
     let new_month_index = total_months.rem_euclid(12);
-    let new_month = Month::try_from((new_month_index + 1) as u8).unwrap();
+    let new_month_u8 = (new_month_index + 1) as u8;
+    let new_month = Month::try_from(new_month_u8).unwrap();
 
     let day = date.day();
-    let max_day = match new_month {
-        Month::January => 31,
-        Month::February => {
-            if is_leap_year(new_year) {
-                29
-            } else {
-                28
-            }
-        }
-        Month::March => 31,
-        Month::April => 30,
-        Month::May => 31,
-        Month::June => 30,
-        Month::July => 31,
-        Month::August => 31,
-        Month::September => 30,
-        Month::October => 31,
-        Month::November => 30,
-        Month::December => 31,
-    };
-
+    let max_day = days_in_month(new_year, new_month_u8);
     let new_day = day.min(max_day);
     Date::from_calendar_date(new_year, new_month, new_day).unwrap()
 }

@@ -8,7 +8,7 @@ use crate::dates::calendar::calendar_by_id;
 use crate::dates::calendar::composite::{CompositeCalendar, CompositeMode};
 use crate::dates::calendar::core::HolidayCalendar;
 use core::marker::PhantomData;
-use once_cell::sync::OnceCell;
+use std::sync::OnceLock;
 
 /// Strongly-typed calendar identifier to avoid stringly-typed lookups.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -23,7 +23,7 @@ impl CalendarRegistry<'_> {
     /// Obtain the global registry instance.
     #[inline]
     pub fn global() -> &'static CalendarRegistry<'static> {
-        static INSTANCE: OnceCell<CalendarRegistry> = OnceCell::new();
+        static INSTANCE: OnceLock<CalendarRegistry> = OnceLock::new();
         INSTANCE.get_or_init(|| CalendarRegistry {
             _marker: PhantomData,
         })

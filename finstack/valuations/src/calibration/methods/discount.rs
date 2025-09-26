@@ -14,13 +14,14 @@ use crate::instruments::deposit::Deposit;
 use crate::instruments::fra::ForwardRateAgreement;
 use crate::instruments::ir_future::InterestRateFuture;
 use crate::instruments::InterestRateSwap;
-use finstack_core::dates::{add_months, Date, ScheduleBuilder};
+use finstack_core::dates::{add_months, Date};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::math::Solver;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
+use finstack_core::types::CurveId;
 use finstack_core::F;
 use std::collections::BTreeMap;
 
@@ -28,7 +29,7 @@ use std::collections::BTreeMap;
 #[derive(Clone, Debug)]
 pub struct DiscountCurveCalibrator {
     /// Curve identifier
-    pub curve_id: &'static str,
+    pub curve_id: CurveId,
     /// Base date for the curve
     pub base_date: finstack_core::dates::Date,
     /// Interpolation used during solving and for the final curve
@@ -41,9 +42,9 @@ pub struct DiscountCurveCalibrator {
 
 impl DiscountCurveCalibrator {
     /// Create a new discount curve calibrator.
-    pub fn new(curve_id: &'static str, base_date: Date, currency: Currency) -> Self {
+    pub fn new(curve_id: impl Into<CurveId>, base_date: Date, currency: Currency) -> Self {
         Self {
-            curve_id,
+            curve_id: curve_id.into(),
             base_date,
             solve_interp: InterpStyle::MonotoneConvex, // Default; explicit and consistent
             config: CalibrationConfig::default(),      // Defaults to multi-curve mode
@@ -324,7 +325,7 @@ impl DiscountCurveCalibrator {
         // Build final discount curve with configured interpolation
         let curve = self
             .apply_solve_interpolation(
-                DiscountCurve::builder(self.curve_id)
+                DiscountCurve::builder(self.curve_id.clone())
                     .base_date(self.base_date)
                     .knots(knots),
             )
@@ -501,73 +502,8 @@ impl DiscountCurveCalibrator {
                 float_freq,
                 fixed_dc,
                 float_dc,
-                index,
+                index: _,
             } => {
-                // Special-case OIS-suitable swaps: compute discount-only par rate and error
-                // without requiring a forward curve. This follows market-standard OIS
-                // bootstrapping where the float leg equals the discounting rate.
-                let is_ois = index.contains("SOFR")
-                    || index.contains("EONIA")
-                    || index.contains("SONIA")
-                    || index.contains("OIS");
-
-                if is_ois {
-                    // Access the in-progress discount curve
-                    let disc = context
-                        .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                            "CALIB_CURVE",
-                        )?;
-
-                    // Build fixed leg schedule from base date to maturity using the provided
-                    // fixed frequency. We intentionally keep scheduling simple and rely on
-                    // core/dates utilities.
-                    let schedule = ScheduleBuilder::new(self.base_date, *maturity)
-                        .frequency(*fixed_freq)
-                        .build()
-                        .map_err(|_| finstack_core::Error::Calibration {
-                            message: "Failed to build fixed leg schedule for OIS par computation"
-                                .to_string(),
-                            category: "yield_curve_bootstrap".to_string(),
-                        })?;
-
-                    // Guard against degenerate schedules
-                    if schedule.dates.len() < 2 {
-                        return Ok(0.0);
-                    }
-
-                    // Compute annuity = sum_i alpha_i * P(0, T_i)
-                    let mut annuity: F = 0.0;
-                    for w in schedule.dates.windows(2) {
-                        let d_start = w[0];
-                        let d_end = w[1];
-                        let alpha = fixed_dc
-                            .year_fraction(
-                                d_start,
-                                d_end,
-                                finstack_core::dates::DayCountCtx::default(),
-                            )
-                            .unwrap_or(0.0);
-                        if alpha <= 0.0 {
-                            continue;
-                        }
-                        let p_0_ti = disc.df_on_date(d_end, *fixed_dc);
-                        annuity += alpha * p_0_ti;
-                    }
-
-                    if annuity <= 0.0 {
-                        return Ok(crate::calibration::penalize());
-                    }
-
-                    // Par rate r* = (P(0,T0) - P(0,Tn)) / Annuity
-                    let p0_t0 = disc.df_on_date(self.base_date, *fixed_dc);
-                    let p0_tn = disc.df_on_date(*maturity, *fixed_dc);
-                    let par_rate = (p0_t0 - p0_tn) / annuity;
-
-                    // PV error per notional ≈ (quote_rate - r*) * Annuity for receive-fixed
-                    let pv_per_notional = (*rate - par_rate) * annuity;
-                    return Ok(pv_per_notional);
-                }
-
                 // Create swap instrument
                 use crate::instruments::irs::{FixedLegSpec, FloatLegSpec, PayReceive};
                 use finstack_core::dates::{BusinessDayConvention, StubKind};

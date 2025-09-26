@@ -95,14 +95,17 @@ impl Money {
     /// use finstack_core::config::FinstackConfig;
     ///
     /// let mut cfg = FinstackConfig::default();
-    /// cfg.rounding.ingest_scale.default_scale = 3;
+    /// cfg.rounding
+    ///     .ingest_scale
+    ///     .overrides
+    ///     .insert(Currency::USD, 3);
     /// let amt = Money::new_with_config(1.2345, Currency::USD, &cfg);
     /// assert!((amt.amount() - 1.234).abs() < 1e-9);
     /// ```
     #[must_use]
     #[inline]
     pub fn new_with_config(amount: f64, currency: Currency, cfg: &FinstackConfig) -> Self {
-        let dp = crate::config::ingest_scale_for(cfg, currency);
+        let dp = cfg.ingest_scale(currency);
         let mode = cfg.rounding.mode;
         let rounded = round_f64(amount, dp as i32, mode);
         Self {
@@ -272,11 +275,14 @@ impl Money {
     ///
     /// let amt = Money::new(10.0, Currency::USD);
     /// let mut cfg = FinstackConfig::default();
-    /// cfg.rounding.output_scale.default_scale = 4;
+    /// cfg.rounding
+    ///     .output_scale
+    ///     .overrides
+    ///     .insert(Currency::USD, 4);
     /// assert_eq!(amt.format_with_config(&cfg), "USD 10.0000");
     /// ```
     pub fn format_with_config(&self, cfg: &FinstackConfig) -> String {
-        let dp = crate::config::output_scale_for(cfg, self.currency) as usize;
+        let dp = cfg.output_scale(self.currency) as usize;
         format!(
             "{} {val:.prec$}",
             self.currency,

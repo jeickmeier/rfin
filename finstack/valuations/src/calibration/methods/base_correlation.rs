@@ -272,7 +272,7 @@ impl BaseCorrelationCalibrator {
             let final_residual = objective(clamped_corr);
 
             solved_correlations.push((*detach_pct, clamped_corr));
-            let key = format!("{:06}", index);
+            let key = index.to_string();
             residuals.insert(key, final_residual);
             total_iterations += 1;
         }

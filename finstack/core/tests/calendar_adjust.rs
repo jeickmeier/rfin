@@ -149,7 +149,7 @@ fn test_adjust_following_infinite_loop_guard() {
             convention,
             max_days,
         }) => {
-            assert_eq!(convention, "Following");
+            assert_eq!(convention, BusinessDayConvention::Following);
             assert_eq!(max_days, 100);
         }
         other => panic!("Expected AdjustmentFailed error, got {:?}", other),
@@ -172,7 +172,7 @@ fn test_adjust_preceding_infinite_loop_guard() {
             convention,
             max_days,
         }) => {
-            assert_eq!(convention, "Preceding");
+            assert_eq!(convention, BusinessDayConvention::Preceding);
             assert_eq!(max_days, 100);
         }
         other => panic!("Expected AdjustmentFailed error, got {:?}", other),
@@ -195,7 +195,7 @@ fn test_adjust_modified_following_infinite_loop_guard() {
             convention,
             max_days,
         }) => {
-            assert_eq!(convention, "ModifiedFollowing");
+            assert_eq!(convention, BusinessDayConvention::ModifiedFollowing);
             assert_eq!(max_days, 100);
         }
         other => panic!("Expected AdjustmentFailed error, got {:?}", other),
@@ -218,7 +218,7 @@ fn test_adjust_modified_preceding_infinite_loop_guard() {
             convention,
             max_days,
         }) => {
-            assert_eq!(convention, "ModifiedPreceding");
+            assert_eq!(convention, BusinessDayConvention::ModifiedPreceding);
             assert_eq!(max_days, 100);
         }
         other => panic!("Expected AdjustmentFailed error, got {:?}", other),
@@ -241,9 +241,9 @@ fn test_improved_error_messages_contain_original_date_and_correct_convention() {
             max_days,
         }) => {
             // Verify the error contains the ORIGINAL date (not the last attempted date)
-            assert_eq!(date, original_date.to_string());
-            // Verify the error contains the correct convention name (not "seek")
-            assert_eq!(convention, "Following");
+            assert_eq!(date, original_date);
+            // Verify the error contains the correct convention enum
+            assert_eq!(convention, BusinessDayConvention::Following);
             assert_eq!(max_days, 100);
         }
         other => panic!("Expected AdjustmentFailed error, got {:?}", other),
@@ -260,9 +260,9 @@ fn test_improved_error_messages_contain_original_date_and_correct_convention() {
             max_days,
         }) => {
             // Verify the error contains the ORIGINAL date (not the last attempted date)
-            assert_eq!(date, original_date.to_string());
-            // Verify the error contains the correct convention name (not "seek")
-            assert_eq!(convention, "Preceding");
+            assert_eq!(date, original_date);
+            // Verify the error contains the correct convention enum
+            assert_eq!(convention, BusinessDayConvention::Preceding);
             assert_eq!(max_days, 100);
         }
         other => panic!("Expected AdjustmentFailed error, got {:?}", other),
@@ -283,9 +283,9 @@ fn test_improved_error_messages_contain_original_date_and_correct_convention() {
             max_days,
         }) => {
             // Verify the error contains the ORIGINAL date (not the last attempted date)
-            assert_eq!(date, original_date.to_string());
-            // Verify the error contains the correct convention name (not "seek")
-            assert_eq!(convention, "ModifiedFollowing");
+            assert_eq!(date, original_date);
+            // Verify the error contains the correct convention enum
+            assert_eq!(convention, BusinessDayConvention::ModifiedFollowing);
             assert_eq!(max_days, 100);
         }
         other => panic!("Expected AdjustmentFailed error, got {:?}", other),
@@ -306,9 +306,9 @@ fn test_improved_error_messages_contain_original_date_and_correct_convention() {
             max_days,
         }) => {
             // Verify the error contains the ORIGINAL date (not the last attempted date)
-            assert_eq!(date, original_date.to_string());
-            // Verify the error contains the correct convention name (not "seek")
-            assert_eq!(convention, "ModifiedPreceding");
+            assert_eq!(date, original_date);
+            // Verify the error contains the correct convention enum
+            assert_eq!(convention, BusinessDayConvention::ModifiedPreceding);
             assert_eq!(max_days, 100);
         }
         other => panic!("Expected AdjustmentFailed error, got {:?}", other),

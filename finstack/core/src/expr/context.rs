@@ -1,6 +1,6 @@
 //! Expression evaluation context.
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 /// A simple context that resolves column names to series indices.
 /// Simple name→index context for column resolution.

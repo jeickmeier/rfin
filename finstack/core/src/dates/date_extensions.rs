@@ -4,7 +4,7 @@
 
 #![allow(clippy::wrong_self_convention)]
 
-use crate::dates::calendar::core::{seek_business_day, MAX_BUSINESS_DAY_SEARCH_DAYS};
+use crate::dates::calendar::core::{seek_business_day, BusinessDayConvention, MAX_BUSINESS_DAY_SEARCH_DAYS};
 use crate::dates::periods::FiscalConfig;
 use crate::dates::utils::days_in_month;
 use time::{Date, Duration, OffsetDateTime, Weekday};
@@ -149,14 +149,19 @@ impl DateExt for Date {
         for _ in 0..n.unsigned_abs() {
             // move at least one day in the desired direction, then seek to a business day
             let start = current + Duration::days(step as i64);
-            current = seek_business_day(
-                start,
-                step,
-                MAX_BUSINESS_DAY_SEARCH_DAYS,
-                cal,
-                "BusinessDayAddition",
-                self,
-            )?;
+            let conv = if step > 0 {
+                BusinessDayConvention::Following
+            } else {
+                BusinessDayConvention::Preceding
+            };
+            current = seek_business_day(start, step, MAX_BUSINESS_DAY_SEARCH_DAYS, cal)
+                .ok_or({
+                    crate::Error::Input(crate::error::InputError::AdjustmentFailed {
+                        date: self,
+                        convention: conv,
+                        max_days: MAX_BUSINESS_DAY_SEARCH_DAYS,
+                    })
+                })?;
         }
         Ok(current)
     }

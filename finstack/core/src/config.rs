@@ -12,9 +12,7 @@
 //!
 //! # Examples
 //! ```rust
-//! use finstack_core::config::{
-//!     ingest_scale_for, output_scale_for, FinstackConfig, RoundingMode,
-//! };
+//! use finstack_core::config::{FinstackConfig, RoundingMode};
 //! use finstack_core::currency::Currency;
 //!
 //! let mut cfg = FinstackConfig::default();
@@ -22,8 +20,8 @@
 //! cfg.rounding.output_scale.overrides.insert(Currency::JPY, 0);
 //! cfg.rounding.ingest_scale.overrides.insert(Currency::JPY, 0);
 //!
-//! let usd_scale = output_scale_for(&cfg, Currency::USD);
-//! let jpy_ingest = ingest_scale_for(&cfg, Currency::JPY);
+//! let usd_scale = cfg.output_scale(Currency::USD);
+//! let jpy_ingest = cfg.ingest_scale(Currency::JPY);
 //!
 //! assert_eq!(usd_scale, 2);
 //! assert_eq!(jpy_ingest, 0);
@@ -41,7 +39,6 @@
 use serde::{Deserialize, Serialize};
 
 use hashbrown::HashMap;
-// IndexMap no longer needed here
 
 /// Rounding modes supported by the library.
 ///
@@ -55,11 +52,12 @@ use hashbrown::HashMap;
 /// cfg.rounding.mode = RoundingMode::TowardZero;
 /// assert!(matches!(cfg.rounding.mode, RoundingMode::TowardZero));
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[non_exhaustive]
 pub enum RoundingMode {
     /// Banker's rounding (ties to even).
+    #[default]
     Bankers,
     /// Round halves away from zero.
     AwayFromZero,
@@ -70,6 +68,8 @@ pub enum RoundingMode {
     /// Round toward positive infinity.
     Ceil,
 }
+
+// Default derived above
 
 /// Global numeric configuration supplied to valuation components.
 ///
@@ -85,29 +85,19 @@ pub enum RoundingMode {
 /// let mut cfg = FinstackConfig::default();
 /// cfg.rounding.mode = RoundingMode::Bankers;
 /// cfg.rounding.output_scale.overrides.insert(Currency::CHF, 2);
-/// assert_eq!(cfg.rounding.output_scale.default_scale, 2);
+/// assert_eq!(cfg.output_scale(Currency::CHF), 2);
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FinstackConfig {
     /// Detailed rounding policy (ingest/output scales by currency).
     pub rounding: RoundingPolicy,
-    /// Default decimal places for unknown currencies (defaults to 2).
-    pub default_currency_decimals: u8,
 }
-
-impl Default for FinstackConfig {
-    fn default() -> Self {
-        Self {
-            rounding: RoundingPolicy::default(),
-            default_currency_decimals: 2,
-        }
-    }
-}
+// Default derived above
 
 /// Policy mapping that determines decimal places for each currency at ingest/output.
 ///
-/// The policy falls back to [`default_scale`] when no override exists.
+/// The policy stores currency-specific overrides only.
 ///
 /// # Examples
 /// ```rust
@@ -117,18 +107,14 @@ impl Default for FinstackConfig {
 ///
 /// let mut cfg = FinstackConfig::default();
 /// cfg.rounding.output_scale = CurrencyScalePolicy {
-///     default_scale: 2,
 ///     overrides: HashMap::from([(Currency::KWD, 3)]),
 /// };
 ///
-/// assert_eq!(cfg.rounding.output_scale.default_scale, 2);
-/// assert_eq!(cfg.rounding.output_scale.overrides.get(&Currency::KWD), Some(&3));
+/// assert_eq!(cfg.output_scale(Currency::KWD), 3);
 /// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct CurrencyScalePolicy {
-    /// Default scale (decimal places) when currency not present in overrides.
-    pub default_scale: u32,
     /// Explicit currency overrides for scale.
     pub overrides: HashMap<crate::currency::Currency, u32>,
 }
@@ -136,7 +122,6 @@ pub struct CurrencyScalePolicy {
 impl Default for CurrencyScalePolicy {
     fn default() -> Self {
         Self {
-            default_scale: 2,
             overrides: HashMap::new(),
         }
     }
@@ -214,45 +199,35 @@ pub struct ResultsMeta {
     pub fx_policy_applied: Option<String>,
 }
 
-/// Compute the effective **output** scale for a currency.
-///
-/// # Parameters
-/// - `cfg`: active configuration snapshot
-/// - `ccy`: currency whose scale should be looked up
-///
-/// # Examples
-/// ```rust
-/// use finstack_core::config::{output_scale_for, FinstackConfig};
-/// use finstack_core::currency::Currency;
-///
-/// let cfg = FinstackConfig::default();
-/// assert_eq!(output_scale_for(&cfg, Currency::USD), 2);
-/// ```
-pub fn output_scale_for(cfg: &FinstackConfig, ccy: crate::currency::Currency) -> u32 {
-    if let Some(&s) = cfg.rounding.output_scale.overrides.get(&ccy) {
-        return s;
+impl FinstackConfig {
+    /// Effective output scale for a currency. Falls back to ISO-4217 `Currency::decimals()`.
+    pub fn output_scale(&self, ccy: crate::currency::Currency) -> u32 {
+        if let Some(&s) = self.rounding.output_scale.overrides.get(&ccy) {
+            return s;
+        }
+        ccy.decimals() as u32
     }
-    cfg.rounding.output_scale.default_scale
+
+    /// Effective ingest scale for a currency. Falls back to a high precision default
+    /// to preserve inputs unless explicitly overridden (min of 6 decimals).
+    pub fn ingest_scale(&self, ccy: crate::currency::Currency) -> u32 {
+        if let Some(&s) = self.rounding.ingest_scale.overrides.get(&ccy) {
+            return s;
+        }
+        core::cmp::max(6, ccy.decimals() as u32)
+    }
 }
 
-/// Compute the effective **ingest** scale for a currency.
-///
-/// This is used when normalising inbound floating-point amounts.
-///
-/// # Examples
-/// ```rust
-/// use finstack_core::config::{ingest_scale_for, FinstackConfig};
-/// use finstack_core::currency::Currency;
-///
-/// let mut cfg = FinstackConfig::default();
-/// cfg.rounding.ingest_scale.overrides.insert(Currency::JPY, 0);
-/// assert_eq!(ingest_scale_for(&cfg, Currency::JPY), 0);
-/// ```
+/// Backward-compatible wrapper: prefer `cfg.output_scale(ccy)` instead.
+#[deprecated(note = "Use FinstackConfig::output_scale method instead")]
+pub fn output_scale_for(cfg: &FinstackConfig, ccy: crate::currency::Currency) -> u32 {
+    cfg.output_scale(ccy)
+}
+
+/// Backward-compatible wrapper: prefer `cfg.ingest_scale(ccy)` instead.
+#[deprecated(note = "Use FinstackConfig::ingest_scale method instead")]
 pub fn ingest_scale_for(cfg: &FinstackConfig, ccy: crate::currency::Currency) -> u32 {
-    if let Some(&s) = cfg.rounding.ingest_scale.overrides.get(&ccy) {
-        return s;
-    }
-    cfg.rounding.ingest_scale.default_scale
+    cfg.ingest_scale(ccy)
 }
 
 /// Build a snapshot of the current rounding context from a config.
@@ -301,3 +276,55 @@ pub fn results_meta(cfg: &FinstackConfig) -> ResultsMeta {
 }
 
 // No unit tests here rely on global configuration anymore.
+
+// -----------------------------------------------------------------------------
+// ConfigBuilder: Fluent builder API for FinstackConfig
+// -----------------------------------------------------------------------------
+
+/// Fluent builder for `FinstackConfig`.
+#[derive(Default)]
+pub struct ConfigBuilder {
+    mode: RoundingMode,
+    ingest_overrides: HashMap<crate::currency::Currency, u32>,
+    output_overrides: HashMap<crate::currency::Currency, u32>,
+}
+
+impl ConfigBuilder {
+    /// Start a new builder with defaults.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the rounding mode to apply.
+    pub fn with_rounding_mode(mut self, mode: RoundingMode) -> Self {
+        self.mode = mode;
+        self
+    }
+
+    /// Override ingest scale for a currency.
+    pub fn with_ingest_scale(mut self, ccy: crate::currency::Currency, scale: u32) -> Self {
+        self.ingest_overrides.insert(ccy, scale);
+        self
+    }
+
+    /// Override output scale for a currency.
+    pub fn with_output_scale(mut self, ccy: crate::currency::Currency, scale: u32) -> Self {
+        self.output_overrides.insert(ccy, scale);
+        self
+    }
+
+    /// Build the final `FinstackConfig`.
+    pub fn build(self) -> FinstackConfig {
+        FinstackConfig {
+            rounding: RoundingPolicy {
+                mode: self.mode,
+                ingest_scale: CurrencyScalePolicy {
+                    overrides: self.ingest_overrides,
+                },
+                output_scale: CurrencyScalePolicy {
+                    overrides: self.output_overrides,
+                },
+            },
+        }
+    }
+}

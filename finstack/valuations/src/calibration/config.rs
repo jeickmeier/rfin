@@ -8,27 +8,22 @@
 use finstack_core::market_data::term_structures::hazard_curve::Seniority;
 use finstack_core::F;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 /// Solver type selection for calibration.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub enum SolverKind {
     /// Newton-Raphson solver with automatic derivative estimation (1D)
     Newton,
     /// Brent's method solver (robust, bracketing required) (1D)
     Brent,
     /// Hybrid solver that tries Newton first, falls back to Brent (1D)
+    #[default]
     Hybrid,
     /// Levenberg-Marquardt for non-linear least squares (multi-dimensional)
     LevenbergMarquardt,
     /// Differential Evolution for global optimization (multi-dimensional)
     DifferentialEvolution,
-}
-
-impl Default for SolverKind {
-    fn default() -> Self {
-        Self::Hybrid
-    }
 }
 
 /// Multi-curve framework mode

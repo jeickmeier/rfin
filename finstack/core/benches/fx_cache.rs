@@ -2,7 +2,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate};
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::sync::Arc;
 
 struct BenchFxProvider {

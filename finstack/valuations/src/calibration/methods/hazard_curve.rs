@@ -45,19 +45,7 @@ impl HazardCurveCalibrator {
     /// Helper to determine default discount curve ID from currency.
     /// Uses common market conventions for collateral.
     pub fn default_discount_curve_id(currency: Currency) -> CurveId {
-        match currency {
-            Currency::USD => CurveId::new("USD-OIS"),
-            Currency::EUR => CurveId::new("EUR-OIS"),
-            Currency::GBP => CurveId::new("GBP-OIS"),
-            Currency::JPY => CurveId::new("JPY-OIS"),
-            Currency::CHF => CurveId::new("CHF-OIS"),
-            Currency::CAD => CurveId::new("CAD-OIS"),
-            Currency::AUD => CurveId::new("AUD-OIS"),
-            Currency::SEK => CurveId::new("SEK-OIS"),
-            Currency::NOK => CurveId::new("NOK-OIS"),
-            Currency::DKK => CurveId::new("DKK-OIS"),
-            _ => CurveId::new(format!("{}-OIS", currency)), // Keep format! here as it needs currency interpolation
-        }
+        CurveId::new(format!("{}-OIS", currency))
     }
 
     /// Create a new hazard curve calibrator.

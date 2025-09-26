@@ -262,7 +262,7 @@ mod tests {
 
     #[test]
     fn id_hashing() {
-        use std::collections::HashMap;
+        use hashbrown::HashMap;
 
         let mut map = HashMap::new();
         let id1 = Id::<User>::new("user123");

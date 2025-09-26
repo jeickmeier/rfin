@@ -4,6 +4,8 @@
 //! forward-compatible.
 
 use crate::currency::Currency;
+use crate::dates::calendar::core::BusinessDayConvention;
+use time::Date;
 use thiserror::Error;
 
 /// Detailed user input validation failures.
@@ -30,9 +32,9 @@ pub enum InputError {
     #[error("Business day adjustment failed: no business day found within {max_days} days from {date} using {convention:?} convention")]
     AdjustmentFailed {
         /// The original date that couldn't be adjusted.
-        date: String,
+        date: Date,
         /// The business day convention that was attempted.
-        convention: String,
+        convention: BusinessDayConvention,
         /// Maximum number of days searched.
         max_days: i32,
     },
