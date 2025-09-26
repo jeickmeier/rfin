@@ -201,11 +201,11 @@ pub struct FxConfig {
 impl Default for FxConfig {
     fn default() -> Self {
         Self {
-            closure_tolerance: 0.0001, // 1 basis point
+            closure_tolerance: 0.01,       // 1% (more relaxed)
             strict_closure: false,
-            pivot_currency: Currency::USD, // USD as default pivot
-            enable_triangulation: true,    // Enable triangulation by default
-            cache_capacity: 1024,          // Default LRU capacity
+            pivot_currency: Currency::USD,
+            enable_triangulation: false,   // Disabled by default - simpler
+            cache_capacity: 256,           // Smaller cache - simpler
         }
     }
 }
@@ -979,6 +979,7 @@ mod tests {
         let provider = MockFxProvider::new();
         let config = FxConfig {
             closure_tolerance: 0.01, // 1% tolerance for this test
+            enable_triangulation: true, // Enable for this test
             ..Default::default()
         };
         let matrix = FxMatrix::with_config(Arc::new(provider), config);

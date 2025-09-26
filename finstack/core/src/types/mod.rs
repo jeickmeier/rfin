@@ -1,6 +1,6 @@
 //! Core type definitions for the FinStack ecosystem.
 //!
-//! This module collects phantom-typed identifiers (`CurveId`, `TradeId`, …),
+//! This module collects phantom-typed identifiers (`CurveId`, `InstrumentId`, …),
 //! rate helpers (`Rate`, `Bps`), and convenient aliases used throughout the
 //! platform. Import via `finstack_core::types` or the [`prelude`](crate::prelude).
 //!
@@ -20,8 +20,7 @@ pub mod id;
 pub mod rates;
 
 pub use id::{
-    CounterpartyId, CurveId, Id, InstrumentId, PortfolioId, PositionId, PriceId, ScenarioId,
-    TradeId, TypeTag,
+    CurveId, Id, InstrumentId, IndexId, PriceId, TypeTag,
 };
 pub use rates::{Bps, Percentage, Rate};
 

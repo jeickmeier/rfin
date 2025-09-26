@@ -24,7 +24,6 @@ pub mod distributions;
 pub mod integration;
 pub mod interp;
 pub mod random;
-pub mod root_finding;
 pub mod solver;
 pub mod solver_multi;
 pub mod special_functions;

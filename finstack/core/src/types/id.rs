@@ -169,29 +169,11 @@ impl<T: TypeTag> std::str::FromStr for Id<T> {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct CurveTag;
 
-/// Marker type for position identifiers  
-#[derive(Debug, Clone, Copy, Default)]
-pub struct PositionTag;
-
-/// Marker type for trade identifiers
-#[derive(Debug, Clone, Copy, Default)]
-pub struct TradeTag;
-
-/// Marker type for portfolio identifiers
-#[derive(Debug, Clone, Copy, Default)]
-pub struct PortfolioTag;
-
-/// Marker type for scenario identifiers
-#[derive(Debug, Clone, Copy, Default)]
-pub struct ScenarioTag;
 
 /// Marker type for instrument identifiers
 #[derive(Debug, Clone, Copy, Default)]
 pub struct InstrumentTag;
 
-/// Marker type for counterparty identifiers
-#[derive(Debug, Clone, Copy, Default)]
-pub struct CounterpartyTag;
 
 /// Marker type for index identifiers (equity or fixed income)
 #[derive(Debug, Clone, Copy, Default)]
@@ -204,18 +186,8 @@ pub struct PriceTag;
 /// Type aliases for common ID types
 /// Type-safe identifier for market data curves
 pub type CurveId = Id<CurveTag>;
-/// Type-safe identifier for trading positions
-pub type PositionId = Id<PositionTag>;
-/// Type-safe identifier for individual trades
-pub type TradeId = Id<TradeTag>;
-/// Type-safe identifier for investment portfolios
-pub type PortfolioId = Id<PortfolioTag>;
-/// Type-safe identifier for analysis scenarios
-pub type ScenarioId = Id<ScenarioTag>;
 /// Type-safe identifier for financial instruments
 pub type InstrumentId = Id<InstrumentTag>;
-/// Type-safe identifier for trading counterparties
-pub type CounterpartyId = Id<CounterpartyTag>;
 /// Type-safe identifier for market indices
 pub type IndexId = Id<IndexTag>;
 /// Type-safe identifier for market prices/scalars
@@ -301,12 +273,12 @@ mod tests {
     #[test]
     fn common_id_types() {
         let curve_id = CurveId::new("USD-OIS");
-        let position_id = PositionId::new("pos123");
-        let trade_id = TradeId::new("trd456");
+        let instrument_id = InstrumentId::new("BOND123");
+        let price_id = PriceId::new("AAPL");
 
         assert_eq!(curve_id.as_str(), "USD-OIS");
-        assert_eq!(position_id.as_str(), "pos123");
-        assert_eq!(trade_id.as_str(), "trd456");
+        assert_eq!(instrument_id.as_str(), "BOND123");
+        assert_eq!(price_id.as_str(), "AAPL");
     }
 
     #[cfg(feature = "serde")]

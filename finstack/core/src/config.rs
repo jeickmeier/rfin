@@ -218,17 +218,6 @@ impl FinstackConfig {
     }
 }
 
-/// Backward-compatible wrapper: prefer `cfg.output_scale(ccy)` instead.
-#[deprecated(note = "Use FinstackConfig::output_scale method instead")]
-pub fn output_scale_for(cfg: &FinstackConfig, ccy: crate::currency::Currency) -> u32 {
-    cfg.output_scale(ccy)
-}
-
-/// Backward-compatible wrapper: prefer `cfg.ingest_scale(ccy)` instead.
-#[deprecated(note = "Use FinstackConfig::ingest_scale method instead")]
-pub fn ingest_scale_for(cfg: &FinstackConfig, ccy: crate::currency::Currency) -> u32 {
-    cfg.ingest_scale(ccy)
-}
 
 /// Build a snapshot of the current rounding context from a config.
 ///
@@ -276,55 +265,3 @@ pub fn results_meta(cfg: &FinstackConfig) -> ResultsMeta {
 }
 
 // No unit tests here rely on global configuration anymore.
-
-// -----------------------------------------------------------------------------
-// ConfigBuilder: Fluent builder API for FinstackConfig
-// -----------------------------------------------------------------------------
-
-/// Fluent builder for `FinstackConfig`.
-#[derive(Default)]
-pub struct ConfigBuilder {
-    mode: RoundingMode,
-    ingest_overrides: HashMap<crate::currency::Currency, u32>,
-    output_overrides: HashMap<crate::currency::Currency, u32>,
-}
-
-impl ConfigBuilder {
-    /// Start a new builder with defaults.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Set the rounding mode to apply.
-    pub fn with_rounding_mode(mut self, mode: RoundingMode) -> Self {
-        self.mode = mode;
-        self
-    }
-
-    /// Override ingest scale for a currency.
-    pub fn with_ingest_scale(mut self, ccy: crate::currency::Currency, scale: u32) -> Self {
-        self.ingest_overrides.insert(ccy, scale);
-        self
-    }
-
-    /// Override output scale for a currency.
-    pub fn with_output_scale(mut self, ccy: crate::currency::Currency, scale: u32) -> Self {
-        self.output_overrides.insert(ccy, scale);
-        self
-    }
-
-    /// Build the final `FinstackConfig`.
-    pub fn build(self) -> FinstackConfig {
-        FinstackConfig {
-            rounding: RoundingPolicy {
-                mode: self.mode,
-                ingest_scale: CurrencyScalePolicy {
-                    overrides: self.ingest_overrides,
-                },
-                output_scale: CurrencyScalePolicy {
-                    overrides: self.output_overrides,
-                },
-            },
-        }
-    }
-}

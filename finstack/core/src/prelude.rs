@@ -39,8 +39,8 @@ pub use crate::dates::{
 };
 pub use crate::error::{Error, InputError};
 pub use crate::types::{
-    Bps, CounterpartyId, CurveId, Id, InstrumentId, Percentage, PortfolioId, PositionId, Rate,
-    ScenarioId, Timestamp, TradeId, TypeTag,
+    Bps, CurveId, Id, InstrumentId, IndexId, Percentage, PriceId, Rate,
+    Timestamp, TypeTag,
 };
 // Expression engine - only re-export public items
 pub use crate::expr::CompiledExpr;
@@ -68,6 +68,6 @@ pub use crate::math::{
 
 // Configuration and policy management
 pub use crate::config::{
-    results_meta, rounding_context_from, ConfigBuilder, FinstackConfig, NumericMode,
+    results_meta, rounding_context_from, FinstackConfig, NumericMode,
     ResultsMeta, RoundingContext, RoundingMode, RoundingPolicy,
 };
