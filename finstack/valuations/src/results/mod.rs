@@ -5,5 +5,5 @@
 
 mod valuation_result;
 
-pub use valuation_result::ValuationResult;
 pub use finstack_core::config::ResultsMeta;
+pub use valuation_result::ValuationResult;

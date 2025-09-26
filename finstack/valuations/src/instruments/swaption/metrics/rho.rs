@@ -14,11 +14,7 @@ pub struct RhoCalculator;
 impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &Swaption = context.instrument_as()?;
-        let disc = context
-            .curves
-            .get_discount(
-                option.disc_id.clone(),
-            )?;
+        let disc = context.curves.get_discount(option.disc_id.clone())?;
 
         // Base price from context
         let base_price = context.base_value.amount();

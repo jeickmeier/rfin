@@ -14,7 +14,13 @@ impl MetricCalculator for BucketedDv01Calculator {
 
         let labels: Vec<String> = crate::metrics::standard_ir_dv01_buckets()
             .iter()
-            .map(|y| if *y < 1.0 { format!("{:.0}m", (y * 12.0).round()) } else { format!("{:.0}y", y) })
+            .map(|y| {
+                if *y < 1.0 {
+                    format!("{:.0}m", (y * 12.0).round())
+                } else {
+                    format!("{:.0}y", y)
+                }
+            })
             .collect();
 
         let as_of = context.as_of;
@@ -24,10 +30,9 @@ impl MetricCalculator for BucketedDv01Calculator {
             labels,
             1.0,
             move |temp_ctx| {
-                crate::instruments::repo::pricing::engine::RepoPricer::new().pv(&repo, temp_ctx, as_of)
+                crate::instruments::repo::pricing::engine::RepoPricer::new()
+                    .pv(&repo, temp_ctx, as_of)
             },
         )
     }
 }
-
-

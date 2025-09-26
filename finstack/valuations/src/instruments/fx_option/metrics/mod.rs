@@ -8,9 +8,9 @@ mod delta;
 mod gamma;
 mod implied_vol;
 mod rho;
+mod risk_bucketed_dv01;
 mod theta;
 mod vega;
-mod risk_bucketed_dv01;
 
 use crate::metrics::{MetricId, MetricRegistry};
 use std::sync::Arc;

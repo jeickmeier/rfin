@@ -2,12 +2,12 @@
 
 use super::cf;
 use super::schedule::kind_rank;
-use super::types::{FixedCouponSpec, CouponType};
-use crate::cashflow::primitives::{AmortizationSpec, CashFlow, CFKind};
+use super::types::{CouponType, FixedCouponSpec};
+use crate::cashflow::primitives::{AmortizationSpec, CFKind, CashFlow};
 use crate::instruments::common::discountable::Discountable;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, ScheduleBuilder};
 use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
+use finstack_core::dates::{Date, ScheduleBuilder};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
@@ -242,8 +242,7 @@ fn outstanding_by_date_dedup_and_values() {
     let end_by_date = s.outstanding_by_date();
 
     // 1) One entry per unique date
-    let unique_dates: std::collections::BTreeSet<Date> =
-        s.flows.iter().map(|cf| cf.date).collect();
+    let unique_dates: std::collections::BTreeSet<Date> = s.flows.iter().map(|cf| cf.date).collect();
     assert_eq!(end_by_date.len(), unique_dates.len());
     // Dates are ordered
     for ((d1, _), d2) in end_by_date.iter().zip(unique_dates.iter()) {

@@ -1,8 +1,8 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::F;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+use finstack_core::F;
 
 /// Asset Swap Spreads (Par and Market) using discount-curve annuity approximation.
 ///

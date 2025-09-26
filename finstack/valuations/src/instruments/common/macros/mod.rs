@@ -3,7 +3,6 @@
 //! This module provides derive-like macros for reducing boilerplate
 //! in instrument implementations.
 
-
 /// Generate a full instrument implementation:
 /// - Attributable
 /// - Instrument (including pricing methods)
@@ -98,7 +97,6 @@ macro_rules! impl_instrument_schedule_pv {
     };
 }
 
-
 /// Macro for generating convenience constructor methods.
 ///
 /// Creates static methods for common instrument patterns, reducing the need
@@ -122,4 +120,3 @@ macro_rules! impl_convenience_constructors {
         }
     };
 }
-

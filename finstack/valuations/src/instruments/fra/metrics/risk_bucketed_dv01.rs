@@ -15,9 +15,14 @@ impl MetricCalculator for BucketedDv01Calculator {
         // Standard IR buckets to labels
         let labels: Vec<String> = crate::metrics::standard_ir_dv01_buckets()
             .iter()
-            .map(|y| if *y < 1.0 { format!("{:.0}m", (y * 12.0).round()) } else { format!("{:.0}y", y) })
+            .map(|y| {
+                if *y < 1.0 {
+                    format!("{:.0}m", (y * 12.0).round())
+                } else {
+                    format!("{:.0}y", y)
+                }
+            })
             .collect();
-
 
         let curves = context.curves.clone();
         let reval = move |
@@ -50,16 +55,9 @@ impl MetricCalculator for BucketedDv01Calculator {
             Ok(finstack_core::money::Money::new(signed_pv, fra.notional.currency()))
         };
 
-        let total = crate::metrics::compute_bucketed_dv01_series(
-            context,
-            &disc_id,
-            labels,
-            1.0,
-            reval,
-        )?;
+        let total =
+            crate::metrics::compute_bucketed_dv01_series(context, &disc_id, labels, 1.0, reval)?;
 
         Ok(total)
     }
 }
-
-

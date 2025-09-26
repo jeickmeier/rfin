@@ -26,10 +26,7 @@ impl Default for SwaptionPricer {
 impl SwaptionPricer {
     /// Compute instrument NPV dispatching to SABR or Black as configured on the instrument.
     pub fn npv(&self, s: &Swaption, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        let disc = curves
-            .get_discount_ref(
-                s.disc_id.as_ref(),
-            )?;
+        let disc = curves.get_discount_ref(s.disc_id.as_ref())?;
         if s.sabr_params.is_some() {
             return self.price_sabr(s, disc, as_of);
         }

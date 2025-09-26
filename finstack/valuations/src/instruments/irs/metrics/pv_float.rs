@@ -16,9 +16,7 @@ impl MetricCalculator for FloatLegPvCalculator {
         let irs: &InterestRateSwap = context.instrument_as()?;
 
         let disc = context.curves.get_discount(irs.float.disc_id.clone())?;
-        let fwd = context
-            .curves
-            .get_forward(irs.float.fwd_id.clone())?;
+        let fwd = context.curves.get_forward(irs.float.fwd_id.clone())?;
         let base = disc.base_date();
 
         let sched = crate::cashflow::builder::build_dates(

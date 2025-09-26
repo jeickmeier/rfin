@@ -5,8 +5,8 @@
 
 use crate::currency::Currency;
 use crate::dates::calendar::business_days::BusinessDayConvention;
-use time::Date;
 use thiserror::Error;
+use time::Date;
 
 /// Detailed user input validation failures.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]

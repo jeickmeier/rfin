@@ -503,7 +503,8 @@ impl DiscountCurveBuilder {
         let knots = knots_vec.into_boxed_slice();
         let dfs = dfs_vec.into_boxed_slice();
 
-        let interp = build_interp_input_error(self.style, knots.clone(), dfs.clone(), self.extrapolation)?;
+        let interp =
+            build_interp_input_error(self.style, knots.clone(), dfs.clone(), self.extrapolation)?;
 
         Ok(DiscountCurve {
             id: self.id,
@@ -517,7 +518,6 @@ impl DiscountCurveBuilder {
         })
     }
 }
-
 
 // -----------------------------------------------------------------------------
 // Minimal trait implementation for polymorphism where needed

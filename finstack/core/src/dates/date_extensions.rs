@@ -4,7 +4,9 @@
 
 #![allow(clippy::wrong_self_convention)]
 
-use crate::dates::calendar::business_days::{seek_business_day, BusinessDayConvention, MAX_BUSINESS_DAY_SEARCH_DAYS};
+use crate::dates::calendar::business_days::{
+    seek_business_day, BusinessDayConvention, MAX_BUSINESS_DAY_SEARCH_DAYS,
+};
 use crate::dates::periods::FiscalConfig;
 use crate::dates::utils::days_in_month;
 use time::{Date, Duration, OffsetDateTime, Weekday};
@@ -154,14 +156,13 @@ impl DateExt for Date {
             } else {
                 BusinessDayConvention::Preceding
             };
-            current = seek_business_day(start, step, MAX_BUSINESS_DAY_SEARCH_DAYS, cal)
-                .ok_or({
-                    crate::Error::Input(crate::error::InputError::AdjustmentFailed {
-                        date: self,
-                        convention: conv,
-                        max_days: MAX_BUSINESS_DAY_SEARCH_DAYS,
-                    })
-                })?;
+            current = seek_business_day(start, step, MAX_BUSINESS_DAY_SEARCH_DAYS, cal).ok_or({
+                crate::Error::Input(crate::error::InputError::AdjustmentFailed {
+                    date: self,
+                    convention: conv,
+                    max_days: MAX_BUSINESS_DAY_SEARCH_DAYS,
+                })
+            })?;
         }
         Ok(current)
     }
@@ -396,8 +397,8 @@ mod tests {
 
     #[test]
     fn test_add_business_days_with_holidays() {
-        use crate::dates::HolidayCalendar;
         use crate::dates::calendar::TARGET2;
+        use crate::dates::HolidayCalendar;
 
         let cal = TARGET2;
 

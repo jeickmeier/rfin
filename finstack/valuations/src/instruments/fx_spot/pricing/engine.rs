@@ -54,7 +54,7 @@ impl FxSpotPricer {
                 policy: finstack_core::money::fx::FxConversionPolicy,
             ) -> finstack_core::Result<finstack_core::money::fx::FxRate> {
                 let result = self.m.rate(finstack_core::money::fx::FxQuery::with_policy(
-                    from, to, on, policy
+                    from, to, on, policy,
                 ))?;
                 Ok(result.rate)
             }

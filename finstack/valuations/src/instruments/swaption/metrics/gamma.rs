@@ -15,11 +15,7 @@ pub struct GammaCalculator;
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &Swaption = context.instrument_as()?;
-        let disc = context
-            .curves
-            .get_discount_ref(
-                option.disc_id.as_ref(),
-            )?;
+        let disc = context.curves.get_discount_ref(option.disc_id.as_ref())?;
         let pricer = crate::instruments::swaption::pricing::SwaptionPricer;
         let t = pricer.year_fraction(context.as_of, option.expiry, option.day_count)?;
 

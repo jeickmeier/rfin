@@ -367,11 +367,12 @@ impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
             ));
         }
 
-        // Simple forward function using available market data  
+        // Simple forward function using available market data
         // For equity-like underlyings, calculate F(t) = S₀ × exp((r - q) × t)
         use finstack_core::market_data::scalars::MarketScalar;
-        
-        let spot = base_context.price(&underlying)
+
+        let spot = base_context
+            .price(&underlying)
             .map(|scalar| match scalar {
                 MarketScalar::Price(money) => money.amount(),
                 MarketScalar::Unitless(value) => *value,
@@ -379,7 +380,8 @@ impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
             .unwrap_or(100.0);
 
         let div_yield_key = format!("{}-DIVYIELD", underlying);
-        let dividend_yield = base_context.price(&div_yield_key)
+        let dividend_yield = base_context
+            .price(&div_yield_key)
             .map(|scalar| match scalar {
                 MarketScalar::Unitless(yield_val) => *yield_val,
                 _ => 0.0,

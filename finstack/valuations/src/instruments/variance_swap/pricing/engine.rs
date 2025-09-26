@@ -14,10 +14,7 @@ use crate::instruments::variance_swap::types::VarianceSwap;
 /// Price a variance swap as of `as_of` using curves in `context`.
 pub fn price(inst: &VarianceSwap, context: &MarketContext, as_of: Date) -> Result<Money> {
     // Get discount curve
-    let disc = context
-        .get_discount_ref(
-            inst.disc_id.as_str(),
-        )?;
+    let disc = context.get_discount_ref(inst.disc_id.as_str())?;
 
     // If expired, compute final payoff from realized variance (if any prices)
     if as_of >= inst.maturity {

@@ -38,7 +38,6 @@ pub use equity::underlying;
 pub use equity::metrics as equity_metrics;
 pub mod structured_credit;
 
-
 // === Core Instrument Types ===
 pub use basis_swap::BasisSwap;
 pub use basket::Basket;

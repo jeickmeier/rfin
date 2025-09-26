@@ -79,10 +79,7 @@ impl TrsEngine {
         model: &impl TrsReturnModel,
     ) -> Result<Money> {
         // Get discount curve
-        let disc = context
-            .get_discount_ref(
-            params.disc_id,
-        )?;
+        let disc = context.get_discount_ref(params.disc_id)?;
 
         // Build schedule
         let period_schedule = params.schedule.period_schedule();
@@ -151,14 +148,8 @@ impl TrsEngine {
         let disc_curve_id = financing.disc_id.as_str();
         let fwd_curve_id = financing.fwd_id.as_str();
 
-        let disc = context
-            .get_discount_ref(
-            disc_curve_id,
-        )?;
-        let fwd = context
-            .get_forward_ref(
-            fwd_curve_id,
-        )?;
+        let disc = context.get_discount_ref(disc_curve_id)?;
+        let fwd = context.get_forward_ref(fwd_curve_id)?;
 
         // Build schedule
         let period_schedule = schedule.period_schedule();
@@ -217,10 +208,7 @@ impl TrsEngine {
     ) -> Result<F> {
         // Get discount curve
         let disc_curve_id = financing.disc_id.as_str();
-        let disc = context
-            .get_discount_ref(
-            disc_curve_id,
-        )?;
+        let disc = context.get_discount_ref(disc_curve_id)?;
 
         // Build schedule
         let period_schedule = schedule.period_schedule();

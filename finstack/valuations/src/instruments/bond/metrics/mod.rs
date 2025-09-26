@@ -10,10 +10,10 @@ pub mod duration_modified;
 pub mod i_spread;
 pub mod oas;
 pub mod prices;
+pub mod risk_bucketed_dv01;
 pub mod ytm;
 pub mod ytw;
 pub mod z_spread;
-pub mod risk_bucketed_dv01;
 
 pub use accrued::AccruedInterestCalculator;
 pub use asw::{AssetSwapMarketCalculator, AssetSwapParCalculator};
@@ -25,10 +25,10 @@ pub use duration_modified::ModifiedDurationCalculator;
 pub use i_spread::ISpreadCalculator;
 pub use oas::OasCalculator;
 pub use prices::{CleanPriceCalculator, DirtyPriceCalculator};
+pub use risk_bucketed_dv01::BucketedDv01Calculator;
 pub use ytm::YtmCalculator;
 pub use ytw::YtwCalculator;
 pub use z_spread::ZSpreadCalculator;
-pub use risk_bucketed_dv01::BucketedDv01Calculator;
 
 /// Registers all bond metrics to a registry.
 pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {

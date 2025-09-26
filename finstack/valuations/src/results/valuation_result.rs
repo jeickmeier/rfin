@@ -32,9 +32,8 @@ impl ValuationResult {
         // Default stamping uses default configuration; callers needing custom
         // policy should construct core `ResultsMeta` and use
         // `stamped_with_meta` to avoid creating a fresh config here.
-        let meta = finstack_core::config::results_meta(
-            &finstack_core::config::FinstackConfig::default(),
-        );
+        let meta =
+            finstack_core::config::results_meta(&finstack_core::config::FinstackConfig::default());
         Self::stamped_with_meta(instrument_id, as_of, value, meta)
     }
 
@@ -102,5 +101,3 @@ impl ValuationResult {
             .unwrap_or_default()
     }
 }
-
-

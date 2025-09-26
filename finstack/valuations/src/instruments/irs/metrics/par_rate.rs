@@ -28,9 +28,7 @@ impl MetricCalculator for ParRateCalculator {
         match method {
             ParRateMethod::ForwardBased => {
                 // float PV / (N * annuity)
-                let fwd = context
-                    .curves
-                    .get_forward(irs.float.fwd_id.clone())?;
+                let fwd = context.curves.get_forward(irs.float.fwd_id.clone())?;
 
                 let annuity = context
                     .computed

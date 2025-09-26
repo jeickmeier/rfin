@@ -218,7 +218,6 @@ impl FinstackConfig {
     }
 }
 
-
 /// Build a snapshot of the current rounding context from a config.
 ///
 /// The snapshot captures the concrete overrides used during valuation and can

@@ -30,10 +30,7 @@ impl InflationSwapPricer {
         curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<Money> {
-        let disc = curves
-            .get_discount_ref(
-            s.disc_id,
-        )?;
+        let disc = curves.get_discount_ref(s.disc_id)?;
         let base = disc.base_date();
 
         let tau_accrual = s.dc.year_fraction(
@@ -63,10 +60,7 @@ impl InflationSwapPricer {
         curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<Money> {
-        let disc = curves
-            .get_discount_ref(
-            s.disc_id,
-        )?;
+        let disc = curves.get_discount_ref(s.disc_id)?;
         let base = disc.base_date();
 
         let inflation_index = curves.inflation_index_ref(s.inflation_id).ok_or_else(|| {
@@ -75,11 +69,7 @@ impl InflationSwapPricer {
             })
         })?;
 
-        let inflation_curve =
-            curves
-                .get_inflation_ref(
-                    s.inflation_id,
-                )?;
+        let inflation_curve = curves.get_inflation_ref(s.inflation_id)?;
 
         let i_start = inflation_index.value_on(s.start)?;
 
@@ -122,14 +112,21 @@ impl InflationSwapPricer {
     }
 
     /// Net present value of the instrument via legs.
-    pub fn npv(&self, s: &InflationSwap, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+    pub fn npv(
+        &self,
+        s: &InflationSwap,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<Money> {
         let pv_fixed = self.pv_fixed_leg(s, curves, as_of)?;
         let pv_inflation = self.pv_inflation_leg(s, curves, as_of)?;
         match s.side {
-            crate::instruments::inflation_swap::types::PayReceiveInflation::ReceiveFixed =>
-                pv_fixed - pv_inflation,
-            crate::instruments::inflation_swap::types::PayReceiveInflation::PayFixed =>
-                pv_inflation - pv_fixed,
+            crate::instruments::inflation_swap::types::PayReceiveInflation::ReceiveFixed => {
+                pv_fixed - pv_inflation
+            }
+            crate::instruments::inflation_swap::types::PayReceiveInflation::PayFixed => {
+                pv_inflation - pv_fixed
+            }
         }
     }
 }

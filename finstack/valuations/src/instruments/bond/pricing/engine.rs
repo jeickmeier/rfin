@@ -1,8 +1,8 @@
 use finstack_core::dates::Date;
+use finstack_core::dates::DateExt;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use finstack_core::dates::DateExt;
 
 use crate::cashflow::traits::CashflowProvider;
 // Discountable trait not required after switching to curve day-count path
@@ -16,10 +16,7 @@ impl BondEngine {
     /// Price a bond using discount curve present value calculation.
     pub fn price(bond: &Bond, context: &MarketContext, as_of: Date) -> Result<Money> {
         let flows = bond.build_schedule(context, as_of)?;
-        let disc = context
-            .get_discount(
-            bond.disc_id.as_str(),
-        )?;
+        let disc = context.get_discount(bond.disc_id.as_str())?;
         // Discount using the curve's own day-count convention for time mapping.
         // Transform (date, amount) -> (df_on_date_curve(date) * amount) and sum.
         if flows.is_empty() {

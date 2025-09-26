@@ -10,9 +10,7 @@ use crate::instruments::cds::{
     cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap, PayReceive,
 };
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::{
-    HazardCurve, ParInterp, Seniority,
-};
+use finstack_core::market_data::term_structures::{HazardCurve, ParInterp, Seniority};
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
@@ -282,10 +280,7 @@ impl Calibrator<CreditQuote, HazardCurve> for HazardCurveCalibrator {
         instruments: &[CreditQuote],
         base_context: &MarketContext,
     ) -> Result<(HazardCurve, CalibrationReport)> {
-        let disc = base_context
-            .get_discount_ref(
-            self.discount_curve_id.clone(),
-        )?;
+        let disc = base_context.get_discount_ref(self.discount_curve_id.clone())?;
         let solver = crate::calibration::create_simple_solver(&self.config);
         self.bootstrap_internal(instruments, &solver, Some(disc))
     }
@@ -295,9 +290,9 @@ impl Calibrator<CreditQuote, HazardCurve> for HazardCurveCalibrator {
 mod tests {
     use super::*;
     use finstack_core::dates::Date;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
     use time::Month;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
     fn test_discount_curve() -> DiscountCurve {
         DiscountCurve::builder("USD-OIS")
@@ -362,9 +357,7 @@ mod tests {
 
         // Get the discount curve from the market context
         let disc = market_context
-            .get_discount_ref(
-                "USD-OIS",
-            )
+            .get_discount_ref("USD-OIS")
             .expect("discount curve not found");
 
         // Reprice each quoted CDS and assert PV per $1MM is within $1

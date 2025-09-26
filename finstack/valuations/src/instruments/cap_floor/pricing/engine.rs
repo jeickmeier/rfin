@@ -29,14 +29,8 @@ impl IrOptionPricer {
         use crate::instruments::cap_floor::pricing::black as black_ir;
 
         // Get market curves
-        let disc_curve = curves
-            .get_discount_ref(
-                s.disc_id.as_ref(),
-            )?;
-        let fwd_curve = curves
-            .get_forward_ref(
-                s.forward_id.as_ref(),
-            )?;
+        let disc_curve = curves.get_discount_ref(s.disc_id.as_ref())?;
+        let fwd_curve = curves.get_forward_ref(s.forward_id.as_ref())?;
         let vol_surface = if s.pricing_overrides.implied_volatility.is_none() {
             Some(curves.surface_ref(s.vol_id)?)
         } else {

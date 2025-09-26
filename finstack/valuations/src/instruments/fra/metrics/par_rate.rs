@@ -21,11 +21,7 @@ impl MetricCalculator for FraParRateCalculator {
         let fra: &ForwardRateAgreement = context.instrument_as()?;
 
         // Base date for time mapping (consistent with engine and IRS metrics)
-        let disc = context
-            .curves
-            .get_discount_ref(
-            fra.disc_id.as_str(),
-        )?;
+        let disc = context.curves.get_discount_ref(fra.disc_id.as_str())?;
         let base = disc.base_date();
 
         // Compute start/end times and guard zero-length periods
@@ -59,11 +55,7 @@ impl MetricCalculator for FraParRateCalculator {
         }
 
         // Forward rate over [t_start, t_end]
-        let fwd = context
-            .curves
-            .get_forward_ref(
-            fra.forward_id.as_str(),
-        )?;
+        let fwd = context.curves.get_forward_ref(fra.forward_id.as_str())?;
         Ok(fwd.rate_period(t_start, t_end))
     }
 }

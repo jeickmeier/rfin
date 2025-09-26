@@ -4,11 +4,10 @@ mod common;
 
 use common::make_date;
 use finstack_core::dates::calendar::{
-    calendar_by_id, ALL_IDS,
-    ASX as Asx, AUCE as Auce, BRBD as Brbd, CATO as Cato, CHZH as Chzh, 
-    CME as Cme, CNBE as Cnbe, DEFR as Defr, GBLO as Gblo, HKEX as Hkex,
-    HKHK as Hkhk, JPTO as Jpto, JPX as Jpx, NYSE as Nyse, SGSI as Sgsi,
-    SIFMA as Sifma, SSE as Sse, TARGET2 as Target2, USNY as Usny,
+    calendar_by_id, ALL_IDS, ASX as Asx, AUCE as Auce, BRBD as Brbd, CATO as Cato, CHZH as Chzh,
+    CME as Cme, CNBE as Cnbe, DEFR as Defr, GBLO as Gblo, HKEX as Hkex, HKHK as Hkhk, JPTO as Jpto,
+    JPX as Jpx, NYSE as Nyse, SGSI as Sgsi, SIFMA as Sifma, SSE as Sse, TARGET2 as Target2,
+    USNY as Usny,
 };
 use finstack_core::dates::{CalendarRegistry, HolidayCalendar};
 

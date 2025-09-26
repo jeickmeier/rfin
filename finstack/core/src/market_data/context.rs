@@ -183,7 +183,6 @@ impl CurveStorage {
     }
 }
 
-
 // -----------------------------------------------------------------------------
 // Serde: move CurveState and (De)Serialize impls here
 // -----------------------------------------------------------------------------
@@ -687,19 +686,24 @@ impl MarketContext {
     // -----------------------------------------------------------------------------
 
     /// Helper method to extract curve with type checking and error handling
-    fn get_curve_with_type_check<T, F>(&self, id: &str, expected_type: &'static str, extractor: F) -> Result<T>
+    fn get_curve_with_type_check<T, F>(
+        &self,
+        id: &str,
+        expected_type: &'static str,
+        extractor: F,
+    ) -> Result<T>
     where
         F: FnOnce(&CurveStorage) -> Option<T>,
     {
         match self.curves.get(id) {
-            Some(storage) => {
-                extractor(storage).ok_or_else(|| {
-                    crate::error::Error::Validation(format!(
-                        "Type mismatch: curve '{}' is '{}', expected '{}'",
-                        id, storage.curve_type(), expected_type
-                    ))
-                })
-            }
+            Some(storage) => extractor(storage).ok_or_else(|| {
+                crate::error::Error::Validation(format!(
+                    "Type mismatch: curve '{}' is '{}', expected '{}'",
+                    id,
+                    storage.curve_type(),
+                    expected_type
+                ))
+            }),
             None => Err(crate::error::InputError::NotFound { id: id.to_string() }.into()),
         }
     }
@@ -723,9 +727,7 @@ impl MarketContext {
     /// Get a hazard curve by identifier.
     pub fn get_hazard(&self, id: impl AsRef<str>) -> Result<Arc<HazardCurve>> {
         let id_str = id.as_ref();
-        self.get_curve_with_type_check(id_str, "Hazard", |storage| {
-            storage.hazard().map(Arc::clone)
-        })
+        self.get_curve_with_type_check(id_str, "Hazard", |storage| storage.hazard().map(Arc::clone))
     }
 
     /// Get an inflation curve by identifier.
@@ -750,10 +752,14 @@ impl MarketContext {
         match self.curves.get(id_str) {
             Some(CurveStorage::Discount(curve)) => Ok(curve.as_ref()),
             Some(storage) => Err(crate::error::Error::Validation(format!(
-                "Type mismatch: curve '{}' is '{}', expected 'Discount'", 
-                id_str, storage.curve_type()
+                "Type mismatch: curve '{}' is '{}', expected 'Discount'",
+                id_str,
+                storage.curve_type()
             ))),
-            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
+            None => Err(crate::error::InputError::NotFound {
+                id: id_str.to_string(),
+            }
+            .into()),
         }
     }
 
@@ -763,10 +769,14 @@ impl MarketContext {
         match self.curves.get(id_str) {
             Some(CurveStorage::Forward(curve)) => Ok(curve.as_ref()),
             Some(storage) => Err(crate::error::Error::Validation(format!(
-                "Type mismatch: curve '{}' is '{}', expected 'Forward'", 
-                id_str, storage.curve_type()
+                "Type mismatch: curve '{}' is '{}', expected 'Forward'",
+                id_str,
+                storage.curve_type()
             ))),
-            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
+            None => Err(crate::error::InputError::NotFound {
+                id: id_str.to_string(),
+            }
+            .into()),
         }
     }
 
@@ -776,10 +786,14 @@ impl MarketContext {
         match self.curves.get(id_str) {
             Some(CurveStorage::Hazard(curve)) => Ok(curve.as_ref()),
             Some(storage) => Err(crate::error::Error::Validation(format!(
-                "Type mismatch: curve '{}' is '{}', expected 'Hazard'", 
-                id_str, storage.curve_type()
+                "Type mismatch: curve '{}' is '{}', expected 'Hazard'",
+                id_str,
+                storage.curve_type()
             ))),
-            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
+            None => Err(crate::error::InputError::NotFound {
+                id: id_str.to_string(),
+            }
+            .into()),
         }
     }
 
@@ -789,10 +803,14 @@ impl MarketContext {
         match self.curves.get(id_str) {
             Some(CurveStorage::Inflation(curve)) => Ok(curve.as_ref()),
             Some(storage) => Err(crate::error::Error::Validation(format!(
-                "Type mismatch: curve '{}' is '{}', expected 'Inflation'", 
-                id_str, storage.curve_type()
+                "Type mismatch: curve '{}' is '{}', expected 'Inflation'",
+                id_str,
+                storage.curve_type()
             ))),
-            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
+            None => Err(crate::error::InputError::NotFound {
+                id: id_str.to_string(),
+            }
+            .into()),
         }
     }
 
@@ -802,13 +820,16 @@ impl MarketContext {
         match self.curves.get(id_str) {
             Some(CurveStorage::BaseCorrelation(curve)) => Ok(curve.as_ref()),
             Some(storage) => Err(crate::error::Error::Validation(format!(
-                "Type mismatch: curve '{}' is '{}', expected 'BaseCorrelation'", 
-                id_str, storage.curve_type()
+                "Type mismatch: curve '{}' is '{}', expected 'BaseCorrelation'",
+                id_str,
+                storage.curve_type()
             ))),
-            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
+            None => Err(crate::error::InputError::NotFound {
+                id: id_str.to_string(),
+            }
+            .into()),
         }
     }
-
 
     /// Clone a volatility surface by identifier.
     ///
@@ -1320,31 +1341,41 @@ impl MarketContext {
             if let Ok(original) = self.get_discount_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = bumped.id().clone();
-                    new_context.curves.insert(bumped_id, CurveStorage::Discount(Arc::new(bumped)));
+                    new_context
+                        .curves
+                        .insert(bumped_id, CurveStorage::Discount(Arc::new(bumped)));
                     found = true;
                 }
             } else if let Ok(original) = self.get_forward_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = bumped.id().clone();
-                    new_context.curves.insert(bumped_id, CurveStorage::Forward(Arc::new(bumped)));
+                    new_context
+                        .curves
+                        .insert(bumped_id, CurveStorage::Forward(Arc::new(bumped)));
                     found = true;
                 }
             } else if let Ok(original) = self.get_hazard_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = bumped.id().clone();
-                    new_context.curves.insert(bumped_id, CurveStorage::Hazard(Arc::new(bumped)));
+                    new_context
+                        .curves
+                        .insert(bumped_id, CurveStorage::Hazard(Arc::new(bumped)));
                     found = true;
                 }
             } else if let Ok(original) = self.get_inflation_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = bumped.id().clone();
-                    new_context.curves.insert(bumped_id, CurveStorage::Inflation(Arc::new(bumped)));
+                    new_context
+                        .curves
+                        .insert(bumped_id, CurveStorage::Inflation(Arc::new(bumped)));
                     found = true;
                 }
             } else if let Ok(original) = self.get_base_correlation_ref(cid) {
                 if let Some(bumped) = original.apply_bump(bump_spec) {
                     let bumped_id = bumped.id().clone();
-                    new_context.curves.insert(bumped_id, CurveStorage::BaseCorrelation(Arc::new(bumped)));
+                    new_context
+                        .curves
+                        .insert(bumped_id, CurveStorage::BaseCorrelation(Arc::new(bumped)));
                     found = true;
                 }
             }
@@ -1352,13 +1383,13 @@ impl MarketContext {
             if !found {
                 return Err(crate::error::InputError::NotFound {
                     id: cid.to_string(),
-                }.into());
+                }
+                .into());
             }
         }
 
         Ok(new_context)
     }
-
 }
 
 // -----------------------------------------------------------------------------

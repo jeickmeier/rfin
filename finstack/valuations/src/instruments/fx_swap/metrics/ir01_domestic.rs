@@ -19,16 +19,8 @@ impl MetricCalculator for DomesticIR01 {
         let as_of = context.as_of;
         let original_pv = fx_swap.value(&curves, as_of)?;
 
-        let domestic_disc =
-            curves
-                .get_discount(
-                    fx_swap.domestic_disc_id,
-                )?;
-        let foreign_disc =
-            curves
-                .get_discount(
-                    fx_swap.foreign_disc_id,
-                )?;
+        let domestic_disc = curves.get_discount(fx_swap.domestic_disc_id)?;
+        let foreign_disc = curves.get_discount(fx_swap.foreign_disc_id)?;
 
         // Bump domestic curve by 1bp: df_bumped(t) = df(t) * exp(-bp * t)
         let bump = 0.0001;
@@ -70,7 +62,11 @@ impl MetricCalculator for DomesticIR01 {
             Some(rate) => rate,
             None => {
                 (**fx_matrix)
-                    .rate(FxQuery::new(fx_swap.base_currency, fx_swap.quote_currency, as_of))?
+                    .rate(FxQuery::new(
+                        fx_swap.base_currency,
+                        fx_swap.quote_currency,
+                        as_of,
+                    ))?
                     .rate
             }
         };
@@ -87,7 +83,11 @@ impl MetricCalculator for DomesticIR01 {
 
         // Convert base leg to quote at spot
         let spot = (**fx_matrix)
-            .rate(FxQuery::new(fx_swap.base_currency, fx_swap.quote_currency, as_of))?
+            .rate(FxQuery::new(
+                fx_swap.base_currency,
+                fx_swap.quote_currency,
+                as_of,
+            ))?
             .rate;
 
         let bumped_pv = pv_for_leg * spot + pv_dom_leg;

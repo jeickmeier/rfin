@@ -61,9 +61,7 @@ impl CDSConvention {
 }
 
 // Re-export from common parameters
-pub use crate::instruments::common::parameters::legs::{
-    PremiumLegSpec, ProtectionLegSpec,
-};
+pub use crate::instruments::common::parameters::legs::{PremiumLegSpec, ProtectionLegSpec};
 
 /// Premium leg specification
 #[derive(Clone, Debug)]
@@ -394,9 +392,7 @@ impl CreditDefaultSwap {
             self,
             curves,
             curves
-                .get_discount_ref(
-                    self.premium.disc_id.clone(),
-                )?
+                .get_discount_ref(self.premium.disc_id.clone())?
                 .base_date(),
         )
     }
@@ -407,10 +403,6 @@ impl_instrument!(
     "CreditDefaultSwap",
     pv = |s, curves, _as_of| {
         // Delegate fully to pricing engine
-        crate::instruments::cds::pricing::engine::CDSPricer::new().npv_market(
-            s,
-            curves,
-            _as_of,
-        )
+        crate::instruments::cds::pricing::engine::CDSPricer::new().npv_market(s, curves, _as_of)
     }
 );

@@ -211,12 +211,11 @@ impl Default for FxConfig {
     fn default() -> Self {
         Self {
             pivot_currency: Currency::USD,
-            enable_triangulation: false,   // Disabled by default - simpler
-            cache_capacity: 256,           // Smaller cache - simpler
+            enable_triangulation: false, // Disabled by default - simpler
+            cache_capacity: 256,         // Smaller cache - simpler
         }
     }
 }
-
 
 /// Result of an FX rate lookup with simple triangulation info.
 ///
@@ -739,7 +738,6 @@ impl FxMatrix {
             quotes.get(&Pair(to, from)).copied(),
         )
     }
-
 }
 
 #[cfg(test)]

@@ -120,7 +120,6 @@ pub struct CreditIndexDataBuilder {
 }
 
 impl CreditIndexDataBuilder {
-
     /// Set the number of constituents in the index.
     pub fn num_constituents(mut self, count: u16) -> Self {
         self.num_constituents = Some(count);

@@ -8,12 +8,12 @@
 //! PV = sign × (PV_fixed − PV_float) with sign determined by `PayReceive`.
 
 use crate::instruments::irs::types::{InterestRateSwap, PayReceive};
+use finstack_core::dates::calendar::calendar_by_id;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 use finstack_core::{dates::DayCountCtx, dates::ScheduleBuilder};
-use finstack_core::dates::calendar::calendar_by_id;
 
 /// Common IRS pricing engine providing core calculation methods.
 pub struct IrsEngine;
@@ -73,9 +73,7 @@ impl IrsEngine {
                                 annuity += alpha * df;
                                 prev = d;
                             }
-                            pv += irs.notional.amount()
-                                * (irs.float.spread_bp * 1e-4)
-                                * annuity;
+                            pv += irs.notional.amount() * (irs.float.spread_bp * 1e-4) * annuity;
                         }
                     }
                     Money::new(pv, irs.notional.currency())

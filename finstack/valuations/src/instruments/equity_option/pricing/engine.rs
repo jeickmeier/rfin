@@ -49,10 +49,7 @@ pub fn collect_inputs(
     let t = year_fraction(as_of, inst.expiry, inst.day_count)?;
 
     // Discount curve -> zero rate
-    let disc_curve = curves
-        .get_discount_ref(
-        inst.disc_id.as_str(),
-    )?;
+    let disc_curve = curves.get_discount_ref(inst.disc_id.as_str())?;
     let r = disc_curve.zero(t);
 
     // Spot from scalar id (unitless or price)

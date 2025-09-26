@@ -68,20 +68,28 @@ fn emit_fixed_coupons_on(
 ) -> finstack_core::Result<(f64, Vec<CashFlow>)> {
     let mut pik_to_add = 0.0;
     let mut new_flows: Vec<CashFlow> = Vec::new();
-    
+
     for (spec, _dates, prev_map, first_last) in fixed_schedules {
         if let Some(prev) = prev_map.get(&d).copied() {
-            let base_out = *outstanding_after.get(&prev).unwrap_or(&outstanding_fallback);
-            
-            let yf = spec.dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
+            let base_out = *outstanding_after
+                .get(&prev)
+                .unwrap_or(&outstanding_fallback);
+
+            let yf =
+                spec.dc
+                    .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
             let coupon_total = base_out * (spec.rate * yf);
             let (cash_pct, pik_pct) = spec.coupon_type.split_parts()?;
-            
+
             let cash_amt = coupon_total * cash_pct;
             let pik_amt = coupon_total * pik_pct;
-            
+
             if cash_amt > 0.0 {
-                let kind = if first_last.contains(&d) { CFKind::Stub } else { CFKind::Fixed };
+                let kind = if first_last.contains(&d) {
+                    CFKind::Stub
+                } else {
+                    CFKind::Fixed
+                };
                 new_flows.push(CashFlow {
                     date: d,
                     reset_date: None,
@@ -90,7 +98,7 @@ fn emit_fixed_coupons_on(
                     accrual_factor: yf,
                 });
             }
-            
+
             if pik_amt > 0.0 {
                 new_flows.push(CashFlow {
                     date: d,
@@ -115,26 +123,30 @@ fn emit_float_coupons_on(
 ) -> finstack_core::Result<(f64, Vec<CashFlow>)> {
     let mut pik_to_add = 0.0;
     let mut new_flows: Vec<CashFlow> = Vec::new();
-    
+
     for (spec, _dates, prev_map) in float_schedules {
         if let Some(prev) = prev_map.get(&d).copied() {
-            let base_out = *outstanding_after.get(&prev).unwrap_or(&outstanding_fallback);
-            
-            let yf = spec.dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
+            let base_out = *outstanding_after
+                .get(&prev)
+                .unwrap_or(&outstanding_fallback);
+
+            let yf =
+                spec.dc
+                    .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
             let margin_rate = (spec.margin_bp * 1e-4) * spec.gearing;
             let coupon_total = base_out * (margin_rate * yf);
-            
+
             let mut reset_date = d - Duration::days(spec.reset_lag_days as i64);
             if let Some(id) = spec.calendar_id {
                 if let Some(cal) = calendar_by_id(id) {
                     reset_date = adjust(reset_date, spec.bdc, cal)?;
                 }
             }
-            
+
             let (cash_pct, pik_pct) = spec.coupon_type.split_parts()?;
             let cash_amt = coupon_total * cash_pct;
             let pik_amt = coupon_total * pik_pct;
-            
+
             if cash_amt > 0.0 {
                 new_flows.push(CashFlow {
                     date: d,
@@ -144,7 +156,7 @@ fn emit_float_coupons_on(
                     accrual_factor: yf,
                 });
             }
-            
+
             if pik_amt > 0.0 {
                 new_flows.push(CashFlow {
                     date: d,
@@ -512,7 +524,8 @@ fn process_one_date(
         percent_per: amort_setup.percent_per,
         step_remaining_map: &amort_setup.step_remaining_map,
     };
-    let mut amort_flows = emit_amortization_on(d, ctx.notional, &mut state.outstanding, &amort_params)?;
+    let mut amort_flows =
+        emit_amortization_on(d, ctx.notional, &mut state.outstanding, &amort_params)?;
     state.flows.append(&mut amort_flows);
 
     // PIK capitalization
@@ -892,5 +905,3 @@ impl CashflowBuilder {
         })
     }
 }
-
-

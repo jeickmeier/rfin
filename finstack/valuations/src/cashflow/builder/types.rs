@@ -4,10 +4,10 @@
 //! `CashflowBuilder` to produce deterministic schedules.
 
 use finstack_core::dates::BusinessDayConvention;
-use finstack_core::types::CurveId;
 use finstack_core::dates::{Date, DayCount, Frequency, StubKind};
 use finstack_core::error::InputError;
 use finstack_core::money::Money;
+use finstack_core::types::CurveId;
 
 /// Coupon cashflow type for fixed/floating coupons.
 ///

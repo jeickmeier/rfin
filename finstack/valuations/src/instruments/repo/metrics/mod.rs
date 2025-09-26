@@ -22,8 +22,8 @@ pub mod funding_risk;
 pub mod implied_collateral_return;
 pub mod repo_interest;
 pub mod required_collateral;
-pub mod time_to_maturity;
 pub mod risk_bucketed_dv01;
+pub mod time_to_maturity;
 
 use crate::metrics::MetricRegistry;
 
@@ -93,10 +93,10 @@ mod tests {
     use crate::metrics::{MetricCalculator, MetricContext};
     use finstack_core::currency::Currency;
     use finstack_core::market_data::scalars::MarketScalar;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::MarketContext;
     use finstack_core::prelude::*;
     use time::Month;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
     fn test_date(year: i32, month: u8, day: u8) -> Date {
         Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()

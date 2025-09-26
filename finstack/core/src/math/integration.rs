@@ -278,13 +278,16 @@ where
 {
     #[allow(clippy::too_many_arguments)]
     fn adaptive_simpson<F2>(
-        f: F2, 
-        a: F, b: F, 
+        f: F2,
+        a: F,
+        b: F,
         tol: F,
-        fa: F, fb: F, fc: F,
+        fa: F,
+        fb: F,
+        fc: F,
         whole: F,
-        depth: usize, 
-        max_depth: usize
+        depth: usize,
+        max_depth: usize,
     ) -> Result<F, Error>
     where
         F2: Fn(F) -> F + Copy,
@@ -312,8 +315,10 @@ where
             Ok(total)
         } else {
             let mid_tol = tol / 2.0;
-            let left_result = adaptive_simpson(f, a, c, mid_tol, fa, fc, fd, left, depth + 1, max_depth)?;
-            let right_result = adaptive_simpson(f, c, b, mid_tol, fc, fb, fe, right, depth + 1, max_depth)?;
+            let left_result =
+                adaptive_simpson(f, a, c, mid_tol, fa, fc, fd, left, depth + 1, max_depth)?;
+            let right_result =
+                adaptive_simpson(f, c, b, mid_tol, fc, fb, fe, right, depth + 1, max_depth)?;
             Ok(left_result + right_result)
         }
     }

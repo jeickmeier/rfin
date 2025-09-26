@@ -307,14 +307,18 @@ impl VarianceSwap {
                     if let Ok(spot_scalar) = context.price(&self.underlying_id) {
                         let spot = match spot_scalar {
                             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-                            finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
+                            finstack_core::market_data::scalars::MarketScalar::Price(p) => {
+                                p.amount()
+                            }
                         };
                         let r = disc.zero(t.max(1e-8));
                         let q = context
                             .price(format!("{}-DIVYIELD", self.underlying_id))
                             .ok()
                             .and_then(|s| match s {
-                                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
+                                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => {
+                                    Some(*v)
+                                }
                                 _ => None,
                             })
                             .unwrap_or(0.0);
@@ -351,7 +355,8 @@ impl VarianceSwap {
                                 let sqrt_t = t.sqrt();
                                 // Black-Scholes helper
                                 let d1 = if vol > 0.0 && t > 0.0 {
-                                    ((spot / k).ln() + (r - q + 0.5 * vol * vol) * t) / (vol * sqrt_t)
+                                    ((spot / k).ln() + (r - q + 0.5 * vol * vol) * t)
+                                        / (vol * sqrt_t)
                                 } else {
                                     0.0
                                 };
@@ -363,7 +368,9 @@ impl VarianceSwap {
                                 let put = k * exp_mrt * finstack_core::math::norm_cdf(-d2)
                                     - spot * exp_mqt * finstack_core::math::norm_cdf(-d1);
 
-                                let qk = if (i == k0_idx) || ((k0 - k).abs() < 1e-12 && (fwd - k0).abs() < 1e-12) {
+                                let qk = if (i == k0_idx)
+                                    || ((k0 - k).abs() < 1e-12 && (fwd - k0).abs() < 1e-12)
+                                {
                                     0.5 * (call + put)
                                 } else if k < fwd {
                                     put
@@ -372,7 +379,8 @@ impl VarianceSwap {
                                 };
                                 sum += (dk / (k * k)) * qk;
                             }
-                            let variance = (2.0 * (r * t).exp() / t) * sum - (1.0 / t) * ((fwd / k0 - 1.0).powi(2));
+                            let variance = (2.0 * (r * t).exp() / t) * sum
+                                - (1.0 / t) * ((fwd / k0 - 1.0).powi(2));
                             if variance.is_finite() && variance > 0.0 {
                                 return Ok(variance);
                             }

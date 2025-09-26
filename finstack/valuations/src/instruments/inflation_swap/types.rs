@@ -76,6 +76,7 @@ impl_instrument!(
     "InflationSwap",
     pv = |s, curves, as_of| {
         // Delegate to pricing engine for parity with other instruments
-        crate::instruments::inflation_swap::pricing::InflationSwapPricer::new().npv(s, curves, as_of)
+        crate::instruments::inflation_swap::pricing::InflationSwapPricer::new()
+            .npv(s, curves, as_of)
     },
 );

@@ -505,9 +505,9 @@ pub mod short_rate_keys {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use time::Month;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
     fn create_test_curve() -> DiscountCurve {
         DiscountCurve::builder("USD-OIS")

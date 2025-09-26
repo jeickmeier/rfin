@@ -35,8 +35,6 @@ pub struct SwaptionMarketConvention {
 pub enum PaymentEstimation {
     /// Use proper schedule generation
     ProperSchedule,
-    /// Simple approximation (legacy, not recommended)
-    SimpleApproximation,
 }
 
 impl SwaptionMarketConvention {

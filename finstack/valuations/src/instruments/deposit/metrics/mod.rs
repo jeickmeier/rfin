@@ -15,16 +15,16 @@ mod df_end_from_quote;
 mod df_start;
 mod par_rate;
 mod quote_rate;
-mod year_fraction;
 mod risk_bucketed_dv01;
+mod year_fraction;
 
 pub use df_end::DfEndCalculator;
 pub use df_end_from_quote::DfEndFromQuoteCalculator;
 pub use df_start::DfStartCalculator;
 pub use par_rate::DepositParRateCalculator;
 pub use quote_rate::QuoteRateCalculator;
-pub use year_fraction::YearFractionCalculator;
 pub use risk_bucketed_dv01::BucketedDv01Calculator;
+pub use year_fraction::YearFractionCalculator;
 
 use crate::metrics::{MetricId, MetricRegistry};
 use std::sync::Arc;

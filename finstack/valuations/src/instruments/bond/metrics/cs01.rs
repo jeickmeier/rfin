@@ -27,11 +27,7 @@ impl MetricCalculator for Cs01Calculator {
             })?;
 
         // Get the base discount curve
-        let disc_curve = context
-            .curves
-            .get_discount_ref(
-                bond.disc_id.as_ref(),
-            )?;
+        let disc_curve = context.curves.get_discount_ref(bond.disc_id.as_ref())?;
 
         // CS01 calculation using spread approximation
         let bp = ONE_BP; // 1 basis point

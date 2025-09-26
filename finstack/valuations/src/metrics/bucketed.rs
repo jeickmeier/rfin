@@ -1,15 +1,15 @@
 //! Reusable helpers for bucketed risk metrics (DV01/CS01) using curve bumps.
-//! 
+//!
 //! Provides a generic function to compute bucketed DV01 for instruments that
 //! can be valued with discount and/or forward curves. Results are stored into
 //! `MetricContext` via structured series using stable composite keys.
 
 use crate::metrics::{MetricContext, MetricId};
-use finstack_core::money::Money;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::MarketContext;
+use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::F;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 /// Standard IR key-rate buckets in years used for quick demos/tests.
 /// Example: [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30]
@@ -142,5 +142,3 @@ where
     let total: F = series.iter().map(|(_, v)| *v).sum();
     Ok(total)
 }
-
-

@@ -11,9 +11,9 @@
 //! performed off the configured discount curve.
 
 use crate::instruments::repo::Repo;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 /// Pricing facade for `Repo` instruments.
 #[derive(Clone, Debug, Default)]
@@ -30,10 +30,7 @@ impl RepoPricer {
     /// This delegates day-count and cashflow math to `Repo` helpers while
     /// centralizing curve access and discounting in one place.
     pub fn pv(&self, repo: &Repo, context: &MarketContext, _as_of: Date) -> Result<Money> {
-        let disc_curve = context
-            .get_discount_ref(
-                repo.disc_id,
-            )?;
+        let disc_curve = context.get_discount_ref(repo.disc_id)?;
 
         // Total repayment at maturity (principal + interest)
         let total_repayment = repo.total_repayment()?;

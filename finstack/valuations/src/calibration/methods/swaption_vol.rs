@@ -134,10 +134,7 @@ impl SwaptionVolCalibrator {
         tenor_years: F,
         context: &MarketContext,
     ) -> Result<F> {
-        let disc = context
-            .get_discount_ref(
-            self.disc_id,
-        )?;
+        let disc = context.get_discount_ref(self.disc_id)?;
         let swap_start = expiry;
         let swap_end = add_months(expiry, (tenor_years * 12.0) as i32);
 
@@ -255,10 +252,7 @@ impl SwaptionVolCalibrator {
             attributes: Default::default(),
         };
 
-        let disc = context
-            .get_discount_ref(
-                self.disc_id,
-            )?;
+        let disc = context.get_discount_ref(self.disc_id)?;
         crate::instruments::swaption::pricing::SwaptionPricer.swap_annuity(
             &swaption,
             disc,
@@ -632,7 +626,12 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
             VolSurface::from_grid(&self.surface_id, target_expiries, target_tenors, &vol_grid)?;
 
         // 6. Create calibration report
-        let report = CalibrationReport::success_simple(all_residuals, 1)
+        let report = CalibrationReport::new(
+            all_residuals,
+            sabr_params.len(),
+            true,
+            "Swaption vol calibration completed",
+        )
             .with_metadata("calibrator", "SwaptionVolCalibrator")
             .with_metadata("vol_convention", format!("{:?}", self.vol_convention))
             .with_metadata("atm_convention", format!("{:?}", self.atm_convention))

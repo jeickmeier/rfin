@@ -114,24 +114,6 @@ impl InflationCurveCalibrator {
         self
     }
 
-    /// Apply lag to a given date based on the configured inflation lag.
-    ///
-    /// Note: Lag is typically applied during instrument pricing when using the inflation index,
-    /// not during curve calibration. The curve knots should represent the actual maturity dates.
-    /// This method is provided for consistency with InflationIndex behavior and potential future use.
-    pub fn apply_lag(&self, date: finstack_core::dates::Date) -> finstack_core::dates::Date {
-        match self.inflation_lag {
-            InflationLag::None => date,
-            InflationLag::Days(days) => date
-                .checked_sub(time::Duration::days(days as i64))
-                .unwrap_or(date),
-            InflationLag::Months(months) => {
-                finstack_core::dates::utils::add_months(date, -(months as i32))
-            }
-            _ => date, // Fallback for any unknown variants to satisfy non-exhaustive enum
-        }
-    }
-
     /// Apply seasonality adjustment to a CPI value based on the month.
     fn apply_seasonality(&self, cpi_value: F, date: finstack_core::dates::Date) -> F {
         if let Some(factors) = &self.seasonality_adjustments {
@@ -172,7 +154,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
                 .knots([(0.0, self.base_cpi), (0.25, self.base_cpi)])
                 .set_interp(InterpStyle::LogLinear)
                 .build()?;
-            let report = CalibrationReport::empty_success("No quotes; returned flat CPI curve");
+            let report = CalibrationReport::success_empty("No quotes; returned flat CPI curve");
             return Ok((curve, report));
         }
 
@@ -197,10 +179,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
             const CALIB_INDEX_ID: &str = "CALIB_INFLATION";
 
             // Ensure discount curve exists in base context (best-effort; pricing will use context provided by caller)
-            let _ = base_context
-                .get_discount_ref(
-                    self.discount_id.clone(),
-                )?;
+            let _ = base_context.get_discount_ref(self.discount_id.clone())?;
 
             // Provide a 'static discount id for instrument builder requirements
             let disc_id_static: &'static str =
@@ -301,7 +280,13 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
 
                 // Use solve_1d helper directly
                 use crate::calibration::solve_1d;
-                let mut solved_cpi = match solve_1d(self.config.solver_kind.clone(), self.config.tolerance, self.config.max_iterations, &objective, initial_guess) {
+                let mut solved_cpi = match solve_1d(
+                    self.config.solver_kind.clone(),
+                    self.config.tolerance,
+                    self.config.max_iterations,
+                    &objective,
+                    initial_guess,
+                ) {
                     Ok(root) => root,
                     Err(_) => initial_guess, // Fallback to analytical breakeven CPI
                 };
@@ -578,7 +563,7 @@ mod tests {
         // Reprice each quoted inflation swap; PV per $1MM should be <= $1
         for q in quotes {
             if let InflationQuote::InflationSwap { maturity, rate, .. } = q {
-                    let swap = InflationSwap::builder()
+                let swap = InflationSwap::builder()
                     .id(format!("ZCIS-{}", maturity).into())
                     .notional(finstack_core::money::Money::new(1_000_000.0, Currency::USD))
                     .start(base_date)

@@ -8,14 +8,14 @@
 //! See unit tests and `examples/` for usage.
 
 mod dv01;
-mod risk_bucketed_dv01;
 mod par_rate;
 mod pv;
+mod risk_bucketed_dv01;
 
 pub use dv01::FraDv01Calculator;
-pub use risk_bucketed_dv01::BucketedDv01Calculator;
 pub use par_rate::FraParRateCalculator;
 pub use pv::FraPvCalculator;
+pub use risk_bucketed_dv01::BucketedDv01Calculator;
 
 use crate::metrics::{MetricId, MetricRegistry};
 use std::sync::Arc;

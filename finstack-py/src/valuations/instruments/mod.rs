@@ -14,9 +14,7 @@ pub use bond::PyBond;
 pub use swap::{PyFixedLeg, PyFloatLeg, PyInterestRateSwap, PyPayReceive};
 
 // Shared helper to parse metric names into MetricId values
-pub(crate) fn parse_metric_ids(
-    metrics: &[String],
-) -> Vec<finstack_valuations::metrics::MetricId> {
+pub(crate) fn parse_metric_ids(metrics: &[String]) -> Vec<finstack_valuations::metrics::MetricId> {
     use finstack_valuations::metrics::MetricId;
 
     metrics

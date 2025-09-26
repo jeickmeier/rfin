@@ -72,9 +72,7 @@ impl BondValuator {
 
         let curves = market_context;
         let base_date = market_context
-            .get_discount(
-                bond.disc_id.clone(),
-            )?
+            .get_discount(bond.disc_id.clone())?
             .base_date();
         let flows = bond.build_schedule(curves, base_date)?;
 
@@ -155,16 +153,10 @@ impl BondValuator {
         // Convention: credit (hazard) curve ID == hazard curve ID. For compatibility, we also try a
         // fallback suffix of "-CREDIT".
         let mut recovery_rate: Option<F> = None;
-        if let Ok(hc) = market_context
-            .get_hazard(
-            bond.disc_id.as_str(),
-        ) {
+        if let Ok(hc) = market_context.get_hazard(bond.disc_id.as_str()) {
             recovery_rate = Some(hc.recovery_rate());
         } else if let Ok(hc) =
-            market_context
-                .get_hazard(
-                    format!("{}-CREDIT", bond.disc_id.as_str()),
-                )
+            market_context.get_hazard(format!("{}-CREDIT", bond.disc_id.as_str()))
         {
             recovery_rate = Some(hc.recovery_rate());
         }
@@ -265,28 +257,16 @@ impl TreePricer {
         // two-factor tree; otherwise, fall back to short-rate.
         let mut use_rates_credit = false;
         let mut rc_tree: Option<RatesCreditTree> = None;
-        let discount_curve =
-            market_context
-                .get_discount(
-                bond.disc_id.clone(),
-            )?;
+        let discount_curve = market_context.get_discount(bond.disc_id.clone())?;
         let hazard_curve = if let Some(hid) = bond.hazard_id.as_ref() {
-            market_context
-                .get_hazard(
-                    hid.as_str(),
-                )
-                .ok()
+            market_context.get_hazard(hid.as_str()).ok()
         } else {
             market_context
-                .get_hazard(
-                    bond.disc_id.as_str(),
-                )
+                .get_hazard(bond.disc_id.as_str())
                 .ok()
                 .or_else(|| {
                     market_context
-                        .get_hazard(
-                            format!("{}-CREDIT", bond.disc_id.as_str()),
-                        )
+                        .get_hazard(format!("{}-CREDIT", bond.disc_id.as_str()))
                         .ok()
                 })
         };
@@ -405,9 +385,9 @@ mod tests {
     use crate::instruments::common::models::two_factor_rates_credit::{
         RatesCreditConfig, RatesCreditTree,
     };
+    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
     use finstack_core::math::interp::InterpStyle;
     use time::Month;
-    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
     fn create_test_bond() -> Bond {
         let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
@@ -466,11 +446,7 @@ mod tests {
         assert!(valuator.is_ok());
         let valuator = valuator.unwrap();
         assert!(!valuator.coupon_map.is_empty());
-        assert!(market_context
-            .get_discount(
-                "USD-OIS"
-            )
-            .is_ok());
+        assert!(market_context.get_discount("USD-OIS").is_ok());
     }
     #[test]
     fn test_oas_calculator_plain_bond() {
@@ -506,7 +482,6 @@ mod tests {
 
     #[test]
     fn test_rates_credit_default_lowers_price() {
-
         let bond = create_test_bond();
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
@@ -584,21 +559,13 @@ mod tests {
             ..Default::default()
         });
         // Align to the hazard curve stored in the context
-        let low_hc_ref = ctx_low
-            .get_hazard_ref(
-                "HAZ-LOW",
-            )
-            .unwrap();
+        let low_hc_ref = ctx_low.get_hazard_ref("HAZ-LOW").unwrap();
         tree_low.align_hazard_from_curve(low_hc_ref);
         let mut tree_high = RatesCreditTree::new(RatesCreditConfig {
             steps,
             ..Default::default()
         });
-        let high_hc_ref = ctx_high
-            .get_hazard_ref(
-                "HAZ-HIGH",
-            )
-            .unwrap();
+        let high_hc_ref = ctx_high.get_hazard_ref("HAZ-HIGH").unwrap();
         tree_high.align_hazard_from_curve(high_hc_ref);
 
         // Initial state

@@ -1,8 +1,8 @@
 //! Bucketed DV01 calculator for bonds using structured metric storage.
 
+use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::bond::types::Bond;
 use crate::metrics::{MetricCalculator, MetricContext};
-use crate::cashflow::traits::CashflowProvider;
 use finstack_core::F;
 
 /// Compute Bucketed DV01 for bonds by revaluing against a bumped discount curve
@@ -29,7 +29,6 @@ impl MetricCalculator for BucketedDv01Calculator {
             })
             .collect();
 
-
         // Revaluation closure using original flows and bumped discount curve
         let curves = context.curves.clone();
         let as_of = context.as_of;
@@ -48,16 +47,9 @@ impl MetricCalculator for BucketedDv01Calculator {
             )
         };
 
-        let total = crate::metrics::compute_bucketed_dv01_series(
-            context,
-            &disc_id,
-            labels,
-            1.0,
-            reval,
-        )?;
+        let total =
+            crate::metrics::compute_bucketed_dv01_series(context, &disc_id, labels, 1.0, reval)?;
 
         Ok(total)
     }
 }
-
-

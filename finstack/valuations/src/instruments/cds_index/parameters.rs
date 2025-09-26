@@ -1,7 +1,7 @@
 //! CDS Index specific parameters.
 
-use crate::instruments::common::parameters::CreditParams;
 use crate::instruments::cds::{CDSConvention, PayReceive};
+use crate::instruments::common::parameters::CreditParams;
 use finstack_core::money::Money;
 use finstack_core::F;
 

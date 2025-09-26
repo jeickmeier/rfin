@@ -54,7 +54,6 @@ use finstack_core::F;
 
 // Submodules
 mod config;
-mod constraints;
 pub mod derivatives;
 pub mod methods;
 mod quote;
@@ -65,16 +64,11 @@ mod validation;
 
 // Re-exports
 pub use config::{CalibrationConfig, MultiCurveConfig, SolverKind};
-pub use constraints::{CalibrationConstraint, ConstraintType, InequalityDirection};
-pub use quote::{
-    CreditQuote, FutureSpecs, InflationQuote, MarketQuote, QuoteWithMetadata, RatesQuote, VolQuote,
-};
+pub use quote::{CreditQuote, FutureSpecs, InflationQuote, MarketQuote, RatesQuote, VolQuote};
 pub use report::CalibrationReport;
 pub use simple_calibration::SimpleCalibration;
 pub use traits::Calibrator;
-pub use validation::{
-    CurveValidator, SurfaceValidator, ValidationConfig, ValidationError,
-};
+pub use validation::{CurveValidator, SurfaceValidator, ValidationConfig, ValidationError};
 
 /// Finite penalty value used in objective functions instead of infinity.
 /// Using a large finite value helps solvers behave more predictably and
@@ -92,13 +86,7 @@ use finstack_core::Result;
 ///
 /// This replaces the former `with_solver!` macro with a plain helper function
 /// to make control flow explicit and IDE-friendly.
-pub fn solve_1d<Fun>(
-    kind: SolverKind,
-    tol: F,
-    iters: usize,
-    f: Fun,
-    init: F,
-) -> Result<F>
+pub fn solve_1d<Fun>(kind: SolverKind, tol: F, iters: usize, f: Fun, init: F) -> Result<F>
 where
     Fun: Fn(F) -> F,
 {
@@ -132,20 +120,32 @@ where
     }
 }
 
-/// Create a simple solver wrapper for calibration methods.
-/// This avoids the duplicate SimpleSolver pattern across multiple files.
+/// Create a simple solver wrapper for calibration methods using `solve_1d` internally.
 pub fn create_simple_solver(config: &CalibrationConfig) -> impl finstack_core::math::Solver {
     struct SimpleSolver {
-        config: CalibrationConfig,
+        kind: SolverKind,
+        tolerance: F,
+        max_iterations: usize,
     }
-    
+
     impl finstack_core::math::Solver for SimpleSolver {
-        fn solve<F>(&self, f: F, initial_guess: finstack_core::F) -> finstack_core::Result<finstack_core::F> 
-        where F: Fn(finstack_core::F) -> finstack_core::F 
+        fn solve<Fun>(&self, f: Fun, initial_guess: F) -> finstack_core::Result<F>
+        where
+            Fun: Fn(F) -> F,
         {
-            solve_1d(self.config.solver_kind.clone(), self.config.tolerance, self.config.max_iterations, f, initial_guess)
+            solve_1d(
+                self.kind.clone(),
+                self.tolerance,
+                self.max_iterations,
+                f,
+                initial_guess,
+            )
         }
     }
-    
-    SimpleSolver { config: config.clone() }
+
+    SimpleSolver {
+        kind: config.solver_kind.clone(),
+        tolerance: config.tolerance,
+        max_iterations: config.max_iterations,
+    }
 }

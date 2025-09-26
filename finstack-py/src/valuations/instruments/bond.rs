@@ -664,11 +664,11 @@ impl PyBond {
         // Use the Rust from_cashflows method (takes Into<CurveId>)
         let bond = Bond::from_cashflows(id, schedule.inner(), discount_curve, quoted_clean_price)
             .map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
-                    "Failed to create bond from cashflows: {:?}",
-                    e
-                ))
-            })?;
+            PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!(
+                "Failed to create bond from cashflows: {:?}",
+                e
+            ))
+        })?;
 
         Ok(Self {
             inner: Arc::new(bond),
@@ -766,7 +766,7 @@ impl PyBond {
     ///
     /// Examples:
     ///     >>> duration = bond.modified_duration(context, Date(2024, 1, 1))
-///     >>> print(f"Modified duration: {duration:.2f} years")
+    ///     >>> print(f"Modified duration: {duration:.2f} years")
     fn modified_duration(
         &self,
         market_context: &crate::core::market_data::context::PyMarketContext,

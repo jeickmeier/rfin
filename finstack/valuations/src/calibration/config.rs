@@ -5,10 +5,10 @@
 //! - Multi-curve framework configuration (post-2008 standard)
 //! - Entity seniority mappings for credit calibration
 
-use finstack_core::F;
 use finstack_core::market_data::term_structures::Seniority;
-use serde::{Deserialize, Serialize};
+use finstack_core::F;
 use hashbrown::HashMap;
+use serde::{Deserialize, Serialize};
 
 /// Solver type selection for calibration.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]

@@ -19,11 +19,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         let option: &Swaption = context.instrument_as()?;
 
         // Fetch discount curve
-        let disc = context
-            .curves
-            .get_discount_ref(
-                option.disc_id.as_ref(),
-            )?;
+        let disc = context.curves.get_discount_ref(option.disc_id.as_ref())?;
 
         // Time to expiry from as_of
         let pricer = crate::instruments::swaption::pricing::SwaptionPricer;

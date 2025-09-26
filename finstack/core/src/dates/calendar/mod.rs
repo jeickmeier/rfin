@@ -18,7 +18,7 @@
 //! - "Holiday" refers to non-working dates as defined by a specific market
 //!   calendar. Many calendars also label weekends as holidays for convenience,
 //!   while some intentionally ignore weekends in `is_holiday`.
-//! - Independent of the above, [`HolidayCalendar::is_business_day`] always treats 
+//! - Independent of the above, [`HolidayCalendar::is_business_day`] always treats
 //!   Saturday/Sunday as non-business days and defers to `is_holiday` for market-specific closures.
 //! - Prefer `is_business_day` for scheduling and adjustment logic.
 

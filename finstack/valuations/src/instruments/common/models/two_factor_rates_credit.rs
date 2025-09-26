@@ -6,8 +6,8 @@
 //! evolve over time.
 
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::{Error, Result, F};
 use finstack_core::market_data::term_structures::HazardCurve;
+use finstack_core::{Error, Result, F};
 
 use super::tree_framework::{state_keys, NodeState, StateVariables, TreeModel, TreeValuator};
 

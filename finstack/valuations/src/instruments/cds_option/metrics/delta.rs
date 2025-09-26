@@ -21,11 +21,7 @@ impl MetricCalculator for DeltaCalculator {
         }
 
         // Forward spread in bp
-        let hazard_curve = context
-            .curves
-            .get_hazard_ref(
-            option.credit_id.clone(),
-        )?;
+        let hazard_curve = context.curves.get_hazard_ref(option.credit_id.clone())?;
         let current_tenor = option.day_count.year_fraction(
             context.as_of,
             option.cds_maturity,

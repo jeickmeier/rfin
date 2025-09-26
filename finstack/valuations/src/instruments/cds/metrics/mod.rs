@@ -16,8 +16,8 @@ mod hazard_cs01;
 mod par_spread;
 mod pv_premium;
 mod pv_protection;
-mod risky_pv01;
 mod risk_bucketed_dv01;
+mod risky_pv01;
 
 use crate::metrics::MetricRegistry;
 

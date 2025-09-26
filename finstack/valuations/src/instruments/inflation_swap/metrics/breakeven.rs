@@ -24,21 +24,12 @@ impl MetricCalculator for BreakevenCalculator {
                 })
             })?;
 
-        let inflation_curve =
-            context
-                .curves
-                .get_inflation_ref(
-                    s.inflation_id,
-                )?;
+        let inflation_curve = context.curves.get_inflation_ref(s.inflation_id)?;
 
         let i_start = inflation_index.value_on(s.start)?;
 
         // Align projection time with discount curve base and apply index lag to maturity
-        let disc = context
-            .curves
-            .get_discount_ref(
-            s.disc_id,
-        )?;
+        let disc = context.curves.get_discount_ref(s.disc_id)?;
         let base = disc.base_date();
 
         let lag_policy = s.lag_override.unwrap_or(inflation_index.lag());

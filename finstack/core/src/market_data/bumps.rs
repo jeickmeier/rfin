@@ -86,7 +86,6 @@ impl BumpSpec {
         }
     }
 
-
     /// Create an additive inflation shift specified in percent (e.g., 2.0 = +2%).
     pub fn inflation_shift_pct(bump_pct: F) -> Self {
         Self {
@@ -149,7 +148,6 @@ pub trait Bumpable: Sized {
     fn apply_bump(&self, spec: BumpSpec) -> Option<Self>;
 }
 
-
 // -----------------------------------------------------------------------------
 // Bumpable implementations for each curve type
 // -----------------------------------------------------------------------------
@@ -171,9 +169,7 @@ impl Bumpable for ForwardCurve {
             (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Fraction | BumpUnits::Percent) => {
                 (spec.additive_fraction()?, false)
             }
-            (BumpMode::Multiplicative, BumpUnits::Factor) => {
-                (spec.value, true)
-            }
+            (BumpMode::Multiplicative, BumpUnits::Factor) => (spec.value, true),
             _ => return None,
         };
 
@@ -189,7 +185,11 @@ impl Bumpable for ForwardCurve {
             .copied()
             .zip(self.forwards().iter().copied())
             .map(|(t, r)| {
-                let new_rate = if is_multiplicative { r * bump_amount } else { r + bump_amount };
+                let new_rate = if is_multiplicative {
+                    r * bump_amount
+                } else {
+                    r + bump_amount
+                };
                 (t, new_rate)
             })
             .collect();

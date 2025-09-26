@@ -6,10 +6,10 @@
 
 pub mod annuity;
 pub mod dv01;
-pub mod risk_bucketed_dv01;
 pub mod par_rate;
 pub mod pv_fixed;
 pub mod pv_float;
+pub mod risk_bucketed_dv01;
 
 /// Registers all IRS metrics into a provided registry.
 pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {

@@ -169,11 +169,9 @@ impl<T: TypeTag> std::str::FromStr for Id<T> {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct CurveTag;
 
-
 /// Marker type for instrument identifiers
 #[derive(Debug, Clone, Copy, Default)]
 pub struct InstrumentTag;
-
 
 /// Marker type for index identifiers (equity or fixed income)
 #[derive(Debug, Clone, Copy, Default)]

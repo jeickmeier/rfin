@@ -323,7 +323,7 @@ mod tests {
         for i in 0..3 {
             let rel_error =
                 ((analytical_grad[i] - numerical_grad[i]) / numerical_grad[i].max(1e-10)).abs();
-            
+
             if rel_error >= 1.0 {
                 println!(
                     "Gradient component {} differs significantly: analytical = {}, numerical = {}, rel_error = {}",

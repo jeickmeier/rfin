@@ -68,6 +68,10 @@ fn closure_check_matrix() {
     let d = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
     // Closure diagnostics gated behind test-only methods; verify triangulation via rate call.
     let _ = m
-        .rate(finstack_core::money::fx::FxQuery::new(Currency::USD, Currency::EUR, d))
+        .rate(finstack_core::money::fx::FxQuery::new(
+            Currency::USD,
+            Currency::EUR,
+            d,
+        ))
         .unwrap();
 }

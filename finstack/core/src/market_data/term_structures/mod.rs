@@ -73,7 +73,6 @@ pub mod hazard_curve;
 /// Real/Breakeven inflation curves.
 pub mod inflation;
 
-
 // Re-export for ergonomic access
 pub use base_correlation::*;
 pub use credit_index::*;
@@ -83,4 +82,3 @@ pub use hazard_curve::*;
 pub use inflation::*;
 // Re-export the relocated volatility surface
 pub use crate::market_data::surfaces::vol_surface::*;
-

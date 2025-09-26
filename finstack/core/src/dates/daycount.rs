@@ -69,9 +69,9 @@ use crate::dates::utils::add_months;
 use core::cmp::Ordering;
 use time::{Date, Duration, Month};
 
-use crate::dates::HolidayCalendar;
 use crate::dates::date_extensions::BusinessDayIter;
 use crate::dates::schedule_iter::Frequency;
+use crate::dates::HolidayCalendar;
 use crate::error::InputError;
 
 /// Optional context for day-count year-fraction calculations.

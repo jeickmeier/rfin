@@ -398,10 +398,7 @@ pub fn compute_accrued_interest_with_context(
 
     // FRN path: approximate accrual using forward rate fixed at last reset
     let fl = bond.float.as_ref().unwrap();
-    let fwd = curves
-        .get_forward_ref(
-            fl.fwd_id.as_str(),
-        )?;
+    let fwd = curves.get_forward_ref(fl.fwd_id.as_str())?;
 
     // Build schedule with instrument conventions to locate current coupon window
     let sched = crate::cashflow::builder::build_dates(

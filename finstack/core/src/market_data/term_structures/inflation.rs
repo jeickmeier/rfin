@@ -170,7 +170,12 @@ impl InflationCurveBuilder {
         crate::math::interp::utils::validate_knots(&kvec)?;
         let knots = kvec.into_boxed_slice();
         let cpi_levels = cvec.into_boxed_slice();
-        let interp = build_interp(self.style, knots.clone(), cpi_levels.clone(), ExtrapolationPolicy::default())?;
+        let interp = build_interp(
+            self.style,
+            knots.clone(),
+            cpi_levels.clone(),
+            ExtrapolationPolicy::default(),
+        )?;
         Ok(InflationCurve {
             id: self.id,
             base_cpi: self.base_cpi,
@@ -180,7 +185,6 @@ impl InflationCurveBuilder {
         })
     }
 }
-
 
 // -----------------------------------------------------------------------------
 // Serialization support

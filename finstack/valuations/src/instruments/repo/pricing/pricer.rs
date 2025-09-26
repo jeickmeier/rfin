@@ -1,5 +1,5 @@
-use crate::instruments::repo::Repo;
 use crate::instruments::repo::pricing::engine::RepoPricer;
+use crate::instruments::repo::Repo;
 
 // use macro exported from crate::pricer
 

@@ -4,8 +4,8 @@
 //! provide fast arithmetic on that representation and expose a single
 //! [`round_f64`] helper that honours [`RoundingMode`](crate::config::RoundingMode).
 //!
-//! 
-//! The `round_f64` function is used internally by `Money` operations and 
+//!
+//! The `round_f64` function is used internally by `Money` operations and
 //! is not part of the public API. For rounding examples, see `Money` documentation.
 
 use crate::config::RoundingMode;

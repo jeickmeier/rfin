@@ -86,7 +86,10 @@ fn test_monotonic_validation_failure() {
 
     assert!(result.is_err());
     let error = result.unwrap_err();
-    assert!(matches!(error, finstack_core::Error::Input(finstack_core::error::InputError::Invalid)));
+    assert!(matches!(
+        error,
+        finstack_core::Error::Input(finstack_core::error::InputError::Invalid)
+    ));
 }
 
 #[test]

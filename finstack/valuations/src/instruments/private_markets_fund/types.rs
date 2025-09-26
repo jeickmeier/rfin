@@ -92,10 +92,7 @@ impl Instrument for PrivateMarketsFund {
         if let Some(disc_id) = self.disc_id {
             use crate::instruments::common::discountable::Discountable;
             let flows = self.lp_cashflows()?;
-            let disc = curves
-                .get_discount_ref(
-                    disc_id,
-                )?;
+            let disc = curves.get_discount_ref(disc_id)?;
             flows.npv(disc, disc.base_date(), self.spec.irr_basis)
         } else {
             let ledger = self.run_waterfall()?;

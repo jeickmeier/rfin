@@ -658,7 +658,6 @@ impl Default for ValidationConfig {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

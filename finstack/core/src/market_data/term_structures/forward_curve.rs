@@ -229,7 +229,12 @@ impl ForwardCurveBuilder {
         crate::math::interp::utils::validate_knots(&kvec)?;
         let knots = kvec.into_boxed_slice();
         let forwards = fvec.into_boxed_slice();
-        let interp = build_interp(self.style, knots.clone(), forwards.clone(), ExtrapolationPolicy::default())?;
+        let interp = build_interp(
+            self.style,
+            knots.clone(),
+            forwards.clone(),
+            ExtrapolationPolicy::default(),
+        )?;
         Ok(ForwardCurve {
             id: self.id,
             base: self.base,
@@ -242,7 +247,6 @@ impl ForwardCurveBuilder {
         })
     }
 }
-
 
 // -----------------------------------------------------------------------------
 // Minimal trait implementations for polymorphism where needed

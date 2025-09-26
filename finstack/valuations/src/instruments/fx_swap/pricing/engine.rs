@@ -30,16 +30,8 @@ impl FxSwapPricer {
     /// Compute present value in quote currency.
     pub fn pv(inst: &FxSwap, curves: &MarketContext, as_of: Date) -> Result<Money> {
         // Curves
-        let domestic_disc =
-            curves
-                .get_discount(
-                    inst.domestic_disc_id,
-                )?;
-        let foreign_disc =
-            curves
-                .get_discount(
-                    inst.foreign_disc_id,
-                )?;
+        let domestic_disc = curves.get_discount(inst.domestic_disc_id)?;
+        let foreign_disc = curves.get_discount(inst.foreign_disc_id)?;
 
         // Discount factors using curve's own day-count for stability
         let df_dom_near = domestic_disc.df_on_date_curve(inst.near_date);

@@ -210,10 +210,7 @@ impl CDSTranchePricer {
         let index_data_arc = market_ctx.credit_index_ref(&tranche.credit_index_id)?;
 
         // Get the discount curve
-        let discount_curve = market_ctx
-            .get_discount_ref(
-                tranche.disc_id.as_ref(),
-            )?;
+        let discount_curve = market_ctx.get_discount_ref(tranche.disc_id.as_ref())?;
 
         // Calculate present values of premium and protection legs
         // These now calculate the EL curve internally with proper time dependency
@@ -1186,6 +1183,7 @@ mod tests {
     use super::*;
     use crate::instruments::cds_tranche::parameters::CDSTrancheParams;
     use finstack_core::currency::Currency;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use finstack_core::market_data::term_structures::CreditIndexData;
     use finstack_core::market_data::term_structures::{
         hazard_curve::HazardCurve, BaseCorrelationCurve,
@@ -1193,7 +1191,6 @@ mod tests {
     use finstack_core::money::Money;
     use std::sync::Arc;
     use time::Month;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
     fn sample_market_context() -> MarketContext {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -1654,11 +1651,7 @@ mod tests {
         let market_ctx = sample_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let index_data_arc = market_ctx.credit_index(&tranche.credit_index_id).unwrap();
-        let discount_curve = market_ctx
-            .get_discount(
-                tranche.disc_id.as_ref(),
-            )
-            .unwrap();
+        let discount_curve = market_ctx.get_discount(tranche.disc_id.as_ref()).unwrap();
 
         // Calculate individual leg PVs
         let pv_premium = model.calculate_premium_leg_pv(

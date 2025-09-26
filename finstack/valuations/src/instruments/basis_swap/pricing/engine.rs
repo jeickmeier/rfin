@@ -143,14 +143,8 @@ impl BasisEngine {
         valuation_date: Date,
     ) -> Result<Money> {
         // Curves
-        let disc = context
-            .get_discount_ref(
-            params.disc_id.clone(),
-        )?;
-        let fwd = context
-            .get_forward_ref(
-            params.fwd_id.clone(),
-        )?;
+        let disc = context.get_discount_ref(params.disc_id.clone())?;
+        let fwd = context.get_forward_ref(params.fwd_id.clone())?;
 
         let mut pv = 0.0;
         let currency = params.notional.currency();
@@ -225,10 +219,7 @@ impl BasisEngine {
         disc_curve_id: &str,
         curves: &MarketContext,
     ) -> Result<F> {
-        let disc = curves
-            .get_discount_ref(
-            CurveId::from(disc_curve_id),
-        )?;
+        let disc = curves.get_discount_ref(CurveId::from(disc_curve_id))?;
         let mut annuity = 0.0;
         let mut prev = schedule.dates[0];
         for &d in &schedule.dates[1..] {

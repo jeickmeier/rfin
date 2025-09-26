@@ -16,9 +16,9 @@ mod correlation_delta;
 mod cs01;
 mod expected_loss;
 mod jump_to_default;
+mod risk_bucketed_dv01;
 mod spread_dv01;
 mod upfront;
-mod risk_bucketed_dv01;
 
 use crate::metrics::MetricRegistry;
 

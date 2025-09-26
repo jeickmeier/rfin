@@ -15,7 +15,13 @@ impl MetricCalculator for BucketedDv01Calculator {
         let buckets = crate::metrics::standard_ir_dv01_buckets();
         let labels: Vec<String> = buckets
             .iter()
-            .map(|y| if *y < 1.0 { format!("{:.0}m", (y * 12.0).round()) } else { format!("{:.0}y", y) })
+            .map(|y| {
+                if *y < 1.0 {
+                    format!("{:.0}m", (y * 12.0).round())
+                } else {
+                    format!("{:.0}y", y)
+                }
+            })
             .collect();
 
         let as_of = context.as_of;
@@ -31,9 +37,7 @@ impl MetricCalculator for BucketedDv01Calculator {
                 let opt_dom = opt.clone();
                 move |temp_ctx| {
                     crate::instruments::fx_option::pricing::engine::FxOptionPricer::npv(
-                        &opt_dom,
-                        temp_ctx,
-                        as_of,
+                        &opt_dom, temp_ctx, as_of,
                     )
                 }
             },
@@ -53,9 +57,7 @@ impl MetricCalculator for BucketedDv01Calculator {
                 let opt_for = opt.clone();
                 move |temp_ctx| {
                     crate::instruments::fx_option::pricing::engine::FxOptionPricer::npv(
-                        &opt_for,
-                        temp_ctx,
-                        as_of,
+                        &opt_for, temp_ctx, as_of,
                     )
                 }
             },
@@ -64,5 +66,3 @@ impl MetricCalculator for BucketedDv01Calculator {
         Ok(dom_total + for_total)
     }
 }
-
-

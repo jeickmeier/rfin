@@ -21,7 +21,9 @@ fn money_display_respects_output_scale() {
     let cfg = FinstackConfig {
         rounding: RoundingPolicy {
             mode: RoundingMode::AwayFromZero,
-            ingest_scale: CurrencyScalePolicy { overrides: Default::default() },
+            ingest_scale: CurrencyScalePolicy {
+                overrides: Default::default(),
+            },
             output_scale: CurrencyScalePolicy {
                 overrides: std::iter::once((Currency::USD, 3)).collect(),
             },

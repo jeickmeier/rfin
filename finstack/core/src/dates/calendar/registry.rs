@@ -4,9 +4,9 @@
 //! to the corresponding built-in calendar implementations. It uses the
 //! generated registry from `dates::calendar` for the authoritative list.
 
+use crate::dates::calendar::business_days::HolidayCalendar;
 use crate::dates::calendar::calendar_by_id;
 use crate::dates::calendar::composite::{CompositeCalendar, CompositeMode};
-use crate::dates::calendar::business_days::HolidayCalendar;
 use core::marker::PhantomData;
 use std::sync::OnceLock;
 

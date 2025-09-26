@@ -15,9 +15,14 @@ impl MetricCalculator for BucketedDv01Calculator {
         // Standard labels
         let labels: Vec<String> = crate::metrics::standard_ir_dv01_buckets()
             .iter()
-            .map(|y| if *y < 1.0 { format!("{:.0}m", (y * 12.0).round()) } else { format!("{:.0}y", y) })
+            .map(|y| {
+                if *y < 1.0 {
+                    format!("{:.0}m", (y * 12.0).round())
+                } else {
+                    format!("{:.0}y", y)
+                }
+            })
             .collect();
-
 
         let curves = context.curves.clone();
         let as_of = context.as_of;
@@ -53,14 +58,6 @@ impl MetricCalculator for BucketedDv01Calculator {
             pv_primary - pv_reference
         };
 
-        crate::metrics::compute_bucketed_dv01_series(
-            context,
-            &disc_id,
-            labels,
-            1.0,
-            reval,
-        )
+        crate::metrics::compute_bucketed_dv01_series(context, &disc_id, labels, 1.0, reval)
     }
 }
-
-

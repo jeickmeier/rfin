@@ -13,10 +13,10 @@ use finstack_core::dates::utils::add_months;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
 use finstack_core::market_data::MarketContext;
 // use finstack_core::market_data::context::MarketContext; // use re-export above
+use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::F;
-use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -99,7 +99,10 @@ impl BaseCorrelationCalibrator {
     }
 
     /// Set the discount curve identifier used when pricing synthetic tranches.
-    pub fn with_discount_curve_id(mut self, disc_id: impl Into<finstack_core::types::CurveId>) -> Self {
+    pub fn with_discount_curve_id(
+        mut self,
+        disc_id: impl Into<finstack_core::types::CurveId>,
+    ) -> Self {
         self.discount_curve_id = disc_id.into();
         self
     }
@@ -296,9 +299,10 @@ impl BaseCorrelationCalibrator {
         let months_to_add = (self.maturity_years * 12.0).round() as i32;
         let maturity = add_months(self.base_date, months_to_add);
 
-        let id = finstack_core::types::InstrumentId::new(
-            format!("CALIB_TRANCHE_{:.1}_{:.1}", attach_pct, detach_pct),
-        );
+        let id = finstack_core::types::InstrumentId::new(format!(
+            "CALIB_TRANCHE_{:.1}_{:.1}",
+            attach_pct, detach_pct
+        ));
         CdsTranche::builder()
             .id(id)
             .index_name(self.index_id.clone())

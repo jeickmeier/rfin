@@ -29,13 +29,7 @@ impl MetricCalculator for HazardCs01Calculator {
         // Here we bump ALL hazard curves present in MarketContext by probing ids.
         // We cannot access private fields; iterate over curve_ids and try get_ref::<HazardCurve>.
         for cid in context.curves.curve_ids() {
-            if context
-                .curves
-                .get_hazard_ref(
-                    cid.as_str(),
-                )
-                .is_ok()
-            {
+            if context.curves.get_hazard_ref(cid.as_str()).is_ok() {
                 bumps.insert(
                     cid.clone(),
                     BumpSpec {

@@ -21,19 +21,11 @@ impl MetricCalculator for ThetaCalculator {
         }
 
         // Risk-free rate proxy from discount curve at expiry
-        let disc = context
-            .curves
-            .get_discount_ref(
-            option.disc_id.clone(),
-        )?;
+        let disc = context.curves.get_discount_ref(option.disc_id.clone())?;
         let r = disc.zero(t);
 
         // Forward spread in bp
-        let hazard_curve = context
-            .curves
-            .get_hazard(
-            option.credit_id.clone(),
-        )?;
+        let hazard_curve = context.curves.get_hazard(option.credit_id.clone())?;
         let current_tenor = option.day_count.year_fraction(
             context.as_of,
             option.cds_maturity,

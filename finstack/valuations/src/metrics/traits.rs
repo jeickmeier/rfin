@@ -374,7 +374,13 @@ impl MetricContext {
         // Convert non-alphanumeric chars to underscores, lowercase, and collapse repeated underscores
         label
             .chars()
-            .map(|ch| if ch.is_ascii_alphanumeric() { ch.to_ascii_lowercase() } else { '_' })
+            .map(|ch| {
+                if ch.is_ascii_alphanumeric() {
+                    ch.to_ascii_lowercase()
+                } else {
+                    '_'
+                }
+            })
             .collect::<String>()
             .split('_')
             .filter(|s| !s.is_empty())

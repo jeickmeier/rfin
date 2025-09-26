@@ -41,7 +41,6 @@ pub(crate) fn split_points(points: Vec<(F, F)>) -> (Vec<F>, Vec<F>) {
     points.into_iter().unzip()
 }
 
-
 // -----------------------------------------------------------------------------
 // Shared serde state fragments to DRY curve state definitions
 // -----------------------------------------------------------------------------

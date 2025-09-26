@@ -40,12 +40,20 @@ fn bench_fx_cache_hits(c: &mut Criterion) {
     let d = Date::from_calendar_date(2024, Month::January, 1).unwrap();
     // Warm cache
     let _ = matrix
-        .rate(finstack_core::money::fx::FxQuery::new(Currency::USD, Currency::EUR, d))
+        .rate(finstack_core::money::fx::FxQuery::new(
+            Currency::USD,
+            Currency::EUR,
+            d,
+        ))
         .unwrap();
     c.bench_function("fx_cache_hit_usd_eur", |b| {
         b.iter(|| {
             let r = matrix
-                .rate(finstack_core::money::fx::FxQuery::new(Currency::USD, Currency::EUR, d))
+                .rate(finstack_core::money::fx::FxQuery::new(
+                    Currency::USD,
+                    Currency::EUR,
+                    d,
+                ))
                 .unwrap()
                 .rate;
             black_box(r)

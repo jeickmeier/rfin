@@ -4,8 +4,8 @@ use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
-use finstack_core::dates::{Date, Frequency};
 use finstack_core::dates::utils::add_months;
+use finstack_core::dates::{Date, Frequency};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -482,10 +482,7 @@ impl Instrument for StructuredCredit {
 
     fn value(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         // Get discount curve
-        let disc = context
-            .get_discount_ref(
-            self.disc_id.as_str(),
-        )?;
+        let disc = context.get_discount_ref(self.disc_id.as_str())?;
 
         // Get all cashflows
         let flows = self.build_schedule(context, as_of)?;

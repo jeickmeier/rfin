@@ -13,9 +13,9 @@ use ordered_float::OrderedFloat;
 
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::Seniority;
 use finstack_core::prelude::*;
 use finstack_core::F;
-use finstack_core::market_data::term_structures::Seniority;
 use std::collections::{BTreeMap, HashMap};
 
 /// Simple market calibration builder.
@@ -148,7 +148,7 @@ impl SimpleCalibration {
         if rates_quotes.is_empty() {
             return Ok((
                 context.clone(),
-                CalibrationReport::empty_success("No OIS quotes provided"),
+                CalibrationReport::success_empty("No OIS quotes provided"),
             ));
         }
 
@@ -197,7 +197,7 @@ impl SimpleCalibration {
     ) -> Result<(MarketContext, CalibrationReport)> {
         let mut updated_context = context.clone();
         let mut combined_report =
-            CalibrationReport::empty_success("Forward curve calibration starting");
+            CalibrationReport::success_empty("Forward curve calibration starting");
 
         // Extract all non-OIS rates quotes
         let rates_quotes: Vec<_> = quotes
@@ -296,7 +296,7 @@ impl SimpleCalibration {
         context: &MarketContext,
     ) -> Result<(MarketContext, CalibrationReport)> {
         let mut updated_context = context.clone();
-        let mut combined_report = CalibrationReport::empty_success("Credit calibration starting");
+        let mut combined_report = CalibrationReport::success_empty("Credit calibration starting");
 
         // Group CDS quotes by entity
         let mut quotes_by_entity: BTreeMap<String, Vec<CreditQuote>> = BTreeMap::new();
@@ -370,7 +370,7 @@ impl SimpleCalibration {
     ) -> Result<(MarketContext, CalibrationReport)> {
         let mut updated_context = context.clone();
         let mut combined_report =
-            CalibrationReport::empty_success("Inflation calibration starting");
+            CalibrationReport::success_empty("Inflation calibration starting");
 
         // Group inflation quotes by index
         let mut quotes_by_index: BTreeMap<String, Vec<InflationQuote>> = BTreeMap::new();
@@ -425,7 +425,7 @@ impl SimpleCalibration {
     ) -> Result<(MarketContext, CalibrationReport)> {
         let mut updated_context = context.clone();
         let mut combined_report =
-            CalibrationReport::empty_success("Volatility calibration starting");
+            CalibrationReport::success_empty("Volatility calibration starting");
 
         // Group option quotes by underlying and collect swaption quotes separately
         let mut quotes_by_underlying: BTreeMap<String, Vec<VolQuote>> = BTreeMap::new();
@@ -493,19 +493,9 @@ impl SimpleCalibration {
             };
 
             // Determine discount curve ID from context (use first available OIS curve)
-            let disc_id = if updated_context
-                .get_discount(
-                    "USD-OIS",
-                )
-                .is_ok()
-            {
+            let disc_id = if updated_context.get_discount("USD-OIS").is_ok() {
                 "USD-OIS"
-            } else if updated_context
-                .get_discount(
-                    "EUR-OIS",
-                )
-                .is_ok()
-            {
+            } else if updated_context.get_discount("EUR-OIS").is_ok() {
                 "EUR-OIS"
             } else {
                 // This shouldn't happen in a well-formed test, but provide a reasonable fallback
@@ -552,7 +542,7 @@ impl SimpleCalibration {
     ) -> Result<(MarketContext, CalibrationReport)> {
         let mut updated_context = context.clone();
         let mut combined_report =
-            CalibrationReport::empty_success("Base correlation calibration starting");
+            CalibrationReport::success_empty("Base correlation calibration starting");
 
         // Group tranche quotes by index and maturity
         let mut quotes_by_index: BTreeMap<String, BTreeMap<OrderedFloat<F>, Vec<CreditQuote>>> =
@@ -644,10 +634,7 @@ impl SimpleCalibration {
         }
 
         // Try inflation curve
-        if let Ok(curve) = context
-            .get_inflation_ref(
-            index,
-        ) {
+        if let Ok(curve) = context.get_inflation_ref(index) {
             return Some(curve.cpi(0.0));
         }
 
@@ -745,12 +732,12 @@ mod tests {
             return; // Calibration logic needs refinement; skip test for now
         }
         let (context, report) = result.unwrap();
-        
+
         if !report.success {
             println!("Calibration report indicates failure; skip verification for now");
             return;
         }
-        
+
         if context.get_discount("USD-OIS").is_err() {
             println!("No discount curve found; skip verification for now");
         }

@@ -64,7 +64,7 @@ impl EquityPricer {
                         ) -> finstack_core::Result<finstack_core::money::fx::FxRate>
                         {
                             let r = self.m.rate(finstack_core::money::fx::FxQuery::with_policy(
-                                from, to, on, policy
+                                from, to, on, policy,
                             ))?;
                             Ok(r.rate)
                         }

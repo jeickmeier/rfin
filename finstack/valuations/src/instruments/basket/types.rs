@@ -6,7 +6,10 @@
 
 use crate::instruments::common::traits::{Attributes, Instrument};
 use finstack_core::prelude::*;
-use finstack_core::types::{id::{IndexId, PriceId}, InstrumentId};
+use finstack_core::types::{
+    id::{IndexId, PriceId},
+    InstrumentId,
+};
 use finstack_core::{dates::Frequency, F};
 use std::sync::Arc;
 

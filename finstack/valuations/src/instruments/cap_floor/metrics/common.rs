@@ -21,16 +21,8 @@ where
     FN: FnMut(F, F, F) -> F,
 {
     // Get market curves
-    let disc_curve = context
-        .curves
-        .get_discount_ref(
-            option.disc_id.as_ref(),
-        )?;
-    let fwd_curve = context
-        .curves
-        .get_forward_ref(
-            option.forward_id.as_ref(),
-        )?;
+    let disc_curve = context.curves.get_discount_ref(option.disc_id.as_ref())?;
+    let fwd_curve = context.curves.get_forward_ref(option.forward_id.as_ref())?;
     let base_date = disc_curve.base_date();
 
     // Helper to compute contribution for a single period

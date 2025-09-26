@@ -19,7 +19,6 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::{Error, Result, F};
 
-
 /// Par spread denominator method for indices in constituents mode.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ParSpreadMethod {

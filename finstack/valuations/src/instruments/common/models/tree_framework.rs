@@ -505,15 +505,10 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
     // Helper: evaluate barrier touch at a given spot
     let barrier_touch = |spot: F| -> (bool, bool, bool, F) {
         if let Some(spec) = &inputs.barrier {
-            let touched_up = spec
-                .up_level
-                .map(|lvl| spot >= lvl)
-                .unwrap_or(false);
-            let touched_down = spec
-                .down_level
-                .map(|lvl| spot <= lvl)
-                .unwrap_or(false);
-            let breached = matches!(spec.style, BarrierStyle::KnockOut) && (touched_up || touched_down);
+            let touched_up = spec.up_level.map(|lvl| spot >= lvl).unwrap_or(false);
+            let touched_down = spec.down_level.map(|lvl| spot <= lvl).unwrap_or(false);
+            let breached =
+                matches!(spec.style, BarrierStyle::KnockOut) && (touched_up || touched_down);
             (touched_up, touched_down, breached, spec.rebate)
         } else {
             (false, false, false, 0.0)
@@ -542,7 +537,10 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                 // Barrier flags at terminal node (discrete monitoring)
                 let (t_up, t_dn, breached, rebate) = barrier_touch(terminal_spot);
                 node_vars.insert(state_keys::BARRIER_TOUCHED_UP, if t_up { 1.0 } else { 0.0 });
-                node_vars.insert(state_keys::BARRIER_TOUCHED_DOWN, if t_dn { 1.0 } else { 0.0 });
+                node_vars.insert(
+                    state_keys::BARRIER_TOUCHED_DOWN,
+                    if t_dn { 1.0 } else { 0.0 },
+                );
 
                 let terminal_state = NodeState::new(
                     inputs.steps,
@@ -573,7 +571,10 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                     let time_t = step as F * dt;
                     node_vars.insert(state_keys::SPOT, spot_t);
                     node_vars.insert(state_keys::BARRIER_TOUCHED_UP, if t_up { 1.0 } else { 0.0 });
-                    node_vars.insert(state_keys::BARRIER_TOUCHED_DOWN, if t_dn { 1.0 } else { 0.0 });
+                    node_vars.insert(
+                        state_keys::BARRIER_TOUCHED_DOWN,
+                        if t_dn { 1.0 } else { 0.0 },
+                    );
                     let node_state =
                         NodeState::new(step, time_t, node_vars.clone(), inputs.market_context);
 
@@ -615,7 +616,10 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                     node_vars.insert(state_keys::SPOT, spot_t);
                     let (t_up, t_dn, breached, rebate) = barrier_touch(spot_t);
                     node_vars.insert(state_keys::BARRIER_TOUCHED_UP, if t_up { 1.0 } else { 0.0 });
-                    node_vars.insert(state_keys::BARRIER_TOUCHED_DOWN, if t_dn { 1.0 } else { 0.0 });
+                    node_vars.insert(
+                        state_keys::BARRIER_TOUCHED_DOWN,
+                        if t_dn { 1.0 } else { 0.0 },
+                    );
 
                     let terminal_state = NodeState::new(
                         inputs.steps,
@@ -655,7 +659,10 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                     node_vars.insert(state_keys::SPOT, spot_t);
                     let (t_up, t_dn, breached, rebate) = barrier_touch(spot_t);
                     node_vars.insert(state_keys::BARRIER_TOUCHED_UP, if t_up { 1.0 } else { 0.0 });
-                    node_vars.insert(state_keys::BARRIER_TOUCHED_DOWN, if t_dn { 1.0 } else { 0.0 });
+                    node_vars.insert(
+                        state_keys::BARRIER_TOUCHED_DOWN,
+                        if t_dn { 1.0 } else { 0.0 },
+                    );
                     let node_state =
                         NodeState::new(step, time_t, node_vars.clone(), inputs.market_context);
                     values[step][j] = if breached {

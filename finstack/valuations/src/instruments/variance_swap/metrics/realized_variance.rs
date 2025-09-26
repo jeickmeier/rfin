@@ -31,7 +31,7 @@ impl MetricCalculator for RealizedVarianceCalculator {
 
         // Get price time series for the underlying
         let price_series = context.curves.series(&swap.underlying_id)?;
-        
+
         // Extract prices for observation dates
         let mut prices = Vec::with_capacity(relevant_dates.len());
         for date in relevant_dates {
@@ -45,19 +45,20 @@ impl MetricCalculator for RealizedVarianceCalculator {
 
         // Calculate annualization factor based on observation frequency
         let annualization_factor = match swap.observation_freq.days() {
-            Some(1) => 365.0,      // Daily observations
-            Some(7) => 52.0,       // Weekly observations  
+            Some(1) => 365.0, // Daily observations
+            Some(7) => 52.0,  // Weekly observations
             _ => match swap.observation_freq.months() {
-                Some(1) => 12.0,   // Monthly observations
-                Some(3) => 4.0,    // Quarterly observations
-                Some(12) => 1.0,   // Annual observations
-                _ => 252.0,        // Default to business days
-            }
+                Some(1) => 12.0, // Monthly observations
+                Some(3) => 4.0,  // Quarterly observations
+                Some(12) => 1.0, // Annual observations
+                _ => 252.0,      // Default to business days
+            },
         };
 
         // Calculate realized variance using the specified method
-        let realized_var = realized_variance(&prices, swap.realized_var_method, annualization_factor);
-        
+        let realized_var =
+            realized_variance(&prices, swap.realized_var_method, annualization_factor);
+
         // Ensure non-negative result
         Ok(realized_var.max(0.0))
     }
