@@ -1,7 +1,6 @@
 //! Tests for Repurchase Agreement (Repo) instruments.
 
 use finstack_core::market_data::scalars::MarketScalar;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::prelude::*;

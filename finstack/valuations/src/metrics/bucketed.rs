@@ -5,11 +5,11 @@
 //! `MetricContext` via structured series using stable composite keys.
 
 use crate::metrics::{MetricContext, MetricId};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::market_data::MarketContext;
 use finstack_core::types::CurveId;
 use finstack_core::F;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 /// Standard IR key-rate buckets in years used for quick demos/tests.
 /// Example: [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30]
@@ -71,7 +71,7 @@ where
     RevalFn: FnMut(&DiscountCurve) -> finstack_core::Result<Money>,
 {
     let base_pv = context.base_value;
-    let disc = context.curves.get_ref::<DiscountCurve>(disc_id.as_str())?;
+    let disc = context.curves.get_discount_ref(disc_id.as_str())?;
 
     let mut series: Vec<(String, F)> = Vec::new();
     for label in bucket_labels.into_iter() {
@@ -136,7 +136,7 @@ where
 {
     let base_pv = context.base_value;
     let base_ctx = context.curves.as_ref();
-    let disc = base_ctx.get_ref::<DiscountCurve>(disc_id.as_str())?;
+    let disc = base_ctx.get_discount_ref(disc_id.as_str())?;
 
     let mut series: Vec<(String, F)> = Vec::new();
     for label in bucket_labels.into_iter() {

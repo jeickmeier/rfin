@@ -4,8 +4,6 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::dates::utils::add_months;
 use finstack_core::market_data::MarketContext;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::money::Money;
 use finstack_core::F;
 use finstack_valuations::instruments::cds::CreditParams;

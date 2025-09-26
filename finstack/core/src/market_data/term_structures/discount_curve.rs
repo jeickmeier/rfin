@@ -22,7 +22,7 @@
 //! assert!(curve.df(3.0) < 1.0);
 //! ```
 
-use super::common::{build_interp_curve_error, split_points};
+use super::common::{build_interp_input_error, split_points};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     dates::{Date, DayCount, DayCountCtx},
@@ -395,7 +395,7 @@ impl DiscountCurve {
 
     #[cfg(feature = "serde")]
     /// Create from serialized state
-    pub fn from_state(state: DiscountCurveState) -> core::result::Result<Self, super::CurveError> {
+    pub fn from_state(state: DiscountCurveState) -> crate::Result<Self> {
         let mut builder = DiscountCurve::builder(state.common_id.id)
             .base_date(state.base)
             .day_count(state.day_count)
@@ -482,28 +482,28 @@ impl DiscountCurveBuilder {
     }
 
     /// Validate input and create the [`DiscountCurve`].
-    pub fn build(self) -> core::result::Result<DiscountCurve, super::CurveError> {
+    pub fn build(self) -> crate::Result<DiscountCurve> {
         if self.points.len() < 2 {
-            return Err(super::CurveError::TooFewPoints);
+            return Err(crate::error::InputError::TooFewPoints.into());
         }
         if self.points.iter().any(|&(_, df)| df <= 0.0) {
-            return Err(super::CurveError::NonPositiveValue);
+            return Err(crate::error::InputError::NonPositiveValue.into());
         }
 
         let (knots_vec, dfs_vec): (Vec<F>, Vec<F>) = split_points(self.points);
         crate::math::interp::utils::validate_knots(&knots_vec)
-            .map_err(|_| super::CurveError::NonMonotonicKnots)?;
+            .map_err(|_| crate::error::InputError::NonMonotonicKnots)?;
 
         // Validate monotonic discount factors if required (critical for credit curves)
         if self.require_monotonic {
             crate::math::interp::utils::validate_monotone_nonincreasing(&dfs_vec)
-                .map_err(|_| super::CurveError::Invalid)?;
+                .map_err(|_| crate::error::InputError::Invalid)?;
         }
 
         let knots = knots_vec.into_boxed_slice();
         let dfs = dfs_vec.into_boxed_slice();
 
-        let interp = build_interp_curve_error(self.style, knots.clone(), dfs.clone(), self.extrapolation)?;
+        let interp = build_interp_input_error(self.style, knots.clone(), dfs.clone(), self.extrapolation)?;
 
         Ok(DiscountCurve {
             id: self.id,

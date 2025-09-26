@@ -13,9 +13,7 @@
 
 use crate::instruments::fra::types::ForwardRateAgreement;
 use finstack_core::dates::DayCountCtx;
-use finstack_core::market_data::term_structures::{
-    discount_curve::DiscountCurve, forward_curve::ForwardCurve,
-};
+// Access via MarketContext getters; no direct curve imports needed
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -33,8 +31,8 @@ impl FraEngine {
     /// # Returns
     /// Net present value of the discounted payoff at settlement.
     pub fn pv(fra: &ForwardRateAgreement, context: &MarketContext) -> Result<Money> {
-        let disc = context.get_ref::<DiscountCurve>(fra.disc_id.clone())?;
-        let fwd = context.get_ref::<ForwardCurve>(fra.forward_id.clone())?;
+        let disc = context.get_discount_ref(fra.disc_id.clone())?;
+        let fwd = context.get_forward_ref(fra.forward_id.clone())?;
 
         // Time fractions
         let base_date = disc.base_date();

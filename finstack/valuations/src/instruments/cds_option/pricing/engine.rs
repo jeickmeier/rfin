@@ -13,11 +13,11 @@ use crate::instruments::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
 use crate::instruments::cds_option::CdsOption;
 use crate::instruments::common::models::{d1, d2, norm_cdf, norm_pdf};
 use crate::instruments::common::parameters::OptionType;
-use finstack_core::market_data::term_structures::hazard_curve::ParInterp;
 use finstack_core::market_data::MarketContext;
 use finstack_core::math::solver::{HybridSolver, Solver};
 use finstack_core::money::Money;
 use finstack_core::{Result, F};
+use finstack_core::market_data::term_structures::ParInterp;
 
 /// Pricing engine for `CdsOption`.
 ///
@@ -71,11 +71,11 @@ impl CdsOptionPricer {
 
         // Market curves
         let disc = curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
             option.disc_id.clone(),
         )?;
         let hazard = curves
-            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+            .get_hazard_ref(
             option.credit_id.clone(),
         )?;
 
@@ -121,7 +121,7 @@ impl CdsOptionPricer {
         as_of: finstack_core::dates::Date,
     ) -> Result<F> {
         let hazard = curves
-            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+            .get_hazard_ref(
             option.credit_id.clone(),
         )?;
         let t = option.day_count.year_fraction(
@@ -389,11 +389,11 @@ impl CdsOptionPricer {
         }
 
         let disc = curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
             option.disc_id.clone(),
         )?;
         let hazard = curves
-            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+            .get_hazard_ref(
             option.credit_id.clone(),
         )?;
 

@@ -21,7 +21,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         // Fetch discount curve
         let disc = context
             .curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
                 option.disc_id.as_ref(),
             )?;
 

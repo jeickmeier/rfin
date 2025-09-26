@@ -1,6 +1,5 @@
 use crate::instruments::inflation_swap::pricing::engine::InflationSwapPricer;
 use crate::instruments::inflation_swap::InflationSwap;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 // use macro exported from crate::pricer
 
@@ -10,7 +9,7 @@ crate::impl_dyn_pricer!(
     instrument_key: InflationSwap,
     model: Discounting,
     as_of = |inst: &InflationSwap, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<finstack_core::dates::Date> {
-        let disc = market.get_ref::<DiscountCurve>(inst.disc_id)?;
+        let disc = market.get_discount_ref(inst.disc_id)?;
         Ok(disc.base_date())
     },
     pv    = |inst: &InflationSwap, market: &finstack_core::market_data::MarketContext, as_of: finstack_core::dates::Date| -> finstack_core::Result<finstack_core::money::Money> {

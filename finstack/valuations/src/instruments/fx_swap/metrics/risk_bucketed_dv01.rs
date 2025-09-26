@@ -35,9 +35,8 @@ impl MetricCalculator for BucketedDv01Calculator {
         let reval = move |
             bumped_disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve|
          {
-            use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
             // Pull foreign curve and spot/forward from context; use bumped domestic DF
-            let foreign_disc = curves.get_ref::<DiscountCurve>(inst.foreign_disc_id)?;
+            let foreign_disc = curves.get_discount_ref(inst.foreign_disc_id)?;
             let df_dom_near = bumped_disc.df_on_date_curve(inst.near_date);
             let df_dom_far = bumped_disc.df_on_date_curve(inst.far_date);
             let df_for_far = foreign_disc.df_on_date_curve(inst.far_date);

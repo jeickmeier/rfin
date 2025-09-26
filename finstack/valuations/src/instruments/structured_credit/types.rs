@@ -483,7 +483,7 @@ impl Instrument for StructuredCredit {
     fn value(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         // Get discount curve
         let disc = context
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
             self.disc_id.as_str(),
         )?;
 

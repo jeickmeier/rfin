@@ -44,7 +44,7 @@ impl MetricCalculator for ThetaCalculator {
         // Reprice at t+1bd with same market context and chosen model path
         let disc = context
             .curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
                 option.disc_id.as_ref(),
             )?;
         let pricer = crate::instruments::swaption::pricing::SwaptionPricer;

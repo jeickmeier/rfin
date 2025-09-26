@@ -17,7 +17,7 @@ impl BondEngine {
     pub fn price(bond: &Bond, context: &MarketContext, as_of: Date) -> Result<Money> {
         let flows = bond.build_schedule(context, as_of)?;
         let disc = context
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount(
             bond.disc_id.as_str(),
         )?;
         // Discount using the curve's own day-count convention for time mapping.

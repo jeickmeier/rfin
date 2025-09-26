@@ -1,6 +1,5 @@
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::F;
 
 /// I-Spread: bond YTM minus interpolated swap par rate at same maturity.
@@ -32,7 +31,7 @@ impl MetricCalculator for ISpreadCalculator {
         // Use the bond's discount curve as proxy for swap discounting (OIS collateral)
         let disc = context
             .curves
-            .get_ref::<DiscountCurve>(bond.disc_id.clone())?;
+            .get_discount_ref(bond.disc_id.clone())?;
 
         // Build simple annual schedule from as_of to maturity for par rate approximation
         let dates = crate::instruments::bond::pricing::schedule_helpers::build_annual_schedule(

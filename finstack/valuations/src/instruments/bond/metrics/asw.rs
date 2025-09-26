@@ -1,9 +1,8 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 use finstack_core::F;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
 /// Asset Swap Spreads (Par and Market) using discount-curve annuity approximation.
 ///
@@ -78,8 +77,8 @@ pub fn asw_par_with_forward(
     fwd_curve_id: &str,
     float_spread_bp: F,
 ) -> finstack_core::Result<F> {
-    let disc = curves.get_ref::<DiscountCurve>(bond.disc_id.clone())?;
-    let fwd = curves.get_ref::<ForwardCurve>(fwd_curve_id)?;
+    let disc = curves.get_discount_ref(bond.disc_id.clone())?;
+    let fwd = curves.get_forward_ref(fwd_curve_id)?;
 
     // Mirror the bond schedule via holder flows
     let flows = bond.build_schedule(curves, as_of)?;
@@ -130,7 +129,7 @@ pub fn asw_market_with_forward(
     float_spread_bp: F,
     dirty_price_ccy: Option<F>,
 ) -> finstack_core::Result<F> {
-    let disc = curves.get_ref::<DiscountCurve>(bond.disc_id.clone())?;
+    let disc = curves.get_discount_ref(bond.disc_id.clone())?;
     let flows = bond.build_schedule(curves, as_of)?;
     let sched = build_future_dates_from_flows(&flows, as_of);
     if sched.len() < 2 {
@@ -163,7 +162,7 @@ impl MetricCalculator for AssetSwapParCalculator {
         let maturity = bond.maturity;
         let dc = bond.dc;
         let coupon = bond.coupon;
-        let disc = context.curves.get_ref::<DiscountCurve>(disc_id.clone())?;
+        let disc = context.curves.get_discount_ref(disc_id.clone())?;
 
         // Forward-based path intentionally not invoked here; use the explicit helpers instead
 
@@ -204,7 +203,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 b.pricing_overrides.quoted_clean_price,
             )
         };
-        let disc = context.curves.get_ref::<DiscountCurve>(disc_id.clone())?;
+        let disc = context.curves.get_discount_ref(disc_id.clone())?;
 
         // Dirty market value in currency
         let dirty_ccy = if let Some(clean_px) = quoted_clean {

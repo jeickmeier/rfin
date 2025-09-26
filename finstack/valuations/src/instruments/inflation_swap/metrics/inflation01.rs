@@ -14,7 +14,7 @@ impl MetricCalculator for Inflation01Calculator {
 
         let disc = context
             .curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
             s.disc_id,
         )?;
         let base = disc.base_date();
@@ -31,7 +31,7 @@ impl MetricCalculator for Inflation01Calculator {
         let inflation_curve =
             context
                 .curves
-                .get_ref::<finstack_core::market_data::term_structures::inflation::InflationCurve>(
+                .get_inflation_ref(
                     s.inflation_id,
                 )?;
 

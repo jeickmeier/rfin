@@ -2,8 +2,6 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::F;
@@ -149,7 +147,7 @@ fn hazard_cs01_matches_bump_difference() {
     // Manual bump using MarketContext::bump
     let mut bumps = hashbrown::HashMap::new();
     for cid in ctx.curve_ids() {
-        if ctx.get_ref::<HazardCurve>(cid.as_str()).is_ok() {
+        if ctx.get_hazard_ref(cid.as_str()).is_ok() {
             bumps.insert(cid.clone(), finstack_core::market_data::bumps::BumpSpec::parallel_bp(1.0));
         }
     }

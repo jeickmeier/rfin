@@ -22,12 +22,12 @@ impl MetricCalculator for FX01 {
 
         let domestic_disc =
             curves
-                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                .get_discount(
                     fx_swap.domestic_disc_id,
                 )?;
         let foreign_disc =
             curves
-                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                .get_discount(
                     fx_swap.foreign_disc_id,
                 )?;
 

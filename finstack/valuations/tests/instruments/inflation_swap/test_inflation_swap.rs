@@ -2,8 +2,6 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::inflation_index::{InflationIndex, InflationInterpolation, InflationLag};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::term_structures::inflation::InflationCurve;
 use finstack_core::money::Money;
 use finstack_core::F;
 use time::Month;
@@ -186,7 +184,7 @@ fn ir01_fd_matches_metric_sign() {
 
     // Bump discount curve by 1bp in DF space: df_bumped(t) = df(t) * exp(-bp * t)
     let disc_base = ctx
-        .get_ref::<DiscountCurve>("USD-OIS")
+        .get_discount_ref("USD-OIS")
         .unwrap();
     let base_date = disc_base.base_date();
 
@@ -254,7 +252,7 @@ fn inflation01_fd_matches_metric_direction() {
 
     // Bump inflation curve CPI levels up by 1bp multiplicatively
     let ic = ctx
-        .get_ref::<InflationCurve>("US-CPI-U")
+        .get_inflation_ref("US-CPI-U")
         .unwrap();
     let mut bumped_knots: Vec<(F, F)> = Vec::new();
     for (&t, &cpi) in ic.knots().iter().zip(ic.cpi_levels().iter()) {

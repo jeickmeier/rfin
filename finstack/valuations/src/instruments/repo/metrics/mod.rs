@@ -96,6 +96,7 @@ mod tests {
     use finstack_core::market_data::MarketContext;
     use finstack_core::prelude::*;
     use time::Month;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
     fn test_date(year: i32, month: u8, day: u8) -> Date {
         Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
@@ -181,7 +182,6 @@ mod tests {
     #[test]
     fn test_dv01_positive_when_rates_rise_price_falls() {
         use crate::metrics::{standard_registry, MetricId};
-        use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
         let as_of = test_date(2025, 1, 10);
         let disc = DiscountCurve::builder("USD-OIS")
             .base_date(as_of)

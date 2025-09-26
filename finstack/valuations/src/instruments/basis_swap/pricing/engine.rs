@@ -144,11 +144,11 @@ impl BasisEngine {
     ) -> Result<Money> {
         // Curves
         let disc = context
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
             params.disc_id.clone(),
         )?;
         let fwd = context
-            .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
+            .get_forward_ref(
             params.fwd_id.clone(),
         )?;
 
@@ -226,7 +226,7 @@ impl BasisEngine {
         curves: &MarketContext,
     ) -> Result<F> {
         let disc = curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
             CurveId::from(disc_curve_id),
         )?;
         let mut annuity = 0.0;

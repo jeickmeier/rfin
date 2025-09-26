@@ -17,7 +17,7 @@ impl MetricCalculator for GammaCalculator {
         let option: &Swaption = context.instrument_as()?;
         let disc = context
             .curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
                 option.disc_id.as_ref(),
             )?;
         let pricer = crate::instruments::swaption::pricing::SwaptionPricer;

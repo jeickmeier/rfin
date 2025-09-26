@@ -1,7 +1,6 @@
 use crate::impl_dyn_pricer;
 use crate::instruments::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
 use crate::pricer::{InstrumentKey, ModelKey, PriceableExt, Pricer, PricerKey, PricingError};
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::MarketContext as Market;
 
 pub struct DiscountingPricer;
@@ -29,7 +28,7 @@ impl Pricer for DiscountingPricer {
     ) -> std::result::Result<crate::results::ValuationResult, PricingError> {
         // Equity TRS
         if let Some(eq) = instrument.as_any().downcast_ref::<EquityTotalReturnSwap>() {
-            let disc = market.get_ref::<DiscountCurve>(eq.financing.disc_id.clone())?;
+            let disc = market.get_discount_ref(eq.financing.disc_id.clone())?;
             let as_of = disc.base_date();
             // Delegate to instrument pv implementation
             use crate::instruments::common::traits::Instrument;
@@ -42,7 +41,7 @@ impl Pricer for DiscountingPricer {
         }
         // FI Index TRS
         if let Some(fi) = instrument.as_any().downcast_ref::<FIIndexTotalReturnSwap>() {
-            let disc = market.get_ref::<DiscountCurve>(fi.financing.disc_id.clone())?;
+            let disc = market.get_discount_ref(fi.financing.disc_id.clone())?;
             let as_of = disc.base_date();
             use crate::instruments::common::traits::Instrument;
             let pv = fi.value(market, as_of)?;
@@ -66,7 +65,7 @@ impl_dyn_pricer!(
     instrument_key: TRS,
     model: Discounting,
     as_of = |inst: &EquityTotalReturnSwap, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<finstack_core::dates::Date> {
-        let disc = market.get_ref::<DiscountCurve>(inst.financing.disc_id.clone())?;
+        let disc = market.get_discount_ref(inst.financing.disc_id.clone())?;
         Ok(disc.base_date())
     },
     pv    = |inst: &EquityTotalReturnSwap, market: &finstack_core::market_data::MarketContext, as_of: finstack_core::dates::Date| -> finstack_core::Result<finstack_core::money::Money> {
@@ -81,7 +80,7 @@ impl_dyn_pricer!(
     instrument_key: TRS,
     model: Discounting,
     as_of = |inst: &FIIndexTotalReturnSwap, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<finstack_core::dates::Date> {
-        let disc = market.get_ref::<DiscountCurve>(inst.financing.disc_id.clone())?;
+        let disc = market.get_discount_ref(inst.financing.disc_id.clone())?;
         Ok(disc.base_date())
     },
     pv    = |inst: &FIIndexTotalReturnSwap, market: &finstack_core::market_data::MarketContext, as_of: finstack_core::dates::Date| -> finstack_core::Result<finstack_core::money::Money> {

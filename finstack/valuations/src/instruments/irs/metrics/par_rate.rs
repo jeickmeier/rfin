@@ -7,9 +7,7 @@ use crate::instruments::irs::types::ParRateMethod;
 use crate::instruments::irs::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
-use finstack_core::market_data::term_structures::{
-    discount_curve::DiscountCurve, forward_curve::ForwardCurve,
-};
+// Access curves via context; remove unused direct imports
 use finstack_core::F;
 
 /// Par rate calculator for IRS.
@@ -23,7 +21,7 @@ impl MetricCalculator for ParRateCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs: &InterestRateSwap = context.instrument_as()?;
 
-        let disc = context.curves.get::<DiscountCurve>(irs.fixed.disc_id.clone())?;
+        let disc = context.curves.get_discount(irs.fixed.disc_id.clone())?;
         let base = disc.base_date();
 
         let method = irs.fixed.par_method.unwrap_or(ParRateMethod::ForwardBased);
@@ -32,7 +30,7 @@ impl MetricCalculator for ParRateCalculator {
                 // float PV / (N * annuity)
                 let fwd = context
                     .curves
-                    .get::<ForwardCurve>(irs.float.fwd_id.clone())?;
+                    .get_forward(irs.float.fwd_id.clone())?;
 
                 let annuity = context
                     .computed

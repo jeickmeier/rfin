@@ -13,9 +13,9 @@ use ordered_float::OrderedFloat;
 
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::hazard_curve::Seniority;
 use finstack_core::prelude::*;
 use finstack_core::F;
+use finstack_core::market_data::term_structures::Seniority;
 use std::collections::{BTreeMap, HashMap};
 
 /// Simple market calibration builder.
@@ -487,14 +487,14 @@ impl SimpleCalibration {
 
             // Determine discount curve ID from context (use first available OIS curve)
             let disc_id = if updated_context
-                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                .get_discount(
                     "USD-OIS",
                 )
                 .is_ok()
             {
                 "USD-OIS"
             } else if updated_context
-                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                .get_discount(
                     "EUR-OIS",
                 )
                 .is_ok()
@@ -638,7 +638,7 @@ impl SimpleCalibration {
 
         // Try inflation curve
         if let Ok(curve) = context
-            .get_ref::<finstack_core::market_data::term_structures::inflation::InflationCurve>(
+            .get_inflation_ref(
             index,
         ) {
             return Some(curve.cpi(0.0));
@@ -740,7 +740,7 @@ mod tests {
 
                 // Debug: check what curves we have
                 println!("Checking for discount curve USD-OIS...");
-                match context.get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                match context.get_discount(
                     "USD-OIS",
                 ) {
                     Ok(_) => println!("Found USD-OIS discount curve"),

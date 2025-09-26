@@ -1,7 +1,6 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::deposit::Deposit;
@@ -41,7 +40,7 @@ fn df_metrics_match_engine_basis() {
     let dep = sample_deposit(base);
 
     // Pull DF via curve API
-    let disc = ctx.get_ref::<DiscountCurve>("USD-OIS").unwrap();
+    let disc = ctx.get_discount_ref("USD-OIS").unwrap();
     let df_start_curve = disc.df_on_date_curve(dep.start);
     let df_end_curve = disc.df_on_date_curve(dep.end);
 

@@ -86,10 +86,6 @@ impl BumpSpec {
         }
     }
 
-    /// Create an additive spread shift in basis points for credit curves.
-    pub fn spread_shift_bp(bump_bp: F) -> Self {
-        Self::parallel_bp(bump_bp)
-    }
 
     /// Create an additive inflation shift specified in percent (e.g., 2.0 = +2%).
     pub fn inflation_shift_pct(bump_pct: F) -> Self {
@@ -153,28 +149,6 @@ pub trait Bumpable: Sized {
     fn apply_bump(&self, spec: BumpSpec) -> Option<Self>;
 }
 
-/// Generic function to bump any curve that implements [`Bumpable`].
-///
-/// # Examples
-/// ```rust
-/// use finstack_core::market_data::bumps::{bump_curve, BumpSpec};
-/// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-/// use finstack_core::math::interp::InterpStyle;
-/// use finstack_core::dates::Date;
-/// use time::Month;
-///
-/// let curve = DiscountCurve::builder("USD-OIS")
-///     .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
-///    .knots([(0.0, 1.0), (1.0, 0.99)])
-///     .set_interp(InterpStyle::Linear)
-///     .build()
-///     .unwrap();
-/// let bumped = bump_curve(&curve, BumpSpec::parallel_bp(25.0)).unwrap();
-/// assert!(bumped.df(1.0) < curve.df(1.0));
-/// ```
-pub fn bump_curve<T: Bumpable>(curve: &T, spec: BumpSpec) -> Option<T> {
-    curve.apply_bump(spec)
-}
 
 // -----------------------------------------------------------------------------
 // Bumpable implementations for each curve type
@@ -192,37 +166,21 @@ impl Bumpable for DiscountCurve {
 
 impl Bumpable for ForwardCurve {
     fn apply_bump(&self, spec: BumpSpec) -> Option<Self> {
-        // Determine transformation of forward rates
-        let transform: Box<dyn Fn(F) -> F> = match (spec.mode, spec.units) {
-            (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Fraction) => {
-                let bump = spec.additive_fraction()?;
-                Box::new(move |r| r + bump)
-            }
-            (BumpMode::Additive, BumpUnits::Percent) => {
-                let bump = spec.additive_fraction()?; // percent -> fraction
-                Box::new(move |r| r + bump)
+        // Simple pattern matching without boxed closures
+        let (bump_amount, is_multiplicative) = match (spec.mode, spec.units) {
+            (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Fraction | BumpUnits::Percent) => {
+                (spec.additive_fraction()?, false)
             }
             (BumpMode::Multiplicative, BumpUnits::Factor) => {
-                let factor = spec.value;
-                Box::new(move |r| r * factor)
+                (spec.value, true)
             }
             _ => return None,
         };
 
-        let bumped_id = match spec.mode {
-            BumpMode::Additive => match spec.units {
-                BumpUnits::RateBp => id_bump_bp(self.id().as_str(), spec.value),
-                BumpUnits::Percent => id_bump_pct(self.id().as_str(), spec.value),
-                BumpUnits::Fraction => {
-                    CurveId::new(format!("{}_bump_frac_{:.4}", self.id(), spec.value))
-                }
-                BumpUnits::Factor => {
-                    CurveId::new(format!("{}_bump_factor_{:.4}", self.id(), spec.value))
-                }
-            },
-            BumpMode::Multiplicative => {
-                CurveId::new(format!("{}_bump_factor_{:.4}", self.id(), spec.value))
-            }
+        let bumped_id = match spec.units {
+            BumpUnits::RateBp => id_bump_bp(self.id().as_str(), spec.value),
+            BumpUnits::Percent => id_bump_pct(self.id().as_str(), spec.value),
+            _ => CurveId::new(format!("{}_bump_{:.4}", self.id(), spec.value)),
         };
 
         let bumped_rates: Vec<(F, F)> = self
@@ -230,11 +188,12 @@ impl Bumpable for ForwardCurve {
             .iter()
             .copied()
             .zip(self.forwards().iter().copied())
-            .map(|(t, r)| (t, transform(r)))
+            .map(|(t, r)| {
+                let new_rate = if is_multiplicative { r * bump_amount } else { r + bump_amount };
+                (t, new_rate)
+            })
             .collect();
 
-        // Preserve base date, reset lag, day count; interpolation style defaults
-        // (original style is not publicly exposed)
         ForwardCurve::builder(bumped_id, self.tenor())
             .base_date(self.base_date())
             .reset_lag(self.reset_lag())
@@ -290,20 +249,10 @@ impl Bumpable for InflationCurve {
             _ => return None,
         };
 
-        let bumped_id = match spec.mode {
-            BumpMode::Additive => match spec.units {
-                BumpUnits::Percent => id_bump_pct(self.id().as_str(), spec.value),
-                BumpUnits::Fraction => {
-                    CurveId::new(format!("{}_bump_frac_{:.4}", self.id(), spec.value))
-                }
-                BumpUnits::RateBp => id_bump_bp(self.id().as_str(), spec.value),
-                BumpUnits::Factor => {
-                    CurveId::new(format!("{}_bump_factor_{:.4}", self.id(), spec.value))
-                }
-            },
-            BumpMode::Multiplicative => {
-                CurveId::new(format!("{}_bump_factor_{:.4}", self.id(), spec.value))
-            }
+        let bumped_id = match spec.units {
+            BumpUnits::RateBp => id_bump_bp(self.id().as_str(), spec.value),
+            BumpUnits::Percent => id_bump_pct(self.id().as_str(), spec.value),
+            _ => CurveId::new(format!("{}_bump_{:.4}", self.id(), spec.value)),
         };
 
         let bumped_points: Vec<(F, F)> = self
@@ -332,20 +281,10 @@ impl Bumpable for BaseCorrelationCurve {
             _ => return None,
         };
 
-        let bumped_id = match spec.mode {
-            BumpMode::Additive => match spec.units {
-                BumpUnits::Percent => id_bump_pct(self.id().as_str(), spec.value),
-                BumpUnits::Fraction => {
-                    CurveId::new(format!("{}_bump_frac_{:.4}", self.id(), spec.value))
-                }
-                BumpUnits::RateBp => id_bump_bp(self.id().as_str(), spec.value),
-                BumpUnits::Factor => {
-                    CurveId::new(format!("{}_bump_factor_{:.4}", self.id(), spec.value))
-                }
-            },
-            BumpMode::Multiplicative => {
-                CurveId::new(format!("{}_bump_factor_{:.4}", self.id(), spec.value))
-            }
+        let bumped_id = match spec.units {
+            BumpUnits::RateBp => id_bump_bp(self.id().as_str(), spec.value),
+            BumpUnits::Percent => id_bump_pct(self.id().as_str(), spec.value),
+            _ => CurveId::new(format!("{}_bump_{:.4}", self.id(), spec.value)),
         };
 
         let bumped_points: Vec<(F, F)> = self

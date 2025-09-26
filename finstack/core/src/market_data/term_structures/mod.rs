@@ -55,7 +55,7 @@
 //!     .insert_discount(disc)
 //!     .insert_forward(fwd3m)
 //!     .insert_hazard(hazard);
-//! assert!(curves.get::<DiscountCurve>("USD-OIS").is_ok());
+//! assert!(curves.get_discount("USD-OIS").is_ok());
 //! ```
 
 /// Base correlation curves for CDS tranche pricing.
@@ -73,8 +73,6 @@ pub mod hazard_curve;
 /// Real/Breakeven inflation curves.
 pub mod inflation;
 
-// Unified error type for curve builders (type alias for now).
-pub use crate::error::InputError as CurveError;
 
 // Re-export for ergonomic access
 pub use base_correlation::*;

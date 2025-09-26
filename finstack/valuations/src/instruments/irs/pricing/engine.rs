@@ -8,9 +8,7 @@
 //! PV = sign × (PV_fixed − PV_float) with sign determined by `PayReceive`.
 
 use crate::instruments::irs::types::{InterestRateSwap, PayReceive};
-use finstack_core::market_data::term_structures::{
-    discount_curve::DiscountCurve, forward_curve::ForwardCurve,
-};
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -23,12 +21,12 @@ pub struct IrsEngine;
 impl IrsEngine {
     /// Calculates the present value of an IRS by composing leg PVs.
     pub fn pv(irs: &InterestRateSwap, context: &MarketContext) -> Result<Money> {
-        let disc = context.get_ref::<DiscountCurve>(irs.fixed.disc_id.as_ref())?;
+        let disc = context.get_discount_ref(irs.fixed.disc_id.as_ref())?;
         // Attempt to resolve a forward curve for the float leg. If absent and the float leg
         // references the same discounting curve (OIS case), fall back to an efficient
         // discount-only computation for the floating leg.
         let pv_fixed = irs.pv_fixed_leg(disc)?;
-        let pv_float = match context.get_ref::<ForwardCurve>(irs.float.fwd_id.as_ref()) {
+        let pv_float = match context.get_forward_ref(irs.float.fwd_id.as_ref()) {
             Ok(fwd) => irs.pv_float_leg(disc, fwd)?,
             Err(_) => {
                 // OIS fallback: forward curve not found. If the float leg uses the same
@@ -85,7 +83,7 @@ impl IrsEngine {
                     // Not OIS and forward curve missing: return the error to guide callers
                     // to provide a forward curve.
                     return Err(context
-                        .get_ref::<ForwardCurve>(irs.float.fwd_id.as_ref())
+                        .get_forward_ref(irs.float.fwd_id.as_ref())
                         .err()
                         .unwrap());
                 }

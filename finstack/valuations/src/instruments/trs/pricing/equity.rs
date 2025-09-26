@@ -47,7 +47,7 @@ impl TrsReturnModel for EquityReturnModel<'_> {
         context: &MarketContext,
     ) -> Result<f64> {
         let disc = context
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
             self.trs.financing.disc_id.as_str(),
         )?;
         let df_start = disc.df(t_start);

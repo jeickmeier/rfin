@@ -6,7 +6,6 @@
 use crate::instruments::irs::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::F;
 
 /// Calculates the fixed-leg annuity for an IRS.
@@ -16,7 +15,7 @@ impl MetricCalculator for AnnuityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs: &InterestRateSwap = context.instrument_as()?;
 
-        let disc = context.curves.get::<DiscountCurve>(irs.fixed.disc_id.clone())?;
+        let disc = context.curves.get_discount(irs.fixed.disc_id.clone())?;
         let _ = disc.base_date();
 
         let sched = crate::cashflow::builder::build_dates(

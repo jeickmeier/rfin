@@ -41,8 +41,7 @@ impl MetricCalculator for BucketedDv01Calculator {
         let reval = move |
             bumped_disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve|
          {
-            use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-            let fwd = curves.get_ref::<ForwardCurve>(irs.float.fwd_id.as_str())?;
+            let fwd = curves.get_forward_ref(irs.float.fwd_id.as_str())?;
 
             // Compute leg PVs directly using helper methods to ensure discounting uses bumped curve
             let pv_fixed = irs.pv_fixed_leg(bumped_disc)?;

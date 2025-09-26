@@ -31,7 +31,7 @@ impl MetricCalculator for HazardCs01Calculator {
         for cid in context.curves.curve_ids() {
             if context
                 .curves
-                .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                .get_hazard_ref(
                     cid.as_str(),
                 )
                 .is_ok()

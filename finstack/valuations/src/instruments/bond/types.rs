@@ -278,11 +278,11 @@ mod tests {
     use crate::instruments::common::traits::Instrument;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{BusinessDayConvention, DayCount, Frequency, StubKind};
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
     use finstack_core::market_data::MarketContext;
     use finstack_core::math::interp::InterpStyle;
     use time::Month;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 
     #[test]
     fn test_bond_with_custom_cashflows() {

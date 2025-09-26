@@ -4,7 +4,6 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::F;
 use finstack_valuations::instruments::irs::PayReceive;
@@ -63,7 +62,7 @@ fn price_black_matches_manual_formula() {
 
     // Manual Black using pricer helpers for forward and annuity
     let disc = ctx
-        .get_ref::<DiscountCurve>("USD-OIS")
+        .get_discount_ref("USD-OIS")
         .unwrap();
     let pricer = finstack_valuations::instruments::swaption::pricing::SwaptionPricer;
     let t = pricer
@@ -139,7 +138,7 @@ fn rho_matches_parallel_bump_difference() {
 
     // Manual bump: +1bp parallel bump then scale to per 1%
     let disc = ctx
-        .get_ref::<DiscountCurve>("USD-OIS")
+        .get_discount_ref("USD-OIS")
         .unwrap();
     let bumped = disc.with_parallel_bump(1.0);
     // Build a new context with bumped discount replacing existing curve

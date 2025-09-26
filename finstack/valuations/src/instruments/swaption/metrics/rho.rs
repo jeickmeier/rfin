@@ -16,7 +16,7 @@ impl MetricCalculator for RhoCalculator {
         let option: &Swaption = context.instrument_as()?;
         let disc = context
             .curves
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount(
                 option.disc_id.clone(),
             )?;
 

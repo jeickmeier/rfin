@@ -80,7 +80,7 @@ impl TrsEngine {
     ) -> Result<Money> {
         // Get discount curve
         let disc = context
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
             params.disc_id,
         )?;
 
@@ -152,11 +152,11 @@ impl TrsEngine {
         let fwd_curve_id = financing.fwd_id.as_str();
 
         let disc = context
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
             disc_curve_id,
         )?;
         let fwd = context
-            .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
+            .get_forward_ref(
             fwd_curve_id,
         )?;
 
@@ -218,7 +218,7 @@ impl TrsEngine {
         // Get discount curve
         let disc_curve_id = financing.disc_id.as_str();
         let disc = context
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
             disc_curve_id,
         )?;
 

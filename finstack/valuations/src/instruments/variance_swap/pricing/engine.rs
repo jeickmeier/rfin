@@ -15,7 +15,7 @@ use crate::instruments::variance_swap::types::VarianceSwap;
 pub fn price(inst: &VarianceSwap, context: &MarketContext, as_of: Date) -> Result<Money> {
     // Get discount curve
     let disc = context
-        .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+        .get_discount_ref(
             inst.disc_id.as_str(),
         )?;
 

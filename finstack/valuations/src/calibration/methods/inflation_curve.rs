@@ -10,7 +10,6 @@ use crate::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::inflation_index::{InflationInterpolation, InflationLag};
-use finstack_core::market_data::term_structures::inflation::InflationCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::math::Solver;
 use finstack_core::money::Money;
@@ -145,6 +144,8 @@ impl InflationCurveCalibrator {
     }
 }
 
+use finstack_core::market_data::term_structures::InflationCurve;
+
 impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
     fn calibrate(
         &self,
@@ -198,7 +199,7 @@ impl Calibrator<InflationQuote, InflationCurve> for InflationCurveCalibrator {
 
             // Ensure discount curve exists in base context (best-effort; pricing will use context provided by caller)
             let _ = base_context
-                .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                .get_discount_ref(
                     self.discount_id.clone(),
                 )?;
 
@@ -565,9 +566,7 @@ mod tests {
 
         // Sanity checks: inflation pieces are in context
         let ic = ctx
-            .get::<finstack_core::market_data::term_structures::inflation::InflationCurve>(
-                "US-CPI-U",
-            )
+            .get_inflation_ref("US-CPI-U")
             .expect("inflation curve missing");
         assert!(ic.cpi(0.0) > 0.0);
         assert!(

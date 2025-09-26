@@ -394,7 +394,7 @@ impl CreditDefaultSwap {
             self,
             curves,
             curves
-                .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                .get_discount_ref(
                     self.premium.disc_id.clone(),
                 )?
                 .base_date(),

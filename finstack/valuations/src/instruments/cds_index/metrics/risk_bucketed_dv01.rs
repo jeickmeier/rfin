@@ -41,7 +41,7 @@ impl MetricCalculator for BucketedDv01Calculator {
             match index.pricing {
                 crate::instruments::cds_index::types::IndexPricing::SingleCurve => {
                     let cds = index.to_synthetic_cds();
-                    let surv = curves.get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(cds.protection.credit_id.clone())?;
+                    let surv = curves.get_hazard_ref(cds.protection.credit_id.clone())?;
                     let cds_pricer = crate::instruments::cds::pricing::engine::CDSPricer::new();
                     cds_pricer.npv(&cds, bumped_disc, surv, as_of)
                 }
@@ -63,7 +63,7 @@ impl MetricCalculator for BucketedDv01Calculator {
                             index.premium.disc_id.clone(),
                             cons.credit.credit_curve_id.clone(),
                         );
-                        let surv = curves.get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(cds.protection.credit_id.clone())?;
+                        let surv = curves.get_hazard_ref(cds.protection.credit_id.clone())?;
                         sum = (sum + cds_pricer.npv(&cds, bumped_disc, surv, as_of)?)?;
                     }
                     Ok(sum)

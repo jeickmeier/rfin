@@ -31,7 +31,7 @@ impl InflationSwapPricer {
         _as_of: Date,
     ) -> finstack_core::Result<Money> {
         let disc = curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
             s.disc_id,
         )?;
         let base = disc.base_date();
@@ -64,7 +64,7 @@ impl InflationSwapPricer {
         _as_of: Date,
     ) -> finstack_core::Result<Money> {
         let disc = curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
             s.disc_id,
         )?;
         let base = disc.base_date();
@@ -77,7 +77,7 @@ impl InflationSwapPricer {
 
         let inflation_curve =
             curves
-                .get_ref::<finstack_core::market_data::term_structures::inflation::InflationCurve>(
+                .get_inflation_ref(
                     s.inflation_id,
                 )?;
 

@@ -93,7 +93,7 @@ impl Instrument for PrivateMarketsFund {
             use crate::instruments::common::discountable::Discountable;
             let flows = self.lp_cashflows()?;
             let disc = curves
-                .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                .get_discount_ref(
                     disc_id,
                 )?;
             flows.npv(disc, disc.base_date(), self.spec.irr_basis)

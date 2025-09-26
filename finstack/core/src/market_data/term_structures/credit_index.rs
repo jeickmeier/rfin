@@ -34,7 +34,7 @@ pub struct CreditIndexData {
 impl CreditIndexData {
     /// Create a new credit index data builder.
     pub fn builder() -> CreditIndexDataBuilder {
-        CreditIndexDataBuilder::new()
+        CreditIndexDataBuilder::default()
     }
 
     /// Get the credit curve for a specific issuer.
@@ -120,10 +120,6 @@ pub struct CreditIndexDataBuilder {
 }
 
 impl CreditIndexDataBuilder {
-    /// Create a new builder.
-    pub fn new() -> Self {
-        Self::default()
-    }
 
     /// Set the number of constituents in the index.
     pub fn num_constituents(mut self, count: u16) -> Self {

@@ -23,7 +23,7 @@ impl MetricCalculator for GammaCalculator {
         // Forward spread in bp
         let hazard_curve = context
             .curves
-            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+            .get_hazard_ref(
             option.credit_id.clone(),
         )?;
         let current_tenor = option.day_count.year_fraction(

@@ -16,12 +16,12 @@ impl MetricCalculator for ParSpreadCalculator {
         let cds: &CreditDefaultSwap = context.instrument_as()?;
         let disc = context
             .curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
             cds.premium.disc_id.clone(),
         )?;
         let surv = context
             .curves
-            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+            .get_hazard_ref(
             cds.protection.credit_id.clone(),
         )?;
         cds.par_spread(disc, surv)

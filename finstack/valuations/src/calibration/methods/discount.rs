@@ -9,6 +9,7 @@
 
 use crate::calibration::quote::RatesQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator, MultiCurveConfig};
+use finstack_core::market_data::term_structures::DiscountCurve;
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::deposit::Deposit;
 use crate::instruments::fra::ForwardRateAgreement;
@@ -16,7 +17,6 @@ use crate::instruments::ir_future::InterestRateFuture;
 use crate::instruments::InterestRateSwap;
 use finstack_core::dates::{add_months, Date};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::math::Solver;
 use finstack_core::money::Money;
@@ -222,9 +222,7 @@ impl DiscountCurveCalibrator {
                         // In multi-curve mode, if the instrument requires a forward curve,
                         // we need to have it in the base context already
                         if (*base_context_ref)
-                            .get::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-                                "CALIB_FWD",
-                            )
+                            .get_forward_ref("CALIB_FWD")
                             .is_err()
                         {
                             // This instrument cannot be used for discount curve calibration
@@ -377,7 +375,7 @@ impl DiscountCurveCalibrator {
             } => {
                 // Create Deposit instrument and use its pricer for consistency
                 let disc = context
-                    .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    .get_discount_ref(
                         "CALIB_CURVE",
                     )?;
                 let dep = Deposit {
@@ -604,14 +602,10 @@ impl DiscountCurveCalibrator {
                 if self.config.multi_curve.is_multi_curve() {
                     // Check if forward curves exist for pricing
                     if context
-                        .get::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-                            &primary_fwd_str,
-                        )
+                        .get_forward_ref(&primary_fwd_str)
                         .is_err()
                         || context
-                            .get::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
-                                &reference_fwd_str,
-                            )
+                            .get_forward_ref(&reference_fwd_str)
                             .is_err()
                     {
                         // Forward curves not yet calibrated, return placeholder
@@ -1120,7 +1114,7 @@ mod tests {
             )
             .unwrap_or(0.0);
         let implied_rate = ctx
-            .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
+            .get_forward_ref(
                 "USD-SOFR",
             )
             .unwrap()

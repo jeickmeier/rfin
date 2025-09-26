@@ -6,12 +6,12 @@ use finstack_core::{
     market_data::{context::MarketContext, term_structures::discount_curve::DiscountCurve},
     math::stats::{realized_variance, RealizedVarMethod},
     money::Money,
-};
+
 
 use finstack_valuations::instruments::{
     traits::Priceable,
     variance_swap::{PayReceive, VarianceSwap},
-};
+
 
 fn test_date(year: i32, month: u8, day: u8) -> Date {
     Date::from_calendar_date(year, time::Month::try_from(month).unwrap(), day).unwrap()

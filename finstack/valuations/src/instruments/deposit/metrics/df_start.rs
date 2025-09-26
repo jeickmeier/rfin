@@ -14,7 +14,7 @@ impl MetricCalculator for DfStartCalculator {
 
         let disc = context
             .curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
             deposit.disc_id.clone(),
         )?;
         // Use the curve's own time basis for discounting

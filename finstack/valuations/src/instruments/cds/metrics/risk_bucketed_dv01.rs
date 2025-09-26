@@ -38,11 +38,11 @@ impl MetricCalculator for BucketedDv01Calculator {
             1.0,
             move |temp_ctx| {
                 let disc = temp_ctx
-                    .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                    .get_discount_ref(
                         cds.premium.disc_id.clone(),
                     )?;
                 let surv = temp_ctx
-                    .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                    .get_hazard_ref(
                         cds.protection.credit_id.clone(),
                     )?;
                 crate::instruments::cds::pricing::engine::CDSPricer::new().npv(&cds, disc, surv, as_of)

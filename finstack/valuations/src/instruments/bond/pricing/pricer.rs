@@ -1,7 +1,6 @@
 use crate::instruments::bond::pricing::tree_pricer::TreePricer;
 use crate::instruments::bond::types::Bond;
 
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use indexmap::IndexMap;
 
 // use macro exported from crate::pricer
@@ -12,7 +11,7 @@ crate::impl_dyn_pricer!(
     instrument_key: Bond,
     model: Discounting,
     as_of = |inst: &Bond, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<finstack_core::dates::Date> {
-        let disc = market.get_ref::<DiscountCurve>(inst.disc_id.clone())?;
+        let disc = market.get_discount_ref(inst.disc_id.clone())?;
         Ok(disc.base_date())
     },
     pv    = |inst: &Bond, market: &finstack_core::market_data::MarketContext, as_of: finstack_core::dates::Date| -> finstack_core::Result<finstack_core::money::Money> {
@@ -55,7 +54,7 @@ impl crate::pricer::Pricer for OasPricer {
             instrument_key: Bond,
             model: Tree,
             as_of = |inst: &Bond, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<finstack_core::dates::Date> {
-                let disc = market.get_ref::<DiscountCurve>(inst.disc_id.clone())?;
+                let disc = market.get_discount_ref(inst.disc_id.clone())?;
                 Ok(disc.base_date())
             },
             pv    = |inst: &Bond, market: &finstack_core::market_data::MarketContext, as_of: finstack_core::dates::Date| -> finstack_core::Result<finstack_core::money::Money> {

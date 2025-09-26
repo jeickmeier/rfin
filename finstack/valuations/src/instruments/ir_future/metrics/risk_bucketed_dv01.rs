@@ -35,9 +35,8 @@ impl MetricCalculator for BucketedDv01Calculator {
             bumped_disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve|
          {
             use finstack_core::dates::DayCountCtx;
-            use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 
-            let fwd = curves.get_ref::<ForwardCurve>(fut.forward_id.clone())?;
+            let fwd = curves.get_forward_ref(fut.forward_id.clone())?;
 
             let base_date = bumped_disc.base_date();
             let t_fixing = fut

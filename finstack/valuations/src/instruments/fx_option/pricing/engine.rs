@@ -92,11 +92,11 @@ impl FxOptionPricer {
 
         // Discount curves provide domestic and foreign zero rates
         let domestic_disc = curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
                 inst.domestic_disc_id,
             )?;
         let foreign_disc = curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
                 inst.foreign_disc_id,
             )?;
         let r_d = domestic_disc.zero(t);
@@ -139,11 +139,11 @@ impl FxOptionPricer {
         let t = Self::year_fraction(as_of, inst.expiry, inst.day_count)?;
 
         let domestic_disc = curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
                 inst.domestic_disc_id,
             )?;
         let foreign_disc = curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
                 inst.foreign_disc_id,
             )?;
         let r_d = domestic_disc.zero(t);

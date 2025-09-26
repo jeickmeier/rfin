@@ -73,7 +73,7 @@ impl BondValuator {
 
         let curves = market_context;
         let base_date = market_context
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount(
                 bond.disc_id.clone(),
             )?
             .base_date();
@@ -157,14 +157,14 @@ impl BondValuator {
         // fallback suffix of "-CREDIT".
         let mut recovery_rate: Option<F> = None;
         if let Ok(hc) = market_context
-            .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+            .get_hazard(
             bond.disc_id.as_str(),
         ) {
             recovery_rate = Some(hc.recovery_rate());
         } else if let Ok(hc) =
             market_context
-                .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                    &format!("{}-CREDIT", bond.disc_id.as_str()),
+                .get_hazard(
+                    format!("{}-CREDIT", bond.disc_id.as_str()),
                 )
         {
             recovery_rate = Some(hc.recovery_rate());
@@ -268,25 +268,25 @@ impl TreePricer {
         let mut rc_tree: Option<RatesCreditTree> = None;
         let discount_curve =
             market_context
-                .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+                .get_discount(
                 bond.disc_id.clone(),
             )?;
         let hazard_curve = if let Some(hid) = bond.hazard_id.as_ref() {
             market_context
-                .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                .get_hazard(
                     hid.as_str(),
                 )
                 .ok()
         } else {
             market_context
-                .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+                .get_hazard(
                     bond.disc_id.as_str(),
                 )
                 .ok()
                 .or_else(|| {
                     market_context
-                        .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
-                            &format!("{}-CREDIT", bond.disc_id.as_str()),
+                        .get_hazard(
+                            format!("{}-CREDIT", bond.disc_id.as_str()),
                         )
                         .ok()
                 })
@@ -408,6 +408,7 @@ mod tests {
     };
     use finstack_core::math::interp::InterpStyle;
     use time::Month;
+    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
     fn create_test_bond() -> Bond {
         let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
@@ -467,7 +468,7 @@ mod tests {
         let valuator = valuator.unwrap();
         assert!(!valuator.coupon_map.is_empty());
         assert!(market_context
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount(
                 "USD-OIS"
             )
             .is_ok());
@@ -506,7 +507,6 @@ mod tests {
 
     #[test]
     fn test_rates_credit_default_lowers_price() {
-        use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 
         let bond = create_test_bond();
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -586,7 +586,7 @@ mod tests {
         });
         // Align to the hazard curve stored in the context
         let low_hc_ref = ctx_low
-            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+            .get_hazard_ref(
                 "HAZ-LOW",
             )
             .unwrap();
@@ -596,7 +596,7 @@ mod tests {
             ..Default::default()
         });
         let high_hc_ref = ctx_high
-            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+            .get_hazard_ref(
                 "HAZ-HIGH",
             )
             .unwrap();

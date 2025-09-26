@@ -22,18 +22,17 @@ pub(crate) fn build_interp(
         .map_err(|_| Error::Internal)
 }
 
-/// Build an `Interp` mapping errors to `super::CurveError` for callers whose
-/// builders expose that alias (DiscountCurve).
+/// Build an `Interp` mapping errors to `InputError` for discount curve builders.
 #[inline]
-pub(crate) fn build_interp_curve_error(
+pub(crate) fn build_interp_input_error(
     style: InterpStyle,
     knots: Box<[F]>,
     values: Box<[F]>,
     extrapolation: ExtrapolationPolicy,
-) -> core::result::Result<Interp, super::CurveError> {
+) -> crate::Result<Interp> {
     style
         .build_enum(knots, values, extrapolation)
-        .map_err(|_| super::CurveError::NonPositiveValue)
+        .map_err(|_| crate::error::InputError::NonPositiveValue.into())
 }
 
 /// Convenience to split points (t, v) into separate vectors.

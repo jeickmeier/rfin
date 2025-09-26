@@ -35,8 +35,7 @@ impl MetricCalculator for BucketedDv01Calculator {
             bumped_disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve|
          {
             use crate::instruments::cds_option::pricing::engine::CdsOptionPricer;
-            use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
-            let hazard = curves.get_ref::<HazardCurve>(opt.credit_id.clone())?;
+            let hazard = curves.get_hazard_ref(opt.credit_id.clone())?;
             let pricer = CdsOptionPricer::default();
             let t = opt.day_count.year_fraction(as_of, opt.expiry, finstack_core::dates::DayCountCtx::default())?;
             let forward_bp = pricer.forward_spread_bp(&opt, &curves, as_of)?;

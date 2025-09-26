@@ -296,7 +296,7 @@ fn extract_equity_state(
 
     // Get risk-free rate from discount curve
     let discount_curve =
-        ctx.get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+        ctx.get_discount_ref(
             disc_id,
         )?;
     let base_date = discount_curve.base_date();
@@ -383,7 +383,7 @@ pub fn price_convertible_bond(
     };
 
     let base_date = market_context
-        .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+        .get_discount_ref(
             bond.disc_id,
         )?
         .base_date();
@@ -445,7 +445,7 @@ pub fn calculate_convertible_greeks(
     };
 
     let base_date = market_context
-        .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+        .get_discount_ref(
             bond.disc_id,
         )?
         .base_date();
@@ -537,8 +537,8 @@ mod tests {
     use finstack_core::currency::Currency;
     use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
     use finstack_core::market_data::scalars::MarketScalar;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use time::Month;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
     fn create_test_bond() -> ConvertibleBond {
         let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();

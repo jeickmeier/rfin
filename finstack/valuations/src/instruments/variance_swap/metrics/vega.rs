@@ -33,7 +33,7 @@ impl MetricCalculator for VegaCalculator {
             .year_fraction(context.as_of, swap.maturity, Default::default())?;
         let disc = context
             .curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
             swap.disc_id.as_str(),
         )?;
         let df = disc.df(t);

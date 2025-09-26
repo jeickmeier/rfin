@@ -3,7 +3,6 @@ use finstack_valuations::pricer::{price, InstrumentKey, ModelKey, PricerKey};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use time::Month;

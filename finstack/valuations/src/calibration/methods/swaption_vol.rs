@@ -135,7 +135,7 @@ impl SwaptionVolCalibrator {
         context: &MarketContext,
     ) -> Result<F> {
         let disc = context
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
             self.disc_id,
         )?;
         let swap_start = expiry;
@@ -256,7 +256,7 @@ impl SwaptionVolCalibrator {
         };
 
         let disc = context
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
                 self.disc_id,
             )?;
         crate::instruments::swaption::pricing::SwaptionPricer.swap_annuity(

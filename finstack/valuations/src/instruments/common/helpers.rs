@@ -26,10 +26,9 @@ where
     S: crate::cashflow::traits::CashflowProvider,
 {
     use crate::instruments::common::discountable::npv_static;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
     let flows = S::build_schedule(instrument, curves, as_of)?;
-    let disc = curves.get_ref::<DiscountCurve>(disc_id.as_str())?;
+    let disc = curves.get_discount_ref(disc_id.as_str())?;
     let base = disc.base_date();
     npv_static(disc, base, day_count, &flows)
 }

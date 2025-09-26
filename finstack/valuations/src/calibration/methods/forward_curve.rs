@@ -98,7 +98,7 @@ impl ForwardCurveCalibrator {
 
         // Get discount curve
         let _discount_curve = base_context
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
                 self.discount_curve_id.as_ref(),
             )?;
 
@@ -585,8 +585,8 @@ impl Calibrator<RatesQuote, ForwardCurve> for ForwardCurveCalibrator {
 mod tests {
     use super::*;
     use finstack_core::dates::DayCount;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
     use time::Month;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
     fn create_test_discount_curve() -> DiscountCurve {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();

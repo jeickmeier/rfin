@@ -9,14 +9,13 @@
 //! # Examples
 //! ```rust
 //! use finstack_core::{dates::*, money::Money, currency::Currency};
-//! use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 //! use finstack_core::market_data::context::MarketContext;
 //! use finstack_valuations::instruments::deposit::Deposit;
 //! use finstack_valuations::instruments::deposit::pricing::engine::DepositEngine;
 //! use time::Month;
 //!
 //! let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-//! let disc = DiscountCurve::builder("USD-OIS")
+//! let disc = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::builder("USD-OIS")
 //!     .base_date(base)
 //!     .knots([(0.0, 1.0), (1.0, 0.98)])
 //!     .build()
@@ -39,7 +38,6 @@
 
 use crate::instruments::deposit::types::Deposit;
 use finstack_core::dates::DayCountCtx;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -61,7 +59,7 @@ impl DepositEngine {
     /// - Accrual uses the instrument's `day_count`
     /// - Discounting uses the curve's own day‑count via `df_on_date_curve`
     pub fn pv(deposit: &Deposit, context: &MarketContext) -> Result<Money> {
-        let disc = context.get_ref::<DiscountCurve>(deposit.disc_id.clone())?;
+        let disc = context.get_discount_ref(deposit.disc_id.clone())?;
 
         // Accrual factor (instrument basis)
         let yf = deposit

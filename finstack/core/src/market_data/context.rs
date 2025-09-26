@@ -23,7 +23,7 @@
 //!     .unwrap();
 //!
 //! let ctx = MarketContext::new().insert_discount(curve);
-//! let retrieved = ctx.get::<DiscountCurve>("USD-OIS").unwrap();
+//! let retrieved = ctx.get_discount("USD-OIS").unwrap();
 //! assert_eq!(retrieved.id(), &CurveId::from("USD-OIS"));
 //! ```
 
@@ -686,69 +686,62 @@ impl MarketContext {
     // Single generic typed getters for curves
     // -----------------------------------------------------------------------------
 
+    /// Helper method to extract curve with type checking and error handling
+    fn get_curve_with_type_check<T, F>(&self, id: &str, expected_type: &'static str, extractor: F) -> Result<T>
+    where
+        F: FnOnce(&CurveStorage) -> Option<T>,
+    {
+        match self.curves.get(id) {
+            Some(storage) => {
+                extractor(storage).ok_or_else(|| {
+                    crate::error::Error::Validation(format!(
+                        "Type mismatch: curve '{}' is '{}', expected '{}'",
+                        id, storage.curve_type(), expected_type
+                    ))
+                })
+            }
+            None => Err(crate::error::InputError::NotFound { id: id.to_string() }.into()),
+        }
+    }
+
     /// Get a discount curve by identifier.
     pub fn get_discount(&self, id: impl AsRef<str>) -> Result<Arc<DiscountCurve>> {
         let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::Discount(curve)) => Ok(Arc::clone(curve)),
-            Some(storage) => Err(crate::error::Error::Validation(format!(
-                "Type mismatch: curve '{}' is '{}', expected 'Discount'", 
-                id_str, storage.curve_type()
-            ))),
-            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
-        }
+        self.get_curve_with_type_check(id_str, "Discount", |storage| {
+            storage.discount().map(Arc::clone)
+        })
     }
 
     /// Get a forward curve by identifier.
     pub fn get_forward(&self, id: impl AsRef<str>) -> Result<Arc<ForwardCurve>> {
         let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::Forward(curve)) => Ok(Arc::clone(curve)),
-            Some(storage) => Err(crate::error::Error::Validation(format!(
-                "Type mismatch: curve '{}' is '{}', expected 'Forward'", 
-                id_str, storage.curve_type()
-            ))),
-            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
-        }
+        self.get_curve_with_type_check(id_str, "Forward", |storage| {
+            storage.forward().map(Arc::clone)
+        })
     }
 
     /// Get a hazard curve by identifier.
     pub fn get_hazard(&self, id: impl AsRef<str>) -> Result<Arc<HazardCurve>> {
         let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::Hazard(curve)) => Ok(Arc::clone(curve)),
-            Some(storage) => Err(crate::error::Error::Validation(format!(
-                "Type mismatch: curve '{}' is '{}', expected 'Hazard'", 
-                id_str, storage.curve_type()
-            ))),
-            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
-        }
+        self.get_curve_with_type_check(id_str, "Hazard", |storage| {
+            storage.hazard().map(Arc::clone)
+        })
     }
 
     /// Get an inflation curve by identifier.
     pub fn get_inflation(&self, id: impl AsRef<str>) -> Result<Arc<InflationCurve>> {
         let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::Inflation(curve)) => Ok(Arc::clone(curve)),
-            Some(storage) => Err(crate::error::Error::Validation(format!(
-                "Type mismatch: curve '{}' is '{}', expected 'Inflation'", 
-                id_str, storage.curve_type()
-            ))),
-            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
-        }
+        self.get_curve_with_type_check(id_str, "Inflation", |storage| {
+            storage.inflation().map(Arc::clone)
+        })
     }
 
     /// Get a base correlation curve by identifier.
     pub fn get_base_correlation(&self, id: impl AsRef<str>) -> Result<Arc<BaseCorrelationCurve>> {
         let id_str = id.as_ref();
-        match self.curves.get(id_str) {
-            Some(CurveStorage::BaseCorrelation(curve)) => Ok(Arc::clone(curve)),
-            Some(storage) => Err(crate::error::Error::Validation(format!(
-                "Type mismatch: curve '{}' is '{}', expected 'BaseCorrelation'", 
-                id_str, storage.curve_type()
-            ))),
-            None => Err(crate::error::InputError::NotFound { id: id_str.to_string() }.into()),
-        }
+        self.get_curve_with_type_check(id_str, "BaseCorrelation", |storage| {
+            storage.base_correlation().map(Arc::clone)
+        })
     }
 
     /// Borrow a discount curve by identifier.
@@ -816,57 +809,6 @@ impl MarketContext {
         }
     }
 
-    /// Get a curve by identifier as a concrete type `T` (backward compatibility).
-    pub fn get<T: 'static>(&self, id: impl AsRef<str>) -> Result<Arc<T>> {
-        let id_str = id.as_ref();
-        
-        // Try each curve type - this replaces the old StorageCast system
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<DiscountCurve>() {
-            return self.get_discount(id_str).map(|arc| unsafe { std::mem::transmute(arc) });
-        }
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<ForwardCurve>() {
-            return self.get_forward(id_str).map(|arc| unsafe { std::mem::transmute(arc) });
-        }
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<HazardCurve>() {
-            return self.get_hazard(id_str).map(|arc| unsafe { std::mem::transmute(arc) });
-        }
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<InflationCurve>() {
-            return self.get_inflation(id_str).map(|arc| unsafe { std::mem::transmute(arc) });
-        }
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<BaseCorrelationCurve>() {
-            return self.get_base_correlation(id_str).map(|arc| unsafe { std::mem::transmute(arc) });
-        }
-        
-        Err(crate::error::Error::Validation(format!(
-            "Unsupported curve type for curve '{}'", id_str
-        )))
-    }
-
-    /// Borrow a curve by ID as a concrete type `T` (backward compatibility).
-    pub fn get_ref<T: 'static>(&self, id: impl AsRef<str>) -> Result<&T> {
-        let id_str = id.as_ref();
-        
-        // Try each curve type - this replaces the old StorageCast system
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<DiscountCurve>() {
-            return self.get_discount_ref(id_str).map(|r| unsafe { std::mem::transmute(r) });
-        }
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<ForwardCurve>() {
-            return self.get_forward_ref(id_str).map(|r| unsafe { std::mem::transmute(r) });
-        }
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<HazardCurve>() {
-            return self.get_hazard_ref(id_str).map(|r| unsafe { std::mem::transmute(r) });
-        }
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<InflationCurve>() {
-            return self.get_inflation_ref(id_str).map(|r| unsafe { std::mem::transmute(r) });
-        }
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<BaseCorrelationCurve>() {
-            return self.get_base_correlation_ref(id_str).map(|r| unsafe { std::mem::transmute(r) });
-        }
-        
-        Err(crate::error::Error::Validation(format!(
-            "Unsupported curve type for curve '{}'", id_str
-        )))
-    }
 
     /// Clone a volatility surface by identifier.
     ///
@@ -1366,7 +1308,7 @@ impl MarketContext {
     /// bumps.insert(CurveId::new("USD-OIS"), BumpSpec::parallel_bp(100.0));
     /// let bumped = context.bump(bumps).unwrap();
     /// use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as _;
-    /// assert!(bumped.get::<DiscountCurve>("USD-OIS_bump_100bp").is_ok());
+    /// assert!(bumped.get_discount("USD-OIS_bump_100bp").is_ok());
     /// ```
     pub fn bump(&self, bumps: HashMap<CurveId, BumpSpec>) -> Result<Self> {
         let mut new_context = self.clone();

@@ -11,7 +11,6 @@ use crate::instruments::equity::Equity;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::money::fx::{FxConversionPolicy, FxProvider};
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -135,7 +134,7 @@ impl EquityPricer {
         let s0 = self.price_per_share(inst, curves, as_of)?;
         let dy = self.dividend_yield(inst, curves)?;
         let discount_id = format!("{}-OIS", inst.currency);
-        let disc = curves.get_ref::<DiscountCurve>(&discount_id)?;
+        let disc = curves.get_discount_ref(&discount_id)?;
         let r = disc.zero(t);
         let fwd = s0.amount() * ((r - dy) * t).exp();
         Ok(Money::new(fwd, inst.currency))
@@ -167,7 +166,7 @@ crate::impl_dyn_pricer!(
     as_of = |inst: &Equity, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<Date> {
         // Prefer OIS base date for the instrument currency when available; otherwise epoch
         let disc_id = format!("{}-OIS", inst.currency);
-        if let Ok(disc) = market.get_ref::<DiscountCurve>(&disc_id) {
+        if let Ok(disc) = market.get_discount_ref(&disc_id) {
             Ok(disc.base_date())
         } else {
             Ok(Date::from_calendar_date(1970, time::Month::January, 1).unwrap())

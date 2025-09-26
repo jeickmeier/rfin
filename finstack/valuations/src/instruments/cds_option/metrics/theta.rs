@@ -23,7 +23,7 @@ impl MetricCalculator for ThetaCalculator {
         // Risk-free rate proxy from discount curve at expiry
         let disc = context
             .curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
             option.disc_id.clone(),
         )?;
         let r = disc.zero(t);
@@ -31,7 +31,7 @@ impl MetricCalculator for ThetaCalculator {
         // Forward spread in bp
         let hazard_curve = context
             .curves
-            .get::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+            .get_hazard(
             option.credit_id.clone(),
         )?;
         let current_tenor = option.day_count.year_fraction(

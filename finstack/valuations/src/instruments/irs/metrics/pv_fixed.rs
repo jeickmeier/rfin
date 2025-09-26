@@ -5,7 +5,6 @@
 use crate::instruments::irs::types::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::F;
 
 /// PV of the fixed leg of an IRS.
@@ -14,7 +13,7 @@ pub struct FixedLegPvCalculator;
 impl MetricCalculator for FixedLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let irs: &InterestRateSwap = context.instrument_as()?;
-        let disc = context.curves.get::<DiscountCurve>(irs.fixed.disc_id.clone())?;
+        let disc = context.curves.get_discount(irs.fixed.disc_id.clone())?;
 
         let sched = crate::cashflow::builder::build_dates(
             irs.fixed.start,

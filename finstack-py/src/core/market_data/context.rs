@@ -87,13 +87,8 @@ impl PyMarketContext {
     /// Raises:
     ///     KeyError: If the curve is not found
     fn get_discount_curve(&self, py: Python, curve_id: &str) -> PyResult<PyObject> {
-        // Create a static string for the curve ID to satisfy lifetime requirements
-        let static_id: &'static str = Box::leak(curve_id.to_string().into_boxed_str());
-
         self.inner
-            .get::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
-                static_id,
-            )
+            .get_discount(curve_id)
             .map(|_curve| {
                 // Return a Python None for now
                 py.None()

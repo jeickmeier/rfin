@@ -29,7 +29,7 @@ impl MetricCalculator for Cs01Calculator {
         // Get the base discount curve
         let disc_curve = context
             .curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
                 bond.disc_id.as_ref(),
             )?;
 

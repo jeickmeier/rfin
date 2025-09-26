@@ -50,7 +50,7 @@ pub fn collect_inputs(
 
     // Discount curve -> zero rate
     let disc_curve = curves
-        .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+        .get_discount_ref(
         inst.disc_id.as_str(),
     )?;
     let r = disc_curve.zero(t);

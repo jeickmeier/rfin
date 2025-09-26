@@ -13,9 +13,7 @@
 
 use crate::instruments::ir_future::{InterestRateFuture, Position};
 use finstack_core::dates::DayCountCtx;
-use finstack_core::market_data::term_structures::{
-    discount_curve::DiscountCurve, forward_curve::ForwardCurve,
-};
+// Remove unused direct imports of DiscountCurve and ForwardCurve; we access via context
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -29,8 +27,8 @@ impl IrFutureEngine {
     /// Delegates to the instrument's rate and convexity policy and uses
     /// discount/forward curves from the `MarketContext`.
     pub fn pv(fut: &InterestRateFuture, context: &MarketContext) -> Result<Money> {
-        let disc = context.get_ref::<DiscountCurve>(fut.disc_id.clone())?;
-        let fwd = context.get_ref::<ForwardCurve>(fut.forward_id.clone())?;
+        let disc = context.get_discount_ref(fut.disc_id.clone())?;
+        let fwd = context.get_forward_ref(fut.forward_id.clone())?;
 
         // Base date for mapping to curve time
         let base_date = disc.base_date();

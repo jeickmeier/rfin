@@ -13,13 +13,12 @@ use crate::instruments::cds::{CreditDefaultSwap, PayReceive};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{next_cds_date, Date, DayCount};
 use finstack_core::dates::utils::add_months;
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 use finstack_core::market_data::traits::{Discounting, Survival};
 use finstack_core::market_data::MarketContext;
 use finstack_core::math::{adaptive_simpson, gauss_legendre_integrate};
 use finstack_core::money::Money;
 use finstack_core::{Error, Result, F};
+use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
 
 // Named approximation constant to avoid magic numbers
 const BUSINESS_DAYS_PER_YEAR_APPROX: F = 252.0;
@@ -616,11 +615,11 @@ impl CDSPricer {
     /// CS01 via risky PV01 approximation
     pub fn cs01(&self, cds: &CreditDefaultSwap, curves: &MarketContext, as_of: Date) -> Result<F> {
         let disc = curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
             cds.premium.disc_id.clone(),
         )?;
         let surv = curves
-            .get_ref::<finstack_core::market_data::term_structures::hazard_curve::HazardCurve>(
+            .get_hazard_ref(
                 cds.protection.credit_id.clone(),
             )?;
         let base_npv = self.npv(cds, disc, surv, as_of)?;
@@ -667,8 +666,8 @@ impl CDSPricer {
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<Money> {
-        let disc = curves.get_ref::<DiscountCurve>(cds.premium.disc_id.clone())?;
-        let surv = curves.get_ref::<HazardCurve>(cds.protection.credit_id.clone())?;
+        let disc = curves.get_discount_ref(cds.premium.disc_id.clone())?;
+        let surv = curves.get_hazard_ref(cds.protection.credit_id.clone())?;
         self.npv_with_upfront(cds, disc, surv, as_of)
     }
 
@@ -816,9 +815,8 @@ impl CDSBootstrapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
-    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
     use finstack_core::dates::utils::add_months;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 
     fn create_test_cds(
         id: impl Into<String>,

@@ -13,10 +13,10 @@ use finstack_core::dates::utils::add_months;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency};
 use finstack_core::market_data::MarketContext;
 // use finstack_core::market_data::context::MarketContext; // use re-export above
-use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 use finstack_core::money::Money;
 use finstack_core::prelude::*;
 use finstack_core::F;
+use finstack_core::market_data::term_structures::BaseCorrelationCurve;
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -492,7 +492,6 @@ mod tests {
     use super::*;
     #[allow(unused_imports)]
     use finstack_core::currency::Currency;
-    use finstack_core::market_data::term_structures::hazard_curve::HazardCurve;
     use finstack_core::market_data::term_structures::CreditIndexData;
     use finstack_core::market_data::term_structures::{
         discount_curve::DiscountCurve, BaseCorrelationCurve,
@@ -512,6 +511,7 @@ mod tests {
             .unwrap();
 
         // Create index hazard curve
+        use finstack_core::market_data::term_structures::HazardCurve;
         let index_curve = HazardCurve::builder("CDX.NA.IG.42")
             .base_date(base_date)
             .recovery_rate(0.40)

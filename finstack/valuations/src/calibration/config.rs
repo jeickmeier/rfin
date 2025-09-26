@@ -5,8 +5,8 @@
 //! - Multi-curve framework mode (post-2008 vs legacy single-curve)
 //! - Entity seniority mappings for credit calibration
 
-use finstack_core::market_data::term_structures::hazard_curve::Seniority;
 use finstack_core::F;
+use finstack_core::market_data::term_structures::Seniority;
 use serde::{Deserialize, Serialize};
 use hashbrown::HashMap;
 

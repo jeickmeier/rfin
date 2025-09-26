@@ -30,11 +30,11 @@ impl IrOptionPricer {
 
         // Get market curves
         let disc_curve = curves
-            .get_ref::<finstack_core::market_data::term_structures::discount_curve::DiscountCurve>(
+            .get_discount_ref(
                 s.disc_id.as_ref(),
             )?;
         let fwd_curve = curves
-            .get_ref::<finstack_core::market_data::term_structures::forward_curve::ForwardCurve>(
+            .get_forward_ref(
                 s.forward_id.as_ref(),
             )?;
         let vol_surface = if s.pricing_overrides.implied_volatility.is_none() {

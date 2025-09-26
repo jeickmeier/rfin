@@ -35,8 +35,7 @@ impl MetricCalculator for BucketedDv01Calculator {
         let reval = move |
             bumped_disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve|
          {
-            use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
-            let fwd = curves.get_ref::<ForwardCurve>(fra.forward_id.as_str())?;
+            let fwd = curves.get_forward_ref(fra.forward_id.as_str())?;
 
             // Recompute FRA PV using bumped discount and original forward
             let base_date = bumped_disc.base_date();

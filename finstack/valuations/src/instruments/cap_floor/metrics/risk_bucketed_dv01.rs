@@ -38,9 +38,8 @@ impl MetricCalculator for BucketedDv01Calculator {
             use crate::cashflow::builder::schedule_utils::build_dates;
             use crate::instruments::cap_floor::pricing::black as black_ir;
             use crate::instruments::cap_floor::types::RateOptionType;
-            use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
 
-            let fwd_curve = curves.get_ref::<ForwardCurve>(opt.forward_id.as_ref())?;
+            let fwd_curve = curves.get_forward_ref(opt.forward_id.as_ref())?;
 
             let mut total_pv = finstack_core::money::Money::new(0.0, opt.notional.currency());
 

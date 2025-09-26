@@ -15,7 +15,6 @@ use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::scalars::inflation_index::{
     InflationIndex, InflationInterpolation, InflationLag,
 };
-use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -130,7 +129,7 @@ impl InflationLinkedBondEngine {
     /// Present value using standard cashflow discounting.
     pub fn pv(ilb: &InflationLinkedBond, curves: &MarketContext, as_of: Date) -> Result<Money> {
         let flows = Self::build_schedule(ilb, curves, as_of)?;
-        let disc = curves.get_ref::<DiscountCurve>(ilb.disc_id.clone())?;
+        let disc = curves.get_discount_ref(ilb.disc_id.clone())?;
         let base_date = disc.base_date();
         // Use curve basis for time mapping
         let dc = disc.day_count();
