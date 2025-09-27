@@ -4,10 +4,11 @@
 //! direct exposure to volatility without delta hedging.
 
 pub mod metrics;
-pub mod pricing;
+pub mod pricer;
 pub mod types;
 
 pub use types::{PayReceive, VarianceSwap};
+pub use pricer::SimpleVarianceSwapDiscountingPricer;
 
 // Re-export from core
 pub use finstack_core::math::stats::{

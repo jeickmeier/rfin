@@ -48,7 +48,70 @@ pub struct EquityTotalReturnSwap {
     pub attributes: Attributes,
 }
 
-impl EquityTotalReturnSwap {}
+impl EquityTotalReturnSwap {
+    /// Calculates the net present value (NPV) of the equity TRS.
+    ///
+    /// # Arguments
+    /// * `curves` — Market context containing curves and market data
+    /// * `as_of` — Valuation date
+    ///
+    /// # Returns
+    /// Net present value in the instrument's currency.
+    pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
+        // Calculate total return leg PV
+        let total_return_pv = self.pv_total_return_leg(curves, as_of)?;
+
+        // Calculate financing leg PV
+        let financing_pv = self.pv_financing_leg(curves, as_of)?;
+
+        // Net PV depends on side
+        let net_pv = match self.side {
+            super::TrsSide::ReceiveTotalReturn => (total_return_pv - financing_pv)?,
+            super::TrsSide::PayTotalReturn => (financing_pv - total_return_pv)?,
+        };
+
+        Ok(net_pv)
+    }
+
+    /// Calculates the present value of the total return leg.
+    ///
+    /// # Arguments
+    /// * `curves` — Market context containing curves and market data
+    /// * `as_of` — Valuation date
+    ///
+    /// # Returns
+    /// Present value of the total return leg in the instrument's currency.
+    pub fn pv_total_return_leg(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
+        use crate::instruments::trs::pricing::equity;
+        equity::pv_total_return_leg(self, curves, as_of)
+    }
+
+    /// Calculates the present value of the financing leg.
+    ///
+    /// # Arguments
+    /// * `curves` — Market context containing curves and market data
+    /// * `as_of` — Valuation date
+    ///
+    /// # Returns
+    /// Present value of the financing leg in the instrument's currency.
+    pub fn pv_financing_leg(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
+        use crate::instruments::trs::pricing::engine::TrsEngine;
+        TrsEngine::pv_financing_leg(&self.financing, &self.schedule, self.notional, curves, as_of)
+    }
+
+    /// Calculates the financing annuity for par spread calculation.
+    ///
+    /// # Arguments
+    /// * `curves` — Market context containing curves and market data
+    /// * `as_of` — Valuation date
+    ///
+    /// # Returns
+    /// Financing annuity (sum of discounted year fractions × notional).
+    pub fn financing_annuity(&self, curves: &MarketContext, as_of: Date) -> Result<F> {
+        use crate::instruments::trs::pricing::engine::TrsEngine;
+        TrsEngine::financing_annuity(&self.financing, &self.schedule, self.notional, curves, as_of)
+    }
+}
 
 // Attributable implementation is provided by the impl_instrument! macro
 
@@ -57,23 +120,8 @@ crate::impl_instrument!(
     EquityTotalReturnSwap,
     "EquityTotalReturnSwap",
     pv = |s, curves, as_of| {
-        use crate::instruments::trs::pricing::engine::TrsEngine;
-        use crate::instruments::trs::pricing::equity;
-
-        // Calculate total return leg PV
-        let total_return_pv = equity::pv_total_return_leg(s, curves, as_of)?;
-
-        // Calculate financing leg PV
-        let financing_pv =
-            TrsEngine::pv_financing_leg(&s.financing, &s.schedule, s.notional, curves, as_of)?;
-
-        // Net PV depends on side
-        let net_pv = match s.side {
-            super::TrsSide::ReceiveTotalReturn => (total_return_pv - financing_pv)?,
-            super::TrsSide::PayTotalReturn => (financing_pv - total_return_pv)?,
-        };
-
-        Ok(net_pv)
+        // Call the instrument's own method
+        s.npv(curves, as_of)
     }
 );
 

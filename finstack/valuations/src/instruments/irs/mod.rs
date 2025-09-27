@@ -1,12 +1,10 @@
 //! Interest Rate Swap (IRS) instrument module.
 //!
-//! Mirrors the modern instrument layout used across valuations with clearly
-//! separated `types`, `pricing`, and `metrics` modules. Public re‑exports keep
-//! the external API surface stable while enabling internal evolution.
+//! Follows the simplified instrument layout with `types`, `pricer`, and `metrics` modules.
+//! Public re‑exports keep the external API surface stable while enabling internal evolution.
 
 pub mod metrics;
-pub mod pricing;
+pub mod pricer;
 mod types;
 
-pub use pricing::engine::IrsEngine;
 pub use types::{FixedLegSpec, FloatLegSpec, InterestRateSwap, PayReceive};

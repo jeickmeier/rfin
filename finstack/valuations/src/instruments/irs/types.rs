@@ -12,7 +12,7 @@ use finstack_core::market_data::traits::Forward;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
-use finstack_core::{dates::Date, F};
+use finstack_core::{dates::Date, Result, F};
 
 use crate::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
@@ -279,6 +279,89 @@ impl InterestRateSwap {
         }
         Ok(total)
     }
+
+    /// Calculates the present value of this IRS by composing leg PVs.
+    ///
+    /// Provides deterministic present value calculation for a vanilla
+    /// fixed-for-floating interest rate swap. Uses the instrument
+    /// day-counts for accrual and the discount curve's own date helpers for
+    /// discounting to ensure policy visibility and currency safety.
+    ///
+    /// PV = sign × (PV_fixed − PV_float) with sign determined by `PayReceive`.
+    pub fn npv(&self, context: &MarketContext) -> Result<Money> {
+        let disc = context.get_discount_ref(self.fixed.disc_id.as_ref())?;
+        // Attempt to resolve a forward curve for the float leg. If absent and the float leg
+        // references the same discounting curve (OIS case), fall back to an efficient
+        // discount-only computation for the floating leg.
+        let pv_fixed = self.pv_fixed_leg(disc)?;
+        let pv_float = match context.get_forward_ref(self.float.fwd_id.as_ref()) {
+            Ok(fwd) => self.pv_float_leg(disc, fwd)?,
+            Err(_) => {
+                // OIS fallback: forward curve not found. If the float leg uses the same
+                // discount curve as the fixed leg, we can value the floating leg using
+                // discount factors only: PV_float = N × (P(0, T_start) - P(0, T_end))
+                // plus the spread annuity when spread is non-zero.
+                if self.float.disc_id == self.fixed.disc_id {
+                    // Base PV without spread
+                    let df_start = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on_date_curve(disc, self.float.start);
+                    let df_end = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on_date_curve(disc, self.float.end);
+                    let mut pv = self.notional.amount() * (df_start - df_end);
+
+                    // Add spread contribution if any: N × sum_i( spread × alpha_i × DF(T_i) )
+                    if self.float.spread_bp != 0.0 {
+                        // Build coupon schedule using the float leg payment frequency and conventions
+                        let builder = finstack_core::dates::ScheduleBuilder::new(self.float.start, self.float.end)
+                            .frequency(self.float.freq)
+                            .stub_rule(self.float.stub);
+                        let sched_dates: Vec<_> = if let Some(id) = self.float.calendar_id {
+                            if let Some(cal) = calendar_by_id(id) {
+                                builder
+                                    .adjust_with(self.float.bdc, cal)
+                                    .build()
+                                    .unwrap()
+                                    .into_iter()
+                                    .collect()
+                            } else {
+                                builder.build().unwrap().into_iter().collect()
+                            }
+                        } else {
+                            builder.build().unwrap().into_iter().collect()
+                        };
+
+                        if sched_dates.len() >= 2 {
+                            let mut prev = sched_dates[0];
+                            let mut annuity = 0.0;
+                            for &d in &sched_dates[1..] {
+                                let alpha = self
+                                    .float
+                                    .dc
+                                    .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
+                                    .unwrap_or(0.0);
+                                let df = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on_date_curve(disc, d);
+                                annuity += alpha * df;
+                                prev = d;
+                            }
+                            pv += self.notional.amount() * (self.float.spread_bp * 1e-4) * annuity;
+                        }
+                    }
+                    Money::new(pv, self.notional.currency())
+                } else {
+                    // Not OIS and forward curve missing: return the error to guide callers
+                    // to provide a forward curve.
+                    return Err(context
+                        .get_forward_ref(self.float.fwd_id.as_ref())
+                        .err()
+                        .unwrap());
+                }
+            }
+        };
+
+        let npv = match self.side {
+            PayReceive::PayFixed => (pv_float - pv_fixed)?,
+            PayReceive::ReceiveFixed => (pv_fixed - pv_float)?,
+        };
+        Ok(npv)
+    }
 }
 
 // Explicit trait implementations for modern instrument style
@@ -288,7 +371,7 @@ impl InterestRateSwap {
 crate::impl_instrument!(
     InterestRateSwap,
     "InterestRateSwap",
-    pv = |s, curves, _as_of| crate::instruments::irs::pricing::engine::IrsEngine::pv(s, curves)
+    pv = |s, curves, _as_of| s.npv(curves)
 );
 
 // RiskMeasurable impl removed; risk reporting standardized via metrics registry only.

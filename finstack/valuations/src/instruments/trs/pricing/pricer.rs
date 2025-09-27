@@ -1,67 +1,16 @@
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::common::GenericDiscountingPricer;
 use crate::instruments::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
-use finstack_core::market_data::MarketContext as Market;
 use finstack_core::market_data::MarketContext;
 
-pub struct DiscountingPricer;
+/// Generic discounting pricer for Equity Total Return Swaps.
+pub type SimpleEquityTrsDiscountingPricer = GenericDiscountingPricer<EquityTotalReturnSwap>;
 
-impl DiscountingPricer {
-    pub fn new() -> Self {
-        Self
-    }
-}
+/// Generic discounting pricer for Fixed Income Index Total Return Swaps.
+pub type SimpleFIIndexTrsDiscountingPricer = GenericDiscountingPricer<FIIndexTotalReturnSwap>;
 
-impl Default for DiscountingPricer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Pricer for DiscountingPricer {
-    fn key(&self) -> PricerKey {
-        PricerKey::new(InstrumentType::TRS, ModelKey::Discounting)
-    }
-    fn price_dyn(
-        &self,
-        instrument: &dyn Instrument,
-        market: &Market,
-    ) -> std::result::Result<crate::results::ValuationResult, PricingError> {
-        // Equity TRS
-        if let Some(eq) = instrument.as_any().downcast_ref::<EquityTotalReturnSwap>() {
-            let disc = market.get_discount_ref(eq.financing.disc_id.clone())?;
-            let as_of = disc.base_date();
-            // Delegate to instrument pv implementation
-            use crate::instruments::common::traits::Instrument;
-            let pv = eq.value(market, as_of)?;
-            return Ok(crate::results::ValuationResult::stamped(
-                eq.id.as_str(),
-                as_of,
-                pv,
-            ));
-        }
-        // FI Index TRS
-        if let Some(fi) = instrument.as_any().downcast_ref::<FIIndexTotalReturnSwap>() {
-            let disc = market.get_discount_ref(fi.financing.disc_id.clone())?;
-            let as_of = disc.base_date();
-            use crate::instruments::common::traits::Instrument;
-            let pv = fi.value(market, as_of)?;
-            return Ok(crate::results::ValuationResult::stamped(
-                fi.id.as_str(),
-                as_of,
-                pv,
-            ));
-        }
-        Err(PricingError::TypeMismatch {
-            expected: InstrumentType::TRS,
-            got: instrument.key()})
-    }
-}
-
-
-// ========================= NEW SIMPLIFIED TRS PRICER =========================
-
-/// New simplified TRS discounting pricer that handles both Equity and FI Index variants
+/// Combined TRS discounting pricer that handles both Equity and FI Index variants.
 pub struct SimpleTrsDiscountingPricer;
 
 impl SimpleTrsDiscountingPricer {
@@ -86,8 +35,21 @@ impl Pricer for SimpleTrsDiscountingPricer {
         instrument: &dyn Instrument,
         market: &MarketContext,
     ) -> Result<crate::results::ValuationResult, PricingError> {
-        // Handle both TRS variants using the existing DiscountingPricer logic
-        let existing_pricer = DiscountingPricer::new();
-        existing_pricer.price_dyn(instrument, market)
+        // Handle Equity TRS
+        if let Some(equity_trs) = instrument.as_any().downcast_ref::<EquityTotalReturnSwap>() {
+            let equity_pricer = SimpleEquityTrsDiscountingPricer::new_discounting(InstrumentType::TRS);
+            return equity_pricer.price_dyn(equity_trs, market);
+        }
+        
+        // Handle FI Index TRS
+        if let Some(fi_trs) = instrument.as_any().downcast_ref::<FIIndexTotalReturnSwap>() {
+            let fi_pricer = SimpleFIIndexTrsDiscountingPricer::new_discounting(InstrumentType::TRS);
+            return fi_pricer.price_dyn(fi_trs, market);
+        }
+        
+        Err(PricingError::TypeMismatch {
+            expected: InstrumentType::TRS,
+            got: instrument.key(),
+        })
     }
 }

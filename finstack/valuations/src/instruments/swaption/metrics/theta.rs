@@ -43,12 +43,11 @@ impl MetricCalculator for ThetaCalculator {
 
         // Reprice at t+1bd with same market context and chosen model path
         let disc = context.curves.get_discount_ref(option.disc_id.as_ref())?;
-        let pricer = crate::instruments::swaption::pricing::SwaptionPricer;
         let bumped = if option.sabr_params.is_some() {
-            pricer.price_sabr(option, disc, as_of_plus_1bd)?
+            option.price_sabr(disc, as_of_plus_1bd)?
         } else {
             // Hold vol surface value constant by re-fetching at bumped as_of; methodology choice: use same vol surface with bumped time
-            let t = pricer.year_fraction(as_of_plus_1bd, option.expiry, option.day_count)?;
+            let t = option.year_fraction(as_of_plus_1bd, option.expiry, option.day_count)?;
             if t <= 0.0 {
                 return Ok(0.0);
             }
@@ -60,7 +59,7 @@ impl MetricCalculator for ThetaCalculator {
                     .surface_ref(option.vol_id)?
                     .value_clamped(t, option.strike_rate)
             };
-            pricer.price_black(option, disc, vol, as_of_plus_1bd)?
+            option.price_black(disc, vol, as_of_plus_1bd)?
         };
 
         Ok(bumped.amount() - base_pv)

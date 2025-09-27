@@ -17,15 +17,14 @@ impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &Swaption = context.instrument_as()?;
         let disc = context.curves.get_discount_ref(option.disc_id.as_ref())?;
-        let pricer = crate::instruments::swaption::pricing::SwaptionPricer;
-        let t = pricer.year_fraction(context.as_of, option.expiry, option.day_count)?;
+        let t = option.year_fraction(context.as_of, option.expiry, option.day_count)?;
 
         if t <= 0.0 {
             return Ok(0.0);
         }
 
-        let forward = pricer.forward_swap_rate(option, disc, context.as_of)?;
-        let annuity = pricer.swap_annuity(option, disc, context.as_of)?;
+        let forward = option.forward_swap_rate(disc, context.as_of)?;
+        let annuity = option.swap_annuity(disc, context.as_of)?;
 
         let sigma = if let Some(sabr) = &option.sabr_params {
             let model = crate::instruments::common::models::SABRModel::new(sabr.clone());

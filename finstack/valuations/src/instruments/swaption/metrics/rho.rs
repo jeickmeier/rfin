@@ -20,9 +20,8 @@ impl MetricCalculator for RhoCalculator {
         let base_price = context.base_value.amount();
 
         // Get volatility from surface using as_of (vol held constant during bump)
-        let pricer = crate::instruments::swaption::pricing::SwaptionPricer;
         let time_to_expiry =
-            pricer.year_fraction(context.as_of, option.expiry, option.day_count)?;
+            option.year_fraction(context.as_of, option.expiry, option.day_count)?;
         let vol = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {
@@ -35,12 +34,12 @@ impl MetricCalculator for RhoCalculator {
 
         // Reprice with bumped curve using same model path as instrument pricing
         let bumped_price = if option.sabr_params.is_some() {
-            pricer
-                .price_sabr(option, &bumped_disc, context.as_of)?
+            option
+                .price_sabr(&bumped_disc, context.as_of)?
                 .amount()
         } else {
-            pricer
-                .price_black(option, &bumped_disc, vol, context.as_of)?
+            option
+                .price_black(&bumped_disc, vol, context.as_of)?
                 .amount()
         };
 

@@ -2,9 +2,6 @@ use super::FinancingAnnuityCalculator;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::{Error, Result, F};
 
-use crate::instruments::trs::pricing::{
-    equity as pricing_equity, fixed_income_index as pricing_fi,
-};
 use crate::instruments::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
 
 /// Calculates the par spread for a TRS (spread that makes NPV = 0).
@@ -34,13 +31,13 @@ impl MetricCalculator for ParSpreadCalculator {
             .as_any()
             .downcast_ref::<EquityTotalReturnSwap>()
         {
-            pricing_equity::pv_total_return_leg(equity_trs, context.curves.as_ref(), context.as_of)?
+            equity_trs.pv_total_return_leg(context.curves.as_ref(), context.as_of)?
         } else if let Some(fi_trs) = context
             .instrument
             .as_any()
             .downcast_ref::<FIIndexTotalReturnSwap>()
         {
-            pricing_fi::pv_total_return_leg(fi_trs, context.curves.as_ref(), context.as_of)?
+            fi_trs.pv_total_return_leg(context.curves.as_ref(), context.as_of)?
         } else {
             return Err(Error::Input(finstack_core::error::InputError::Invalid));
         };

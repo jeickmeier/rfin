@@ -253,11 +253,7 @@ impl SwaptionVolCalibrator {
         };
 
         let disc = context.get_discount_ref(self.disc_id)?;
-        crate::instruments::swaption::pricing::SwaptionPricer.swap_annuity(
-            &swaption,
-            disc,
-            self.base_date,
-        )
+        swaption.swap_annuity(disc, self.base_date)
     }
 
     /// Convert volatility between conventions.

@@ -7,14 +7,16 @@
 //! rate, annuity, and day-count based year fractions that reuse core library
 //! functionality.
 
-use crate::instruments::common::models::SABRParameters;
+use crate::instruments::common::models::{SABRModel, SABRParameters};
 use crate::instruments::common::parameters::OptionType;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
-use finstack_core::dates::{Date, DayCount, Frequency};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::market_data::traits::Discounting;
+use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::F;
+use finstack_core::{Error, Result, F};
 
 use super::parameters::SwaptionParams;
 
@@ -123,16 +125,132 @@ impl Swaption {
         self
     }
 
-    // Pricing helpers moved to pricing::engine. Keep types.rs free of pricing logic.
+    // ============================================================================
+    // Pricing Methods (moved from engine for direct access)
+    // ============================================================================
+
+    /// Compute instrument NPV dispatching to SABR or Black as configured on the instrument.
+    pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
+        let disc = curves.get_discount_ref(self.disc_id.as_ref())?;
+        if self.sabr_params.is_some() {
+            return self.price_sabr(disc, as_of);
+        }
+        let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
+        let vol = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
+            impl_vol
+        } else {
+            let vol_surface = curves.surface_ref(self.vol_id)?;
+            vol_surface.value_clamped(time_to_expiry, self.strike_rate)
+        };
+        self.price_black(disc, vol, as_of)
+    }
+
+    /// Black (lognormal) model PV using forward swap rate and annuity.
+    pub fn price_black(
+        &self,
+        disc: &dyn Discounting,
+        volatility: F,
+        as_of: Date,
+    ) -> Result<Money> {
+        let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
+        if time_to_expiry <= 0.0 {
+            return Ok(Money::new(0.0, self.notional.currency()));
+        }
+        let forward_rate = self.forward_swap_rate(disc, as_of)?;
+        let annuity = self.swap_annuity(disc, as_of)?;
+        let variance = volatility.powi(2) * time_to_expiry;
+
+        // Use stable handling if variance is near zero
+        if variance <= 0.0 || !variance.is_finite() {
+            return Ok(Money::new(0.0, self.notional.currency()));
+        }
+        let sqrt_var = variance.sqrt();
+        let d1 = ((forward_rate / self.strike_rate).ln() + 0.5 * variance) / sqrt_var;
+        let d2 = d1 - sqrt_var;
+        let value = match self.option_type {
+            OptionType::Call => {
+                annuity
+                    * (forward_rate * finstack_core::math::norm_cdf(d1)
+                        - self.strike_rate * finstack_core::math::norm_cdf(d2))
+            }
+            OptionType::Put => {
+                annuity
+                    * (self.strike_rate * finstack_core::math::norm_cdf(-d2)
+                        - forward_rate * finstack_core::math::norm_cdf(-d1))
+            }
+        };
+        Ok(Money::new(
+            value * self.notional.amount(),
+            self.notional.currency(),
+        ))
+    }
+
+    /// SABR-implied volatility PV via Black price.
+    pub fn price_sabr(&self, disc: &dyn Discounting, as_of: Date) -> Result<Money> {
+        let params: &SABRParameters = self.sabr_params.as_ref().ok_or(Error::Internal)?;
+        let model = SABRModel::new(params.clone());
+        let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
+        if time_to_expiry <= 0.0 {
+            return Ok(Money::new(0.0, self.notional.currency()));
+        }
+        let forward_rate = self.forward_swap_rate(disc, as_of)?;
+        let sabr_vol = model.implied_volatility(forward_rate, self.strike_rate, time_to_expiry)?;
+        self.price_black(disc, sabr_vol, as_of)
+    }
+
+    /// Utility: compute year fraction using instrument's day count in a stable way.
+    #[inline]
+    pub fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<F> {
+        dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
+    }
+
+    /// Discounted fixed-leg PV01 (annuity) of the underlying swap schedule.
+    pub fn swap_annuity(&self, disc: &dyn Discounting, as_of: Date) -> Result<F> {
+        let mut annuity = 0.0;
+        let sched = crate::cashflow::builder::build_dates(
+            self.swap_start,
+            self.swap_end,
+            self.fixed_freq,
+            StubKind::None,
+            BusinessDayConvention::Following,
+            None,
+        );
+        let dates = sched.dates;
+        if dates.len() < 2 {
+            return Ok(0.0);
+        }
+        let mut prev = dates[0];
+        for &d in &dates[1..] {
+            let t = self.year_fraction(as_of, d, self.day_count)?;
+            let accrual = self.year_fraction(prev, d, self.day_count)?;
+            let df = disc.df(t);
+            annuity += accrual * df;
+            prev = d;
+        }
+        Ok(annuity)
+    }
+
+    /// Forward par swap rate implied by discount factors and annuity.
+    pub fn forward_swap_rate(
+        &self,
+        disc: &dyn Discounting,
+        as_of: Date,
+    ) -> Result<F> {
+        let t_start = self.year_fraction(as_of, self.swap_start, self.day_count)?;
+        let t_end = self.year_fraction(as_of, self.swap_end, self.day_count)?;
+        let df_start = disc.df(t_start);
+        let df_end = disc.df(t_end);
+        let annuity = self.swap_annuity(disc, as_of)?;
+        Ok((df_start - df_end) / annuity)
+    }
 }
 
 impl_instrument!(
     Swaption,
     "Swaption",
-    pv = |s, curves, _as_of| {
-        // Delegate PV to the pricing engine to keep instrument type slim
-        let pricer = crate::instruments::swaption::pricing::SwaptionPricer;
-        pricer.npv(s, curves, _as_of)
+    pv = |s, curves, as_of| {
+        // Call the instrument's own npv method
+        s.npv(curves, as_of)
     },
 );
 
