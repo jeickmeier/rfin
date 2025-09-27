@@ -270,11 +270,6 @@ impl crate::instruments::common::traits::Instrument for Bond {
     }
 
     #[inline]
-    fn instrument_type(&self) -> &'static str {
-        "Bond"
-    }
-
-    #[inline]
     fn as_any(&self) -> &dyn ::std::any::Any {
         self
     }

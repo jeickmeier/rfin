@@ -68,7 +68,7 @@ pub use variance_swap::VarianceSwap;
 // === Common Functionality ===
 pub use common::build_with_metrics_dyn;
 pub use common::discountable::Discountable;
-pub use common::traits::{Attributable, Attributes, Instrument};
+pub use common::traits::{Attributes, Instrument};
 pub use common::{BinomialTree, TreeType};
 
 // === Parameter Types ===

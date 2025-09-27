@@ -2,7 +2,7 @@
 //!
 //! This module contains utilities, models, and types that are used
 //! by multiple instrument implementations, including:
-//! - Core instrument traits (Instrument, Priceable, Attributable)
+//! - Core instrument traits (Instrument)
 //! - Implementation macros for reducing boilerplate
 //! - NPV calculation interfaces (Discountable)
 //! - Option pricing models (Black-Scholes, binomial/trinomial trees, SABR)
@@ -56,4 +56,4 @@ pub use parameters::{
     OptionType, ParRateMethod, PayReceive, PremiumLegSpec, ProtectionLegSpec, ScheduleSpec,
     SettlementType, TotalReturnLegSpec, UnderlyingParams,
 };
-pub use traits::{Attributable, Attributes, Instrument};
+pub use traits::{Attributes, Instrument};

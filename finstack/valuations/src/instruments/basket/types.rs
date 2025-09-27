@@ -55,7 +55,7 @@ impl std::fmt::Debug for ConstituentReference {
         match self {
             ConstituentReference::Instrument(instrument) => f
                 .debug_struct("Instrument")
-                .field("type", &instrument.instrument_type())
+                .field("type", &format!("{:?}", instrument.key()))
                 .field("id", &instrument.id())
                 .finish(),
             ConstituentReference::MarketData {
@@ -239,9 +239,6 @@ impl Basket {
 impl Instrument for Basket {
     fn id(&self) -> &str {
         self.id.as_str()
-    }
-    fn instrument_type(&self) -> &'static str {
-        "Basket"
     }
     fn as_any(&self) -> &dyn ::std::any::Any {
         self

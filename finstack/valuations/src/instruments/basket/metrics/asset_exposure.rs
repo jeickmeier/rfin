@@ -27,12 +27,13 @@ impl MetricCalculator for AssetExposureCalculator {
                     std::mem::discriminant(asset_type) == std::mem::discriminant(target)
                 }
                 (ConstituentReference::Instrument(instrument), target) => {
-                    let instrument_type = instrument.instrument_type();
+                    use crate::pricer::InstrumentType;
+                    let it = instrument.key();
                     matches!(
-                        (instrument_type, target),
-                        ("Bond", AssetType::Bond)
-                            | ("Equity", AssetType::Equity)
-                            | ("Basket", AssetType::ETF)
+                        (it, target),
+                        (InstrumentType::Bond, AssetType::Bond)
+                            | (InstrumentType::Equity, AssetType::Equity)
+                            | (InstrumentType::Basket, AssetType::ETF)
                     )
                 }
             };

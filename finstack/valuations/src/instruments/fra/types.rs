@@ -100,11 +100,6 @@ impl crate::instruments::common::traits::Instrument for ForwardRateAgreement {
     }
 
     #[inline]
-    fn instrument_type(&self) -> &'static str {
-        "FRA"
-    }
-
-    #[inline]
     fn as_any(&self) -> &dyn ::std::any::Any {
         self
     }

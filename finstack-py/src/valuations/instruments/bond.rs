@@ -446,7 +446,7 @@ impl PyBond {
     ///     >>> attrs.set_meta("issuer", "Microsoft")
     #[getter]
     fn attributes(&self) -> crate::valuations::attributes::PyAttributes {
-        use finstack_valuations::instruments::Attributable;
+        use finstack_valuations::instruments::Instrument;
         let attrs = self.inner.attributes().clone();
         crate::valuations::attributes::PyAttributes::from_inner(attrs)
     }
@@ -466,7 +466,7 @@ impl PyBond {
         &mut self,
         attributes: &crate::valuations::attributes::PyAttributes,
     ) -> PyResult<()> {
-        use finstack_valuations::instruments::Attributable;
+        use finstack_valuations::instruments::Instrument;
         use std::sync::Arc;
 
         // We need to clone the bond to modify it since it's in an Arc
@@ -485,7 +485,7 @@ impl PyBond {
     ///     >>> bond.add_tag("corporate")
     ///     >>> bond.add_tag("investment_grade")
     fn add_tag(&mut self, tag: String) -> PyResult<()> {
-        use finstack_valuations::instruments::Attributable;
+        use finstack_valuations::instruments::Instrument;
         use std::sync::Arc;
 
         let mut bond = (*self.inner).clone();
@@ -502,7 +502,7 @@ impl PyBond {
     /// Returns:
     ///     True if the tag exists
     fn has_tag(&self, tag: &str) -> bool {
-        use finstack_valuations::instruments::Attributable;
+        use finstack_valuations::instruments::Instrument;
         self.inner.has_tag(tag)
     }
 
@@ -516,7 +516,7 @@ impl PyBond {
     ///     >>> bond.set_meta("rating", "AA+")
     ///     >>> bond.set_meta("sector", "Technology")
     fn set_meta(&mut self, key: String, value: String) -> PyResult<()> {
-        use finstack_valuations::instruments::Attributable;
+        use finstack_valuations::instruments::Instrument;
         use std::sync::Arc;
 
         let mut bond = (*self.inner).clone();
@@ -533,7 +533,7 @@ impl PyBond {
     /// Returns:
     ///     The value if present
     fn get_meta(&self, key: &str) -> Option<String> {
-        use finstack_valuations::instruments::Attributable;
+        use finstack_valuations::instruments::Instrument;
         self.inner.get_meta(key).map(|s| s.to_string())
     }
 
@@ -545,7 +545,7 @@ impl PyBond {
     /// Returns:
     ///     True if the bond matches the selector
     fn matches_selector(&self, selector: &str) -> bool {
-        use finstack_valuations::instruments::Attributable;
+        use finstack_valuations::instruments::Instrument;
         self.inner.matches_selector(selector)
     }
 

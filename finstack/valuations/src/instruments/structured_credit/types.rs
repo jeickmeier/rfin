@@ -453,18 +453,6 @@ impl Instrument for StructuredCredit {
         self.id.as_str()
     }
 
-    fn instrument_type(&self) -> &'static str {
-        match self.deal_type {
-            DealType::CLO => "CLO",
-            DealType::CBO => "CBO",
-            DealType::ABS => "ABS",
-            DealType::RMBS => "RMBS",
-            DealType::CMBS => "CMBS",
-            DealType::Auto => "AutoABS",
-            DealType::Card => "CardABS",
-        }
-    }
-
     fn as_any(&self) -> &dyn Any {
         self
     }

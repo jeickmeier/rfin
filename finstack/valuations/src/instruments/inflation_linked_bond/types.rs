@@ -372,11 +372,6 @@ impl crate::instruments::common::traits::Instrument for InflationLinkedBond {
     }
 
     #[inline]
-    fn instrument_type(&self) -> &'static str {
-        "InflationLinkedBond"
-    }
-
-    #[inline]
     fn as_any(&self) -> &dyn ::std::any::Any {
         self
     }

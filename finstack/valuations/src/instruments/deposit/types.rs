@@ -79,11 +79,6 @@ impl crate::instruments::common::traits::Instrument for Deposit {
     }
 
     #[inline]
-    fn instrument_type(&self) -> &'static str {
-        "Deposit"
-    }
-
-    #[inline]
     fn as_any(&self) -> &dyn ::std::any::Any {
         self
     }

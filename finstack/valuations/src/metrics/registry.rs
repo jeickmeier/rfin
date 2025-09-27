@@ -192,8 +192,34 @@ impl MetricRegistry {
         // Build dependency graph and compute order
         let order = self.resolve_dependencies(metric_ids)?;
 
-        // Get instrument type once from the instrument
-        let instrument_type = context.instrument.instrument_type();
+        // Get instrument type tag once from the instrument key
+        let instrument_type = match context.instrument.key() {
+            crate::pricer::InstrumentType::Bond => "Bond",
+            crate::pricer::InstrumentType::Loan => "Loan",
+            crate::pricer::InstrumentType::CDS => "CDS",
+            crate::pricer::InstrumentType::CDSIndex => "CDSIndex",
+            crate::pricer::InstrumentType::CDSTranche => "CDSTranche",
+            crate::pricer::InstrumentType::CDSOption => "CdsOption",
+            crate::pricer::InstrumentType::IRS => "InterestRateSwap",
+            crate::pricer::InstrumentType::CapFloor => "InterestRateOption",
+            crate::pricer::InstrumentType::Swaption => "Swaption",
+            crate::pricer::InstrumentType::TRS => "TRS",
+            crate::pricer::InstrumentType::BasisSwap => "BasisSwap",
+            crate::pricer::InstrumentType::Basket => "Basket",
+            crate::pricer::InstrumentType::Convertible => "ConvertibleBond",
+            crate::pricer::InstrumentType::Deposit => "Deposit",
+            crate::pricer::InstrumentType::EquityOption => "EquityOption",
+            crate::pricer::InstrumentType::FxOption => "FxOption",
+            crate::pricer::InstrumentType::FxSpot => "FxSpot",
+            crate::pricer::InstrumentType::FxSwap => "FxSwap",
+            crate::pricer::InstrumentType::InflationLinkedBond => "InflationLinkedBond",
+            crate::pricer::InstrumentType::InflationSwap => "InflationSwap",
+            crate::pricer::InstrumentType::InterestRateFuture => "InterestRateFuture",
+            crate::pricer::InstrumentType::VarianceSwap => "VarianceSwap",
+            crate::pricer::InstrumentType::Equity => "Equity",
+            crate::pricer::InstrumentType::Repo => "Repo",
+            crate::pricer::InstrumentType::FRA => "FRA",
+        };
 
         // Compute metrics in dependency order
         for metric_id in order {
@@ -248,7 +274,33 @@ impl MetricRegistry {
         &self,
         context: &mut MetricContext,
     ) -> finstack_core::Result<HashMap<MetricId, F>> {
-        let instrument_type = context.instrument.instrument_type();
+        let instrument_type = match context.instrument.key() {
+            crate::pricer::InstrumentType::Bond => "Bond",
+            crate::pricer::InstrumentType::Loan => "Loan",
+            crate::pricer::InstrumentType::CDS => "CDS",
+            crate::pricer::InstrumentType::CDSIndex => "CDSIndex",
+            crate::pricer::InstrumentType::CDSTranche => "CDSTranche",
+            crate::pricer::InstrumentType::CDSOption => "CdsOption",
+            crate::pricer::InstrumentType::IRS => "InterestRateSwap",
+            crate::pricer::InstrumentType::CapFloor => "InterestRateOption",
+            crate::pricer::InstrumentType::Swaption => "Swaption",
+            crate::pricer::InstrumentType::TRS => "TRS",
+            crate::pricer::InstrumentType::BasisSwap => "BasisSwap",
+            crate::pricer::InstrumentType::Basket => "Basket",
+            crate::pricer::InstrumentType::Convertible => "ConvertibleBond",
+            crate::pricer::InstrumentType::Deposit => "Deposit",
+            crate::pricer::InstrumentType::EquityOption => "EquityOption",
+            crate::pricer::InstrumentType::FxOption => "FxOption",
+            crate::pricer::InstrumentType::FxSpot => "FxSpot",
+            crate::pricer::InstrumentType::FxSwap => "FxSwap",
+            crate::pricer::InstrumentType::InflationLinkedBond => "InflationLinkedBond",
+            crate::pricer::InstrumentType::InflationSwap => "InflationSwap",
+            crate::pricer::InstrumentType::InterestRateFuture => "InterestRateFuture",
+            crate::pricer::InstrumentType::VarianceSwap => "VarianceSwap",
+            crate::pricer::InstrumentType::Equity => "Equity",
+            crate::pricer::InstrumentType::Repo => "Repo",
+            crate::pricer::InstrumentType::FRA => "FRA",
+        };
         let applicable = self.metrics_for_instrument(instrument_type);
         self.compute(&applicable, context)
     }

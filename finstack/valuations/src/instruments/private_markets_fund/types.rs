@@ -70,9 +70,6 @@ impl Instrument for PrivateMarketsFund {
     fn id(&self) -> &str {
         self.id.as_str()
     }
-    fn instrument_type(&self) -> &'static str {
-        "PrivateMarketsFund"
-    }
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }

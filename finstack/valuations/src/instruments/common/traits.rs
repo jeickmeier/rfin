@@ -1,7 +1,7 @@
 //! Instrument-level traits and metadata types.
 
 use crate::metrics::MetricId;
-use crate::pricer::InstrumentType; // Still needed for key() method fallback
+use crate::pricer::InstrumentType; // Return type for key()
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use hashbrown::{HashMap, HashSet};
@@ -70,27 +70,6 @@ impl Attributes {
     }
 }
 
-/// Trait for instruments with attributes.
-pub trait Attributable: Send + Sync {
-    /// Get the instrument's attributes.
-    fn attributes(&self) -> &Attributes;
-    /// Get mutable access to attributes.
-    fn attributes_mut(&mut self) -> &mut Attributes;
-
-    /// Check if the instrument matches a selector.
-    fn matches_selector(&self, selector: &str) -> bool {
-        self.attributes().matches_selector(selector)
-    }
-    /// Check if the instrument has a specific tag.
-    fn has_tag(&self, tag: &str) -> bool {
-        self.attributes().has_tag(tag)
-    }
-    /// Get a metadata value by key.
-    fn get_meta(&self, key: &str) -> Option<&str> {
-        self.attributes().get_meta(key)
-    }
-}
-
 /// Unified instrument trait combining identity, attributes, and pricing.
 ///
 /// This is the primary trait for all financial instruments, providing both
@@ -99,9 +78,6 @@ pub trait Attributable: Send + Sync {
 pub trait Instrument: Send + Sync {
     /// Get the instrument's unique identifier.
     fn id(&self) -> &str;
-
-    /// Get the instrument type as a string identifier.
-    fn instrument_type(&self) -> &'static str;
     
     /// Get the strongly-typed instrument key for pricer dispatch.
     /// Uses TypeId-based mapping instead of brittle string matching.
@@ -119,12 +95,20 @@ pub trait Instrument: Send + Sync {
             InstrumentType::FRA
         } else if type_id == TypeId::of::<crate::instruments::InterestRateSwap>() {
             InstrumentType::IRS
+        } else if type_id == TypeId::of::<crate::instruments::cap_floor::InterestRateOption>() {
+            InstrumentType::CapFloor
         } else if type_id == TypeId::of::<crate::instruments::BasisSwap>() {
             InstrumentType::BasisSwap
         } else if type_id == TypeId::of::<crate::instruments::Swaption>() {
             InstrumentType::Swaption
+        } else if type_id == TypeId::of::<crate::instruments::Basket>() {
+            InstrumentType::Basket
+        } else if type_id == TypeId::of::<crate::instruments::ConvertibleBond>() {
+            InstrumentType::Convertible
         } else if type_id == TypeId::of::<crate::instruments::InflationLinkedBond>() {
             InstrumentType::InflationLinkedBond
+        } else if type_id == TypeId::of::<crate::instruments::InflationSwap>() {
+            InstrumentType::InflationSwap
         } else if type_id == TypeId::of::<crate::instruments::InterestRateFuture>() {
             InstrumentType::InterestRateFuture
         } else if type_id == TypeId::of::<crate::instruments::trs::EquityTotalReturnSwap>()
@@ -139,35 +123,24 @@ pub trait Instrument: Send + Sync {
             InstrumentType::CDSOption
         } else if type_id == TypeId::of::<crate::instruments::CdsTranche>() {
             InstrumentType::CDSTranche
+        } else if type_id == TypeId::of::<crate::instruments::Equity>() {
+            InstrumentType::Equity
+        } else if type_id == TypeId::of::<crate::instruments::EquityOption>() {
+            InstrumentType::EquityOption
+        } else if type_id == TypeId::of::<crate::instruments::FxOption>() {
+            InstrumentType::FxOption
+        } else if type_id == TypeId::of::<crate::instruments::FxSpot>() {
+            InstrumentType::FxSpot
+        } else if type_id == TypeId::of::<crate::instruments::FxSwap>() {
+            InstrumentType::FxSwap
+        } else if type_id == TypeId::of::<crate::instruments::Repo>() {
+            InstrumentType::Repo
+        } else if type_id == TypeId::of::<crate::instruments::VarianceSwap>() {
+            InstrumentType::VarianceSwap
         } else {
-            // Fallback: use string-based matching for instruments not yet migrated
-            match self.instrument_type() {
-                "Bond" => InstrumentType::Bond,
-                "InterestRateSwap" => InstrumentType::IRS,
-                "Swaption" => InstrumentType::Swaption,
-                "CreditDefaultSwap" => InstrumentType::CDS,
-                "CDSIndex" => InstrumentType::CDSIndex,
-                "CdsTranche" => InstrumentType::CDSTranche,
-                "CdsOption" => InstrumentType::CDSOption,
-                "InterestRateOption" => InstrumentType::CapFloor,
-                "EquityTotalReturnSwap" | "FIIndexTotalReturnSwap" => InstrumentType::TRS,
-                "BasisSwap" => InstrumentType::BasisSwap,
-                "Basket" => InstrumentType::Basket,
-                "ConvertibleBond" => InstrumentType::Convertible,
-                "Deposit" => InstrumentType::Deposit,
-                "Equity" => InstrumentType::Equity,
-                "EquityOption" => InstrumentType::EquityOption,
-                "FxOption" => InstrumentType::FxOption,
-                "FxSpot" => InstrumentType::FxSpot,
-                "FxSwap" => InstrumentType::FxSwap,
-                "InflationLinkedBond" => InstrumentType::InflationLinkedBond,
-                "InflationSwap" => InstrumentType::InflationSwap,
-                "InterestRateFuture" => InstrumentType::InterestRateFuture,
-                "VarianceSwap" => InstrumentType::VarianceSwap,
-                "Repo" => InstrumentType::Repo,
-                "FRA" => InstrumentType::FRA,
-                other => panic!("Unknown instrument type: '{}'. Please add TypeId mapping for this instrument type.", other)
-            }
+            panic!(
+                "Unknown instrument concrete type for Instrument::key(). Please add a TypeId mapping."
+            )
         }
     }
 
@@ -177,6 +150,19 @@ pub trait Instrument: Send + Sync {
     /// Attributes accessors
     fn attributes(&self) -> &Attributes;
     fn attributes_mut(&mut self) -> &mut Attributes;
+
+    /// Check if the instrument matches a selector.
+    fn matches_selector(&self, selector: &str) -> bool {
+        self.attributes().matches_selector(selector)
+    }
+    /// Check if the instrument has a specific tag.
+    fn has_tag(&self, tag: &str) -> bool {
+        self.attributes().has_tag(tag)
+    }
+    /// Get a metadata value by key.
+    fn get_meta(&self, key: &str) -> Option<&str> {
+        self.attributes().get_meta(key)
+    }
 
     /// Clone this instrument as a boxed trait object
     fn clone_box(&self) -> Box<dyn Instrument>;
@@ -198,15 +184,4 @@ pub trait Instrument: Send + Sync {
     ) -> finstack_core::Result<crate::results::ValuationResult>;
 }
 
-// Blanket implementation: any Instrument is Attributable via its attribute accessors
-impl<T: Instrument> Attributable for T {
-    #[inline]
-    fn attributes(&self) -> &Attributes {
-        <Self as Instrument>::attributes(self)
-    }
-
-    #[inline]
-    fn attributes_mut(&mut self) -> &mut Attributes {
-        <Self as Instrument>::attributes_mut(self)
-    }
-}
+// Note: Methods formerly on the `Attributable` trait are now default methods on `Instrument`.

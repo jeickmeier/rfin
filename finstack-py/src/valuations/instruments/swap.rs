@@ -451,7 +451,7 @@ impl PyInterestRateSwap {
     ///     Attributes: The swap's attributes object
     #[getter]
     fn attributes(&self) -> crate::valuations::attributes::PyAttributes {
-        use finstack_valuations::instruments::Attributable;
+        use finstack_valuations::instruments::Instrument;
         let attrs = self.inner.attributes().clone();
         crate::valuations::attributes::PyAttributes::from_inner(attrs)
     }
@@ -465,7 +465,7 @@ impl PyInterestRateSwap {
         &mut self,
         attributes: &crate::valuations::attributes::PyAttributes,
     ) -> PyResult<()> {
-        use finstack_valuations::instruments::Attributable;
+        use finstack_valuations::instruments::Instrument;
         use std::sync::Arc;
 
         let mut swap = (*self.inner).clone();
@@ -479,7 +479,7 @@ impl PyInterestRateSwap {
     /// Args:
     ///     tag: Tag to add
     fn add_tag(&mut self, tag: String) -> PyResult<()> {
-        use finstack_valuations::instruments::Attributable;
+        use finstack_valuations::instruments::Instrument;
         use std::sync::Arc;
 
         let mut swap = (*self.inner).clone();
@@ -496,7 +496,7 @@ impl PyInterestRateSwap {
     /// Returns:
     ///     True if the tag exists
     fn has_tag(&self, tag: &str) -> bool {
-        use finstack_valuations::instruments::Attributable;
+        use finstack_valuations::instruments::Instrument;
         self.inner.has_tag(tag)
     }
 
@@ -506,7 +506,7 @@ impl PyInterestRateSwap {
     ///     key: Metadata key
     ///     value: Metadata value
     fn set_meta(&mut self, key: String, value: String) -> PyResult<()> {
-        use finstack_valuations::instruments::Attributable;
+        use finstack_valuations::instruments::Instrument;
         use std::sync::Arc;
 
         let mut swap = (*self.inner).clone();
@@ -523,7 +523,7 @@ impl PyInterestRateSwap {
     /// Returns:
     ///     The value if present
     fn get_meta(&self, key: &str) -> Option<String> {
-        use finstack_valuations::instruments::Attributable;
+        use finstack_valuations::instruments::Instrument;
         self.inner.get_meta(key).map(|s| s.to_string())
     }
 
@@ -535,7 +535,7 @@ impl PyInterestRateSwap {
     /// Returns:
     ///     True if the swap matches the selector
     fn matches_selector(&self, selector: &str) -> bool {
-        use finstack_valuations::instruments::Attributable;
+        use finstack_valuations::instruments::Instrument;
         self.inner.matches_selector(selector)
     }
 

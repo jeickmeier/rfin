@@ -334,9 +334,6 @@ impl Instrument for Repo {
     fn id(&self) -> &str {
         self.id.as_str()
     }
-    fn instrument_type(&self) -> &'static str {
-        "Repo"
-    }
     fn as_any(&self) -> &dyn Any {
         self
     }

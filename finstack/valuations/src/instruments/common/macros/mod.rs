@@ -4,8 +4,7 @@
 //! in instrument implementations.
 
 /// Generate a full instrument implementation:
-/// - Attributable
-/// - Instrument (including pricing methods)
+/// - Instrument (including attribute accessors and pricing methods)
 #[macro_export]
 macro_rules! impl_instrument {
     (
@@ -17,11 +16,6 @@ macro_rules! impl_instrument {
             #[inline]
             fn id(&self) -> &str {
                 self.id.as_str()
-            }
-
-            #[inline]
-            fn instrument_type(&self) -> &'static str {
-                $type_name
             }
 
             #[inline]

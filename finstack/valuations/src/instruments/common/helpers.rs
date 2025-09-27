@@ -75,7 +75,7 @@ pub fn build_with_metrics_dyn(
 
     // Instrument-specific metadata stamping (non-invasive, opt-in by type)
     // CDSIndex: stamp step-in, effective dates, coupon-day info
-    if instrument.instrument_type() == "CDSIndex" {
+    if matches!(instrument.key(), crate::pricer::InstrumentType::CDSIndex) {
         if let Some(idx) = instrument
             .as_any()
             .downcast_ref::<crate::instruments::cds_index::CDSIndex>()

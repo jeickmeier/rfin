@@ -171,9 +171,7 @@ impl Instrument for CdsTranche {
     fn id(&self) -> &str {
         self.id.as_str()
     }
-    fn instrument_type(&self) -> &'static str {
-        "CDSTranche"
-    }
+    
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
