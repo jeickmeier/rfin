@@ -1,4 +1,3 @@
-use crate::instruments::basis_swap::pricing::engine::{BasisEngine, FloatLegParams};
 use crate::instruments::basis_swap::types::BasisSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::{Error, Result, F};
@@ -48,15 +47,9 @@ impl MetricCalculator for PvCalculator {
             &swap.reference_leg
         };
         let schedule = swap.leg_schedule(leg);
-        let params = FloatLegParams {
-            schedule: &schedule,
-            notional: swap.notional,
-            disc_id: swap.discount_curve_id.clone(),
-            fwd_id: leg.forward_curve_id.clone(),
-            accrual_dc: leg.day_count,
-            spread: leg.spread,
-        };
-        let pv = BasisEngine::pv_float_leg(params, curves.as_ref(), as_of)?;
+        
+        // Use the instrument's own pv_float_leg method
+        let pv = swap.pv_float_leg(leg, &schedule, curves.as_ref(), as_of)?;
         Ok(pv.amount())
     }
 }

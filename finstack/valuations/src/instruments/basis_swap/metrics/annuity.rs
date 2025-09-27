@@ -1,4 +1,3 @@
-use crate::instruments::basis_swap::pricing::engine::BasisEngine;
 use crate::instruments::basis_swap::types::BasisSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::{Error, Result, F};
@@ -47,11 +46,8 @@ impl MetricCalculator for AnnuityCalculator {
             &swap.reference_leg
         };
         let schedule = swap.leg_schedule(leg);
-        BasisEngine::annuity_for_leg(
-            &schedule,
-            leg.day_count,
-            swap.discount_curve_id.as_str(),
-            curves.as_ref(),
-        )
+        
+        // Use the instrument's own annuity method
+        swap.annuity_for_leg(leg, &schedule, curves.as_ref())
     }
 }

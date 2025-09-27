@@ -266,7 +266,7 @@ pub fn create_standard_registry() -> PricerRegistry {
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::BasisSwap, ModelKey::Discounting),
-        Box::new(crate::instruments::basis_swap::pricing::pricer::SimpleBasisSwapDiscountingPricer::new())
+        Box::new(crate::instruments::basis_swap::SimpleBasisSwapDiscountingPricer::new())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::Repo, ModelKey::Discounting),

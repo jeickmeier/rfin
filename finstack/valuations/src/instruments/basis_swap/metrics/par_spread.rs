@@ -1,4 +1,3 @@
-use crate::instruments::basis_swap::pricing::engine::{BasisEngine, FloatLegParams};
 use crate::instruments::basis_swap::types::BasisSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::{Error, Result, F};
@@ -41,31 +40,19 @@ impl MetricCalculator for ParSpreadCalculator {
         let as_of = context.as_of;
 
         // PV of reference leg
-        let leg_ref = &swap.reference_leg;
-        let schedule_ref = swap.leg_schedule(leg_ref);
-        let params_ref = FloatLegParams {
-            schedule: &schedule_ref,
-            notional: swap.notional,
-            disc_id: swap.discount_curve_id.clone(),
-            fwd_id: leg_ref.forward_curve_id.clone(),
-            accrual_dc: leg_ref.day_count,
-            spread: leg_ref.spread,
-        };
-        let pv_ref = BasisEngine::pv_float_leg(params_ref, curves.as_ref(), as_of)?.amount();
+        let schedule_ref = swap.leg_schedule(&swap.reference_leg);
+        let pv_ref = swap.pv_float_leg(&swap.reference_leg, &schedule_ref, curves.as_ref(), as_of)?.amount();
 
-        // PV of primary at zero spread
-        let leg = &swap.primary_leg;
-        let schedule = swap.leg_schedule(leg);
-        let params = FloatLegParams {
-            schedule: &schedule,
-            notional: swap.notional,
-            disc_id: swap.discount_curve_id.clone(),
-            fwd_id: leg.forward_curve_id.clone(),
-            accrual_dc: leg.day_count,
+        // PV of primary at zero spread - need to create a modified leg
+        let primary_leg_no_spread = crate::instruments::basis_swap::BasisSwapLeg {
+            forward_curve_id: swap.primary_leg.forward_curve_id.clone(),
+            frequency: swap.primary_leg.frequency,
+            day_count: swap.primary_leg.day_count,
+            bdc: swap.primary_leg.bdc,
             spread: 0.0,
         };
-        let pv_primary_no_spread =
-            BasisEngine::pv_float_leg(params, curves.as_ref(), as_of)?.amount();
+        let schedule = swap.leg_schedule(&primary_leg_no_spread);
+        let pv_primary_no_spread = swap.pv_float_leg(&primary_leg_no_spread, &schedule, curves.as_ref(), as_of)?.amount();
 
         // Solve for s (decimal). Convert to bp.
         let s_decimal = (pv_ref - pv_primary_no_spread) / (swap.notional.amount() * annuity);

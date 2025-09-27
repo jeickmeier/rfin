@@ -5,10 +5,11 @@
 
 use crate::cashflow::builder::schedule_utils::{build_dates, PeriodSchedule};
 use finstack_core::{
-    dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind},
+    dates::{BusinessDayConvention, Date, DayCount, DayCountCtx, Frequency, StubKind},
+    market_data::MarketContext,
     money::Money,
     types::{CurveId, InstrumentId},
-    F,
+    Result, F,
 };
 
 // Re-export from common parameters
@@ -169,6 +170,119 @@ impl BasisSwap {
             self.calendar_id,
         )
     }
+
+    /// Calculates the present value of a floating rate leg.
+    ///
+    /// # Arguments
+    /// * `leg` — The leg specification
+    /// * `schedule` — Period schedule for the leg
+    /// * `context` — Market context containing curves and rates
+    /// * `valuation_date` — Date for present value calculation
+    ///
+    /// # Returns
+    /// The present value of the floating leg as a `Money` amount.
+    pub fn pv_float_leg(
+        &self,
+        leg: &BasisSwapLeg,
+        schedule: &PeriodSchedule,
+        context: &MarketContext,
+        valuation_date: Date,
+    ) -> Result<Money> {
+        // Get curves
+        let disc = context.get_discount_ref(self.discount_curve_id.clone())?;
+        let fwd = context.get_forward_ref(leg.forward_curve_id.clone())?;
+
+        let mut pv = 0.0;
+        let currency = self.notional.currency();
+        let dc_ctx = DayCountCtx::default();
+
+        // Iterate periods
+        for i in 1..schedule.dates.len() {
+            let period_start = schedule.dates[i - 1];
+            let period_end = schedule.dates[i];
+
+            // Skip past periods
+            if period_end <= valuation_date {
+                continue;
+            }
+
+            // Forward rate for the accrual period using the forward curve's own time basis
+            let fwd_dc = fwd.day_count();
+            let fwd_base = fwd.base_date();
+            let t_start = fwd_dc.year_fraction(fwd_base, period_start, dc_ctx)?;
+            let t_end = fwd_dc.year_fraction(fwd_base, period_end, dc_ctx)?;
+            let forward_rate = fwd.rate_period(t_start, t_end);
+
+            // Total rate (add spread)
+            let total_rate = forward_rate + leg.spread;
+
+            // Accrual year fraction
+            let year_frac = leg
+                .day_count
+                .year_fraction(period_start, period_end, dc_ctx)?;
+
+            // Payment
+            let payment = self.notional.amount() * total_rate * year_frac;
+
+            // Discount factor to payment date using the curve's own day-count basis
+            let df = disc.df_on_date_curve(period_end);
+            pv += payment * df;
+        }
+
+        Ok(Money::new(pv, currency))
+    }
+
+    /// Calculates the discounted accrual sum (annuity) for a leg.
+    ///
+    /// This method computes the sum of discounted year fractions for a leg,
+    /// which is useful for DV01 calculations and par spread computations.
+    ///
+    /// # Arguments
+    /// * `leg` — The leg specification
+    /// * `schedule` — Period schedule for the leg
+    /// * `curves` — Market context containing the discount curve
+    ///
+    /// # Returns
+    /// The discounted accrual sum as a floating point value.
+    pub fn annuity_for_leg(
+        &self,
+        leg: &BasisSwapLeg,
+        schedule: &PeriodSchedule,
+        curves: &MarketContext,
+    ) -> Result<F> {
+        let disc = curves.get_discount_ref(self.discount_curve_id.clone())?;
+        let mut annuity = 0.0;
+        let mut prev = schedule.dates[0];
+        for &d in &schedule.dates[1..] {
+            let yf = leg.day_count.year_fraction(prev, d, DayCountCtx::default())?;
+            // Discount using the curve's own day-count basis
+            let df = disc.df_on_date_curve(d);
+            annuity += yf * df;
+            prev = d;
+        }
+        Ok(annuity)
+    }
+
+    /// Compute the net present value (NPV) of the basis swap.
+    ///
+    /// # Arguments
+    /// * `curves` — Market context containing all necessary curves
+    /// * `as_of` — Valuation date
+    ///
+    /// # Returns
+    /// The NPV as the difference between primary and reference leg PVs.
+    pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
+        // Build schedules
+        let primary_schedule = self.leg_schedule(&self.primary_leg);
+        let reference_schedule = self.leg_schedule(&self.reference_leg);
+
+        // Calculate PV for each leg
+        let primary_pv = self.pv_float_leg(&self.primary_leg, &primary_schedule, curves, as_of)?;
+        let reference_pv = self.pv_float_leg(&self.reference_leg, &reference_schedule, curves, as_of)?;
+        
+        // Return net PV
+        primary_pv - reference_pv
+    }
 }
 
 // Attributable implementation is provided by the impl_instrument! macro
@@ -178,8 +292,8 @@ crate::impl_instrument!(
     BasisSwap,
     "BasisSwap",
     pv = |s, curves, as_of| {
-        // Delegate to the pricing engine to centralize logic
-        crate::instruments::basis_swap::pricing::engine::BasisEngine::npv(s, curves, as_of)
+        // Use the instrument's own npv method
+        s.npv(curves, as_of)
     }
 );
 
