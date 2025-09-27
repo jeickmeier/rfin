@@ -79,6 +79,23 @@ pub trait HolidayCalendar {
     fn is_business_day(&self, date: Date) -> bool {
         !date.is_weekend() && !self.is_holiday(date)
     }
+
+    /// Optional human-friendly metadata for the calendar.
+    #[inline]
+    fn metadata(&self) -> Option<CalendarMetadata> {
+        None
+    }
+}
+
+/// Basic metadata describing a holiday calendar.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CalendarMetadata {
+    /// Lowercase identifier (stable code).
+    pub id: &'static str,
+    /// Human-readable name of the calendar.
+    pub name: &'static str,
+    /// Whether weekends are ignored when classifying holidays.
+    pub ignore_weekends: bool,
 }
 
 /// Common business-day adjustment conventions.

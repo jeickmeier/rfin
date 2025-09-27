@@ -198,5 +198,3 @@ pub fn derive_financial_builder(input: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
-
-// proc-macro crates cannot export regular items; keep only derive above

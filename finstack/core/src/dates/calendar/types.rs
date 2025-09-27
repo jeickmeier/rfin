@@ -1,6 +1,6 @@
 //! Clean calendar implementation using a single Calendar struct.
 
-use super::business_days::HolidayCalendar;
+use super::business_days::{CalendarMetadata, HolidayCalendar};
 use super::generated::{bit_test, day_of_year_0_based, YearBits, BASE_YEAR, END_YEAR};
 use super::rule::Rule;
 use crate::dates::DateExt;
@@ -91,11 +91,23 @@ impl HolidayCalendar for Calendar {
 
         is_holiday
     }
+
+    fn metadata(&self) -> Option<CalendarMetadata> {
+        Some(CalendarMetadata {
+            id: self.id,
+            name: self.name,
+            ignore_weekends: self.ignore_weekends,
+        })
+    }
 }
 
 // Also implement HolidayCalendar for &Calendar for convenience
 impl HolidayCalendar for &Calendar {
     fn is_holiday(&self, date: Date) -> bool {
         (*self).is_holiday(date)
+    }
+
+    fn metadata(&self) -> Option<CalendarMetadata> {
+        (*self).metadata()
     }
 }
