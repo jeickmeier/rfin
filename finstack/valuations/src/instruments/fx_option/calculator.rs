@@ -1,14 +1,11 @@
-//! Core FX option pricing engine (Garman–Kohlhagen) and greeks.
+//! FX option calculator implementing Garman–Kohlhagen model.
 //!
-//! Provides deterministic PV and greek calculations for `FxOption` using
-//! the Garman–Kohlhagen model with domestic/foreign discounting and an
-//! implied volatility sourced from a surface or an override. This keeps
-//! heavy numerics out of the instrument type and allows metrics to reuse
-//! consistent logic.
+//! Contains the complex pricing logic separated from the instrument type,
+//! following the separation of concerns pattern.
 
 use crate::instruments::common::models::{d1, d2};
 use crate::instruments::common::parameters::OptionType;
-use crate::instruments::fx_option::types::FxOption;
+use crate::instruments::fx_option::FxOption;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::MarketContext;
 use finstack_core::math::solver::{HybridSolver, Solver};
@@ -16,16 +13,16 @@ use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 use finstack_core::{Result, F};
 
-/// Configuration for the FX option pricer.
+/// Configuration for the FX option calculator.
 #[derive(Debug, Clone)]
-pub struct FxOptionPricerConfig {
+pub struct FxOptionCalculatorConfig {
     /// Days per year basis for theta scaling (e.g., 365.0).
     pub theta_days_per_year: F,
     /// Initial guess for implied volatility solver.
     pub iv_initial_guess: F,
 }
 
-impl Default for FxOptionPricerConfig {
+impl Default for FxOptionCalculatorConfig {
     fn default() -> Self {
         Self {
             theta_days_per_year: 365.0,
@@ -34,39 +31,33 @@ impl Default for FxOptionPricerConfig {
     }
 }
 
-/// FX option pricing engine. Carries configurable policy.
+/// FX option calculator implementing Garman–Kohlhagen pricing.
 #[derive(Debug, Clone, Default)]
-pub struct FxOptionPricer {
-    pub config: FxOptionPricerConfig,
+pub struct FxOptionCalculator {
+    pub config: FxOptionCalculatorConfig,
 }
 
-// Default is derived
-
-impl FxOptionPricer {
-    /// Compute present value using Garman–Kohlhagen.
-    pub fn npv(inst: &FxOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        Self::default().npv_with_config(inst, curves, as_of)
+impl FxOptionCalculator {
+    /// Create new calculator with default configuration.
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    /// Compute present value using Garman–Kohlhagen with pricer configuration.
-    pub fn npv_with_config(
-        &self,
-        inst: &FxOption,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> Result<Money> {
+    /// Create calculator with custom configuration.
+    pub fn with_config(config: FxOptionCalculatorConfig) -> Self {
+        Self { config }
+    }
+
+    /// Compute present value using Garman–Kohlhagen.
+    pub fn npv(&self, inst: &FxOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
         self.validate_currency(inst)?;
-        let (spot, r_d, r_f, sigma, t) = Self::collect_inputs(inst, curves, as_of)?;
+        let (spot, r_d, r_f, sigma, t) = self.collect_inputs(inst, curves, as_of)?;
 
         if t <= 0.0 {
             // Expired: intrinsic value only
             let intrinsic = match inst.option_type {
-                crate::instruments::common::parameters::OptionType::Call => {
-                    (spot - inst.strike).max(0.0)
-                }
-                crate::instruments::common::parameters::OptionType::Put => {
-                    (inst.strike - spot).max(0.0)
-                }
+                OptionType::Call => (spot - inst.strike).max(0.0),
+                OptionType::Put => (inst.strike - spot).max(0.0),
             };
             return Ok(Money::new(
                 intrinsic * inst.notional.amount(),
@@ -84,11 +75,12 @@ impl FxOptionPricer {
 
     /// Collect standard inputs (spot, domestic/foreign rates, vol, time to expiry).
     pub fn collect_inputs(
+        &self,
         inst: &FxOption,
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<(F, F, F, F, F)> {
-        let t = Self::year_fraction(as_of, inst.expiry, inst.day_count)?;
+        let t = self.year_fraction(as_of, inst.expiry, inst.day_count)?;
 
         // Discount curves provide domestic and foreign zero rates
         let domestic_disc = curves.get_discount_ref(inst.domestic_disc_id)?;
@@ -119,11 +111,12 @@ impl FxOptionPricer {
 
     /// Collect inputs excluding volatility (spot, domestic/foreign rates, time to expiry).
     pub fn collect_inputs_no_vol(
+        &self,
         inst: &FxOption,
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<(F, F, F, F)> {
-        let t = Self::year_fraction(as_of, inst.expiry, inst.day_count)?;
+        let t = self.year_fraction(as_of, inst.expiry, inst.day_count)?;
 
         let domestic_disc = curves.get_discount_ref(inst.domestic_disc_id)?;
         let foreign_disc = curves.get_discount_ref(inst.foreign_disc_id)?;
@@ -144,12 +137,13 @@ impl FxOptionPricer {
 
     /// Utility: compute year fraction using instrument day-count.
     #[inline]
-    pub fn year_fraction(start: Date, end: Date, dc: DayCount) -> Result<F> {
+    pub fn year_fraction(&self, start: Date, end: Date, dc: DayCount) -> Result<F> {
         dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
     }
 
     /// Price using Garman–Kohlhagen with explicit inputs. Convenience for tests.
     pub fn price_gk_with_inputs(
+        &self,
         inst: &FxOption,
         spot: F,
         r_d: F,
@@ -159,12 +153,8 @@ impl FxOptionPricer {
     ) -> Result<Money> {
         if t <= 0.0 {
             let intrinsic = match inst.option_type {
-                crate::instruments::common::parameters::OptionType::Call => {
-                    (spot - inst.strike).max(0.0)
-                }
-                crate::instruments::common::parameters::OptionType::Put => {
-                    (inst.strike - spot).max(0.0)
-                }
+                OptionType::Call => (spot - inst.strike).max(0.0),
+                OptionType::Put => (inst.strike - spot).max(0.0),
             };
             return Ok(Money::new(
                 intrinsic * inst.notional.amount(),
@@ -189,7 +179,7 @@ impl FxOptionPricer {
         initial_guess: Option<F>,
     ) -> Result<F> {
         self.validate_currency(inst)?;
-        let (spot, r_d, r_f, t) = Self::collect_inputs_no_vol(inst, curves, as_of)?;
+        let (spot, r_d, r_f, t) = self.collect_inputs_no_vol(inst, curves, as_of)?;
         if t <= 0.0 || spot <= 0.0 {
             return Ok(0.0);
         }
@@ -227,65 +217,20 @@ impl FxOptionPricer {
         Ok(root.exp())
     }
 
-    #[inline]
-    fn validate_currency(&self, inst: &FxOption) -> Result<()> {
-        if inst.notional.currency() as i32 != inst.base_currency as i32 {
-            return Err(finstack_core::Error::from(
-                finstack_core::error::InputError::Invalid,
-            ));
-        }
-        Ok(())
-    }
-}
-
-/// Cash greeks for an FX option (scaled by notional amount).
-#[derive(Clone, Copy, Debug, Default)]
-pub struct FxOptionGreeks {
-    pub delta: F,
-    pub gamma: F,
-    pub vega: F,
-    pub theta: F,
-    pub rho_domestic: F,
-    pub rho_foreign: F,
-}
-
-/// Compute cash greeks using the same inputs as PV.
-pub fn compute_greeks(
-    inst: &FxOption,
-    curves: &MarketContext,
-    as_of: Date,
-) -> Result<FxOptionGreeks> {
-    FxOptionPricer::default().compute_greeks_with_config(inst, curves, as_of)
-}
-
-impl FxOptionPricer {
-    /// Compute greeks with pricer configuration.
-    pub fn compute_greeks_with_config(
-        &self,
-        inst: &FxOption,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> Result<FxOptionGreeks> {
+    /// Compute greeks with calculator configuration.
+    pub fn compute_greeks(&self, inst: &FxOption, curves: &MarketContext, as_of: Date) -> Result<FxOptionGreeks> {
         self.validate_currency(inst)?;
-        let (spot, r_d, r_f, sigma, t) = FxOptionPricer::collect_inputs(inst, curves, as_of)?;
+        let (spot, r_d, r_f, sigma, t) = self.collect_inputs(inst, curves, as_of)?;
 
         // Expired handling
         if t <= 0.0 {
             let spot_gt_strike = spot > inst.strike;
             let delta_unit = match inst.option_type {
                 OptionType::Call => {
-                    if spot_gt_strike {
-                        1.0
-                    } else {
-                        0.0
-                    }
+                    if spot_gt_strike { 1.0 } else { 0.0 }
                 }
                 OptionType::Put => {
-                    if !spot_gt_strike {
-                        -1.0
-                    } else {
-                        0.0
-                    }
+                    if !spot_gt_strike { -1.0 } else { 0.0 }
                 }
             };
             let scale = inst.notional.amount();
@@ -351,6 +296,27 @@ impl FxOptionPricer {
             rho_foreign: rho_foreign_unit * scale,
         })
     }
+
+    #[inline]
+    fn validate_currency(&self, inst: &FxOption) -> Result<()> {
+        if inst.notional.currency() as i32 != inst.base_currency as i32 {
+            return Err(finstack_core::Error::from(
+                finstack_core::error::InputError::Invalid,
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// Cash greeks for an FX option (scaled by notional amount).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct FxOptionGreeks {
+    pub delta: F,
+    pub gamma: F,
+    pub vega: F,
+    pub theta: F,
+    pub rho_domestic: F,
+    pub rho_foreign: F,
 }
 
 #[inline]

@@ -1,13 +1,12 @@
 //! Forward Rate Agreement (FRA) instrument module.
 //!
-//! Provides a modern, deposit-like layout with clear separation between
-//! instrument types, pricing engine, and metrics. FRAs are key short-end
-//! instruments that quote forward rates between a start and end date with
-//! settlement at the start of the accrual period.
+//! Provides a modern layout with clear separation between instrument types,
+//! pricing implementation, and metrics. FRAs are key short-end instruments
+//! that quote forward rates between a start and end date with settlement
+//! at the start of the accrual period.
 
 pub mod metrics;
-pub mod pricing;
+pub mod pricer;
 mod types;
 
-pub use pricing::engine::FraEngine;
 pub use types::ForwardRateAgreement;

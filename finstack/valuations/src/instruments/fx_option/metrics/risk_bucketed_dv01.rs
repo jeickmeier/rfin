@@ -36,9 +36,7 @@ impl MetricCalculator for BucketedDv01Calculator {
             {
                 let opt_dom = opt.clone();
                 move |temp_ctx| {
-                    crate::instruments::fx_option::pricing::engine::FxOptionPricer::npv(
-                        &opt_dom, temp_ctx, as_of,
-                    )
+                    opt_dom.npv(temp_ctx, as_of)
                 }
             },
         )?;
@@ -56,9 +54,7 @@ impl MetricCalculator for BucketedDv01Calculator {
             {
                 let opt_for = opt.clone();
                 move |temp_ctx| {
-                    crate::instruments::fx_option::pricing::engine::FxOptionPricer::npv(
-                        &opt_for, temp_ctx, as_of,
-                    )
+                    opt_for.npv(temp_ctx, as_of)
                 }
             },
         )?;

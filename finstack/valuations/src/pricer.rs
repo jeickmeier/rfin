@@ -202,7 +202,7 @@ pub fn create_standard_registry() -> PricerRegistry {
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::FRA, ModelKey::Discounting),
-        Box::new(crate::instruments::fra::pricing::pricer::SimpleFraDiscountingPricer::fra())
+        Box::new(crate::instruments::fra::pricer::SimpleFraDiscountingPricer::fra())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::CapFloor, ModelKey::Black76),
@@ -234,15 +234,15 @@ pub fn create_standard_registry() -> PricerRegistry {
     // Register simplified FX pricers
     registry.register_pricer(
         PricerKey::new(InstrumentType::FxSpot, ModelKey::Discounting),
-        Box::new(crate::instruments::fx_spot::pricing::pricer::SimpleFxSpotDiscountingPricer::new())
+        Box::new(crate::instruments::fx_spot::pricer::SimpleFxSpotDiscountingPricer::new())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::FxOption, ModelKey::Black76),
-        Box::new(crate::instruments::fx_option::pricing::pricer::SimpleFxOptionBlackPricer::new())
+        Box::new(crate::instruments::fx_option::SimpleFxOptionBlackPricer::new())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::FxSwap, ModelKey::Discounting),
-        Box::new(crate::instruments::fx_swap::pricing::pricer::SimpleFxSwapDiscountingPricer::new())
+        Box::new(crate::instruments::fx_swap::pricer::SimpleFxSwapDiscountingPricer::new())
     );
     
     // Register simplified Equity pricers

@@ -1,12 +1,13 @@
 //! FX Spot module: structure, pricing, metrics, and type re-exports.
 //!
-//! Layout follows the standard instrument structure used across valuations:
-//! - `types`: instrument data structures and trait impls
-//! - `pricing`: pricing engine and facade
+//! Simplified structure after refactoring:
+//! - `types`: instrument data structures with integrated pricing methods
+//! - `pricer`: registry integration (moved from pricing subdirectory)
 //! - `metrics`: metric calculators and registry hook
 
 pub mod metrics;
-pub mod pricing;
+pub mod pricer;
 mod types;
 
+pub use pricer::SimpleFxSpotDiscountingPricer;
 pub use types::FxSpot;

@@ -8,6 +8,7 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::calendar::calendar_by_id;
+use finstack_core::money::fx::FxProvider;
 use finstack_core::prelude::*;
 use finstack_core::types::InstrumentId;
 use finstack_core::F;
@@ -63,6 +64,48 @@ impl FxSpot {
             calendar_id: None,
             attributes: Attributes::new(),
         }
+    }
+
+    /// Compute present value in the instrument's quote currency.
+    ///
+    /// If an explicit `spot_rate` is set on the instrument, that is used directly
+    /// to compute `quote_amount = base_notional.amount() * spot_rate`.
+    /// Otherwise, the rate is obtained from the `MarketContext`'s `FxMatrix`.
+    pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
+        if let Some(rate) = self.spot_rate {
+            let quote_amount = self.effective_notional().amount() * rate;
+            return Ok(Money::new(quote_amount, self.quote));
+        }
+
+        let matrix = curves.fx.as_ref().ok_or_else(|| {
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "fx_matrix".to_string(),
+            })
+        })?;
+
+        struct MatrixProvider<'a> {
+            m: &'a finstack_core::money::fx::FxMatrix,
+        }
+
+        impl FxProvider for MatrixProvider<'_> {
+            fn rate(
+                &self,
+                from: Currency,
+                to: Currency,
+                on: Date,
+                policy: finstack_core::money::fx::FxConversionPolicy,
+            ) -> finstack_core::Result<finstack_core::money::fx::FxRate> {
+                let result = self.m.rate(finstack_core::money::fx::FxQuery::with_policy(
+                    from, to, on, policy,
+                ))?;
+                Ok(result.rate)
+            }
+        }
+
+        let provider = MatrixProvider { m: matrix };
+        let policy = finstack_core::money::fx::FxConversionPolicy::CashflowDate;
+        self.effective_notional()
+            .convert(self.quote, as_of, &provider, policy)
     }
 
     /// Set the settlement date
@@ -121,8 +164,7 @@ impl_instrument!(
     FxSpot,
     "FxSpot",
     pv = |s, curves, as_of| {
-        let pricer = crate::instruments::fx_spot::pricing::FxSpotPricer;
-        pricer.pv(s, curves, as_of)
+        s.npv(curves, as_of)
     }
 );
 

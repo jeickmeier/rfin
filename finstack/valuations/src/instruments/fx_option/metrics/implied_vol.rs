@@ -14,9 +14,8 @@ impl MetricCalculator for ImpliedVolCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &FxOption = context.instrument_as()?;
         let target = context.base_value.amount();
-        // Delegate to pricer's implied vol with default config, target is current PV
-        let pricer = crate::instruments::fx_option::pricing::FxOptionPricer::default();
-        pricer.implied_vol(option, &context.curves, context.as_of, target, None)
+        // Use the instrument's implied vol method with current PV as target
+        option.implied_vol(&context.curves, context.as_of, target, None)
     }
 
     fn dependencies(&self) -> &[MetricId] {

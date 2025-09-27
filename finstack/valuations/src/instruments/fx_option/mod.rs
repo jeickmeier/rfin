@@ -1,9 +1,12 @@
 //! FX option instrument implementation using Garman–Kohlhagen model.
 
+pub mod calculator;
 pub mod metrics;
 pub mod parameters;
-pub mod pricing;
+pub mod pricer;
 mod types;
 
 pub use crate::instruments::common::parameters::FxUnderlyingParams;
 pub use types::FxOption;
+pub use calculator::{FxOptionCalculator, FxOptionGreeks};
+pub use pricer::SimpleFxOptionBlackPricer;

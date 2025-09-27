@@ -9,9 +9,10 @@ use finstack_core::dates::Date;
 // Pricing/greeks live in pricing engine; keep types minimal.
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
-use finstack_core::F;
+use finstack_core::{Result, F};
 
 use super::parameters::FxOptionParams;
+use super::calculator::{FxOptionCalculator, FxOptionGreeks};
 
 /// FX option instrument (Garman-Kohlhagen model)
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
@@ -134,13 +135,40 @@ impl FxOption {
         }
     }
 
-    // Pricing and greeks moved to pricing::engine to keep type slim.
+    /// Create a centralized calculator instance with default configuration.
+    pub fn calculator(&self) -> FxOptionCalculator {
+        FxOptionCalculator::default()
+    }
+
+    /// Compute present value using Garman–Kohlhagen model.
+    pub fn npv(&self, curves: &finstack_core::market_data::MarketContext, as_of: Date) -> Result<Money> {
+        self.calculator().npv(self, curves, as_of)
+    }
+
+    /// Compute present value (alias for npv, used by instrument trait).
+    pub fn value(&self, curves: &finstack_core::market_data::MarketContext, as_of: Date) -> Result<Money> {
+        self.npv(curves, as_of)
+    }
+
+    /// Compute greeks using Garman–Kohlhagen model.
+    pub fn compute_greeks(&self, curves: &finstack_core::market_data::MarketContext, as_of: Date) -> Result<FxOptionGreeks> {
+        self.calculator().compute_greeks(self, curves, as_of)
+    }
+
+    /// Solve for implied volatility.
+    pub fn implied_vol(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: Date,
+        target_price: finstack_core::F,
+        initial_guess: Option<finstack_core::F>,
+    ) -> Result<finstack_core::F> {
+        self.calculator().implied_vol(self, curves, as_of, target_price, initial_guess)
+    }
 }
 
 impl_instrument!(
     FxOption,
-    "FxOption",
-    pv = |s, curves, as_of| crate::instruments::fx_option::pricing::FxOptionPricer::npv(
-        s, curves, as_of
-    )
+    "FxOption", 
+    pv = |s, curves, as_of| s.value(curves, as_of)
 );

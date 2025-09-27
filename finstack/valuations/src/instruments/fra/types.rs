@@ -45,6 +45,53 @@ pub struct ForwardRateAgreement {
     pub attributes: Attributes,
 }
 
+impl ForwardRateAgreement {
+    /// Calculate the net present value of this FRA
+    pub fn npv(
+        &self,
+        context: &finstack_core::market_data::MarketContext,
+        _as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<Money> {
+        let disc = context.get_discount_ref(self.disc_id.clone())?;
+        let fwd = context.get_forward_ref(self.forward_id.clone())?;
+
+        // Time fractions
+        let base_date = disc.base_date();
+        let _t_fixing = self
+            .day_count
+            .year_fraction(base_date, self.fixing_date, finstack_core::dates::DayCountCtx::default())?
+            .max(0.0);
+        let t_start = self
+            .day_count
+            .year_fraction(base_date, self.start_date, finstack_core::dates::DayCountCtx::default())?
+            .max(0.0);
+        let t_end = self
+            .day_count
+            .year_fraction(base_date, self.end_date, finstack_core::dates::DayCountCtx::default())?
+            .max(t_start);
+
+        // Accrual factor
+        let tau = self
+            .day_count
+            .year_fraction(self.start_date, self.end_date, finstack_core::dates::DayCountCtx::default())?
+            .max(0.0);
+        // If the accrual length is zero, PV is zero. When fixing is in the past,
+        // continue to project using forwards unless an observed fixing is wired.
+        if tau == 0.0 {
+            return Ok(Money::new(0.0, self.notional.currency()));
+        }
+
+        // Forward rate over the period and DF to settlement (start)
+        let forward_rate = fwd.rate_period(t_start, t_end);
+        let df_settlement = disc.df_on_date_curve(self.start_date);
+
+        let rate_diff = forward_rate - self.fixed_rate;
+        let pv = self.notional.amount() * rate_diff * tau * df_settlement;
+        let signed_pv = if self.pay_fixed { -pv } else { pv };
+        Ok(Money::new(signed_pv, self.notional.currency()))
+    }
+}
+
 // Explicit Instrument trait implementation (replaces macro for better IDE visibility)
 impl crate::instruments::common::traits::Instrument for ForwardRateAgreement {
     #[inline]
@@ -82,10 +129,8 @@ impl crate::instruments::common::traits::Instrument for ForwardRateAgreement {
         curves: &finstack_core::market_data::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        // Route through helper for schedule-based PV calculation
-        crate::instruments::common::helpers::schedule_pv_impl(
-            self, curves, as_of, &self.disc_id, self.day_count,
-        )
+        // Call the instrument's own NPV method
+        self.npv(curves, as_of)
     }
 
     fn price_with_metrics(
@@ -118,7 +163,7 @@ impl CashflowProvider for ForwardRateAgreement {
             return Ok(vec![]);
         }
 
-        let pv = crate::instruments::fra::pricing::engine::FraEngine::pv(self, curves)?;
+        let pv = self.npv(curves, as_of)?;
         Ok(vec![(self.start_date, pv)])
     }
 }

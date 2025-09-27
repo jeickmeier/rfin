@@ -39,7 +39,7 @@ fn test_fx_option_creation() {
     let sigma = 0.10;
     let t = 1.0;
 
-    let price = finstack_valuations::instruments::fx_option::pricing::FxOptionPricer::price_gk_with_inputs(
+    let price = option.calculator().price_gk_with_inputs(
         &option, spot, r_d, r_f, sigma, t,
     )
     .unwrap();
