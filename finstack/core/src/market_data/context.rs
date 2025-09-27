@@ -350,6 +350,14 @@ impl MarketContext {
         self
     }
 
+    /// Insert a discount curve provided as an [`Arc`].
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn insert_discount_arc(mut self, curve: Arc<DiscountCurve>) -> Self {
+        let id = curve.id().clone();
+        self.curves.insert(id, CurveStorage::Discount(curve));
+        self
+    }
+
     /// Insert a forward curve.
     ///
     /// # Parameters
@@ -374,6 +382,14 @@ impl MarketContext {
         let id = curve.id().clone();
         self.curves
             .insert(id, CurveStorage::Forward(Arc::new(curve)));
+        self
+    }
+
+    /// Insert a forward curve provided as an [`Arc`].
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn insert_forward_arc(mut self, curve: Arc<ForwardCurve>) -> Self {
+        let id = curve.id().clone();
+        self.curves.insert(id, CurveStorage::Forward(curve));
         self
     }
 
@@ -404,6 +420,14 @@ impl MarketContext {
         self
     }
 
+    /// Insert a hazard curve provided as an [`Arc`].
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn insert_hazard_arc(mut self, curve: Arc<HazardCurve>) -> Self {
+        let id = curve.id().clone();
+        self.curves.insert(id, CurveStorage::Hazard(curve));
+        self
+    }
+
     /// Insert an inflation curve.
     ///
     /// # Parameters
@@ -431,6 +455,14 @@ impl MarketContext {
         self
     }
 
+    /// Insert an inflation curve provided as an [`Arc`].
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn insert_inflation_arc(mut self, curve: Arc<InflationCurve>) -> Self {
+        let id = curve.id().clone();
+        self.curves.insert(id, CurveStorage::Inflation(curve));
+        self
+    }
+
     /// Insert a base correlation curve.
     ///
     /// # Parameters
@@ -451,6 +483,14 @@ impl MarketContext {
         let id = curve.id().clone();
         self.curves
             .insert(id, CurveStorage::BaseCorrelation(Arc::new(curve)));
+        self
+    }
+
+    /// Insert a base correlation curve provided as an [`Arc`].
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn insert_base_correlation_arc(mut self, curve: Arc<BaseCorrelationCurve>) -> Self {
+        let id = curve.id().clone();
+        self.curves.insert(id, CurveStorage::BaseCorrelation(curve));
         self
     }
 
@@ -479,6 +519,14 @@ impl MarketContext {
         self
     }
 
+    /// Insert a surface provided as an [`Arc`].
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn insert_surface_arc(mut self, surface: Arc<VolSurface>) -> Self {
+        let id = surface.id().clone();
+        self.surfaces.insert(id, surface);
+        self
+    }
+
     /// Insert a shared dividend schedule.
     ///
     /// # Parameters
@@ -486,6 +534,14 @@ impl MarketContext {
     pub fn insert_dividends(mut self, schedule: DividendSchedule) -> Self {
         let id = schedule.id.clone();
         self.dividends.insert(id, Arc::new(schedule));
+        self
+    }
+
+    /// Insert a dividend schedule provided as an [`Arc`].
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn insert_dividends_arc(mut self, schedule: Arc<DividendSchedule>) -> Self {
+        let id = schedule.id.clone();
+        self.dividends.insert(id, schedule);
         self
     }
 
@@ -648,6 +704,13 @@ impl MarketContext {
     /// ```
     pub fn insert_fx(mut self, fx: FxMatrix) -> Self {
         self.fx = Some(Arc::new(fx));
+        self
+    }
+
+    /// Insert an FX matrix provided as an [`Arc`].
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn insert_fx_arc(mut self, fx: Arc<FxMatrix>) -> Self {
+        self.fx = Some(fx);
         self
     }
 
