@@ -230,19 +230,17 @@ impl InterestRateSwap {
             .frequency(self.float.freq)
             .stub_rule(self.float.stub);
 
-        let sched_dates: Vec<Date> = if let Some(id) = self.float.calendar_id {
-            if let Some(cal) = calendar_by_id(id) {
-                builder
-                    .adjust_with(self.float.bdc, cal)
-                    .build()
-                    .unwrap()
-                    .into_iter()
-                    .collect()
+        let sched_dates: Vec<Date> = {
+            let sched = if let Some(id) = self.float.calendar_id {
+                if let Some(cal) = calendar_by_id(id) {
+                    builder.adjust_with(self.float.bdc, cal).build()?
+                } else {
+                    builder.build()?
+                }
             } else {
-                builder.build().unwrap().into_iter().collect()
-            }
-        } else {
-            builder.build().unwrap().into_iter().collect()
+                builder.build()?
+            };
+            sched.into_iter().collect()
         };
 
         if sched_dates.len() < 2 {
@@ -313,19 +311,17 @@ impl InterestRateSwap {
                         let builder = finstack_core::dates::ScheduleBuilder::new(self.float.start, self.float.end)
                             .frequency(self.float.freq)
                             .stub_rule(self.float.stub);
-                        let sched_dates: Vec<_> = if let Some(id) = self.float.calendar_id {
-                            if let Some(cal) = calendar_by_id(id) {
-                                builder
-                                    .adjust_with(self.float.bdc, cal)
-                                    .build()
-                                    .unwrap()
-                                    .into_iter()
-                                    .collect()
+                        let sched_dates: Vec<_> = {
+                            let sched = if let Some(id) = self.float.calendar_id {
+                                if let Some(cal) = calendar_by_id(id) {
+                                    builder.adjust_with(self.float.bdc, cal).build()?
+                                } else {
+                                    builder.build()?
+                                }
                             } else {
-                                builder.build().unwrap().into_iter().collect()
-                            }
-                        } else {
-                            builder.build().unwrap().into_iter().collect()
+                                builder.build()?
+                            };
+                            sched.into_iter().collect()
                         };
 
                         if sched_dates.len() >= 2 {
@@ -348,10 +344,12 @@ impl InterestRateSwap {
                 } else {
                     // Not OIS and forward curve missing: return the error to guide callers
                     // to provide a forward curve.
-                    return Err(context
-                        .get_forward_ref(self.float.fwd_id.as_ref())
-                        .err()
-                        .unwrap());
+                    return Err(
+                        context
+                            .get_forward_ref(self.float.fwd_id.as_ref())
+                            .err()
+                            .unwrap_or(finstack_core::error::InputError::Invalid.into()),
+                    );
                 }
             }
         };

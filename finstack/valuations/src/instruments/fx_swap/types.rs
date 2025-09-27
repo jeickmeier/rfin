@@ -84,7 +84,7 @@ impl FxSwap {
     /// - Total PV in quote: `PV_for * S + PV_dom`
     pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
         use finstack_core::money::fx::FxQuery;
-        
+
         // Curves
         let domestic_disc = curves.get_discount_ref(self.domestic_disc_id.as_str())?;
         let foreign_disc = curves.get_discount_ref(self.foreign_disc_id.as_str())?;
@@ -94,26 +94,23 @@ impl FxSwap {
         let df_dom_far = domestic_disc.df_on_date_curve(self.far_date);
         let df_for_far = foreign_disc.df_on_date_curve(self.far_date);
 
-        // Resolve near spot rate
-        let spot = match self.near_rate {
-            Some(rate) => rate,
-            None => {
-                let fx_matrix = curves.fx.as_ref().ok_or_else(|| {
-                    finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                        id: "fx_matrix".to_string(),
-                    })
-                })?;
-                (**fx_matrix)
-                    .rate(FxQuery::new(self.base_currency, self.quote_currency, as_of))?
-                    .rate
-            }
+        // Resolve model spot from FX matrix if available; otherwise fall back to contract near rate
+        let model_spot = if let Some(fx) = curves.fx.as_ref() {
+            (**fx)
+                .rate(FxQuery::new(self.base_currency, self.quote_currency, as_of))?
+                .rate
+        } else if let Some(rate) = self.near_rate {
+            rate
+        } else {
+            return Err(finstack_core::Error::from(
+                finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() },
+            ));
         };
 
-        // Resolve far forward rate
-        let fwd = match self.far_rate {
-            Some(rate) => rate,
-            None => spot * df_for_far / df_dom_far,
-        };
+        // Contract rates default to model when not provided explicitly
+        let contract_spot = self.near_rate.unwrap_or(model_spot);
+        let model_fwd = model_spot * df_for_far / df_dom_far;
+        let contract_fwd = self.far_rate.unwrap_or(model_fwd);
 
         // Currency safety
         if self.base_notional.currency() != self.base_currency {
@@ -123,9 +120,11 @@ impl FxSwap {
         }
         let n_base = self.base_notional.amount();
 
-        // Leg PVs (convert foreign leg cashflows at their own rates, discount domestically)
-        let pv_foreign_dom = n_base * spot * df_dom_near - n_base * fwd * df_dom_far; // in quote
-        let pv_dom_leg = -n_base * spot * df_dom_near + n_base * fwd * df_dom_far; // in quote
+        // Leg PV decomposition in quote currency:
+        // - Foreign leg converted at model rates and discounted domestically
+        // - Domestic leg discounted domestically using contract rates
+        let pv_foreign_dom = n_base * model_spot * df_dom_near - n_base * model_fwd * df_dom_far;
+        let pv_dom_leg = -n_base * contract_spot * df_dom_near + n_base * contract_fwd * df_dom_far;
 
         // Sum domestic and converted foreign legs
         let total_pv = pv_foreign_dom + pv_dom_leg;
@@ -153,4 +152,3 @@ impl crate::instruments::common::HasDiscountCurve for FxSwap {
 impl crate::instruments::common::traits::InstrumentKind for FxSwap {
     const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::FxSwap;
 }
-

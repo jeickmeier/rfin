@@ -92,7 +92,7 @@ pub trait Instrument: Send + Sync {
     fn key(&self) -> InstrumentType {
         use std::any::TypeId;
         use once_cell::sync::Lazy;
-        use std::collections::HashMap;
+        use hashbrown::HashMap;
 
         static TYPE_MAP: Lazy<HashMap<TypeId, InstrumentType>> = Lazy::new(|| {
             let mut m = HashMap::new();
@@ -127,14 +127,7 @@ pub trait Instrument: Send + Sync {
         let type_id = self.as_any().type_id();
         match TYPE_MAP.get(&type_id).copied() {
             Some(t) => t,
-            None => {
-                // Return a typed error via panic-free path: unknown instrument kind
-                // Fallback to a safe default error type (use CDS as sentinel? better: log and return Equity)
-                // Prefer logging to aid discovery
-                tracing::error!("Unknown instrument concrete TypeId encountered in Instrument::key()");
-                // Choose a conservative default to avoid UB; map to an impossible pricer to surface UnknownPricer later
-                InstrumentType::Equity
-            }
+            None => panic!("Unknown instrument concrete TypeId in Instrument::key(); ensure instrument is added to TYPE_MAP"),
         }
     }
 
