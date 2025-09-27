@@ -1178,6 +1178,67 @@ impl CDSTranchePricer {
     }
 }
 
+// ========================= REGISTRY PRICER =========================
+
+/// Registry pricer for CDS Tranche using Gaussian Copula model
+pub struct SimpleCdsTrancheHazardPricer;
+
+impl SimpleCdsTrancheHazardPricer {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for SimpleCdsTrancheHazardPricer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl crate::pricer::Pricer for SimpleCdsTrancheHazardPricer {
+    fn key(&self) -> crate::pricer::PricerKey {
+        crate::pricer::PricerKey::new(
+            crate::pricer::InstrumentType::CDSTranche,
+            crate::pricer::ModelKey::HazardRate,
+        )
+    }
+
+    fn price_dyn(
+        &self,
+        instrument: &dyn crate::instruments::common::traits::Instrument,
+        market: &finstack_core::market_data::MarketContext,
+    ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
+        use crate::instruments::common::traits::Instrument;
+
+        // Type-safe downcasting
+        let cds_tranche = instrument
+            .as_any()
+            .downcast_ref::<crate::instruments::cds_tranche::CdsTranche>()
+            .ok_or_else(|| crate::pricer::PricingError::TypeMismatch {
+                expected: crate::pricer::InstrumentType::CDSTranche,
+                got: instrument.key(),
+            })?;
+
+        // Get as_of date from discount curve
+        let disc = market
+            .get_discount_ref(cds_tranche.disc_id.clone())
+            .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
+        let as_of = disc.base_date();
+
+        // Compute present value using the engine
+        let pv = CDSTranchePricer::new()
+            .price_tranche(cds_tranche, market, as_of)
+            .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
+
+        // Return stamped result
+        Ok(crate::results::ValuationResult::stamped(
+            cds_tranche.id(),
+            as_of,
+            pv,
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -12,7 +12,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::F;
 
 use super::parameters::CDSTrancheParams;
-use super::pricing;
+use super::pricer;
 
 /// Buyer/seller perspective for CDS tranche premium/protection
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -93,6 +93,75 @@ impl CdsTranche {
         }
     }
 
+    /// Calculate the net present value of this CDS tranche
+    pub fn npv(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<Money> {
+        let pricer = pricer::CDSTranchePricer::new();
+        pricer.price_tranche(self, curves, as_of)
+    }
+
+    /// Calculate upfront amount for the tranche
+    pub fn upfront(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let pricer = pricer::CDSTranchePricer::new();
+        pricer.calculate_upfront(self, curves, as_of)
+    }
+
+    /// Calculate spread DV01 (sensitivity to 1bp change in running coupon)
+    pub fn spread_dv01(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let pricer = pricer::CDSTranchePricer::new();
+        pricer.calculate_spread_dv01(self, curves, as_of)
+    }
+
+    /// Calculate expected loss metric
+    pub fn expected_loss(
+        &self,
+        curves: &MarketContext,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let pricer = pricer::CDSTranchePricer::new();
+        pricer.calculate_expected_loss(self, curves)
+    }
+
+    /// Calculate jump-to-default metric
+    pub fn jump_to_default(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let pricer = pricer::CDSTranchePricer::new();
+        pricer.calculate_jump_to_default(self, curves, as_of)
+    }
+
+    /// Calculate CS01 (sensitivity to 1bp parallel shift in credit spreads)
+    pub fn cs01(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let pricer = pricer::CDSTranchePricer::new();
+        pricer.calculate_cs01(self, curves, as_of)
+    }
+
+    /// Calculate correlation delta (sensitivity to correlation changes)
+    pub fn correlation_delta(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let pricer = pricer::CDSTranchePricer::new();
+        pricer.calculate_correlation_delta(self, curves, as_of)
+    }
+
     // Builder now provided by derive
 }
 
@@ -121,9 +190,8 @@ impl Instrument for CdsTranche {
     // === Pricing Methods ===
 
     fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        // Delegate to pricing engine - let the engine handle availability checks and fallbacks
-        let pricer = pricing::engine::CDSTranchePricer::new();
-        pricer.price_tranche(self, curves, as_of)
+        // Call the instrument's own NPV method
+        self.npv(curves, as_of)
     }
 
     fn price_with_metrics(

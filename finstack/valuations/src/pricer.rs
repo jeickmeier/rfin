@@ -228,7 +228,7 @@ pub fn create_standard_registry() -> PricerRegistry {
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::CDSTranche, ModelKey::HazardRate),
-        Box::new(crate::instruments::cds_tranche::pricing::pricer::SimpleCdsTrancheHazardPricer::new())
+        Box::new(crate::instruments::cds_tranche::pricer::SimpleCdsTrancheHazardPricer::new())
     );
     
     // Register simplified FX pricers

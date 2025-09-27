@@ -12,7 +12,6 @@ pub struct CorrelationDeltaCalculator;
 impl MetricCalculator for CorrelationDeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let tranche: &CdsTranche = context.instrument_as()?;
-        let pricer = crate::instruments::cds_tranche::pricing::engine::CDSTranchePricer::new();
-        pricer.calculate_correlation_delta(tranche, context.curves.as_ref(), context.as_of)
+        tranche.correlation_delta(&context.curves, context.as_of)
     }
 }

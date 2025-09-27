@@ -18,8 +18,7 @@ impl MetricCalculator for JumpToDefaultCalculator {
             .credit_index(&tranche.credit_index_id)
             .is_ok()
         {
-            let pricer = crate::instruments::cds_tranche::pricing::engine::CDSTranchePricer::new();
-            pricer.calculate_jump_to_default(tranche, context.curves.as_ref(), context.as_of)
+            tranche.jump_to_default(&context.curves, context.as_of)
         } else {
             Ok(0.0)
         }

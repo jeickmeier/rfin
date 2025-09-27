@@ -13,7 +13,6 @@ pub struct Cs01Calculator;
 impl MetricCalculator for Cs01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let tranche: &CdsTranche = context.instrument_as()?;
-        let pricer = crate::instruments::cds_tranche::pricing::engine::CDSTranchePricer::new();
-        pricer.calculate_cs01(tranche, context.curves.as_ref(), context.as_of)
+        tranche.cs01(&context.curves, context.as_of)
     }
 }

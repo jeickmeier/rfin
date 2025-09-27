@@ -18,8 +18,7 @@ impl MetricCalculator for SpreadDv01Calculator {
             .credit_index(&tranche.credit_index_id)
             .is_ok()
         {
-            let pricer = crate::instruments::cds_tranche::pricing::engine::CDSTranchePricer::new();
-            pricer.calculate_spread_dv01(tranche, context.curves.as_ref(), context.as_of)
+            tranche.spread_dv01(&context.curves, context.as_of)
         } else {
             Ok(0.0)
         }

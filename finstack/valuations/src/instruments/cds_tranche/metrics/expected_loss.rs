@@ -18,8 +18,7 @@ impl MetricCalculator for ExpectedLossCalculator {
             .credit_index(&tranche.credit_index_id)
             .is_ok()
         {
-            let pricer = crate::instruments::cds_tranche::pricing::engine::CDSTranchePricer::new();
-            pricer.calculate_expected_loss(tranche, context.curves.as_ref())
+            tranche.expected_loss(&context.curves)
         } else {
             Ok(0.0)
         }
