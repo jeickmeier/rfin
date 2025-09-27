@@ -480,6 +480,10 @@ impl crate::instruments::common::HasDiscountCurve for VarianceSwap {
     }
 }
 
+impl crate::instruments::common::traits::InstrumentKind for VarianceSwap {
+    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::VarianceSwap;
+}
+
 impl CashflowProvider for VarianceSwap {
     fn build_schedule(&self, _context: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
         // Variance swaps have a single payment at maturity

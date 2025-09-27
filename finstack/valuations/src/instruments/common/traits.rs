@@ -8,6 +8,14 @@ use hashbrown::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 use std::any::Any;
 
+/// Marker trait that associates a concrete instrument type with its `InstrumentType` enum.
+///
+/// Implement this on each instrument to enable generic pricers to infer the
+/// correct registry key without per-instrument constructors.
+pub trait InstrumentKind {
+    const TYPE: InstrumentType;
+}
+
 /// Attributes for scenario selection and tagging.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Attributes {

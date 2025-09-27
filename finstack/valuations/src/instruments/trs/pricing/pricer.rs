@@ -37,13 +37,13 @@ impl Pricer for SimpleTrsDiscountingPricer {
     ) -> Result<crate::results::ValuationResult, PricingError> {
         // Handle Equity TRS
         if let Some(equity_trs) = instrument.as_any().downcast_ref::<EquityTotalReturnSwap>() {
-            let equity_pricer = SimpleEquityTrsDiscountingPricer::equity_trs();
+            let equity_pricer = SimpleEquityTrsDiscountingPricer::new();
             return equity_pricer.price_dyn(equity_trs, market);
         }
         
         // Handle FI Index TRS
         if let Some(fi_trs) = instrument.as_any().downcast_ref::<FIIndexTotalReturnSwap>() {
-            let fi_pricer = SimpleFIIndexTrsDiscountingPricer::fi_index_trs();
+            let fi_pricer = SimpleFIIndexTrsDiscountingPricer::new();
             return fi_pricer.price_dyn(fi_trs, market);
         }
         

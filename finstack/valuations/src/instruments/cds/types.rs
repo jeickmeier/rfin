@@ -63,39 +63,7 @@ impl CDSConvention {
 // Re-export from common parameters
 pub use crate::instruments::common::parameters::legs::{PremiumLegSpec, ProtectionLegSpec};
 
-/// Premium leg specification
-#[derive(Clone, Debug)]
-struct _RemovedPremiumLegSpec {
-    /// Start date of protection
-    pub start: Date,
-    /// End date of protection
-    pub end: Date,
-    /// Payment frequency
-    pub freq: Frequency,
-    /// Stub convention
-    pub stub: StubKind,
-    /// Business day convention
-    pub bdc: BusinessDayConvention,
-    /// Holiday calendar identifier
-    pub calendar_id: Option<&'static str>,
-    /// Day count convention
-    pub dc: DayCount,
-    /// Fixed spread in basis points
-    pub spread_bp: F,
-    /// Discount curve identifier
-    pub disc_id: &'static str,
-}
-
-/// Protection leg specification
-#[derive(Clone, Debug)]
-struct _RemovedProtectionLegSpec {
-    /// Credit curve identifier for default probabilities
-    pub credit_id: &'static str,
-    /// Recovery rate (0.0 to 1.0)
-    pub recovery_rate: F,
-    /// Settlement delay in business days
-    pub settlement_delay: u16,
-}
+// Removed legacy spec structs with string ids; use types from parameters::legs with CurveId.
 
 /// Credit Default Swap instrument
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]

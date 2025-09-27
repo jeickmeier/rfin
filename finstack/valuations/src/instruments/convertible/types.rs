@@ -5,7 +5,7 @@
 
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_core::types::InstrumentId;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::F;
 
 use crate::cashflow::builder::types::{FixedCouponSpec, FloatingCouponSpec};
@@ -30,7 +30,7 @@ pub struct ConvertibleBond {
     /// Maturity date.
     pub maturity: Date,
     /// Discount curve identifier for the debt component.
-    pub disc_id: &'static str,
+    pub disc_id: CurveId,
     /// Conversion terms for equity conversion.
     pub conversion: ConversionSpec,
     /// Optional underlying equity identifier (ticker or instrument id).
@@ -229,8 +229,8 @@ impl_instrument!(
     }
 );
 
-impl crate::instruments::common::HasStringDiscountCurve for ConvertibleBond {
-    fn string_discount_curve_id(&self) -> &str {
-        self.disc_id
+impl crate::instruments::common::HasDiscountCurve for ConvertibleBond {
+    fn discount_curve_id(&self) -> &CurveId {
+        &self.disc_id
     }
 }

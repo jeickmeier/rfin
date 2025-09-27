@@ -4,7 +4,7 @@ use crate::instruments::common::traits::Attributes;
 use finstack_core::market_data::scalars::inflation_index::InflationLag;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
-use finstack_core::types::InstrumentId;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::F;
 
 /// Direction from the perspective of paying fixed real vs receiving inflation
@@ -35,7 +35,7 @@ pub struct InflationSwap {
     /// Inflation index identifier (e.g., US-CPI-U)
     pub inflation_id: &'static str,
     /// Discount curve identifier (quote currency)
-    pub disc_id: &'static str,
+    pub disc_id: CurveId,
     /// Day count for any accrual-style metrics if needed
     pub dc: DayCount,
     /// Trade side
@@ -56,7 +56,7 @@ impl InflationSwap {
         curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<Money> {
-        let disc = curves.get_discount_ref(self.disc_id)?;
+        let disc = curves.get_discount_ref(self.disc_id.as_str())?;
         let base = disc.base_date();
 
         let tau_accrual = self.dc.year_fraction(
@@ -85,7 +85,7 @@ impl InflationSwap {
         curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<Money> {
-        let disc = curves.get_discount_ref(self.disc_id)?;
+        let disc = curves.get_discount_ref(self.disc_id.as_str())?;
         let base = disc.base_date();
 
         let inflation_index = curves.inflation_index_ref(self.inflation_id).ok_or_else(|| {
@@ -160,8 +160,12 @@ impl_instrument!(
     },
 );
 
-impl crate::instruments::common::HasStringDiscountCurve for InflationSwap {
-    fn string_discount_curve_id(&self) -> &str {
-        self.disc_id
+impl crate::instruments::common::HasDiscountCurve for InflationSwap {
+    fn discount_curve_id(&self) -> &CurveId {
+        &self.disc_id
     }
+}
+
+impl crate::instruments::common::traits::InstrumentKind for InflationSwap {
+    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::InflationSwap;
 }

@@ -39,7 +39,6 @@ pub use discountable::Discountable;
 pub use helpers::{build_with_metrics_dyn, validate_currency_consistency};
 pub use metrics::{
     GenericBucketedDv01, GenericBucketedDv01WithContext, HasDiscountCurve,
-    GenericBucketedDv01ForStringCurves, HasStringDiscountCurve
 };
 pub use pricing::{GenericDiscountingPricer, GenericInstrumentPricer};
 pub use models::{

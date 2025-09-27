@@ -126,6 +126,10 @@ impl crate::instruments::common::HasDiscountCurve for Deposit {
     }
 }
 
+impl crate::instruments::common::traits::InstrumentKind for Deposit {
+    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::Deposit;
+}
+
 impl CashflowProvider for Deposit {
     fn build_schedule(
         &self,

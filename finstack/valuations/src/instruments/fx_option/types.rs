@@ -8,7 +8,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 // Pricing/greeks live in pricing engine; keep types minimal.
 use finstack_core::money::Money;
-use finstack_core::types::InstrumentId;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::{Result, F};
 
 use super::parameters::FxOptionParams;
@@ -27,8 +27,8 @@ pub struct FxOption {
     pub day_count: finstack_core::dates::DayCount,
     pub notional: Money,
     pub settlement: SettlementType,
-    pub domestic_disc_id: &'static str,
-    pub foreign_disc_id: &'static str,
+    pub domestic_disc_id: CurveId,
+    pub foreign_disc_id: CurveId,
     pub vol_id: &'static str,
     pub pricing_overrides: PricingOverrides,
     pub attributes: Attributes,
@@ -63,8 +63,8 @@ impl FxOption {
             .day_count(finstack_core::dates::DayCount::Act365F)
             .notional(notional)
             .settlement(SettlementType::Cash)
-            .domestic_disc_id(fx_underlying.domestic_disc_id)
-            .foreign_disc_id(fx_underlying.foreign_disc_id)
+            .domestic_disc_id(fx_underlying.domestic_disc_id.clone())
+            .foreign_disc_id(fx_underlying.foreign_disc_id.clone())
             .vol_id("FX-VOL")
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -100,8 +100,8 @@ impl FxOption {
             .day_count(finstack_core::dates::DayCount::Act365F)
             .notional(notional)
             .settlement(SettlementType::Cash)
-            .domestic_disc_id(fx_underlying.domestic_disc_id)
-            .foreign_disc_id(fx_underlying.foreign_disc_id)
+            .domestic_disc_id(fx_underlying.domestic_disc_id.clone())
+            .foreign_disc_id(fx_underlying.foreign_disc_id.clone())
             .vol_id("FX-VOL")
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
@@ -127,8 +127,8 @@ impl FxOption {
             day_count: finstack_core::dates::DayCount::Act365F,
             notional: option_params.notional,
             settlement: option_params.settlement,
-            domestic_disc_id: underlying_params.domestic_disc_id,
-            foreign_disc_id: underlying_params.foreign_disc_id,
+            domestic_disc_id: underlying_params.domestic_disc_id.clone(),
+            foreign_disc_id: underlying_params.foreign_disc_id.clone(),
             vol_id,
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),

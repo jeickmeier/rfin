@@ -13,12 +13,13 @@ use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParamete
 use crate::instruments::swaption::Swaption;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::utils::add_months;
-use finstack_core::dates::{Date, DayCountCtx, Frequency};
+use finstack_core::dates::{Date, DayCountCtx, BusinessDayConvention, StubKind};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::money::Money;
 use finstack_core::prelude::Currency;
 use finstack_core::{Result, F};
+use finstack_core::types::CurveId;
 use std::collections::BTreeMap;
 
 /// Type alias for grouped quotes by expiry-tenor pairs
@@ -66,7 +67,7 @@ pub struct SwaptionVolCalibrator {
     /// Base date for calculations
     pub base_date: Date,
     /// Discount curve ID for swap pricing
-    pub disc_id: &'static str,
+    pub disc_id: CurveId,
     /// Forward curve ID (if different from discount)
     pub forward_id: Option<&'static str>,
     /// Currency for market conventions
@@ -84,7 +85,7 @@ impl SwaptionVolCalibrator {
         vol_convention: SwaptionVolConvention,
         atm_convention: AtmStrikeConvention,
         base_date: Date,
-        disc_id: &'static str,
+        disc_id: impl Into<CurveId>,
         currency: Currency,
     ) -> Self {
         // Set SABR beta based on volatility convention
@@ -101,7 +102,7 @@ impl SwaptionVolCalibrator {
             atm_convention,
             sabr_beta,
             base_date,
-            disc_id,
+            disc_id: disc_id.into(),
             forward_id: None,
             currency,
             market_conventions: SwaptionMarketConvention::from_currency(currency),
@@ -134,7 +135,7 @@ impl SwaptionVolCalibrator {
         tenor_years: F,
         context: &MarketContext,
     ) -> Result<F> {
-        let disc = context.get_discount_ref(self.disc_id)?;
+        let disc = context.get_discount_ref(self.disc_id.as_str())?;
         let swap_start = expiry;
         let swap_end = add_months(expiry, (tenor_years * 12.0) as i32);
 
@@ -171,47 +172,40 @@ impl SwaptionVolCalibrator {
         Ok((df_start - df_end) / pv01)
     }
 
-    /// Calculate PV01 using proper schedule generation.
+    /// Calculate PV01 using the centralized cashflow::builder date generation.
     fn calculate_pv01_proper(
         &self,
         start: Date,
         end: Date,
         disc: &dyn finstack_core::market_data::traits::Discounting,
     ) -> Result<F> {
-        // Generate payment dates based on frequency
-        let mut dates = vec![start];
-        let mut current = start;
-
-        while current < end {
-            current = match self.market_conventions.fixed_freq {
-                Frequency::Months(m) => add_months(current, m as i32),
-                Frequency::Days(d) => current + time::Duration::days(d as i64),
-                _ => add_months(current, 3), // Default to quarterly
-            };
-            if current > end {
-                break;
-            }
-            dates.push(current);
-        }
-        if dates.last() != Some(&end) {
-            dates.push(end);
+        // Use shared builder to avoid duplication and ensure consistency
+        let sched = crate::cashflow::builder::build_dates(
+            start,
+            end,
+            self.market_conventions.fixed_freq,
+            StubKind::None,
+            BusinessDayConvention::Following,
+            None,
+        );
+        let dates = sched.dates;
+        if dates.len() < 2 {
+            return Ok(0.0);
         }
 
         let mut pv01 = 0.0;
-        for i in 1..dates.len() {
-            let period_start = dates[i - 1];
-            let period_end = dates[i];
-            let dcf = self.market_conventions.day_count.year_fraction(
-                period_start,
-                period_end,
-                DayCountCtx::default(),
-            )?;
-            let t = self.market_conventions.day_count.year_fraction(
-                self.base_date,
-                period_end,
-                DayCountCtx::default(),
-            )?;
+        let mut prev = dates[0];
+        for &d in &dates[1..] {
+            let dcf = self
+                .market_conventions
+                .day_count
+                .year_fraction(prev, d, DayCountCtx::default())?;
+            let t = self
+                .market_conventions
+                .day_count
+                .year_fraction(self.base_date, d, DayCountCtx::default())?;
             pv01 += disc.df(t) * dcf;
+            prev = d;
         }
 
         Ok(pv01)
@@ -241,18 +235,18 @@ impl SwaptionVolCalibrator {
             day_count: self.market_conventions.day_count,
             exercise: crate::instruments::swaption::SwaptionExercise::European,
             settlement: crate::instruments::swaption::SwaptionSettlement::Physical,
-            disc_id: self.disc_id.into(),
+            disc_id: self.disc_id.clone(),
             forward_id: self
                 .forward_id
                 .map(|v| v.into())
-                .unwrap_or_else(|| self.disc_id.into()),
+                .unwrap_or_else(|| self.disc_id.clone()),
             vol_id: "dummy",
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Default::default(),
         };
 
-        let disc = context.get_discount_ref(self.disc_id)?;
+        let disc = context.get_discount_ref(self.disc_id.as_str())?;
         swaption.swap_annuity(disc, self.base_date)
     }
 

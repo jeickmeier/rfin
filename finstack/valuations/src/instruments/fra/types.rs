@@ -147,6 +147,10 @@ impl crate::instruments::common::HasDiscountCurve for ForwardRateAgreement {
     }
 }
 
+impl crate::instruments::common::traits::InstrumentKind for ForwardRateAgreement {
+    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::FRA;
+}
+
 impl CashflowProvider for ForwardRateAgreement {
     fn build_schedule(
         &self,

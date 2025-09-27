@@ -220,3 +220,7 @@ impl crate::instruments::common::HasDiscountCurve for InterestRateFuture {
         &self.disc_id
     }
 }
+
+impl crate::instruments::common::traits::InstrumentKind for InterestRateFuture {
+    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::InterestRateFuture;
+}

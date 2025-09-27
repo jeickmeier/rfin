@@ -39,7 +39,7 @@ impl Pricer for SimpleFxOptionBlackPricer {
                 got: instrument.key()})?;
 
         // Get as_of date from domestic discount curve
-        let disc = market.get_discount_ref(fx_option.domestic_disc_id)
+        let disc = market.get_discount_ref(fx_option.domestic_disc_id.as_str())
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
         let as_of = disc.base_date();
 

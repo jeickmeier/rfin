@@ -48,6 +48,10 @@ pub struct EquityTotalReturnSwap {
     pub attributes: Attributes,
 }
 
+impl crate::instruments::common::traits::InstrumentKind for EquityTotalReturnSwap {
+    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::TRS;
+}
+
 impl EquityTotalReturnSwap {
     /// Calculates the net present value (NPV) of the equity TRS.
     ///

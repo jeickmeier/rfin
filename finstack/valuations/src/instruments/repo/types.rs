@@ -5,6 +5,7 @@ use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::market_data::MarketContext;
+use finstack_core::types::CurveId;
 use finstack_core::prelude::*;
 use finstack_core::F;
 use std::any::Any;
@@ -145,7 +146,7 @@ pub struct Repo {
     /// Optional calendar for business day adjustments
     pub calendar_id: Option<&'static str>,
     /// Discount curve identifier for valuation
-    pub disc_id: &'static str,
+    pub disc_id: CurveId,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
@@ -159,7 +160,7 @@ impl Repo {
         collateral: CollateralSpec,
         repo_rate: F,
         start_date: Date,
-        disc_id: &'static str,
+        disc_id: impl Into<CurveId>,
     ) -> Result<Self> {
         let maturity = start_date.add_business_days(1, &finstack_core::dates::calendar::TARGET2)?;
         RepoBuilder::new()
@@ -175,7 +176,7 @@ impl Repo {
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(Some("target2"))
-            .disc_id(disc_id)
+            .disc_id(disc_id.into())
             .attributes(Attributes::default())
             .build()
     }
@@ -188,7 +189,7 @@ impl Repo {
         repo_rate: F,
         start_date: Date,
         maturity: Date,
-        disc_id: &'static str,
+        disc_id: impl Into<CurveId>,
     ) -> Self {
         RepoBuilder::new()
             .id(id.into().into())
@@ -203,7 +204,7 @@ impl Repo {
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(Some("target2"))
-            .disc_id(disc_id)
+            .disc_id(disc_id.into())
             .attributes(Attributes::default())
             .build()
             .expect("term repo default construction should not fail")
@@ -217,7 +218,7 @@ impl Repo {
         repo_rate: F,
         start_date: Date,
         initial_maturity: Date,
-        disc_id: &'static str,
+        disc_id: impl Into<CurveId>,
     ) -> Self {
         RepoBuilder::new()
             .id(id.into().into())
@@ -232,7 +233,7 @@ impl Repo {
             .day_count(DayCount::Act360)
             .bdc(BusinessDayConvention::Following)
             .calendar_id_opt(Some("target2"))
-            .disc_id(disc_id)
+            .disc_id(disc_id.into())
             .attributes(Attributes::default())
             .build()
             .expect("open repo default construction should not fail")
@@ -282,7 +283,7 @@ impl Repo {
     /// where total_repayment = principal + interest, and discounting is
     /// performed off the configured discount curve.
     pub fn pv(&self, context: &MarketContext, _as_of: Date) -> Result<Money> {
-        let disc_curve = context.get_discount_ref(self.disc_id)?;
+        let disc_curve = context.get_discount_ref(self.disc_id.as_str())?;
 
         // Total repayment at maturity (principal + interest)
         let total_repayment = self.total_repayment()?;
@@ -393,10 +394,14 @@ impl CashflowProvider for Repo {
     }
 }
 
-impl crate::instruments::common::HasStringDiscountCurve for Repo {
-    fn string_discount_curve_id(&self) -> &str {
-        self.disc_id
+impl crate::instruments::common::HasDiscountCurve for Repo {
+    fn discount_curve_id(&self) -> &CurveId {
+        &self.disc_id
     }
+}
+
+impl crate::instruments::common::traits::InstrumentKind for Repo {
+    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::Repo;
 }
 
 #[cfg(test)]

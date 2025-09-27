@@ -319,6 +319,10 @@ impl crate::instruments::common::HasDiscountCurve for Bond {
     }
 }
 
+impl crate::instruments::common::traits::InstrumentKind for Bond {
+    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::Bond;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

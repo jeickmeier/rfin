@@ -43,6 +43,8 @@ pub struct VolSurfaceCalibrator {
     pub base_currency: Currency,
     /// Interpolation used for the output surface
     pub surface_interp: SurfaceInterp,
+    /// Optional discount curve id for risk-free rates used in forward extraction
+    pub discount_id: Option<String>,
 }
 
 impl VolSurfaceCalibrator {
@@ -63,6 +65,7 @@ impl VolSurfaceCalibrator {
             time_dc: DayCount::Act365F,
             base_currency: Currency::USD,
             surface_interp: SurfaceInterp::Bilinear,
+            discount_id: None,
         }
     }
 
@@ -93,6 +96,12 @@ impl VolSurfaceCalibrator {
     /// Set the time-axis day count used for expiries.
     pub fn with_time_dc(mut self, dc: DayCount) -> Self {
         self.time_dc = dc;
+        self
+    }
+
+    /// Set the discount curve id to use for risk-free rates when extracting forwards.
+    pub fn with_discount_id(mut self, discount_id: impl Into<String>) -> Self {
+        self.discount_id = Some(discount_id.into());
         self
     }
 
@@ -388,8 +397,32 @@ impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
             })
             .unwrap_or(0.0);
 
+        // Resolve a discount curve from the context
+        // Preference order: explicit id via self.discount_id → inferred "<CCY>-OIS" → first discount in context
+        let disc: std::sync::Arc<finstack_core::market_data::term_structures::discount_curve::DiscountCurve> = {
+            if let Some(ref id) = self.discount_id {
+                base_context.get_discount(id.as_str())?
+            } else {
+                let inferred = format!("{}-OIS", self.base_currency);
+                match base_context.get_discount(inferred.as_str()) {
+                    Ok(c) => c,
+                    Err(_) => {
+                        // Fallback to first discount curve available in the context
+                        let mut iter = base_context.curves_of_type("Discount");
+                        if let Some((id, _storage)) = iter.next() {
+                            base_context.get_discount(id.as_str())?
+                        } else {
+                            return Err(finstack_core::Error::Input(
+                                finstack_core::error::InputError::NotFound { id: "discount curve".to_string() },
+                            ));
+                        }
+                    }
+                }
+            }
+        };
+
         let forward_fn = move |t: f64| -> f64 {
-            let risk_free_rate = 0.05; // Simple assumption for testing - could get from discount curve
+            let risk_free_rate = disc.zero(t);
             spot * ((risk_free_rate - dividend_yield) * t).exp()
         };
 

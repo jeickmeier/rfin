@@ -255,7 +255,7 @@ impl TreeValuator for ConvertibleBondValuator {
 fn extract_equity_state(
     ctx: &MarketContext,
     underlying_id: &str,
-    disc_id: &'static str,
+    disc_id: &finstack_core::types::CurveId,
     maturity: Date,
     expected_currency: Currency,
 ) -> Result<(F, F, F, F, F)> {
@@ -291,7 +291,7 @@ fn extract_equity_state(
         .unwrap_or(0.0);
 
     // Get risk-free rate from discount curve
-    let discount_curve = ctx.get_discount_ref(disc_id)?;
+    let discount_curve = ctx.get_discount_ref(disc_id.as_str())?;
     let base_date = discount_curve.base_date();
 
     // Calculate time to maturity
@@ -341,7 +341,7 @@ fn prepare_for_pricing(
         extract_equity_state(
             market_context,
             underlying_id,
-            bond.disc_id,
+            &bond.disc_id,
             bond.maturity,
             bond.notional.currency(),
         )?;
@@ -375,7 +375,7 @@ pub fn price_convertible_bond(
         ConvertibleTreeType::Trinomial(n) => n,
     };
 
-    let base_date = market_context.get_discount_ref(bond.disc_id)?.base_date();
+    let base_date = market_context.get_discount_ref(bond.disc_id.as_str())?.base_date();
     let valuator = ConvertibleBondValuator::new(
         bond,
         &inputs.cashflow_schedule,
@@ -433,7 +433,7 @@ pub fn calculate_convertible_greeks(
         ConvertibleTreeType::Trinomial(n) => n,
     };
 
-    let base_date = market_context.get_discount_ref(bond.disc_id)?.base_date();
+    let base_date = market_context.get_discount_ref(bond.disc_id.as_str())?.base_date();
     let valuator = ConvertibleBondValuator::new(
         bond,
         &inputs.cashflow_schedule,
@@ -555,7 +555,7 @@ impl crate::pricer::Pricer for SimpleConvertibleDiscountingPricer {
 
         // Get as_of date from discount curve
         let disc = market
-            .get_discount_ref(convertible.disc_id)
+            .get_discount_ref(convertible.disc_id.as_str())
             .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
         let as_of = disc.base_date();
 
@@ -612,7 +612,7 @@ mod tests {
             notional: Money::new(1000.0, Currency::USD),
             issue,
             maturity,
-            disc_id: "USD-OIS",
+            disc_id: "USD-OIS".into(),
             conversion: conversion_spec,
             underlying_equity_id: Some("AAPL".to_string()),
             call_put: None,

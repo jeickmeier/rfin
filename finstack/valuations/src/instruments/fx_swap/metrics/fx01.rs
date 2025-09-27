@@ -20,8 +20,8 @@ impl MetricCalculator for FX01 {
 
         let original_pv = fx_swap.value(&curves, as_of)?;
 
-        let domestic_disc = curves.get_discount(fx_swap.domestic_disc_id)?;
-        let foreign_disc = curves.get_discount(fx_swap.foreign_disc_id)?;
+        let domestic_disc = curves.get_discount_ref(fx_swap.domestic_disc_id.as_str())?;
+        let foreign_disc = curves.get_discount_ref(fx_swap.foreign_disc_id.as_str())?;
 
         let df_dom_near = domestic_disc.df_on_date_curve(fx_swap.near_date);
         let df_dom_far = domestic_disc.df_on_date_curve(fx_swap.far_date);

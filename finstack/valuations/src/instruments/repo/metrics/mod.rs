@@ -80,7 +80,7 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
         )
         .register_metric(
             MetricId::BucketedDv01,
-            Arc::new(crate::instruments::common::GenericBucketedDv01ForStringCurves::<crate::instruments::Repo>::default()),
+            Arc::new(crate::instruments::common::GenericBucketedDv01::<crate::instruments::Repo>::default()),
             &["Repo"],
         );
 }
@@ -111,7 +111,7 @@ mod tests {
             0.05,
             test_date(2025, 1, 15),
             test_date(2025, 4, 15),
-            "USD-OIS",
+            finstack_core::types::CurveId::from("USD-OIS"),
         )
     }
 

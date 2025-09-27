@@ -9,7 +9,7 @@
 use crate::instruments::common::parameters::FxUnderlyingParams;
 use crate::instruments::common::traits::Attributes;
 use finstack_core::prelude::*;
-use finstack_core::types::InstrumentId;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::market_data::MarketContext;
 use finstack_core::F;
 
@@ -31,9 +31,9 @@ pub struct FxSwap {
     /// Notional amount in base currency (exchanged on near, reversed on far)
     pub base_notional: Money,
     /// Domestic discount curve id (quote currency)
-    pub domestic_disc_id: &'static str,
+    pub domestic_disc_id: CurveId,
     /// Foreign discount curve id (base currency)
-    pub foreign_disc_id: &'static str,
+    pub foreign_disc_id: CurveId,
     /// Optional near leg FX rate (quote per base). If None, source from market.
     #[builder(optional)]
     pub near_rate: Option<F>,
@@ -58,8 +58,8 @@ impl FxSwap {
             near_date: swap_params.near_date,
             far_date: swap_params.far_date,
             base_notional: swap_params.base_notional,
-            domestic_disc_id: underlying_params.domestic_disc_id,
-            foreign_disc_id: underlying_params.foreign_disc_id,
+            domestic_disc_id: underlying_params.domestic_disc_id.clone(),
+            foreign_disc_id: underlying_params.foreign_disc_id.clone(),
             near_rate: swap_params.near_rate,
             far_rate: swap_params.far_rate,
             attributes: Attributes::new(),
@@ -86,8 +86,8 @@ impl FxSwap {
         use finstack_core::money::fx::FxQuery;
         
         // Curves
-        let domestic_disc = curves.get_discount(self.domestic_disc_id)?;
-        let foreign_disc = curves.get_discount(self.foreign_disc_id)?;
+        let domestic_disc = curves.get_discount_ref(self.domestic_disc_id.as_str())?;
+        let foreign_disc = curves.get_discount_ref(self.foreign_disc_id.as_str())?;
 
         // Discount factors using curve's own day-count for stability
         let df_dom_near = domestic_disc.df_on_date_curve(self.near_date);
@@ -144,9 +144,13 @@ impl_instrument!(
     }
 );
 
-impl crate::instruments::common::HasStringDiscountCurve for FxSwap {
-    fn string_discount_curve_id(&self) -> &str {
-        self.domestic_disc_id
+impl crate::instruments::common::HasDiscountCurve for FxSwap {
+    fn discount_curve_id(&self) -> &CurveId {
+        &self.domestic_disc_id
     }
+}
+
+impl crate::instruments::common::traits::InstrumentKind for FxSwap {
+    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::FxSwap;
 }
 

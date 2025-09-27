@@ -7,6 +7,6 @@ pub type SimpleRepoDiscountingPricer = GenericDiscountingPricer<Repo>;
 
 impl Default for SimpleRepoDiscountingPricer {
     fn default() -> Self {
-        Self::repo()
+        Self::new()
     }
 }

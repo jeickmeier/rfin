@@ -421,6 +421,10 @@ impl crate::instruments::common::HasDiscountCurve for InflationLinkedBond {
     }
 }
 
+impl crate::instruments::common::traits::InstrumentKind for InflationLinkedBond {
+    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::InflationLinkedBond;
+}
+
 impl CashflowProvider for InflationLinkedBond {
     fn build_schedule(&self, curves: &MarketContext, as_of: Date) -> Result<DatedFlows> {
         self.build_schedule(curves, as_of)

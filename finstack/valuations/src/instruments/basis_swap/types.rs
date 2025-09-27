@@ -303,6 +303,10 @@ impl crate::instruments::common::HasDiscountCurve for BasisSwap {
     }
 }
 
+impl crate::instruments::common::traits::InstrumentKind for BasisSwap {
+    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::BasisSwap;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

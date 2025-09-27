@@ -6,6 +6,6 @@ pub type SimpleIrFutureDiscountingPricer = GenericDiscountingPricer<crate::instr
 
 impl Default for SimpleIrFutureDiscountingPricer {
     fn default() -> Self {
-        Self::ir_future()
+        Self::new()
     }
 }

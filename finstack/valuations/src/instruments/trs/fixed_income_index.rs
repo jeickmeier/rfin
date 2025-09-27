@@ -47,6 +47,10 @@ pub struct FIIndexTotalReturnSwap {
     pub attributes: Attributes,
 }
 
+impl crate::instruments::common::traits::InstrumentKind for FIIndexTotalReturnSwap {
+    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::TRS;
+}
+
 impl FIIndexTotalReturnSwap {
     /// Calculates the net present value (NPV) of the fixed income index TRS.
     ///

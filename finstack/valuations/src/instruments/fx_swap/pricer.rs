@@ -6,6 +6,6 @@ pub type SimpleFxSwapDiscountingPricer = GenericDiscountingPricer<crate::instrum
 
 impl Default for SimpleFxSwapDiscountingPricer {
     fn default() -> Self {
-        Self::fx_swap()
+        Self::new()
     }
 }

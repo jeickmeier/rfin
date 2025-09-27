@@ -6,6 +6,6 @@ pub type SimpleFraDiscountingPricer = GenericDiscountingPricer<crate::instrument
 
 impl Default for SimpleFraDiscountingPricer {
     fn default() -> Self {
-        Self::fra()
+        Self::new()
     }
 }

@@ -30,7 +30,7 @@ impl MetricCalculator for BucketedDv01Calculator {
         let dom_total = crate::metrics::compute_bucketed_series_with_context_for_id(
             context,
             MetricId::custom("bucketed_dv01_domestic"),
-            &finstack_core::types::CurveId::from(opt.domestic_disc_id),
+            &opt.domestic_disc_id,
             labels.clone(),
             1.0,
             {
@@ -48,7 +48,7 @@ impl MetricCalculator for BucketedDv01Calculator {
         let for_total = crate::metrics::compute_bucketed_series_with_context_for_id(
             context,
             MetricId::custom("bucketed_dv01_foreign"),
-            &finstack_core::types::CurveId::from(opt.foreign_disc_id),
+            &opt.foreign_disc_id,
             labels.clone(),
             1.0,
             {

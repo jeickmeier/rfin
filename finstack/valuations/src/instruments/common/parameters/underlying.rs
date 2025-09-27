@@ -2,6 +2,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::types::id::IndexId;
+use finstack_core::types::CurveId;
 use finstack_core::F;
 
 #[cfg(feature = "serde")]
@@ -28,9 +29,9 @@ pub struct FxUnderlyingParams {
     /// Quote currency (pricing currency)
     pub quote_currency: Currency,
     /// Domestic discount curve ID (quote currency)
-    pub domestic_disc_id: &'static str,
+    pub domestic_disc_id: CurveId,
     /// Foreign discount curve ID (base currency)
-    pub foreign_disc_id: &'static str,
+    pub foreign_disc_id: CurveId,
 }
 
 impl FxUnderlyingParams {
@@ -38,14 +39,14 @@ impl FxUnderlyingParams {
     pub fn new(
         base_currency: Currency,
         quote_currency: Currency,
-        domestic_disc_id: &'static str,
-        foreign_disc_id: &'static str,
+        domestic_disc_id: impl Into<CurveId>,
+        foreign_disc_id: impl Into<CurveId>,
     ) -> Self {
         Self {
             base_currency,
             quote_currency,
-            domestic_disc_id,
-            foreign_disc_id,
+            domestic_disc_id: domestic_disc_id.into(),
+            foreign_disc_id: foreign_disc_id.into(),
         }
     }
 
@@ -71,7 +72,7 @@ impl UnderlyingParams for FxUnderlyingParams {
     }
 
     fn primary_curve_id(&self) -> &str {
-        self.domestic_disc_id
+        self.domestic_disc_id.as_ref()
     }
 }
 

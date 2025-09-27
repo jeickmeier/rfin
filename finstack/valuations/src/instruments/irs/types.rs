@@ -444,3 +444,7 @@ impl crate::instruments::common::HasDiscountCurve for InterestRateSwap {
         &self.fixed.disc_id
     }
 }
+
+impl crate::instruments::common::traits::InstrumentKind for InterestRateSwap {
+    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::IRS;
+}

@@ -188,7 +188,7 @@ pub fn create_standard_registry() -> PricerRegistry {
     // Register simplified Bond pricers
     registry.register_pricer(
         PricerKey::new(InstrumentType::Bond, ModelKey::Discounting),
-        Box::new(crate::instruments::bond::pricing::pricer::SimpleBondDiscountingPricer::bond())
+        Box::new(crate::instruments::bond::pricing::pricer::SimpleBondDiscountingPricer::new())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::Bond, ModelKey::Tree),
@@ -198,11 +198,11 @@ pub fn create_standard_registry() -> PricerRegistry {
     // Register simplified Interest Rate pricers
     registry.register_pricer(
         PricerKey::new(InstrumentType::IRS, ModelKey::Discounting),
-        Box::new(crate::instruments::irs::pricer::SimpleIrsDiscountingPricer::irs())
+        Box::new(crate::instruments::irs::pricer::SimpleIrsDiscountingPricer::new())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::FRA, ModelKey::Discounting),
-        Box::new(crate::instruments::fra::pricer::SimpleFraDiscountingPricer::fra())
+        Box::new(crate::instruments::fra::pricer::SimpleFraDiscountingPricer::new())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::CapFloor, ModelKey::Black76),
@@ -242,7 +242,7 @@ pub fn create_standard_registry() -> PricerRegistry {
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::FxSwap, ModelKey::Discounting),
-        Box::new(crate::instruments::fx_swap::pricer::SimpleFxSwapDiscountingPricer::fx_swap())
+        Box::new(crate::instruments::fx_swap::pricer::SimpleFxSwapDiscountingPricer::new())
     );
     
     // Register simplified Equity pricers
@@ -258,39 +258,39 @@ pub fn create_standard_registry() -> PricerRegistry {
     // Register simplified Basic pricers
     registry.register_pricer(
         PricerKey::new(InstrumentType::Deposit, ModelKey::Discounting),
-        Box::new(crate::instruments::deposit::pricer::SimpleDepositDiscountingPricer::deposit())
+        Box::new(crate::instruments::deposit::pricer::SimpleDepositDiscountingPricer::new())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::InterestRateFuture, ModelKey::Discounting),
-        Box::new(crate::instruments::ir_future::pricer::SimpleIrFutureDiscountingPricer::ir_future())
+        Box::new(crate::instruments::ir_future::pricer::SimpleIrFutureDiscountingPricer::new())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::BasisSwap, ModelKey::Discounting),
-        Box::new(crate::instruments::basis_swap::SimpleBasisSwapDiscountingPricer::basis_swap())
+        Box::new(crate::instruments::basis_swap::SimpleBasisSwapDiscountingPricer::new())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::Repo, ModelKey::Discounting),
-        Box::new(crate::instruments::repo::pricer::SimpleRepoDiscountingPricer::repo())
+        Box::new(crate::instruments::repo::pricer::SimpleRepoDiscountingPricer::new())
     );
     
     // Register simplified Inflation pricers
     registry.register_pricer(
         PricerKey::new(InstrumentType::InflationSwap, ModelKey::Discounting),
-        Box::new(crate::instruments::inflation_swap::SimpleInflationSwapDiscountingPricer::inflation_swap())
+        Box::new(crate::instruments::inflation_swap::SimpleInflationSwapDiscountingPricer::new())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::InflationLinkedBond, ModelKey::Discounting),
-        Box::new(crate::instruments::inflation_linked_bond::pricer::SimpleInflationLinkedBondDiscountingPricer::inflation_linked_bond())
+        Box::new(crate::instruments::inflation_linked_bond::pricer::SimpleInflationLinkedBondDiscountingPricer::new())
     );
     
     // Register simplified Complex pricers
     registry.register_pricer(
         PricerKey::new(InstrumentType::VarianceSwap, ModelKey::Discounting),
-        Box::new(crate::instruments::variance_swap::pricer::SimpleVarianceSwapDiscountingPricer::variance_swap())
+        Box::new(crate::instruments::variance_swap::pricer::SimpleVarianceSwapDiscountingPricer::new())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::Basket, ModelKey::Discounting),
-        Box::new(crate::instruments::basket::SimpleBasketDiscountingPricer::basket())
+        Box::new(crate::instruments::basket::SimpleBasketDiscountingPricer::new())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::Convertible, ModelKey::Discounting),

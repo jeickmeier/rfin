@@ -6,7 +6,7 @@ pub type SimpleBasisSwapDiscountingPricer = GenericDiscountingPricer<crate::inst
 
 impl Default for SimpleBasisSwapDiscountingPricer {
     fn default() -> Self {
-        Self::basis_swap()
+        Self::new()
     }
 }
 

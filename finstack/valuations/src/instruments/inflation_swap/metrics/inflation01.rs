@@ -12,7 +12,7 @@ impl MetricCalculator for Inflation01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let s: &InflationSwap = context.instrument_as()?;
 
-        let disc = context.curves.get_discount_ref(s.disc_id)?;
+        let disc = context.curves.get_discount_ref(s.disc_id.as_str())?;
         let base = disc.base_date();
 
         let inflation_index = context

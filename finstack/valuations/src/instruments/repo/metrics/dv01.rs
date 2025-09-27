@@ -7,7 +7,6 @@ use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::context::BumpSpec;
 use finstack_core::prelude::*;
-use finstack_core::types::CurveId;
 use finstack_core::F;
 use hashbrown::HashMap;
 
@@ -22,7 +21,7 @@ impl MetricCalculator for RepoDv01Calculator {
         let base_pv = repo.value(&context.curves, context.as_of)?;
 
         // Parallel +1bp bump on discount curve
-        let disc_curve_id = CurveId::new(repo.disc_id);
+        let disc_curve_id = repo.disc_id.clone();
         let mut bumps = HashMap::new();
         bumps.insert(disc_curve_id, BumpSpec::parallel_bp(1.0));
         let bumped_context = context.curves.bump(bumps)?;

@@ -53,7 +53,7 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
         )
         .register_metric(
             MetricId::BucketedDv01,
-            Arc::new(crate::instruments::common::GenericBucketedDv01ForStringCurves::<crate::instruments::InflationSwap>::default()),
+            Arc::new(crate::instruments::common::GenericBucketedDv01WithContext::<crate::instruments::InflationSwap>::default()),
             &["InflationSwap"],
         );
 }

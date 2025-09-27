@@ -17,7 +17,7 @@ pub type SimpleBondDiscountingPricer = GenericDiscountingPricer<Bond>;
 
 impl Default for SimpleBondDiscountingPricer {
     fn default() -> Self {
-        Self::bond()
+        Self::new()
     }
 }
 

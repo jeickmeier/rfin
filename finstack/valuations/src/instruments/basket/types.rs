@@ -281,6 +281,10 @@ impl crate::instruments::common::HasDiscountCurve for Basket {
     }
 }
 
+impl crate::instruments::common::traits::InstrumentKind for Basket {
+    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::Basket;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

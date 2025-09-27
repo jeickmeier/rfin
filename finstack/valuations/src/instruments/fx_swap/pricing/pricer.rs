@@ -39,7 +39,7 @@ impl Pricer for SimpleFxSwapDiscountingPricer {
                 got: instrument.key()})?;
 
         // Get as_of date from domestic discount curve
-        let disc = market.get_discount_ref(fx_swap.domestic_disc_id)
+        let disc = market.get_discount_ref(fx_swap.domestic_disc_id.as_str())
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
         let as_of = disc.base_date();
 

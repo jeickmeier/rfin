@@ -6,6 +6,6 @@ pub type SimpleDepositDiscountingPricer = GenericDiscountingPricer<crate::instru
 
 impl Default for SimpleDepositDiscountingPricer {
     fn default() -> Self {
-        Self::deposit()
+        Self::new()
     }
 }
