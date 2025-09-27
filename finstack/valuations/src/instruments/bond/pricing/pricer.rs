@@ -1,7 +1,7 @@
 use crate::instruments::bond::pricing::tree_pricer::TreePricer;
 use crate::instruments::bond::types::Bond;
 use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, PriceableExt, Pricer, PricerKey, PricingError};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
 use finstack_core::market_data::MarketContext;
 
@@ -32,7 +32,7 @@ impl crate::pricer::Pricer for OasPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn crate::pricer::PriceableExt,
+        instrument: &dyn Instrument,
         market: &finstack_core::market_data::MarketContext,
     ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
         // Use the new simplified OAS pricer
@@ -65,7 +65,7 @@ impl Pricer for SimpleBondDiscountingPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn PriceableExt,
+        instrument: &dyn Instrument,
         market: &MarketContext,
     ) -> Result<ValuationResult, PricingError> {
         // Type-safe downcasting using the new system
@@ -73,8 +73,7 @@ impl Pricer for SimpleBondDiscountingPricer {
             .downcast_ref::<Bond>()
             .ok_or_else(|| PricingError::TypeMismatch {
                 expected: InstrumentType::Bond,
-                got: instrument.key(),
-            })?;
+                got: instrument.key()})?;
 
         // Get as_of date from discount curve
         let disc = market.get_discount_ref(bond.disc_id.clone())
@@ -112,7 +111,7 @@ impl Pricer for SimpleBondOasPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn PriceableExt,
+        instrument: &dyn Instrument,
         market: &MarketContext,
     ) -> Result<ValuationResult, PricingError> {
         // Type-safe downcasting
@@ -120,8 +119,7 @@ impl Pricer for SimpleBondOasPricer {
             .downcast_ref::<Bond>()
             .ok_or_else(|| PricingError::TypeMismatch {
                 expected: InstrumentType::Bond,
-                got: instrument.key(),
-            })?;
+                got: instrument.key()})?;
 
         // Get as_of date
         let disc = market.get_discount_ref(bond.disc_id.clone())

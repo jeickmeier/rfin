@@ -1,7 +1,11 @@
-//! Minimal pricer infrastructure: stable keys, traits, registry macro, and errors.
-use finstack_core::market_data::MarketContext as Market;
-// no prelude import to avoid Result alias collisions
+//! Pricer infrastructure: type-safe pricing dispatch via registry pattern.
+//! 
+//! This module provides a registry-based pricing system that maps 
+//! (instrument type, model) pairs to specific pricer implementations.
+//! The system uses enum-based dispatch for type safety rather than string
+//! comparisons.
 
+use finstack_core::market_data::MarketContext as Market;
 use crate::instruments::common::traits::Instrument as Priceable;
 
 // ========================= KEYS =========================
@@ -68,10 +72,6 @@ pub enum PricingError {
         expected: InstrumentType,
         got: InstrumentType,
     },
-    TypeErasedMismatch {
-        expected: InstrumentType,
-        got: InstrumentType,
-    },
     ModelFailure(String),
 }
 
@@ -90,9 +90,6 @@ impl std::fmt::Display for PricingError {
             PricingError::TypeMismatch { expected, got } => {
                 write!(f, "Type mismatch: expected {:?}, got {:?}", expected, got)
             }
-            PricingError::TypeErasedMismatch { expected, got } => {
-                write!(f, "Type-erased mismatch: expected {:?}, got {:?}", expected, got)
-            }
             PricingError::ModelFailure(msg) => {
                 write!(f, "Model failure: {}", msg)
             }
@@ -104,80 +101,53 @@ impl std::error::Error for PricingError {}
 
 // ========================= TRAITS =========================
 
-pub trait PriceableExt: core::any::Any + Send + Sync {
-    fn key(&self) -> InstrumentType;
-    fn as_any(&self) -> &dyn core::any::Any;
-}
-
-// Adapter: implement PriceableExt for all existing Instrument types using their `instrument_type()`
-impl<T: Priceable + 'static> PriceableExt for T {
-    fn key(&self) -> InstrumentType {
-        match self.instrument_type() {
-            "Bond" => InstrumentType::Bond,
-            "InterestRateSwap" => InstrumentType::IRS,
-            "Swaption" => InstrumentType::Swaption,
-            "CreditDefaultSwap" => InstrumentType::CDS,
-            "CDSIndex" => InstrumentType::CDSIndex,
-            "CdsTranche" => InstrumentType::CDSTranche,
-            "CdsOption" => InstrumentType::CDSOption,
-            "InterestRateOption" => InstrumentType::CapFloor,
-            "EquityTotalReturnSwap" | "FIIndexTotalReturnSwap" => InstrumentType::TRS,
-            "BasisSwap" => InstrumentType::BasisSwap,
-            "Basket" => InstrumentType::Basket,
-            "ConvertibleBond" => InstrumentType::Convertible,
-            "Deposit" => InstrumentType::Deposit,
-            "Equity" => InstrumentType::Equity,
-            "EquityOption" => InstrumentType::EquityOption,
-            "FxOption" => InstrumentType::FxOption,
-            "FxSpot" => InstrumentType::FxSpot,
-            "FxSwap" => InstrumentType::FxSwap,
-            "InflationLinkedBond" => InstrumentType::InflationLinkedBond,
-            "InflationSwap" => InstrumentType::InflationSwap,
-            "InterestRateFuture" => InstrumentType::InterestRateFuture,
-            "VarianceSwap" => InstrumentType::VarianceSwap,
-            "Repo" => InstrumentType::Repo,
-            "FRA" => InstrumentType::FRA,
-            _ => InstrumentType::Deposit, // Default fallback
-        }
-    }
-    fn as_any(&self) -> &dyn core::any::Any {
-        self
-    }
-}
-
-pub fn expect_inst<T: PriceableExt + 'static>(
-    inst: &dyn PriceableExt,
+/// Helper function to safely downcast a trait object to a concrete instrument type.
+/// 
+/// This performs both enum-based type checking and actual type downcasting,
+/// ensuring type safety at both levels.
+pub fn expect_inst<T: Priceable + 'static>(
+    inst: &dyn Priceable,
     expected: InstrumentType,
 ) -> std::result::Result<&T, PricingError> {
+    // First check the enum-based type
     if inst.key() != expected {
         return Err(PricingError::TypeMismatch {
             expected,
             got: inst.key(),
         });
     }
+    
+    // Then perform actual downcast
     inst.as_any()
         .downcast_ref::<T>()
-        .ok_or_else(|| PricingError::TypeErasedMismatch {
+        .ok_or_else(|| PricingError::TypeMismatch {
             expected,
             got: inst.key(),
         })
 }
 
+/// Trait for instrument pricers.
+/// 
+/// Each pricer handles a specific (instrument, model) combination and knows
+/// how to price that instrument using the specified model.
 pub trait Pricer: Send + Sync {
+    /// Get the (instrument, model) key this pricer handles
     fn key(&self) -> PricerKey;
+    
+    /// Price an instrument using this pricer's model
     fn price_dyn(
         &self,
-        instrument: &dyn PriceableExt,
+        instrument: &dyn Priceable,
         market: &Market,
     ) -> std::result::Result<crate::results::ValuationResult, PricingError>;
 }
 
 
-// ========================= SIMPLE REGISTRY =========================
+// ========================= REGISTRY =========================
 
 use std::collections::HashMap;
 
-/// Simple trait-based pricer registry (new approach)
+/// Trait-based pricer registry
 #[derive(Default)]
 pub struct PricerRegistry {
     pricers: HashMap<PricerKey, Box<dyn Pricer>>,
@@ -198,7 +168,7 @@ impl PricerRegistry {
     
     pub fn price_with_registry(
         &self,
-        instrument: &dyn PriceableExt,
+        instrument: &dyn Priceable,
         model: ModelKey,
         market: &Market,
     ) -> std::result::Result<crate::results::ValuationResult, PricingError> {
@@ -336,24 +306,11 @@ pub fn create_standard_registry() -> PricerRegistry {
     registry
 }
 
-/// New simplified pricing API using the registry system
-pub fn price_with_registry(
-    registry: &PricerRegistry,
-    instrument: &dyn PriceableExt,
-    model: ModelKey,
-    market: &Market,
-) -> std::result::Result<crate::results::ValuationResult, PricingError> {
-    registry.price_with_registry(instrument, model, market)
-}
-
-
-
 // ========================= TESTS =========================
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeSet;
 
     #[test]
     fn abi_is_stable() {
@@ -364,10 +321,12 @@ mod tests {
     }
 
     #[test]
-    fn no_duplicate_keys_empty_registry() {
-        // With no registrations, ALL should be empty by default in this module.
-        // Registrations are added by invoking the macro in another module.
-        let set: BTreeSet<PricerKey> = BTreeSet::new();
-        assert!(set.is_empty());
+    fn registry_creation_test() {
+        // Test that the standard registry can be created without errors
+        let registry = create_standard_registry();
+        
+        // Test that we can retrieve a registered pricer
+        let key = PricerKey::new(InstrumentType::Bond, ModelKey::Discounting);
+        assert!(registry.get_pricer(key).is_some());
     }
 }

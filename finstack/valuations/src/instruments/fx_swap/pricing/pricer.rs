@@ -1,7 +1,7 @@
 use crate::instruments::fx_swap::pricing::engine::FxSwapPricer;
 use crate::instruments::fx_swap::FxSwap;
 use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, PriceableExt, Pricer, PricerKey, PricingError};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
 use finstack_core::market_data::MarketContext;
 
@@ -29,7 +29,7 @@ impl Pricer for SimpleFxSwapDiscountingPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn PriceableExt,
+        instrument: &dyn Instrument,
         market: &MarketContext,
     ) -> std::result::Result<ValuationResult, PricingError> {
         // Type-safe downcasting
@@ -37,8 +37,7 @@ impl Pricer for SimpleFxSwapDiscountingPricer {
             .downcast_ref::<FxSwap>()
             .ok_or_else(|| PricingError::TypeMismatch {
                 expected: InstrumentType::FxSwap,
-                got: instrument.key(),
-            })?;
+                got: instrument.key()})?;
 
         // Get as_of date from domestic discount curve
         let disc = market.get_discount_ref(fx_swap.domestic_disc_id)

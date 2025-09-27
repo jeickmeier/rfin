@@ -1,7 +1,7 @@
 use crate::instruments::cds_option::pricing::engine::CdsOptionPricer;
 use crate::instruments::cds_option::CdsOption;
 use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, PriceableExt, Pricer, PricerKey, PricingError};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
 use finstack_core::market_data::MarketContext;
 
@@ -29,7 +29,7 @@ impl Pricer for SimpleCdsOptionBlackPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn PriceableExt,
+        instrument: &dyn Instrument,
         market: &MarketContext,
     ) -> std::result::Result<ValuationResult, PricingError> {
         // Type-safe downcasting
@@ -37,8 +37,7 @@ impl Pricer for SimpleCdsOptionBlackPricer {
             .downcast_ref::<CdsOption>()
             .ok_or_else(|| PricingError::TypeMismatch {
                 expected: InstrumentType::CDSOption,
-                got: instrument.key(),
-            })?;
+                got: instrument.key()})?;
 
         // Get as_of date from discount curve
         let disc = market.get_discount_ref(cds_option.disc_id.clone())

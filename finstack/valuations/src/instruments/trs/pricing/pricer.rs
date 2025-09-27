@@ -1,5 +1,6 @@
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
-use crate::pricer::{InstrumentType, ModelKey, PriceableExt, Pricer, PricerKey, PricingError};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use finstack_core::market_data::MarketContext as Market;
 use finstack_core::market_data::MarketContext;
 
@@ -23,7 +24,7 @@ impl Pricer for DiscountingPricer {
     }
     fn price_dyn(
         &self,
-        instrument: &dyn PriceableExt,
+        instrument: &dyn Instrument,
         market: &Market,
     ) -> std::result::Result<crate::results::ValuationResult, PricingError> {
         // Equity TRS
@@ -53,8 +54,7 @@ impl Pricer for DiscountingPricer {
         }
         Err(PricingError::TypeMismatch {
             expected: InstrumentType::TRS,
-            got: instrument.key(),
-        })
+            got: instrument.key()})
     }
 }
 
@@ -83,7 +83,7 @@ impl Pricer for SimpleTrsDiscountingPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn PriceableExt,
+        instrument: &dyn Instrument,
         market: &MarketContext,
     ) -> Result<crate::results::ValuationResult, PricingError> {
         // Handle both TRS variants using the existing DiscountingPricer logic

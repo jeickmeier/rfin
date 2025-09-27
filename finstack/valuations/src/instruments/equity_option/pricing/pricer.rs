@@ -1,7 +1,7 @@
 use crate::instruments::equity_option::pricing::engine;
 use crate::instruments::equity_option::EquityOption;
 use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, PriceableExt, Pricer, PricerKey, PricingError};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
 use finstack_core::market_data::MarketContext;
 
@@ -30,7 +30,7 @@ impl Pricer for SimpleEquityOptionBlackPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn PriceableExt,
+        instrument: &dyn Instrument,
         market: &MarketContext,
     ) -> std::result::Result<ValuationResult, PricingError> {
         // Type-safe downcasting
@@ -38,8 +38,7 @@ impl Pricer for SimpleEquityOptionBlackPricer {
             .downcast_ref::<EquityOption>()
             .ok_or_else(|| PricingError::TypeMismatch {
                 expected: InstrumentType::EquityOption,
-                got: instrument.key(),
-            })?;
+                got: instrument.key()})?;
 
         // Get as_of date from discount curve
         let disc = market.get_discount_ref(equity_option.disc_id.clone())

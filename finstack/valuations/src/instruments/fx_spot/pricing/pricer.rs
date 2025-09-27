@@ -1,7 +1,7 @@
 use crate::instruments::fx_spot::pricing::engine::FxSpotPricer;
 use crate::instruments::fx_spot::FxSpot;
 use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, PriceableExt, Pricer, PricerKey, PricingError};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
@@ -31,7 +31,7 @@ impl Pricer for SimpleFxSpotDiscountingPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn PriceableExt,
+        instrument: &dyn Instrument,
         market: &MarketContext,
     ) -> Result<ValuationResult, PricingError> {
         // Type-safe downcasting
@@ -39,8 +39,7 @@ impl Pricer for SimpleFxSpotDiscountingPricer {
             .downcast_ref::<FxSpot>()
             .ok_or_else(|| PricingError::TypeMismatch {
                 expected: InstrumentType::FxSpot,
-                got: instrument.key(),
-            })?;
+                got: instrument.key()})?;
 
         // FX Spot uses epoch as as_of date
         let as_of = Date::from_calendar_date(1970, time::Month::January, 1).unwrap();

@@ -48,13 +48,11 @@ impl EquityPricer {
                     // Convert via FX matrix provider
                     let matrix = curves.fx.as_ref().ok_or_else(|| {
                         finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                            id: "fx_matrix".to_string(),
-                        })
+                            id: "fx_matrix".to_string()})
                     })?;
 
                     struct MatrixProvider<'a> {
-                        m: &'a finstack_core::money::fx::FxMatrix,
-                    }
+                        m: &'a finstack_core::money::fx::FxMatrix}
                     impl FxProvider for MatrixProvider<'_> {
                         fn rate(
                             &self,
@@ -80,8 +78,7 @@ impl EquityPricer {
                     )
                 }
             }
-            MarketScalar::Unitless(v) => Ok(Money::new(*v, inst.currency)),
-        }
+            MarketScalar::Unitless(v) => Ok(Money::new(*v, inst.currency))}
     }
 
     /// Compute present value in the instrument's currency.
@@ -108,8 +105,7 @@ impl EquityPricer {
             .price(&key)
             .map(|scalar| match scalar {
                 MarketScalar::Unitless(v) => *v,
-                MarketScalar::Price(_) => 0.0,
-            })
+                MarketScalar::Price(_) => 0.0})
             .unwrap_or(0.0);
         Ok(dy)
     }
@@ -177,7 +173,7 @@ impl crate::pricer::Pricer for SimpleEquityDiscountingPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn crate::pricer::PriceableExt,
+        instrument: &dyn Instrument,
         market: &finstack_core::market_data::MarketContext,
     ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
         // Type-safe downcasting
@@ -185,8 +181,7 @@ impl crate::pricer::Pricer for SimpleEquityDiscountingPricer {
             .downcast_ref::<Equity>()
             .ok_or_else(|| crate::pricer::PricingError::TypeMismatch {
                 expected: crate::pricer::InstrumentType::Equity,
-                got: instrument.key(),
-            })?;
+                got: instrument.key()})?;
 
         // Get as_of date (prefer OIS base date for the instrument currency)
         let disc_id = format!("{}-OIS", equity.currency);

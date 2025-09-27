@@ -1,6 +1,7 @@
 //! Instrument-level traits and metadata types.
 
 use crate::metrics::MetricId;
+use crate::pricer::InstrumentType;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use hashbrown::{HashMap, HashSet};
@@ -101,6 +102,38 @@ pub trait Instrument: Send + Sync {
 
     /// Get the instrument type as a string identifier.
     fn instrument_type(&self) -> &'static str;
+    
+    /// Get the strongly-typed instrument key for pricer dispatch.
+    /// Maps the string-based instrument_type to the InstrumentType enum.
+    fn key(&self) -> InstrumentType {
+        match self.instrument_type() {
+            "Bond" => InstrumentType::Bond,
+            "InterestRateSwap" => InstrumentType::IRS,
+            "Swaption" => InstrumentType::Swaption,
+            "CreditDefaultSwap" => InstrumentType::CDS,
+            "CDSIndex" => InstrumentType::CDSIndex,
+            "CdsTranche" => InstrumentType::CDSTranche,
+            "CdsOption" => InstrumentType::CDSOption,
+            "InterestRateOption" => InstrumentType::CapFloor,
+            "EquityTotalReturnSwap" | "FIIndexTotalReturnSwap" => InstrumentType::TRS,
+            "BasisSwap" => InstrumentType::BasisSwap,
+            "Basket" => InstrumentType::Basket,
+            "ConvertibleBond" => InstrumentType::Convertible,
+            "Deposit" => InstrumentType::Deposit,
+            "Equity" => InstrumentType::Equity,
+            "EquityOption" => InstrumentType::EquityOption,
+            "FxOption" => InstrumentType::FxOption,
+            "FxSpot" => InstrumentType::FxSpot,
+            "FxSwap" => InstrumentType::FxSwap,
+            "InflationLinkedBond" => InstrumentType::InflationLinkedBond,
+            "InflationSwap" => InstrumentType::InflationSwap,
+            "InterestRateFuture" => InstrumentType::InterestRateFuture,
+            "VarianceSwap" => InstrumentType::VarianceSwap,
+            "Repo" => InstrumentType::Repo,
+            "FRA" => InstrumentType::FRA,
+            other => panic!("Unknown instrument type: '{}'. Please add mapping for this instrument type.", other)
+        }
+    }
 
     /// Access to the concrete type for downcasting.
     fn as_any(&self) -> &dyn Any;

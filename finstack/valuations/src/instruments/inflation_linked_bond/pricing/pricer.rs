@@ -1,7 +1,7 @@
 use crate::instruments::inflation_linked_bond::pricing::engine::InflationLinkedBondEngine;
 use crate::instruments::inflation_linked_bond::InflationLinkedBond;
 use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, PriceableExt, Pricer, PricerKey, PricingError};
+use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
 use finstack_core::market_data::MarketContext;
 
@@ -29,7 +29,7 @@ impl Pricer for SimpleInflationLinkedBondDiscountingPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn PriceableExt,
+        instrument: &dyn Instrument,
         market: &MarketContext,
     ) -> std::result::Result<ValuationResult, PricingError> {
         // Type-safe downcasting
@@ -37,8 +37,7 @@ impl Pricer for SimpleInflationLinkedBondDiscountingPricer {
             .downcast_ref::<InflationLinkedBond>()
             .ok_or_else(|| PricingError::TypeMismatch {
                 expected: InstrumentType::InflationLinkedBond,
-                got: instrument.key(),
-            })?;
+                got: instrument.key()})?;
 
         // Get as_of date from discount curve
         let disc = market.get_discount_ref(inflation_bond.disc_id.clone())

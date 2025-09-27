@@ -6,7 +6,7 @@
 //! # Quick Start (New Simplified API)
 //! ```rust,no_run
 //! use finstack_valuations::instruments::Bond;
-//! use finstack_valuations::pricer::{create_standard_registry, price_with_registry, ModelKey};
+//! use finstack_valuations::pricer::{create_standard_registry, ModelKey};
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //! use finstack_core::dates::Date;
@@ -29,9 +29,8 @@
 //! );
 //!
 //! # let market_context = finstack_core::market_data::MarketContext::new();
-//! // Price using new simplified system
-//! let result = price_with_registry(
-//!     &registry,
+//! // Price using simplified registry system
+//! let result = registry.price_with_registry(
 //!     &bond,
 //!     ModelKey::Discounting,
 //!     &market_context
