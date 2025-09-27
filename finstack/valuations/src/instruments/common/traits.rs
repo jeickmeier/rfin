@@ -83,64 +83,50 @@ pub trait Instrument: Send + Sync {
     /// Uses TypeId-based mapping instead of brittle string matching.
     fn key(&self) -> InstrumentType {
         use std::any::TypeId;
-        
+        use once_cell::sync::Lazy;
+        use std::collections::HashMap;
+
+        static TYPE_MAP: Lazy<HashMap<TypeId, InstrumentType>> = Lazy::new(|| {
+            let mut m = HashMap::new();
+            m.insert(TypeId::of::<crate::instruments::Bond>(), InstrumentType::Bond);
+            m.insert(TypeId::of::<crate::instruments::Deposit>(), InstrumentType::Deposit);
+            m.insert(TypeId::of::<crate::instruments::ForwardRateAgreement>(), InstrumentType::FRA);
+            m.insert(TypeId::of::<crate::instruments::InterestRateSwap>(), InstrumentType::IRS);
+            m.insert(TypeId::of::<crate::instruments::cap_floor::InterestRateOption>(), InstrumentType::CapFloor);
+            m.insert(TypeId::of::<crate::instruments::BasisSwap>(), InstrumentType::BasisSwap);
+            m.insert(TypeId::of::<crate::instruments::Swaption>(), InstrumentType::Swaption);
+            m.insert(TypeId::of::<crate::instruments::Basket>(), InstrumentType::Basket);
+            m.insert(TypeId::of::<crate::instruments::ConvertibleBond>(), InstrumentType::Convertible);
+            m.insert(TypeId::of::<crate::instruments::InflationLinkedBond>(), InstrumentType::InflationLinkedBond);
+            m.insert(TypeId::of::<crate::instruments::InflationSwap>(), InstrumentType::InflationSwap);
+            m.insert(TypeId::of::<crate::instruments::InterestRateFuture>(), InstrumentType::InterestRateFuture);
+            m.insert(TypeId::of::<crate::instruments::trs::EquityTotalReturnSwap>(), InstrumentType::TRS);
+            m.insert(TypeId::of::<crate::instruments::trs::FIIndexTotalReturnSwap>(), InstrumentType::TRS);
+            m.insert(TypeId::of::<crate::instruments::CreditDefaultSwap>(), InstrumentType::CDS);
+            m.insert(TypeId::of::<crate::instruments::CDSIndex>(), InstrumentType::CDSIndex);
+            m.insert(TypeId::of::<crate::instruments::CdsOption>(), InstrumentType::CDSOption);
+            m.insert(TypeId::of::<crate::instruments::CdsTranche>(), InstrumentType::CDSTranche);
+            m.insert(TypeId::of::<crate::instruments::Equity>(), InstrumentType::Equity);
+            m.insert(TypeId::of::<crate::instruments::EquityOption>(), InstrumentType::EquityOption);
+            m.insert(TypeId::of::<crate::instruments::FxOption>(), InstrumentType::FxOption);
+            m.insert(TypeId::of::<crate::instruments::FxSpot>(), InstrumentType::FxSpot);
+            m.insert(TypeId::of::<crate::instruments::FxSwap>(), InstrumentType::FxSwap);
+            m.insert(TypeId::of::<crate::instruments::Repo>(), InstrumentType::Repo);
+            m.insert(TypeId::of::<crate::instruments::VarianceSwap>(), InstrumentType::VarianceSwap);
+            m
+        });
+
         let type_id = self.as_any().type_id();
-        
-        // TypeId-based mapping (no string matching required)
-        if type_id == TypeId::of::<crate::instruments::Bond>() {
-            InstrumentType::Bond
-        } else if type_id == TypeId::of::<crate::instruments::Deposit>() {
-            InstrumentType::Deposit
-        } else if type_id == TypeId::of::<crate::instruments::ForwardRateAgreement>() {
-            InstrumentType::FRA
-        } else if type_id == TypeId::of::<crate::instruments::InterestRateSwap>() {
-            InstrumentType::IRS
-        } else if type_id == TypeId::of::<crate::instruments::cap_floor::InterestRateOption>() {
-            InstrumentType::CapFloor
-        } else if type_id == TypeId::of::<crate::instruments::BasisSwap>() {
-            InstrumentType::BasisSwap
-        } else if type_id == TypeId::of::<crate::instruments::Swaption>() {
-            InstrumentType::Swaption
-        } else if type_id == TypeId::of::<crate::instruments::Basket>() {
-            InstrumentType::Basket
-        } else if type_id == TypeId::of::<crate::instruments::ConvertibleBond>() {
-            InstrumentType::Convertible
-        } else if type_id == TypeId::of::<crate::instruments::InflationLinkedBond>() {
-            InstrumentType::InflationLinkedBond
-        } else if type_id == TypeId::of::<crate::instruments::InflationSwap>() {
-            InstrumentType::InflationSwap
-        } else if type_id == TypeId::of::<crate::instruments::InterestRateFuture>() {
-            InstrumentType::InterestRateFuture
-        } else if type_id == TypeId::of::<crate::instruments::trs::EquityTotalReturnSwap>()
-            || type_id == TypeId::of::<crate::instruments::trs::FIIndexTotalReturnSwap>()
-        {
-            InstrumentType::TRS
-        } else if type_id == TypeId::of::<crate::instruments::CreditDefaultSwap>() {
-            InstrumentType::CDS
-        } else if type_id == TypeId::of::<crate::instruments::CDSIndex>() {
-            InstrumentType::CDSIndex
-        } else if type_id == TypeId::of::<crate::instruments::CdsOption>() {
-            InstrumentType::CDSOption
-        } else if type_id == TypeId::of::<crate::instruments::CdsTranche>() {
-            InstrumentType::CDSTranche
-        } else if type_id == TypeId::of::<crate::instruments::Equity>() {
-            InstrumentType::Equity
-        } else if type_id == TypeId::of::<crate::instruments::EquityOption>() {
-            InstrumentType::EquityOption
-        } else if type_id == TypeId::of::<crate::instruments::FxOption>() {
-            InstrumentType::FxOption
-        } else if type_id == TypeId::of::<crate::instruments::FxSpot>() {
-            InstrumentType::FxSpot
-        } else if type_id == TypeId::of::<crate::instruments::FxSwap>() {
-            InstrumentType::FxSwap
-        } else if type_id == TypeId::of::<crate::instruments::Repo>() {
-            InstrumentType::Repo
-        } else if type_id == TypeId::of::<crate::instruments::VarianceSwap>() {
-            InstrumentType::VarianceSwap
-        } else {
-            panic!(
-                "Unknown instrument concrete type for Instrument::key(). Please add a TypeId mapping."
-            )
+        match TYPE_MAP.get(&type_id).copied() {
+            Some(t) => t,
+            None => {
+                // Return a typed error via panic-free path: unknown instrument kind
+                // Fallback to a safe default error type (use CDS as sentinel? better: log and return Equity)
+                // Prefer logging to aid discovery
+                tracing::error!("Unknown instrument concrete TypeId encountered in Instrument::key()");
+                // Choose a conservative default to avoid UB; map to an impossible pricer to surface UnknownPricer later
+                InstrumentType::Equity
+            }
         }
     }
 

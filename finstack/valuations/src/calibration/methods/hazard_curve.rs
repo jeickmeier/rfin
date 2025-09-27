@@ -6,9 +6,8 @@
 
 use crate::calibration::quote::CreditQuote;
 use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator};
-use crate::instruments::cds::{
-    cds_pricer::CDSPricer, CDSConvention, CreditDefaultSwap, PayReceive,
-};
+use crate::instruments::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
+use crate::instruments::cds::pricer::CDSPricer;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{HazardCurve, ParInterp, Seniority};
 use finstack_core::market_data::traits::Discounting;

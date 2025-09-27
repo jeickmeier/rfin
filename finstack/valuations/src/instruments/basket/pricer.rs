@@ -190,7 +190,7 @@ impl BasketCalculator {
         let out = match mode {
             ValueMode::PerShare { shares } => {
                 // Resolve price then allocate per share
-                let raw_value = self.get_constituent_price(constituent, context, as_of)?;
+                let raw_value = self.get_constituent_price(basket, constituent, context, as_of)?;
                 let base_value = self.to_basket_currency(basket, raw_value, basket.currency, context, as_of)?;
                 if let Some(units) = constituent.units {
                     let s = shares.ok_or(finstack_core::Error::Input(
@@ -209,14 +209,14 @@ impl BasketCalculator {
             ValueMode::Total { shares, aum } => {
                 if let Some(units) = constituent.units {
                     // Price × units (convert to basket currency first)
-                    let raw_value = self.get_constituent_price(constituent, context, as_of)?;
+                    let raw_value = self.get_constituent_price(basket, constituent, context, as_of)?;
                     let base_value = self.to_basket_currency(basket, raw_value, basket.currency, context, as_of)?;
                     base_value * units
                 } else if let Some(a) = aum {
                     Money::new(a * constituent.weight, basket.currency)
                 } else if let Some(s) = shares {
                     // Weight-only contribution scaled by shares × price
-                    let raw_value = self.get_constituent_price(constituent, context, as_of)?;
+                    let raw_value = self.get_constituent_price(basket, constituent, context, as_of)?;
                     let base_value = self.to_basket_currency(basket, raw_value, basket.currency, context, as_of)?;
                     base_value * constituent.weight * s
                 } else {
@@ -232,6 +232,7 @@ impl BasketCalculator {
     /// Get the price for a single constituent.
     fn get_constituent_price(
         &self,
+        basket: &Basket,
         constituent: &BasketConstituent,
         context: &MarketContext,
         as_of: Date,
@@ -243,9 +244,8 @@ impl BasketCalculator {
                 match scalar {
                     finstack_core::market_data::scalars::MarketScalar::Price(money) => Ok(*money),
                     finstack_core::market_data::scalars::MarketScalar::Unitless(v) => {
-                        // For unitless scalars, we assume they are in the basket currency
-                        // This is a simplification - in practice might need more context
-                        Ok(Money::new(*v, Currency::USD)) // TODO: This should be configurable
+                        // For unitless scalars, use the basket currency by default
+                        Ok(Money::new(*v, basket.currency))
                     }
                 }
             }

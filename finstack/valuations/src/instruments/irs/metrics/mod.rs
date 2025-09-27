@@ -1,8 +1,7 @@
-//! IRS metrics module facade.
+//! IRS metrics module.
 //!
 //! Exposes metric calculators for interest rate swaps, split into
-//! focused files under this directory. This shim keeps external imports
-//! stable while enabling maintainable growth of metrics.
+//! focused files under this directory.
 
 pub mod annuity;
 pub mod dv01;

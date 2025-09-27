@@ -621,8 +621,10 @@ impl DiscountCurveCalibrator {
                 if context.get_forward_ref(&primary_fwd_str).is_err()
                     || context.get_forward_ref(&reference_fwd_str).is_err()
                 {
-                    // Forward curves not yet calibrated, return placeholder
-                    return Ok(0.0);
+                    // Forward curves not yet calibrated — surface a typed error instead of placeholder value
+                    return Err(finstack_core::Error::Input(
+                        finstack_core::error::InputError::NotFound { id: "forward curves".to_string() }
+                    ));
                 }
 
                 // Price the basis swap - should be zero at market spread

@@ -218,7 +218,7 @@ impl SwaptionVolCalibrator {
     }
 
     /// Calculate swap annuity for a given expiry and tenor.
-    #[allow(dead_code)] // Will be used for future swaption pricing enhancements
+    #[allow(dead_code)]
     fn calculate_swap_annuity(
         &self,
         expiry: Date,

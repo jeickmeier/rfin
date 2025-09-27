@@ -636,7 +636,7 @@ mod tests {
 
         let result = calibrator.calibrate(&quotes, &context);
         if let Err(ref e) = result {
-            println!("Forward curve calibration failed: {:?}", e);
+            tracing::warn!(error = ?e, "Forward curve calibration failed");
             return;
         }
         let (curve, report) = result.unwrap();
@@ -794,7 +794,7 @@ mod tests {
             Err(e) => {
                 // It's OK if calibration fails due to missing reference curves
                 // The important thing is that the mapping logic works
-                println!("Basis swap calibration test: {}", e);
+            tracing::debug!(error = %e, "Basis swap calibration test failed, acceptable in mapping test");
             }
         }
     }

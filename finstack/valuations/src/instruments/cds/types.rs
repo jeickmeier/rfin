@@ -10,7 +10,7 @@ use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
 use finstack_core::F;
 
-pub use super::cds_pricer;
+use crate::instruments::cds::pricer::CDSPricer;
 
 /// CDS payment types
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -336,7 +336,7 @@ impl CreditDefaultSwap {
         disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> finstack_core::Result<Money> {
-        let pricer = cds_pricer::CDSPricer::new();
+        let pricer = CDSPricer::new();
         let as_of = disc.base_date();
         pricer.pv_premium_leg(self, disc, surv, as_of)
     }
@@ -347,7 +347,7 @@ impl CreditDefaultSwap {
         disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> finstack_core::Result<Money> {
-        let pricer = cds_pricer::CDSPricer::new();
+        let pricer = CDSPricer::new();
         let as_of = disc.base_date();
         pricer.pv_protection_leg(self, disc, surv, as_of)
     }
@@ -358,7 +358,7 @@ impl CreditDefaultSwap {
         disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> finstack_core::Result<F> {
-        let pricer = cds_pricer::CDSPricer::new();
+        let pricer = CDSPricer::new();
         let as_of = disc.base_date();
         pricer.par_spread(self, disc, surv, as_of)
     }
@@ -369,7 +369,7 @@ impl CreditDefaultSwap {
         disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> finstack_core::Result<F> {
-        let pricer = cds_pricer::CDSPricer::new();
+        let pricer = CDSPricer::new();
         let as_of = disc.base_date();
         pricer.risky_annuity(self, disc, surv, as_of)
     }
@@ -380,14 +380,14 @@ impl CreditDefaultSwap {
         disc: &dyn Discounting,
         surv: &dyn Survival,
     ) -> finstack_core::Result<F> {
-        let pricer = cds_pricer::CDSPricer::new();
+        let pricer = CDSPricer::new();
         let as_of = disc.base_date();
         pricer.risky_pv01(self, disc, surv, as_of)
     }
 
     /// Calculate CS01 (change in PV for 1bp credit spread change) via enhanced pricer
     pub fn cs01(&self, curves: &MarketContext) -> finstack_core::Result<F> {
-        let pricer = cds_pricer::CDSPricer::new();
+        let pricer = CDSPricer::new();
         pricer.cs01(
             self,
             curves,
@@ -405,7 +405,7 @@ impl CreditDefaultSwap {
     ) -> finstack_core::Result<Money> {
         let disc = curves.get_discount_ref(self.premium.disc_id.clone())?;
         let surv = curves.get_hazard_ref(self.protection.credit_id.clone())?;
-        let pricer = cds_pricer::CDSPricer::new();
+        let pricer = CDSPricer::new();
         pricer.npv_with_upfront(self, disc, surv, as_of)
     }
 }

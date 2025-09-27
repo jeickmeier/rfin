@@ -16,6 +16,5 @@ pub use types::PayReceive;
 pub use types::PremiumLegSpec;
 pub use types::ProtectionLegSpec;
 
-// Back-compat: re-export pricing types at the same path names used previously.
-// External code that referenced `cds_pricer::CDSPricer` will continue to work via this alias.
-pub use pricer as cds_pricer;
+// Note: previously re-exported `pricer` as `cds_pricer` for backward compatibility.
+// This alias has been removed to simplify the public surface; dependents should import from `cds::pricer`.

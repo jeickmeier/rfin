@@ -139,10 +139,7 @@ impl SimpleCalibration {
             .collect();
 
         if self.config.verbose {
-            println!(
-                "Found {} OIS quotes for discount curve calibration",
-                rates_quotes.len()
-            );
+            tracing::info!(count = rates_quotes.len(), "Found OIS quotes for discount curve calibration");
         }
 
         if rates_quotes.is_empty() {
@@ -157,27 +154,20 @@ impl SimpleCalibration {
                 .with_config(self.config.clone());
 
         if self.config.verbose {
-            println!(
-                "Starting OIS calibration with {} quotes",
-                rates_quotes.len()
-            );
+            tracing::info!(count = rates_quotes.len(), "Starting OIS calibration");
         }
 
         let result = calibrator.calibrate(&rates_quotes, context);
         if let Err(ref e) = result {
             if self.config.verbose {
-                println!("Discount curve calibration failed: {:?}", e);
+                tracing::warn!(error = ?e, "Discount curve calibration failed");
             }
             return Err(e.clone());
         }
         let (curve, report) = result?;
 
         if self.config.verbose {
-            println!(
-                "OIS calibration completed. Curve ID: {}",
-                curve.id().as_str()
-            );
-            println!("Report success: {}", report.success);
+            tracing::info!(curve_id = curve.id().as_str(), success = report.success, "OIS calibration completed");
         }
 
         // Map collateral to OIS discount curve
@@ -728,18 +718,18 @@ mod tests {
         let result = calibration.calibrate(&quotes);
 
         if let Err(ref e) = result {
-            println!("Simple calibration failed: {:?}", e);
+            tracing::warn!(error = ?e, "Simple calibration failed");
             return; // Calibration logic needs refinement; skip test for now
         }
         let (context, report) = result.unwrap();
 
         if !report.success {
-            println!("Calibration report indicates failure; skip verification for now");
+            tracing::debug!("Calibration report indicates failure; skip verification for now");
             return;
         }
 
         if context.get_discount("USD-OIS").is_err() {
-            println!("No discount curve found; skip verification for now");
+            tracing::debug!("No discount curve found; skip verification for now");
         }
     }
 }

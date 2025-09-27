@@ -325,11 +325,13 @@ mod tests {
                 ((analytical_grad[i] - numerical_grad[i]) / numerical_grad[i].max(1e-10)).abs();
 
             if rel_error >= 1.0 {
-                println!(
-                    "Gradient component {} differs significantly: analytical = {}, numerical = {}, rel_error = {}",
-                    i, analytical_grad[i], numerical_grad[i], rel_error
+                tracing::debug!(
+                    component = i,
+                    analytical = analytical_grad[i],
+                    numerical = numerical_grad[i],
+                    rel_error,
+                    "SABR gradient differs; expected with simplified formula; skipping"
                 );
-                println!("This is expected due to simplified SABR formula used in test - skipping for now");
                 return;
             }
         }
