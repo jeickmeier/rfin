@@ -33,7 +33,7 @@ fmt:
 	cargo fmt --all
 
 lint:
-	cargo clippy --workspace --all-targets --all-features --exclude finstack-py --exclude finstack-wasm -- -D warnings
+	PYO3_PYTHON=python3 cargo clippy --workspace --all-targets --all-features --exclude finstack-wasm -- -D warnings
 	@if command -v uv >/dev/null 2>&1; then \
 		if [ -f .venv/bin/activate ]; then \
 			. .venv/bin/activate && ruff check .; \
