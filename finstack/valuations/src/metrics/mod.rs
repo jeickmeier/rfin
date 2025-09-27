@@ -32,7 +32,9 @@ pub use bucketed::{
     compute_bucketed_dv01_series, compute_bucketed_dv01_series_with_context,
     compute_bucketed_series_with_context_for_id, standard_ir_dv01_buckets,
 };
-pub use declarative_registry::{MetricRegistryBuilder, create_standard_registry as declarative_standard_registry};
+pub use declarative_registry::{
+    create_standard_registry as declarative_standard_registry, MetricRegistryBuilder,
+};
 pub use ids::MetricId;
 pub use registry::MetricRegistry;
 pub use traits::{MetricCalculator, MetricContext, Structured2D, Structured3D};

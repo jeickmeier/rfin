@@ -380,6 +380,7 @@ impl CreditDefaultSwap {
 
 impl_instrument!(
     CreditDefaultSwap,
+    crate::pricer::InstrumentType::CDS,
     "CreditDefaultSwap",
     pv = |s, curves, as_of| {
         // Call the instrument's own NPV method

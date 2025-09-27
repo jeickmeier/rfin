@@ -4,18 +4,28 @@
 //! in instrument implementations.
 
 /// Generate a full instrument implementation:
+/// - InstrumentKind (static key)
 /// - Instrument (including attribute accessors and pricing methods)
 #[macro_export]
 macro_rules! impl_instrument {
     (
-        $type:ident, $type_name:literal,
+        $type:ident, $itype:expr, $_type_name:literal,
         pv = |$s:ident, $curves:ident, $as_of:ident| $pv_expr:expr $(,)?
     ) => {
+        impl $crate::instruments::common::traits::InstrumentKind for $type {
+            const TYPE: $crate::pricer::InstrumentType = $itype;
+        }
+
         // Unified Instrument implementation with pricing
         impl $crate::instruments::common::traits::Instrument for $type {
             #[inline]
             fn id(&self) -> &str {
                 self.id.as_str()
+            }
+
+            #[inline]
+            fn key(&self) -> $crate::pricer::InstrumentType {
+                <$type as $crate::instruments::common::traits::InstrumentKind>::TYPE
             }
 
             #[inline]
@@ -37,7 +47,6 @@ macro_rules! impl_instrument {
             fn clone_box(&self) -> Box<dyn $crate::instruments::common::traits::Instrument> {
                 Box::new(self.clone())
             }
-
 
             // === Pricing Methods ===
 
@@ -71,17 +80,18 @@ macro_rules! impl_instrument {
 /// and reads `disc_id` and day-count field names from the instrument.
 ///
 /// Usage:
-/// impl_instrument_schedule_pv!(Type, "TypeName", disc_field: disc_id, dc_field: dc);
+/// impl_instrument_schedule_pv!(Type, InstrumentType::Bond, "TypeName", disc_field: disc_id, dc_field: dc);
 #[macro_export]
 macro_rules! impl_instrument_schedule_pv {
     (
-        $type:ident, $type_name:literal,
+        $type:ident, $itype:expr, $_type_name:literal,
         disc_field: $disc:ident,
         dc_field: $dc:ident
     ) => {
         $crate::impl_instrument!(
             $type,
-            $type_name,
+            $itype,
+            $_type_name,
             pv = |s, curves, as_of| {
                 // Route through monomorphized helper to reduce dynamic dispatch on hot path
                 $crate::instruments::common::helpers::schedule_pv_impl(

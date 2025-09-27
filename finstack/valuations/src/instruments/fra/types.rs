@@ -59,21 +59,37 @@ impl ForwardRateAgreement {
         let base_date = disc.base_date();
         let _t_fixing = self
             .day_count
-            .year_fraction(base_date, self.fixing_date, finstack_core::dates::DayCountCtx::default())?
+            .year_fraction(
+                base_date,
+                self.fixing_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?
             .max(0.0);
         let t_start = self
             .day_count
-            .year_fraction(base_date, self.start_date, finstack_core::dates::DayCountCtx::default())?
+            .year_fraction(
+                base_date,
+                self.start_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?
             .max(0.0);
         let t_end = self
             .day_count
-            .year_fraction(base_date, self.end_date, finstack_core::dates::DayCountCtx::default())?
+            .year_fraction(
+                base_date,
+                self.end_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?
             .max(t_start);
 
         // Accrual factor
         let tau = self
             .day_count
-            .year_fraction(self.start_date, self.end_date, finstack_core::dates::DayCountCtx::default())?
+            .year_fraction(
+                self.start_date,
+                self.end_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?
             .max(0.0);
         // If the accrual length is zero, PV is zero. When fixing is in the past,
         // continue to project using forwards unless an observed fixing is wired.
@@ -97,6 +113,11 @@ impl crate::instruments::common::traits::Instrument for ForwardRateAgreement {
     #[inline]
     fn id(&self) -> &str {
         self.id.as_str()
+    }
+
+    #[inline]
+    fn key(&self) -> crate::pricer::InstrumentType {
+        <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
     }
 
     #[inline]

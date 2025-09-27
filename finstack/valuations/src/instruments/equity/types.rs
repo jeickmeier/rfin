@@ -99,11 +99,13 @@ impl Equity {
                     // Convert via FX matrix provider
                     let matrix = curves.fx.as_ref().ok_or_else(|| {
                         finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                            id: "fx_matrix".to_string()})
+                            id: "fx_matrix".to_string(),
+                        })
                     })?;
 
                     struct MatrixProvider<'a> {
-                        m: &'a finstack_core::money::fx::FxMatrix}
+                        m: &'a finstack_core::money::fx::FxMatrix,
+                    }
                     impl finstack_core::money::fx::FxProvider for MatrixProvider<'_> {
                         fn rate(
                             &self,
@@ -129,7 +131,9 @@ impl Equity {
                     )
                 }
             }
-            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Ok(Money::new(*v, self.currency))
+            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => {
+                Ok(Money::new(*v, self.currency))
+            }
         }
     }
 
@@ -140,7 +144,8 @@ impl Equity {
             .price(&key)
             .map(|scalar| match scalar {
                 finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-                finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0})
+                finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
+            })
             .unwrap_or(0.0);
         Ok(dy)
     }
@@ -174,11 +179,11 @@ impl Equity {
             self.currency,
         ))
     }
-
 }
 
 impl_instrument!(
     Equity,
+    crate::pricer::InstrumentType::Equity,
     "Equity",
     pv = |s, curves, as_of| {
         // Call the instrument's own NPV method

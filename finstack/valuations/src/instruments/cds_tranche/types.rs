@@ -94,11 +94,7 @@ impl CdsTranche {
     }
 
     /// Calculate the net present value of this CDS tranche
-    pub fn npv(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> finstack_core::Result<Money> {
+    pub fn npv(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         let pricer = pricer::CDSTranchePricer::new();
         pricer.price_tranche(self, curves, as_of)
     }
@@ -124,10 +120,7 @@ impl CdsTranche {
     }
 
     /// Calculate expected loss metric
-    pub fn expected_loss(
-        &self,
-        curves: &MarketContext,
-    ) -> finstack_core::Result<finstack_core::F> {
+    pub fn expected_loss(&self, curves: &MarketContext) -> finstack_core::Result<finstack_core::F> {
         let pricer = pricer::CDSTranchePricer::new();
         pricer.calculate_expected_loss(self, curves)
     }
@@ -171,7 +164,11 @@ impl Instrument for CdsTranche {
     fn id(&self) -> &str {
         self.id.as_str()
     }
-    
+
+    fn key(&self) -> crate::pricer::InstrumentType {
+        <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -207,4 +204,8 @@ impl crate::instruments::common::HasDiscountCurve for CdsTranche {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.disc_id
     }
+}
+
+impl crate::instruments::common::traits::InstrumentKind for CdsTranche {
+    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::CDSTranche;
 }

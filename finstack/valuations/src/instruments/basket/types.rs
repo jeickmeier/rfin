@@ -6,10 +6,7 @@
 
 use crate::instruments::common::traits::{Attributes, Instrument};
 use finstack_core::prelude::*;
-use finstack_core::types::{
-    id::PriceId,
-    InstrumentId,
-};
+use finstack_core::types::{id::PriceId, InstrumentId};
 use finstack_core::F;
 use std::sync::Arc;
 
@@ -143,8 +140,6 @@ pub struct BasketConstituent {
     pub ticker: Option<String>,
 }
 
-
-
 /// Configuration for basket pricing behaviour.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -200,7 +195,7 @@ impl Basket {
     }
 
     /// Get a configured calculator for this basket.
-    /// 
+    ///
     /// This centralizes calculator creation and avoids duplication across
     /// metrics, pricers, and other components.
     pub fn calculator(&self) -> crate::instruments::basket::pricer::BasketCalculator {
@@ -230,15 +225,15 @@ impl Basket {
 
         Ok(())
     }
-
-
 }
-
 
 // Implement traits manually to handle InstrumentId properly
 impl Instrument for Basket {
     fn id(&self) -> &str {
         self.id.as_str()
+    }
+    fn key(&self) -> crate::pricer::InstrumentType {
+        <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
     }
     fn as_any(&self) -> &dyn ::std::any::Any {
         self

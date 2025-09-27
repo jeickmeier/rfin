@@ -195,7 +195,7 @@ impl CDSIndex {
         pricer.npv(self, curves, as_of)
     }
 
-    /// Calculate protection leg PV 
+    /// Calculate protection leg PV
     pub fn pv_protection_leg(
         &self,
         curves: &finstack_core::market_data::MarketContext,
@@ -248,6 +248,7 @@ impl CDSIndex {
 
 impl_instrument!(
     CDSIndex,
+    crate::pricer::InstrumentType::CDSIndex,
     "CDSIndex",
     pv = |s, curves, as_of| {
         // Call the instrument's own NPV method

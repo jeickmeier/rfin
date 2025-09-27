@@ -51,7 +51,11 @@ impl Deposit {
         // Accrual factor (instrument basis)
         let yf = self
             .day_count
-            .year_fraction(self.start, self.end, finstack_core::dates::DayCountCtx::default())?
+            .year_fraction(
+                self.start,
+                self.end,
+                finstack_core::dates::DayCountCtx::default(),
+            )?
             .max(0.0);
 
         // Quoted simple rate (default to 0 when not provided)
@@ -76,6 +80,11 @@ impl crate::instruments::common::traits::Instrument for Deposit {
     #[inline]
     fn id(&self) -> &str {
         self.id.as_str()
+    }
+
+    #[inline]
+    fn key(&self) -> crate::pricer::InstrumentType {
+        <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
     }
 
     #[inline]

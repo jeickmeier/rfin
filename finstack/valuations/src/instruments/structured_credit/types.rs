@@ -453,6 +453,10 @@ impl Instrument for StructuredCredit {
         self.id.as_str()
     }
 
+    fn key(&self) -> crate::pricer::InstrumentType {
+        <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
+    }
+
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -499,3 +503,7 @@ impl Instrument for StructuredCredit {
 }
 
 // Do not add explicit Instrument impl; provided by blanket impl.
+
+impl crate::instruments::common::traits::InstrumentKind for StructuredCredit {
+    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::StructuredCredit;
+}

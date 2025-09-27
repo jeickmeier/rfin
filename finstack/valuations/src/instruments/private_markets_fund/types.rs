@@ -70,6 +70,9 @@ impl Instrument for PrivateMarketsFund {
     fn id(&self) -> &str {
         self.id.as_str()
     }
+    fn key(&self) -> crate::pricer::InstrumentType {
+        <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
+    }
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -126,4 +129,8 @@ impl CashflowProvider for PrivateMarketsFund {
 /// Re-export registration so callers can `use ...::register_private_markets_fund_metrics` unchanged
 pub fn register_private_markets_fund_metrics(registry: &mut MetricRegistry) {
     super::metrics::register_private_markets_fund_metrics(registry);
+}
+
+impl crate::instruments::common::traits::InstrumentKind for PrivateMarketsFund {
+    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::PrivateMarketsFund;
 }

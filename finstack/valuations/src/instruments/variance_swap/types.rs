@@ -462,6 +462,7 @@ impl VarianceSwap {
 // Use the macro to implement Instrument with pricing
 crate::impl_instrument!(
     VarianceSwap,
+    crate::pricer::InstrumentType::VarianceSwap,
     "VarianceSwap",
     pv = |s, curves, as_of| {
         // Call the instrument's own method
@@ -478,10 +479,6 @@ impl crate::instruments::common::HasDiscountCurve for VarianceSwap {
     fn discount_curve_id(&self) -> &CurveId {
         &self.disc_id
     }
-}
-
-impl crate::instruments::common::traits::InstrumentKind for VarianceSwap {
-    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::VarianceSwap;
 }
 
 impl CashflowProvider for VarianceSwap {

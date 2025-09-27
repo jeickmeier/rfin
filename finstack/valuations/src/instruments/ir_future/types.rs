@@ -99,7 +99,7 @@ impl InterestRateFuture {
     /// Uses discount/forward curves from the MarketContext and applies convexity adjustments.
     pub fn npv(&self, context: &MarketContext) -> finstack_core::Result<Money> {
         use finstack_core::dates::DayCountCtx;
-        
+
         let disc = context.get_discount_ref(self.disc_id.clone())?;
         let fwd = context.get_forward_ref(self.forward_id.clone())?;
 
@@ -190,6 +190,7 @@ impl InterestRateFuture {
 
 impl_instrument!(
     InterestRateFuture,
+    crate::pricer::InstrumentType::InterestRateFuture,
     "InterestRateFuture",
     pv = |s, curves, as_of| {
         let _ = as_of; // PV does not depend on `as_of`; uses curve base dates
@@ -219,8 +220,4 @@ impl crate::instruments::common::HasDiscountCurve for InterestRateFuture {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.disc_id
     }
-}
-
-impl crate::instruments::common::traits::InstrumentKind for InterestRateFuture {
-    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::InterestRateFuture;
 }

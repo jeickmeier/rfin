@@ -3,8 +3,12 @@
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
 use crate::instruments::common::discountable::Discountable;
 use crate::instruments::common::traits::Attributes;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountCtx, Frequency, StubKind};
-use finstack_core::market_data::scalars::inflation_index::{InflationIndex, InflationInterpolation, InflationLag};
+use finstack_core::dates::{
+    BusinessDayConvention, Date, DayCount, DayCountCtx, Frequency, StubKind,
+};
+use finstack_core::market_data::scalars::inflation_index::{
+    InflationIndex, InflationInterpolation, InflationLag,
+};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
@@ -163,11 +167,7 @@ impl InflationLinkedBond {
     }
 
     /// Calculate index ratio for a given date
-    pub fn index_ratio(
-        &self,
-        date: Date,
-        inflation_index: &InflationIndex,
-    ) -> Result<F> {
+    pub fn index_ratio(&self, date: Date, inflation_index: &InflationIndex) -> Result<F> {
         // Validate interpolation policy vs indexation method for common standards
         match self.indexation_method {
             IndexationMethod::TIPS | IndexationMethod::Canadian => {
@@ -215,11 +215,7 @@ impl InflationLinkedBond {
     }
 
     /// Build inflation-adjusted cashflow schedule
-    pub fn build_schedule(
-        &self,
-        curves: &MarketContext,
-        _as_of: Date,
-    ) -> Result<DatedFlows> {
+    pub fn build_schedule(&self, curves: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
         let inflation_index = curves
             .inflation_index(self.inflation_id.as_str())
             .ok_or_else(|| {
@@ -263,12 +259,7 @@ impl InflationLinkedBond {
     }
 
     /// Calculate real yield (yield in real terms, before inflation)
-    pub fn real_yield(
-        &self,
-        clean_price: F,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> Result<F> {
+    pub fn real_yield(&self, clean_price: F, curves: &MarketContext, as_of: Date) -> Result<F> {
         use crate::instruments::bond::pricing::helpers::YieldCompounding;
         use crate::instruments::bond::pricing::ytm_solver::{solve_ytm, YtmPricingSpec};
 
@@ -372,6 +363,11 @@ impl crate::instruments::common::traits::Instrument for InflationLinkedBond {
     }
 
     #[inline]
+    fn key(&self) -> crate::pricer::InstrumentType {
+        <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
+    }
+
+    #[inline]
     fn as_any(&self) -> &dyn ::std::any::Any {
         self
     }
@@ -398,7 +394,11 @@ impl crate::instruments::common::traits::Instrument for InflationLinkedBond {
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // Route through helper for schedule-based PV calculation
         crate::instruments::common::helpers::schedule_pv_impl(
-            self, curves, as_of, &self.disc_id, self.dc,
+            self,
+            curves,
+            as_of,
+            &self.disc_id,
+            self.dc,
         )
     }
 
@@ -430,4 +430,3 @@ impl CashflowProvider for InflationLinkedBond {
         self.build_schedule(curves, as_of)
     }
 }
-

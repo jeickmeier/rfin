@@ -5,8 +5,8 @@ use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::market_data::MarketContext;
-use finstack_core::types::CurveId;
 use finstack_core::prelude::*;
+use finstack_core::types::CurveId;
 use finstack_core::F;
 use std::any::Any;
 
@@ -291,18 +291,20 @@ impl Repo {
         // Discount factors computed on the curve's own base-date time basis
         let base = disc_curve.base_date();
         let disc_dyn: &dyn finstack_core::market_data::traits::Discounting = disc_curve;
-        let df_maturity = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
-            disc_dyn, 
-            base, 
-            self.maturity, 
-            self.day_count
-        );
-        let df_start = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
-            disc_dyn, 
-            base, 
-            self.start_date, 
-            self.day_count
-        );
+        let df_maturity =
+            finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
+                disc_dyn,
+                base,
+                self.maturity,
+                self.day_count,
+            );
+        let df_start =
+            finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
+                disc_dyn,
+                base,
+                self.start_date,
+                self.day_count,
+            );
 
         // Present value of inflow at maturity minus PV of initial cash outflow at start
         let pv_in = total_repayment * df_maturity;
@@ -334,6 +336,9 @@ impl Repo {
 impl Instrument for Repo {
     fn id(&self) -> &str {
         self.id.as_str()
+    }
+    fn key(&self) -> crate::pricer::InstrumentType {
+        <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
     }
     fn as_any(&self) -> &dyn Any {
         self

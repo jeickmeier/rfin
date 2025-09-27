@@ -154,6 +154,7 @@ impl InterestRateOption {
 
 impl_instrument!(
     InterestRateOption,
+    crate::pricer::InstrumentType::CapFloor,
     "InterestRateOption",
     pv = |s, curves, as_of| {
         // Call the instrument's own NPV method

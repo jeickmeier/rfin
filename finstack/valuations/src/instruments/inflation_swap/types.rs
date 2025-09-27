@@ -88,11 +88,13 @@ impl InflationSwap {
         let disc = curves.get_discount_ref(self.disc_id.as_str())?;
         let base = disc.base_date();
 
-        let inflation_index = curves.inflation_index_ref(self.inflation_id).ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                id: "inflation_index".to_string(),
-            })
-        })?;
+        let inflation_index = curves
+            .inflation_index_ref(self.inflation_id)
+            .ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: "inflation_index".to_string(),
+                })
+            })?;
 
         let inflation_curve = curves.get_inflation_ref(self.inflation_id)?;
 
@@ -102,7 +104,9 @@ impl InflationSwap {
         // Use contract override if present, else index lag
         let lag_policy = self.lag_override.unwrap_or(inflation_index.lag());
         let lagged_maturity = match lag_policy {
-            finstack_core::market_data::scalars::inflation_index::InflationLag::None => self.maturity,
+            finstack_core::market_data::scalars::inflation_index::InflationLag::None => {
+                self.maturity
+            }
             finstack_core::market_data::scalars::inflation_index::InflationLag::Months(m) => {
                 finstack_core::dates::add_months(self.maturity, -(m as i32))
             }
@@ -137,11 +141,7 @@ impl InflationSwap {
     }
 
     /// Net present value of the instrument via legs
-    pub fn npv(
-        &self,
-        curves: &MarketContext,
-        as_of: Date,
-    ) -> finstack_core::Result<Money> {
+    pub fn npv(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         let pv_fixed = self.pv_fixed_leg(curves, as_of)?;
         let pv_inflation = self.pv_inflation_leg(curves, as_of)?;
         match self.side {
@@ -153,6 +153,7 @@ impl InflationSwap {
 
 impl_instrument!(
     InflationSwap,
+    crate::pricer::InstrumentType::InflationSwap,
     "InflationSwap",
     pv = |s, curves, as_of| {
         // Call the instrument's own npv method
@@ -164,8 +165,4 @@ impl crate::instruments::common::HasDiscountCurve for InflationSwap {
     fn discount_curve_id(&self) -> &CurveId {
         &self.disc_id
     }
-}
-
-impl crate::instruments::common::traits::InstrumentKind for InflationSwap {
-    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::InflationSwap;
 }

@@ -120,7 +120,9 @@ impl ConvertibleBond {
         &self,
         curves: &finstack_core::market_data::MarketContext,
     ) -> finstack_core::Result<finstack_core::F> {
-        let underlying_id = self.underlying_equity_id.as_ref()
+        let underlying_id = self
+            .underlying_equity_id
+            .as_ref()
             .ok_or(finstack_core::Error::Internal)?;
 
         let spot_price = curves.price(underlying_id)?;
@@ -138,7 +140,9 @@ impl ConvertibleBond {
         curves: &finstack_core::market_data::MarketContext,
         bond_price: finstack_core::F,
     ) -> finstack_core::Result<finstack_core::F> {
-        let underlying_id = self.underlying_equity_id.as_ref()
+        let underlying_id = self
+            .underlying_equity_id
+            .as_ref()
             .ok_or(finstack_core::Error::Internal)?;
 
         let spot_price = curves.price(underlying_id)?;
@@ -156,7 +160,11 @@ impl ConvertibleBond {
             return Err(finstack_core::Error::Internal);
         };
 
-        Ok(pricer::calculate_conversion_premium(bond_price, spot, conversion_ratio))
+        Ok(pricer::calculate_conversion_premium(
+            bond_price,
+            spot,
+            conversion_ratio,
+        ))
     }
 
     /// Calculate Greeks for this convertible bond
@@ -166,12 +174,7 @@ impl ConvertibleBond {
         tree_type: Option<pricer::ConvertibleTreeType>,
         bump_size: Option<finstack_core::F>,
     ) -> finstack_core::Result<crate::instruments::common::models::TreeGreeks> {
-        pricer::calculate_convertible_greeks(
-            self,
-            curves,
-            tree_type.unwrap_or_default(),
-            bump_size,
-        )
+        pricer::calculate_convertible_greeks(self, curves, tree_type.unwrap_or_default(), bump_size)
     }
 
     /// Calculate delta of this convertible bond
@@ -222,6 +225,7 @@ impl ConvertibleBond {
 
 impl_instrument!(
     ConvertibleBond,
+    crate::pricer::InstrumentType::Convertible,
     "ConvertibleBond",
     pv = |s, curves, as_of| {
         // Call the instrument's own NPV method

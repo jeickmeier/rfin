@@ -47,10 +47,6 @@ pub struct FIIndexTotalReturnSwap {
     pub attributes: Attributes,
 }
 
-impl crate::instruments::common::traits::InstrumentKind for FIIndexTotalReturnSwap {
-    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::TRS;
-}
-
 impl FIIndexTotalReturnSwap {
     /// Calculates the net present value (NPV) of the fixed income index TRS.
     ///
@@ -99,7 +95,13 @@ impl FIIndexTotalReturnSwap {
     /// Present value of the financing leg in the instrument's currency.
     pub fn pv_financing_leg(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
         use crate::instruments::trs::pricing::engine::TrsEngine;
-        TrsEngine::pv_financing_leg(&self.financing, &self.schedule, self.notional, curves, as_of)
+        TrsEngine::pv_financing_leg(
+            &self.financing,
+            &self.schedule,
+            self.notional,
+            curves,
+            as_of,
+        )
     }
 
     /// Calculates the financing annuity for par spread calculation.
@@ -112,7 +114,13 @@ impl FIIndexTotalReturnSwap {
     /// Financing annuity (sum of discounted year fractions × notional).
     pub fn financing_annuity(&self, curves: &MarketContext, as_of: Date) -> Result<F> {
         use crate::instruments::trs::pricing::engine::TrsEngine;
-        TrsEngine::financing_annuity(&self.financing, &self.schedule, self.notional, curves, as_of)
+        TrsEngine::financing_annuity(
+            &self.financing,
+            &self.schedule,
+            self.notional,
+            curves,
+            as_of,
+        )
     }
 }
 
@@ -121,6 +129,7 @@ impl FIIndexTotalReturnSwap {
 // Use the macro to implement Instrument with pricing
 crate::impl_instrument!(
     FIIndexTotalReturnSwap,
+    crate::pricer::InstrumentType::TRS,
     "FIIndexTotalReturnSwap",
     pv = |s, curves, as_of| {
         // Call the instrument's own method

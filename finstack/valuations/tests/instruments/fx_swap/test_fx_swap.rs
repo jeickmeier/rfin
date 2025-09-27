@@ -3,10 +3,13 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate};
 use finstack_core::money::Money;
+use finstack_core::types::InstrumentId;
 use finstack_valuations::instruments::fx_swap::FxSwap;
+use finstack_valuations::instruments::common::parameters::{FxSwapParams, FxUnderlyingParams};
 use finstack_valuations::instruments::common::traits::Priceable;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -150,5 +153,36 @@ fn test_fx_swap_metrics() {
     assert!(
         fx01 < 0.0,
         "FX01 should be negative for this swap configuration"
+    );
+}
+
+#[test]
+fn test_fx_swap_pv_with_contract_rates() {
+    let as_of = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+    let near_date = Date::from_calendar_date(2024, Month::February, 1).unwrap();
+    let far_date = Date::from_calendar_date(2025, Month::February, 1).unwrap();
+
+    let params = FxSwapParams::new(
+        near_date,
+        far_date,
+        Money::new(1_000_000.0, Currency::EUR),
+    )
+    .with_near_rate(1.10)
+    .with_far_rate(1.25);
+
+    let underlying = FxUnderlyingParams::usd_eur();
+
+    let fx_swap = FxSwap::new(
+        InstrumentId::new("MISPRICED_SWAP"),
+        &params,
+        &underlying,
+    );
+
+    let market_context = setup_market_data(as_of);
+    let pv = fx_swap.value(&market_context, as_of).unwrap();
+
+    assert!(
+        pv.amount().abs() > 1000.0,
+        "PV should be materially different from zero when contract far rate deviates from model"
     );
 }

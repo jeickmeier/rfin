@@ -8,9 +8,9 @@
 
 use crate::instruments::common::parameters::FxUnderlyingParams;
 use crate::instruments::common::traits::Attributes;
+use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::market_data::MarketContext;
 use finstack_core::F;
 
 use super::parameters::FxSwapParams;
@@ -103,7 +103,9 @@ impl FxSwap {
             rate
         } else {
             return Err(finstack_core::Error::from(
-                finstack_core::error::InputError::NotFound { id: "fx_matrix".to_string() },
+                finstack_core::error::InputError::NotFound {
+                    id: "fx_matrix".to_string(),
+                },
             ));
         };
 
@@ -136,6 +138,7 @@ impl FxSwap {
 
 impl_instrument!(
     FxSwap,
+    crate::pricer::InstrumentType::FxSwap,
     "FxSwap",
     pv = |s, curves, as_of| {
         // Call the instrument's own method
@@ -147,8 +150,4 @@ impl crate::instruments::common::HasDiscountCurve for FxSwap {
     fn discount_curve_id(&self) -> &CurveId {
         &self.domestic_disc_id
     }
-}
-
-impl crate::instruments::common::traits::InstrumentKind for FxSwap {
-    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::FxSwap;
 }

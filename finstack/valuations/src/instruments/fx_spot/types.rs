@@ -162,10 +162,9 @@ impl FxSpot {
 
 impl_instrument!(
     FxSpot,
+    crate::pricer::InstrumentType::FxSpot,
     "FxSpot",
-    pv = |s, curves, as_of| {
-        s.npv(curves, as_of)
-    }
+    pv = |s, curves, as_of| s.npv(curves, as_of)
 );
 
 impl CashflowProvider for FxSpot {

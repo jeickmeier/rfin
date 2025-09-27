@@ -296,6 +296,7 @@ impl CdsOption {
 
 impl_instrument!(
     CdsOption,
+    crate::pricer::InstrumentType::CDSOption,
     "CdsOption",
     pv = |s, curves, as_of| {
         // Call the instrument's own NPV method

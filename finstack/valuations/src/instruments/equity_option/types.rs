@@ -1,8 +1,8 @@
 //! Equity option instrument definition and Black–Scholes helpers.
 
 // pricing formulas are implemented in the pricing engine; keep this module free of direct math imports
-use crate::instruments::common::traits::Attributes;
 use crate::instruments::common::parameters::underlying::EquityUnderlyingParams;
+use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::currency::Currency;
@@ -340,6 +340,7 @@ impl EquityOption {
 
 impl_instrument!(
     EquityOption,
+    crate::pricer::InstrumentType::EquityOption,
     "EquityOption",
     pv = |s, curves, as_of| {
         // Call the instrument's own NPV method

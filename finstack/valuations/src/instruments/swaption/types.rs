@@ -247,6 +247,7 @@ impl Swaption {
 
 impl_instrument!(
     Swaption,
+    crate::pricer::InstrumentType::Swaption,
     "Swaption",
     pv = |s, curves, as_of| {
         // Call the instrument's own npv method

@@ -224,6 +224,20 @@ define_metrics! {
     /// Implied volatility (from price)
     ImpliedVol => "implied_vol",
 
+    // Variance swap metrics
+    /// Vega expressed per variance point (variance swap sensitivity)
+    VarianceVega => "variance_vega",
+    /// Expected variance under the pricing model
+    ExpectedVariance => "variance_expected",
+    /// Realized variance computed from observed paths
+    RealizedVariance => "variance_realized",
+    /// Variance notional exposure (payout multiplier)
+    VarianceNotional => "variance_notional",
+    /// Strike volatility equivalent (sqrt of strike variance)
+    VarianceStrikeVol => "variance_strike_vol",
+    /// Time to maturity as used in the variance swap conventions
+    VarianceTimeToMaturity => "variance_time_to_maturity",
+
     // Risk metrics
     /// Credit spread sensitivity (CS01) - Parallel shift in credit spread
     Cs01 => "cs01",

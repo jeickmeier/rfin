@@ -270,6 +270,11 @@ impl crate::instruments::common::traits::Instrument for Bond {
     }
 
     #[inline]
+    fn key(&self) -> crate::pricer::InstrumentType {
+        <Self as crate::instruments::common::traits::InstrumentKind>::TYPE
+    }
+
+    #[inline]
     fn as_any(&self) -> &dyn ::std::any::Any {
         self
     }
@@ -296,7 +301,11 @@ impl crate::instruments::common::traits::Instrument for Bond {
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // Route through helper for schedule-based PV calculation
         crate::instruments::common::helpers::schedule_pv_impl(
-            self, curves, as_of, &self.disc_id, self.dc,
+            self,
+            curves,
+            as_of,
+            &self.disc_id,
+            self.dc,
         )
     }
 

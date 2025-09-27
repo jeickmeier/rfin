@@ -1,7 +1,7 @@
 //! Instrument-level traits and metadata types.
 
 use crate::metrics::MetricId;
-use crate::pricer::InstrumentType; // Return type for key()
+use crate::pricer::InstrumentType;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use hashbrown::{HashMap, HashSet};
@@ -86,50 +86,9 @@ impl Attributes {
 pub trait Instrument: Send + Sync {
     /// Get the instrument's unique identifier.
     fn id(&self) -> &str;
-    
+
     /// Get the strongly-typed instrument key for pricer dispatch.
-    /// Uses TypeId-based mapping instead of brittle string matching.
-    fn key(&self) -> InstrumentType {
-        use std::any::TypeId;
-        use once_cell::sync::Lazy;
-        use hashbrown::HashMap;
-
-        static TYPE_MAP: Lazy<HashMap<TypeId, InstrumentType>> = Lazy::new(|| {
-            let mut m = HashMap::new();
-            m.insert(TypeId::of::<crate::instruments::Bond>(), InstrumentType::Bond);
-            m.insert(TypeId::of::<crate::instruments::Deposit>(), InstrumentType::Deposit);
-            m.insert(TypeId::of::<crate::instruments::ForwardRateAgreement>(), InstrumentType::FRA);
-            m.insert(TypeId::of::<crate::instruments::InterestRateSwap>(), InstrumentType::IRS);
-            m.insert(TypeId::of::<crate::instruments::cap_floor::InterestRateOption>(), InstrumentType::CapFloor);
-            m.insert(TypeId::of::<crate::instruments::BasisSwap>(), InstrumentType::BasisSwap);
-            m.insert(TypeId::of::<crate::instruments::Swaption>(), InstrumentType::Swaption);
-            m.insert(TypeId::of::<crate::instruments::Basket>(), InstrumentType::Basket);
-            m.insert(TypeId::of::<crate::instruments::ConvertibleBond>(), InstrumentType::Convertible);
-            m.insert(TypeId::of::<crate::instruments::InflationLinkedBond>(), InstrumentType::InflationLinkedBond);
-            m.insert(TypeId::of::<crate::instruments::InflationSwap>(), InstrumentType::InflationSwap);
-            m.insert(TypeId::of::<crate::instruments::InterestRateFuture>(), InstrumentType::InterestRateFuture);
-            m.insert(TypeId::of::<crate::instruments::trs::EquityTotalReturnSwap>(), InstrumentType::TRS);
-            m.insert(TypeId::of::<crate::instruments::trs::FIIndexTotalReturnSwap>(), InstrumentType::TRS);
-            m.insert(TypeId::of::<crate::instruments::CreditDefaultSwap>(), InstrumentType::CDS);
-            m.insert(TypeId::of::<crate::instruments::CDSIndex>(), InstrumentType::CDSIndex);
-            m.insert(TypeId::of::<crate::instruments::CdsOption>(), InstrumentType::CDSOption);
-            m.insert(TypeId::of::<crate::instruments::CdsTranche>(), InstrumentType::CDSTranche);
-            m.insert(TypeId::of::<crate::instruments::Equity>(), InstrumentType::Equity);
-            m.insert(TypeId::of::<crate::instruments::EquityOption>(), InstrumentType::EquityOption);
-            m.insert(TypeId::of::<crate::instruments::FxOption>(), InstrumentType::FxOption);
-            m.insert(TypeId::of::<crate::instruments::FxSpot>(), InstrumentType::FxSpot);
-            m.insert(TypeId::of::<crate::instruments::FxSwap>(), InstrumentType::FxSwap);
-            m.insert(TypeId::of::<crate::instruments::Repo>(), InstrumentType::Repo);
-            m.insert(TypeId::of::<crate::instruments::VarianceSwap>(), InstrumentType::VarianceSwap);
-            m
-        });
-
-        let type_id = self.as_any().type_id();
-        match TYPE_MAP.get(&type_id).copied() {
-            Some(t) => t,
-            None => panic!("Unknown instrument concrete TypeId in Instrument::key(); ensure instrument is added to TYPE_MAP"),
-        }
-    }
+    fn key(&self) -> InstrumentType;
 
     /// Access to the concrete type for downcasting.
     fn as_any(&self) -> &dyn Any;
@@ -153,7 +112,6 @@ pub trait Instrument: Send + Sync {
 
     /// Clone this instrument as a boxed trait object
     fn clone_box(&self) -> Box<dyn Instrument>;
-
 
     // === Pricing Methods ===
 

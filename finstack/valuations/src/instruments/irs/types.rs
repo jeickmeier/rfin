@@ -308,9 +308,12 @@ impl InterestRateSwap {
                     // Add spread contribution if any: N × sum_i( spread × alpha_i × DF(T_i) )
                     if self.float.spread_bp != 0.0 {
                         // Build coupon schedule using the float leg payment frequency and conventions
-                        let builder = finstack_core::dates::ScheduleBuilder::new(self.float.start, self.float.end)
-                            .frequency(self.float.freq)
-                            .stub_rule(self.float.stub);
+                        let builder = finstack_core::dates::ScheduleBuilder::new(
+                            self.float.start,
+                            self.float.end,
+                        )
+                        .frequency(self.float.freq)
+                        .stub_rule(self.float.stub);
                         let sched_dates: Vec<_> = {
                             let sched = if let Some(id) = self.float.calendar_id {
                                 if let Some(cal) = calendar_by_id(id) {
@@ -331,7 +334,11 @@ impl InterestRateSwap {
                                 let alpha = self
                                     .float
                                     .dc
-                                    .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
+                                    .year_fraction(
+                                        prev,
+                                        d,
+                                        finstack_core::dates::DayCountCtx::default(),
+                                    )
                                     .unwrap_or(0.0);
                                 let df = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on_date_curve(disc, d);
                                 annuity += alpha * df;
@@ -344,12 +351,10 @@ impl InterestRateSwap {
                 } else {
                     // Not OIS and forward curve missing: return the error to guide callers
                     // to provide a forward curve.
-                    return Err(
-                        context
-                            .get_forward_ref(self.float.fwd_id.as_ref())
-                            .err()
-                            .unwrap_or(finstack_core::error::InputError::Invalid.into()),
-                    );
+                    return Err(context
+                        .get_forward_ref(self.float.fwd_id.as_ref())
+                        .err()
+                        .unwrap_or(finstack_core::error::InputError::Invalid.into()));
                 }
             }
         };
@@ -368,6 +373,7 @@ impl InterestRateSwap {
 // Use the macro to implement Instrument with pricing
 crate::impl_instrument!(
     InterestRateSwap,
+    crate::pricer::InstrumentType::IRS,
     "InterestRateSwap",
     pv = |s, curves, _as_of| s.npv(curves)
 );
@@ -441,8 +447,4 @@ impl crate::instruments::common::HasDiscountCurve for InterestRateSwap {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.fixed.disc_id
     }
-}
-
-impl crate::instruments::common::traits::InstrumentKind for InterestRateSwap {
-    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::IRS;
 }

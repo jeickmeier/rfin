@@ -254,7 +254,9 @@ impl BasisSwap {
         let mut annuity = 0.0;
         let mut prev = schedule.dates[0];
         for &d in &schedule.dates[1..] {
-            let yf = leg.day_count.year_fraction(prev, d, DayCountCtx::default())?;
+            let yf = leg
+                .day_count
+                .year_fraction(prev, d, DayCountCtx::default())?;
             // Discount using the curve's own day-count basis
             let df = disc.df_on_date_curve(d);
             annuity += yf * df;
@@ -278,8 +280,9 @@ impl BasisSwap {
 
         // Calculate PV for each leg
         let primary_pv = self.pv_float_leg(&self.primary_leg, &primary_schedule, curves, as_of)?;
-        let reference_pv = self.pv_float_leg(&self.reference_leg, &reference_schedule, curves, as_of)?;
-        
+        let reference_pv =
+            self.pv_float_leg(&self.reference_leg, &reference_schedule, curves, as_of)?;
+
         // Return net PV
         primary_pv - reference_pv
     }
@@ -290,6 +293,7 @@ impl BasisSwap {
 // Use the macro to implement Instrument with pricing
 crate::impl_instrument!(
     BasisSwap,
+    crate::pricer::InstrumentType::BasisSwap,
     "BasisSwap",
     pv = |s, curves, as_of| {
         // Use the instrument's own npv method
@@ -301,10 +305,6 @@ impl crate::instruments::common::HasDiscountCurve for BasisSwap {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.discount_curve_id
     }
-}
-
-impl crate::instruments::common::traits::InstrumentKind for BasisSwap {
-    const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::BasisSwap;
 }
 
 #[cfg(test)]

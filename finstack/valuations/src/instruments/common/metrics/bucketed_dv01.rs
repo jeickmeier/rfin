@@ -64,7 +64,7 @@ where
             let flows = inst_clone.build_schedule(&curves, as_of)?;
             let base = bumped_disc.base_date();
             let dc = bumped_disc.day_count();
-            
+
             // Discount using bumped curve
             crate::instruments::common::discountable::npv_static(
                 bumped_disc,
@@ -74,16 +74,15 @@ where
             )
         };
 
-        let total = crate::metrics::compute_bucketed_dv01_series(
-            context, &disc_id, labels, 1.0, reval
-        )?;
+        let total =
+            crate::metrics::compute_bucketed_dv01_series(context, &disc_id, labels, 1.0, reval)?;
 
         Ok(total)
     }
 }
 
 /// Alternative generic calculator for instruments that need full MarketContext revaluation.
-/// 
+///
 /// Use this for instruments whose pricing requires access to multiple curves or
 /// complex pricing models that can't be reduced to simple cashflow discounting.
 pub struct GenericBucketedDv01WithContext<I> {
@@ -127,8 +126,8 @@ where
             inst_clone.value(temp_ctx, as_of)
         };
 
-        let total =         crate::metrics::compute_bucketed_dv01_series_with_context(
-            context, &disc_id, labels, 1.0, reval
+        let total = crate::metrics::compute_bucketed_dv01_series_with_context(
+            context, &disc_id, labels, 1.0, reval,
         )?;
 
         Ok(total)
