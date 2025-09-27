@@ -188,7 +188,7 @@ pub fn create_standard_registry() -> PricerRegistry {
     // Register simplified Bond pricers
     registry.register_pricer(
         PricerKey::new(InstrumentType::Bond, ModelKey::Discounting),
-        Box::new(crate::instruments::bond::pricing::pricer::SimpleBondDiscountingPricer::new())
+        Box::new(crate::instruments::bond::pricing::pricer::SimpleBondDiscountingPricer::bond())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::Bond, ModelKey::Tree),
@@ -216,7 +216,7 @@ pub fn create_standard_registry() -> PricerRegistry {
     // Register simplified Credit pricers
     registry.register_pricer(
         PricerKey::new(InstrumentType::CDS, ModelKey::HazardRate),
-        Box::new(crate::instruments::cds::pricing::pricer::SimpleCdsDiscountingPricer::new())
+        Box::new(crate::instruments::cds::pricing::pricer::SimpleCdsDiscountingPricer::cds())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::CDSIndex, ModelKey::HazardRate),
@@ -270,7 +270,7 @@ pub fn create_standard_registry() -> PricerRegistry {
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::Repo, ModelKey::Discounting),
-        Box::new(crate::instruments::repo::pricing::pricer::SimpleRepoDiscountingPricer::new())
+        Box::new(crate::instruments::repo::pricing::pricer::SimpleRepoDiscountingPricer::repo())
     );
     
     // Register simplified Inflation pricers

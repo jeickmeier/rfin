@@ -43,49 +43,15 @@ impl crate::pricer::Pricer for OasPricer {
 
 // ========================= NEW SIMPLIFIED PRICERS =========================
 
-/// New simplified Bond discounting pricer (replaces macro-based version)
-pub struct SimpleBondDiscountingPricer;
+// Using generic pricer implementation to eliminate boilerplate
+pub use crate::instruments::common::GenericDiscountingPricer;
 
-impl SimpleBondDiscountingPricer {
-    pub fn new() -> Self {
-        Self
-    }
-}
+/// Bond discounting pricer using the generic implementation.
+pub type SimpleBondDiscountingPricer = GenericDiscountingPricer<Bond>;
 
 impl Default for SimpleBondDiscountingPricer {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Pricer for SimpleBondDiscountingPricer {
-    fn key(&self) -> PricerKey {
-        PricerKey::new(InstrumentType::Bond, ModelKey::Discounting)
-    }
-
-    fn price_dyn(
-        &self,
-        instrument: &dyn Instrument,
-        market: &MarketContext,
-    ) -> Result<ValuationResult, PricingError> {
-        // Type-safe downcasting using the new system
-        let bond = instrument.as_any()
-            .downcast_ref::<Bond>()
-            .ok_or_else(|| PricingError::TypeMismatch {
-                expected: InstrumentType::Bond,
-                got: instrument.key()})?;
-
-        // Get as_of date from discount curve
-        let disc = market.get_discount_ref(bond.disc_id.clone())
-            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
-        let as_of = disc.base_date();
-
-        // Compute present value using the instrument's value method
-        let pv = bond.value(market, as_of)
-            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
-
-        // Return stamped result
-        Ok(ValuationResult::stamped(bond.id(), as_of, pv))
+        Self::bond()
     }
 }
 

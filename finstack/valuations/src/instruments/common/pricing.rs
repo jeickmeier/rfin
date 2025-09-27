@@ -9,34 +9,36 @@ use crate::results::ValuationResult;
 use finstack_core::market_data::MarketContext;
 use std::marker::PhantomData;
 
-/// Generic discounting pricer for any instrument that implements the Instrument trait.
+/// Generic pricer for any instrument that implements the Instrument trait.
 ///
 /// This eliminates the need for instrument-specific pricer implementations that just
 /// forward to the instrument's `value()` method.
-pub struct GenericDiscountingPricer<I> {
+pub struct GenericInstrumentPricer<I> {
     instrument_type: InstrumentType,
+    model_key: ModelKey,
     _phantom: PhantomData<I>,
 }
 
-impl<I> GenericDiscountingPricer<I>
+impl<I> GenericInstrumentPricer<I>
 where
     I: Instrument + 'static,
 {
-    /// Create a new generic pricer for the specified instrument type.
-    pub fn new(instrument_type: InstrumentType) -> Self {
+    /// Create a new generic pricer for the specified instrument and model type.
+    pub fn new(instrument_type: InstrumentType, model_key: ModelKey) -> Self {
         Self {
             instrument_type,
+            model_key,
             _phantom: PhantomData,
         }
     }
 }
 
-impl<I> Pricer for GenericDiscountingPricer<I>
+impl<I> Pricer for GenericInstrumentPricer<I>
 where
     I: Instrument + 'static,
 {
     fn key(&self) -> PricerKey {
-        PricerKey::new(self.instrument_type, ModelKey::Discounting)
+        PricerKey::new(self.instrument_type, self.model_key)
     }
 
     fn price_dyn(
@@ -76,44 +78,62 @@ where
     }
 }
 
+/// Generic discounting pricer for any instrument that implements the Instrument trait.
+///
+/// This is a convenience type alias for GenericInstrumentPricer with ModelKey::Discounting.
+pub type GenericDiscountingPricer<I> = GenericInstrumentPricer<I>;
+
+impl<I> GenericDiscountingPricer<I>
+where
+    I: Instrument + 'static,
+{
+    /// Create a new generic discounting pricer for the specified instrument type.
+    pub fn new_discounting(instrument_type: InstrumentType) -> Self {
+        Self::new(instrument_type, ModelKey::Discounting)
+    }
+}
+
 /// Convenience constructor functions for common pricers.
 impl GenericDiscountingPricer<crate::instruments::Bond> {
     /// Create a Bond discounting pricer.
     pub fn bond() -> Self {
-        Self {
-            instrument_type: InstrumentType::Bond,
-            _phantom: PhantomData,
-        }
+        Self::new_discounting(InstrumentType::Bond)
     }
 }
 
 impl GenericDiscountingPricer<crate::instruments::Deposit> {
     /// Create a Deposit discounting pricer.
     pub fn deposit() -> Self {
-        Self {
-            instrument_type: InstrumentType::Deposit,
-            _phantom: PhantomData,
-        }
+        Self::new_discounting(InstrumentType::Deposit)
     }
 }
 
 impl GenericDiscountingPricer<crate::instruments::ForwardRateAgreement> {
     /// Create a FRA discounting pricer.
     pub fn fra() -> Self {
-        Self {
-            instrument_type: InstrumentType::FRA,
-            _phantom: PhantomData,
-        }
+        Self::new_discounting(InstrumentType::FRA)
     }
 }
 
 impl GenericDiscountingPricer<crate::instruments::InterestRateSwap> {
     /// Create an IRS discounting pricer.
     pub fn irs() -> Self {
-        Self {
-            instrument_type: InstrumentType::IRS,
-            _phantom: PhantomData,
-        }
+        Self::new_discounting(InstrumentType::IRS)
+    }
+}
+
+impl GenericDiscountingPricer<crate::instruments::Repo> {
+    /// Create a Repo discounting pricer.
+    pub fn repo() -> Self {
+        Self::new_discounting(InstrumentType::Repo)
+    }
+}
+
+// Special case for CDS which uses HazardRate model
+impl GenericInstrumentPricer<crate::instruments::CreditDefaultSwap> {
+    /// Create a CDS hazard rate pricer.
+    pub fn cds() -> Self {
+        Self::new(InstrumentType::CDS, ModelKey::HazardRate)
     }
 }
 

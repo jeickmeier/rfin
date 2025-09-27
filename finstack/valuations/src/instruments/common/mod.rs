@@ -41,7 +41,7 @@ pub use metrics::{
     GenericBucketedDv01, GenericBucketedDv01WithContext, HasDiscountCurve,
     GenericBucketedDv01ForStringCurves, HasStringDiscountCurve
 };
-pub use pricing::GenericDiscountingPricer;
+pub use pricing::{GenericDiscountingPricer, GenericInstrumentPricer};
 pub use models::{
     d1, d2, norm_cdf, norm_pdf, short_rate_keys, single_factor_equity_state, state_keys,
     two_factor_equity_rates_state, BinomialTree, EvolutionParams, NodeState, SABRCalibrator,
