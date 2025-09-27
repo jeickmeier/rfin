@@ -81,6 +81,3 @@ pub use common::parameters::{
     OptionType, ParRateMethod, PayReceive, PremiumLegSpec, ProtectionLegSpec, ScheduleSpec,
     SettlementType, TotalReturnLegSpec, UnderlyingParams,
 };
-
-// Backward compatibility surface removed - deprecated re-exports have been eliminated
-
