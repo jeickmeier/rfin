@@ -9,12 +9,7 @@ pub struct ThetaCalculator;
 impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &EquityOption = context.instrument_as()?;
-        let greeks = crate::instruments::equity_option::pricing::engine::compute_greeks(
-            option,
-            &context.curves,
-            context.as_of,
-        )?;
-        Ok(greeks.theta)
+        option.theta(&context.curves, context.as_of)
     }
 
     fn dependencies(&self) -> &[MetricId] {

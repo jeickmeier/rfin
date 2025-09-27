@@ -11,12 +11,7 @@ pub struct DeltaCalculator;
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &EquityOption = context.instrument_as()?;
-        let greeks = crate::instruments::equity_option::pricing::engine::compute_greeks(
-            option,
-            &context.curves,
-            context.as_of,
-        )?;
-        Ok(greeks.delta)
+        option.delta(&context.curves, context.as_of)
     }
 
     fn dependencies(&self) -> &[MetricId] {

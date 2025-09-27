@@ -164,92 +164,177 @@ impl EquityOption {
         }
     }
 
-    pub fn black_scholes_price(
+    /// Calculate the net present value of this equity option
+    pub fn npv(
         &self,
-        spot: F,
-        r: F,
-        sigma: F,
-        t: F,
-        q: F,
-    ) -> finstack_core::Result<Money> {
-        let unit_price = crate::instruments::equity_option::pricing::engine::price_bs_unit(
-            spot,
-            self.strike.amount(),
-            r,
-            q,
-            sigma,
-            t,
-            self.option_type,
-        );
-        Ok(Money::new(
-            unit_price * self.contract_size,
-            self.strike.currency(),
-        ))
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        use crate::instruments::equity_option::pricer;
+        pricer::npv(self, curves, as_of)
     }
 
-    pub fn delta(&self, spot: F, r: F, sigma: F, t: F, q: F) -> F {
-        crate::instruments::equity_option::pricing::engine::greeks_unit(
-            spot,
-            self.strike.amount(),
-            r,
-            q,
-            sigma,
-            t,
-            self.option_type,
-        )
-        .delta
+    /// Calculate Greeks for this equity option
+    pub fn greeks(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<crate::instruments::equity_option::pricer::EquityOptionGreeks> {
+        use crate::instruments::equity_option::pricer;
+        pricer::compute_greeks(self, curves, as_of)
     }
 
-    pub fn gamma(&self, spot: F, r: F, sigma: F, t: F, q: F) -> F {
-        crate::instruments::equity_option::pricing::engine::greeks_unit(
-            spot,
-            self.strike.amount(),
-            r,
-            q,
-            sigma,
-            t,
-            self.option_type,
-        )
-        .gamma
+    /// Calculate delta of this equity option
+    pub fn delta(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let greeks = self.greeks(curves, as_of)?;
+        Ok(greeks.delta)
     }
 
-    pub fn vega(&self, spot: F, r: F, sigma: F, t: F, q: F) -> F {
-        crate::instruments::equity_option::pricing::engine::greeks_unit(
-            spot,
-            self.strike.amount(),
-            r,
-            q,
-            sigma,
-            t,
-            self.option_type,
-        )
-        .vega
+    /// Calculate gamma of this equity option
+    pub fn gamma(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let greeks = self.greeks(curves, as_of)?;
+        Ok(greeks.gamma)
     }
 
-    pub fn theta(&self, spot: F, r: F, sigma: F, t: F, q: F) -> F {
-        crate::instruments::equity_option::pricing::engine::greeks_unit(
-            spot,
-            self.strike.amount(),
-            r,
-            q,
-            sigma,
-            t,
-            self.option_type,
-        )
-        .theta
+    /// Calculate vega of this equity option
+    pub fn vega(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let greeks = self.greeks(curves, as_of)?;
+        Ok(greeks.vega)
     }
 
-    pub fn rho(&self, spot: F, r: F, sigma: F, t: F, q: F) -> F {
-        crate::instruments::equity_option::pricing::engine::greeks_unit(
-            spot,
-            self.strike.amount(),
-            r,
-            q,
-            sigma,
-            t,
-            self.option_type,
-        )
-        .rho
+    /// Calculate theta of this equity option
+    pub fn theta(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let greeks = self.greeks(curves, as_of)?;
+        Ok(greeks.theta)
+    }
+
+    /// Calculate rho of this equity option
+    pub fn rho(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let greeks = self.greeks(curves, as_of)?;
+        Ok(greeks.rho)
+    }
+
+    /// Calculate implied volatility of this equity option
+    pub fn implied_vol(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+        market_price: finstack_core::F,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let t = self.day_count.year_fraction(
+            as_of,
+            self.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
+
+        // Collect inputs except vol
+        let (spot, r, q, _sigma, _t) = {
+            use crate::instruments::equity_option::pricer;
+            let (spot, r, q, sigma, t) = pricer::collect_inputs(self, curves, as_of)?;
+            (spot, r, q, sigma, t)
+        };
+
+        if market_price <= 0.0 {
+            return Ok(0.0);
+        }
+
+        // Solve for sigma using bracketed bisection
+        let k = self.strike.amount();
+        let price_at = |sigma: finstack_core::F| -> finstack_core::F {
+            if sigma <= 0.0 {
+                return 0.0;
+            }
+            use crate::instruments::equity_option::pricer;
+            pricer::price_bs_unit(spot, k, r, q, sigma, t, self.option_type) * self.contract_size
+        };
+
+        const MIN_VOL: finstack_core::F = 1e-6;
+        const MAX_VOL_BRACKET: finstack_core::F = 10.0;
+        const SOLVER_TOL: finstack_core::F = 1e-8;
+        const SOLVER_MAX_ITER: usize = 100;
+
+        let mut lo = MIN_VOL;
+        let mut hi = 3.0;
+        let tol = SOLVER_TOL;
+        let max_iter = SOLVER_MAX_ITER;
+
+        let mut f_lo = price_at(lo) - market_price;
+        let mut f_hi = price_at(hi) - market_price;
+        if f_lo * f_hi > 0.0 {
+            let mut tries = 0;
+            while f_lo * f_hi > 0.0 && hi < MAX_VOL_BRACKET && tries < 10 {
+                hi *= 1.5;
+                f_hi = price_at(hi) - market_price;
+                tries += 1;
+            }
+            if f_lo * f_hi > 0.0 {
+                return Ok(0.0);
+            }
+        }
+
+        let mut mid = 0.5 * (lo + hi);
+        for _ in 0..max_iter {
+            mid = 0.5 * (lo + hi);
+            let f_mid = price_at(mid) - market_price;
+            if f_mid.abs() < tol || (hi - lo) < tol {
+                return Ok(mid);
+            }
+
+            // Guarded Newton step using closed-form vega
+            let vega_per_1pct = {
+                let d1 = crate::instruments::common::models::d1(spot, k, r, mid, t, q);
+                let exp_q_t = (-q * t).exp();
+                let sqrt_t = t.sqrt();
+                spot * exp_q_t * finstack_core::math::norm_pdf(d1) * sqrt_t / 100.0
+            } * self.contract_size;
+            let vega_abs = vega_per_1pct * 100.0;
+            if vega_abs.abs() > 1e-12 {
+                let newton = mid - f_mid / vega_abs;
+                if newton.is_finite() && newton > lo && newton < hi {
+                    mid = newton;
+                    let f_new = price_at(mid) - market_price;
+                    if f_lo * f_new <= 0.0 {
+                        hi = mid;
+                    } else {
+                        lo = mid;
+                        f_lo = f_new;
+                    }
+                    continue;
+                }
+            }
+
+            if f_lo * f_mid <= 0.0 {
+                hi = mid;
+            } else {
+                lo = mid;
+                f_lo = f_mid;
+            }
+        }
+
+        Ok(mid)
     }
 }
 
@@ -257,6 +342,7 @@ impl_instrument!(
     EquityOption,
     "EquityOption",
     pv = |s, curves, as_of| {
-        crate::instruments::equity_option::pricing::engine::npv(s, curves, as_of)
+        // Call the instrument's own NPV method
+        s.npv(curves, as_of)
     }
 );
