@@ -2,14 +2,13 @@
 //!
 //! Provides the implementation of a simple money‑market deposit: principal is
 //! exchanged at the start date and principal plus simple interest at maturity.
-//! This module mirrors the structure used by other instruments (e.g., basis swap)
-//! with clear separation between types, pricing engines, and metrics.
+//! This module mirrors the structure used by other instruments with clear
+//! separation between types, pricing implementation, and metrics.
 
 pub mod metrics;
-pub mod pricing;
+pub mod pricer;
 mod types;
 
-pub use pricing::engine::DepositEngine;
 pub use types::Deposit;
 
 // Builder provided by FinancialBuilder derive

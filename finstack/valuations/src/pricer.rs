@@ -258,7 +258,7 @@ pub fn create_standard_registry() -> PricerRegistry {
     // Register simplified Basic pricers
     registry.register_pricer(
         PricerKey::new(InstrumentType::Deposit, ModelKey::Discounting),
-        Box::new(crate::instruments::deposit::pricing::pricer::SimpleDepositDiscountingPricer::deposit())
+        Box::new(crate::instruments::deposit::pricer::SimpleDepositDiscountingPricer::deposit())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::InterestRateFuture, ModelKey::Discounting),
