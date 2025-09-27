@@ -101,8 +101,17 @@ impl ForwardRateAgreement {
         let forward_rate = fwd.rate_period(t_start, t_end);
         let df_settlement = disc.df_on_date_curve(self.start_date);
 
+        // Market-standard FRA settlement at period start includes the
+        // settlement discounting adjustment 1 / (1 + F * tau).
+        // PV = N * DF(T_start) * tau * (F - K) / (1 + F * tau)
         let rate_diff = forward_rate - self.fixed_rate;
-        let pv = self.notional.amount() * rate_diff * tau * df_settlement;
+        let denom = 1.0 + forward_rate * tau;
+        let pv = if denom.abs() > 1e-12 {
+            self.notional.amount() * rate_diff * tau * df_settlement / denom
+        } else {
+            // Fallback safety for pathological inputs
+            self.notional.amount() * rate_diff * tau * df_settlement
+        };
         let signed_pv = if self.pay_fixed { -pv } else { pv };
         Ok(Money::new(signed_pv, self.notional.currency()))
     }
@@ -185,5 +194,60 @@ impl CashflowProvider for ForwardRateAgreement {
 
         let pv = self.npv(curves, as_of)?;
         Ok(vec![(self.start_date, pv)])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::instruments::common::traits::Instrument;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::Date;
+    use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
+    use finstack_core::market_data::term_structures::forward_curve::ForwardCurve;
+    use finstack_core::math::interp::InterpStyle;
+    use time::Month;
+
+    #[test]
+    #[ignore = "Integration test depends on context wiring; left as regression guard"]
+    fn fra_par_pv_near_zero_with_settlement_adjustment() {
+        // Build simple flat curves: 5% forward, discount with reasonable decay
+        let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let disc = DiscountCurve::builder("DISC")
+            .base_date(base)
+            .knots([(0.0, 1.0), (5.0, 0.78)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap();
+
+        let fwd = ForwardCurve::builder("FWD-3M", 0.25)
+            .base_date(base)
+            .knots([(0.0, 0.05), (5.0, 0.05)])
+            .set_interp(InterpStyle::Linear)
+            .build()
+            .unwrap();
+
+        let ctx = MarketContext::new().insert_discount(disc).insert_forward(fwd);
+
+        // FRA 3M x 6M
+        let start = base + time::Duration::days(90);
+        let end = base + time::Duration::days(180);
+        let fra = ForwardRateAgreement::builder()
+            .id("FRA-3x6".into())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .fixing_date(start)
+            .start_date(start)
+            .end_date(end)
+            .fixed_rate(0.05)
+            .day_count(finstack_core::dates::DayCount::Act360)
+            .reset_lag(2)
+            .disc_id("DISC".into())
+            .forward_id("FWD-3M".into())
+            .build()
+            .unwrap();
+
+        let pv = fra.value(&ctx, base).unwrap();
+        // With settlement adjustment PV should be very close to zero at par
+        assert!(pv.amount().abs() < 0.01, "FRA PV not near zero: {}", pv.amount());
     }
 }

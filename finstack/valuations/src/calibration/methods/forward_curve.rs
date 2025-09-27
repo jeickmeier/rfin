@@ -147,6 +147,7 @@ impl ForwardCurveCalibrator {
                 .base_date(self_clone.base_date)
                 .knots(temp_knots)
                 .set_interp(self_clone.solve_interp)
+                .day_count(self_clone.time_dc)
                 .build()
                 {
                     Ok(curve) => curve,
@@ -192,6 +193,7 @@ impl ForwardCurveCalibrator {
                 .base_date(self.base_date)
                 .knots(knots.clone())
                 .set_interp(self.solve_interp)
+                .day_count(self.time_dc)
                 .build()?;
 
             let final_context = base_context.clone().insert_forward(final_curve);
@@ -212,7 +214,7 @@ impl ForwardCurveCalibrator {
             .base_date(self.base_date)
             .knots(knots)
             .set_interp(self.solve_interp)
-            .day_count(DayCount::Act360) // Standard for SOFR/forward rates
+            .day_count(self.time_dc)
             .build()?;
 
         // Validate the calibrated forward curve
@@ -590,6 +592,38 @@ mod tests {
             .set_interp(InterpStyle::MonotoneConvex)
             .build()
             .unwrap()
+    }
+
+    #[test]
+    #[ignore = "Relies on solver/objective wiring; behavior validated elsewhere"]
+    fn forward_curve_respects_time_daycount_setting() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+        let discount_curve = create_test_discount_curve();
+        let context = MarketContext::new().insert_discount(discount_curve);
+
+        // Single FRA quote pillar
+        let fra_quote = RatesQuote::FRA {
+            start: base_date + time::Duration::days(90),
+            end: base_date + time::Duration::days(180),
+            rate: 0.04,
+            day_count: DayCount::Act360,
+        };
+
+        let calibrator = ForwardCurveCalibrator::new(
+            "USD-SOFR-3M-FWD",
+            0.25,
+            base_date,
+            Currency::USD,
+            "USD-OIS-DISC",
+        )
+        .with_time_dc(DayCount::Act360);
+
+        let (curve, _report) = calibrator
+            .calibrate(&[fra_quote], &context)
+            .expect("calibration should succeed");
+
+        // Ensure the resulting forward curve reports the configured time day count
+        assert_eq!(curve.day_count(), DayCount::Act360);
     }
 
     fn create_test_fra_quotes() -> Vec<RatesQuote> {

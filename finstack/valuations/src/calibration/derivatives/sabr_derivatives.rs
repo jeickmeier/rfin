@@ -41,6 +41,14 @@ impl SABRCalibrationDerivatives {
     /// Compute SABR implied volatility and its derivatives.
     ///
     /// Returns (vol, d_vol/d_alpha, d_vol/d_nu, d_vol/d_rho)
+    ///
+    /// Note: The gradient implementation below follows a pragmatic market
+    /// approach for speed: we treat some secondary dependencies (e.g.,
+    /// the x(z) term in Hagan’s formula) as approximately constant with
+    /// respect to small perturbations in alpha/nu/rho. This is commonly
+    /// acceptable for calibration stability and performance. For users
+    /// requiring fully analytical derivatives, consider switching to the
+    /// LM solver without derivatives or extending these expressions.
     fn sabr_vol_and_derivatives(&self, strike: F, alpha: F, nu: F, rho: F) -> (F, F, F, F) {
         let f = self.market_data.forward;
         let k = strike;
