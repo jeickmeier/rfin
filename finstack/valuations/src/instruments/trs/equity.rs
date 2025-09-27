@@ -3,7 +3,7 @@
 use super::types::{FinancingLegSpec, TrsScheduleSpec, TrsSide};
 use crate::{
     cashflow::traits::{CashflowProvider, DatedFlows},
-    instruments::{underlying::EquityUnderlyingParams, Attributes},
+    instruments::{common::parameters::underlying::EquityUnderlyingParams, Attributes},
 };
 use finstack_core::{
     dates::Date, market_data::MarketContext, money::Money, types::InstrumentId, Result, F,

@@ -248,7 +248,7 @@ pub fn create_standard_registry() -> PricerRegistry {
     // Register simplified Equity pricers
     registry.register_pricer(
         PricerKey::new(InstrumentType::Equity, ModelKey::Discounting),
-        Box::new(crate::instruments::equity::pricing::pricer::SimpleEquityDiscountingPricer::new())
+        Box::new(crate::instruments::equity::pricer::SimpleEquityDiscountingPricer::new())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::EquityOption, ModelKey::Black76),

@@ -111,8 +111,6 @@ define_metrics! {
     EquityPricePerShare => "equity_price_per_share",
     /// Equity shares (effective)
     EquityShares => "equity_shares",
-    /// Equity market value
-    EquityMarketValue => "equity_market_value",
     /// Equity dividend yield (annualized, decimal)
     EquityDividendYield => "equity_dividend_yield",
     /// Equity forward price per share

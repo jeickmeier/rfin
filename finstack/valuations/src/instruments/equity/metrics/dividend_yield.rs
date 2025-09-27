@@ -10,7 +10,6 @@ pub struct DividendYieldCalculator;
 impl MetricCalculator for DividendYieldCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let equity: &Equity = context.instrument_as()?;
-        let pricer = crate::instruments::equity::pricing::EquityPricer;
-        pricer.dividend_yield(equity, &context.curves)
+        equity.dividend_yield(&context.curves)
     }
 }

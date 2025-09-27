@@ -7,11 +7,11 @@
 //! Exposed metrics:
 //! - price per share
 //! - shares
-//! - market value
+//! - dividend yield  
+//! - forward price
 
 mod dividend_yield;
 mod forward_price;
-mod market_value;
 mod price_per_share;
 mod shares;
 
@@ -30,11 +30,6 @@ pub fn register_equity_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::EquityShares,
         Arc::new(shares::SharesCalculator),
-        &["Equity"],
-    );
-    registry.register_metric(
-        MetricId::EquityMarketValue,
-        Arc::new(market_value::MarketValueCalculator),
         &["Equity"],
     );
     registry.register_metric(

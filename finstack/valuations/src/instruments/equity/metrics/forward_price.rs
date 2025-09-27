@@ -16,7 +16,6 @@ pub struct ForwardPricePerShareCalculator;
 impl MetricCalculator for ForwardPricePerShareCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let equity: &Equity = context.instrument_as()?;
-        let pricer = crate::instruments::equity::pricing::EquityPricer;
         let key = format!("{}-FWD_T", equity.ticker);
         let t = context
             .curves
@@ -26,7 +25,7 @@ impl MetricCalculator for ForwardPricePerShareCalculator {
                 finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
             })
             .unwrap_or(0.0);
-        let money = pricer.forward_price_per_share(equity, &context.curves, context.as_of, t)?;
+        let money = equity.forward_price_per_share(&context.curves, context.as_of, t)?;
         Ok(money.amount())
     }
 }

@@ -10,8 +10,7 @@ pub struct PricePerShareCalculator;
 impl MetricCalculator for PricePerShareCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let equity: &Equity = context.instrument_as()?;
-        let pricer = crate::instruments::equity::pricing::EquityPricer;
-        let m = pricer.price_per_share(equity, &context.curves, context.as_of)?;
+        let m = equity.price_per_share(&context.curves, context.as_of)?;
         Ok(m.amount())
     }
 }

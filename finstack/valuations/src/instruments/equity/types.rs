@@ -66,14 +66,123 @@ impl Equity {
     pub fn effective_shares(&self) -> F {
         self.shares.unwrap_or(1.0)
     }
+
+    /// Calculate the net present value of this equity position
+    pub fn npv(
+        &self,
+        curves: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<Money> {
+        let px = self.price_per_share(curves, as_of)?;
+        Ok(Money::new(
+            px.amount() * self.effective_shares(),
+            self.currency,
+        ))
+    }
+
+    /// Resolve price per share for the equity
+    pub fn price_per_share(
+        &self,
+        curves: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<Money> {
+        if let Some(px) = self.price_quote {
+            return Ok(Money::new(px, self.currency));
+        }
+
+        let scalar = curves.price(&self.ticker)?;
+        match scalar {
+            finstack_core::market_data::scalars::MarketScalar::Price(m) => {
+                if m.currency() == self.currency {
+                    Ok(*m)
+                } else {
+                    // Convert via FX matrix provider
+                    let matrix = curves.fx.as_ref().ok_or_else(|| {
+                        finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                            id: "fx_matrix".to_string()})
+                    })?;
+
+                    struct MatrixProvider<'a> {
+                        m: &'a finstack_core::money::fx::FxMatrix}
+                    impl finstack_core::money::fx::FxProvider for MatrixProvider<'_> {
+                        fn rate(
+                            &self,
+                            from: finstack_core::currency::Currency,
+                            to: finstack_core::currency::Currency,
+                            on: finstack_core::dates::Date,
+                            policy: finstack_core::money::fx::FxConversionPolicy,
+                        ) -> finstack_core::Result<finstack_core::money::fx::FxRate>
+                        {
+                            let r = self.m.rate(finstack_core::money::fx::FxQuery::with_policy(
+                                from, to, on, policy,
+                            ))?;
+                            Ok(r.rate)
+                        }
+                    }
+
+                    let provider = MatrixProvider { m: matrix };
+                    m.convert(
+                        self.currency,
+                        as_of,
+                        &provider,
+                        finstack_core::money::fx::FxConversionPolicy::CashflowDate,
+                    )
+                }
+            }
+            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Ok(Money::new(*v, self.currency))
+        }
+    }
+
+    /// Resolve dividend yield (annualized, decimal) for the equity
+    pub fn dividend_yield(&self, curves: &MarketContext) -> finstack_core::Result<F> {
+        let key = format!("{}-DIVYIELD", self.ticker);
+        let dy = curves
+            .price(&key)
+            .map(|scalar| match scalar {
+                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+                finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0})
+            .unwrap_or(0.0);
+        Ok(dy)
+    }
+
+    /// Calculate forward price per share using continuous-compound approximation
+    pub fn forward_price_per_share(
+        &self,
+        curves: &MarketContext,
+        as_of: finstack_core::dates::Date,
+        t: F,
+    ) -> finstack_core::Result<Money> {
+        let s0 = self.price_per_share(curves, as_of)?;
+        let dy = self.dividend_yield(curves)?;
+        let discount_id = format!("{}-OIS", self.currency);
+        let disc = curves.get_discount_ref(&discount_id)?;
+        let r = disc.zero(t);
+        let fwd = s0.amount() * ((r - dy) * t).exp();
+        Ok(Money::new(fwd, self.currency))
+    }
+
+    /// Calculate forward total value for the position
+    pub fn forward_value(
+        &self,
+        curves: &MarketContext,
+        as_of: finstack_core::dates::Date,
+        t: F,
+    ) -> finstack_core::Result<Money> {
+        let per_share = self.forward_price_per_share(curves, as_of, t)?;
+        Ok(Money::new(
+            per_share.amount() * self.effective_shares(),
+            self.currency,
+        ))
+    }
+
 }
 
 impl_instrument!(
     Equity,
     "Equity",
     pv = |s, curves, as_of| {
-        let pricer = crate::instruments::equity::pricing::EquityPricer;
-        pricer.pv(s, curves, as_of)
+        // Call the instrument's own NPV method
+        s.npv(curves, as_of)
     }
 );
 
@@ -156,13 +265,11 @@ mod tests {
                 &[
                     crate::metrics::MetricId::EquityPricePerShare,
                     crate::metrics::MetricId::EquityShares,
-                    crate::metrics::MetricId::EquityMarketValue,
                 ],
             )
             .unwrap();
-        assert_eq!(result.value.amount(), 10_000.0);
+        assert_eq!(result.value.amount(), 10_000.0); // This is the market value (PV)
         assert_eq!(result.measures.get("equity_price_per_share"), Some(&200.0));
         assert_eq!(result.measures.get("equity_shares"), Some(&50.0));
-        assert_eq!(result.measures.get("equity_market_value"), Some(&10_000.0));
     }
 }

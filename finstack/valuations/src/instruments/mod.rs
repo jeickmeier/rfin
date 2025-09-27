@@ -32,8 +32,6 @@ pub mod swaption;
 pub mod trs;
 pub mod variance_swap;
 
-// Preserve public path for equity underlying params after move
-pub use equity::underlying;
 // Preserve public path for equity metrics after move
 pub use equity::metrics as equity_metrics;
 pub mod structured_credit;

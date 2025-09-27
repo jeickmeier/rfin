@@ -2,13 +2,12 @@
 //!
 //! Layout follows the standard instrument structure used across valuations:
 //! - `types`: instrument data structures and trait impls
-//! - `pricing`: pricing engine and facade
+//! - `pricer`: pricing implementation and engine
 //! - `metrics`: metric calculators and registry hook
 
 pub mod metrics;
-pub mod pricing;
+pub mod pricer;
 mod types;
-pub mod underlying;
 
 pub use types::Equity;
 pub use types::Ticker;
