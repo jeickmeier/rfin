@@ -10,12 +10,12 @@
 mod dv01;
 mod par_rate;
 mod pv;
-mod risk_bucketed_dv01;
+// risk_bucketed_dv01 - now using generic implementation
 
 pub use dv01::FraDv01Calculator;
 pub use par_rate::FraParRateCalculator;
 pub use pv::FraPvCalculator;
-pub use risk_bucketed_dv01::BucketedDv01Calculator;
+// BucketedDv01Calculator now using generic implementation
 
 use crate::metrics::{MetricId, MetricRegistry};
 use std::sync::Arc;
@@ -35,7 +35,7 @@ pub fn register_fra_metrics(registry: &mut MetricRegistry) {
         .register_metric(MetricId::ParRate, Arc::new(FraParRateCalculator), &["FRA"]) // Par rate
         .register_metric(
             MetricId::BucketedDv01,
-            Arc::new(BucketedDv01Calculator),
+            Arc::new(crate::instruments::common::GenericBucketedDv01WithContext::<crate::instruments::ForwardRateAgreement>::default()),
             &["FRA"],
         );
 }

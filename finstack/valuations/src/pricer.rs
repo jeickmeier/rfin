@@ -198,11 +198,11 @@ pub fn create_standard_registry() -> PricerRegistry {
     // Register simplified Interest Rate pricers
     registry.register_pricer(
         PricerKey::new(InstrumentType::IRS, ModelKey::Discounting),
-        Box::new(crate::instruments::irs::pricing::pricer::SimpleIrsDiscountingPricer::new())
+        Box::new(crate::instruments::irs::pricing::pricer::SimpleIrsDiscountingPricer::irs())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::FRA, ModelKey::Discounting),
-        Box::new(crate::instruments::fra::pricing::pricer::SimpleFraDiscountingPricer::new())
+        Box::new(crate::instruments::fra::pricing::pricer::SimpleFraDiscountingPricer::fra())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::CapFloor, ModelKey::Black76),
@@ -258,7 +258,7 @@ pub fn create_standard_registry() -> PricerRegistry {
     // Register simplified Basic pricers
     registry.register_pricer(
         PricerKey::new(InstrumentType::Deposit, ModelKey::Discounting),
-        Box::new(crate::instruments::deposit::pricing::pricer::SimpleDepositDiscountingPricer::new())
+        Box::new(crate::instruments::deposit::pricing::pricer::SimpleDepositDiscountingPricer::deposit())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::InterestRateFuture, ModelKey::Discounting),

@@ -28,9 +28,17 @@ pub mod parameters;
 // Option pricing models and frameworks
 pub mod models;
 
+// Generic metric calculators to reduce duplication
+pub mod metrics;
+
+// Common pricing patterns and infrastructure
+pub mod pricing;
+
 // Re-export commonly used types for convenience
 pub use discountable::Discountable;
 pub use helpers::{build_with_metrics_dyn, validate_currency_consistency};
+pub use metrics::{GenericBucketedDv01, GenericBucketedDv01WithContext, HasDiscountCurve};
+pub use pricing::GenericDiscountingPricer;
 pub use models::{
     d1, d2, norm_cdf, norm_pdf, short_rate_keys, single_factor_equity_state, state_keys,
     two_factor_equity_rates_state, BinomialTree, EvolutionParams, NodeState, SABRCalibrator,

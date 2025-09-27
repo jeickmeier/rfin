@@ -355,3 +355,9 @@ impl CashflowProvider for InterestRateSwap {
         Ok(flows)
     }
 }
+
+impl crate::instruments::common::HasDiscountCurve for InterestRateSwap {
+    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.fixed.disc_id
+    }
+}

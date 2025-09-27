@@ -224,10 +224,66 @@ impl InflationLinkedBond {
     }
 }
 
-impl_instrument_schedule_pv!(
-    InflationLinkedBond, "InflationLinkedBond",
-    disc_field: disc_id,
-    dc_field: dc
-);
+// Explicit Instrument trait implementation (replaces macro for better IDE visibility)
+impl crate::instruments::common::traits::Instrument for InflationLinkedBond {
+    #[inline]
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+
+    #[inline]
+    fn instrument_type(&self) -> &'static str {
+        "InflationLinkedBond"
+    }
+
+    #[inline]
+    fn as_any(&self) -> &dyn ::std::any::Any {
+        self
+    }
+
+    #[inline]
+    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+        &self.attributes
+    }
+
+    #[inline]
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+        &mut self.attributes
+    }
+
+    #[inline]
+    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+        Box::new(self.clone())
+    }
+
+    fn value(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        // Route through helper for schedule-based PV calculation
+        crate::instruments::common::helpers::schedule_pv_impl(
+            self, curves, as_of, &self.disc_id, self.dc,
+        )
+    }
+
+    fn price_with_metrics(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+        metrics: &[crate::metrics::MetricId],
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
+        let base_value = self.value(curves, as_of)?;
+        crate::instruments::common::helpers::build_with_metrics_dyn(
+            self, curves, as_of, base_value, metrics,
+        )
+    }
+}
+
+impl crate::instruments::common::HasDiscountCurve for InflationLinkedBond {
+    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.disc_id
+    }
+}
 
 // CashflowProvider trait impl is defined in pricing engine to centralize pricing logic

@@ -10,7 +10,6 @@ pub mod duration_modified;
 pub mod i_spread;
 pub mod oas;
 pub mod prices;
-pub mod risk_bucketed_dv01;
 pub mod ytm;
 pub mod ytw;
 pub mod z_spread;
@@ -25,7 +24,6 @@ pub use duration_modified::ModifiedDurationCalculator;
 pub use i_spread::ISpreadCalculator;
 pub use oas::OasCalculator;
 pub use prices::{CleanPriceCalculator, DirtyPriceCalculator};
-pub use risk_bucketed_dv01::BucketedDv01Calculator;
 pub use ytm::YtmCalculator;
 pub use ytw::YtwCalculator;
 pub use z_spread::ZSpreadCalculator;
@@ -89,7 +87,7 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
         .register_metric(MetricId::Cs01, Arc::new(Cs01Calculator), &["Bond"])
         .register_metric(
             MetricId::BucketedDv01,
-            Arc::new(BucketedDv01Calculator),
+            Arc::new(crate::instruments::common::GenericBucketedDv01::<crate::instruments::Bond>::default()),
             &["Bond"],
         );
 }
