@@ -6,55 +6,61 @@
 //!
 //! # Features
 //!
-//! - **Multi-asset support**: Equity, bond, ETF, cash, and derivative constituents
+//! - **Multi-asset support**: Equity, bond, and other instrument constituents
 //! - **Flexible weighting**: Weight-based or unit-based position sizing
 //! - **Existing pricing**: Uses existing Bond and Equity instrument pricing
 //! - **NAV calculation**: Real-time net asset value calculation
-//! - **Tracking error**: Analysis vs benchmark indices
-//! - **Creation/redemption**: Modeling of ETF creation and redemption mechanics
 //!
 //! # Examples
 //!
-//! ## Equity ETF (like SPY)
+//! ## Simple Basket
 //! ```no_run
 //! use finstack_valuations::instruments::basket::*;
 //! use finstack_core::prelude::*;
 //!
-//! let spy = Basket::builder()
-//!     .id("SPY".into())
-//!     .ticker("SPY".to_string())
-//!     .name("SPDR S&P 500 ETF".to_string())
+//! let basket = Basket::builder()
+//!     .id("EQUITY_BASKET".into())
 //!     .currency(Currency::USD)
+//!     .discount_curve_id("USD-OIS".into())
+//!     .expense_ratio(0.0025) // 25 basis points
+//!     .constituents(vec![]) // Add constituents as needed
 //!     .build().unwrap();
 //! ```
 //!
-//! ## Bond ETF (like LQD)
+//! ## Basket with Market Data Constituents
 //! ```no_run
 //! use finstack_valuations::instruments::basket::*;
-//! use finstack_valuations::instruments::bond::Bond;
 //! use finstack_core::prelude::*;
-//! use finstack_core::dates::Date;
-//! use time::Month;
 //!
-//! let issue_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-//! let maturity_date = Date::from_calendar_date(2030, Month::January, 1).unwrap();
-//! let bond = Bond::fixed_semiannual("AAPL_BOND", Money::new(1000.0, Currency::USD),
-//!                                   0.025, issue_date, maturity_date, "USD-OIS");
+//! let constituent = BasketConstituent {
+//!     id: "AAPL".to_string(),
+//!     reference: ConstituentReference::MarketData {
+//!         price_id: "AAPL".to_string().into(),
+//!         asset_type: AssetType::Equity,
+//!     },
+//!     weight: 1.0,
+//!     units: None,
+//!     ticker: None,
+//! };
 //!
-//! let lqd = Basket::builder()
-//!     .id("LQD".into())
-//!     .ticker("LQD".to_string())
-//!     .name("iShares iBoxx $ IG Corporate Bond ETF".to_string())
+//! let basket = Basket::builder()
+//!     .id("EQUITY_BASKET".into())
 //!     .currency(Currency::USD)
+//!     .discount_curve_id("USD-OIS".into())
+//!     .constituents(vec![constituent])
 //!     .build().unwrap();
 //! ```
 
 pub mod metrics;
-pub mod pricing;
+pub mod pricer;
 pub mod types;
 
 // Re-export main types for convenience
 // Builder is generated via derive on `Basket`.
 pub use metrics::register_basket_metrics;
-pub use pricing::engine::BasketPricer;
-pub use types::{AssetType, Basket, BasketConstituent, ConstituentReference, ReplicationMethod};
+pub use pricer::BasketCalculator;
+pub use types::{AssetType, Basket, BasketConstituent, ConstituentReference};
+
+// Use the generic discounting pricer for registry integration
+pub use crate::instruments::common::GenericDiscountingPricer;
+pub type SimpleBasketDiscountingPricer = GenericDiscountingPricer<Basket>;

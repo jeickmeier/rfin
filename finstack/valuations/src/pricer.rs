@@ -290,7 +290,7 @@ pub fn create_standard_registry() -> PricerRegistry {
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::Basket, ModelKey::Discounting),
-        Box::new(crate::instruments::basket::pricing::pricer::SimpleBasketDiscountingPricer::new())
+        Box::new(crate::instruments::basket::SimpleBasketDiscountingPricer::basket())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::Convertible, ModelKey::Discounting),

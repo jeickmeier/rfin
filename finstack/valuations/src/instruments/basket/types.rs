@@ -7,10 +7,10 @@
 use crate::instruments::common::traits::{Attributes, Instrument};
 use finstack_core::prelude::*;
 use finstack_core::types::{
-    id::{IndexId, PriceId},
+    id::PriceId,
     InstrumentId,
 };
-use finstack_core::{dates::Frequency, F};
+use finstack_core::F;
 use std::sync::Arc;
 
 #[cfg(feature = "serde")]
@@ -143,101 +143,68 @@ pub struct BasketConstituent {
     pub ticker: Option<String>,
 }
 
-/// Replication method for the basket
-#[derive(Clone, Debug, Default)]
+
+
+/// Configuration for basket pricing behaviour.
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
-pub enum ReplicationMethod {
-    /// Full physical replication of all constituents
-    #[default]
-    Physical,
-    /// Sampling/optimized replication (subset of constituents)
-    Sampling,
-    /// Synthetic replication via derivatives
-    Synthetic {
-        /// Counterparty for synthetic exposure
-        counterparty: Option<String>,
-    },
+pub struct BasketPricingConfig {
+    /// Day basis used for fee accrual (e.g., 365.0 or 365.25). Avoid hardcoding in logic.
+    pub days_in_year: F,
+    /// FX policy hint for conversions when constituent currency != basket currency.
+    pub fx_policy: FxConversionPolicy,
 }
 
-/// Generic basket instrument supporting multiple asset types
+impl Default for BasketPricingConfig {
+    fn default() -> Self {
+        Self {
+            days_in_year: 365.25,
+            fx_policy: FxConversionPolicy::CashflowDate,
+        }
+    }
+}
+
+/// Simplified basket instrument focused on pricing essentials.
+///
+/// This basket represents a collection of financial instruments or market data references
+/// that can be valued as a portfolio. It focuses purely on pricing functionality without
+/// ETF-specific operational features like creation/redemption mechanics.
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct Basket {
     /// Unique instrument identifier
     pub id: InstrumentId,
-    /// Basket ticker symbol (if traded)
-    pub ticker: Option<String>,
-    /// Descriptive name
-    pub name: String,
-    /// Basket constituents
+    /// Basket constituents (the actual holdings)
     pub constituents: Vec<BasketConstituent>,
     /// Total expense ratio (as decimal, e.g., 0.0025 = 0.25%)
+    /// This affects pricing through expense drag calculations
     pub expense_ratio: F,
-    /// Rebalancing frequency
-    pub rebalance_freq: Frequency,
-    /// Index being tracked (if applicable)
-    pub tracking_index: Option<IndexId>,
-    /// Creation unit size (shares per creation unit)
-    pub creation_unit_size: F,
     /// Base currency of the basket
     pub currency: Currency,
-    /// Total shares outstanding
-    pub shares_outstanding: Option<F>,
-    /// Replication method
-    pub replication: ReplicationMethod,
+    /// Discount curve identifier for present value calculations
+    pub discount_curve_id: finstack_core::types::CurveId,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
+    /// Pricing configuration
+    pub pricing_config: BasketPricingConfig,
 }
 
 impl Basket {
     // Builder provided by derive
 
-    /// Calculate Net Asset Value per share
-    pub fn nav(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
-        crate::instruments::basket::pricing::engine::BasketPricer::new().nav(self, context, as_of)
+    /// Create a new basket with custom pricing configuration.
+    pub fn with_pricing_config(mut self, config: BasketPricingConfig) -> Self {
+        self.pricing_config = config;
+        self
     }
 
-    /// Calculate total basket value (without per-share division)
-    pub fn basket_value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
-        crate::instruments::basket::pricing::engine::BasketPricer::new()
-            .basket_value(self, context, as_of)
-    }
-
-    /// Calculate Net Asset Value per share using an explicit AUM.
-    ///
-    /// When constituents lack `units`, contributions are computed as
-    /// `weight × AUM (in basket currency)`.
-    pub fn nav_with_aum(&self, context: &MarketContext, as_of: Date, aum: Money) -> Result<Money> {
-        crate::instruments::basket::pricing::engine::BasketPricer::new()
-            .nav_with_aum(self, context, as_of, aum)
-    }
-
-    /// Calculate total basket value using an explicit AUM for weight-based constituents.
-    pub fn basket_value_with_aum(
-        &self,
-        context: &MarketContext,
-        as_of: Date,
-        aum: Money,
-    ) -> Result<Money> {
-        crate::instruments::basket::pricing::engine::BasketPricer::new()
-            .basket_value_with_aum(self, context, as_of, aum)
-    }
-
-    /// Calculate tracking error vs benchmark index
-    pub fn tracking_error(
-        &self,
-        context: &MarketContext,
-        benchmark_returns: &[(Date, F)],
-        _as_of: Date,
-    ) -> Result<F> {
-        crate::instruments::basket::pricing::engine::BasketPricer::new().tracking_error(
-            self,
-            context,
-            benchmark_returns,
-            _as_of,
-        )
+    /// Get a configured calculator for this basket.
+    /// 
+    /// This centralizes calculator creation and avoids duplication across
+    /// metrics, pricers, and other components.
+    pub fn calculator(&self) -> crate::instruments::basket::pricer::BasketCalculator {
+        crate::instruments::basket::pricer::BasketCalculator::new(self.pricing_config.clone())
     }
 
     /// Get constituent by ID
@@ -264,28 +231,9 @@ impl Basket {
         Ok(())
     }
 
-    /// Calculate creation/redemption basket for ETF mechanics
-    pub fn creation_basket(&self, _units: F) -> CreationRedemptionBasket {
-        // For now, return a simple implementation
-        // In practice, this would calculate the exact securities needed
-        CreationRedemptionBasket {
-            creation_basket: self.constituents.clone(),
-            cash_component: Some(Money::new(0.0, self.currency)),
-            transaction_cost: Money::new(0.02, self.currency), // 2 cents per share
-        }
-    }
+
 }
 
-/// Creation/redemption basket specification
-#[derive(Clone, Debug)]
-pub struct CreationRedemptionBasket {
-    /// Securities required for creation
-    pub creation_basket: Vec<BasketConstituent>,
-    /// Cash component for fractional shares
-    pub cash_component: Option<Money>,
-    /// Transaction costs
-    pub transaction_cost: Money,
-}
 
 // Implement traits manually to handle InstrumentId properly
 impl Instrument for Basket {
@@ -311,7 +259,9 @@ impl Instrument for Basket {
     // === Pricing Methods ===
 
     fn value(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        self.nav(curves, as_of)
+        // For the Instrument trait, we use the calculator with default shares of 1.0
+        // This represents the NAV per unit of the basket
+        self.calculator().nav(self, curves, as_of, 1.0)
     }
 
     fn price_with_metrics(
@@ -327,7 +277,12 @@ impl Instrument for Basket {
     }
 }
 
-// Attributable is provided via blanket impl for all Instrument types
+// Implement HasDiscountCurve trait
+impl crate::instruments::common::HasDiscountCurve for Basket {
+    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.discount_curve_id
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -337,21 +292,15 @@ mod tests {
     fn test_basket_creation() {
         let basket = Basket {
             id: InstrumentId::new("TEST_BASKET"),
-            ticker: Some("TEST".to_string()),
-            name: "Test Basket".to_string(),
             constituents: vec![],
             expense_ratio: 0.001,
-            rebalance_freq: Frequency::quarterly(),
-            tracking_index: None,
-            creation_unit_size: 50000.0,
             currency: Currency::USD,
-            shares_outstanding: Some(1000000.0),
-            replication: ReplicationMethod::Physical,
+            discount_curve_id: "USD-OIS".into(),
             attributes: Attributes::new(),
+            pricing_config: BasketPricingConfig::default(),
         };
 
         assert_eq!(basket.id.as_str(), "TEST_BASKET");
-        assert_eq!(basket.ticker, Some("TEST".to_string()));
         assert_eq!(basket.expense_ratio, 0.001);
     }
 
@@ -359,8 +308,6 @@ mod tests {
     fn test_validate_weights() {
         let mut basket = Basket {
             id: InstrumentId::new("TEST"),
-            ticker: None,
-            name: "Test".to_string(),
             constituents: vec![
                 BasketConstituent {
                     id: "CONST1".to_string(),
@@ -384,13 +331,10 @@ mod tests {
                 },
             ],
             expense_ratio: 0.001,
-            rebalance_freq: Frequency::quarterly(),
-            tracking_index: None,
-            creation_unit_size: 50000.0,
             currency: Currency::USD,
-            shares_outstanding: Some(1000000.0),
-            replication: ReplicationMethod::Physical,
+            discount_curve_id: "USD-OIS".into(),
             attributes: Attributes::new(),
+            pricing_config: BasketPricingConfig::default(),
         };
 
         // Should pass with weights summing to 1.0

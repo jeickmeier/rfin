@@ -129,6 +129,13 @@ impl GenericDiscountingPricer<crate::instruments::Repo> {
     }
 }
 
+impl GenericDiscountingPricer<crate::instruments::Basket> {
+    /// Create a Basket discounting pricer.
+    pub fn basket() -> Self {
+        Self::new_discounting(InstrumentType::Basket)
+    }
+}
+
 // Special case for CDS which uses HazardRate model
 impl GenericInstrumentPricer<crate::instruments::CreditDefaultSwap> {
     /// Create a CDS hazard rate pricer.
