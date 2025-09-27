@@ -1,4 +1,4 @@
-//! Reusable helpers for bucketed risk metrics (DV01/CS01) using curve bumps.
+//! Reusable helpers for bucketed risk metrics (DV01/CS01) using key-rate bumps.
 //!
 //! Provides a generic function to compute bucketed DV01 for instruments that
 //! can be valued with discount and/or forward curves. Results are stored into
@@ -17,109 +17,55 @@ pub fn standard_ir_dv01_buckets() -> Vec<F> {
     vec![0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0]
 }
 
-/// Compute bucketed DV01 series by bumping a specific discount curve in parallel bp
-/// and revaluing the instrument for each bucket label.
-///
-/// - `context`    MetricContext with instrument/curves/date/base PV
-/// - `disc_id`    Discount curve ID to bump
-/// - `bucket_labels` Human-readable labels like "1m", "3m", "1y" used as keys
-/// - `bump_bp`    Basis points bump magnitude (typically 1.0)
-/// - `value_fn`   A closure that values the instrument given a MarketContext
-///
-/// Stores a 1D series under `MetricId::BucketedDv01` and returns the sum of bucket PV01s.
-pub fn compute_bucketed_dv01_series<L, I, RevalFn>(
-    context: &mut MetricContext,
-    disc_id: &CurveId,
-    bucket_labels: I,
-    bump_bp: F,
-    revalue_with_disc: RevalFn,
-) -> finstack_core::Result<F>
-where
-    L: Into<String>,
-    I: IntoIterator<Item = L>,
-    RevalFn: FnMut(&DiscountCurve) -> finstack_core::Result<Money>,
-{
-    let base_id = MetricId::BucketedDv01;
-    compute_bucketed_series_for_id(
-        context,
-        base_id,
-        disc_id,
-        bucket_labels,
-        bump_bp,
-        revalue_with_disc,
-    )
-}
+// Note: prior versions supported “parallel bump” DV01 per label; this was incorrect.
+// All bucketed DV01 now uses key‑rate bumps at per-bucket maturities.
 
-/// Generic helper to compute a bucketed DV01-like series and store under a custom base metric ID.
-pub fn compute_bucketed_series_for_id<L, I, RevalFn>(
+/// Compute key-rate DV01 series by bumping only the forward segment that contains each bucket time.
+///
+/// - `bucket_times_years` are maturities in years (e.g., 0.25, 0.5, 1.0, ...)
+/// - Labels are derived from times using the standard m/y formatting
+pub fn compute_key_rate_dv01_series<I, RevalFn>(
     context: &mut MetricContext,
-    base_metric_id: MetricId,
     disc_id: &CurveId,
-    bucket_labels: I,
+    bucket_times_years: I,
     bump_bp: F,
     mut revalue_with_disc: RevalFn,
 ) -> finstack_core::Result<F>
 where
-    L: Into<String>,
-    I: IntoIterator<Item = L>,
+    I: IntoIterator<Item = F>,
     RevalFn: FnMut(&DiscountCurve) -> finstack_core::Result<Money>,
 {
     let base_pv = context.base_value;
     let disc = context.curves.get_discount_ref(disc_id.as_str())?;
 
     let mut series: Vec<(String, F)> = Vec::new();
-    for label in bucket_labels.into_iter() {
-        let label_str: String = label.into();
-
-        let bumped = disc.with_parallel_bump(bump_bp);
+    for t in bucket_times_years.into_iter() {
+        let label = if t < 1.0 {
+            format!("{:.0}m", (t * 12.0).round())
+        } else {
+            format!("{:.0}y", t)
+        };
+        let bumped = disc.with_key_rate_bump_years(t, bump_bp);
         let pv_bumped = revalue_with_disc(&bumped)?;
         let dv01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
-        series.push((label_str, dv01));
+        series.push((label, dv01));
     }
 
-    context.store_bucketed_series(base_metric_id, series.clone());
-
+    context.store_bucketed_series(MetricId::BucketedDv01, series.clone());
     let total: F = series.iter().map(|(_, v)| *v).sum();
     Ok(total)
 }
 
-/// Compute bucketed DV01 series by bumping a specific discount curve and revaluing via a provided MarketContext.
-///
-/// This variant is useful when the instrument's pricing requires a full MarketContext rather than a raw DiscountCurve.
-pub fn compute_bucketed_dv01_series_with_context<L, I, RevalFn>(
+/// Key-rate DV01 series using full MarketContext revaluation per bucket time.
+pub fn compute_key_rate_dv01_series_with_context<I, RevalFn>(
     context: &mut MetricContext,
     disc_id: &CurveId,
-    bucket_labels: I,
-    bump_bp: F,
-    revalue_with_context: RevalFn,
-) -> finstack_core::Result<F>
-where
-    L: Into<String>,
-    I: IntoIterator<Item = L>,
-    RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
-{
-    compute_bucketed_series_with_context_for_id(
-        context,
-        MetricId::BucketedDv01,
-        disc_id,
-        bucket_labels,
-        bump_bp,
-        revalue_with_context,
-    )
-}
-
-/// Generic helper to compute and store bucketed series under a chosen base metric id using full MarketContext revaluation.
-pub fn compute_bucketed_series_with_context_for_id<L, I, RevalFn>(
-    context: &mut MetricContext,
-    base_metric_id: MetricId,
-    disc_id: &CurveId,
-    bucket_labels: I,
+    bucket_times_years: I,
     bump_bp: F,
     mut revalue_with_context: RevalFn,
 ) -> finstack_core::Result<F>
 where
-    L: Into<String>,
-    I: IntoIterator<Item = L>,
+    I: IntoIterator<Item = F>,
     RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
 {
     let base_pv = context.base_value;
@@ -127,18 +73,90 @@ where
     let disc = base_ctx.get_discount_ref(disc_id.as_str())?;
 
     let mut series: Vec<(String, F)> = Vec::new();
-    for label in bucket_labels.into_iter() {
-        let label_str: String = label.into();
-
-        let bumped = disc.with_parallel_bump(bump_bp);
-        let temp_ctx = base_ctx.clone().insert_discount(bumped);
+    for t in bucket_times_years.into_iter() {
+        let label = if t < 1.0 {
+            format!("{:.0}m", (t * 12.0).round())
+        } else {
+            format!("{:.0}y", t)
+        };
+        let bumped_disc = disc.with_key_rate_bump_years(t, bump_bp);
+        let temp_ctx = base_ctx.clone().insert_discount(bumped_disc);
         let pv_bumped = revalue_with_context(&temp_ctx)?;
         let dv01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
-        series.push((label_str, dv01));
+        series.push((label, dv01));
+    }
+
+    context.store_bucketed_series(MetricId::BucketedDv01, series.clone());
+    let total: F = series.iter().map(|(_, v)| *v).sum();
+    Ok(total)
+}
+
+/// Generic helper: key-rate series under a custom base metric ID using DiscountCurve revaluation.
+pub fn compute_key_rate_series_for_id<I, RevalFn>(
+    context: &mut MetricContext,
+    base_metric_id: MetricId,
+    disc_id: &CurveId,
+    bucket_times_years: I,
+    bump_bp: F,
+    mut revalue_with_disc: RevalFn,
+) -> finstack_core::Result<F>
+where
+    I: IntoIterator<Item = F>,
+    RevalFn: FnMut(&DiscountCurve) -> finstack_core::Result<Money>,
+{
+    let base_pv = context.base_value;
+    let disc = context.curves.get_discount_ref(disc_id.as_str())?;
+
+    let mut series: Vec<(String, F)> = Vec::new();
+    for t in bucket_times_years.into_iter() {
+        let label = if t < 1.0 {
+            format!("{:.0}m", (t * 12.0).round())
+        } else {
+            format!("{:.0}y", t)
+        };
+        let bumped = disc.with_key_rate_bump_years(t, bump_bp);
+        let pv_bumped = revalue_with_disc(&bumped)?;
+        let dv01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
+        series.push((label, dv01));
     }
 
     context.store_bucketed_series(base_metric_id, series.clone());
+    let total: F = series.iter().map(|(_, v)| *v).sum();
+    Ok(total)
+}
 
+/// Generic helper: key-rate series under a custom base metric ID using full MarketContext revaluation.
+pub fn compute_key_rate_series_with_context_for_id<I, RevalFn>(
+    context: &mut MetricContext,
+    base_metric_id: MetricId,
+    disc_id: &CurveId,
+    bucket_times_years: I,
+    bump_bp: F,
+    mut revalue_with_context: RevalFn,
+) -> finstack_core::Result<F>
+where
+    I: IntoIterator<Item = F>,
+    RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
+{
+    let base_pv = context.base_value;
+    let base_ctx = context.curves.as_ref();
+    let disc = base_ctx.get_discount_ref(disc_id.as_str())?;
+
+    let mut series: Vec<(String, F)> = Vec::new();
+    for t in bucket_times_years.into_iter() {
+        let label = if t < 1.0 {
+            format!("{:.0}m", (t * 12.0).round())
+        } else {
+            format!("{:.0}y", t)
+        };
+        let bumped_disc = disc.with_key_rate_bump_years(t, bump_bp);
+        let temp_ctx = base_ctx.clone().insert_discount(bumped_disc);
+        let pv_bumped = revalue_with_context(&temp_ctx)?;
+        let dv01 = (pv_bumped.amount() - base_pv.amount()) / 10_000.0;
+        series.push((label, dv01));
+    }
+
+    context.store_bucketed_series(base_metric_id, series.clone());
     let total: F = series.iter().map(|(_, v)| *v).sum();
     Ok(total)
 }

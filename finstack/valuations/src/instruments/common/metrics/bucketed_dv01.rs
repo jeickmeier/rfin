@@ -39,18 +39,8 @@ where
         let instrument: &I = context.instrument_as()?;
         let disc_id = instrument.discount_curve_id().clone();
 
-        // Standard bucket labels - shared across all instruments
+        // Standard bucket times (years) - shared across all instruments
         let buckets = crate::metrics::standard_ir_dv01_buckets();
-        let labels: Vec<String> = buckets
-            .iter()
-            .map(|y| {
-                if *y < 1.0 {
-                    format!("{:.0}m", (y * 12.0).round())
-                } else {
-                    format!("{:.0}y", y)
-                }
-            })
-            .collect();
 
         // Generic revaluation using cashflow building and discounting
         let inst_clone = instrument.clone();
@@ -74,8 +64,9 @@ where
             )
         };
 
-        let total =
-            crate::metrics::compute_bucketed_dv01_series(context, &disc_id, labels, 1.0, reval)?;
+        let total = crate::metrics::compute_key_rate_dv01_series(
+            context, &disc_id, buckets, 1.0, reval,
+        )?;
 
         Ok(total)
     }
@@ -105,18 +96,8 @@ where
         let instrument: &I = context.instrument_as()?;
         let disc_id = instrument.discount_curve_id().clone();
 
-        // Standard bucket labels
+        // Standard bucket times
         let buckets = crate::metrics::standard_ir_dv01_buckets();
-        let labels: Vec<String> = buckets
-            .iter()
-            .map(|y| {
-                if *y < 1.0 {
-                    format!("{:.0}m", (y * 12.0).round())
-                } else {
-                    format!("{:.0}y", y)
-                }
-            })
-            .collect();
 
         // Revaluation using full MarketContext (for complex pricers)
         let inst_clone = instrument.clone();
@@ -126,8 +107,8 @@ where
             inst_clone.value(temp_ctx, as_of)
         };
 
-        let total = crate::metrics::compute_bucketed_dv01_series_with_context(
-            context, &disc_id, labels, 1.0, reval,
+        let total = crate::metrics::compute_key_rate_dv01_series_with_context(
+            context, &disc_id, buckets, 1.0, reval,
         )?;
 
         Ok(total)

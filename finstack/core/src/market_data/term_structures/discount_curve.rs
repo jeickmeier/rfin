@@ -187,11 +187,70 @@ impl DiscountCurve {
         // Rebuild preserving base date, interpolation, and extrapolation policies
         DiscountCurve::builder(new_id)
             .base_date(self.base)
+            .day_count(self.day_count)
             .knots(bumped_points)
             .set_interp(self.style)
             .extrapolation(self.extrapolation)
             .build()
             .expect("building bumped discount curve should not fail")
+    }
+
+    /// Create a new curve with a key-rate bump applied at a target time `t` (in years).
+    ///
+    /// This approximates a classic key-rate DV01 bump by applying an additive rate
+    /// shift only to the forward segment that contains `t`. The effect is localized
+    /// to the bracketed interval [t_i, t_{i+1}] that contains `t` by scaling discount
+    /// factors at and beyond `t_{i+1}` by `exp(-bump * dt)` where `dt = t_{i+1}-t_i`.
+    /// Upstream interpolation then distributes the effect within the segment.
+    ///
+    /// If the curve has fewer than 2 knots, falls back to a parallel bump.
+    pub fn with_key_rate_bump_years(&self, t: F, bp: F) -> Self {
+        if self.knots.len() < 2 {
+            return self.with_parallel_bump(bp);
+        }
+
+        // Find segment i such that knots[i] < t <= knots[i+1]
+        let times = &self.knots;
+        let mut i = 0usize;
+        if t <= times[0] {
+            i = 0;
+        } else if t >= times[times.len() - 1] {
+            i = times.len() - 2;
+        } else {
+            for idx in 0..times.len() - 1 {
+                if t > times[idx] && t <= times[idx + 1] {
+                    i = idx;
+                    break;
+                }
+            }
+        }
+
+        let t0 = times[i];
+        let t1 = times[i + 1];
+        let dt = (t1 - t0).max(0.0);
+        if dt == 0.0 {
+            // Degenerate segment, fall back to parallel bump
+            return self.with_parallel_bump(bp);
+        }
+
+        let bump_rate = bp / 10_000.0;
+        let factor = (-bump_rate * dt).exp();
+
+        let mut bumped_points: Vec<(F, F)> = Vec::with_capacity(self.knots.len());
+        for (idx, (&tt, &df)) in self.knots.iter().zip(self.dfs.iter()).enumerate() {
+            let new_df = if idx > i { df * factor } else { df };
+            bumped_points.push((tt, new_df));
+        }
+
+        let new_id = crate::market_data::bumps::id_bump_bp(self.id.as_str(), bp);
+        DiscountCurve::builder(new_id)
+            .base_date(self.base)
+            .day_count(self.day_count)
+            .knots(bumped_points)
+            .set_interp(self.style)
+            .extrapolation(self.extrapolation)
+            .build()
+            .expect("building key-rate bumped discount curve should not fail")
     }
     /// Discount factor at time `t` (helper calling the underlying interpolator).
     #[inline]

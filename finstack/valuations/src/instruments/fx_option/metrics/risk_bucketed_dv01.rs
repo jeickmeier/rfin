@@ -13,25 +13,15 @@ impl MetricCalculator for BucketedDv01Calculator {
 
         // Two groups: domestic curve buckets and foreign curve buckets
         let buckets = crate::metrics::standard_ir_dv01_buckets();
-        let labels: Vec<String> = buckets
-            .iter()
-            .map(|y| {
-                if *y < 1.0 {
-                    format!("{:.0}m", (y * 12.0).round())
-                } else {
-                    format!("{:.0}y", y)
-                }
-            })
-            .collect();
 
         let as_of = context.as_of;
 
         // Domestic bucketed dv01 stored under custom base id
-        let dom_total = crate::metrics::compute_bucketed_series_with_context_for_id(
+        let dom_total = crate::metrics::compute_key_rate_series_with_context_for_id(
             context,
             MetricId::custom("bucketed_dv01_domestic"),
             &opt.domestic_disc_id,
-            labels.clone(),
+            buckets.iter().copied(),
             1.0,
             {
                 let opt_dom = opt.clone();
@@ -45,11 +35,11 @@ impl MetricCalculator for BucketedDv01Calculator {
         // Note: series are already stored by helper under base metric id.
 
         // Foreign bucketed dv01 stored under custom base id
-        let for_total = crate::metrics::compute_bucketed_series_with_context_for_id(
+        let for_total = crate::metrics::compute_key_rate_series_with_context_for_id(
             context,
             MetricId::custom("bucketed_dv01_foreign"),
             &opt.foreign_disc_id,
-            labels.clone(),
+            buckets.into_iter(),
             1.0,
             {
                 let opt_for = opt.clone();
