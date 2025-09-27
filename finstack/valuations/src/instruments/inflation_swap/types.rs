@@ -80,3 +80,9 @@ impl_instrument!(
             .npv(s, curves, as_of)
     },
 );
+
+impl crate::instruments::common::HasStringDiscountCurve for InflationSwap {
+    fn string_discount_curve_id(&self) -> &str {
+        self.disc_id
+    }
+}

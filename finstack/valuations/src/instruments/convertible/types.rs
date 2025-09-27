@@ -113,3 +113,9 @@ impl_instrument!(
         pricing::price_convertible_bond(s, curves, pricing::ConvertibleTreeType::default())
     }
 );
+
+impl crate::instruments::common::HasStringDiscountCurve for ConvertibleBond {
+    fn string_discount_curve_id(&self) -> &str {
+        self.disc_id
+    }
+}

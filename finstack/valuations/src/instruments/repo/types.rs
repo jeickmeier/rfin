@@ -363,6 +363,12 @@ impl CashflowProvider for Repo {
     }
 }
 
+impl crate::instruments::common::HasStringDiscountCurve for Repo {
+    fn string_discount_curve_id(&self) -> &str {
+        self.disc_id
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

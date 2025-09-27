@@ -195,3 +195,9 @@ impl_instrument!(
         pricer.npv(s, curves, as_of)
     }
 );
+
+impl crate::instruments::common::HasDiscountCurve for CDSIndex {
+    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.premium.disc_id
+    }
+}

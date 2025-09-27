@@ -161,3 +161,9 @@ impl_instrument!(
         pricer.price(s, curves, as_of)
     }
 );
+
+impl crate::instruments::common::HasDiscountCurve for InterestRateOption {
+    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.disc_id
+    }
+}

@@ -8,7 +8,7 @@ mod delta;
 mod gamma;
 mod implied_vol;
 mod rho;
-mod risk_bucketed_dv01;
+// risk_bucketed_dv01 - now using generic implementation
 mod theta;
 mod vega;
 
@@ -32,7 +32,7 @@ pub fn register_swaption_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(MetricId::Rho, Arc::new(RhoCalculator), &["Swaption"]);
     registry.register_metric(
         MetricId::BucketedDv01,
-        Arc::new(risk_bucketed_dv01::BucketedDv01Calculator),
+        Arc::new(crate::instruments::common::GenericBucketedDv01WithContext::<crate::instruments::Swaption>::default()),
         &["Swaption"],
     );
     registry.register_metric(

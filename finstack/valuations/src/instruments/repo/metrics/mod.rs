@@ -22,7 +22,7 @@ pub mod funding_risk;
 pub mod implied_collateral_return;
 pub mod repo_interest;
 pub mod required_collateral;
-pub mod risk_bucketed_dv01;
+// risk_bucketed_dv01 - now using generic implementation
 pub mod time_to_maturity;
 
 use crate::metrics::MetricRegistry;
@@ -80,7 +80,7 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
         )
         .register_metric(
             MetricId::BucketedDv01,
-            Arc::new(risk_bucketed_dv01::BucketedDv01Calculator),
+            Arc::new(crate::instruments::common::GenericBucketedDv01ForStringCurves::<crate::instruments::Repo>::default()),
             &["Repo"],
         );
 }

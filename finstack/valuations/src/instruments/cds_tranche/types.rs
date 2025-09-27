@@ -136,3 +136,9 @@ impl Instrument for CdsTranche {
         build_with_metrics_dyn(self, curves, as_of, base_value, metrics)
     }
 }
+
+impl crate::instruments::common::HasDiscountCurve for CdsTranche {
+    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.disc_id
+    }
+}

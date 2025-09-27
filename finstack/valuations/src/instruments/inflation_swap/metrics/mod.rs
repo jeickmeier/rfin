@@ -16,7 +16,7 @@ mod fixed_leg_pv;
 mod inflation01;
 mod inflation_leg_pv;
 mod ir01;
-mod risk_bucketed_dv01;
+// risk_bucketed_dv01 - now using generic implementation
 
 use crate::metrics::MetricRegistry;
 
@@ -53,7 +53,7 @@ pub fn register_inflation_swap_metrics(registry: &mut MetricRegistry) {
         )
         .register_metric(
             MetricId::BucketedDv01,
-            Arc::new(risk_bucketed_dv01::BucketedDv01Calculator),
+            Arc::new(crate::instruments::common::GenericBucketedDv01ForStringCurves::<crate::instruments::InflationSwap>::default()),
             &["InflationSwap"],
         );
 }

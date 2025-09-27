@@ -183,6 +183,12 @@ crate::impl_instrument!(
     }
 );
 
+impl crate::instruments::common::HasDiscountCurve for BasisSwap {
+    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.discount_curve_id
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -13,7 +13,7 @@ mod forward_points;
 mod fx01;
 mod ir01_domestic;
 mod ir01_foreign;
-mod risk_bucketed_dv01;
+// risk_bucketed_dv01 - now using generic implementation
 
 use crate::metrics::MetricRegistry;
 
@@ -41,7 +41,7 @@ pub fn register_fx_swap_metrics(registry: &mut MetricRegistry) {
         )
         .register_metric(
             MetricId::BucketedDv01,
-            Arc::new(risk_bucketed_dv01::BucketedDv01Calculator),
+            Arc::new(crate::instruments::common::GenericBucketedDv01ForStringCurves::<crate::instruments::FxSwap>::default()),
             &["FxSwap"],
         );
 }

@@ -119,6 +119,26 @@ pub trait Instrument: Send + Sync {
             InstrumentType::FRA
         } else if type_id == TypeId::of::<crate::instruments::InterestRateSwap>() {
             InstrumentType::IRS
+        } else if type_id == TypeId::of::<crate::instruments::BasisSwap>() {
+            InstrumentType::BasisSwap
+        } else if type_id == TypeId::of::<crate::instruments::Swaption>() {
+            InstrumentType::Swaption
+        } else if type_id == TypeId::of::<crate::instruments::InflationLinkedBond>() {
+            InstrumentType::InflationLinkedBond
+        } else if type_id == TypeId::of::<crate::instruments::InterestRateFuture>() {
+            InstrumentType::InterestRateFuture
+        } else if type_id == TypeId::of::<crate::instruments::trs::EquityTotalReturnSwap>()
+            || type_id == TypeId::of::<crate::instruments::trs::FIIndexTotalReturnSwap>()
+        {
+            InstrumentType::TRS
+        } else if type_id == TypeId::of::<crate::instruments::CreditDefaultSwap>() {
+            InstrumentType::CDS
+        } else if type_id == TypeId::of::<crate::instruments::CDSIndex>() {
+            InstrumentType::CDSIndex
+        } else if type_id == TypeId::of::<crate::instruments::CdsOption>() {
+            InstrumentType::CDSOption
+        } else if type_id == TypeId::of::<crate::instruments::CdsTranche>() {
+            InstrumentType::CDSTranche
         } else {
             // Fallback: use string-based matching for instruments not yet migrated
             match self.instrument_type() {

@@ -16,7 +16,7 @@ mod correlation_delta;
 mod cs01;
 mod expected_loss;
 mod jump_to_default;
-mod risk_bucketed_dv01;
+// risk_bucketed_dv01 - now using generic implementation
 mod spread_dv01;
 mod upfront;
 
@@ -60,7 +60,7 @@ pub fn register_cds_tranche_metrics(registry: &mut MetricRegistry) {
         )
         .register_metric(
             MetricId::BucketedDv01,
-            Arc::new(risk_bucketed_dv01::BucketedDv01Calculator),
+            Arc::new(crate::instruments::common::GenericBucketedDv01WithContext::<crate::instruments::CdsTranche>::default()),
             &["CDSTranche"],
         );
 }

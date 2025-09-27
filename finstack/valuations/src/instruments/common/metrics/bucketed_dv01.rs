@@ -127,6 +127,65 @@ where
             inst_clone.value(temp_ctx, as_of)
         };
 
+        let total =         crate::metrics::compute_bucketed_dv01_series_with_context(
+            context, &disc_id, labels, 1.0, reval
+        )?;
+
+        Ok(total)
+    }
+}
+
+/// Trait for instruments that have a string-based discount curve ID that needs conversion.
+pub trait HasStringDiscountCurve {
+    /// Get the instrument's string-based discount curve ID for conversion to CurveId.
+    fn string_discount_curve_id(&self) -> &str;
+}
+
+/// Generic BucketedDv01 calculator for instruments with string-based discount curve IDs.
+/// 
+/// This variant handles instruments that store disc_id as &'static str instead of CurveId,
+/// automatically performing the CurveId::from() conversion.
+pub struct GenericBucketedDv01ForStringCurves<I> {
+    _phantom: PhantomData<I>,
+}
+
+impl<I> Default for GenericBucketedDv01ForStringCurves<I> {
+    fn default() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<I> MetricCalculator for GenericBucketedDv01ForStringCurves<I>
+where
+    I: Instrument + HasStringDiscountCurve + Clone + 'static,
+{
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+        let instrument: &I = context.instrument_as()?;
+        let disc_id = finstack_core::types::CurveId::from(instrument.string_discount_curve_id());
+
+        // Standard bucket labels
+        let buckets = crate::metrics::standard_ir_dv01_buckets();
+        let labels: Vec<String> = buckets
+            .iter()
+            .map(|y| {
+                if *y < 1.0 {
+                    format!("{:.0}m", (y * 12.0).round())
+                } else {
+                    format!("{:.0}y", y)
+                }
+            })
+            .collect();
+
+        // Revaluation using full MarketContext (for instruments needing complex pricing)
+        let inst_clone = instrument.clone();
+        let as_of = context.as_of;
+
+        let reval = move |temp_ctx: &finstack_core::market_data::MarketContext| {
+            inst_clone.value(temp_ctx, as_of)
+        };
+
         let total = crate::metrics::compute_bucketed_dv01_series_with_context(
             context, &disc_id, labels, 1.0, reval
         )?;

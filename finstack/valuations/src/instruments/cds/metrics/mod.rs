@@ -16,7 +16,7 @@ mod hazard_cs01;
 mod par_spread;
 mod pv_premium;
 mod pv_protection;
-mod risk_bucketed_dv01;
+// risk_bucketed_dv01 - now using generic implementation
 mod risky_pv01;
 
 use crate::metrics::MetricRegistry;
@@ -54,7 +54,7 @@ pub fn register_cds_metrics(registry: &mut MetricRegistry) {
     );
     registry.register_metric(
         MetricId::BucketedDv01,
-        Arc::new(risk_bucketed_dv01::BucketedDv01Calculator),
+        Arc::new(crate::instruments::common::GenericBucketedDv01WithContext::<crate::instruments::CreditDefaultSwap>::default()),
         &["CDS"],
     );
 }

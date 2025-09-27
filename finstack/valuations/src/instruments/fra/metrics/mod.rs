@@ -10,13 +10,10 @@
 mod dv01;
 mod par_rate;
 mod pv;
-// risk_bucketed_dv01 - now using generic implementation
 
 pub use dv01::FraDv01Calculator;
 pub use par_rate::FraParRateCalculator;
 pub use pv::FraPvCalculator;
-// BucketedDv01Calculator now using generic implementation
-
 use crate::metrics::{MetricId, MetricRegistry};
 use std::sync::Arc;
 

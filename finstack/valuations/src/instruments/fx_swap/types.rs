@@ -76,3 +76,9 @@ impl_instrument!(
         crate::instruments::fx_swap::pricing::engine::FxSwapPricer::pv(s, curves, as_of)
     }
 );
+
+impl crate::instruments::common::HasStringDiscountCurve for FxSwap {
+    fn string_discount_curve_id(&self) -> &str {
+        self.domestic_disc_id
+    }
+}

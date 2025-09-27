@@ -137,3 +137,9 @@ impl CashflowProvider for InterestRateFuture {
         Ok(vec![(self.expiry_date, settlement_pv)])
     }
 }
+
+impl crate::instruments::common::HasDiscountCurve for InterestRateFuture {
+    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.disc_id
+    }
+}

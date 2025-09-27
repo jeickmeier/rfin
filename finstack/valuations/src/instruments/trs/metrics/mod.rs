@@ -4,13 +4,13 @@ mod annuity;
 mod delta;
 mod ir01;
 mod par_spread;
-mod risk_bucketed_dv01;
+// risk_bucketed_dv01 - now using generic implementation
 
 pub use annuity::FinancingAnnuityCalculator;
 pub use delta::IndexDeltaCalculator;
 pub use ir01::TrsIR01Calculator;
 pub use par_spread::ParSpreadCalculator;
-pub use risk_bucketed_dv01::BucketedDv01Calculator;
+// BucketedDv01Calculator now using generic implementation
 
 use crate::metrics::{MetricId, MetricRegistry};
 
@@ -45,9 +45,15 @@ pub fn register_trs_metrics(registry: &mut MetricRegistry) {
         Arc::new(IndexDeltaCalculator),
         &["EquityTotalReturnSwap", "FIIndexTotalReturnSwap"],
     );
+    // Register generic BucketedDv01 for both TRS types separately (different concrete types)
     registry.register_metric(
         MetricId::BucketedDv01,
-        Arc::new(BucketedDv01Calculator),
-        &["EquityTotalReturnSwap", "FIIndexTotalReturnSwap"],
+        Arc::new(crate::instruments::common::GenericBucketedDv01WithContext::<crate::instruments::trs::EquityTotalReturnSwap>::default()),
+        &["EquityTotalReturnSwap"],
+    );
+    registry.register_metric(
+        MetricId::BucketedDv01,
+        Arc::new(crate::instruments::common::GenericBucketedDv01WithContext::<crate::instruments::trs::FIIndexTotalReturnSwap>::default()),
+        &["FIIndexTotalReturnSwap"],
     );
 }

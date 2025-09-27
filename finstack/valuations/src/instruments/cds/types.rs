@@ -406,3 +406,9 @@ impl_instrument!(
         crate::instruments::cds::pricing::engine::CDSPricer::new().npv_market(s, curves, _as_of)
     }
 );
+
+impl crate::instruments::common::HasDiscountCurve for CreditDefaultSwap {
+    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
+        &self.premium.disc_id
+    }
+}
