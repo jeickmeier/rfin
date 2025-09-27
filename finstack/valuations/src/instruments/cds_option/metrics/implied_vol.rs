@@ -14,11 +14,8 @@ pub struct ImpliedVolCalculator;
 impl MetricCalculator for ImpliedVolCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<F> {
         let option: &CdsOption = context.instrument_as()?;
-        let pricer = crate::instruments::cds_option::pricing::engine::CdsOptionPricer::default();
-        let as_of = context.as_of;
         let target = context.base_value.amount();
-        let iv = pricer.implied_vol(option, &context.curves, as_of, target, None)?;
-        Ok(iv)
+        option.implied_vol(&context.curves, context.as_of, target, None)
     }
 
     fn dependencies(&self) -> &[MetricId] {

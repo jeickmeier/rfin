@@ -427,3 +427,64 @@ impl CdsOptionPricer {
         Ok(root.exp())
     }
 }
+
+// ========================= REGISTRY PRICER =========================
+
+/// Registry pricer for CDS Option using Black76 model
+pub struct SimpleCdsOptionBlackPricer;
+
+impl SimpleCdsOptionBlackPricer {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for SimpleCdsOptionBlackPricer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl crate::pricer::Pricer for SimpleCdsOptionBlackPricer {
+    fn key(&self) -> crate::pricer::PricerKey {
+        crate::pricer::PricerKey::new(
+            crate::pricer::InstrumentType::CDSOption,
+            crate::pricer::ModelKey::Black76,
+        )
+    }
+
+    fn price_dyn(
+        &self,
+        instrument: &dyn crate::instruments::common::traits::Instrument,
+        market: &finstack_core::market_data::MarketContext,
+    ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
+        use crate::instruments::common::traits::Instrument;
+
+        // Type-safe downcasting
+        let cds_option = instrument
+            .as_any()
+            .downcast_ref::<crate::instruments::cds_option::CdsOption>()
+            .ok_or_else(|| crate::pricer::PricingError::TypeMismatch {
+                expected: crate::pricer::InstrumentType::CDSOption,
+                got: instrument.key(),
+            })?;
+
+        // Get as_of date from discount curve
+        let disc = market
+            .get_discount_ref(cds_option.disc_id.clone())
+            .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
+        let as_of = disc.base_date();
+
+        // Compute present value using the engine
+        let pv = CdsOptionPricer::default()
+            .npv(cds_option, market, as_of)
+            .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
+
+        // Return stamped result
+        Ok(crate::results::ValuationResult::stamped(
+            cds_option.id(),
+            as_of,
+            pv,
+        ))
+    }
+}

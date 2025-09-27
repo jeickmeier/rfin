@@ -224,7 +224,7 @@ pub fn create_standard_registry() -> PricerRegistry {
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::CDSOption, ModelKey::Black76),
-        Box::new(crate::instruments::cds_option::pricing::pricer::SimpleCdsOptionBlackPricer::new())
+        Box::new(crate::instruments::cds_option::pricer::SimpleCdsOptionBlackPricer::new())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::CDSTranche, ModelKey::HazardRate),
