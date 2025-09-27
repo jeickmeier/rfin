@@ -64,7 +64,11 @@ pub fn register_interest_rate_option_metrics(registry: &mut MetricRegistry) {
     );
     registry.register_metric(
         MetricId::BucketedDv01,
-        Arc::new(crate::instruments::common::GenericBucketedDv01WithContext::<crate::instruments::cap_floor::InterestRateOption>::default()),
+        Arc::new(
+            crate::instruments::common::GenericBucketedDv01WithContext::<
+                crate::instruments::cap_floor::InterestRateOption,
+            >::default(),
+        ),
         &["InterestRateOption"],
     );
 }

@@ -8,10 +8,7 @@ use super::types::{Basket, BasketConstituent, BasketPricingConfig, ConstituentRe
 use finstack_core::{
     dates::Date,
     market_data::MarketContext,
-    money::{
-        fx::FxQuery,
-        Money,
-    },
+    money::{fx::FxQuery, Money},
     prelude::*,
     F,
 };
@@ -191,7 +188,8 @@ impl BasketCalculator {
             ValueMode::PerShare { shares } => {
                 // Resolve price then allocate per share
                 let raw_value = self.get_constituent_price(basket, constituent, context, as_of)?;
-                let base_value = self.to_basket_currency(basket, raw_value, basket.currency, context, as_of)?;
+                let base_value =
+                    self.to_basket_currency(basket, raw_value, basket.currency, context, as_of)?;
                 if let Some(units) = constituent.units {
                     let s = shares.ok_or(finstack_core::Error::Input(
                         finstack_core::error::InputError::Invalid,
@@ -209,15 +207,29 @@ impl BasketCalculator {
             ValueMode::Total { shares, aum } => {
                 if let Some(units) = constituent.units {
                     // Price × units (convert to basket currency first)
-                    let raw_value = self.get_constituent_price(basket, constituent, context, as_of)?;
-                    let base_value = self.to_basket_currency(basket, raw_value, basket.currency, context, as_of)?;
+                    let raw_value =
+                        self.get_constituent_price(basket, constituent, context, as_of)?;
+                    let base_value = self.to_basket_currency(
+                        basket,
+                        raw_value,
+                        basket.currency,
+                        context,
+                        as_of,
+                    )?;
                     base_value * units
                 } else if let Some(a) = aum {
                     Money::new(a * constituent.weight, basket.currency)
                 } else if let Some(s) = shares {
                     // Weight-only contribution scaled by shares × price
-                    let raw_value = self.get_constituent_price(basket, constituent, context, as_of)?;
-                    let base_value = self.to_basket_currency(basket, raw_value, basket.currency, context, as_of)?;
+                    let raw_value =
+                        self.get_constituent_price(basket, constituent, context, as_of)?;
+                    let base_value = self.to_basket_currency(
+                        basket,
+                        raw_value,
+                        basket.currency,
+                        context,
+                        as_of,
+                    )?;
                     base_value * constituent.weight * s
                 } else {
                     return Err(finstack_core::Error::Input(
@@ -253,7 +265,12 @@ impl BasketCalculator {
     }
 
     /// Calculate expense drag based on the portfolio value.
-    fn calculate_expense_drag(&self, basket: &Basket, portfolio_value: F, _as_of: Date) -> Result<F> {
+    fn calculate_expense_drag(
+        &self,
+        basket: &Basket,
+        portfolio_value: F,
+        _as_of: Date,
+    ) -> Result<F> {
         // Simple daily accrual of expense ratio
         let daily_expense_rate = basket.expense_ratio / self.config.days_in_year;
         Ok(portfolio_value * daily_expense_rate)

@@ -1,5 +1,5 @@
-use crate::instruments::fx_option::FxOption;
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::fx_option::FxOption;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
 use finstack_core::market_data::MarketContext;
@@ -32,19 +32,23 @@ impl Pricer for SimpleFxOptionBlackPricer {
         market: &MarketContext,
     ) -> std::result::Result<ValuationResult, PricingError> {
         // Type-safe downcasting
-        let fx_option = instrument.as_any()
+        let fx_option = instrument
+            .as_any()
             .downcast_ref::<FxOption>()
             .ok_or_else(|| PricingError::TypeMismatch {
                 expected: InstrumentType::FxOption,
-                got: instrument.key()})?;
+                got: instrument.key(),
+            })?;
 
         // Get as_of date from domestic discount curve
-        let disc = market.get_discount_ref(fx_option.domestic_disc_id.as_str())
+        let disc = market
+            .get_discount_ref(fx_option.domestic_disc_id.as_str())
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
         let as_of = disc.base_date();
 
         // Use instrument's value method
-        let pv = fx_option.value(market, as_of)
+        let pv = fx_option
+            .value(market, as_of)
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
 
         // Return stamped result

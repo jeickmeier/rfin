@@ -1,7 +1,7 @@
 //! Bond instrument module: declares submodules and re-exports types.
 
-pub mod cashflows;
 pub mod cashflow_spec;
+pub mod cashflows;
 pub mod metrics;
 pub mod pricing;
 mod types;

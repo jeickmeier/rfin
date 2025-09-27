@@ -32,7 +32,7 @@ impl MetricRegistryBuilder {
             registrations: Vec::new(),
         }
     }
-    
+
     /// Start registering a metric.
     pub fn metric(self, metric_id: MetricId) -> MetricBuilder {
         MetricBuilder {
@@ -40,11 +40,11 @@ impl MetricRegistryBuilder {
             metric_id,
         }
     }
-    
+
     /// Build the final MetricRegistry with all registrations applied.
     pub fn build(self) -> MetricRegistry {
         let mut registry = MetricRegistry::new();
-        
+
         for registration in self.registrations {
             registry.register_metric(
                 registration.metric_id,
@@ -52,10 +52,10 @@ impl MetricRegistryBuilder {
                 &registration.instruments,
             );
         }
-        
+
         registry
     }
-    
+
     /// Add a registration (internal method)
     fn add_registration(
         mut self,
@@ -87,7 +87,7 @@ impl MetricBuilder {
             instruments: vec![instrument],
         }
     }
-    
+
     /// Register this metric for multiple instruments.
     pub fn for_instruments(self, instruments: &[&'static str]) -> CalculatorBuilder {
         CalculatorBuilder {
@@ -107,16 +107,19 @@ pub struct CalculatorBuilder {
 
 impl CalculatorBuilder {
     /// Use a specific calculator instance.
-    pub fn with_calculator<C: MetricCalculator + 'static>(self, calculator: C) -> MetricRegistryBuilder {
+    pub fn with_calculator<C: MetricCalculator + 'static>(
+        self,
+        calculator: C,
+    ) -> MetricRegistryBuilder {
         self.registry_builder.add_registration(
             self.metric_id,
             Arc::new(calculator),
             self.instruments,
         )
     }
-    
+
     /// Use a generic calculator parameterized by instrument type.
-    /// 
+    ///
     /// This is particularly useful for metrics like BucketedDv01 that have generic implementations.
     pub fn with_generic<C: MetricCalculator + Default + 'static>(self) -> MetricRegistryBuilder {
         self.registry_builder.add_registration(
@@ -132,90 +135,88 @@ pub fn create_standard_registry() -> MetricRegistry {
     MetricRegistryBuilder::new()
         // Generic metrics used across multiple instruments
         .metric(MetricId::BucketedDv01)
-            .for_instruments(&["Bond", "Deposit", "FRA"])  
-            .with_generic::<crate::instruments::common::GenericBucketedDv01<crate::instruments::Bond>>()
+        .for_instruments(&["Bond", "Deposit", "FRA"])
+        .with_generic::<crate::instruments::common::GenericBucketedDv01<crate::instruments::Bond>>()
         .metric(MetricId::BucketedDv01)
-            .for_instruments(&["InterestRateSwap"])
-            .with_generic::<crate::instruments::common::GenericBucketedDv01WithContext<crate::instruments::InterestRateSwap>>()
-        
+        .for_instruments(&["InterestRateSwap"])
+        .with_generic::<crate::instruments::common::GenericBucketedDv01WithContext<
+            crate::instruments::InterestRateSwap,
+        >>()
         // Bond-specific metrics
         .metric(MetricId::Accrued)
-            .for_instrument("Bond")
-            .with_calculator(crate::instruments::bond::metrics::AccruedInterestCalculator)
+        .for_instrument("Bond")
+        .with_calculator(crate::instruments::bond::metrics::AccruedInterestCalculator)
         .metric(MetricId::DirtyPrice)
-            .for_instrument("Bond")  
-            .with_calculator(crate::instruments::bond::metrics::DirtyPriceCalculator)
+        .for_instrument("Bond")
+        .with_calculator(crate::instruments::bond::metrics::DirtyPriceCalculator)
         .metric(MetricId::CleanPrice)
-            .for_instrument("Bond")
-            .with_calculator(crate::instruments::bond::metrics::CleanPriceCalculator)
+        .for_instrument("Bond")
+        .with_calculator(crate::instruments::bond::metrics::CleanPriceCalculator)
         .metric(MetricId::Ytm)
-            .for_instrument("Bond")
-            .with_calculator(crate::instruments::bond::metrics::YtmCalculator)
+        .for_instrument("Bond")
+        .with_calculator(crate::instruments::bond::metrics::YtmCalculator)
         .metric(MetricId::DurationMac)
-            .for_instrument("Bond")
-            .with_calculator(crate::instruments::bond::metrics::MacaulayDurationCalculator)
+        .for_instrument("Bond")
+        .with_calculator(crate::instruments::bond::metrics::MacaulayDurationCalculator)
         .metric(MetricId::DurationMod)
-            .for_instrument("Bond")
-            .with_calculator(crate::instruments::bond::metrics::ModifiedDurationCalculator)
+        .for_instrument("Bond")
+        .with_calculator(crate::instruments::bond::metrics::ModifiedDurationCalculator)
         .metric(MetricId::Convexity)
-            .for_instrument("Bond")
-            .with_calculator(crate::instruments::bond::metrics::ConvexityCalculator)
+        .for_instrument("Bond")
+        .with_calculator(crate::instruments::bond::metrics::ConvexityCalculator)
         .metric(MetricId::Ytw)
-            .for_instrument("Bond")
-            .with_calculator(crate::instruments::bond::metrics::YtwCalculator)
+        .for_instrument("Bond")
+        .with_calculator(crate::instruments::bond::metrics::YtwCalculator)
         .metric(MetricId::Oas)
-            .for_instrument("Bond")
-            .with_calculator(crate::instruments::bond::metrics::OasCalculator)
+        .for_instrument("Bond")
+        .with_calculator(crate::instruments::bond::metrics::OasCalculator)
         .metric(MetricId::ZSpread)
-            .for_instrument("Bond")
-            .with_calculator(crate::instruments::bond::metrics::ZSpreadCalculator)
+        .for_instrument("Bond")
+        .with_calculator(crate::instruments::bond::metrics::ZSpreadCalculator)
         .metric(MetricId::ISpread)
-            .for_instrument("Bond")
-            .with_calculator(crate::instruments::bond::metrics::ISpreadCalculator)
+        .for_instrument("Bond")
+        .with_calculator(crate::instruments::bond::metrics::ISpreadCalculator)
         .metric(MetricId::DiscountMargin)
-            .for_instrument("Bond")
-            .with_calculator(crate::instruments::bond::metrics::DiscountMarginCalculator)
+        .for_instrument("Bond")
+        .with_calculator(crate::instruments::bond::metrics::DiscountMarginCalculator)
         .metric(MetricId::ASWPar)
-            .for_instrument("Bond")
-            .with_calculator(crate::instruments::bond::metrics::AssetSwapParCalculator)
+        .for_instrument("Bond")
+        .with_calculator(crate::instruments::bond::metrics::AssetSwapParCalculator)
         .metric(MetricId::ASWMarket)
-            .for_instrument("Bond")
-            .with_calculator(crate::instruments::bond::metrics::AssetSwapMarketCalculator)
+        .for_instrument("Bond")
+        .with_calculator(crate::instruments::bond::metrics::AssetSwapMarketCalculator)
         .metric(MetricId::Cs01)
-            .for_instrument("Bond")
-            .with_calculator(crate::instruments::bond::metrics::Cs01Calculator)
-        
+        .for_instrument("Bond")
+        .with_calculator(crate::instruments::bond::metrics::Cs01Calculator)
         // Deposit-specific metrics
         .metric(MetricId::Yf)
-            .for_instrument("Deposit")
-            .with_calculator(crate::instruments::deposit::metrics::YearFractionCalculator)
+        .for_instrument("Deposit")
+        .with_calculator(crate::instruments::deposit::metrics::YearFractionCalculator)
         .metric(MetricId::DfStart)
-            .for_instrument("Deposit")
-            .with_calculator(crate::instruments::deposit::metrics::DfStartCalculator)
+        .for_instrument("Deposit")
+        .with_calculator(crate::instruments::deposit::metrics::DfStartCalculator)
         .metric(MetricId::DfEnd)
-            .for_instrument("Deposit")
-            .with_calculator(crate::instruments::deposit::metrics::DfEndCalculator)
+        .for_instrument("Deposit")
+        .with_calculator(crate::instruments::deposit::metrics::DfEndCalculator)
         .metric(MetricId::DepositParRate)
-            .for_instrument("Deposit")
-            .with_calculator(crate::instruments::deposit::metrics::DepositParRateCalculator)
+        .for_instrument("Deposit")
+        .with_calculator(crate::instruments::deposit::metrics::DepositParRateCalculator)
         .metric(MetricId::DfEndFromQuote)
-            .for_instrument("Deposit")
-            .with_calculator(crate::instruments::deposit::metrics::DfEndFromQuoteCalculator)
+        .for_instrument("Deposit")
+        .with_calculator(crate::instruments::deposit::metrics::DfEndFromQuoteCalculator)
         .metric(MetricId::QuoteRate)
-            .for_instrument("Deposit")
-            .with_calculator(crate::instruments::deposit::metrics::QuoteRateCalculator)
-        
+        .for_instrument("Deposit")
+        .with_calculator(crate::instruments::deposit::metrics::QuoteRateCalculator)
         // FRA-specific metrics
         .metric(MetricId::custom("fra_pv"))
-            .for_instrument("FRA")
-            .with_calculator(crate::instruments::fra::metrics::FraPvCalculator)
+        .for_instrument("FRA")
+        .with_calculator(crate::instruments::fra::metrics::FraPvCalculator)
         .metric(MetricId::Dv01)
-            .for_instrument("FRA")
-            .with_calculator(crate::instruments::fra::metrics::FraDv01Calculator)
+        .for_instrument("FRA")
+        .with_calculator(crate::instruments::fra::metrics::FraDv01Calculator)
         .metric(MetricId::ParRate)
-            .for_instrument("FRA")
-            .with_calculator(crate::instruments::fra::metrics::FraParRateCalculator)
-        
+        .for_instrument("FRA")
+        .with_calculator(crate::instruments::fra::metrics::FraParRateCalculator)
         .build()
 }
 
@@ -228,23 +229,23 @@ mod tests {
         // Test that the builder pattern works
         let registry = MetricRegistryBuilder::new()
             .metric(MetricId::Accrued)
-                .for_instrument("Bond")
-                .with_calculator(crate::instruments::bond::metrics::AccruedInterestCalculator)
+            .for_instrument("Bond")
+            .with_calculator(crate::instruments::bond::metrics::AccruedInterestCalculator)
             .build();
-        
+
         // Verify the metric was registered
         assert!(registry.has_metric(MetricId::Accrued));
     }
-    
+
     #[test]
     fn test_multiple_instruments() {
         // Test registering a metric for multiple instruments
         let registry = MetricRegistryBuilder::new()
             .metric(MetricId::Dv01)
-                .for_instruments(&["Bond", "Deposit", "FRA"])
-                .with_calculator(crate::instruments::bond::metrics::AccruedInterestCalculator) // dummy calc for test
+            .for_instruments(&["Bond", "Deposit", "FRA"])
+            .with_calculator(crate::instruments::bond::metrics::AccruedInterestCalculator) // dummy calc for test
             .build();
-        
+
         assert!(registry.has_metric(MetricId::Dv01));
     }
 }

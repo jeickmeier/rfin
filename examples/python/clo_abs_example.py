@@ -82,7 +82,7 @@ def create_clo_structure():
     # Create CLO with standard tranche structure
     legal_maturity = Date.from_calendar_date(2030, 1, 15)
     
-    clo = finstack.StructuredCredit.builder("CLO_2025_1", finstack.DealType.CLO) \
+    clo = finstack.Clo.builder("CLO_2025_1") \
         .pool(pool) \
         .add_equity_tranche(0.0, 10.0, Money.new(87_500_000.0, Currency.USD), 0.15) \
         .add_senior_tranche(10.0, 100.0, Money.new(787_500_000.0, Currency.USD), 150.0) \
@@ -164,7 +164,7 @@ def main():
         clo = create_clo_structure()
         
         print(f"Created CLO: {clo.id.as_str()}")
-        print(f"Deal Type: {clo.instrument_type()}")
+        print(f"Deal Type: {clo.deal_type}")
         print(f"Number of Pool Assets: {len(clo.pool.assets)}")
         print(f"Number of Tranches: {len(clo.tranches.tranches)}")
         

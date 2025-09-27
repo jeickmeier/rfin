@@ -64,9 +64,8 @@ where
             )
         };
 
-        let total = crate::metrics::compute_key_rate_dv01_series(
-            context, &disc_id, buckets, 1.0, reval,
-        )?;
+        let total =
+            crate::metrics::compute_key_rate_dv01_series(context, &disc_id, buckets, 1.0, reval)?;
 
         Ok(total)
     }

@@ -828,7 +828,7 @@ mod tests {
             Err(e) => {
                 // It's OK if calibration fails due to missing reference curves
                 // The important thing is that the mapping logic works
-            tracing::debug!(error = %e, "Basis swap calibration test failed, acceptable in mapping test");
+                tracing::debug!(error = %e, "Basis swap calibration test failed, acceptable in mapping test");
             }
         }
     }

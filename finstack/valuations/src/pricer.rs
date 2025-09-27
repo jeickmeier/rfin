@@ -38,8 +38,11 @@ pub enum InstrumentType {
     Equity = 23,
     Repo = 24,
     FRA = 25,
-    StructuredCredit = 26,
-    PrivateMarketsFund = 27,
+    CLO = 26,
+    ABS = 27,
+    RMBS = 28,
+    CMBS = 29,
+    PrivateMarketsFund = 30,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

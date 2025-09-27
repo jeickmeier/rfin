@@ -11,5 +11,5 @@ pub mod parameters;
 pub mod pricer;
 mod types;
 
-pub use types::{Swaption, SwaptionExercise, SwaptionSettlement};
 pub use pricer::SimpleSwaptionBlackPricer;
+pub use types::{Swaption, SwaptionExercise, SwaptionSettlement};

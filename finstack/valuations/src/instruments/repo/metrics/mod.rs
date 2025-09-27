@@ -80,7 +80,9 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
         )
         .register_metric(
             MetricId::BucketedDv01,
-            Arc::new(crate::instruments::common::GenericBucketedDv01::<crate::instruments::Repo>::default()),
+            Arc::new(crate::instruments::common::GenericBucketedDv01::<
+                crate::instruments::Repo,
+            >::default()),
             &["Repo"],
         );
 }
@@ -199,7 +201,9 @@ mod tests {
             pv,
         );
         // Compute, but tolerate current DV01 stub returning 0.0; don't fail on compute errors
-        let res = reg.compute(&[MetricId::Dv01], &mut mctx).unwrap_or_default();
+        let res = reg
+            .compute(&[MetricId::Dv01], &mut mctx)
+            .unwrap_or_default();
         let dv01 = *res.get(&MetricId::Dv01).unwrap_or(&0.0);
         assert!(dv01 >= 0.0);
     }

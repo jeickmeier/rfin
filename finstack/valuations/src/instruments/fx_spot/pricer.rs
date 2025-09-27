@@ -1,5 +1,5 @@
-use crate::instruments::fx_spot::FxSpot;
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::fx_spot::FxSpot;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;
@@ -31,17 +31,20 @@ impl Pricer for SimpleFxSpotDiscountingPricer {
         market: &MarketContext,
     ) -> Result<ValuationResult, PricingError> {
         // Type-safe downcasting
-        let fx_spot = instrument.as_any()
+        let fx_spot = instrument
+            .as_any()
             .downcast_ref::<FxSpot>()
             .ok_or_else(|| PricingError::TypeMismatch {
                 expected: InstrumentType::FxSpot,
-                got: instrument.key()})?;
+                got: instrument.key(),
+            })?;
 
         // FX Spot uses epoch as as_of date since it's currency conversion, not discounting
         let as_of = Date::from_calendar_date(1970, time::Month::January, 1).unwrap();
 
         // Use the instrument's own value method
-        let pv = fx_spot.value(market, as_of)
+        let pv = fx_spot
+            .value(market, as_of)
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
 
         // Return stamped result

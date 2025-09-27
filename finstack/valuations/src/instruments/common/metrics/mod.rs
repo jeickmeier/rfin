@@ -6,6 +6,4 @@
 
 pub mod bucketed_dv01;
 
-pub use bucketed_dv01::{
-    GenericBucketedDv01, GenericBucketedDv01WithContext, HasDiscountCurve,
-};
+pub use bucketed_dv01::{GenericBucketedDv01, GenericBucketedDv01WithContext, HasDiscountCurve};

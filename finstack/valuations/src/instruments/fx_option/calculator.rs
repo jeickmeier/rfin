@@ -218,7 +218,12 @@ impl FxOptionCalculator {
     }
 
     /// Compute greeks with calculator configuration.
-    pub fn compute_greeks(&self, inst: &FxOption, curves: &MarketContext, as_of: Date) -> Result<FxOptionGreeks> {
+    pub fn compute_greeks(
+        &self,
+        inst: &FxOption,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<FxOptionGreeks> {
         self.validate_currency(inst)?;
         let (spot, r_d, r_f, sigma, t) = self.collect_inputs(inst, curves, as_of)?;
 
@@ -227,10 +232,18 @@ impl FxOptionCalculator {
             let spot_gt_strike = spot > inst.strike;
             let delta_unit = match inst.option_type {
                 OptionType::Call => {
-                    if spot_gt_strike { 1.0 } else { 0.0 }
+                    if spot_gt_strike {
+                        1.0
+                    } else {
+                        0.0
+                    }
                 }
                 OptionType::Put => {
-                    if !spot_gt_strike { -1.0 } else { 0.0 }
+                    if !spot_gt_strike {
+                        -1.0
+                    } else {
+                        0.0
+                    }
                 }
             };
             let scale = inst.notional.amount();

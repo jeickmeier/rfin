@@ -47,27 +47,32 @@ impl Pricer for SimpleBondOasPricer {
         market: &MarketContext,
     ) -> Result<ValuationResult, PricingError> {
         // Type-safe downcasting
-        let bond = instrument.as_any()
-            .downcast_ref::<Bond>()
-            .ok_or_else(|| PricingError::TypeMismatch {
+        let bond = instrument.as_any().downcast_ref::<Bond>().ok_or_else(|| {
+            PricingError::TypeMismatch {
                 expected: InstrumentType::Bond,
-                got: instrument.key()})?;
+                got: instrument.key(),
+            }
+        })?;
 
         // Get as_of date
-        let disc = market.get_discount_ref(bond.disc_id.clone())
+        let disc = market
+            .get_discount_ref(bond.disc_id.clone())
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
         let as_of = disc.base_date();
 
         // Base present value
-        let pv = bond.value(market, as_of)
+        let pv = bond
+            .value(market, as_of)
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
 
         // OAS calculation requires quoted clean price
-        let clean_pct = bond.pricing_overrides.quoted_clean_price
-            .ok_or_else(|| PricingError::ModelFailure("OAS requires quoted clean price".to_string()))?;
+        let clean_pct = bond.pricing_overrides.quoted_clean_price.ok_or_else(|| {
+            PricingError::ModelFailure("OAS requires quoted clean price".to_string())
+        })?;
 
         // Calculate OAS using tree pricer
-        let oas_bp = TreePricer::new().calculate_oas(bond, market, as_of, clean_pct)
+        let oas_bp = TreePricer::new()
+            .calculate_oas(bond, market, as_of, clean_pct)
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
 
         // Create result with OAS measure

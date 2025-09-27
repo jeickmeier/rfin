@@ -399,7 +399,9 @@ impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
 
         // Resolve a discount curve from the context
         // Preference order: explicit id via self.discount_id → inferred "<CCY>-OIS" → first discount in context
-        let disc: std::sync::Arc<finstack_core::market_data::term_structures::discount_curve::DiscountCurve> = {
+        let disc: std::sync::Arc<
+            finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
+        > = {
             if let Some(ref id) = self.discount_id {
                 base_context.get_discount(id.as_str())?
             } else {
@@ -413,7 +415,9 @@ impl Calibrator<VolQuote, VolSurface> for VolSurfaceCalibrator {
                             base_context.get_discount(id.as_str())?
                         } else {
                             return Err(finstack_core::Error::Input(
-                                finstack_core::error::InputError::NotFound { id: "discount curve".to_string() },
+                                finstack_core::error::InputError::NotFound {
+                                    id: "discount curve".to_string(),
+                                },
                             ));
                         }
                     }

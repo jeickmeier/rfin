@@ -40,8 +40,9 @@ fn main() {
     println!("   Reason: {}\n", report3.convergence_reason);
 
     // Example 4: Failure report
-    let report4 = CalibrationReport::new(residuals.clone(), 100, false, "Maximum iterations reached")
-        .with_metadata("solver", "Newton");
+    let report4 =
+        CalibrationReport::new(residuals.clone(), 100, false, "Maximum iterations reached")
+            .with_metadata("solver", "Newton");
 
     println!("4. Failure Report:");
     println!("   Success: {}", report4.success);

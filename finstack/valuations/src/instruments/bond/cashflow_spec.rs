@@ -25,7 +25,7 @@ pub enum CashflowSpec {
         /// Day count convention for accrual.
         dc: DayCount,
     },
-    
+
     /// Floating-rate note with index-linked coupons.
     Floating {
         /// Forward curve identifier for the floating index.
@@ -41,10 +41,10 @@ pub enum CashflowSpec {
         /// Day count convention for accrual.
         dc: DayCount,
     },
-    
+
     /// User-provided custom cashflow schedule.
     Custom(CashFlowSchedule),
-    
+
     /// Amortizing bond (principal payments during life).
     Amortizing {
         /// Base cashflow specification (fixed or floating).
@@ -59,14 +59,9 @@ impl CashflowSpec {
     pub fn fixed(coupon: F, freq: Frequency, dc: DayCount) -> Self {
         Self::Fixed { coupon, freq, dc }
     }
-    
+
     /// Create a floating-rate specification.
-    pub fn floating(
-        index_id: CurveId,
-        margin_bp: F,
-        freq: Frequency,
-        dc: DayCount,
-    ) -> Self {
+    pub fn floating(index_id: CurveId, margin_bp: F, freq: Frequency, dc: DayCount) -> Self {
         Self::Floating {
             index_id,
             margin_bp,
@@ -76,12 +71,12 @@ impl CashflowSpec {
             dc,
         }
     }
-    
+
     /// Create a custom cashflow specification.
     pub fn custom(schedule: CashFlowSchedule) -> Self {
         Self::Custom(schedule)
     }
-    
+
     /// Create an amortizing bond specification.
     pub fn amortizing(base: CashflowSpec, schedule: AmortizationSpec) -> Self {
         Self::Amortizing {
@@ -89,7 +84,7 @@ impl CashflowSpec {
             schedule,
         }
     }
-    
+
     /// Get the payment frequency from this specification.
     pub fn frequency(&self) -> Option<Frequency> {
         match self {
@@ -99,7 +94,7 @@ impl CashflowSpec {
             Self::Amortizing { base, .. } => base.frequency(),
         }
     }
-    
+
     /// Get the day count convention from this specification.
     pub fn day_count(&self) -> Option<DayCount> {
         match self {

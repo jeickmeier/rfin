@@ -3,8 +3,8 @@
 //! This module provides generic pricer implementations and shared pricing utilities
 //! to eliminate duplication across instrument pricing modules.
 
-use crate::instruments::common::HasDiscountCurve;
 use crate::instruments::common::traits::{Instrument, InstrumentKind};
+use crate::instruments::common::HasDiscountCurve;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
 use finstack_core::market_data::MarketContext;
@@ -48,13 +48,14 @@ where
         market: &MarketContext,
     ) -> Result<ValuationResult, PricingError> {
         // Type-safe downcasting
-        let typed_instrument = instrument
-            .as_any()
-            .downcast_ref::<I>()
-            .ok_or_else(|| PricingError::TypeMismatch {
-                expected: self.instrument_type,
-                got: instrument.key(),
-            })?;
+        let typed_instrument =
+            instrument
+                .as_any()
+                .downcast_ref::<I>()
+                .ok_or_else(|| PricingError::TypeMismatch {
+                    expected: self.instrument_type,
+                    got: instrument.key(),
+                })?;
 
         // Derive as_of from the instrument's configured discount curve
         // This eliminates hidden USD/EUR fallbacks and ensures currency safety
@@ -112,13 +113,14 @@ where
         market: &MarketContext,
     ) -> Result<ValuationResult, PricingError> {
         // Type-safe downcasting
-        let typed_instrument = instrument
-            .as_any()
-            .downcast_ref::<I>()
-            .ok_or_else(|| PricingError::TypeMismatch {
-                expected: self.instrument_type,
-                got: instrument.key(),
-            })?;
+        let typed_instrument =
+            instrument
+                .as_any()
+                .downcast_ref::<I>()
+                .ok_or_else(|| PricingError::TypeMismatch {
+                    expected: self.instrument_type,
+                    got: instrument.key(),
+                })?;
 
         // Extract valuation date from the instrument's configured discount curve
         let disc = market

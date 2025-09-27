@@ -34,7 +34,11 @@ pub fn register_ir_future_metrics(registry: &mut MetricRegistry) {
         )
         .register_metric(
             MetricId::BucketedDv01,
-            Arc::new(crate::instruments::common::GenericBucketedDv01WithContext::<crate::instruments::InterestRateFuture>::default()),
+            Arc::new(
+                crate::instruments::common::GenericBucketedDv01WithContext::<
+                    crate::instruments::InterestRateFuture,
+                >::default(),
+            ),
             &["InterestRateFuture"],
         );
 }

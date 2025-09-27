@@ -375,7 +375,9 @@ pub fn price_convertible_bond(
         ConvertibleTreeType::Trinomial(n) => n,
     };
 
-    let base_date = market_context.get_discount_ref(bond.disc_id.as_str())?.base_date();
+    let base_date = market_context
+        .get_discount_ref(bond.disc_id.as_str())?
+        .base_date();
     let valuator = ConvertibleBondValuator::new(
         bond,
         &inputs.cashflow_schedule,
@@ -433,7 +435,9 @@ pub fn calculate_convertible_greeks(
         ConvertibleTreeType::Trinomial(n) => n,
     };
 
-    let base_date = market_context.get_discount_ref(bond.disc_id.as_str())?.base_date();
+    let base_date = market_context
+        .get_discount_ref(bond.disc_id.as_str())?
+        .base_date();
     let valuator = ConvertibleBondValuator::new(
         bond,
         &inputs.cashflow_schedule,

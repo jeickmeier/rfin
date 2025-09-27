@@ -36,6 +36,5 @@ pub fn register_basket_metrics(registry: &mut MetricRegistry) {
             MetricId::ExpenseRatio,
             Arc::new(ExpenseRatioCalculator),
             &["Basket"],
-        )
-;
+        );
 }

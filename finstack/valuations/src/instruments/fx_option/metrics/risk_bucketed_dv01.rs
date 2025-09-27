@@ -25,9 +25,7 @@ impl MetricCalculator for BucketedDv01Calculator {
             1.0,
             {
                 let opt_dom = opt.clone();
-                move |temp_ctx| {
-                    opt_dom.npv(temp_ctx, as_of)
-                }
+                move |temp_ctx| opt_dom.npv(temp_ctx, as_of)
             },
         )?;
 
@@ -43,9 +41,7 @@ impl MetricCalculator for BucketedDv01Calculator {
             1.0,
             {
                 let opt_for = opt.clone();
-                move |temp_ctx| {
-                    opt_for.npv(temp_ctx, as_of)
-                }
+                move |temp_ctx| opt_for.npv(temp_ctx, as_of)
             },
         )?;
 

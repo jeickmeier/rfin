@@ -48,12 +48,20 @@ pub fn register_trs_metrics(registry: &mut MetricRegistry) {
     // Register generic BucketedDv01 for both TRS types separately (different concrete types)
     registry.register_metric(
         MetricId::BucketedDv01,
-        Arc::new(crate::instruments::common::GenericBucketedDv01WithContext::<crate::instruments::trs::EquityTotalReturnSwap>::default()),
+        Arc::new(
+            crate::instruments::common::GenericBucketedDv01WithContext::<
+                crate::instruments::trs::EquityTotalReturnSwap,
+            >::default(),
+        ),
         &["EquityTotalReturnSwap"],
     );
     registry.register_metric(
         MetricId::BucketedDv01,
-        Arc::new(crate::instruments::common::GenericBucketedDv01WithContext::<crate::instruments::trs::FIIndexTotalReturnSwap>::default()),
+        Arc::new(
+            crate::instruments::common::GenericBucketedDv01WithContext::<
+                crate::instruments::trs::FIIndexTotalReturnSwap,
+            >::default(),
+        ),
         &["FIIndexTotalReturnSwap"],
     );
 }

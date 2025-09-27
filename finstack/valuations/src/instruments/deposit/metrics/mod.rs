@@ -53,7 +53,9 @@ pub fn register_deposit_metrics(registry: &mut MetricRegistry) {
         ) // quoted rate passthrough
         .register_metric(
             MetricId::BucketedDv01,
-            Arc::new(crate::instruments::common::GenericBucketedDv01::<crate::instruments::Deposit>::default()),
+            Arc::new(crate::instruments::common::GenericBucketedDv01::<
+                crate::instruments::Deposit,
+            >::default()),
             &["Deposit"],
         );
 }

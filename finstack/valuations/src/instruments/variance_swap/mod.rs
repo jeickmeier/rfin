@@ -7,8 +7,8 @@ pub mod metrics;
 pub mod pricer;
 pub mod types;
 
-pub use types::{PayReceive, VarianceSwap};
 pub use pricer::SimpleVarianceSwapDiscountingPricer;
+pub use types::{PayReceive, VarianceSwap};
 
 // Re-export from core
 pub use finstack_core::math::stats::{

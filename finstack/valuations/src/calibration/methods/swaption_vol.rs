@@ -13,13 +13,13 @@ use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParamete
 use crate::instruments::swaption::Swaption;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::utils::add_months;
-use finstack_core::dates::{Date, DayCountCtx, BusinessDayConvention, StubKind};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCountCtx, StubKind};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::vol_surface::VolSurface;
 use finstack_core::money::Money;
 use finstack_core::prelude::Currency;
-use finstack_core::{Result, F};
 use finstack_core::types::CurveId;
+use finstack_core::{Result, F};
 use std::collections::BTreeMap;
 
 /// Type alias for grouped quotes by expiry-tenor pairs
@@ -196,14 +196,15 @@ impl SwaptionVolCalibrator {
         let mut pv01 = 0.0;
         let mut prev = dates[0];
         for &d in &dates[1..] {
-            let dcf = self
-                .market_conventions
-                .day_count
-                .year_fraction(prev, d, DayCountCtx::default())?;
-            let t = self
-                .market_conventions
-                .day_count
-                .year_fraction(self.base_date, d, DayCountCtx::default())?;
+            let dcf =
+                self.market_conventions
+                    .day_count
+                    .year_fraction(prev, d, DayCountCtx::default())?;
+            let t = self.market_conventions.day_count.year_fraction(
+                self.base_date,
+                d,
+                DayCountCtx::default(),
+            )?;
             pv01 += disc.df(t) * dcf;
             prev = d;
         }
@@ -267,19 +268,25 @@ impl SwaptionVolCalibrator {
 
         // Helper: Bachelier (normal) call price with unit annuity
         fn bachelier_price(forward: F, strike: F, sigma_n: F, t: F) -> F {
-            if t <= 0.0 { return (forward - strike).max(0.0); }
+            if t <= 0.0 {
+                return (forward - strike).max(0.0);
+            }
             if sigma_n <= 0.0 {
                 return (forward - strike).max(0.0);
             }
             let st = sigma_n * t.sqrt();
-            if st <= 0.0 { return (forward - strike).max(0.0); }
+            if st <= 0.0 {
+                return (forward - strike).max(0.0);
+            }
             let d = (forward - strike) / st;
             (forward - strike) * norm_cdf(d) + st * norm_pdf(d)
         }
 
         // Helper: Black (lognormal) call price with unit annuity
         fn black_price(forward: F, strike: F, sigma: F, t: F) -> F {
-            if t <= 0.0 { return (forward - strike).max(0.0); }
+            if t <= 0.0 {
+                return (forward - strike).max(0.0);
+            }
             if sigma <= 0.0 || forward <= 0.0 || strike <= 0.0 {
                 return (forward - strike).max(0.0);
             }
@@ -297,9 +304,14 @@ impl SwaptionVolCalibrator {
         // Early returns for identical convention (including same shift)
         if std::mem::discriminant(&from_convention) == std::mem::discriminant(&to_convention) {
             // If both are shifted, check shift equality
-            if let (SwaptionVolConvention::ShiftedLognormal { shift: s1 },
-                    SwaptionVolConvention::ShiftedLognormal { shift: s2 }) = (from_convention, to_convention) {
-                if (s1 - s2).abs() < 1e-12 { return vol; }
+            if let (
+                SwaptionVolConvention::ShiftedLognormal { shift: s1 },
+                SwaptionVolConvention::ShiftedLognormal { shift: s2 },
+            ) = (from_convention, to_convention)
+            {
+                if (s1 - s2).abs() < 1e-12 {
+                    return vol;
+                }
             } else {
                 return vol;
             }
@@ -323,9 +335,15 @@ impl SwaptionVolCalibrator {
 
         // Compute price under source convention with unit annuity
         let price_from = match from_convention {
-            SwaptionVolConvention::Normal => bachelier_price(forward_rate, forward_rate, vol, time_to_expiry),
-            SwaptionVolConvention::Lognormal => black_price(forward_rate, forward_rate, vol, time_to_expiry),
-            SwaptionVolConvention::ShiftedLognormal { shift } => black_shifted_price(forward_rate, forward_rate, vol, time_to_expiry, shift),
+            SwaptionVolConvention::Normal => {
+                bachelier_price(forward_rate, forward_rate, vol, time_to_expiry)
+            }
+            SwaptionVolConvention::Lognormal => {
+                black_price(forward_rate, forward_rate, vol, time_to_expiry)
+            }
+            SwaptionVolConvention::ShiftedLognormal { shift } => {
+                black_shifted_price(forward_rate, forward_rate, vol, time_to_expiry, shift)
+            }
         };
 
         // General-strike conversion: use the actual forward_rate as strike for ATM
@@ -340,7 +358,9 @@ impl SwaptionVolCalibrator {
             let p = match to_convention {
                 SwaptionVolConvention::Normal => bachelier_price(f, f, sigma_pos, t),
                 SwaptionVolConvention::Lognormal => black_price(f, f, sigma_pos, t),
-                SwaptionVolConvention::ShiftedLognormal { shift } => black_shifted_price(f, f, sigma_pos, t, shift),
+                SwaptionVolConvention::ShiftedLognormal { shift } => {
+                    black_shifted_price(f, f, sigma_pos, t, shift)
+                }
             };
             p - price_from
         };
@@ -348,28 +368,57 @@ impl SwaptionVolCalibrator {
         // Initial guesses derived from simple ATM approximations
         let mut guess = match (from_convention, to_convention) {
             (SwaptionVolConvention::Normal, SwaptionVolConvention::Lognormal) => {
-                if f.abs() > self.market_conventions.zero_threshold { vol / f } else { vol }
+                if f.abs() > self.market_conventions.zero_threshold {
+                    vol / f
+                } else {
+                    vol
+                }
             }
             (SwaptionVolConvention::Lognormal, SwaptionVolConvention::Normal) => vol * f,
             (SwaptionVolConvention::Normal, SwaptionVolConvention::ShiftedLognormal { shift }) => {
-                if (f + shift).abs() > self.market_conventions.zero_threshold { vol / (f + shift) } else { vol }
+                if (f + shift).abs() > self.market_conventions.zero_threshold {
+                    vol / (f + shift)
+                } else {
+                    vol
+                }
             }
-            (SwaptionVolConvention::ShiftedLognormal { shift }, SwaptionVolConvention::Normal) => vol * (f + shift),
-            (SwaptionVolConvention::Lognormal, SwaptionVolConvention::ShiftedLognormal { shift }) => {
-                if (f + shift).abs() > self.market_conventions.zero_threshold { vol * f / (f + shift) } else { vol }
+            (SwaptionVolConvention::ShiftedLognormal { shift }, SwaptionVolConvention::Normal) => {
+                vol * (f + shift)
             }
-            (SwaptionVolConvention::ShiftedLognormal { shift }, SwaptionVolConvention::Lognormal) => {
-                if f.abs() > self.market_conventions.zero_threshold { vol * (f + shift) / f } else { vol }
+            (
+                SwaptionVolConvention::Lognormal,
+                SwaptionVolConvention::ShiftedLognormal { shift },
+            ) => {
+                if (f + shift).abs() > self.market_conventions.zero_threshold {
+                    vol * f / (f + shift)
+                } else {
+                    vol
+                }
+            }
+            (
+                SwaptionVolConvention::ShiftedLognormal { shift },
+                SwaptionVolConvention::Lognormal,
+            ) => {
+                if f.abs() > self.market_conventions.zero_threshold {
+                    vol * (f + shift) / f
+                } else {
+                    vol
+                }
             }
             _ => vol,
         };
-        if !guess.is_finite() || guess <= 0.0 { guess = (vol.abs() + 1e-6).max(1e-6); }
+        if !guess.is_finite() || guess <= 0.0 {
+            guess = (vol.abs() + 1e-6).max(1e-6);
+        }
 
         // Solve with a robust 1D solver
-        let solved = solve_1d(SolverKind::Hybrid, 1e-8, 100, objective, guess)
-            .unwrap_or(guess);
+        let solved = solve_1d(SolverKind::Hybrid, 1e-8, 100, objective, guess).unwrap_or(guess);
         let out = solved.abs();
-        if out.is_finite() && out > 0.0 { out } else { vol }
+        if out.is_finite() && out > 0.0 {
+            out
+        } else {
+            vol
+        }
     }
 
     /// Determine ATM strike based on convention.
@@ -676,10 +725,10 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
             true,
             "Swaption vol calibration completed",
         )
-            .with_metadata("calibrator", "SwaptionVolCalibrator")
-            .with_metadata("vol_convention", format!("{:?}", self.vol_convention))
-            .with_metadata("atm_convention", format!("{:?}", self.atm_convention))
-            .with_metadata("num_expiry_tenor_pairs", sabr_params.len().to_string());
+        .with_metadata("calibrator", "SwaptionVolCalibrator")
+        .with_metadata("vol_convention", format!("{:?}", self.vol_convention))
+        .with_metadata("atm_convention", format!("{:?}", self.atm_convention))
+        .with_metadata("num_expiry_tenor_pairs", sabr_params.len().to_string());
 
         Ok((surface, report))
     }

@@ -623,7 +623,9 @@ impl DiscountCurveCalibrator {
                 {
                     // Forward curves not yet calibrated — surface a typed error instead of placeholder value
                     return Err(finstack_core::Error::Input(
-                        finstack_core::error::InputError::NotFound { id: "forward curves".to_string() }
+                        finstack_core::error::InputError::NotFound {
+                            id: "forward curves".to_string(),
+                        },
                     ));
                 }
 

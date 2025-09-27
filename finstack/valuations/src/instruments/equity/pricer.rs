@@ -6,8 +6,8 @@
 //! All arithmetic uses the core `Money` type to respect rounding policy and
 //! currency safety requirements.
 
-use crate::instruments::equity::Equity;
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::equity::Equity;
 // (no pricer registry integration here)
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -48,11 +48,13 @@ impl EquityPricer {
                     // Convert via FX matrix provider
                     let matrix = curves.fx.as_ref().ok_or_else(|| {
                         finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                            id: "fx_matrix".to_string()})
+                            id: "fx_matrix".to_string(),
+                        })
                     })?;
 
                     struct MatrixProvider<'a> {
-                        m: &'a finstack_core::money::fx::FxMatrix}
+                        m: &'a finstack_core::money::fx::FxMatrix,
+                    }
                     impl FxProvider for MatrixProvider<'_> {
                         fn rate(
                             &self,
@@ -78,7 +80,8 @@ impl EquityPricer {
                     )
                 }
             }
-            MarketScalar::Unitless(v) => Ok(Money::new(*v, inst.currency))}
+            MarketScalar::Unitless(v) => Ok(Money::new(*v, inst.currency)),
+        }
     }
 
     /// Compute present value in the instrument's currency.
@@ -105,7 +108,8 @@ impl EquityPricer {
             .price(&key)
             .map(|scalar| match scalar {
                 MarketScalar::Unitless(v) => *v,
-                MarketScalar::Price(_) => 0.0})
+                MarketScalar::Price(_) => 0.0,
+            })
             .unwrap_or(0.0);
         Ok(dy)
     }
@@ -148,7 +152,6 @@ impl EquityPricer {
     }
 }
 
-
 // ========================= NEW SIMPLIFIED PRICER =========================
 
 /// New simplified Equity discounting pricer (replaces macro-based version)
@@ -168,7 +171,10 @@ impl Default for SimpleEquityDiscountingPricer {
 
 impl crate::pricer::Pricer for SimpleEquityDiscountingPricer {
     fn key(&self) -> crate::pricer::PricerKey {
-        crate::pricer::PricerKey::new(crate::pricer::InstrumentType::Equity, crate::pricer::ModelKey::Discounting)
+        crate::pricer::PricerKey::new(
+            crate::pricer::InstrumentType::Equity,
+            crate::pricer::ModelKey::Discounting,
+        )
     }
 
     fn price_dyn(
@@ -177,11 +183,13 @@ impl crate::pricer::Pricer for SimpleEquityDiscountingPricer {
         market: &finstack_core::market_data::MarketContext,
     ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
         // Type-safe downcasting
-        let equity = instrument.as_any()
+        let equity = instrument
+            .as_any()
             .downcast_ref::<Equity>()
             .ok_or_else(|| crate::pricer::PricingError::TypeMismatch {
                 expected: crate::pricer::InstrumentType::Equity,
-                got: instrument.key()})?;
+                got: instrument.key(),
+            })?;
 
         // Get as_of date (prefer OIS base date for the instrument currency)
         let disc_id = format!("{}-OIS", equity.currency);
@@ -192,10 +200,15 @@ impl crate::pricer::Pricer for SimpleEquityDiscountingPricer {
         };
 
         // Compute present value using the equity pricer
-        let pv = EquityPricer.pv(equity, market, as_of)
+        let pv = EquityPricer
+            .pv(equity, market, as_of)
             .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
 
         // Return stamped result
-        Ok(crate::results::ValuationResult::stamped(equity.id(), as_of, pv))
+        Ok(crate::results::ValuationResult::stamped(
+            equity.id(),
+            as_of,
+            pv,
+        ))
     }
 }

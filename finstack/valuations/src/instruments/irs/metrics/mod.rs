@@ -33,7 +33,11 @@ pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
         )
         .register_metric(
             MetricId::BucketedDv01,
-            Arc::new(crate::instruments::common::GenericBucketedDv01WithContext::<crate::instruments::InterestRateSwap>::default()),
+            Arc::new(
+                crate::instruments::common::GenericBucketedDv01WithContext::<
+                    crate::instruments::InterestRateSwap,
+                >::default(),
+            ),
             &["InterestRateSwap"],
         )
         .register_metric(

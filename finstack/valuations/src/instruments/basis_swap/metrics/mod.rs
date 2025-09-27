@@ -64,7 +64,11 @@ pub fn register_basis_swap_metrics(registry: &mut MetricRegistry) {
         )
         .register_metric(
             MetricId::BucketedDv01,
-            Arc::new(crate::instruments::common::GenericBucketedDv01WithContext::<crate::instruments::BasisSwap>::default()),
+            Arc::new(
+                crate::instruments::common::GenericBucketedDv01WithContext::<
+                    crate::instruments::BasisSwap,
+                >::default(),
+            ),
             &["BasisSwap"],
         );
 }

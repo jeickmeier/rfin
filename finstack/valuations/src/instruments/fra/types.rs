@@ -227,7 +227,9 @@ mod tests {
             .build()
             .unwrap();
 
-        let ctx = MarketContext::new().insert_discount(disc).insert_forward(fwd);
+        let ctx = MarketContext::new()
+            .insert_discount(disc)
+            .insert_forward(fwd);
 
         // FRA 3M x 6M
         let start = base + time::Duration::days(90);
@@ -248,6 +250,10 @@ mod tests {
 
         let pv = fra.value(&ctx, base).unwrap();
         // With settlement adjustment PV should be very close to zero at par
-        assert!(pv.amount().abs() < 0.01, "FRA PV not near zero: {}", pv.amount());
+        assert!(
+            pv.amount().abs() < 0.01,
+            "FRA PV not near zero: {}",
+            pv.amount()
+        );
     }
 }

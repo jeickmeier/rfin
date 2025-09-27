@@ -46,7 +46,7 @@ impl MetricCalculator for AnnuityCalculator {
             &swap.reference_leg
         };
         let schedule = swap.leg_schedule(leg);
-        
+
         // Use the instrument's own annuity method
         swap.annuity_for_leg(leg, &schedule, curves.as_ref())
     }

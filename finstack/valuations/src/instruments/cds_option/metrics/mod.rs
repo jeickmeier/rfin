@@ -51,7 +51,11 @@ pub fn register_cds_option_metrics(registry: &mut MetricRegistry) {
     );
     registry.register_metric(
         MetricId::BucketedDv01,
-        Arc::new(crate::instruments::common::GenericBucketedDv01WithContext::<crate::instruments::CdsOption>::default()),
+        Arc::new(
+            crate::instruments::common::GenericBucketedDv01WithContext::<
+                crate::instruments::CdsOption,
+            >::default(),
+        ),
         &["CdsOption"],
     );
 }

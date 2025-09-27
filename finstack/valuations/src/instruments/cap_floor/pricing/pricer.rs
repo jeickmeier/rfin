@@ -32,19 +32,23 @@ impl Pricer for SimpleCapFloorBlackPricer {
         market: &MarketContext,
     ) -> Result<ValuationResult, PricingError> {
         // Type-safe downcasting
-        let cap_floor = instrument.as_any()
+        let cap_floor = instrument
+            .as_any()
             .downcast_ref::<InterestRateOption>()
             .ok_or_else(|| PricingError::TypeMismatch {
                 expected: InstrumentType::CapFloor,
-                got: instrument.key()})?;
+                got: instrument.key(),
+            })?;
 
         // Get as_of date from discount curve
-        let disc = market.get_discount_ref(cap_floor.disc_id.clone())
+        let disc = market
+            .get_discount_ref(cap_floor.disc_id.clone())
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
         let as_of = disc.base_date();
 
         // Compute present value using the instrument's npv method
-        let pv = cap_floor.npv(market, as_of)
+        let pv = cap_floor
+            .npv(market, as_of)
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
 
         // Return stamped result

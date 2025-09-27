@@ -2,7 +2,8 @@
 pub use crate::instruments::common::GenericDiscountingPricer;
 
 /// Inflation Swap discounting pricer using the generic implementation.
-pub type SimpleInflationSwapDiscountingPricer = GenericDiscountingPricer<crate::instruments::InflationSwap>;
+pub type SimpleInflationSwapDiscountingPricer =
+    GenericDiscountingPricer<crate::instruments::InflationSwap>;
 
 impl Default for SimpleInflationSwapDiscountingPricer {
     fn default() -> Self {

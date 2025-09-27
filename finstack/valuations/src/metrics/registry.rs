@@ -219,7 +219,10 @@ impl MetricRegistry {
             crate::pricer::InstrumentType::Equity => "Equity",
             crate::pricer::InstrumentType::Repo => "Repo",
             crate::pricer::InstrumentType::FRA => "FRA",
-            crate::pricer::InstrumentType::StructuredCredit => "StructuredCredit",
+            crate::pricer::InstrumentType::CLO => "CLO",
+            crate::pricer::InstrumentType::ABS => "ABS",
+            crate::pricer::InstrumentType::RMBS => "RMBS",
+            crate::pricer::InstrumentType::CMBS => "CMBS",
             crate::pricer::InstrumentType::PrivateMarketsFund => "PrivateMarketsFund",
         };
 
@@ -302,7 +305,10 @@ impl MetricRegistry {
             crate::pricer::InstrumentType::Equity => "Equity",
             crate::pricer::InstrumentType::Repo => "Repo",
             crate::pricer::InstrumentType::FRA => "FRA",
-            crate::pricer::InstrumentType::StructuredCredit => "StructuredCredit",
+            crate::pricer::InstrumentType::CLO => "CLO",
+            crate::pricer::InstrumentType::ABS => "ABS",
+            crate::pricer::InstrumentType::RMBS => "RMBS",
+            crate::pricer::InstrumentType::CMBS => "CMBS",
             crate::pricer::InstrumentType::PrivateMarketsFund => "PrivateMarketsFund",
         };
         let applicable = self.metrics_for_instrument(instrument_type);

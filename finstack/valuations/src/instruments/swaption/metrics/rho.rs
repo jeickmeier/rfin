@@ -34,9 +34,7 @@ impl MetricCalculator for RhoCalculator {
 
         // Reprice with bumped curve using same model path as instrument pricing
         let bumped_price = if option.sabr_params.is_some() {
-            option
-                .price_sabr(&bumped_disc, context.as_of)?
-                .amount()
+            option.price_sabr(&bumped_disc, context.as_of)?.amount()
         } else {
             option
                 .price_black(&bumped_disc, vol, context.as_of)?

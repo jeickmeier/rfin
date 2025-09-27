@@ -43,7 +43,9 @@ pub fn register_ilb_metrics(registry: &mut MetricRegistry) {
         )
         .register_metric(
             MetricId::BucketedDv01,
-            Arc::new(crate::instruments::common::GenericBucketedDv01::<crate::instruments::InflationLinkedBond>::default()),
+            Arc::new(crate::instruments::common::GenericBucketedDv01::<
+                crate::instruments::InflationLinkedBond,
+            >::default()),
             &["InflationLinkedBond"],
         );
 }

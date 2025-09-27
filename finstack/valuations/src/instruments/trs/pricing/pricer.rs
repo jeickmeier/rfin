@@ -40,13 +40,13 @@ impl Pricer for SimpleTrsDiscountingPricer {
             let equity_pricer = SimpleEquityTrsDiscountingPricer::new();
             return equity_pricer.price_dyn(equity_trs, market);
         }
-        
+
         // Handle FI Index TRS
         if let Some(fi_trs) = instrument.as_any().downcast_ref::<FIIndexTotalReturnSwap>() {
             let fi_pricer = SimpleFIIndexTrsDiscountingPricer::new();
             return fi_pricer.price_dyn(fi_trs, market);
         }
-        
+
         Err(PricingError::TypeMismatch {
             expected: InstrumentType::TRS,
             got: instrument.key(),

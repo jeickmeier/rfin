@@ -11,10 +11,10 @@ mod dv01;
 mod par_rate;
 mod pv;
 
+use crate::metrics::{MetricId, MetricRegistry};
 pub use dv01::FraDv01Calculator;
 pub use par_rate::FraParRateCalculator;
 pub use pv::FraPvCalculator;
-use crate::metrics::{MetricId, MetricRegistry};
 use std::sync::Arc;
 
 /// Registers all FRA metrics to a registry.
@@ -32,7 +32,11 @@ pub fn register_fra_metrics(registry: &mut MetricRegistry) {
         .register_metric(MetricId::ParRate, Arc::new(FraParRateCalculator), &["FRA"]) // Par rate
         .register_metric(
             MetricId::BucketedDv01,
-            Arc::new(crate::instruments::common::GenericBucketedDv01WithContext::<crate::instruments::ForwardRateAgreement>::default()),
+            Arc::new(
+                crate::instruments::common::GenericBucketedDv01WithContext::<
+                    crate::instruments::ForwardRateAgreement,
+                >::default(),
+            ),
             &["FRA"],
         );
 }

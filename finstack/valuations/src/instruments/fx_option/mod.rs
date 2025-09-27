@@ -7,6 +7,6 @@ pub mod pricer;
 mod types;
 
 pub use crate::instruments::common::parameters::FxUnderlyingParams;
-pub use types::FxOption;
 pub use calculator::{FxOptionCalculator, FxOptionGreeks};
 pub use pricer::SimpleFxOptionBlackPricer;
+pub use types::FxOption;

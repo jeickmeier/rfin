@@ -87,7 +87,9 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
         .register_metric(MetricId::Cs01, Arc::new(Cs01Calculator), &["Bond"])
         .register_metric(
             MetricId::BucketedDv01,
-            Arc::new(crate::instruments::common::GenericBucketedDv01::<crate::instruments::Bond>::default()),
+            Arc::new(crate::instruments::common::GenericBucketedDv01::<
+                crate::instruments::Bond,
+            >::default()),
             &["Bond"],
         );
 }

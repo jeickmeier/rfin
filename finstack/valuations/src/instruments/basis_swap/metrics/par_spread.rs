@@ -41,7 +41,9 @@ impl MetricCalculator for ParSpreadCalculator {
 
         // PV of reference leg
         let schedule_ref = swap.leg_schedule(&swap.reference_leg);
-        let pv_ref = swap.pv_float_leg(&swap.reference_leg, &schedule_ref, curves.as_ref(), as_of)?.amount();
+        let pv_ref = swap
+            .pv_float_leg(&swap.reference_leg, &schedule_ref, curves.as_ref(), as_of)?
+            .amount();
 
         // PV of primary at zero spread - need to create a modified leg
         let primary_leg_no_spread = crate::instruments::basis_swap::BasisSwapLeg {
@@ -52,7 +54,9 @@ impl MetricCalculator for ParSpreadCalculator {
             spread: 0.0,
         };
         let schedule = swap.leg_schedule(&primary_leg_no_spread);
-        let pv_primary_no_spread = swap.pv_float_leg(&primary_leg_no_spread, &schedule, curves.as_ref(), as_of)?.amount();
+        let pv_primary_no_spread = swap
+            .pv_float_leg(&primary_leg_no_spread, &schedule, curves.as_ref(), as_of)?
+            .amount();
 
         // Solve for s (decimal). Convert to bp.
         let s_decimal = (pv_ref - pv_primary_no_spread) / (swap.notional.amount() * annuity);

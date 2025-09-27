@@ -139,7 +139,10 @@ impl SimpleCalibration {
             .collect();
 
         if self.config.verbose {
-            tracing::info!(count = rates_quotes.len(), "Found OIS quotes for discount curve calibration");
+            tracing::info!(
+                count = rates_quotes.len(),
+                "Found OIS quotes for discount curve calibration"
+            );
         }
 
         if rates_quotes.is_empty() {
@@ -167,7 +170,11 @@ impl SimpleCalibration {
         let (curve, report) = result?;
 
         if self.config.verbose {
-            tracing::info!(curve_id = curve.id().as_str(), success = report.success, "OIS calibration completed");
+            tracing::info!(
+                curve_id = curve.id().as_str(),
+                success = report.success,
+                "OIS calibration completed"
+            );
         }
 
         // Map collateral to OIS discount curve
