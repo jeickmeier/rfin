@@ -1,7 +1,7 @@
-use crate::impl_dyn_pricer;
 use crate::instruments::trs::{EquityTotalReturnSwap, FIIndexTotalReturnSwap};
-use crate::pricer::{InstrumentKey, ModelKey, PriceableExt, Pricer, PricerKey, PricingError};
+use crate::pricer::{InstrumentType, ModelKey, PriceableExt, Pricer, PricerKey, PricingError};
 use finstack_core::market_data::MarketContext as Market;
+use finstack_core::market_data::MarketContext;
 
 pub struct DiscountingPricer;
 
@@ -19,7 +19,7 @@ impl Default for DiscountingPricer {
 
 impl Pricer for DiscountingPricer {
     fn key(&self) -> PricerKey {
-        PricerKey::new(InstrumentKey::TRS, ModelKey::Discounting)
+        PricerKey::new(InstrumentType::TRS, ModelKey::Discounting)
     }
     fn price_dyn(
         &self,
@@ -52,39 +52,42 @@ impl Pricer for DiscountingPricer {
             ));
         }
         Err(PricingError::TypeMismatch {
-            expected: InstrumentKey::TRS,
+            expected: InstrumentType::TRS,
             got: instrument.key(),
         })
     }
 }
 
-// For TRS, we expose concrete pricers for each variant for registry consumption using the common macro
-impl_dyn_pricer!(
-    name: EquityTrsPricer,
-    instrument: EquityTotalReturnSwap,
-    instrument_key: TRS,
-    model: Discounting,
-    as_of = |inst: &EquityTotalReturnSwap, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<finstack_core::dates::Date> {
-        let disc = market.get_discount_ref(inst.financing.disc_id.clone())?;
-        Ok(disc.base_date())
-    },
-    pv    = |inst: &EquityTotalReturnSwap, market: &finstack_core::market_data::MarketContext, as_of: finstack_core::dates::Date| -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::common::traits::Instrument as _;
-        inst.value(market, as_of)
-    },
-);
 
-impl_dyn_pricer!(
-    name: FiIndexTrsPricer,
-    instrument: FIIndexTotalReturnSwap,
-    instrument_key: TRS,
-    model: Discounting,
-    as_of = |inst: &FIIndexTotalReturnSwap, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<finstack_core::dates::Date> {
-        let disc = market.get_discount_ref(inst.financing.disc_id.clone())?;
-        Ok(disc.base_date())
-    },
-    pv    = |inst: &FIIndexTotalReturnSwap, market: &finstack_core::market_data::MarketContext, as_of: finstack_core::dates::Date| -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::common::traits::Instrument as _;
-        inst.value(market, as_of)
-    },
-);
+// ========================= NEW SIMPLIFIED TRS PRICER =========================
+
+/// New simplified TRS discounting pricer that handles both Equity and FI Index variants
+pub struct SimpleTrsDiscountingPricer;
+
+impl SimpleTrsDiscountingPricer {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for SimpleTrsDiscountingPricer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Pricer for SimpleTrsDiscountingPricer {
+    fn key(&self) -> PricerKey {
+        PricerKey::new(InstrumentType::TRS, ModelKey::Discounting)
+    }
+
+    fn price_dyn(
+        &self,
+        instrument: &dyn PriceableExt,
+        market: &MarketContext,
+    ) -> Result<crate::results::ValuationResult, PricingError> {
+        // Handle both TRS variants using the existing DiscountingPricer logic
+        let existing_pricer = DiscountingPricer::new();
+        existing_pricer.price_dyn(instrument, market)
+    }
+}

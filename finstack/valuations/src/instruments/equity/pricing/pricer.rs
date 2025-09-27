@@ -7,6 +7,7 @@
 //! currency safety requirements.
 
 use crate::instruments::equity::Equity;
+use crate::instruments::common::traits::Instrument;
 // (no pricer registry integration here)
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -151,23 +152,55 @@ impl EquityPricer {
     }
 }
 
-// Macro-based pricer facade for registry integration
 
-crate::impl_dyn_pricer!(
-    name: DiscountingPricer,
-    instrument: Equity,
-    instrument_key: Equity,
-    model: Discounting,
-    as_of = |inst: &Equity, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<Date> {
-        // Prefer OIS base date for the instrument currency when available; otherwise epoch
-        let disc_id = format!("{}-OIS", inst.currency);
-        if let Ok(disc) = market.get_discount_ref(&disc_id) {
-            Ok(disc.base_date())
+// ========================= NEW SIMPLIFIED PRICER =========================
+
+/// New simplified Equity discounting pricer (replaces macro-based version)
+pub struct SimpleEquityDiscountingPricer;
+
+impl SimpleEquityDiscountingPricer {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for SimpleEquityDiscountingPricer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl crate::pricer::Pricer for SimpleEquityDiscountingPricer {
+    fn key(&self) -> crate::pricer::PricerKey {
+        crate::pricer::PricerKey::new(crate::pricer::InstrumentType::Equity, crate::pricer::ModelKey::Discounting)
+    }
+
+    fn price_dyn(
+        &self,
+        instrument: &dyn crate::pricer::PriceableExt,
+        market: &finstack_core::market_data::MarketContext,
+    ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
+        // Type-safe downcasting
+        let equity = instrument.as_any()
+            .downcast_ref::<Equity>()
+            .ok_or_else(|| crate::pricer::PricingError::TypeMismatch {
+                expected: crate::pricer::InstrumentType::Equity,
+                got: instrument.key(),
+            })?;
+
+        // Get as_of date (prefer OIS base date for the instrument currency)
+        let disc_id = format!("{}-OIS", equity.currency);
+        let as_of = if let Ok(disc) = market.get_discount_ref(&disc_id) {
+            disc.base_date()
         } else {
-            Ok(Date::from_calendar_date(1970, time::Month::January, 1).unwrap())
-        }
-    },
-    pv    = |inst: &Equity, market: &finstack_core::market_data::MarketContext, as_of: Date| -> finstack_core::Result<finstack_core::money::Money> {
-        EquityPricer.pv(inst, market, as_of)
-    },
-);
+            Date::from_calendar_date(1970, time::Month::January, 1).unwrap()
+        };
+
+        // Compute present value using the equity pricer
+        let pv = EquityPricer.pv(equity, market, as_of)
+            .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
+
+        // Return stamped result
+        Ok(crate::results::ValuationResult::stamped(equity.id(), as_of, pv))
+    }
+}

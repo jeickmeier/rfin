@@ -112,6 +112,7 @@ pub trait Instrument: Send + Sync {
     /// Clone this instrument as a boxed trait object
     fn clone_box(&self) -> Box<dyn Instrument>;
 
+
     // === Pricing Methods ===
 
     /// Compute only the base present value (fast, no metrics).

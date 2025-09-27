@@ -44,6 +44,7 @@ macro_rules! impl_instrument {
                 Box::new(self.clone())
             }
 
+
             // === Pricing Methods ===
 
             fn value(

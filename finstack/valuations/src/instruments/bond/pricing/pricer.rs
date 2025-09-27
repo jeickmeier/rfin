@@ -1,24 +1,12 @@
 use crate::instruments::bond::pricing::tree_pricer::TreePricer;
 use crate::instruments::bond::types::Bond;
+use crate::instruments::common::traits::Instrument;
+use crate::pricer::{InstrumentType, ModelKey, PriceableExt, Pricer, PricerKey, PricingError};
+use crate::results::ValuationResult;
+use finstack_core::market_data::MarketContext;
 
 use indexmap::IndexMap;
 
-// use macro exported from crate::pricer
-
-crate::impl_dyn_pricer!(
-    name: DiscountingPricer,
-    instrument: Bond,
-    instrument_key: Bond,
-    model: Discounting,
-    as_of = |inst: &Bond, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<finstack_core::dates::Date> {
-        let disc = market.get_discount_ref(inst.disc_id.clone())?;
-        Ok(disc.base_date())
-    },
-    pv    = |inst: &Bond, market: &finstack_core::market_data::MarketContext, as_of: finstack_core::dates::Date| -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::common::traits::Instrument as _;
-        inst.value(market, as_of)
-    },
-);
 
 pub struct OasPricer;
 
@@ -37,7 +25,7 @@ impl Default for OasPricer {
 impl crate::pricer::Pricer for OasPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(
-            crate::pricer::InstrumentKey::Bond,
+            crate::pricer::InstrumentType::Bond,
             crate::pricer::ModelKey::Tree,
         )
     }
@@ -47,36 +35,116 @@ impl crate::pricer::Pricer for OasPricer {
         instrument: &dyn crate::pricer::PriceableExt,
         market: &finstack_core::market_data::MarketContext,
     ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
-        // Use the enhanced macro to perform the same logic with a custom result step
-        crate::impl_dyn_pricer!(
-            name: __OasMacroPricer,
-            instrument: Bond,
-            instrument_key: Bond,
-            model: Tree,
-            as_of = |inst: &Bond, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<finstack_core::dates::Date> {
-                let disc = market.get_discount_ref(inst.disc_id.clone())?;
-                Ok(disc.base_date())
-            },
-            pv    = |inst: &Bond, market: &finstack_core::market_data::MarketContext, as_of: finstack_core::dates::Date| -> finstack_core::Result<finstack_core::money::Money> {
-                use crate::instruments::common::traits::Instrument as _;
-                inst.value(market, as_of)
-            },
-            result = |inst: &Bond, market: &finstack_core::market_data::MarketContext, as_of: finstack_core::dates::Date, result: crate::results::ValuationResult| -> finstack_core::Result<crate::results::ValuationResult> {
-                // OAS requires quoted clean price (%)
-                let clean_pct = inst
-                    .pricing_overrides
-                    .quoted_clean_price
-                    .ok_or(finstack_core::error::InputError::Invalid)?;
+        // Use the new simplified OAS pricer
+        let oas_pricer = SimpleBondOasPricer::new();
+        oas_pricer.price_dyn(instrument, market)
+    }
+}
 
-                let oas_bp = TreePricer::new().calculate_oas(inst, market, as_of, clean_pct)?;
+// ========================= NEW SIMPLIFIED PRICERS =========================
 
-                let mut measures: IndexMap<String, finstack_core::F> = IndexMap::new();
-                measures.insert("oas_bp".to_string(), oas_bp);
+/// New simplified Bond discounting pricer (replaces macro-based version)
+pub struct SimpleBondDiscountingPricer;
 
-                Ok(result.with_measures(measures))
-            },
-        );
+impl SimpleBondDiscountingPricer {
+    pub fn new() -> Self {
+        Self
+    }
+}
 
-        __OasMacroPricer::new().price_dyn(instrument, market)
+impl Default for SimpleBondDiscountingPricer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Pricer for SimpleBondDiscountingPricer {
+    fn key(&self) -> PricerKey {
+        PricerKey::new(InstrumentType::Bond, ModelKey::Discounting)
+    }
+
+    fn price_dyn(
+        &self,
+        instrument: &dyn PriceableExt,
+        market: &MarketContext,
+    ) -> Result<ValuationResult, PricingError> {
+        // Type-safe downcasting using the new system
+        let bond = instrument.as_any()
+            .downcast_ref::<Bond>()
+            .ok_or_else(|| PricingError::TypeMismatch {
+                expected: InstrumentType::Bond,
+                got: instrument.key(),
+            })?;
+
+        // Get as_of date from discount curve
+        let disc = market.get_discount_ref(bond.disc_id.clone())
+            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+        let as_of = disc.base_date();
+
+        // Compute present value using the instrument's value method
+        let pv = bond.value(market, as_of)
+            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+
+        // Return stamped result
+        Ok(ValuationResult::stamped(bond.id(), as_of, pv))
+    }
+}
+
+/// New simplified Bond OAS pricer (replaces macro-based version)  
+pub struct SimpleBondOasPricer;
+
+impl SimpleBondOasPricer {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for SimpleBondOasPricer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Pricer for SimpleBondOasPricer {
+    fn key(&self) -> PricerKey {
+        PricerKey::new(InstrumentType::Bond, ModelKey::Tree)
+    }
+
+    fn price_dyn(
+        &self,
+        instrument: &dyn PriceableExt,
+        market: &MarketContext,
+    ) -> Result<ValuationResult, PricingError> {
+        // Type-safe downcasting
+        let bond = instrument.as_any()
+            .downcast_ref::<Bond>()
+            .ok_or_else(|| PricingError::TypeMismatch {
+                expected: InstrumentType::Bond,
+                got: instrument.key(),
+            })?;
+
+        // Get as_of date
+        let disc = market.get_discount_ref(bond.disc_id.clone())
+            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+        let as_of = disc.base_date();
+
+        // Base present value
+        let pv = bond.value(market, as_of)
+            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+
+        // OAS calculation requires quoted clean price
+        let clean_pct = bond.pricing_overrides.quoted_clean_price
+            .ok_or_else(|| PricingError::ModelFailure("OAS requires quoted clean price".to_string()))?;
+
+        // Calculate OAS using tree pricer
+        let oas_bp = TreePricer::new().calculate_oas(bond, market, as_of, clean_pct)
+            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+
+        // Create result with OAS measure
+        let mut measures = IndexMap::new();
+        measures.insert("oas_bp".to_string(), oas_bp);
+
+        let result = ValuationResult::stamped(bond.id(), as_of, pv);
+        Ok(result.with_measures(measures))
     }
 }

@@ -84,31 +84,3 @@ pub use common::parameters::{
 
 // Backward compatibility surface removed - deprecated re-exports have been eliminated
 
-// Pricer registrations for instruments
-#[allow(dead_code)]
-pub(crate) mod registry {
-    // Register pricers here
-    crate::pricers! {
-        Bond / Discounting => crate::instruments::bond::pricing::pricer::DiscountingPricer::new,
-        Bond / Tree         => crate::instruments::bond::pricing::pricer::OasPricer::new,
-        IRS  / Discounting  => crate::instruments::irs::pricing::pricer::DiscountingPricer::new,
-        CapFloor / Black76  => crate::instruments::cap_floor::pricing::pricer::BlackPricer::new,
-        Swaption / Black76  => crate::instruments::swaption::pricing::pricer::BlackPricer::new,
-        CDS / HazardRate   => crate::instruments::cds::pricing::pricer::DiscountingPricer::new,
-        CDSIndex / HazardRate => crate::instruments::cds_index::pricing::pricer::DiscountingPricer::new,
-        CDSTranche / HazardRate => crate::instruments::cds_tranche::pricing::pricer::DiscountingPricer::new,
-        CDSOption / Black76 => crate::instruments::cds_option::pricing::pricer::BlackPricer::new,
-        BasisSwap / Discounting => crate::instruments::basis_swap::pricing::pricer::DiscountingPricer::new,
-        Basket / Discounting => crate::instruments::basket::pricing::pricer::DiscountingPricer::new,
-        Deposit / Discounting => crate::instruments::deposit::pricing::pricer::DiscountingPricer::new,
-        Equity / Discounting => crate::instruments::equity::pricing::pricer::DiscountingPricer::new,
-        EquityOption / Black76 => crate::instruments::equity_option::pricing::pricer::BlackPricer::new,
-        FxOption / Black76 => crate::instruments::fx_option::pricing::pricer::BlackPricer::new,
-        FxSpot / Discounting => crate::instruments::fx_spot::pricing::pricer::DiscountingPricer::new,
-        TRS / Discounting => crate::instruments::trs::pricing::pricer::DiscountingPricer::new,
-        Repo / Discounting => crate::instruments::repo::pricing::pricer::DiscountingPricer::new,
-        InterestRateFuture / Discounting => crate::instruments::ir_future::pricing::pricer::DiscountingPricer::new,
-        InflationLinkedBond / Discounting => crate::instruments::inflation_linked_bond::pricing::pricer::DiscountingPricer::new,
-        VarianceSwap / Discounting => crate::instruments::variance_swap::pricing::pricer::DiscountingPricer::new,
-    }
-}

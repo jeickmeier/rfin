@@ -1,18 +1,55 @@
 use crate::instruments::fx_option::pricing::engine::FxOptionPricer;
 use crate::instruments::fx_option::FxOption;
+use crate::instruments::common::traits::Instrument;
+use crate::pricer::{InstrumentType, ModelKey, PriceableExt, Pricer, PricerKey, PricingError};
+use crate::results::ValuationResult;
+use finstack_core::market_data::MarketContext;
 
-// use macro exported from crate::pricer
+// ========================= NEW SIMPLIFIED PRICER =========================
 
-crate::impl_dyn_pricer!(
-    name: BlackPricer,
-    instrument: FxOption,
-    instrument_key: FxOption,
-    model: Black76,
-    as_of = |inst: &FxOption, market: &finstack_core::market_data::MarketContext| -> finstack_core::Result<finstack_core::dates::Date> {
-        let disc = market.get_discount_ref(inst.domestic_disc_id)?;
-        Ok(disc.base_date())
-    },
-    pv    = |inst: &FxOption, market: &finstack_core::market_data::MarketContext, as_of: finstack_core::dates::Date| -> finstack_core::Result<finstack_core::money::Money> {
-        FxOptionPricer::npv(inst, market, as_of)
-    },
-);
+/// New simplified FX Option Black76 pricer (replaces macro-based version)
+pub struct SimpleFxOptionBlackPricer;
+
+impl SimpleFxOptionBlackPricer {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for SimpleFxOptionBlackPricer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Pricer for SimpleFxOptionBlackPricer {
+    fn key(&self) -> PricerKey {
+        PricerKey::new(InstrumentType::FxOption, ModelKey::Black76)
+    }
+
+    fn price_dyn(
+        &self,
+        instrument: &dyn PriceableExt,
+        market: &MarketContext,
+    ) -> std::result::Result<ValuationResult, PricingError> {
+        // Type-safe downcasting
+        let fx_option = instrument.as_any()
+            .downcast_ref::<FxOption>()
+            .ok_or_else(|| PricingError::TypeMismatch {
+                expected: InstrumentType::FxOption,
+                got: instrument.key(),
+            })?;
+
+        // Get as_of date from domestic discount curve
+        let disc = market.get_discount_ref(fx_option.domestic_disc_id)
+            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+        let as_of = disc.base_date();
+
+        // Compute present value using the engine
+        let pv = FxOptionPricer::npv(fx_option, market, as_of)
+            .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
+
+        // Return stamped result
+        Ok(ValuationResult::stamped(fx_option.id(), as_of, pv))
+    }
+}
