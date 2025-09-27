@@ -7,40 +7,6 @@ use finstack_core::market_data::MarketContext;
 
 use indexmap::IndexMap;
 
-
-pub struct OasPricer;
-
-impl OasPricer {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for OasPricer {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl crate::pricer::Pricer for OasPricer {
-    fn key(&self) -> crate::pricer::PricerKey {
-        crate::pricer::PricerKey::new(
-            crate::pricer::InstrumentType::Bond,
-            crate::pricer::ModelKey::Tree,
-        )
-    }
-
-    fn price_dyn(
-        &self,
-        instrument: &dyn Instrument,
-        market: &finstack_core::market_data::MarketContext,
-    ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
-        // Use the new simplified OAS pricer
-        let oas_pricer = SimpleBondOasPricer::new();
-        oas_pricer.price_dyn(instrument, market)
-    }
-}
-
 // ========================= NEW SIMPLIFIED PRICERS =========================
 
 // Using generic pricer implementation to eliminate boilerplate
