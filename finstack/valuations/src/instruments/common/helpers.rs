@@ -85,7 +85,7 @@ pub fn build_with_metrics_dyn(
             let effective = idx.premium.start;
             // Use documented ISDA standard coupon day
             let coupon_day =
-                crate::instruments::cds::pricing::engine::isda_constants::STANDARD_COUPON_DAY;
+                crate::instruments::cds::pricer::isda_constants::STANDARD_COUPON_DAY;
             let _ = step_in;
             let _ = effective;
             let _ = coupon_day;

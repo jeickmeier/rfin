@@ -184,15 +184,74 @@ impl CDSIndex {
         }
         self
     }
+
+    /// Calculate the net present value of this CDS Index
+    pub fn npv(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        pricer.npv(self, curves, as_of)
+    }
+
+    /// Calculate protection leg PV 
+    pub fn pv_protection_leg(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        pricer.pv_protection_leg(self, curves, as_of)
+    }
+
+    /// Calculate premium leg PV
+    pub fn pv_premium_leg(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        pricer.pv_premium_leg(self, curves, as_of)
+    }
+
+    /// Calculate par spread
+    pub fn par_spread(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        pricer.par_spread(self, curves, as_of)
+    }
+
+    /// Calculate risky PV01
+    pub fn risky_pv01(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        pricer.risky_pv01(self, curves, as_of)
+    }
+
+    /// Calculate CS01
+    pub fn cs01(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        pricer.cs01(self, curves, as_of)
+    }
 }
 
 impl_instrument!(
     CDSIndex,
     "CDSIndex",
     pv = |s, curves, as_of| {
-        // Delegate to the CDS Index pricing engine so pricing mode is honored.
-        let pricer = crate::instruments::cds_index::pricing::CDSIndexPricer::new();
-        pricer.npv(s, curves, as_of)
+        // Call the instrument's own NPV method
+        s.npv(curves, as_of)
     }
 );
 

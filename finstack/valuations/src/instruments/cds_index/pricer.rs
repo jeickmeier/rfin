@@ -9,11 +9,11 @@
 //!
 //! Public API mirrors the CDS pricer surface for parity: NPV, par spread,
 //! risky PV01, and leg PVs. Heavy numerical work is delegated to
-//! `crate::instruments::cds::pricing::engine::CDSPricer`.
+//! `crate::instruments::cds::pricer::CDSPricer`.
 
-use crate::instruments::cds::pricing::engine::{CDSPricer, CDSPricerConfig};
+use crate::instruments::cds::pricer::{CDSPricer, CDSPricerConfig};
 use crate::instruments::cds::{CreditDefaultSwap, PayReceive};
-use crate::instruments::cds_index::CDSIndex;
+use crate::instruments::cds_index::{CDSIndex, IndexPricing};
 use finstack_core::dates::Date;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
@@ -118,13 +118,13 @@ impl CDSIndexPricer {
     pub fn par_spread(&self, index: &CDSIndex, curves: &MarketContext, as_of: Date) -> Result<F> {
         let pricer = CDSPricer::with_config(self.config.cds_config.clone());
         match index.pricing {
-            super::super::types::IndexPricing::SingleCurve => {
+            IndexPricing::SingleCurve => {
                 let cds = index.to_synthetic_cds();
                 let disc = curves.get_discount_ref(cds.premium.disc_id.clone())?;
                 let surv = curves.get_hazard_ref(cds.protection.credit_id.clone())?;
                 pricer.par_spread(&cds, disc, surv, as_of)
             }
-            super::super::types::IndexPricing::Constituents => {
+            IndexPricing::Constituents => {
                 // Sum protection PV and risky annuity weighted by notionals
                 let mut prot_sum = Money::new(0.0, index.notional.currency());
                 let mut denom_sum = 0.0; // sum_i (denom_i * notional_i)
@@ -154,7 +154,7 @@ impl CDSIndexPricer {
     pub fn risky_pv01(&self, index: &CDSIndex, curves: &MarketContext, as_of: Date) -> Result<F> {
         let pricer = CDSPricer::with_config(self.config.cds_config.clone());
         match index.pricing {
-            super::super::types::IndexPricing::SingleCurve => {
+            IndexPricing::SingleCurve => {
                 let cds = index.to_synthetic_cds();
                 let disc_id = cds.premium.disc_id.clone();
                 let surv_id = cds.protection.credit_id.clone();
@@ -162,7 +162,7 @@ impl CDSIndexPricer {
                 let surv = curves.get_hazard_ref(surv_id)?;
                 pricer.risky_pv01(&cds, disc, surv, as_of)
             }
-            super::super::types::IndexPricing::Constituents => {
+            IndexPricing::Constituents => {
                 let mut sum = 0.0;
                 for cds in self.constituent_cdss(index)? {
                     let disc = curves.get_discount_ref(cds.premium.disc_id.clone())?;
@@ -178,11 +178,11 @@ impl CDSIndexPricer {
     pub fn cs01(&self, index: &CDSIndex, curves: &MarketContext, as_of: Date) -> Result<F> {
         let pricer = CDSPricer::with_config(self.config.cds_config.clone());
         match index.pricing {
-            super::super::types::IndexPricing::SingleCurve => {
+            IndexPricing::SingleCurve => {
                 let cds = index.to_synthetic_cds();
                 pricer.cs01(&cds, curves, as_of)
             }
-            super::super::types::IndexPricing::Constituents => {
+            IndexPricing::Constituents => {
                 let mut sum = 0.0;
                 for cds in self.constituent_cdss(index)? {
                     sum += pricer.cs01(&cds, curves, as_of)?;
@@ -202,7 +202,7 @@ impl CDSIndexPricer {
     ) -> Result<(Money, Money)> {
         let pricer = CDSPricer::with_config(self.config.cds_config.clone());
         match index.pricing {
-            super::super::types::IndexPricing::SingleCurve => {
+            IndexPricing::SingleCurve => {
                 let cds = index.to_synthetic_cds();
                 let disc_id = cds.premium.disc_id.clone();
                 let surv_id = cds.protection.credit_id.clone();
@@ -212,7 +212,7 @@ impl CDSIndexPricer {
                 let pv_premium = pricer.pv_premium_leg(&cds, disc, surv, as_of)?;
                 Ok((pv_protection, pv_premium))
             }
-            super::super::types::IndexPricing::Constituents => {
+            IndexPricing::Constituents => {
                 let ccy = index.notional.currency();
                 let mut prot_sum = Money::new(0.0, ccy);
                 let mut prem_sum = Money::new(0.0, ccy);
@@ -281,5 +281,66 @@ impl CDSIndexPricer {
             ));
         }
         Ok(out)
+    }
+}
+
+// ========================= REGISTRY PRICER =========================
+
+/// Registry pricer for CDS Index using the engine
+pub struct SimpleCdsIndexHazardPricer;
+
+impl SimpleCdsIndexHazardPricer {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for SimpleCdsIndexHazardPricer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl crate::pricer::Pricer for SimpleCdsIndexHazardPricer {
+    fn key(&self) -> crate::pricer::PricerKey {
+        crate::pricer::PricerKey::new(
+            crate::pricer::InstrumentType::CDSIndex,
+            crate::pricer::ModelKey::HazardRate,
+        )
+    }
+
+    fn price_dyn(
+        &self,
+        instrument: &dyn crate::instruments::common::traits::Instrument,
+        market: &finstack_core::market_data::MarketContext,
+    ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
+        use crate::instruments::common::traits::Instrument;
+
+        // Type-safe downcasting
+        let cds_index = instrument
+            .as_any()
+            .downcast_ref::<crate::instruments::cds_index::CDSIndex>()
+            .ok_or_else(|| crate::pricer::PricingError::TypeMismatch {
+                expected: crate::pricer::InstrumentType::CDSIndex,
+                got: instrument.key(),
+            })?;
+
+        // Get as_of date from discount curve
+        let disc = market
+            .get_discount_ref(cds_index.premium.disc_id.clone())
+            .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
+        let as_of = disc.base_date();
+
+        // Compute present value using the engine
+        let pv = CDSIndexPricer::new()
+            .npv(cds_index, market, as_of)
+            .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
+
+        // Return stamped result
+        Ok(crate::results::ValuationResult::stamped(
+            cds_index.id(),
+            as_of,
+            pv,
+        ))
     }
 }

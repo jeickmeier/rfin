@@ -8,7 +8,7 @@
 //! forward spread, risky annuity, and discount factor into the option
 //! PV via the modified Black formula implemented on the instrument.
 
-use crate::instruments::cds::pricing::engine::CDSPricer;
+use crate::instruments::cds::pricer::CDSPricer;
 use crate::instruments::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
 use crate::instruments::cds_option::CdsOption;
 use crate::instruments::common::models::{d1, d2, norm_cdf, norm_pdf};

@@ -216,11 +216,11 @@ pub fn create_standard_registry() -> PricerRegistry {
     // Register simplified Credit pricers
     registry.register_pricer(
         PricerKey::new(InstrumentType::CDS, ModelKey::HazardRate),
-        Box::new(crate::instruments::cds::pricing::pricer::SimpleCdsDiscountingPricer::cds())
+        Box::new(crate::instruments::common::GenericInstrumentPricer::cds())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::CDSIndex, ModelKey::HazardRate),
-        Box::new(crate::instruments::cds_index::pricing::pricer::SimpleCdsIndexHazardPricer::new())
+        Box::new(crate::instruments::cds_index::pricer::SimpleCdsIndexHazardPricer::new())
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::CDSOption, ModelKey::Black76),

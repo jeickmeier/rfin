@@ -396,14 +396,26 @@ impl CreditDefaultSwap {
                 .base_date(),
         )
     }
+
+    /// Calculate the net present value of this CDS
+    pub fn npv(
+        &self,
+        curves: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<Money> {
+        let disc = curves.get_discount_ref(self.premium.disc_id.clone())?;
+        let surv = curves.get_hazard_ref(self.protection.credit_id.clone())?;
+        let pricer = cds_pricer::CDSPricer::new();
+        pricer.npv_with_upfront(self, disc, surv, as_of)
+    }
 }
 
 impl_instrument!(
     CreditDefaultSwap,
     "CreditDefaultSwap",
-    pv = |s, curves, _as_of| {
-        // Delegate fully to pricing engine
-        crate::instruments::cds::pricing::engine::CDSPricer::new().npv_market(s, curves, _as_of)
+    pv = |s, curves, as_of| {
+        // Call the instrument's own NPV method
+        s.npv(curves, as_of)
     }
 );
 
