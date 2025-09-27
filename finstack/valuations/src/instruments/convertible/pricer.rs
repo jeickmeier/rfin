@@ -512,6 +512,66 @@ pub fn calculate_conversion_premium(bond_price: F, current_spot: F, conversion_r
     }
 }
 
+// ========================= REGISTRY PRICER =========================
+
+/// Registry pricer for Convertible Bond using tree-based pricing
+pub struct SimpleConvertibleDiscountingPricer;
+
+impl SimpleConvertibleDiscountingPricer {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for SimpleConvertibleDiscountingPricer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl crate::pricer::Pricer for SimpleConvertibleDiscountingPricer {
+    fn key(&self) -> crate::pricer::PricerKey {
+        crate::pricer::PricerKey::new(
+            crate::pricer::InstrumentType::Convertible,
+            crate::pricer::ModelKey::Discounting,
+        )
+    }
+
+    fn price_dyn(
+        &self,
+        instrument: &dyn crate::instruments::common::traits::Instrument,
+        market: &finstack_core::market_data::MarketContext,
+    ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
+        use crate::instruments::common::traits::Instrument;
+
+        // Type-safe downcasting
+        let convertible = instrument
+            .as_any()
+            .downcast_ref::<crate::instruments::convertible::ConvertibleBond>()
+            .ok_or_else(|| crate::pricer::PricingError::TypeMismatch {
+                expected: crate::pricer::InstrumentType::Convertible,
+                got: instrument.key(),
+            })?;
+
+        // Get as_of date from discount curve
+        let disc = market
+            .get_discount_ref(convertible.disc_id)
+            .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
+        let as_of = disc.base_date();
+
+        // Compute present value using the engine with binomial tree
+        let pv = price_convertible_bond(convertible, market, ConvertibleTreeType::Binomial(100))
+            .map_err(|e| crate::pricer::PricingError::ModelFailure(e.to_string()))?;
+
+        // Return stamped result
+        Ok(crate::results::ValuationResult::stamped(
+            convertible.id(),
+            as_of,
+            pv,
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

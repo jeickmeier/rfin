@@ -294,7 +294,7 @@ pub fn create_standard_registry() -> PricerRegistry {
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::Convertible, ModelKey::Discounting),
-        Box::new(crate::instruments::convertible::pricing::pricer::SimpleConvertibleDiscountingPricer::new())
+        Box::new(crate::instruments::convertible::pricer::SimpleConvertibleDiscountingPricer::new())
     );
     
     // Register simplified TRS pricer (handles both Equity and FI Index variants)

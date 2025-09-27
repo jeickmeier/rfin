@@ -12,7 +12,7 @@ use crate::cashflow::builder::types::{FixedCouponSpec, FloatingCouponSpec};
 use crate::instruments::bond::CallPutSchedule;
 use crate::instruments::common::traits::Attributes;
 
-use super::pricing;
+use super::pricer;
 
 /// Convertible bond instrument with embedded equity conversion option.
 ///
@@ -105,12 +105,127 @@ pub struct ConversionSpec {
     pub dividend_adjustment: DividendAdjustment,
 }
 
+impl ConvertibleBond {
+    /// Calculate the net present value of this convertible bond
+    pub fn npv(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        _as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        pricer::price_convertible_bond(self, curves, pricer::ConvertibleTreeType::default())
+    }
+
+    /// Calculate parity ratio of this convertible bond
+    pub fn parity(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let underlying_id = self.underlying_equity_id.as_ref()
+            .ok_or(finstack_core::Error::Internal)?;
+
+        let spot_price = curves.price(underlying_id)?;
+        let spot = match spot_price {
+            finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
+            finstack_core::market_data::scalars::MarketScalar::Unitless(value) => *value,
+        };
+
+        Ok(pricer::calculate_parity(self, spot))
+    }
+
+    /// Calculate conversion premium of this convertible bond  
+    pub fn conversion_premium(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        bond_price: finstack_core::F,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let underlying_id = self.underlying_equity_id.as_ref()
+            .ok_or(finstack_core::Error::Internal)?;
+
+        let spot_price = curves.price(underlying_id)?;
+        let spot = match spot_price {
+            finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
+            finstack_core::market_data::scalars::MarketScalar::Unitless(value) => *value,
+        };
+
+        // Get conversion ratio
+        let conversion_ratio = if let Some(ratio) = self.conversion.ratio {
+            ratio
+        } else if let Some(price) = self.conversion.price {
+            self.notional.amount() / price
+        } else {
+            return Err(finstack_core::Error::Internal);
+        };
+
+        Ok(pricer::calculate_conversion_premium(bond_price, spot, conversion_ratio))
+    }
+
+    /// Calculate Greeks for this convertible bond
+    pub fn greeks(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        tree_type: Option<pricer::ConvertibleTreeType>,
+        bump_size: Option<finstack_core::F>,
+    ) -> finstack_core::Result<crate::instruments::common::models::TreeGreeks> {
+        pricer::calculate_convertible_greeks(
+            self,
+            curves,
+            tree_type.unwrap_or_default(),
+            bump_size,
+        )
+    }
+
+    /// Calculate delta of this convertible bond
+    pub fn delta(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let greeks = self.greeks(curves, None, None)?;
+        Ok(greeks.delta)
+    }
+
+    /// Calculate gamma of this convertible bond
+    pub fn gamma(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let greeks = self.greeks(curves, None, None)?;
+        Ok(greeks.gamma)
+    }
+
+    /// Calculate vega of this convertible bond
+    pub fn vega(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let greeks = self.greeks(curves, None, None)?;
+        Ok(greeks.vega)
+    }
+
+    /// Calculate rho of this convertible bond
+    pub fn rho(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let greeks = self.greeks(curves, None, None)?;
+        Ok(greeks.rho)
+    }
+
+    /// Calculate theta of this convertible bond
+    pub fn theta(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let greeks = self.greeks(curves, None, None)?;
+        Ok(greeks.theta)
+    }
+}
+
 impl_instrument!(
     ConvertibleBond,
     "ConvertibleBond",
-    pv = |s, curves, _as_of| {
-        // Use the new tree-based pricing model
-        pricing::price_convertible_bond(s, curves, pricing::ConvertibleTreeType::default())
+    pv = |s, curves, as_of| {
+        // Call the instrument's own NPV method
+        s.npv(curves, as_of)
     }
 );
 
