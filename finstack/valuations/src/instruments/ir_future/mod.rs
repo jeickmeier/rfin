@@ -5,7 +5,7 @@
 //! forward curves with proper convexity adjustments.
 
 pub mod metrics;
-pub mod pricing;
+pub mod pricer;
 mod types;
 
 pub use types::{FutureContractSpecs, InterestRateFuture, Position};

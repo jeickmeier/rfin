@@ -1,8 +1,8 @@
 //! Repurchase Agreement (Repo) instruments.
 //!
-//! Follows the standard instrument layout used across valuations:
-//! - `types`: instrument data structures and trait impls
-//! - `pricing`: pricing facade and engine implementation
+//! Simplified instrument layout after refactoring:
+//! - `types`: instrument data structures with integrated pricing logic
+//! - `pricer`: registry integration using generic pricer
 //! - `metrics`: metric calculators and registry hook
 //!
 //! This module provides functionality for pricing and risk management of
@@ -10,7 +10,7 @@
 //! and term structure modeling.
 
 pub mod metrics;
-pub mod pricing;
+pub mod pricer;
 mod types;
 
 // Re-export main types

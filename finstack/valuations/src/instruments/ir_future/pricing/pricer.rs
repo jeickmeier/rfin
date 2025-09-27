@@ -1,4 +1,3 @@
-use crate::instruments::ir_future::pricing::engine::IrFutureEngine;
 use crate::instruments::ir_future::InterestRateFuture;
 use crate::instruments::common::traits::Instrument;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
@@ -44,8 +43,8 @@ impl Pricer for SimpleIrFutureDiscountingPricer {
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
         let as_of = disc.base_date();
 
-        // Compute present value using the engine
-        let pv = IrFutureEngine::pv(ir_future, market)
+        // Compute present value using the instrument's method
+        let pv = ir_future.value(market, as_of)
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
 
         // Return stamped result

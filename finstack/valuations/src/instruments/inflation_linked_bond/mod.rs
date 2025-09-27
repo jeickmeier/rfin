@@ -5,7 +5,7 @@
 
 pub mod metrics;
 pub mod parameters;
-pub mod pricing;
+pub mod pricer;
 mod types;
 
 pub use types::{DeflationProtection, IndexationMethod, InflationLinkedBond};

@@ -276,6 +276,39 @@ impl Repo {
         Ok(collateral_value.amount() >= required_value.amount())
     }
 
+    /// Compute present value of the repo using curves in the market context.
+    ///
+    /// NPV = PV(total_repayment) - initial_cash_outflow
+    /// where total_repayment = principal + interest, and discounting is
+    /// performed off the configured discount curve.
+    pub fn pv(&self, context: &MarketContext, _as_of: Date) -> Result<Money> {
+        let disc_curve = context.get_discount_ref(self.disc_id)?;
+
+        // Total repayment at maturity (principal + interest)
+        let total_repayment = self.total_repayment()?;
+
+        // Discount factors computed on the curve's own base-date time basis
+        let base = disc_curve.base_date();
+        let disc_dyn: &dyn finstack_core::market_data::traits::Discounting = disc_curve;
+        let df_maturity = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
+            disc_dyn, 
+            base, 
+            self.maturity, 
+            self.day_count
+        );
+        let df_start = finstack_core::market_data::term_structures::discount_curve::DiscountCurve::df_on(
+            disc_dyn, 
+            base, 
+            self.start_date, 
+            self.day_count
+        );
+
+        // Present value of inflow at maturity minus PV of initial cash outflow at start
+        let pv_in = total_repayment * df_maturity;
+        let pv_out = self.cash_amount * df_start;
+        pv_in.checked_sub(pv_out)
+    }
+
     /// Calculate repo interest amount.
     pub fn interest_amount(&self) -> Result<Money> {
         let year_fraction = self.day_count.year_fraction(
@@ -320,8 +353,8 @@ impl Instrument for Repo {
     // === Pricing Methods ===
 
     fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
-        // Delegate to pricing engine to keep pricing logic centralized
-        crate::instruments::repo::pricing::RepoPricer::new().pv(self, context, as_of)
+        // Use the instrument's own pricing method
+        self.pv(context, as_of)
     }
 
     fn price_with_metrics(

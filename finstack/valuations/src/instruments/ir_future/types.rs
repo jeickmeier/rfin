@@ -92,7 +92,85 @@ impl InterestRateFuture {
         (100.0 - self.quoted_price) / 100.0
     }
 
-    // Pricing moved to `pricing::engine::IrFutureEngine`.
+    /// Calculates the present value of the interest rate future.
+    ///
+    /// PV = (R_implied - R_model_adj) × FaceValue × tau(period_start, period_end) × contracts × position_sign
+    ///
+    /// Uses discount/forward curves from the MarketContext and applies convexity adjustments.
+    pub fn npv(&self, context: &MarketContext) -> finstack_core::Result<Money> {
+        use finstack_core::dates::DayCountCtx;
+        
+        let disc = context.get_discount_ref(self.disc_id.clone())?;
+        let fwd = context.get_forward_ref(self.forward_id.clone())?;
+
+        // Base date for mapping to curve time
+        let base_date = disc.base_date();
+
+        // Time to fixing and rate period on the instrument basis
+        let t_fixing = self
+            .day_count
+            .year_fraction(base_date, self.fixing_date, DayCountCtx::default())?
+            .max(0.0);
+        let t_start = self
+            .day_count
+            .year_fraction(base_date, self.period_start, DayCountCtx::default())?
+            .max(0.0);
+        let t_end = self
+            .day_count
+            .year_fraction(base_date, self.period_end, DayCountCtx::default())?
+            .max(t_start);
+
+        // Forward rate over the period
+        let forward_rate = fwd.rate_period(t_start, t_end);
+
+        // Apply convexity adjustment policy
+        let adjusted_rate = if let Some(ca) = self.contract_specs.convexity_adjustment {
+            forward_rate + ca
+        } else {
+            // Estimate convexity using a Hull-White style approximation
+            let vol_estimate = if t_fixing <= 0.25 {
+                0.008
+            } else if t_fixing <= 0.5 {
+                0.0085
+            } else if t_fixing <= 1.0 {
+                0.009
+            } else if t_fixing <= 2.0 {
+                0.0095
+            } else {
+                0.01
+            };
+            let tau_len = t_end - t_start;
+            let convexity = 0.5 * vol_estimate * vol_estimate * t_fixing * (t_fixing + tau_len);
+            forward_rate + convexity
+        };
+
+        // Implied rate from price and accrual over the underlying period
+        let implied_rate = self.implied_rate();
+        let tau = self
+            .day_count
+            .year_fraction(self.period_start, self.period_end, DayCountCtx::default())?
+            .max(0.0);
+        if tau == 0.0 {
+            return Ok(Money::new(0.0, self.notional.currency()));
+        }
+
+        // Position sign: Long benefits when implied > model (rates down → price up)
+        let sign = match self.position {
+            Position::Long => 1.0,
+            Position::Short => -1.0,
+        };
+
+        // Scale by contracts: notional may represent multiples of face value
+        let contracts_scale = if self.contract_specs.face_value != 0.0 {
+            self.notional.amount() / self.contract_specs.face_value
+        } else {
+            1.0
+        };
+
+        let pv_per_contract = (implied_rate - adjusted_rate) * self.contract_specs.face_value * tau;
+        let pv_total = sign * contracts_scale * pv_per_contract;
+        Ok(Money::new(pv_total, self.notional.currency()))
+    }
 
     /// Derive contract tick value for the instrument accrual.
     ///
@@ -115,7 +193,7 @@ impl_instrument!(
     "InterestRateFuture",
     pv = |s, curves, as_of| {
         let _ = as_of; // PV does not depend on `as_of`; uses curve base dates
-        crate::instruments::ir_future::pricing::engine::IrFutureEngine::pv(s, curves)
+        s.npv(curves)
     }
 );
 
@@ -131,8 +209,7 @@ impl CashflowProvider for InterestRateFuture {
             return Ok(vec![]); // Already expired
         }
 
-        let settlement_pv =
-            crate::instruments::ir_future::pricing::engine::IrFutureEngine::pv(self, curves)?;
+        let settlement_pv = self.npv(curves)?;
 
         Ok(vec![(self.expiry_date, settlement_pv)])
     }

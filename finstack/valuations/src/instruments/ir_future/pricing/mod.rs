@@ -1,12 +1,6 @@
-//! IR Future pricing facade and engine re-export.
+//! IR Future pricing facade.
 //!
 //! Exposes the pricing entrypoints for `InterestRateFuture`. Core pricing
-//! logic lives in `engine`. Instruments and metrics should depend on this
-//! module rather than private files to keep the public API stable.
-
-pub mod engine;
-
+//! logic now lives directly in the instrument struct.
 
 pub mod pricer;
-
-pub use engine::IrFutureEngine;

@@ -1,5 +1,4 @@
-use crate::instruments::inflation_linked_bond::pricing::engine::InflationLinkedBondEngine;
-use crate::instruments::inflation_linked_bond::InflationLinkedBond;
+use crate::instruments::ir_future::InterestRateFuture;
 use crate::instruments::common::traits::Instrument;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
 use crate::results::ValuationResult;
@@ -7,24 +6,24 @@ use finstack_core::market_data::MarketContext;
 
 // ========================= NEW SIMPLIFIED PRICER =========================
 
-/// New simplified Inflation Linked Bond discounting pricer (replaces macro-based version)
-pub struct SimpleInflationLinkedBondDiscountingPricer;
+/// New simplified Interest Rate Future discounting pricer (replaces macro-based version)
+pub struct SimpleIrFutureDiscountingPricer;
 
-impl SimpleInflationLinkedBondDiscountingPricer {
+impl SimpleIrFutureDiscountingPricer {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl Default for SimpleInflationLinkedBondDiscountingPricer {
+impl Default for SimpleIrFutureDiscountingPricer {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Pricer for SimpleInflationLinkedBondDiscountingPricer {
+impl Pricer for SimpleIrFutureDiscountingPricer {
     fn key(&self) -> PricerKey {
-        PricerKey::new(InstrumentType::InflationLinkedBond, ModelKey::Discounting)
+        PricerKey::new(InstrumentType::InterestRateFuture, ModelKey::Discounting)
     }
 
     fn price_dyn(
@@ -33,22 +32,22 @@ impl Pricer for SimpleInflationLinkedBondDiscountingPricer {
         market: &MarketContext,
     ) -> std::result::Result<ValuationResult, PricingError> {
         // Type-safe downcasting
-        let inflation_bond = instrument.as_any()
-            .downcast_ref::<InflationLinkedBond>()
+        let ir_future = instrument.as_any()
+            .downcast_ref::<InterestRateFuture>()
             .ok_or_else(|| PricingError::TypeMismatch {
-                expected: InstrumentType::InflationLinkedBond,
+                expected: InstrumentType::InterestRateFuture,
                 got: instrument.key()})?;
 
         // Get as_of date from discount curve
-        let disc = market.get_discount_ref(inflation_bond.disc_id.clone())
+        let disc = market.get_discount_ref(ir_future.disc_id.clone())
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
         let as_of = disc.base_date();
 
-        // Compute present value using the engine
-        let pv = InflationLinkedBondEngine::pv(inflation_bond, market, as_of)
+        // Compute present value using the instrument's method
+        let pv = ir_future.value(market, as_of)
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
 
         // Return stamped result
-        Ok(ValuationResult::stamped(inflation_bond.id(), as_of, pv))
+        Ok(ValuationResult::stamped(ir_future.id(), as_of, pv))
     }
 }

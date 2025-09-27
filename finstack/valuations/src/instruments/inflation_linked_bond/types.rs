@@ -1,15 +1,16 @@
 //! Inflation-Linked Bond (ILB) types and implementation.
 
-use crate::cashflow::traits::DatedFlows;
+use crate::cashflow::traits::{CashflowProvider, DatedFlows};
+use crate::instruments::common::discountable::Discountable;
 use crate::instruments::common::traits::Attributes;
-use finstack_core::market_data::scalars::inflation_index::{InflationIndex, InflationLag};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountCtx, Frequency, StubKind};
+use finstack_core::market_data::scalars::inflation_index::{InflationIndex, InflationInterpolation, InflationLag};
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::types::InstrumentId;
-use finstack_core::F;
-
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
+use finstack_core::{Result, F};
+use time::Duration;
 
 use super::parameters::InflationLinkedBondParams;
 
@@ -166,25 +167,99 @@ impl InflationLinkedBond {
         &self,
         date: Date,
         inflation_index: &InflationIndex,
-    ) -> finstack_core::Result<F> {
-        crate::instruments::inflation_linked_bond::pricing::InflationLinkedBondEngine::index_ratio(
-            self,
-            date,
-            inflation_index,
-        )
+    ) -> Result<F> {
+        // Validate interpolation policy vs indexation method for common standards
+        match self.indexation_method {
+            IndexationMethod::TIPS | IndexationMethod::Canadian => {
+                if inflation_index.interpolation() != InflationInterpolation::Linear {
+                    return Err(finstack_core::error::InputError::Invalid.into());
+                }
+            }
+            IndexationMethod::UK => {
+                if inflation_index.interpolation() != InflationInterpolation::Step {
+                    return Err(finstack_core::error::InputError::Invalid.into());
+                }
+            }
+            _ => {}
+        }
+
+        // Apply lag to obtain the reference date in index space
+        let reference_date = match self.lag {
+            InflationLag::Months(m) => finstack_core::dates::add_months(date, -(m as i32)),
+            InflationLag::Days(d) => date - Duration::days(d as i64),
+            InflationLag::None => date,
+            _ => date,
+        };
+
+        // Value on reference date (interpolation policy controlled by index)
+        let current_index = inflation_index.value_on(reference_date)?;
+
+        // Ratio vs base
+        if self.base_index <= 0.0 {
+            return Err(finstack_core::error::InputError::NonPositiveValue.into());
+        }
+        let ratio = current_index / self.base_index;
+
+        // Apply deflation protection per instrument policy
+        Ok(match self.deflation_protection {
+            DeflationProtection::None => ratio,
+            DeflationProtection::MaturityOnly => {
+                if date == self.maturity {
+                    ratio.max(1.0)
+                } else {
+                    ratio
+                }
+            }
+            DeflationProtection::AllPayments => ratio.max(1.0),
+        })
     }
 
     /// Build inflation-adjusted cashflow schedule
     pub fn build_schedule(
         &self,
         curves: &MarketContext,
-        as_of: Date,
-    ) -> finstack_core::Result<DatedFlows> {
-        crate::instruments::inflation_linked_bond::pricing::InflationLinkedBondEngine::build_schedule(
-            self,
-            curves,
-            as_of,
-        )
+        _as_of: Date,
+    ) -> Result<DatedFlows> {
+        let inflation_index = curves
+            .inflation_index(self.inflation_id.as_str())
+            .ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                    id: "inflation_linked_bond_quote".to_string(),
+                })
+            })?;
+
+        // Base coupon dates via shared builder
+        let sched = crate::cashflow::builder::build_dates(
+            self.issue,
+            self.maturity,
+            self.freq,
+            self.stub,
+            self.bdc,
+            self.calendar_id,
+        );
+        let dates = sched.dates;
+        if dates.len() < 2 {
+            return Ok(vec![]);
+        }
+
+        let mut flows = Vec::with_capacity(dates.len());
+        let mut prev = dates[0];
+        for &d in &dates[1..] {
+            let year_frac = self
+                .dc
+                .year_fraction(prev, d, DayCountCtx::default())?
+                .max(0.0);
+            let base_amount = self.notional * self.real_coupon * year_frac;
+            let ratio = self.index_ratio(d, &inflation_index)?;
+            flows.push((d, base_amount * ratio));
+            prev = d;
+        }
+
+        // Principal repayment at maturity (inflation adjusted)
+        let principal_ratio = self.index_ratio(self.maturity, &inflation_index)?;
+        flows.push((self.maturity, self.notional * principal_ratio));
+
+        Ok(flows)
     }
 
     /// Calculate real yield (yield in real terms, before inflation)
@@ -193,13 +268,40 @@ impl InflationLinkedBond {
         clean_price: F,
         curves: &MarketContext,
         as_of: Date,
-    ) -> finstack_core::Result<F> {
-        crate::instruments::inflation_linked_bond::pricing::InflationLinkedBondEngine::real_yield(
-            self,
-            clean_price,
-            curves,
-            as_of,
-        )
+    ) -> Result<F> {
+        use crate::instruments::bond::pricing::helpers::YieldCompounding;
+        use crate::instruments::bond::pricing::ytm_solver::{solve_ytm, YtmPricingSpec};
+
+        if !clean_price.is_finite() || clean_price <= 0.0 {
+            return Err(finstack_core::error::InputError::Invalid.into());
+        }
+
+        // Build real cashflows (already inflation-adjusted amounts at payment dates)
+        // Note: Here we approximate by using the instrument schedule with ILB cash amounts;
+        // accrued real interest is small relative to coupon accuracy. A future enhancement can
+        // compute real accrued to convert clean→dirty precisely.
+        let flows = self.build_schedule(curves, as_of)?;
+        if flows.is_empty() {
+            return Err(finstack_core::error::InputError::TooFewPoints.into());
+        }
+
+        // Convert clean price (per 100) to Money in instrument currency
+        let target_price = Money::new(
+            clean_price / 100.0 * self.notional.amount(),
+            self.notional.currency(),
+        );
+
+        let spec = YtmPricingSpec {
+            day_count: self.dc,
+            notional: self.notional,
+            coupon_rate: self.real_coupon,
+            compounding: YieldCompounding::Street,
+            frequency: self.freq,
+        };
+        // Solve yield that matches the target price to PV of flows on (as_of)
+        let y = solve_ytm(&flows, as_of, target_price, spec)?;
+        // Clamp extreme values to avoid explosive outputs
+        Ok(y.clamp(-0.99, 2.0))
     }
 
     /// Calculate breakeven inflation rate
@@ -217,10 +319,48 @@ impl InflationLinkedBond {
     }
 
     /// Calculate inflation-adjusted duration
-    pub fn real_duration(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<F> {
-        crate::instruments::inflation_linked_bond::pricing::InflationLinkedBondEngine::real_duration(
-            self, curves, as_of,
-        )
+    pub fn real_duration(&self, curves: &MarketContext, as_of: Date) -> Result<F> {
+        // Determine a base clean price to center the bump around
+        let base_clean = self.quoted_clean.unwrap_or(100.0);
+        // Compute base yield
+        let y0 = self.real_yield(base_clean, curves, as_of)?;
+        // Bump yield by 1bp in decimal terms
+        let bp = 1e-4;
+        // Price function from yield using helper
+        use crate::instruments::bond::pricing::helpers::{
+            price_from_ytm_compounded_params, YieldCompounding,
+        };
+        let flows = self.build_schedule(curves, as_of)?;
+        // Convert price from ytm helpers returns currency units; convert back to clean per-100 notionally
+        let price_from_yield = |y: f64| -> F {
+            price_from_ytm_compounded_params(
+                self.dc,
+                self.freq,
+                &flows,
+                as_of,
+                y,
+                YieldCompounding::Street,
+            )
+            .unwrap_or(0.0)
+                / self.notional.amount()
+                * 100.0
+        };
+        let p_up = price_from_yield(y0 + bp);
+        let p_dn = price_from_yield(y0 - bp);
+        let dp_dy = (p_up - p_dn) / (2.0 * bp);
+        // Modified duration in years per 1 delta in yield: D = - (1/P) * dP/dy
+        let p0 = base_clean.max(1e-6);
+        Ok(-(dp_dy / p0))
+    }
+
+    /// Present value using standard cashflow discounting
+    pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
+        let flows = self.build_schedule(curves, as_of)?;
+        let disc = curves.get_discount_ref(self.disc_id.clone())?;
+        let base_date = disc.base_date();
+        // Use curve basis for time mapping
+        let dc = disc.day_count();
+        flows.npv(disc, base_date, dc)
     }
 }
 
@@ -286,4 +426,9 @@ impl crate::instruments::common::HasDiscountCurve for InflationLinkedBond {
     }
 }
 
-// CashflowProvider trait impl is defined in pricing engine to centralize pricing logic
+impl CashflowProvider for InflationLinkedBond {
+    fn build_schedule(&self, curves: &MarketContext, as_of: Date) -> Result<DatedFlows> {
+        self.build_schedule(curves, as_of)
+    }
+}
+
