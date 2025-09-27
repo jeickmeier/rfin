@@ -28,8 +28,7 @@ impl MetricCalculator for RhoCalculator {
         let bumped_ctx = context.curves.bump(bumps)?;
 
         // Reprice with bumped discount curve (vol held constant)
-        let pricer = crate::instruments::cap_floor::pricing::engine::IrOptionPricer::new();
-        let bumped = pricer.price(option, &bumped_ctx, context.as_of)?;
+        let bumped = option.npv(&bumped_ctx, context.as_of)?;
 
         let dv01 = bumped.amount() - base; // per 1bp
         Ok(dv01 * 100.0) // per 1%

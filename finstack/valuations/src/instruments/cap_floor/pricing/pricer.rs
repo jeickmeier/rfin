@@ -1,4 +1,3 @@
-use crate::instruments::cap_floor::pricing::engine::IrOptionPricer;
 use crate::instruments::cap_floor::InterestRateOption;
 use crate::instruments::common::traits::Instrument;
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
@@ -44,8 +43,8 @@ impl Pricer for SimpleCapFloorBlackPricer {
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
         let as_of = disc.base_date();
 
-        // Compute present value using the engine
-        let pv = IrOptionPricer::new().price(cap_floor, market, as_of)
+        // Compute present value using the instrument's npv method
+        let pv = cap_floor.npv(market, as_of)
             .map_err(|e| PricingError::ModelFailure(e.to_string()))?;
 
         // Return stamped result

@@ -185,6 +185,7 @@ However, this generic approach has limitations:
 - Complex algorithms
 - Helper methods for calculations
 - State-dependent operations
+- Only if complicated or multiple models. For simple cases just put into pricer.rs.
 
 **pricer.rs** - Integration (often not needed):
 - Registry integration

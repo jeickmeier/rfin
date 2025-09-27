@@ -21,8 +21,7 @@ impl MetricCalculator for ForwardPv01Calculator {
         let bumped_ctx = context.curves.bump(bumps)?;
 
         // Reprice with bumped forward curve
-        let pricer = crate::instruments::cap_floor::pricing::engine::IrOptionPricer::new();
-        let bumped = pricer.price(option, &bumped_ctx, context.as_of)?;
+        let bumped = option.npv(&bumped_ctx, context.as_of)?;
 
         Ok(bumped.amount() - base)
     }

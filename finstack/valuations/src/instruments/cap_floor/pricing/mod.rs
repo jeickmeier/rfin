@@ -1,11 +1,8 @@
-//! Interest rate option pricing facade and engine re-export.
+//! Interest rate option pricing components.
 //!
 //! Exposes the pricing entrypoints for `InterestRateOption`. Core pricing
-//! logic lives in `engine`. Instruments and metrics should depend on this
-//! module rather than private files to keep the public API stable.
+//! logic is now in the instrument struct itself. This module provides
+//! Black model helpers and registry integration.
 
 pub mod black;
-pub mod engine;
 pub mod pricer;
-
-pub use engine::IrOptionPricer;

@@ -38,8 +38,7 @@ impl MetricCalculator for ThetaCalculator {
         };
 
         // Reprice at t+1bd with same market context
-        let pricer = crate::instruments::cap_floor::pricing::engine::IrOptionPricer::new();
-        let bumped = pricer.price(option, &context.curves, as_of_plus_1bd)?;
+        let bumped = option.npv(&context.curves, as_of_plus_1bd)?;
 
         Ok(bumped.amount() - base_pv)
     }

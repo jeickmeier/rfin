@@ -156,11 +156,152 @@ impl_instrument!(
     InterestRateOption,
     "InterestRateOption",
     pv = |s, curves, as_of| {
-        // Delegate PV to pricing engine for structure parity with other instruments
-        let pricer = crate::instruments::cap_floor::pricing::engine::IrOptionPricer::new();
-        pricer.price(s, curves, as_of)
+        // Call the instrument's own NPV method
+        s.npv(curves, as_of)
     }
 );
+
+impl InterestRateOption {
+    /// Calculate the net present value of this interest rate option
+    pub fn npv(
+        &self,
+        curves: &finstack_core::market_data::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        use crate::cashflow::builder::schedule_utils::build_dates;
+        use crate::instruments::cap_floor::pricing::black as black_ir;
+
+        // Get market curves
+        let disc_curve = curves.get_discount_ref(self.disc_id.as_ref())?;
+        let fwd_curve = curves.get_forward_ref(self.forward_id.as_ref())?;
+        let vol_surface = if self.pricing_overrides.implied_volatility.is_none() {
+            Some(curves.surface_ref(self.vol_id)?)
+        } else {
+            None
+        };
+
+        let mut total_pv = Money::new(0.0, self.notional.currency());
+
+        // Single caplet/floorlet
+        if matches!(
+            self.rate_option_type,
+            RateOptionType::Caplet | RateOptionType::Floorlet
+        ) {
+            let t_fix = self.day_count.year_fraction(
+                as_of,
+                self.start_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
+            let t_pay = self.day_count.year_fraction(
+                as_of,
+                self.end_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
+            let tau = self.day_count.year_fraction(
+                self.start_date,
+                self.end_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
+
+            let forward = fwd_curve.rate_period(t_fix.max(0.0), t_pay);
+            let df = disc_curve.df(t_pay);
+            let sigma = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
+                impl_vol
+            } else if let Some(vol_surf) = &vol_surface {
+                vol_surf.value_clamped(t_fix.max(0.0), self.strike_rate)
+            } else {
+                return Err(finstack_core::error::InputError::NotFound {
+                    id: "cap_floor_vol_surface".to_string(),
+                }
+                .into());
+            };
+
+            let is_cap = matches!(
+                self.rate_option_type,
+                RateOptionType::Caplet | RateOptionType::Cap
+            );
+            return black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
+                is_cap,
+                notional: self.notional.amount(),
+                strike: self.strike_rate,
+                forward,
+                discount_factor: df,
+                volatility: sigma,
+                time_to_fixing: t_fix,
+                accrual_year_fraction: tau,
+                currency: self.notional.currency(),
+            });
+        }
+
+        // Cap/floor portfolio of caplets/floorlets
+        let schedule = build_dates(
+            self.start_date,
+            self.end_date,
+            self.frequency,
+            self.stub_kind,
+            self.bdc,
+            self.calendar_id,
+        );
+
+        if schedule.dates.len() < 2 {
+            return Ok(total_pv);
+        }
+
+        let is_cap = matches!(
+            self.rate_option_type,
+            RateOptionType::Caplet | RateOptionType::Cap
+        );
+        let mut prev = schedule.dates[0];
+        for &pay in &schedule.dates[1..] {
+            let t_fix = self.day_count.year_fraction(
+                as_of,
+                prev,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
+            let t_pay = self.day_count.year_fraction(
+                as_of,
+                pay,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
+            let tau = self.day_count.year_fraction(
+                prev,
+                pay,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
+
+            if t_fix > 0.0 {
+                let forward = fwd_curve.rate_period(t_fix, t_pay);
+                let df = disc_curve.df(t_pay);
+                let sigma = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
+                    impl_vol
+                } else if let Some(vol_surf) = &vol_surface {
+                    vol_surf.value_clamped(t_fix, self.strike_rate)
+                } else {
+                    return Err(finstack_core::error::InputError::NotFound {
+                        id: "cap_floor_vol_surface".to_string(),
+                    }
+                    .into());
+                };
+
+                let leg_pv = black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
+                    is_cap,
+                    notional: self.notional.amount(),
+                    strike: self.strike_rate,
+                    forward,
+                    discount_factor: df,
+                    volatility: sigma,
+                    time_to_fixing: t_fix,
+                    accrual_year_fraction: tau,
+                    currency: self.notional.currency(),
+                })?;
+                total_pv = (total_pv + leg_pv)?;
+            }
+            prev = pay;
+        }
+
+        Ok(total_pv)
+    }
+}
 
 impl crate::instruments::common::HasDiscountCurve for InterestRateOption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
