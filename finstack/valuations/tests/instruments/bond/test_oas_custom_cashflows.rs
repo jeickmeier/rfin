@@ -7,7 +7,7 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::F;
 use finstack_valuations::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
-use finstack_valuations::cashflow::primitives::AmortizationSpec;
+use finstack_core::cashflow::primitives::AmortizationSpec;
 use finstack_valuations::instruments::bond::pricing::tree_pricer::TreePricer;
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::PricingOverrides;
@@ -155,5 +155,4 @@ fn test_oas_stability_pik_bond() {
         max
     );
 }
-
 

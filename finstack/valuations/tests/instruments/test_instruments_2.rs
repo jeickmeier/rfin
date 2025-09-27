@@ -1,5 +1,6 @@
 //! Test cases for `Valuation` code.
 
+use finstack_core::cashflow::primitives::CFKind;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Frequency, StubKind};
 use finstack_core::math::interp::InterpStyle;
@@ -39,7 +40,7 @@ fn fixed_stepup_aligned_and_misaligned_boundaries() {
     let has_stub = s
         .flows
         .iter()
-        .any(|cf| cf.kind == finstack_valuations::cashflow::primitives::CFKind::Stub);
+        .any(|cf| cf.kind == CFKind::Stub);
     assert!(
         has_stub,
         "Expected a stub period due to misaligned step-up boundary"
@@ -95,11 +96,11 @@ fn float_margin_stepup_creates_resets_and_uses_split() {
     let has_resets = s
         .flows
         .iter()
-        .any(|cf| cf.kind == finstack_valuations::cashflow::primitives::CFKind::FloatReset);
+        .any(|cf| cf.kind == CFKind::FloatReset);
     let has_pik = s
         .flows
         .iter()
-        .any(|cf| cf.kind == finstack_valuations::cashflow::primitives::CFKind::PIK);
+        .any(|cf| cf.kind == CFKind::PIK);
     assert!(has_resets && has_pik);
 }
 
@@ -185,14 +186,14 @@ fn pik_toggle_window_increases_outstanding_only_in_window() {
         if d >= start_pik && d <= end_pik {
             // Expect to find at least one date in window where PIK increased outstanding
             if s.flows.iter().any(|cf| {
-                cf.date == d && cf.kind == finstack_valuations::cashflow::primitives::CFKind::PIK
+                cf.date == d && cf.kind == CFKind::PIK
             }) {
                 increasing_inside = true;
             }
         } else if d < start_pik || d > end_pik {
             // Outside window, PIK should not appear
             if s.flows.iter().any(|cf| {
-                cf.date == d && cf.kind == finstack_valuations::cashflow::primitives::CFKind::PIK
+                cf.date == d && cf.kind == CFKind::PIK
             }) {
                 non_increasing_before_after = false;
             }

@@ -11,13 +11,11 @@ use crate::core::{
     money::PyMoney,
 };
 use finstack_core::{
+    cashflow::primitives::{AmortizationSpec, CFKind, CashFlow as CoreCashFlow},
     dates::{BusinessDayConvention, StubKind},
     money::Money,
 };
-use finstack_valuations::cashflow::{
-    builder::{cf, CashFlowSchedule, CouponType, FixedCouponSpec},
-    primitives::{AmortizationSpec, CFKind, CashFlow as CoreCashFlow},
-};
+use finstack_valuations::cashflow::builder::{cf, CashFlowSchedule, CouponType, FixedCouponSpec};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use std::sync::Arc;

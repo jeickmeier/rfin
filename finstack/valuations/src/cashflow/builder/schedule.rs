@@ -17,6 +17,7 @@ pub(crate) fn kind_rank(kind: CFKind) -> u8 {
         CFKind::Amortization => 2,
         CFKind::PIK => 3,
         CFKind::Notional => 4,
+        _ => 5,
     }
 }
 
@@ -100,8 +101,7 @@ impl CashFlowSchedule {
     /// use finstack_core::currency::Currency;
     /// use finstack_core::money::Money;
     /// use finstack_valuations::cashflow::builder::schedule::{CashFlowSchedule, CashflowMeta};
-    /// use finstack_valuations::cashflow::primitives::{CashFlow, CFKind};
-    /// use finstack_valuations::cashflow::primitives::Notional;
+    /// use finstack_core::cashflow::primitives::{CashFlow, CFKind, Notional};
     /// use time::Month;
     ///
     /// let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();

@@ -1,8 +1,10 @@
-//! Cash-flow primitives and enums.
+//! Cash-flow primitives and enums shared across the FinStack ecosystem.
 
-use finstack_core::dates::Date;
-use finstack_core::error::InputError;
-use finstack_core::money::Money;
+use crate::currency::Currency;
+use crate::dates::Date;
+use crate::error::InputError;
+use crate::money::Money;
+use crate::F;
 
 /// Enumeration of cash-flow kinds for classification and ordering.
 ///
@@ -54,7 +56,7 @@ impl CashFlow {
     /// Returns [`Error::InvalidInput`] if the `amount` is zero.
     ///
     /// See unit tests and `examples/` for usage.
-    pub fn fixed_cf(date: Date, amount: Money) -> finstack_core::Result<Self> {
+    pub fn fixed_cf(date: Date, amount: Money) -> crate::Result<Self> {
         if amount.amount() == 0.0 {
             return Err(InputError::Invalid.into());
         }
@@ -73,11 +75,7 @@ impl CashFlow {
     ///
     /// # Errors
     /// Returns [`Error::InvalidInput`] if the `amount` is zero.
-    pub fn floating_cf(
-        date: Date,
-        amount: Money,
-        reset_date: Option<Date>,
-    ) -> finstack_core::Result<Self> {
+    pub fn floating_cf(date: Date, amount: Money, reset_date: Option<Date>) -> crate::Result<Self> {
         if amount.amount() == 0.0 {
             return Err(InputError::Invalid.into());
         }
@@ -96,7 +94,7 @@ impl CashFlow {
     ///
     /// # Errors
     /// Returns [`Error::InvalidInput`] if the `amount` is zero.
-    pub fn pik_cf(date: Date, amount: Money) -> finstack_core::Result<Self> {
+    pub fn pik_cf(date: Date, amount: Money) -> crate::Result<Self> {
         if amount.amount() == 0.0 {
             return Err(InputError::Invalid.into());
         }
@@ -115,7 +113,7 @@ impl CashFlow {
     ///
     /// # Errors
     /// Returns [`Error::InvalidInput`] if the `amount` is zero.
-    pub fn amort_cf(date: Date, amount: Money) -> finstack_core::Result<Self> {
+    pub fn amort_cf(date: Date, amount: Money) -> crate::Result<Self> {
         if amount.amount() == 0.0 {
             return Err(InputError::Invalid.into());
         }
@@ -132,7 +130,7 @@ impl CashFlow {
     ///
     /// # Errors
     /// Returns [`Error::InvalidInput`] if the `amount` is zero.
-    pub fn principal_exchange(date: Date, amount: Money) -> finstack_core::Result<Self> {
+    pub fn principal_exchange(date: Date, amount: Money) -> crate::Result<Self> {
         if amount.amount() == 0.0 {
             return Err(InputError::Invalid.into());
         }
@@ -149,7 +147,7 @@ impl CashFlow {
     ///
     /// # Errors
     /// Returns [`Error::InvalidInput`] if the `amount` is zero.
-    pub fn fee(date: Date, amount: Money) -> finstack_core::Result<Self> {
+    pub fn fee(date: Date, amount: Money) -> crate::Result<Self> {
         if amount.amount() == 0.0 {
             return Err(InputError::Invalid.into());
         }
@@ -185,7 +183,7 @@ pub enum AmortizationSpec {
     /// Fixed percentage of original notional paid each period (capped by remaining outstanding).
     PercentPerPeriod {
         /// Fraction of original notional paid per period (e.g., 0.05 = 5%).
-        pct: finstack_core::F,
+        pct: F,
     },
     /// Custom principal exchanges on specific dates (absolute cash amounts).
     /// Positive amounts reduce outstanding (i.e., principal paid by issuer).
@@ -218,14 +216,14 @@ impl Notional {
     ///
     /// # Example
     /// ```rust
+    /// use finstack_core::cashflow::primitives::Notional;
     /// use finstack_core::currency::Currency;
-    /// use finstack_valuations::cashflow::primitives::Notional;
     ///
     /// let notional = Notional::par(1_000_000.0, Currency::USD);
     /// assert_eq!(notional.initial.amount(), 1_000_000.0);
-    /// assert!(matches!(notional.amort, finstack_valuations::cashflow::primitives::AmortizationSpec::None));
+    /// assert!(matches!(notional.amort, finstack_core::cashflow::primitives::AmortizationSpec::None));
     /// ```
-    pub fn par(amount: f64, currency: finstack_core::currency::Currency) -> Self {
+    pub fn par(amount: f64, currency: Currency) -> Self {
         Self {
             initial: Money::new(amount, currency),
             amort: AmortizationSpec::None,
@@ -239,7 +237,7 @@ impl Notional {
     /// - Currency mismatch between initial and final amounts
     /// - Final amount exceeds initial amount
     /// - Step schedule has invalid progression
-    pub fn validate(&self) -> finstack_core::Result<()> {
+    pub fn validate(&self) -> crate::Result<()> {
         match &self.amort {
             AmortizationSpec::None => Ok(()),
             AmortizationSpec::LinearTo { final_notional } => {
@@ -298,7 +296,7 @@ impl Notional {
     }
 
     /// Convenience accessor for currency.
-    pub fn currency(&self) -> finstack_core::currency::Currency {
+    pub fn currency(&self) -> Currency {
         self.initial.currency()
     }
 }
@@ -309,7 +307,9 @@ impl Notional {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::currency::Currency;
     use core::mem::size_of;
+    use time::Month;
 
     #[test]
     fn cashflow_size_is_reasonable() {
@@ -318,8 +318,6 @@ mod tests {
 
     #[test]
     fn fixed_cf_constructor_stores_fields() {
-        use finstack_core::currency::Currency;
-        use time::Month;
         let date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
         let amount = Money::new(100.0, Currency::USD);
         let cf = CashFlow::fixed_cf(date, amount).unwrap();
@@ -332,8 +330,6 @@ mod tests {
 
     #[test]
     fn factory_helpers_work() {
-        use finstack_core::currency::Currency;
-        use time::Month;
         let date = Date::from_calendar_date(2025, Month::March, 1).unwrap();
         let amt = Money::new(1_000.0, Currency::EUR);
 

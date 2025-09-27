@@ -63,6 +63,9 @@ pub mod expr;
 /// Core type definitions (phantom-typed IDs, rates, etc.)
 pub mod types;
 
+/// Foundational cashflow primitives and discounting helpers.
+pub mod cashflow;
+
 // Re-export main error type for convenience
 pub use error::Error;
 /// Convenient alias carrying the crate's unified [`Error`].

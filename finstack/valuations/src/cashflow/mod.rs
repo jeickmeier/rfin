@@ -7,7 +7,9 @@
 //! ```
 
 /// Cash-flow primitives (`CashFlow`, `CFKind`, etc.).
-pub mod primitives;
+pub mod primitives {
+    pub use finstack_core::cashflow::primitives::*;
+}
 
 /// Currency-preserving aggregation utilities for cashflows.
 pub mod aggregation;

@@ -2,6 +2,7 @@ use wasm_bindgen::prelude::*;
 
 use std::sync::Arc;
 
+use finstack_core::cashflow::primitives::CFKind;
 use finstack_core::dates::DayCount as CoreDayCount;
 use finstack_core::dates::{BusinessDayConvention, StubKind};
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve as CoreDiscCurve;
@@ -117,7 +118,6 @@ impl FixedRateLeg {
         let curr_flow = &self.inner.flows[idx];
 
         // Only calculate accrued for coupon flows
-        use finstack_valuations::cashflow::primitives::CFKind;
         if !matches!(curr_flow.kind, CFKind::Fixed | CFKind::Stub) {
             return 0.0;
         }

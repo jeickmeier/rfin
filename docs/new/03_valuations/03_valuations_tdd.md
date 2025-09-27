@@ -1952,7 +1952,8 @@ where
 ### 15.1 Basic Usage
 
 ```rust
-use finstack_valuations::prelude::*;
+use finstack_core::prelude::*;
+use finstack_valuations::{metrics::MetricId, performance, ValuationError};
 
 fn main() -> Result<(), ValuationError> {
     // Build market data
@@ -1981,7 +1982,7 @@ fn main() -> Result<(), ValuationError> {
         (date!(2026-07-01), dec!(105_000)),
     ];
     
-    let irr = xirr(&flows, None)?;
+    let irr = performance::xirr(&flows, None)?;
     println!("XIRR: {:.2}%", irr * dec!(100));
     
     Ok(())
@@ -1991,8 +1992,9 @@ fn main() -> Result<(), ValuationError> {
 ### 15.2 With Portfolio Integration
 
 ```rust
-use finstack_valuations::prelude::*;
+use finstack_core::prelude::*;
 use finstack_portfolio::Portfolio;
+use finstack_valuations::{metrics::MetricId, results::ValuationResult, ValuationError};
 
 fn value_portfolio(
     portfolio: &Portfolio,

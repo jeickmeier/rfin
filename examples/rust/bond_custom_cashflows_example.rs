@@ -10,8 +10,8 @@ use finstack_core::market_data::MarketContext;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 
+use finstack_core::cashflow::primitives::AmortizationSpec;
 use finstack_valuations::cashflow::builder::{cf, CouponType, FixedCouponSpec, ScheduleParams};
-use finstack_valuations::cashflow::primitives::AmortizationSpec;
 use finstack_valuations::cashflow::traits::CashflowProvider;
 use finstack_valuations::instruments::bond::Bond;
 use finstack_valuations::instruments::Instrument;
@@ -208,7 +208,7 @@ fn example_amortizing_bond_with_fees() -> finstack_core::Result<()> {
     println!("Amortizing bond PV: {}", pv);
 
     // Show flow breakdown by type
-    use finstack_valuations::cashflow::primitives::CFKind;
+    use finstack_core::cashflow::primitives::CFKind;
     use std::collections::HashMap;
 
     let mut flows_by_kind: HashMap<CFKind, (usize, f64)> = HashMap::new();

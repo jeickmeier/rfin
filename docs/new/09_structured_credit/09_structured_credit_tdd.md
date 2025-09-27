@@ -74,7 +74,7 @@ Reuse-first:
 
 ```rust
 use finstack_core::prelude::*;
-use finstack_valuations::prelude::*;
+use finstack_valuations as valuations;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StructuredProduct {

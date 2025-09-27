@@ -543,7 +543,7 @@ impl CDSPricer {
             self.risky_annuity(cds, disc, surv, as_of)?
         };
         if denom.abs() < 1e-12 {
-            return Err(crate::Error::Internal);
+            return Err(finstack_core::Error::Internal);
         }
         Ok(protection_pv.amount() / (denom * cds.notional.amount()) * 10000.0)
     }
