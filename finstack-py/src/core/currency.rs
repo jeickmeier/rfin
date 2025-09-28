@@ -27,7 +27,7 @@ use strum::IntoEnumIterator;
 /// -------
 /// Currency
 ///     Strongly typed currency object used throughout the bindings.
-#[pyclass(name = "Currency", module = "finstack.currency", frozen)]
+#[pyclass(name = "Currency", module = "finstack.core.currency", frozen)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PyCurrency {
     pub(crate) inner: Currency,

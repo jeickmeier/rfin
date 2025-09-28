@@ -29,7 +29,7 @@ use std::fmt;
 /// -------
 /// Money
 ///     Money wrapper supporting arithmetic, formatting, and tuple conversions.
-#[pyclass(name = "Money", module = "finstack.money")]
+#[pyclass(name = "Money", module = "finstack.core.money")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PyMoney {
     pub(crate) inner: Money,
@@ -260,9 +260,8 @@ impl PyMoney {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         self.inner.currency().hash(&mut hasher);
-        // Multiply by 1e9 to include amount significance while keeping deterministic.
-        let scaled = (self.inner.amount() * 1_000_000_000.0).round() as i64;
-        scaled.hash(&mut hasher);
+        let bits = self.inner.amount().to_bits();
+        bits.hash(&mut hasher);
         (hasher.finish() & isize::MAX as u64) as isize
     }
 

@@ -79,7 +79,7 @@ fn parse_observations(
 /// SeriesInterpolation
 ///     Enum value passed to :class:`ScalarTimeSeries`.
 #[pyclass(
-    module = "finstack.market_data.scalars",
+    module = "finstack.core.market_data.scalars",
     name = "SeriesInterpolation",
     frozen
 )]
@@ -170,7 +170,7 @@ impl PySeriesInterpolation {
 /// MarketScalar
 ///     Scalar wrapper that records unit information.
 #[pyclass(
-    module = "finstack.market_data.scalars",
+    module = "finstack.core.market_data.scalars",
     name = "MarketScalar",
     unsendable
 )]
@@ -286,7 +286,7 @@ impl PyMarketScalar {
 /// ScalarTimeSeries
 ///     Time series wrapper providing value lookup helpers.
 #[pyclass(
-    module = "finstack.market_data.scalars",
+    module = "finstack.core.market_data.scalars",
     name = "ScalarTimeSeries",
     unsendable
 )]

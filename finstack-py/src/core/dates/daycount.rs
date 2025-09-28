@@ -4,6 +4,7 @@ use crate::core::error::core_to_py;
 use crate::core::utils::py_to_date;
 use finstack_core::dates::{DayCount, DayCountCtx, Frequency, Thirty360Convention};
 use pyo3::prelude::*;
+use crate::core::common::{labels::normalize_label};
 use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::{Bound, PyRef};
 use std::fmt;
@@ -19,7 +20,7 @@ use std::fmt;
 /// -------
 /// DayCount
 ///     Enum-like value describing the convention to apply.
-#[pyclass(name = "DayCount", module = "finstack.dates.daycount", frozen)]
+#[pyclass(name = "DayCount", module = "finstack.core.dates.daycount", frozen)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyDayCount {
     pub(crate) inner: DayCount,
@@ -84,7 +85,7 @@ impl PyDayCount {
     #[pyo3(text_signature = "(cls, name)")]
     /// Parse a day-count convention from a common alias (e.g. ``"act/365f"``).
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        let normalized = name.to_ascii_lowercase();
+        let normalized = normalize_label(name);
         match normalized.as_str() {
             "act/360" | "act_360" | "actual/360" => Ok(Self::new(DayCount::Act360)),
             "act/365f" | "act_365f" | "actual/365f" => Ok(Self::new(DayCount::Act365F)),
@@ -163,7 +164,7 @@ impl fmt::Display for PyDayCount {
 ///     Context object passed to :py:meth:`DayCount.year_fraction`.
 #[pyclass(
     name = "DayCountContext",
-    module = "finstack.dates.daycount",
+    module = "finstack.core.dates.daycount",
     unsendable
 )]
 #[derive(Clone, Default)]
@@ -243,7 +244,7 @@ impl PyDayCountContext {
 ///     Convention token combined with :class:`DayCount` selections.
 #[pyclass(
     name = "Thirty360Convention",
-    module = "finstack.dates.daycount",
+    module = "finstack.core.dates.daycount",
     frozen
 )]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

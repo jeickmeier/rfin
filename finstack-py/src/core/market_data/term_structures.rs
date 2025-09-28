@@ -1,6 +1,7 @@
 use super::interp::{parse_extrapolation, parse_interp};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::PyDayCount;
+use crate::core::common::args::{DayCountArg, InterpStyleArg, ExtrapolationPolicyArg};
 use crate::core::error::core_to_py;
 use crate::core::utils::{date_to_py, py_to_date};
 use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
@@ -17,8 +18,15 @@ use pyo3::{Bound, PyRef};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-fn parse_day_count(dc: Option<PyRef<PyDayCount>>) -> Option<finstack_core::dates::DayCount> {
-    dc.map(|value| value.inner)
+fn parse_day_count(dc: Option<Bound<'_, PyAny>>) -> PyResult<Option<finstack_core::dates::DayCount>> {
+    match dc {
+        None => Ok(None),
+        Some(value) => {
+            if let Ok(dc) = value.extract::<PyRef<PyDayCount>>() { return Ok(Some(dc.inner)); }
+            if let Ok(DayCountArg(inner)) = value.extract::<DayCountArg>() { return Ok(Some(inner)); }
+            Err(pyo3::exceptions::PyTypeError::new_err("day_count must be DayCount or string"))
+        }
+    }
 }
 
 fn parse_interp_enum(value: Option<&str>, default: InterpStyle) -> PyResult<InterpStyle> {
@@ -53,7 +61,7 @@ fn parse_extrap_enum(value: Option<&str>) -> PyResult<ExtrapolationPolicy> {
 /// DiscountCurve
 ///     Curve object exposing discount factor, zero rate, and forward helpers.
 #[pyclass(
-    module = "finstack.market_data.term_structures",
+    module = "finstack.core.market_data.term_structures",
     name = "DiscountCurve",
     unsendable
 )]
@@ -99,9 +107,9 @@ impl PyDiscountCurve {
         id: &str,
         base_date: Bound<'_, PyAny>,
         knots: Vec<(f64, f64)>,
-        day_count: Option<PyRef<PyDayCount>>,
-        interp: Option<&str>,
-        extrapolation: Option<&str>,
+        day_count: Option<Bound<'_, PyAny>>,
+        interp: Option<Bound<'_, PyAny>>,
+        extrapolation: Option<Bound<'_, PyAny>>,
         require_monotonic: bool,
     ) -> PyResult<Self> {
         if knots.len() < 2 {
@@ -110,20 +118,34 @@ impl PyDiscountCurve {
             ));
         }
         let base = py_to_date(&base_date)?;
-        let style = parse_interp_enum(interp, InterpStyle::Linear)?;
-        let extra = parse_extrap_enum(extrapolation)?;
+        let style = match interp {
+            None => InterpStyle::Linear,
+            Some(obj) => {
+                if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() { v }
+                else if let Ok(py_style) = obj.extract::<PyRef<crate::core::market_data::interp::PyInterpStyle>>() { py_style.inner }
+                else if let Ok(name) = obj.extract::<&str>() { parse_interp_enum(Some(name), InterpStyle::Linear)? }
+                else { return Err(pyo3::exceptions::PyTypeError::new_err("interp must be InterpStyle or string")); }
+            }
+        };
+        let extra = match extrapolation {
+            None => parse_extrap_enum(None)?,
+            Some(obj) => {
+                if let Ok(ExtrapolationPolicyArg(v)) = obj.extract::<ExtrapolationPolicyArg>() { v }
+                else if let Ok(py_ex) = obj.extract::<PyRef<crate::core::market_data::interp::PyExtrapolationPolicy>>() { py_ex.inner }
+                else if let Ok(name) = obj.extract::<&str>() { parse_extrap_enum(Some(name))? }
+                else { return Err(pyo3::exceptions::PyTypeError::new_err("extrapolation must be ExtrapolationPolicy or string")); }
+            }
+        };
         let mut builder = DiscountCurve::builder(id)
             .base_date(base)
             .knots(knots)
             .set_interp(style)
             .extrapolation(extra);
-        if let Some(dc) = parse_day_count(day_count) {
-            builder = builder.day_count(dc);
-        }
+        if let Some(dc) = parse_day_count(day_count)? { builder = builder.day_count(dc); }
         if require_monotonic {
             builder = builder.require_monotonic();
         }
-        let curve = builder.build().map_err(core_to_py)?;
+        let curve = Python::with_gil(|py| py.allow_threads(|| builder.build().map_err(core_to_py)))?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -268,7 +290,7 @@ impl PyDiscountCurve {
 /// ForwardCurve
 ///     Forward curve wrapper with ``rate`` evaluation helpers.
 #[pyclass(
-    module = "finstack.market_data.term_structures",
+    module = "finstack.core.market_data.term_structures",
     name = "ForwardCurve",
     unsendable
 )]
@@ -294,8 +316,8 @@ impl PyForwardCurve {
         knots: Vec<(f64, f64)>,
         base_date: Option<Bound<'_, PyAny>>,
         reset_lag: Option<i32>,
-        day_count: Option<PyRef<PyDayCount>>,
-        interp: Option<&str>,
+        day_count: Option<Bound<'_, PyAny>>,
+        interp: Option<Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
         if knots.len() < 2 {
             return Err(PyValueError::new_err(
@@ -310,13 +332,15 @@ impl PyForwardCurve {
         if let Some(lag) = reset_lag {
             builder = builder.reset_lag(lag);
         }
-        if let Some(dc) = parse_day_count(day_count) {
-            builder = builder.day_count(dc);
+        if let Some(dc) = parse_day_count(day_count)? { builder = builder.day_count(dc); }
+        if let Some(obj) = interp {
+            let style = if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() { v }
+            else if let Ok(py_style) = obj.extract::<PyRef<crate::core::market_data::interp::PyInterpStyle>>() { py_style.inner }
+            else if let Ok(name) = obj.extract::<&str>() { parse_interp_enum(Some(name), InterpStyle::Linear)? }
+            else { return Err(pyo3::exceptions::PyTypeError::new_err("interp must be InterpStyle or string")); };
+            builder = builder.set_interp(style);
         }
-        if let Some(style) = interp {
-            builder = builder.set_interp(parse_interp_enum(Some(style), InterpStyle::Linear)?);
-        }
-        let curve = builder.build().map_err(core_to_py)?;
+        let curve = Python::with_gil(|py| py.allow_threads(|| builder.build().map_err(core_to_py)))?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -436,7 +460,7 @@ impl PyForwardCurve {
 /// HazardCurve
 ///     Hazard curve wrapper offering survival and default probability methods.
 #[pyclass(
-    module = "finstack.market_data.term_structures",
+    module = "finstack.core.market_data.term_structures",
     name = "HazardCurve",
     unsendable
 )]
@@ -474,7 +498,7 @@ impl PyHazardCurve {
         base_date: Bound<'_, PyAny>,
         knots: Vec<(f64, f64)>,
         recovery_rate: Option<f64>,
-        day_count: Option<PyRef<PyDayCount>>,
+        day_count: Option<Bound<'_, PyAny>>,
         issuer: Option<&str>,
         seniority: Option<&str>,
         currency: Option<PyRef<PyCurrency>>,
@@ -490,9 +514,7 @@ impl PyHazardCurve {
         if let Some(rr) = recovery_rate {
             builder = builder.recovery_rate(rr);
         }
-        if let Some(dc) = parse_day_count(day_count) {
-            builder = builder.day_count(dc);
-        }
+        if let Some(dc) = parse_day_count(day_count)? { builder = builder.day_count(dc); }
         if let Some(name) = issuer {
             builder = builder.issuer(name.to_string());
         }
@@ -505,7 +527,7 @@ impl PyHazardCurve {
         if let Some(points) = par_points {
             builder = builder.par_spreads(points);
         }
-        let curve = builder.build().map_err(core_to_py)?;
+        let curve = Python::with_gil(|py| py.allow_threads(|| builder.build().map_err(core_to_py)))?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -628,7 +650,7 @@ impl PyHazardCurve {
 /// InflationCurve
 ///     Inflation curve wrapper exposing CPI and inflation rate calculations.
 #[pyclass(
-    module = "finstack.market_data.term_structures",
+    module = "finstack.core.market_data.term_structures",
     name = "InflationCurve",
     unsendable
 )]
@@ -652,17 +674,25 @@ impl PyInflationCurve {
         id: &str,
         base_cpi: f64,
         knots: Vec<(f64, f64)>,
-        interp: Option<&str>,
+        interp: Option<Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
         if knots.is_empty() {
             return Err(PyValueError::new_err("knots must not be empty"));
         }
-        let style = parse_interp_enum(interp, InterpStyle::LogLinear)?;
+        let style = match interp {
+            None => InterpStyle::LogLinear,
+            Some(obj) => {
+                if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() { v }
+                else if let Ok(py_style) = obj.extract::<PyRef<crate::core::market_data::interp::PyInterpStyle>>() { py_style.inner }
+                else if let Ok(name) = obj.extract::<&str>() { parse_interp_enum(Some(name), InterpStyle::LogLinear)? }
+                else { return Err(pyo3::exceptions::PyTypeError::new_err("interp must be InterpStyle or string")); }
+            }
+        };
         let builder = InflationCurve::builder(id)
             .base_cpi(base_cpi)
             .knots(knots)
             .set_interp(style);
-        let curve = builder.build().map_err(core_to_py)?;
+        let curve = Python::with_gil(|py| py.allow_threads(|| builder.build().map_err(core_to_py)))?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -753,7 +783,7 @@ impl PyInflationCurve {
 /// BaseCorrelationCurve
 ///     Base correlation wrapper capable of interpolating tranche correlations.
 #[pyclass(
-    module = "finstack.market_data.term_structures",
+    module = "finstack.core.market_data.term_structures",
     name = "BaseCorrelationCurve",
     unsendable
 )]
@@ -778,10 +808,14 @@ impl PyBaseCorrelationCurve {
                 "points must contain at least two entries",
             ));
         }
-        let curve = BaseCorrelationCurve::builder(id)
-            .points(points)
-            .build()
-            .map_err(core_to_py)?;
+        let curve = Python::with_gil(|py| {
+            py.allow_threads(|| {
+                BaseCorrelationCurve::builder(id)
+                    .points(points)
+                    .build()
+                    .map_err(core_to_py)
+            })
+        })?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -849,7 +883,7 @@ impl PyBaseCorrelationCurve {
 /// CreditIndexData
 ///     Bundle of credit index market data.
 #[pyclass(
-    module = "finstack.market_data.term_structures",
+    module = "finstack.core.market_data.term_structures",
     name = "CreditIndexData",
     unsendable
 )]

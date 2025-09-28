@@ -5,14 +5,17 @@
 //! to control how `Money` values are parsed and formatted throughout analyses.
 //! Also exposes a `RoundingMode` enum with common strategies (bankers, floor,
 //! ceil, toward/away from zero).
-use crate::core::currency::extract_currency;
+// use crate::core::currency::extract_currency; // replaced by CurrencyArg
+use crate::core::common::args::{CurrencyArg, RoundingModeArg};
+use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
 use crate::core::error::unknown_rounding_mode;
 use finstack_core::config::{FinstackConfig, RoundingMode};
 use pyo3::basic::CompareOp;
-use pyo3::exceptions::{PyTypeError, PyValueError};
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
+// use pyo3::FromPyObject; // only needed at call sites using .extract()
 use pyo3::types::{PyAnyMethods, PyList, PyModule, PyModuleMethods, PyType};
-use pyo3::{Bound, IntoPyObjectExt};
+use pyo3::Bound;
 use std::fmt;
 
 /// Manage global rounding behaviour and currency decimal scales.
@@ -26,7 +29,7 @@ use std::fmt;
 /// -------
 /// FinstackConfig
 ///     Configuration handle that can be reused across money formatting operations.
-#[pyclass(name = "FinstackConfig", module = "finstack.config")]
+#[pyclass(name = "FinstackConfig", module = "finstack.core.config")]
 #[derive(Clone)]
 pub struct PyFinstackConfig {
     pub(crate) inner: FinstackConfig,
@@ -91,7 +94,8 @@ impl PyFinstackConfig {
     /// >>> cfg.set_rounding_mode("away_from_zero")
     #[pyo3(text_signature = "(self, mode)")]
     fn set_rounding_mode(&mut self, mode: Bound<'_, PyAny>) -> PyResult<()> {
-        self.inner.rounding.mode = extract_rounding_mode(&mode)?;
+        let RoundingModeArg(value) = mode.extract()?;
+        self.inner.rounding.mode = value;
         Ok(())
     }
 
@@ -108,7 +112,7 @@ impl PyFinstackConfig {
     /// int
     ///     Number of decimal places allowed for ingestion.
     fn ingest_scale(&self, currency: Bound<'_, PyAny>) -> PyResult<u32> {
-        let ccy = extract_currency(currency.as_ref())?;
+        let CurrencyArg(ccy) = currency.extract()?;
         Ok(self.inner.ingest_scale(ccy))
     }
 
@@ -126,7 +130,7 @@ impl PyFinstackConfig {
     /// None
     #[pyo3(text_signature = "(self, currency, decimals)")]
     fn set_ingest_scale(&mut self, currency: Bound<'_, PyAny>, decimals: u32) -> PyResult<()> {
-        let ccy = extract_currency(currency.as_ref())?;
+        let CurrencyArg(ccy) = currency.extract()?;
         self.inner
             .rounding
             .ingest_scale
@@ -148,7 +152,7 @@ impl PyFinstackConfig {
     /// int
     ///     Decimal places used during formatting.
     fn output_scale(&self, currency: Bound<'_, PyAny>) -> PyResult<u32> {
-        let ccy = extract_currency(currency.as_ref())?;
+        let CurrencyArg(ccy) = currency.extract()?;
         Ok(self.inner.output_scale(ccy))
     }
 
@@ -171,7 +175,7 @@ impl PyFinstackConfig {
     /// >>> cfg.set_output_scale("JPY", 0)
     #[pyo3(text_signature = "(self, currency, decimals)")]
     fn set_output_scale(&mut self, currency: Bound<'_, PyAny>, decimals: u32) -> PyResult<()> {
-        let ccy = extract_currency(currency.as_ref())?;
+        let CurrencyArg(ccy) = currency.extract()?;
         self.inner
             .rounding
             .output_scale
@@ -192,7 +196,7 @@ impl PyFinstackConfig {
 /// -------
 /// RoundingMode
 ///     Enum value describing the rounding strategy.
-#[pyclass(name = "RoundingMode", module = "finstack.config", frozen)]
+#[pyclass(name = "RoundingMode", module = "finstack.core.config", frozen)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyRoundingMode {
     pub(crate) inner: RoundingMode,
@@ -273,15 +277,7 @@ impl PyRoundingMode {
             Ok(value) => Some(value),
             Err(_) => None,
         };
-
-        let result = match op {
-            CompareOp::Eq => rhs.map(|v| v == self.inner).unwrap_or(false),
-            CompareOp::Ne => rhs.map(|v| v != self.inner).unwrap_or(true),
-            _ => return Err(PyValueError::new_err("Unsupported comparison")),
-        };
-
-        let py_bool = result.into_bound_py_any(py)?;
-        Ok(py_bool.into())
+        richcmp_eq_ne(py, &self.inner, rhs, op)
     }
 }
 
@@ -336,14 +332,11 @@ pub(crate) fn extract_rounding_mode(value: &Bound<'_, PyAny>) -> PyResult<Roundi
 /// ValueError
 ///     If the name is not a recognized rounding mode.
 fn parse_rounding_mode(name: &str) -> PyResult<PyRoundingMode> {
-    match name.to_ascii_lowercase().as_str() {
-        "bankers" | "banker's" | "banker" => Ok(PyRoundingMode::new(RoundingMode::Bankers)),
-        "away_from_zero" | "away-from-zero" | "awayfromzero" => {
-            Ok(PyRoundingMode::new(RoundingMode::AwayFromZero))
-        }
-        "toward_zero" | "towards_zero" | "towardzero" => {
-            Ok(PyRoundingMode::new(RoundingMode::TowardZero))
-        }
+    let n = normalize_label(name);
+    match n.as_str() {
+        "bankers" | "banker" => Ok(PyRoundingMode::new(RoundingMode::Bankers)),
+        "away_from_zero" | "awayfromzero" => Ok(PyRoundingMode::new(RoundingMode::AwayFromZero)),
+        "toward_zero" | "towards_zero" => Ok(PyRoundingMode::new(RoundingMode::TowardZero)),
         "floor" => Ok(PyRoundingMode::new(RoundingMode::Floor)),
         "ceil" | "ceiling" => Ok(PyRoundingMode::new(RoundingMode::Ceil)),
         other => Err(unknown_rounding_mode(other)),

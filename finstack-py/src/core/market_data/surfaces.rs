@@ -30,7 +30,7 @@ use std::sync::Arc;
 /// VolSurface
 ///     Surface wrapper with interpolation helpers.
 #[pyclass(
-    module = "finstack.market_data.surfaces",
+    module = "finstack.core.market_data.surfaces",
     name = "VolSurface",
     unsendable
 )]
@@ -77,13 +77,17 @@ impl PyVolSurface {
                 )));
             }
         }
-        let mut builder = VolSurface::builder(id)
-            .expiries(&expiries)
-            .strikes(&strikes);
-        for row in grid {
-            builder = builder.row(&row);
-        }
-        let surface = builder.build().map_err(core_to_py)?;
+        let surface = Python::with_gil(|py| {
+            py.allow_threads(|| {
+                let mut builder = VolSurface::builder(id)
+                    .expiries(&expiries)
+                    .strikes(&strikes);
+                for row in &grid {
+                    builder = builder.row(row);
+                }
+                builder.build().map_err(core_to_py)
+            })
+        })?;
         Ok(Self::new_arc(Arc::new(surface)))
     }
 

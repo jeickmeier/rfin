@@ -5,6 +5,7 @@
 //! configure curve/surface behavior between and beyond known knots.
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use pyo3::exceptions::PyValueError;
+use crate::core::common::labels::normalize_label;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 
@@ -19,7 +20,7 @@ use pyo3::types::{PyList, PyModule, PyType};
 /// -------
 /// InterpStyle
 ///     Enum value defining interpolation behaviour.
-#[pyclass(module = "finstack.market_data.interp", name = "InterpStyle", frozen)]
+#[pyclass(module = "finstack.core.market_data.interp", name = "InterpStyle", frozen)]
 #[derive(Clone, Copy, Debug)]
 pub struct PyInterpStyle {
     pub(crate) inner: InterpStyle,
@@ -80,12 +81,12 @@ impl PyInterpStyle {
     /// InterpStyle
     ///     Enum value corresponding to ``name``.
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        match name.to_ascii_lowercase().as_str() {
+        match normalize_label(name).as_str() {
             "linear" => Ok(Self::new(InterpStyle::Linear)),
-            "log_linear" | "log-linear" => Ok(Self::new(InterpStyle::LogLinear)),
-            "monotone_convex" | "monotone-convex" => Ok(Self::new(InterpStyle::MonotoneConvex)),
-            "cubic_hermite" | "cubic-hermite" => Ok(Self::new(InterpStyle::CubicHermite)),
-            "flat_fwd" | "flat-forward" => Ok(Self::new(InterpStyle::FlatFwd)),
+            "log_linear" => Ok(Self::new(InterpStyle::LogLinear)),
+            "monotone_convex" => Ok(Self::new(InterpStyle::MonotoneConvex)),
+            "cubic_hermite" => Ok(Self::new(InterpStyle::CubicHermite)),
+            "flat_fwd" => Ok(Self::new(InterpStyle::FlatFwd)),
             other => Err(PyValueError::new_err(format!(
                 "Unknown interpolation style: {other}"
             ))),
@@ -119,7 +120,7 @@ impl PyInterpStyle {
 /// ExtrapolationPolicy
 ///     Enum value describing extrapolation behaviour.
 #[pyclass(
-    module = "finstack.market_data.interp",
+    module = "finstack.core.market_data.interp",
     name = "ExtrapolationPolicy",
     frozen
 )]
@@ -167,9 +168,9 @@ impl PyExtrapolationPolicy {
     /// ExtrapolationPolicy
     ///     Enum value corresponding to ``name``.
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        match name.to_ascii_lowercase().as_str() {
-            "flat_zero" | "flat-zero" => Ok(Self::new(ExtrapolationPolicy::FlatZero)),
-            "flat_forward" | "flat-forward" => Ok(Self::new(ExtrapolationPolicy::FlatForward)),
+        match normalize_label(name).as_str() {
+            "flat_zero" => Ok(Self::new(ExtrapolationPolicy::FlatZero)),
+            "flat_forward" => Ok(Self::new(ExtrapolationPolicy::FlatForward)),
             other => Err(PyValueError::new_err(format!(
                 "Unknown extrapolation policy: {other}"
             ))),
@@ -211,12 +212,12 @@ pub(crate) fn register<'py>(
 pub(crate) fn parse_interp(style: Option<&str>, default: InterpStyle) -> PyResult<InterpStyle> {
     // Helper used by bindings to parse interpolation labels.
     match style {
-        Some(name) => match name.to_ascii_lowercase().as_str() {
+        Some(name) => match normalize_label(name).as_str() {
             "linear" => Ok(InterpStyle::Linear),
-            "log_linear" | "log-linear" => Ok(InterpStyle::LogLinear),
-            "monotone_convex" | "monotone-convex" => Ok(InterpStyle::MonotoneConvex),
-            "cubic_hermite" | "cubic-hermite" => Ok(InterpStyle::CubicHermite),
-            "flat_fwd" | "flat-forward" => Ok(InterpStyle::FlatFwd),
+            "log_linear" => Ok(InterpStyle::LogLinear),
+            "monotone_convex" => Ok(InterpStyle::MonotoneConvex),
+            "cubic_hermite" => Ok(InterpStyle::CubicHermite),
+            "flat_fwd" => Ok(InterpStyle::FlatFwd),
             other => Err(PyValueError::new_err(format!(
                 "Unknown interpolation style: {other}"
             ))),
@@ -228,9 +229,9 @@ pub(crate) fn parse_interp(style: Option<&str>, default: InterpStyle) -> PyResul
 pub(crate) fn parse_extrapolation(policy: Option<&str>) -> PyResult<ExtrapolationPolicy> {
     // Helper used by bindings to parse extrapolation policy labels.
     match policy {
-        Some(name) => match name.to_ascii_lowercase().as_str() {
-            "flat_zero" | "flat-zero" => Ok(ExtrapolationPolicy::FlatZero),
-            "flat_forward" | "flat-forward" => Ok(ExtrapolationPolicy::FlatForward),
+        Some(name) => match normalize_label(name).as_str() {
+            "flat_zero" => Ok(ExtrapolationPolicy::FlatZero),
+            "flat_forward" => Ok(ExtrapolationPolicy::FlatForward),
             other => Err(PyValueError::new_err(format!(
                 "Unknown extrapolation policy: {other}"
             ))),

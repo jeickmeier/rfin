@@ -40,7 +40,7 @@ use time::Date;
 /// DividendEvent
 ///     Dividend record used within :class:`DividendSchedule`.
 #[pyclass(
-    module = "finstack.market_data.dividends",
+    module = "finstack.core.market_data.dividends",
     name = "DividendEvent",
     frozen
 )]
@@ -160,7 +160,7 @@ impl PyDividendEvent {
 /// DividendSchedule
 ///     Dividend schedule containing events and helper views.
 #[pyclass(
-    module = "finstack.market_data.dividends",
+    module = "finstack.core.market_data.dividends",
     name = "DividendSchedule",
     unsendable
 )]
@@ -258,7 +258,7 @@ impl PyDividendSchedule {
 /// DividendScheduleBuilder
 ///     Mutable builder that emits :class:`DividendSchedule` via :py:meth:`DividendScheduleBuilder.build`.
 #[pyclass(
-    module = "finstack.market_data.dividends",
+    module = "finstack.core.market_data.dividends",
     name = "DividendScheduleBuilder",
     unsendable
 )]

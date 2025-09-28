@@ -1,4 +1,5 @@
 use crate::core::error::core_to_py;
+use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use finstack_core::cashflow::primitives::{CFKind, CashFlow};
@@ -6,7 +7,7 @@ use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyModule, PyType};
-use pyo3::{Bound, IntoPyObjectExt};
+use pyo3::Bound;
 
 /// Enumeration of cash-flow categories used across finstack-core.
 ///
@@ -44,7 +45,7 @@ impl PyCFKind {
     }
 
     fn parse(name: &str) -> Option<CFKind> {
-        let normalized = name.trim().to_ascii_lowercase().replace('-', "_");
+        let normalized = normalize_label(name);
         match normalized.as_str() {
             "fixed" => Some(CFKind::Fixed),
             "float_reset" => Some(CFKind::FloatReset),
@@ -125,15 +126,7 @@ impl PyCFKind {
             Ok(value) => Some(value),
             Err(_) => None,
         };
-
-        let result = match op {
-            CompareOp::Eq => rhs.map(|v| v == self.inner).unwrap_or(false),
-            CompareOp::Ne => rhs.map(|v| v != self.inner).unwrap_or(true),
-            _ => return Err(PyValueError::new_err("Unsupported comparison")),
-        };
-
-        let py_bool = result.into_bound_py_any(py)?;
-        Ok(py_bool.into())
+        richcmp_eq_ne(py, &self.inner, rhs, op)
     }
 }
 

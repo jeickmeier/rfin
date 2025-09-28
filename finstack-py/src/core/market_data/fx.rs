@@ -9,6 +9,7 @@
 //! Typical flow: configure an `FxMatrix`, load direct quotes, then call
 //! `rate(from, to, on, policy)` to evaluate an FX rate for a given date.
 use crate::core::currency::PyCurrency;
+// use crate::core::common::args::{ExtrapolationPolicyArg, CurrencyArg};
 use crate::core::error::core_to_py;
 use crate::core::utils::py_to_date;
 use finstack_core::currency::Currency;
@@ -53,7 +54,7 @@ fn parse_policy_from_str(value: &str) -> PyResult<FxConversionPolicy> {
 /// FxConversionPolicy
 ///     Enum-like value governing FX conversion timing.
 #[pyclass(
-    module = "finstack.market_data.fx",
+    module = "finstack.core.market_data.fx",
     name = "FxConversionPolicy",
     frozen
 )]
@@ -152,7 +153,7 @@ impl PyFxConversionPolicy {
 /// -------
 /// FxConfig
 ///     Configuration object consumed by :class:`FxMatrix`.
-#[pyclass(module = "finstack.market_data.fx", name = "FxConfig", unsendable)]
+#[pyclass(module = "finstack.core.market_data.fx", name = "FxConfig", unsendable)]
 #[derive(Clone)]
 pub struct PyFxConfig {
     pub(crate) inner: FxConfig,
@@ -181,13 +182,19 @@ impl PyFxConfig {
         text_signature = "(*, pivot_currency=None, enable_triangulation=False, cache_capacity=256)"
     )]
     fn new(
-        pivot_currency: Option<&PyCurrency>,
+        pivot_currency: Option<Bound<'_, PyAny>>,
         enable_triangulation: Option<bool>,
         cache_capacity: Option<usize>,
     ) -> Self {
         let mut config = FxConfig::default();
-        if let Some(ccy) = pivot_currency {
-            config.pivot_currency = ccy.inner;
+        if let Some(ccy_any) = pivot_currency {
+            if let Ok(py_ccy) = ccy_any.extract::<PyRef<PyCurrency>>() {
+                config.pivot_currency = py_ccy.inner;
+            } else if let Ok(code) = ccy_any.extract::<&str>() {
+                if let Ok(parsed) = finstack_core::currency::Currency::try_from(code) {
+                    config.pivot_currency = parsed;
+                }
+            }
         }
         if let Some(flag) = enable_triangulation {
             config.enable_triangulation = flag;
@@ -245,7 +252,7 @@ impl PyFxConfig {
 /// -------
 /// FxRateResult
 ///     Data class capturing the outcome of :py:meth:`FxMatrix.rate`.
-#[pyclass(module = "finstack.market_data.fx", name = "FxRateResult", frozen)]
+#[pyclass(module = "finstack.core.market_data.fx", name = "FxRateResult", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyFxRateResult {
     #[pyo3(get)]
@@ -349,7 +356,7 @@ fn parse_policy(_py: Python<'_>, policy: Option<Bound<'_, PyAny>>) -> PyResult<F
 /// -------
 /// FxMatrix
 ///     FX quote matrix capable of storing direct quotes and evaluating rates.
-#[pyclass(module = "finstack.market_data.fx", name = "FxMatrix", unsendable)]
+#[pyclass(module = "finstack.core.market_data.fx", name = "FxMatrix", unsendable)]
 #[derive(Clone)]
 pub struct PyFxMatrix {
     provider: Arc<StaticFxProvider>,

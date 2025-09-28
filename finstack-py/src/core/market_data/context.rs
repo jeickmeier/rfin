@@ -20,6 +20,7 @@ use pyo3::types::{PyDict, PyList, PyModule};
 use pyo3::Bound;
 use std::collections::HashMap;
 
+#[allow(dead_code)]
 fn take_and_replace(context: &mut MarketContext) -> MarketContext {
     std::mem::take(context)
 }
@@ -35,13 +36,14 @@ fn take_and_replace(context: &mut MarketContext) -> MarketContext {
 /// -------
 /// MarketContext
 ///     Mutable aggregation container shared across valuation routines.
-#[pyclass(module = "finstack.market_data", name = "MarketContext", unsendable)]
+#[pyclass(module = "finstack.core.market_data", name = "MarketContext", unsendable)]
 #[derive(Clone, Default)]
 pub struct PyMarketContext {
     pub(crate) inner: MarketContext,
 }
 
 impl PyMarketContext {
+    #[allow(dead_code)]
     fn replace_inner(&mut self, next: MarketContext) {
         self.inner = next;
     }
@@ -107,8 +109,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_discount(&mut self, curve: &PyDiscountCurve) -> PyResult<()> {
-        let ctx = take_and_replace(&mut self.inner);
-        self.replace_inner(ctx.insert_discount_arc(curve.inner.clone()));
+        self.inner.insert_discount_mut(curve.inner.clone());
         Ok(())
     }
 
@@ -124,8 +125,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_forward(&mut self, curve: &PyForwardCurve) -> PyResult<()> {
-        let ctx = take_and_replace(&mut self.inner);
-        self.replace_inner(ctx.insert_forward_arc(curve.inner.clone()));
+        self.inner.insert_forward_mut(curve.inner.clone());
         Ok(())
     }
 
@@ -141,8 +141,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_hazard(&mut self, curve: &PyHazardCurve) -> PyResult<()> {
-        let ctx = take_and_replace(&mut self.inner);
-        self.replace_inner(ctx.insert_hazard_arc(curve.inner.clone()));
+        self.inner.insert_hazard_mut(curve.inner.clone());
         Ok(())
     }
 
@@ -158,8 +157,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_inflation(&mut self, curve: &PyInflationCurve) -> PyResult<()> {
-        let ctx = take_and_replace(&mut self.inner);
-        self.replace_inner(ctx.insert_inflation_arc(curve.inner.clone()));
+        self.inner.insert_inflation_mut(curve.inner.clone());
         Ok(())
     }
 
@@ -175,8 +173,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_base_correlation(&mut self, curve: &PyBaseCorrelationCurve) -> PyResult<()> {
-        let ctx = take_and_replace(&mut self.inner);
-        self.replace_inner(ctx.insert_base_correlation_arc(curve.inner.clone()));
+        self.inner.insert_base_correlation_mut(curve.inner.clone());
         Ok(())
     }
 
@@ -192,8 +189,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_fx(&mut self, fx_matrix: &PyFxMatrix) -> PyResult<()> {
-        let ctx = take_and_replace(&mut self.inner);
-        self.replace_inner(ctx.insert_fx_arc(fx_matrix.inner.clone()));
+        self.inner.insert_fx_mut(fx_matrix.inner.clone());
         Ok(())
     }
 
@@ -209,8 +205,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_surface(&mut self, surface: &PyVolSurface) -> PyResult<()> {
-        let ctx = take_and_replace(&mut self.inner);
-        self.replace_inner(ctx.insert_surface_arc(surface.inner.clone()));
+        self.inner.insert_surface_mut(surface.inner.clone());
         Ok(())
     }
 
@@ -228,8 +223,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_price(&mut self, id: &str, scalar: &PyMarketScalar) -> PyResult<()> {
-        let ctx = take_and_replace(&mut self.inner);
-        self.replace_inner(ctx.insert_price(id, scalar.inner.clone()));
+        self.inner.insert_price_mut(id, scalar.inner.clone());
         Ok(())
     }
 
@@ -245,8 +239,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_series(&mut self, series: &PyScalarTimeSeries) -> PyResult<()> {
-        let ctx = take_and_replace(&mut self.inner);
-        self.replace_inner(ctx.insert_series(series.inner.as_ref().clone()));
+        self.inner.insert_series_mut(series.inner.as_ref().clone());
         Ok(())
     }
 
@@ -262,8 +255,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_dividends(&mut self, schedule: &PyDividendSchedule) -> PyResult<()> {
-        let ctx = take_and_replace(&mut self.inner);
-        self.replace_inner(ctx.insert_dividends(schedule.inner.as_ref().clone()));
+        self.inner.insert_dividends_arc_mut(schedule.inner.as_ref().clone().into());
         Ok(())
     }
 
@@ -281,8 +273,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_credit_index(&mut self, id: &str, data: &PyCreditIndexData) -> PyResult<()> {
-        let ctx = take_and_replace(&mut self.inner);
-        self.replace_inner(ctx.insert_credit_index(id, data.inner.as_ref().clone()));
+        self.inner.insert_credit_index_mut(id, data.inner.as_ref().clone());
         Ok(())
     }
 
@@ -300,8 +291,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn map_collateral(&mut self, csa_code: &str, curve_id: &str) -> PyResult<()> {
-        let ctx = take_and_replace(&mut self.inner);
-        self.replace_inner(ctx.map_collateral(csa_code, CurveId::from(curve_id)));
+        self.inner.map_collateral_mut(csa_code, CurveId::from(curve_id));
         Ok(())
     }
 

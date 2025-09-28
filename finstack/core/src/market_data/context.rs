@@ -358,6 +358,13 @@ impl MarketContext {
         self
     }
 
+    /// In-place insert of a discount curve provided as an `Arc`.
+    pub fn insert_discount_mut(&mut self, curve: Arc<DiscountCurve>) -> &mut Self {
+        let id = curve.id().clone();
+        self.curves.insert(id, CurveStorage::Discount(curve));
+        self
+    }
+
     /// Insert a forward curve.
     ///
     /// # Parameters
@@ -388,6 +395,13 @@ impl MarketContext {
     /// Insert a forward curve provided as an [`Arc`].
     #[allow(clippy::needless_pass_by_value)]
     pub fn insert_forward_arc(mut self, curve: Arc<ForwardCurve>) -> Self {
+        let id = curve.id().clone();
+        self.curves.insert(id, CurveStorage::Forward(curve));
+        self
+    }
+
+    /// In-place insert of a forward curve.
+    pub fn insert_forward_mut(&mut self, curve: Arc<ForwardCurve>) -> &mut Self {
         let id = curve.id().clone();
         self.curves.insert(id, CurveStorage::Forward(curve));
         self
@@ -428,6 +442,13 @@ impl MarketContext {
         self
     }
 
+    /// In-place insert of a hazard curve.
+    pub fn insert_hazard_mut(&mut self, curve: Arc<HazardCurve>) -> &mut Self {
+        let id = curve.id().clone();
+        self.curves.insert(id, CurveStorage::Hazard(curve));
+        self
+    }
+
     /// Insert an inflation curve.
     ///
     /// # Parameters
@@ -463,6 +484,13 @@ impl MarketContext {
         self
     }
 
+    /// In-place insert of an inflation curve.
+    pub fn insert_inflation_mut(&mut self, curve: Arc<InflationCurve>) -> &mut Self {
+        let id = curve.id().clone();
+        self.curves.insert(id, CurveStorage::Inflation(curve));
+        self
+    }
+
     /// Insert a base correlation curve.
     ///
     /// # Parameters
@@ -489,6 +517,13 @@ impl MarketContext {
     /// Insert a base correlation curve provided as an [`Arc`].
     #[allow(clippy::needless_pass_by_value)]
     pub fn insert_base_correlation_arc(mut self, curve: Arc<BaseCorrelationCurve>) -> Self {
+        let id = curve.id().clone();
+        self.curves.insert(id, CurveStorage::BaseCorrelation(curve));
+        self
+    }
+
+    /// In-place insert of a base correlation curve.
+    pub fn insert_base_correlation_mut(&mut self, curve: Arc<BaseCorrelationCurve>) -> &mut Self {
         let id = curve.id().clone();
         self.curves.insert(id, CurveStorage::BaseCorrelation(curve));
         self
@@ -527,6 +562,13 @@ impl MarketContext {
         self
     }
 
+    /// In-place insert of a volatility surface.
+    pub fn insert_surface_mut(&mut self, surface: Arc<VolSurface>) -> &mut Self {
+        let id = surface.id().clone();
+        self.surfaces.insert(id, surface);
+        self
+    }
+
     /// Insert a shared dividend schedule.
     ///
     /// # Parameters
@@ -540,6 +582,13 @@ impl MarketContext {
     /// Insert a dividend schedule provided as an [`Arc`].
     #[allow(clippy::needless_pass_by_value)]
     pub fn insert_dividends_arc(mut self, schedule: Arc<DividendSchedule>) -> Self {
+        let id = schedule.id.clone();
+        self.dividends.insert(id, schedule);
+        self
+    }
+
+    /// In-place insert of a dividend schedule.
+    pub fn insert_dividends_arc_mut(&mut self, schedule: Arc<DividendSchedule>) -> &mut Self {
         let id = schedule.id.clone();
         self.dividends.insert(id, schedule);
         self
@@ -570,6 +619,12 @@ impl MarketContext {
         self
     }
 
+    /// In-place insert of a market scalar/price.
+    pub fn insert_price_mut(&mut self, id: impl AsRef<str>, price: MarketScalar) -> &mut Self {
+        self.prices.insert(CurveId::from(id.as_ref()), price);
+        self
+    }
+
     /// Insert a scalar time series.
     ///
     /// # Parameters
@@ -594,6 +649,13 @@ impl MarketContext {
     /// assert_eq!(ctx.series("VOL-TS").unwrap().id(), &finstack_core::types::CurveId::from("VOL-TS"));
     /// ```
     pub fn insert_series(mut self, series: ScalarTimeSeries) -> Self {
+        let id = series.id().clone();
+        self.series.insert(id, series);
+        self
+    }
+
+    /// In-place insert of a scalar time series.
+    pub fn insert_series_mut(&mut self, series: ScalarTimeSeries) -> &mut Self {
         let id = series.id().clone();
         self.series.insert(id, series);
         self
@@ -671,6 +733,13 @@ impl MarketContext {
         self
     }
 
+    /// In-place insert of a credit index aggregate.
+    pub fn insert_credit_index_mut(&mut self, id: impl AsRef<str>, data: CreditIndexData) -> &mut Self {
+        self.credit_indices
+            .insert(CurveId::from(id.as_ref()), Arc::new(data));
+        self
+    }
+
     /// Insert an FX matrix.
     ///
     /// # Parameters
@@ -714,6 +783,12 @@ impl MarketContext {
         self
     }
 
+    /// In-place set of the FX matrix from an Arc.
+    pub fn insert_fx_mut(&mut self, fx: Arc<FxMatrix>) -> &mut Self {
+        self.fx = Some(fx);
+        self
+    }
+
     /// Map collateral CSA code to a discount curve identifier.
     ///
     /// # Parameters
@@ -740,6 +815,12 @@ impl MarketContext {
     /// assert!(ctx.collateral("USD-CSA").is_ok());
     /// ```
     pub fn map_collateral(mut self, csa_code: impl Into<String>, discount_id: CurveId) -> Self {
+        self.collateral.insert(csa_code.into(), discount_id);
+        self
+    }
+
+    /// In-place map collateral to curve id.
+    pub fn map_collateral_mut(&mut self, csa_code: impl Into<String>, discount_id: CurveId) -> &mut Self {
         self.collateral.insert(csa_code.into(), discount_id);
         self
     }
