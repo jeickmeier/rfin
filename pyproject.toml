@@ -141,6 +141,8 @@ exclude = [
     # allow Ruff to lint this file itself (don't exclude pyproject.toml)
     "outputs/**",
     "examples/**",
+    "finstack-py/examples/**",
+    "**/*.ipynb",
 ]
 
 [tool.ruff.lint]
@@ -200,6 +202,9 @@ ignore = [
     "F403",    #
     "F405",    #
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"**/*.pyi" = ["ALL"]
 
 # Configuration for pydocstyle (D rules)
 [tool.ruff.lint.pydocstyle]

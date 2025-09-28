@@ -1,5 +1,12 @@
-use crate::currency::extract_currency;
-use crate::error::unknown_rounding_mode;
+//! Configuration bindings for rounding policies and currency scales.
+//!
+//! Provides a Python-facing `FinstackConfig` to manage global rounding behavior
+//! and per-currency decimal scales for both ingestion and presentation. Use this
+//! to control how `Money` values are parsed and formatted throughout analyses.
+//! Also exposes a `RoundingMode` enum with common strategies (bankers, floor,
+//! ceil, toward/away from zero).
+use crate::core::currency::extract_currency;
+use crate::core::error::unknown_rounding_mode;
 use finstack_core::config::{FinstackConfig, RoundingMode};
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -8,7 +15,17 @@ use pyo3::types::{PyAnyMethods, PyList, PyModule, PyModuleMethods, PyType};
 use pyo3::{Bound, IntoPyObjectExt};
 use std::fmt;
 
-/// Finstack numeric configuration (rounding and currency scales).
+/// Manage global rounding behaviour and currency decimal scales.
+///
+/// Parameters
+/// ----------
+/// None
+///     Construct via :class:`FinstackConfig()` to use default rounding rules.
+///
+/// Returns
+/// -------
+/// FinstackConfig
+///     Configuration handle that can be reused across money formatting operations.
 #[pyclass(name = "FinstackConfig", module = "finstack.config")]
 #[derive(Clone)]
 pub struct PyFinstackConfig {
@@ -26,39 +43,87 @@ impl PyFinstackConfig {
     #[new]
     #[pyo3(text_signature = "()")]
     /// Create a configuration with the default rounding rules.
+    ///
+    /// Returns
+    /// -------
+    /// FinstackConfig
+    ///     Configuration using finstack defaults (bankers rounding, ISO scales).
     fn ctor() -> Self {
         Self::new(FinstackConfig::default())
     }
 
     /// Clone this configuration.
+    ///
+    /// Returns
+    /// -------
+    /// FinstackConfig
+    ///     A new configuration pointing to the same rounding overrides.
     #[pyo3(text_signature = "(self)")]
     fn copy(&self) -> Self {
         Self::new(self.inner.clone())
     }
 
-    /// Active rounding mode.
     #[getter]
-    /// Active rounding mode for display/output formatting.
+    /// Active rounding mode.
+    ///
+    /// Returns
+    /// -------
+    /// RoundingMode
+    ///     Current rounding policy applied during formatting.
     fn rounding_mode(&self) -> PyRoundingMode {
         PyRoundingMode::new(self.inner.rounding.mode)
     }
 
-    /// Update the rounding mode.
+    /// Update the rounding mode using a :class:`RoundingMode` or snake-case string.
+    ///
+    /// Parameters
+    /// ----------
+    /// mode : RoundingMode or str
+    ///     Either an enum instance or a snake-case label such as ``"floor"``.
+    ///
+    /// Returns
+    /// -------
+    /// None
+    ///
+    /// Examples
+    /// --------
+    /// >>> cfg = FinstackConfig()
+    /// >>> cfg.set_rounding_mode("away_from_zero")
     #[pyo3(text_signature = "(self, mode)")]
     fn set_rounding_mode(&mut self, mode: Bound<'_, PyAny>) -> PyResult<()> {
         self.inner.rounding.mode = extract_rounding_mode(&mode)?;
         Ok(())
     }
 
-    /// Get the ingest decimal scale for a currency.
     #[pyo3(text_signature = "(self, currency)")]
-    /// Decimal places accepted when ingesting source data for `currency`.
+    /// Decimal places accepted when ingesting source data for ``currency``.
+    ///
+    /// Parameters
+    /// ----------
+    /// currency : Currency or str
+    ///     Currency to inspect (ISO code or :class:`Currency`).
+    ///
+    /// Returns
+    /// -------
+    /// int
+    ///     Number of decimal places allowed for ingestion.
     fn ingest_scale(&self, currency: Bound<'_, PyAny>) -> PyResult<u32> {
         let ccy = extract_currency(currency.as_ref())?;
         Ok(self.inner.ingest_scale(ccy))
     }
 
     /// Override the ingest decimal scale for a currency.
+    ///
+    /// Parameters
+    /// ----------
+    /// currency : Currency or str
+    ///     Currency whose ingest precision should change.
+    /// decimals : int
+    ///     Number of decimal places to accept (e.g. ``6`` for JPY pipettes).
+    ///
+    /// Returns
+    /// -------
+    /// None
     #[pyo3(text_signature = "(self, currency, decimals)")]
     fn set_ingest_scale(&mut self, currency: Bound<'_, PyAny>, decimals: u32) -> PyResult<()> {
         let ccy = extract_currency(currency.as_ref())?;
@@ -70,15 +135,40 @@ impl PyFinstackConfig {
         Ok(())
     }
 
-    /// Get the output decimal scale for a currency.
     #[pyo3(text_signature = "(self, currency)")]
-    /// Decimal places used when exporting values for `currency`.
+    /// Decimal places used when exporting values for ``currency``.
+    ///
+    /// Parameters
+    /// ----------
+    /// currency : Currency or str
+    ///     Currency to inspect.
+    ///
+    /// Returns
+    /// -------
+    /// int
+    ///     Decimal places used during formatting.
     fn output_scale(&self, currency: Bound<'_, PyAny>) -> PyResult<u32> {
         let ccy = extract_currency(currency.as_ref())?;
         Ok(self.inner.output_scale(ccy))
     }
 
     /// Override the output decimal scale for a currency.
+    ///
+    /// Parameters
+    /// ----------
+    /// currency : Currency or str
+    ///     Currency whose presentation precision should change.
+    /// decimals : int
+    ///     Decimal places to use when formatting.
+    ///
+    /// Returns
+    /// -------
+    /// None
+    ///
+    /// Examples
+    /// --------
+    /// >>> cfg = FinstackConfig()
+    /// >>> cfg.set_output_scale("JPY", 0)
     #[pyo3(text_signature = "(self, currency, decimals)")]
     fn set_output_scale(&mut self, currency: Bound<'_, PyAny>, decimals: u32) -> PyResult<()> {
         let ccy = extract_currency(currency.as_ref())?;
@@ -91,7 +181,17 @@ impl PyFinstackConfig {
     }
 }
 
-/// Rounding mode enum exposed to Python.
+/// Enumerate supported rounding policies for monetary values.
+///
+/// Parameters
+/// ----------
+/// None
+///     Access constants such as :attr:`RoundingMode.BANKERS` instead of instantiating directly.
+///
+/// Returns
+/// -------
+/// RoundingMode
+///     Enum value describing the rounding strategy.
 #[pyclass(name = "RoundingMode", module = "finstack.config", frozen)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyRoundingMode {
@@ -140,6 +240,7 @@ impl PyRoundingMode {
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
+    /// Parse a rounding mode from a snake-case string.
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
         parse_rounding_mode(name)
     }
@@ -218,6 +319,22 @@ pub(crate) fn extract_rounding_mode(value: &Bound<'_, PyAny>) -> PyResult<Roundi
     ))
 }
 
+/// Parse a snake-case rounding mode label into a `PyRoundingMode`.
+///
+/// Parameters
+/// ----------
+/// name : &str
+///     Case-insensitive snake-case identifier (e.g. "bankers", "floor").
+///
+/// Returns
+/// -------
+/// PyRoundingMode
+///     Wrapper around the core rounding mode.
+///
+/// Raises
+/// ------
+/// ValueError
+///     If the name is not a recognized rounding mode.
 fn parse_rounding_mode(name: &str) -> PyResult<PyRoundingMode> {
     match name.to_ascii_lowercase().as_str() {
         "bankers" | "banker's" | "banker" => Ok(PyRoundingMode::new(RoundingMode::Bankers)),

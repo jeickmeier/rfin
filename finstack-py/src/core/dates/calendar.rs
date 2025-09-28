@@ -1,17 +1,27 @@
-use crate::error::{calendar_not_found, core_to_py, unknown_business_day_convention};
-use crate::utils::{date_to_py, py_to_date};
+use crate::core::error::{calendar_not_found, core_to_py, unknown_business_day_convention};
+use crate::core::utils::{date_to_py, py_to_date};
 use finstack_core::dates::calendar::business_days::{self, HolidayCalendar};
 use finstack_core::dates::calendar::registry::CalendarRegistry;
 use finstack_core::dates::{self, adjust as core_adjust, BusinessDayConvention};
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyAnyMethods, PyList, PyModule, PyModuleMethods, PyType};
-use pyo3::{Bound, IntoPyObjectExt};
+use pyo3::types::{PyAnyMethods, PyModule, PyType};
+use pyo3::{Bound, IntoPyObjectExt, PyRef};
 use std::borrow::Cow;
 use std::fmt;
 
-/// Business-day convention wrapper.
+/// Enumerate how dates should adjust relative to a business-day calendar.
+///
+/// Parameters
+/// ----------
+/// None
+///     Instantiate via provided class attributes such as :attr:`BusinessDayConvention.FOLLOWING`.
+///
+/// Returns
+/// -------
+/// BusinessDayConvention
+///     Convention token that can be supplied to scheduling helpers.
 #[pyclass(name = "BusinessDayConvention", module = "finstack.dates", frozen)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyBusinessDayConvention {
@@ -60,13 +70,13 @@ impl PyBusinessDayConvention {
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
-    /// Look up a business-day convention by snake-case name.
+    /// Parse a business-day convention from a snake-case string.
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
         parse_business_day_convention(name)
     }
 
     #[getter]
-    /// Snake-case identifier of this convention.
+    /// Canonical snake-case name for the convention.
     fn name(&self) -> &'static str {
         self.label()
     }
@@ -111,7 +121,17 @@ impl fmt::Display for PyBusinessDayConvention {
     }
 }
 
-/// Holiday calendar wrapper backed by `finstack-core` calendars.
+/// Holiday calendar sourced from the finstack registry.
+///
+/// Parameters
+/// ----------
+/// code : str
+///     Registry identifier such as ``"usny"``.
+///
+/// Returns
+/// -------
+/// Calendar
+///     Calendar object exposing business-day queries and metadata.
 #[pyclass(name = "Calendar", module = "finstack.dates", unsendable)]
 #[derive(Clone)]
 pub struct PyCalendar {
@@ -147,32 +167,32 @@ impl PyCalendar {
 #[pymethods]
 impl PyCalendar {
     #[getter]
-    /// Lowercase identifier for this calendar.
+    /// Short calendar identifier (matching the registry code).
     fn code(&self) -> &str {
         self.code.as_ref()
     }
 
     #[getter]
-    /// Human-readable market name for this calendar.
+    /// Descriptive calendar name from the registry.
     fn name(&self) -> &str {
         self.name.as_ref()
     }
 
     #[getter]
-    /// Whether the underlying calendar ignores weekends when classifying holidays.
+    /// Whether weekends are ignored (i.e. Saturday/Sunday count as business days).
     fn ignore_weekends(&self) -> bool {
         self.ignore_weekends
     }
 
-    /// Return `True` if the given date is a business day.
     #[pyo3(text_signature = "(self, date)")]
+    /// Return ``True`` if the provided date is a business day.
     fn is_business_day(&self, date: Bound<'_, PyAny>) -> PyResult<bool> {
         let d = py_to_date(&date)?;
         Ok(self.inner.is_business_day(d))
     }
 
-    /// Return `True` if the given date is a holiday.
     #[pyo3(text_signature = "(self, date)")]
+    /// Return ``True`` if the provided date is an observed holiday.
     fn is_holiday(&self, date: Bound<'_, PyAny>) -> PyResult<bool> {
         let d = py_to_date(&date)?;
         Ok(self.inner.is_holiday(d))
@@ -218,10 +238,23 @@ impl PyCalendar {
     }
 }
 
-/// Adjust a date to a business day under the given convention and calendar.
-#[pyfunction]
-#[pyo3(name = "adjust", text_signature = "(date, convention, calendar)")]
-fn adjust_py<'py>(
+/// Adjust a date according to a convention and calendar.
+///
+/// Parameters
+/// ----------
+/// date : datetime.date
+///     Anchor date that may require adjustment.
+/// convention : BusinessDayConvention or str
+///     Convention controlling the adjustment.
+/// calendar : Calendar or str
+///     Calendar that defines business days.
+///
+/// Returns
+/// -------
+/// datetime.date
+///     Adjusted business-day date.
+#[pyfunction(name = "adjust", text_signature = "(date, convention, calendar)")]
+pub(crate) fn adjust_py<'py>(
     py: Python<'py>,
     date: Bound<'py, PyAny>,
     convention: Bound<'py, PyAny>,
@@ -234,10 +267,14 @@ fn adjust_py<'py>(
     date_to_py(py, adjusted)
 }
 
-/// List all built-in calendars compiled into the library.
-#[pyfunction]
-#[pyo3(name = "available_calendars", text_signature = "()")]
-fn available_calendars_py() -> PyResult<Vec<PyCalendar>> {
+/// Return all registered calendars as :class:`Calendar` instances.
+///
+/// Returns
+/// -------
+/// list[Calendar]
+///     Collection of available calendars.
+#[pyfunction(name = "available_calendars", text_signature = "()")]
+pub(crate) fn available_calendars_py() -> PyResult<Vec<PyCalendar>> {
     let registry = CalendarRegistry::global();
     let mut out = Vec::new();
     for code in dates::available_calendars() {
@@ -247,47 +284,53 @@ fn available_calendars_py() -> PyResult<Vec<PyCalendar>> {
     Ok(out)
 }
 
-/// List the available calendar identifiers (lowercase codes).
-#[pyfunction]
-#[pyo3(name = "available_calendar_codes", text_signature = "()")]
-fn available_calendar_codes_py() -> PyResult<Vec<&'static str>> {
+/// Return the list of calendar codes understood by the registry.
+///
+/// Returns
+/// -------
+/// list[str]
+///     Canonical calendar identifiers.
+#[pyfunction(name = "available_calendar_codes", text_signature = "()")]
+pub(crate) fn available_calendar_codes_py() -> PyResult<Vec<&'static str>> {
     Ok(CalendarRegistry::global().available_ids().to_vec())
 }
 
-/// Resolve a calendar by its identifier (case-insensitive).
-#[pyfunction]
-#[pyo3(name = "get_calendar", text_signature = "(code)")]
-fn get_calendar_py(code: &str) -> PyResult<PyCalendar> {
+/// Fetch a calendar by code (case-insensitive).
+///
+/// Parameters
+/// ----------
+/// code : str
+///     Calendar identifier such as ``"usny"``.
+///
+/// Returns
+/// -------
+/// Calendar
+///     Calendar instance resolved from the registry.
+#[pyfunction(name = "get_calendar", text_signature = "(code)")]
+pub(crate) fn get_calendar_py(code: &str) -> PyResult<PyCalendar> {
     let registry = CalendarRegistry::global();
     resolve_calendar(registry, code)
 }
 
-pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> PyResult<()> {
-    let module = PyModule::new(py, "dates")?;
-    module.setattr(
-        "__doc__",
-        "Business-day conventions and holiday calendar utilities.",
-    )?;
+pub(crate) fn register<'py>(
+    _py: Python<'py>,
+    module: &Bound<'py, PyModule>,
+) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyBusinessDayConvention>()?;
     module.add_class::<PyCalendar>()?;
-    module.add_function(wrap_pyfunction!(adjust_py, &module)?)?;
-    module.add_function(wrap_pyfunction!(available_calendars_py, &module)?)?;
-    module.add_function(wrap_pyfunction!(available_calendar_codes_py, &module)?)?;
-    module.add_function(wrap_pyfunction!(get_calendar_py, &module)?)?;
-    let all = PyList::new(
-        py,
-        [
-            "BusinessDayConvention",
-            "Calendar",
-            "adjust",
-            "available_calendars",
-            "available_calendar_codes",
-            "get_calendar",
-        ],
-    )?;
-    module.setattr("__all__", all)?;
-    parent.add_submodule(&module)?;
-    Ok(())
+    module.add_function(wrap_pyfunction!(adjust_py, module)?)?;
+    module.add_function(wrap_pyfunction!(available_calendars_py, module)?)?;
+    module.add_function(wrap_pyfunction!(available_calendar_codes_py, module)?)?;
+    module.add_function(wrap_pyfunction!(get_calendar_py, module)?)?;
+    let exports = [
+        "BusinessDayConvention",
+        "Calendar",
+        "adjust",
+        "available_calendars",
+        "available_calendar_codes",
+        "get_calendar",
+    ];
+    Ok(exports.to_vec())
 }
 
 fn parse_business_day_convention(name: &str) -> PyResult<PyBusinessDayConvention> {
@@ -323,7 +366,7 @@ fn extract_business_day_convention(value: &Bound<'_, PyAny>) -> PyResult<Busines
     ))
 }
 
-fn extract_calendar(value: &Bound<'_, PyAny>) -> PyResult<PyCalendar> {
+pub(crate) fn extract_calendar(value: &Bound<'_, PyAny>) -> PyResult<PyCalendar> {
     if let Ok(cal) = value.extract::<PyRef<PyCalendar>>() {
         return Ok(cal.clone());
     }

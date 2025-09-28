@@ -1,4 +1,11 @@
-use crate::error::unknown_currency;
+//! Currency bindings: ISO-4217 metadata and helpers for Python.
+//!
+//! Exposes `Currency` as a Python class with convenient constructors and
+//! properties. All arithmetic using `Money` requires matching currencies; this
+//! module provides the canonical way to identify currencies via codes or
+//! numeric identifiers. The module also re-exports every known currency by code
+//! for ergonomic access (e.g., `finstack.core.currency.USD`).
+use crate::core::error::unknown_currency;
 use finstack_core::currency::Currency;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -9,7 +16,17 @@ use std::fmt;
 use std::str::FromStr;
 use strum::IntoEnumIterator;
 
-/// ISO 4217 currency wrapper.
+/// Wrap ISO-4217 currency metadata for Python usage.
+///
+/// Parameters
+/// ----------
+/// code : str
+///     Three-letter ISO code such as ``"USD"`` or ``"eur"``.
+///
+/// Returns
+/// -------
+/// Currency
+///     Strongly typed currency object used throughout the bindings.
 #[pyclass(name = "Currency", module = "finstack.currency", frozen)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct PyCurrency {
@@ -26,6 +43,17 @@ impl PyCurrency {
 impl PyCurrency {
     #[new]
     #[pyo3(text_signature = "(code)")]
+    /// Construct a currency from a three-letter ISO code (case-insensitive).
+    ///
+    /// Parameters
+    /// ----------
+    /// code : str
+    ///     Three-letter ISO currency code such as ``"USD"``.
+    ///
+    /// Returns
+    /// -------
+    /// Currency
+    ///     Currency instance corresponding to ``code``.
     fn ctor(code: &str) -> PyResult<Self> {
         Currency::from_str(code)
             .map(Self::new)
@@ -34,41 +62,75 @@ impl PyCurrency {
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, numeric)")]
-    /// Construct from an ISO numeric currency code (e.g., 840 → USD).
+    /// Construct from an ISO numeric currency code (e.g. ``840 → USD``).
+    ///
+    /// Parameters
+    /// ----------
+    /// numeric : int
+    ///     ISO-4217 numeric currency code.
+    ///
+    /// Returns
+    /// -------
+    /// Currency
+    ///     Currency instance associated with ``numeric``.
     fn from_numeric(_cls: &Bound<'_, PyType>, numeric: u16) -> PyResult<Self> {
         Currency::try_from(numeric)
             .map(Self::new)
             .map_err(|_| PyValueError::new_err(format!("Unknown currency numeric code: {numeric}")))
     }
 
-    /// Three-letter currency code (upper-case).
     #[getter]
+    /// Three-letter currency code (always upper-case).
+    ///
+    /// Returns
+    /// -------
+    /// str
+    ///     Upper-case ISO code (e.g. ``"USD"``).
     fn code(&self) -> String {
         self.inner.to_string()
     }
 
-    /// ISO numeric currency code.
     #[getter]
+    /// ISO numeric currency code.
+    ///
+    /// Returns
+    /// -------
+    /// int
+    ///     Numeric ISO identifier (e.g. ``840`` for USD).
     fn numeric(&self) -> u16 {
         self.inner as u16
     }
 
-    /// Number of decimal places (minor units) for the currency.
     #[getter]
+    /// Number of decimal places (minor units) for the currency.
+    ///
+    /// Returns
+    /// -------
+    /// int
+    ///     Minor unit precision (e.g. ``2`` for USD, ``0`` for JPY).
     fn decimals(&self) -> u8 {
         self.inner.decimals()
     }
 
-    /// Return this currency as a tuple of `(code, numeric, decimals)`.
     #[pyo3(text_signature = "(self)")]
+    /// Return this currency as a tuple of `(code, numeric, decimals)`.
+    ///
+    /// Returns
+    /// -------
+    /// tuple[str, int, int]
+    ///     Tuple containing ISO code, numeric id, and decimal count.
     fn to_tuple(&self) -> (String, u16, u8) {
         (self.code(), self.numeric(), self.decimals())
     }
 
-    /// List all built-in ISO currencies as `Currency` instances.
     #[classmethod]
     #[pyo3(text_signature = "(cls)")]
     /// List all ISO currencies compiled into the bindings.
+    ///
+    /// Returns
+    /// -------
+    /// list[Currency]
+    ///     Sequence of all currencies recognised by finstack.
     fn all(_cls: &Bound<'_, PyType>) -> Vec<Self> {
         Currency::iter().map(Self::new).collect()
     }
@@ -106,7 +168,17 @@ impl PyCurrency {
     }
 }
 
-/// Lookup a currency by ISO code (case-insensitive).
+/// Look up a currency by ISO code.
+///
+/// Parameters
+/// ----------
+/// code : str
+///     Three-letter ISO currency code (case-insensitive).
+///
+/// Returns
+/// -------
+/// Currency
+///     Currency instance matching ``code``.
 #[pyfunction]
 #[pyo3(name = "get", text_signature = "(code)")]
 fn get_currency(code: &str) -> PyResult<PyCurrency> {
@@ -138,6 +210,10 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     Ok(())
 }
 
+/// Attempt to coerce a Python value to a core `Currency`.
+///
+/// Accepted inputs are a `Currency` instance or a string ISO code (case-insensitive).
+/// Returns a `Currency` on success, otherwise raises a `TypeError` or `ValueError`.
 pub(crate) fn extract_currency(value: &Bound<'_, PyAny>) -> PyResult<Currency> {
     if let Ok(curr) = value.extract::<PyRef<PyCurrency>>() {
         return Ok(curr.inner);

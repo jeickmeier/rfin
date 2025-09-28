@@ -1,6 +1,13 @@
-use crate::config::PyFinstackConfig;
-use crate::currency::{extract_currency, PyCurrency};
-use crate::error::core_to_py;
+//! Money bindings: currency-tagged amounts with safe arithmetic.
+//!
+//! This module exposes the Rust `Money` type to Python with currency safety:
+//! arithmetic requires matching currencies and raises `ValueError` otherwise.
+//! Formatting respects ISO minor units by default and can be customized via
+//! `FinstackConfig` ingest/output scales. Conversions to/from tuples are
+//! supported for ergonomics and interoperability with Python code.
+use crate::core::config::PyFinstackConfig;
+use crate::core::currency::{extract_currency, PyCurrency};
+use crate::core::error::core_to_py;
 use finstack_core::money::Money;
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -9,7 +16,19 @@ use pyo3::types::{PyAnyMethods, PyList, PyModule, PyModuleMethods, PyTuple, PyTy
 use pyo3::{Bound, IntoPyObjectExt};
 use std::fmt;
 
-/// Currency-tagged monetary amount with safe arithmetic.
+/// Represent a currency-tagged monetary amount with safe arithmetic semantics.
+///
+/// Parameters
+/// ----------
+/// amount : float
+///     Scalar value expressed in minor units defined by ``currency``.
+/// currency : str or Currency
+///     ISO code or :class:`Currency` instance describing the legal tender.
+///
+/// Returns
+/// -------
+/// Money
+///     Money wrapper supporting arithmetic, formatting, and tuple conversions.
 #[pyclass(name = "Money", module = "finstack.money")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PyMoney {
@@ -27,14 +46,50 @@ impl PyMoney {
     #[new]
     #[pyo3(text_signature = "(amount, currency)")]
     /// Create a money amount with the provided ISO currency.
+    ///
+    /// Parameters
+    /// ----------
+    /// amount : float
+    ///     Numeric value expressed in the currency's minor units.
+    /// currency : Currency or str
+    ///     ISO code or :class:`Currency` instance.
+    ///
+    /// Returns
+    /// -------
+    /// Money
+    ///     Money instance representing ``amount`` in ``currency``.
+    ///
+    /// Examples
+    /// --------
+    /// >>> Money(125.5, "USD")
     fn ctor(amount: f64, currency: Bound<'_, PyAny>) -> PyResult<Self> {
         let ccy = extract_currency(&currency)?;
         Ok(Self::new(Money::new(amount, ccy)))
     }
 
-    /// Construct a money value using a configuration for ingest rounding.
     #[classmethod]
     #[pyo3(text_signature = "(cls, amount, currency, config)")]
+    /// Construct a money value using a configuration for ingest rounding.
+    ///
+    /// Parameters
+    /// ----------
+    /// amount : float
+    ///     Raw monetary value.
+    /// currency : Currency or str
+    ///     Currency identifier.
+    /// config : FinstackConfig
+    ///     Configuration controlling ingest rounding/scale.
+    ///
+    /// Returns
+    /// -------
+    /// Money
+    ///     Money instance respecting custom ingest rules.
+    ///
+    /// Examples
+    /// --------
+    /// >>> cfg = FinstackConfig()
+    /// >>> cfg.set_ingest_scale("JPY", 4)
+    /// >>> Money.from_config(123.4567, "JPY", cfg)
     fn from_config(
         _cls: &Bound<'_, PyType>,
         amount: f64,
@@ -49,61 +104,141 @@ impl PyMoney {
         )))
     }
 
-    /// Zero amount in the requested currency.
     #[classmethod]
     #[pyo3(text_signature = "(cls, currency)")]
+    /// Zero amount in the requested currency.
+    ///
+    /// Parameters
+    /// ----------
+    /// currency : Currency or str
+    ///     Currency identifier.
+    ///
+    /// Returns
+    /// -------
+    /// Money
+    ///     Money instance with amount ``0`` in ``currency``.
     fn zero(_cls: &Bound<'_, PyType>, currency: Bound<'_, PyAny>) -> PyResult<Self> {
         let ccy = extract_currency(&currency)?;
         Ok(Self::new(Money::new(0.0, ccy)))
     }
 
-    /// Construct from a `(amount, currency)` tuple or another `Money` instance.
     #[classmethod]
     #[pyo3(text_signature = "(cls, value)")]
+    /// Construct from an ``(amount, currency)`` tuple or another :class:`Money` instance.
+    ///
+    /// Parameters
+    /// ----------
+    /// value : tuple[float, Currency] or Money
+    ///     Source value to coerce into :class:`Money`.
+    ///
+    /// Returns
+    /// -------
+    /// Money
+    ///     Money instance matching the input.
     fn from_tuple(_cls: &Bound<'_, PyType>, value: Bound<'_, PyAny>) -> PyResult<Self> {
         let inner = extract_money(&value)?;
         Ok(Self::new(inner))
     }
 
-    /// Amount as floating-point value.
     #[getter]
+    /// Amount as floating-point value.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Monetary amount in native units.
     fn amount(&self) -> f64 {
         self.inner.amount()
     }
 
-    /// Currency of this amount.
     #[getter]
+    /// Currency of this amount.
+    ///
+    /// Returns
+    /// -------
+    /// Currency
+    ///     Currency associated with the amount.
     fn currency(&self) -> PyCurrency {
         PyCurrency::new(self.inner.currency())
     }
 
-    /// Return `(amount, currency_code)` tuple.
     #[pyo3(text_signature = "(self)")]
+    /// Return ``(amount, currency)`` tuple.
+    ///
+    /// Returns
+    /// -------
+    /// tuple[float, Currency]
+    ///     Tuple containing the numeric amount and currency object.
     fn to_tuple(&self) -> PyResult<(f64, PyCurrency)> {
         Ok((self.inner.amount(), PyCurrency::new(self.inner.currency())))
     }
 
-    /// Format using ISO minor units (e.g., `USD 10.00`).
     #[pyo3(text_signature = "(self)")]
+    /// Format using ISO minor units (e.g., ``"USD 10.00"``).
+    ///
+    /// Returns
+    /// -------
+    /// str
+    ///     Formatted string with ISO code prefix.
     fn format(&self) -> String {
         format!("{}", self.inner)
     }
 
-    /// Format using a configuration (custom rounding/scales).
     #[pyo3(text_signature = "(self, config)")]
+    /// Format using a configuration (custom rounding/scales).
+    ///
+    /// Parameters
+    /// ----------
+    /// config : FinstackConfig
+    ///     Configuration detailing rounding and output scales.
+    ///
+    /// Returns
+    /// -------
+    /// str
+    ///     Formatted money string respecting ``config`` overrides.
     fn format_with_config(&self, config: &PyFinstackConfig) -> String {
         self.inner.format_with_config(&config.inner)
     }
 
-    /// Checked addition. Raises `ValueError` on currency mismatch.
     #[pyo3(text_signature = "(self, other)")]
+    /// Checked addition.
+    ///
+    /// Parameters
+    /// ----------
+    /// other : Money or tuple
+    ///     Right-hand operand to add.
+    ///
+    /// Returns
+    /// -------
+    /// Money
+    ///     Sum of both amounts.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If currencies differ.
     fn checked_add(&self, other: Bound<'_, PyAny>) -> PyResult<Self> {
         let rhs = extract_money(&other)?;
         (self.inner + rhs).map(Self::new).map_err(core_to_py)
     }
 
-    /// Checked subtraction. Raises `ValueError` on currency mismatch.
     #[pyo3(text_signature = "(self, other)")]
+    /// Checked subtraction.
+    ///
+    /// Parameters
+    /// ----------
+    /// other : Money or tuple
+    ///     Right-hand operand to subtract.
+    ///
+    /// Returns
+    /// -------
+    /// Money
+    ///     Difference ``self - other``.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If currencies differ.
     fn checked_sub(&self, other: Bound<'_, PyAny>) -> PyResult<Self> {
         let rhs = extract_money(&other)?;
         (self.inner - rhs).map(Self::new).map_err(core_to_py)
@@ -160,28 +295,44 @@ impl PyMoney {
         (self.inner + rhs).map(Self::new).map_err(core_to_py)
     }
 
+    /// Reflected addition: ``other + self``.
     fn __radd__(&self, other: Bound<'_, PyAny>) -> PyResult<Self> {
         self.__add__(other)
     }
 
+    /// Subtract another money amount, enforcing matching currencies.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If currencies differ.
     fn __sub__(&self, other: Bound<'_, PyAny>) -> PyResult<Self> {
         let rhs = extract_money(&other)?;
         (self.inner - rhs).map(Self::new).map_err(core_to_py)
     }
 
+    /// Reflected subtraction: ``other - self``.
     fn __rsub__(&self, other: Bound<'_, PyAny>) -> PyResult<Self> {
         let rhs = extract_money(&other)?;
         (rhs - self.inner).map(Self::new).map_err(core_to_py)
     }
 
+    /// Scale this amount by a floating-point factor.
     fn __mul__(&self, factor: f64) -> Self {
         Self::new(self.inner * factor)
     }
 
+    /// Support scalar * money multiplication.
     fn __rmul__(&self, factor: f64) -> Self {
         Self::new(self.inner * factor)
     }
 
+    /// Divide by a scalar, raising on zero divisors.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If ``divisor`` is zero.
     fn __truediv__(&self, divisor: f64) -> PyResult<Self> {
         if divisor == 0.0 {
             return Err(PyValueError::new_err("Cannot divide by zero"));
@@ -189,6 +340,12 @@ impl PyMoney {
         Ok(Self::new(self.inner / divisor))
     }
 
+    /// Prevent scalar / money operations which have no meaning.
+    ///
+    /// Raises
+    /// ------
+    /// TypeError
+    ///     Always raised; scalar divided by money is undefined.
     fn __rtruediv__(&self, value: f64) -> PyResult<()> {
         let _ = value;
         Err(PyTypeError::new_err(
@@ -196,7 +353,7 @@ impl PyMoney {
         ))
     }
 
-    /// Deconstruct into `(amount, currency_code)` tuple (used by pickle).
+    /// Deconstruct into ``(amount, currency)`` tuple (used by pickle).
     fn __getnewargs__(&self) -> PyResult<(f64, PyCurrency)> {
         Ok((self.inner.amount(), PyCurrency::new(self.inner.currency())))
     }
@@ -210,6 +367,10 @@ impl fmt::Display for PyMoney {
 
 pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> PyResult<()> {
     let module = PyModule::new(py, "money")?;
+    module.setattr(
+        "__doc__",
+        "Currency-tagged money amounts with safe arithmetic and configurable formatting.",
+    )?;
     module.add_class::<PyMoney>()?;
     let all = PyList::new(py, ["Money"])?;
     module.setattr("__all__", all)?;
@@ -217,7 +378,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     Ok(())
 }
 
-fn extract_money(value: &Bound<'_, PyAny>) -> PyResult<Money> {
+pub(crate) fn extract_money(value: &Bound<'_, PyAny>) -> PyResult<Money> {
     if let Ok(mny) = value.extract::<PyRef<PyMoney>>() {
         return Ok(mny.inner);
     }

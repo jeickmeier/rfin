@@ -15,9 +15,11 @@ crate-type = ["cdylib"]
 finstack-core = { path = "../finstack/core", features = ["std"] }
 pyo3 = { version = "0.25", features = ["extension-module"] }
 
+
 # Needed for Month enum used in Date bindings
 time = { version = "0.3", default-features = false }
 strum = { workspace = true }
+parking_lot = "0.12"
 
 [build-dependencies]
 pyo3-build-config = "0.25"
