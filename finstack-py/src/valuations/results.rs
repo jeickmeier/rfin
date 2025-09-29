@@ -10,6 +10,11 @@ use pyo3::Bound;
 use std::fmt;
 
 /// Covenant evaluation outcome attached to a valuation result.
+///
+/// Examples:
+///     >>> report = valuation_result.covenants['ltv']
+///     >>> report.passed
+///     True
 #[pyclass(
     module = "finstack.valuations.results",
     name = "CovenantReport",
@@ -29,30 +34,45 @@ impl PyCovenantReport {
 #[pymethods]
 impl PyCovenantReport {
     /// Covenant identifier describing the check performed.
+    ///
+    /// Returns:
+    ///     str: Covenant label supplied by the originating configuration.
     #[getter]
     fn covenant_type(&self) -> &str {
         &self.inner.covenant_type
     }
 
     /// Whether the covenant passed for the evaluated scenario.
+    ///
+    /// Returns:
+    ///     bool: ``True`` when the covenant conditions are satisfied.
     #[getter]
     fn passed(&self) -> bool {
         self.inner.passed
     }
 
     /// Observed metric value when available.
+    ///
+    /// Returns:
+    ///     float | None: Realized metric value used in the check.
     #[getter]
     fn actual_value(&self) -> Option<f64> {
         self.inner.actual_value
     }
 
     /// Required threshold for the covenant, when provided.
+    ///
+    /// Returns:
+    ///     float | None: Target threshold or limit for the covenant.
     #[getter]
     fn threshold(&self) -> Option<f64> {
         self.inner.threshold
     }
 
     /// Additional free-form details attached to the report.
+    ///
+    /// Returns:
+    ///     str | None: Supplemental information captured during evaluation.
     #[getter]
     fn details(&self) -> Option<&str> {
         self.inner.details.as_deref()
@@ -83,6 +103,10 @@ impl fmt::Display for PyCovenantReport {
 }
 
 /// Snapshot describing numeric mode, rounding context, and FX policy applied to results.
+///
+/// Examples:
+///     >>> meta.numeric_mode
+///     'f64'
 #[pyclass(module = "finstack.valuations.results", name = "ResultsMeta", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyResultsMeta {
@@ -113,7 +137,10 @@ impl PyResultsMeta {
 
 #[pymethods]
 impl PyResultsMeta {
-    /// Numeric engine mode used by the pricing engine (e.g. ``"f64"``).
+    /// Numeric engine mode used by the pricing engine (e.g., ``"f64"``).
+    ///
+    /// Returns:
+    ///     str: Symbol representing the numeric precision.
     #[getter]
     fn numeric_mode(&self) -> &'static str {
         match self.inner.numeric_mode {
@@ -123,12 +150,18 @@ impl PyResultsMeta {
     }
 
     /// Optional FX policy key applied during result aggregation.
+    ///
+    /// Returns:
+    ///     str | None: FX policy identifier or ``None`` when not applied.
     #[getter]
     fn fx_policy_applied(&self) -> Option<&str> {
         self.inner.fx_policy_applied.as_deref()
     }
 
     /// Rounding context snapshot as a dictionary.
+    ///
+    /// Returns:
+    ///     dict: Dictionary containing rounding mode and per-currency scales.
     #[getter]
     fn rounding<'py>(&self, py: Python<'py>) -> PyResult<PyObject> {
         Ok(self.rounding_to_dict(py)?.into())
@@ -136,6 +169,13 @@ impl PyResultsMeta {
 
     #[pyo3(text_signature = "(self)")]
     /// Convert the metadata to a Python dictionary for downstream serialization.
+    ///
+    /// Returns:
+    ///     dict: Serializable snapshot of metadata fields.
+    ///
+    /// Examples:
+    ///     >>> meta.to_dict()['numeric_mode']
+    ///     'f64'
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<PyObject> {
         let dict = PyDict::new(py);
         dict.set_item("numeric_mode", self.numeric_mode())?;
@@ -166,6 +206,10 @@ impl fmt::Display for PyResultsMeta {
 }
 
 /// Complete valuation output including PV, measures, metadata, and covenant reports.
+///
+/// Examples:
+///     >>> result.value.amount
+///     123.45
 #[pyclass(
     module = "finstack.valuations.results",
     name = "ValuationResult",
@@ -205,36 +249,54 @@ impl PyValuationResult {
 #[pymethods]
 impl PyValuationResult {
     /// Instrument identifier used when stamping the result.
+    ///
+    /// Returns:
+    ///     str: Unique instrument identifier supplied at pricing time.
     #[getter]
     fn instrument_id(&self) -> &str {
         &self.inner.instrument_id
     }
 
     /// Valuation date associated with the pricing run.
+    ///
+    /// Returns:
+    ///     datetime.date: Effective market date for the valuation.
     #[getter]
     fn as_of(&self, py: Python<'_>) -> PyResult<PyObject> {
         core_utils::date_to_py(py, self.inner.as_of)
     }
 
     /// Present value expressed as :class:`finstack.core.money.Money`.
+    ///
+    /// Returns:
+    ///     Money: Present value of the instrument.
     #[getter]
     fn value(&self) -> PyMoney {
         PyMoney::new(self.inner.value)
     }
 
     /// Dictionary of computed measures (e.g., ``{"dv01": 1250.0}``).
+    ///
+    /// Returns:
+    ///     dict[str, float]: Calculated risk measures keyed by metric id.
     #[getter]
     fn measures<'py>(&self, py: Python<'py>) -> PyResult<PyObject> {
         Ok(self.measures_dict(py)?.into())
     }
 
     /// Metadata describing numeric mode, rounding context, and FX policy.
+    ///
+    /// Returns:
+    ///     ResultsMeta: Snapshot of metadata associated with the valuation.
     #[getter]
     fn meta(&self) -> PyResultsMeta {
         PyResultsMeta::new(self.inner.meta.clone())
     }
 
     /// Covenant reports (if any) keyed by covenant identifier.
+    ///
+    /// Returns:
+    ///     dict[str, CovenantReport] | None: Covenant evaluations when available.
     #[getter]
     fn covenants<'py>(&self, py: Python<'py>) -> PyResult<Option<PyObject>> {
         self.covenants_dict(py)
@@ -242,18 +304,36 @@ impl PyValuationResult {
 
     #[pyo3(text_signature = "(self)")]
     /// Convenience helper returning ``True`` when all covenants passed.
+    ///
+    /// Returns:
+    ///     bool: ``True`` when there are no failing covenant reports.
+    ///
+    /// Examples:
+    ///     >>> result.all_covenants_passed()
+    ///     True
     fn all_covenants_passed(&self) -> bool {
         self.inner.all_covenants_passed()
     }
 
     #[pyo3(text_signature = "(self)")]
     /// List of covenant identifiers that failed (empty when all pass).
+    ///
+    /// Returns:
+    ///     list[str]: Identifiers for covenants that evaluated to false.
     fn failed_covenants(&self) -> Vec<&str> {
         self.inner.failed_covenants()
     }
 
     #[pyo3(text_signature = "(self)")]
-    /// Convert to a Python dictionary for JSON/arrow serialization.
+    /// Convert to a Python dictionary for JSON/Arrow serialization.
+    ///
+    /// Returns:
+    ///     dict: Serializable dictionary containing the valuation payload.
+    ///
+    /// Examples:
+    ///     >>> data = result.to_dict()
+    ///     >>> sorted(data.keys())
+    ///     ['as_of', 'covenants', 'instrument_id', 'measures', 'meta', 'value']
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<PyObject> {
         let dict = PyDict::new(py);
         dict.set_item("instrument_id", &self.inner.instrument_id)?;

@@ -15,32 +15,20 @@ use pyo3::Bound;
 use std::fmt;
 
 fn parse_indexation_method(label: Option<&str>) -> PyResult<IndexationMethod> {
-    match label
-        .map(crate::core::common::labels::normalize_label)
-        .as_deref()
-    {
-        None | Some("tips") | Some("us") => Ok(IndexationMethod::TIPS),
-        Some("canadian") => Ok(IndexationMethod::Canadian),
-        Some("uk") => Ok(IndexationMethod::UK),
-        Some("french") => Ok(IndexationMethod::French),
-        Some("japanese") | Some("jgb") => Ok(IndexationMethod::Japanese),
-        Some(other) => Err(PyValueError::new_err(format!(
-            "Unknown indexation method: {other}",
-        ))),
+    match label {
+        None => Ok(IndexationMethod::TIPS),
+        Some(s) => s
+            .parse()
+            .map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 
 fn parse_deflation_protection(label: Option<&str>) -> PyResult<DeflationProtection> {
-    match label
-        .map(crate::core::common::labels::normalize_label)
-        .as_deref()
-    {
-        None | Some("maturity_only") | Some("maturity") => Ok(DeflationProtection::MaturityOnly),
-        Some("none") => Ok(DeflationProtection::None),
-        Some("all_payments") | Some("all") => Ok(DeflationProtection::AllPayments),
-        Some(other) => Err(PyValueError::new_err(format!(
-            "Unknown deflation protection: {other}",
-        ))),
+    match label {
+        None => Ok(DeflationProtection::MaturityOnly),
+        Some(s) => s
+            .parse()
+            .map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 
@@ -52,6 +40,20 @@ fn leak_optional_str(value: Option<&str>) -> Option<&'static str> {
 }
 
 /// Inflation-linked bond binding with a convenience constructor.
+///
+/// Examples:
+///     >>> ilb = InflationLinkedBond.create(
+///     ...     "tips_2032",
+///     ...     Money("USD", 1_000_000),
+///     ...     0.01,
+///     ...     date(2022, 1, 15),
+///     ...     date(2032, 1, 15),
+///     ...     260.0,
+///     ...     "usd_discount",
+///     ...     "us_cpi"
+///     ... )
+///     >>> ilb.real_coupon
+///     0.01
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "InflationLinkedBond",
@@ -91,6 +93,29 @@ impl PyInflationLinkedBond {
         )
     )]
     #[allow(clippy::too_many_arguments)]
+    /// Create an inflation-linked bond instrument using standard parameters.
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     notional: Notional principal as :class:`finstack.core.money.Money`.
+    ///     real_coupon: Real coupon rate expressed in decimal.
+    ///     issue: Issue date of the bond.
+    ///     maturity: Maturity date of the bond.
+    ///     base_index: Base inflation index level.
+    ///     discount_curve: Discount curve identifier.
+    ///     inflation_curve: Inflation curve identifier.
+    ///     indexation: Optional indexation method label (defaults to TIPS).
+    ///     frequency: Optional coupon frequency label.
+    ///     day_count: Optional day-count convention.
+    ///     deflation_protection: Optional deflation protection label.
+    ///     calendar: Optional calendar identifier.
+    ///
+    /// Returns:
+    ///     InflationLinkedBond: Configured inflation-linked bond instrument.
+    ///
+    /// Raises:
+    ///     ValueError: If labels cannot be parsed or arguments are inconsistent.
+    ///     RuntimeError: When the underlying builder detects invalid input.
     fn create(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -170,36 +195,64 @@ impl PyInflationLinkedBond {
         Ok(Self::new(bond))
     }
 
+    /// Instrument identifier.
+    ///
+    /// Returns:
+    ///     str: Unique identifier assigned to the bond.
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
+    /// Notional principal amount.
+    ///
+    /// Returns:
+    ///     Money: Notional wrapped as :class:`finstack.core.money.Money`.
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::new(self.inner.notional)
     }
 
+    /// Real coupon rate in decimal form.
+    ///
+    /// Returns:
+    ///     float: Real coupon rate.
     #[getter]
     fn real_coupon(&self) -> f64 {
         self.inner.real_coupon
     }
 
+    /// Maturity date of the bond.
+    ///
+    /// Returns:
+    ///     datetime.date: Maturity date converted to Python.
     #[getter]
     fn maturity(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.maturity)
     }
 
+    /// Discount curve identifier.
+    ///
+    /// Returns:
+    ///     str: Discount curve used for valuation.
     #[getter]
     fn discount_curve(&self) -> String {
         self.inner.disc_id.as_str().to_string()
     }
 
+    /// Inflation curve identifier.
+    ///
+    /// Returns:
+    ///     str: Inflation curve used for indexation.
     #[getter]
     fn inflation_curve(&self) -> String {
         self.inner.inflation_id.as_str().to_string()
     }
 
+    /// Instrument type enumeration.
+    ///
+    /// Returns:
+    ///     InstrumentType: Enumeration value ``InstrumentType.INFLATION_LINKED_BOND``.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::InflationLinkedBond)

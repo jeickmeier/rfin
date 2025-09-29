@@ -22,6 +22,25 @@ pub enum SurfaceInterp {
     Bilinear,
 }
 
+impl std::fmt::Display for SurfaceInterp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SurfaceInterp::Bilinear => write!(f, "bilinear"),
+        }
+    }
+}
+
+impl std::str::FromStr for SurfaceInterp {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "bilinear" => Ok(SurfaceInterp::Bilinear),
+            other => Err(format!("Unknown surface interpolation: {}", other)),
+        }
+    }
+}
+
 /// Volatility surface calibrator using SABR models.
 #[derive(Clone, Debug)]
 pub struct VolSurfaceCalibrator {

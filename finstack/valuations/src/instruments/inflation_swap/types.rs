@@ -16,6 +16,28 @@ pub enum PayReceiveInflation {
     ReceiveFixed,
 }
 
+impl std::fmt::Display for PayReceiveInflation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PayReceiveInflation::PayFixed => write!(f, "pay_fixed"),
+            PayReceiveInflation::ReceiveFixed => write!(f, "receive_fixed"),
+        }
+    }
+}
+
+impl std::str::FromStr for PayReceiveInflation {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "pay_fixed" | "pay" => Ok(PayReceiveInflation::PayFixed),
+            "receive_fixed" | "receive" => Ok(PayReceiveInflation::ReceiveFixed),
+            other => Err(format!("Unknown inflation swap pay/receive: {}", other)),
+        }
+    }
+}
+
 /// Inflation swap definition (boilerplate)
 ///
 /// Minimal fields to represent a zero-coupon inflation swap. We keep this

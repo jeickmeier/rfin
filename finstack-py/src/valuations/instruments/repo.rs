@@ -19,16 +19,11 @@ fn leak_optional_str(value: Option<&str>) -> Option<&'static str> {
 }
 
 fn parse_repo_type(label: Option<&str>) -> PyResult<RepoType> {
-    match label
-        .map(crate::core::common::labels::normalize_label)
-        .as_deref()
-    {
-        None | Some("term") => Ok(RepoType::Term),
-        Some("overnight") => Ok(RepoType::Overnight),
-        Some("open") => Ok(RepoType::Open),
-        Some(other) => Err(PyValueError::new_err(
-            format!("Unknown repo type: {other}",),
-        )),
+    match label {
+        None => Ok(RepoType::Term),
+        Some(s) => s
+            .parse()
+            .map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 

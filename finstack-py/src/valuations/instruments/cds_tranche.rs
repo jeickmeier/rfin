@@ -12,26 +12,17 @@ use pyo3::Bound;
 use std::fmt;
 
 fn parse_tranche_side(label: Option<&str>) -> PyResult<TrancheSide> {
-    match label
-        .map(crate::core::common::labels::normalize_label)
-        .as_deref()
-    {
-        None | Some("buy_protection") | Some("buy") => Ok(TrancheSide::BuyProtection),
-        Some("sell_protection") | Some("sell") => Ok(TrancheSide::SellProtection),
-        Some(other) => Err(PyValueError::new_err(format!(
-            "Unknown tranche side: {other}",
-        ))),
+    match label {
+        None => Ok(TrancheSide::BuyProtection),
+        Some(s) => s
+            .parse()
+            .map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 
 fn parse_frequency(payments_per_year: Option<u32>) -> PyResult<Frequency> {
     let payments = payments_per_year.unwrap_or(4);
-    if payments == 0 || 12 % payments != 0 {
-        return Err(PyValueError::new_err(
-            "payments_per_year must divide 12 (e.g., 1, 2, 3, 4, 6, 12)",
-        ));
-    }
-    Ok(Frequency::Months((12 / payments) as u8))
+    Frequency::from_payments_per_year(payments).map_err(|e| PyValueError::new_err(e))
 }
 
 fn leak_optional_str(value: Option<&str>) -> Option<&'static str> {
@@ -42,6 +33,22 @@ fn leak_optional_str(value: Option<&str>) -> Option<&'static str> {
 }
 
 /// CDS tranche wrapper exposing a simplified constructor.
+///
+/// Examples:
+///     >>> tranche = CdsTranche.create(
+///     ...     "itraxx_tranche",
+///     ...     "iTraxx Europe",
+///     ...     38,
+///     ...     3.0,
+///     ...     7.0,
+///     ...     Money("EUR", 10_000_000),
+///     ...     date(2029, 3, 20),
+///     ...     500.0,
+///     ...     "eur_discount",
+///     ...     "itraxx_credit"
+///     ... )
+///     >>> tranche.attach_pct
+///     3.0
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "CdsTranche",
@@ -84,6 +91,31 @@ impl PyCdsTranche {
         text_signature = "(cls, instrument_id, index_name, series, attach_pct, detach_pct, notional, maturity, running_coupon_bp, discount_curve, credit_index_curve, /, *, side='buy_protection', payments_per_year=4, day_count='act_360', business_day_convention='following', calendar=None, effective_date=None)"
     )]
     #[allow(clippy::too_many_arguments)]
+    /// Create a CDS tranche referencing a credit index.
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     index_name: Name of the underlying index.
+    ///     series: Index series number.
+    ///     attach_pct: Attachment point in percent.
+    ///     detach_pct: Detachment point in percent.
+    ///     notional: Tranche notional as :class:`finstack.core.money.Money`.
+    ///     maturity: Maturity date of the tranche.
+    ///     running_coupon_bp: Running spread in basis points.
+    ///     discount_curve: Discount curve identifier.
+    ///     credit_index_curve: Credit curve identifier for the index.
+    ///     side: Optional pay/receive label for protection.
+    ///     payments_per_year: Optional payment frequency per year.
+    ///     day_count: Optional day-count convention.
+    ///     business_day_convention: Optional business-day convention.
+    ///     calendar: Optional calendar identifier.
+    ///     effective_date: Optional effective date override.
+    ///
+    /// Returns:
+    ///     CdsTranche: Configured tranche instrument.
+    ///
+    /// Raises:
+    ///     ValueError: If attachment/detachment points or inputs are invalid.
     fn create(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -157,46 +189,82 @@ impl PyCdsTranche {
         Ok(Self::new(tranche))
     }
 
+    /// Instrument identifier.
+    ///
+    /// Returns:
+    ///     str: Unique identifier for the tranche.
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
+    /// Tranche notional amount.
+    ///
+    /// Returns:
+    ///     Money: Notional wrapped as :class:`finstack.core.money.Money`.
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::new(self.inner.notional)
     }
 
+    /// Attachment point percentage.
+    ///
+    /// Returns:
+    ///     float: Attachment level in percent.
     #[getter]
     fn attach_pct(&self) -> f64 {
         self.inner.attach_pct
     }
 
+    /// Detachment point percentage.
+    ///
+    /// Returns:
+    ///     float: Detachment level in percent.
     #[getter]
     fn detach_pct(&self) -> f64 {
         self.inner.detach_pct
     }
 
+    /// Running coupon in basis points.
+    ///
+    /// Returns:
+    ///     float: Running spread paid on outstanding tranche balance.
     #[getter]
     fn running_coupon_bp(&self) -> f64 {
         self.inner.running_coupon_bp
     }
 
+    /// Maturity date of the tranche.
+    ///
+    /// Returns:
+    ///     datetime.date: Maturity converted to Python.
     #[getter]
     fn maturity(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.maturity)
     }
 
+    /// Discount curve identifier.
+    ///
+    /// Returns:
+    ///     str: Discount curve used for valuation.
     #[getter]
     fn discount_curve(&self) -> String {
         self.inner.disc_id.as_str().to_string()
     }
 
+    /// Credit index curve identifier.
+    ///
+    /// Returns:
+    ///     str: Hazard curve used for the index portfolio.
     #[getter]
     fn credit_index_curve(&self) -> String {
         self.inner.credit_index_id.as_str().to_string()
     }
 
+    /// Instrument type enumeration.
+    ///
+    /// Returns:
+    ///     InstrumentType: Enumeration value ``InstrumentType.CDS_TRANCHE``.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::CDSTranche)

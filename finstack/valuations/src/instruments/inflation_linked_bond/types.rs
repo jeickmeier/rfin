@@ -35,6 +35,33 @@ pub enum IndexationMethod {
     Japanese,
 }
 
+impl std::fmt::Display for IndexationMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IndexationMethod::Canadian => write!(f, "canadian"),
+            IndexationMethod::TIPS => write!(f, "tips"),
+            IndexationMethod::UK => write!(f, "uk"),
+            IndexationMethod::French => write!(f, "french"),
+            IndexationMethod::Japanese => write!(f, "japanese"),
+        }
+    }
+}
+
+impl std::str::FromStr for IndexationMethod {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "canadian" => Ok(IndexationMethod::Canadian),
+            "tips" | "us" => Ok(IndexationMethod::TIPS),
+            "uk" => Ok(IndexationMethod::UK),
+            "french" => Ok(IndexationMethod::French),
+            "japanese" | "jgb" => Ok(IndexationMethod::Japanese),
+            other => Err(format!("Unknown indexation method: {}", other)),
+        }
+    }
+}
+
 impl IndexationMethod {
     /// Get the standard lag for this indexation method
     pub fn standard_lag(&self) -> InflationLag {
@@ -61,6 +88,30 @@ pub enum DeflationProtection {
     MaturityOnly,
     /// Protection on all payments (floor at par)
     AllPayments,
+}
+
+impl std::fmt::Display for DeflationProtection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DeflationProtection::None => write!(f, "none"),
+            DeflationProtection::MaturityOnly => write!(f, "maturity_only"),
+            DeflationProtection::AllPayments => write!(f, "all_payments"),
+        }
+    }
+}
+
+impl std::str::FromStr for DeflationProtection {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "none" => Ok(DeflationProtection::None),
+            "maturity_only" | "maturity" => Ok(DeflationProtection::MaturityOnly),
+            "all_payments" | "all" => Ok(DeflationProtection::AllPayments),
+            other => Err(format!("Unknown deflation protection: {}", other)),
+        }
+    }
 }
 
 #[derive(Clone)]

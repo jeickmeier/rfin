@@ -1,4 +1,3 @@
-use crate::core::common::labels::normalize_label;
 // use crate::core::error::core_to_py; // not used in this module currently
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
@@ -17,16 +16,29 @@ fn leak_str(value: &str) -> &'static str {
 }
 
 fn parse_option_type(label: Option<&str>) -> PyResult<OptionType> {
-    match label.map(normalize_label).as_deref() {
-        None | Some("call") | Some("buy_protection") | Some("buy") => Ok(OptionType::Call),
-        Some("put") | Some("sell_protection") | Some("sell") => Ok(OptionType::Put),
-        Some(other) => Err(PyValueError::new_err(format!(
-            "Unknown CDS option type: {other}",
-        ))),
+    match label {
+        None => Ok(OptionType::Call),
+        Some(s) => s
+            .parse()
+            .map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 
 /// Option on CDS spread with simplified constructor.
+///
+/// Examples:
+///     >>> opt = CdsOption.create(
+///     ...     "opt_xyz",
+///     ...     Money("USD", 5_000_000),
+///     ...     150.0,
+///     ...     date(2024, 6, 20),
+///     ...     date(2029, 6, 20),
+///     ...     "usd_discount",
+///     ...     "xyz_credit",
+///     ...     "cds_vol_surface"
+///     ... )
+///     >>> opt.strike_spread_bp
+///     150.0
 #[pyclass(module = "finstack.valuations.instruments", name = "CdsOption", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyCdsOption {
@@ -62,6 +74,28 @@ impl PyCdsOption {
         text_signature = "(cls, instrument_id, notional, strike_spread_bp, expiry, cds_maturity, discount_curve, credit_curve, vol_surface, /, *, option_type='call', recovery_rate=0.4, underlying_is_index=False, index_factor=None, forward_adjust_bp=0.0)"
     )]
     #[allow(clippy::too_many_arguments)]
+    /// Create a CDS option referencing a standard CDS contract.
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     notional: Notional principal as :class:`finstack.core.money.Money`.
+    ///     strike_spread_bp: Option strike spread in basis points.
+    ///     expiry: Option expiry date.
+    ///     cds_maturity: Maturity date of the underlying CDS.
+    ///     discount_curve: Discount curve identifier.
+    ///     credit_curve: Credit curve identifier for the reference entity or index.
+    ///     vol_surface: Volatility surface identifier for pricing.
+    ///     option_type: Optional label indicating call/put (buy/sell protection).
+    ///     recovery_rate: Optional recovery rate assumption.
+    ///     underlying_is_index: Optional flag to treat the underlying as an index.
+    ///     index_factor: Optional outstanding factor when pricing index options.
+    ///     forward_adjust_bp: Optional forward spread adjustment in basis points.
+    ///
+    /// Returns:
+    ///     CdsOption: Configured CDS option instrument.
+    ///
+    /// Raises:
+    ///     ValueError: If labels cannot be parsed or recovery rate lies outside [0, 1].
     fn create(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -118,41 +152,73 @@ impl PyCdsOption {
         Ok(Self::new(option))
     }
 
+    /// Instrument identifier.
+    ///
+    /// Returns:
+    ///     str: Unique identifier for the CDS option.
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
+    /// Notional amount.
+    ///
+    /// Returns:
+    ///     Money: Notional wrapped as :class:`finstack.core.money.Money`.
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::new(self.inner.notional)
     }
 
+    /// Strike spread in basis points.
+    ///
+    /// Returns:
+    ///     float: Strike spread for the option.
     #[getter]
     fn strike_spread_bp(&self) -> f64 {
         self.inner.strike_spread_bp
     }
 
+    /// Option expiry date.
+    ///
+    /// Returns:
+    ///     datetime.date: Expiry converted to Python.
     #[getter]
     fn expiry(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.expiry)
     }
 
+    /// Maturity date of the underlying CDS.
+    ///
+    /// Returns:
+    ///     datetime.date: Underlying maturity converted to Python.
     #[getter]
     fn cds_maturity(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.cds_maturity)
     }
 
+    /// Discount curve identifier.
+    ///
+    /// Returns:
+    ///     str: Discount curve used for valuation.
     #[getter]
     fn discount_curve(&self) -> String {
         self.inner.disc_id.as_str().to_string()
     }
 
+    /// Credit curve identifier.
+    ///
+    /// Returns:
+    ///     str: Hazard curve for the reference entity or index.
     #[getter]
     fn credit_curve(&self) -> String {
         self.inner.credit_id.as_str().to_string()
     }
 
+    /// Instrument type enumeration.
+    ///
+    /// Returns:
+    ///     InstrumentType: Enumeration value ``InstrumentType.CDS_OPTION``.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::CDSOption)

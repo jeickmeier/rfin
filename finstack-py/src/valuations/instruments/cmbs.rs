@@ -17,6 +17,11 @@ fn parse_cmbs_json(value: &Bound<'_, PyAny>) -> PyResult<Cmbs> {
 }
 
 /// CMBS instrument wrapper parsed from JSON definitions.
+///
+/// Examples:
+///     >>> cmbs = Cmbs.from_json(json.dumps({...}))
+///     >>> cmbs.instrument_id
+///     'cmbs_2024_1'
 #[pyclass(module = "finstack.valuations.instruments", name = "Cmbs", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyCmbs {
@@ -33,22 +38,48 @@ impl PyCmbs {
 impl PyCmbs {
     #[classmethod]
     #[pyo3(text_signature = "(cls, data)")]
+    /// Parse a CMBS deal definition from JSON or a dict-like object.
+    ///
+    /// Args:
+    ///     data: JSON string or dict describing the CMBS deal.
+    ///
+    /// Returns:
+    ///     Cmbs: Parsed CMBS instrument wrapper.
+    ///
+    /// Raises:
+    ///     ValueError: If the JSON cannot be parsed.
+    ///     TypeError: If ``data`` is neither string nor dict-like.
     fn from_json(_cls: &Bound<'_, PyType>, data: Bound<'_, PyAny>) -> PyResult<Self> {
         let deal = parse_cmbs_json(&data)?;
         Ok(Self::new(deal))
     }
 
+    /// Instrument identifier.
+    ///
+    /// Returns:
+    ///     str: Unique identifier for the CMBS deal.
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
+    /// Instrument type enumeration.
+    ///
+    /// Returns:
+    ///     InstrumentType: Enumeration value ``InstrumentType.CMBS``.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::CMBS)
     }
 
     #[pyo3(text_signature = "(self)")]
+    /// Serialize the CMBS definition back to JSON.
+    ///
+    /// Returns:
+    ///     str: Pretty-printed JSON representation.
+    ///
+    /// Raises:
+    ///     ValueError: If serialization fails.
     fn to_json(&self) -> PyResult<String> {
         serde_json::to_string_pretty(&self.inner)
             .map_err(|err| PyValueError::new_err(err.to_string()))

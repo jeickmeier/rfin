@@ -15,19 +15,28 @@ fn leak_str(value: &str) -> &'static str {
 }
 
 fn parse_side(label: Option<&str>) -> PyResult<PayReceiveInflation> {
-    match label
-        .map(crate::core::common::labels::normalize_label)
-        .as_deref()
-    {
-        None | Some("pay_fixed") | Some("pay") => Ok(PayReceiveInflation::PayFixed),
-        Some("receive_fixed") | Some("receive") => Ok(PayReceiveInflation::ReceiveFixed),
-        Some(other) => Err(PyValueError::new_err(format!(
-            "Unknown inflation swap side: {other}",
-        ))),
+    match label {
+        None => Ok(PayReceiveInflation::PayFixed),
+        Some(s) => s
+            .parse()
+            .map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 
 /// Zero-coupon inflation swap binding.
+///
+/// Examples:
+///     >>> swap = InflationSwap.create(
+///     ...     "zciis_usd",
+///     ...     Money("USD", 10_000_000),
+///     ...     0.02,
+///     ...     date(2024, 1, 1),
+///     ...     date(2034, 1, 1),
+///     ...     "usd_discount",
+///     ...     inflation_index="us_cpi"
+///     ... )
+///     >>> swap.fixed_rate
+///     0.02
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "InflationSwap",
@@ -66,6 +75,28 @@ impl PyInflationSwap {
         )
     )]
     #[allow(clippy::too_many_arguments)]
+    /// Create an inflation swap fixing against the supplied inflation index.
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     notional: Notional principal as :class:`finstack.core.money.Money`.
+    ///     fixed_rate: Fixed leg rate expressed as decimal.
+    ///     start_date: Start date of the swap.
+    ///     maturity: Maturity date of the swap.
+    ///     discount_curve: Discount curve identifier.
+    ///     inflation_index: Optional inflation index identifier.
+    ///     side: Optional pay/receive label (defaults to pay fixed).
+    ///     day_count: Optional day-count convention label.
+    ///     inflation_id: Optional explicit inflation curve identifier.
+    ///     lag_override: Optional lag override label.
+    ///     inflation_curve: Optional curve identifier used when ``inflation_id`` omitted.
+    ///
+    /// Returns:
+    ///     InflationSwap: Configured inflation swap instrument.
+    ///
+    /// Raises:
+    ///     ValueError: If required indexes are missing or labels are invalid.
+    ///     RuntimeError: When the underlying builder detects invalid input.
     fn create(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -142,26 +173,46 @@ impl PyInflationSwap {
         Ok(Self::new(swap))
     }
 
+    /// Instrument identifier.
+    ///
+    /// Returns:
+    ///     str: Unique identifier assigned to the swap.
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
+    /// Notional principal amount.
+    ///
+    /// Returns:
+    ///     Money: Notional wrapped as :class:`finstack.core.money.Money`.
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::new(self.inner.notional)
     }
 
+    /// Fixed leg rate in decimal form.
+    ///
+    /// Returns:
+    ///     float: Fixed rate of the swap.
     #[getter]
     fn fixed_rate(&self) -> f64 {
         self.inner.fixed_rate
     }
 
+    /// Maturity date of the swap.
+    ///
+    /// Returns:
+    ///     datetime.date: Maturity converted to Python.
     #[getter]
     fn maturity(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.maturity)
     }
 
+    /// Instrument type enumeration.
+    ///
+    /// Returns:
+    ///     InstrumentType: Enumeration value ``InstrumentType.INFLATION_SWAP``.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::InflationSwap)

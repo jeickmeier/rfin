@@ -1,4 +1,3 @@
-use crate::core::common::labels::normalize_label;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
@@ -21,23 +20,20 @@ fn leak_vol_id(label: Option<&str>) -> &'static str {
 }
 
 fn parse_settlement(label: Option<&str>) -> PyResult<SwaptionSettlement> {
-    match label.map(normalize_label).as_deref() {
-        None | Some("physical") => Ok(SwaptionSettlement::Physical),
-        Some("cash") => Ok(SwaptionSettlement::Cash),
-        Some(other) => Err(PyValueError::new_err(format!(
-            "Unknown swaption settlement: {other}",
-        ))),
+    match label {
+        None => Ok(SwaptionSettlement::Physical),
+        Some(s) => s
+            .parse()
+            .map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 
 fn parse_exercise(label: Option<&str>) -> PyResult<SwaptionExercise> {
-    match label.map(normalize_label).as_deref() {
-        None | Some("european") => Ok(SwaptionExercise::European),
-        Some("bermudan") => Ok(SwaptionExercise::Bermudan),
-        Some("american") => Ok(SwaptionExercise::American),
-        Some(other) => Err(PyValueError::new_err(format!(
-            "Unknown swaption exercise style: {other}",
-        ))),
+    match label {
+        None => Ok(SwaptionExercise::European),
+        Some(s) => s
+            .parse()
+            .map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 

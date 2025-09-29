@@ -78,6 +78,27 @@ pub enum Position {
     Short,
 }
 
+impl std::fmt::Display for Position {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Position::Long => write!(f, "long"),
+            Position::Short => write!(f, "short"),
+        }
+    }
+}
+
+impl std::str::FromStr for Position {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "long" => Ok(Position::Long),
+            "short" => Ok(Position::Short),
+            other => Err(format!("Unknown position: {}", other)),
+        }
+    }
+}
+
 impl InterestRateFuture {
     // Note: use the builder (FinancialBuilder) for construction.
 

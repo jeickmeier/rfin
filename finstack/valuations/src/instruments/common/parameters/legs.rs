@@ -18,6 +18,28 @@ pub enum PayReceive {
     ReceiveFixed,
 }
 
+impl std::fmt::Display for PayReceive {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PayReceive::PayFixed => write!(f, "pay_fixed"),
+            PayReceive::ReceiveFixed => write!(f, "receive_fixed"),
+        }
+    }
+}
+
+impl std::str::FromStr for PayReceive {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "pay_fixed" | "pay" => Ok(PayReceive::PayFixed),
+            "receive_fixed" | "receive" | "recv" => Ok(PayReceive::ReceiveFixed),
+            other => Err(format!("Unknown pay/receive: {}", other)),
+        }
+    }
+}
+
 /// Method for calculating par rates in swaps
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

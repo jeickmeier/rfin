@@ -16,6 +16,11 @@ fn parse_json(value: &Bound<'_, PyAny>) -> PyResult<Basket> {
 }
 
 /// Basket instrument wrapper parsed from JSON definitions.
+///
+/// Examples:
+///     >>> basket = Basket.from_json(json.dumps({...}))
+///     >>> basket.instrument_type.name
+///     'basket'
 #[pyclass(module = "finstack.valuations.instruments", name = "Basket", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyBasket {
@@ -32,7 +37,17 @@ impl PyBasket {
 impl PyBasket {
     #[classmethod]
     #[pyo3(text_signature = "(cls, data)")]
-    /// Parse a basket definition from a JSON string or dictionary matching the Rust schema.
+    /// Parse a basket definition from a JSON string or dictionary.
+    ///
+    /// Args:
+    ///     data: JSON string or dict describing the basket constituents.
+    ///
+    /// Returns:
+    ///     Basket: Parsed basket instrument.
+    ///
+    /// Raises:
+    ///     ValueError: If parsing fails or the basket ID is missing.
+    ///     TypeError: If ``data`` is neither a string nor dict-like object.
     fn from_json(_cls: &Bound<'_, PyType>, data: Bound<'_, PyAny>) -> PyResult<Self> {
         let basket = parse_json(&data)?;
         if basket.id.as_str().is_empty() {
@@ -43,17 +58,32 @@ impl PyBasket {
         Ok(Self::new(basket))
     }
 
+    /// Instrument identifier.
+    ///
+    /// Returns:
+    ///     str: Unique identifier assigned to the basket.
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
+    /// Instrument type enumeration.
+    ///
+    /// Returns:
+    ///     InstrumentType: Enumeration value ``InstrumentType.Basket``.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::Basket)
     }
 
     #[pyo3(text_signature = "(self)")]
+    /// Serialize the basket definition to a JSON string.
+    ///
+    /// Returns:
+    ///     str: Pretty-printed JSON representation.
+    ///
+    /// Raises:
+    ///     ValueError: If serialization fails.
     fn to_json(&self) -> PyResult<String> {
         serde_json::to_string_pretty(&self.inner)
             .map_err(|err| PyValueError::new_err(err.to_string()))

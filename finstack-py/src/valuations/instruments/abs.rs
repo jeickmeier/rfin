@@ -17,6 +17,11 @@ fn parse_abs_json(value: &Bound<'_, PyAny>) -> PyResult<Abs> {
 }
 
 /// ABS instrument wrapper parsed from JSON definitions.
+///
+/// Examples:
+///     >>> deal = Abs.from_json(json.dumps({...}))
+///     >>> deal.instrument_id
+///     'abs_portfolio_001'
 #[pyclass(module = "finstack.valuations.instruments", name = "Abs", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyAbs {
@@ -33,22 +38,48 @@ impl PyAbs {
 impl PyAbs {
     #[classmethod]
     #[pyo3(text_signature = "(cls, data)")]
+    /// Parse a JSON payload into an ABS instrument.
+    ///
+    /// Args:
+    ///     data: JSON string or dict describing the ABS structure.
+    ///
+    /// Returns:
+    ///     Abs: Parsed ABS instrument wrapper.
+    ///
+    /// Raises:
+    ///     ValueError: If the JSON cannot be parsed.
+    ///     TypeError: If ``data`` is neither a string nor dict-like object.
     fn from_json(_cls: &Bound<'_, PyType>, data: Bound<'_, PyAny>) -> PyResult<Self> {
         let deal = parse_abs_json(&data)?;
         Ok(Self::new(deal))
     }
 
+    /// Instrument identifier.
+    ///
+    /// Returns:
+    ///     str: Unique identifier assigned to the ABS deal.
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
+    /// Instrument type enumeration.
+    ///
+    /// Returns:
+    ///     InstrumentType: Enumeration value ``InstrumentType.ABS``.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::ABS)
     }
 
     #[pyo3(text_signature = "(self)")]
+    /// Serialize the ABS definition back to JSON.
+    ///
+    /// Returns:
+    ///     str: Pretty-printed JSON representation of the instrument.
+    ///
+    /// Raises:
+    ///     ValueError: If serialization fails.
     fn to_json(&self) -> PyResult<String> {
         serde_json::to_string_pretty(&self.inner)
             .map_err(|err| PyValueError::new_err(err.to_string()))

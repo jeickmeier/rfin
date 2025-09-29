@@ -491,10 +491,25 @@ pub enum Seniority {
 impl core::fmt::Display for Seniority {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Seniority::SeniorSecured => write!(f, "SeniorSecured"),
-            Seniority::Senior => write!(f, "Senior"),
-            Seniority::Subordinated => write!(f, "Subordinated"),
-            Seniority::Junior => write!(f, "Junior"),
+            Seniority::SeniorSecured => write!(f, "senior_secured"),
+            Seniority::Senior => write!(f, "senior"),
+            Seniority::Subordinated => write!(f, "subordinated"),
+            Seniority::Junior => write!(f, "junior"),
+        }
+    }
+}
+
+impl core::str::FromStr for Seniority {
+    type Err = String;
+
+    fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "senior_secured" => Ok(Seniority::SeniorSecured),
+            "senior" => Ok(Seniority::Senior),
+            "subordinated" => Ok(Seniority::Subordinated),
+            "junior" => Ok(Seniority::Junior),
+            other => Err(format!("Unknown seniority: {}", other)),
         }
     }
 }

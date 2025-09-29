@@ -22,6 +22,28 @@ pub enum TrsSide {
     PayTotalReturn,
 }
 
+impl std::fmt::Display for TrsSide {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TrsSide::ReceiveTotalReturn => write!(f, "receive_total_return"),
+            TrsSide::PayTotalReturn => write!(f, "pay_total_return"),
+        }
+    }
+}
+
+impl std::str::FromStr for TrsSide {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "receive_total_return" | "receive" => Ok(TrsSide::ReceiveTotalReturn),
+            "pay_total_return" | "pay" => Ok(TrsSide::PayTotalReturn),
+            other => Err(format!("Unknown TRS side: {}", other)),
+        }
+    }
+}
+
 impl TrsSide {
     /// Gets the sign multiplier for present value calculation.
     ///

@@ -190,16 +190,9 @@ impl PyCalibrationConfig {
             for (key, value) in items.iter() {
                 let entity = key.extract::<String>()?;
                 let seniority = value.extract::<String>()?;
-                let label = normalize_label(&seniority);
-                let sen = match label.as_str() {
-                    "senior_secured" | "senior-secured" => Seniority::SeniorSecured,
-                    "senior" => Seniority::Senior,
-                    "subordinated" => Seniority::Subordinated,
-                    "junior" => Seniority::Junior,
-                    other => {
-                        return Err(PyValueError::new_err(format!("Unknown seniority: {other}")))
-                    }
-                };
+                let sen = seniority
+                    .parse()
+                    .map_err(|e: String| PyValueError::new_err(e))?;
                 entries.push((entity, sen));
             }
         }
@@ -299,13 +292,7 @@ impl PyCalibrationConfig {
     fn entity_seniority<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let dict = PyDict::new(py);
         for (entity, seniority) in self.inner.entity_seniority.iter() {
-            let label = match seniority {
-                Seniority::SeniorSecured => "senior_secured",
-                Seniority::Senior => "senior",
-                Seniority::Subordinated => "subordinated",
-                Seniority::Junior => "junior",
-            };
-            dict.set_item(entity, label)?;
+            dict.set_item(entity, seniority.to_string())?;
         }
         Ok(dict)
     }

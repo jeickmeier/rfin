@@ -9,6 +9,17 @@ use pyo3::Bound;
 use std::fmt;
 
 /// Spot equity position with optional share count and price override.
+///
+/// Examples:
+///     >>> equity = Equity.create(
+///     ...     "eq_us_apple",
+///     ...     "AAPL",
+///     ...     "USD",
+///     ...     shares=100,
+///     ...     price=185.5
+///     ... )
+///     >>> equity.shares
+///     100.0
 #[pyclass(module = "finstack.valuations.instruments", name = "Equity", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyEquity {
@@ -40,6 +51,21 @@ impl PyEquity {
         )
     )]
     /// Create an equity instrument optionally specifying share count and price.
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     ticker: Equity ticker symbol (e.g., ``"AAPL"``).
+    ///     currency: Currency for quotation, supplied as a currency wrapper or code.
+    ///     shares: Optional number of shares held.
+    ///     price: Optional price override per share.
+    ///     price_id: Optional market data identifier resolving spot price.
+    ///     dividend_yield_id: Optional market data identifier for dividend yield.
+    ///
+    /// Returns:
+    ///     Equity: Configured equity instrument ready for pricing.
+    ///
+    /// Raises:
+    ///     ValueError: If identifiers or currency inputs cannot be parsed.
     fn create(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -69,48 +95,72 @@ impl PyEquity {
     }
 
     /// Instrument identifier.
+    ///
+    /// Returns:
+    ///     str: Unique identifier assigned to the instrument.
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
     /// Equity ticker symbol.
+    ///
+    /// Returns:
+    ///     str: Listing symbol of the underlying equity.
     #[getter]
     fn ticker(&self) -> &str {
         &self.inner.ticker
     }
 
     /// Quotation currency.
+    ///
+    /// Returns:
+    ///     Currency: Currency wrapper representing the quotation currency.
     #[getter]
     fn currency(&self) -> PyCurrency {
         PyCurrency::new(self.inner.currency)
     }
 
     /// Number of shares (defaults to 1 when unspecified).
+    ///
+    /// Returns:
+    ///     float: Share count used for valuation.
     #[getter]
     fn shares(&self) -> f64 {
         self.inner.effective_shares()
     }
 
     /// Explicit price quote if provided.
+    ///
+    /// Returns:
+    ///     float | None: Price override per share when supplied.
     #[getter]
     fn price_quote(&self) -> Option<f64> {
         self.inner.price_quote
     }
 
     /// Preferred market data identifier for spot resolution when provided.
+    ///
+    /// Returns:
+    ///     str | None: Market data key for retrieving spot price.
     #[getter]
     fn price_id(&self) -> Option<&str> {
         self.inner.price_id.as_deref()
     }
 
     /// Preferred market data identifier for dividend yield resolution when provided.
+    ///
+    /// Returns:
+    ///     str | None: Market data key for retrieving dividend yield.
     #[getter]
     fn dividend_yield_id(&self) -> Option<&str> {
         self.inner.dividend_yield_id.as_deref()
     }
 
     /// Instrument type enum (``InstrumentType.EQUITY``).
+    ///
+    /// Returns:
+    ///     InstrumentType: Enumeration value identifying the instrument family.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::Equity)

@@ -9,6 +9,17 @@ use pyo3::Bound;
 use std::fmt;
 
 /// Equity option priced via Black–Scholes style models.
+///
+/// Examples:
+///     >>> option = EquityOption.european_call(
+///     ...     "opt_aapl_jan",
+///     ...     "AAPL",
+///     ...     180.0,
+///     ...     date(2024, 1, 19),
+///     ...     Money("USD", 100)
+///     ... )
+///     >>> option.option_type
+///     'call'
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "EquityOption",
@@ -32,6 +43,20 @@ impl PyEquityOption {
         text_signature = "(cls, instrument_id, ticker, strike, expiry, notional, contract_size=1.0)"
     )]
     /// Create a European call option with standard market conventions.
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     ticker: Equity ticker symbol for the underlying asset.
+    ///     strike: Strike price expressed in quote currency units.
+    ///     expiry: Option expiry date.
+    ///     notional: Contract notional as :class:`finstack.core.money.Money`.
+    ///     contract_size: Optional contract size multiplier.
+    ///
+    /// Returns:
+    ///     EquityOption: Configured call option instrument.
+    ///
+    /// Raises:
+    ///     ValueError: If identifiers or dates cannot be parsed.
     fn european_call(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -60,6 +85,20 @@ impl PyEquityOption {
         text_signature = "(cls, instrument_id, ticker, strike, expiry, notional, contract_size=1.0)"
     )]
     /// Create a European put option with standard market conventions.
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     ticker: Equity ticker symbol for the underlying asset.
+    ///     strike: Strike price expressed in quote currency units.
+    ///     expiry: Option expiry date.
+    ///     notional: Contract notional as :class:`finstack.core.money.Money`.
+    ///     contract_size: Optional contract size multiplier.
+    ///
+    /// Returns:
+    ///     EquityOption: Configured put option instrument.
+    ///
+    /// Raises:
+    ///     ValueError: If identifiers or dates cannot be parsed.
     fn european_put(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -84,30 +123,45 @@ impl PyEquityOption {
     }
 
     /// Instrument identifier.
+    ///
+    /// Returns:
+    ///     str: Unique identifier assigned to the instrument.
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
     /// Underlying ticker symbol.
+    ///
+    /// Returns:
+    ///     str: Ticker for the underlying equity.
     #[getter]
     fn ticker(&self) -> &str {
         &self.inner.underlying_ticker
     }
 
     /// Strike price as money.
+    ///
+    /// Returns:
+    ///     Money: Strike price wrapped as :class:`finstack.core.money.Money`.
     #[getter]
     fn strike(&self) -> PyMoney {
         PyMoney::new(self.inner.strike)
     }
 
     /// Contract size (units per contract).
+    ///
+    /// Returns:
+    ///     float: Number of underlying units per option contract.
     #[getter]
     fn contract_size(&self) -> f64 {
         self.inner.contract_size
     }
 
     /// Option type label (``"call"``/``"put"``).
+    ///
+    /// Returns:
+    ///     str: ``"call"`` or ``"put"`` depending on option direction.
     #[getter]
     fn option_type(&self) -> &'static str {
         match self.inner.option_type {
@@ -117,6 +171,9 @@ impl PyEquityOption {
     }
 
     /// Exercise style label.
+    ///
+    /// Returns:
+    ///     str: Exercise style such as ``"european"``.
     #[getter]
     fn exercise_style(&self) -> &'static str {
         match self.inner.exercise_style {
@@ -127,24 +184,36 @@ impl PyEquityOption {
     }
 
     /// Expiry date of the option.
+    ///
+    /// Returns:
+    ///     datetime.date: Expiry date in calendar form.
     #[getter]
     fn expiry(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.expiry)
     }
 
     /// Discount curve identifier.
+    ///
+    /// Returns:
+    ///     str: Discount curve identifier.
     #[getter]
     fn discount_curve(&self) -> String {
         self.inner.disc_id.as_str().to_string()
     }
 
     /// Volatility surface identifier.
+    ///
+    /// Returns:
+    ///     str: Volatility surface identifier used for pricing.
     #[getter]
     fn vol_surface(&self) -> String {
         self.inner.vol_id.as_str().to_string()
     }
 
     /// Instrument type enum (``InstrumentType.EQUITY_OPTION``).
+    ///
+    /// Returns:
+    ///     InstrumentType: Enumeration value identifying the instrument family.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::EquityOption)

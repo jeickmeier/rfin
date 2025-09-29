@@ -28,6 +28,29 @@ impl Default for RepoType {
     }
 }
 
+impl std::fmt::Display for RepoType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RepoType::Term => write!(f, "term"),
+            RepoType::Open => write!(f, "open"),
+            RepoType::Overnight => write!(f, "overnight"),
+        }
+    }
+}
+
+impl std::str::FromStr for RepoType {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "term" => Ok(RepoType::Term),
+            "open" => Ok(RepoType::Open),
+            "overnight" => Ok(RepoType::Overnight),
+            other => Err(format!("Unknown repo type: {}", other)),
+        }
+    }
+}
+
 /// Classification of collateral for repos.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

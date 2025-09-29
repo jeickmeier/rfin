@@ -14,6 +14,11 @@ use pyo3::Bound;
 use std::fmt;
 
 /// FX spot instrument exchanging base currency for quote currency.
+///
+/// Examples:
+///     >>> spot = FxSpot.create("eurusd_spot", "EUR", "USD", spot_rate=1.095)
+///     >>> spot.pair_name
+///     'EURUSD'
 #[pyclass(module = "finstack.valuations.instruments", name = "FxSpot", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyFxSpot {
@@ -47,6 +52,24 @@ impl PyFxSpot {
         )
     )]
     /// Create an FX spot position with optional settlement overrides.
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     base_currency: Base currency code or wrapper.
+    ///     quote_currency: Quote currency code or wrapper.
+    ///     settlement: Optional explicit settlement date.
+    ///     settlement_lag_days: Optional settlement lag when date is inferred.
+    ///     spot_rate: Optional explicit spot rate.
+    ///     notional: Optional notional money amount in base currency.
+    ///     bdc: Optional business-day convention for settlement adjustments.
+    ///     calendar: Optional settlement calendar identifier.
+    ///
+    /// Returns:
+    ///     FxSpot: Configured FX spot instrument.
+    ///
+    /// Raises:
+    ///     ValueError: If identifiers or dates cannot be parsed.
+    ///     RuntimeError: When the underlying builder rejects the notional input.
     #[allow(clippy::too_many_arguments)]
     fn create(
         _cls: &Bound<'_, PyType>,
@@ -93,36 +116,54 @@ impl PyFxSpot {
     }
 
     /// Instrument identifier.
+    ///
+    /// Returns:
+    ///     str: Unique identifier assigned to the instrument.
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
     /// Base currency (FX numerator).
+    ///
+    /// Returns:
+    ///     Currency: Base currency wrapper.
     #[getter]
     fn base_currency(&self) -> PyCurrency {
         PyCurrency::new(self.inner.base)
     }
 
     /// Quote currency (FX denominator).
+    ///
+    /// Returns:
+    ///     Currency: Quote currency wrapper.
     #[getter]
     fn quote_currency(&self) -> PyCurrency {
         PyCurrency::new(self.inner.quote)
     }
 
     /// Optional notional in base currency (defaults to 1 unit when absent).
+    ///
+    /// Returns:
+    ///     Money | None: Base notional amount when provided.
     #[getter]
     fn notional(&self) -> Option<PyMoney> {
         self.inner.notional.map(PyMoney::new)
     }
 
     /// Explicit spot rate if provided.
+    ///
+    /// Returns:
+    ///     float | None: Spot rate override.
     #[getter]
     fn spot_rate(&self) -> Option<f64> {
         self.inner.spot_rate
     }
 
     /// Settlement date if provided.
+    ///
+    /// Returns:
+    ///     datetime.date | None: Explicit settlement date.
     #[getter]
     fn settlement(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
         Ok(match self.inner.settlement {
@@ -132,12 +173,18 @@ impl PyFxSpot {
     }
 
     /// Settlement lag in business days when settlement date is inferred.
+    ///
+    /// Returns:
+    ///     int | None: Settlement lag applied if settlement date omitted.
     #[getter]
     fn settlement_lag_days(&self) -> Option<i32> {
         self.inner.settlement_lag_days
     }
 
     /// Business-day convention used when adjusting settlement.
+    ///
+    /// Returns:
+    ///     str: Business-day convention label.
     #[getter]
     fn business_day_convention(&self) -> &'static str {
         match self.inner.bdc {
@@ -151,18 +198,27 @@ impl PyFxSpot {
     }
 
     /// Optional settlement calendar identifier.
+    ///
+    /// Returns:
+    ///     str | None: Calendar identifier used for settlement adjustments.
     #[getter]
     fn calendar_id(&self) -> Option<&'static str> {
         self.inner.calendar_id
     }
 
     /// FX pair mnemonic such as ``"EURUSD"``.
+    ///
+    /// Returns:
+    ///     str: Concatenated currency pair name.
     #[getter]
     fn pair_name(&self) -> String {
         self.inner.pair_name()
     }
 
     /// Instrument type enum (``InstrumentType.FX_SPOT``).
+    ///
+    /// Returns:
+    ///     InstrumentType: Enumeration value ``InstrumentType.FX_SPOT``.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::FxSpot)
@@ -189,6 +245,18 @@ impl fmt::Display for PyFxSpot {
 }
 
 /// Garman–Kohlhagen FX option with European exercise.
+///
+/// Examples:
+///     >>> option = FxOption.european_call(
+///     ...     "eurusd_call",
+///     ...     "EUR",
+///     ...     "USD",
+///     ...     1.1,
+///     ...     date(2024, 12, 20),
+///     ...     Money("EUR", 1_000_000)
+///     ... )
+///     >>> option.option_type
+///     'call'
 #[pyclass(module = "finstack.valuations.instruments", name = "FxOption", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyFxOption {
@@ -208,6 +276,20 @@ impl PyFxOption {
         text_signature = "(cls, instrument_id, base_currency, quote_currency, strike, expiry, notional)"
     )]
     /// Create a European call option with standard USD-centric curves.
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     base_currency: Base currency code or wrapper.
+    ///     quote_currency: Quote currency code or wrapper.
+    ///     strike: Strike rate in quote per base units.
+    ///     expiry: Expiry date of the option.
+    ///     notional: Notional amount as :class:`finstack.core.money.Money`.
+    ///
+    /// Returns:
+    ///     FxOption: Configured call option instrument.
+    ///
+    /// Raises:
+    ///     ValueError: If identifiers or dates cannot be parsed.
     fn european_call(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -237,6 +319,20 @@ impl PyFxOption {
         text_signature = "(cls, instrument_id, base_currency, quote_currency, strike, expiry, notional)"
     )]
     /// Create a European put option with standard USD-centric curves.
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     base_currency: Base currency code or wrapper.
+    ///     quote_currency: Quote currency code or wrapper.
+    ///     strike: Strike rate in quote per base units.
+    ///     expiry: Expiry date of the option.
+    ///     notional: Notional amount as :class:`finstack.core.money.Money`.
+    ///
+    /// Returns:
+    ///     FxOption: Configured put option instrument.
+    ///
+    /// Raises:
+    ///     ValueError: If identifiers or dates cannot be parsed.
     fn european_put(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -262,42 +358,63 @@ impl PyFxOption {
     }
 
     /// Instrument identifier.
+    ///
+    /// Returns:
+    ///     str: Unique identifier assigned to the instrument.
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
     /// Base currency for the option underlying.
+    ///
+    /// Returns:
+    ///     Currency: Base currency wrapper.
     #[getter]
     fn base_currency(&self) -> PyCurrency {
         PyCurrency::new(self.inner.base_currency)
     }
 
     /// Quote currency for settlement.
+    ///
+    /// Returns:
+    ///     Currency: Quote currency wrapper.
     #[getter]
     fn quote_currency(&self) -> PyCurrency {
         PyCurrency::new(self.inner.quote_currency)
     }
 
     /// Notional amount in base currency.
+    ///
+    /// Returns:
+    ///     Money: Notional wrapped as :class:`finstack.core.money.Money`.
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::new(self.inner.notional)
     }
 
     /// Strike rate expressed as quote per unit of base.
+    ///
+    /// Returns:
+    ///     float: Strike rate of the option.
     #[getter]
     fn strike(&self) -> f64 {
         self.inner.strike
     }
 
     /// Expiry date.
+    ///
+    /// Returns:
+    ///     datetime.date: Expiry converted to Python.
     #[getter]
     fn expiry(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.expiry)
     }
 
     /// Option type (``"call"`` or ``"put"``).
+    ///
+    /// Returns:
+    ///     str: Option type label.
     #[getter]
     fn option_type(&self) -> &'static str {
         match self.inner.option_type {
@@ -307,6 +424,9 @@ impl PyFxOption {
     }
 
     /// Exercise style (currently ``"european"`` for simplified constructors).
+    ///
+    /// Returns:
+    ///     str: Exercise style label.
     #[getter]
     fn exercise_style(&self) -> &'static str {
         match self.inner.exercise_style {
@@ -317,6 +437,9 @@ impl PyFxOption {
     }
 
     /// Settlement type (cash vs. physical).
+    ///
+    /// Returns:
+    ///     str: Settlement type label.
     #[getter]
     fn settlement(&self) -> &'static str {
         match self.inner.settlement {
@@ -326,24 +449,36 @@ impl PyFxOption {
     }
 
     /// Domestic discount curve identifier.
+    ///
+    /// Returns:
+    ///     str: Domestic discount curve used for discounting.
     #[getter]
     fn domestic_curve(&self) -> String {
         self.inner.domestic_disc_id.as_str().to_string()
     }
 
     /// Foreign discount curve identifier.
+    ///
+    /// Returns:
+    ///     str: Foreign discount curve used for discounting.
     #[getter]
     fn foreign_curve(&self) -> String {
         self.inner.foreign_disc_id.as_str().to_string()
     }
 
     /// Volatility surface identifier used for pricing.
+    ///
+    /// Returns:
+    ///     str: Volatility surface label.
     #[getter]
     fn vol_surface(&self) -> &'static str {
         self.inner.vol_id
     }
 
     /// Instrument type enum (``InstrumentType.FX_OPTION``).
+    ///
+    /// Returns:
+    ///     InstrumentType: Enumeration value ``InstrumentType.FX_OPTION``.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::FxOption)
@@ -435,66 +570,99 @@ impl PyFxSwap {
     }
 
     /// Instrument identifier.
+    ///
+    /// Returns:
+    ///     str: Unique identifier assigned to the instrument.
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
     /// Base currency exchanged on the swap.
+    ///
+    /// Returns:
+    ///     Any: Base currency exchanged on the swap.
     #[getter]
     fn base_currency(&self) -> PyCurrency {
         PyCurrency::new(self.inner.base_currency)
     }
 
     /// Quote currency exchanged on the swap.
+    ///
+    /// Returns:
+    ///     Any: Quote currency exchanged on the swap.
     #[getter]
     fn quote_currency(&self) -> PyCurrency {
         PyCurrency::new(self.inner.quote_currency)
     }
 
     /// Base notional in the base currency.
+    ///
+    /// Returns:
+    ///     Any: Base notional in the base currency.
     #[getter]
     fn base_notional(&self) -> PyMoney {
         PyMoney::new(self.inner.base_notional)
     }
 
     /// Near leg settlement date.
+    ///
+    /// Returns:
+    ///     Any: Near leg settlement date.
     #[getter]
     fn near_date(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.near_date)
     }
 
     /// Far leg settlement date.
+    ///
+    /// Returns:
+    ///     Any: Far leg settlement date.
     #[getter]
     fn far_date(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.far_date)
     }
 
     /// Optional contractual near FX rate.
+    ///
+    /// Returns:
+    ///     Any: Optional contractual near FX rate.
     #[getter]
     fn near_rate(&self) -> Option<f64> {
         self.inner.near_rate
     }
 
     /// Optional contractual far FX rate.
+    ///
+    /// Returns:
+    ///     Any: Optional contractual far FX rate.
     #[getter]
     fn far_rate(&self) -> Option<f64> {
         self.inner.far_rate
     }
 
     /// Domestic discount curve identifier.
+    ///
+    /// Returns:
+    ///     Any: Domestic discount curve identifier.
     #[getter]
     fn domestic_curve(&self) -> String {
         self.inner.domestic_disc_id.as_str().to_string()
     }
 
     /// Foreign discount curve identifier.
+    ///
+    /// Returns:
+    ///     Any: Foreign discount curve identifier.
     #[getter]
     fn foreign_curve(&self) -> String {
         self.inner.foreign_disc_id.as_str().to_string()
     }
 
     /// Instrument type enum (``InstrumentType.FX_SWAP``).
+    ///
+    /// Returns:
+    ///     Any: Instrument type enum (``InstrumentType.FX_SWAP``).
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::FxSwap)

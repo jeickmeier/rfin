@@ -19,6 +19,27 @@ pub enum OptionType {
     Put,
 }
 
+impl std::fmt::Display for OptionType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OptionType::Call => write!(f, "call"),
+            OptionType::Put => write!(f, "put"),
+        }
+    }
+}
+
+impl std::str::FromStr for OptionType {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "call" | "buy" | "buy_protection" => Ok(OptionType::Call),
+            "put" | "sell" | "sell_protection" => Ok(OptionType::Put),
+            other => Err(format!("Unknown option type: {}", other)),
+        }
+    }
+}
+
 /// Exercise style for options
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -32,6 +53,29 @@ pub enum ExerciseStyle {
     Bermudan,
 }
 
+impl std::fmt::Display for ExerciseStyle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ExerciseStyle::European => write!(f, "european"),
+            ExerciseStyle::American => write!(f, "american"),
+            ExerciseStyle::Bermudan => write!(f, "bermudan"),
+        }
+    }
+}
+
+impl std::str::FromStr for ExerciseStyle {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "european" => Ok(ExerciseStyle::European),
+            "american" => Ok(ExerciseStyle::American),
+            "bermudan" => Ok(ExerciseStyle::Bermudan),
+            other => Err(format!("Unknown exercise style: {}", other)),
+        }
+    }
+}
+
 /// Settlement type for options
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -41,6 +85,27 @@ pub enum SettlementType {
     Physical,
     /// Cash settlement
     Cash,
+}
+
+impl std::fmt::Display for SettlementType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SettlementType::Physical => write!(f, "physical"),
+            SettlementType::Cash => write!(f, "cash"),
+        }
+    }
+}
+
+impl std::str::FromStr for SettlementType {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "physical" => Ok(SettlementType::Physical),
+            "cash" => Ok(SettlementType::Cash),
+            other => Err(format!("Unknown settlement type: {}", other)),
+        }
+    }
 }
 
 /// Market parameters for equity options

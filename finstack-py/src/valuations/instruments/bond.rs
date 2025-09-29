@@ -30,6 +30,32 @@ impl PyBond {
         text_signature = "(cls, instrument_id, notional, coupon_rate, issue, maturity, discount_curve)"
     )]
     /// Create a semi-annual fixed-rate bond with 30/360 day count and Following BDC.
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     notional: Notional principal as :class:`finstack.core.money.Money`.
+    ///     coupon_rate: Annual coupon in decimal form.
+    ///     issue: Issue date of the bond.
+    ///     maturity: Maturity date of the bond.
+    ///     discount_curve: Discount curve identifier for valuation.
+    ///
+    /// Returns:
+    ///     Bond: Configured fixed-rate bond instrument.
+    ///
+    /// Raises:
+    ///     ValueError: If identifiers or dates cannot be parsed.
+    ///
+    /// Examples:
+    ///     >>> bond = Bond.fixed_semiannual(
+    ///     ...     "corp_1",
+    ///     ...     Money("USD", 1_000_000),
+    ///     ...     0.045,
+    ///     ...     date(2023, 1, 1),
+    ///     ...     date(2028, 1, 1),
+    ///     ...     "usd_discount"
+    ///     ... )
+    ///     >>> bond.coupon
+    ///     0.045
     fn fixed_semiannual(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -57,6 +83,23 @@ impl PyBond {
     #[classmethod]
     #[pyo3(text_signature = "(cls, instrument_id, notional, coupon_rate, issue, maturity)")]
     /// Create a U.S. Treasury-style bond with annual coupons and Act/Act ISMA day count.
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     notional: Notional principal as :class:`finstack.core.money.Money`.
+    ///     coupon_rate: Annual coupon in decimal form.
+    ///     issue: Issue date of the bond.
+    ///     maturity: Maturity date of the bond.
+    ///
+    /// Returns:
+    ///     Bond: Configured Treasury-style bond instrument.
+    ///
+    /// Raises:
+    ///     ValueError: If identifiers or dates cannot be parsed.
+    ///
+    /// Examples:
+    ///     >>> Bond.treasury("ust_5y", Money("USD", 1_000), 0.03, date(2024, 1, 1), date(2029, 1, 1))
+    ///     Bond(id='ust_5y', coupon=0.03, maturity='2029-01-01')
     fn treasury(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -81,6 +124,19 @@ impl PyBond {
     #[classmethod]
     #[pyo3(text_signature = "(cls, instrument_id, notional, issue, maturity, discount_curve)")]
     /// Create a zero-coupon bond discounted off ``discount_curve``.
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     notional: Redemption amount as :class:`finstack.core.money.Money`.
+    ///     issue: Issue date of the bond.
+    ///     maturity: Maturity date of the bond.
+    ///     discount_curve: Discount curve identifier for valuation.
+    ///
+    /// Returns:
+    ///     Bond: Configured zero-coupon bond instrument.
+    ///
+    /// Raises:
+    ///     ValueError: If identifiers or dates cannot be parsed.
     fn zero_coupon(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -109,6 +165,34 @@ impl PyBond {
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a bond via builder parameters. Supports amortization and call/put.
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     notional: Notional amount as :class:`finstack.core.money.Money`.
+    ///     issue: Issue date of the bond.
+    ///     maturity: Maturity date of the bond.
+    ///     discount_curve: Discount curve identifier for valuation.
+    ///     coupon_rate: Optional fixed coupon rate in decimal form.
+    ///     frequency: Optional payment frequency.
+    ///     day_count: Optional day-count convention.
+    ///     bdc: Optional business-day convention.
+    ///     calendar_id: Optional calendar identifier for scheduling.
+    ///     stub: Optional stub kind for schedule construction.
+    ///     amortization: Optional amortization specification.
+    ///     call_schedule: Optional list of (date, price %) call events.
+    ///     put_schedule: Optional list of (date, price %) put events.
+    ///     quoted_clean_price: Optional quoted clean price for overrides.
+    ///     forward_curve: Optional forward curve identifier for float spec.
+    ///     float_margin_bp: Optional floating margin in basis points.
+    ///     float_gearing: Optional gearing multiplier for float leg.
+    ///     float_reset_lag_days: Optional reset lag in days for float leg.
+    ///
+    /// Returns:
+    ///     Bond: Fully specified bond instrument.
+    ///
+    /// Raises:
+    ///     ValueError: If identifiers or dates cannot be parsed.
+    ///     RuntimeError: When the underlying builder detects invalid input.
     fn builder(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -296,42 +380,63 @@ impl PyBond {
     }
 
     /// Instrument identifier.
+    ///
+    /// Returns:
+    ///     str: Unique identifier assigned to the instrument.
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
     /// Notional principal amount.
+    ///
+    /// Returns:
+    ///     Money: Notional wrapped as :class:`finstack.core.money.Money`.
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::new(self.inner.notional)
     }
 
     /// Annual coupon rate in decimal form.
+    ///
+    /// Returns:
+    ///     float: Annual coupon rate.
     #[getter]
     fn coupon(&self) -> f64 {
         self.inner.coupon
     }
 
-    /// Issue date.
+    /// Issue date for the bond.
+    ///
+    /// Returns:
+    ///     datetime.date: Issue date converted to Python.
     #[getter]
     fn issue(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.issue)
     }
 
     /// Maturity date.
+    ///
+    /// Returns:
+    ///     datetime.date: Maturity date converted to Python.
     #[getter]
     fn maturity(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.maturity)
     }
 
     /// Discount curve identifier.
+    ///
+    /// Returns:
+    ///     str: Identifier for the discount curve.
     #[getter]
     fn discount_curve(&self) -> String {
         self.inner.disc_id.as_str().to_string()
     }
 
     /// Optional hazard curve identifier enabling credit-sensitive pricing.
+    ///
+    /// Returns:
+    ///     str | None: Hazard curve identifier when provided.
     #[getter]
     fn hazard_curve(&self) -> Option<String> {
         self.inner
@@ -341,6 +446,9 @@ impl PyBond {
     }
 
     /// Instrument type enum (``InstrumentType.BOND``).
+    ///
+    /// Returns:
+    ///     InstrumentType: Enumeration value identifying the instrument family.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::Bond)

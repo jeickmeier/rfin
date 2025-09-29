@@ -25,35 +25,26 @@ use pyo3::Bound;
 use std::sync::Arc;
 
 fn parse_seniority(label: &str) -> PyResult<Seniority> {
-    match label.to_ascii_lowercase().as_str() {
-        "senior_secured" | "senior-secured" => Ok(Seniority::SeniorSecured),
-        "senior" => Ok(Seniority::Senior),
-        "subordinated" => Ok(Seniority::Subordinated),
-        "junior" => Ok(Seniority::Junior),
-        other => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "Unknown seniority: {other}"
-        ))),
-    }
+    label
+        .parse()
+        .map_err(|e: String| pyo3::exceptions::PyValueError::new_err(e))
 }
 
 fn parse_inflation_interp(name: Option<&str>) -> PyResult<InflationInterpolation> {
-    match name.map(|s| s.to_ascii_lowercase()) {
+    match name {
         None => Ok(InflationInterpolation::Linear),
-        Some(ref s) if s == "step" => Ok(InflationInterpolation::Step),
-        Some(ref s) if s == "linear" => Ok(InflationInterpolation::Linear),
-        Some(other) => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "Unknown inflation interpolation: {other}"
-        ))),
+        Some(s) => s
+            .parse()
+            .map_err(|e: String| pyo3::exceptions::PyValueError::new_err(e)),
     }
 }
 
 fn parse_surface_interp(name: Option<&str>) -> PyResult<SurfaceInterp> {
-    match name.map(|s| s.to_ascii_lowercase()) {
+    match name {
         None => Ok(SurfaceInterp::Bilinear),
-        Some(ref s) if s == "bilinear" => Ok(SurfaceInterp::Bilinear),
-        Some(other) => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "Unknown surface interpolation: {other}"
-        ))),
+        Some(s) => s
+            .parse()
+            .map_err(|e: String| pyo3::exceptions::PyValueError::new_err(e)),
     }
 }
 

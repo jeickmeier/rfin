@@ -13,13 +13,7 @@ use std::fmt;
 
 fn frequency_from_payments(payments_per_year: Option<u32>) -> PyResult<Frequency> {
     let payments = payments_per_year.unwrap_or(4);
-    if payments == 0 || 12 % payments != 0 {
-        return Err(PyValueError::new_err(
-            "payments_per_year must divide 12 (e.g. 1,2,3,4,6,12)",
-        ));
-    }
-    let months = (12 / payments) as u8;
-    Ok(Frequency::Months(months))
+    Frequency::from_payments_per_year(payments).map_err(|e| PyValueError::new_err(e))
 }
 
 fn leak_vol_id(vol: Option<&str>) -> &'static str {
@@ -40,6 +34,19 @@ fn extract_day_count(dc: Option<Bound<'_, PyAny>>) -> PyResult<DayCount> {
 }
 
 /// Interest rate cap/floor instruments using Black pricing.
+///
+/// Examples:
+///     >>> cap = InterestRateOption.cap(
+///     ...     "cap_1",
+///     ...     Money("USD", 5_000_000),
+///     ...     0.035,
+///     ...     date(2024, 1, 1),
+///     ...     date(2027, 1, 1),
+///     ...     "usd_discount",
+///     ...     "usd_libor_3m"
+///     ... )
+///     >>> cap.strike
+///     0.035
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "InterestRateOption",
@@ -77,6 +84,24 @@ impl PyInterestRateOption {
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a standard interest-rate cap.
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     notional: Notional principal as :class:`finstack.core.money.Money`.
+    ///     strike: Strike rate in decimal form.
+    ///     start_date: Start of the accrual period.
+    ///     end_date: End of the accrual period.
+    ///     discount_curve: Discount curve identifier for valuation.
+    ///     forward_curve: Forward curve identifier for rate projections.
+    ///     vol_surface: Optional volatility surface identifier.
+    ///     payments_per_year: Optional number of payments per year.
+    ///     day_count: Optional day-count convention.
+    ///
+    /// Returns:
+    ///     InterestRateOption: Configured interest rate cap instrument.
+    ///
+    /// Raises:
+    ///     ValueError: If frequencies are invalid or inputs cannot be parsed.
     fn cap(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -124,6 +149,24 @@ impl PyInterestRateOption {
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a standard interest-rate floor.
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     notional: Notional principal as :class:`finstack.core.money.Money`.
+    ///     strike: Strike rate in decimal form.
+    ///     start_date: Start of the accrual period.
+    ///     end_date: End of the accrual period.
+    ///     discount_curve: Discount curve identifier for valuation.
+    ///     forward_curve: Forward curve identifier for rate projections.
+    ///     vol_surface: Optional volatility surface identifier.
+    ///     payments_per_year: Optional number of payments per year.
+    ///     day_count: Optional day-count convention.
+    ///
+    /// Returns:
+    ///     InterestRateOption: Configured interest rate floor instrument.
+    ///
+    /// Raises:
+    ///     ValueError: If frequencies are invalid or inputs cannot be parsed.
     fn floor(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -152,46 +195,82 @@ impl PyInterestRateOption {
         Ok(Self::new(option))
     }
 
+    /// Instrument identifier.
+    ///
+    /// Returns:
+    ///     str: Unique identifier for the cap/floor.
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
+    /// Notional principal amount.
+    ///
+    /// Returns:
+    ///     Money: Notional wrapped as :class:`finstack.core.money.Money`.
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::new(self.inner.notional)
     }
 
+    /// Strike rate in decimal form.
+    ///
+    /// Returns:
+    ///     float: Strike rate of the instrument.
     #[getter]
     fn strike(&self) -> f64 {
         self.inner.strike_rate
     }
 
+    /// Start date for accrual.
+    ///
+    /// Returns:
+    ///     datetime.date: Start date converted to Python.
     #[getter]
     fn start_date(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.start_date)
     }
 
+    /// End date for accrual.
+    ///
+    /// Returns:
+    ///     datetime.date: End date converted to Python.
     #[getter]
     fn end_date(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.end_date)
     }
 
+    /// Discount curve identifier.
+    ///
+    /// Returns:
+    ///     str: Discount curve used for valuation.
     #[getter]
     fn discount_curve(&self) -> String {
         self.inner.disc_id.as_str().to_string()
     }
 
+    /// Forward curve identifier.
+    ///
+    /// Returns:
+    ///     str: Forward curve used for rate projections.
     #[getter]
     fn forward_curve(&self) -> String {
         self.inner.forward_id.as_str().to_string()
     }
 
+    /// Volatility surface identifier.
+    ///
+    /// Returns:
+    ///     str: Volatility surface used for option pricing.
     #[getter]
     fn vol_surface(&self) -> &'static str {
         self.inner.vol_id
     }
 
+    /// Instrument type enumeration.
+    ///
+    /// Returns:
+    ///     InstrumentType: Enumeration value ``InstrumentType.CAP_FLOOR``.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::CapFloor)

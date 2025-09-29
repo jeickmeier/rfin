@@ -54,6 +54,27 @@ impl Default for InflationInterpolation {
     }
 }
 
+impl core::fmt::Display for InflationInterpolation {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            InflationInterpolation::Step => write!(f, "step"),
+            InflationInterpolation::Linear => write!(f, "linear"),
+        }
+    }
+}
+
+impl core::str::FromStr for InflationInterpolation {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "step" => Ok(InflationInterpolation::Step),
+            "linear" => Ok(InflationInterpolation::Linear),
+            other => Err(format!("Unknown inflation interpolation: {}", other)),
+        }
+    }
+}
+
 /// Lag policy for index application
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

@@ -14,13 +14,11 @@ use pyo3::Bound;
 use std::fmt;
 
 fn parse_position(label: Option<&str>) -> PyResult<Position> {
-    match label
-        .map(crate::core::common::labels::normalize_label)
-        .as_deref()
-    {
-        None | Some("long") => Ok(Position::Long),
-        Some("short") => Ok(Position::Short),
-        Some(other) => Err(PyValueError::new_err(format!("Unknown position: {other}"))),
+    match label {
+        None => Ok(Position::Long),
+        Some(s) => s
+            .parse()
+            .map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 

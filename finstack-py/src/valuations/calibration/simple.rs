@@ -58,16 +58,9 @@ impl PySimpleCalibration {
     }
 
     fn parse_seniority(value: &str) -> PyResult<Seniority> {
-        let normalized = crate::core::common::labels::normalize_label(value);
-        match normalized.as_str() {
-            "senior_secured" | "senior-secured" => Ok(Seniority::SeniorSecured),
-            "senior" => Ok(Seniority::Senior),
-            "subordinated" => Ok(Seniority::Subordinated),
-            "junior" => Ok(Seniority::Junior),
-            other => Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "Unknown seniority: {other}"
-            ))),
-        }
+        value
+            .parse()
+            .map_err(|e: String| pyo3::exceptions::PyValueError::new_err(e))
     }
 
     fn build(&self) -> SimpleCalibration {

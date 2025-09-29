@@ -12,38 +12,44 @@ use pyo3::Bound;
 use std::fmt;
 
 fn parse_frequency(label: Option<&str>) -> PyResult<Frequency> {
-    match label
-        .map(crate::core::common::labels::normalize_label)
-        .as_deref()
-    {
-        None | Some("quarterly") => Ok(Frequency::quarterly()),
-        Some("monthly") => Ok(Frequency::monthly()),
-        Some("semi_annual") | Some("semiannual") => Ok(Frequency::semi_annual()),
-        Some("annual") => Ok(Frequency::annual()),
-        Some("bimonthly") => Ok(Frequency::bimonthly()),
-        Some(other) => Err(PyValueError::new_err(format!(
-            "Unsupported frequency label: {other}",
-        ))),
+    match label {
+        None => Ok(Frequency::quarterly()),
+        Some(s) => {
+            // Try standard names first
+            match s.to_ascii_lowercase().as_str() {
+                "quarterly" => Ok(Frequency::quarterly()),
+                "monthly" => Ok(Frequency::monthly()),
+                "semi_annual" | "semiannual" => Ok(Frequency::semi_annual()),
+                "annual" => Ok(Frequency::annual()),
+                "bimonthly" => Ok(Frequency::bimonthly()),
+                _ => Err(PyValueError::new_err(format!(
+                    "Unsupported frequency label: {}",
+                    s
+                ))),
+            }
+        }
     }
 }
 
 fn parse_stub(label: Option<&str>) -> PyResult<finstack_core::dates::StubKind> {
-    match label
-        .map(crate::core::common::labels::normalize_label)
-        .as_deref()
-    {
-        None | Some("none") => Ok(finstack_core::dates::StubKind::None),
-        Some("short_front") => Ok(finstack_core::dates::StubKind::ShortFront),
-        Some("short_back") => Ok(finstack_core::dates::StubKind::ShortBack),
-        Some("long_front") => Ok(finstack_core::dates::StubKind::LongFront),
-        Some("long_back") => Ok(finstack_core::dates::StubKind::LongBack),
-        Some(other) => Err(PyValueError::new_err(format!(
-            "Unsupported stub kind: {other}",
-        ))),
+    match label {
+        None => Ok(finstack_core::dates::StubKind::None),
+        Some(s) => s
+            .parse()
+            .map_err(|e: String| PyValueError::new_err(e)),
     }
 }
 
-/// Basis swap leg helper mirroring `BasisSwapLeg`.
+/// Basis swap leg helper mirroring ``BasisSwapLeg``.
+///
+/// Examples:
+///     >>> leg = BasisSwapLeg(
+///     ...     "usd_libor_3m",
+///     ...     spread=12.5,
+///     ...     frequency="quarterly"
+///     ... )
+///     >>> leg.spread
+///     12.5
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "BasisSwapLeg",
@@ -69,6 +75,21 @@ impl PyBasisSwapLeg {
         text_signature = "(forward_curve, /, *, frequency='quarterly', day_count='act_360', business_day_convention='modified_following', spread=0.0)"
     )]
     #[allow(clippy::too_many_arguments)]
+    /// Create a basis swap leg specification.
+    ///
+    /// Args:
+    ///     forward_curve: Identifier for the forward curve.
+    ///     frequency: Optional payment frequency label (e.g., ``"quarterly"``).
+    ///     day_count: Optional day-count convention.
+    ///     business_day_convention: Optional business-day adjustment rule.
+    ///     spread: Optional spread in basis points.
+    ///
+    /// Returns:
+    ///     BasisSwapLeg: Leg specification describing accrual and spread inputs.
+    ///
+    /// Raises:
+    ///     ValueError: If frequency or stub labels are invalid.
+    ///     TypeError: If curve identifiers or conventions cannot be parsed.
     fn new(
         forward_curve: Bound<'_, PyAny>,
         frequency: Option<&str>,
@@ -102,11 +123,19 @@ impl PyBasisSwapLeg {
         })
     }
 
+    /// Forward curve identifier.
+    ///
+    /// Returns:
+    ///     str: Identifier used to retrieve the forward curve.
     #[getter]
     fn forward_curve(&self) -> String {
         self.inner.forward_curve_id.as_str().to_string()
     }
 
+    /// Spread in basis points.
+    ///
+    /// Returns:
+    ///     float: Leg spread applied to the floating rate.
     #[getter]
     fn spread(&self) -> f64 {
         self.inner.spread
@@ -114,6 +143,19 @@ impl PyBasisSwapLeg {
 }
 
 /// Basis swap wrapper with convenience constructor.
+///
+/// Examples:
+///     >>> swap = BasisSwap.create(
+///     ...     "basis_usd",
+///     ...     Money("USD", 10_000_000),
+///     ...     date(2024, 1, 2),
+///     ...     date(2027, 1, 2),
+///     ...     primary_leg,
+///     ...     reference_leg,
+///     ...     "usd_discount"
+///     ... )
+///     >>> swap.notional.amount
+///     10000000
 #[pyclass(module = "finstack.valuations.instruments", name = "BasisSwap", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyBasisSwap {
@@ -145,6 +187,25 @@ impl PyBasisSwap {
         text_signature = "(cls, instrument_id, notional, start_date, maturity, primary_leg, reference_leg, discount_curve, /, *, calendar=None, stub='none')"
     )]
     #[allow(clippy::too_many_arguments)]
+    /// Create a floating-for-floating basis swap with two legs.
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     notional: Swap notional as :class:`finstack.core.money.Money`.
+    ///     start_date: Effective start date of the swap.
+    ///     maturity: Maturity date of the swap.
+    ///     primary_leg: Primary leg specification.
+    ///     reference_leg: Reference leg specification.
+    ///     discount_curve: Discount curve identifier for valuation.
+    ///     calendar: Optional calendar identifier for scheduling adjustments.
+    ///     stub: Optional stub label (e.g., ``"short_front"``).
+    ///
+    /// Returns:
+    ///     BasisSwap: Configured basis swap instrument ready for pricing.
+    ///
+    /// Raises:
+    ///     ValueError: If frequency or stub settings are invalid.
+    ///     RuntimeError: When the underlying builder detects inconsistent input.
     fn create(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -184,21 +245,37 @@ impl PyBasisSwap {
         Ok(Self::new(swap))
     }
 
+    /// Instrument identifier.
+    ///
+    /// Returns:
+    ///     str: Unique identifier assigned to the swap.
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
+    /// Swap notional amount.
+    ///
+    /// Returns:
+    ///     Money: Notional expressed as :class:`finstack.core.money.Money`.
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::new(self.inner.notional)
     }
 
+    /// Discount curve identifier.
+    ///
+    /// Returns:
+    ///     str: Identifier of the discount curve used for valuation.
     #[getter]
     fn discount_curve(&self) -> String {
         self.inner.discount_curve_id.as_str().to_string()
     }
 
+    /// Instrument type enumeration.
+    ///
+    /// Returns:
+    ///     InstrumentType: Enumeration value ``InstrumentType.BasisSwap``.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::BasisSwap)

@@ -15,6 +15,11 @@ use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
 
 /// Registry dispatching (instrument, model) pairs to pricing engines.
+///
+/// Examples:
+///     >>> registry = create_standard_registry()
+///     >>> result = registry.price(bond, "discounting", market)
+///     >>> result.present_value
 #[pyclass(module = "finstack.valuations.pricer", name = "PricerRegistry", frozen)]
 #[derive(Default)]
 pub struct PyPricerRegistry {
@@ -31,27 +36,39 @@ impl PyPricerRegistry {
 impl PyPricerRegistry {
     #[new]
     #[pyo3(text_signature = "()")]
-    /// Create an empty registry; populate using :func:`create_standard_registry` for defaults.
+    /// Create an empty registry instance.
+    ///
+    /// Returns:
+    ///     PricerRegistry: Registry without any registered engines.
+    ///
+    /// Examples:
+    ///     >>> empty = PricerRegistry()
+    ///     >>> list(empty.__dict__.keys())
+    ///     []
     fn ctor() -> Self {
         Self::new(PricerRegistry::new())
     }
 
     #[pyo3(text_signature = "(self, instrument, model, market)")]
-    /// Price an instrument using ``model`` and market data.
+    /// Price an instrument given a model key and market data.
     ///
-    /// Parameters
-    /// ----------
-    /// instrument : finstack.valuations.instruments.Instrument
-    ///     Instrument instance created via the valuations bindings.
-    /// model : ModelKey or str
-    ///     Pricing model identifier (e.g. ``"discounting"``).
-    /// market : finstack.core.market_data.MarketContext
-    ///     Market context providing curves, FX, and scalars.
+    /// Args:
+    ///     instrument: Instrument instance created from ``finstack.valuations.instruments``.
+    ///     model: Pricing model key or its snake-case label.
+    ///     market: Market context supplying curves, spreads, and FX data.
     ///
-    /// Returns
-    /// -------
-    /// ValuationResult
-    ///     Result containing PV, measures, metadata, and covenant reports.
+    /// Returns:
+    ///     ValuationResult: Envelope containing PV, measures, and metadata.
+    ///
+    /// Raises:
+    ///     ValueError: If the instrument or model cannot be interpreted.
+    ///     RuntimeError: If pricing fails in the underlying engine.
+    ///
+    /// Examples:
+    ///     >>> registry = create_standard_registry()
+    ///     >>> result = registry.price(bond, "discounting", market)
+    ///     >>> result.present_value.amount
+    ///     123.45
     fn price(
         &self,
         instrument: Bound<'_, PyAny>,
@@ -71,18 +88,24 @@ impl PyPricerRegistry {
     #[pyo3(text_signature = "(self, instrument, model, market, metrics)")]
     /// Price an instrument and compute the requested metrics.
     ///
-    /// Parameters
-    /// ----------
-    /// instrument : finstack.valuations.instruments.Instrument
-    /// model : ModelKey or str
-    /// market : finstack.core.market_data.MarketContext
-    /// metrics : list[MetricId | str]
-    ///     Metrics to compute (snake-case names accepted).
+    /// Args:
+    ///     instrument: Instrument instance created from the bindings.
+    ///     model: Pricing model key or name.
+    ///     market: Market context with the necessary curve data.
+    ///     metrics: Iterable of metric identifiers or names to evaluate.
     ///
-    /// Returns
-    /// -------
-    /// ValuationResult
-    ///     Result with PV and populated measures.
+    /// Returns:
+    ///     ValuationResult: Pricing result enriched with computed metrics.
+    ///
+    /// Raises:
+    ///     ValueError: If any metric identifier is invalid.
+    ///     RuntimeError: If pricing or metric calculation fails.
+    ///
+    /// Examples:
+    ///     >>> registry = create_standard_registry()
+    ///     >>> result = registry.price_with_metrics(bond, "discounting", market, ["dv01"])
+    ///     >>> result.metrics["dv01"].value
+    ///     -415.2
     fn price_with_metrics(
         &self,
         instrument: Bound<'_, PyAny>,
@@ -124,7 +147,26 @@ impl PyPricerRegistry {
     #[pyo3(
         text_signature = "(self, bond, market, forward_curve, float_margin_bp, dirty_price_ccy=None)"
     )]
-    /// Compute forward-curve-based Asset Swap Spreads (par, market) for a bond.
+    /// Compute par and market asset swap spreads using a forward curve.
+    ///
+    /// Args:
+    ///     bond: Bond instrument previously constructed in the bindings.
+    ///     market: Market context providing discount curves.
+    ///     forward_curve: Identifier for the forward curve.
+    ///     float_margin_bp: Floating margin in basis points.
+    ///     dirty_price_ccy: Optional dirty price expressed in currency.
+    ///
+    /// Returns:
+    ///     tuple[float, float]: Par and market asset swap spreads in basis points.
+    ///
+    /// Raises:
+    ///     TypeError: If ``bond`` is not a bond instrument.
+    ///     RuntimeError: If the underlying calculation fails.
+    ///
+    /// Examples:
+    ///     >>> registry = create_standard_registry()
+    ///     >>> registry.asw_forward(bond, market, "usd_libor_3m", 25.0)
+    ///     (23.4, 27.1)
     fn asw_forward(
         &self,
         bond: Bound<'_, PyAny>,
@@ -174,7 +216,22 @@ impl PyPricerRegistry {
     }
 
     #[pyo3(text_signature = "(self, instrument, model)")]
-    /// Convenience accessor returning the internal key used for dispatch.
+    /// Convenience accessor returning the internal dispatch key.
+    ///
+    /// Args:
+    ///     instrument: Instrument instance or instrument label.
+    ///     model: Model key or snake-case label.
+    ///
+    /// Returns:
+    ///     PricerKey: Key used internally to resolve engines.
+    ///
+    /// Raises:
+    ///     ValueError: If the arguments cannot be converted.
+    ///
+    /// Examples:
+    ///     >>> registry = create_standard_registry()
+    ///     >>> registry.key(bond, "discounting").instrument
+    ///     InstrumentType.BOND
     fn key(&self, instrument: Bound<'_, PyAny>, model: Bound<'_, PyAny>) -> PyResult<PyPricerKey> {
         let handle = extract_instrument(&instrument)?;
         let ModelKeyArg(model_key) = model.extract()?;
@@ -185,6 +242,15 @@ impl PyPricerRegistry {
 
     #[pyo3(text_signature = "(self)")]
     /// Clone the registry for isolated pricing threads.
+    ///
+    /// Returns:
+    ///     PricerRegistry: Fresh registry without shared state.
+    ///
+    /// Examples:
+    ///     >>> registry = create_standard_registry()
+    ///     >>> isolated = registry.clone()
+    ///     >>> isinstance(isolated, PricerRegistry)
+    ///     True
     fn clone(&self) -> Self {
         // Underlying registry is not Clone; create a new one for isolation.
         Self::new(PricerRegistry::new())
@@ -192,6 +258,14 @@ impl PyPricerRegistry {
 }
 
 /// Create a registry populated with all standard finstack pricers.
+///
+/// Returns:
+///     PricerRegistry: Registry with all built-in pricers loaded.
+///
+/// Examples:
+///     >>> registry = create_standard_registry()
+///     >>> registry.price(bond, "discounting", market)
+///     <ValuationResult ...>
 #[pyfunction(name = "create_standard_registry")]
 fn create_standard_registry_py() -> PyResult<PyPricerRegistry> {
     Ok(PyPricerRegistry::new(create_standard_registry()))

@@ -7,7 +7,11 @@ use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::{Bound, PyObject, PyRef};
 use std::fmt;
 
-/// Strongly-typed metric identifier mirroring `finstack_valuations::metrics::MetricId`.
+/// Strongly typed metric identifier mirroring ``finstack_valuations::metrics::MetricId``.
+///
+/// Examples:
+///     >>> MetricId.from_name("pv")
+///     MetricId('pv')
 #[pyclass(module = "finstack.valuations.metrics", name = "MetricId", frozen)]
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PyMetricId {
@@ -25,11 +29,24 @@ impl PyMetricId {
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
     /// Parse a metric identifier, falling back to a custom metric when unknown.
+    ///
+    /// Args:
+    ///     name: Metric label such as ``"pv"`` or ``"dv01"``.
+    ///
+    /// Returns:
+    ///     MetricId: Identifier corresponding to ``name``.
+    ///
+    /// Examples:
+    ///     >>> MetricId.from_name("dv01").name
+    ///     'dv01'
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> Self {
         Self::new(name.parse().unwrap())
     }
 
     /// Snake-case name of the metric.
+    ///
+    /// Returns:
+    ///     str: Metric label, e.g., ``"pv"``.
     #[getter]
     fn name(&self) -> &str {
         self.inner.as_str()
@@ -38,6 +55,13 @@ impl PyMetricId {
     #[classmethod]
     #[pyo3(text_signature = "(cls)")]
     /// List of all standard metric identifiers bundled with finstack.
+    ///
+    /// Returns:
+    ///     list[str]: Collection of built-in metric labels.
+    ///
+    /// Examples:
+    ///     >>> "pv" in MetricId.standard_names()
+    ///     True
     fn standard_names(_cls: &Bound<'_, PyType>, py: Python<'_>) -> PyResult<PyObject> {
         let names: Vec<&str> = MetricId::ALL_STANDARD
             .iter()
@@ -101,6 +125,11 @@ impl<'py> FromPyObject<'py> for MetricIdArg {
 }
 
 /// Registry of metric calculators with applicability filtering.
+///
+/// Examples:
+///     >>> registry = MetricRegistry.standard()
+///     >>> registry.has_metric("pv")
+///     True
 #[pyclass(
     module = "finstack.valuations.metrics",
     name = "MetricRegistry",
@@ -126,20 +155,38 @@ impl PyMetricRegistry {
 impl PyMetricRegistry {
     #[new]
     #[pyo3(text_signature = "()")]
-    /// Create an empty registry; use :meth:`standard` to include built-in metrics.
+    /// Create an empty registry instance.
+    ///
+    /// Returns:
+    ///     MetricRegistry: Registry without pre-registered metrics.
+    ///
+    /// Examples:
+    ///     >>> custom = MetricRegistry()
+    ///     >>> custom.available_metrics()
+    ///     []
     fn ctor() -> Self {
         Self::new(MetricRegistry::new())
     }
 
     #[classmethod]
     #[pyo3(text_signature = "(cls)")]
-    /// Registry populated with all finstack standard metrics.
+    /// Create a registry populated with all finstack standard metrics.
+    ///
+    /// Returns:
+    ///     MetricRegistry: Registry containing the default metric set.
+    ///
+    /// Examples:
+    ///     >>> MetricRegistry.standard().has_metric("pv")
+    ///     True
     fn standard(_cls: &Bound<'_, PyType>) -> Self {
         Self::new(standard_registry())
     }
 
     #[pyo3(text_signature = "(self)")]
     /// All metric identifiers currently registered.
+    ///
+    /// Returns:
+    ///     list[MetricId]: Wrapped metric identifiers known to the registry.
     fn available_metrics(&self, py: Python<'_>) -> PyResult<PyObject> {
         let ids = self.inner.available_metrics();
         self.metric_ids_to_list(py, ids)
@@ -147,6 +194,15 @@ impl PyMetricRegistry {
 
     #[pyo3(text_signature = "(self, instrument_type)")]
     /// Metrics applicable to the supplied instrument type.
+    ///
+    /// Args:
+    ///     instrument_type: Instrument type enumeration or label.
+    ///
+    /// Returns:
+    ///     list[MetricId]: Metrics that can be computed for the instrument.
+    ///
+    /// Raises:
+    ///     ValueError: If the instrument label cannot be parsed.
     fn metrics_for_instrument(
         &self,
         py: Python<'_>,
@@ -155,12 +211,22 @@ impl PyMetricRegistry {
         let InstrumentTypeArg(inst) = instrument_type.extract()?;
         let metrics = self
             .inner
-            .metrics_for_instrument(instrument_type_label(inst));
+            .metrics_for_instrument(&instrument_type_label(inst));
         self.metric_ids_to_list(py, metrics)
     }
 
     #[pyo3(text_signature = "(self, metric, instrument_type)")]
     /// Test whether ``metric`` applies to the provided instrument type.
+    ///
+    /// Args:
+    ///     metric: Metric identifier or label.
+    ///     instrument_type: Instrument type enumeration or label.
+    ///
+    /// Returns:
+    ///     bool: ``True`` when the metric supports the instrument type.
+    ///
+    /// Raises:
+    ///     ValueError: If either argument cannot be parsed.
     fn is_applicable(
         &self,
         metric: Bound<'_, PyAny>,
@@ -170,11 +236,20 @@ impl PyMetricRegistry {
         let InstrumentTypeArg(inst) = instrument_type.extract()?;
         Ok(self
             .inner
-            .is_applicable(&metric_id, instrument_type_label(inst)))
+            .is_applicable(&metric_id, &instrument_type_label(inst)))
     }
 
     #[pyo3(text_signature = "(self, metric)")]
-    /// Return ``True`` when the registry contains ``metric``.
+    /// Determine whether the registry contains ``metric``.
+    ///
+    /// Args:
+    ///     metric: Metric identifier or snake-case label.
+    ///
+    /// Returns:
+    ///     bool: ``True`` when the metric is registered.
+    ///
+    /// Raises:
+    ///     ValueError: If the metric cannot be parsed.
     fn has_metric(&self, metric: Bound<'_, PyAny>) -> PyResult<bool> {
         let MetricIdArg(metric_id) = metric.extract()?;
         Ok(self.inner.has_metric(metric_id))
@@ -182,6 +257,14 @@ impl PyMetricRegistry {
 
     #[pyo3(text_signature = "(self)")]
     /// Clone the registry for experimentation without mutating the original.
+    ///
+    /// Returns:
+    ///     MetricRegistry: Shallow clone of the current registry.
+    ///
+    /// Examples:
+    ///     >>> cloned = MetricRegistry.standard().clone()
+    ///     >>> cloned.has_metric("pv")
+    ///     True
     fn clone(&self) -> Self {
         // Underlying registry derives Clone; return a shallow clone wrapper
         Self::new(self.inner.clone())

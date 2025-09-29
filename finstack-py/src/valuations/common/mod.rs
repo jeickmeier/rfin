@@ -1,4 +1,4 @@
-use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
+use crate::core::common::pycmp::richcmp_eq_ne;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::pricer::{InstrumentType, ModelKey, PricerKey, PricingError};
 use pyo3::basic::CompareOp;
@@ -8,7 +8,11 @@ use pyo3::types::{PyList, PyModule, PyModuleMethods, PyType};
 use pyo3::Bound;
 use std::fmt;
 
-/// Wrapper around `finstack_valuations::pricer::InstrumentType` with Python helpers.
+/// Enumerates instrument families supported by the valuation engines.
+///
+/// Examples:
+///     >>> InstrumentType.BOND.name
+///     'bond'
 #[pyclass(module = "finstack.valuations.common", name = "InstrumentType", frozen)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyInstrumentType {
@@ -20,7 +24,7 @@ impl PyInstrumentType {
         Self { inner }
     }
 
-    fn label(&self) -> &'static str {
+    fn label(&self) -> String {
         instrument_type_label(self.inner)
     }
 }
@@ -90,14 +94,30 @@ impl PyInstrumentType {
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
-    /// Parse a snake-case name into an :class:`InstrumentType`.
+    /// Convert a snake-case label into an instrument family.
+    ///
+    /// Args:
+    ///     name: Instrument family label such as ``"bond"``.
+    ///
+    /// Returns:
+    ///     InstrumentType: Enumeration value that matches ``name``.
+    ///
+    /// Raises:
+    ///     ValueError: If the label is unknown.
+    ///
+    /// Examples:
+    ///     >>> InstrumentType.from_name("bond")
+    ///     InstrumentType.BOND
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
         parse_instrument_type(name)
     }
 
     #[getter]
     /// Snake-case identifier for the instrument family.
-    fn name(&self) -> &'static str {
+    ///
+    /// Returns:
+    ///     str: Normalized instrument label such as ``"bond"``.
+    fn name(&self) -> String {
         self.label()
     }
 
@@ -105,7 +125,7 @@ impl PyInstrumentType {
         format!("InstrumentType('{}')", self.label())
     }
 
-    fn __str__(&self) -> &'static str {
+    fn __str__(&self) -> String {
         self.label()
     }
 
@@ -133,7 +153,11 @@ impl fmt::Display for PyInstrumentType {
     }
 }
 
-/// Wrapper around `finstack_valuations::pricer::ModelKey` with Python helpers.
+/// Enumerates pricing model categories recognized by the registry.
+///
+/// Examples:
+///     >>> ModelKey.DISCOUNTING.name
+///     'discounting'
 #[pyclass(module = "finstack.valuations.common", name = "ModelKey", frozen)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyModelKey {
@@ -145,7 +169,7 @@ impl PyModelKey {
         Self { inner }
     }
 
-    fn label(&self) -> &'static str {
+    fn label(&self) -> String {
         model_key_label(self.inner)
     }
 }
@@ -165,14 +189,30 @@ impl PyModelKey {
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
-    /// Parse a snake-case model key label.
+    /// Convert a snake-case label into a pricing model key.
+    ///
+    /// Args:
+    ///     name: Pricing model label such as ``"discounting"``.
+    ///
+    /// Returns:
+    ///     ModelKey: Enumeration value that corresponds to ``name``.
+    ///
+    /// Raises:
+    ///     ValueError: If the label is not supported.
+    ///
+    /// Examples:
+    ///     >>> ModelKey.from_name("discounting")
+    ///     ModelKey.DISCOUNTING
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
         parse_model_key(name)
     }
 
     #[getter]
     /// Snake-case identifier for this pricing model.
-    fn name(&self) -> &'static str {
+    ///
+    /// Returns:
+    ///     str: Normalized model label such as ``"discounting"``.
+    fn name(&self) -> String {
         self.label()
     }
 
@@ -180,7 +220,7 @@ impl PyModelKey {
         format!("ModelKey('{}')", self.label())
     }
 
-    fn __str__(&self) -> &'static str {
+    fn __str__(&self) -> String {
         self.label()
     }
 
@@ -208,7 +248,11 @@ impl fmt::Display for PyModelKey {
     }
 }
 
-/// Wrapper for `PricerKey` combining instrument and model identifiers.
+/// Composite key identifying a specific instrument/model pairing.
+///
+/// Examples:
+///     >>> PricerKey(InstrumentType.BOND, ModelKey.DISCOUNTING)
+///     PricerKey(instrument='bond', model='discounting')
 #[pyclass(module = "finstack.valuations.common", name = "PricerKey", frozen)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyPricerKey {
@@ -219,7 +263,17 @@ pub struct PyPricerKey {
 impl PyPricerKey {
     #[new]
     #[pyo3(text_signature = "(instrument, model)")]
-    /// Create a pricer key from instrument/model identifiers.
+    /// Build a key that refers to a (instrument, model) pair.
+    ///
+    /// Args:
+    ///     instrument: Instrument type or snake-case label.
+    ///     model: Model key or snake-case label.
+    ///
+    /// Returns:
+    ///     PricerKey: Identifier usable with :class:`PricerRegistry`.
+    ///
+    /// Raises:
+    ///     ValueError: If either identifier is not recognized.
     fn ctor(instrument: Bound<'_, PyAny>, model: Bound<'_, PyAny>) -> PyResult<Self> {
         let InstrumentTypeArg(inst) = instrument.extract()?;
         let ModelKeyArg(model_key) = model.extract()?;
@@ -230,12 +284,18 @@ impl PyPricerKey {
 
     #[getter]
     /// Instrument type component of the key.
+    ///
+    /// Returns:
+    ///     InstrumentType: Instrument portion of the key.
     fn instrument(&self) -> PyInstrumentType {
         PyInstrumentType::new(self.inner.instrument)
     }
 
     #[getter]
     /// Model key component of the key.
+    ///
+    /// Returns:
+    ///     ModelKey: Model portion of the key.
     fn model(&self) -> PyModelKey {
         PyModelKey::new(self.inner.model)
     }
@@ -285,104 +345,24 @@ impl fmt::Display for PyPricerKey {
 
 /// Parse a snake-case instrument label into an `InstrumentType`.
 fn parse_instrument_type(name: &str) -> PyResult<PyInstrumentType> {
-    let normalized = normalize_label(name);
-    let ty = match normalized.as_str() {
-        "bond" => InstrumentType::Bond,
-        "loan" => InstrumentType::Loan,
-        "cds" => InstrumentType::CDS,
-        "cds_index" | "cdsindex" => InstrumentType::CDSIndex,
-        "cds_tranche" | "cdstranche" => InstrumentType::CDSTranche,
-        "cds_option" | "cdsoption" => InstrumentType::CDSOption,
-        "irs" | "swap" | "interest_rate_swap" => InstrumentType::IRS,
-        "cap_floor" | "capfloor" | "interest_rate_option" => InstrumentType::CapFloor,
-        "swaption" => InstrumentType::Swaption,
-        "trs" | "total_return_swap" => InstrumentType::TRS,
-        "basis_swap" | "basisswap" => InstrumentType::BasisSwap,
-        "basket" => InstrumentType::Basket,
-        "convertible" | "convertible_bond" => InstrumentType::Convertible,
-        "deposit" => InstrumentType::Deposit,
-        "equity_option" | "equityoption" => InstrumentType::EquityOption,
-        "fx_option" | "fxoption" => InstrumentType::FxOption,
-        "fx_spot" | "fxspot" => InstrumentType::FxSpot,
-        "fx_swap" | "fxswap" => InstrumentType::FxSwap,
-        "inflation_linked_bond" | "ilb" => InstrumentType::InflationLinkedBond,
-        "inflation_swap" => InstrumentType::InflationSwap,
-        "interest_rate_future" | "ir_future" | "irfuture" => InstrumentType::InterestRateFuture,
-        "variance_swap" | "varianceswap" => InstrumentType::VarianceSwap,
-        "equity" => InstrumentType::Equity,
-        "repo" => InstrumentType::Repo,
-        "fra" => InstrumentType::FRA,
-        "clo" => InstrumentType::CLO,
-        "abs" => InstrumentType::ABS,
-        "rmbs" => InstrumentType::RMBS,
-        "cmbs" => InstrumentType::CMBS,
-        "private_markets_fund" | "pmf" => InstrumentType::PrivateMarketsFund,
-        other => {
-            return Err(PyValueError::new_err(format!(
-                "Unknown instrument type: {other}"
-            )))
-        }
-    };
-    Ok(PyInstrumentType::new(ty))
+    name.parse::<InstrumentType>()
+        .map(PyInstrumentType::new)
+        .map_err(|e| PyValueError::new_err(e))
 }
 
 /// Parse a snake-case model label into a `ModelKey`.
 fn parse_model_key(name: &str) -> PyResult<PyModelKey> {
-    let normalized = normalize_label(name);
-    let key = match normalized.as_str() {
-        "discounting" => ModelKey::Discounting,
-        "tree" | "lattice" => ModelKey::Tree,
-        "black76" | "black" | "black_76" => ModelKey::Black76,
-        "hull_white_1f" | "hullwhite1f" | "hw1f" => ModelKey::HullWhite1F,
-        "hazard_rate" | "hazard" => ModelKey::HazardRate,
-        other => return Err(PyValueError::new_err(format!("Unknown model key: {other}"))),
-    };
-    Ok(PyModelKey::new(key))
+    name.parse::<ModelKey>()
+        .map(PyModelKey::new)
+        .map_err(|e| PyValueError::new_err(e))
 }
 
-pub(crate) fn instrument_type_label(ty: InstrumentType) -> &'static str {
-    match ty {
-        InstrumentType::Bond => "bond",
-        InstrumentType::Loan => "loan",
-        InstrumentType::CDS => "cds",
-        InstrumentType::CDSIndex => "cds_index",
-        InstrumentType::CDSTranche => "cds_tranche",
-        InstrumentType::CDSOption => "cds_option",
-        InstrumentType::IRS => "irs",
-        InstrumentType::CapFloor => "cap_floor",
-        InstrumentType::Swaption => "swaption",
-        InstrumentType::TRS => "trs",
-        InstrumentType::BasisSwap => "basis_swap",
-        InstrumentType::Basket => "basket",
-        InstrumentType::Convertible => "convertible",
-        InstrumentType::Deposit => "deposit",
-        InstrumentType::EquityOption => "equity_option",
-        InstrumentType::FxOption => "fx_option",
-        InstrumentType::FxSpot => "fx_spot",
-        InstrumentType::FxSwap => "fx_swap",
-        InstrumentType::InflationLinkedBond => "inflation_linked_bond",
-        InstrumentType::InflationSwap => "inflation_swap",
-        InstrumentType::InterestRateFuture => "interest_rate_future",
-        InstrumentType::VarianceSwap => "variance_swap",
-        InstrumentType::Equity => "equity",
-        InstrumentType::Repo => "repo",
-        InstrumentType::FRA => "fra",
-        InstrumentType::CLO => "clo",
-        InstrumentType::ABS => "abs",
-        InstrumentType::RMBS => "rmbs",
-        InstrumentType::CMBS => "cmbs",
-        InstrumentType::PrivateMarketsFund => "private_markets_fund",
-    }
+pub(crate) fn instrument_type_label(ty: InstrumentType) -> String {
+    ty.to_string()
 }
 
-pub(crate) fn model_key_label(key: ModelKey) -> &'static str {
-    match key {
-        ModelKey::Discounting => "discounting",
-        ModelKey::Tree => "tree",
-        ModelKey::Black76 => "black76",
-        ModelKey::HullWhite1F => "hull_white_1f",
-        ModelKey::HazardRate => "hazard_rate",
-    }
+pub(crate) fn model_key_label(key: ModelKey) -> String {
+    key.to_string()
 }
 
 /// Convert a Python object into an `InstrumentType`.

@@ -1,4 +1,3 @@
-use crate::core::common::labels::normalize_label;
 use crate::core::money::{extract_money, PyMoney};
 use crate::core::utils::{date_to_py, py_to_date};
 use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
@@ -11,6 +10,10 @@ use pyo3::{Bound, PyObject, PyRef};
 use std::fmt;
 
 /// Pay/receive indicator for CDS premium leg.
+///
+/// Examples:
+///     >>> CDSPayReceive.from_name("buy")
+///     CDSPayReceive('pay_protection')
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "CDSPayReceive",
@@ -43,10 +46,26 @@ impl PyCdsPayReceive {
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
+    /// Parse a textual label into a pay/receive indicator.
+    ///
+    /// Args:
+    ///     name: Label such as ``"buy"`` or ``"sell"``.
+    ///
+    /// Returns:
+    ///     CDSPayReceive: Enumeration corresponding to the label.
+    ///
+    /// Raises:
+    ///     ValueError: If the label is not recognized.
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        normalize_cds_side(name).map(Self::new)
+        name.parse::<PayReceive>()
+            .map(Self::new)
+            .map_err(|e: String| PyValueError::new_err(e))
     }
 
+    /// Canonical snake-case name.
+    ///
+    /// Returns:
+    ///     str: Canonical indicator label.
     #[getter]
     fn name(&self) -> &'static str {
         self.label()
@@ -85,16 +104,24 @@ impl fmt::Display for PyCdsPayReceive {
 }
 
 pub(crate) fn normalize_cds_side(name: &str) -> PyResult<PayReceive> {
-    match normalize_label(name).as_str() {
-        "pay_protection" | "buyer" | "buy" => Ok(PayReceive::PayProtection),
-        "receive_protection" | "seller" | "sell" => Ok(PayReceive::ReceiveProtection),
-        other => Err(PyValueError::new_err(format!(
-            "Unknown CDS pay/receive label: {other}",
-        ))),
-    }
+    name.parse()
+        .map_err(|e: String| PyValueError::new_err(e))
 }
 
 /// Credit default swap wrapper with helper constructors.
+///
+/// Examples:
+///     >>> cds = CreditDefaultSwap.buy_protection(
+///     ...     "cds_xyz",
+///     ...     Money("USD", 10_000_000),
+///     ...     120.0,
+///     ...     date(2024, 1, 1),
+///     ...     date(2029, 1, 1),
+///     ...     "usd_discount",
+///     ...     "xyz_hazard"
+///     ... )
+///     >>> cds.spread_bp
+///     120.0
 #[pyclass(
     module = "finstack.valuations.instruments",
     name = "CreditDefaultSwap",
@@ -131,6 +158,23 @@ impl PyCreditDefaultSwap {
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a CDS where the caller buys protection (pays premium, receives protection).
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     notional: Notional principal as :class:`finstack.core.money.Money`.
+    ///     spread_bp: Premium spread in basis points.
+    ///     start_date: Start date of premium payments.
+    ///     maturity: Protection maturity date.
+    ///     discount_curve: Discount curve identifier.
+    ///     credit_curve: Credit curve identifier.
+    ///     recovery_rate: Optional recovery rate override.
+    ///     settlement_delay: Optional settlement delay in days.
+    ///
+    /// Returns:
+    ///     CreditDefaultSwap: Configured CDS instrument with pay-protection side.
+    ///
+    /// Raises:
+    ///     ValueError: If identifiers or dates cannot be parsed.
     fn buy_protection(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -175,6 +219,23 @@ impl PyCreditDefaultSwap {
     )]
     #[allow(clippy::too_many_arguments)]
     /// Create a CDS where the caller sells protection (receives premium).
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     notional: Notional principal as :class:`finstack.core.money.Money`.
+    ///     spread_bp: Premium spread in basis points.
+    ///     start_date: Start date of premium payments.
+    ///     maturity: Protection maturity date.
+    ///     discount_curve: Discount curve identifier.
+    ///     credit_curve: Credit curve identifier.
+    ///     recovery_rate: Optional recovery rate override.
+    ///     settlement_delay: Optional settlement delay in days.
+    ///
+    /// Returns:
+    ///     CreditDefaultSwap: Configured CDS instrument with receive-protection side.
+    ///
+    /// Raises:
+    ///     ValueError: If identifiers or dates cannot be parsed.
     fn sell_protection(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -201,56 +262,100 @@ impl PyCreditDefaultSwap {
         )
     }
 
+    /// Instrument identifier.
+    ///
+    /// Returns:
+    ///     str: Unique identifier for the CDS.
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
+    /// Pay/receive side of the trade.
+    ///
+    /// Returns:
+    ///     CDSPayReceive: Enumeration describing protection direction.
     #[getter]
     fn side(&self) -> PyCdsPayReceive {
         PyCdsPayReceive::new(self.inner.side)
     }
 
+    /// Notional principal.
+    ///
+    /// Returns:
+    ///     Money: Notional wrapped as :class:`finstack.core.money.Money`.
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::new(self.inner.notional)
     }
 
+    /// Premium spread in basis points.
+    ///
+    /// Returns:
+    ///     float: Premium spread for the CDS.
     #[getter]
     fn spread_bp(&self) -> f64 {
         self.inner.premium.spread_bp
     }
 
+    /// Discount curve identifier.
+    ///
+    /// Returns:
+    ///     str: Discount curve used for premium leg.
     #[getter]
     fn discount_curve(&self) -> String {
         self.inner.premium.disc_id.as_str().to_string()
     }
 
+    /// Credit curve identifier.
+    ///
+    /// Returns:
+    ///     str: Hazard curve used for protection leg.
     #[getter]
     fn credit_curve(&self) -> String {
         self.inner.protection.credit_id.as_str().to_string()
     }
 
+    /// Recovery rate applied upon default.
+    ///
+    /// Returns:
+    ///     float: Recovery rate expressed as decimal.
     #[getter]
     fn recovery_rate(&self) -> f64 {
         self.inner.protection.recovery_rate
     }
 
+    /// Settlement delay in days.
+    ///
+    /// Returns:
+    ///     int: Settlement delay between default and payout.
     #[getter]
     fn settlement_delay(&self) -> u16 {
         self.inner.protection.settlement_delay
     }
 
+    /// Start date of premium payments.
+    ///
+    /// Returns:
+    ///     datetime.date: Start date converted to Python.
     #[getter]
     fn start_date(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.premium.start)
     }
 
+    /// Protection maturity date.
+    ///
+    /// Returns:
+    ///     datetime.date: Maturity converted to Python.
     #[getter]
     fn maturity(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.premium.end)
     }
 
+    /// Instrument type enumeration.
+    ///
+    /// Returns:
+    ///     InstrumentType: Enumeration value ``InstrumentType.CDS``.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::CDS)

@@ -27,12 +27,56 @@ pub enum SwaptionSettlement {
     Cash,
 }
 
+impl std::fmt::Display for SwaptionSettlement {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SwaptionSettlement::Physical => write!(f, "physical"),
+            SwaptionSettlement::Cash => write!(f, "cash"),
+        }
+    }
+}
+
+impl std::str::FromStr for SwaptionSettlement {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "physical" => Ok(SwaptionSettlement::Physical),
+            "cash" => Ok(SwaptionSettlement::Cash),
+            other => Err(format!("Unknown swaption settlement: {}", other)),
+        }
+    }
+}
+
 /// Swaption exercise style
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SwaptionExercise {
     European,
     Bermudan,
     American,
+}
+
+impl std::fmt::Display for SwaptionExercise {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SwaptionExercise::European => write!(f, "european"),
+            SwaptionExercise::Bermudan => write!(f, "bermudan"),
+            SwaptionExercise::American => write!(f, "american"),
+        }
+    }
+}
+
+impl std::str::FromStr for SwaptionExercise {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "european" => Ok(SwaptionExercise::European),
+            "bermudan" => Ok(SwaptionExercise::Bermudan),
+            "american" => Ok(SwaptionExercise::American),
+            other => Err(format!("Unknown swaption exercise: {}", other)),
+        }
+    }
 }
 
 /// Swaption instrument

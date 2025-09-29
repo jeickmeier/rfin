@@ -43,13 +43,9 @@ impl PyPayReceive {
     #[pyo3(text_signature = "(cls, name)")]
     /// Parse ``"pay_fixed"`` or ``"receive_fixed"``.
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        match crate::core::common::labels::normalize_label(name).as_str() {
-            "pay_fixed" | "pay" => Ok(Self::new(PayReceive::PayFixed)),
-            "receive_fixed" | "receive" | "recv" => Ok(Self::new(PayReceive::ReceiveFixed)),
-            other => Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "Unknown pay/receive label: {other}"
-            ))),
-        }
+        name.parse::<PayReceive>()
+            .map(Self::new)
+            .map_err(|e: String| pyo3::exceptions::PyValueError::new_err(e))
     }
 
     #[getter]
@@ -178,60 +174,90 @@ impl PyInterestRateSwap {
     }
 
     /// Instrument identifier.
+    ///
+    /// Returns:
+    ///     str: Unique identifier assigned to the instrument.
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
     /// Notional amount shared by both legs.
+    ///
+    /// Returns:
+    ///     Any: Notional amount shared by both legs.
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::new(self.inner.notional)
     }
 
     /// Pay/receive direction of the fixed leg.
+    ///
+    /// Returns:
+    ///     Any: Pay/receive direction of the fixed leg.
     #[getter]
     fn side(&self) -> PyPayReceive {
         PyPayReceive::new(self.inner.side)
     }
 
     /// Fixed leg coupon rate.
+    ///
+    /// Returns:
+    ///     Any: Fixed leg coupon rate.
     #[getter]
     fn fixed_rate(&self) -> f64 {
         self.inner.fixed.rate
     }
 
     /// Floating leg spread in basis points.
+    ///
+    /// Returns:
+    ///     Any: Floating leg spread in basis points.
     #[getter]
     fn float_spread_bp(&self) -> f64 {
         self.inner.float.spread_bp
     }
 
     /// Effective start date (from fixed leg spec).
+    ///
+    /// Returns:
+    ///     Any: Effective start date (from fixed leg spec).
     #[getter]
     fn start(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.fixed.start)
     }
 
     /// Effective end date (from fixed leg spec).
+    ///
+    /// Returns:
+    ///     Any: Effective end date (from fixed leg spec).
     #[getter]
     fn end(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.fixed.end)
     }
 
     /// Discount curve identifier used by the fixed leg.
+    ///
+    /// Returns:
+    ///     Any: Discount curve identifier used by the fixed leg.
     #[getter]
     fn discount_curve(&self) -> String {
         self.inner.fixed.disc_id.as_str().to_string()
     }
 
     /// Floating forward curve identifier.
+    ///
+    /// Returns:
+    ///     Any: Floating forward curve identifier.
     #[getter]
     fn forward_curve(&self) -> String {
         self.inner.float.fwd_id.as_str().to_string()
     }
 
     /// Instrument type enum (``InstrumentType.IRS``).
+    ///
+    /// Returns:
+    ///     Any: Instrument type enum (``InstrumentType.IRS``).
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::IRS)

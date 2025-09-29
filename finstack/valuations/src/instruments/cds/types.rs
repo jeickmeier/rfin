@@ -21,6 +21,28 @@ pub enum PayReceive {
     ReceiveProtection,
 }
 
+impl std::fmt::Display for PayReceive {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PayReceive::PayProtection => write!(f, "pay_protection"),
+            PayReceive::ReceiveProtection => write!(f, "receive_protection"),
+        }
+    }
+}
+
+impl std::str::FromStr for PayReceive {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "pay_protection" | "buyer" | "buy" => Ok(PayReceive::PayProtection),
+            "receive_protection" | "seller" | "sell" => Ok(PayReceive::ReceiveProtection),
+            other => Err(format!("Unknown CDS pay/receive: {}", other)),
+        }
+    }
+}
+
 /// ISDA CDS conventions
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CDSConvention {

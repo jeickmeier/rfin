@@ -23,6 +23,28 @@ pub enum TrancheSide {
     SellProtection,
 }
 
+impl std::fmt::Display for TrancheSide {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TrancheSide::BuyProtection => write!(f, "buy_protection"),
+            TrancheSide::SellProtection => write!(f, "sell_protection"),
+        }
+    }
+}
+
+impl std::str::FromStr for TrancheSide {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "buy_protection" | "buy" => Ok(TrancheSide::BuyProtection),
+            "sell_protection" | "sell" => Ok(TrancheSide::SellProtection),
+            other => Err(format!("Unknown tranche side: {}", other)),
+        }
+    }
+}
+
 /// CDS Tranche instrument definition (boilerplate)
 #[derive(Clone, Debug, finstack_macros::FinancialBuilder)]
 pub struct CdsTranche {

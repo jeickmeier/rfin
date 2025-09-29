@@ -20,6 +20,22 @@ fn leak_curve_id(curve: &finstack_core::types::CurveId) -> &'static str {
 }
 
 /// CDS index instrument binding exposing a simplified constructor.
+///
+/// Examples:
+///     >>> itraxx = CDSIndex.create(
+///     ...     "itraxx_main",
+///     ...     "iTraxx Europe",
+///     ...     38,
+///     ...     1,
+///     ...     Money("EUR", 10_000_000),
+///     ...     100.0,
+///     ...     date(2024, 3, 20),
+///     ...     date(2029, 3, 20),
+///     ...     "eur_discount",
+///     ...     "itraxx_credit"
+///     ... )
+///     >>> itraxx.fixed_coupon_bp
+///     100.0
 #[pyclass(module = "finstack.valuations.instruments", name = "CDSIndex", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyCdsIndex {
@@ -55,6 +71,28 @@ impl PyCdsIndex {
         text_signature = "(cls, instrument_id, index_name, series, version, notional, fixed_coupon_bp, start_date, maturity, discount_curve, credit_curve, /, *, side='pay_protection', recovery_rate=0.4, index_factor=None)"
     )]
     #[allow(clippy::too_many_arguments)]
+    /// Create a CDS index instrument with standard ISDA conventions.
+    ///
+    /// Args:
+    ///     instrument_id: Instrument identifier or string-like object.
+    ///     index_name: Name of the CDS index family (e.g., ``"iTraxx"``).
+    ///     series: Index series number.
+    ///     version: Index version.
+    ///     notional: Notional principal as :class:`finstack.core.money.Money`.
+    ///     fixed_coupon_bp: Fixed coupon in basis points.
+    ///     start_date: Start date for premium payments.
+    ///     maturity: Maturity date of the index swap.
+    ///     discount_curve: Discount curve identifier.
+    ///     credit_curve: Credit curve identifier for the portfolio.
+    ///     side: Optional side label (``"pay_protection"`` or ``"receive_protection"``).
+    ///     recovery_rate: Optional recovery rate across constituents.
+    ///     index_factor: Optional outstanding notional factor.
+    ///
+    /// Returns:
+    ///     CDSIndex: Configured CDS index instrument.
+    ///
+    /// Raises:
+    ///     ValueError: If inputs cannot be parsed or recovery rate is invalid.
     fn create(
         _cls: &Bound<'_, PyType>,
         instrument_id: Bound<'_, PyAny>,
@@ -107,26 +145,46 @@ impl PyCdsIndex {
         Ok(Self::new(index))
     }
 
+    /// Instrument identifier.
+    ///
+    /// Returns:
+    ///     str: Unique identifier for the CDS index position.
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()
     }
 
+    /// Index family name.
+    ///
+    /// Returns:
+    ///     str: Name of the underlying CDS index.
     #[getter]
     fn index_name(&self) -> &str {
         &self.inner.index_name
     }
 
+    /// Notional principal amount.
+    ///
+    /// Returns:
+    ///     Money: Notional wrapped as :class:`finstack.core.money.Money`.
     #[getter]
     fn notional(&self) -> PyMoney {
         PyMoney::new(self.inner.notional)
     }
 
+    /// Fixed coupon in basis points.
+    ///
+    /// Returns:
+    ///     float: Coupon spread applied to premium leg.
     #[getter]
     fn fixed_coupon_bp(&self) -> f64 {
         self.inner.premium.spread_bp
     }
 
+    /// Pay/receive direction for protection.
+    ///
+    /// Returns:
+    ///     str: ``"pay_protection"`` or ``"receive_protection"``.
     #[getter]
     fn side(&self) -> &'static str {
         match self.inner.side {
@@ -135,21 +193,37 @@ impl PyCdsIndex {
         }
     }
 
+    /// Discount curve identifier.
+    ///
+    /// Returns:
+    ///     str: Discount curve used for premium leg.
     #[getter]
     fn discount_curve(&self) -> String {
         self.inner.premium.disc_id.as_str().to_string()
     }
 
+    /// Credit curve identifier.
+    ///
+    /// Returns:
+    ///     str: Hazard curve for the index constituents.
     #[getter]
     fn credit_curve(&self) -> String {
         self.inner.protection.credit_id.as_str().to_string()
     }
 
+    /// Maturity date of the index swap.
+    ///
+    /// Returns:
+    ///     datetime.date: Maturity date converted to Python.
     #[getter]
     fn maturity(&self, py: Python<'_>) -> PyResult<PyObject> {
         date_to_py(py, self.inner.premium.end)
     }
 
+    /// Instrument type enumeration.
+    ///
+    /// Returns:
+    ///     InstrumentType: Enumeration value ``InstrumentType.CDS_INDEX``.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::CDSIndex)

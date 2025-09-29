@@ -111,6 +111,34 @@ impl Frequency {
     pub const fn daily() -> Self {
         Self::Days(1)
     }
+
+    /// Create a Frequency from payments per year.
+    ///
+    /// Returns an error if payments_per_year is 0 or does not divide 12 evenly.
+    ///
+    /// # Examples
+    /// ```
+    /// use finstack_core::dates::Frequency;
+    ///
+    /// assert_eq!(Frequency::from_payments_per_year(4).unwrap(), Frequency::quarterly());
+    /// assert_eq!(Frequency::from_payments_per_year(2).unwrap(), Frequency::semi_annual());
+    /// assert_eq!(Frequency::from_payments_per_year(12).unwrap(), Frequency::monthly());
+    /// assert!(Frequency::from_payments_per_year(0).is_err());
+    /// assert!(Frequency::from_payments_per_year(5).is_err()); // Doesn't divide 12
+    /// ```
+    pub fn from_payments_per_year(payments: u32) -> std::result::Result<Self, String> {
+        if payments == 0 {
+            return Err("payments_per_year must be positive".to_string());
+        }
+        if 12 % payments != 0 {
+            return Err(format!(
+                "payments_per_year must divide 12 evenly (e.g., 1, 2, 3, 4, 6, 12), got {}",
+                payments
+            ));
+        }
+        let months = (12 / payments) as u8;
+        Ok(Self::Months(months))
+    }
 }
 
 /// Stub convention used when the start/end dates are not exact multiples of
@@ -124,6 +152,34 @@ pub enum StubKind {
     ShortBack,
     LongFront,
     LongBack,
+}
+
+impl std::fmt::Display for StubKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StubKind::None => write!(f, "none"),
+            StubKind::ShortFront => write!(f, "short_front"),
+            StubKind::ShortBack => write!(f, "short_back"),
+            StubKind::LongFront => write!(f, "long_front"),
+            StubKind::LongBack => write!(f, "long_back"),
+        }
+    }
+}
+
+impl std::str::FromStr for StubKind {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        let normalized = s.to_ascii_lowercase().replace('-', "_");
+        match normalized.as_str() {
+            "none" => Ok(StubKind::None),
+            "short_front" => Ok(StubKind::ShortFront),
+            "short_back" => Ok(StubKind::ShortBack),
+            "long_front" => Ok(StubKind::LongFront),
+            "long_back" => Ok(StubKind::LongBack),
+            other => Err(format!("Unknown stub kind: {}", other)),
+        }
+    }
 }
 
 /// Internal step abstraction allowing frequency-agnostic date arithmetic.
