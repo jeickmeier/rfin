@@ -119,6 +119,16 @@ impl CdsTranche {
         pricer.calculate_spread_dv01(self, curves, as_of)
     }
 
+    /// Calculate the par spread (running coupon in basis points).
+    pub fn par_spread(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<finstack_core::F> {
+        let pricer = pricer::CDSTranchePricer::new();
+        pricer.calculate_par_spread(self, curves, as_of)
+    }
+
     /// Calculate expected loss metric
     pub fn expected_loss(&self, curves: &MarketContext) -> finstack_core::Result<finstack_core::F> {
         let pricer = pricer::CDSTranchePricer::new();

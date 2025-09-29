@@ -82,11 +82,12 @@ macro_rules! define_metrics {
             /// This method never fails - any unrecognized string becomes a custom metric.
             /// Standard metrics are matched case-insensitively in snake_case format.
             fn from_str(s: &str) -> Result<Self, Self::Err> {
-                let metric_id = match s.to_lowercase().as_str() {
+                let lower = s.to_lowercase();
+                let metric_id = match lower.as_str() {
                     $(
                         $str => MetricId::$variant,
                     )+
-                    s => MetricId::Custom(s.to_string()),
+                    _ => MetricId::Custom(lower),
                 };
                 Ok(metric_id)
             }
@@ -123,6 +124,8 @@ define_metrics! {
     CleanPrice => "clean_price",
     /// Accrued interest since last coupon payment
     Accrued => "accrued",
+    /// Accrued interest (alias of `accrued` for compatibility)
+    AccruedInterest => "accrued_interest",
     /// Yield to maturity
     Ytm => "ytm",
     /// Yield to worst
@@ -153,6 +156,10 @@ define_metrics! {
     ASWPar => "asw_par",
     /// Market (price) asset swap spread
     ASWMarket => "asw_market",
+    /// Par asset swap spread using forward curve (requires BondFloatSpec or explicit forward)
+    ASWParFwd => "asw_par_fwd",
+    /// Market asset swap spread using forward curve (requires BondFloatSpec or explicit forward)
+    ASWMarketFwd => "asw_market_fwd",
 
     // IRS metrics
     /// Annuity factor for fixed leg

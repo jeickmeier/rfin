@@ -1,7 +1,7 @@
 use super::interp::{parse_extrapolation, parse_interp};
+use crate::core::common::args::{DayCountArg, ExtrapolationPolicyArg, InterpStyleArg};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::PyDayCount;
-use crate::core::common::args::{DayCountArg, InterpStyleArg, ExtrapolationPolicyArg};
 use crate::core::error::core_to_py;
 use crate::core::utils::{date_to_py, py_to_date};
 use finstack_core::market_data::term_structures::base_correlation::BaseCorrelationCurve;
@@ -18,13 +18,21 @@ use pyo3::{Bound, PyRef};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-fn parse_day_count(dc: Option<Bound<'_, PyAny>>) -> PyResult<Option<finstack_core::dates::DayCount>> {
+fn parse_day_count(
+    dc: Option<Bound<'_, PyAny>>,
+) -> PyResult<Option<finstack_core::dates::DayCount>> {
     match dc {
         None => Ok(None),
         Some(value) => {
-            if let Ok(dc) = value.extract::<PyRef<PyDayCount>>() { return Ok(Some(dc.inner)); }
-            if let Ok(DayCountArg(inner)) = value.extract::<DayCountArg>() { return Ok(Some(inner)); }
-            Err(pyo3::exceptions::PyTypeError::new_err("day_count must be DayCount or string"))
+            if let Ok(dc) = value.extract::<PyRef<PyDayCount>>() {
+                return Ok(Some(dc.inner));
+            }
+            if let Ok(DayCountArg(inner)) = value.extract::<DayCountArg>() {
+                return Ok(Some(inner));
+            }
+            Err(pyo3::exceptions::PyTypeError::new_err(
+                "day_count must be DayCount or string",
+            ))
         }
     }
 }
@@ -121,19 +129,37 @@ impl PyDiscountCurve {
         let style = match interp {
             None => InterpStyle::Linear,
             Some(obj) => {
-                if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() { v }
-                else if let Ok(py_style) = obj.extract::<PyRef<crate::core::market_data::interp::PyInterpStyle>>() { py_style.inner }
-                else if let Ok(name) = obj.extract::<&str>() { parse_interp_enum(Some(name), InterpStyle::Linear)? }
-                else { return Err(pyo3::exceptions::PyTypeError::new_err("interp must be InterpStyle or string")); }
+                if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() {
+                    v
+                } else if let Ok(py_style) =
+                    obj.extract::<PyRef<crate::core::market_data::interp::PyInterpStyle>>()
+                {
+                    py_style.inner
+                } else if let Ok(name) = obj.extract::<&str>() {
+                    parse_interp_enum(Some(name), InterpStyle::Linear)?
+                } else {
+                    return Err(pyo3::exceptions::PyTypeError::new_err(
+                        "interp must be InterpStyle or string",
+                    ));
+                }
             }
         };
         let extra = match extrapolation {
             None => parse_extrap_enum(None)?,
             Some(obj) => {
-                if let Ok(ExtrapolationPolicyArg(v)) = obj.extract::<ExtrapolationPolicyArg>() { v }
-                else if let Ok(py_ex) = obj.extract::<PyRef<crate::core::market_data::interp::PyExtrapolationPolicy>>() { py_ex.inner }
-                else if let Ok(name) = obj.extract::<&str>() { parse_extrap_enum(Some(name))? }
-                else { return Err(pyo3::exceptions::PyTypeError::new_err("extrapolation must be ExtrapolationPolicy or string")); }
+                if let Ok(ExtrapolationPolicyArg(v)) = obj.extract::<ExtrapolationPolicyArg>() {
+                    v
+                } else if let Ok(py_ex) =
+                    obj.extract::<PyRef<crate::core::market_data::interp::PyExtrapolationPolicy>>()
+                {
+                    py_ex.inner
+                } else if let Ok(name) = obj.extract::<&str>() {
+                    parse_extrap_enum(Some(name))?
+                } else {
+                    return Err(pyo3::exceptions::PyTypeError::new_err(
+                        "extrapolation must be ExtrapolationPolicy or string",
+                    ));
+                }
             }
         };
         let mut builder = DiscountCurve::builder(id)
@@ -141,11 +167,14 @@ impl PyDiscountCurve {
             .knots(knots)
             .set_interp(style)
             .extrapolation(extra);
-        if let Some(dc) = parse_day_count(day_count)? { builder = builder.day_count(dc); }
+        if let Some(dc) = parse_day_count(day_count)? {
+            builder = builder.day_count(dc);
+        }
         if require_monotonic {
             builder = builder.require_monotonic();
         }
-        let curve = Python::with_gil(|py| py.allow_threads(|| builder.build().map_err(core_to_py)))?;
+        let curve =
+            Python::with_gil(|py| py.allow_threads(|| builder.build().map_err(core_to_py)))?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -332,15 +361,27 @@ impl PyForwardCurve {
         if let Some(lag) = reset_lag {
             builder = builder.reset_lag(lag);
         }
-        if let Some(dc) = parse_day_count(day_count)? { builder = builder.day_count(dc); }
+        if let Some(dc) = parse_day_count(day_count)? {
+            builder = builder.day_count(dc);
+        }
         if let Some(obj) = interp {
-            let style = if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() { v }
-            else if let Ok(py_style) = obj.extract::<PyRef<crate::core::market_data::interp::PyInterpStyle>>() { py_style.inner }
-            else if let Ok(name) = obj.extract::<&str>() { parse_interp_enum(Some(name), InterpStyle::Linear)? }
-            else { return Err(pyo3::exceptions::PyTypeError::new_err("interp must be InterpStyle or string")); };
+            let style = if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() {
+                v
+            } else if let Ok(py_style) =
+                obj.extract::<PyRef<crate::core::market_data::interp::PyInterpStyle>>()
+            {
+                py_style.inner
+            } else if let Ok(name) = obj.extract::<&str>() {
+                parse_interp_enum(Some(name), InterpStyle::Linear)?
+            } else {
+                return Err(pyo3::exceptions::PyTypeError::new_err(
+                    "interp must be InterpStyle or string",
+                ));
+            };
             builder = builder.set_interp(style);
         }
-        let curve = Python::with_gil(|py| py.allow_threads(|| builder.build().map_err(core_to_py)))?;
+        let curve =
+            Python::with_gil(|py| py.allow_threads(|| builder.build().map_err(core_to_py)))?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -514,7 +555,9 @@ impl PyHazardCurve {
         if let Some(rr) = recovery_rate {
             builder = builder.recovery_rate(rr);
         }
-        if let Some(dc) = parse_day_count(day_count)? { builder = builder.day_count(dc); }
+        if let Some(dc) = parse_day_count(day_count)? {
+            builder = builder.day_count(dc);
+        }
         if let Some(name) = issuer {
             builder = builder.issuer(name.to_string());
         }
@@ -527,7 +570,8 @@ impl PyHazardCurve {
         if let Some(points) = par_points {
             builder = builder.par_spreads(points);
         }
-        let curve = Python::with_gil(|py| py.allow_threads(|| builder.build().map_err(core_to_py)))?;
+        let curve =
+            Python::with_gil(|py| py.allow_threads(|| builder.build().map_err(core_to_py)))?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 
@@ -682,17 +726,27 @@ impl PyInflationCurve {
         let style = match interp {
             None => InterpStyle::LogLinear,
             Some(obj) => {
-                if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() { v }
-                else if let Ok(py_style) = obj.extract::<PyRef<crate::core::market_data::interp::PyInterpStyle>>() { py_style.inner }
-                else if let Ok(name) = obj.extract::<&str>() { parse_interp_enum(Some(name), InterpStyle::LogLinear)? }
-                else { return Err(pyo3::exceptions::PyTypeError::new_err("interp must be InterpStyle or string")); }
+                if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() {
+                    v
+                } else if let Ok(py_style) =
+                    obj.extract::<PyRef<crate::core::market_data::interp::PyInterpStyle>>()
+                {
+                    py_style.inner
+                } else if let Ok(name) = obj.extract::<&str>() {
+                    parse_interp_enum(Some(name), InterpStyle::LogLinear)?
+                } else {
+                    return Err(pyo3::exceptions::PyTypeError::new_err(
+                        "interp must be InterpStyle or string",
+                    ));
+                }
             }
         };
         let builder = InflationCurve::builder(id)
             .base_cpi(base_cpi)
             .knots(knots)
             .set_interp(style);
-        let curve = Python::with_gil(|py| py.allow_threads(|| builder.build().map_err(core_to_py)))?;
+        let curve =
+            Python::with_gil(|py| py.allow_threads(|| builder.build().map_err(core_to_py)))?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
 

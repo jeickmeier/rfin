@@ -369,33 +369,46 @@ pub struct AllocationLedger {
     pub rows: Vec<AllocationRow>,
     /// Result metadata
     pub meta: ResultsMeta,
+    /// LP contribution events stored as negative flows for cashflow reconstruction
+    #[cfg_attr(feature = "serde", serde(default))]
+    contributions: Vec<(Date, Money)>,
 }
 
 impl AllocationLedger {
     /// Extract LP-only cashflows for NPV calculation.
     pub fn lp_cashflows(&self) -> Vec<(Date, Money)> {
-        let mut flows = Vec::new();
-        let mut lp_flows_by_date: IndexMap<Date, Money> = IndexMap::new();
+        let mut by_date: IndexMap<Date, f64> = IndexMap::new();
+        let mut currency: Option<Currency> = None;
+
+        for (date, amount) in &self.contributions {
+            currency = currency.or(Some(amount.currency()));
+            *by_date.entry(*date).or_default() += amount.amount();
+        }
 
         for row in &self.rows {
-            let existing = lp_flows_by_date
-                .get(&row.date)
-                .copied()
-                .unwrap_or_else(|| Money::new(0.0, row.to_lp.currency()));
-
-            // Add LP allocation (may be positive or negative)
-            if let Ok(new_amount) = existing + row.to_lp {
-                lp_flows_by_date.insert(row.date, new_amount);
+            let amt = row.to_lp.amount();
+            if amt.abs() > 1e-6 {
+                currency = currency.or(Some(row.to_lp.currency()));
+                *by_date.entry(row.date).or_default() += amt;
             }
         }
 
-        for (date, amount) in lp_flows_by_date {
-            if amount.amount().abs() > 1e-6 {
-                // Only include non-zero flows
-                flows.push((date, amount));
-            }
-        }
+        let Some(ccy) = currency else {
+            return Vec::new();
+        };
 
+        let mut flows: Vec<(Date, Money)> = by_date
+            .into_iter()
+            .filter_map(|(date, amt)| {
+                if amt.abs() > 1e-6 {
+                    Some((date, Money::new(amt, ccy)))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        flows.sort_by_key(|(date, _)| *date);
         flows
     }
 
@@ -503,6 +516,12 @@ impl<'a> EquityWaterfallEngine<'a> {
         let mut sorted_events = events.to_vec();
         sorted_events.sort_by(|a, b| a.date.cmp(&b.date));
 
+        let contributions: Vec<(Date, Money)> = sorted_events
+            .iter()
+            .filter(|e| e.kind == FundEventKind::Contribution)
+            .map(|e| (e.date, Money::new(-e.amount.amount(), e.amount.currency())))
+            .collect();
+
         let mut ledger_rows = Vec::new();
 
         match self.spec.style {
@@ -527,6 +546,7 @@ impl<'a> EquityWaterfallEngine<'a> {
         Ok(AllocationLedger {
             rows: ledger_rows,
             meta,
+            contributions,
         })
     }
 

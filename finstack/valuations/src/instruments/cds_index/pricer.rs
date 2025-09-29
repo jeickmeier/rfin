@@ -287,11 +287,19 @@ impl CDSIndexPricer {
 // ========================= REGISTRY PRICER =========================
 
 /// Registry pricer for CDS Index using the engine
-pub struct SimpleCdsIndexHazardPricer;
+pub struct SimpleCdsIndexHazardPricer {
+    model_key: crate::pricer::ModelKey,
+}
 
 impl SimpleCdsIndexHazardPricer {
     pub fn new() -> Self {
-        Self
+        Self {
+            model_key: crate::pricer::ModelKey::HazardRate,
+        }
+    }
+
+    pub fn with_model(model_key: crate::pricer::ModelKey) -> Self {
+        Self { model_key }
     }
 }
 
@@ -303,10 +311,7 @@ impl Default for SimpleCdsIndexHazardPricer {
 
 impl crate::pricer::Pricer for SimpleCdsIndexHazardPricer {
     fn key(&self) -> crate::pricer::PricerKey {
-        crate::pricer::PricerKey::new(
-            crate::pricer::InstrumentType::CDSIndex,
-            crate::pricer::ModelKey::HazardRate,
-        )
+        crate::pricer::PricerKey::new(crate::pricer::InstrumentType::CDSIndex, self.model_key)
     }
 
     fn price_dyn(

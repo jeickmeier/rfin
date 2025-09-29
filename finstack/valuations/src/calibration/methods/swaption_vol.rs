@@ -680,21 +680,17 @@ impl Calibrator<VolQuote, VolSurface> for SwaptionVolCalibrator {
                     // Calculate residuals
                     let model = SABRModel::new(p);
                     for (i, &strike) in strikes.iter().enumerate() {
-                        match model.implied_volatility(forward, strike, expiry_years) {
-                            Ok(model_vol) => {
-                                let residual = model_vol - vols[i];
-                                all_residuals
-                                    .insert(format!("swaption_{}", residual_counter), residual);
-                                residual_counter += 1;
-                            }
-                            Err(_) => {
-                                all_residuals.insert(
-                                    format!("swaption_{}", residual_counter),
-                                    crate::calibration::penalize(),
-                                );
-                                residual_counter += 1;
-                            }
-                        }
+                        let key = format!(
+                            "SWPT-exp{:.2}y-ten{:.2}y-K{:.4}-{:06}",
+                            expiry_years, tenor_years, strike, residual_counter
+                        );
+                        let residual = match model.implied_volatility(forward, strike, expiry_years)
+                        {
+                            Ok(model_vol) => model_vol - vols[i],
+                            Err(_) => crate::calibration::penalize(),
+                        };
+                        residual_counter += 1;
+                        all_residuals.insert(key, residual);
                     }
                 }
                 Err(_) => continue,

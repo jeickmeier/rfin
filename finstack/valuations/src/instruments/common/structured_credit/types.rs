@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 /// Type of structured credit deal
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+// Using lowercase avoids inserting underscores into acronym variants (e.g. `ABS` ->
+// `abs` instead of the previous `a_b_s`).
+#[cfg_attr(feature = "serde", serde(rename_all = "lowercase"))]
 pub enum DealType {
     /// Collateralized Loan Obligation
     CLO,
@@ -85,7 +87,9 @@ pub enum TrancheSeniority {
 /// Asset type classification for pool assets
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+// These variants are tagged in JSON (e.g. {"Loan": {...}}), so preserve their
+// Rust casing instead of converting to snake_case.
+#[cfg_attr(feature = "serde", serde(rename_all = "PascalCase"))]
 pub enum AssetType {
     /// Corporate loan
     Loan {
@@ -194,16 +198,19 @@ pub enum StudentLoanType {
 /// Payment mode for waterfall distribution
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[cfg_attr(feature = "serde", serde(rename_all = "PascalCase"))]
 pub enum PaymentMode {
     /// Normal pro-rata payments to all tranches
+    #[cfg_attr(feature = "serde", serde(alias = "pro_rata"))]
     ProRata,
     /// Sequential payment (turbo) due to trigger breach
+    #[cfg_attr(feature = "serde", serde(alias = "sequential"))]
     Sequential {
         triggered_by: String,
         trigger_date: Date,
     },
     /// Hybrid mode with custom rules
+    #[cfg_attr(feature = "serde", serde(alias = "hybrid"))]
     Hybrid { description: String },
 }
 

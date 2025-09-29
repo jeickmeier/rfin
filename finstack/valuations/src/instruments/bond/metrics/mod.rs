@@ -15,7 +15,11 @@ pub mod ytw;
 pub mod z_spread;
 
 pub use accrued::AccruedInterestCalculator;
-pub use asw::{AssetSwapMarketCalculator, AssetSwapParCalculator};
+pub use asw::{
+    AssetSwapMarketCalculator, AssetSwapMarketFwdCalculator, AssetSwapParCalculator,
+    AssetSwapParFwdCalculator,
+};
+// use asw::{asw_market_with_forward, asw_par_with_forward};
 pub use convexity::ConvexityCalculator;
 pub use cs01::Cs01Calculator;
 pub use dm::DiscountMarginCalculator;
@@ -82,6 +86,16 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
         .register_metric(
             MetricId::ASWMarket,
             Arc::new(AssetSwapMarketCalculator),
+            &["Bond"],
+        )
+        .register_metric(
+            MetricId::ASWParFwd,
+            Arc::new(AssetSwapParFwdCalculator),
+            &["Bond"],
+        )
+        .register_metric(
+            MetricId::ASWMarketFwd,
+            Arc::new(AssetSwapMarketFwdCalculator),
             &["Bond"],
         )
         .register_metric(MetricId::Cs01, Arc::new(Cs01Calculator), &["Bond"])

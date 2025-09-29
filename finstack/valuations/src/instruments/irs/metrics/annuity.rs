@@ -3,7 +3,7 @@
 //! Computes the sum of discounted accrual factors on the fixed leg, commonly
 //! used for par rate calculations and risk analytics.
 
-use crate::instruments::irs::InterestRateSwap;
+use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
 use finstack_core::F;

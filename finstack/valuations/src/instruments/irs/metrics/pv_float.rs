@@ -3,7 +3,7 @@
 //! Discounts floating coupons projected from a forward curve, including
 //! any quoted spread in basis points.
 
-use crate::instruments::irs::types::InterestRateSwap;
+use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
 use finstack_core::F;

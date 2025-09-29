@@ -3,9 +3,9 @@
 //! This module exposes `InterpStyle` and `ExtrapolationPolicy` to Python,
 //! providing canonical labels and parsing helpers. Use these values to
 //! configure curve/surface behavior between and beyond known knots.
+use crate::core::common::labels::normalize_label;
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use pyo3::exceptions::PyValueError;
-use crate::core::common::labels::normalize_label;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 
@@ -20,7 +20,11 @@ use pyo3::types::{PyList, PyModule, PyType};
 /// -------
 /// InterpStyle
 ///     Enum value defining interpolation behaviour.
-#[pyclass(module = "finstack.core.market_data.interp", name = "InterpStyle", frozen)]
+#[pyclass(
+    module = "finstack.core.market_data.interp",
+    name = "InterpStyle",
+    frozen
+)]
 #[derive(Clone, Copy, Debug)]
 pub struct PyInterpStyle {
     pub(crate) inner: InterpStyle,

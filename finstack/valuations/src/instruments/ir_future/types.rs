@@ -104,20 +104,20 @@ impl InterestRateFuture {
         let fwd = context.get_forward_ref(self.forward_id.clone())?;
 
         // Base date for mapping to curve time
-        let base_date = disc.base_date();
+        let _base_date = disc.base_date();
 
-        // Time to fixing and rate period on the instrument basis
-        let t_fixing = self
-            .day_count
-            .year_fraction(base_date, self.fixing_date, DayCountCtx::default())?
+        // Time to fixing and rate period for forward rate calculation should use
+        // the forward curve's day-count basis to avoid basis mismatches.
+        let fwd_dc = fwd.day_count();
+        let fwd_base = fwd.base_date();
+        let t_fixing = fwd_dc
+            .year_fraction(fwd_base, self.fixing_date, DayCountCtx::default())?
             .max(0.0);
-        let t_start = self
-            .day_count
-            .year_fraction(base_date, self.period_start, DayCountCtx::default())?
+        let t_start = fwd_dc
+            .year_fraction(fwd_base, self.period_start, DayCountCtx::default())?
             .max(0.0);
-        let t_end = self
-            .day_count
-            .year_fraction(base_date, self.period_end, DayCountCtx::default())?
+        let t_end = fwd_dc
+            .year_fraction(fwd_base, self.period_end, DayCountCtx::default())?
             .max(t_start);
 
         // Forward rate over the period

@@ -1,6 +1,6 @@
 //! Shared helpers for implementing Python rich comparisons.
 
-use pyo3::{basic::CompareOp, prelude::*, exceptions::PyValueError, IntoPyObjectExt};
+use pyo3::{basic::CompareOp, exceptions::PyValueError, prelude::*, IntoPyObjectExt};
 
 #[inline]
 pub fn richcmp_eq_ne<T: PartialEq>(
@@ -17,5 +17,3 @@ pub fn richcmp_eq_ne<T: PartialEq>(
     let py_bool = ok.into_bound_py_any(py)?;
     Ok(py_bool.into())
 }
-
-

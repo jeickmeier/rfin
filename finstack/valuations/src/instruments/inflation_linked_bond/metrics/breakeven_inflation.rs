@@ -2,6 +2,7 @@
 
 use crate::instruments::inflation_linked_bond::InflationLinkedBond;
 use crate::metrics::{MetricCalculator, MetricContext};
+use finstack_core::dates::DayCountCtx;
 use finstack_core::F;
 
 /// Breakeven inflation calculator for ILB
@@ -9,12 +10,15 @@ pub struct BreakevenInflationCalculator;
 
 impl MetricCalculator for BreakevenInflationCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let _ilb: &InflationLinkedBond = context.instrument_as()?;
-        // Requires a nominal bond yield input; not available in `MarketContext`.
-        Err(finstack_core::Error::from(
-            finstack_core::error::InputError::NotFound {
-                id: "inflation_linked_bond_quote".to_string(),
-            },
-        ))
+        let ilb: &InflationLinkedBond = context.instrument_as()?;
+        let curves = context.curves.as_ref();
+        let disc_curve = curves.get_discount_ref(ilb.disc_id.as_str())?;
+
+        let day_count = disc_curve.day_count();
+        let base_date = disc_curve.base_date();
+        let t = day_count.year_fraction(base_date, ilb.maturity, DayCountCtx::default())?;
+        let nominal_yield = disc_curve.zero(t);
+
+        ilb.breakeven_inflation(nominal_yield, curves, context.as_of)
     }
 }

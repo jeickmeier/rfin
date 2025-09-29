@@ -1,0 +1,51 @@
+pub mod config;
+pub mod methods;
+pub mod quote;
+pub mod report;
+pub mod simple;
+pub mod validation;
+
+use pyo3::prelude::*;
+use pyo3::types::{PyList, PyModule};
+use pyo3::Bound;
+use std::collections::HashSet;
+
+pub(crate) fn register<'py>(
+    py: Python<'py>,
+    parent: &Bound<'py, PyModule>,
+) -> PyResult<Vec<&'static str>> {
+    let module = PyModule::new(py, "calibration")?;
+    module.setattr(
+        "__doc__",
+        "Calibration helpers mirroring finstack-valuations calibration interfaces.",
+    )?;
+
+    let mut exports: Vec<&str> = Vec::new();
+
+    let config_exports = config::register(py, &module)?;
+    exports.extend(config_exports.iter().copied());
+
+    let quote_exports = quote::register(py, &module)?;
+    exports.extend(quote_exports.iter().copied());
+
+    let report_exports = report::register(py, &module)?;
+    exports.extend(report_exports.iter().copied());
+
+    let simple_exports = simple::register(py, &module)?;
+    exports.extend(simple_exports.iter().copied());
+
+    let methods_exports = methods::register(py, &module)?;
+    exports.extend(methods_exports.iter().copied());
+
+    let validation_exports = validation::register(py, &module)?;
+    exports.extend(validation_exports.iter().copied());
+
+    let mut uniq = HashSet::new();
+    exports.retain(|item| uniq.insert(*item));
+    exports.sort_unstable();
+    module.setattr("__all__", PyList::new(py, &exports)?)?;
+
+    parent.add_submodule(&module)?;
+    parent.setattr("calibration", &module)?;
+    Ok(exports)
+}

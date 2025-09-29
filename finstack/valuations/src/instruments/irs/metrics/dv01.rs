@@ -3,7 +3,9 @@
 //! Approximates the dollar value of a one basis point shift using the
 //! annuity of the fixed leg and the instrument side to determine sign.
 
-use crate::instruments::irs::{InterestRateSwap, PayReceive};
+// Use the re-exported types from the parent module
+use crate::instruments::irs::PayReceive;
+use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::F;
 

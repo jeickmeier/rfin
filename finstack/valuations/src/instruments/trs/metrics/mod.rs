@@ -1,12 +1,14 @@
 //! Risk metrics for Total Return Swaps.
 
 mod annuity;
+mod bucketed;
 mod delta;
 mod ir01;
 mod par_spread;
 // risk_bucketed_dv01 - now using generic implementation
 
 pub use annuity::FinancingAnnuityCalculator;
+pub use bucketed::TrsBucketedDv01Calculator;
 pub use delta::IndexDeltaCalculator;
 pub use ir01::TrsIR01Calculator;
 pub use par_spread::ParSpreadCalculator;
@@ -25,43 +27,21 @@ use crate::metrics::{MetricId, MetricRegistry};
 pub fn register_trs_metrics(registry: &mut MetricRegistry) {
     use std::sync::Arc;
 
-    registry.register_metric(
-        MetricId::ParSpread,
-        Arc::new(ParSpreadCalculator),
-        &["EquityTotalReturnSwap", "FIIndexTotalReturnSwap"],
-    );
+    registry.register_metric(MetricId::ParSpread, Arc::new(ParSpreadCalculator), &["TRS"]);
     registry.register_metric(
         MetricId::FinancingAnnuity,
         Arc::new(FinancingAnnuityCalculator),
-        &["EquityTotalReturnSwap", "FIIndexTotalReturnSwap"],
+        &["TRS"],
     );
-    registry.register_metric(
-        MetricId::Ir01,
-        Arc::new(TrsIR01Calculator),
-        &["EquityTotalReturnSwap", "FIIndexTotalReturnSwap"],
-    );
+    registry.register_metric(MetricId::Ir01, Arc::new(TrsIR01Calculator), &["TRS"]);
     registry.register_metric(
         MetricId::IndexDelta,
         Arc::new(IndexDeltaCalculator),
-        &["EquityTotalReturnSwap", "FIIndexTotalReturnSwap"],
-    );
-    // Register generic BucketedDv01 for both TRS types separately (different concrete types)
-    registry.register_metric(
-        MetricId::BucketedDv01,
-        Arc::new(
-            crate::instruments::common::GenericBucketedDv01WithContext::<
-                crate::instruments::trs::EquityTotalReturnSwap,
-            >::default(),
-        ),
-        &["EquityTotalReturnSwap"],
+        &["TRS"],
     );
     registry.register_metric(
         MetricId::BucketedDv01,
-        Arc::new(
-            crate::instruments::common::GenericBucketedDv01WithContext::<
-                crate::instruments::trs::FIIndexTotalReturnSwap,
-            >::default(),
-        ),
-        &["FIIndexTotalReturnSwap"],
+        Arc::new(TrsBucketedDv01Calculator),
+        &["TRS"],
     );
 }

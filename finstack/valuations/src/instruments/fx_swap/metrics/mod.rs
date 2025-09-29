@@ -9,6 +9,7 @@
 //! - FX01 (sensitivity to 1bp spot bump)
 //! - IR01 (domestic) and IR01 (foreign)
 
+mod carry_pv;
 mod forward_points;
 mod fx01;
 mod ir01_domestic;
@@ -23,6 +24,11 @@ pub fn register_fx_swap_metrics(registry: &mut MetricRegistry) {
     use std::sync::Arc;
 
     registry
+        .register_metric(
+            MetricId::custom("carry_pv"),
+            Arc::new(carry_pv::CarryPv),
+            &["FxSwap"],
+        )
         .register_metric(
             MetricId::custom("forward_points"),
             Arc::new(forward_points::ForwardPoints),

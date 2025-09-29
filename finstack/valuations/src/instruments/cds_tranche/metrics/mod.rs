@@ -16,6 +16,7 @@ mod correlation_delta;
 mod cs01;
 mod expected_loss;
 mod jump_to_default;
+mod par_spread;
 // risk_bucketed_dv01 - now using generic implementation
 mod spread_dv01;
 mod upfront;
@@ -33,6 +34,11 @@ pub fn register_cds_tranche_metrics(registry: &mut MetricRegistry) {
             Arc::new(upfront::UpfrontCalculator),
             &["CDSTranche"],
         ) // upfront PV
+        .register_metric(
+            MetricId::ParSpread,
+            Arc::new(par_spread::ParSpreadCalculator),
+            &["CDSTranche"],
+        )
         .register_metric(
             MetricId::custom("spread_dv01"),
             Arc::new(spread_dv01::SpreadDv01Calculator),

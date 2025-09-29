@@ -3,11 +3,9 @@
 //! Computes the fixed rate that sets the swap PV to zero given curves.
 //! Uses float-leg PV divided by notional times fixed-leg annuity.
 
-use crate::instruments::irs::types::ParRateMethod;
-use crate::instruments::irs::InterestRateSwap;
+use crate::instruments::{irs::ParRateMethod, InterestRateSwap};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
-// Access curves via context; remove unused direct imports
 use finstack_core::F;
 
 /// Par rate calculator for IRS.

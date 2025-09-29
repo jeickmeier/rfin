@@ -74,12 +74,7 @@ impl CdsOptionPricer {
         let hazard = curves.get_hazard_ref(option.credit_id.clone())?;
 
         // Forward spread at CDS maturity (bp)
-        let current_tenor = option.day_count.year_fraction(
-            as_of,
-            option.cds_maturity,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        let forward_spread_bp = self.compute_forward_bp(option, current_tenor, hazard);
+        let forward_spread_bp = self.forward_spread_from_pricer(option, disc, hazard, as_of)?;
 
         // Risky annuity (RPV01) from option expiry to CDS maturity via CDS pricer
         let risky_annuity = self.risky_annuity_from_pricer(option, disc, hazard, curves, as_of)?;
@@ -115,17 +110,44 @@ impl CdsOptionPricer {
         as_of: finstack_core::dates::Date,
     ) -> Result<F> {
         let hazard = curves.get_hazard_ref(option.credit_id.clone())?;
-        let t = option.day_count.year_fraction(
-            as_of,
-            option.cds_maturity,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        Ok(self.compute_forward_bp(option, t, hazard))
+        let disc = curves.get_discount_ref(option.disc_id.clone())?;
+        self.forward_spread_from_pricer(option, disc, hazard, as_of)
     }
 }
 
+fn synthetic_underlying_cds(option: &CdsOption) -> CreditDefaultSwap {
+    CreditDefaultSwap::new_isda(
+        option.id.clone(),
+        Money::new(option.notional.amount(), option.notional.currency()),
+        PayReceive::PayProtection,
+        CDSConvention::IsdaNa,
+        option.strike_spread_bp,
+        option.expiry,
+        option.cds_maturity,
+        option.recovery_rate,
+        option.disc_id.clone(),
+        option.credit_id.clone(),
+    )
+}
+
 impl CdsOptionPricer {
-    #[inline]
+    fn forward_spread_from_pricer(
+        &self,
+        option: &CdsOption,
+        disc: &finstack_core::market_data::term_structures::discount_curve::DiscountCurve,
+        surv: &finstack_core::market_data::term_structures::hazard_curve::HazardCurve,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<F> {
+        let cds = synthetic_underlying_cds(option);
+        let pricer = CDSPricer::new();
+        let mut forward_bp = pricer.par_spread(&cds, disc, surv, as_of)?;
+        if option.underlying_is_index {
+            forward_bp += option.forward_spread_adjust_bp;
+        }
+        Ok(forward_bp)
+    }
+
+    #[allow(dead_code)]
     fn compute_forward_bp(
         &self,
         option: &CdsOption,
@@ -342,18 +364,8 @@ impl CdsOptionPricer {
         }
 
         // Market-standard: build a synthetic CDS from expiry to maturity and ask CDS pricer for RA
-        let cds = CreditDefaultSwap::new_isda(
-            "CDS-UND",
-            Money::new(option.notional.amount(), option.notional.currency()),
-            PayReceive::PayProtection,
-            CDSConvention::IsdaNa,
-            0.0, // spread not used for risky_annuity
-            option.expiry,
-            option.cds_maturity,
-            option.recovery_rate,
-            option.disc_id.clone(),
-            option.credit_id.clone(),
-        );
+        let mut cds = synthetic_underlying_cds(option);
+        cds.premium.spread_bp = 0.0;
         let cds_pricer = CDSPricer::new();
         cds_pricer.risky_annuity(&cds, disc, surv, as_of)
     }
@@ -383,12 +395,7 @@ impl CdsOptionPricer {
         let hazard = curves.get_hazard_ref(option.credit_id.clone())?;
 
         // Forward spread at CDS maturity (bp)
-        let tenor = option.day_count.year_fraction(
-            as_of,
-            option.cds_maturity,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        let fwd_bp = self.compute_forward_bp(option, tenor, hazard);
+        let fwd_bp = self.forward_spread_from_pricer(option, disc, hazard, as_of)?;
 
         // Risky annuity from expiry to maturity
         let ra = self.risky_annuity_from_pricer(option, disc, hazard, curves, as_of)?;
@@ -431,11 +438,17 @@ impl CdsOptionPricer {
 // ========================= REGISTRY PRICER =========================
 
 /// Registry pricer for CDS Option using Black76 model
-pub struct SimpleCdsOptionBlackPricer;
+pub struct SimpleCdsOptionBlackPricer {
+    model_key: crate::pricer::ModelKey,
+}
 
 impl SimpleCdsOptionBlackPricer {
     pub fn new() -> Self {
-        Self
+        Self::with_model(crate::pricer::ModelKey::Black76)
+    }
+
+    pub fn with_model(model_key: crate::pricer::ModelKey) -> Self {
+        Self { model_key }
     }
 }
 
@@ -447,10 +460,7 @@ impl Default for SimpleCdsOptionBlackPricer {
 
 impl crate::pricer::Pricer for SimpleCdsOptionBlackPricer {
     fn key(&self) -> crate::pricer::PricerKey {
-        crate::pricer::PricerKey::new(
-            crate::pricer::InstrumentType::CDSOption,
-            crate::pricer::ModelKey::Black76,
-        )
+        crate::pricer::PricerKey::new(crate::pricer::InstrumentType::CDSOption, self.model_key)
     }
 
     fn price_dyn(

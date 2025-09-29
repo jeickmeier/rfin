@@ -9,5 +9,6 @@ mod types;
 pub use cashflow_spec::CashflowSpec;
 pub use types::AmortizationSpec;
 pub use types::Bond;
+pub use types::BondFloatSpec;
 pub use types::CallPut;
 pub use types::CallPutSchedule;

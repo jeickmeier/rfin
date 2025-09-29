@@ -220,3 +220,9 @@ impl Instrument for Cmbs {
 impl crate::instruments::common::traits::InstrumentKind for Cmbs {
     const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::CMBS;
 }
+
+impl crate::instruments::common::HasDiscountCurve for Cmbs {
+    fn discount_curve_id(&self) -> &CurveId {
+        &self.disc_id
+    }
+}

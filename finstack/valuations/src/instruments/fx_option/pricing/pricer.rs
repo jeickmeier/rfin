@@ -7,11 +7,19 @@ use finstack_core::market_data::MarketContext;
 // ========================= NEW SIMPLIFIED PRICER =========================
 
 /// New simplified FX Option Black76 pricer (replaces macro-based version)
-pub struct SimpleFxOptionBlackPricer;
+pub struct SimpleFxOptionBlackPricer {
+    model: ModelKey,
+}
 
 impl SimpleFxOptionBlackPricer {
     pub fn new() -> Self {
-        Self
+        Self {
+            model: ModelKey::Black76,
+        }
+    }
+
+    pub fn with_model(model: ModelKey) -> Self {
+        Self { model }
     }
 }
 
@@ -23,7 +31,7 @@ impl Default for SimpleFxOptionBlackPricer {
 
 impl Pricer for SimpleFxOptionBlackPricer {
     fn key(&self) -> PricerKey {
-        PricerKey::new(InstrumentType::FxOption, ModelKey::Black76)
+        PricerKey::new(InstrumentType::FxOption, self.model)
     }
 
     fn price_dyn(

@@ -222,3 +222,9 @@ impl Instrument for Rmbs {
 impl crate::instruments::common::traits::InstrumentKind for Rmbs {
     const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::RMBS;
 }
+
+impl crate::instruments::common::HasDiscountCurve for Rmbs {
+    fn discount_curve_id(&self) -> &CurveId {
+        &self.disc_id
+    }
+}

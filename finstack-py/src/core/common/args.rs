@@ -1,7 +1,7 @@
 use crate::core::common::labels::normalize_label;
 use crate::core::currency::PyCurrency;
-use crate::core::error::{unknown_business_day_convention, unknown_rounding_mode};
 use crate::core::dates::PyDayCount;
+use crate::core::error::{unknown_business_day_convention, unknown_rounding_mode};
 use finstack_core::config::RoundingMode;
 use finstack_core::currency::Currency;
 use finstack_core::dates::BusinessDayConvention;
@@ -16,13 +16,17 @@ pub struct CurrencyArg(pub Currency);
 
 impl<'py> FromPyObject<'py> for CurrencyArg {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if let Ok(ccy) = obj.extract::<PyRef<PyCurrency>>() { return Ok(CurrencyArg(ccy.inner)); }
+        if let Ok(ccy) = obj.extract::<PyRef<PyCurrency>>() {
+            return Ok(CurrencyArg(ccy.inner));
+        }
         if let Ok(code) = obj.extract::<&str>() {
             return Currency::from_str(code)
                 .map(CurrencyArg)
                 .map_err(|_| crate::core::error::unknown_currency(code));
         }
-        Err(PyTypeError::new_err("Expected Currency instance or ISO currency code string"))
+        Err(PyTypeError::new_err(
+            "Expected Currency instance or ISO currency code string",
+        ))
     }
 }
 
@@ -45,7 +49,9 @@ impl<'py> FromPyObject<'py> for RoundingModeArg {
             };
             return Ok(RoundingModeArg(m));
         }
-        Err(PyTypeError::new_err("Expected RoundingMode or string identifier"))
+        Err(PyTypeError::new_err(
+            "Expected RoundingMode or string identifier",
+        ))
     }
 }
 
@@ -53,7 +59,9 @@ pub struct BusinessDayConventionArg(pub BusinessDayConvention);
 
 impl<'py> FromPyObject<'py> for BusinessDayConventionArg {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if let Ok(conv) = obj.extract::<PyRef<crate::core::dates::calendar::PyBusinessDayConvention>>() {
+        if let Ok(conv) =
+            obj.extract::<PyRef<crate::core::dates::calendar::PyBusinessDayConvention>>()
+        {
             return Ok(BusinessDayConventionArg(conv.inner));
         }
         if let Ok(name) = obj.extract::<&str>() {
@@ -68,7 +76,9 @@ impl<'py> FromPyObject<'py> for BusinessDayConventionArg {
             };
             return Ok(BusinessDayConventionArg(v));
         }
-        Err(PyTypeError::new_err("Expected BusinessDayConvention or string identifier"))
+        Err(PyTypeError::new_err(
+            "Expected BusinessDayConvention or string identifier",
+        ))
     }
 }
 
@@ -77,7 +87,9 @@ pub struct DayCountArg(pub DayCount);
 
 impl<'py> FromPyObject<'py> for DayCountArg {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if let Ok(dc) = obj.extract::<PyRef<PyDayCount>>() { return Ok(DayCountArg(dc.inner)); }
+        if let Ok(dc) = obj.extract::<PyRef<PyDayCount>>() {
+            return Ok(DayCountArg(dc.inner));
+        }
         if let Ok(name) = obj.extract::<&str>() {
             let n = normalize_label(name);
             let v = match n.as_str() {
@@ -89,11 +101,17 @@ impl<'py> FromPyObject<'py> for DayCountArg {
                 "act/act" | "act_act" | "actual/actual" | "act/act isda" => DayCount::ActAct,
                 "act/act isma" | "act_act_isma" | "icma" => DayCount::ActActIsma,
                 "bus/252" | "bus_252" | "business/252" => DayCount::Bus252,
-                other => return Err(pyo3::exceptions::PyValueError::new_err(format!("Unknown day-count convention: {other}"))),
+                other => {
+                    return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                        "Unknown day-count convention: {other}"
+                    )))
+                }
             };
             return Ok(DayCountArg(v));
         }
-        Err(PyTypeError::new_err("Expected DayCount or string identifier"))
+        Err(PyTypeError::new_err(
+            "Expected DayCount or string identifier",
+        ))
     }
 }
 
@@ -113,11 +131,17 @@ impl<'py> FromPyObject<'py> for InterpStyleArg {
                 "monotone_convex" => InterpStyle::MonotoneConvex,
                 "cubic_hermite" => InterpStyle::CubicHermite,
                 "flat_fwd" => InterpStyle::FlatFwd,
-                other => return Err(pyo3::exceptions::PyValueError::new_err(format!("Unknown interpolation style: {other}"))),
+                other => {
+                    return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                        "Unknown interpolation style: {other}"
+                    )))
+                }
             };
             return Ok(InterpStyleArg(v));
         }
-        Err(PyTypeError::new_err("Expected InterpStyle or string identifier"))
+        Err(PyTypeError::new_err(
+            "Expected InterpStyle or string identifier",
+        ))
     }
 }
 
@@ -126,7 +150,9 @@ pub struct ExtrapolationPolicyArg(pub ExtrapolationPolicy);
 
 impl<'py> FromPyObject<'py> for ExtrapolationPolicyArg {
     fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if let Ok(py) = obj.extract::<PyRef<crate::core::market_data::interp::PyExtrapolationPolicy>>() {
+        if let Ok(py) =
+            obj.extract::<PyRef<crate::core::market_data::interp::PyExtrapolationPolicy>>()
+        {
             return Ok(ExtrapolationPolicyArg(py.inner));
         }
         if let Ok(name) = obj.extract::<&str>() {
@@ -134,11 +160,16 @@ impl<'py> FromPyObject<'py> for ExtrapolationPolicyArg {
             let v = match n.as_str() {
                 "flat_zero" => ExtrapolationPolicy::FlatZero,
                 "flat_forward" => ExtrapolationPolicy::FlatForward,
-                other => return Err(pyo3::exceptions::PyValueError::new_err(format!("Unknown extrapolation policy: {other}"))),
+                other => {
+                    return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                        "Unknown extrapolation policy: {other}"
+                    )))
+                }
             };
             return Ok(ExtrapolationPolicyArg(v));
         }
-        Err(PyTypeError::new_err("Expected ExtrapolationPolicy or string identifier"))
+        Err(PyTypeError::new_err(
+            "Expected ExtrapolationPolicy or string identifier",
+        ))
     }
 }
-

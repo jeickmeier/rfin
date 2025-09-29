@@ -5,6 +5,7 @@ use pyo3::types::{PyList, PyModule, PyModuleMethods};
 use pyo3::Bound;
 
 mod core;
+mod valuations;
 
 use core::currency::PyCurrency;
 use core::market_data::PyDiscountCurve;
@@ -84,6 +85,9 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyMoney>()?;
     m.add_class::<PyDiscountCurve>()?;
 
+    // Valuations bindings (module registers itself under `valuations`)
+    valuations::register(py, &m)?;
+
     // Re-export selected helpers at package root for convenience
     let dates_binding = core_mod.getattr("dates")?;
     let dates_mod = dates_binding.downcast::<PyModule>()?;
@@ -128,6 +132,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
             "market_data",
             "math",
             "expr",
+            "valuations",
             "Currency",
             "Money",
             "DiscountCurve",

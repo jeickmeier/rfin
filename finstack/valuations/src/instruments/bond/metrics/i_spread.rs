@@ -47,7 +47,8 @@ impl MetricCalculator for ISpreadCalculator {
         let mut den = 0.0;
         for w in dates.windows(2) {
             let (a, b) = (w[0], w[1]);
-            let alpha = finstack_core::dates::DayCount::ActActIsma
+            // Use Act/Act (generic) to avoid requiring a frequency hint
+            let alpha = finstack_core::dates::DayCount::ActAct
                 .year_fraction(a, b, finstack_core::dates::DayCountCtx::default())
                 .unwrap_or(0.0);
             let p = disc.df_on_date_curve(b);

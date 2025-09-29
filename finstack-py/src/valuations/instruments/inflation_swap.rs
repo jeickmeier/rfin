@@ -1,0 +1,194 @@
+use crate::core::error::core_to_py;
+use crate::core::money::{extract_money, PyMoney};
+use crate::core::utils::{date_to_py, py_to_date};
+use crate::valuations::common::{extract_curve_id, extract_instrument_id, PyInstrumentType};
+use finstack_core::dates::DayCount;
+use finstack_valuations::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
+use pyo3::types::{PyAny, PyModule, PyType};
+use pyo3::Bound;
+use std::fmt;
+
+fn leak_str(value: &str) -> &'static str {
+    Box::leak(value.to_string().into_boxed_str())
+}
+
+fn parse_side(label: Option<&str>) -> PyResult<PayReceiveInflation> {
+    match label
+        .map(crate::core::common::labels::normalize_label)
+        .as_deref()
+    {
+        None | Some("pay_fixed") | Some("pay") => Ok(PayReceiveInflation::PayFixed),
+        Some("receive_fixed") | Some("receive") => Ok(PayReceiveInflation::ReceiveFixed),
+        Some(other) => Err(PyValueError::new_err(format!(
+            "Unknown inflation swap side: {other}",
+        ))),
+    }
+}
+
+/// Zero-coupon inflation swap binding.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "InflationSwap",
+    frozen
+)]
+#[derive(Clone, Debug)]
+pub struct PyInflationSwap {
+    pub(crate) inner: InflationSwap,
+}
+
+impl PyInflationSwap {
+    pub(crate) fn new(inner: InflationSwap) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyInflationSwap {
+    #[classmethod]
+    #[pyo3(
+        text_signature = "(cls, instrument_id, notional, fixed_rate, start_date, maturity, discount_curve, inflation_index=None, /, *, side='pay_fixed', day_count='act_act', inflation_id=None, lag_override=None, inflation_curve=None)",
+        signature = (
+            instrument_id,
+            notional,
+            fixed_rate,
+            start_date,
+            maturity,
+            discount_curve,
+            inflation_index = None,
+            *,
+            side = None,
+            day_count = None,
+            inflation_id = None,
+            lag_override = None,
+            inflation_curve = None,
+        )
+    )]
+    #[allow(clippy::too_many_arguments)]
+    fn create(
+        _cls: &Bound<'_, PyType>,
+        instrument_id: Bound<'_, PyAny>,
+        notional: Bound<'_, PyAny>,
+        fixed_rate: f64,
+        start_date: Bound<'_, PyAny>,
+        maturity: Bound<'_, PyAny>,
+        discount_curve: Bound<'_, PyAny>,
+        inflation_index: Option<&str>,
+        side: Option<&str>,
+        day_count: Option<&str>,
+        inflation_id: Option<&str>,
+        lag_override: Option<&str>,
+        inflation_curve: Option<&str>,
+    ) -> PyResult<Self> {
+        let id = extract_instrument_id(&instrument_id)?;
+        let notional_money = extract_money(&notional)?;
+        let start = py_to_date(&start_date)?;
+        let end = py_to_date(&maturity)?;
+        let disc_id = extract_curve_id(&discount_curve)?;
+        let side_value = parse_side(side)?;
+        let dc = if let Some(name) = day_count {
+            match crate::core::common::labels::normalize_label(name).as_str() {
+                "act_act" | "actact" => DayCount::ActAct,
+                "act_360" | "act360" => DayCount::Act360,
+                "act_365f" | "act365f" | "act_365_fixed" => DayCount::Act365F,
+                other => {
+                    return Err(PyValueError::new_err(format!(
+                        "Unsupported day_count: {other}",
+                    )))
+                }
+            }
+        } else {
+            DayCount::ActAct
+        };
+        let inflation_identifier = if let Some(explicit) = inflation_id {
+            leak_str(explicit)
+        } else if let Some(label) = inflation_index.or(inflation_curve) {
+            leak_str(label)
+        } else {
+            return Err(PyValueError::new_err(
+                "inflation_index or inflation_curve must be provided",
+            ));
+        };
+
+        let mut builder = InflationSwap::builder();
+        builder = builder.id(id);
+        builder = builder.notional(notional_money);
+        builder = builder.fixed_rate(fixed_rate);
+        builder = builder.start(start);
+        builder = builder.maturity(end);
+        builder = builder.disc_id(disc_id);
+        builder = builder.inflation_id(inflation_identifier);
+        builder = builder.dc(dc);
+        builder = builder.side(side_value);
+        if let Some(lag) = lag_override {
+            let normalized = crate::core::common::labels::normalize_label(lag);
+            use finstack_core::market_data::scalars::inflation_index::InflationLag;
+            let lag_value = match normalized.as_str() {
+                "none" => InflationLag::None,
+                "3m" | "three_months" => InflationLag::Months(3),
+                "8m" | "eight_months" => InflationLag::Months(8),
+                other => {
+                    return Err(PyValueError::new_err(format!(
+                        "Unsupported lag override: {other}",
+                    )))
+                }
+            };
+            builder = builder.lag_override_opt(Some(lag_value));
+        }
+        builder = builder.attributes(Default::default());
+
+        let swap = builder.build().map_err(core_to_py)?;
+        Ok(Self::new(swap))
+    }
+
+    #[getter]
+    fn instrument_id(&self) -> &str {
+        self.inner.id.as_str()
+    }
+
+    #[getter]
+    fn notional(&self) -> PyMoney {
+        PyMoney::new(self.inner.notional)
+    }
+
+    #[getter]
+    fn fixed_rate(&self) -> f64 {
+        self.inner.fixed_rate
+    }
+
+    #[getter]
+    fn maturity(&self, py: Python<'_>) -> PyResult<PyObject> {
+        date_to_py(py, self.inner.maturity)
+    }
+
+    #[getter]
+    fn instrument_type(&self) -> PyInstrumentType {
+        PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::InflationSwap)
+    }
+
+    fn __repr__(&self) -> PyResult<String> {
+        Ok(format!(
+            "InflationSwap(id='{}', fixed_rate={:.4})",
+            self.inner.id, self.inner.fixed_rate
+        ))
+    }
+}
+
+impl fmt::Display for PyInflationSwap {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "InflationSwap({}, fixed_rate={:.4})",
+            self.inner.id, self.inner.fixed_rate
+        )
+    }
+}
+
+pub(crate) fn register<'py>(
+    _py: Python<'py>,
+    module: &Bound<'py, PyModule>,
+) -> PyResult<Vec<&'static str>> {
+    module.add_class::<PyInflationSwap>()?;
+    Ok(vec!["InflationSwap"])
+}

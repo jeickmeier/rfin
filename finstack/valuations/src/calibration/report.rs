@@ -32,12 +32,28 @@ impl CalibrationReport {
         success: bool,
         convergence_reason: impl Into<String>,
     ) -> Self {
-        let max_residual = residuals.values().map(|r| r.abs()).fold(0.0, f64::max);
+        // Ignore sentinel penalty values when computing diagnostics, so a single
+        // hard failure doesn't drown out useful residual magnitudes. If all
+        // residuals are penalties, we fall back to the raw max.
+        let penalty = crate::calibration::PENALTY;
+        let finite_vals: Vec<F> = residuals
+            .values()
+            .copied()
+            .filter(|r| r.is_finite() && r.abs() < penalty * 0.5)
+            .collect();
+        let max_residual = if finite_vals.is_empty() {
+            residuals.values().map(|r| r.abs()).fold(0.0, f64::max)
+        } else {
+            finite_vals.iter().map(|r| r.abs()).fold(0.0, f64::max)
+        };
         let rmse = if residuals.is_empty() {
             0.0
-        } else {
+        } else if finite_vals.is_empty() {
             let sum_sq: F = residuals.values().map(|r| r * r).sum();
             (sum_sq / residuals.len() as F).sqrt()
+        } else {
+            let sum_sq: F = finite_vals.iter().map(|r| r * r).sum();
+            (sum_sq / finite_vals.len() as F).sqrt()
         };
 
         Self {

@@ -1,0 +1,18 @@
+//! CDS Tranche par spread metric calculator.
+//!
+//! Computes the running coupon in basis points that sets the tranche NPV to zero
+//! using the Gaussian copula tranche pricer.
+
+use crate::instruments::cds_tranche::CdsTranche;
+use crate::metrics::{MetricCalculator, MetricContext};
+use finstack_core::Result;
+
+/// Par spread calculator for CDS tranches.
+pub struct ParSpreadCalculator;
+
+impl MetricCalculator for ParSpreadCalculator {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
+        let tranche: &CdsTranche = context.instrument_as()?;
+        tranche.par_spread(&context.curves, context.as_of)
+    }
+}

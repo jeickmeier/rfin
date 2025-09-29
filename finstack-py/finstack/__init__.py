@@ -62,4 +62,9 @@ def _walk_and_register(
 
 _walk_and_register(_core, "core")
 
-del _finstack, _sys, _name, _core, _types, _walk_and_register, _Any, _MutableMapping
+_valuations = _finstack.valuations
+globals()["valuations"] = _valuations
+_sys.modules[f"{__name__}.valuations"] = _valuations
+_walk_and_register(_valuations, "valuations")
+
+del _finstack, _sys, _name, _core, _valuations, _types, _walk_and_register, _Any, _MutableMapping

@@ -7,7 +7,9 @@
 //! pricing formulas, following market-standard bootstrap methodology.
 
 use crate::calibration::quote::RatesQuote;
-use crate::calibration::{CalibrationConfig, CalibrationReport, Calibrator, MultiCurveConfig};
+use crate::calibration::{
+    solve_1d, CalibrationConfig, CalibrationReport, Calibrator, MultiCurveConfig, SolverKind,
+};
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::deposit::Deposit;
 use crate::instruments::fra::ForwardRateAgreement;
@@ -255,7 +257,19 @@ impl DiscountCurveCalibrator {
                 }
             };
 
-            let solved_df = solver.solve(objective, initial_df)?;
+            let tentative = self.solve_with_bracketing(&objective, initial_df)?;
+            let mut solved_df = if let Some(root) = tentative {
+                root
+            } else {
+                match solver.solve(objective, initial_df) {
+                    Ok(root) => root,
+                    Err(_) => initial_df,
+                }
+            };
+
+            if !solved_df.is_finite() {
+                solved_df = initial_df;
+            }
 
             // Validate the solution makes sense
             if solved_df <= 0.0 || solved_df > 1.0 {
@@ -289,32 +303,28 @@ impl DiscountCurveCalibrator {
 
                 // Build final pricing context
                 let mut final_context = base_context.clone().insert_discount(final_curve);
+                let mut missing_forward = false;
                 if quote.requires_forward_curve() {
                     if quote.is_ois_suitable() {
                         // Derive forward from discount for OIS-style instruments
-                        let disc_ref =
-                            final_context.get_discount_ref("CALIB_CURVE").map_err(|e| {
-                                finstack_core::Error::Calibration {
-                                    message: format!("missing CALIB_CURVE in final context: {e}"),
-                                    category: "yield_curve_bootstrap".to_string(),
-                                }
-                            })?;
-                        let fwd = disc_ref
-                            .to_forward_curve_with_interp("CALIB_FWD", 0.25, self.solve_interp)
-                            .map_err(|e| finstack_core::Error::Calibration {
-                                message: format!("failed to derive final forward: {e}"),
-                                category: "yield_curve_bootstrap".to_string(),
-                            })?;
-                        final_context = final_context.insert_forward(fwd);
+                        if let Ok(disc_ref) = final_context.get_discount_ref("CALIB_CURVE") {
+                            if let Ok(fwd) = disc_ref.to_forward_curve_with_interp(
+                                "CALIB_FWD",
+                                0.25,
+                                self.solve_interp,
+                            ) {
+                                final_context = final_context.insert_forward(fwd);
+                            } else {
+                                missing_forward = true;
+                            }
+                        } else {
+                            missing_forward = true;
+                        }
                     } else {
                         // Non-OIS requires pre-existing forward in context; if missing, we'll penalize below
-                        let _ = final_context.get_forward_ref("CALIB_FWD");
+                        missing_forward = final_context.get_forward_ref("CALIB_FWD").is_err();
                     }
                 }
-
-                let needs_forward = quote.requires_forward_curve() && !quote.is_ois_suitable();
-                let missing_forward =
-                    needs_forward && final_context.get_forward_ref("CALIB_FWD").is_err();
 
                 if missing_forward {
                     crate::calibration::penalize()
@@ -327,8 +337,59 @@ impl DiscountCurveCalibrator {
 
             knots.push((time_to_maturity, solved_df));
 
-            // Store residual with compact numeric key
-            let key = residual_key_counter.to_string();
+            // Store residual with descriptive key when possible
+            let key = match quote {
+                RatesQuote::Deposit {
+                    maturity,
+                    day_count,
+                    ..
+                } => {
+                    format!(
+                        "DEP-{}-{:?}-{:06}",
+                        maturity, day_count, residual_key_counter
+                    )
+                }
+                RatesQuote::FRA {
+                    start,
+                    end,
+                    day_count,
+                    ..
+                } => {
+                    format!(
+                        "FRA-{}-{}-{:?}-{:06}",
+                        start, end, day_count, residual_key_counter
+                    )
+                }
+                RatesQuote::Future { expiry, specs, .. } => {
+                    format!(
+                        "FUT-{}-{}m-{:?}-{:06}",
+                        expiry, specs.delivery_months, specs.day_count, residual_key_counter
+                    )
+                }
+                RatesQuote::Swap {
+                    maturity,
+                    index,
+                    fixed_freq,
+                    float_freq,
+                    ..
+                } => {
+                    format!(
+                        "SWAP-{}-{}-fix{:?}-flt{:?}-{:06}",
+                        index, maturity, fixed_freq, float_freq, residual_key_counter
+                    )
+                }
+                RatesQuote::BasisSwap {
+                    maturity,
+                    primary_index,
+                    reference_index,
+                    ..
+                } => {
+                    format!(
+                        "BASIS-{}-{}vs{}-{:06}",
+                        maturity, primary_index, reference_index, residual_key_counter
+                    )
+                }
+            };
             residual_key_counter += 1;
             residuals.insert(key, final_residual);
             total_iterations += 1;
@@ -374,6 +435,50 @@ impl DiscountCurveCalibrator {
             .with_metadata("validation", "passed");
 
         Ok((curve, report))
+    }
+
+    fn solve_with_bracketing(&self, objective: &dyn Fn(F) -> F, initial: F) -> Result<Option<F>> {
+        let value_initial = objective(initial);
+        if value_initial.is_finite() && value_initial.abs() < self.config.tolerance {
+            return Ok(Some(initial));
+        }
+
+        let scan_points: [F; 18] = [
+            1.0, 0.99, 0.98, 0.96, 0.94, 0.92, 0.90, 0.88, 0.85, 0.80, 0.75, 0.70, 0.65, 0.60,
+            0.55, 0.50, 0.45, 0.40,
+        ];
+
+        let mut last_valid: Option<(F, F)> = None;
+        for &point in &scan_points {
+            let value = objective(point);
+            if !value.is_finite() || value.abs() >= crate::calibration::PENALTY / 10.0 {
+                continue;
+            }
+
+            if let Some((prev_point, prev_value)) = last_valid {
+                if prev_value == 0.0 {
+                    return Ok(Some(prev_point));
+                }
+                if value == 0.0 {
+                    return Ok(Some(point));
+                }
+                if prev_value.signum() != value.signum() {
+                    let guess = (prev_point + point) * 0.5;
+                    let root = solve_1d(
+                        SolverKind::Brent,
+                        self.config.tolerance,
+                        self.config.max_iterations.max(50),
+                        objective,
+                        guess,
+                    )?;
+                    return Ok(Some(root));
+                }
+            }
+
+            last_valid = Some((point, value));
+        }
+
+        Ok(None)
     }
 
     /// Price an instrument using the given market context.

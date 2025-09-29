@@ -1,10 +1,10 @@
 use super::calendar::PyCalendar;
 use super::schedule::PyFrequency;
+use crate::core::common::labels::normalize_label;
 use crate::core::error::core_to_py;
 use crate::core::utils::py_to_date;
 use finstack_core::dates::{DayCount, DayCountCtx, Frequency, Thirty360Convention};
 use pyo3::prelude::*;
-use crate::core::common::{labels::normalize_label};
 use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::{Bound, PyRef};
 use std::fmt;

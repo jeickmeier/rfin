@@ -734,7 +734,11 @@ impl MarketContext {
     }
 
     /// In-place insert of a credit index aggregate.
-    pub fn insert_credit_index_mut(&mut self, id: impl AsRef<str>, data: CreditIndexData) -> &mut Self {
+    pub fn insert_credit_index_mut(
+        &mut self,
+        id: impl AsRef<str>,
+        data: CreditIndexData,
+    ) -> &mut Self {
         self.credit_indices
             .insert(CurveId::from(id.as_ref()), Arc::new(data));
         self
@@ -820,7 +824,11 @@ impl MarketContext {
     }
 
     /// In-place map collateral to curve id.
-    pub fn map_collateral_mut(&mut self, csa_code: impl Into<String>, discount_id: CurveId) -> &mut Self {
+    pub fn map_collateral_mut(
+        &mut self,
+        csa_code: impl Into<String>,
+        discount_id: CurveId,
+    ) -> &mut Self {
         self.collateral.insert(csa_code.into(), discount_id);
         self
     }

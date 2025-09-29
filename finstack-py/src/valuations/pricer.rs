@@ -1,0 +1,218 @@
+use crate::core::error::core_to_py;
+use crate::core::market_data::PyMarketContext;
+use crate::valuations::common::{pricing_error_to_py, ModelKeyArg, PyPricerKey};
+use crate::valuations::instruments::{extract_instrument, InstrumentHandle};
+use crate::valuations::metrics::MetricIdArg;
+use crate::valuations::results::PyValuationResult;
+use finstack_valuations::instruments::bond::metrics::asw::{
+    asw_market_with_forward, asw_par_with_forward,
+};
+use finstack_valuations::instruments::common::helpers::build_with_metrics_dyn;
+use finstack_valuations::metrics::MetricId;
+use finstack_valuations::pricer::{create_standard_registry, PricerRegistry};
+use pyo3::prelude::*;
+use pyo3::types::{PyList, PyModule};
+use pyo3::Bound;
+
+/// Registry dispatching (instrument, model) pairs to pricing engines.
+#[pyclass(module = "finstack.valuations.pricer", name = "PricerRegistry", frozen)]
+#[derive(Default)]
+pub struct PyPricerRegistry {
+    pub(crate) inner: PricerRegistry,
+}
+
+impl PyPricerRegistry {
+    pub(crate) fn new(inner: PricerRegistry) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyPricerRegistry {
+    #[new]
+    #[pyo3(text_signature = "()")]
+    /// Create an empty registry; populate using :func:`create_standard_registry` for defaults.
+    fn ctor() -> Self {
+        Self::new(PricerRegistry::new())
+    }
+
+    #[pyo3(text_signature = "(self, instrument, model, market)")]
+    /// Price an instrument using ``model`` and market data.
+    ///
+    /// Parameters
+    /// ----------
+    /// instrument : finstack.valuations.instruments.Instrument
+    ///     Instrument instance created via the valuations bindings.
+    /// model : ModelKey or str
+    ///     Pricing model identifier (e.g. ``"discounting"``).
+    /// market : finstack.core.market_data.MarketContext
+    ///     Market context providing curves, FX, and scalars.
+    ///
+    /// Returns
+    /// -------
+    /// ValuationResult
+    ///     Result containing PV, measures, metadata, and covenant reports.
+    fn price(
+        &self,
+        instrument: Bound<'_, PyAny>,
+        model: Bound<'_, PyAny>,
+        market: &PyMarketContext,
+    ) -> PyResult<PyValuationResult> {
+        let InstrumentHandle {
+            instrument: inst, ..
+        } = extract_instrument(&instrument)?;
+        let ModelKeyArg(model_key) = model.extract()?;
+        self.inner
+            .price_with_registry(inst.as_ref(), model_key, &market.inner)
+            .map(PyValuationResult::new)
+            .map_err(pricing_error_to_py)
+    }
+
+    #[pyo3(text_signature = "(self, instrument, model, market, metrics)")]
+    /// Price an instrument and compute the requested metrics.
+    ///
+    /// Parameters
+    /// ----------
+    /// instrument : finstack.valuations.instruments.Instrument
+    /// model : ModelKey or str
+    /// market : finstack.core.market_data.MarketContext
+    /// metrics : list[MetricId | str]
+    ///     Metrics to compute (snake-case names accepted).
+    ///
+    /// Returns
+    /// -------
+    /// ValuationResult
+    ///     Result with PV and populated measures.
+    fn price_with_metrics(
+        &self,
+        instrument: Bound<'_, PyAny>,
+        model: Bound<'_, PyAny>,
+        market: &PyMarketContext,
+        metrics: Vec<Bound<'_, PyAny>>,
+    ) -> PyResult<PyValuationResult> {
+        let InstrumentHandle {
+            instrument: inst, ..
+        } = extract_instrument(&instrument)?;
+        let ModelKeyArg(model_key) = model.extract()?;
+
+        // Parse metrics
+        let mut metric_ids: Vec<MetricId> = Vec::with_capacity(metrics.len());
+        for m in metrics {
+            let MetricIdArg(id) = m.extract()?;
+            metric_ids.push(id);
+        }
+
+        // Base price via registry to derive as_of deterministically per pricer
+        let base = self
+            .inner
+            .price_with_registry(inst.as_ref(), model_key, &market.inner)
+            .map_err(pricing_error_to_py)?;
+
+        // Compute requested metrics using helper
+        let with_metrics = build_with_metrics_dyn(
+            inst.as_ref(),
+            &market.inner,
+            base.as_of,
+            base.value,
+            &metric_ids,
+        )
+        .map_err(core_to_py)?;
+
+        Ok(PyValuationResult::new(with_metrics))
+    }
+
+    #[pyo3(
+        text_signature = "(self, bond, market, forward_curve, float_margin_bp, dirty_price_ccy=None)"
+    )]
+    /// Compute forward-curve-based Asset Swap Spreads (par, market) for a bond.
+    fn asw_forward(
+        &self,
+        bond: Bound<'_, PyAny>,
+        market: &PyMarketContext,
+        forward_curve: &str,
+        float_margin_bp: f64,
+        dirty_price_ccy: Option<f64>,
+    ) -> PyResult<(f64, f64)> {
+        let InstrumentHandle {
+            instrument: inst, ..
+        } = extract_instrument(&bond)?;
+        let bond_ref = inst
+            .as_ref()
+            .as_any()
+            .downcast_ref::<finstack_valuations::instruments::bond::Bond>()
+            .ok_or_else(|| {
+                pricing_error_to_py(finstack_valuations::pricer::PricingError::TypeMismatch {
+                    expected: finstack_valuations::pricer::InstrumentType::Bond,
+                    got: inst.as_ref().key(),
+                })
+            })?;
+
+        let disc = market
+            .inner
+            .get_discount_ref(bond_ref.disc_id.as_str())
+            .map_err(core_to_py)?;
+        let as_of = disc.base_date();
+
+        let par = asw_par_with_forward(
+            bond_ref,
+            &market.inner,
+            as_of,
+            forward_curve,
+            float_margin_bp,
+        )
+        .map_err(core_to_py)?;
+        let mkt = asw_market_with_forward(
+            bond_ref,
+            &market.inner,
+            as_of,
+            forward_curve,
+            float_margin_bp,
+            dirty_price_ccy,
+        )
+        .map_err(core_to_py)?;
+        Ok((par, mkt))
+    }
+
+    #[pyo3(text_signature = "(self, instrument, model)")]
+    /// Convenience accessor returning the internal key used for dispatch.
+    fn key(&self, instrument: Bound<'_, PyAny>, model: Bound<'_, PyAny>) -> PyResult<PyPricerKey> {
+        let handle = extract_instrument(&instrument)?;
+        let ModelKeyArg(model_key) = model.extract()?;
+        Ok(PyPricerKey {
+            inner: finstack_valuations::pricer::PricerKey::new(handle.instrument_type, model_key),
+        })
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    /// Clone the registry for isolated pricing threads.
+    fn clone(&self) -> Self {
+        // Underlying registry is not Clone; create a new one for isolation.
+        Self::new(PricerRegistry::new())
+    }
+}
+
+/// Create a registry populated with all standard finstack pricers.
+#[pyfunction(name = "create_standard_registry")]
+fn create_standard_registry_py() -> PyResult<PyPricerRegistry> {
+    Ok(PyPricerRegistry::new(create_standard_registry()))
+}
+
+pub(crate) fn register<'py>(
+    py: Python<'py>,
+    parent: &Bound<'py, PyModule>,
+) -> PyResult<Vec<&'static str>> {
+    let module = PyModule::new(py, "pricer")?;
+    module.setattr(
+        "__doc__",
+        "Pricer registry bridging instruments and pricing models to valuation engines.",
+    )?;
+    module.add_class::<PyPricerRegistry>()?;
+    module.add_function(pyo3::wrap_pyfunction!(
+        create_standard_registry_py,
+        &module
+    )?)?;
+    let exports = ["PricerRegistry", "create_standard_registry"];
+    module.setattr("__all__", PyList::new(py, &exports)?)?;
+    parent.add_submodule(&module)?;
+    Ok(exports.to_vec())
+}

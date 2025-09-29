@@ -61,6 +61,7 @@ pub fn standard_registry() -> MetricRegistry {
     crate::instruments::ir_future::metrics::register_ir_future_metrics(&mut registry);
     crate::instruments::cds::metrics::register_cds_metrics(&mut registry);
     crate::instruments::cds_index::metrics::register_cds_index_metrics(&mut registry);
+    crate::instruments::cds_tranche::metrics::register_cds_tranche_metrics(&mut registry);
     crate::instruments::convertible::metrics::register_convertible_metrics(&mut registry);
     crate::instruments::inflation_linked_bond::metrics::register_ilb_metrics(&mut registry);
     crate::instruments::fx_spot::metrics::register_fx_spot_metrics(&mut registry);

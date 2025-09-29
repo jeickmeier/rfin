@@ -10,15 +10,6 @@ pub struct IndexRatioCalculator;
 impl MetricCalculator for IndexRatioCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let ilb: &InflationLinkedBond = context.instrument_as()?;
-        let inflation_index = context
-            .curves
-            .inflation_index(ilb.inflation_id.as_str())
-            .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                    id: "inflation_linked_bond_quote".to_string(),
-                })
-            })?;
-
-        ilb.index_ratio(context.as_of, &inflation_index)
+        ilb.index_ratio_from_market(context.as_of, context.curves.as_ref())
     }
 }

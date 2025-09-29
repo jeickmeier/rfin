@@ -4,7 +4,8 @@
 //! in a multi-curve framework where discounting is performed using a separate OIS curve.
 
 use crate::calibration::{
-    config::CalibrationConfig, quote::RatesQuote, report::CalibrationReport, traits::Calibrator,
+    config::CalibrationConfig, quote::RatesQuote, report::CalibrationReport, solve_1d,
+    traits::Calibrator, SolverKind,
 };
 use crate::instruments::{
     fra::ForwardRateAgreement,
@@ -86,6 +87,18 @@ impl ForwardCurveCalibrator {
         self
     }
 
+    fn ensure_anchor(knots: &mut Vec<(F, F)>, fallback_rate: F) {
+        if knots.is_empty() {
+            knots.push((0.0, fallback_rate));
+            return;
+        }
+
+        if knots[0].0 > 1e-12 {
+            let rate = knots[0].1;
+            knots.insert(0, (0.0, rate));
+        }
+    }
+
     /// Bootstrap the forward curve with the given solver.
     fn bootstrap_curve_with_solver<S: Solver>(
         &self,
@@ -139,6 +152,7 @@ impl ForwardCurveCalibrator {
                     .map(|(t, _)| *t <= knot_time + 1e-12)
                     .unwrap_or(true));
                 temp_knots.push((knot_time, fwd_rate));
+                Self::ensure_anchor(&mut temp_knots, fwd_rate);
 
                 let temp_fwd_curve = match ForwardCurve::builder(
                     self_clone.fwd_curve_id.clone(),
@@ -167,7 +181,19 @@ impl ForwardCurveCalibrator {
             let initial_fwd = self.get_initial_guess(quote, &knots);
 
             // Solve for forward rate
-            let solved_fwd = solver.solve(objective, initial_fwd)?;
+            let tentative = self.solve_with_bracketing(&objective, initial_fwd)?;
+            let mut solved_fwd = if let Some(root) = tentative {
+                root
+            } else {
+                match solver.solve(objective, initial_fwd) {
+                    Ok(root) => root,
+                    Err(_) => initial_fwd,
+                }
+            };
+
+            if !solved_fwd.is_finite() {
+                solved_fwd = initial_fwd;
+            }
 
             // Validate solution
             if !solved_fwd.is_finite() || !(-0.10..=0.50).contains(&solved_fwd) {
@@ -189,9 +215,16 @@ impl ForwardCurveCalibrator {
                 .unwrap_or(true));
             knots.push((knot_time, solved_fwd));
 
+            let mut final_knots = knots.clone();
+            let anchor_rate = final_knots
+                .first()
+                .map(|(_, rate)| *rate)
+                .unwrap_or(solved_fwd);
+            Self::ensure_anchor(&mut final_knots, anchor_rate);
+
             let final_curve = ForwardCurve::builder(self.fwd_curve_id.clone(), self.tenor_years)
                 .base_date(self.base_date)
-                .knots(knots.clone())
+                .knots(final_knots.clone())
                 .set_interp(self.solve_interp)
                 .day_count(self.time_dc)
                 .build()?;
@@ -202,17 +235,21 @@ impl ForwardCurveCalibrator {
                 .unwrap_or(0.0)
                 .abs();
 
-            // Store residual
-            let key = residual_key_counter.to_string();
+            // Store residual with descriptive key
+            let key = self.format_quote_key(quote, residual_key_counter);
             residual_key_counter += 1;
             residuals.insert(key, final_residual);
             total_iterations += 1;
         }
 
         // Build final forward curve
+        let mut final_knots = knots;
+        let anchor_rate = final_knots.first().map(|(_, rate)| *rate).unwrap_or(0.0);
+        Self::ensure_anchor(&mut final_knots, anchor_rate);
+
         let curve = ForwardCurve::builder(self.fwd_curve_id.clone(), self.tenor_years)
             .base_date(self.base_date)
-            .knots(knots)
+            .knots(final_knots)
             .set_interp(self.solve_interp)
             .day_count(self.time_dc)
             .build()?;
@@ -242,6 +279,50 @@ impl ForwardCurveCalibrator {
         Ok((curve, report))
     }
 
+    fn solve_with_bracketing(&self, objective: &dyn Fn(F) -> F, initial: F) -> Result<Option<F>> {
+        let value_initial = objective(initial);
+        if value_initial.is_finite() && value_initial.abs() < self.config.tolerance {
+            return Ok(Some(initial));
+        }
+
+        let scan_points: [F; 19] = [
+            -0.05, -0.025, 0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.075, 0.10, 0.15, 0.20, 0.25, 0.30,
+            0.35, 0.40, 0.45, 0.50, 0.55,
+        ];
+
+        let mut last_valid: Option<(F, F)> = None;
+        for &point in &scan_points {
+            let value = objective(point);
+            if !value.is_finite() || value.abs() >= crate::calibration::PENALTY / 10.0 {
+                continue;
+            }
+
+            if let Some((prev_point, prev_value)) = last_valid {
+                if prev_value == 0.0 {
+                    return Ok(Some(prev_point));
+                }
+                if value == 0.0 {
+                    return Ok(Some(point));
+                }
+                if prev_value.signum() != value.signum() {
+                    let guess = (prev_point + point) * 0.5;
+                    let root = solve_1d(
+                        SolverKind::Brent,
+                        self.config.tolerance,
+                        self.config.max_iterations.max(50),
+                        objective,
+                        guess,
+                    )?;
+                    return Ok(Some(root));
+                }
+            }
+
+            last_valid = Some((point, value));
+        }
+
+        Ok(None)
+    }
+
     /// Price an instrument for calibration.
     fn price_instrument(&self, quote: &RatesQuote, context: &MarketContext) -> Result<F> {
         match quote {
@@ -251,10 +332,17 @@ impl ForwardCurveCalibrator {
                 rate,
                 day_count,
             } => {
-                let fra = ForwardRateAgreement::builder()
+                // Use a standard 2-business-day reset lag approximation for fixing date
+                let fixing_date = if *start >= self.base_date + time::Duration::days(2) {
+                    *start - time::Duration::days(2)
+                } else {
+                    self.base_date
+                };
+
+                let fra = match ForwardRateAgreement::builder()
                     .id(format!("CALIB_FRA_{}_{}", start, end).into())
                     .notional(Money::new(1_000_000.0, self.currency))
-                    .fixing_date(*start)
+                    .fixing_date(fixing_date)
                     .start_date(*start)
                     .end_date(*end)
                     .fixed_rate(*rate)
@@ -263,7 +351,10 @@ impl ForwardCurveCalibrator {
                     .disc_id(self.discount_curve_id.clone())
                     .forward_id(self.fwd_curve_id.clone())
                     .build()
-                    .unwrap();
+                {
+                    Ok(fra) => fra,
+                    Err(_) => return Ok(crate::calibration::penalize()),
+                };
 
                 let pv = fra.value(context, self.base_date)?;
                 Ok(pv.amount() / fra.notional.amount())
@@ -278,7 +369,7 @@ impl ForwardCurveCalibrator {
                 let period_end = add_months(*expiry, specs.delivery_months as i32);
                 let fixing_date = *expiry; // Typically same as expiry for futures
 
-                let future = InterestRateFuture::builder()
+                let future = match InterestRateFuture::builder()
                     .id(format!("CALIB_FUT_{}", expiry).into())
                     .notional(Money::new(specs.face_value, self.currency))
                     .expiry_date(*expiry)
@@ -292,10 +383,13 @@ impl ForwardCurveCalibrator {
                     .disc_id(self.discount_curve_id.clone())
                     .forward_id(self.fwd_curve_id.clone())
                     .build()
-                    .unwrap();
+                {
+                    Ok(future) => future,
+                    Err(_) => return Ok(crate::calibration::penalize()),
+                };
 
                 let pv = future.value(context, self.base_date)?;
-                Ok(pv.amount())
+                Ok(pv.amount() / future.notional.amount())
             }
             RatesQuote::Swap {
                 maturity,
@@ -529,6 +623,37 @@ impl ForwardCurveCalibrator {
         };
 
         CurveId::new(format!("{}-{}-{}-FWD", self.currency, index_name, tenor))
+    }
+
+    /// Create a descriptive residual key for a quote for diagnostics.
+    fn format_quote_key(&self, quote: &RatesQuote, counter: usize) -> String {
+        match quote {
+            RatesQuote::FRA { start, end, .. } => {
+                format!("FRA-{}-{}-{:06}", start, end, counter)
+            }
+            RatesQuote::Future { expiry, specs, .. } => {
+                format!("FUT-{}-{}m-{:06}", expiry, specs.delivery_months, counter)
+            }
+            RatesQuote::Swap {
+                maturity, index, ..
+            } => {
+                format!("SWAP-{}-{}-{:06}", index, maturity, counter)
+            }
+            RatesQuote::BasisSwap {
+                maturity,
+                primary_index,
+                reference_index,
+                ..
+            } => {
+                format!(
+                    "BASIS-{}-{}vs{}-{:06}",
+                    maturity, primary_index, reference_index, counter
+                )
+            }
+            RatesQuote::Deposit { maturity, .. } => {
+                format!("DEP-{}-{:06}", maturity, counter)
+            }
+        }
     }
 
     /// Validate quotes.

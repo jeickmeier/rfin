@@ -7,4 +7,4 @@ pub mod metrics;
 pub mod pricer;
 mod types;
 
-pub use types::{FixedLegSpec, FloatLegSpec, InterestRateSwap, PayReceive};
+pub use types::{FixedLegSpec, FloatLegSpec, InterestRateSwap, ParRateMethod, PayReceive};

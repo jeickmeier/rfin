@@ -5,12 +5,14 @@
 
 pub mod annuity;
 pub mod dv01;
+pub mod net_dv01;
 pub mod par_spread;
 pub mod pv;
 // risk_bucketed_dv01 - now using generic implementation
 
 pub use annuity::AnnuityCalculator;
 pub use dv01::Dv01Calculator;
+pub use net_dv01::NetDv01Calculator;
 pub use par_spread::ParSpreadCalculator;
 pub use pv::PvCalculator;
 // BucketedDv01Calculator now using generic implementation
@@ -47,6 +49,7 @@ pub fn register_basis_swap_metrics(registry: &mut MetricRegistry) {
             Arc::new(Dv01Calculator::reference()),
             &["BasisSwap"],
         ) // 1bp DV01
+        .register_metric(MetricId::Dv01, Arc::new(NetDv01Calculator), &["BasisSwap"]) // Net DV01 (primary - reference)
         .register_metric(
             MetricId::BasisPvPrimary,
             Arc::new(PvCalculator::primary()),

@@ -1045,6 +1045,35 @@ impl CDSTranchePricer {
         Ok(bumped_pv - base_pv)
     }
 
+    /// Calculate the par spread (running coupon in bp that sets PV = 0).
+    pub fn calculate_par_spread(
+        &self,
+        tranche: &CdsTranche,
+        market_ctx: &MarketContext,
+        as_of: Date,
+    ) -> Result<F> {
+        let discount_curve = market_ctx.get_discount_ref(tranche.disc_id.clone())?;
+        let index_data = match market_ctx.credit_index_ref(&tranche.credit_index_id) {
+            Ok(data) => data,
+            Err(_) => return Ok(0.0),
+        };
+
+        // Premium PV per 1 basis point of running coupon
+        let mut unit_tranche = tranche.clone();
+        unit_tranche.running_coupon_bp = 1.0;
+        let premium_per_bp =
+            self.calculate_premium_leg_pv(&unit_tranche, index_data, discount_curve, as_of)?;
+
+        if premium_per_bp.abs() < self.params.numerical_tolerance {
+            return Ok(0.0);
+        }
+
+        let protection_pv =
+            self.calculate_protection_leg_pv(tranche, index_data, discount_curve, as_of)?;
+
+        Ok(protection_pv / premium_per_bp)
+    }
+
     /// Calculate expected loss metric (the total expected loss at maturity).
     pub fn calculate_expected_loss(
         &self,
@@ -1181,11 +1210,19 @@ impl CDSTranchePricer {
 // ========================= REGISTRY PRICER =========================
 
 /// Registry pricer for CDS Tranche using Gaussian Copula model
-pub struct SimpleCdsTrancheHazardPricer;
+pub struct SimpleCdsTrancheHazardPricer {
+    model_key: crate::pricer::ModelKey,
+}
 
 impl SimpleCdsTrancheHazardPricer {
     pub fn new() -> Self {
-        Self
+        Self {
+            model_key: crate::pricer::ModelKey::HazardRate,
+        }
+    }
+
+    pub fn with_model(model_key: crate::pricer::ModelKey) -> Self {
+        Self { model_key }
     }
 }
 
@@ -1197,10 +1234,7 @@ impl Default for SimpleCdsTrancheHazardPricer {
 
 impl crate::pricer::Pricer for SimpleCdsTrancheHazardPricer {
     fn key(&self) -> crate::pricer::PricerKey {
-        crate::pricer::PricerKey::new(
-            crate::pricer::InstrumentType::CDSTranche,
-            crate::pricer::ModelKey::HazardRate,
-        )
+        crate::pricer::PricerKey::new(crate::pricer::InstrumentType::CDSTranche, self.model_key)
     }
 
     fn price_dyn(

@@ -11,8 +11,6 @@ use crate::instruments::equity::Equity;
 // (no pricer registry integration here)
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::scalars::MarketScalar;
-use finstack_core::money::fx::{FxConversionPolicy, FxProvider};
 use finstack_core::money::Money;
 use finstack_core::Result;
 use finstack_core::F;
@@ -26,7 +24,8 @@ impl EquityPricer {
     ///
     /// Priority:
     /// 1) `inst.price_quote` if set
-    /// 2) `MarketContext::price(inst.ticker)` using `MarketScalar::{Price,Unitless}`
+    /// 2) `MarketContext::price` using instrument-provided overrides and fallbacks:
+    ///    explicit `price_id`, attribute hints, ticker, instrument id, `{ticker}-SPOT`, then `EQUITY-SPOT`
     ///    - If `Price`, convert to `inst.currency` via FX matrix
     ///    - If `Unitless`, treat as amount in `inst.currency`
     pub fn price_per_share(
@@ -35,53 +34,7 @@ impl EquityPricer {
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<Money> {
-        if let Some(px) = inst.price_quote {
-            return Ok(Money::new(px, inst.currency));
-        }
-
-        let scalar = curves.price(&inst.ticker)?;
-        match scalar {
-            MarketScalar::Price(m) => {
-                if m.currency() == inst.currency {
-                    Ok(*m)
-                } else {
-                    // Convert via FX matrix provider
-                    let matrix = curves.fx.as_ref().ok_or_else(|| {
-                        finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                            id: "fx_matrix".to_string(),
-                        })
-                    })?;
-
-                    struct MatrixProvider<'a> {
-                        m: &'a finstack_core::money::fx::FxMatrix,
-                    }
-                    impl FxProvider for MatrixProvider<'_> {
-                        fn rate(
-                            &self,
-                            from: finstack_core::currency::Currency,
-                            to: finstack_core::currency::Currency,
-                            on: Date,
-                            policy: finstack_core::money::fx::FxConversionPolicy,
-                        ) -> finstack_core::Result<finstack_core::money::fx::FxRate>
-                        {
-                            let r = self.m.rate(finstack_core::money::fx::FxQuery::with_policy(
-                                from, to, on, policy,
-                            ))?;
-                            Ok(r.rate)
-                        }
-                    }
-
-                    let provider = MatrixProvider { m: matrix };
-                    m.convert(
-                        inst.currency,
-                        as_of,
-                        &provider,
-                        FxConversionPolicy::CashflowDate,
-                    )
-                }
-            }
-            MarketScalar::Unitless(v) => Ok(Money::new(*v, inst.currency)),
-        }
+        inst.price_per_share(curves, as_of)
     }
 
     /// Compute present value in the instrument's currency.
@@ -103,15 +56,7 @@ impl EquityPricer {
     /// Attempts to read from market context using the key format
     /// "{ticker}-DIVYIELD". When not present, defaults to 0.0.
     pub fn dividend_yield(&self, inst: &Equity, curves: &MarketContext) -> Result<F> {
-        let key = format!("{}-DIVYIELD", inst.ticker);
-        let dy = curves
-            .price(&key)
-            .map(|scalar| match scalar {
-                MarketScalar::Unitless(v) => *v,
-                MarketScalar::Price(_) => 0.0,
-            })
-            .unwrap_or(0.0);
-        Ok(dy)
+        inst.dividend_yield(curves)
     }
 
     /// Build forward price per share using continuous-compound approximation:

@@ -55,28 +55,27 @@ impl ForwardRateAgreement {
         let disc = context.get_discount_ref(self.disc_id.clone())?;
         let fwd = context.get_forward_ref(self.forward_id.clone())?;
 
-        // Time fractions
-        let base_date = disc.base_date();
-        let _t_fixing = self
-            .day_count
+        // Time fractions for mapping into the forward curve domain must use the
+        // forward curve's own day-count/time basis, not the instrument accrual basis.
+        let fwd_base = fwd.base_date();
+        let fwd_dc = fwd.day_count();
+        let _t_fixing = fwd_dc
             .year_fraction(
-                base_date,
+                fwd_base,
                 self.fixing_date,
                 finstack_core::dates::DayCountCtx::default(),
             )?
             .max(0.0);
-        let t_start = self
-            .day_count
+        let t_start = fwd_dc
             .year_fraction(
-                base_date,
+                fwd_base,
                 self.start_date,
                 finstack_core::dates::DayCountCtx::default(),
             )?
             .max(0.0);
-        let t_end = self
-            .day_count
+        let t_end = fwd_dc
             .year_fraction(
-                base_date,
+                fwd_base,
                 self.end_date,
                 finstack_core::dates::DayCountCtx::default(),
             )?

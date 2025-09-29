@@ -180,6 +180,7 @@ pub struct Basket {
     /// Discount curve identifier for present value calculations
     pub discount_curve_id: finstack_core::types::CurveId,
     /// Attributes for scenario selection and tagging
+    #[cfg_attr(feature = "serde", serde(default))]
     pub attributes: Attributes,
     /// Pricing configuration
     pub pricing_config: BasketPricingConfig,

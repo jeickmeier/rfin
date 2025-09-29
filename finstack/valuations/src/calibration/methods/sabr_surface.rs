@@ -184,20 +184,29 @@ impl VolSurfaceCalibrator {
 
                     // Calculate residuals for this expiry
                     let model = SABRModel::new(params);
+                    // Try to extract an underlying label from one of the quotes in this bucket
+                    let mut underlying_label: &str = "UNDERLYING";
+                    if let Some(VolQuote::OptionVol { underlying, .. }) = expiry_quotes
+                        .iter()
+                        .find(|q| matches!(q, VolQuote::OptionVol { .. }))
+                    {
+                        underlying_label = underlying.as_str();
+                    }
+
                     for (i, &strike) in strikes.iter().enumerate() {
-                        match model.implied_volatility(forward, strike, time_to_expiry) {
-                            Ok(model_vol) => {
-                                let residual = model_vol - vols[i];
-                                let key = format!("{:06}", residual_key_counter);
-                                residual_key_counter += 1;
-                                all_residuals.insert(key, residual);
-                            }
-                            Err(_) => {
-                                let key = format!("{:06}", residual_key_counter);
-                                residual_key_counter += 1;
-                                all_residuals.insert(key, crate::calibration::penalize());
-                            }
-                        }
+                        let key = format!(
+                            "OPT-{}-t{:.3}y-K{:.4}-{:06}",
+                            underlying_label, time_to_expiry, strike, residual_key_counter
+                        );
+
+                        let residual =
+                            match model.implied_volatility(forward, strike, time_to_expiry) {
+                                Ok(model_vol) => model_vol - vols[i],
+                                Err(_) => crate::calibration::penalize(),
+                            };
+
+                        residual_key_counter += 1;
+                        all_residuals.insert(key, residual);
                     }
                 }
                 Err(_) => {

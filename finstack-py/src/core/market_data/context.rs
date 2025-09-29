@@ -36,7 +36,11 @@ fn take_and_replace(context: &mut MarketContext) -> MarketContext {
 /// -------
 /// MarketContext
 ///     Mutable aggregation container shared across valuation routines.
-#[pyclass(module = "finstack.core.market_data", name = "MarketContext", unsendable)]
+#[pyclass(
+    module = "finstack.core.market_data",
+    name = "MarketContext",
+    unsendable
+)]
 #[derive(Clone, Default)]
 pub struct PyMarketContext {
     pub(crate) inner: MarketContext,
@@ -255,7 +259,8 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_dividends(&mut self, schedule: &PyDividendSchedule) -> PyResult<()> {
-        self.inner.insert_dividends_arc_mut(schedule.inner.as_ref().clone().into());
+        self.inner
+            .insert_dividends_arc_mut(schedule.inner.as_ref().clone().into());
         Ok(())
     }
 
@@ -273,7 +278,8 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_credit_index(&mut self, id: &str, data: &PyCreditIndexData) -> PyResult<()> {
-        self.inner.insert_credit_index_mut(id, data.inner.as_ref().clone());
+        self.inner
+            .insert_credit_index_mut(id, data.inner.as_ref().clone());
         Ok(())
     }
 
@@ -291,7 +297,8 @@ impl PyMarketContext {
     /// -------
     /// None
     fn map_collateral(&mut self, csa_code: &str, curve_id: &str) -> PyResult<()> {
-        self.inner.map_collateral_mut(csa_code, CurveId::from(curve_id));
+        self.inner
+            .map_collateral_mut(csa_code, CurveId::from(curve_id));
         Ok(())
     }
 

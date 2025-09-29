@@ -6,6 +6,7 @@
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::Attributes;
+use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::types::InstrumentId;
@@ -33,6 +34,10 @@ pub struct Equity {
     pub shares: Option<F>,
     /// Optional price quote (if not provided, will look up from market data)
     pub price_quote: Option<F>,
+    /// Explicit market data identifier to resolve the spot price
+    pub price_id: Option<String>,
+    /// Explicit market data identifier to resolve the dividend yield
+    pub dividend_yield_id: Option<String>,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
@@ -46,6 +51,8 @@ impl Equity {
             currency,
             shares: None,
             price_quote: None,
+            price_id: None,
+            dividend_yield_id: None,
             attributes: Attributes::new(),
         }
     }
@@ -60,6 +67,121 @@ impl Equity {
     pub fn with_price(mut self, price: F) -> Self {
         self.price_quote = Some(price);
         self
+    }
+
+    /// Override the market data identifier used to resolve the spot price
+    pub fn with_price_id(mut self, price_id: impl Into<String>) -> Self {
+        self.price_id = Some(price_id.into());
+        self
+    }
+
+    /// Override the market data identifier used to resolve the dividend yield
+    pub fn with_dividend_yield_id(mut self, div_id: impl Into<String>) -> Self {
+        self.dividend_yield_id = Some(div_id.into());
+        self
+    }
+
+    fn price_id_candidates(&self) -> Vec<String> {
+        let mut ids: Vec<String> = Vec::new();
+        let mut push = |candidate: Option<&str>| {
+            if let Some(value) = candidate {
+                if !value.is_empty() && !ids.iter().any(|existing| existing == value) {
+                    ids.push(value.to_string());
+                }
+            }
+        };
+
+        push(self.price_id.as_deref());
+        push(self.attributes.get_meta("price_id"));
+        push(self.attributes.get_meta("spot_id"));
+        push(self.attributes.get_meta("market_price_id"));
+        push(Some(self.ticker.as_str()));
+        push(Some(self.id.as_str()));
+        let ticker_spot = format!("{}-SPOT", self.ticker);
+        push(Some(ticker_spot.as_str()));
+        let id_spot = format!("{}-SPOT", self.id.as_str());
+        push(Some(id_spot.as_str()));
+        push(Some("EQUITY-SPOT"));
+
+        ids
+    }
+
+    fn dividend_yield_id_candidates(&self) -> Vec<String> {
+        let mut ids: Vec<String> = Vec::new();
+        let mut push = |candidate: Option<&str>| {
+            if let Some(value) = candidate {
+                if !value.is_empty() && !ids.iter().any(|existing| existing == value) {
+                    ids.push(value.to_string());
+                }
+            }
+        };
+
+        push(self.dividend_yield_id.as_deref());
+        push(self.attributes.get_meta("dividend_yield_id"));
+        push(self.attributes.get_meta("dividend_yield_key"));
+        push(self.attributes.get_meta("div_yield_id"));
+        let ticker_div = format!("{}-DIVYIELD", self.ticker);
+        push(Some(ticker_div.as_str()));
+        let id_div = format!("{}-DIVYIELD", self.id.as_str());
+        push(Some(id_div.as_str()));
+        push(Some("EQUITY-DIVYIELD"));
+
+        ids
+    }
+
+    fn money_from_scalar(
+        &self,
+        scalar: &MarketScalar,
+        curves: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<Money> {
+        match scalar {
+            MarketScalar::Price(m) => self.convert_price_to_currency(*m, curves, as_of),
+            MarketScalar::Unitless(v) => Ok(Money::new(*v, self.currency)),
+        }
+    }
+
+    fn convert_price_to_currency(
+        &self,
+        price: Money,
+        curves: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<Money> {
+        if price.currency() == self.currency {
+            return Ok(price);
+        }
+
+        let matrix = curves.fx.as_ref().ok_or_else(|| {
+            finstack_core::Error::from(finstack_core::error::InputError::NotFound {
+                id: "fx_matrix".to_string(),
+            })
+        })?;
+
+        struct MatrixProvider<'a> {
+            m: &'a finstack_core::money::fx::FxMatrix,
+        }
+        impl finstack_core::money::fx::FxProvider for MatrixProvider<'_> {
+            fn rate(
+                &self,
+                from: finstack_core::currency::Currency,
+                to: finstack_core::currency::Currency,
+                on: finstack_core::dates::Date,
+                policy: finstack_core::money::fx::FxConversionPolicy,
+            ) -> finstack_core::Result<finstack_core::money::fx::FxRate> {
+                let r = self.m.rate(finstack_core::money::fx::FxQuery::with_policy(
+                    from, to, on, policy,
+                ))?;
+                Ok(r.rate)
+            }
+        }
+
+        let provider = MatrixProvider { m: matrix };
+        price.convert(
+            self.currency,
+            as_of,
+            &provider,
+            finstack_core::money::fx::FxConversionPolicy::CashflowDate,
+        )
     }
 
     /// Get the effective number of shares (defaults to 1)
@@ -90,64 +212,45 @@ impl Equity {
             return Ok(Money::new(px, self.currency));
         }
 
-        let scalar = curves.price(&self.ticker)?;
-        match scalar {
-            finstack_core::market_data::scalars::MarketScalar::Price(m) => {
-                if m.currency() == self.currency {
-                    Ok(*m)
-                } else {
-                    // Convert via FX matrix provider
-                    let matrix = curves.fx.as_ref().ok_or_else(|| {
-                        finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                            id: "fx_matrix".to_string(),
-                        })
-                    })?;
-
-                    struct MatrixProvider<'a> {
-                        m: &'a finstack_core::money::fx::FxMatrix,
-                    }
-                    impl finstack_core::money::fx::FxProvider for MatrixProvider<'_> {
-                        fn rate(
-                            &self,
-                            from: finstack_core::currency::Currency,
-                            to: finstack_core::currency::Currency,
-                            on: finstack_core::dates::Date,
-                            policy: finstack_core::money::fx::FxConversionPolicy,
-                        ) -> finstack_core::Result<finstack_core::money::fx::FxRate>
-                        {
-                            let r = self.m.rate(finstack_core::money::fx::FxQuery::with_policy(
-                                from, to, on, policy,
-                            ))?;
-                            Ok(r.rate)
-                        }
-                    }
-
-                    let provider = MatrixProvider { m: matrix };
-                    m.convert(
-                        self.currency,
-                        as_of,
-                        &provider,
-                        finstack_core::money::fx::FxConversionPolicy::CashflowDate,
-                    )
+        let candidates = self.price_id_candidates();
+        for key in &candidates {
+            match curves.price(key) {
+                Ok(scalar) => {
+                    return self.money_from_scalar(scalar, curves, as_of);
                 }
-            }
-            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => {
-                Ok(Money::new(*v, self.currency))
+                Err(err) => match err {
+                    finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                        ..
+                    }) => {
+                        continue;
+                    }
+                    _ => return Err(err),
+                },
             }
         }
+
+        Err(finstack_core::error::InputError::NotFound {
+            id: format!("equity price (candidates: {})", candidates.join(", ")),
+        }
+        .into())
     }
 
     /// Resolve dividend yield (annualized, decimal) for the equity
     pub fn dividend_yield(&self, curves: &MarketContext) -> finstack_core::Result<F> {
-        let key = format!("{}-DIVYIELD", self.ticker);
-        let dy = curves
-            .price(&key)
-            .map(|scalar| match scalar {
-                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-                finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
-            })
-            .unwrap_or(0.0);
-        Ok(dy)
+        let candidates = self.dividend_yield_id_candidates();
+        for key in &candidates {
+            match curves.price(key) {
+                Ok(MarketScalar::Unitless(v)) => return Ok(*v),
+                Ok(MarketScalar::Price(_)) => continue,
+                Err(err) => match err {
+                    finstack_core::Error::Input(finstack_core::error::InputError::NotFound {
+                        ..
+                    }) => continue,
+                    _ => return Err(err),
+                },
+            }
+        }
+        Ok(0.0)
     }
 
     /// Calculate forward price per share using continuous-compound approximation

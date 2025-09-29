@@ -9,11 +9,13 @@ use finstack_core::dates::{
 use finstack_core::market_data::scalars::inflation_index::{
     InflationIndex, InflationInterpolation, InflationLag,
 };
+use finstack_core::market_data::term_structures::inflation::InflationCurve;
 use finstack_core::market_data::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::types::InstrumentId;
 use finstack_core::{Result, F};
+use std::sync::Arc;
 use time::Duration;
 
 use super::parameters::InflationLinkedBondParams;
@@ -59,6 +61,30 @@ pub enum DeflationProtection {
     MaturityOnly,
     /// Protection on all payments (floor at par)
     AllPayments,
+}
+
+#[derive(Clone)]
+enum InflationSource {
+    Index(Arc<InflationIndex>),
+    Curve(Arc<InflationCurve>),
+}
+
+impl InflationSource {
+    fn from_market(curves: &MarketContext, id: &CurveId) -> Result<Self> {
+        if let Some(index) = curves.inflation_index(id.as_str()) {
+            Ok(Self::Index(index))
+        } else {
+            let curve = curves.get_inflation(id.as_str())?;
+            Ok(Self::Curve(curve))
+        }
+    }
+
+    fn ratio(&self, bond: &InflationLinkedBond, date: Date) -> Result<F> {
+        match self {
+            Self::Index(index) => bond.index_ratio(date, index.as_ref()),
+            Self::Curve(curve) => bond.index_ratio_from_curve(date, curve.as_ref()),
+        }
+    }
 }
 
 /// Inflation-Linked Bond instrument
@@ -166,6 +192,10 @@ impl InflationLinkedBond {
         }
     }
 
+    fn inflation_source(&self, curves: &MarketContext) -> Result<InflationSource> {
+        InflationSource::from_market(curves, &self.inflation_id)
+    }
+
     /// Calculate index ratio for a given date
     pub fn index_ratio(&self, date: Date, inflation_index: &InflationIndex) -> Result<F> {
         // Validate interpolation policy vs indexation method for common standards
@@ -214,15 +244,57 @@ impl InflationLinkedBond {
         })
     }
 
+    /// Calculate index ratio using an inflation term structure when no index is available
+    pub fn index_ratio_from_curve(
+        &self,
+        date: Date,
+        inflation_curve: &InflationCurve,
+    ) -> Result<F> {
+        let reference_date = match self.lag {
+            InflationLag::Months(m) => finstack_core::dates::add_months(date, -(m as i32)),
+            InflationLag::Days(d) => date - Duration::days(d as i64),
+            InflationLag::None => date,
+            _ => date,
+        };
+
+        let current_index = if reference_date <= self.base_date {
+            inflation_curve.base_cpi()
+        } else {
+            let t = DayCount::ActAct.year_fraction(
+                self.base_date,
+                reference_date,
+                DayCountCtx::default(),
+            )?;
+            inflation_curve.cpi(t)
+        };
+
+        if self.base_index <= 0.0 {
+            return Err(finstack_core::error::InputError::NonPositiveValue.into());
+        }
+        let ratio = current_index / self.base_index;
+
+        Ok(match self.deflation_protection {
+            DeflationProtection::None => ratio,
+            DeflationProtection::MaturityOnly => {
+                if date == self.maturity {
+                    ratio.max(1.0)
+                } else {
+                    ratio
+                }
+            }
+            DeflationProtection::AllPayments => ratio.max(1.0),
+        })
+    }
+
+    /// Calculate index ratio sourcing inflation data from the market context
+    pub fn index_ratio_from_market(&self, date: Date, curves: &MarketContext) -> Result<F> {
+        let source = self.inflation_source(curves)?;
+        source.ratio(self, date)
+    }
+
     /// Build inflation-adjusted cashflow schedule
     pub fn build_schedule(&self, curves: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
-        let inflation_index = curves
-            .inflation_index(self.inflation_id.as_str())
-            .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                    id: "inflation_linked_bond_quote".to_string(),
-                })
-            })?;
+        let inflation_source = self.inflation_source(curves)?;
 
         // Base coupon dates via shared builder
         let sched = crate::cashflow::builder::build_dates(
@@ -246,13 +318,13 @@ impl InflationLinkedBond {
                 .year_fraction(prev, d, DayCountCtx::default())?
                 .max(0.0);
             let base_amount = self.notional * self.real_coupon * year_frac;
-            let ratio = self.index_ratio(d, &inflation_index)?;
+            let ratio = inflation_source.ratio(self, d)?;
             flows.push((d, base_amount * ratio));
             prev = d;
         }
 
         // Principal repayment at maturity (inflation adjusted)
-        let principal_ratio = self.index_ratio(self.maturity, &inflation_index)?;
+        let principal_ratio = inflation_source.ratio(self, self.maturity)?;
         flows.push((self.maturity, self.notional * principal_ratio));
 
         Ok(flows)

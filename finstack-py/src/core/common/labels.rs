@@ -15,11 +15,19 @@ pub fn normalize_label(input: &str) -> String {
     let mut has_dash = false;
     let mut has_upper = false;
     for b in trimmed.as_bytes() {
-        if *b == b'-' { has_dash = true; }
-        if b.is_ascii_uppercase() { has_upper = true; }
-        if has_dash && has_upper { break; }
+        if *b == b'-' {
+            has_dash = true;
+        }
+        if b.is_ascii_uppercase() {
+            has_upper = true;
+        }
+        if has_dash && has_upper {
+            break;
+        }
     }
-    if !has_dash && !has_upper { return trimmed.to_string(); }
+    if !has_dash && !has_upper {
+        return trimmed.to_string();
+    }
     trimmed.to_ascii_lowercase().replace('-', "_")
 }
 
@@ -35,5 +43,3 @@ mod tests {
         assert_eq!(normalize_label("AwayFromZero"), "awayfromzero");
     }
 }
-
-

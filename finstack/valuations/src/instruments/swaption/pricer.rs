@@ -6,12 +6,20 @@ use finstack_core::market_data::MarketContext;
 
 // ========================= NEW SIMPLIFIED PRICER =========================
 
-/// New simplified Swaption Black76 pricer (replaces macro-based version)
-pub struct SimpleSwaptionBlackPricer;
+/// New simplified Swaption pricer supporting multiple models.
+pub struct SimpleSwaptionBlackPricer {
+    model: ModelKey,
+}
 
 impl SimpleSwaptionBlackPricer {
     pub fn new() -> Self {
-        Self
+        Self {
+            model: ModelKey::Black76,
+        }
+    }
+
+    pub fn with_model(model: ModelKey) -> Self {
+        Self { model }
     }
 }
 
@@ -23,7 +31,7 @@ impl Default for SimpleSwaptionBlackPricer {
 
 impl Pricer for SimpleSwaptionBlackPricer {
     fn key(&self) -> PricerKey {
-        PricerKey::new(InstrumentType::Swaption, ModelKey::Black76)
+        PricerKey::new(InstrumentType::Swaption, self.model)
     }
 
     fn price_dyn(

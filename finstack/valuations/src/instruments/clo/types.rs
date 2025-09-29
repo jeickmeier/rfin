@@ -236,3 +236,9 @@ impl Instrument for Clo {
 impl crate::instruments::common::traits::InstrumentKind for Clo {
     const TYPE: crate::pricer::InstrumentType = crate::pricer::InstrumentType::CLO;
 }
+
+impl crate::instruments::common::HasDiscountCurve for Clo {
+    fn discount_curve_id(&self) -> &CurveId {
+        &self.disc_id
+    }
+}

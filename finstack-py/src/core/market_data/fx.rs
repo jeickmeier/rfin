@@ -387,6 +387,7 @@ impl PyFxMatrix {
     /// FxMatrix
     ///     Mutable FX matrix ready to accept quotes.
     #[new]
+    #[pyo3(signature = (*, config=None))]
     #[pyo3(text_signature = "(*, config=None)")]
     fn ctor(config: Option<&PyFxConfig>) -> Self {
         let provider = Arc::new(StaticFxProvider::new());

@@ -301,11 +301,19 @@ pub fn greeks_unit(
 // ========================= REGISTRY PRICER =========================
 
 /// Registry pricer for Equity Option using Black-Scholes model
-pub struct SimpleEquityOptionBlackPricer;
+pub struct SimpleEquityOptionBlackPricer {
+    model: crate::pricer::ModelKey,
+}
 
 impl SimpleEquityOptionBlackPricer {
     pub fn new() -> Self {
-        Self
+        Self {
+            model: crate::pricer::ModelKey::Black76,
+        }
+    }
+
+    pub fn with_model(model: crate::pricer::ModelKey) -> Self {
+        Self { model }
     }
 }
 
@@ -317,10 +325,7 @@ impl Default for SimpleEquityOptionBlackPricer {
 
 impl crate::pricer::Pricer for SimpleEquityOptionBlackPricer {
     fn key(&self) -> crate::pricer::PricerKey {
-        crate::pricer::PricerKey::new(
-            crate::pricer::InstrumentType::EquityOption,
-            crate::pricer::ModelKey::Black76,
-        )
+        crate::pricer::PricerKey::new(crate::pricer::InstrumentType::EquityOption, self.model)
     }
 
     fn price_dyn(

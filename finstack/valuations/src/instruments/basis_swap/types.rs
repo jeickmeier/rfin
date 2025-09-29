@@ -224,7 +224,7 @@ impl BasisSwap {
             // Payment
             let payment = self.notional.amount() * total_rate * year_frac;
 
-            // Discount factor to payment date using the curve's own day-count basis
+            // Discount factor to payment date using the discount curve's own day-count basis
             let df = disc.df_on_date_curve(period_end);
             pv += payment * df;
         }

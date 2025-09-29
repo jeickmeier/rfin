@@ -1,6 +1,8 @@
 use crate::cashflow::traits::CashflowProvider;
+use crate::cashflow::{builder::CashFlowSchedule, primitives::CFKind};
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::discount_curve::DiscountCurve;
 use finstack_core::F;
 
@@ -13,6 +15,8 @@ use finstack_core::F;
 /// Approximation: asw_mkt ≈ (dirty/Notional - price_pv/Notional)/annuity + coupon - par_rate.
 pub struct AssetSwapParCalculator;
 pub struct AssetSwapMarketCalculator;
+pub struct AssetSwapParFwdCalculator;
+pub struct AssetSwapMarketFwdCalculator;
 
 fn fixed_leg_annuity(
     disc: &DiscountCurve,
@@ -53,18 +57,24 @@ fn build_future_dates_from_flows(
     dates
 }
 
-fn pv_fixed_from_flows(
+/// PV of coupon-only leg from a custom schedule (excludes amortization and principal).
+fn pv_coupon_from_custom_schedule(
     disc: &DiscountCurve,
-    flows: &[(finstack_core::dates::Date, finstack_core::money::Money)],
-    as_of: finstack_core::dates::Date,
+    schedule: &CashFlowSchedule,
+    as_of: Date,
 ) -> F {
     let mut pv = 0.0;
-    for (date, amt) in flows {
-        if *date <= as_of {
+    for cf in &schedule.flows {
+        if cf.date <= as_of {
             continue;
         }
-        let df = disc.df_on_date_curve(*date);
-        pv += amt.amount() * df;
+        match cf.kind {
+            CFKind::Fixed | CFKind::Stub => {
+                let df = disc.df_on_date_curve(cf.date);
+                pv += cf.amount.amount() * df;
+            }
+            _ => {}
+        }
     }
     pv
 }
@@ -115,8 +125,13 @@ pub fn asw_par_with_forward(
     }
     let par_rate = pv_float / (bond.notional.amount() * ann);
 
-    // Equivalent fixed rate from actual fixed flows
-    let eq_coupon = pv_fixed_from_flows(disc, &flows, as_of) / (bond.notional.amount() * ann);
+    // Equivalent fixed rate from coupon-only PV
+    let eq_coupon = if let Some(custom) = &bond.custom_cashflows {
+        let pv_coupon = pv_coupon_from_custom_schedule(disc, custom, as_of);
+        pv_coupon / (bond.notional.amount() * ann)
+    } else {
+        bond.coupon
+    };
     Ok(eq_coupon - par_rate)
 }
 
@@ -141,14 +156,14 @@ pub fn asw_market_with_forward(
     }
 
     let par_asw = asw_par_with_forward(bond, curves, as_of, fwd_curve_id, float_spread_bp)?;
-    let pv_fixed = pv_fixed_from_flows(disc, &flows, as_of);
     let notional = bond.notional.amount();
     let price_pct = if let Some(dirty) = dirty_price_ccy {
         dirty / notional
     } else {
-        1.0 * (pv_fixed / notional)
+        1.0 // Assume par if no price provided
     };
-    Ok(par_asw + (price_pct - pv_fixed / notional) / ann)
+    // Market ASW = Par ASW + (Market Price % - 100%) / Annuity
+    Ok(par_asw + (price_pct - 1.0) / ann)
 }
 
 impl MetricCalculator for AssetSwapParCalculator {
@@ -158,18 +173,39 @@ impl MetricCalculator for AssetSwapParCalculator {
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
         let bond: &Bond = context.instrument_as()?;
+
+        // If the bond has custom cashflows, compute ASW using a forward-based
+        // custom-swap constructed on the same schedule. Requires a float spec.
+        if bond.custom_cashflows.is_some() {
+            if let Some(fl) = &bond.float {
+                return asw_par_with_forward(
+                    bond,
+                    &context.curves,
+                    context.as_of,
+                    fl.fwd_id.as_str(),
+                    fl.margin_bp,
+                );
+            } else {
+                return Err(finstack_core::error::InputError::NotFound {
+                    id: "bond.float_spec.forward_curve".to_string(),
+                }
+                .into());
+            }
+        }
+
         let disc_id = bond.disc_id.clone();
         let maturity = bond.maturity;
         let dc = bond.dc;
-        let coupon = bond.coupon;
         let disc = context.curves.get_discount_ref(disc_id.clone())?;
 
-        // Forward-based path intentionally not invoked here; use the explicit helpers instead
-
-        // Fallback: Par swap rate via discount ratio on annual schedule
-        let sched = crate::instruments::bond::pricing::schedule_helpers::build_annual_schedule(
+        // Market standard: Par swap rate via discount ratio on bond's actual payment schedule
+        let sched = crate::instruments::bond::pricing::schedule_helpers::build_bond_schedule(
             context.as_of,
             maturity,
+            bond.freq,
+            bond.stub,
+            bond.bdc,
+            bond.calendar_id,
         );
         if sched.len() < 2 {
             return Ok(0.0);
@@ -182,7 +218,8 @@ impl MetricCalculator for AssetSwapParCalculator {
             return Ok(0.0);
         }
         let par_rate = num / ann;
-        Ok(coupon - par_rate)
+        // Use stated coupon for non-custom bonds; for custom bonds, this branch is not reached
+        Ok(bond.coupon - par_rate)
     }
 }
 
@@ -192,15 +229,16 @@ impl MetricCalculator for AssetSwapMarketCalculator {
     }
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
-        let (disc_id, maturity, dc, coupon, notional_amt, quoted_clean) = {
+        let (disc_id, maturity, dc, notional_amt, quoted_clean, is_custom, coupon) = {
             let b: &Bond = context.instrument_as()?;
             (
                 b.disc_id.clone(),
                 b.maturity,
                 b.dc,
-                b.coupon,
                 b.notional.amount(),
                 b.pricing_overrides.quoted_clean_price,
+                b.custom_cashflows.is_some(),
+                b.coupon,
             )
         };
         let disc = context.curves.get_discount_ref(disc_id.clone())?;
@@ -217,7 +255,28 @@ impl MetricCalculator for AssetSwapMarketCalculator {
             context.base_value.amount()
         };
 
-        // Fixed leg PV at zero spread
+        // If the bond has custom cashflows, compute forward-based ASW using the
+        // bond's float spec on the same (custom) schedule. Requires a float spec.
+        if is_custom {
+            let bond: &Bond = context.instrument_as()?;
+            if let Some(fl) = &bond.float {
+                return asw_market_with_forward(
+                    bond,
+                    &context.curves,
+                    context.as_of,
+                    fl.fwd_id.as_str(),
+                    fl.margin_bp,
+                    Some(dirty_ccy),
+                );
+            } else {
+                return Err(finstack_core::error::InputError::NotFound {
+                    id: "bond.float_spec.forward_curve".to_string(),
+                }
+                .into());
+            }
+        }
+
+        // Fixed coupon-leg PV (exclude principal) at zero spread
         if context.cashflows.is_none() {
             let (disc_id_capture, dc_capture, built) = {
                 let b: &Bond = context.instrument_as()?;
@@ -231,24 +290,38 @@ impl MetricCalculator for AssetSwapMarketCalculator {
             context.discount_curve_id = Some(disc_id_capture);
             context.day_count = Some(dc_capture);
         }
-        let flows = context.cashflows.as_ref().unwrap();
+        let _flows = context.cashflows.as_ref().unwrap();
+        let _pv_coupon_only = if let Some(custom) =
+            &context.instrument_as::<Bond>()?.custom_cashflows
+        {
+            pv_coupon_from_custom_schedule(disc, custom, context.as_of)
+        } else {
+            // For standard bonds, coupon PV uses bond's actual payment schedule
+            let bond: &Bond = context.instrument_as()?;
+            let sched = crate::instruments::bond::pricing::schedule_helpers::build_bond_schedule(
+                context.as_of,
+                maturity,
+                bond.freq,
+                bond.stub,
+                bond.bdc,
+                bond.calendar_id,
+            );
+            let ann = fixed_leg_annuity(disc, dc, &sched);
+            notional_amt * coupon * ann
+        };
 
-        let mut pv_fixed = 0.0;
-        for (date, amt) in flows {
-            if *date <= context.as_of {
-                continue;
-            }
-            let p = disc.df_on_date_curve(*date);
-            pv_fixed += amt.amount() * p;
-        }
+        // Forward-based path when configured for non-custom bonds is available
+        // via explicit helper methods (ASW*Fwd calculators). Here we keep fallback-only.
 
-        // Forward-based path when configured
-        // Forward-based is available via asw_market_with_forward helper; here we keep fallback-only
-
-        // Fallback: discount-ratio
-        let sched = crate::instruments::bond::pricing::schedule_helpers::build_annual_schedule(
+        // Market standard: discount-ratio using bond's payment schedule
+        let bond: &Bond = context.instrument_as()?;
+        let sched = crate::instruments::bond::pricing::schedule_helpers::build_bond_schedule(
             context.as_of,
             maturity,
+            bond.freq,
+            bond.stub,
+            bond.bdc,
+            bond.calendar_id,
         );
         let ann = fixed_leg_annuity(disc, dc, &sched);
         if ann == 0.0 || notional_amt == 0.0 {
@@ -257,8 +330,73 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         let p0 = disc.df_on_date_curve(sched[0]);
         let pn = disc.df_on_date_curve(*sched.last().unwrap());
         let par_rate = (p0 - pn) / ann;
+        // Equivalent coupon from coupon PV only for custom bonds; otherwise stated coupon
+        let eq_coupon = if let Some(custom) = &context.instrument_as::<Bond>()?.custom_cashflows {
+            let pv_coupon = pv_coupon_from_custom_schedule(disc, custom, context.as_of);
+            pv_coupon / (notional_amt * ann)
+        } else {
+            coupon
+        };
+        // Market ASW = Par ASW + (Market Price % - 100%) / Annuity
         let price_pct = dirty_ccy / notional_amt;
-        let asw_mkt = (price_pct - pv_fixed / notional_amt) / ann + (coupon - par_rate);
+        let asw_mkt = (eq_coupon - par_rate) + (price_pct - 1.0) / ann;
         Ok(asw_mkt)
+    }
+}
+
+impl MetricCalculator for AssetSwapParFwdCalculator {
+    fn dependencies(&self) -> &[MetricId] {
+        &[]
+    }
+
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+        let bond: &Bond = context.instrument_as()?;
+        let disc = context.curves.get_discount_ref(bond.disc_id.as_str())?;
+        let as_of = disc.base_date();
+        if let Some(fl) = &bond.float {
+            return asw_par_with_forward(
+                bond,
+                &context.curves,
+                as_of,
+                fl.fwd_id.as_str(),
+                fl.margin_bp,
+            );
+        }
+        Err(finstack_core::error::InputError::NotFound {
+            id: "bond.float_spec.forward_curve".to_string(),
+        }
+        .into())
+    }
+}
+
+impl MetricCalculator for AssetSwapMarketFwdCalculator {
+    fn dependencies(&self) -> &[MetricId] {
+        &[MetricId::Accrued]
+    }
+
+    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<F> {
+        let bond: &Bond = context.instrument_as()?;
+        let disc = context.curves.get_discount_ref(bond.disc_id.as_str())?;
+        let as_of = disc.base_date();
+        if let Some(fl) = &bond.float {
+            let dirty = if let Some(clean) = bond.pricing_overrides.quoted_clean_price {
+                let accrued = *context.computed.get(&MetricId::Accrued).unwrap_or(&0.0);
+                Some(clean * bond.notional.amount() / 100.0 + accrued)
+            } else {
+                Some(context.base_value.amount())
+            };
+            return asw_market_with_forward(
+                bond,
+                &context.curves,
+                as_of,
+                fl.fwd_id.as_str(),
+                fl.margin_bp,
+                dirty,
+            );
+        }
+        Err(finstack_core::error::InputError::NotFound {
+            id: "bond.float_spec.forward_curve".to_string(),
+        }
+        .into())
     }
 }

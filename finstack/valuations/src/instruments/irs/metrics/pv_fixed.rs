@@ -2,7 +2,7 @@
 //!
 //! Discounts fixed coupons on the fixed leg using the discount curve.
 
-use crate::instruments::irs::types::InterestRateSwap;
+use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
 use finstack_core::F;

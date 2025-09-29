@@ -24,22 +24,22 @@ pub fn register_ilb_metrics(registry: &mut MetricRegistry) {
         .register_metric(
             MetricId::custom("real_yield"),
             Arc::new(RealYieldCalculator),
-            &["ILB"],
+            &["InflationLinkedBond", "ILB"],
         )
         .register_metric(
             MetricId::custom("index_ratio"),
             Arc::new(IndexRatioCalculator),
-            &["ILB"],
+            &["InflationLinkedBond", "ILB"],
         )
         .register_metric(
             MetricId::custom("real_duration"),
             Arc::new(RealDurationCalculator),
-            &["ILB"],
+            &["InflationLinkedBond", "ILB"],
         )
         .register_metric(
             MetricId::custom("breakeven_inflation"),
             Arc::new(BreakevenInflationCalculator),
-            &["ILB"],
+            &["InflationLinkedBond", "ILB"],
         )
         .register_metric(
             MetricId::BucketedDv01,

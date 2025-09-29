@@ -10,6 +10,41 @@ use finstack_core::F;
 use hashbrown::HashMap;
 use std::sync::Arc;
 
+fn instrument_type_tag(kind: crate::pricer::InstrumentType) -> &'static str {
+    match kind {
+        crate::pricer::InstrumentType::Bond => "Bond",
+        crate::pricer::InstrumentType::Loan => "Loan",
+        crate::pricer::InstrumentType::CDS => "CDS",
+        crate::pricer::InstrumentType::CDSIndex => "CDSIndex",
+        crate::pricer::InstrumentType::CDSTranche => "CDSTranche",
+        crate::pricer::InstrumentType::CDSOption => "CdsOption",
+        crate::pricer::InstrumentType::IRS => "InterestRateSwap",
+        crate::pricer::InstrumentType::CapFloor => "InterestRateOption",
+        crate::pricer::InstrumentType::Swaption => "Swaption",
+        crate::pricer::InstrumentType::TRS => "TRS",
+        crate::pricer::InstrumentType::BasisSwap => "BasisSwap",
+        crate::pricer::InstrumentType::Basket => "Basket",
+        crate::pricer::InstrumentType::Convertible => "ConvertibleBond",
+        crate::pricer::InstrumentType::Deposit => "Deposit",
+        crate::pricer::InstrumentType::EquityOption => "EquityOption",
+        crate::pricer::InstrumentType::FxOption => "FxOption",
+        crate::pricer::InstrumentType::FxSpot => "FxSpot",
+        crate::pricer::InstrumentType::FxSwap => "FxSwap",
+        crate::pricer::InstrumentType::InflationLinkedBond => "InflationLinkedBond",
+        crate::pricer::InstrumentType::InflationSwap => "InflationSwap",
+        crate::pricer::InstrumentType::InterestRateFuture => "InterestRateFuture",
+        crate::pricer::InstrumentType::VarianceSwap => "VarianceSwap",
+        crate::pricer::InstrumentType::Equity => "Equity",
+        crate::pricer::InstrumentType::Repo => "Repo",
+        crate::pricer::InstrumentType::FRA => "FRA",
+        crate::pricer::InstrumentType::CLO => "CLO",
+        crate::pricer::InstrumentType::ABS => "ABS",
+        crate::pricer::InstrumentType::RMBS => "RMBS",
+        crate::pricer::InstrumentType::CMBS => "CMBS",
+        crate::pricer::InstrumentType::PrivateMarketsFund => "PrivateMarketsFund",
+    }
+}
+
 /// Registry for metric calculators.
 ///
 /// Manages metric calculators with dependency resolution, caching, and batch
@@ -47,8 +82,25 @@ use std::sync::Arc;
 /// ```
 #[derive(Clone)]
 pub struct MetricRegistry {
-    calculators: HashMap<MetricId, Arc<dyn MetricCalculator>>,
-    applicability: HashMap<MetricId, Vec<&'static str>>,
+    entries: HashMap<MetricId, MetricEntry>,
+}
+
+#[derive(Clone, Default)]
+struct MetricEntry {
+    default: Option<Arc<dyn MetricCalculator>>,
+    per_instrument: HashMap<&'static str, Arc<dyn MetricCalculator>>,
+}
+
+impl MetricEntry {
+    fn get_for(&self, instrument_type: &str) -> Option<&Arc<dyn MetricCalculator>> {
+        self.per_instrument
+            .get(instrument_type)
+            .or(self.default.as_ref())
+    }
+
+    fn applies_to(&self, instrument_type: &str) -> bool {
+        self.per_instrument.contains_key(instrument_type) || self.default.is_some()
+    }
 }
 
 impl MetricRegistry {
@@ -57,8 +109,7 @@ impl MetricRegistry {
     /// See unit tests and `examples/` for usage.
     pub fn new() -> Self {
         Self {
-            calculators: HashMap::new(),
-            applicability: HashMap::new(),
+            entries: HashMap::new(),
         }
     }
 }
@@ -91,9 +142,16 @@ impl MetricRegistry {
         calculator: Arc<dyn MetricCalculator>,
         applicable_to: &[&'static str],
     ) -> &mut Self {
-        self.applicability
-            .insert(id.clone(), applicable_to.to_vec());
-        self.calculators.insert(id, calculator);
+        let entry = self.entries.entry(id).or_default();
+        if applicable_to.is_empty() {
+            entry.default = Some(calculator);
+        } else {
+            for instrument_type in applicable_to {
+                entry
+                    .per_instrument
+                    .insert(*instrument_type, Arc::clone(&calculator));
+            }
+        }
         self
     }
 
@@ -107,7 +165,7 @@ impl MetricRegistry {
     ///
     /// See unit tests and `examples/` for usage.
     pub fn has_metric(&self, id: MetricId) -> bool {
-        self.calculators.contains_key(&id)
+        self.entries.contains_key(&id)
     }
 
     /// Gets a list of all registered metric IDs.
@@ -117,7 +175,7 @@ impl MetricRegistry {
     ///
     /// See unit tests and `examples/` for usage.
     pub fn available_metrics(&self) -> Vec<MetricId> {
-        self.calculators.keys().cloned().collect()
+        self.entries.keys().cloned().collect()
     }
 
     /// Gets metrics applicable to a specific instrument type.
@@ -133,11 +191,9 @@ impl MetricRegistry {
     ///
     /// See unit tests and `examples/` for usage.
     pub fn metrics_for_instrument(&self, instrument_type: &str) -> Vec<MetricId> {
-        self.applicability
+        self.entries
             .iter()
-            .filter(|(_, applicable)| {
-                applicable.is_empty() || applicable.contains(&instrument_type)
-            })
+            .filter(|(_, entry)| entry.applies_to(instrument_type))
             .map(|(id, _)| id.clone())
             .collect()
     }
@@ -157,11 +213,10 @@ impl MetricRegistry {
     ///
     /// See unit tests and `examples/` for usage.
     pub fn is_applicable(&self, metric_id: &MetricId, instrument_type: &str) -> bool {
-        if let Some(applicable) = self.applicability.get(metric_id) {
-            applicable.is_empty() || applicable.contains(&instrument_type)
-        } else {
-            false
-        }
+        self.entries
+            .get(metric_id)
+            .map(|entry| entry.applies_to(instrument_type))
+            .unwrap_or(false)
     }
 
     /// Computes specific metrics with dependency resolution.
@@ -189,42 +244,9 @@ impl MetricRegistry {
         metric_ids: &[MetricId],
         context: &mut MetricContext,
     ) -> finstack_core::Result<HashMap<MetricId, F>> {
-        // Build dependency graph and compute order
-        let order = self.resolve_dependencies(metric_ids)?;
-
-        // Get instrument type tag once from the instrument key
-        let instrument_type = match context.instrument.key() {
-            crate::pricer::InstrumentType::Bond => "Bond",
-            crate::pricer::InstrumentType::Loan => "Loan",
-            crate::pricer::InstrumentType::CDS => "CDS",
-            crate::pricer::InstrumentType::CDSIndex => "CDSIndex",
-            crate::pricer::InstrumentType::CDSTranche => "CDSTranche",
-            crate::pricer::InstrumentType::CDSOption => "CdsOption",
-            crate::pricer::InstrumentType::IRS => "InterestRateSwap",
-            crate::pricer::InstrumentType::CapFloor => "InterestRateOption",
-            crate::pricer::InstrumentType::Swaption => "Swaption",
-            crate::pricer::InstrumentType::TRS => "TRS",
-            crate::pricer::InstrumentType::BasisSwap => "BasisSwap",
-            crate::pricer::InstrumentType::Basket => "Basket",
-            crate::pricer::InstrumentType::Convertible => "ConvertibleBond",
-            crate::pricer::InstrumentType::Deposit => "Deposit",
-            crate::pricer::InstrumentType::EquityOption => "EquityOption",
-            crate::pricer::InstrumentType::FxOption => "FxOption",
-            crate::pricer::InstrumentType::FxSpot => "FxSpot",
-            crate::pricer::InstrumentType::FxSwap => "FxSwap",
-            crate::pricer::InstrumentType::InflationLinkedBond => "InflationLinkedBond",
-            crate::pricer::InstrumentType::InflationSwap => "InflationSwap",
-            crate::pricer::InstrumentType::InterestRateFuture => "InterestRateFuture",
-            crate::pricer::InstrumentType::VarianceSwap => "VarianceSwap",
-            crate::pricer::InstrumentType::Equity => "Equity",
-            crate::pricer::InstrumentType::Repo => "Repo",
-            crate::pricer::InstrumentType::FRA => "FRA",
-            crate::pricer::InstrumentType::CLO => "CLO",
-            crate::pricer::InstrumentType::ABS => "ABS",
-            crate::pricer::InstrumentType::RMBS => "RMBS",
-            crate::pricer::InstrumentType::CMBS => "CMBS",
-            crate::pricer::InstrumentType::PrivateMarketsFund => "PrivateMarketsFund",
-        };
+        // Build dependency graph and compute order for this instrument type
+        let instrument_type = instrument_type_tag(context.instrument.key());
+        let order = self.resolve_dependencies(metric_ids, instrument_type)?;
 
         // Compute metrics in dependency order
         for metric_id in order {
@@ -233,22 +255,24 @@ impl MetricRegistry {
                 continue;
             }
 
-            // Get calculator
-            let calc = self.calculators.get(&metric_id).ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                    id: "metric_calculator".to_string(),
-                })
-            })?;
+            let Some(entry) = self.entries.get(&metric_id) else {
+                return Err(finstack_core::Error::from(
+                    finstack_core::error::InputError::Invalid,
+                ));
+            };
 
-            // Check applicability. If metric was explicitly requested by caller, always compute.
-            if !self.is_applicable(&metric_id, instrument_type) && !metric_ids.contains(&metric_id)
-            {
+            let Some(calc) = entry.get_for(instrument_type) else {
+                if metric_ids.contains(&metric_id) {
+                    return Err(finstack_core::Error::from(
+                        finstack_core::error::InputError::Invalid,
+                    ));
+                }
                 continue;
-            }
+            };
 
             // Compute metric
             let value = calc.calculate(context)?;
-            context.computed.insert(metric_id, value);
+            context.computed.insert(metric_id.clone(), value);
         }
 
         // Return only the requested metrics
@@ -279,38 +303,7 @@ impl MetricRegistry {
         &self,
         context: &mut MetricContext,
     ) -> finstack_core::Result<HashMap<MetricId, F>> {
-        let instrument_type = match context.instrument.key() {
-            crate::pricer::InstrumentType::Bond => "Bond",
-            crate::pricer::InstrumentType::Loan => "Loan",
-            crate::pricer::InstrumentType::CDS => "CDS",
-            crate::pricer::InstrumentType::CDSIndex => "CDSIndex",
-            crate::pricer::InstrumentType::CDSTranche => "CDSTranche",
-            crate::pricer::InstrumentType::CDSOption => "CdsOption",
-            crate::pricer::InstrumentType::IRS => "InterestRateSwap",
-            crate::pricer::InstrumentType::CapFloor => "InterestRateOption",
-            crate::pricer::InstrumentType::Swaption => "Swaption",
-            crate::pricer::InstrumentType::TRS => "TRS",
-            crate::pricer::InstrumentType::BasisSwap => "BasisSwap",
-            crate::pricer::InstrumentType::Basket => "Basket",
-            crate::pricer::InstrumentType::Convertible => "ConvertibleBond",
-            crate::pricer::InstrumentType::Deposit => "Deposit",
-            crate::pricer::InstrumentType::EquityOption => "EquityOption",
-            crate::pricer::InstrumentType::FxOption => "FxOption",
-            crate::pricer::InstrumentType::FxSpot => "FxSpot",
-            crate::pricer::InstrumentType::FxSwap => "FxSwap",
-            crate::pricer::InstrumentType::InflationLinkedBond => "InflationLinkedBond",
-            crate::pricer::InstrumentType::InflationSwap => "InflationSwap",
-            crate::pricer::InstrumentType::InterestRateFuture => "InterestRateFuture",
-            crate::pricer::InstrumentType::VarianceSwap => "VarianceSwap",
-            crate::pricer::InstrumentType::Equity => "Equity",
-            crate::pricer::InstrumentType::Repo => "Repo",
-            crate::pricer::InstrumentType::FRA => "FRA",
-            crate::pricer::InstrumentType::CLO => "CLO",
-            crate::pricer::InstrumentType::ABS => "ABS",
-            crate::pricer::InstrumentType::RMBS => "RMBS",
-            crate::pricer::InstrumentType::CMBS => "CMBS",
-            crate::pricer::InstrumentType::PrivateMarketsFund => "PrivateMarketsFund",
-        };
+        let instrument_type = instrument_type_tag(context.instrument.key());
         let applicable = self.metrics_for_instrument(instrument_type);
         self.compute(&applicable, context)
     }
@@ -331,13 +324,20 @@ impl MetricRegistry {
     fn resolve_dependencies(
         &self,
         metric_ids: &[MetricId],
+        instrument_type: &str,
     ) -> finstack_core::Result<Vec<MetricId>> {
         let mut visited = hashbrown::HashSet::new();
         let mut order = Vec::new();
         let mut temp_mark = hashbrown::HashSet::new();
 
         for id in metric_ids {
-            self.visit_metric(id.clone(), &mut visited, &mut temp_mark, &mut order)?;
+            self.visit_metric(
+                id.clone(),
+                instrument_type,
+                &mut visited,
+                &mut temp_mark,
+                &mut order,
+            )?;
         }
 
         Ok(order)
@@ -347,6 +347,7 @@ impl MetricRegistry {
     fn visit_metric(
         &self,
         id: MetricId,
+        instrument_type: &str,
         visited: &mut hashbrown::HashSet<MetricId>,
         temp_mark: &mut hashbrown::HashSet<MetricId>,
         order: &mut Vec<MetricId>,
@@ -364,10 +365,18 @@ impl MetricRegistry {
         temp_mark.insert(id.clone());
 
         // Get calculator and process dependencies
-        if let Some(calc) = self.calculators.get(&id) {
-            for dep_id in calc.dependencies() {
-                self.visit_metric(dep_id.clone(), visited, temp_mark, order)?;
-            }
+        let entry = self
+            .entries
+            .get(&id)
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+
+        let calc = entry
+            .get_for(instrument_type)
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::error::InputError::Invalid))?;
+
+        let deps = calc.dependencies();
+        for dep_id in deps {
+            self.visit_metric(dep_id.clone(), instrument_type, visited, temp_mark, order)?;
         }
 
         temp_mark.remove(&id);

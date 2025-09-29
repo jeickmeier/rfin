@@ -50,6 +50,67 @@ pub struct InflationSwap {
 impl InflationSwap {}
 
 impl InflationSwap {
+    fn projected_index_ratio(
+        &self,
+        curves: &MarketContext,
+        discount_base: Date,
+    ) -> finstack_core::Result<F> {
+        let inflation_index = curves.inflation_index_ref(self.inflation_id);
+        let inflation_curve = curves.get_inflation_ref(self.inflation_id)?;
+
+        let i_start = if let Some(index) = inflation_index {
+            index.value_on(self.start)?
+        } else {
+            let t_start = DayCount::Act365F
+                .year_fraction(
+                    discount_base,
+                    self.start,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap_or(0.0);
+            if t_start <= 0.0 {
+                inflation_curve.base_cpi()
+            } else {
+                inflation_curve.cpi(t_start)
+            }
+        };
+
+        if i_start <= 0.0 {
+            return Err(finstack_core::error::InputError::NonPositiveValue.into());
+        }
+
+        let lag_policy = if let Some(override_lag) = self.lag_override {
+            override_lag
+        } else if let Some(index) = inflation_index {
+            index.lag()
+        } else {
+            InflationLag::None
+        };
+
+        let lagged_maturity = match lag_policy {
+            InflationLag::None => self.maturity,
+            InflationLag::Months(m) => finstack_core::dates::add_months(self.maturity, -(m as i32)),
+            InflationLag::Days(d) => self.maturity - time::Duration::days(d as i64),
+            _ => self.maturity,
+        };
+
+        let t_maturity_infl = DayCount::Act365F
+            .year_fraction(
+                discount_base,
+                lagged_maturity,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap_or(0.0);
+
+        let i_maturity_projected = if t_maturity_infl <= 0.0 {
+            inflation_curve.base_cpi()
+        } else {
+            inflation_curve.cpi(t_maturity_infl)
+        };
+
+        Ok(i_maturity_projected / i_start)
+    }
+
     /// Calculate PV of the fixed leg (real rate leg)
     pub fn pv_fixed_leg(
         &self,
@@ -87,46 +148,8 @@ impl InflationSwap {
     ) -> finstack_core::Result<Money> {
         let disc = curves.get_discount_ref(self.disc_id.as_str())?;
         let base = disc.base_date();
-
-        let inflation_index = curves
-            .inflation_index_ref(self.inflation_id)
-            .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::error::InputError::NotFound {
-                    id: "inflation_index".to_string(),
-                })
-            })?;
-
-        let inflation_curve = curves.get_inflation_ref(self.inflation_id)?;
-
-        let i_start = inflation_index.value_on(self.start)?;
-
-        // Apply the same lag policy as the index to the maturity for projection
-        // Use contract override if present, else index lag
-        let lag_policy = self.lag_override.unwrap_or(inflation_index.lag());
-        let lagged_maturity = match lag_policy {
-            finstack_core::market_data::scalars::inflation_index::InflationLag::None => {
-                self.maturity
-            }
-            finstack_core::market_data::scalars::inflation_index::InflationLag::Months(m) => {
-                finstack_core::dates::add_months(self.maturity, -(m as i32))
-            }
-            finstack_core::market_data::scalars::inflation_index::InflationLag::Days(d) => {
-                self.maturity - time::Duration::days(d as i64)
-            }
-            _ => self.maturity,
-        };
-
-        // Use a common base (discount base) to derive time in years for the inflation curve
-        let t_maturity_infl = DayCount::Act365F
-            .year_fraction(
-                base,
-                lagged_maturity,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let i_maturity_projected = inflation_curve.cpi(t_maturity_infl);
-
-        let inflation_payment = self.notional * (i_maturity_projected / i_start - 1.0);
+        let index_ratio = self.projected_index_ratio(curves, base)?;
+        let inflation_payment = self.notional * (index_ratio - 1.0);
 
         let t_discount = DayCount::Act365F
             .year_fraction(
@@ -138,6 +161,28 @@ impl InflationSwap {
         let df = disc.df(t_discount);
 
         Ok(inflation_payment * df)
+    }
+
+    /// Fixed rate that sets the swap's present value to zero (par real rate)
+    pub fn par_rate(&self, curves: &MarketContext) -> finstack_core::Result<F> {
+        let disc = curves.get_discount_ref(self.disc_id.as_str())?;
+        let base = disc.base_date();
+        let index_ratio = self.projected_index_ratio(curves, base)?;
+
+        if index_ratio <= 0.0 {
+            return Err(finstack_core::error::InputError::NonPositiveValue.into());
+        }
+
+        let tau = self.dc.year_fraction(
+            self.start,
+            self.maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        if tau <= 0.0 {
+            return Ok(0.0);
+        }
+
+        Ok(index_ratio.powf(1.0 / tau) - 1.0)
     }
 
     /// Net present value of the instrument via legs

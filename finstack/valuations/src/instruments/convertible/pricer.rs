@@ -18,6 +18,7 @@
 //! - Optional credit-spread factor (or curve) integration to align with market
 //!   practice when valuing credit-sensitive convertibles.
 
+use finstack_core::error::InputError;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::prelude::*;
 use finstack_core::{Error, Result, F};
@@ -29,7 +30,7 @@ use crate::instruments::common::models::{
     single_factor_equity_state, BinomialTree, NodeState, TreeGreeks, TreeModel, TreeValuator,
     TrinomialTree,
 };
-
+use crate::instruments::common::traits::Attributes;
 use crate::instruments::convertible::{ConversionPolicy, ConvertibleBond};
 
 /// Tree model type selection for convertible bond pricing
@@ -258,6 +259,7 @@ fn extract_equity_state(
     disc_id: &finstack_core::types::CurveId,
     maturity: Date,
     expected_currency: Currency,
+    attributes: &Attributes,
 ) -> Result<(F, F, F, F, F)> {
     // Get spot price
     let spot_price = ctx.price(underlying_id)?;
@@ -272,23 +274,6 @@ fn extract_equity_state(
         }
         finstack_core::market_data::scalars::MarketScalar::Unitless(value) => *value,
     };
-
-    // Get volatility (must be unitless)
-    let vol_id = format!("{}-VOL", underlying_id);
-    let volatility = match ctx.price(&vol_id)? {
-        finstack_core::market_data::scalars::MarketScalar::Unitless(vol) => *vol,
-        _ => return Err(Error::Internal),
-    };
-
-    // Get dividend yield (default to 0 if not available, must be unitless)
-    let div_yield_id = format!("{}-DIVYIELD", underlying_id);
-    let dividend_yield = ctx
-        .price(&div_yield_id)
-        .map(|scalar| match scalar {
-            finstack_core::market_data::scalars::MarketScalar::Unitless(yield_val) => *yield_val,
-            _ => 0.0,
-        })
-        .unwrap_or(0.0);
 
     // Get risk-free rate from discount curve
     let discount_curve = ctx.get_discount_ref(disc_id.as_str())?;
@@ -311,6 +296,34 @@ fn extract_equity_state(
         0.0
     };
 
+    // Resolve volatility (unitless) via metadata or naming heuristics.
+    let mut vol_candidates: Vec<String> = Vec::new();
+    if let Some(id) = attributes.get_meta("vol_id") {
+        vol_candidates.push(id.to_string());
+    }
+    if let Some(id) = attributes.get_meta("vol_surface_id") {
+        vol_candidates.push(id.to_string());
+    }
+    if let Some(id) = attributes.get_meta("vol_scalar_id") {
+        vol_candidates.push(id.to_string());
+    }
+    vol_candidates.push(format!("{}-VOL", underlying_id));
+    if let Some(stripped) = underlying_id.strip_suffix("-SPOT") {
+        vol_candidates.push(format!("{}-VOL", stripped));
+    }
+    let volatility = resolve_volatility(ctx, &vol_candidates, time_to_maturity, spot)?;
+
+    // Resolve dividend yield (unitless), defaulting to zero if unavailable.
+    let mut dividend_candidates: Vec<String> = Vec::new();
+    if let Some(id) = attributes.get_meta("dividend_yield_id") {
+        dividend_candidates.push(id.to_string());
+    }
+    dividend_candidates.push(format!("{}-DIVYIELD", underlying_id));
+    if let Some(stripped) = underlying_id.strip_suffix("-SPOT") {
+        dividend_candidates.push(format!("{}-DIVYIELD", stripped));
+    }
+    let dividend_yield = resolve_unitless_scalar(ctx, &dividend_candidates)?.unwrap_or(0.0);
+
     Ok((
         spot,
         volatility,
@@ -318,6 +331,70 @@ fn extract_equity_state(
         risk_free_rate,
         time_to_maturity,
     ))
+}
+
+fn resolve_unitless_scalar(ctx: &MarketContext, candidate_ids: &[String]) -> Result<Option<F>> {
+    for id in candidate_ids {
+        match ctx.price(id) {
+            Ok(finstack_core::market_data::scalars::MarketScalar::Unitless(value)) => {
+                return Ok(Some(*value));
+            }
+            Ok(_) => {}
+            Err(err) => {
+                if matches!(err, Error::Input(InputError::NotFound { .. })) {
+                    continue;
+                }
+                return Err(err);
+            }
+        }
+    }
+    Ok(None)
+}
+
+fn resolve_volatility(
+    ctx: &MarketContext,
+    candidate_ids: &[String],
+    time_to_maturity: F,
+    spot: F,
+) -> Result<F> {
+    let mut first_missing: Option<String> = None;
+
+    for id in candidate_ids {
+        match ctx.price(id) {
+            Ok(finstack_core::market_data::scalars::MarketScalar::Unitless(vol)) => {
+                return Ok(*vol);
+            }
+            Ok(_) => {}
+            Err(err) => {
+                if matches!(err, Error::Input(InputError::NotFound { .. })) {
+                    if first_missing.is_none() {
+                        first_missing = Some(id.clone());
+                    }
+                } else {
+                    return Err(err);
+                }
+            }
+        }
+
+        match ctx.surface_ref(id) {
+            Ok(surface) => {
+                let vol = surface.value_clamped(time_to_maturity, spot);
+                return Ok(vol);
+            }
+            Err(err) => {
+                if matches!(err, Error::Input(InputError::NotFound { .. })) {
+                    if first_missing.is_none() {
+                        first_missing = Some(id.clone());
+                    }
+                    continue;
+                }
+                return Err(err);
+            }
+        }
+    }
+
+    let missing_id = first_missing.unwrap_or_else(|| "volatility".to_string());
+    Err(Error::from(InputError::NotFound { id: missing_id }))
 }
 
 /// Aggregated data required for tree pricing, prepared once to avoid duplication.
@@ -344,6 +421,7 @@ fn prepare_for_pricing(
             &bond.disc_id,
             bond.maturity,
             bond.notional.currency(),
+            &bond.attributes,
         )?;
 
     Ok(PricingInputs {

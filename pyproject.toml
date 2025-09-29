@@ -205,6 +205,10 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "**/*.pyi" = ["ALL"]
+"**/test_*.py" = ["S101"]  # Allow assert statements in test files
+"**/*_test.py" = ["S101"]  # Allow assert statements in test files
+"tests/**/*.py" = ["S101"]  # Allow assert statements in test files
+"finstack-py/tests/**/*.py" = ["S101"]  # Allow assert statements in finstack-py test files
 
 # Configuration for pydocstyle (D rules)
 [tool.ruff.lint.pydocstyle]

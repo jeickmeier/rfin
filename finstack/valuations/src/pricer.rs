@@ -213,8 +213,24 @@ pub fn create_standard_registry() -> PricerRegistry {
         Box::new(crate::instruments::cap_floor::pricing::pricer::SimpleCapFloorBlackPricer::new()),
     );
     registry.register_pricer(
+        PricerKey::new(InstrumentType::CapFloor, ModelKey::Discounting),
+        Box::new(
+            crate::instruments::cap_floor::pricing::pricer::SimpleCapFloorBlackPricer::with_model(
+                ModelKey::Discounting,
+            ),
+        ),
+    );
+    registry.register_pricer(
         PricerKey::new(InstrumentType::Swaption, ModelKey::Black76),
         Box::new(crate::instruments::swaption::pricer::SimpleSwaptionBlackPricer::new()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::Swaption, ModelKey::Discounting),
+        Box::new(
+            crate::instruments::swaption::pricer::SimpleSwaptionBlackPricer::with_model(
+                ModelKey::Discounting,
+            ),
+        ),
     );
 
     // Register simplified Credit pricers
@@ -223,16 +239,46 @@ pub fn create_standard_registry() -> PricerRegistry {
         Box::new(crate::instruments::common::GenericInstrumentPricer::cds()),
     );
     registry.register_pricer(
+        PricerKey::new(InstrumentType::CDS, ModelKey::Discounting),
+        Box::new(crate::instruments::common::GenericInstrumentPricer::<
+            crate::instruments::CreditDefaultSwap,
+        >::new(InstrumentType::CDS, ModelKey::Discounting)),
+    );
+    registry.register_pricer(
         PricerKey::new(InstrumentType::CDSIndex, ModelKey::HazardRate),
         Box::new(crate::instruments::cds_index::pricer::SimpleCdsIndexHazardPricer::new()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::CDSIndex, ModelKey::Discounting),
+        Box::new(
+            crate::instruments::cds_index::pricer::SimpleCdsIndexHazardPricer::with_model(
+                ModelKey::Discounting,
+            ),
+        ),
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::CDSOption, ModelKey::Black76),
         Box::new(crate::instruments::cds_option::pricer::SimpleCdsOptionBlackPricer::new()),
     );
     registry.register_pricer(
+        PricerKey::new(InstrumentType::CDSOption, ModelKey::Discounting),
+        Box::new(
+            crate::instruments::cds_option::pricer::SimpleCdsOptionBlackPricer::with_model(
+                ModelKey::Discounting,
+            ),
+        ),
+    );
+    registry.register_pricer(
         PricerKey::new(InstrumentType::CDSTranche, ModelKey::HazardRate),
         Box::new(crate::instruments::cds_tranche::pricer::SimpleCdsTrancheHazardPricer::new()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::CDSTranche, ModelKey::Discounting),
+        Box::new(
+            crate::instruments::cds_tranche::pricer::SimpleCdsTrancheHazardPricer::with_model(
+                ModelKey::Discounting,
+            ),
+        ),
     );
 
     // Register simplified FX pricers
@@ -243,6 +289,14 @@ pub fn create_standard_registry() -> PricerRegistry {
     registry.register_pricer(
         PricerKey::new(InstrumentType::FxOption, ModelKey::Black76),
         Box::new(crate::instruments::fx_option::SimpleFxOptionBlackPricer::new()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::FxOption, ModelKey::Discounting),
+        Box::new(
+            crate::instruments::fx_option::SimpleFxOptionBlackPricer::with_model(
+                ModelKey::Discounting,
+            ),
+        ),
     );
     registry.register_pricer(
         PricerKey::new(InstrumentType::FxSwap, ModelKey::Discounting),
@@ -257,6 +311,14 @@ pub fn create_standard_registry() -> PricerRegistry {
     registry.register_pricer(
         PricerKey::new(InstrumentType::EquityOption, ModelKey::Black76),
         Box::new(crate::instruments::equity_option::pricer::SimpleEquityOptionBlackPricer::new()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::EquityOption, ModelKey::Discounting),
+        Box::new(
+            crate::instruments::equity_option::pricer::SimpleEquityOptionBlackPricer::with_model(
+                ModelKey::Discounting,
+            ),
+        ),
     );
 
     // Register simplified Basic pricers
@@ -305,10 +367,44 @@ pub fn create_standard_registry() -> PricerRegistry {
         ),
     );
 
+    // Register structured credit pricers
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::ABS, ModelKey::Discounting),
+        Box::new(crate::instruments::common::GenericDiscountingPricer::<
+            crate::instruments::Abs,
+        >::new()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::CLO, ModelKey::Discounting),
+        Box::new(crate::instruments::common::GenericDiscountingPricer::<
+            crate::instruments::Clo,
+        >::new()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::CMBS, ModelKey::Discounting),
+        Box::new(crate::instruments::common::GenericDiscountingPricer::<
+            crate::instruments::Cmbs,
+        >::new()),
+    );
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::RMBS, ModelKey::Discounting),
+        Box::new(crate::instruments::common::GenericDiscountingPricer::<
+            crate::instruments::Rmbs,
+        >::new()),
+    );
+
     // Register simplified TRS pricer (handles both Equity and FI Index variants)
     registry.register_pricer(
         PricerKey::new(InstrumentType::TRS, ModelKey::Discounting),
         Box::new(crate::instruments::trs::pricing::pricer::SimpleTrsDiscountingPricer::new()),
+    );
+
+    // Register private markets fund pricer
+    registry.register_pricer(
+        PricerKey::new(InstrumentType::PrivateMarketsFund, ModelKey::Discounting),
+        Box::new(
+            crate::instruments::private_markets_fund::pricer::PrivateMarketsFundDiscountingPricer::new(),
+        ),
     );
 
     registry

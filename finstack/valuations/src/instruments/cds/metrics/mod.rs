@@ -23,7 +23,7 @@ use crate::metrics::MetricRegistry;
 
 /// Register all CDS metrics with the registry
 pub fn register_cds_metrics(registry: &mut MetricRegistry) {
-    use crate::metrics::MetricId;
+    use crate::metrics::{MetricCalculator, MetricId};
     use std::sync::Arc;
 
     registry.register_metric(
@@ -31,11 +31,10 @@ pub fn register_cds_metrics(registry: &mut MetricRegistry) {
         Arc::new(par_spread::ParSpreadCalculator),
         &["CDS"],
     );
-    registry.register_metric(
-        MetricId::RiskyPv01,
-        Arc::new(risky_pv01::RiskyPv01Calculator),
-        &["CDS"],
-    );
+
+    let risky_pv01_calc: Arc<dyn MetricCalculator> = Arc::new(risky_pv01::RiskyPv01Calculator);
+    registry.register_metric(MetricId::RiskyPv01, Arc::clone(&risky_pv01_calc), &["CDS"]);
+    registry.register_metric(MetricId::custom("pv01"), risky_pv01_calc, &["CDS"]);
     registry.register_metric(MetricId::Cs01, Arc::new(cs01::Cs01Calculator), &["CDS"]);
     registry.register_metric(
         MetricId::ProtectionLegPv,

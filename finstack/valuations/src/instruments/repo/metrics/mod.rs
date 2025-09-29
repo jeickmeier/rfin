@@ -13,7 +13,9 @@
 //! - Effective rate (with special collateral adj.)
 //! - Time to maturity (years)
 //! - Implied collateral return
+//! - Accrued interest (currency amount)
 
+pub mod accrued_interest;
 pub mod collateral_coverage;
 pub mod collateral_value;
 pub mod dv01;
@@ -29,10 +31,18 @@ use crate::metrics::MetricRegistry;
 
 /// Register all Repo metrics with the registry.
 pub fn register_repo_metrics(registry: &mut MetricRegistry) {
-    use crate::metrics::MetricId;
+    use crate::metrics::{MetricCalculator, MetricId};
     use std::sync::Arc;
 
+    let accrued_calc: Arc<dyn MetricCalculator> =
+        Arc::new(accrued_interest::AccruedInterestCalculator);
     registry
+        .register_metric(
+            MetricId::AccruedInterest,
+            Arc::clone(&accrued_calc),
+            &["Repo"],
+        )
+        .register_metric(MetricId::Accrued, accrued_calc, &["Repo"])
         .register_metric(
             MetricId::CollateralValue,
             Arc::new(collateral_value::CollateralValueCalculator),

@@ -90,24 +90,35 @@ pub struct DayCountCtx<'a> {
 /// Supported day-count conventions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+#[cfg_attr(feature = "serde", serde(rename_all = "PascalCase"))]
 #[non_exhaustive]
 pub enum DayCount {
     /// Actual / 360 — year fraction = actual days ÷ 360.
+    #[cfg_attr(feature = "serde", serde(alias = "act360"))]
     Act360,
     /// Actual / 365F — year fraction = actual days ÷ 365 (fixed).
+    #[cfg_attr(
+        feature = "serde",
+        serde(alias = "act_365f", alias = "act365f", alias = "act_365_fixed")
+    )]
     Act365F,
     /// Actual / 365L (Actual/365 Leap or AFB) — denominator varies based on leap year logic.
+    #[cfg_attr(feature = "serde", serde(alias = "act365l", alias = "act_365l"))]
     Act365L,
     /// 30U/360 (US Bond Basis).
+    #[cfg_attr(feature = "serde", serde(alias = "thirty360"))]
     Thirty360,
     /// 30E/360 (European).
+    #[cfg_attr(feature = "serde", serde(alias = "thirty_e360"))]
     ThirtyE360,
     /// Actual / Actual (ISDA variant).
+    #[cfg_attr(feature = "serde", serde(alias = "act_act"))]
     ActAct,
     /// Actual / Actual (ISMA/ICMA variant) — coupon-period aware.
+    #[cfg_attr(feature = "serde", serde(alias = "act_act_isma"))]
     ActActIsma,
     /// Bus/252 — business days ÷ 252 (requires holiday calendar).
+    #[cfg_attr(feature = "serde", serde(alias = "bus252"))]
     Bus252,
 }
 

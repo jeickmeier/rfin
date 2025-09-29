@@ -20,6 +20,7 @@ pub struct PrivateMarketsFund {
     pub spec: WaterfallSpec,
     pub events: Vec<FundEvent>,
     pub disc_id: Option<CurveId>,
+    #[cfg_attr(feature = "serde", serde(default))]
     pub attributes: Attributes,
 }
 
