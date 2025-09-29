@@ -20,6 +20,7 @@ impl Default for SimpleFxSpotDiscountingPricer {
     }
 }
 
+#[finstack_macros::register_pricer]
 impl Pricer for SimpleFxSpotDiscountingPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::FxSpot, ModelKey::Discounting)

@@ -9,3 +9,10 @@ impl Default for SimpleFxSwapDiscountingPricer {
         Self::new()
     }
 }
+
+// Auto-register FxSwap discounting pricer
+inventory::submit! {
+    crate::pricer::PricerRegistration {
+        ctor: || Box::new(SimpleFxSwapDiscountingPricer::new()),
+    }
+}

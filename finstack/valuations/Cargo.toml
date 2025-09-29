@@ -10,6 +10,7 @@ repository.workspace = true
 finstack-core = { path = "../core" }
 finstack-macros = { path = "../../finstack-macros" }
 once_cell = "1.18"
+inventory = "0.3"
 hashbrown = "0.14"
 indexmap = { version = "2.0", features = ["serde"] }
 smallvec = { version = "1.11", default-features = false, features = ["serde"] }

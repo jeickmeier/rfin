@@ -16,5 +16,19 @@ pub use types::PayReceive;
 pub use types::PremiumLegSpec;
 pub use types::ProtectionLegSpec;
 
-// Note: previously re-exported `pricer` as `cds_pricer` for backward compatibility.
-// This alias has been removed to simplify the public surface; dependents should import from `cds::pricer`.
+
+// Auto-register CDS pricers (HazardRate and Discounting models)
+inventory::submit! {
+    crate::pricer::PricerRegistration {
+        ctor: || Box::new(crate::instruments::common::GenericInstrumentPricer::cds()),
+    }
+}
+
+inventory::submit! {
+    crate::pricer::PricerRegistration {
+        ctor: || Box::new(crate::instruments::common::GenericInstrumentPricer::<CreditDefaultSwap>::new(
+            crate::pricer::InstrumentType::CDS,
+            crate::pricer::ModelKey::Discounting,
+        )),
+    }
+}

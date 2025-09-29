@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, Data, DeriveInput, Fields};
+use syn::{parse_macro_input, Data, DeriveInput, Fields, ItemImpl};
 
 #[proc_macro_derive(FinancialBuilder, attributes(builder))]
 pub fn derive_financial_builder(input: TokenStream) -> TokenStream {
@@ -196,5 +196,39 @@ pub fn derive_financial_builder(input: TokenStream) -> TokenStream {
         }
     };
 
+    TokenStream::from(expanded)
+}
+
+/// Auto-register a Pricer implementation with the global pricer registry.
+///
+/// This attribute macro should be placed on an `impl Pricer for T` block.
+/// It will automatically register an instance of the pricer using the `inventory` crate.
+///
+/// # Example
+///
+/// ```ignore
+/// #[register_pricer]
+/// impl Pricer for SimpleBondDiscountingPricer {
+///     // ... implementation
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn register_pricer(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as ItemImpl);
+    
+    // Extract the type being implemented
+    let self_ty = &input.self_ty;
+    
+    // Generate the inventory submission using crate:: for internal use
+    let expanded = quote! {
+        #input
+        
+        inventory::submit! {
+            crate::pricer::PricerRegistration {
+                ctor: || Box::new(<#self_ty>::new()),
+            }
+        }
+    };
+    
     TokenStream::from(expanded)
 }

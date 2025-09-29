@@ -10,3 +10,10 @@ impl Default for SimpleRepoDiscountingPricer {
         Self::new()
     }
 }
+
+// Auto-register Repo discounting pricer
+inventory::submit! {
+    crate::pricer::PricerRegistration {
+        ctor: || Box::new(SimpleRepoDiscountingPricer::new()),
+    }
+}

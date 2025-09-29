@@ -10,3 +10,10 @@ impl Default for SimpleBasisSwapDiscountingPricer {
         Self::new()
     }
 }
+
+// Auto-register BasisSwap discounting pricer
+inventory::submit! {
+    crate::pricer::PricerRegistration {
+        ctor: || Box::new(SimpleBasisSwapDiscountingPricer::new()),
+    }
+}

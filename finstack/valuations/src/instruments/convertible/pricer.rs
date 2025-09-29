@@ -611,6 +611,7 @@ impl Default for SimpleConvertibleDiscountingPricer {
     }
 }
 
+#[finstack_macros::register_pricer]
 impl crate::pricer::Pricer for SimpleConvertibleDiscountingPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(

@@ -309,6 +309,7 @@ impl Default for SimpleCdsIndexHazardPricer {
     }
 }
 
+#[finstack_macros::register_pricer]
 impl crate::pricer::Pricer for SimpleCdsIndexHazardPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(crate::pricer::InstrumentType::CDSIndex, self.model_key)
@@ -347,5 +348,12 @@ impl crate::pricer::Pricer for SimpleCdsIndexHazardPricer {
             as_of,
             pv,
         ))
+    }
+}
+
+// Auto-register additional CDSIndex pricer for Discounting model
+inventory::submit! {
+    crate::pricer::PricerRegistration {
+        ctor: || Box::new(SimpleCdsIndexHazardPricer::with_model(crate::pricer::ModelKey::Discounting)),
     }
 }

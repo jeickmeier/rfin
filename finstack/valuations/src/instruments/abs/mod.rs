@@ -6,3 +6,10 @@
 mod types;
 
 pub use types::Abs;
+
+// Auto-register ABS discounting pricer
+inventory::submit! {
+    crate::pricer::PricerRegistration {
+        ctor: || Box::new(crate::instruments::common::GenericDiscountingPricer::<Abs>::new()),
+    }
+}

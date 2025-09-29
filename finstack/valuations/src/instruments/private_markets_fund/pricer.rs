@@ -19,6 +19,7 @@ impl Default for PrivateMarketsFundDiscountingPricer {
     }
 }
 
+#[finstack_macros::register_pricer]
 impl Pricer for PrivateMarketsFundDiscountingPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::PrivateMarketsFund, ModelKey::Discounting)

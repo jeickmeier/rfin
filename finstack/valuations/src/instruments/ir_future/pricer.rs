@@ -10,3 +10,10 @@ impl Default for SimpleIrFutureDiscountingPricer {
         Self::new()
     }
 }
+
+// Auto-register IRFuture discounting pricer
+inventory::submit! {
+    crate::pricer::PricerRegistration {
+        ctor: || Box::new(SimpleIrFutureDiscountingPricer::new()),
+    }
+}

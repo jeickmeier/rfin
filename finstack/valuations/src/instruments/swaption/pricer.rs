@@ -29,6 +29,7 @@ impl Default for SimpleSwaptionBlackPricer {
     }
 }
 
+#[finstack_macros::register_pricer]
 impl Pricer for SimpleSwaptionBlackPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(InstrumentType::Swaption, self.model)
@@ -61,5 +62,12 @@ impl Pricer for SimpleSwaptionBlackPricer {
 
         // Return stamped result
         Ok(ValuationResult::stamped(swaption.id(), as_of, pv))
+    }
+}
+
+// Auto-register additional Swaption pricer for Discounting model
+inventory::submit! {
+    crate::pricer::PricerRegistration {
+        ctor: || Box::new(SimpleSwaptionBlackPricer::with_model(crate::pricer::ModelKey::Discounting)),
     }
 }

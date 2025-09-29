@@ -10,3 +10,10 @@ impl Default for SimpleInflationSwapDiscountingPricer {
         Self::new()
     }
 }
+
+// Auto-register InflationSwap discounting pricer
+inventory::submit! {
+    crate::pricer::PricerRegistration {
+        ctor: || Box::new(SimpleInflationSwapDiscountingPricer::new()),
+    }
+}

@@ -32,3 +32,10 @@
 mod types;
 
 pub use types::Clo;
+
+// Auto-register CLO discounting pricer
+inventory::submit! {
+    crate::pricer::PricerRegistration {
+        ctor: || Box::new(crate::instruments::common::GenericDiscountingPricer::<Clo>::new()),
+    }
+}

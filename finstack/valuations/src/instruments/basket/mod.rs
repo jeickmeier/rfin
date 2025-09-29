@@ -64,3 +64,10 @@ pub use types::{AssetType, Basket, BasketConstituent, ConstituentReference};
 // Use the generic discounting pricer for registry integration
 pub use crate::instruments::common::GenericDiscountingPricer;
 pub type SimpleBasketDiscountingPricer = GenericDiscountingPricer<Basket>;
+
+// Auto-register Basket discounting pricer
+inventory::submit! {
+    crate::pricer::PricerRegistration {
+        ctor: || Box::new(SimpleBasketDiscountingPricer::new()),
+    }
+}

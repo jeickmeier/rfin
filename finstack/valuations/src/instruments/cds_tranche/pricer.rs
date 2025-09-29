@@ -1232,6 +1232,7 @@ impl Default for SimpleCdsTrancheHazardPricer {
     }
 }
 
+#[finstack_macros::register_pricer]
 impl crate::pricer::Pricer for SimpleCdsTrancheHazardPricer {
     fn key(&self) -> crate::pricer::PricerKey {
         crate::pricer::PricerKey::new(crate::pricer::InstrumentType::CDSTranche, self.model_key)
@@ -1270,6 +1271,13 @@ impl crate::pricer::Pricer for SimpleCdsTrancheHazardPricer {
             as_of,
             pv,
         ))
+    }
+}
+
+// Auto-register additional CDSTranche pricer for Discounting model
+inventory::submit! {
+    crate::pricer::PricerRegistration {
+        ctor: || Box::new(SimpleCdsTrancheHazardPricer::with_model(crate::pricer::ModelKey::Discounting)),
     }
 }
 

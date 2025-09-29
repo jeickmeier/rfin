@@ -6,3 +6,10 @@
 mod types;
 
 pub use types::Cmbs;
+
+// Auto-register CMBS discounting pricer
+inventory::submit! {
+    crate::pricer::PricerRegistration {
+        ctor: || Box::new(crate::instruments::common::GenericDiscountingPricer::<Cmbs>::new()),
+    }
+}
