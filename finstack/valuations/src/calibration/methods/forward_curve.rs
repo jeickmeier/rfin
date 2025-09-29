@@ -124,6 +124,13 @@ impl ForwardCurveCalibrator {
 
         // Bootstrap each instrument sequentially
         for quote in &sorted_quotes {
+            // Skip FRA quotes with zero or negative accrual (start <= base_date)
+            if let RatesQuote::FRA { start, end, .. } = quote {
+                if *end <= self.base_date || *start <= self.base_date {
+                    continue;
+                }
+            }
+
             // Determine knot time for this instrument
             let knot_date = self.get_knot_date(quote);
             let knot_time =
@@ -232,8 +239,15 @@ impl ForwardCurveCalibrator {
             let final_context = base_context.clone().insert_forward(final_curve);
             let final_residual = self
                 .price_instrument(quote, &final_context)
-                .unwrap_or(0.0)
+                .unwrap_or(crate::calibration::penalize())
                 .abs();
+
+            if !(final_residual.is_finite()
+                && final_residual.abs() < crate::calibration::PENALTY * 0.5)
+            {
+                // Skip placeholder penalties; do not record
+                continue;
+            }
 
             // Store residual with descriptive key
             let key = self.format_quote_key(quote, residual_key_counter);

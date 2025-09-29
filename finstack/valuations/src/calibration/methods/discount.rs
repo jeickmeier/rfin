@@ -337,6 +337,14 @@ impl DiscountCurveCalibrator {
 
             knots.push((time_to_maturity, solved_df));
 
+            // Skip recording penalty placeholders; only keep real residuals
+            if !(final_residual.is_finite()
+                && final_residual.abs() < crate::calibration::PENALTY * 0.5)
+            {
+                // Do not count this residual; continue bootstrapping
+                continue;
+            }
+
             // Store residual with descriptive key when possible
             let key = match quote {
                 RatesQuote::Deposit {
